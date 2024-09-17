@@ -127,8 +127,8 @@ where
                 return Ok(Some(TrieElement::Leaf(TrieLeafNode {
                     key: hashed_key,
                     value,
-                    is_private:false
-                }))) // storage TODO: is_private is default to false
+                    ..Default::default()
+                })))
             }
 
             // Handle seeking and advancing based on the previous hashed key
