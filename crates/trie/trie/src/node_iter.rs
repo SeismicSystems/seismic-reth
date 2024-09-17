@@ -11,6 +11,8 @@ pub struct TrieBranchNode {
     pub value: B256,
     /// Indicates whether children are in the trie.
     pub children_are_in_trie: bool,
+    /// Indicates whether the node is private.
+    pub is_private: bool,
 }
 
 /// Represents a leaf node in the trie.
@@ -26,8 +28,8 @@ pub struct TrieLeafNode<Value> {
 
 impl TrieBranchNode {
     /// Creates a new `TrieBranchNode`.
-    pub const fn new(key: Nibbles, value: B256, children_are_in_trie: bool) -> Self {
-        Self { key, value, children_are_in_trie }
+    pub const fn new(key: Nibbles, value: B256, children_are_in_trie: bool, is_private: bool) -> Self {
+        Self { key, value, children_are_in_trie, is_private }
     }
 }
 
@@ -104,11 +106,13 @@ where
                     self.current_walker_key_checked = true;
                     // If it's possible to skip the current node in the walker, return a branch node
                     if self.walker.can_skip_current_node {
-                        return Ok(Some(TrieElement::Branch(TrieBranchNode::new(
-                            key.clone(),
-                            self.walker.hash().unwrap(),
-                            self.walker.children_are_in_trie(),
-                        ))))
+                        return Ok(Some(TrieElement::Branch(TrieBranchNode {
+                                key: key.clone(),
+                                value: self.walker.hash().unwrap(),
+                                children_are_in_trie: self.walker.children_are_in_trie(),
+                                ..Default::default()
+                            }
+                        )))
                     }
                 }
             }

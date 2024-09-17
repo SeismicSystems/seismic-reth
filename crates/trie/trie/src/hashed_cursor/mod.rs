@@ -25,7 +25,7 @@ pub trait HashedCursorFactory {
 /// The cursor for iterating over hashed entries.
 pub trait HashedCursor {
     /// Value returned by the cursor.
-    type Value: std::fmt::Debug;
+    type Value: std::fmt::Debug + Default;
 
     /// Seek an entry greater or equal to the given key and position the cursor there.
     /// Returns the first entry with the key greater or equal to the sought key.
