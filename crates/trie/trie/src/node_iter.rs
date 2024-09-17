@@ -3,7 +3,7 @@ use reth_primitives::B256;
 use reth_storage_errors::db::DatabaseError;
 
 /// Represents a branch node in the trie.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TrieBranchNode {
     /// The key associated with the node.
     pub key: Nibbles,
@@ -14,7 +14,7 @@ pub struct TrieBranchNode {
 }
 
 /// Represents a leaf node in the trie.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TrieLeafNode<Value> {
     /// The key associated with the node.
     pub key: B256,
