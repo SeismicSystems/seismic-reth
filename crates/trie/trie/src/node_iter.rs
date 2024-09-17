@@ -13,6 +13,17 @@ pub struct TrieBranchNode {
     pub children_are_in_trie: bool,
 }
 
+/// Represents a leaf node in the trie.
+#[derive(Debug)]
+pub struct TrieLeafNode<Value> {
+    /// The key associated with the node.
+    pub key: B256,
+    /// The value associated with the node.
+    pub value: Value,
+    /// Indicates whether the node is private.
+    pub is_private: bool,
+}
+
 impl TrieBranchNode {
     /// Creates a new `TrieBranchNode`.
     pub const fn new(key: Nibbles, value: B256, children_are_in_trie: bool) -> Self {
@@ -26,7 +37,7 @@ pub enum TrieElement<Value> {
     /// Branch node.
     Branch(TrieBranchNode),
     /// Leaf node.
-    Leaf(B256, Value),
+    Leaf(TrieLeafNode<Value>),
 }
 
 /// An iterator over existing intermediate branch nodes and updated leaf nodes.
@@ -113,7 +124,11 @@ where
 
                 // Set the next hashed entry as a leaf node and return
                 self.current_hashed_entry = self.hashed_cursor.next()?;
-                return Ok(Some(TrieElement::Leaf(hashed_key, value)))
+                return Ok(Some(TrieElement::Leaf(TrieLeafNode {
+                    key: hashed_key,
+                    value,
+                    is_private:false
+                }))) // storage TODO: is_private is default to false
             }
 
             // Handle seeking and advancing based on the previous hashed key

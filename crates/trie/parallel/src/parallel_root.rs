@@ -9,7 +9,7 @@ use reth_primitives::B256;
 use reth_provider::{providers::ConsistentDbView, DatabaseProviderFactory, ProviderError};
 use reth_trie::{
     hashed_cursor::{HashedCursorFactory, HashedPostStateCursorFactory},
-    node_iter::{TrieElement, TrieNodeIter},
+    node_iter::{TrieElement, TrieLeafNode, TrieNodeIter},
     trie_cursor::TrieCursorFactory,
     updates::TrieUpdates,
     walker::TrieWalker,
@@ -136,7 +136,7 @@ where
                 TrieElement::Branch(node) => {
                     hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
                 }
-                TrieElement::Leaf(hashed_address, account) => {
+                TrieElement::Leaf(TrieLeafNode {key: hashed_address, value: account, is_private: _}) => {
                     let (storage_root, _, updates) = match storage_roots.remove(&hashed_address) {
                         Some(result) => result,
                         // Since we do not store all intermediate nodes in the database, there might
