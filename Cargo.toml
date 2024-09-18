@@ -407,10 +407,10 @@ revm-primitives = { version = "9.0.0", features = [
 
 # eth
 alloy-chains = "0.1.18"
-alloy-dyn-abi = "0.8.0"
-alloy-primitives = { version = "0.8.0", default-features = false }
+alloy-dyn-abi = { path = "../seismic-alloy-core/crates/dyn-abi" }
+alloy-primitives = { path = "../seismic-alloy-core/crates/primitives", default-features = false }
 alloy-rlp = "0.3.4"
-alloy-sol-types = "0.8.0"
+alloy-sol-types = { path = "../seismic-alloy-core/crates/sol-types" }
 alloy-trie = { version = "0.5", default-features = false }
 
 alloy-consensus = { version = "0.3.0", default-features = false }
@@ -562,3 +562,23 @@ serial_test = "3"
 similar-asserts = "1.5.0"
 tempfile = "3.8"
 test-fuzz = "5"
+
+[patch.crates-io]
+# If our dependencies depend on these things,
+# then this will override whatever versions they point to
+# and instead use our local version
+
+# seismic-revm
+revm = { path = "../seismic-revm/crates/revm" }
+revm-primitives = { path = "../seismic-revm/crates/primitives" }
+
+# seismic-alloy-core
+# alloy-core = { path = "../seismic-alloy-core/crates/core" }
+alloy-dyn-abi = { path = "../seismic-alloy-core/crates/dyn-abi" }
+alloy-json-abi = { path = "../seismic-alloy-core/crates/json-abi" }
+alloy-primitives = { path = "../seismic-alloy-core/crates/primitives" }
+alloy-sol-macro = { path = "../seismic-alloy-core/crates/sol-macro" }
+alloy-sol-macro-expander = { path = "../seismic-alloy-core/crates/sol-macro-expander" }
+alloy-sol-macro-input = { path = "../seismic-alloy-core/crates/sol-macro-input" }
+alloy-sol-types = { path = "../seismic-alloy-core/crates/sol-types" }
+alloy-sol-type-parser = { path = "../seismic-alloy-core/crates/sol-type-parser" }
