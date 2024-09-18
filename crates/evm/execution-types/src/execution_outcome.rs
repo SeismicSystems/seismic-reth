@@ -101,7 +101,7 @@ impl ExecutionOutcome {
                     address,
                     original.map(Into::into),
                     present.map(Into::into),
-                    storage.into_iter().map(|(k, s)| (k.into(), s)).collect(),
+                    storage.into_iter().map(|(k, ((orig_value, _), (new_value, _)))| (k.into(), (orig_value, new_value))).collect(),
                 )
             }),
             reverts.into_iter().map(|(_, reverts)| {

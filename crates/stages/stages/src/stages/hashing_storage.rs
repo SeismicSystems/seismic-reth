@@ -106,7 +106,10 @@ impl<DB: Database> Stage<DB> for StorageHashingStage {
                         let mut addr_key = Vec::with_capacity(64);
                         addr_key.put_slice(keccak256(address).as_slice());
                         addr_key.put_slice(keccak256(slot.key).as_slice());
-                        let _ = tx.send((addr_key, CompactU256::from(slot.value), slot.is_private));
+                        let mut val_is_private = Vec::with_capacity(33);
+                        val_is_private.extend(slot.value.to_be_bytes_vec());
+                        val_is_private.push(slot.is_private as u8);
+                        let _ = tx.send((addr_key, val_is_private));
                     }
                 });
 
@@ -130,13 +133,14 @@ impl<DB: Database> Stage<DB> for StorageHashingStage {
                     );
                 }
 
-                let (addr_key, value, is_private) = item?;
+                let (addr_key, val_is_private) = item?;
+                
                 cursor.append_dup(
                     B256::from_slice(&addr_key[..32]),
                     StorageEntry {
                         key: B256::from_slice(&addr_key[32..]),
-                        value: CompactU256::decompress(value)?.into(),
-                        is_private: is_private,
+                        value: CompactU256::decompress(val_is_private)?.into(),
+                        is_private: false, // STORAGE TODO change this so that is_private takes the value from val_is_private
                     },
                 )?;
             }
@@ -187,8 +191,8 @@ impl<DB: Database> Stage<DB> for StorageHashingStage {
 
 /// Flushes channels hashes to ETL collector.
 fn collect(
-    channels: &mut Vec<Receiver<(Vec<u8>, CompactU256)>>,
-    collector: &mut Collector<Vec<u8>, CompactU256>,
+    channels: &mut Vec<Receiver<(Vec<u8>, Vec<u8>)>>,
+    collector: &mut Collector<Vec<u8>, Vec<u8>>,
 ) -> Result<(), StageError> {
     for channel in channels.iter_mut() {
         while let Ok((key, v)) = channel.recv() {

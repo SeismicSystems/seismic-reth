@@ -902,10 +902,10 @@ impl<TX: DbTx> DatabaseProvider<TX> {
                         .seek_by_key_subkey(address, old_storage.key)?
                         .filter(|storage| storage.key == old_storage.key)
                         .unwrap_or_default();
-                    entry.insert((old_storage.value, new_storage.value));
+                    entry.insert(((old_storage.value, old_storage.is_private), (new_storage.value, new_storage.is_private)));
                 }
                 hash_map::Entry::Occupied(mut entry) => {
-                    entry.get_mut().0 = old_storage.value;
+                    entry.get_mut().0 = (old_storage.value, old_storage.is_private);
                 }
             };
 
@@ -996,7 +996,7 @@ impl<TX: DbTxMut + DbTx> DatabaseProvider<TX> {
 
             // revert storages
             for (storage_key, (old_storage_value, _new_storage_value)) in storage {
-                let storage_entry = StorageEntry { key: *storage_key, value: *old_storage_value, ..Default::default() };
+                let storage_entry = StorageEntry { key: *storage_key, value: old_storage_value.0, is_private: old_storage_value.1 };
                 // delete previous value
                 // TODO: This does not use dupsort features
                 if plain_storage_cursor
@@ -1008,7 +1008,7 @@ impl<TX: DbTxMut + DbTx> DatabaseProvider<TX> {
                 }
 
                 // insert value if needed
-                if !old_storage_value.is_zero() {
+                if !old_storage_value.0.is_zero() {
                     plain_storage_cursor.upsert(*address, storage_entry)?;
                 }
             }
@@ -1094,7 +1094,7 @@ impl<TX: DbTxMut + DbTx> DatabaseProvider<TX> {
 
             // revert storages
             for (storage_key, (old_storage_value, _new_storage_value)) in storage {
-                let storage_entry = StorageEntry { key: *storage_key, value: *old_storage_value, ..Default::default()  };
+                let storage_entry = StorageEntry { key: *storage_key, value: old_storage_value.0, is_private: old_storage_value.1  };
                 // delete previous value
                 // TODO: This does not use dupsort features
                 if plain_storage_cursor
@@ -1106,7 +1106,7 @@ impl<TX: DbTxMut + DbTx> DatabaseProvider<TX> {
                 }
 
                 // insert value if needed
-                if !old_storage_value.is_zero() {
+                if !old_storage_value.0.is_zero() {
                     plain_storage_cursor.upsert(*address, storage_entry)?;
                 }
             }
