@@ -106,8 +106,7 @@ impl<DB: Database> Stage<DB> for StorageHashingStage {
                         let mut addr_key = Vec::with_capacity(64);
                         addr_key.put_slice(keccak256(address).as_slice());
                         addr_key.put_slice(keccak256(slot.key).as_slice());
-                        addr_key.put_u8(slot.is_private as u8);
-                        let _ = tx.send((addr_key, CompactU256::from(slot.value)));
+                        let _ = tx.send((addr_key, CompactU256::from(slot.value), slot.is_private));
                     }
                 });
 
@@ -131,13 +130,13 @@ impl<DB: Database> Stage<DB> for StorageHashingStage {
                     );
                 }
 
-                let (addr_key, value) = item?;
+                let (addr_key, value, is_private) = item?;
                 cursor.append_dup(
                     B256::from_slice(&addr_key[..32]),
                     StorageEntry {
                         key: B256::from_slice(&addr_key[32..]),
                         value: CompactU256::decompress(value)?.into(),
-                        is_private: addr_key[64] != 0,
+                        is_private: is_private,
                     },
                 )?;
             }
