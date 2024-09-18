@@ -679,13 +679,13 @@ mod tests {
         )
         .unwrap();
 
-        let higher_entry_plain = StorageEntry { key: STORAGE, value: U256::from(1000) };
-        let higher_entry_at4 = StorageEntry { key: STORAGE, value: U256::from(0) };
-        let entry_plain = StorageEntry { key: STORAGE, value: U256::from(100) };
-        let entry_at15 = StorageEntry { key: STORAGE, value: U256::from(15) };
-        let entry_at10 = StorageEntry { key: STORAGE, value: U256::from(10) };
-        let entry_at7 = StorageEntry { key: STORAGE, value: U256::from(7) };
-        let entry_at3 = StorageEntry { key: STORAGE, value: U256::from(0) };
+        let higher_entry_plain = StorageEntry { key: STORAGE, value: U256::from(1000), ..Default::default() };
+        let higher_entry_at4 = StorageEntry { key: STORAGE, value: U256::from(0), ..Default::default() };
+        let entry_plain = StorageEntry { key: STORAGE, value: U256::from(100), ..Default::default() };
+        let entry_at15 = StorageEntry { key: STORAGE, value: U256::from(15), ..Default::default() };
+        let entry_at10 = StorageEntry { key: STORAGE, value: U256::from(10), ..Default::default() };
+        let entry_at7 = StorageEntry { key: STORAGE, value: U256::from(7), ..Default::default() };
+        let entry_at3 = StorageEntry { key: STORAGE, value: U256::from(0), ..Default::default() };
 
         // setup
         tx.put::<tables::StorageChangeSets>((3, ADDRESS).into(), entry_at3).unwrap();

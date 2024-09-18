@@ -567,7 +567,7 @@ mod tests {
                     .insert(hashed_address, Account { nonce: 1, ..Default::default() })
                     .unwrap();
                 storage_cursor
-                    .insert(hashed_address, StorageEntry { key: hashed_slot, value: U256::from(1) })
+                    .insert(hashed_address, StorageEntry { key: hashed_slot, value: U256::from(1), ..Default::default() })
                     .unwrap();
             }
             provider_rw.commit().unwrap();
@@ -799,14 +799,14 @@ mod tests {
 
         assert_eq!(
             storage_cursor.seek_exact(address_a).unwrap(),
-            Some((address_a, StorageEntry { key: B256::ZERO, value: U256::from(1) })),
+            Some((address_a, StorageEntry { key: B256::ZERO, value: U256::from(1), ..Default::default() })),
             "Slot 0 for account A should be 1"
         );
         assert_eq!(
             storage_cursor.next_dup().unwrap(),
             Some((
                 address_a,
-                StorageEntry { key: B256::from(U256::from(1).to_be_bytes()), value: U256::from(2) }
+                StorageEntry { key: B256::from(U256::from(1).to_be_bytes()), value: U256::from(2), ..Default::default() }
             )),
             "Slot 1 for account A should be 2"
         );
@@ -820,7 +820,7 @@ mod tests {
             storage_cursor.seek_exact(address_b).unwrap(),
             Some((
                 address_b,
-                StorageEntry { key: B256::from(U256::from(1).to_be_bytes()), value: U256::from(2) }
+                StorageEntry { key: B256::from(U256::from(1).to_be_bytes()), value: U256::from(2), ..Default::default() }
             )),
             "Slot 1 for account B should be 2"
         );
@@ -839,7 +839,7 @@ mod tests {
             changeset_cursor.seek_exact(BlockNumberAddress((1, address_a))).unwrap(),
             Some((
                 BlockNumberAddress((1, address_a)),
-                StorageEntry { key: B256::ZERO, value: U256::from(0) }
+                StorageEntry { key: B256::ZERO, value: U256::from(0), ..Default::default() }
             )),
             "Slot 0 for account A should have changed from 0"
         );
@@ -847,7 +847,7 @@ mod tests {
             changeset_cursor.next_dup().unwrap(),
             Some((
                 BlockNumberAddress((1, address_a)),
-                StorageEntry { key: B256::from(U256::from(1).to_be_bytes()), value: U256::from(0) }
+                StorageEntry { key: B256::from(U256::from(1).to_be_bytes()), value: U256::from(0), ..Default::default() }
             )),
             "Slot 1 for account A should have changed from 0"
         );
@@ -861,7 +861,7 @@ mod tests {
             changeset_cursor.seek_exact(BlockNumberAddress((1, address_b))).unwrap(),
             Some((
                 BlockNumberAddress((1, address_b)),
-                StorageEntry { key: B256::from(U256::from(1).to_be_bytes()), value: U256::from(1) }
+                StorageEntry { key: B256::from(U256::from(1).to_be_bytes()), value: U256::from(1), ..Default::default() }
             )),
             "Slot 1 for account B should have changed from 1"
         );
@@ -902,7 +902,7 @@ mod tests {
             changeset_cursor.seek_exact(BlockNumberAddress((2, address_a))).unwrap(),
             Some((
                 BlockNumberAddress((2, address_a)),
-                StorageEntry { key: B256::ZERO, value: U256::from(1) }
+                StorageEntry { key: B256::ZERO, value: U256::from(1), ..Default::default() }
             )),
             "Slot 0 for account A should have changed from 1 on deletion"
         );
@@ -910,7 +910,7 @@ mod tests {
             changeset_cursor.next_dup().unwrap(),
             Some((
                 BlockNumberAddress((2, address_a)),
-                StorageEntry { key: B256::from(U256::from(1).to_be_bytes()), value: U256::from(2) }
+                StorageEntry { key: B256::from(U256::from(1).to_be_bytes()), value: U256::from(2), ..Default::default() }
             )),
             "Slot 1 for account A should have changed from 2 on deletion"
         );
@@ -1127,14 +1127,14 @@ mod tests {
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((0, address1)),
-                StorageEntry { key: B256::with_last_byte(0), value: U256::ZERO }
+                StorageEntry { key: B256::with_last_byte(0), value: U256::ZERO, ..Default::default() }
             )))
         );
         assert_eq!(
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((0, address1)),
-                StorageEntry { key: B256::with_last_byte(1), value: U256::ZERO }
+                StorageEntry { key: B256::with_last_byte(1), value: U256::ZERO, ..Default::default() }
             )))
         );
 
@@ -1144,7 +1144,7 @@ mod tests {
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((1, address1)),
-                StorageEntry { key: B256::with_last_byte(0), value: U256::from(1) }
+                StorageEntry { key: B256::with_last_byte(0), value: U256::from(1), ..Default::default() }
             )))
         );
 
@@ -1155,14 +1155,14 @@ mod tests {
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((2, address1)),
-                StorageEntry { key: B256::with_last_byte(0), value: U256::from(2) }
+                StorageEntry { key: B256::with_last_byte(0), value: U256::from(2), ..Default::default() }
             )))
         );
         assert_eq!(
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((2, address1)),
-                StorageEntry { key: B256::with_last_byte(1), value: U256::from(2) }
+                StorageEntry { key: B256::with_last_byte(1), value: U256::from(2), ..Default::default() }
             )))
         );
 
@@ -1177,21 +1177,21 @@ mod tests {
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((4, address1)),
-                StorageEntry { key: B256::with_last_byte(0), value: U256::ZERO }
+                StorageEntry { key: B256::with_last_byte(0), value: U256::ZERO, ..Default::default() }
             )))
         );
         assert_eq!(
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((4, address1)),
-                StorageEntry { key: B256::with_last_byte(2), value: U256::ZERO }
+                StorageEntry { key: B256::with_last_byte(2), value: U256::ZERO, ..Default::default() }
             )))
         );
         assert_eq!(
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((4, address1)),
-                StorageEntry { key: B256::with_last_byte(6), value: U256::ZERO }
+                StorageEntry { key: B256::with_last_byte(6), value: U256::ZERO, ..Default::default() }
             )))
         );
 
@@ -1203,21 +1203,21 @@ mod tests {
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((5, address1)),
-                StorageEntry { key: B256::with_last_byte(0), value: U256::from(2) }
+                StorageEntry { key: B256::with_last_byte(0), value: U256::from(2), ..Default::default() }
             )))
         );
         assert_eq!(
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((5, address1)),
-                StorageEntry { key: B256::with_last_byte(2), value: U256::from(4) }
+                StorageEntry { key: B256::with_last_byte(2), value: U256::from(4), ..Default::default() }
             )))
         );
         assert_eq!(
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((5, address1)),
-                StorageEntry { key: B256::with_last_byte(6), value: U256::from(6) }
+                StorageEntry { key: B256::with_last_byte(6), value: U256::from(6), ..Default::default() }
             )))
         );
 
@@ -1230,7 +1230,7 @@ mod tests {
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((7, address1)),
-                StorageEntry { key: B256::with_last_byte(0), value: U256::ZERO }
+                StorageEntry { key: B256::with_last_byte(0), value: U256::ZERO, ..Default::default() }
             )))
         );
         assert_eq!(storage_changes.next(), None);
@@ -1333,14 +1333,14 @@ mod tests {
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((1, address1)),
-                StorageEntry { key: B256::with_last_byte(0), value: U256::from(1) }
+                StorageEntry { key: B256::with_last_byte(0), value: U256::from(1), ..Default::default() }
             )))
         );
         assert_eq!(
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((1, address1)),
-                StorageEntry { key: B256::with_last_byte(1), value: U256::from(2) }
+                StorageEntry { key: B256::with_last_byte(1), value: U256::from(2), ..Default::default() }
             )))
         );
         assert_eq!(storage_changes.next(), None);
@@ -1399,7 +1399,7 @@ mod tests {
             for (slot, value) in storage {
                 tx.put::<tables::HashedStorages>(
                     hashed_address,
-                    StorageEntry { key: keccak256(slot), value: *value },
+                    StorageEntry { key: keccak256(slot), value: *value, ..Default::default() },
                 )
                 .unwrap();
             }

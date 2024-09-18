@@ -996,7 +996,7 @@ impl<TX: DbTxMut + DbTx> DatabaseProvider<TX> {
 
             // revert storages
             for (storage_key, (old_storage_value, _new_storage_value)) in storage {
-                let storage_entry = StorageEntry { key: *storage_key, value: *old_storage_value };
+                let storage_entry = StorageEntry { key: *storage_key, value: *old_storage_value, ..Default::default() };
                 // delete previous value
                 // TODO: This does not use dupsort features
                 if plain_storage_cursor
@@ -1094,7 +1094,7 @@ impl<TX: DbTxMut + DbTx> DatabaseProvider<TX> {
 
             // revert storages
             for (storage_key, (old_storage_value, _new_storage_value)) in storage {
-                let storage_entry = StorageEntry { key: *storage_key, value: *old_storage_value };
+                let storage_entry = StorageEntry { key: *storage_key, value: *old_storage_value, ..Default::default()  };
                 // delete previous value
                 // TODO: This does not use dupsort features
                 if plain_storage_cursor
@@ -2589,7 +2589,7 @@ impl<TX: DbTx> StorageReader for DatabaseProvider<TX> {
                         Ok(plain_storage
                             .seek_by_key_subkey(address, key)?
                             .filter(|v| v.key == key)
-                            .unwrap_or_else(|| StorageEntry { key, value: Default::default() }))
+                            .unwrap_or_else(|| StorageEntry { key, ..Default::default() }))
                     })
                     .collect::<ProviderResult<Vec<_>>>()
                     .map(|storage| (address, storage))
@@ -2679,7 +2679,7 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
 
                 tracing::trace!(?address, ?storage, "Writing storage reverts");
                 for (key, value) in StorageRevertsIter::new(storage, wiped_storage) {
-                    storage_changeset_cursor.append_dup(storage_id, StorageEntry { key, value })?;
+                    storage_changeset_cursor.append_dup(storage_id, StorageEntry { key, value, ..Default::default()  })?;
                 }
             }
         }
@@ -2744,7 +2744,7 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
             // cast storages to B256.
             let mut storage = storage
                 .into_iter()
-                .map(|(k, value)| StorageEntry { key: k.into(), value })
+                .map(|(k, value)| StorageEntry { key: k.into(), value, ..Default::default()  })
                 .collect::<Vec<_>>();
             // sort storage slots by key.
             storage.par_sort_unstable_by_key(|a| a.key);
@@ -2787,7 +2787,7 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
             }
 
             for (hashed_slot, value) in storage.storage_slots_sorted() {
-                let entry = StorageEntry { key: hashed_slot, value };
+                let entry = StorageEntry { key: hashed_slot, value, ..Default::default()  };
                 if let Some(db_entry) =
                     hashed_storage_cursor.seek_by_key_subkey(*hashed_address, entry.key)?
                 {
@@ -2972,7 +2972,7 @@ impl<TX: DbTxMut + DbTx> HashingWriter for DatabaseProvider<TX> {
             }
 
             if !value.is_zero() {
-                hashed_storage.upsert(hashed_address, StorageEntry { key, value })?;
+                hashed_storage.upsert(hashed_address, StorageEntry { key, value, ..Default::default()  })?;
             }
         }
         Ok(hashed_storage_keys)
@@ -3012,7 +3012,7 @@ impl<TX: DbTxMut + DbTx> HashingWriter for DatabaseProvider<TX> {
                 }
 
                 if !value.is_zero() {
-                    hashed_storage_cursor.upsert(hashed_address, StorageEntry { key, value })?;
+                    hashed_storage_cursor.upsert(hashed_address, StorageEntry { key, value, ..Default::default()  })?;
                 }
                 Ok(())
             })

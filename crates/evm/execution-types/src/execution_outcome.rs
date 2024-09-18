@@ -56,7 +56,7 @@ pub struct ExecutionOutcome {
 
 /// Type used to initialize revms bundle state.
 pub type BundleStateInit =
-    HashMap<Address, (Option<Account>, Option<Account>, HashMap<B256, (U256, U256)>)>;
+    HashMap<Address, (Option<Account>, Option<Account>, HashMap<B256, ((U256, bool), (U256, bool))>)>;
 
 /// Types used inside `RevertsInit` to initialize revms reverts.
 pub type AccountRevertInit = (Option<Option<Account>>, Vec<StorageEntry>);
@@ -94,7 +94,7 @@ impl ExecutionOutcome {
         let mut reverts = revert_init.into_iter().collect::<Vec<_>>();
         reverts.sort_unstable_by_key(|a| a.0);
 
-        // initialize revm bundle
+        // initialize revm bundle // STORAGE TODO involves changing evm 
         let bundle = BundleState::new(
             state_init.into_iter().map(|(address, (original, present, storage))| {
                 (

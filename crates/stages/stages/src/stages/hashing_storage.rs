@@ -106,6 +106,7 @@ impl<DB: Database> Stage<DB> for StorageHashingStage {
                         let mut addr_key = Vec::with_capacity(64);
                         addr_key.put_slice(keccak256(address).as_slice());
                         addr_key.put_slice(keccak256(slot.key).as_slice());
+                        addr_key.put_u8(slot.is_private as u8);
                         let _ = tx.send((addr_key, CompactU256::from(slot.value)));
                     }
                 });
@@ -136,6 +137,7 @@ impl<DB: Database> Stage<DB> for StorageHashingStage {
                     StorageEntry {
                         key: B256::from_slice(&addr_key[32..]),
                         value: CompactU256::decompress(value)?.into(),
+                        is_private: addr_key[64] != 0,
                     },
                 )?;
             }
@@ -373,6 +375,7 @@ mod tests {
                                 let new_entry = StorageEntry {
                                     key: keccak256([rng.gen::<u8>()]),
                                     value: U256::from(rng.gen::<u8>() % 30 + 1),
+                                    ..Default::default()
                                 };
                                 self.insert_storage_entry(
                                     tx,
@@ -396,6 +399,7 @@ mod tests {
                             StorageEntry {
                                 key: keccak256("mining"),
                                 value: U256::from(rng.gen::<u32>()),
+                                ..Default::default()
                             },
                             progress.header.number == stage_progress,
                         )?;
@@ -491,13 +495,13 @@ mod tests {
                             .expect("failed to delete entry");
                         e
                     }
-                    _ => StorageEntry { key: entry.key, value: U256::from(0) },
+                    _ => StorageEntry { key: entry.key, value: U256::from(0), ..Default::default() },
                 };
             tx.put::<tables::PlainStorageState>(bn_address.address(), entry)?;
 
             if hash {
                 let hashed_address = keccak256(bn_address.address());
-                let hashed_entry = StorageEntry { key: keccak256(entry.key), value: entry.value };
+                let hashed_entry = StorageEntry { key: keccak256(entry.key), value: entry.value, ..Default::default() };
 
                 if let Some(e) = tx
                     .cursor_dup_write::<tables::HashedStorages>()?

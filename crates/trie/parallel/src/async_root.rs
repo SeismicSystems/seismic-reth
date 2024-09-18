@@ -279,7 +279,7 @@ mod tests {
                         *address,
                         storage
                             .iter()
-                            .map(|(slot, value)| StorageEntry { key: *slot, value: *value }),
+                            .map(|(slot, value)| StorageEntry { key: *slot, value: *value, ..Default::default() }),
                     )
                 }))
                 .unwrap();
