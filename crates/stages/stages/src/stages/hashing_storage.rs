@@ -4,7 +4,7 @@ use reth_db::tables;
 use reth_db_api::{
     cursor::{DbCursorRO, DbDupCursorRW},
     database::Database,
-    models::{BlockNumberAddress, CompactU256},
+    models::{BlockNumberAddress, CompactU256 },
     table::Decompress,
     transaction::{DbTx, DbTxMut},
 };
@@ -103,13 +103,11 @@ impl<DB: Database> Stage<DB> for StorageHashingStage {
                 // Spawn the hashing task onto the global rayon pool
                 rayon::spawn(move || {
                     for (address, slot) in chunk {
-                        let mut addr_key = Vec::with_capacity(64);
-                        addr_key.put_slice(keccak256(address).as_slice());
-                        addr_key.put_slice(keccak256(slot.key).as_slice());
-                        let mut val_is_private = Vec::with_capacity(33);
-                        val_is_private.extend(slot.value.to_be_bytes_vec());
-                        val_is_private.push(slot.is_private as u8);
-                        let _ = tx.send((addr_key, val_is_private));
+                        let mut addr_key_is_private = Vec::with_capacity(64);
+                        addr_key_is_private.put_slice(keccak256(address).as_slice());
+                        addr_key_is_private.put_slice(keccak256(slot.key).as_slice());
+                        addr_key_is_private.put_u8(slot.is_private as u8);
+                        let _ = tx.send((addr_key_is_private, CompactU256::from(slot.value)));
                     }
                 });
 
@@ -191,8 +189,8 @@ impl<DB: Database> Stage<DB> for StorageHashingStage {
 
 /// Flushes channels hashes to ETL collector.
 fn collect(
-    channels: &mut Vec<Receiver<(Vec<u8>, Vec<u8>)>>,
-    collector: &mut Collector<Vec<u8>, Vec<u8>>,
+    channels: &mut Vec<Receiver<(Vec<u8>, CompactU256)>>,
+    collector: &mut Collector<Vec<u8>, CompactU256>,
 ) -> Result<(), StageError> {
     for channel in channels.iter_mut() {
         while let Ok((key, v)) = channel.recv() {
