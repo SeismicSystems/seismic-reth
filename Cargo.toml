@@ -407,10 +407,10 @@ revm-primitives = { version = "9.0.0", features = [
 
 # eth
 alloy-chains = "0.1.18"
-alloy-dyn-abi = "0.8.0"
-alloy-primitives = { version = "0.8.0", default-features = false }
+alloy-dyn-abi = { path = "../seismic-alloy-core/crates/dyn-abi" }
+alloy-primitives = { path = "../seismic-alloy-core/crates/primitives", default-features = false }
 alloy-rlp = "0.3.4"
-alloy-sol-types = "0.8.0"
+alloy-sol-types = { path = "../seismic-alloy-core/crates/sol-types" }
 alloy-trie = { version = "0.5", default-features = false }
 
 alloy-consensus = { version = "0.3.0", default-features = false }
