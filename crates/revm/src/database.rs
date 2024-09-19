@@ -4,7 +4,7 @@ use reth_primitives::{Account, Address, B256, U256};
 use reth_storage_errors::provider::{ProviderError, ProviderResult};
 use revm::{
     db::DatabaseRef,
-    primitives::{AccountInfo, Bytecode},
+    primitives::{AccountInfo, Bytecode, FlaggedStorage},
     Database,
 };
 
@@ -32,7 +32,7 @@ pub trait EvmStateProvider: Send + Sync {
         &self,
         account: Address,
         storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>>;
+    ) -> ProviderResult<Option<FlaggedStorage>>;
 }
 
 // Blanket implementation of EvmStateProvider for any type that implements StateProvider.
@@ -56,7 +56,7 @@ impl<T: reth_storage_api::StateProvider> EvmStateProvider for T {
         &self,
         account: Address,
         storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>> {
+    ) -> ProviderResult<Option<FlaggedStorage>> {
         <T as reth_storage_api::StateProvider>::storage(self, account, storage_key)
     }
 }
@@ -113,7 +113,7 @@ impl<DB: EvmStateProvider> Database for StateProviderDatabase<DB> {
     /// Retrieves the storage value at a specific index for a given address.
     ///
     /// Returns `Ok` with the storage value, or the default value if not found.
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         DatabaseRef::storage_ref(self, address, index)
     }
 
@@ -147,7 +147,7 @@ impl<DB: EvmStateProvider> DatabaseRef for StateProviderDatabase<DB> {
     /// Retrieves the storage value at a specific index for a given address.
     ///
     /// Returns `Ok` with the storage value, or the default value if not found.
-    fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage_ref(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         Ok(self.0.storage(address, B256::new(index.to_be_bytes()))?.unwrap_or_default())
     }
 

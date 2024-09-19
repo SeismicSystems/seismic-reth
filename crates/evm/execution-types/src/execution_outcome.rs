@@ -6,7 +6,7 @@ use reth_primitives::{
 use reth_trie::HashedPostState;
 use revm::{
     db::{states::BundleState, BundleAccount},
-    primitives::AccountInfo,
+    primitives::{AccountInfo, FlaggedStorage},
 };
 use std::collections::HashMap;
 
@@ -101,7 +101,7 @@ impl ExecutionOutcome {
                     address,
                     original.map(Into::into),
                     present.map(Into::into),
-                    storage.into_iter().map(|(k, ((orig_value, _), (new_value, _)))| (k.into(), (orig_value, new_value))).collect(),
+                    storage.into_iter().map(|(k, (orig_value, new_value))| (k.into(), (orig_value.into(), new_value.into()))).collect(),
                 )
             }),
             reverts.into_iter().map(|(_, reverts)| {
@@ -110,7 +110,7 @@ impl ExecutionOutcome {
                     (
                         address,
                         original.map(|i| i.map(Into::into)),
-                        storage.into_iter().map(|entry| (entry.key.into(), entry.value)),
+                        storage.into_iter().map(|entry| (entry.key.into(), FlaggedStorage {value: entry.value, is_private: entry.is_private})),
                     )
                 })
             }),
@@ -153,7 +153,7 @@ impl ExecutionOutcome {
     /// Get storage if value is known.
     ///
     /// This means that depending on status we can potentially return `U256::ZERO`.
-    pub fn storage(&self, address: &Address, storage_key: U256) -> Option<U256> {
+    pub fn storage(&self, address: &Address, storage_key: U256) -> Option<FlaggedStorage> {
         self.bundle.account(address).and_then(|a| a.storage_slot(storage_key))
     }
 

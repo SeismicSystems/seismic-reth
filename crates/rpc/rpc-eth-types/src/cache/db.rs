@@ -8,6 +8,7 @@ use reth_revm::{database::StateProviderDatabase, db::CacheDB, DatabaseRef};
 use reth_storage_api::StateProvider;
 use reth_trie::HashedStorage;
 use revm::Database;
+use revm_primitives::FlaggedStorage;
 
 /// Helper alias type for the state's [`CacheDB`]
 pub type StateCacheDb<'a> = CacheDB<StateProviderDatabase<StateProviderTraitObjWrapper<'a>>>;
@@ -146,7 +147,7 @@ impl<'a> StateProvider for StateProviderTraitObjWrapper<'a> {
         &self,
         account: revm_primitives::Address,
         storage_key: reth_primitives::StorageKey,
-    ) -> reth_errors::ProviderResult<Option<reth_primitives::StorageValue>> {
+    ) -> reth_errors::ProviderResult<Option<FlaggedStorage>> {
         self.0.storage(account, storage_key)
     }
 }

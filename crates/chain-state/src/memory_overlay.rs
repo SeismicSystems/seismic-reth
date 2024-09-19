@@ -1,7 +1,7 @@
 use super::ExecutedBlock;
 use reth_errors::ProviderResult;
 use reth_primitives::{
-    keccak256, Account, Address, BlockNumber, Bytecode, Bytes, StorageKey, StorageValue, B256,
+    keccak256, Account, Address, BlockNumber, Bytecode, Bytes, StorageKey, B256
 };
 use reth_storage_api::{
     AccountReader, BlockHashReader, StateProofProvider, StateProvider, StateProviderBox,
@@ -11,6 +11,7 @@ use reth_trie::{
     prefix_set::TriePrefixSetsMut, updates::TrieUpdates, AccountProof, HashedPostState,
     HashedStorage,
 };
+use revm::primitives::FlaggedStorage;
 use std::{collections::HashMap, sync::OnceLock};
 
 /// A state provider that stores references to in-memory blocks along with their state as well as
@@ -185,7 +186,7 @@ impl StateProvider for MemoryOverlayStateProvider {
         &self,
         address: Address,
         storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>> {
+    ) -> ProviderResult<Option<FlaggedStorage>> {
         for block in &self.in_memory {
             if let Some(value) = block.execution_output.storage(&address, storage_key.into()) {
                 return Ok(Some(value))

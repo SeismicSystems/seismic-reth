@@ -1,5 +1,6 @@
 use alloy_primitives::{B256, U256};
 use reth_codecs::{add_arbitrary_tests, Compact};
+use revm_primitives::FlaggedStorage;
 use serde::{Deserialize, Serialize};
 
 /// Account storage entry.
@@ -21,6 +22,11 @@ impl StorageEntry {
     /// Create a new `StorageEntry` with given key and value.
     pub const fn new(key: B256, value: U256, is_private: bool) -> Self {
         Self { key, value, is_private }
+    }
+
+    /// Convert the storage entry to a flagged storage entry. 
+    pub const fn to_flagged_storage(self) -> FlaggedStorage {
+        FlaggedStorage { value: self.value, is_private: self.is_private }
     }
 }
 

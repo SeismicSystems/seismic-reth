@@ -5,8 +5,7 @@ use super::{
 use auto_impl::auto_impl;
 use reth_execution_types::ExecutionOutcome;
 use reth_primitives::{
-    Address, BlockHash, BlockId, BlockNumHash, BlockNumber, BlockNumberOrTag, Bytecode, StorageKey,
-    StorageValue, B256, KECCAK_EMPTY, U256,
+    revm_primitives::FlaggedStorage, Address, BlockHash, BlockId, BlockNumHash, BlockNumber, BlockNumberOrTag, Bytecode, StorageKey, StorageValue, B256, KECCAK_EMPTY, U256
 };
 use reth_storage_errors::provider::{ProviderError, ProviderResult};
 
@@ -29,7 +28,7 @@ pub trait StateProvider:
         &self,
         account: Address,
         storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>>;
+    ) -> ProviderResult<Option<FlaggedStorage>>;
 
     /// Get account code by its hash
     fn bytecode_by_hash(&self, code_hash: B256) -> ProviderResult<Option<Bytecode>>;
