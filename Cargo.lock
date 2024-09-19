@@ -630,7 +630,6 @@ dependencies = [
  "jsonwebtoken",
  "rand 0.8.5",
  "serde",
- "thiserror",
 ]
 
 [[package]]
@@ -691,9 +690,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rpc-types-mev"
-version = "0.3.0"
+version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a0b28949d1077826684b5912fe9ab1c752a863af0419b1ba9abff19006d61b1"
+checksum = "922d92389e5022650c4c60ffd2f9b2467c3f853764f0f74ff16a23106f9017d5"
 dependencies = [
  "alloy-eips 0.3.6",
  "alloy-primitives 0.8.1",
@@ -848,6 +847,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
+ "syn 2.0.77",
  "syn 2.0.76",
  "syn-solidity 0.7.7",
  "tiny-keccak",
@@ -879,7 +879,7 @@ checksum = "2e482dc33a32b6fadbc0f599adea520bd3aaa585c141a80b404d0a3e3fa72528"
 dependencies = [
  "const-hex",
  "dunce",
- "heck 0.5.0",
+ "heck",
  "proc-macro2",
  "quote",
  "syn 2.0.76",
@@ -5346,6 +5346,23 @@ dependencies = [
  "alloy-rpc-types-eth 0.3.0",
  "op-alloy-consensus",
  "op-alloy-rpc-types",
+]
+
+[[package]]
+name = "op-alloy-protocol"
+version = "0.2.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf300a82ae2d30e2255bfea87a2259da49f63a25a44db561ae64cc9e3084139f"
+dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-primitives 0.8.1",
+ "alloy-rlp",
+ "alloy-serde",
+ "hashbrown 0.14.5",
+ "op-alloy-consensus",
+ "op-alloy-genesis",
+ "serde",
 ]
 
 [[package]]
