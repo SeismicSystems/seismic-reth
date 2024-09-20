@@ -55,43 +55,47 @@ pub trait DebugApi {
     ///
     /// Note, the parent of this block must be present, or it will fail. For the second parameter
     /// see [GethDebugTracingOptions] reference.
-    #[method(name = "traceBlock")]
-    async fn debug_trace_block(
-        &self,
-        rlp_block: Bytes,
-        opts: Option<GethDebugTracingOptions>,
-    ) -> RpcResult<Vec<TraceResult>>;
+    // #[cfg(feature = "seismic-disable")]
+    // #[method(name = "traceBlock")]
+    // async fn debug_trace_block(
+    //     &self,
+    //     rlp_block: Bytes,
+    //     opts: Option<GethDebugTracingOptions>,
+    // ) -> RpcResult<Vec<TraceResult>>;
 
     /// Similar to `debug_traceBlock`, `debug_traceBlockByHash` accepts a block hash and will replay
     /// the block that is already present in the database. For the second parameter see
     /// [GethDebugTracingOptions].
-    #[method(name = "traceBlockByHash")]
-    async fn debug_trace_block_by_hash(
-        &self,
-        block: B256,
-        opts: Option<GethDebugTracingOptions>,
-    ) -> RpcResult<Vec<TraceResult>>;
+    // #[cfg(feature = "seismic-disable")]
+    // #[method(name = "traceBlockByHash")]
+    // async fn debug_trace_block_by_hash(
+    //     &self,
+    //     block: B256,
+    //     opts: Option<GethDebugTracingOptions>,
+    // ) -> RpcResult<Vec<TraceResult>>;
 
     /// Similar to `debug_traceBlockByHash`, `debug_traceBlockByNumber` accepts a block number
     /// [BlockNumberOrTag] and will replay the block that is already present in the database.
     /// For the second parameter see [GethDebugTracingOptions].
-    #[method(name = "traceBlockByNumber")]
-    async fn debug_trace_block_by_number(
-        &self,
-        block: BlockNumberOrTag,
-        opts: Option<GethDebugTracingOptions>,
-    ) -> RpcResult<Vec<TraceResult>>;
+    // #[cfg(feature = "seismic-disable")]
+    // #[method(name = "traceBlockByNumber")]
+    // async fn debug_trace_block_by_number(
+    //     &self,
+    //     block: BlockNumberOrTag,
+    //     opts: Option<GethDebugTracingOptions>,
+    // ) -> RpcResult<Vec<TraceResult>>;
 
     /// The `debug_traceTransaction` debugging method will attempt to run the transaction in the
     /// exact same manner as it was executed on the network. It will replay any transaction that
     /// may have been executed prior to this one before it will finally attempt to execute the
     /// transaction that corresponds to the given hash.
-    #[method(name = "traceTransaction")]
-    async fn debug_trace_transaction(
-        &self,
-        tx_hash: B256,
-        opts: Option<GethDebugTracingOptions>,
-    ) -> RpcResult<GethTrace>;
+    // #[cfg(feature = "seismic-disable")]
+    // #[method(name = "traceTransaction")]
+    // async fn debug_trace_transaction(
+    //     &self,
+    //     tx_hash: B256,
+    //     opts: Option<GethDebugTracingOptions>,
+    // ) -> RpcResult<GethTrace>;
 
     /// The `debug_traceCall` method lets you run an `eth_call` within the context of the given
     /// block execution using the final state of parent block as the base.
@@ -102,13 +106,14 @@ pub trait DebugApi {
     /// The trace can be configured similar to `debug_traceTransaction`,
     /// see [GethDebugTracingOptions]. The method returns the same output as
     /// `debug_traceTransaction`.
-    #[method(name = "traceCall")]
-    async fn debug_trace_call(
-        &self,
-        request: TransactionRequest,
-        block_number: Option<BlockId>,
-        opts: Option<GethDebugTracingCallOptions>,
-    ) -> RpcResult<GethTrace>;
+    // #[cfg(feature = "seismic-disable")]
+    // #[method(name = "traceCall")]
+    // async fn debug_trace_call(
+    //     &self,
+    //     request: TransactionRequest,
+    //     block_number: Option<BlockId>,
+    //     opts: Option<GethDebugTracingCallOptions>,
+    // ) -> RpcResult<GethTrace>;
 
     /// The `debug_traceCallMany` method lets you run an `eth_callMany` within the context of the
     /// given block execution using the final state of parent block as the base followed by n
@@ -125,13 +130,14 @@ pub trait DebugApi {
     /// This methods is similar to many `eth_callMany`, hence this returns nested lists of traces.
     /// Where the length of the outer list is the number of bundles and the length of the inner list
     /// (`Vec<GethTrace>`) is the number of transactions in the bundle.
-    #[method(name = "traceCallMany")]
-    async fn debug_trace_call_many(
-        &self,
-        bundles: Vec<Bundle>,
-        state_context: Option<StateContext>,
-        opts: Option<GethDebugTracingCallOptions>,
-    ) -> RpcResult<Vec<Vec<GethTrace>>>;
+    // #[cfg(feature = "seismic-disable")]
+    // #[method(name = "traceCallMany")]
+    // async fn debug_trace_call_many(
+    //     &self,
+    //     bundles: Vec<Bundle>,
+    //     state_context: Option<StateContext>,
+    //     opts: Option<GethDebugTracingCallOptions>,
+    // ) -> RpcResult<Vec<Vec<GethTrace>>>;
 
     /// The `debug_executionWitness` method allows for re-execution of a block with the purpose of
     /// generating an execution witness. The witness comprises of a map of all hashed trie nodes
@@ -348,15 +354,16 @@ pub trait DebugApi {
     /// Returns the storage at the given block height and transaction index. The result can be
     /// paged by providing a `maxResult` to cap the number of storage slots returned as well as
     /// specifying the offset via `keyStart` (hash of storage key).
-    #[method(name = "storageRangeAt")]
-    async fn debug_storage_range_at(
-        &self,
-        block_hash: B256,
-        tx_idx: usize,
-        contract_address: Address,
-        key_start: B256,
-        max_result: u64,
-    ) -> RpcResult<()>;
+    // #[cfg(feature = "seismic-disable")]
+    // #[method(name = "storageRangeAt")]
+    // async fn debug_storage_range_at(
+    //     &self,
+    //     block_hash: B256,
+    //     tx_idx: usize,
+    //     contract_address: Address,
+    //     key_start: B256,
+    //     max_result: u64,
+    // ) -> RpcResult<()>;
 
     /// Returns the structured logs created during the execution of EVM against a block pulled
     /// from the pool of bad ones and returns them as a JSON object. For the second parameter see

@@ -244,7 +244,7 @@ pub enum RethRpcModule {
     /// `net_` module
     Net,
     /// `trace_` module
-    Trace,
+    // Trace, #[cfg(feature = "seismic-disable")]
     /// `txpool_` module
     Txpool,
     /// `web3_` module
@@ -297,7 +297,7 @@ impl FromStr for RethRpcModule {
             "debug" => Self::Debug,
             "eth" => Self::Eth,
             "net" => Self::Net,
-            "trace" => Self::Trace,
+            // "trace" => Self::Trace,#[cfg(feature = "seismic-disable")]
             "txpool" => Self::Txpool,
             "web3" => Self::Web3,
             "rpc" => Self::Rpc,

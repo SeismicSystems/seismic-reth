@@ -10,6 +10,7 @@ use reth_evm::ConfigureEvmEnv;
 use reth_primitives::{BlockId, Bytes, Header, B256, U256};
 use reth_provider::{BlockReader, ChainSpecProvider, EvmEnvProvider, StateProviderFactory};
 use reth_revm::database::StateProviderDatabase;
+#[cfg(feature = "seismic-disable")] 
 use reth_rpc_api::TraceApiServer;
 use reth_rpc_eth_api::{
     helpers::{Call, TraceExt},
@@ -31,6 +32,7 @@ use revm::{
     db::{CacheDB, DatabaseCommit},
     primitives::EnvWithHandlerCfg,
 };
+#[cfg(feature = "seismic-disable")]
 use revm_inspectors::{
     opcode::OpcodeGasInspector,
     tracing::{parity::populate_state_diff, TracingInspector, TracingInspectorConfig},
@@ -551,6 +553,7 @@ where
 }
 
 #[async_trait]
+#[cfg(feature = "seismic-disable")] 
 impl<Provider, Eth> TraceApiServer for TraceApi<Provider, Eth>
 where
     Provider: BlockReader

@@ -14,6 +14,7 @@ use std::collections::HashSet;
 /// Ethereum trace API
 #[cfg_attr(not(feature = "client"), rpc(server, namespace = "trace"))]
 #[cfg_attr(feature = "client", rpc(server, client, namespace = "trace"))]
+#[cfg(feature = "seismic-disable")] 
 pub trait TraceApi {
     /// Executes the given call and returns a number of possible traces for it.
     #[method(name = "call")]

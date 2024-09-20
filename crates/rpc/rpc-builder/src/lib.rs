@@ -834,6 +834,7 @@ where
     /// # Panics
     ///
     /// If called outside of the tokio runtime. See also [`Self::eth_api`]
+    #[cfg(feature = "seismic-disable")]
     pub fn register_trace(&mut self) -> &mut Self
     where
         EthApi: TraceExt,
@@ -877,6 +878,7 @@ where
     /// # Panics
     ///
     /// If called outside of the tokio runtime. See also [`Self::eth_api`]
+    #[cfg(feature = "seismic-disable")]
     pub fn trace_api(&self) -> TraceApi<Provider, EthApi>
     where
         EthApi: TraceExt,
@@ -1073,6 +1075,7 @@ where
                         RethRpcModule::Net => {
                             NetApi::new(self.network.clone(), eth_api.clone()).into_rpc().into()
                         }
+                        #[cfg(feature = "seismic-disable")]
                         RethRpcModule::Trace => TraceApi::new(
                             self.provider.clone(),
                             eth_api.clone(),

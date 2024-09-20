@@ -34,6 +34,7 @@ mod web3;
 pub use servers::*;
 
 /// Aggregates all server traits.
+#[cfg(feature = "seismic-disable")]
 pub mod servers {
     pub use crate::{
         admin::AdminApiServer,
@@ -55,12 +56,33 @@ pub mod servers {
     };
 }
 
+pub mod servers {
+    pub use crate::{
+        admin::AdminApiServer,
+        debug::DebugApiServer,
+        engine::{EngineApiServer, EngineEthApiServer},
+        mev::MevApiServer,
+        net::NetApiServer,
+        otterscan::OtterscanServer,
+        reth::RethApiServer,
+        rpc::RpcApiServer,
+        txpool::TxPoolApiServer,
+        validation::BlockSubmissionValidationApiServer,
+        web3::Web3ApiServer,
+    };
+    pub use reth_rpc_eth_api::{
+        self as eth, EthApiServer, EthBundleApiServer, EthCallBundleApiServer, EthFilterApiServer,
+        EthPubSubApiServer,
+    };
+}
+
 /// re-export of all client traits
 #[cfg(feature = "client")]
 pub use clients::*;
 
 /// Aggregates all client traits.
 #[cfg(feature = "client")]
+#[cfg(feature = "seismic-disable")]
 pub mod clients {
     pub use crate::{
         admin::AdminApiClient,
@@ -75,6 +97,29 @@ pub mod clients {
         reth::RethApiClient,
         rpc::RpcApiServer,
         trace::TraceApiClient,
+        txpool::TxPoolApiClient,
+        validation::BlockSubmissionValidationApiClient,
+        web3::Web3ApiClient,
+    };
+    pub use reth_rpc_eth_api::{
+        EthApiClient, EthBundleApiClient, EthCallBundleApiClient, EthFilterApiClient,
+    };
+}
+
+#[cfg(feature = "client")]
+pub mod clients {
+    pub use crate::{
+        admin::AdminApiClient,
+        anvil::AnvilApiClient,
+        debug::DebugApiClient,
+        engine::{EngineApiClient, EngineEthApiClient},
+        ganache::GanacheApiClient,
+        hardhat::HardhatApiClient,
+        mev::MevApiClient,
+        net::NetApiClient,
+        otterscan::OtterscanClient,
+        reth::RethApiClient,
+        rpc::RpcApiServer,
         txpool::TxPoolApiClient,
         validation::BlockSubmissionValidationApiClient,
         web3::Web3ApiClient,

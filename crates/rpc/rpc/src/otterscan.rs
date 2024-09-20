@@ -17,6 +17,7 @@ use reth_rpc_types::{
     },
     AnyTransactionReceipt, BlockTransactions, Header, Transaction, WithOtherFields,
 };
+#[cfg(feature = "seismic-disable")]
 use revm_inspectors::{
     tracing::{types::CallTraceNode, TracingInspectorConfig},
     transfer::{TransferInspector, TransferKind},
@@ -90,6 +91,7 @@ where
     }
 
     /// Handler for `ots_getInternalOperations`
+    #[cfg(feature = "seismic-disable")]
     async fn get_internal_operations(&self, tx_hash: TxHash) -> RpcResult<Vec<InternalOperation>> {
         let internal_operations = self
             .eth
@@ -134,6 +136,7 @@ where
         Ok(maybe_revert)
     }
 
+    #[cfg(feature = "seismic-disable")]
     /// Handler for `ots_traceTransaction`
     async fn trace_transaction(&self, tx_hash: TxHash) -> RpcResult<Option<Vec<TraceEntry>>> {
         let traces = self
@@ -328,6 +331,7 @@ where
     }
 
     /// Handler for `getContractCreator`
+    #[cfg(feature = "seismic-disable")]
     async fn get_contract_creator(&self, address: Address) -> RpcResult<Option<ContractCreator>> {
         if !self.has_code(address, None).await? {
             return Ok(None);

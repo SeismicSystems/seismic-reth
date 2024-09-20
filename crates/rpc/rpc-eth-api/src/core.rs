@@ -223,7 +223,7 @@ pub trait EthApi<T: RpcObject, B: RpcObject> {
         request: TransactionRequest,
         block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,
-        block_overrides: Option<Box66G<BlockOverrides>>,
+        block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes>;
 
     /// Simulate arbitrary number of transactions at an arbitrary blockchain index, with the

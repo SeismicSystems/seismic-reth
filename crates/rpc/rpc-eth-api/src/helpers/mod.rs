@@ -49,8 +49,15 @@ pub trait TraceExt:
 {
 }
 
+pub trait TraceExt:
+    LoadTransaction + LoadBlock + LoadPendingBlock + SpawnBlocking + Call
+{
+}
+
 #[cfg(feature = "seismic-disable")]
 impl<T> TraceExt for T where T: LoadTransaction + LoadBlock + LoadPendingBlock + Trace + Call {}
+
+impl<T> TraceExt for T where T: LoadTransaction + LoadBlock + LoadPendingBlock + Call {}
 
 /// Helper trait to unify all `eth` rpc server building block traits, for simplicity.
 ///

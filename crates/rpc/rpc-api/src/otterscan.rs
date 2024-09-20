@@ -33,8 +33,9 @@ pub trait Otterscan {
     async fn get_api_level(&self) -> RpcResult<u64>;
 
     /// Return the internal ETH transfers inside a transaction.
-    #[method(name = "getInternalOperations")]
-    async fn get_internal_operations(&self, tx_hash: TxHash) -> RpcResult<Vec<InternalOperation>>;
+    // #[cfg(feature = "seismic-disable")]
+    // #[method(name = "getInternalOperations")]
+    // async fn get_internal_operations(&self, tx_hash: TxHash) -> RpcResult<Vec<InternalOperation>>;
 
     /// Given a transaction hash, returns its raw revert reason.
     #[method(name = "getTransactionError")]
@@ -42,8 +43,9 @@ pub trait Otterscan {
 
     /// Extract all variations of calls, contract creation and self-destructs and returns a call
     /// tree.
-    #[method(name = "traceTransaction")]
-    async fn trace_transaction(&self, tx_hash: TxHash) -> RpcResult<Option<Vec<TraceEntry>>>;
+    // #[cfg(feature = "seismic-disable")]
+    // #[method(name = "traceTransaction")]
+    // async fn trace_transaction(&self, tx_hash: TxHash) -> RpcResult<Option<Vec<TraceEntry>>>;
 
     /// Tailor-made and expanded version of eth_getBlockByNumber for block details page in
     /// Otterscan.
@@ -81,6 +83,11 @@ pub trait Otterscan {
         page_size: usize,
     ) -> RpcResult<TransactionsWithReceipts>;
 
+    /// Gets the transaction hash and the address who created a contract.
+    // #[cfg(feature = "seismic-disable")]
+    // #[method(name = "getContractCreator")]
+    // async fn get_contract_creator(&self, address: Address) -> RpcResult<Option<ContractCreator>>;
+
     /// Gets the transaction hash for a certain sender address, given its nonce.
     #[method(name = "getTransactionBySenderAndNonce")]
     async fn get_transaction_by_sender_and_nonce(
@@ -88,8 +95,4 @@ pub trait Otterscan {
         sender: Address,
         nonce: u64,
     ) -> RpcResult<Option<TxHash>>;
-
-    /// Gets the transaction hash and the address who created a contract.
-    #[method(name = "getContractCreator")]
-    async fn get_contract_creator(&self, address: Address) -> RpcResult<Option<ContractCreator>>;
 }

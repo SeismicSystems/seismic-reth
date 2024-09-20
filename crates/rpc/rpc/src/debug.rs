@@ -84,6 +84,7 @@ where
     }
 
     /// Trace the entire block asynchronously
+    #[cfg(feature = "seismic-disable")]
     async fn trace_block(
         &self,
         at: BlockId,
@@ -145,6 +146,7 @@ where
     /// This expects a rlp encoded block
     ///
     /// Note, the parent of this block must be present, or it will fail.
+    #[cfg(feature = "seismic-disable")]
     pub async fn debug_trace_raw_block(
         &self,
         rlp_block: Bytes,
@@ -186,6 +188,7 @@ where
     }
 
     /// Replays a block and returns the trace of each transaction.
+    #[cfg(feature = "seismic-disable")]
     pub async fn debug_trace_block(
         &self,
         block_id: BlockId,
@@ -221,6 +224,7 @@ where
     /// Trace the transaction according to the provided options.
     ///
     /// Ref: <https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers>
+    #[cfg(feature = "seismic-disable")]
     pub async fn debug_trace_transaction(
         &self,
         tx_hash: B256,
@@ -450,6 +454,7 @@ where
     /// The `debug_traceCallMany` method lets you run an `eth_callMany` within the context of the
     /// given block execution using the first n transactions in the given block as base.
     /// Each following bundle increments block number by 1 and block timestamp by 12 seconds
+    #[cfg(feature = "seismic-disable")]
     pub async fn debug_trace_call_many(
         &self,
         bundles: Vec<Bundle>,
@@ -883,6 +888,7 @@ where
     }
 
     /// Handler for `debug_traceBlock`
+    #[cfg(feature = "seismic-disable")]
     async fn debug_trace_block(
         &self,
         rlp_block: Bytes,
@@ -895,6 +901,7 @@ where
     }
 
     /// Handler for `debug_traceBlockByHash`
+    #[cfg(feature = "seismic-disable")]
     async fn debug_trace_block_by_hash(
         &self,
         block: B256,
@@ -906,6 +913,7 @@ where
             .map_err(Into::into)
     }
 
+    #[cfg(feature = "seismic-disable")]
     /// Handler for `debug_traceBlockByNumber`
     async fn debug_trace_block_by_number(
         &self,
@@ -941,6 +949,7 @@ where
     }
 
     /// Handler for `debug_traceCall`
+    #[cfg(feature = "seismic-disable")]
     async fn debug_trace_call(
         &self,
         request: TransactionRequest,
@@ -953,6 +962,7 @@ where
             .map_err(Into::into)
     }
 
+    #[cfg(feature = "seismic-disable")]
     async fn debug_trace_call_many(
         &self,
         bundles: Vec<Bundle>,
@@ -1135,6 +1145,7 @@ where
         Ok(())
     }
 
+    #[cfg(feature = "seismic-disable")]
     async fn debug_storage_range_at(
         &self,
         _block_hash: B256,
