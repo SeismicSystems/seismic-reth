@@ -2786,7 +2786,7 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
                 hashed_storage_cursor.delete_current_duplicates()?;
             }
 
-            for (hashed_slot_value) in storage.storage_slots_sorted() {
+            for hashed_slot_value in storage.storage_slots_sorted() {
                 let entry: StorageEntry = hashed_slot_value.into();
                 if let Some(db_entry) =
                     hashed_storage_cursor.seek_by_key_subkey(*hashed_address, entry.key)?

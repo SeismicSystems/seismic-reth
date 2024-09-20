@@ -35,9 +35,8 @@ use revm::{Database, DatabaseCommit};
 #[cfg(feature = "seismic-disable-trace")]
 use revm_inspectors::access_list::AccessListInspector;
 use tracing::trace;
-use super::Trace;
 
-use super::{LoadBlock, LoadPendingBlock, LoadState, LoadTransaction, SpawnBlocking};
+use super::{LoadBlock, LoadPendingBlock, LoadState, LoadTransaction, SpawnBlocking, Trace};
 
 /// Execution related functions for the [`EthApiServer`](crate::EthApiServer) trait in
 /// the `eth_` namespace.

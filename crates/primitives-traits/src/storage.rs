@@ -1,5 +1,4 @@
 use alloy_primitives::{B256, U256};
-use modular_bitfield::prelude::B2;
 use reth_codecs::{add_arbitrary_tests, Compact};
 use revm_primitives::FlaggedStorage;
 use serde::{Deserialize, Serialize};
