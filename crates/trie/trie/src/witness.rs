@@ -114,7 +114,7 @@ where
                 let slot_key = Nibbles::unpack(hashed_slot);
                 let slot_value = storage
                     .and_then(|s| s.storage.get(&hashed_slot))
-                    .filter(|v| !v.is_zero())
+                    .filter(|v| !v.value.is_zero())
                     .map(|v| alloy_rlp::encode_fixed_size(&v.value).to_vec());
                 let proof = storage_multiproof.subtree.iter().filter(|e| slot_key.starts_with(e.0));
                 storage_trie_nodes.extend(self.target_nodes(

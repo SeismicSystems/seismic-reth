@@ -1634,6 +1634,7 @@ mod tests {
 
         // re-calculate database storage root
         let storage_root = StorageRoot::overlay_root(tx, address, updated_storage.clone()).unwrap();
-        assert_eq!(storage_root, storage_root_prehashed(updated_storage.storage));
+        let updated_storage = FlaggedStorage::collect_value(updated_storage.storage);
+        assert_eq!(storage_root, storage_root_prehashed(updated_storage));
     }
 }

@@ -34,7 +34,6 @@ mod web3;
 pub use servers::*;
 
 /// Aggregates all server traits.
-#[cfg(feature = "seismic-disable")]
 pub mod servers {
     pub use crate::{
         admin::AdminApiServer,

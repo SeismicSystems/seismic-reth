@@ -94,7 +94,7 @@ impl ExecutionOutcome {
         let mut reverts = revert_init.into_iter().collect::<Vec<_>>();
         reverts.sort_unstable_by_key(|a| a.0);
 
-        // initialize revm bundle // STORAGE TODO involves changing evm 
+        // initialize revm bundle // STORAGE TODO involves changing evm
         let bundle = BundleState::new(
             state_init.into_iter().map(|(address, (original, present, storage))| {
                 (
