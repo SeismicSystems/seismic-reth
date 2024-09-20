@@ -616,6 +616,7 @@ where
     }
 
     /// Handler for: `eth_getStorageAt`
+    #[cfg(feature = "seismic-disable")]
     async fn storage_at(
         &self,
         address: Address,
@@ -693,7 +694,7 @@ where
         Ok(EthCall::call_many(self, bundle, state_context, state_override).await?)
     }
 
-    #[cfg(feature = "seismic-disable-trace")]
+    #[cfg(feature = "seismic-disable")]
     /// Handler for: `eth_createAccessList`
     async fn create_access_list(
         &self,

@@ -67,7 +67,7 @@ pub trait EthState: LoadState + SpawnBlocking {
         })
     }
 
-    #[cfg(feature = "seismic-disable-trace")]
+    #[cfg(feature = "seismic-disable")]
     /// Returns values stored of given account, at given blocknumber.
     fn storage_at(
         &self,

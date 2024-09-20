@@ -46,6 +46,7 @@ pub struct TraceApi<Provider, Eth> {
 
 // === impl TraceApi ===
 
+#[cfg(feature = "seismic-disable")]
 impl<Provider, Eth> TraceApi<Provider, Eth> {
     /// The provider that can interact with the chain.
     pub fn provider(&self) -> &Provider {
@@ -73,6 +74,7 @@ impl<Provider, Eth> TraceApi<Provider, Eth> {
 
 // === impl TraceApi ===
 
+#[cfg(feature = "seismic-disable")]
 impl<Provider, Eth> TraceApi<Provider, Eth>
 where
     Provider: BlockReader

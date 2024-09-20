@@ -10,6 +10,7 @@ use reth_rpc_eth_types::{
 };
 use reth_rpc_types::{BlockId, TransactionInfo};
 use revm::{db::CacheDB, Database, DatabaseCommit, GetInspector, Inspector};
+#[cfg(feature = "seismic-disable")]
 use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
 use revm_primitives::{EnvWithHandlerCfg, EvmState, ExecutionResult, ResultAndState};
 
@@ -17,6 +18,7 @@ use crate::FromEvmError;
 
 use super::{Call, LoadBlock, LoadPendingBlock, LoadState, LoadTransaction};
 
+#[cfg(feature = "seismic-disable")]
 /// Executes CPU heavy tasks.
 pub trait Trace: LoadState {
     /// Returns a handle for reading evm config.

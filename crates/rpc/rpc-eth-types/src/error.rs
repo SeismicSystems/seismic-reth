@@ -16,7 +16,7 @@ use reth_transaction_pool::error::{
     PoolTransactionError,
 };
 use revm::primitives::{EVMError, ExecutionResult, HaltReason, OutOfGasError};
-#[cfg(feature = "seismic-disable-trace")]
+#[cfg(feature = "seismic-disable")]
 use revm_inspectors::tracing::MuxError;
 use tracing::error;
 
@@ -128,7 +128,7 @@ pub enum EthApiError {
     TransactionConversionError,
     /// Error thrown when tracing with a muxTracer fails
     #[error(transparent)]
-    #[cfg(feature = "seismic-disable-trace")]
+    #[cfg(feature = "seismic-disable")]
     MuxTracerError(#[from] MuxError),
     /// Any other error
     #[error("{0}")]
@@ -188,13 +188,13 @@ impl From<EthApiError> for jsonrpsee_types::error::ErrorObject<'static> {
             }
             err @ EthApiError::TransactionInputError(_) => invalid_params_rpc_err(err.to_string()),
             EthApiError::Other(err) => err.to_rpc_error(),
-            #[cfg(feature = "seismic-disable-trace")]
+            #[cfg(feature = "seismic-disable")]
             EthApiError::MuxTracerError(msg) => internal_rpc_err(msg.to_string()),
         }
     }
 }
 
-#[cfg(feature = "seismic-disable-trace")]
+#[cfg(feature = "seismic-disable")]
 impl From<revm_inspectors::tracing::js::JsInspectorError> for EthApiError {
     fn from(error: revm_inspectors::tracing::js::JsInspectorError) -> Self {
         match error {

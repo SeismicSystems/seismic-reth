@@ -14,7 +14,7 @@ workspace = true
 [dependencies]
 # reth
 revm.workspace = true
-revm-inspectors = { workspace = true }
+revm-inspectors = { workspace = true, optional = true }
 revm-primitives = { workspace = true, features = ["dev"] }
 reth-errors.workspace = true
 reth-evm.workspace = true
@@ -61,4 +61,4 @@ optimism = [
     "reth-provider/optimism",
 ]
 default = []
-# seismic-disable-trace = ["revm-inspectors"]
+seismic-disable = ["revm-inspectors"]

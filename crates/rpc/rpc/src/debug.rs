@@ -36,6 +36,7 @@ use revm::{
     primitives::{db::DatabaseCommit, BlockEnv, CfgEnvWithHandlerCfg, Env, EnvWithHandlerCfg},
     StateBuilder,
 };
+#[cfg(feature = "seismic-disable")]
 use revm_inspectors::tracing::{
     FourByteInspector, MuxInspector, TracingInspector, TracingInspectorConfig, TransactionContext,
 };
@@ -278,6 +279,7 @@ where
             .await
     }
 
+    #[cfg(feature = "seismic-disable")]
     /// The `debug_traceCall` method lets you run an `eth_call` within the context of the given
     /// block execution using the final state of parent block as the base.
     ///
@@ -664,6 +666,7 @@ where
             .await
     }
 
+    #[cfg(feature = "seismic-disable")]
     /// Executes the configured transaction with the environment on the given database.
     ///
     /// Returns the trace frame and the state that got updated after executing the transaction.
@@ -915,6 +918,7 @@ where
             .map_err(Into::into)
     }
 
+    #[cfg(feature = "seismic-disable")]
     /// Handler for `debug_traceTransaction`
     async fn debug_trace_transaction(
         &self,

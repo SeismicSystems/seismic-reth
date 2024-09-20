@@ -61,4 +61,4 @@ serde_json.workspace = true
 [features]
 js-tracer = ["revm-inspectors/js-tracer"]
 default = []
-seismic-disable-trace = ["revm-inspectors"]
+seismic-disable = ["revm-inspectors"]

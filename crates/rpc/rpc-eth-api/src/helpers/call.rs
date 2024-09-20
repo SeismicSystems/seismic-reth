@@ -32,11 +32,13 @@ use reth_rpc_types::{
     BlockId, Bundle, EthCallResponse, StateContext, TransactionInfo, TransactionRequest,
 };
 use revm::{Database, DatabaseCommit};
-#[cfg(feature = "seismic-disable-trace")]
+#[cfg(feature = "seismic-disable")]
 use revm_inspectors::access_list::AccessListInspector;
 use tracing::trace;
 
-use super::{LoadBlock, LoadPendingBlock, LoadState, LoadTransaction, SpawnBlocking, Trace};
+#[cfg(feature = "seismic-disable")]
+use super::Trace;
+use super::{LoadBlock, LoadPendingBlock, LoadState, LoadTransaction, SpawnBlocking};
 
 /// Execution related functions for the [`EthApiServer`](crate::EthApiServer) trait in
 /// the `eth_` namespace.
@@ -192,7 +194,7 @@ pub trait EthCall: Call + LoadPendingBlock {
         }
     }
 
-    #[cfg(feature = "seismic-disable-trace")]
+    #[cfg(feature = "seismic-disable")]
     /// Creates [`AccessListResult`] for the [`TransactionRequest`] at the given
     /// [`BlockId`], or latest block.
     fn create_access_list_at(
@@ -214,7 +216,7 @@ pub trait EthCall: Call + LoadPendingBlock {
         }
     }
 
-    #[cfg(feature = "seismic-disable-trace")]
+    #[cfg(feature = "seismic-disable")]
     /// Creates [`AccessListResult`] for the [`TransactionRequest`] at the given
     /// [`BlockId`].
     fn create_access_list_with(

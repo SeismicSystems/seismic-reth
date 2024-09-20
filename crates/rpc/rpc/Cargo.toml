@@ -94,4 +94,4 @@ optimism = [
     "reth-revm/optimism",
 ]
 default = []
-seismic-disable-trace = ["revm-inspectors"]
+seismic-disable = ["revm-inspectors"]
