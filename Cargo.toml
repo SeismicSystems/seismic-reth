@@ -583,3 +583,6 @@ alloy-sol-macro-expander = { path = "../seismic-alloy-core/crates/sol-macro-expa
 alloy-sol-macro-input = { path = "../seismic-alloy-core/crates/sol-macro-input" }
 alloy-sol-types = { path = "../seismic-alloy-core/crates/sol-types" }
 alloy-sol-type-parser = { path = "../seismic-alloy-core/crates/sol-type-parser" }
+
+# seismic-revm-inspectors
+revm-inspectors = { path = "../revm-inspectors" }
