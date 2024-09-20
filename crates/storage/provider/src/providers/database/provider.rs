@@ -2670,16 +2670,16 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
                 if wiped {
                     tracing::trace!(?address, "Wiping storage");
                     if let Some((_, entry)) = storages_cursor.seek_exact(address)? {
-                        wiped_storage.push((entry.key, entry.value));
+                        wiped_storage.push((entry.key, entry.into()));
                         while let Some(entry) = storages_cursor.next_dup_val()? {
-                            wiped_storage.push((entry.key, entry.value))
+                            wiped_storage.push((entry.key, entry.into()))
                         }
                     }
                 }
 
                 tracing::trace!(?address, ?storage, "Writing storage reverts");
-                for (key, value) in StorageRevertsIter::new(storage, wiped_storage) {
-                    storage_changeset_cursor.append_dup(storage_id, StorageEntry { key, value, ..Default::default()  })?;
+                for key_value in StorageRevertsIter::new(storage, wiped_storage) {
+                    storage_changeset_cursor.append_dup(storage_id, key_value.into())?;
                 }
             }
         }
@@ -2744,10 +2744,10 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
             // cast storages to B256.
             let mut storage = storage
                 .into_iter()
-                .map(|(kv)| kv.into() )
+                .map(|key_value| key_value.into() )
                 .collect::<Vec<_>>();
             // sort storage slots by key.
-            storage.par_sort_unstable_by_key(|a| a.key);
+            storage.par_sort_unstable_by_key(|a: &StorageEntry| a.key);
 
             for entry in storage {
                 tracing::trace!(?address, ?entry.key, "Updating plain state storage");

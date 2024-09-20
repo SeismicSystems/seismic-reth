@@ -36,6 +36,7 @@ pub use receipt::LoadReceipt;
 pub use signer::{AddDevSigners, EthSigner};
 pub use spec::EthApiSpec;
 pub use state::{EthState, LoadState};
+#[cfg(feature = "seismic-disable-trace")]
 pub use trace::Trace;
 pub use transaction::{EthTransactions, LoadTransaction};
 

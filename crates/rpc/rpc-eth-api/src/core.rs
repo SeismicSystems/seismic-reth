@@ -693,6 +693,7 @@ where
         Ok(EthCall::call_many(self, bundle, state_context, state_override).await?)
     }
 
+    #[cfg(feature = "seismic-disable-trace")]
     /// Handler for: `eth_createAccessList`
     async fn create_access_list(
         &self,
