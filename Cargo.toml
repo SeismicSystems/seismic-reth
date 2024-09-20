@@ -573,7 +573,7 @@ test-fuzz = "5"
 
 # seismic-revm
 revm = { path = "../seismic-revm/crates/revm" }
-revm-primitives = { path = "../seismic-revm/crates/primitives" }
+revm-primitives = { path = "../seismic-revm/crates/primitives"}
 
 # seismic-alloy-core
 # alloy-core = { path = "../seismic-alloy-core/crates/core" }
