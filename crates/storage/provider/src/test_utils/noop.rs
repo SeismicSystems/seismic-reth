@@ -26,7 +26,7 @@ use reth_trie::{
     prefix_set::TriePrefixSetsMut, updates::TrieUpdates, AccountProof, HashedPostState,
     HashedStorage,
 };
-use revm::primitives::{BlockEnv, CfgEnvWithHandlerCfg};
+use revm::primitives::{BlockEnv, CfgEnvWithHandlerCfg, FlaggedStorage};
 use tokio::sync::{broadcast, watch};
 
 use crate::{

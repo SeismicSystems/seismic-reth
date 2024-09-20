@@ -62,7 +62,7 @@ impl Default for MockEthProvider {
 pub struct ExtendedAccount {
     account: Account,
     bytecode: Option<Bytecode>,
-    storage: HashMap<StorageKey, StorageValue>,
+    storage: HashMap<StorageKey, FlaggedStorage>,
 }
 
 impl ExtendedAccount {
@@ -87,7 +87,7 @@ impl ExtendedAccount {
     /// the value is updated.
     pub fn extend_storage(
         mut self,
-        storage: impl IntoIterator<Item = (StorageKey, StorageValue)>,
+        storage: impl IntoIterator<Item = (StorageKey, FlaggedStorage)>,
     ) -> Self {
         self.storage.extend(storage);
         self

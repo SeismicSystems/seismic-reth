@@ -513,6 +513,7 @@ mod tests {
     };
     use reth_primitives::{address, b256, Account, Address, StorageEntry, B256, U256};
     use reth_storage_errors::provider::ProviderError;
+    use revm::primitives::FlaggedStorage;
 
     const ADDRESS: Address = address!("0000000000000000000000000000000000000001");
     const HIGHER_ADDRESS: Address = address!("0000000000000000000000000000000000000005");
@@ -711,37 +712,37 @@ mod tests {
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 3, static_file_provider.clone())
                 .storage(ADDRESS, STORAGE),
-            Ok(Some(U256::ZERO))
+            Ok(Some(FlaggedStorage::ZERO))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 4, static_file_provider.clone())
                 .storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at7.value))
+            Ok(Some(entry_at7.into()))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 7, static_file_provider.clone())
                 .storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at7.value))
+            Ok(Some(entry_at7.into()))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 9, static_file_provider.clone())
                 .storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at10.value))
+            Ok(Some(entry_at10.into()))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 10, static_file_provider.clone())
                 .storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at10.value))
+            Ok(Some(entry_at10.into()))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 11, static_file_provider.clone())
                 .storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at15.value))
+            Ok(Some(entry_at15.into()))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 16, static_file_provider.clone())
                 .storage(ADDRESS, STORAGE),
-            Ok(Some(entry_plain.value))
+            Ok(Some(entry_plain.into()))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 1, static_file_provider.clone())
@@ -751,7 +752,7 @@ mod tests {
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 1000, static_file_provider)
                 .storage(HIGHER_ADDRESS, STORAGE),
-            Ok(Some(higher_entry_plain.value))
+            Ok(Some(higher_entry_plain.into()))
         );
     }
 

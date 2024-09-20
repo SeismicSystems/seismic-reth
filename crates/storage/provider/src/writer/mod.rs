@@ -536,7 +536,7 @@ mod tests {
             BundleState, EmptyDB,
         },
         primitives::{
-            Account as RevmAccount, AccountInfo as RevmAccountInfo, AccountStatus, EvmStorageSlot,
+            Account as RevmAccount, AccountInfo as RevmAccountInfo, AccountStatus, EvmStorageSlot, FlaggedStorage,
         },
         DatabaseCommit, State,
     };
@@ -741,7 +741,7 @@ mod tests {
         state.insert_account_with_storage(
             address_b,
             account_b.clone(),
-            HashMap::from([(U256::from(1), U256::from(1))]),
+            HashMap::from([(U256::from(1).into(), U256::from(1).into())]),
         );
 
         state.commit(HashMap::from([
@@ -755,11 +755,11 @@ mod tests {
                     storage: HashMap::from([
                         (
                             U256::from(0),
-                            EvmStorageSlot { present_value: U256::from(1), ..Default::default() },
+                            EvmStorageSlot { present_value: U256::from(1).into(), ..Default::default() },
                         ),
                         (
                             U256::from(1),
-                            EvmStorageSlot { present_value: U256::from(2), ..Default::default() },
+                            EvmStorageSlot { present_value: U256::from(2).into(), ..Default::default() },
                         ),
                     ]),
                 },
@@ -773,8 +773,8 @@ mod tests {
                     storage: HashMap::from([(
                         U256::from(1),
                         EvmStorageSlot {
-                            present_value: U256::from(2),
-                            original_value: U256::from(1),
+                            present_value: U256::from(2).into(),
+                            original_value: U256::from(1).into(),
                             ..Default::default()
                         },
                     )]),
@@ -942,11 +942,11 @@ mod tests {
                 storage: HashMap::from([
                     (
                         U256::ZERO,
-                        EvmStorageSlot { present_value: U256::from(1), ..Default::default() },
+                        EvmStorageSlot { present_value: U256::from(1).into(), ..Default::default() },
                     ),
                     (
                         U256::from(1),
-                        EvmStorageSlot { present_value: U256::from(2), ..Default::default() },
+                        EvmStorageSlot { present_value: U256::from(2).into(), ..Default::default() },
                     ),
                 ]),
             },
@@ -964,7 +964,7 @@ mod tests {
         state.insert_account_with_storage(
             address1,
             account_info.clone(),
-            HashMap::from([(U256::ZERO, U256::from(1)), (U256::from(1), U256::from(2))]),
+            HashMap::from([(U256::ZERO, U256::from(1).into()), (U256::from(1), U256::from(2).into())]),
         );
 
         // Block #1: change storage.
@@ -977,8 +977,8 @@ mod tests {
                 storage: HashMap::from([(
                     U256::ZERO,
                     EvmStorageSlot {
-                        original_value: U256::from(1),
-                        present_value: U256::from(2),
+                        original_value: U256::from(1).into(),
+                        present_value: U256::from(2).into(),
                         ..Default::default()
                     },
                 )]),
@@ -1020,15 +1020,15 @@ mod tests {
                 storage: HashMap::from([
                     (
                         U256::ZERO,
-                        EvmStorageSlot { present_value: U256::from(2), ..Default::default() },
+                        EvmStorageSlot { present_value: U256::from(2).into(), ..Default::default() },
                     ),
                     (
                         U256::from(2),
-                        EvmStorageSlot { present_value: U256::from(4), ..Default::default() },
+                        EvmStorageSlot { present_value: U256::from(4).into(), ..Default::default() },
                     ),
                     (
                         U256::from(6),
-                        EvmStorageSlot { present_value: U256::from(6), ..Default::default() },
+                        EvmStorageSlot { present_value: U256::from(6).into(), ..Default::default() },
                     ),
                 ]),
             },
@@ -1063,7 +1063,7 @@ mod tests {
                 // 0x00 => 0 => 2
                 storage: HashMap::from([(
                     U256::ZERO,
-                    EvmStorageSlot { present_value: U256::from(2), ..Default::default() },
+                    EvmStorageSlot { present_value: U256::from(2).into(), ..Default::default() },
                 )]),
             },
         )]));
@@ -1094,7 +1094,7 @@ mod tests {
                 // 0x00 => 0 => 9
                 storage: HashMap::from([(
                     U256::ZERO,
-                    EvmStorageSlot { present_value: U256::from(9), ..Default::default() },
+                    EvmStorageSlot { present_value: U256::from(9).into(), ..Default::default() },
                 )]),
             },
         )]));
@@ -1257,11 +1257,11 @@ mod tests {
                 storage: HashMap::from([
                     (
                         U256::ZERO,
-                        EvmStorageSlot { present_value: U256::from(1), ..Default::default() },
+                        EvmStorageSlot { present_value: U256::from(1).into(), ..Default::default() },
                     ),
                     (
                         U256::from(1),
-                        EvmStorageSlot { present_value: U256::from(2), ..Default::default() },
+                        EvmStorageSlot { present_value: U256::from(2).into(), ..Default::default() },
                     ),
                 ]),
             },
@@ -1278,7 +1278,7 @@ mod tests {
         state.insert_account_with_storage(
             address1,
             account1.clone(),
-            HashMap::from([(U256::ZERO, U256::from(1)), (U256::from(1), U256::from(2))]),
+            HashMap::from([(U256::ZERO, U256::from(1).into()), (U256::from(1), U256::from(2).into())]),
         );
 
         // Block #1: Destroy, re-create, change storage.
@@ -1308,7 +1308,7 @@ mod tests {
                 // 0x01 => 0 => 5
                 storage: HashMap::from([(
                     U256::from(1),
-                    EvmStorageSlot { present_value: U256::from(5), ..Default::default() },
+                    EvmStorageSlot { present_value: U256::from(5).into(), ..Default::default() },
                 )]),
             },
         )]));
@@ -1458,7 +1458,7 @@ mod tests {
         state.insert_account_with_storage(
             address2,
             account2.0.into(),
-            HashMap::from([(slot2, account2_slot2_old_value)]),
+            HashMap::from([(slot2, account2_slot2_old_value.into())]),
         );
 
         let account2_slot2_new_value = U256::from(100);
@@ -1470,7 +1470,7 @@ mod tests {
                 info: account2.0.into(),
                 storage: HashMap::from_iter([(
                     slot2,
-                    EvmStorageSlot::new_changed(account2_slot2_old_value, account2_slot2_new_value),
+                    EvmStorageSlot::new_changed(account2_slot2_old_value.into(), account2_slot2_new_value.into()),
                 )]),
             },
         )]));
@@ -1538,7 +1538,7 @@ mod tests {
                 info: account1_new.into(),
                 storage: HashMap::from_iter([(
                     slot20,
-                    EvmStorageSlot::new_changed(U256::ZERO, account1_slot20_value),
+                    EvmStorageSlot::new_changed(U256::ZERO.into(), account1_slot20_value.into()),
                 )]),
             },
         )]));
@@ -1602,7 +1602,7 @@ mod tests {
                 "51e6784c736ef8548f856909870b38e49ef7a4e3e77e5e945e0d5e6fcaa3037f",
             ]
             .into_iter()
-            .map(|str| (B256::from_str(str).unwrap(), U256::from(1))),
+            .map(|str| (B256::from_str(str).unwrap(), U256::from(1).into())),
         );
         let mut state = HashedPostState::default();
         state.storages.insert(hashed_address, init_storage.clone());
@@ -1611,7 +1611,8 @@ mod tests {
         // calculate database storage root and write intermediate storage nodes.
         let (storage_root, _, storage_updates) =
             StorageRoot::from_tx_hashed(tx, hashed_address).calculate(true).unwrap();
-        assert_eq!(storage_root, storage_root_prehashed(init_storage.storage));
+        let storage = FlaggedStorage::collect_value(init_storage.storage);
+        assert_eq!(storage_root, storage_root_prehashed(storage));
         assert!(!storage_updates.is_empty());
         provider_rw
             .write_individual_storage_trie_updates(hashed_address, &storage_updates)
@@ -1625,7 +1626,7 @@ mod tests {
                 "88d233b7380bb1bcdc866f6871c94685848f54cf0ee033b1480310b4ddb75fc9",
             ]
             .into_iter()
-            .map(|str| (B256::from_str(str).unwrap(), U256::from(1))),
+            .map(|str| (B256::from_str(str).unwrap(), U256::from(1).into())),
         );
         let mut state = HashedPostState::default();
         state.storages.insert(hashed_address, updated_storage.clone());

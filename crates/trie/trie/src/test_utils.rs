@@ -2,6 +2,7 @@ use alloy_rlp::encode_fixed_size;
 use reth_primitives::{Account, Address, B256, U256};
 use reth_trie_common::{triehash::KeccakHasher, TrieAccount};
 
+use revm::primitives::FlaggedStorage;
 /// Re-export of [triehash].
 pub use triehash;
 

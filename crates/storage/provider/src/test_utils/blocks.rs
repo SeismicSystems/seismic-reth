@@ -12,7 +12,7 @@ use reth_primitives::{
 use reth_trie::root::{state_root_unhashed, storage_root_unhashed};
 use revm::{
     db::BundleState,
-    primitives::{AccountInfo, HashMap},
+    primitives::{AccountInfo, FlaggedStorage, HashMap},
 };
 use std::str::FromStr;
 
@@ -172,7 +172,7 @@ fn bundle_state_root(execution_outcome: &ExecutionOutcome) -> B256 {
                                 .storage
                                 .iter()
                                 .filter(|(_, value)| !value.present_value.is_zero())
-                                .map(|(slot, value)| ((*slot).into(), value.present_value)),
+                                .map(|(slot, value)| ((*slot).into(), value.present_value.value)),
                         ),
                     ),
                 )
@@ -195,7 +195,7 @@ fn block1(number: BlockNumber) -> (SealedBlockWithSenders, ExecutionOutcome) {
             .revert_account_info(number, account1, Some(None))
             .state_present_account_info(account2, info)
             .revert_account_info(number, account2, Some(None))
-            .state_storage(account1, HashMap::from([(slot, (U256::ZERO, U256::from(10)))]))
+            .state_storage(account1, HashMap::from([(slot, (FlaggedStorage::ZERO, U256::from(10).into()))]))
             .build(),
         vec![vec![Some(Receipt {
             tx_type: TxType::Eip2930,
@@ -249,13 +249,13 @@ fn block2(
                 account,
                 AccountInfo { nonce: 3, balance: U256::from(20), ..Default::default() },
             )
-            .state_storage(account, HashMap::from([(slot, (U256::ZERO, U256::from(15)))]))
+            .state_storage(account, HashMap::from([(slot, (FlaggedStorage::ZERO, U256::from(15).into()))]))
             .revert_account_info(
                 number,
                 account,
                 Some(Some(AccountInfo { nonce: 1, balance: U256::from(10), ..Default::default() })),
             )
-            .revert_storage(number, account, Vec::from([(slot, U256::from(10))]))
+            .revert_storage(number, account, Vec::from([(slot, U256::from(10).into())]))
             .build(),
         vec![vec![Some(Receipt {
             tx_type: TxType::Eip1559,
@@ -319,7 +319,7 @@ fn block3(
                 HashMap::from_iter(
                     slot_range
                         .clone()
-                        .map(|slot| (U256::from(slot), (U256::ZERO, U256::from(slot)))),
+                        .map(|slot| (U256::from(slot), (FlaggedStorage::ZERO, U256::from(slot).into()))),
                 ),
             )
             .revert_account_info(number, address, Some(None))
@@ -385,7 +385,7 @@ fn block4(
                     address,
                     HashMap::from_iter(
                         slot_range.clone().map(|slot| {
-                            (U256::from(slot), (U256::from(slot), U256::from(slot * 2)))
+                            (U256::from(slot), (U256::from(slot).into(), U256::from(slot * 2).into()))
                         }),
                     ),
                 )
@@ -395,7 +395,7 @@ fn block4(
                 HashMap::from_iter(
                     slot_range
                         .clone()
-                        .map(|slot| (U256::from(slot), (U256::from(slot), U256::ZERO))),
+                        .map(|slot| (U256::from(slot), (U256::from(slot).into(), FlaggedStorage::ZERO))),
                 ),
             )
         };
@@ -413,7 +413,7 @@ fn block4(
             .revert_storage(
                 number,
                 address,
-                Vec::from_iter(slot_range.clone().map(|slot| (U256::from(slot), U256::from(slot)))),
+                Vec::from_iter(slot_range.clone().map(|slot| (U256::from(slot).into(), U256::from(slot).into()))),
             );
     }
     let execution_outcome = ExecutionOutcome::new(
@@ -477,7 +477,7 @@ fn block5(
                     slot_range
                         .clone()
                         .take(50)
-                        .map(|slot| (U256::from(slot), (U256::from(slot), U256::from(slot * 4)))),
+                        .map(|slot| (U256::from(slot), (U256::from(slot).into(), U256::from(slot * 4).into()))),
                 ),
             );
         bundle_state_builder = if idx % 2 == 0 {
@@ -495,7 +495,7 @@ fn block5(
                     number,
                     address,
                     Vec::from_iter(
-                        slot_range.clone().map(|slot| (U256::from(slot), U256::from(slot * 2))),
+                        slot_range.clone().map(|slot| (U256::from(slot), U256::from(slot * 2).into())),
                     ),
                 )
         } else {
