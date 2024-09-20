@@ -861,8 +861,8 @@ checksum = "867a5469d61480fea08c7333ffeca52d5b621f5ca2e44f271b117ec1fc9a0525"
 dependencies = [
  "alloy-sol-macro-input 0.8.1",
  "const-hex",
- "heck 0.5.0",
- "indexmap 2.4.0",
+ "heck",
+ "indexmap 2.5.0",
  "proc-macro-error2",
  "proc-macro2",
  "quote",
@@ -3388,6 +3388,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "foundry-evm"
+version = "0.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a9711e3f8dfde9309f144cacab4ed6915e139da1ae9adaf37a250e74bb7c6db"
+
+[[package]]
 name = "fragile"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5363,6 +5369,7 @@ dependencies = [
  "op-alloy-consensus",
  "op-alloy-genesis",
  "serde",
+ "spin",
 ]
 
 [[package]]
@@ -6235,6 +6242,21 @@ name = "recvmsg"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3edd4d5d42c92f0a659926464d4cce56b562761267ecf0f469d85b7de384175"
+
+[[package]]
+name = "redis"
+version = "0.25.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0d7a6955c7511f60f3ba9e86c6d02b3c3f144f8c24b288d1f4e18074ab8bbec"
+dependencies = [
+ "combine",
+ "itoa",
+ "percent-encoding",
+ "ryu",
+ "sha1_smol",
+ "socket2 0.5.7",
+ "url",
+]
 
 [[package]]
 name = "redox_syscall"
@@ -9878,6 +9900,12 @@ dependencies = [
  "cpufeatures",
  "digest 0.10.7",
 ]
+
+[[package]]
+name = "sha1_smol"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbfa15b3dddfee50a0fff136974b3e1bde555604ba463834a7eb7deb6417705d"
 
 [[package]]
 name = "sha2"
