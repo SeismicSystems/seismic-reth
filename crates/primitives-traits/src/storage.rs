@@ -1,4 +1,5 @@
 use alloy_primitives::{B256, U256};
+use modular_bitfield::prelude::B2;
 use reth_codecs::{add_arbitrary_tests, Compact};
 use revm_primitives::FlaggedStorage;
 use serde::{Deserialize, Serialize};
@@ -41,6 +42,26 @@ impl From<(B256, (U256, bool))> for StorageEntry {
         Self { key, value, is_private }
     }
 }
+
+impl<T> From<(T, FlaggedStorage)> for StorageEntry
+where
+    T: Into<B256>, // Ensure T can be converted into the key type required by StorageEntry
+{
+    fn from((key, flagged_storage): (T, FlaggedStorage)) -> Self {
+        Self {
+            key: key.into(),
+            value: flagged_storage.value,
+            is_private: flagged_storage.is_private,
+        }
+    }
+}
+
+impl From<StorageEntry> for FlaggedStorage {
+    fn from(value: StorageEntry) -> Self {
+        Self { value: value.value, is_private: value.is_private }
+    }
+}
+
 
 // NOTE: Removing reth_codec and manually encode subkey
 // and compress second part of the value. If we have compression

@@ -19,7 +19,7 @@ use revm::primitives::FlaggedStorage;
 /// Mock state for testing
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct StateProviderTest {
-    accounts: HashMap<Address, (HashMap<StorageKey, FlaggedStorage>, Account)>,
+    accounts: HashMap<Address, (HashMap<StorageKey, U256>, Account)>,
     contracts: HashMap<B256, Bytecode>,
     block_hash: HashMap<u64, B256>,
 }
@@ -138,7 +138,14 @@ impl StateProvider for StateProviderTest {
         account: Address,
         storage_key: StorageKey,
     ) -> ProviderResult<Option<FlaggedStorage>> {
-        Ok(self.accounts.get(&account).and_then(|(storage, _)| storage.get(&storage_key).copied()))
+        Ok(self.accounts.get(&account).and_then(
+            |(storage, _)| {
+                match storage.get(&storage_key).copied() {
+                    Some(value) => Some(value.into()),
+                    None => None,
+                }
+            }
+        ))
     }
 
     fn bytecode_by_hash(&self, code_hash: B256) -> ProviderResult<Option<Bytecode>> {

@@ -20,6 +20,7 @@ use reth_trie::{
     AccountProof, HashedPostState, HashedStorage, StateRoot, StorageRoot,
 };
 use reth_trie_db::{DatabaseProof, DatabaseStateRoot, DatabaseStorageRoot, DatabaseTrieWitness};
+use revm::primitives::FlaggedStorage;
 
 /// State provider over latest state that takes tx reference.
 #[derive(Debug)]
@@ -152,11 +153,11 @@ impl<'b, TX: DbTx> StateProvider for LatestStateProviderRef<'b, TX> {
         &self,
         account: Address,
         storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>> {
+    ) -> ProviderResult<Option<FlaggedStorage>> {
         let mut cursor = self.tx.cursor_dup_read::<tables::PlainStorageState>()?;
         if let Some(entry) = cursor.seek_by_key_subkey(account, storage_key)? {
             if entry.key == storage_key {
-                return Ok(Some(entry.value))
+                return Ok(Some(entry.into()))
             }
         }
         Ok(None)

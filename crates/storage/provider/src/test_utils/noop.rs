@@ -386,7 +386,7 @@ impl StateProvider for NoopProvider {
         &self,
         _account: Address,
         _storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>> {
+    ) -> ProviderResult<Option<FlaggedStorage>> {
         Ok(None)
     }
 

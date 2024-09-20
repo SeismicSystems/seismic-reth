@@ -424,7 +424,7 @@ where
                     tracker.inc_leaf();
                     hash_builder.add_leaf(
                         Nibbles::unpack(hashed_slot),
-                        alloy_rlp::encode_fixed_size(&value).as_ref(),
+                        alloy_rlp::encode_fixed_size(&value.value).as_ref(),
                     );
                 }
             }

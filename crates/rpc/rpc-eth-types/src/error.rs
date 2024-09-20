@@ -16,6 +16,7 @@ use reth_transaction_pool::error::{
     PoolTransactionError,
 };
 use revm::primitives::{EVMError, ExecutionResult, HaltReason, OutOfGasError};
+#[cfg(feature = "js-tracer")]
 use revm_inspectors::tracing::MuxError;
 use tracing::error;
 
@@ -126,6 +127,7 @@ pub enum EthApiError {
     #[error("Transaction conversion error")]
     TransactionConversionError,
     /// Error thrown when tracing with a muxTracer fails
+    #[cfg(feature = "js-tracer")]
     #[error(transparent)]
     MuxTracerError(#[from] MuxError),
     /// Any other error
@@ -186,6 +188,7 @@ impl From<EthApiError> for jsonrpsee_types::error::ErrorObject<'static> {
             }
             err @ EthApiError::TransactionInputError(_) => invalid_params_rpc_err(err.to_string()),
             EthApiError::Other(err) => err.to_rpc_error(),
+            #[cfg(feature = "js-tracer")]
             EthApiError::MuxTracerError(msg) => internal_rpc_err(msg.to_string()),
         }
     }

@@ -13,7 +13,7 @@ pub struct StorageRevertsIter<R: Iterator, W: Iterator> {
 impl<R, W> StorageRevertsIter<R, W>
 where
     R: Iterator<Item = (B256, RevertToSlot)>,
-    W: Iterator<Item = (B256, U256)>,
+    W: Iterator<Item = (B256, )>,
 {
     /// Create a new iterator over storage reverts.
     pub fn new(

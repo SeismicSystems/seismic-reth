@@ -174,7 +174,7 @@ impl<'a, 'b> Database for StateCacheDbRefMutWrapper<'a, 'b> {
         &mut self,
         address: revm_primitives::Address,
         index: U256,
-    ) -> Result<U256, Self::Error> {
+    ) -> Result<FlaggedStorage, Self::Error> {
         self.0.storage(address, index)
     }
 
@@ -201,7 +201,7 @@ impl<'a, 'b> DatabaseRef for StateCacheDbRefMutWrapper<'a, 'b> {
         &self,
         address: revm_primitives::Address,
         index: U256,
-    ) -> Result<U256, Self::Error> {
+    ) -> Result<FlaggedStorage, Self::Error> {
         self.0.storage_ref(address, index)
     }
 

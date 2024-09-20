@@ -5,7 +5,7 @@ use crate::{
 use itertools::Itertools;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use reth_primitives::{keccak256, Account, Address, B256, U256};
-use revm::db::{states::CacheAccount, AccountStatus, BundleAccount};
+use revm::{db::{states::CacheAccount, AccountStatus, BundleAccount}, primitives::FlaggedStorage};
 use std::{
     borrow::Cow,
     collections::{hash_map, HashMap, HashSet},
@@ -34,7 +34,7 @@ impl HashedPostState {
                 let hashed_account = account.info.clone().map(Into::into);
                 let hashed_storage = HashedStorage::from_plain_storage(
                     account.status,
-                    account.storage.iter().map(|(slot, value)| (slot, &value.present_value.value)),
+                    account.storage.iter().map(|(slot, value)| (slot, &value.present_value)),
                 );
                 (hashed_address, (hashed_account, hashed_storage))
             })
@@ -61,7 +61,7 @@ impl HashedPostState {
                 let hashed_account = account.account.as_ref().map(|a| a.info.clone().into());
                 let hashed_storage = HashedStorage::from_plain_storage(
                     account.status,
-                    account.account.as_ref().map(|a| a.storage.iter().map(|entry| (entry.0, &entry.1.value))).into_iter().flatten(),
+                    account.account.as_ref().map(|a| a.storage.iter().map(|entry| (entry.0, entry.1))).into_iter().flatten(),
                 );
                 (hashed_address, (hashed_account, hashed_storage))
             })
@@ -198,7 +198,7 @@ pub struct HashedStorage {
     /// Flag indicating whether the storage was wiped or not.
     pub wiped: bool,
     /// Mapping of hashed storage slot to storage value.
-    pub storage: HashMap<B256, U256>,
+    pub storage: HashMap<B256, FlaggedStorage>,
 }
 
 impl HashedStorage {
@@ -208,14 +208,14 @@ impl HashedStorage {
     }
 
     /// Create new hashed storage from iterator.
-    pub fn from_iter(wiped: bool, iter: impl IntoIterator<Item = (B256, U256)>) -> Self {
+    pub fn from_iter(wiped: bool, iter: impl IntoIterator<Item = (B256, FlaggedStorage)>) -> Self {
         Self { wiped, storage: HashMap::from_iter(iter) }
     }
 
     /// Create new hashed storage from account status and plain storage.
     pub fn from_plain_storage<'a>(
         status: AccountStatus,
-        storage: impl IntoIterator<Item = (&'a U256, &'a U256)>,
+        storage: impl IntoIterator<Item = (&'a U256, &'a FlaggedStorage)>,
     ) -> Self {
         Self::from_iter(
             status.was_destroyed(),
@@ -251,7 +251,7 @@ impl HashedStorage {
         let mut non_zero_valued_slots = Vec::new();
         let mut zero_valued_slots = HashSet::default();
         for (hashed_slot, value) in self.storage {
-            if value.is_zero() {
+            if !value.is_private && value.value.is_zero() {
                 zero_valued_slots.insert(hashed_slot);
             } else {
                 non_zero_valued_slots.push((hashed_slot, value));
@@ -315,9 +315,9 @@ impl HashedAccountsSorted {
 /// Sorted hashed storage optimized for iterating during state trie calculation.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct HashedStorageSorted {
-    /// Sorted hashed storage slots with non-zero value.
-    pub(crate) non_zero_valued_slots: Vec<(B256, U256)>,
-    /// Slots that have been zero valued.
+    /// Sorted hashed storage slots with non-zero value or private value.
+    pub(crate) non_zero_valued_slots: Vec<(B256, FlaggedStorage)>,
+    /// Slots that have been public zero valued.
     pub(crate) zero_valued_slots: HashSet<B256>,
     /// Flag indicating whether the storage was wiped or not.
     pub(crate) wiped: bool,
@@ -330,11 +330,11 @@ impl HashedStorageSorted {
     }
 
     /// Returns a sorted iterator over updated storage slots.
-    pub fn storage_slots_sorted(&self) -> impl Iterator<Item = (B256, U256)> {
+    pub fn storage_slots_sorted(&self) -> impl Iterator<Item = (B256, FlaggedStorage)> {
         self.non_zero_valued_slots
             .iter()
             .map(|(hashed_slot, value)| (*hashed_slot, *value))
-            .chain(self.zero_valued_slots.iter().map(|hashed_slot| (*hashed_slot, U256::ZERO)))
+            .chain(self.zero_valued_slots.iter().map(|hashed_slot| (*hashed_slot, FlaggedStorage::default())))
             .sorted_by_key(|entry| *entry.0)
     }
 }

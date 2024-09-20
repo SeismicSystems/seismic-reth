@@ -2744,7 +2744,7 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
             // cast storages to B256.
             let mut storage = storage
                 .into_iter()
-                .map(|(k, value)| StorageEntry { key: k.into(), value, ..Default::default()  })
+                .map(|(kv)| kv.into() )
                 .collect::<Vec<_>>();
             // sort storage slots by key.
             storage.par_sort_unstable_by_key(|a| a.key);
@@ -2786,8 +2786,8 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
                 hashed_storage_cursor.delete_current_duplicates()?;
             }
 
-            for (hashed_slot, value) in storage.storage_slots_sorted() {
-                let entry = StorageEntry { key: hashed_slot, value, ..Default::default()  };
+            for (hashed_slot_value) in storage.storage_slots_sorted() {
+                let entry: StorageEntry = hashed_slot_value.into();
                 if let Some(db_entry) =
                     hashed_storage_cursor.seek_by_key_subkey(*hashed_address, entry.key)?
                 {

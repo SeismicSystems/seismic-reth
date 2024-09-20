@@ -395,15 +395,15 @@ impl<'b, TX: DbTx> StateProvider for HistoricalStateProviderRef<'b, TX> {
                         address,
                         storage_key: Box::new(storage_key),
                     })?
-                    .value,
+                    .to_flagged_storage(),
             )),
             HistoryInfo::InPlainState | HistoryInfo::MaybeInPlainState => Ok(self
                 .tx
                 .cursor_dup_read::<tables::PlainStorageState>()?
                 .seek_by_key_subkey(address, storage_key)?
                 .filter(|entry| entry.key == storage_key)
-                .map(|entry| entry.value)
-                .or(Some(StorageValue::ZERO))),
+                .map(|entry| entry.into())
+                .or(Some(Default::default()))),
         }
     }
 
