@@ -178,13 +178,14 @@ pub trait EthApi<T: RpcObject, B: RpcObject> {
     async fn balance(&self, address: Address, block_number: Option<BlockId>) -> RpcResult<U256>;
 
     /// Returns the value from a storage position at a given address
-    #[method(name = "getStorageAt")]
-    async fn storage_at(
-        &self,
-        address: Address,
-        index: JsonStorageKey,
-        block_number: Option<BlockId>,
-    ) -> RpcResult<B256>;
+    // #[cfg(feature = "seismic-disable")]
+    // #[method(name = "getStorageAt")]
+    // async fn storage_at(
+    //     &self,
+    //     address: Address,
+    //     index: JsonStorageKey,
+    //     block_number: Option<BlockId>,
+    // ) -> RpcResult<B256>;
 
     /// Returns the number of transactions sent from an address at given block number.
     #[method(name = "getTransactionCount")]
@@ -222,7 +223,7 @@ pub trait EthApi<T: RpcObject, B: RpcObject> {
         request: TransactionRequest,
         block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,
-        block_overrides: Option<Box<BlockOverrides>>,
+        block_overrides: Option<Box66G<BlockOverrides>>,
     ) -> RpcResult<Bytes>;
 
     /// Simulate arbitrary number of transactions at an arbitrary blockchain index, with the
@@ -249,12 +250,13 @@ pub trait EthApi<T: RpcObject, B: RpcObject> {
     /// when the transaction is actually mined. Adding an accessList to your transaction does
     /// not necessary result in lower gas usage compared to a transaction without an access
     /// list.
-    #[method(name = "createAccessList")]
-    async fn create_access_list(
-        &self,
-        request: TransactionRequest,
-        block_number: Option<BlockId>,
-    ) -> RpcResult<AccessListResult>;
+    // #[cfg(feature = "seismic-disable")]
+    // #[method(name = "createAccessList")]
+    // async fn create_access_list(
+    //     &self,
+    //     request: TransactionRequest,
+    //     block_number: Option<BlockId>,
+    // ) -> RpcResult<AccessListResult>;
 
     /// Generates and returns an estimate of how much gas is necessary to allow the transaction to
     /// complete.

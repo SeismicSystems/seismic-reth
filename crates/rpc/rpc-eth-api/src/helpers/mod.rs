@@ -42,17 +42,20 @@ pub use transaction::{EthTransactions, LoadTransaction};
 
 use crate::EthApiTypes;
 
+#[cfg(feature = "seismic-disable")]
 /// Extension trait that bundles traits needed for tracing transactions.
 pub trait TraceExt:
     LoadTransaction + LoadBlock + LoadPendingBlock + SpawnBlocking + Trace + Call
 {
 }
 
+#[cfg(feature = "seismic-disable")]
 impl<T> TraceExt for T where T: LoadTransaction + LoadBlock + LoadPendingBlock + Trace + Call {}
 
 /// Helper trait to unify all `eth` rpc server building block traits, for simplicity.
 ///
 /// This trait is automatically implemented for any type that implements all the `Eth` traits.
+#[cfg(feature = "seismic-disable")]
 pub trait FullEthApi:
     EthApiTypes
     + EthApiSpec
@@ -66,6 +69,19 @@ pub trait FullEthApi:
 {
 }
 
+pub trait FullEthApi:
+    EthApiTypes
+    + EthApiSpec
+    + EthTransactions
+    + EthBlocks
+    + EthState
+    + EthCall
+    + EthFees
+    + LoadReceipt
+{
+}
+
+#[cfg(feature = "seismic-disable")]
 impl<T> FullEthApi for T where
     T: EthApiTypes
         + EthApiSpec
@@ -75,6 +91,18 @@ impl<T> FullEthApi for T where
         + EthCall
         + EthFees
         + Trace
+        + LoadReceipt
+{
+}
+
+impl<T> FullEthApi for T where
+    T: EthApiTypes
+        + EthApiSpec
+        + EthTransactions
+        + EthBlocks
+        + EthState
+        + EthCall
+        + EthFees
         + LoadReceipt
 {
 }
