@@ -2670,16 +2670,16 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
                 if wiped {
                     tracing::trace!(?address, "Wiping storage");
                     if let Some((_, entry)) = storages_cursor.seek_exact(address)? {
-                        wiped_storage.push((entry.key, entry.value));
+                        wiped_storage.push((entry.key, entry.to_flagged_storage()));
                         while let Some(entry) = storages_cursor.next_dup_val()? {
-                            wiped_storage.push((entry.key, entry.value))
+                            wiped_storage.push((entry.key, entry.to_flagged_storage()))
                         }
                     }
                 }
 
                 tracing::trace!(?address, ?storage, "Writing storage reverts");
-                for (key, value) in StorageRevertsIter::new(storage, wiped_storage) {
-                    storage_changeset_cursor.append_dup(storage_id, StorageEntry { key, value: value.value, is_private: value.is_private  })?;
+                for key_value in StorageRevertsIter::new(storage, wiped_storage) {
+                    storage_changeset_cursor.append_dup(storage_id, key_value.())?;
                 }
             }
         }
@@ -2744,10 +2744,10 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
             // cast storages to B256.
             let mut storage = storage
                 .into_iter()
-                .map(|(k, value)| StorageEntry { key: k.into(), value: value.value, is_private: value.is_private  })
+                .map(|key_value| key_value.into() )
                 .collect::<Vec<_>>();
             // sort storage slots by key.
-            storage.par_sort_unstable_by_key(|a| a.key);
+            storage.par_sort_unstable_by_key(|a: &StorageEntry| a.key);
 
             for entry in storage {
                 tracing::trace!(?address, ?entry.key, "Updating plain state storage");
@@ -2786,8 +2786,8 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
                 hashed_storage_cursor.delete_current_duplicates()?;
             }
 
-            for (hashed_slot, value) in storage.storage_slots_sorted() {
-                let entry = StorageEntry { key: hashed_slot, value, ..Default::default()  };
+            for hashed_slot_value in storage.storage_slots_sorted() {
+                let entry: StorageEntry = hashed_slot_value.into();
                 if let Some(db_entry) =
                     hashed_storage_cursor.seek_by_key_subkey(*hashed_address, entry.key)?
                 {
