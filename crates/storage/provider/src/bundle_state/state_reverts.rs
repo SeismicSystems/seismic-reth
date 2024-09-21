@@ -24,12 +24,12 @@ where
     }
 
     /// Consume next revert and return it.
-    fn next_revert(&mut self) -> Option<(B256, U256)> {
+    fn next_revert(&mut self) -> Option<(B256, FlaggedStorage)> {
         self.reverts.next().map(|(key, revert)| (key, revert.to_previous_value()))
     }
 
     /// Consume next wiped storage and return it.
-    fn next_wiped(&mut self) -> Option<(B256, U256)> {
+    fn next_wiped(&mut self) -> Option<(B256, FlaggedStorage)> {
         self.wiped.next()
     }
 }
@@ -59,7 +59,7 @@ where
                             // If the slot is some, prefer the revert value.
                             RevertToSlot::Some(value) => value,
                             // If the slot was destroyed, prefer the database value.
-                            RevertToSlot::Destroyed => wiped.1.into(),
+                            RevertToSlot::Destroyed => wiped.1,
                         };
 
                         // Consume both values from inner iterators.

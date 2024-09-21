@@ -5,7 +5,7 @@ use crate::{
 use itertools::Itertools;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use reth_primitives::{keccak256, Account, Address, B256, U256};
-use revm::db::{states::CacheAccount, AccountStatus, BundleAccount};
+use revm::{db::{states::CacheAccount, AccountStatus, BundleAccount}, primitives::FlaggedStorage};
 use std::{
     borrow::Cow,
     collections::{hash_map, HashMap, HashSet},
@@ -34,7 +34,7 @@ impl HashedPostState {
                 let hashed_account = account.info.clone().map(Into::into);
                 let hashed_storage = HashedStorage::from_plain_storage(
                     account.status,
-                    account.storage.iter().map(|(slot, value)| (slot, &value.present_value.value)),
+                    account.storage.iter().map(|(slot, value)| (slot, &value.present_value)),
                 );
                 (hashed_address, (hashed_account, hashed_storage))
             })
@@ -215,7 +215,7 @@ impl HashedStorage {
     /// Create new hashed storage from account status and plain storage.
     pub fn from_plain_storage<'a>(
         status: AccountStatus,
-        storage: impl IntoIterator<Item = (&'a U256, &'a U256)>,
+        storage: impl IntoIterator<Item = (&'a U256, &'a FlaggedStorage)>,
     ) -> Self {
         Self::from_iter(
             status.was_destroyed(),
