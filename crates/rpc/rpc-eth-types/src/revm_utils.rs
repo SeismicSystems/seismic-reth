@@ -290,7 +290,7 @@ where
                 new_account_state
                     .into_iter()
                     .map(|(slot, value)| {
-                        (U256::from_be_bytes(slot.0), U256::from_be_bytes(value.0))
+                        (U256::from_be_bytes(slot.0).into(), U256::from_be_bytes(value.0).into())
                     })
                     .collect(),
             )?;
@@ -300,7 +300,7 @@ where
                 db.insert_account_storage(
                     account,
                     U256::from_be_bytes(slot.0),
-                    U256::from_be_bytes(value.0),
+                    revm_primitives::FlaggedStorage::new_from_U256(U256::from_be_bytes(value.0)),
                 )?;
             }
         }

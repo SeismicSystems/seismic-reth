@@ -1,5 +1,6 @@
 //! Helper macros for implementing traits for various [`StateProvider`](crate::StateProvider)
 //! implementations
+use revm::primitives::FlaggedStorage;
 
 /// A macro that delegates trait implementations to the `as_ref` function of the type.
 ///
@@ -38,7 +39,7 @@ macro_rules! delegate_provider_impls {
                 fn canonical_hashes_range(&self, start: reth_primitives::BlockNumber, end: reth_primitives::BlockNumber) -> reth_storage_errors::provider::ProviderResult<Vec<reth_primitives::B256>>;
             }
             StateProvider $(where [$($generics)*])? {
-                fn storage(&self, account: reth_primitives::Address, storage_key: reth_primitives::StorageKey) -> reth_storage_errors::provider::ProviderResult<Option<FlaggedStorage>>;
+                fn storage(&self, account: reth_primitives::Address, storage_key: reth_primitives::StorageKey) -> reth_storage_errors::provider::ProviderResult<Option<revm::primitives::FlaggedStorage>>;
                 fn bytecode_by_hash(&self, code_hash: reth_primitives::B256) -> reth_storage_errors::provider::ProviderResult<Option<reth_primitives::Bytecode>>;
             }
             StateRootProvider $(where [$($generics)*])? {

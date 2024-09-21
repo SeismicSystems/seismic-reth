@@ -2679,7 +2679,7 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
 
                 tracing::trace!(?address, ?storage, "Writing storage reverts");
                 for (key, value) in StorageRevertsIter::new(storage, wiped_storage) {
-                    storage_changeset_cursor.append_dup(storage_id, StorageEntry { key, value, ..Default::default()  })?;
+                    storage_changeset_cursor.append_dup(storage_id, StorageEntry { key, value: value.value, is_private: value.is_private  })?;
                 }
             }
         }
@@ -2744,7 +2744,7 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
             // cast storages to B256.
             let mut storage = storage
                 .into_iter()
-                .map(|(k, value)| StorageEntry { key: k.into(), value, ..Default::default()  })
+                .map(|(k, value)| StorageEntry { key: k.into(), value: value.value, is_private: value.is_private  })
                 .collect::<Vec<_>>();
             // sort storage slots by key.
             storage.par_sort_unstable_by_key(|a| a.key);

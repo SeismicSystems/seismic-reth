@@ -1,5 +1,5 @@
 use reth_primitives::{B256, U256};
-use revm::db::states::RevertToSlot;
+use revm::{db::states::RevertToSlot, primitives::FlaggedStorage};
 use std::iter::Peekable;
 
 /// Iterator over storage reverts.
@@ -13,7 +13,7 @@ pub struct StorageRevertsIter<R: Iterator, W: Iterator> {
 impl<R, W> StorageRevertsIter<R, W>
 where
     R: Iterator<Item = (B256, RevertToSlot)>,
-    W: Iterator<Item = (B256, U256)>,
+    W: Iterator<Item = (B256, FlaggedStorage)>,
 {
     /// Create a new iterator over storage reverts.
     pub fn new(
@@ -37,9 +37,9 @@ where
 impl<R, W> Iterator for StorageRevertsIter<R, W>
 where
     R: Iterator<Item = (B256, RevertToSlot)>,
-    W: Iterator<Item = (B256, U256)>,
+    W: Iterator<Item = (B256, FlaggedStorage)>,
 {
-    type Item = (B256, U256);
+    type Item = (B256, FlaggedStorage);
 
     /// Iterate over storage reverts and wiped entries and return items in the sorted order.
     /// NOTE: The implementation assumes that inner iterators are already sorted.
@@ -59,7 +59,7 @@ where
                             // If the slot is some, prefer the revert value.
                             RevertToSlot::Some(value) => value,
                             // If the slot was destroyed, prefer the database value.
-                            RevertToSlot::Destroyed => wiped.1,
+                            RevertToSlot::Destroyed => wiped.1.into(),
                         };
 
                         // Consume both values from inner iterators.
