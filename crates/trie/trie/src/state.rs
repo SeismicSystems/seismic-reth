@@ -61,7 +61,7 @@ impl HashedPostState {
                 let hashed_account = account.account.as_ref().map(|a| a.info.clone().into());
                 let hashed_storage = HashedStorage::from_plain_storage(
                     account.status,
-                    account.account.as_ref().map(|a| a.storage.iter().map(|entry| (entry.0, &entry.1.value))).into_iter().flatten(),
+                    account.account.as_ref().map(|a| a.storage.iter().map(|entry| (entry.0, entry.1))).into_iter().flatten(),
                 );
                 (hashed_address, (hashed_account, hashed_storage))
             })
@@ -219,7 +219,7 @@ impl HashedStorage {
     ) -> Self {
         Self::from_iter(
             status.was_destroyed(),
-            storage.into_iter().map(|(key, value)| (keccak256(B256::from(*key)), *value)),
+            storage.into_iter().map(|(key, value)| (keccak256(B256::from(*key)), value.value)),
         )
     }
 
