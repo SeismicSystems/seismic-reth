@@ -401,7 +401,7 @@ revm = { version = "14.0.0", features = [
     "secp256k1",
     "blst",
 ], default-features = false }
-revm-inspectors = "0.6"
+revm-inspectors = { version = "0.6",  path = "../revm-inspectors" }
 revm-primitives = { version = "9.0.0", features = [
     "std",
 ], default-features = false }
@@ -583,6 +583,3 @@ alloy-sol-macro-expander = { path = "../seismic-alloy-core/crates/sol-macro-expa
 alloy-sol-macro-input = { path = "../seismic-alloy-core/crates/sol-macro-input" }
 alloy-sol-types = { path = "../seismic-alloy-core/crates/sol-types" }
 alloy-sol-type-parser = { path = "../seismic-alloy-core/crates/sol-type-parser" }
-
-# seismic-revm-inspectors
-revm-inspectors = { path = "../revm-inspectors" }
