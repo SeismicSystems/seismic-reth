@@ -48,6 +48,7 @@ serde = { workspace = true, optional = true }
 reth-chainspec.workspace = true
 reth-primitives = { workspace = true, features = ["test-utils", "arbitrary"] }
 reth-provider = { workspace = true, features = ["test-utils"] }
+reth-trie-common = { workspace = true, features = ["test-utils", "arbitrary"] }	
 
 # trie
 triehash = "0.8"
