@@ -60,4 +60,3 @@ optimism = [
     "revm/optimism",
     "reth-provider/optimism",
 ]
-default = []
