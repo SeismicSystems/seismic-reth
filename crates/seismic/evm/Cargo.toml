@@ -16,7 +16,6 @@ reth-evm-ethereum.workspace = true
 reth-node-api.workspace = true
 reth-primitives.workspace = true
 reth-node-ethereum.workspace = true
-# seismic-inspector.workspace = true
 
 
 [lints]

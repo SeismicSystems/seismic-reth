@@ -21,7 +21,9 @@ where
     ) -> eyre::Result<(Self::EVM, Self::Executor)> {
         Ok((
             SeismicEvmConfig::default(),
-            EthExecutorProvider::new(ctx.chain_spec(), SeismicEvmConfig::default()),
+        EthExecutorProvider::new(ctx.chain_spec(), SeismicEvmConfig::default()),
         ))
     }
 }
+
+

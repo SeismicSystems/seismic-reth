@@ -11,32 +11,18 @@ use reth_primitives::{
     Header, TransactionSigned, U256,
 };
 
-use seismic_inspector::get_new_seismic_inspector;
-
-lazy_static::lazy_static! {
-    pub static ref SEISMIC_DB: seismic_db::SyncInMemoryDB = seismic_db::SyncInMemoryDB::new();
-}
-
-type SeismicExt = seismic_inspector::SeismicInspector<seismic_db::SyncInMemoryDB>;
-
-fn seismic_inspector() -> SeismicExt {
-    get_new_seismic_inspector(SEISMIC_DB.clone())
-}
-
 #[derive(Debug, Clone, Copy, Default)]
 #[non_exhaustive]
-pub struct SeismicEvmConfig;
+    pub struct SeismicEvmConfig;
 
-impl ConfigureEvm for SeismicEvmConfig {
-    type DefaultExternalContext<'a> =
-        seismic_inspector::SeismicInspector<seismic_db::SyncInMemoryDB>;
+    impl ConfigureEvm for SeismicEvmConfig {
+    type DefaultExternalContext<'a> = ();
 
     fn evm<DB: Database>(&self, db: DB) -> Evm<'_, Self::DefaultExternalContext<'_>, DB> {
         EvmBuilder::default()
             .with_db(db)
-            .with_external_context(seismic_inspector())
-            .append_handler_register(inspector_handle_register)
-            .build()
+//.seismic () // Seismic spec
+.build()
     }
 
     fn evm_with_inspector<DB, I>(&self, db: DB, inspector: I) -> Evm<'_, I, DB>
@@ -44,12 +30,13 @@ impl ConfigureEvm for SeismicEvmConfig {
         DB: Database,
         I: GetInspector<DB>,
     {
-        // pretty sure this won't work but I don't see where this would get called anyway
-        RethEvmBuilder::new(db, seismic_inspector()).build_with_inspector(inspector)
+    RethEvmBuilder::default().with_db(db).with_external_context(inspector)
+    //.seismic()
+    .append_handler_register(inspector_handle_register).build()
     }
 
     fn default_external_context<'a>(&self) -> Self::DefaultExternalContext<'a> {
-        seismic_inspector()
+
     }
 }
 
@@ -70,7 +57,7 @@ impl ConfigureEvmEnv for SeismicEvmConfig {
                 total_difficulty,
                 hash: Default::default(),
             },
-        );
+        ); // TODO: shift to reth_evm_seismic eventually
 
         cfg_env.chain_id = chain_spec.chain().id();
         cfg_env.perf_analyse_created_bytecodes = AnalysisKind::Analyse;

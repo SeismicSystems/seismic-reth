@@ -13,7 +13,8 @@ use revm_primitives::EnvWithHandlerCfg;
 /// This is useful for creating an EVM with a custom database and environment without having to
 /// necessarily rely on Revm inspector.
 #[derive(Debug)]
-pub struct RethEvmBuilder<DB: Database, EXT = ()> {
+pub struct RethEvmBuilder<DB: Database, EXT = ()>  {
+
     /// The database to use for the EVM.
     db: DB,
     /// The environment to use for the EVM.
