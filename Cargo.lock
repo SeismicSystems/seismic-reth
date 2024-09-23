@@ -8858,7 +8858,6 @@ version = "9.0.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives 0.8.1",
- "arbitrary",
  "auto_impl",
  "bitflags 2.6.0",
  "bitvec",
