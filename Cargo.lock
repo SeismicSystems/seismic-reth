@@ -8867,7 +8867,6 @@ dependencies = [
  "enumn",
  "hashbrown 0.14.5",
  "hex",
- "proptest-arbitrary-interop",
  "serde",
 ]
 
