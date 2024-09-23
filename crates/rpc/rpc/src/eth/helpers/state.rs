@@ -7,6 +7,8 @@ use reth_transaction_pool::TransactionPool;
 use reth_rpc_eth_api::helpers::{EthState, LoadState, SpawnBlocking};
 use reth_rpc_eth_types::EthStateCache;
 
+use revm::primitives::FlaggedStorage;
+
 use crate::EthApi;
 
 impl<Provider, Pool, Network, EvmConfig> EthState for EthApi<Provider, Pool, Network, EvmConfig>
@@ -111,7 +113,7 @@ mod tests {
         assert_eq!(storage, U256::ZERO.to_be_bytes());
 
         // === Mock ===
-        let storage_value = StorageValue::from(1337);
+        let storage_value = FlaggedStorage::new_from_value(1337);
         let storage_key = StorageKey::random();
         let storage = HashMap::from([(storage_key, storage_value)]);
 
@@ -121,7 +123,7 @@ mod tests {
 
         let storage_key: U256 = storage_key.into();
         let storage = eth_api.storage_at(address, storage_key.into(), None).await.unwrap();
-        assert_eq!(storage, storage_value.to_be_bytes());
+        assert_eq!(storage, storage_value.value.to_be_bytes());
     }
 
     #[tokio::test]

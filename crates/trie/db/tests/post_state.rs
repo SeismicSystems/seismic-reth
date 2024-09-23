@@ -10,6 +10,7 @@ use reth_trie::{
     HashedPostState, HashedStorage,
 };
 use reth_trie_db::DatabaseHashedCursorFactory;
+use revm::primitives::FlaggedStorage;
 use std::collections::BTreeMap;
 
 fn assert_account_cursor_order(
@@ -35,7 +36,7 @@ fn assert_storage_cursor_order(
 ) {
     for (account, storage) in expected {
         let mut cursor = factory.hashed_storage_cursor(account).unwrap();
-        let mut expected_storage = storage.into_iter();
+        let mut expected_storage = storage.into_iter().map(|(slot, value)| (slot, FlaggedStorage::new_from_value(value)));
 
         let first_storage = cursor.seek(B256::default()).unwrap();
         assert_eq!(first_storage, expected_storage.next());
@@ -261,7 +262,7 @@ fn storage_is_empty() {
     {
         let wiped = true;
         let mut hashed_storage = HashedStorage::new(wiped);
-        hashed_storage.storage.insert(B256::random(), U256::ZERO);
+        hashed_storage.storage.insert(B256::random(), FlaggedStorage::ZERO);
 
         let mut hashed_post_state = HashedPostState::default();
         hashed_post_state.storages.insert(address, hashed_storage);
@@ -278,7 +279,7 @@ fn storage_is_empty() {
     {
         let wiped = true;
         let mut hashed_storage = HashedStorage::new(wiped);
-        hashed_storage.storage.insert(B256::random(), U256::from(1));
+        hashed_storage.storage.insert(B256::random(), FlaggedStorage::new_from_value(1));
 
         let mut hashed_post_state = HashedPostState::default();
         hashed_post_state.storages.insert(address, hashed_storage);
@@ -313,7 +314,7 @@ fn storage_cursor_correct_order() {
     let wiped = false;
     let mut hashed_storage = HashedStorage::new(wiped);
     for (slot, value) in &post_state_storage {
-        hashed_storage.storage.insert(*slot, *value);
+        hashed_storage.storage.insert(*slot, FlaggedStorage::new_from_value(*value));
     }
 
     let mut hashed_post_state = HashedPostState::default();
@@ -348,7 +349,7 @@ fn zero_value_storage_entries_are_discarded() {
     let wiped = false;
     let mut hashed_storage = HashedStorage::new(wiped);
     for (slot, value) in &post_state_storage {
-        hashed_storage.storage.insert(*slot, *value);
+        hashed_storage.storage.insert(*slot, FlaggedStorage::new_from_value(*value));
     }
 
     let mut hashed_post_state = HashedPostState::default();
@@ -384,7 +385,7 @@ fn wiped_storage_is_discarded() {
     let wiped = true;
     let mut hashed_storage = HashedStorage::new(wiped);
     for (slot, value) in &post_state_storage {
-        hashed_storage.storage.insert(*slot, *value);
+        hashed_storage.storage.insert(*slot, FlaggedStorage::new_from_value(*value));
     }
 
     let mut hashed_post_state = HashedPostState::default();
@@ -419,7 +420,7 @@ fn post_state_storages_take_precedence() {
     let wiped = false;
     let mut hashed_storage = HashedStorage::new(wiped);
     for (slot, value) in &storage {
-        hashed_storage.storage.insert(*slot, *value);
+        hashed_storage.storage.insert(*slot, FlaggedStorage::new_from_value(*value));
     }
 
     let mut hashed_post_state = HashedPostState::default();
@@ -456,7 +457,7 @@ fn fuzz_hashed_storage_cursor() {
         for (address, (wiped, storage)) in &post_state_storages {
             let mut hashed_storage = HashedStorage::new(*wiped);
             for (slot, value) in storage {
-                hashed_storage.storage.insert(*slot, *value);
+                hashed_storage.storage.insert(*slot, FlaggedStorage::new_from_value(*value));
             }
             hashed_post_state.storages.insert(*address, hashed_storage);
         }

@@ -1380,12 +1380,12 @@ mod tests {
 
     #[test]
     fn bundle_state_state_root() {
-        type PreState = BTreeMap<Address, (Account, BTreeMap<B256, FlaggedStorage>)>;
+        type PreState = BTreeMap<Address, (Account, BTreeMap<B256, U256>)>;
         let mut prestate: PreState = (0..10)
             .map(|key| {
                 let account = Account { nonce: 1, balance: U256::from(key), bytecode_hash: None };
                 let storage =
-                    (1..11).map(|key| (B256::with_last_byte(key), FlaggedStorage::new_from_value(key))).collect();
+                    (1..11).map(|key| (B256::with_last_byte(key), U256::from(key))).collect();
                 (Address::with_last_byte(key), (account, storage))
             })
             .collect();
@@ -1401,7 +1401,7 @@ mod tests {
             for (slot, value) in storage {
                 tx.put::<tables::HashedStorages>(
                     hashed_address,
-                    StorageEntry { key: keccak256(slot), value: value.value, is_private: value.is_private  },
+                    StorageEntry { key: keccak256(slot), value: *value, ..Default::default()  },
                 )
                 .unwrap();
             }
@@ -1460,7 +1460,7 @@ mod tests {
         state.insert_account_with_storage(
             address2,
             account2.0.into(),
-            HashMap::from([(slot2, account2_slot2_old_value)]),
+            HashMap::from([(slot2, FlaggedStorage::new_from_value(account2_slot2_old_value))]),
         );
 
         let account2_slot2_new_value = U256::from(100);
@@ -1472,7 +1472,7 @@ mod tests {
                 info: account2.0.into(),
                 storage: HashMap::from_iter([(
                     slot2,
-                    EvmStorageSlot::new_changed(account2_slot2_old_value, account2_slot2_new_value),
+                    EvmStorageSlot::new_changed(FlaggedStorage::new_from_value(account2_slot2_old_value), FlaggedStorage::new_from_value(account2_slot2_new_value)),
                 )]),
             },
         )]));
@@ -1540,7 +1540,7 @@ mod tests {
                 info: account1_new.into(),
                 storage: HashMap::from_iter([(
                     slot20,
-                    EvmStorageSlot::new_changed(U256::ZERO, account1_slot20_value),
+                    EvmStorageSlot::new_changed(FlaggedStorage::ZERO, FlaggedStorage::new_from_value(account1_slot20_value)),
                 )]),
             },
         )]));
@@ -1604,7 +1604,7 @@ mod tests {
                 "51e6784c736ef8548f856909870b38e49ef7a4e3e77e5e945e0d5e6fcaa3037f",
             ]
             .into_iter()
-            .map(|str| (B256::from_str(str).unwrap(), U256::from(1))),
+            .map(|str| (B256::from_str(str).unwrap(), FlaggedStorage::new_from_value(1))),
         );
         let mut state = HashedPostState::default();
         state.storages.insert(hashed_address, init_storage.clone());
@@ -1613,7 +1613,7 @@ mod tests {
         // calculate database storage root and write intermediate storage nodes.
         let (storage_root, _, storage_updates) =
             StorageRoot::from_tx_hashed(tx, hashed_address).calculate(true).unwrap();
-        assert_eq!(storage_root, storage_root_prehashed(init_storage.storage));
+        assert_eq!(storage_root, storage_root_prehashed(FlaggedStorage::collect_value(init_storage.storage)));
         assert!(!storage_updates.is_empty());
         provider_rw
             .write_individual_storage_trie_updates(hashed_address, &storage_updates)
@@ -1627,7 +1627,7 @@ mod tests {
                 "88d233b7380bb1bcdc866f6871c94685848f54cf0ee033b1480310b4ddb75fc9",
             ]
             .into_iter()
-            .map(|str| (B256::from_str(str).unwrap(), U256::from(1))),
+            .map(|str| (B256::from_str(str).unwrap(), FlaggedStorage::new_from_value(1))),
         );
         let mut state = HashedPostState::default();
         state.storages.insert(hashed_address, updated_storage.clone());
@@ -1635,6 +1635,6 @@ mod tests {
 
         // re-calculate database storage root
         let storage_root = StorageRoot::overlay_root(tx, address, updated_storage.clone()).unwrap();
-        assert_eq!(storage_root, storage_root_prehashed(updated_storage.storage));
+        assert_eq!(storage_root, storage_root_prehashed(FlaggedStorage::collect_value(updated_storage.storage)));
     }
 }
