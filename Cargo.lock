@@ -6273,6 +6273,8 @@ dependencies = [
  "reth-rpc-types",
  "reth-rpc-types-compat",
  "reth-tracing",
+ "revm",
+ "revm-primitives",
  "serde",
  "serde_json",
  "thiserror",
@@ -8867,6 +8869,8 @@ dependencies = [
  "enumn",
  "hashbrown 0.14.5",
  "hex",
+ "proptest",
+ "proptest-derive",
  "serde",
 ]
 
