@@ -610,6 +610,8 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-eth"
 version = "0.2.1"
+<<<<<<< HEAD
+=======
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81e18424d962d7700a882fe423714bd5b9dde74c7a7589d4255ea64068773aef"
 dependencies = [
@@ -629,10 +631,61 @@ dependencies = [
 
 [[package]]
 name = "alloy-rpc-types-eth"
+version = "0.3.0"
+>>>>>>> da6d0a5ce (almost done with seismic tx, spinning up node and CLI left)
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81e18424d962d7700a882fe423714bd5b9dde74c7a7589d4255ea64068773aef"
+dependencies = [
+<<<<<<< HEAD
+ "alloy-consensus 0.2.1",
+ "alloy-eips 0.2.1",
+ "alloy-network-primitives 0.2.1",
+ "alloy-primitives 0.7.7",
+ "alloy-rlp",
+ "alloy-serde 0.2.1",
+ "alloy-sol-types 0.7.7",
+=======
+ "alloy-consensus 0.3.6",
+ "alloy-eips 0.3.6",
+ "alloy-network-primitives 0.3.0",
+ "alloy-primitives 0.8.1",
+ "alloy-rlp",
+ "alloy-serde 0.3.6",
+ "alloy-sol-types 0.8.1",
+ "arbitrary",
+>>>>>>> da6d0a5ce (almost done with seismic tx, spinning up node and CLI left)
+ "itertools 0.13.0",
+ "jsonrpsee-types",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+<<<<<<< HEAD
+name = "alloy-rpc-types-eth"
 version = "0.3.6"
+=======
+name = "alloy-rpc-types-mev"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a0593a17b4b009598eb3e8380e298c53bd5581f3f37d85a38e6a34881c90ea1"
+dependencies = [
+ "alloy-eips 0.2.1",
+ "alloy-primitives 0.7.7",
+ "alloy-serde 0.2.1",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "alloy-rpc-types-mev"
+version = "0.3.0"
+>>>>>>> da6d0a5ce (almost done with seismic tx, spinning up node and CLI left)
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83aa984386deda02482660aa31cb8ca1e63d533f1c31a52d7d181ac5ec68e9b8"
 dependencies = [
+<<<<<<< HEAD
  "alloy-consensus 0.3.6",
  "alloy-eips 0.3.6",
  "alloy-network-primitives 0.3.0",
@@ -646,6 +699,11 @@ dependencies = [
  "hashbrown 0.14.5",
  "itertools 0.13.0",
  "jsonrpsee-types",
+=======
+ "alloy-eips 0.3.6",
+ "alloy-primitives 0.8.1",
+ "alloy-serde 0.3.6",
+>>>>>>> da6d0a5ce (almost done with seismic tx, spinning up node and CLI left)
  "serde",
  "serde_json",
 ]
@@ -674,6 +732,20 @@ dependencies = [
  "alloy-serde 0.3.6",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "alloy-rpc-types-trace"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a86eeb49ea0cc79f249faa1d35c20541bb1c317a59b5962cb07b1890355b0064"
+dependencies = [
+ "alloy-primitives 0.7.7",
+ "alloy-rpc-types-eth 0.2.1",
+ "alloy-serde 0.2.1",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -788,6 +860,12 @@ name = "alloy-sol-macro"
 version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b40397ddcdcc266f59f959770f601ce1280e699a91fc1862f29cef91707cd09"
+<<<<<<< HEAD
+dependencies = [
+ "alloy-sol-macro-expander 0.7.7",
+ "alloy-sol-macro-input 0.7.7",
+ "proc-macro-error",
+=======
 dependencies = [
  "alloy-sol-macro-expander 0.7.7",
  "alloy-sol-macro-input 0.7.7",
@@ -798,6 +876,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-sol-macro"
+version = "0.8.1"
+dependencies = [
+ "alloy-sol-macro-expander 0.8.1",
+ "alloy-sol-macro-input 0.8.1",
+ "proc-macro-error2",
+>>>>>>> da6d0a5ce (almost done with seismic tx, spinning up node and CLI left)
+ "proc-macro2",
+ "quote",
+ "syn 2.0.76",
+]
+
+[[package]]
+<<<<<<< HEAD
 name = "alloy-sol-macro"
 version = "0.8.1"
 dependencies = [
@@ -816,6 +908,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "867a5469d61480fea08c7333ffeca52d5b621f5ca2e44f271b117ec1fc9a0525"
 dependencies = [
  "alloy-sol-macro-input 0.7.7",
+=======
+name = "alloy-sol-macro-expander"
+version = "0.7.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "867a5469d61480fea08c7333ffeca52d5b621f5ca2e44f271b117ec1fc9a0525"
+dependencies = [
+ "alloy-sol-macro-input 0.7.7",
+ "const-hex",
+ "heck 0.5.0",
+ "indexmap 2.4.0",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.76",
+ "syn-solidity 0.7.7",
+ "tiny-keccak",
+]
+
+[[package]]
+name = "alloy-sol-macro-expander"
+version = "0.8.1"
+dependencies = [
+ "alloy-sol-macro-input 0.8.1",
+>>>>>>> da6d0a5ce (almost done with seismic tx, spinning up node and CLI left)
  "const-hex",
  "heck 0.5.0",
  "indexmap 2.4.0",
@@ -854,7 +970,11 @@ checksum = "2e482dc33a32b6fadbc0f599adea520bd3aaa585c141a80b404d0a3e3fa72528"
 dependencies = [
  "const-hex",
  "dunce",
+<<<<<<< HEAD
  "heck",
+=======
+ "heck 0.5.0",
+>>>>>>> da6d0a5ce (almost done with seismic tx, spinning up node and CLI left)
  "proc-macro2",
  "quote",
  "syn 2.0.76",
@@ -863,9 +983,13 @@ dependencies = [
 
 [[package]]
 name = "alloy-sol-macro-input"
+<<<<<<< HEAD
 version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2e482dc33a32b6fadbc0f599adea520bd3aaa585c141a80b404d0a3e3fa72528"
+=======
+version = "0.8.1"
+>>>>>>> da6d0a5ce (almost done with seismic tx, spinning up node and CLI left)
 dependencies = [
  "const-hex",
  "dunce",
@@ -5329,10 +5453,11 @@ version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf300a82ae2d30e2255bfea87a2259da49f63a25a44db561ae64cc9e3084139f"
 dependencies = [
- "alloy-consensus",
- "alloy-eips",
+ "alloy-consensus 0.3.6",
+ "alloy-eips 0.3.6",
  "alloy-primitives 0.8.1",
  "alloy-rlp",
+<<<<<<< HEAD
  "alloy-serde",
  "hashbrown 0.14.5",
  "op-alloy-consensus",
@@ -5355,10 +5480,32 @@ dependencies = [
  "hashbrown 0.14.5",
  "op-alloy-consensus",
  "op-alloy-genesis",
+=======
+ "alloy-serde 0.3.6",
+ "derive_more 1.0.0",
+>>>>>>> da6d0a5ce (almost done with seismic tx, spinning up node and CLI left)
  "serde",
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "op-alloy-network"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66184e6c92269ba4ef1f80e8566ce11d41b584884ce7476d4b1b5e0e38503ecb"
+dependencies = [
+ "alloy-consensus 0.3.6",
+ "alloy-eips 0.3.6",
+ "alloy-network",
+ "alloy-primitives 0.8.1",
+ "alloy-rpc-types-eth 0.3.0",
+ "op-alloy-consensus",
+ "op-alloy-rpc-types",
+]
+
+[[package]]
+>>>>>>> da6d0a5ce (almost done with seismic tx, spinning up node and CLI left)
 name = "op-alloy-rpc-types"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10229,9 +10376,13 @@ dependencies = [
 
 [[package]]
 name = "syn-solidity"
+<<<<<<< HEAD
 version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c837dc8852cb7074e46b444afb81783140dab12c58867b49fb3898fbafedf7ea"
+=======
+version = "0.8.1"
+>>>>>>> da6d0a5ce (almost done with seismic tx, spinning up node and CLI left)
 dependencies = [
  "paste",
  "proc-macro2",
