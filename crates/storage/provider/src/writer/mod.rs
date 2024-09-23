@@ -22,9 +22,8 @@ use reth_storage_api::{
     BlockNumReader, HeaderProvider, ReceiptWriter, StageCheckpointWriter, TransactionsProviderExt,
 };
 use reth_storage_errors::writer::UnifiedStorageWriterError;
-use revm::{
-    db::OriginalValuesKnown, primitives::FlaggedStorage
-};
+use revm::db::OriginalValuesKnown;
+use revm::primitives::FlaggedStorage;
 use std::{borrow::Borrow, sync::Arc};
 use tracing::{debug, instrument};
 

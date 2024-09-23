@@ -47,7 +47,7 @@ mod tests {
     use super::*;
     use reth_evm_ethereum::EthEvmConfig;
     use reth_primitives::{
-        constants::ETHEREUM_BLOCK_GAS_LIMIT, Address, StorageKey, StorageValue, KECCAK_EMPTY, U256,
+        constants::ETHEREUM_BLOCK_GAS_LIMIT, Address, StorageKey, KECCAK_EMPTY, U256,
     };
     use reth_provider::test_utils::{ExtendedAccount, MockEthProvider, NoopProvider};
     use reth_rpc_eth_api::helpers::EthState;
