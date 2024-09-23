@@ -82,7 +82,7 @@ pub trait EthState: LoadState + SpawnBlocking {
                         .unwrap_or_default();
             match storage_value.is_public() {
                 true => return Ok(B256::new(storage_value.value.to_be_bytes())),
-                false => return Ok(B256::ZERO), // Seismic TODO: do we want to return a zero value here?
+                false => return Ok(B256::ZERO),
             };
         })
     }
