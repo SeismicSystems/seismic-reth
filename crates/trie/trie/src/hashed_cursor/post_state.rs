@@ -3,7 +3,7 @@ use crate::{
     forward_cursor::ForwardInMemoryCursor, HashedAccountsSorted, HashedPostStateSorted,
     HashedStorageSorted,
 };
-use reth_primitives::{Account, B256, U256};
+use reth_primitives::{Account, B256};
 use reth_storage_errors::db::DatabaseError;
 use revm::primitives::FlaggedStorage;
 use std::collections::HashSet;

@@ -1,6 +1,5 @@
 //! Helper macros for implementing traits for various [`StateProvider`](crate::StateProvider)
 //! implementations
-use revm::primitives::FlaggedStorage;
 
 /// A macro that delegates trait implementations to the `as_ref` function of the type.
 ///

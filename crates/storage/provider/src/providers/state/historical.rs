@@ -11,7 +11,7 @@ use reth_db_api::{
 };
 use reth_primitives::{
     constants::EPOCH_SLOTS, Account, Address, BlockNumber, Bytecode, Bytes, StaticFileSegment,
-    StorageKey, StorageValue, B256,
+    StorageKey, B256,
 };
 use reth_storage_api::{StateProofProvider, StorageRootProvider};
 use reth_storage_errors::provider::ProviderResult;

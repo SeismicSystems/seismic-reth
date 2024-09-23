@@ -1,7 +1,7 @@
 //! Common root computation functions.
 
 use crate::TrieAccount;
-use alloy_primitives::{keccak256, Address, B256, U256};
+use alloy_primitives::{keccak256, Address, B256};
 use alloy_rlp::Encodable;
 use alloy_trie::HashBuilder;
 use itertools::Itertools;

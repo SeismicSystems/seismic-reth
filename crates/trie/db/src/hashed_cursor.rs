@@ -3,7 +3,7 @@ use reth_db_api::{
     cursor::{DbCursorRO, DbDupCursorRO},
     transaction::DbTx,
 };
-use reth_primitives::{Account, B256, U256};
+use reth_primitives::{Account, B256};
 use reth_trie::hashed_cursor::{HashedCursor, HashedCursorFactory, HashedStorageCursor};
 use revm::primitives::FlaggedStorage;
 

@@ -1,4 +1,4 @@
-use reth_primitives::{Account, B256, U256};
+use reth_primitives::{Account, B256};
 use reth_storage_errors::db::DatabaseError;
 
 /// Implementation of hashed state cursor traits for the post state.

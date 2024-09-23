@@ -401,7 +401,7 @@ revm = { version = "14.0.0", features = [
     "secp256k1",
     "blst",
 ], default-features = false }
-revm-inspectors = { version = "0.6",  path = "../revm-inspectors" }
+revm-inspectors = { version = "0.6",  path = "../seismic-revm-inspectors" }
 revm-primitives = { version = "9.0.0", features = [
     "std",
 ], default-features = false }

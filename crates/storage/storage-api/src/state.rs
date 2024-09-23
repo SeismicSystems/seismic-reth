@@ -5,7 +5,7 @@ use super::{
 use auto_impl::auto_impl;
 use reth_execution_types::ExecutionOutcome;
 use reth_primitives::{
-    revm_primitives::FlaggedStorage, Address, BlockHash, BlockId, BlockNumHash, BlockNumber, BlockNumberOrTag, Bytecode, StorageKey, StorageValue, B256, KECCAK_EMPTY, U256
+    revm_primitives::FlaggedStorage, Address, BlockHash, BlockId, BlockNumHash, BlockNumber, BlockNumberOrTag, Bytecode, StorageKey, B256, KECCAK_EMPTY, U256
 };
 use reth_storage_errors::provider::{ProviderError, ProviderResult};
 

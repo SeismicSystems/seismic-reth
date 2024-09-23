@@ -1,6 +1,6 @@
 use crate::precompile::HashMap;
 use reth_primitives::{
-    keccak256, Account, Address, BlockNumber, Bytecode, Bytes, StorageKey, B256, U256,
+    keccak256, Account, Address, BlockNumber, Bytecode, Bytes, StorageKey, B256,
 };
 use reth_storage_api::{
     AccountReader, BlockHashReader, StateProofProvider, StateProvider, StateRootProvider,
