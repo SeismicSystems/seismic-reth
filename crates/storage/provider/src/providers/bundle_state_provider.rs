@@ -124,7 +124,7 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StorageRootProvider
             .map(|account| {
                 HashedStorage::from_plain_storage(
                     account.status,
-                    account.storage.iter().map(|(slot, value)| (slot, &value)),
+                    account.storage.iter().map(|(slot, value)| (slot, &value.present_value)),
                 )
             })
             .unwrap_or_else(|| HashedStorage::new(false));

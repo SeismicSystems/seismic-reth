@@ -42,6 +42,15 @@ impl From<(B256, (U256, bool))> for StorageEntry {
     }
 }
 
+impl From<StorageEntry> for FlaggedStorage {
+    fn from(entry: StorageEntry) -> Self {
+        Self {
+            value: entry.value,
+            is_private: entry.is_private,
+        }
+    }
+}
+
 // NOTE: Removing reth_codec and manually encode subkey
 // and compress second part of the value. If we have compression
 // over whole value (Even SubKey) that would mess up fetching of values with seek_by_key_subkey

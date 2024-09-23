@@ -13,6 +13,7 @@ use reth_trie::{
     trie_cursor::InMemoryTrieCursorFactory, updates::TrieUpdates, HashedPostState, HashedStorage,
     StateRoot, StateRootProgress,
 };
+use revm::primitives::FlaggedStorage;
 use std::{
     collections::{hash_map, HashMap},
     ops::RangeInclusive,
@@ -245,7 +246,7 @@ impl<TX: DbTx> DatabaseHashedPostState<TX> for HashedPostState {
         }
 
         // Iterate over storage changesets and record value before first occurring storage change.
-        let mut storages = HashMap::<Address, HashMap<B256, U256>>::default();
+        let mut storages = HashMap::<Address, HashMap<B256, FlaggedStorage>>::default();
         let mut storage_changesets_cursor = tx.cursor_read::<tables::StorageChangeSets>()?;
         for entry in
             storage_changesets_cursor.walk_range(BlockNumberAddress((from, Address::ZERO))..)?
@@ -253,7 +254,7 @@ impl<TX: DbTx> DatabaseHashedPostState<TX> for HashedPostState {
             let (BlockNumberAddress((_, address)), storage) = entry?;
             let account_storage = storages.entry(address).or_default();
             if let hash_map::Entry::Vacant(entry) = account_storage.entry(storage.key) {
-                entry.insert(storage.value);
+                entry.insert(storage.into());
             }
         }
 

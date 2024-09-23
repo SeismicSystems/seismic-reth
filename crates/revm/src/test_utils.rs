@@ -31,7 +31,7 @@ impl StateProviderTest {
         address: Address,
         mut account: Account,
         bytecode: Option<Bytes>,
-        storage: HashMap<StorageKey, U256>,
+        storage: HashMap<StorageKey, FlaggedStorage>,
     ) {
         if let Some(bytecode) = bytecode {
             let hash = keccak256(&bytecode);

@@ -6,6 +6,7 @@ use alloy_rlp::Encodable;
 use alloy_trie::HashBuilder;
 use itertools::Itertools;
 use nybbles::Nibbles;
+use revm_primitives::FlaggedStorage;
 
 /// Adjust the index of an item for rlp encoding.
 pub const fn adjust_index_for_rlp(i: usize, len: usize) -> usize {
@@ -94,13 +95,13 @@ pub fn state_root<A: Into<TrieAccount>>(state: impl IntoIterator<Item = (B256, A
 
 /// Hashes storage keys, sorts them and them calculates the root hash of the storage trie.
 /// See [`storage_root_unsorted`] for more info.
-pub fn storage_root_unhashed(storage: impl IntoIterator<Item = (B256, U256)>) -> B256 {
+pub fn storage_root_unhashed(storage: impl IntoIterator<Item = (B256, FlaggedStorage)>) -> B256 {
     storage_root_unsorted(storage.into_iter().map(|(slot, value)| (keccak256(slot), value)))
 }
 
 /// Sorts and calculates the root hash of account storage trie.
 /// See [`storage_root`] for more info.
-pub fn storage_root_unsorted(storage: impl IntoIterator<Item = (B256, U256)>) -> B256 {
+pub fn storage_root_unsorted(storage: impl IntoIterator<Item = (B256, FlaggedStorage)>) -> B256 {
     storage_root(storage.into_iter().sorted_by_key(|(key, _)| *key))
 }
 
@@ -109,10 +110,10 @@ pub fn storage_root_unsorted(storage: impl IntoIterator<Item = (B256, U256)>) ->
 /// # Panics
 ///
 /// If the items are not in sorted order.
-pub fn storage_root(storage: impl IntoIterator<Item = (B256, U256)>) -> B256 {
+pub fn storage_root(storage: impl IntoIterator<Item = (B256, FlaggedStorage)>) -> B256 {
     let mut hb = HashBuilder::default();
     for (hashed_slot, value) in storage {
-        hb.add_leaf(Nibbles::unpack(hashed_slot), alloy_rlp::encode_fixed_size(&value).as_ref());
+        hb.add_leaf(Nibbles::unpack(hashed_slot), alloy_rlp::encode_fixed_size(&value.value).as_ref());
     }
     hb.root()
 }

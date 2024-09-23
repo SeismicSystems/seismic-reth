@@ -22,7 +22,9 @@ use reth_storage_api::{
     BlockNumReader, HeaderProvider, ReceiptWriter, StageCheckpointWriter, TransactionsProviderExt,
 };
 use reth_storage_errors::writer::UnifiedStorageWriterError;
-use revm::db::OriginalValuesKnown;
+use revm::{
+    db::OriginalValuesKnown, primitives::FlaggedStorage
+};
 use std::{borrow::Borrow, sync::Arc};
 use tracing::{debug, instrument};
 
@@ -741,7 +743,7 @@ mod tests {
         state.insert_account_with_storage(
             address_b,
             account_b.clone(),
-            HashMap::from([(U256::from(1), U256::from(1))]),
+            HashMap::from([(U256::from(1), FlaggedStorage::new_from_value(1))]),
         );
 
         state.commit(HashMap::from([
@@ -755,11 +757,11 @@ mod tests {
                     storage: HashMap::from([
                         (
                             U256::from(0),
-                            EvmStorageSlot { present_value: U256::from(1), ..Default::default() },
+                            EvmStorageSlot { present_value: FlaggedStorage::new_from_value(1), ..Default::default() },
                         ),
                         (
                             U256::from(1),
-                            EvmStorageSlot { present_value: U256::from(2), ..Default::default() },
+                            EvmStorageSlot { present_value: FlaggedStorage::new_from_value(2), ..Default::default() },
                         ),
                     ]),
                 },
@@ -773,8 +775,8 @@ mod tests {
                     storage: HashMap::from([(
                         U256::from(1),
                         EvmStorageSlot {
-                            present_value: U256::from(2),
-                            original_value: U256::from(1),
+                            present_value: FlaggedStorage::new_from_value(2),
+                            original_value: FlaggedStorage::new_from_value(1),
                             ..Default::default()
                         },
                     )]),
@@ -942,11 +944,11 @@ mod tests {
                 storage: HashMap::from([
                     (
                         U256::ZERO,
-                        EvmStorageSlot { present_value: U256::from(1), ..Default::default() },
+                        EvmStorageSlot { present_value: FlaggedStorage::new_from_value(1), ..Default::default() },
                     ),
                     (
                         U256::from(1),
-                        EvmStorageSlot { present_value: U256::from(2), ..Default::default() },
+                        EvmStorageSlot { present_value: FlaggedStorage::new_from_value(2), ..Default::default() },
                     ),
                 ]),
             },
@@ -964,7 +966,7 @@ mod tests {
         state.insert_account_with_storage(
             address1,
             account_info.clone(),
-            HashMap::from([(U256::ZERO, U256::from(1)), (U256::from(1), U256::from(2))]),
+            HashMap::from([(U256::ZERO, FlaggedStorage::new_from_value(1)), (U256::from(1), FlaggedStorage::new_from_value(2))]),
         );
 
         // Block #1: change storage.
@@ -977,8 +979,8 @@ mod tests {
                 storage: HashMap::from([(
                     U256::ZERO,
                     EvmStorageSlot {
-                        original_value: U256::from(1),
-                        present_value: U256::from(2),
+                        original_value: FlaggedStorage::new_from_value(1),
+                        present_value: FlaggedStorage::new_from_value(2),
                         ..Default::default()
                     },
                 )]),
@@ -1020,15 +1022,15 @@ mod tests {
                 storage: HashMap::from([
                     (
                         U256::ZERO,
-                        EvmStorageSlot { present_value: U256::from(2), ..Default::default() },
+                        EvmStorageSlot { present_value: FlaggedStorage::new_from_value(2), ..Default::default() },
                     ),
                     (
                         U256::from(2),
-                        EvmStorageSlot { present_value: U256::from(4), ..Default::default() },
+                        EvmStorageSlot { present_value: FlaggedStorage::new_from_value(4), ..Default::default() },
                     ),
                     (
                         U256::from(6),
-                        EvmStorageSlot { present_value: U256::from(6), ..Default::default() },
+                        EvmStorageSlot { present_value: FlaggedStorage::new_from_value(6), ..Default::default() },
                     ),
                 ]),
             },
@@ -1063,7 +1065,7 @@ mod tests {
                 // 0x00 => 0 => 2
                 storage: HashMap::from([(
                     U256::ZERO,
-                    EvmStorageSlot { present_value: U256::from(2), ..Default::default() },
+                    EvmStorageSlot { present_value: FlaggedStorage::new_from_value(2), ..Default::default() },
                 )]),
             },
         )]));
@@ -1094,7 +1096,7 @@ mod tests {
                 // 0x00 => 0 => 9
                 storage: HashMap::from([(
                     U256::ZERO,
-                    EvmStorageSlot { present_value: U256::from(9), ..Default::default() },
+                    EvmStorageSlot { present_value: FlaggedStorage::new_from_value(9), ..Default::default() },
                 )]),
             },
         )]));
@@ -1257,11 +1259,11 @@ mod tests {
                 storage: HashMap::from([
                     (
                         U256::ZERO,
-                        EvmStorageSlot { present_value: U256::from(1), ..Default::default() },
+                        EvmStorageSlot { present_value: FlaggedStorage::new_from_value(1), ..Default::default() },
                     ),
                     (
                         U256::from(1),
-                        EvmStorageSlot { present_value: U256::from(2), ..Default::default() },
+                        EvmStorageSlot { present_value: FlaggedStorage::new_from_value(2), ..Default::default() },
                     ),
                 ]),
             },
@@ -1278,7 +1280,7 @@ mod tests {
         state.insert_account_with_storage(
             address1,
             account1.clone(),
-            HashMap::from([(U256::ZERO, U256::from(1)), (U256::from(1), U256::from(2))]),
+            HashMap::from([(U256::ZERO, FlaggedStorage::new_from_value(1)), (U256::from(1), FlaggedStorage::new_from_value(2))]),
         );
 
         // Block #1: Destroy, re-create, change storage.
@@ -1308,7 +1310,7 @@ mod tests {
                 // 0x01 => 0 => 5
                 storage: HashMap::from([(
                     U256::from(1),
-                    EvmStorageSlot { present_value: U256::from(5), ..Default::default() },
+                    EvmStorageSlot { present_value: FlaggedStorage::new_from_value(5), ..Default::default() },
                 )]),
             },
         )]));
@@ -1378,12 +1380,12 @@ mod tests {
 
     #[test]
     fn bundle_state_state_root() {
-        type PreState = BTreeMap<Address, (Account, BTreeMap<B256, U256>)>;
+        type PreState = BTreeMap<Address, (Account, BTreeMap<B256, FlaggedStorage>)>;
         let mut prestate: PreState = (0..10)
             .map(|key| {
                 let account = Account { nonce: 1, balance: U256::from(key), bytecode_hash: None };
                 let storage =
-                    (1..11).map(|key| (B256::with_last_byte(key), U256::from(key))).collect();
+                    (1..11).map(|key| (B256::with_last_byte(key), FlaggedStorage::new_from_value(key))).collect();
                 (Address::with_last_byte(key), (account, storage))
             })
             .collect();
@@ -1399,7 +1401,7 @@ mod tests {
             for (slot, value) in storage {
                 tx.put::<tables::HashedStorages>(
                     hashed_address,
-                    StorageEntry { key: keccak256(slot), value: *value, ..Default::default() },
+                    StorageEntry { key: keccak256(slot), value: value.value, is_private: value.is_private  },
                 )
                 .unwrap();
             }
