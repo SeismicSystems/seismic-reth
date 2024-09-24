@@ -580,6 +580,9 @@ revm-primitives = { path = "../seismic-revm/crates/primitives"}
 # seismic-revm-inspectors
 revm-inspectors = { path = "../seismic-revm-inspectors" }
 
+# seismic-revm-inspectors
+revm-inspectors = { path = "../seismic-revm-inspectors" }
+
 # seismic-alloy-core
 # alloy-core = { path = "../seismic-alloy-core/crates/core" }
 alloy-dyn-abi = { path = "../seismic-alloy-core/crates/dyn-abi" }
