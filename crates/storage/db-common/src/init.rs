@@ -176,7 +176,8 @@ pub fn insert_state<'a, 'b, DB: Database>(
                 m.iter()
                     .map(|(key, value)| {
                         let value = U256::from_be_bytes(value.0);
-                        (*key, (U256::ZERO, value))
+                        let is_private = false;
+                        (*key, ((U256::ZERO, false), (value, is_private)))
                     })
                     .collect::<HashMap<_, _>>()
             })
@@ -184,7 +185,7 @@ pub fn insert_state<'a, 'b, DB: Database>(
 
         reverts_init.insert(
             *address,
-            (Some(None), storage.keys().map(|k| StorageEntry::new(*k, U256::ZERO)).collect()),
+            (Some(None), storage.keys().map(|k| StorageEntry {key: *k, ..Default::default()}).collect()),
         );
 
         state_init.insert(
@@ -238,7 +239,7 @@ pub fn insert_genesis_hashes<'a, 'b, DB: Database>(
                 storage
                     .clone()
                     .into_iter()
-                    .map(|(key, value)| StorageEntry { key, value: value.into() }),
+                    .map(|(key, value)| StorageEntry { key, value: value.into(), is_private: false }),
             )
         })
     });

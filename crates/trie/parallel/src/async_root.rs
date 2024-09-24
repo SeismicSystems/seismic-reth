@@ -235,7 +235,7 @@ mod tests {
     use super::*;
     use rand::Rng;
     use rayon::ThreadPoolBuilder;
-    use reth_primitives::{keccak256, Account, Address, StorageEntry, U256};
+    use reth_primitives::{keccak256, revm_primitives::FlaggedStorage, Account, Address, StorageEntry, U256};
     use reth_provider::{test_utils::create_test_provider_factory, HashingWriter};
     use reth_trie::{test_utils, HashedStorage};
 
@@ -279,7 +279,7 @@ mod tests {
                         *address,
                         storage
                             .iter()
-                            .map(|(slot, value)| StorageEntry { key: *slot, value: *value }),
+                            .map(|(slot, value)| StorageEntry { key: *slot, value: *value, ..Default::default() }),
                     )
                 }))
                 .unwrap();
@@ -318,7 +318,7 @@ mod tests {
                         .entry(hashed_address)
                         .or_insert_with(|| HashedStorage::new(false))
                         .storage
-                        .insert(hashed_slot, *value);
+                        .insert(hashed_slot, FlaggedStorage::new_from_value(*value));
                 }
             }
         }

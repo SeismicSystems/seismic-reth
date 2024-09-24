@@ -46,7 +46,7 @@ fn insert_storage(tx: &impl DbTxMut, hashed_address: B256, storage: &BTreeMap<B2
     for (k, v) in storage {
         tx.put::<tables::HashedStorages>(
             hashed_address,
-            StorageEntry { key: keccak256(k), value: *v },
+            StorageEntry { key: keccak256(k), value: *v, ..Default::default()  },
         )
         .unwrap();
     }
@@ -62,7 +62,7 @@ fn incremental_vs_full_root(inputs: &[&str], modified: &str) {
     let data = inputs.iter().map(|x| B256::from_str(x).unwrap());
     let value = U256::from(0);
     for key in data {
-        hashed_storage_cursor.upsert(hashed_address, StorageEntry { key, value }).unwrap();
+        hashed_storage_cursor.upsert(hashed_address, StorageEntry { key, value, ..Default::default()  }).unwrap();
     }
 
     // Generate the intermediate nodes on the receiving end of the channel
@@ -76,7 +76,7 @@ fn incremental_vs_full_root(inputs: &[&str], modified: &str) {
         hashed_storage_cursor.delete_current().unwrap();
     }
     hashed_storage_cursor
-        .upsert(hashed_address, StorageEntry { key: modified_key, value })
+        .upsert(hashed_address, StorageEntry { key: modified_key, value, ..Default::default()  })
         .unwrap();
 
     // 2. Calculate full merkle root
@@ -122,7 +122,7 @@ fn arbitrary_storage_root() {
         for (key, value) in &storage {
             tx.tx_ref().put::<tables::HashedStorages>(
                 hashed_address,
-                StorageEntry { key: keccak256(key), value: *value },
+                StorageEntry { key: keccak256(key), value: *value, ..Default::default()  },
             )
             .unwrap();
         }
@@ -318,7 +318,7 @@ fn storage_root_regression() {
     let mut hashed_storage_cursor =
         tx.tx_ref().cursor_dup_write::<tables::HashedStorages>().unwrap();
     for (hashed_slot, value) in storage.clone() {
-        hashed_storage_cursor.upsert(key3, StorageEntry { key: hashed_slot, value }).unwrap();
+        hashed_storage_cursor.upsert(key3, StorageEntry { key: hashed_slot, value, ..Default::default() }).unwrap();
     }
     tx.commit().unwrap();
     let tx = factory.provider_rw().unwrap();
@@ -385,7 +385,7 @@ fn account_and_storage_trie() {
         {
             hashed_storage_cursor.delete_current().unwrap();
         }
-        hashed_storage_cursor.upsert(key3, StorageEntry { key: hashed_slot, value }).unwrap();
+        hashed_storage_cursor.upsert(key3, StorageEntry { key: hashed_slot, value, ..Default::default() }).unwrap();
     }
     let account3_storage_root = StorageRoot::from_tx(tx.tx_ref(), address3).root().unwrap();
     hash_builder
@@ -708,7 +708,7 @@ fn extension_node_storage_trie(
         hex!("30af8f0000000000000000000000000000000000000000000000000000000000"),
         hex!("3100000000000000000000000000000000000000000000000000000000000000"),
     ] {
-        hashed_storage.upsert(hashed_address, StorageEntry { key: B256::new(key), value }).unwrap();
+        hashed_storage.upsert(hashed_address, StorageEntry { key: B256::new(key), value, ..Default::default() }).unwrap();
         hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value));
     }
 

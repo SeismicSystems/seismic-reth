@@ -902,10 +902,10 @@ impl<TX: DbTx> DatabaseProvider<TX> {
                         .seek_by_key_subkey(address, old_storage.key)?
                         .filter(|storage| storage.key == old_storage.key)
                         .unwrap_or_default();
-                    entry.insert((old_storage.value, new_storage.value));
+                    entry.insert(((old_storage.value, old_storage.is_private), (new_storage.value, new_storage.is_private)));
                 }
                 hash_map::Entry::Occupied(mut entry) => {
-                    entry.get_mut().0 = old_storage.value;
+                    entry.get_mut().0 = (old_storage.value, old_storage.is_private);
                 }
             };
 
@@ -996,7 +996,7 @@ impl<TX: DbTxMut + DbTx> DatabaseProvider<TX> {
 
             // revert storages
             for (storage_key, (old_storage_value, _new_storage_value)) in storage {
-                let storage_entry = StorageEntry { key: *storage_key, value: *old_storage_value };
+                let storage_entry = StorageEntry { key: *storage_key, value: old_storage_value.0, is_private: old_storage_value.1 };
                 // delete previous value
                 // TODO: This does not use dupsort features
                 if plain_storage_cursor
@@ -1008,7 +1008,7 @@ impl<TX: DbTxMut + DbTx> DatabaseProvider<TX> {
                 }
 
                 // insert value if needed
-                if !old_storage_value.is_zero() {
+                if !old_storage_value.0.is_zero() {
                     plain_storage_cursor.upsert(*address, storage_entry)?;
                 }
             }
@@ -1094,7 +1094,7 @@ impl<TX: DbTxMut + DbTx> DatabaseProvider<TX> {
 
             // revert storages
             for (storage_key, (old_storage_value, _new_storage_value)) in storage {
-                let storage_entry = StorageEntry { key: *storage_key, value: *old_storage_value };
+                let storage_entry = StorageEntry { key: *storage_key, value: old_storage_value.0, is_private: old_storage_value.1  };
                 // delete previous value
                 // TODO: This does not use dupsort features
                 if plain_storage_cursor
@@ -1106,7 +1106,7 @@ impl<TX: DbTxMut + DbTx> DatabaseProvider<TX> {
                 }
 
                 // insert value if needed
-                if !old_storage_value.is_zero() {
+                if !old_storage_value.0.is_zero() {
                     plain_storage_cursor.upsert(*address, storage_entry)?;
                 }
             }
@@ -2589,7 +2589,7 @@ impl<TX: DbTx> StorageReader for DatabaseProvider<TX> {
                         Ok(plain_storage
                             .seek_by_key_subkey(address, key)?
                             .filter(|v| v.key == key)
-                            .unwrap_or_else(|| StorageEntry { key, value: Default::default() }))
+                            .unwrap_or_else(|| StorageEntry { key, ..Default::default() }))
                     })
                     .collect::<ProviderResult<Vec<_>>>()
                     .map(|storage| (address, storage))
@@ -2670,16 +2670,16 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
                 if wiped {
                     tracing::trace!(?address, "Wiping storage");
                     if let Some((_, entry)) = storages_cursor.seek_exact(address)? {
-                        wiped_storage.push((entry.key, entry.value));
+                        wiped_storage.push((entry.key, entry.into()));
                         while let Some(entry) = storages_cursor.next_dup_val()? {
-                            wiped_storage.push((entry.key, entry.value))
+                            wiped_storage.push((entry.key, entry.into()))
                         }
                     }
                 }
 
                 tracing::trace!(?address, ?storage, "Writing storage reverts");
                 for (key, value) in StorageRevertsIter::new(storage, wiped_storage) {
-                    storage_changeset_cursor.append_dup(storage_id, StorageEntry { key, value })?;
+                    storage_changeset_cursor.append_dup(storage_id, StorageEntry { key, value: value.value, is_private: value.is_private  })?;
                 }
             }
         }
@@ -2744,10 +2744,10 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
             // cast storages to B256.
             let mut storage = storage
                 .into_iter()
-                .map(|(k, value)| StorageEntry { key: k.into(), value })
+                .map(|(key, value)| StorageEntry { key: key.into(), value: value.value, is_private: value.is_private  })
                 .collect::<Vec<_>>();
             // sort storage slots by key.
-            storage.par_sort_unstable_by_key(|a| a.key);
+            storage.par_sort_unstable_by_key(|a: &StorageEntry| a.key);
 
             for entry in storage {
                 tracing::trace!(?address, ?entry.key, "Updating plain state storage");
@@ -2787,7 +2787,7 @@ impl<TX: DbTxMut + DbTx> StateChangeWriter for DatabaseProvider<TX> {
             }
 
             for (hashed_slot, value) in storage.storage_slots_sorted() {
-                let entry = StorageEntry { key: hashed_slot, value };
+                let entry = StorageEntry::new(hashed_slot, value.value, value.is_private);
                 if let Some(db_entry) =
                     hashed_storage_cursor.seek_by_key_subkey(*hashed_address, entry.key)?
                 {
@@ -2972,7 +2972,7 @@ impl<TX: DbTxMut + DbTx> HashingWriter for DatabaseProvider<TX> {
             }
 
             if !value.is_zero() {
-                hashed_storage.upsert(hashed_address, StorageEntry { key, value })?;
+                hashed_storage.upsert(hashed_address, StorageEntry { key, value, ..Default::default()  })?;
             }
         }
         Ok(hashed_storage_keys)
@@ -3012,7 +3012,7 @@ impl<TX: DbTxMut + DbTx> HashingWriter for DatabaseProvider<TX> {
                 }
 
                 if !value.is_zero() {
-                    hashed_storage_cursor.upsert(hashed_address, StorageEntry { key, value })?;
+                    hashed_storage_cursor.upsert(hashed_address, StorageEntry { key, value, ..Default::default()  })?;
                 }
                 Ok(())
             })

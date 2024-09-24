@@ -74,7 +74,7 @@ proptest! {
         // Insert init state into database
         for (hashed_slot, value) in init_storage.clone() {
             hashed_storage_cursor
-                .upsert(hashed_address, StorageEntry { key: hashed_slot, value })
+                .upsert(hashed_address, StorageEntry { key: hashed_slot, value, ..Default::default() })
                 .unwrap();
         }
 
@@ -88,7 +88,7 @@ proptest! {
             let mut changes = PrefixSetMut::default();
             for (hashed_slot, value) in storage_update.clone() {
                 hashed_storage_cursor
-                    .upsert(hashed_address, StorageEntry { key: hashed_slot, value })
+                    .upsert(hashed_address, StorageEntry { key: hashed_slot, value, ..Default::default() })
                     .unwrap();
                 changes.insert(Nibbles::unpack(hashed_slot));
             }

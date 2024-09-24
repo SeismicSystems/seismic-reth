@@ -172,11 +172,11 @@ impl State {
                 let storage_key = B256::from_slice(&k.to_be_bytes::<32>());
                 tx.put::<tables::PlainStorageState>(
                     address,
-                    StorageEntry { key: storage_key, value: *v },
+                    StorageEntry { key: storage_key, value: *v, ..Default::default() },
                 )?;
                 tx.put::<tables::HashedStorages>(
                     hashed_address,
-                    StorageEntry { key: keccak256(storage_key), value: *v },
+                    StorageEntry { key: keccak256(storage_key), value: *v, ..Default::default() },
                 )
             })?;
         }

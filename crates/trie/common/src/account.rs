@@ -5,7 +5,7 @@ use alloy_primitives::{keccak256, B256, U256};
 use alloy_rlp::{RlpDecodable, RlpEncodable};
 use alloy_trie::EMPTY_ROOT_HASH;
 use reth_primitives_traits::Account;
-use revm_primitives::AccountInfo;
+use revm_primitives::{AccountInfo, FlaggedStorage};
 
 /// An Ethereum account as represented in the trie.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, RlpEncodable, RlpDecodable)]
@@ -36,7 +36,7 @@ impl From<GenesisAccount> for TrieAccount {
                     storage
                         .into_iter()
                         .filter(|(_, value)| !value.is_zero())
-                        .map(|(slot, value)| (slot, U256::from_be_bytes(*value))),
+                        .map(|(slot, value)| (slot, FlaggedStorage::new_from_value(U256::from_be_bytes(*value)))),
                 )
             })
             .unwrap_or(EMPTY_ROOT_HASH);

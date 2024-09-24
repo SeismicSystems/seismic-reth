@@ -146,6 +146,7 @@ members = [
 ]
 default-members = ["bin/reth"]
 
+
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
 # https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
 resolver = "2"
@@ -398,7 +399,6 @@ reth-trie-parallel = { path = "crates/trie/parallel" }
 revm = { version = "14.0.0", features = [
     "std",
     "secp256k1",
-    "blst",
 ], default-features = false }
 revm-inspectors = "0.6"
 revm-primitives = { version = "9.0.0", features = [
@@ -571,6 +571,9 @@ test-fuzz = "5"
 # seismic-revm
 revm = { path = "../seismic-revm/crates/revm" }
 revm-primitives = { path = "../seismic-revm/crates/primitives" }
+
+# seismic-revm-inspectors
+revm-inspectors = { path = "../seismic-revm-inspectors" }
 
 # seismic-alloy-core
 # alloy-core = { path = "../seismic-alloy-core/crates/core" }
