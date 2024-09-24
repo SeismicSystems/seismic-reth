@@ -810,13 +810,14 @@ mod tests {
     use rand::Rng;
     use reth_errors::ProviderResult;
     use reth_primitives::{
-        Account, BlockNumber, Bytecode, Bytes, Receipt, Requests, StorageKey, StorageValue,
+        Account, BlockNumber, Bytecode, Bytes, Receipt, Requests, StorageKey,
     };
     use reth_storage_api::{
         AccountReader, BlockHashReader, StateProofProvider, StateProvider, StateRootProvider,
         StorageRootProvider,
     };
     use reth_trie::{prefix_set::TriePrefixSetsMut, AccountProof, HashedStorage};
+    use revm::primitives::FlaggedStorage;
 
     fn create_mock_state(
         test_block_builder: &mut TestBlockBuilder,
@@ -856,7 +857,7 @@ mod tests {
             &self,
             _address: Address,
             _storage_key: StorageKey,
-        ) -> ProviderResult<Option<StorageValue>> {
+        ) -> ProviderResult<Option<FlaggedStorage>> {
             Ok(None)
         }
 

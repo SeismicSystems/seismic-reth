@@ -8,6 +8,7 @@ use reth_trie::{
     prefix_set::TriePrefixSetsMut, updates::TrieUpdates, AccountProof, HashedPostState,
     HashedStorage,
 };
+use revm::primitives::FlaggedStorage;
 use std::collections::HashMap;
 
 /// A state provider that resolves to data from either a wrapped [`crate::ExecutionOutcome`]
@@ -164,7 +165,7 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateProvider for BundleStat
         &self,
         account: Address,
         storage_key: reth_primitives::StorageKey,
-    ) -> ProviderResult<Option<reth_primitives::StorageValue>> {
+    ) -> ProviderResult<Option<FlaggedStorage>> {
         let u256_storage_key = storage_key.into();
         if let Some(value) = self
             .block_execution_data_provider

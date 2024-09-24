@@ -962,7 +962,7 @@ mod tests {
             // Get on dupsort would return only first value. This is good enough for this test.
             assert_eq!(
                 provider.tx_ref().get::<tables::PlainStorageState>(account1),
-                Ok(Some(StorageEntry { key: B256::with_last_byte(1), value: U256::from(2) })),
+                Ok(Some(StorageEntry { key: B256::with_last_byte(1), value: U256::from(2), ..Default::default() })),
                 "Post changed of a account"
             );
 
@@ -1152,14 +1152,14 @@ mod tests {
             .tx_ref()
             .put::<tables::PlainStorageState>(
                 destroyed_address,
-                StorageEntry { key: B256::ZERO, value: U256::ZERO },
+                StorageEntry { key: B256::ZERO, value: U256::ZERO, ..Default::default() },
             )
             .unwrap();
         provider
             .tx_ref()
             .put::<tables::PlainStorageState>(
                 destroyed_address,
-                StorageEntry { key: B256::with_last_byte(1), value: U256::from(1u64) },
+                StorageEntry { key: B256::with_last_byte(1), value: U256::from(1u64), ..Default::default() },
             )
             .unwrap();
 
@@ -1231,11 +1231,11 @@ mod tests {
             vec![
                 (
                     (block.number, destroyed_address).into(),
-                    StorageEntry { key: B256::ZERO, value: U256::ZERO }
+                    StorageEntry { key: B256::ZERO, value: U256::ZERO, ..Default::default() }
                 ),
                 (
                     (block.number, destroyed_address).into(),
-                    StorageEntry { key: B256::with_last_byte(1), value: U256::from(1u64) }
+                    StorageEntry { key: B256::with_last_byte(1), value: U256::from(1u64), ..Default::default() }
                 )
             ]
         );

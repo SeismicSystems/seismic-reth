@@ -1,5 +1,5 @@
-use reth_primitives::{B256, U256};
-use revm::db::states::RevertToSlot;
+use reth_primitives::B256;
+use revm::{db::states::RevertToSlot, primitives::FlaggedStorage};
 use std::iter::Peekable;
 
 /// Iterator over storage reverts.
@@ -13,7 +13,7 @@ pub struct StorageRevertsIter<R: Iterator, W: Iterator> {
 impl<R, W> StorageRevertsIter<R, W>
 where
     R: Iterator<Item = (B256, RevertToSlot)>,
-    W: Iterator<Item = (B256, U256)>,
+    W: Iterator<Item = (B256, FlaggedStorage)>,
 {
     /// Create a new iterator over storage reverts.
     pub fn new(
@@ -24,12 +24,12 @@ where
     }
 
     /// Consume next revert and return it.
-    fn next_revert(&mut self) -> Option<(B256, U256)> {
+    fn next_revert(&mut self) -> Option<(B256, FlaggedStorage)> {
         self.reverts.next().map(|(key, revert)| (key, revert.to_previous_value()))
     }
 
     /// Consume next wiped storage and return it.
-    fn next_wiped(&mut self) -> Option<(B256, U256)> {
+    fn next_wiped(&mut self) -> Option<(B256, FlaggedStorage)> {
         self.wiped.next()
     }
 }
@@ -37,9 +37,9 @@ where
 impl<R, W> Iterator for StorageRevertsIter<R, W>
 where
     R: Iterator<Item = (B256, RevertToSlot)>,
-    W: Iterator<Item = (B256, U256)>,
+    W: Iterator<Item = (B256, FlaggedStorage)>,
 {
-    type Item = (B256, U256);
+    type Item = (B256, FlaggedStorage);
 
     /// Iterate over storage reverts and wiped entries and return items in the sorted order.
     /// NOTE: The implementation assumes that inner iterators are already sorted.

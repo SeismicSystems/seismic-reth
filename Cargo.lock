@@ -9096,8 +9096,6 @@ dependencies = [
 [[package]]
 name = "revm-inspectors"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48184032103bb23788e42e42c7c85207f5b0b8a248b09ea8f5233077f35ab56e"
 dependencies = [
  "alloy-primitives 0.8.1",
  "alloy-rpc-types 0.3.0",
@@ -9124,7 +9122,6 @@ name = "revm-precompile"
 version = "11.0.0"
 dependencies = [
  "aurora-engine-modexp",
- "blst",
  "c-kzg",
  "cfg-if",
  "k256",
@@ -9152,6 +9149,8 @@ dependencies = [
  "enumn",
  "hashbrown 0.14.5",
  "hex",
+ "proptest",
+ "proptest-derive",
  "serde",
 ]
 

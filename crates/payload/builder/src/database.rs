@@ -3,7 +3,7 @@
 use reth_primitives::{
     revm_primitives::{
         db::{Database, DatabaseRef},
-        AccountInfo, Address, Bytecode, B256,
+        AccountInfo, Address, Bytecode, B256, FlaggedStorage
     },
     U256,
 };
@@ -55,7 +55,7 @@ impl CachedReads {
         &mut self,
         address: Address,
         info: AccountInfo,
-        storage: HashMap<U256, U256>,
+        storage: HashMap<U256, FlaggedStorage>,
     ) {
         self.accounts.insert(address, CachedAccount { info: Some(info), storage });
     }
@@ -91,7 +91,7 @@ impl<'a, DB: DatabaseRef> Database for CachedReadsDbMut<'a, DB> {
         Ok(code)
     }
 
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         match self.cached.accounts.entry(address) {
             Entry::Occupied(mut acc_entry) => match acc_entry.get_mut().storage.entry(index) {
                 Entry::Occupied(entry) => Ok(*entry.get()),
@@ -106,7 +106,7 @@ impl<'a, DB: DatabaseRef> Database for CachedReadsDbMut<'a, DB> {
                     account.storage.insert(index, value);
                     (account, value)
                 } else {
-                    (CachedAccount::new(info), U256::ZERO)
+                    (CachedAccount::new(info), FlaggedStorage::ZERO)
                 };
                 acc_entry.insert(account);
                 Ok(value)
@@ -144,7 +144,7 @@ impl<'a, DB: DatabaseRef> DatabaseRef for CachedReadsDBRef<'a, DB> {
         self.inner.borrow_mut().code_by_hash(code_hash)
     }
 
-    fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage_ref(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         self.inner.borrow_mut().storage(address, index)
     }
 
@@ -156,7 +156,7 @@ impl<'a, DB: DatabaseRef> DatabaseRef for CachedReadsDBRef<'a, DB> {
 #[derive(Debug, Clone)]
 struct CachedAccount {
     info: Option<AccountInfo>,
-    storage: HashMap<U256, U256>,
+    storage: HashMap<U256, FlaggedStorage>,
 }
 
 impl CachedAccount {

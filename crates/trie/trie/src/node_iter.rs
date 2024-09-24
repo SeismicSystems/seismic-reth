@@ -3,7 +3,7 @@ use reth_primitives::B256;
 use reth_storage_errors::db::DatabaseError;
 
 /// Represents a branch node in the trie.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TrieBranchNode {
     /// The key associated with the node.
     pub key: Nibbles,
@@ -11,12 +11,25 @@ pub struct TrieBranchNode {
     pub value: B256,
     /// Indicates whether children are in the trie.
     pub children_are_in_trie: bool,
+    /// Indicates whether the node is private.
+    pub is_private: bool,
+}
+
+/// Represents a leaf node in the trie.
+#[derive(Debug, Default)]
+pub struct TrieLeafNode<Value> {
+    /// The key associated with the node.
+    pub key: B256,
+    /// The value associated with the node.
+    pub value: Value,
+    /// Indicates whether the node is private.
+    pub is_private: bool,
 }
 
 impl TrieBranchNode {
     /// Creates a new `TrieBranchNode`.
-    pub const fn new(key: Nibbles, value: B256, children_are_in_trie: bool) -> Self {
-        Self { key, value, children_are_in_trie }
+    pub const fn new(key: Nibbles, value: B256, children_are_in_trie: bool, is_private: bool) -> Self {
+        Self { key, value, children_are_in_trie, is_private }
     }
 }
 
@@ -26,7 +39,7 @@ pub enum TrieElement<Value> {
     /// Branch node.
     Branch(TrieBranchNode),
     /// Leaf node.
-    Leaf(B256, Value),
+    Leaf(TrieLeafNode<Value>),
 }
 
 /// An iterator over existing intermediate branch nodes and updated leaf nodes.
@@ -93,11 +106,13 @@ where
                     self.current_walker_key_checked = true;
                     // If it's possible to skip the current node in the walker, return a branch node
                     if self.walker.can_skip_current_node {
-                        return Ok(Some(TrieElement::Branch(TrieBranchNode::new(
-                            key.clone(),
-                            self.walker.hash().unwrap(),
-                            self.walker.children_are_in_trie(),
-                        ))))
+                        return Ok(Some(TrieElement::Branch(TrieBranchNode {
+                                key: key.clone(),
+                                value: self.walker.hash().unwrap(),
+                                children_are_in_trie: self.walker.children_are_in_trie(),
+                                ..Default::default()
+                            }
+                        )))
                     }
                 }
             }
@@ -113,7 +128,11 @@ where
 
                 // Set the next hashed entry as a leaf node and return
                 self.current_hashed_entry = self.hashed_cursor.next()?;
-                return Ok(Some(TrieElement::Leaf(hashed_key, value)))
+                return Ok(Some(TrieElement::Leaf(TrieLeafNode {
+                    key: hashed_key,
+                    value,
+                    ..Default::default()
+                })))
             }
 
             // Handle seeking and advancing based on the previous hashed key
