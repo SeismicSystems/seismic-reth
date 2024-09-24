@@ -1,7 +1,8 @@
 use super::ExecutedBlock;
 use reth_errors::ProviderResult;
 use reth_primitives::{
-    keccak256, Account, Address, BlockNumber, Bytecode, Bytes, StorageKey, B256
+    keccak256, Account, Address, BlockNumber, Bytecode, Bytes, StorageKey, B256,
+    revm_primitives::FlaggedStorage,
 };
 use reth_storage_api::{
     AccountReader, BlockHashReader, StateProofProvider, StateProvider, StateProviderBox,
@@ -11,7 +12,6 @@ use reth_trie::{
     prefix_set::TriePrefixSetsMut, updates::TrieUpdates, AccountProof, HashedPostState,
     HashedStorage,
 };
-use revm::primitives::FlaggedStorage;
 use std::{collections::HashMap, sync::OnceLock};
 
 /// A state provider that stores references to in-memory blocks along with their state as well as

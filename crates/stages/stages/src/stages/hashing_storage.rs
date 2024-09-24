@@ -131,14 +131,14 @@ impl<DB: Database> Stage<DB> for StorageHashingStage {
                     );
                 }
 
-                let (addr_key, val_is_private) = item?;
+                let (addr_key_is_private, val) = item?;
                 
                 cursor.append_dup(
-                    B256::from_slice(&addr_key[..32]),
+                    B256::from_slice(&addr_key_is_private[..32]),
                     StorageEntry {
-                        key: B256::from_slice(&addr_key[32..]),
-                        value: CompactU256::decompress(val_is_private)?.into(),
-                        is_private: false, // STORAGE TODO change this so that is_private takes the value from val_is_private
+                        key: B256::from_slice(&addr_key_is_private[32..64]),
+                        is_private: addr_key_is_private[64] != 0,
+                        value: CompactU256::decompress(val)?.into(),
                     },
                 )?;
             }

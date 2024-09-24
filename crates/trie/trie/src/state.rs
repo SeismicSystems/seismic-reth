@@ -350,7 +350,7 @@ mod tests {
         let hashed_slot2 = B256::with_last_byte(65);
 
         // Initialize post state storage
-        let original_slot_value = FlaggedStorage::new_from_value(123);
+        let original_slot_value = FlaggedStorage::new(123, true);
         let mut hashed_state = HashedPostState::default().with_storages([(
             hashed_address,
             HashedStorage::from_iter(
@@ -360,7 +360,7 @@ mod tests {
         )]);
 
         // Update single slot value
-        let updated_slot_value = FlaggedStorage::new_from_value(321);
+        let updated_slot_value = FlaggedStorage::new_from_tuple((321, false));
         let extension = HashedPostState::default().with_storages([(
             hashed_address,
             HashedStorage::from_iter(false, [(hashed_slot, updated_slot_value)]),
@@ -416,4 +416,5 @@ mod tests {
         );
         assert_eq!(account_storage.map(|st| st.wiped), Some(true));
     }
+
 }
