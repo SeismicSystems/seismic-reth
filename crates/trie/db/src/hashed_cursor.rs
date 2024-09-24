@@ -3,8 +3,9 @@ use reth_db_api::{
     cursor::{DbCursorRO, DbDupCursorRO},
     transaction::DbTx,
 };
-use reth_primitives::{Account, B256, U256};
+use reth_primitives::{Account, B256};
 use reth_trie::hashed_cursor::{HashedCursor, HashedCursorFactory, HashedStorageCursor};
+use revm::primitives::FlaggedStorage;
 
 /// A struct wrapping database transaction that implements [`HashedCursorFactory`].
 #[derive(Debug)]
@@ -92,17 +93,17 @@ impl<C> HashedCursor for DatabaseHashedStorageCursor<C>
 where
     C: DbCursorRO<tables::HashedStorages> + DbDupCursorRO<tables::HashedStorages>,
 {
-    type Value = U256;
+    type Value = FlaggedStorage;
 
     fn seek(
         &mut self,
         subkey: B256,
     ) -> Result<Option<(B256, Self::Value)>, reth_db::DatabaseError> {
-        Ok(self.cursor.seek_by_key_subkey(self.hashed_address, subkey)?.map(|e| (e.key, e.value)))
+        Ok(self.cursor.seek_by_key_subkey(self.hashed_address, subkey)?.map(|e| (e.key, e.into())))
     }
 
     fn next(&mut self) -> Result<Option<(B256, Self::Value)>, reth_db::DatabaseError> {
-        Ok(self.cursor.next_dup_val()?.map(|e| (e.key, e.value)))
+        Ok(self.cursor.next_dup_val()?.map(|e| (e.key, e.into())))
     }
 }
 

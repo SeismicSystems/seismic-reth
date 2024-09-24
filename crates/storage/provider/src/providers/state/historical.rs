@@ -11,7 +11,7 @@ use reth_db_api::{
 };
 use reth_primitives::{
     constants::EPOCH_SLOTS, Account, Address, BlockNumber, Bytecode, Bytes, StaticFileSegment,
-    StorageKey, StorageValue, B256,
+    StorageKey, B256,
 };
 use reth_storage_api::{StateProofProvider, StorageRootProvider};
 use reth_storage_errors::provider::ProviderResult;
@@ -23,6 +23,7 @@ use reth_trie_db::{
     DatabaseHashedPostState, DatabaseHashedStorage, DatabaseProof, DatabaseStateRoot,
     DatabaseStorageRoot, DatabaseTrieWitness,
 };
+use revm::primitives::FlaggedStorage;
 use std::{collections::HashMap, fmt::Debug};
 
 /// State provider for a given block number which takes a tx reference.
@@ -381,7 +382,7 @@ impl<'b, TX: DbTx> StateProvider for HistoricalStateProviderRef<'b, TX> {
         &self,
         address: Address,
         storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>> {
+    ) -> ProviderResult<Option<FlaggedStorage>> {
         match self.storage_history_lookup(address, storage_key)? {
             HistoryInfo::NotYetWritten => Ok(None),
             HistoryInfo::InChangeset(changeset_block_number) => Ok(Some(
@@ -394,15 +395,15 @@ impl<'b, TX: DbTx> StateProvider for HistoricalStateProviderRef<'b, TX> {
                         address,
                         storage_key: Box::new(storage_key),
                     })?
-                    .value,
+                    .into(),
             )),
             HistoryInfo::InPlainState | HistoryInfo::MaybeInPlainState => Ok(self
                 .tx
                 .cursor_dup_read::<tables::PlainStorageState>()?
                 .seek_by_key_subkey(address, storage_key)?
                 .filter(|entry| entry.key == storage_key)
-                .map(|entry| entry.value)
-                .or(Some(StorageValue::ZERO))),
+                .map(|entry| entry.into())
+                .or(Some(FlaggedStorage::ZERO))),
         }
     }
 
@@ -512,6 +513,7 @@ mod tests {
     };
     use reth_primitives::{address, b256, Account, Address, StorageEntry, B256, U256};
     use reth_storage_errors::provider::ProviderError;
+    use revm::primitives::FlaggedStorage;
 
     const ADDRESS: Address = address!("0000000000000000000000000000000000000001");
     const HIGHER_ADDRESS: Address = address!("0000000000000000000000000000000000000005");
@@ -679,13 +681,13 @@ mod tests {
         )
         .unwrap();
 
-        let higher_entry_plain = StorageEntry { key: STORAGE, value: U256::from(1000) };
-        let higher_entry_at4 = StorageEntry { key: STORAGE, value: U256::from(0) };
-        let entry_plain = StorageEntry { key: STORAGE, value: U256::from(100) };
-        let entry_at15 = StorageEntry { key: STORAGE, value: U256::from(15) };
-        let entry_at10 = StorageEntry { key: STORAGE, value: U256::from(10) };
-        let entry_at7 = StorageEntry { key: STORAGE, value: U256::from(7) };
-        let entry_at3 = StorageEntry { key: STORAGE, value: U256::from(0) };
+        let higher_entry_plain = StorageEntry { key: STORAGE, value: U256::from(1000), ..Default::default() };
+        let higher_entry_at4 = StorageEntry { key: STORAGE, value: U256::from(0), ..Default::default() };
+        let entry_plain = StorageEntry { key: STORAGE, value: U256::from(100), ..Default::default() };
+        let entry_at15 = StorageEntry { key: STORAGE, value: U256::from(15), ..Default::default() };
+        let entry_at10 = StorageEntry { key: STORAGE, value: U256::from(10), ..Default::default() };
+        let entry_at7 = StorageEntry { key: STORAGE, value: U256::from(7), ..Default::default() };
+        let entry_at3 = StorageEntry { key: STORAGE, value: U256::from(0), ..Default::default() };
 
         // setup
         tx.put::<tables::StorageChangeSets>((3, ADDRESS).into(), entry_at3).unwrap();
@@ -710,37 +712,37 @@ mod tests {
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 3, static_file_provider.clone())
                 .storage(ADDRESS, STORAGE),
-            Ok(Some(U256::ZERO))
+            Ok(Some(FlaggedStorage::ZERO))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 4, static_file_provider.clone())
                 .storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at7.value))
+            Ok(Some(FlaggedStorage::new_from_value(entry_at7.value)))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 7, static_file_provider.clone())
                 .storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at7.value))
+            Ok(Some(FlaggedStorage::new_from_value(entry_at7.value)))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 9, static_file_provider.clone())
                 .storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at10.value))
+            Ok(Some(FlaggedStorage::new_from_value(entry_at10.value)))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 10, static_file_provider.clone())
                 .storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at10.value))
+            Ok(Some(FlaggedStorage::new_from_value(entry_at10.value)))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 11, static_file_provider.clone())
                 .storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at15.value))
+            Ok(Some(FlaggedStorage::new_from_value(entry_at15.value)))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 16, static_file_provider.clone())
                 .storage(ADDRESS, STORAGE),
-            Ok(Some(entry_plain.value))
+            Ok(Some(FlaggedStorage::new_from_value(entry_plain.value)))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 1, static_file_provider.clone())
@@ -750,7 +752,7 @@ mod tests {
         assert_eq!(
             HistoricalStateProviderRef::new(&tx, 1000, static_file_provider)
                 .storage(HIGHER_ADDRESS, STORAGE),
-            Ok(Some(higher_entry_plain.value))
+            Ok(Some(FlaggedStorage::new_from_value(higher_entry_plain.value)))
         );
     }
 

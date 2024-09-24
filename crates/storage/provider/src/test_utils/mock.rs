@@ -12,7 +12,7 @@ use reth_evm::ConfigureEvmEnv;
 use reth_primitives::{
     keccak256, Account, Address, Block, BlockHash, BlockHashOrNumber, BlockId, BlockNumber,
     BlockNumberOrTag, BlockWithSenders, Bytecode, Bytes, Header, Receipt, SealedBlock,
-    SealedBlockWithSenders, SealedHeader, StorageKey, StorageValue, TransactionMeta,
+    SealedBlockWithSenders, SealedHeader, StorageKey, TransactionMeta,
     TransactionSigned, TransactionSignedNoHash, TxHash, TxNumber, Withdrawal, Withdrawals, B256,
     U256,
 };
@@ -23,7 +23,7 @@ use reth_trie::{
     prefix_set::TriePrefixSetsMut, updates::TrieUpdates, AccountProof, HashedPostState,
     HashedStorage,
 };
-use revm::primitives::{BlockEnv, CfgEnvWithHandlerCfg};
+use revm::primitives::{BlockEnv, CfgEnvWithHandlerCfg, FlaggedStorage};
 use std::{
     collections::{BTreeMap, HashMap},
     ops::{RangeBounds, RangeInclusive},
@@ -62,7 +62,7 @@ impl Default for MockEthProvider {
 pub struct ExtendedAccount {
     account: Account,
     bytecode: Option<Bytecode>,
-    storage: HashMap<StorageKey, StorageValue>,
+    storage: HashMap<StorageKey, FlaggedStorage>,
 }
 
 impl ExtendedAccount {
@@ -87,7 +87,7 @@ impl ExtendedAccount {
     /// the value is updated.
     pub fn extend_storage(
         mut self,
-        storage: impl IntoIterator<Item = (StorageKey, StorageValue)>,
+        storage: impl IntoIterator<Item = (StorageKey, FlaggedStorage)>,
     ) -> Self {
         self.storage.extend(storage);
         self
@@ -634,7 +634,7 @@ impl StateProvider for MockEthProvider {
         &self,
         account: Address,
         storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>> {
+    ) -> ProviderResult<Option<FlaggedStorage>> {
         let lock = self.accounts.lock();
         Ok(lock.get(&account).and_then(|account| account.storage.get(&storage_key)).copied())
     }

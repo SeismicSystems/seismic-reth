@@ -3,7 +3,7 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use proptest::{prelude::*, strategy::ValueTree, test_runner::TestRunner};
 use proptest_arbitrary_interop::arb;
 use rayon::ThreadPoolBuilder;
-use reth_primitives::{Account, B256, U256};
+use reth_primitives::{Account, B256, revm_primitives::FlaggedStorage};
 use reth_provider::{
     providers::ConsistentDbView, test_utils::create_test_provider_factory, StateChangeWriter,
     TrieWriter,
@@ -88,7 +88,7 @@ fn generate_test_data(size: usize) -> (HashedPostState, HashedPostState) {
             arb::<Account>().prop_filter("non empty account", |a| !a.is_empty()),
             hash_map(
                 any::<B256>(),
-                any::<U256>().prop_filter("non zero value", |v| !v.is_zero()),
+                any::<FlaggedStorage>().prop_filter("non zero value", |v| !v.is_zero()),
                 storage_size,
             ),
         ),
@@ -112,7 +112,7 @@ fn generate_test_data(size: usize) -> (HashedPostState, HashedPostState) {
                 address,
                 slots_to_update
                     .into_iter()
-                    .map(|slot| (slot, any::<U256>().new_tree(&mut runner).unwrap().current()))
+                    .map(|slot| (slot, any::<FlaggedStorage>().new_tree(&mut runner).unwrap().current()))
                     .collect::<HashMap<_, _>>(),
             )
         })

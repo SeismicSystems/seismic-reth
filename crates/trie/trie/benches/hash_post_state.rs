@@ -1,9 +1,9 @@
 #![allow(missing_docs, unreachable_pub)]
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use proptest::{prelude::*, strategy::ValueTree, test_runner::TestRunner};
-use reth_primitives::{keccak256, Address, B256, U256};
+use reth_primitives::{keccak256, Address, B256, U256, revm_primitives::FlaggedStorage};
 use reth_trie::{HashedPostState, HashedStorage};
-use revm::db::{states::BundleBuilder, BundleAccount};
+use revm::{db::{states::BundleBuilder, BundleAccount}};
 use std::collections::HashMap;
 
 pub fn hash_post_state(c: &mut Criterion) {
@@ -54,8 +54,8 @@ fn generate_test_data(size: usize) -> HashMap<Address, BundleAccount> {
         hash_map(
             any::<U256>(), // slot
             (
-                any::<U256>(), // old value
-                any::<U256>(), // new value
+                any::<FlaggedStorage>(), // old value
+                any::<FlaggedStorage>(), // new value
             ),
             storage_size,
         ),
@@ -65,7 +65,7 @@ fn generate_test_data(size: usize) -> HashMap<Address, BundleAccount> {
     .unwrap()
     .current();
 
-    let mut bundle_builder = BundleBuilder::default();
+let mut bundle_builder = BundleBuilder::default();
 
     for (address, storage) in state {
         bundle_builder = bundle_builder.state_storage(address, storage);

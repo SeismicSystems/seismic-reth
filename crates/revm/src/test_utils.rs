@@ -1,6 +1,6 @@
 use crate::precompile::HashMap;
 use reth_primitives::{
-    keccak256, Account, Address, BlockNumber, Bytecode, Bytes, StorageKey, B256, U256,
+    keccak256, Account, Address, BlockNumber, Bytecode, Bytes, StorageKey, B256,
 };
 use reth_storage_api::{
     AccountReader, BlockHashReader, StateProofProvider, StateProvider, StateRootProvider,
@@ -14,11 +14,12 @@ use reth_trie::{
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+use revm::primitives::FlaggedStorage;
 
 /// Mock state for testing
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct StateProviderTest {
-    accounts: HashMap<Address, (HashMap<StorageKey, U256>, Account)>,
+    accounts: HashMap<Address, (HashMap<StorageKey, FlaggedStorage>, Account)>,
     contracts: HashMap<B256, Bytecode>,
     block_hash: HashMap<u64, B256>,
 }
@@ -30,7 +31,7 @@ impl StateProviderTest {
         address: Address,
         mut account: Account,
         bytecode: Option<Bytes>,
-        storage: HashMap<StorageKey, U256>,
+        storage: HashMap<StorageKey, FlaggedStorage>,
     ) {
         if let Some(bytecode) = bytecode {
             let hash = keccak256(&bytecode);
@@ -136,7 +137,7 @@ impl StateProvider for StateProviderTest {
         &self,
         account: Address,
         storage_key: StorageKey,
-    ) -> ProviderResult<Option<reth_primitives::StorageValue>> {
+    ) -> ProviderResult<Option<FlaggedStorage>> {
         Ok(self.accounts.get(&account).and_then(|(storage, _)| storage.get(&storage_key).copied()))
     }
 
