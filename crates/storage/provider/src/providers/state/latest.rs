@@ -10,8 +10,7 @@ use reth_db_api::{
     transaction::DbTx,
 };
 use reth_primitives::{
-    Account, Address, BlockNumber, Bytecode, Bytes, StaticFileSegment, StorageKey,
-    B256,
+    Account, Address, BlockNumber, Bytecode, Bytes, StaticFileSegment, StorageKey, B256,
 };
 use reth_storage_api::{StateProofProvider, StorageRootProvider};
 use reth_storage_errors::provider::{ProviderError, ProviderResult};

@@ -36,7 +36,8 @@ fn assert_storage_cursor_order(
 ) {
     for (account, storage) in expected {
         let mut cursor = factory.hashed_storage_cursor(account).unwrap();
-        let mut expected_storage = storage.into_iter().map(|(slot, value)| (slot, FlaggedStorage::new_from_value(value)));
+        let mut expected_storage =
+            storage.into_iter().map(|(slot, value)| (slot, FlaggedStorage::new_from_value(value)));
 
         let first_storage = cursor.seek(B256::default()).unwrap();
         assert_eq!(first_storage, expected_storage.next());
@@ -226,8 +227,11 @@ fn storage_is_empty() {
     db.update(|tx| {
         for (slot, value) in &db_storage {
             // insert zero value accounts to the database
-            tx.put::<tables::HashedStorages>(address, StorageEntry { key: *slot, value: *value, ..Default::default() })
-                .unwrap();
+            tx.put::<tables::HashedStorages>(
+                address,
+                StorageEntry { key: *slot, value: *value, ..Default::default() },
+            )
+            .unwrap();
         }
     })
     .unwrap();
@@ -305,8 +309,11 @@ fn storage_cursor_correct_order() {
     db.update(|tx| {
         for (slot, value) in &db_storage {
             // insert zero value accounts to the database
-            tx.put::<tables::HashedStorages>(address, StorageEntry { key: *slot, value: *value, ..Default::default() })
-                .unwrap();
+            tx.put::<tables::HashedStorages>(
+                address,
+                StorageEntry { key: *slot, value: *value, ..Default::default() },
+            )
+            .unwrap();
         }
     })
     .unwrap();
@@ -341,7 +348,11 @@ fn zero_value_storage_entries_are_discarded() {
     db.update(|tx| {
         for (slot, value) in db_storage {
             // insert zero value accounts to the database
-            tx.put::<tables::HashedStorages>(address, StorageEntry { key: slot, value, ..Default::default() }).unwrap();
+            tx.put::<tables::HashedStorages>(
+                address,
+                StorageEntry { key: slot, value, ..Default::default() },
+            )
+            .unwrap();
         }
     })
     .unwrap();
@@ -377,7 +388,11 @@ fn wiped_storage_is_discarded() {
     db.update(|tx| {
         for (slot, value) in db_storage {
             // insert zero value accounts to the database
-            tx.put::<tables::HashedStorages>(address, StorageEntry { key: slot, value, ..Default::default() }).unwrap();
+            tx.put::<tables::HashedStorages>(
+                address,
+                StorageEntry { key: slot, value, ..Default::default() },
+            )
+            .unwrap();
         }
     })
     .unwrap();

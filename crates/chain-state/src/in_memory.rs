@@ -809,9 +809,7 @@ mod tests {
     use crate::test_utils::TestBlockBuilder;
     use rand::Rng;
     use reth_errors::ProviderResult;
-    use reth_primitives::{
-        Account, BlockNumber, Bytecode, Bytes, Receipt, Requests, StorageKey,
-    };
+    use reth_primitives::{Account, BlockNumber, Bytecode, Bytes, Receipt, Requests, StorageKey};
     use reth_storage_api::{
         AccountReader, BlockHashReader, StateProofProvider, StateProvider, StateRootProvider,
         StorageRootProvider,
