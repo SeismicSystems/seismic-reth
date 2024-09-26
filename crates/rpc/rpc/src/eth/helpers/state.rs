@@ -7,8 +7,6 @@ use reth_transaction_pool::TransactionPool;
 use reth_rpc_eth_api::helpers::{EthState, LoadState, SpawnBlocking};
 use reth_rpc_eth_types::EthStateCache;
 
-use revm::primitives::FlaggedStorage;
-
 use crate::EthApi;
 
 impl<Provider, Pool, Network, EvmConfig> EthState for EthApi<Provider, Pool, Network, EvmConfig>
@@ -47,7 +45,7 @@ mod tests {
     use super::*;
     use reth_evm_ethereum::EthEvmConfig;
     use reth_primitives::{
-        constants::ETHEREUM_BLOCK_GAS_LIMIT, Address, StorageKey, KECCAK_EMPTY, U256,
+        constants::ETHEREUM_BLOCK_GAS_LIMIT, Address, StorageKey, KECCAK_EMPTY, U256
     };
     use reth_provider::test_utils::{ExtendedAccount, MockEthProvider, NoopProvider};
     use reth_rpc_eth_api::helpers::EthState;
@@ -57,6 +55,7 @@ mod tests {
     use reth_rpc_server_types::constants::{DEFAULT_ETH_PROOF_WINDOW, DEFAULT_PROOF_PERMITS};
     use reth_tasks::pool::BlockingTaskPool;
     use reth_transaction_pool::test_utils::{testing_pool, TestPool};
+    use revm_primitives::FlaggedStorage;
     use std::collections::HashMap;
 
     fn noop_eth_api() -> EthApi<NoopProvider, TestPool, (), EthEvmConfig> {

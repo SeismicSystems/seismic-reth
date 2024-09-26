@@ -22,7 +22,7 @@ use reth_storage_api::{
     BlockNumReader, HeaderProvider, ReceiptWriter, StageCheckpointWriter, TransactionsProviderExt,
 };
 use reth_storage_errors::writer::UnifiedStorageWriterError;
-use revm::{db::OriginalValuesKnown, primitives::FlaggedStorage};
+use revm::db::OriginalValuesKnown;
 use std::{borrow::Borrow, sync::Arc};
 use tracing::{debug, instrument};
 
@@ -521,7 +521,7 @@ mod tests {
         transaction::{DbTx, DbTxMut},
     };
     use reth_primitives::{
-        keccak256, Account, Address, Receipt, Receipts, StorageEntry, B256, U256,
+        keccak256, Account, Address, Receipt, Receipts, StorageEntry, B256, U256
     };
     use reth_trie::{
         test_utils::{state_root, storage_root_prehashed},
@@ -536,7 +536,7 @@ mod tests {
             BundleState, EmptyDB,
         },
         primitives::{
-            Account as RevmAccount, AccountInfo as RevmAccountInfo, AccountStatus, EvmStorageSlot,
+            Account as RevmAccount, AccountInfo as RevmAccountInfo, AccountStatus, EvmStorageSlot, FlaggedStorage,
         },
         DatabaseCommit, State,
     };
