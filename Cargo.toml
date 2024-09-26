@@ -569,19 +569,18 @@ test-fuzz = "5"
 # and instead use our local version
 
 # seismic-revm
-revm = { path = "../seismic-revm/crates/revm" }
-revm-primitives = { path = "../seismic-revm/crates/primitives" }
+revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "e6f24f7" }
+revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "e6f24f7" }
 
 # seismic-revm-inspectors
-revm-inspectors = { path = "../seismic-revm-inspectors" }
+revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "458e6b9" }
 
 # seismic-alloy-core
-# alloy-core = { path = "../seismic-alloy-core/crates/core" }
-alloy-dyn-abi = { path = "../seismic-alloy-core/crates/dyn-abi" }
-alloy-json-abi = { path = "../seismic-alloy-core/crates/json-abi" }
-alloy-primitives = { path = "../seismic-alloy-core/crates/primitives" }
-alloy-sol-macro = { path = "../seismic-alloy-core/crates/sol-macro" }
-alloy-sol-macro-expander = { path = "../seismic-alloy-core/crates/sol-macro-expander" }
-alloy-sol-macro-input = { path = "../seismic-alloy-core/crates/sol-macro-input" }
-alloy-sol-types = { path = "../seismic-alloy-core/crates/sol-types" }
-alloy-sol-type-parser = { path = "../seismic-alloy-core/crates/sol-type-parser" }
+alloy-dyn-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
+alloy-json-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
+alloy-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
+alloy-sol-macro = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
+alloy-sol-macro-expander = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
+alloy-sol-macro-input = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
+alloy-sol-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
+alloy-sol-type-parser = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
