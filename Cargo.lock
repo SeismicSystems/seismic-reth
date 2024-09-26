@@ -9644,6 +9644,7 @@ dependencies = [
 [[package]]
 name = "seismic-types"
 version = "0.1.0"
+source = "git+ssh://git@github.com/SeismicSystems/mantle.git?rev=90277e21#90277e21888c166b24966c7f27e5b269f42172f6"
 dependencies = [
  "alloy-primitives 0.8.1",
  "lazy_static",
