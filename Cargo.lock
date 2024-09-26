@@ -8665,23 +8665,6 @@ dependencies = [
  "strum",
 ]
 
-[[package]]
-name = "reth-rpc-types"
-version = "1.0.4"
-source = "git+https://github.com/paradigmxyz/reth?rev=fe43f575#fe43f575f052b4fe8448a8500cafa56a115c59c2"
-dependencies = [
- "alloy-primitives 0.7.7",
- "alloy-rpc-types 0.2.1",
- "alloy-rpc-types-admin 0.2.1",
- "alloy-rpc-types-anvil 0.2.1",
- "alloy-rpc-types-beacon 0.2.1",
- "alloy-rpc-types-engine 0.2.1",
- "alloy-rpc-types-mev 0.2.1",
- "alloy-rpc-types-trace 0.2.1",
- "alloy-rpc-types-txpool 0.2.1",
- "alloy-serde 0.2.1",
- "jsonrpsee-types",
-]
 
 [[package]]
 name = "reth-rpc-types"
