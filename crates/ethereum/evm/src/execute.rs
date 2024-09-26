@@ -479,7 +479,7 @@ mod tests {
         database::StateProviderDatabase, test_utils::StateProviderTest, TransitionState,
     };
     use reth_testing_utils::generators::{self, sign_tx_with_key_pair};
-    use revm_primitives::{b256, fixed_bytes, Bytes, BLOCKHASH_SERVE_WINDOW, FlaggedStorage};
+    use revm_primitives::{b256, fixed_bytes, Bytes, FlaggedStorage, BLOCKHASH_SERVE_WINDOW};
     use secp256k1::{Keypair, Secp256k1};
     use std::collections::HashMap;
 
