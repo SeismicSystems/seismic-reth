@@ -29,7 +29,7 @@ use reth_revm::{
 };
 use revm_primitives::{
     db::{Database, DatabaseCommit},
-    BlockEnv, CfgEnvWithHandlerCfg, EVMError, EnvWithHandlerCfg, ResultAndState, FlaggedStorage
+    BlockEnv, CfgEnvWithHandlerCfg, EVMError, EnvWithHandlerCfg, FlaggedStorage, ResultAndState,
 };
 
 #[cfg(not(feature = "std"))]

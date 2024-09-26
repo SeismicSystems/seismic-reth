@@ -1,8 +1,8 @@
 use super::ExecutedBlock;
 use reth_errors::ProviderResult;
 use reth_primitives::{
-    keccak256, Account, Address, BlockNumber, Bytecode, Bytes, StorageKey, B256,
-    revm_primitives::FlaggedStorage,
+    keccak256, revm_primitives::FlaggedStorage, Account, Address, BlockNumber, Bytecode, Bytes,
+    StorageKey, B256,
 };
 use reth_storage_api::{
     AccountReader, BlockHashReader, StateProofProvider, StateProvider, StateProviderBox,

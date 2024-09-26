@@ -681,9 +681,12 @@ mod tests {
         )
         .unwrap();
 
-        let higher_entry_plain = StorageEntry { key: STORAGE, value: U256::from(1000), ..Default::default() };
-        let higher_entry_at4 = StorageEntry { key: STORAGE, value: U256::from(0), ..Default::default() };
-        let entry_plain = StorageEntry { key: STORAGE, value: U256::from(100), ..Default::default() };
+        let higher_entry_plain =
+            StorageEntry { key: STORAGE, value: U256::from(1000), ..Default::default() };
+        let higher_entry_at4 =
+            StorageEntry { key: STORAGE, value: U256::from(0), ..Default::default() };
+        let entry_plain =
+            StorageEntry { key: STORAGE, value: U256::from(100), ..Default::default() };
         let entry_at15 = StorageEntry { key: STORAGE, value: U256::from(15), ..Default::default() };
         let entry_at10 = StorageEntry { key: STORAGE, value: U256::from(10), ..Default::default() };
         let entry_at7 = StorageEntry { key: STORAGE, value: U256::from(7), ..Default::default() };

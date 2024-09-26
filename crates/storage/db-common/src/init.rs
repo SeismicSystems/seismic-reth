@@ -185,7 +185,10 @@ pub fn insert_state<'a, 'b, DB: Database>(
 
         reverts_init.insert(
             *address,
-            (Some(None), storage.keys().map(|k| StorageEntry {key: *k, ..Default::default()}).collect()),
+            (
+                Some(None),
+                storage.keys().map(|k| StorageEntry { key: *k, ..Default::default() }).collect(),
+            ),
         );
 
         state_init.insert(
@@ -236,10 +239,11 @@ pub fn insert_genesis_hashes<'a, 'b, DB: Database>(
         account.storage.as_ref().map(|storage| {
             (
                 *addr,
-                storage
-                    .clone()
-                    .into_iter()
-                    .map(|(key, value)| StorageEntry { key, value: value.into(), is_private: false }),
+                storage.clone().into_iter().map(|(key, value)| StorageEntry {
+                    key,
+                    value: value.into(),
+                    is_private: false,
+                }),
             )
         })
     });

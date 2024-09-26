@@ -3,7 +3,7 @@
 use reth_primitives::{
     revm_primitives::{
         db::{Database, DatabaseRef},
-        AccountInfo, Address, Bytecode, B256, FlaggedStorage
+        AccountInfo, Address, Bytecode, FlaggedStorage, B256,
     },
     U256,
 };

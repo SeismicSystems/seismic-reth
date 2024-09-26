@@ -274,11 +274,17 @@ where
 {
     let mut state: BTreeMap<_, _> = accounts
         .into_iter()
-        .map(
-            |(addr, (acc, st))| (addr, (acc, st.into_iter().map(
-                        |e| (e.key, (e.value, e.is_private))
-                    ).collect::<BTreeMap<_, _>>()))
-        )
+        .map(|(addr, (acc, st))| {
+            (
+                addr,
+                (
+                    acc,
+                    st.into_iter()
+                        .map(|e| (e.key, (e.value, e.is_private)))
+                        .collect::<BTreeMap<_, _>>(),
+                ),
+            )
+        })
         .collect();
 
     let valid_addresses = state.keys().copied().collect::<Vec<_>>();
@@ -302,7 +308,8 @@ where
         prev_from.balance = prev_from.balance.wrapping_sub(transfer);
 
         // deposit in receiving account and update storage
-        let (prev_to, storage): &mut (Account, BTreeMap<B256, (U256, bool)>) = state.get_mut(&to).unwrap();
+        let (prev_to, storage): &mut (Account, BTreeMap<B256, (U256, bool)>) =
+            state.get_mut(&to).unwrap();
 
         let mut old_entries: Vec<_> = new_entries
             .into_iter()
@@ -318,9 +325,13 @@ where
                 };
                 match old {
                     Some((old_value, old_is_private)) => {
-                        return Some(StorageEntry { value: old_value, is_private: old_is_private, ..entry });
-                    },
-                    None =>  {
+                        return Some(StorageEntry {
+                            value: old_value,
+                            is_private: old_is_private,
+                            ..entry
+                        });
+                    }
+                    None => {
                         return Some(StorageEntry { value: U256::ZERO, is_private: false, ..entry });
                     }
                 }

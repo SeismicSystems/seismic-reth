@@ -4,7 +4,7 @@ use reth_db::tables;
 use reth_db_api::{
     cursor::{DbCursorRO, DbDupCursorRW},
     database::Database,
-    models::{BlockNumberAddress, CompactU256 },
+    models::{BlockNumberAddress, CompactU256},
     table::Decompress,
     transaction::{DbTx, DbTxMut},
 };
@@ -132,7 +132,7 @@ impl<DB: Database> Stage<DB> for StorageHashingStage {
                 }
 
                 let (addr_key_is_private, val) = item?;
-                
+
                 cursor.append_dup(
                     B256::from_slice(&addr_key_is_private[..32]),
                     StorageEntry {
@@ -489,20 +489,25 @@ mod tests {
             hash: bool,
         ) -> Result<(), reth_db::DatabaseError> {
             let mut storage_cursor = tx.cursor_dup_write::<tables::PlainStorageState>()?;
-            let prev_entry =
-                match storage_cursor.seek_by_key_subkey(bn_address.address(), entry.key)? {
-                    Some(e) if e.key == entry.key => {
-                        tx.delete::<tables::PlainStorageState>(bn_address.address(), Some(e))
-                            .expect("failed to delete entry");
-                        e
-                    }
-                    _ => StorageEntry { key: entry.key, value: U256::from(0), ..Default::default() },
-                };
+            let prev_entry = match storage_cursor
+                .seek_by_key_subkey(bn_address.address(), entry.key)?
+            {
+                Some(e) if e.key == entry.key => {
+                    tx.delete::<tables::PlainStorageState>(bn_address.address(), Some(e))
+                        .expect("failed to delete entry");
+                    e
+                }
+                _ => StorageEntry { key: entry.key, value: U256::from(0), ..Default::default() },
+            };
             tx.put::<tables::PlainStorageState>(bn_address.address(), entry)?;
 
             if hash {
                 let hashed_address = keccak256(bn_address.address());
-                let hashed_entry = StorageEntry { key: keccak256(entry.key), value: entry.value, ..Default::default() };
+                let hashed_entry = StorageEntry {
+                    key: keccak256(entry.key),
+                    value: entry.value,
+                    ..Default::default()
+                };
 
                 if let Some(e) = tx
                     .cursor_dup_write::<tables::HashedStorages>()?
