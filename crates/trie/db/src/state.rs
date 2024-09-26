@@ -301,8 +301,23 @@ mod tests {
         let bundle_state = BundleState::builder(2..=2)
             .state_present_account_info(address1, account1)
             .state_present_account_info(address2, account2)
-            .state_storage(address1, HashMap::from([(slot1, (FlaggedStorage::new_from_tuple((0, true)), FlaggedStorage::new_from_tuple((10, true))))]))
-            .state_storage(address2, HashMap::from([(slot2, (FlaggedStorage::ZERO, FlaggedStorage::new_from_value(20)))]))
+            .state_storage(
+                address1,
+                HashMap::from([(
+                    slot1,
+                    (
+                        FlaggedStorage::new_from_tuple((0, true)),
+                        FlaggedStorage::new_from_tuple((10, true)),
+                    ),
+                )]),
+            )
+            .state_storage(
+                address2,
+                HashMap::from([(
+                    slot2,
+                    (FlaggedStorage::ZERO, FlaggedStorage::new_from_value(20)),
+                )]),
+            )
             .build();
         assert_eq!(bundle_state.reverts.len(), 1);
 

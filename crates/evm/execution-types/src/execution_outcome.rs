@@ -55,8 +55,10 @@ pub struct ExecutionOutcome {
 }
 
 /// Type used to initialize revms bundle state.
-pub type BundleStateInit =
-    HashMap<Address, (Option<Account>, Option<Account>, HashMap<B256, ((U256, bool), (U256, bool))>)>;
+pub type BundleStateInit = HashMap<
+    Address,
+    (Option<Account>, Option<Account>, HashMap<B256, ((U256, bool), (U256, bool))>),
+>;
 
 /// Types used inside `RevertsInit` to initialize revms reverts.
 pub type AccountRevertInit = (Option<Option<Account>>, Vec<StorageEntry>);
@@ -94,14 +96,25 @@ impl ExecutionOutcome {
         let mut reverts = revert_init.into_iter().collect::<Vec<_>>();
         reverts.sort_unstable_by_key(|a| a.0);
 
-        // initialize revm bundle 
+        // initialize revm bundle
         let bundle = BundleState::new(
             state_init.into_iter().map(|(address, (original, present, storage))| {
                 (
                     address,
                     original.map(Into::into),
                     present.map(Into::into),
-                    storage.into_iter().map(|(k, (orig_value, new_value))| (k.into(), (FlaggedStorage::new_from_tuple(orig_value), FlaggedStorage::new_from_tuple(new_value)))).collect(),
+                    storage
+                        .into_iter()
+                        .map(|(k, (orig_value, new_value))| {
+                            (
+                                k.into(),
+                                (
+                                    FlaggedStorage::new_from_tuple(orig_value),
+                                    FlaggedStorage::new_from_tuple(new_value),
+                                ),
+                            )
+                        })
+                        .collect(),
                 )
             }),
             reverts.into_iter().map(|(_, reverts)| {
@@ -110,7 +123,12 @@ impl ExecutionOutcome {
                     (
                         address,
                         original.map(|i| i.map(Into::into)),
-                        storage.into_iter().map(|entry| (entry.key.into(), FlaggedStorage {value: entry.value, is_private: entry.is_private})),
+                        storage.into_iter().map(|entry| {
+                            (
+                                entry.key.into(),
+                                FlaggedStorage { value: entry.value, is_private: entry.is_private },
+                            )
+                        }),
                     )
                 })
             }),

@@ -24,7 +24,7 @@ impl StorageEntry {
         Self { key, value, is_private }
     }
 
-    /// Convert the storage entry to a flagged storage entry. 
+    /// Convert the storage entry to a flagged storage entry.
     pub const fn to_flagged_storage(self) -> FlaggedStorage {
         FlaggedStorage { value: self.value, is_private: self.is_private }
     }
@@ -44,10 +44,7 @@ impl From<(B256, (U256, bool))> for StorageEntry {
 
 impl From<StorageEntry> for FlaggedStorage {
     fn from(entry: StorageEntry) -> Self {
-        Self {
-            value: entry.value,
-            is_private: entry.is_private,
-        }
+        Self { value: entry.value, is_private: entry.is_private }
     }
 }
 

@@ -136,7 +136,11 @@ where
                 TrieElement::Branch(node) => {
                     hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
                 }
-                TrieElement::Leaf(TrieLeafNode {key: hashed_address, value: account, is_private: _}) => {
+                TrieElement::Leaf(TrieLeafNode {
+                    key: hashed_address,
+                    value: account,
+                    is_private: _,
+                }) => {
                     let (storage_root, _, updates) = match storage_roots.remove(&hashed_address) {
                         Some(result) => result,
                         // Since we do not store all intermediate nodes in the database, there might
@@ -220,7 +224,9 @@ impl From<ParallelStateRootError> for ProviderError {
 mod tests {
     use super::*;
     use rand::Rng;
-    use reth_primitives::{keccak256, revm_primitives::FlaggedStorage, Account, Address, StorageEntry, U256};
+    use reth_primitives::{
+        keccak256, revm_primitives::FlaggedStorage, Account, Address, StorageEntry, U256,
+    };
     use reth_provider::{test_utils::create_test_provider_factory, HashingWriter};
     use reth_trie::{test_utils, HashedStorage};
 
@@ -260,9 +266,11 @@ mod tests {
                 .insert_storage_for_hashing(state.iter().map(|(address, (_, storage))| {
                     (
                         *address,
-                        storage
-                            .iter()
-                            .map(|(slot, value)| StorageEntry { key: *slot, value: *value, ..Default::default() }),
+                        storage.iter().map(|(slot, value)| StorageEntry {
+                            key: *slot,
+                            value: *value,
+                            ..Default::default()
+                        }),
                     )
                 }))
                 .unwrap();

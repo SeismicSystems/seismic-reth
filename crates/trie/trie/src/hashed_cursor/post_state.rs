@@ -211,7 +211,10 @@ where
     }
 
     /// Find the storage entry in post state or database that's greater or equal to provided subkey.
-    fn seek_inner(&mut self, subkey: B256) -> Result<Option<(B256, FlaggedStorage)>, DatabaseError> {
+    fn seek_inner(
+        &mut self,
+        subkey: B256,
+    ) -> Result<Option<(B256, FlaggedStorage)>, DatabaseError> {
         // Attempt to find the account's storage in post state.
         let post_state_entry = self.post_state_cursor.as_mut().and_then(|c| c.seek(&subkey));
 
@@ -233,7 +236,10 @@ where
     }
 
     /// Find the storage entry that is right after current cursor position.
-    fn next_inner(&mut self, last_slot: B256) -> Result<Option<(B256, FlaggedStorage)>, DatabaseError> {
+    fn next_inner(
+        &mut self,
+        last_slot: B256,
+    ) -> Result<Option<(B256, FlaggedStorage)>, DatabaseError> {
         // Attempt to find the account's storage in post state.
         let post_state_entry =
             self.post_state_cursor.as_mut().and_then(|c| c.first_after(&last_slot));

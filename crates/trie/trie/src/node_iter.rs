@@ -28,7 +28,12 @@ pub struct TrieLeafNode<Value> {
 
 impl TrieBranchNode {
     /// Creates a new `TrieBranchNode`.
-    pub const fn new(key: Nibbles, value: B256, children_are_in_trie: bool, is_private: bool) -> Self {
+    pub const fn new(
+        key: Nibbles,
+        value: B256,
+        children_are_in_trie: bool,
+        is_private: bool,
+    ) -> Self {
         Self { key, value, children_are_in_trie, is_private }
     }
 }
@@ -107,12 +112,11 @@ where
                     // If it's possible to skip the current node in the walker, return a branch node
                     if self.walker.can_skip_current_node {
                         return Ok(Some(TrieElement::Branch(TrieBranchNode {
-                                key: key.clone(),
-                                value: self.walker.hash().unwrap(),
-                                children_are_in_trie: self.walker.children_are_in_trie(),
-                                ..Default::default()
-                            }
-                        )))
+                            key: key.clone(),
+                            value: self.walker.hash().unwrap(),
+                            children_are_in_trie: self.walker.children_are_in_trie(),
+                            ..Default::default()
+                        })))
                     }
                 }
             }

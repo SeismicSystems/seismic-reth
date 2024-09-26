@@ -642,7 +642,8 @@ mod tests {
                             }
 
                             if !value.is_zero() {
-                                let storage_entry = StorageEntry { key: hashed_slot, value, is_private};
+                                let storage_entry =
+                                    StorageEntry { key: hashed_slot, value, is_private };
                                 storage_cursor.upsert(hashed_address, storage_entry).unwrap();
                             }
                         }

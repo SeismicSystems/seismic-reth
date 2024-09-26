@@ -290,7 +290,12 @@ where
                 new_account_state
                     .into_iter()
                     .map(|(slot, value)| {
-                        (U256::from_be_bytes(slot.0).into(), revm_primitives::FlaggedStorage::new_from_value(U256::from_be_bytes(value.0)))
+                        (
+                            U256::from_be_bytes(slot.0).into(),
+                            revm_primitives::FlaggedStorage::new_from_value(U256::from_be_bytes(
+                                value.0,
+                            )),
+                        )
                     })
                     .collect(),
             )?;
