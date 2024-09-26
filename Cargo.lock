@@ -127,7 +127,7 @@ dependencies = [
 [[package]]
 name = "alloy-dyn-abi"
 version = "0.8.1"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=738d15e#738d15e36b08da60ba252c2256bb178c3541c340"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=93e5949#93e5949f20f8c701351aa4134d9fa03cbc4ad1ef"
 dependencies = [
  "alloy-json-abi",
  "alloy-primitives 0.8.1",
@@ -201,7 +201,7 @@ dependencies = [
 [[package]]
 name = "alloy-json-abi"
 version = "0.8.1"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=738d15e#738d15e36b08da60ba252c2256bb178c3541c340"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=93e5949#93e5949f20f8c701351aa4134d9fa03cbc4ad1ef"
 dependencies = [
  "alloy-primitives 0.8.1",
  "alloy-sol-type-parser",
@@ -298,7 +298,7 @@ dependencies = [
 [[package]]
 name = "alloy-primitives"
 version = "0.8.1"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=738d15e#738d15e36b08da60ba252c2256bb178c3541c340"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=93e5949#93e5949f20f8c701351aa4134d9fa03cbc4ad1ef"
 dependencies = [
  "alloy-rlp",
  "arbitrary",
@@ -600,7 +600,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-macro"
 version = "0.8.1"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=738d15e#738d15e36b08da60ba252c2256bb178c3541c340"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=93e5949#93e5949f20f8c701351aa4134d9fa03cbc4ad1ef"
 dependencies = [
  "alloy-sol-macro-expander",
  "alloy-sol-macro-input",
@@ -613,7 +613,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-macro-expander"
 version = "0.8.1"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=738d15e#738d15e36b08da60ba252c2256bb178c3541c340"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=93e5949#93e5949f20f8c701351aa4134d9fa03cbc4ad1ef"
 dependencies = [
  "alloy-sol-macro-input",
  "const-hex",
@@ -630,7 +630,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-macro-input"
 version = "0.8.1"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=738d15e#738d15e36b08da60ba252c2256bb178c3541c340"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=93e5949#93e5949f20f8c701351aa4134d9fa03cbc4ad1ef"
 dependencies = [
  "const-hex",
  "dunce",
@@ -644,7 +644,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-type-parser"
 version = "0.8.1"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=738d15e#738d15e36b08da60ba252c2256bb178c3541c340"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=93e5949#93e5949f20f8c701351aa4134d9fa03cbc4ad1ef"
 dependencies = [
  "serde",
  "winnow",
@@ -653,7 +653,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-types"
 version = "0.8.1"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=738d15e#738d15e36b08da60ba252c2256bb178c3541c340"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=93e5949#93e5949f20f8c701351aa4134d9fa03cbc4ad1ef"
 dependencies = [
  "alloy-json-abi",
  "alloy-primitives 0.8.1",
@@ -8828,7 +8828,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "14.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=e6f24f7#e6f24f7149b2535d2ff28f98c767e98cebc9cfee"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=7176369#71763699d7b4b002d121f3fb2714fff63c38b607"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -8842,7 +8842,7 @@ dependencies = [
 [[package]]
 name = "revm-inspectors"
 version = "0.6.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git?rev=458e6b9#458e6b9252c1eea48a4d97dec01db248d3860f8c"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git?rev=a77b988#a77b988b82486f521193f01231def7809a38e8b3"
 dependencies = [
  "alloy-primitives 0.8.1",
  "alloy-rpc-types",
@@ -8859,7 +8859,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "10.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=e6f24f7#e6f24f7149b2535d2ff28f98c767e98cebc9cfee"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=7176369#71763699d7b4b002d121f3fb2714fff63c38b607"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -8868,7 +8868,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "11.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=e6f24f7#e6f24f7149b2535d2ff28f98c767e98cebc9cfee"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=7176369#71763699d7b4b002d121f3fb2714fff63c38b607"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
@@ -8886,7 +8886,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "9.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=e6f24f7#e6f24f7149b2535d2ff28f98c767e98cebc9cfee"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=7176369#71763699d7b4b002d121f3fb2714fff63c38b607"
 dependencies = [
  "alloy-eips",
  "alloy-primitives 0.8.1",
@@ -9877,7 +9877,7 @@ dependencies = [
 [[package]]
 name = "syn-solidity"
 version = "0.8.1"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=738d15e#738d15e36b08da60ba252c2256bb178c3541c340"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=93e5949#93e5949f20f8c701351aa4134d9fa03cbc4ad1ef"
 dependencies = [
  "paste",
  "proc-macro2",
