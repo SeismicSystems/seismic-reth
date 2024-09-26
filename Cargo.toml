@@ -407,10 +407,10 @@ revm-primitives = { version = "9.0.0", features = [
 
 # eth
 alloy-chains = "0.1.18"
-alloy-dyn-abi = { path = "../seismic-alloy-core/crates/dyn-abi" }
-alloy-primitives = { path = "../seismic-alloy-core/crates/primitives", default-features = false }
+alloy-dyn-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
+alloy-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e", default-features = false }
 alloy-rlp = "0.3.4"
-alloy-sol-types = { path = "../seismic-alloy-core/crates/sol-types" }
+alloy-sol-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
 alloy-trie = { version = "0.5", default-features = false }
 
 alloy-consensus = { version = "0.3.0", default-features = false }
@@ -576,8 +576,8 @@ revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git"
 revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "458e6b9" }
 
 # seismic-alloy-core
-alloy-json-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
 alloy-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
+alloy-json-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
 alloy-sol-macro = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
 alloy-sol-macro-expander = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }
 alloy-sol-macro-input = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "738d15e" }

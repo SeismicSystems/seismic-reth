@@ -389,6 +389,7 @@ where
                             .await?;
                         return Ok(frame)
                     }
+                    GethDebugBuiltInTracerType::FlatCallTracer => todo!(),
                 },
                 #[cfg(not(feature = "js-tracer"))]
                 GethDebugTracerType::JsTracer(_) => {
@@ -742,6 +743,7 @@ where
                             .map_err(Eth::Error::from_eth_err)?;
                         return Ok((frame.into(), res.state))
                     }
+                    GethDebugBuiltInTracerType::FlatCallTracer => todo!(),
                 },
                 #[cfg(not(feature = "js-tracer"))]
                 GethDebugTracerType::JsTracer(_) => {
