@@ -22,7 +22,7 @@ use reth_storage_api::{
     BlockNumReader, HeaderProvider, ReceiptWriter, StageCheckpointWriter, TransactionsProviderExt,
 };
 use reth_storage_errors::writer::UnifiedStorageWriterError;
-use revm::{db::OriginalValuesKnown, primitives::FlaggedStorage};
+use revm::db::OriginalValuesKnown;
 use std::{borrow::Borrow, sync::Arc};
 use tracing::{debug, instrument};
 
@@ -537,6 +537,7 @@ mod tests {
         },
         primitives::{
             Account as RevmAccount, AccountInfo as RevmAccountInfo, AccountStatus, EvmStorageSlot,
+            FlaggedStorage,
         },
         DatabaseCommit, State,
     };
