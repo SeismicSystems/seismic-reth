@@ -565,7 +565,7 @@ tempfile = "3.8"
 test-fuzz = "5"
 
 # seismic-alloy-core
-seismic-transaction = { path = "../seismic-alloy-core/crates/seismic-transaction" }
+seismic-transaction = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "93e5949" }
 
 
 [patch.crates-io]
