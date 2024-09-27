@@ -13,16 +13,16 @@ use reth_primitives::{
 
 #[derive(Debug, Clone, Copy, Default)]
 #[non_exhaustive]
-    pub struct SeismicEvmConfig;
+pub struct SeismicEvmConfig;
 
-    impl ConfigureEvm for SeismicEvmConfig {
+impl ConfigureEvm for SeismicEvmConfig {
     type DefaultExternalContext<'a> = ();
 
     fn evm<DB: Database>(&self, db: DB) -> Evm<'_, Self::DefaultExternalContext<'_>, DB> {
         EvmBuilder::default()
             .with_db(db)
-//.seismic () // Seismic spec
-.build()
+            //.seismic () // Seismic spec
+            .build()
     }
 
     fn evm_with_inspector<DB, I>(&self, db: DB, inspector: I) -> Evm<'_, I, DB>
@@ -30,14 +30,15 @@ use reth_primitives::{
         DB: Database,
         I: GetInspector<DB>,
     {
-    RethEvmBuilder::default().with_db(db).with_external_context(inspector)
-    //.seismic()
-    .append_handler_register(inspector_handle_register).build()
+        RethEvmBuilder::default()
+            .with_db(db)
+            .with_external_context(inspector)
+            //.seismic()
+            .append_handler_register(inspector_handle_register)
+            .build()
     }
 
-    fn default_external_context<'a>(&self) -> Self::DefaultExternalContext<'a> {
-
-    }
+    fn default_external_context<'a>(&self) -> Self::DefaultExternalContext<'a> {}
 }
 
 impl ConfigureEvmEnv for SeismicEvmConfig {

@@ -1,45 +1,45 @@
 use derive_more::Deref;
-use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::{
     core::{JsonRawValue, RpcResult},
+    proc_macros::rpc,
     types::{ErrorCode, ErrorObject},
 };
-use reth::core::rpc::eth::helpers::{
-    AddDevSigners, Call, EthApiSpec, EthBlocks, EthCall, EthFees, EthSigner, EthState,
-    EthTransactions, LoadBlock, LoadFee, LoadPendingBlock, LoadReceipt, LoadState, LoadTransaction,
-    SpawnBlocking, Trace,
+use reth::core::rpc::eth::{
+    helpers::{
+        AddDevSigners, Call, EthApiSpec, EthBlocks, EthCall, EthFees, EthSigner, EthState,
+        EthTransactions, LoadBlock, LoadFee, LoadPendingBlock, LoadReceipt, LoadState,
+        LoadTransaction, SpawnBlocking, Trace,
+    },
+    EthApiTypes,
 };
-use reth::core::rpc::eth::EthApiTypes;
 use secp256k1::SecretKey;
 
-use crate::evm_config::SEISMIC_DB;
-use crate::rpc::error::SeismicApiError;
-use crate::rpc::transaction::SeismicTransactions;
-use reth::rpc::server_types::eth::revm_utils::CallFees;
-use reth::rpc::server_types::eth::EthApiBuilderCtx;
-use reth::rpc::server_types::eth::PendingBlock;
-use reth::rpc::server_types::eth::RpcInvalidTransactionError;
-use reth::rpc::server_types::eth::{EthStateCache, FeeHistoryCache, GasPriceOracle};
-use reth::tasks::{
-    pool::{BlockingTaskGuard, BlockingTaskPool},
-    TaskExecutor, TaskSpawner,
+use crate::{
+    evm_config::SEISMIC_DB,
+    rpc::{error::SeismicApiError, transaction::SeismicTransactions},
 };
-use reth_evm::provider::EvmEnvProvider;
-use reth_evm::ConfigureEvm;
+use reth::{
+    rpc::server_types::eth::{
+        revm_utils::CallFees, EthApiBuilderCtx, EthStateCache, FeeHistoryCache, GasPriceOracle,
+        PendingBlock, RpcInvalidTransactionError,
+    },
+    tasks::{
+        pool::{BlockingTaskGuard, BlockingTaskPool},
+        TaskExecutor, TaskSpawner,
+    },
+};
+use reth_evm::{provider::EvmEnvProvider, ConfigureEvm};
 use reth_network_api::NetworkInfo;
 use reth_node_api::{BuilderProvider, FullNodeComponents};
 use reth_node_core::rpc::eth::RawTransactionForwarder;
-use reth_primitives::TxKind;
-use reth_primitives::U256;
 use reth_primitives::{
     revm_primitives::{BlockEnv, TxEnv},
-    Address, B256,
+    Address, TxKind, B256, U256,
 };
 use reth_provider::{
-    BlockIdReader, BlockNumReader, BlockReaderIdExt, ChainSpecProvider, HeaderProvider,
-    StageCheckpointReader, StateProviderFactory,
+    BlockIdReader, BlockNumReader, BlockReaderIdExt, CanonStateSubscriptions, ChainSpecProvider,
+    HeaderProvider, StageCheckpointReader, StateProviderFactory, TransactionsProvider,
 };
-use reth_provider::{CanonStateSubscriptions, TransactionsProvider};
 use reth_rpc::eth::{core::EthApiInner, DevSigner};
 use reth_rpc_eth_api::{FromEthApiError, IntoEthApiError};
 use reth_rpc_types::{TransactionRequest, WithOtherFields};
@@ -132,9 +132,7 @@ where
             ctx.config.proof_permits,
         );
 
-        Self {
-            inner: Arc::new(inner),
-        }
+        Self { inner: Arc::new(inner) }
     }
 }
 
@@ -519,11 +517,7 @@ where
         request: TransactionRequest,
     ) -> Result<TxEnv, Self::Error> {
         // Ensure that if versioned hashes are set, they're not empty
-        if request
-            .blob_versioned_hashes
-            .as_ref()
-            .map_or(false, |hashes| hashes.is_empty())
-        {
+        if request.blob_versioned_hashes.as_ref().map_or(false, |hashes| hashes.is_empty()) {
             return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err());
         }
 
@@ -545,19 +539,16 @@ where
             ..
         } = request;
 
-        let CallFees {
-            max_priority_fee_per_gas,
-            gas_price,
-            max_fee_per_blob_gas,
-        } = CallFees::ensure_fees(
-            gas_price.map(U256::from),
-            max_fee_per_gas.map(U256::from),
-            max_priority_fee_per_gas.map(U256::from),
-            block_env.basefee,
-            blob_versioned_hashes.as_deref(),
-            max_fee_per_blob_gas.map(U256::from),
-            block_env.get_blob_gasprice().map(U256::from),
-        )?;
+        let CallFees { max_priority_fee_per_gas, gas_price, max_fee_per_blob_gas } =
+            CallFees::ensure_fees(
+                gas_price.map(U256::from),
+                max_fee_per_gas.map(U256::from),
+                max_priority_fee_per_gas.map(U256::from),
+                block_env.basefee,
+                blob_versioned_hashes.as_deref(),
+                max_fee_per_blob_gas.map(U256::from),
+                block_env.get_blob_gasprice().map(U256::from),
+            )?;
 
         let gas_limit = gas.unwrap_or_else(|| block_env.gas_limit.min(U256::from(u64::MAX)).to());
 
@@ -614,5 +605,3 @@ where
         Box::new(|ctx| Self::with_spawner(ctx))
     }
 }
-
-

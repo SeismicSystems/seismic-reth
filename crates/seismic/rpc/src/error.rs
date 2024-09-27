@@ -1,8 +1,7 @@
 use jsonrpsee_types::error::{ErrorObject, INTERNAL_ERROR_CODE};
 /// Seismic specific errors, that extend [`EthApiError`].
 use reth::rpc::server_types::eth::EthApiError;
-use reth_node_core::rpc::eth::AsEthApiError;
-use reth_node_core::rpc::result::internal_rpc_err;
+use reth_node_core::rpc::{eth::AsEthApiError, result::internal_rpc_err};
 use reth_rpc_types::ToRpcError;
 
 #[derive(Debug, thiserror::Error)]
@@ -43,14 +42,14 @@ impl From<SeismicApiError> for jsonrpsee_types::error::ErrorObject<'static> {
     fn from(err: SeismicApiError) -> Self {
         match err {
             SeismicApiError::Eth(err) => err.into(),
-            SeismicApiError::NonceCannotBeFound
-            | SeismicApiError::GasCannotBeEstimated
-            | SeismicApiError::FailedToCommitPreimages
-            | SeismicApiError::TransactionRequestCannotBeBuilt
-            | SeismicApiError::FailedToSignTransaction
-            | SeismicApiError::FailedToSubmitTransaction
-            | SeismicApiError::FailedToGetGasPrice
-            | SeismicApiError::FailedToDecodeTransaction => internal_rpc_err(err.to_string()),
+            SeismicApiError::NonceCannotBeFound |
+            SeismicApiError::GasCannotBeEstimated |
+            SeismicApiError::FailedToCommitPreimages |
+            SeismicApiError::TransactionRequestCannotBeBuilt |
+            SeismicApiError::FailedToSignTransaction |
+            SeismicApiError::FailedToSubmitTransaction |
+            SeismicApiError::FailedToGetGasPrice |
+            SeismicApiError::FailedToDecodeTransaction => internal_rpc_err(err.to_string()),
         }
     }
 }
