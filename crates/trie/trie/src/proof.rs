@@ -107,7 +107,11 @@ where
                 TrieElement::Branch(node) => {
                     hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
                 }
-                TrieElement::Leaf(TrieLeafNode {key: hashed_address, value: account, is_private: _}) => {
+                TrieElement::Leaf(TrieLeafNode {
+                    key: hashed_address,
+                    value: account,
+                    is_private: _,
+                }) => {
                     let storage_multiproof = self.storage_multiproof(hashed_address)?;
 
                     // Encode account
@@ -156,7 +160,7 @@ where
                 TrieElement::Branch(node) => {
                     hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
                 }
-                TrieElement::Leaf(TrieLeafNode{key: hashed_slot, value, is_private: _}) => {
+                TrieElement::Leaf(TrieLeafNode { key: hashed_slot, value, is_private: _ }) => {
                     hash_builder.add_leaf(
                         Nibbles::unpack(hashed_slot),
                         alloy_rlp::encode_fixed_size(&value.value).as_ref(),

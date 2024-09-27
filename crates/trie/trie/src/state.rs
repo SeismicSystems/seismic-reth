@@ -5,7 +5,10 @@ use crate::{
 use itertools::Itertools;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use reth_primitives::{keccak256, Account, Address, B256, U256};
-use revm::{db::{states::CacheAccount, AccountStatus, BundleAccount}, primitives::FlaggedStorage};
+use revm::{
+    db::{states::CacheAccount, AccountStatus, BundleAccount},
+    primitives::FlaggedStorage,
+};
 use std::{
     borrow::Cow,
     collections::{hash_map, HashMap, HashSet},
@@ -61,7 +64,12 @@ impl HashedPostState {
                 let hashed_account = account.account.as_ref().map(|a| a.info.clone().into());
                 let hashed_storage = HashedStorage::from_plain_storage(
                     account.status,
-                    account.account.as_ref().map(|a| a.storage.iter().map(|entry| (entry.0, entry.1))).into_iter().flatten(),
+                    account
+                        .account
+                        .as_ref()
+                        .map(|a| a.storage.iter().map(|entry| (entry.0, entry.1)))
+                        .into_iter()
+                        .flatten(),
                 );
                 (hashed_address, (hashed_account, hashed_storage))
             })
@@ -334,7 +342,11 @@ impl HashedStorageSorted {
         self.non_zero_valued_slots
             .iter()
             .map(|(hashed_slot, value)| (*hashed_slot, *value))
-            .chain(self.zero_valued_slots.iter().map(|hashed_slot| (*hashed_slot, FlaggedStorage::ZERO)))
+            .chain(
+                self.zero_valued_slots
+                    .iter()
+                    .map(|hashed_slot| (*hashed_slot, FlaggedStorage::ZERO)),
+            )
             .sorted_by_key(|entry| *entry.0)
     }
 }
@@ -416,5 +428,4 @@ mod tests {
         );
         assert_eq!(account_storage.map(|st| st.wiped), Some(true));
     }
-
 }

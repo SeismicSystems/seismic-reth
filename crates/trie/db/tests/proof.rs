@@ -57,7 +57,11 @@ fn insert_genesis<DB: Database>(
         account.storage.map(|storage| {
             (
                 addr,
-                storage.into_iter().map(|(key, value)| StorageEntry { key, value: value.into(), ..Default::default() }),
+                storage.into_iter().map(|(key, value)| StorageEntry {
+                    key,
+                    value: value.into(),
+                    ..Default::default()
+                }),
             )
         })
     });

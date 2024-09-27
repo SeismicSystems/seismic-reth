@@ -113,7 +113,10 @@ pub fn storage_root_unsorted(storage: impl IntoIterator<Item = (B256, FlaggedSto
 pub fn storage_root(storage: impl IntoIterator<Item = (B256, FlaggedStorage)>) -> B256 {
     let mut hb = HashBuilder::default();
     for (hashed_slot, value) in storage {
-        hb.add_leaf(Nibbles::unpack(hashed_slot), alloy_rlp::encode_fixed_size(&value.value).as_ref());
+        hb.add_leaf(
+            Nibbles::unpack(hashed_slot),
+            alloy_rlp::encode_fixed_size(&value.value).as_ref(),
+        );
     }
     hb.root()
 }
