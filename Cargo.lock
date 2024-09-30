@@ -2946,19 +2946,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
-name = "evm"
-version = "1.0.6"
-dependencies = [
- "reth",
- "reth-chainspec",
- "reth-evm",
- "reth-evm-ethereum",
- "reth-node-api",
- "reth-node-ethereum",
- "reth-primitives",
-]
-
-[[package]]
 name = "example-beacon-api-sidecar-fetcher"
 version = "0.1.0"
 dependencies = [
@@ -4637,7 +4624,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -5095,10 +5082,6 @@ dependencies = [
  "cfg-if",
  "libc",
 ]
-
-[[package]]
-name = "node"
-version = "1.0.6"
 
 [[package]]
 name = "nom"
@@ -7462,6 +7445,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "reth-evm-seismic"
+version = "1.0.6"
+dependencies = [
+ "async-trait",
+ "eyre",
+ "reth",
+ "reth-chainspec",
+ "reth-evm",
+ "reth-evm-ethereum",
+ "reth-node-api",
+ "reth-node-ethereum",
+ "reth-primitives",
+ "reth-revm",
+ "serde_json",
+]
+
+[[package]]
 name = "reth-execution-errors"
 version = "1.0.6"
 dependencies = [
@@ -7569,6 +7569,20 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "reth-helpers-seismic"
+version = "1.0.6"
+dependencies = [
+ "alloy-dyn-abi",
+ "async-trait",
+ "reth",
+ "reth-primitives",
+ "reth-rpc-eth-api",
+ "reth-rpc-types 1.0.6",
+ "reth-rpc-types-compat",
+ "secp256k1",
 ]
 
 [[package]]
@@ -8065,6 +8079,48 @@ dependencies = [
  "reth-tracing",
  "reth-transaction-pool",
  "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "reth-node-seismic"
+version = "1.0.6"
+dependencies = [
+ "alloy-dyn-abi",
+ "alloy-network",
+ "async-trait",
+ "derive_more 0.99.18",
+ "dyn-clone",
+ "eyre",
+ "jsonrpsee",
+ "jsonrpsee-types",
+ "parking_lot 0.12.3",
+ "reth",
+ "reth-chainspec",
+ "reth-ethereum-engine-primitives",
+ "reth-evm",
+ "reth-evm-ethereum",
+ "reth-evm-seismic",
+ "reth-network-api",
+ "reth-node-api",
+ "reth-node-builder",
+ "reth-node-core",
+ "reth-node-ethereum",
+ "reth-primitives",
+ "reth-provider",
+ "reth-rpc",
+ "reth-rpc-eth-api",
+ "reth-rpc-seismic",
+ "reth-rpc-types 1.0.6",
+ "reth-rpc-types-compat",
+ "reth-tasks",
+ "reth-tracing",
+ "reth-transaction-pool",
+ "secp256k1",
+ "seismic-transaction",
  "serde_json",
  "thiserror",
  "tokio",
@@ -8679,6 +8735,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "reth-rpc-seismic"
+version = "1.0.6"
+dependencies = [
+ "alloy-dyn-abi",
+ "alloy-network",
+ "async-trait",
+ "derive_more 0.99.18",
+ "dyn-clone",
+ "eyre",
+ "jsonrpsee",
+ "jsonrpsee-types",
+ "parking_lot 0.12.3",
+ "reth",
+ "reth-chainspec",
+ "reth-ethereum-engine-primitives",
+ "reth-evm",
+ "reth-evm-ethereum",
+ "reth-evm-seismic",
+ "reth-helpers-seismic",
+ "reth-network-api",
+ "reth-node-api",
+ "reth-node-builder",
+ "reth-node-core",
+ "reth-node-ethereum",
+ "reth-primitives",
+ "reth-provider",
+ "reth-rpc",
+ "reth-rpc-eth-api",
+ "reth-rpc-types 1.0.6",
+ "reth-rpc-types-compat",
+ "reth-tasks",
+ "reth-tracing",
+ "reth-transaction-pool",
+ "secp256k1",
+ "seismic-transaction",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "reth-rpc-server-types"
 version = "1.0.6"
 dependencies = [
@@ -9279,45 +9377,6 @@ name = "route-recognizer"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afab94fb28594581f62d981211a9a4d53cc8130bbcbbb89a0440d9b8e81a7746"
-
-[[package]]
-name = "rpc"
-version = "1.0.6"
-dependencies = [
- "alloy-dyn-abi",
- "alloy-network",
- "derive_more 0.99.18",
- "dyn-clone",
- "eyre",
- "jsonrpsee",
- "jsonrpsee-types",
- "parking_lot 0.12.3",
- "reth",
- "reth-chainspec",
- "reth-ethereum-engine-primitives",
- "reth-evm",
- "reth-evm-ethereum",
- "reth-network-api",
- "reth-node-api",
- "reth-node-builder",
- "reth-node-core",
- "reth-node-ethereum",
- "reth-primitives",
- "reth-provider",
- "reth-rpc",
- "reth-rpc-eth-api",
- "reth-rpc-types 1.0.6",
- "reth-rpc-types-compat",
- "reth-tasks",
- "reth-tracing",
- "reth-transaction-pool",
- "secp256k1",
- "seismic-transaction",
- "serde_json",
- "thiserror",
- "tokio",
- "tracing",
-]
 
 [[package]]
 name = "ruint"
@@ -11320,7 +11379,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

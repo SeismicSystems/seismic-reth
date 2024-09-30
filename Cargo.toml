@@ -95,7 +95,7 @@ members = [
     "crates/rpc/rpc-testing-util/",
     "crates/rpc/rpc-types-compat/",
     "crates/rpc/rpc-types/",
-    "crates/rpc/rpc/", "crates/seismic/evm", "crates/seismic/node", "crates/seismic/rpc",
+    "crates/rpc/rpc/", "crates/seismic/evm", "crates/seismic/helpers", "crates/seismic/node", "crates/seismic/rpc",
     "crates/stages/api/",
     "crates/stages/stages/",
     "crates/stages/types/",
@@ -394,6 +394,10 @@ reth-trie = { path = "crates/trie/trie" }
 reth-trie-common = { path = "crates/trie/common" }
 reth-trie-db = { path = "crates/trie/db" }
 reth-trie-parallel = { path = "crates/trie/parallel" }
+reth-node-seismic = { path = "crates/seismic/node" }
+reth-rpc-seismic = { path = "crates/seismic/rpc" }
+reth-evm-seismic = { path = "crates/seismic/evm" }
+reth-helpers-seismic = { path = "crates/seismic/helpers" }
 
 # revm
 revm = { version = "14.0.0", features = [

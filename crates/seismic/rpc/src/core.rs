@@ -1,3 +1,4 @@
+use alloy_network::AnyNetwork;
 use derive_more::Deref;
 use jsonrpsee::{
     core::{JsonRawValue, RpcResult},
@@ -12,12 +13,11 @@ use reth::core::rpc::eth::{
     },
     EthApiTypes,
 };
+use reth_chainspec::ChainSpec;
 use secp256k1::SecretKey;
 
-use crate::{
-    evm_config::SEISMIC_DB,
-    rpc::{error::SeismicApiError, transaction::SeismicTransactions},
-};
+use crate::{error::SeismicApiError, transaction::SeismicTransactions};
+
 use reth::{
     rpc::server_types::eth::{
         revm_utils::CallFees, EthApiBuilderCtx, EthStateCache, FeeHistoryCache, GasPriceOracle,
@@ -31,7 +31,6 @@ use reth::{
 use reth_evm::{provider::EvmEnvProvider, ConfigureEvm};
 use reth_network_api::NetworkInfo;
 use reth_node_api::{BuilderProvider, FullNodeComponents};
-use reth_node_core::rpc::eth::RawTransactionForwarder;
 use reth_primitives::{
     revm_primitives::{BlockEnv, TxEnv},
     Address, TxKind, B256, U256,
@@ -44,11 +43,11 @@ use reth_rpc::eth::{core::EthApiInner, DevSigner};
 use reth_rpc_eth_api::{FromEthApiError, IntoEthApiError};
 use reth_rpc_types::{TransactionRequest, WithOtherFields};
 use reth_transaction_pool::TransactionPool;
-use seismic_preimages::{Commitment, InputPreImage};
 use std::{fmt, sync::Arc};
 use tracing::trace;
+use reth_helpers_seismic::signer::{AddCustomDevSigners, CustomDevSigner};
 
-use crate::helpers::signer::{AddCustomDevSigners, CustomDevSigner};
+// use crate::helpers::signer::{AddCustomDevSigners, CustomDevSigner};
 
 pub const TEST_BYTECODE_PATH: &str = "src/seismic_tx_test_bytecode.txt";
 
@@ -66,13 +65,6 @@ pub const TEST_BYTECODE_PATH: &str = "src/seismic_tx_test_bytecode.txt";
 #[cfg_attr(not(test), rpc(server, namespace = "seismic"))]
 #[cfg_attr(test, rpc(server, client, namespace = "seismic"))]
 pub trait SeismicApi {
-    #[method(name = "commit")]
-    fn seismic_commit(
-        &self,
-        address: Address,
-        preimages: Vec<InputPreImage>,
-    ) -> RpcResult<Vec<Commitment>>;
-
     /// Sends a transaction; will block waiting for signer to return the
     /// transaction hash. Handler detects a Seismic transaction with preimages
     /// in the im
@@ -129,7 +121,6 @@ where
             ctx.evm_config.clone(),
             ctx.executor.clone(),
             None,
-            ctx.config.proof_permits,
         );
 
         Self { inner: Arc::new(inner) }
@@ -139,20 +130,25 @@ where
 impl<Provider, Pool, Network, EvmConfig> EthApiTypes
     for SeismicApi<Provider, Pool, Network, EvmConfig>
 where
-    Self: Send + Sync,
+    Self: Send + Sync + Clone,
 {
     type Error = SeismicApiError;
+    type NetworkTypes = AnyNetwork;
 }
 
 impl<Provider, Pool, Network, EvmConfig> EthApiSpec
     for SeismicApi<Provider, Pool, Network, EvmConfig>
 where
     Pool: TransactionPool + 'static,
-    Provider: ChainSpecProvider + BlockNumReader + StageCheckpointReader + 'static,
+    Provider:
+        ChainSpecProvider<ChainSpec = ChainSpec> + BlockNumReader + StageCheckpointReader + 'static,
     Network: NetworkInfo + 'static,
     EvmConfig: Send + Sync,
 {
-    fn provider(&self) -> impl ChainSpecProvider + BlockNumReader + StageCheckpointReader {
+    fn provider(
+        &self,
+    ) -> impl ChainSpecProvider<ChainSpec = ChainSpec> + BlockNumReader + StageCheckpointReader
+    {
         self.inner.provider()
     }
 
@@ -194,44 +190,15 @@ where
     }
 }
 
-impl<Provider, Pool, Network, EvmConfig> LoadFee for SeismicApi<Provider, Pool, Network, EvmConfig>
-where
-    Self: LoadBlock,
-    Provider: ChainSpecProvider + BlockReaderIdExt + Clone + 'static,
-    Pool: Clone,
-    Network: Clone,
-    EvmConfig: Clone,
-{
-    #[inline]
-    fn provider(&self) -> impl BlockIdReader + HeaderProvider + ChainSpecProvider {
-        self.inner.provider()
-    }
-
-    #[inline]
-    fn cache(&self) -> &EthStateCache {
-        self.inner.cache()
-    }
-
-    #[inline]
-    fn gas_oracle(&self) -> &GasPriceOracle<impl BlockReaderIdExt> {
-        self.inner.gas_oracle()
-    }
-
-    #[inline]
-    fn fee_history_cache(&self) -> &FeeHistoryCache {
-        self.inner.fee_history_cache()
-    }
-}
-
 impl<Provider, Pool, Network, EvmConfig> LoadState
     for SeismicApi<Provider, Pool, Network, EvmConfig>
 where
-    Self: Send + Sync,
-    Provider: StateProviderFactory + ChainSpecProvider,
+    Self: Send + Sync + Clone,
+    Provider: StateProviderFactory + ChainSpecProvider<ChainSpec = ChainSpec>,
     Pool: TransactionPool,
 {
     #[inline]
-    fn provider(&self) -> impl StateProviderFactory + ChainSpecProvider {
+    fn provider(&self) -> impl StateProviderFactory + ChainSpecProvider<ChainSpec = ChainSpec> {
         self.inner.provider()
     }
 
@@ -325,7 +292,7 @@ impl<Provider, Pool, Network, EvmConfig> SeismicApiServer
     for SeismicApi<Provider, Pool, Network, EvmConfig>
 where
     Pool: TransactionPool + 'static,
-    Provider: ChainSpecProvider
+    Provider: ChainSpecProvider<ChainSpec = ChainSpec>
         + BlockNumReader
         + StageCheckpointReader
         + BlockReaderIdExt
@@ -336,25 +303,6 @@ where
     Network: NetworkInfo + Clone + 'static,
     EvmConfig: Send + Sync + ConfigureEvm + Clone + 'static,
 {
-    fn seismic_commit(
-        &self,
-        address: Address,
-        preimages: Vec<InputPreImage>,
-    ) -> RpcResult<Vec<Commitment>> {
-        let mut db = SEISMIC_DB.clone();
-        match seismic_preimages::bulk_commit(&mut db, &address, &preimages) {
-            Ok(commitments) => RpcResult::Ok(commitments),
-            Err(e) => {
-                let msg = e.message();
-                let code = match e {
-                    seismic_preimages::SeismicRpcError::ParseError(_) => ErrorCode::ParseError,
-                    seismic_preimages::SeismicRpcError::DbError(_) => ErrorCode::InternalError,
-                };
-                RpcResult::Err(ErrorObject::owned(code.code(), msg, None::<&JsonRawValue>))
-            }
-        }
-    }
-
     async fn send_transaction(
         &self,
         request: WithOtherFields<TransactionRequest>,
@@ -420,14 +368,20 @@ impl<Provider, Pool, Network, EvmConfig> LoadPendingBlock
     for SeismicApi<Provider, Pool, Network, EvmConfig>
 where
     Self: SpawnBlocking,
-    Provider: BlockReaderIdExt + EvmEnvProvider + ChainSpecProvider + StateProviderFactory,
+    Provider: BlockReaderIdExt
+        + EvmEnvProvider
+        + ChainSpecProvider<ChainSpec = ChainSpec>
+        + StateProviderFactory,
     Pool: TransactionPool,
     EvmConfig: ConfigureEvm,
 {
     #[inline]
     fn provider(
         &self,
-    ) -> impl BlockReaderIdExt + EvmEnvProvider + ChainSpecProvider + StateProviderFactory {
+    ) -> impl BlockReaderIdExt
+           + EvmEnvProvider
+           + ChainSpecProvider<ChainSpec = ChainSpec>
+           + StateProviderFactory {
         self.inner.provider()
     }
 
@@ -480,10 +434,6 @@ where
 {
     fn provider(&self) -> impl BlockReaderIdExt {
         self.inner.provider()
-    }
-
-    fn raw_tx_forwarder(&self) -> Option<Arc<dyn RawTransactionForwarder>> {
-        self.inner.raw_tx_forwarder()
     }
 
     fn signers(&self) -> &parking_lot::RwLock<Vec<Box<dyn EthSigner>>> {
@@ -582,16 +532,16 @@ where
     }
 }
 
-impl<Provider, Pool, Network, EvmConfig> LoadReceipt
-    for SeismicApi<Provider, Pool, Network, EvmConfig>
+impl<Provider, Pool, Network, EvmConfig> LoadReceipt for SeismicApi<Provider, Pool, Network, EvmConfig>
 where
-    Self: Send + Sync,
+    Self: Send + Sync + Clone,
 {
     #[inline]
     fn cache(&self) -> &EthStateCache {
         self.inner.cache()
     }
 }
+
 
 impl<N, Network> BuilderProvider<N> for SeismicApi<N::Provider, N::Pool, Network, N::Evm>
 where

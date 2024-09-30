@@ -3,7 +3,6 @@ use reth::{
     revm::{inspector_handle_register, Database, Evm, EvmBuilder, GetInspector},
 };
 use reth_chainspec::{ChainSpec, Head};
-use reth_evm::builder::RethEvmBuilder;
 use reth_evm_ethereum::EthEvmConfig;
 use reth_node_api::{ConfigureEvm, ConfigureEvmEnv};
 use reth_primitives::{
@@ -30,10 +29,9 @@ impl ConfigureEvm for SeismicEvmConfig {
         DB: Database,
         I: GetInspector<DB>,
     {
-        RethEvmBuilder::default()
+        EvmBuilder::default()
             .with_db(db)
             .with_external_context(inspector)
-            //.seismic()
             .append_handler_register(inspector_handle_register)
             .build()
     }

@@ -1,5 +1,5 @@
 [package]
-name = "rpc"
+name ="reth-rpc-seismic"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -36,6 +36,8 @@ jsonrpsee-types = "0.24"
 derive_more = "0.99.17"
 dyn-clone = "1.0.17"
 seismic-transaction.workspace = true
+reth-evm-seismic.workspace = true
+reth-helpers-seismic.workspace = true
 
 # clap = { workspace = true, features = ["derive"] }
 eyre.workspace = true
@@ -46,6 +48,7 @@ secp256k1 = { version = "0.29", default-features = false, features = [
     "recovery",
 ] }
 tracing.workspace = true
+async-trait.workspace = true
 
 serde_json.workspace = true
 [lints]
