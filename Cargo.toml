@@ -569,7 +569,7 @@ tempfile = "3.8"
 test-fuzz = "5"
 
 # seismic-alloy-core
-seismic-transaction = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", branch = "ameya/patch-reth-rpc-types-seismic-reth" }
+seismic-transaction = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", branch = "ameya/patch-reth-rpc-types-seismic-reth" } # todo: change once this gets merged
 
 
 [patch.crates-io]

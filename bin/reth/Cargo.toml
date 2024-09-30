@@ -145,6 +145,8 @@ optimism = [
     "reth-rpc/optimism",
 ]
 
+seismic = []
+
 # no-op feature flag for switching between the `optimism` and default functionality in CI matrices
 ethereum = []
 
@@ -156,3 +158,8 @@ path = "src/main.rs"
 name = "op-reth"
 path = "src/optimism.rs"
 required-features = ["optimism"]
+
+[[bin]]
+name = "seismic-reth"
+path = "src/seismic.rs"
+required-features = ["seismic"]
