@@ -5,10 +5,10 @@
 #[global_allocator]
 static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
-// #[cfg(not(feature = "seismic"))]
-// compile_error!("Cannot build the `seismic-reth` binary with the `seismic` feature flag disabled.");
+#[cfg(not(feature = "seismic"))]
+compile_error!("Cannot build the `seismic-reth` binary with the `seismic` feature flag disabled.");
 
-// #[cfg(feature = "seismic")]
+#[cfg(feature = "seismic")]
 fn main() {
     use eyre::Ok;
     use reth::rpc::server_types::eth::EthStateCache;
@@ -19,9 +19,9 @@ fn main() {
     use reth_tasks::TokioTaskExecutor;
     use reth_tracing::{RethTracer, Tracer};
 
-    use chain::seismic_chain;
-    use node::node::{SeismicAddOns, SeismicNode};
-    use rpc::core::SeismicApi;
+    use reth_helpers_seismic::chain::seismic_chain;
+    use reth_node_seismic::node::{SeismicAddOns, SeismicNode};
+    use reth_rpc_seismic::core::SeismicApi;
     reth_cli_util::sigsegv_handler::install();
 
     // Enable backtraces unless a RUST_BACKTRACE value has already been explicitly provided.

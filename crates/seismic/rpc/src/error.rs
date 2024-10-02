@@ -1,6 +1,6 @@
 use jsonrpsee_types::error::{ErrorObject, INTERNAL_ERROR_CODE};
 /// Seismic specific errors, that extend [`EthApiError`].
-use reth::rpc::server_types::eth::EthApiError;
+use reth_rpc_eth_types::EthApiError;
 use reth_node_core::rpc::{eth::AsEthApiError, result::internal_rpc_err};
 use reth_rpc_types::ToRpcError;
 

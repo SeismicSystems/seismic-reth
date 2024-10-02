@@ -1,7 +1,5 @@
-use reth::{
-    primitives::{revm_primitives::Env, Address, Bytes},
-    revm::{inspector_handle_register, Database, Evm, EvmBuilder, GetInspector},
-};
+use reth_primitives::revm_primitives::{Env, Address, Bytes};
+use reth_revm::{inspector_handle_register, Database, Evm, EvmBuilder, GetInspector};
 use reth_chainspec::{ChainSpec, Head};
 use reth_evm_ethereum::EthEvmConfig;
 use reth_node_api::{ConfigureEvm, ConfigureEvmEnv};

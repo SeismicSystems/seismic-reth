@@ -6,15 +6,15 @@ rust-version.workspace = true
 license.workspace = true
 homepage.workspace = true
 repository.workspace = true
-exclude.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 async-trait.workspace = true
 seismic-transaction.workspace = true
 reth-evm-seismic.workspace = true
 reth-rpc-seismic.workspace = true
-
-reth.workspace = true
 reth-chainspec.workspace = true
 reth-evm.workspace = true
 reth-evm-ethereum.workspace = true
@@ -52,6 +52,3 @@ secp256k1 = { version = "0.29", default-features = false, features = [
 tracing.workspace = true
 
 serde_json.workspace = true
-
-[lints]
-workspace = true

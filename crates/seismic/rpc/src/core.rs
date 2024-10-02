@@ -5,29 +5,15 @@ use jsonrpsee::{
     proc_macros::rpc,
     types::{ErrorCode, ErrorObject},
 };
-use reth::core::rpc::eth::{
-    helpers::{
-        AddDevSigners, Call, EthApiSpec, EthBlocks, EthCall, EthFees, EthSigner, EthState,
-        EthTransactions, LoadBlock, LoadFee, LoadPendingBlock, LoadReceipt, LoadState,
-        LoadTransaction, SpawnBlocking, Trace,
-    },
-    EthApiTypes,
-};
+use reth_rpc_eth_api::{helpers::{AddDevSigners, Call, EthApiSpec, EthBlocks, EthCall, EthFees, EthSigner, EthState, EthTransactions, LoadBlock, LoadFee, LoadPendingBlock, LoadReceipt, LoadState, LoadTransaction, SpawnBlocking, Trace}, EthApiTypes};
 use reth_chainspec::ChainSpec;
 use secp256k1::SecretKey;
 
 use crate::{error::SeismicApiError, transaction::SeismicTransactions};
 
-use reth::{
-    rpc::server_types::eth::{
-        revm_utils::CallFees, EthApiBuilderCtx, EthStateCache, FeeHistoryCache, GasPriceOracle,
-        PendingBlock, RpcInvalidTransactionError,
-    },
-    tasks::{
-        pool::{BlockingTaskGuard, BlockingTaskPool},
-        TaskExecutor, TaskSpawner,
-    },
-};
+
+use reth_rpc_eth_types::{revm_utils::CallFees, EthApiBuilderCtx, EthStateCache, PendingBlock, RpcInvalidTransactionError};
+use reth_tasks::{pool::{BlockingTaskGuard, BlockingTaskPool}, TaskExecutor, TaskSpawner};
 use reth_evm::{provider::EvmEnvProvider, ConfigureEvm};
 use reth_network_api::NetworkInfo;
 use reth_node_api::{BuilderProvider, FullNodeComponents};
@@ -36,7 +22,7 @@ use reth_primitives::{
     Address, TxKind, B256, U256,
 };
 use reth_provider::{
-    BlockIdReader, BlockNumReader, BlockReaderIdExt, CanonStateSubscriptions, ChainSpecProvider,
+    BlockNumReader, BlockReaderIdExt, CanonStateSubscriptions, ChainSpecProvider,
     HeaderProvider, StageCheckpointReader, StateProviderFactory, TransactionsProvider,
 };
 use reth_rpc::eth::{core::EthApiInner, DevSigner};

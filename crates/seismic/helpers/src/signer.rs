@@ -1,5 +1,5 @@
 use alloy_dyn_abi::TypedData;
-use reth::rpc::server_types::eth::SignError;
+use reth_rpc_eth_types::SignError;
 use reth_primitives::{
     eip191_hash_message, sign_message, Address, Signature, TransactionSigned, B256,
 };

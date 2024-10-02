@@ -10,13 +10,13 @@ exclude.workspace = true
 
 [dependencies]
 async-trait.workspace = true
-reth.workspace = true
 reth-chainspec.workspace = true
 reth-evm.workspace = true
 reth-evm-ethereum.workspace = true
 reth-node-api.workspace = true
 reth-primitives.workspace = true
 reth-node-ethereum.workspace = true
+reth-node-builder.workspace = true
 serde_json.workspace = true
 eyre.workspace = true
 reth-revm.workspace = true
