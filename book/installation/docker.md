@@ -43,6 +43,11 @@ To build the image from source, navigate to the root of the repository and run:
 docker build . -t reth:local
 ```
 
+If your build requires ssh private key to clone private repo,
+```bash
+docker buildx build --secret id=ssh_key,src=$ABSOLUTE_PATH_TO_SSH_PK -t reth:local .
+```
+
 The build will likely take several minutes. Once it's built, test it with:
 
 ```bash

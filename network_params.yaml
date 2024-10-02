@@ -1,0 +1,5 @@
+participants:
+  - el_type: reth
+    el_image: seismic-reth:local
+    cl_type: lighthouse
+    cl_image: sigp/lighthouse:latest
