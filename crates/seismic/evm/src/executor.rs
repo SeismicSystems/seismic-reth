@@ -1,5 +1,5 @@
-use reth_node_builder::{components::ExecutorBuilder, BuilderContext};
 use reth_node_api::FullNodeTypes;
+use reth_node_builder::{components::ExecutorBuilder, BuilderContext};
 use reth_node_ethereum::EthExecutorProvider;
 
 use crate::evm_config::SeismicEvmConfig;

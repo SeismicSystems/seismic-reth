@@ -1,12 +1,11 @@
-use reth_primitives::revm_primitives::{Env, Address, Bytes};
-use reth_revm::{inspector_handle_register, Database, Evm, EvmBuilder, GetInspector};
 use reth_chainspec::{ChainSpec, Head};
 use reth_evm_ethereum::EthEvmConfig;
 use reth_node_api::{ConfigureEvm, ConfigureEvmEnv};
 use reth_primitives::{
-    revm_primitives::{AnalysisKind, CfgEnvWithHandlerCfg, TxEnv},
+    revm_primitives::{Address, AnalysisKind, Bytes, CfgEnvWithHandlerCfg, Env, TxEnv},
     Header, TransactionSigned, U256,
 };
+use reth_revm::{inspector_handle_register, Database, Evm, EvmBuilder, GetInspector};
 
 #[derive(Debug, Clone, Copy, Default)]
 #[non_exhaustive]

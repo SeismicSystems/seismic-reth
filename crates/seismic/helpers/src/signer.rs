@@ -1,10 +1,9 @@
 use alloy_dyn_abi::TypedData;
-use reth_rpc_eth_types::SignError;
 use reth_primitives::{
     eip191_hash_message, sign_message, Address, Signature, TransactionSigned, B256,
 };
-use reth_rpc_eth_api::helpers::signer::Result;
-use reth_rpc_eth_api::helpers::EthSigner;
+use reth_rpc_eth_api::helpers::{signer::Result, EthSigner};
+use reth_rpc_eth_types::SignError;
 use reth_rpc_types::TypedTransactionRequest;
 use reth_rpc_types_compat::transaction::to_primitive_transaction;
 use secp256k1::SecretKey;
@@ -45,16 +44,11 @@ impl EthSigner for CustomDevSigner {
         let tx_signature_hash = transaction.signature_hash();
         let signature = self.sign_hash(tx_signature_hash, *address)?;
 
-        Ok(TransactionSigned::from_transaction_and_signature(
-            transaction,
-            signature,
-        ))
+        Ok(TransactionSigned::from_transaction_and_signature(transaction, signature))
     }
 
     fn sign_typed_data(&self, address: Address, payload: &TypedData) -> Result<Signature> {
-        let encoded = payload
-            .eip712_signing_hash()
-            .map_err(|_| SignError::InvalidTypedData)?;
+        let encoded = payload.eip712_signing_hash().map_err(|_| SignError::InvalidTypedData)?;
         self.sign_hash(encoded, address)
     }
 }
@@ -72,10 +66,7 @@ impl CustomDevSigner {
             if derived_address == *addr {
                 let addresses = vec![*addr];
                 let accounts = HashMap::from([(*addr, sk.clone())]);
-                signers.push(Box::new(Self {
-                    addresses,
-                    accounts,
-                }) as Box<dyn EthSigner>);
+                signers.push(Box::new(Self { addresses, accounts }) as Box<dyn EthSigner>);
             }
         }
         signers

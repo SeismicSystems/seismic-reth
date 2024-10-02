@@ -1,9 +1,10 @@
 use alloy_dyn_abi::TypedData;
 use reth_provider::BlockReaderIdExt;
+use reth_rpc_eth_types::{
+    utils::recover_raw_transaction, EthApiError, SignError, TransactionSource,
+};
 use reth_rpc_types_compat::transaction::from_recovered_with_block_context;
-use reth_rpc_eth_types::{utils::recover_raw_transaction, SignError, TransactionSource, EthApiError};
 
-use reth_rpc_types::transaction::{EIP1559TransactionRequest, EIP2930TransactionRequest, EIP4844TransactionRequest, LegacyTransactionRequest};
 use reth_node_core::{
     primitives::TransactionMeta,
     rpc::eth::helpers::{
@@ -12,12 +13,15 @@ use reth_node_core::{
     },
 };
 use reth_primitives::{
-    Address, BlockId, Bytes, Receipt, TransactionSigned, TxHash,
-    TxKind, B256, U256,
+    Address, BlockId, Bytes, Receipt, TransactionSigned, TxHash, TxKind, B256, U256,
 };
 use reth_provider::{ReceiptProvider, TransactionsProvider};
 use reth_rpc_eth_api::{FromEthApiError, IntoEthApiError, RpcTransaction};
 use reth_rpc_types::{
+    transaction::{
+        EIP1559TransactionRequest, EIP2930TransactionRequest, EIP4844TransactionRequest,
+        LegacyTransactionRequest,
+    },
     AnyTransactionReceipt, OtherFields, TransactionInfo, TransactionRequest,
     TypedTransactionRequest, WithOtherFields,
 };

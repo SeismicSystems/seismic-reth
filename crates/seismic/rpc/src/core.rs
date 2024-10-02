@@ -5,16 +5,21 @@ use jsonrpsee::{
     proc_macros::rpc,
     types::{ErrorCode, ErrorObject},
 };
-use reth_rpc_eth_api::{helpers::{AddDevSigners, Call, EthApiSpec, EthBlocks, EthCall, EthFees, EthSigner, EthState, EthTransactions, LoadBlock, LoadFee, LoadPendingBlock, LoadReceipt, LoadState, LoadTransaction, SpawnBlocking, Trace}, EthApiTypes};
 use reth_chainspec::ChainSpec;
+use reth_rpc_eth_api::{
+    helpers::{
+        AddDevSigners, Call, EthApiSpec, EthBlocks, EthCall, EthFees, EthSigner, EthState,
+        EthTransactions, LoadBlock, LoadFee, LoadPendingBlock, LoadReceipt, LoadState,
+        LoadTransaction, SpawnBlocking, Trace,
+    },
+    EthApiTypes,
+};
 use secp256k1::SecretKey;
 
 use crate::{error::SeismicApiError, transaction::SeismicTransactions};
 
-
-use reth_rpc_eth_types::{revm_utils::CallFees, EthApiBuilderCtx, EthStateCache, PendingBlock, RpcInvalidTransactionError};
-use reth_tasks::{pool::{BlockingTaskGuard, BlockingTaskPool}, TaskExecutor, TaskSpawner};
 use reth_evm::{provider::EvmEnvProvider, ConfigureEvm};
+use reth_helpers_seismic::signer::{AddCustomDevSigners, CustomDevSigner};
 use reth_network_api::NetworkInfo;
 use reth_node_api::{BuilderProvider, FullNodeComponents};
 use reth_primitives::{
@@ -22,16 +27,22 @@ use reth_primitives::{
     Address, TxKind, B256, U256,
 };
 use reth_provider::{
-    BlockNumReader, BlockReaderIdExt, CanonStateSubscriptions, ChainSpecProvider,
-    HeaderProvider, StageCheckpointReader, StateProviderFactory, TransactionsProvider,
+    BlockNumReader, BlockReaderIdExt, CanonStateSubscriptions, ChainSpecProvider, HeaderProvider,
+    StageCheckpointReader, StateProviderFactory, TransactionsProvider,
 };
 use reth_rpc::eth::{core::EthApiInner, DevSigner};
 use reth_rpc_eth_api::{FromEthApiError, IntoEthApiError};
+use reth_rpc_eth_types::{
+    revm_utils::CallFees, EthApiBuilderCtx, EthStateCache, PendingBlock, RpcInvalidTransactionError,
+};
 use reth_rpc_types::{TransactionRequest, WithOtherFields};
+use reth_tasks::{
+    pool::{BlockingTaskGuard, BlockingTaskPool},
+    TaskExecutor, TaskSpawner,
+};
 use reth_transaction_pool::TransactionPool;
 use std::{fmt, sync::Arc};
 use tracing::trace;
-use reth_helpers_seismic::signer::{AddCustomDevSigners, CustomDevSigner};
 
 // use crate::helpers::signer::{AddCustomDevSigners, CustomDevSigner};
 
@@ -518,7 +529,8 @@ where
     }
 }
 
-impl<Provider, Pool, Network, EvmConfig> LoadReceipt for SeismicApi<Provider, Pool, Network, EvmConfig>
+impl<Provider, Pool, Network, EvmConfig> LoadReceipt
+    for SeismicApi<Provider, Pool, Network, EvmConfig>
 where
     Self: Send + Sync + Clone,
 {
@@ -527,7 +539,6 @@ where
         self.inner.cache()
     }
 }
-
 
 impl<N, Network> BuilderProvider<N> for SeismicApi<N::Provider, N::Pool, Network, N::Evm>
 where
