@@ -56,6 +56,7 @@ mod signature;
 mod tx_type;
 pub(crate) mod util;
 mod variant;
+mod seismic;
 
 #[cfg(feature = "optimism")]
 mod optimism;
@@ -646,6 +647,7 @@ impl Transaction {
             _ => None,
         }
     }
+
 }
 
 impl From<TxLegacy> for Transaction {
