@@ -58,6 +58,7 @@ pub enum TxType {
     /// Optimism Deposit transaction.
     #[cfg(feature = "optimism")]
     Deposit = 126_isize,
+
 }
 
 impl TxType {
