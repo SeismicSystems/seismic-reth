@@ -20,6 +20,7 @@ pub use eip1559::TxEip1559;
 pub use eip2930::TxEip2930;
 pub use eip4844::TxEip4844;
 pub use eip7702::TxEip7702;
+pub use seismic::Seismic;
 
 pub use error::{
     InvalidTransactionError, TransactionConversionError, TryFromRecoveredTransactionError,
@@ -139,6 +140,7 @@ pub enum Transaction {
     /// Optimism deposit transaction.
     #[cfg(feature = "optimism")]
     Deposit(TxDeposit),
+    Seismic(Seismic)
 }
 
 // === impl Transaction ===
