@@ -20,7 +20,7 @@ pub use eip1559::TxEip1559;
 pub use eip2930::TxEip2930;
 pub use eip4844::TxEip4844;
 pub use eip7702::TxEip7702;
-pub use seismic::Seismic;
+pub use seismic::TxSeismic;
 
 pub use error::{
     InvalidTransactionError, TransactionConversionError, TryFromRecoveredTransactionError,
@@ -48,6 +48,7 @@ mod eip1559;
 mod eip2930;
 mod eip4844;
 mod eip7702;
+mod seismic;
 mod error;
 mod legacy;
 mod meta;
@@ -57,7 +58,6 @@ mod signature;
 mod tx_type;
 pub(crate) mod util;
 mod variant;
-mod seismic;
 
 #[cfg(feature = "optimism")]
 mod optimism;
@@ -140,7 +140,7 @@ pub enum Transaction {
     /// Optimism deposit transaction.
     #[cfg(feature = "optimism")]
     Deposit(TxDeposit),
-    Seismic(Seismic)
+    Seismic(TxSeismic), 
 }
 
 // === impl Transaction ===
@@ -157,17 +157,19 @@ impl Transaction {
             Self::Eip7702(tx) => tx.signature_hash(),
             #[cfg(feature = "optimism")]
             Self::Deposit(_) => B256::ZERO,
+            Self::Seismic(tx) => tx.signature_hash(),
         }
     }
 
     /// Get `chain_id`.
-    pub const fn chain_id(&self) -> Option<u64> {
+    pub fn chain_id(&self) -> Option<u64> {
         match self {
             Self::Legacy(TxLegacy { chain_id, .. }) => *chain_id,
+            Self::Seismic(tx) => *tx.chain_id(),
             Self::Eip2930(TxEip2930 { chain_id, .. }) |
             Self::Eip1559(TxEip1559 { chain_id, .. }) |
             Self::Eip4844(TxEip4844 { chain_id, .. }) |
-            Self::Eip7702(TxEip7702 { chain_id, .. }) => Some(*chain_id),
+            Self::Eip7702(TxEip7702 { chain_id, .. })  => Some(*chain_id),
             #[cfg(feature = "optimism")]
             Self::Deposit(_) => None,
         }
@@ -176,11 +178,14 @@ impl Transaction {
     /// Sets the transaction's chain id to the provided value.
     pub fn set_chain_id(&mut self, chain_id: u64) {
         match self {
-            Self::Legacy(TxLegacy { chain_id: ref mut c, .. }) => *c = Some(chain_id),
+            Self::Legacy(TxLegacy { chain_id: ref mut c, .. }) 
+                => *c = Some(chain_id),
+            Self::Seismic(tx) => tx.set_chain_id(Some(chain_id)),
             Self::Eip2930(TxEip2930 { chain_id: ref mut c, .. }) |
             Self::Eip1559(TxEip1559 { chain_id: ref mut c, .. }) |
             Self::Eip4844(TxEip4844 { chain_id: ref mut c, .. }) |
-            Self::Eip7702(TxEip7702 { chain_id: ref mut c, .. }) => *c = chain_id,
+            Self::Eip7702(TxEip7702 { chain_id: ref mut c, .. }) 
+                => *c = chain_id,
             #[cfg(feature = "optimism")]
             Self::Deposit(_) => { /* noop */ }
         }
@@ -194,7 +199,9 @@ impl Transaction {
             Self::Eip2930(TxEip2930 { to, .. }) |
             Self::Eip1559(TxEip1559 { to, .. }) |
             Self::Eip7702(TxEip7702 { to, .. }) => *to,
-            Self::Eip4844(TxEip4844 { to, .. }) => TxKind::Call(*to),
+            Self::Eip4844(TxEip4844 { to, .. }) 
+            => TxKind::Call(*to),
+            Self::Seismic(tx) => *tx.to(),
             #[cfg(feature = "optimism")]
             Self::Deposit(TxDeposit { to, .. }) => *to,
         }
@@ -216,6 +223,7 @@ impl Transaction {
             Self::Eip1559(dynamic_fee_tx) => dynamic_fee_tx.tx_type(),
             Self::Eip4844(blob_tx) => blob_tx.tx_type(),
             Self::Eip7702(set_code_tx) => set_code_tx.tx_type(),
+            Self::Seismic(legacy_tx) => legacy_tx.tx_type(),
             #[cfg(feature = "optimism")]
             Self::Deposit(deposit_tx) => deposit_tx.tx_type(),
         }
@@ -228,7 +236,9 @@ impl Transaction {
             Self::Eip2930(TxEip2930 { value, .. }) |
             Self::Eip1559(TxEip1559 { value, .. }) |
             Self::Eip4844(TxEip4844 { value, .. }) |
-            Self::Eip7702(TxEip7702 { value, .. }) => value,
+            Self::Eip7702(TxEip7702 { value, .. }) 
+            => value,
+            Self::Seismic(tx) => tx.value(),
             #[cfg(feature = "optimism")]
             Self::Deposit(TxDeposit { value, .. }) => value,
         }
@@ -242,6 +252,7 @@ impl Transaction {
             Self::Eip1559(TxEip1559 { nonce, .. }) |
             Self::Eip4844(TxEip4844 { nonce, .. }) |
             Self::Eip7702(TxEip7702 { nonce, .. }) => *nonce,
+            Self::Seismic(tx) => *tx.nonce(),
             // Deposit transactions do not have nonces.
             #[cfg(feature = "optimism")]
             Self::Deposit(_) => 0,
@@ -254,6 +265,7 @@ impl Transaction {
     pub const fn access_list(&self) -> Option<&AccessList> {
         match self {
             Self::Legacy(_) => None,
+            Self::Seismic(_) => None,
             Self::Eip2930(tx) => Some(&tx.access_list),
             Self::Eip1559(tx) => Some(&tx.access_list),
             Self::Eip4844(tx) => Some(&tx.access_list),
@@ -281,6 +293,7 @@ impl Transaction {
             Self::Eip1559(TxEip1559 { gas_limit, .. }) |
             Self::Eip4844(TxEip4844 { gas_limit, .. }) |
             Self::Eip7702(TxEip7702 { gas_limit, .. }) => *gas_limit,
+            Self::Seismic(tx) => *tx.gas_limit(),
             #[cfg(feature = "optimism")]
             Self::Deposit(TxDeposit { gas_limit, .. }) => *gas_limit,
         }
@@ -290,7 +303,7 @@ impl Transaction {
     pub const fn is_dynamic_fee(&self) -> bool {
         match self {
             Self::Legacy(_) | Self::Eip2930(_) => false,
-            Self::Eip1559(_) | Self::Eip4844(_) | Self::Eip7702(_) => true,
+            Self::Eip1559(_) | Self::Eip4844(_) | Self::Eip7702(_) | Self::Seismic(_) => true,
             #[cfg(feature = "optimism")]
             Self::Deposit(_) => false,
         }
@@ -306,6 +319,7 @@ impl Transaction {
             Self::Eip1559(TxEip1559 { max_fee_per_gas, .. }) |
             Self::Eip4844(TxEip4844 { max_fee_per_gas, .. }) |
             Self::Eip7702(TxEip7702 { max_fee_per_gas, .. }) => *max_fee_per_gas,
+            Self::Seismic(tx) => *tx.gas_price(),
             // Deposit transactions buy their L2 gas on L1 and, as such, the L2 gas is not
             // refundable.
             #[cfg(feature = "optimism")]
@@ -319,7 +333,7 @@ impl Transaction {
     /// This is also commonly referred to as the "Gas Tip Cap" (`GasTipCap`).
     pub const fn max_priority_fee_per_gas(&self) -> Option<u128> {
         match self {
-            Self::Legacy(_) | Self::Eip2930(_) => None,
+            Self::Legacy(_) | Self::Seismic(_) | Self::Eip2930(_) => None,
             Self::Eip1559(TxEip1559 { max_priority_fee_per_gas, .. }) |
             Self::Eip4844(TxEip4844 { max_priority_fee_per_gas, .. }) |
             Self::Eip7702(TxEip7702 { max_priority_fee_per_gas, .. }) => {
@@ -336,8 +350,9 @@ impl Transaction {
     /// This is also commonly referred to as the "blob versioned hashes" (`BlobVersionedHashes`).
     pub fn blob_versioned_hashes(&self) -> Option<Vec<B256>> {
         match self {
-            Self::Legacy(_) | Self::Eip2930(_) | Self::Eip1559(_) | Self::Eip7702(_) => None,
-            Self::Eip4844(TxEip4844 { blob_versioned_hashes, .. }) => {
+            Self::Legacy(_) | Self::Seismic(_) | Self::Eip2930(_) | Self::Eip1559(_) | Self::Eip7702(_) => None,
+            Self::Eip4844(TxEip4844 { blob_versioned_hashes, .. }) 
+             => {
                 Some(blob_versioned_hashes.clone())
             }
             #[cfg(feature = "optimism")]
@@ -380,6 +395,7 @@ impl Transaction {
             Self::Eip1559(TxEip1559 { max_priority_fee_per_gas, .. }) |
             Self::Eip4844(TxEip4844 { max_priority_fee_per_gas, .. }) |
             Self::Eip7702(TxEip7702 { max_priority_fee_per_gas, .. }) => *max_priority_fee_per_gas,
+            Self::Seismic(tx) => *tx.gas_price(),
             #[cfg(feature = "optimism")]
             Self::Deposit(_) => 0,
         }
@@ -391,6 +407,7 @@ impl Transaction {
     pub const fn effective_gas_price(&self, base_fee: Option<u64>) -> u128 {
         match self {
             Self::Legacy(tx) => tx.gas_price,
+            Self::Seismic(tx) => *tx.gas_price(),
             Self::Eip2930(tx) => tx.gas_price,
             Self::Eip1559(dynamic_tx) => dynamic_tx.effective_gas_price(base_fee),
             Self::Eip4844(dynamic_tx) => dynamic_tx.effective_gas_price(base_fee),
@@ -439,6 +456,7 @@ impl Transaction {
             Self::Eip1559(TxEip1559 { input, .. }) |
             Self::Eip4844(TxEip4844 { input, .. }) |
             Self::Eip7702(TxEip7702 { input, .. }) => input,
+            Self::Seismic(tx) => tx.input(),
             #[cfg(feature = "optimism")]
             Self::Deposit(TxDeposit { input, .. }) => input,
         }
@@ -499,6 +517,10 @@ impl Transaction {
                 // do nothing w/ with_header
                 legacy_tx.encode_with_signature(signature, out)
             }
+            Self::Seismic(legacy_tx) => {
+                // do nothing w/ with_header
+                legacy_tx.encode_with_signature(signature, out)
+            }
             Self::Eip2930(access_list_tx) => {
                 access_list_tx.encode_with_signature(signature, out, with_header)
             }
@@ -521,6 +543,7 @@ impl Transaction {
             Self::Eip2930(tx) => tx.gas_limit = gas_limit,
             Self::Eip1559(tx) => tx.gas_limit = gas_limit,
             Self::Eip4844(tx) => tx.gas_limit = gas_limit,
+            Self::Seismic(tx) => tx.set_gas_limit(gas_limit),
             Self::Eip7702(tx) => tx.gas_limit = gas_limit,
             #[cfg(feature = "optimism")]
             Self::Deposit(tx) => tx.gas_limit = gas_limit,
@@ -534,6 +557,7 @@ impl Transaction {
             Self::Eip2930(tx) => tx.nonce = nonce,
             Self::Eip1559(tx) => tx.nonce = nonce,
             Self::Eip4844(tx) => tx.nonce = nonce,
+            Self::Seismic(tx) => tx.set_nonce(nonce),
             Self::Eip7702(tx) => tx.nonce = nonce,
             #[cfg(feature = "optimism")]
             Self::Deposit(_) => { /* noop */ }
@@ -547,6 +571,7 @@ impl Transaction {
             Self::Eip2930(tx) => tx.value = value,
             Self::Eip1559(tx) => tx.value = value,
             Self::Eip4844(tx) => tx.value = value,
+            Self::Seismic(tx) => tx.set_value(value),
             Self::Eip7702(tx) => tx.value = value,
             #[cfg(feature = "optimism")]
             Self::Deposit(tx) => tx.value = value,
@@ -560,6 +585,7 @@ impl Transaction {
             Self::Eip2930(tx) => tx.input = input,
             Self::Eip1559(tx) => tx.input = input,
             Self::Eip4844(tx) => tx.input = input,
+            Self::Seismic(tx) => tx.set_input(input),
             Self::Eip7702(tx) => tx.input = input,
             #[cfg(feature = "optimism")]
             Self::Deposit(tx) => tx.input = input,
@@ -574,6 +600,7 @@ impl Transaction {
             Self::Eip2930(tx) => tx.size(),
             Self::Eip1559(tx) => tx.size(),
             Self::Eip4844(tx) => tx.size(),
+            Self::Seismic(tx) => tx.size(),
             Self::Eip7702(tx) => tx.size(),
             #[cfg(feature = "optimism")]
             Self::Deposit(tx) => tx.size(),
@@ -704,6 +731,9 @@ impl reth_codecs::Compact for Transaction {
             Self::Eip4844(tx) => {
                 tx.to_compact(buf);
             }
+            Self::Seismic(tx) => {
+                tx.to_compact(buf);
+            }
             Self::Eip7702(tx) => {
                 tx.to_compact(buf);
             }
@@ -780,6 +810,9 @@ impl Encodable for Transaction {
             Self::Legacy(legacy_tx) => {
                 legacy_tx.encode_for_signing(out);
             }
+            Self::Seismic(legacy_tx) => {
+                legacy_tx.encode_for_signing(out);
+            }
             Self::Eip2930(access_list_tx) => {
                 access_list_tx.encode_for_signing(out);
             }
@@ -802,6 +835,7 @@ impl Encodable for Transaction {
     fn length(&self) -> usize {
         match self {
             Self::Legacy(legacy_tx) => legacy_tx.payload_len_for_signature(),
+            Self::Seismic(legacy_tx) => legacy_tx.payload_len_for_signature(),
             Self::Eip2930(access_list_tx) => access_list_tx.payload_len_for_signature(),
             Self::Eip1559(dynamic_fee_tx) => dynamic_fee_tx.payload_len_for_signature(),
             Self::Eip4844(blob_tx) => blob_tx.payload_len_for_signature(),
@@ -1179,6 +1213,7 @@ impl TransactionSigned {
     pub(crate) fn payload_len_inner(&self) -> usize {
         match &self.transaction {
             Transaction::Legacy(legacy_tx) => legacy_tx.payload_len_with_signature(&self.signature),
+            Transaction::Seismic(legacy_tx) => legacy_tx.payload_len_with_signature(&self.signature),
             Transaction::Eip2930(access_list_tx) => {
                 access_list_tx.payload_len_with_signature(&self.signature)
             }
@@ -1383,6 +1418,7 @@ impl TransactionSigned {
         // method computes the payload len without a RLP header
         match &self.transaction {
             Transaction::Legacy(legacy_tx) => legacy_tx.payload_len_with_signature(&self.signature),
+            Transaction::Seismic(legacy_tx) => legacy_tx.payload_len_with_signature(&self.signature),
             Transaction::Eip2930(access_list_tx) => {
                 access_list_tx.payload_len_with_signature_without_header(&self.signature)
             }

@@ -22,6 +22,8 @@ pub enum TypedTransactionRequest {
     EIP1559(EIP1559TransactionRequest),
     /// Represents an EIP4844 transaction request
     EIP4844(EIP4844TransactionRequest),
+    /// Represents a seismic transaction request
+    SeismicTransactionRequest(SeismicTransactionRequest),
 }
 
 /// Represents a legacy transaction request
@@ -114,4 +116,23 @@ pub struct EIP4844TransactionRequest {
     pub blob_versioned_hashes: Vec<B256>,
     /// Sidecar information for the transaction
     pub sidecar: BlobTransactionSidecar,
+}
+
+/// Represents an Seismic transaction request
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeismicTransactionRequest {
+    /// The nonce of the transaction
+    pub nonce: u64,
+    /// The gas price for the transaction
+    pub gas_price: U256,
+    /// The gas limit for the transaction
+    pub gas_limit: U256,
+    /// The kind of transaction (e.g., Call, Create)
+    pub kind: TxKind,
+    /// The value of the transaction
+    pub value: U256,
+    /// The encrypted data for the transaction
+    pub encrypted_input: Vec<u8>,
+    /// The optional chain ID for the transaction
+    pub chain_id: Option<u64>,
 }

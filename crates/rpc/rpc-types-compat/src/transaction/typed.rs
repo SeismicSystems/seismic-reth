@@ -1,3 +1,5 @@
+use reth_primitives::transaction::TxSeismic;
+
 /// Converts a typed transaction request into a primitive transaction.
 ///
 /// Returns `None` if any of the following are true:
@@ -55,5 +57,16 @@ pub fn to_primitive_transaction(
             max_fee_per_blob_gas: tx.max_fee_per_blob_gas.to(),
             input: tx.input,
         }),
+        TypedTransactionRequest::SeismicTransactionRequest(tx) => {
+            Transaction::Seismic(TxSeismic::new(
+                tx.chain_id,
+                tx.nonce,
+                tx.gas_price.to(),
+                tx.gas_limit.try_into().ok()?,
+                tx.kind,
+                tx.value,
+                tx.encrypted_input,
+            ))
+        }
     })
 }

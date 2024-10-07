@@ -14,7 +14,7 @@ use reth_rpc_eth_types::{
 use reth_rpc_types::{
     transaction::{
         EIP1559TransactionRequest, EIP2930TransactionRequest, EIP4844TransactionRequest,
-        LegacyTransactionRequest,
+        LegacyTransactionRequest, SeismicTransactionRequest,
     },
     AnyTransactionReceipt, TransactionInfo, TransactionRequest, TypedTransactionRequest,
 };
@@ -302,6 +302,7 @@ pub trait EthTransactions: LoadTransaction {
                 max_fee_per_blob_gas,
                 blob_versioned_hashes,
                 sidecar,
+                encrypted_input,
                 ..
             } = request;
 
@@ -313,10 +314,12 @@ pub trait EthTransactions: LoadTransaction {
                 max_fee_per_blob_gas,
                 blob_versioned_hashes,
                 sidecar,
+                encrypted_input,
+                nonce
             ) {
                 // legacy transaction
                 // gas price required
-                (Some(_), None, None, None, None, None) => {
+                (Some(_), None, None, None, None, None, None, _) => {
                     Some(TypedTransactionRequest::Legacy(LegacyTransactionRequest {
                         nonce: nonce.unwrap_or_default(),
                         gas_price: U256::from(gas_price.unwrap_or_default()),
@@ -329,7 +332,7 @@ pub trait EthTransactions: LoadTransaction {
                 }
                 // EIP2930
                 // if only accesslist is set, and no eip1599 fees
-                (_, None, Some(access_list), None, None, None) => {
+                (_, None, Some(access_list), None, None, None, None, _) => {
                     Some(TypedTransactionRequest::EIP2930(EIP2930TransactionRequest {
                         nonce: nonce.unwrap_or_default(),
                         gas_price: U256::from(gas_price.unwrap_or_default()),
@@ -345,7 +348,7 @@ pub trait EthTransactions: LoadTransaction {
                 // if 4844 fields missing
                 // gas_price, max_fee_per_gas, access_list, max_fee_per_blob_gas,
                 // blob_versioned_hashes, sidecar,
-                (None, _, _, None, None, None) => {
+                (None, _, _, None, None, None, None, _) => {
                     // Empty fields fall back to the canonical transaction schema.
                     Some(TypedTransactionRequest::EIP1559(EIP1559TransactionRequest {
                         nonce: nonce.unwrap_or_default(),
@@ -370,6 +373,8 @@ pub trait EthTransactions: LoadTransaction {
                     Some(max_fee_per_blob_gas),
                     Some(blob_versioned_hashes),
                     Some(sidecar),
+                    None,
+                    _
                 ) => {
                     // As per the EIP, we follow the same semantics as EIP-1559.
                     Some(TypedTransactionRequest::EIP4844(EIP4844TransactionRequest {
@@ -395,7 +400,27 @@ pub trait EthTransactions: LoadTransaction {
                     }))
                 }
 
-                _ => None,
+                (
+                    None,
+                    _,
+                    _,
+                    Some(max_fee_per_blob_gas),
+                    Some(blob_versioned_hashes),
+                    Some(sidecar),
+                    None,
+                    Some(ciphertext),
+                    Some(nonce)
+                ) => {
+                    Some(TypedTransactionRequest::SeismicTransactionRequest(SeismicTransactionRequest {
+                        nonce: nonce.unwrap_or_default(),
+                        gas_price: U256::from(gas_price.unwrap_or_default()),
+                        gas_limit: U256::from(gas.unwrap_or_default()),
+                        value: value.unwrap_or_default(),
+                        kind: to.unwrap_or(TxKind::Create),
+                        chain_id: None,
+                        encrypted_input: encrypted_input
+                    }))
+                }
             };
 
             let transaction = match transaction {
@@ -445,6 +470,13 @@ pub trait EthTransactions: LoadTransaction {
                     req.gas_limit = gas_limit;
 
                     TypedTransactionRequest::EIP4844(req)
+                }
+                Some(TypedTransactionRequest::SeismicTransactionRequest(mut req)) => {
+                    req.chain_id = Some(chain_id.to());
+                    req.gas_limit = gas_limit.saturating_to();
+                    req.gas_price = self.legacy_gas_price(gas_price.map(U256::from)).await?;
+
+                    TypedTransactionRequest::SeismicTransactionRequest(req)
                 }
                 None => return Err(EthApiError::ConflictingFeeFieldsInRequest.into()),
             };

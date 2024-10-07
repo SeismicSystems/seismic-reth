@@ -61,6 +61,7 @@ proptest = { workspace = true, optional = true }
 
 # Seismic
 aes-gcm = "0.10"
+paste.workspace = true
 
 [dev-dependencies]
 # eth

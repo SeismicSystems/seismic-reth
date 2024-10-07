@@ -8002,6 +8002,7 @@ dependencies = [
  "modular-bitfield",
  "once_cell",
  "op-alloy-rpc-types",
+ "paste",
  "pprof",
  "proptest",
  "proptest-arbitrary-interop",
