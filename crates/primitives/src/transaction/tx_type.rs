@@ -273,6 +273,9 @@ mod tests {
         // Test for EIP7702 transaction
         assert_eq!(TxType::try_from(U64::from(4)).unwrap(), TxType::Eip7702);
 
+        // Test for Seismic transaction
+        assert_eq!(TxType::try_from(U64::from(5)).unwrap(), TxType::Seismic);
+
         // Test for Deposit transaction
         #[cfg(feature = "optimism")]
         assert_eq!(TxType::try_from(U64::from(126)).unwrap(), TxType::Deposit);

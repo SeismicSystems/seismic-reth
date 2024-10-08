@@ -262,16 +262,18 @@ macro_rules! generate_decrypted_getters {
     };
 }
 
-impl TxSeismic {
-    generate_decrypted_getters!(
-        chain_id: ChainId,
-        nonce: u64,
-        gas_price: u128,
-        gas_limit: u64,
-        to: TxKind,
-        value: U256,
-        input: Bytes
-    );
+macro_rules! generate_encrypted_getters {
+    ($($field:ident: $type:ty),*) => {
+        $(
+            paste! {
+                #[inline]
+                pub const fn [<encrypted_ $field>](&self) -> &$type {
+                    &self.encrypted_tx.$field
+                }
+            }
+
+        )*
+    };
 }
 
 macro_rules! generate_decrypted_setters {
@@ -286,18 +288,6 @@ macro_rules! generate_decrypted_setters {
             }
         )*
     };
-}
-
-impl TxSeismic {
-    generate_decrypted_setters!(
-        chain_id: ChainId,
-        nonce: u64,
-        gas_price: u128,
-        gas_limit: u64,
-        to: TxKind,
-        value: U256,
-        input: Bytes
-    );
 }
 
 impl TxSeismic {
@@ -327,6 +317,34 @@ impl TxSeismic {
         let decrypted_tx = DecryptedTx::from_encrypted_tx(&encrypted_tx);
         TxSeismic { encrypted_tx, decrypted_tx }
     }
+
+    generate_decrypted_setters!(
+        chain_id: ChainId,
+        nonce: u64,
+        gas_price: u128,
+        gas_limit: u64,
+        to: TxKind,
+        value: U256,
+        input: Bytes
+    );
+    generate_decrypted_getters!(
+        chain_id: ChainId,
+        nonce: u64,
+        gas_price: u128,
+        gas_limit: u64,
+        to: TxKind,
+        value: U256,
+        input: Bytes
+    );
+    generate_encrypted_getters!(
+        chain_id: ChainId,
+        nonce: u64,
+        gas_price: u128,
+        gas_limit: u64,
+        to: TxKind,
+        value: U256,
+        input: Vec<u8>
+    );
 
     /// Decodes the inner [`TxSeismic`] fields from RLP bytes.
     ///
@@ -439,36 +457,3 @@ impl TxSeismic {
         keccak256(&buf)
     }
 }
-
-// Seismic TODO put this into test module
-
-pub fn aes_gcm_example() {
-    let rng = AesRng::default();
-    let key: Key<Aes256Gcm> = Aes256Gcm::generate_key(rng);
-
-    let cipher = Aes256Gcm::new(&key);
-    let nonce = Aes256Gcm::generate_nonce(rng);
-    let ciphertext = cipher.encrypt(&nonce, b"plaintext message".as_ref()).unwrap();
-    let plaintext = cipher.decrypt(&nonce, ciphertext.as_ref()).unwrap();
-    assert_eq!(&plaintext, b"plaintext message");
-    println!("AES-GCM Encrypted successfully: {:?}", ciphertext);
-}
-
-// #[test]
-// fn test_from_seismictransactionsigned_to_transactionsigned() {
-//     let encoded_tx_signed_plaintext = hex!("02f872018307910d808507204d2cb1827d0094388c818ca8b9251b393131c08a736a67ccb19297880320d04823e2701c80c001a0cf024f4815304df2867a1a74e9d2707b6abda0337d2d54a4438d453f4160f190a07ac0e6b3bc9395b5b9c8b9e6d77204a236577a5b18467b9175c01de4faa208d9");
-//     let orig_tx_signed =
-//         TxEip4844::decode(&mut &encoded_tx_signed_plaintext[..]).unwrap();
-
-//     // encrypt it
-//     let rng = AesRng::default();
-//     let key: Key<Aes256Gcm> = Aes256Gcm::generate_key(rng);
-//     let seismic_transaction =
-//         TxSeismic::from_transaction(orig_tx_signed.clone());
-
-//     assert_eq!(orig_tx_signed.nonce, seismic_transaction.nonce);
-
-//     // decrypt it
-//     let recovered_tx_signed = TxSeismic::decrypt(&seismic_transaction);
-//     assert!(orig_tx_signed == recovered_tx_signed);
-// }

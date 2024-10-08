@@ -127,6 +127,7 @@ pub fn transaction_to_call_request(tx: TransactionSignedEcRecovered) -> Transact
     let authorization_list = tx.transaction.authorization_list().map(|l| l.to_vec());
     let blob_versioned_hashes = tx.transaction.blob_versioned_hashes();
     let tx_type = tx.transaction.tx_type();
+    let encrypted_input = tx.transaction.encrypted_input();
 
     // fees depending on the transaction type
     let (gas_price, max_fee_per_gas) = if tx.is_dynamic_fee() {
@@ -153,5 +154,6 @@ pub fn transaction_to_call_request(tx: TransactionSignedEcRecovered) -> Transact
         transaction_type: Some(tx_type.into()),
         sidecar: None,
         authorization_list,
+        encrypted_input: encrypted_input
     }
 }

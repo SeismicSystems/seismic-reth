@@ -462,6 +462,20 @@ impl Transaction {
         }
     }
 
+    /// Get the transaction's encrypted field.
+    pub fn encrypted_input(&self) -> Option<Vec<u8>> {
+        match self {
+            Self::Legacy(_) |
+            Self::Eip2930(_) |
+            Self::Eip1559(_) |
+            Self::Eip4844(_) |
+            Self::Eip7702(_) => None,
+            Self::Seismic(tx) => Some(tx.encrypted_input().clone()),
+            #[cfg(feature = "optimism")]
+            Self::Deposit(TxDeposit { input, .. }) => input,
+        }
+    }
+
     /// Returns the source hash of the transaction, which uniquely identifies its source.
     /// If not a deposit transaction, this will always return `None`.
     #[cfg(feature = "optimism")]
@@ -518,7 +532,6 @@ impl Transaction {
                 legacy_tx.encode_with_signature(signature, out)
             }
             Self::Seismic(seismic_tx) => {
-                // do nothing w/ with_header
                 seismic_tx.encode_with_signature(signature, out, with_header)
             }
             Self::Eip2930(access_list_tx) => {
@@ -2111,4 +2124,35 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(result, Err(RlpError::UnexpectedLength));
     }
+
+    fn decode_txSeismic() {
+        // init a signed transaction with seismic transaction type
+        let transaction = Transaction::Seismic(TxSeismic {
+            input: Bytes::from(vec![1, 2, 3, 4]),
+            // other fields initialization
+        });
+
+        let signature = Signature {
+            odd_y_parity: false,
+            r: U256::from_str("0xeb96ca19e8a77102767a41fc85a36afd5c61ccb09911cec5d3e86e193d9c5ae")
+                .unwrap(),
+            s: U256::from_str("0x3a456401896b1b6055311536bf00a718568c744d8c1f9df59879e8350220ca18")
+                .unwrap(),
+        };
+
+        let tx_signed = TransactionSigned::from_transaction_and_signature(transaction.clone(), signature.clone());
+
+        // encode the transaction
+        let mut encoded = Vec::new();
+        tx_signed.encode(&mut encoded);
+
+        // decode the transaction
+        let decoded = TransactionSigned::decode(&mut &encoded[..]).unwrap();
+
+        // assert the transaction is the same
+        assert_eq!(tx_signed, decoded);
+        assert_eq!(transaction, decoded.transaction());
+        assert_eq!(signature, decoded.signature());
+    }
+
 }

@@ -134,5 +134,5 @@ pub struct SeismicTransactionRequest {
     /// The encrypted data for the transaction
     pub encrypted_input: Vec<u8>,
     /// The optional chain ID for the transaction
-    pub chain_id: Option<u64>,
+    pub chain_id: u64,
 }
