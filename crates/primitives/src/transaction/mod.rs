@@ -140,7 +140,7 @@ pub enum Transaction {
     /// Optimism deposit transaction.
     #[cfg(feature = "optimism")]
     Deposit(TxDeposit),
-    Seismic(TxSeismic), 
+    Seismic(TxSeismic),
 }
 
 // === impl Transaction ===
@@ -162,7 +162,7 @@ impl Transaction {
     }
 
     /// Get `chain_id`.
-    pub fn chain_id(&self) -> Option<u64> {
+    pub const fn chain_id(&self) -> Option<u64> {
         match self {
             Self::Legacy(TxLegacy { chain_id, .. }) => *chain_id,
             Self::Seismic(tx) => *tx.chain_id(),
@@ -178,13 +178,13 @@ impl Transaction {
     /// Sets the transaction's chain id to the provided value.
     pub fn set_chain_id(&mut self, chain_id: u64) {
         match self {
-            Self::Legacy(TxLegacy { chain_id: ref mut c, .. }) 
+            Self::Legacy(TxLegacy { chain_id: ref mut c, .. })
                 => *c = Some(chain_id),
             Self::Seismic(tx) => tx.set_chain_id(Some(chain_id)),
             Self::Eip2930(TxEip2930 { chain_id: ref mut c, .. }) |
             Self::Eip1559(TxEip1559 { chain_id: ref mut c, .. }) |
             Self::Eip4844(TxEip4844 { chain_id: ref mut c, .. }) |
-            Self::Eip7702(TxEip7702 { chain_id: ref mut c, .. }) 
+            Self::Eip7702(TxEip7702 { chain_id: ref mut c, .. })
                 => *c = chain_id,
             #[cfg(feature = "optimism")]
             Self::Deposit(_) => { /* noop */ }
@@ -199,7 +199,7 @@ impl Transaction {
             Self::Eip2930(TxEip2930 { to, .. }) |
             Self::Eip1559(TxEip1559 { to, .. }) |
             Self::Eip7702(TxEip7702 { to, .. }) => *to,
-            Self::Eip4844(TxEip4844 { to, .. }) 
+            Self::Eip4844(TxEip4844 { to, .. })
             => TxKind::Call(*to),
             Self::Seismic(tx) => *tx.to(),
             #[cfg(feature = "optimism")]
@@ -236,7 +236,7 @@ impl Transaction {
             Self::Eip2930(TxEip2930 { value, .. }) |
             Self::Eip1559(TxEip1559 { value, .. }) |
             Self::Eip4844(TxEip4844 { value, .. }) |
-            Self::Eip7702(TxEip7702 { value, .. }) 
+            Self::Eip7702(TxEip7702 { value, .. })
             => value,
             Self::Seismic(tx) => tx.value(),
             #[cfg(feature = "optimism")]
@@ -351,7 +351,7 @@ impl Transaction {
     pub fn blob_versioned_hashes(&self) -> Option<Vec<B256>> {
         match self {
             Self::Legacy(_) | Self::Seismic(_) | Self::Eip2930(_) | Self::Eip1559(_) | Self::Eip7702(_) => None,
-            Self::Eip4844(TxEip4844 { blob_versioned_hashes, .. }) 
+            Self::Eip4844(TxEip4844 { blob_versioned_hashes, .. })
              => {
                 Some(blob_versioned_hashes.clone())
             }
