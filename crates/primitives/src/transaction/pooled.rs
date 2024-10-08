@@ -377,7 +377,7 @@ impl PooledTransactionsElement {
                 transaction.encode_with_signature(signature, out)
             }
             Self::Seismic { transaction, signature, .. } => {
-                transaction.encode_with_signature(signature, out)
+                transaction.encode_with_signature(signature, out, false)
             }
             Self::Eip2930 { transaction, signature, .. } => {
                 transaction.encode_with_signature(signature, out, false)
@@ -512,7 +512,7 @@ impl Encodable for PooledTransactionsElement {
                 transaction.encode_with_signature(signature, out)
             }
             Self::Seismic { transaction, signature, .. } => {
-                transaction.encode_with_signature(signature, out)
+                transaction.encode_with_signature(signature, out, true)
             }
             Self::Eip2930 { transaction, signature, .. } => {
                 // encodes with string header

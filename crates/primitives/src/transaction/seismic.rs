@@ -96,6 +96,61 @@ impl EncryptedTx {
             input: encrypt(&decrypted_tx.input, decrypted_tx.nonce),
         }
     }
+
+    #[inline]
+    pub fn size(&self) -> usize {
+        mem::size_of::<ChainId>() + // chain_id
+        mem::size_of::<u64>() + // nonce
+        mem::size_of::<u128>() + // gas_price
+        mem::size_of::<u64>() + // gas_limit
+        mem::size_of::<u128>() + // max_priority_fee_per_gas
+        self.to.size() + // to
+        mem::size_of::<U256>() + // value
+        self.input.len()  // input
+    }
+}
+
+impl Encodable for EncryptedTx {
+    fn encode(&self, out: &mut dyn bytes::BufMut) {
+        self.chain_id.encode(out);
+        self.nonce.encode(out);
+        self.gas_price.encode(out);
+        self.gas_limit.encode(out);
+        self.to.encode(out);
+        self.value.encode(out);
+        self.input.encode(out);
+    }
+
+    fn length(&self) -> usize {
+        self.chain_id.length()
+            + self.nonce.length()
+            + self.gas_price.length()
+            + self.gas_limit.length()
+            + self.to.length()
+            + self.value.length()
+            + self.input.length()
+    }
+}
+ 
+impl Decodable for EncryptedTx {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let chain_id = Decodable::decode(buf)?;
+        let nonce = Decodable::decode(buf)?;
+        let gas_price = Decodable::decode(buf)?;
+        let gas_limit = Decodable::decode(buf)?;
+        let to = Decodable::decode(buf)?;
+        let value = Decodable::decode(buf)?;
+        let input = Decodable::decode(buf)?;
+        Ok(EncryptedTx {
+            chain_id,
+            nonce,
+            gas_price,
+            gas_limit,
+            to,
+            value,
+            input,
+        })
+    }
 }
 
 impl DecryptedTx {
@@ -111,20 +166,31 @@ impl DecryptedTx {
             input: decrypt::<Bytes>(&encrypted_tx.input, nonce),
         }
     }
+
+    #[inline]
+    pub fn size(&self) -> usize {
+        mem::size_of::<ChainId>() + // chain_id
+        mem::size_of::<u64>() + // nonce
+        mem::size_of::<u128>() + // gas_price
+        mem::size_of::<u64>() + // gas_limit
+        mem::size_of::<u128>() + // max_priority_fee_per_gas
+        self.to.size() + // to
+        mem::size_of::<U256>() + // value
+        self.input.len()  // input
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(any(test, feature = "reth-codec"), reth_codecs::add_arbitrary_tests(compact))]
 pub struct TxSeismic {
-    encrypted_tx: Box<EncryptedTx>,
-    decrypted_tx: Box<DecryptedTx>,
+    encrypted_tx: EncryptedTx,
+    decrypted_tx: DecryptedTx,
 }
 
 impl Default for TxSeismic {
     fn default() -> Self {
-        let encrypted_tx = Box::new(EncryptedTx::default());
-        let decrypted_tx = Box::new(DecryptedTx::from_encrypted_tx(&encrypted_tx));
-        TxSeismic { encrypted_tx, decrypted_tx }
+        let encrypted_tx = EncryptedTx::default();
+        TxSeismic::new_from_encrypted_tx(encrypted_tx)
     }
 }
 
@@ -143,16 +209,15 @@ impl<'de, 'a> Deserialize<'de> for TxSeismic {
         D: serde::Deserializer<'de>,
     {
         let encrypted_tx = EncryptedTx::deserialize(deserializer)?;
-        let decrypted_tx = DecryptedTx::from_encrypted_tx(&encrypted_tx);
-        Ok(TxSeismic { encrypted_tx: Box::new(encrypted_tx), decrypted_tx: Box::new(decrypted_tx) })
+        Ok(TxSeismic::new_from_encrypted_tx(encrypted_tx))
     }
 }
 
 impl Clone for TxSeismic {
     fn clone(&self) -> Self {
         TxSeismic {
-            encrypted_tx: Box::new((*self.encrypted_tx).clone()),
-            decrypted_tx: Box::new((*self.decrypted_tx).clone()),
+            encrypted_tx: self.encrypted_tx.clone(),
+            decrypted_tx: self.decrypted_tx.clone(),
         }
     }
 }
@@ -161,8 +226,7 @@ impl Clone for TxSeismic {
 impl<'a> arbitrary::Arbitrary<'a> for TxSeismic {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
         let encrypted_tx: EncryptedTx = u.arbitrary()?;
-        let decrypted_tx = DecryptedTx::from_encrypted_tx(&encrypted_tx);
-        Ok(TxSeismic { encrypted_tx: Box::new(encrypted_tx), decrypted_tx: Box::new(decrypted_tx) })
+        Ok(TxSeismic::new_from_encrypted_tx(encrypted_tx))
     }
 }
 
@@ -180,8 +244,8 @@ impl reth_codecs::Compact for TxSeismic {
         let decrypted_input = DecryptedTx::from_encrypted_tx(&encrypted_input);
         return (
             TxSeismic {
-                encrypted_tx: Box::new(encrypted_input),
-                decrypted_tx: Box::new(decrypted_input),
+                encrypted_tx: encrypted_input,
+                decrypted_tx: decrypted_input,
             },
             &buf[len..],
         );
@@ -237,6 +301,7 @@ impl TxSeismic {
 }
 
 impl TxSeismic {
+    /// Constructors
     pub fn new(
         chain_id: ChainId,
         nonce: u64,
@@ -255,111 +320,113 @@ impl TxSeismic {
             value,
             input: encrypted_input.clone(),
         };
-        let decrypted_tx = DecryptedTx::from_encrypted_tx(&encrypted_tx);
-        TxSeismic { encrypted_tx: Box::new(encrypted_tx), decrypted_tx: Box::new(decrypted_tx) }
+        TxSeismic::new_from_encrypted_tx(encrypted_tx) 
     }
 
-    // functions imported from TxLegacy
-    /// Calculates a heuristic for the in-memory size of the [`TxLegacy`] transaction.
+    pub fn new_from_encrypted_tx(encrypted_tx: EncryptedTx) -> Self {
+        let decrypted_tx = DecryptedTx::from_encrypted_tx(&encrypted_tx);
+        TxSeismic { encrypted_tx, decrypted_tx }
+    }
+
+    /// Decodes the inner [`TxSeismic`] fields from RLP bytes.
+    ///
+    /// NOTE: This assumes a RLP header has already been decoded, and _just_ decodes the following
+    /// RLP fields in the following order:
+    ///
+    /// - chain_id
+    /// - nonce
+    /// - gas_price
+    /// - gas_limit
+    /// - to
+    /// - value
+    /// - encrypted_input
+    pub fn decode_inner(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let encrypted_tx = Decodable::decode(buf)?;
+        let tx = TxSeismic::new_from_encrypted_tx(encrypted_tx);
+        Ok(tx)
+    }
+
+    // functions imported from TxEip4844
+    /// Calculates a heuristic for the in-memory size of the [`TxSeismic`] transaction.
+    /// In memory stores the decrypted transaction and the encrypted transaction.
+    /// Out of memory stores the encrypted transaction. This is why size and fields_len are
+    /// diffenrent.
     #[inline]
     pub fn size(&self) -> usize {
-        mem::size_of::<Option<ChainId>>() + // chain_id
-        mem::size_of::<u64>() + // nonce
-        mem::size_of::<u128>() + // gas_price
-        mem::size_of::<u64>() + // gas_limit
-        self.to().size() + // to
-        mem::size_of::<U256>() + // value
-        self.input().len() // input
+        self.encrypted_tx.size() + self.decrypted_tx.size()
     }
 
     /// Outputs the length of the transaction's fields, without a RLP header or length of the
     /// eip155 fields.
     pub(crate) fn fields_len(&self) -> usize {
-        self.nonce().length()
-            + self.gas_price().length()
-            + self.gas_limit().length()
-            + self.to().length()
-            + self.value().length()
-            + self.input().length()
+        self.encrypted_tx.length()
     }
 
     /// Encodes only the transaction's fields into the desired buffer, without a RLP header or
     /// eip155 fields.
     pub(crate) fn encode_fields(&self, out: &mut dyn bytes::BufMut) {
-        self.nonce().encode(out);
-        self.gas_price().encode(out);
-        self.gas_limit().encode(out);
-        self.to().encode(out);
-        self.value().encode(out);
-        self.input().encode(out);
+        self.encrypted_tx.encode(out);
     }
 
     /// Inner encoding function that is used for both rlp [`Encodable`] trait and for calculating
-    /// hash.
-    ///
-    /// This encodes the transaction as:
-    /// `rlp(nonce, gas_price, gas_limit, to, value, input, v, r, s)`
-    ///
-    /// The `v` value is encoded according to EIP-155 if the `chain_id` is not `None`.
-    pub(crate) fn encode_with_signature(&self, signature: &Signature, out: &mut dyn bytes::BufMut) {
-        let payload_length =
-            self.fields_len() + signature.payload_len_with_eip155_chain_id(Some(*self.chain_id()));
+    /// hash that for eip2718 does not require rlp header
+    pub(crate) fn encode_with_signature(
+        &self,
+        signature: &Signature,
+        out: &mut dyn bytes::BufMut,
+        with_header: bool,
+    ) {
+        let payload_length = self.fields_len() + signature.payload_len();
+        if with_header {
+            Header {
+                list: false,
+                payload_length: 1 + length_of_length(payload_length) + payload_length,
+            }
+            .encode(out);
+        }
+        out.put_u8(self.tx_type() as u8);
         let header = Header { list: true, payload_length };
         header.encode(out);
         self.encode_fields(out);
-        signature.encode_with_eip155_chain_id(out, Some(*self.chain_id()));
+        signature.encode(out);
     }
 
     /// Output the length of the RLP signed transaction encoding.
     pub(crate) fn payload_len_with_signature(&self, signature: &Signature) -> usize {
-        let payload_length =
-            self.fields_len() + signature.payload_len_with_eip155_chain_id(Some(*self.chain_id()));
-        // 'header length' + 'payload length'
-        length_of_length(payload_length) + payload_length
+        let len = self.payload_len_with_signature_without_header(signature);
+        length_of_length(len) + len
+    }
+
+    /// Output the length of the RLP signed transaction encoding, _without_ a RLP header.
+    pub(crate) fn payload_len_with_signature_without_header(&self, signature: &Signature) -> usize {
+        let payload_length = self.fields_len() + signature.payload_len();
+        // 'transaction type byte length' + 'header length' + 'payload length'
+        1 + length_of_length(payload_length) + payload_length
     }
 
     /// Get transaction type
     pub(crate) const fn tx_type(&self) -> TxType {
-        TxType::Legacy
+        TxType::Seismic
     }
 
-    /// Encodes EIP-155 arguments into the desired buffer. Only encodes values for legacy
-    /// transactions.
+    /// Encodes the EIP-4844 transaction in RLP for signing.
     ///
-    /// If a `chain_id` is `Some`, this encodes the `chain_id`, followed by two zeroes, as defined
-    /// by [EIP-155](https://eips.ethereum.org/EIPS/eip-155).
-    pub(crate) fn encode_eip155_fields(&self, out: &mut dyn bytes::BufMut) {
-        self.chain_id().encode(out);
-        0x00u8.encode(out);
-        0x00u8.encode(out);
-    }
-
-    /// Outputs the length of EIP-155 fields. Only outputs a non-zero value for EIP-155 legacy
-    /// transactions.
-    pub(crate) fn eip155_fields_len(&self) -> usize {
-        self.chain_id().length() + 2
-    }
-
-    /// Encodes the legacy transaction in RLP for signing, including the EIP-155 fields if possible.
+    /// This encodes the transaction as:
+    /// `tx_type || rlp(chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, to,
+    /// value, input, access_list, max_fee_per_blob_gas, blob_versioned_hashes)`
     ///
-    /// If a `chain_id` is `Some`, this encodes the transaction as:
-    /// `rlp(nonce, gas_price, gas_limit, to, value, input, chain_id, 0, 0)`
-    ///
-    /// Otherwise, this encodes the transaction as:
-    /// `rlp(nonce, gas_price, gas_limit, to, value, input)`
+    /// Note that there is no rlp header before the transaction type byte.
     pub(crate) fn encode_for_signing(&self, out: &mut dyn bytes::BufMut) {
-        Header { list: true, payload_length: self.fields_len() + self.eip155_fields_len() }
-            .encode(out);
+        out.put_u8(self.tx_type() as u8);
+        Header { list: true, payload_length: self.fields_len() }.encode(out);
         self.encode_fields(out);
-        self.encode_eip155_fields(out);
     }
 
-    /// Outputs the length of the signature RLP encoding for the transaction, including the length
-    /// of the EIP-155 fields if possible.
+    /// Outputs the length of the signature RLP encoding for the transaction.
     pub(crate) fn payload_len_for_signature(&self) -> usize {
-        let payload_length = self.fields_len() + self.eip155_fields_len();
-        // 'header length' + 'payload length'
-        length_of_length(payload_length) + payload_length
+        let payload_length = self.fields_len();
+        // 'transaction type byte length' + 'header length' + 'payload length'
+        1 + length_of_length(payload_length) + payload_length
     }
 
     /// Outputs the signature hash of the transaction by first encoding without a signature, then

@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use reth_codecs::Compact;
 
+use super::seismic;
+
 /// For backwards compatibility purposes only 2 bits of the type are encoded in the identifier
 /// parameter. In the case of a 3, the full transaction type is read from the buffer as a
 /// single byte.
@@ -26,6 +28,9 @@ pub const EIP4844_TX_TYPE_ID: u8 = 3;
 
 /// Identifier for [`TxEip7702`](crate::TxEip7702) transaction.
 pub const EIP7702_TX_TYPE_ID: u8 = 4;
+
+/// Identifier for [`TxSeismic`](crate::Sesimic) transaction.
+pub const SEISMIC_TX_TYPE_ID: u8 = 5;
 
 /// Identifier for [`TxDeposit`](crate::TxDeposit) transaction.
 #[cfg(feature = "optimism")]
@@ -55,6 +60,8 @@ pub enum TxType {
     Eip4844 = 3_isize,
     /// EOA Contract Code Transactions - EIP-7702
     Eip7702 = 4_isize,
+    /// Seismic transaction
+    Seismic = 5_isize, 
     /// Optimism Deposit transaction.
     #[cfg(feature = "optimism")]
     Deposit = 126_isize,
@@ -68,7 +75,7 @@ impl TxType {
     /// Check if the transaction type has an access list.
     pub const fn has_access_list(&self) -> bool {
         match self {
-            Self::Legacy => false,
+            Self::Legacy | Self::Seismic => false,
             Self::Eip2930 | Self::Eip1559 | Self::Eip4844 | Self::Eip7702 => true,
             #[cfg(feature = "optimism")]
             Self::Deposit => false,
@@ -84,6 +91,7 @@ impl From<TxType> for u8 {
             TxType::Eip1559 => EIP1559_TX_TYPE_ID,
             TxType::Eip4844 => EIP4844_TX_TYPE_ID,
             TxType::Eip7702 => EIP7702_TX_TYPE_ID,
+            TxType::Seismic => SEISMIC_TX_TYPE_ID,
             #[cfg(feature = "optimism")]
             TxType::Deposit => DEPOSIT_TX_TYPE_ID,
         }
@@ -115,6 +123,8 @@ impl TryFrom<u8> for TxType {
             return Ok(Self::Eip4844)
         } else if value == Self::Eip7702 {
             return Ok(Self::Eip7702)
+        } else if value == Self::Seismic {
+            return Ok(Self::Seismic)
         }
 
         Err("invalid tx type")
@@ -156,6 +166,10 @@ impl reth_codecs::Compact for TxType {
                 buf.put_u8(*self as u8);
                 COMPACT_EXTENDED_IDENTIFIER_FLAG
             }
+            Self::Seismic => {
+                buf.put_u8(*self as u8);
+                COMPACT_EXTENDED_IDENTIFIER_FLAG
+            }
             #[cfg(feature = "optimism")]
             Self::Deposit => {
                 buf.put_u8(*self as u8);
@@ -179,6 +193,7 @@ impl reth_codecs::Compact for TxType {
                     match extended_identifier {
                         EIP4844_TX_TYPE_ID => Self::Eip4844,
                         EIP7702_TX_TYPE_ID => Self::Eip7702,
+                        SEISMIC_TX_TYPE_ID => Self::Seismic,
                         #[cfg(feature = "optimism")]
                         DEPOSIT_TX_TYPE_ID => Self::Deposit,
                         _ => panic!("Unsupported TxType identifier: {extended_identifier}"),
@@ -274,6 +289,7 @@ mod tests {
             (TxType::Eip1559, 2, vec![]),
             (TxType::Eip4844, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP4844_TX_TYPE_ID]),
             (TxType::Eip7702, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP7702_TX_TYPE_ID]),
+            (TxType::Seismic, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![SEISMIC_TX_TYPE_ID]),
             #[cfg(feature = "optimism")]
             (TxType::Deposit, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![DEPOSIT_TX_TYPE_ID]),
         ];
@@ -297,6 +313,7 @@ mod tests {
             (TxType::Eip1559, 2, vec![]),
             (TxType::Eip4844, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP4844_TX_TYPE_ID]),
             (TxType::Eip7702, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP7702_TX_TYPE_ID]),
+            (TxType::Seismic, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![SEISMIC_TX_TYPE_ID]),
             #[cfg(feature = "optimism")]
             (TxType::Deposit, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![DEPOSIT_TX_TYPE_ID]),
         ];

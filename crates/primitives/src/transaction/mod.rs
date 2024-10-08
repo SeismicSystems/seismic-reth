@@ -38,7 +38,7 @@ pub use compat::FillTxEnv;
 pub use signature::{extract_chain_id, Signature};
 pub use tx_type::{
     TxType, EIP1559_TX_TYPE_ID, EIP2930_TX_TYPE_ID, EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID,
-    LEGACY_TX_TYPE_ID,
+    LEGACY_TX_TYPE_ID, SEISMIC_TX_TYPE_ID
 };
 pub use variant::TransactionSignedVariant;
 
@@ -517,9 +517,9 @@ impl Transaction {
                 // do nothing w/ with_header
                 legacy_tx.encode_with_signature(signature, out)
             }
-            Self::Seismic(legacy_tx) => {
+            Self::Seismic(seismic_tx) => {
                 // do nothing w/ with_header
-                legacy_tx.encode_with_signature(signature, out)
+                seismic_tx.encode_with_signature(signature, out, with_header)
             }
             Self::Eip2930(access_list_tx) => {
                 access_list_tx.encode_with_signature(signature, out, with_header)
@@ -1351,6 +1351,7 @@ impl TransactionSigned {
             TxType::Eip1559 => Transaction::Eip1559(TxEip1559::decode_inner(data)?),
             TxType::Eip4844 => Transaction::Eip4844(TxEip4844::decode_inner(data)?),
             TxType::Eip7702 => Transaction::Eip7702(TxEip7702::decode_inner(data)?),
+            TxType::Seismic => Transaction::Seismic(TxSeismic::decode_inner(data)?),
             #[cfg(feature = "optimism")]
             TxType::Deposit => Transaction::Deposit(TxDeposit::decode_inner(data)?),
             TxType::Legacy => return Err(RlpError::Custom("unexpected legacy tx type")),

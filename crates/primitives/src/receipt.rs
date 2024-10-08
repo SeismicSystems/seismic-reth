@@ -2,7 +2,7 @@
 use crate::compression::{RECEIPT_COMPRESSOR, RECEIPT_DECOMPRESSOR};
 use crate::{
     logs_bloom, Bloom, Bytes, TxType, B256, EIP1559_TX_TYPE_ID, EIP2930_TX_TYPE_ID,
-    EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID,
+    EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID, SEISMIC_TX_TYPE_ID
 };
 use alloy_primitives::Log;
 use alloy_rlp::{length_of_length, Decodable, Encodable, RlpDecodable, RlpEncodable};
@@ -482,6 +482,9 @@ impl<'a> ReceiptWithBloomEncoder<'a> {
             }
             TxType::Eip7702 => {
                 out.put_u8(EIP7702_TX_TYPE_ID);
+            }
+            TxType::Seismic => {
+                out.put_u8(SEISMIC_TX_TYPE_ID);
             }
             #[cfg(feature = "optimism")]
             TxType::Deposit => {
