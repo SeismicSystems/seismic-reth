@@ -13,9 +13,11 @@ fn main() {
     use eyre::Ok;
     use reth::{
         builder::NodeBuilder,
+        cli::Cli,
         rpc::server_types::eth::{EthApiBuilderCtx, EthStateCache},
         tasks::TaskManager,
     };
+    use reth_evm_seismic::evm_config::SeismicEvmConfig;
     use reth_node_core::{args::RpcServerArgs, node_config::NodeConfig};
     use reth_provider::test_utils::TestCanonStateSubscriptions;
     use reth_tasks::TokioTaskExecutor;
@@ -23,7 +25,8 @@ fn main() {
 
     use reth_helpers_seismic::chain::seismic_chain;
     use reth_node_seismic::node::{SeismicAddOns, SeismicNode};
-    use reth_rpc_seismic::core::SeismicApi;
+    use reth_rpc_seismic::core::{SeismicApi, SeismicApiServer};
+
     reth_cli_util::sigsegv_handler::install();
 
     // Enable backtraces unless a RUST_BACKTRACE value has already been explicitly provided.
@@ -31,7 +34,7 @@ fn main() {
         std::env::set_var("RUST_BACKTRACE", "1");
     }
 
-    if let Err(err) = Cli::parse().run(|builder, _| async move {
+    if let Err(err) = Cli::parse_args().run(|builder, _| async move {
         let _guard = RethTracer::new().init()?;
 
         let tasks = TaskManager::current();

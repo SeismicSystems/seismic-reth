@@ -27,13 +27,14 @@ use reth_primitives::{
     Address, TxKind, B256, U256,
 };
 use reth_provider::{
-    BlockNumReader, BlockReaderIdExt, CanonStateSubscriptions, ChainSpecProvider, HeaderProvider,
-    StageCheckpointReader, StateProviderFactory, TransactionsProvider,
+    BlockIdReader, BlockNumReader, BlockReaderIdExt, CanonStateSubscriptions, ChainSpecProvider,
+    HeaderProvider, StageCheckpointReader, StateProviderFactory, TransactionsProvider,
 };
 use reth_rpc::eth::{core::EthApiInner, DevSigner};
 use reth_rpc_eth_api::{FromEthApiError, IntoEthApiError};
 use reth_rpc_eth_types::{
-    revm_utils::CallFees, EthApiBuilderCtx, EthStateCache, PendingBlock, RpcInvalidTransactionError,
+    revm_utils::CallFees, EthApiBuilderCtx, EthStateCache, FeeHistoryCache, GasPriceOracle,
+    PendingBlock, RpcInvalidTransactionError,
 };
 use reth_rpc_types::{TransactionRequest, WithOtherFields};
 use reth_tasks::{
@@ -117,7 +118,7 @@ where
             ctx.new_fee_history_cache(),
             ctx.evm_config.clone(),
             ctx.executor.clone(),
-            None,
+            ctx.config.proof_permits,
         );
 
         Self { inner: Arc::new(inner) }
@@ -338,6 +339,34 @@ where
     #[inline]
     fn provider(&self) -> impl HeaderProvider {
         self.inner.provider()
+    }
+}
+
+impl<Provider, Pool, Network, EvmConfig> LoadFee for SeismicApi<Provider, Pool, Network, EvmConfig>
+where
+    Self: LoadBlock,
+    Provider: BlockReaderIdExt + HeaderProvider + ChainSpecProvider<ChainSpec = ChainSpec>,
+{
+    #[inline]
+    fn provider(
+        &self,
+    ) -> impl BlockIdReader + HeaderProvider + ChainSpecProvider<ChainSpec = ChainSpec> {
+        self.inner.provider()
+    }
+
+    #[inline]
+    fn cache(&self) -> &EthStateCache {
+        self.inner.cache()
+    }
+
+    #[inline]
+    fn gas_oracle(&self) -> &GasPriceOracle<impl BlockReaderIdExt> {
+        self.inner.gas_oracle()
+    }
+
+    #[inline]
+    fn fee_history_cache(&self) -> &FeeHistoryCache {
+        self.inner.fee_history_cache()
     }
 }
 

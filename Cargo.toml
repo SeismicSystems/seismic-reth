@@ -577,6 +577,8 @@ seismic-transaction = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy
 # then this will override whatever versions they point to
 # and instead use our local version
 
+reth-rpc-types = { version = "1.0.6", path = "crates/rpc/rpc-types" }
+
 # seismic-revm
 revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "7176369" }
 revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "7176369" }
@@ -592,5 +594,9 @@ alloy-sol-macro-expander = { git = "ssh://git@github.com/SeismicSystems/seismic-
 alloy-sol-macro-input = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
 alloy-sol-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
 alloy-sol-type-parser = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
+
+[patch."ssh://git@github.com/SeismicSystems/seismic-reth.git"]
 reth-rpc-types = { path = "crates/rpc/rpc-types" }
+
+
 
