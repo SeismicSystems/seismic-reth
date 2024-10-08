@@ -21,6 +21,7 @@ static AES_KEY: Lazy<Key<Aes256Gcm>> = Lazy::new(|| {
     let key: Key<Aes256Gcm> = Aes256Gcm::generate_key(rng);
     return key;
 });
+
 fn nonce_to_generic_array(nonce: u64) -> GenericArray<u8, <Aes256Gcm as AeadCore>::NonceSize> {
     let mut nonce_bytes = nonce.to_be_bytes().to_vec();
 
@@ -34,6 +35,7 @@ fn nonce_to_generic_array(nonce: u64) -> GenericArray<u8, <Aes256Gcm as AeadCore
 
     GenericArray::clone_from_slice(&nonce_bytes)
 }
+
 fn decrypt<T>(ciphertext: &Vec<u8>, nonce: u64) -> T
 where
     T: Decodable,
@@ -59,7 +61,7 @@ fn encrypt<T: Encodable>(plaintext: &T, nonce: u64) -> Vec<u8> {
 #[cfg_attr(any(test, feature = "reth-codec"), derive(Compact))]
 #[cfg_attr(any(test, feature = "reth-codec"), reth_codecs::add_arbitrary_tests(compact))]
 pub struct DecryptedTx {
-    pub chain_id: Option<ChainId>,
+    pub chain_id: ChainId,
     pub nonce: u64,
     pub gas_price: u128,
     pub gas_limit: u64,
@@ -73,7 +75,7 @@ pub struct DecryptedTx {
 #[cfg_attr(any(test, feature = "reth-codec"), derive(Compact))]
 #[cfg_attr(any(test, feature = "reth-codec"), reth_codecs::add_arbitrary_tests(compact))]
 pub struct EncryptedTx {
-    chain_id: Option<ChainId>,
+    chain_id: ChainId,
     nonce: u64,
     gas_price: u128,
     gas_limit: u64,
@@ -85,7 +87,7 @@ pub struct EncryptedTx {
 impl EncryptedTx {
     pub fn from_decrypted_tx(decrypted_tx: &DecryptedTx) -> Self {
         EncryptedTx {
-            chain_id: decrypted_tx.chain_id.clone(),
+            chain_id: decrypted_tx.chain_id,
             nonce: decrypted_tx.nonce,
             gas_price: decrypted_tx.gas_price,
             gas_limit: decrypted_tx.gas_limit,
@@ -188,6 +190,7 @@ impl reth_codecs::Compact for TxSeismic {
 macro_rules! generate_decrypted_getters {
     ($($field:ident: $type:ty),*) => {
         $(
+            // Create getter function for each field using paste to concatenate function names #[inline]
             pub const fn $field(&self) -> &$type {
                 &self.decrypted_tx.$field
             }
@@ -197,7 +200,7 @@ macro_rules! generate_decrypted_getters {
 
 impl TxSeismic {
     generate_decrypted_getters!(
-        chain_id: Option<ChainId>,
+        chain_id: ChainId,
         nonce: u64,
         gas_price: u128,
         gas_limit: u64,
@@ -212,6 +215,7 @@ macro_rules! generate_decrypted_setters {
         $(
             paste! {
                 // Create setter function for each field using paste to concatenate function names
+                #[inline]
                 pub fn [<set_ $field>](&mut self, value: $type) {
                     self.decrypted_tx.$field = value;
                 }
@@ -222,7 +226,7 @@ macro_rules! generate_decrypted_setters {
 
 impl TxSeismic {
     generate_decrypted_setters!(
-        chain_id: Option<ChainId>,
+        chain_id: ChainId,
         nonce: u64,
         gas_price: u128,
         gas_limit: u64,
@@ -234,7 +238,7 @@ impl TxSeismic {
 
 impl TxSeismic {
     pub fn new(
-        chain_id: Option<ChainId>,
+        chain_id: ChainId,
         nonce: u64,
         gas_price: u128,
         gas_limit: u64,
@@ -299,17 +303,17 @@ impl TxSeismic {
     /// The `v` value is encoded according to EIP-155 if the `chain_id` is not `None`.
     pub(crate) fn encode_with_signature(&self, signature: &Signature, out: &mut dyn bytes::BufMut) {
         let payload_length =
-            self.fields_len() + signature.payload_len_with_eip155_chain_id(self.chain_id().clone());
+            self.fields_len() + signature.payload_len_with_eip155_chain_id(Some(*self.chain_id()));
         let header = Header { list: true, payload_length };
         header.encode(out);
         self.encode_fields(out);
-        signature.encode_with_eip155_chain_id(out, self.chain_id().clone());
+        signature.encode_with_eip155_chain_id(out, Some(*self.chain_id()));
     }
 
     /// Output the length of the RLP signed transaction encoding.
     pub(crate) fn payload_len_with_signature(&self, signature: &Signature) -> usize {
         let payload_length =
-            self.fields_len() + signature.payload_len_with_eip155_chain_id(self.chain_id().clone());
+            self.fields_len() + signature.payload_len_with_eip155_chain_id(Some(*self.chain_id()));
         // 'header length' + 'payload length'
         length_of_length(payload_length) + payload_length
     }
@@ -325,28 +329,15 @@ impl TxSeismic {
     /// If a `chain_id` is `Some`, this encodes the `chain_id`, followed by two zeroes, as defined
     /// by [EIP-155](https://eips.ethereum.org/EIPS/eip-155).
     pub(crate) fn encode_eip155_fields(&self, out: &mut dyn bytes::BufMut) {
-        // if this is a legacy transaction without a chain ID, it must be pre-EIP-155
-        // and does not need to encode the chain ID for the signature hash encoding
-        if let Some(id) = self.chain_id() {
-            // EIP-155 encodes the chain ID and two zeroes
-            id.encode(out);
-            0x00u8.encode(out);
-            0x00u8.encode(out);
-        }
+        self.chain_id().encode(out);
+        0x00u8.encode(out);
+        0x00u8.encode(out);
     }
 
     /// Outputs the length of EIP-155 fields. Only outputs a non-zero value for EIP-155 legacy
     /// transactions.
     pub(crate) fn eip155_fields_len(&self) -> usize {
-        if let Some(id) = self.chain_id() {
-            // EIP-155 encodes the chain ID and two zeroes, so we add 2 to the length of the chain
-            // ID to get the length of all 3 fields
-            // len(chain_id) + (0x00) + (0x00)
-            id.length() + 2
-        } else {
-            // this is either a pre-EIP-155 legacy transaction or a typed transaction
-            0
-        }
+        self.chain_id().length() + 2
     }
 
     /// Encodes the legacy transaction in RLP for signing, including the EIP-155 fields if possible.

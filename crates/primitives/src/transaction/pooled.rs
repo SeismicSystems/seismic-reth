@@ -257,7 +257,7 @@ impl PooledTransactionsElement {
                         "legacy transactions should not be a result of EIP-2718 decoding",
                     )),
                     Transaction::Seismic(_) => Err(RlpError::Custom(
-                        "Seimic transaction is the same as legacy transaction. legacy transactions should not be a result of EIP-2718 decoding",
+                        "Seimic transactions should not be a result of EIP-2718 decoding",
                     )),
                     Transaction::Eip4844(_) => Err(RlpError::Custom(
                         "EIP-4844 transactions can only be decoded with transaction type 0x03",
@@ -650,7 +650,7 @@ impl Decodable for PooledTransactionsElement {
                         "legacy transactions should not be a result of EIP-2718 decoding",
                     )),
                     Transaction::Seismic(_) => Err(RlpError::Custom(
-                        "legacy transactions should not be a result of EIP-2718 decoding",
+                        "Seismic transactions should not be a result of EIP-2718 decoding",
                     )),
                     Transaction::Eip4844(_) => Err(RlpError::Custom(
                         "EIP-4844 transactions can only be decoded with transaction type 0x03",

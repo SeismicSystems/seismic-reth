@@ -120,7 +120,7 @@ impl FillTxEnv for TransactionSigned {
                 tx_env.transact_to = *tx.to();
                 tx_env.value = *tx.value();
                 tx_env.data = tx.input().clone();
-                tx_env.chain_id = *tx.chain_id();
+                tx_env.chain_id = Some(*tx.chain_id());
                 tx_env.nonce = Some(*tx.nonce());
                 tx_env.access_list.clear();
                 tx_env.blob_hashes.clear();
