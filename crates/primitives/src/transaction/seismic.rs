@@ -1,4 +1,4 @@
-use crate::{keccak256, Bytes, ChainId, Signature, TxKind, TxType, B256, U256};
+use crate::{keccak256, Bytes, ChainId, Signature, TxKind, TxType, B256, U256, Address};    
 use aes_gcm::{
     aead::{generic_array::GenericArray, Aead, AeadCore, KeyInit, OsRng as AesRng},
     Aes256Gcm, Key,
@@ -31,7 +31,6 @@ fn nonce_to_generic_array(nonce: u64) -> GenericArray<u8, <Aes256Gcm as AeadCore
 
     let rng = AesRng::default();
     let libnonce = Aes256Gcm::generate_nonce(rng);
-    println!("libnonce {:?}", libnonce.len());
 
     GenericArray::clone_from_slice(&nonce_bytes)
 }
@@ -183,8 +182,8 @@ impl DecryptedTx {
 #[derive(Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(any(test, feature = "reth-codec"), reth_codecs::add_arbitrary_tests(compact))]
 pub struct TxSeismic {
-    encrypted_tx: EncryptedTx,
-    decrypted_tx: DecryptedTx,
+    pub encrypted_tx: EncryptedTx,
+    pub decrypted_tx: DecryptedTx,
 }
 
 impl Default for TxSeismic {
@@ -483,5 +482,51 @@ impl TxSeismic {
         let mut buf = Vec::with_capacity(self.payload_len_for_signature());
         self.encode_for_signing(&mut buf);
         keccak256(&buf)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use core::str::FromStr;
+
+    use super::*;
+
+    #[test]
+    fn test_encoding_encryption_leakage() {
+        // initialize an encrypted_tx
+        let decrypted_input: Bytes = Bytes::from(vec![1, 2, 3, 4, 5]);
+        let decrypted_tx = DecryptedTx {
+                chain_id: 4u64,
+                nonce: 2,
+                gas_price: 1000000000,
+                gas_limit: 100000,
+                to: Address::from_str("d3e8763675e4c425df46cc3b5c0f6cbdac396046").unwrap().into(),
+                value: U256::from(1000000000000000u64),
+                input: decrypted_input.clone(),
+        };
+        let encrypted_tx = EncryptedTx::from_decrypted_tx(&decrypted_tx);
+
+        // encode it
+        let mut encrypted_tx_encoding = Vec::new();
+        encrypted_tx.encode(&mut encrypted_tx_encoding);
+
+        // initialize a TxSeismic
+        let tx_seismic = TxSeismic::new_from_encrypted_tx(encrypted_tx.clone());
+
+        // encode it
+        let mut tx_seismic_encoding = Vec::new();
+        tx_seismic.encode_fields(&mut tx_seismic_encoding);
+
+        // check the encoding is the same as encoding the encrypted_tx
+        assert_eq!(encrypted_tx_encoding, tx_seismic_encoding);
+
+        // decode it
+        let decoded_tx_seismic = TxSeismic::decode_inner(&mut &tx_seismic_encoding[..]).unwrap();
+
+        // check that the resulted encrypted_tx is the same as the original encrypted_tx
+        assert_eq!(decoded_tx_seismic.encrypted_tx, encrypted_tx);
+        assert_eq!(decoded_tx_seismic.decrypted_tx, decrypted_tx);
+        assert_eq!(decrypted_input, *decoded_tx_seismic.input());
     }
 }

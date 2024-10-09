@@ -1703,7 +1703,7 @@ impl<T> WithEncoded<Option<T>> {
 mod tests {
     use crate::{
         hex,
-        transaction::{signature::Signature, TxEip1559, TxKind, TxLegacy},
+        transaction::{signature::Signature, TxEip1559, TxKind, TxLegacy, TxSeismic},
         Address, Bytes, Transaction, TransactionSigned, TransactionSignedEcRecovered,
         TransactionSignedNoHash, B256, U256,
     };
@@ -2125,12 +2125,19 @@ mod tests {
         assert_eq!(result, Err(RlpError::UnexpectedLength));
     }
 
-    fn decode_txSeismic() {
+    #[test]
+    fn encode_decode_seismic_tx() {
         // init a signed transaction with seismic transaction type
-        let transaction = Transaction::Seismic(TxSeismic {
-            input: Bytes::from(vec![1, 2, 3, 4]),
-            // other fields initialization
-        });
+        let decrypted_input: Bytes = Bytes::from(vec![1, 2, 3, 4, 5]);
+        let orig_decoded_tx = Transaction::Seismic(TxSeismic::new_from_decrypted_params(
+                4u64,
+                2,
+                1000000000,
+                100000,
+                 Address::from_str("d3e8763675e4c425df46cc3b5c0f6cbdac396046").unwrap().into(),
+                U256::from(1000000000000000u64),
+                decrypted_input.clone(),
+        ) );
 
         let signature = Signature {
             odd_y_parity: false,
@@ -2140,19 +2147,20 @@ mod tests {
                 .unwrap(),
         };
 
-        let tx_signed = TransactionSigned::from_transaction_and_signature(transaction.clone(), signature.clone());
+        let orig_decoded_tx_sign = TransactionSigned::from_transaction_and_signature(orig_decoded_tx.clone(), signature.clone());
 
         // encode the transaction
-        let mut encoded = Vec::new();
-        tx_signed.encode(&mut encoded);
+        let mut encoding = Vec::new();
+        orig_decoded_tx_sign.encode(&mut encoding);
 
         // decode the transaction
-        let decoded = TransactionSigned::decode(&mut &encoded[..]).unwrap();
+        let decoded_tx_sign = TransactionSigned::decode(&mut &encoding[..]).unwrap();
 
         // assert the transaction is the same
-        assert_eq!(tx_signed, decoded);
-        assert_eq!(transaction, decoded.transaction());
-        assert_eq!(signature, decoded.signature());
+        assert_eq!(orig_decoded_tx_sign, decoded_tx_sign);
+        assert_eq!(orig_decoded_tx, decoded_tx_sign.transaction);
+        assert_eq!(signature, decoded_tx_sign.signature);
+        assert_eq!(decrypted_input, *decoded_tx_sign.transaction.input());
     }
 
 }
