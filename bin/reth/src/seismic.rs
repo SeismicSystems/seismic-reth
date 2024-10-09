@@ -23,9 +23,13 @@ fn main() {
     use reth_tasks::TokioTaskExecutor;
     use reth_tracing::{RethTracer, Tracer};
 
-    use reth_helpers_seismic::chain::seismic_chain;
+    use reth_helpers_seismic::{chain::seismic_chain, signer::AddCustomDevSigners};
     use reth_node_seismic::node::{SeismicAddOns, SeismicNode};
     use reth_rpc_seismic::core::{SeismicApi, SeismicApiServer};
+
+    use secp256k1::SecretKey;
+    use reth_primitives::Address;
+    use std::str::FromStr;
 
     reth_cli_util::sigsegv_handler::install();
 
@@ -35,6 +39,9 @@ fn main() {
     }
 
     if let Err(err) = Cli::parse_args().run(|builder, _| async move {
+        let seismic_secret_key: SecretKey = SecretKey::from_str("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80").unwrap();
+        let seismic_address: Address = Address::from_str("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266").unwrap();
+
         let _guard = RethTracer::new().init()?;
 
         let tasks = TaskManager::current();
@@ -73,11 +80,12 @@ fn main() {
                     config: Default::default(),
                     events: TestCanonStateSubscriptions::default(),
                 };
-                let seismic_api = SeismicApi::with_spawner(&seismic_ctx);
+                let mut seismic_api = SeismicApi::with_spawner(&seismic_ctx);
+                seismic_api.add_custom_dev_signers(&[seismic_secret_key], &[seismic_address]);
                 let signers = seismic_api.signers().read().clone();
-                if signers.is_empty() {
-                    panic!("No signers found in SeismicApi");
-                }
+                // if signers.is_empty() {
+                //     panic!("No signers found in SeismicApi");
+                // }
                 for signer in signers.iter() {
                     let x = signer.accounts();
                     println!("signer: {:?}", x);

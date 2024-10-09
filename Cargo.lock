@@ -6231,6 +6231,7 @@ dependencies = [
  "reth-transaction-pool",
  "reth-trie",
  "reth-trie-db",
+ "secp256k1",
  "serde",
  "serde_json",
  "similar-asserts",

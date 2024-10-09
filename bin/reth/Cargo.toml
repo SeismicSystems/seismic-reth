@@ -110,6 +110,7 @@ tempfile.workspace = true
 backon.workspace = true
 similar-asserts.workspace = true
 itertools.workspace = true
+secp256k1.workspace = true
 
 # p2p
 discv5.workspace = true
