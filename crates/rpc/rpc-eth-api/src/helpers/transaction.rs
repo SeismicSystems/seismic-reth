@@ -410,6 +410,7 @@ pub trait EthTransactions: LoadTransaction {
                         encrypted_input
                     }))
                 }
+                _ => None,
             };
 
             let transaction = match transaction {

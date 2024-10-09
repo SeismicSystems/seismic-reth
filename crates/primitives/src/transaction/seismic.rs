@@ -292,7 +292,7 @@ macro_rules! generate_decrypted_setters {
 
 impl TxSeismic {
     /// Constructors
-    pub fn new(
+    pub fn new_from_encrypted_params(
         chain_id: ChainId,
         nonce: u64,
         gas_price: u128,
@@ -317,6 +317,34 @@ impl TxSeismic {
         let decrypted_tx = DecryptedTx::from_encrypted_tx(&encrypted_tx);
         TxSeismic { encrypted_tx, decrypted_tx }
     }
+
+    // should only be used for testing purpose
+    pub fn new_from_decrypted_params(
+        chain_id: ChainId,
+        nonce: u64,
+        gas_price: u128,
+        gas_limit: u64,
+        to: TxKind,
+        value: U256,
+        decrypted_input: Bytes,
+    ) -> Self {
+        let decrypted_tx = DecryptedTx {
+            chain_id,
+            nonce,
+            gas_price,
+            gas_limit,
+            to,
+            value,
+            input: decrypted_input,
+        };
+        TxSeismic::new_from_decrypted_tx(decrypted_tx) 
+    }
+
+    pub fn new_from_decrypted_tx(decrypted_tx: DecryptedTx) -> Self {
+        let encrypted_tx = EncryptedTx::from_decrypted_tx(&decrypted_tx);
+        TxSeismic { encrypted_tx, decrypted_tx }
+    }
+
 
     generate_decrypted_setters!(
         chain_id: ChainId,

@@ -58,7 +58,7 @@ pub fn to_primitive_transaction(
             input: tx.input,
         }),
         TypedTransactionRequest::SeismicTransactionRequest(tx) => {
-            Transaction::Seismic(TxSeismic::new(
+            Transaction::Seismic(TxSeismic::new_from_encrypted_params(
                 tx.chain_id,
                 tx.nonce,
                 tx.gas_price.to(),

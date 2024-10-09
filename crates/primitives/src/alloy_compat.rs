@@ -1,7 +1,7 @@
 //! Common conversions from alloy types.
 
 use crate::{
-    constants::EMPTY_TRANSACTIONS, transaction::extract_chain_id, Block, Signature, Transaction,
+    constants::EMPTY_TRANSACTIONS, transaction::{extract_chain_id, TxSeismic}, Block, Signature, Transaction,
     TransactionSigned, TransactionSignedEcRecovered, TransactionSignedNoHash, TxEip1559, TxEip2930,
     TxEip4844, TxLegacy, TxType,
 };
@@ -110,6 +110,21 @@ impl TryFrom<WithOtherFields<alloy_rpc_types::Transaction>> for Transaction {
                     value: tx.value,
                     input: tx.input,
                 }))
+            }
+            Some(TxType::Seismic) => {
+                // seismic 
+                Ok(Self::Seismic(TxSeismic::new_from_decrypted_params(
+                    tx.chain_id.ok_or(ConversionError::MissingChainId)?,
+                    tx.nonce,
+                    tx.gas_price.ok_or(ConversionError::MissingGasPrice)?,
+                    tx
+                        .gas
+                        .try_into()
+                        .map_err(|_| ConversionError::Eip2718Error(RlpError::Overflow.into()))?,
+                    tx.to.map_or(TxKind::Create, TxKind::Call),
+                    tx.value,
+                    tx.input,
+                )))
             }
             Some(TxType::Eip2930) => {
                 // eip2930
