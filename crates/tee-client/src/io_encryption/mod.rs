@@ -103,8 +103,10 @@ mod tests {
     use reqwest::Client;
     use secp256k1::PublicKey;
     use serde_json::json;
-    use std::str::FromStr;
-    use std::sync::{Arc, Mutex};
+    use std::{
+        str::FromStr,
+        sync::{Arc, Mutex},
+    };
     use tokio::spawn;
     use warp::Filter;
 
