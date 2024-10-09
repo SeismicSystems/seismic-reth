@@ -56,7 +56,6 @@ impl TeeClientAPI for TeeHttpClient {
     
         // Extract the response body as bytes
         let body: Vec<u8> = response.bytes().await?.to_vec();
-        println!("body: {:?}", body);
     
         // Parse the response body into the IoEncryptionResponse struct
         let enc_response: IoEncryptionResponse = serde_json::from_slice(&body)?;
