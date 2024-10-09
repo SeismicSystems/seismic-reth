@@ -8,6 +8,7 @@ repository = "https://github.com/paradigmxyz/reth"
 exclude = [".github/"]
 
 [workspace]
+
 members = [
     "bin/reth-bench/",
     "bin/reth/",
@@ -570,6 +571,7 @@ test-fuzz = "5"
 
 # seismic-alloy-core
 seismic-transaction = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
+seismic-types = { git = "ssh://git@github.com/SeismicSystems/mantle.git", rev = "90277e21", features = ["zero-salt"] }
 
 
 [patch.crates-io]

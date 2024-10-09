@@ -27,8 +27,8 @@ fn main() {
     use reth_node_seismic::node::{SeismicAddOns, SeismicNode};
     use reth_rpc_seismic::core::{SeismicApi, SeismicApiServer};
 
-    use secp256k1::SecretKey;
     use reth_primitives::Address;
+    use secp256k1::SecretKey;
     use std::str::FromStr;
 
     reth_cli_util::sigsegv_handler::install();
@@ -39,8 +39,11 @@ fn main() {
     }
 
     if let Err(err) = Cli::parse_args().run(|builder, _| async move {
-        let seismic_secret_key: SecretKey = SecretKey::from_str("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80").unwrap();
-        let seismic_address: Address = Address::from_str("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266").unwrap();
+        let seismic_secret_key: SecretKey =
+            SecretKey::from_str("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+                .unwrap();
+        let seismic_address: Address =
+            Address::from_str("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266").unwrap();
 
         let _guard = RethTracer::new().init()?;
 

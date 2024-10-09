@@ -8593,6 +8593,7 @@ dependencies = [
  "reth-transaction-pool",
  "secp256k1",
  "seismic-transaction",
+ "seismic-types",
  "serde_json",
  "thiserror",
  "tokio",
