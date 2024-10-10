@@ -2,7 +2,7 @@ use alloy_consensus::{
     BlobTransactionSidecar, EnvKzgSettings, SidecarBuilder, SimpleCoder, TxEip4844Variant,
     TxEnvelope,
 };
-use alloy_network::{eip2718::Encodable2718, Ethereum, EthereumWallet, TransactionBuilder};
+use alloy_network::{eip2718::Encodable2718, Ethereum, EthereumWallet, TransactionBuilder, TransactionBuilder4844};
 use alloy_rpc_types::{TransactionInput, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
 use eyre::Ok;
@@ -32,15 +32,12 @@ impl TransactionTestContext {
     ) -> eyre::Result<TxEnvelope> {
         let mut tx = tx(chain_id, None, 0);
 
-        let mut builder = SidecarBuilder::<SimpleCoder>::new();
+        let mut builder  = SidecarBuilder::<SimpleCoder>::new();
         builder.ingest(b"dummy blob");
         let sidecar: BlobTransactionSidecar = builder.build()?;
 
-        <TransactionRequest as TransactionBuilder<Ethereum>>::set_blob_sidecar(&mut tx, sidecar);
-        <TransactionRequest as TransactionBuilder<Ethereum>>::set_max_fee_per_blob_gas(
-            &mut tx,
-            15e9 as u128,
-        );
+        tx.set_blob_sidecar(sidecar);
+        tx.set_max_fee_per_blob_gas(15e9 as u128);
 
         let signed = Self::sign_tx(wallet, tx).await;
         Ok(signed)

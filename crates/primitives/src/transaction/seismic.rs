@@ -1,9 +1,9 @@
-use crate::{keccak256, Bytes, ChainId, Signature, TxKind, TxType, B256, U256, Address};    
+use crate::{keccak256, Address, Bytes, ChainId, Signature, TxKind, TxType, B256, U256};
 use aes_gcm::{
     aead::{generic_array::GenericArray, Aead, AeadCore, KeyInit, OsRng as AesRng},
     Aes256Gcm, Key,
 };
-use alloy_rlp::{length_of_length, Decodable, Encodable, Header};
+use alloy_rlp::{length_of_length, Decodable, Encodable, Error, Header};
 use core::mem;
 use once_cell::sync::Lazy;
 use paste::paste;
@@ -38,26 +38,29 @@ fn nonce_to_generic_array(nonce: u64) -> GenericArray<u8, <Aes256Gcm as AeadCore
 pub trait Encryptable: Encodable + Decodable {}
 impl<T: Encodable + Decodable> Encryptable for T {}
 
-fn decrypt<T>(ciphertext: &Vec<u8>, nonce: u64) -> T
+fn decrypt<T>(ciphertext: &Vec<u8>, nonce: u64) -> alloy_rlp::Result<T>
 where
     T: Encryptable,
 {
     let cipher = Aes256Gcm::new(&AES_KEY);
     let nonce = nonce_to_generic_array(nonce);
-    let buf = cipher.decrypt(&nonce, ciphertext.as_ref()).unwrap();
-    T::decode(&mut &buf[..]).unwrap_or_else(|err| panic!("Failed to decode: {:?}", err))
+    let buf = cipher
+        .decrypt(&nonce, ciphertext.as_ref())
+        .map_err(|_err| Error::Custom("Failed to decrypt seismic transaction"))?;
+    T::decode(&mut &buf[..])
 }
 
-fn encrypt<T: Encryptable>(plaintext: &T, nonce: u64) -> Vec<u8> {
+fn encrypt<T: Encryptable>(plaintext: &T, nonce: u64) -> Result<Vec<u8>, Error> {
     let cipher = Aes256Gcm::new(&AES_KEY);
     let nonce = nonce_to_generic_array(nonce);
     let mut buf = Vec::new();
     plaintext.encode(&mut buf);
+    // Returns an error if the buffer has insufficient capacity to store the
+    // resulting ciphertext message.
     cipher
         .encrypt(&nonce, buf.as_ref())
-        .unwrap_or_else(|err| panic!("Encryption failed: {:?}", err))
+        .map_err(|_err| Error::Custom("Failed to encrypt seismic transaction"))
 }
-
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
@@ -88,16 +91,16 @@ pub struct EncryptedTx {
 }
 
 impl EncryptedTx {
-    pub fn from_decrypted_tx(decrypted_tx: &DecryptedTx) -> Self {
-        EncryptedTx {
+    pub fn from_decrypted_tx(decrypted_tx: &DecryptedTx) -> Result<Self, Error> {
+        Ok(EncryptedTx {
             chain_id: decrypted_tx.chain_id,
             nonce: decrypted_tx.nonce,
             gas_price: decrypted_tx.gas_price,
             gas_limit: decrypted_tx.gas_limit,
             to: decrypted_tx.to.clone(),
             value: decrypted_tx.value.clone(),
-            input: encrypt(&decrypted_tx.input, decrypted_tx.nonce),
-        }
+            input: encrypt(&decrypted_tx.input, decrypted_tx.nonce)?,
+        })
     }
 
     #[inline]
@@ -109,7 +112,7 @@ impl EncryptedTx {
         mem::size_of::<u128>() + // max_priority_fee_per_gas
         self.to.size() + // to
         mem::size_of::<U256>() + // value
-        self.input.len()  // input
+        self.input.len() // input
     }
 }
 
@@ -134,7 +137,7 @@ impl Encodable for EncryptedTx {
             + self.input.length()
     }
 }
- 
+
 impl Decodable for EncryptedTx {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         let chain_id = Decodable::decode(buf)?;
@@ -144,30 +147,22 @@ impl Decodable for EncryptedTx {
         let to = Decodable::decode(buf)?;
         let value = Decodable::decode(buf)?;
         let input = Decodable::decode(buf)?;
-        Ok(EncryptedTx {
-            chain_id,
-            nonce,
-            gas_price,
-            gas_limit,
-            to,
-            value,
-            input,
-        })
+        Ok(EncryptedTx { chain_id, nonce, gas_price, gas_limit, to, value, input })
     }
 }
 
 impl DecryptedTx {
-    pub fn from_encrypted_tx(encrypted_tx: &EncryptedTx) -> Self {
+    pub fn from_encrypted_tx(encrypted_tx: &EncryptedTx) -> alloy_rlp::Result<Self> {
         let nonce = encrypted_tx.nonce;
-        DecryptedTx {
+        Ok(DecryptedTx {
             chain_id: encrypted_tx.chain_id.clone(),
             nonce: encrypted_tx.nonce,
             gas_price: encrypted_tx.gas_price,
             gas_limit: encrypted_tx.gas_limit,
             to: encrypted_tx.to.clone(),
             value: encrypted_tx.value.clone(),
-            input: decrypt::<Bytes>(&encrypted_tx.input, nonce),
-        }
+            input: decrypt::<Bytes>(&encrypted_tx.input, nonce)?,
+        })
     }
 
     #[inline]
@@ -179,7 +174,7 @@ impl DecryptedTx {
         mem::size_of::<u128>() + // max_priority_fee_per_gas
         self.to.size() + // to
         mem::size_of::<U256>() + // value
-        self.input.len()  // input
+        self.input.len() // input
     }
 }
 
@@ -192,8 +187,8 @@ pub struct TxSeismic {
 
 impl Default for TxSeismic {
     fn default() -> Self {
-        let encrypted_tx = EncryptedTx::default();
-        TxSeismic::new_from_encrypted_tx(encrypted_tx)
+        let decrypted_tx = DecryptedTx::default();
+        TxSeismic::new_from_decrypted_tx(decrypted_tx)
     }
 }
 
@@ -212,7 +207,7 @@ impl<'de, 'a> Deserialize<'de> for TxSeismic {
         D: serde::Deserializer<'de>,
     {
         let encrypted_tx = EncryptedTx::deserialize(deserializer)?;
-        Ok(TxSeismic::new_from_encrypted_tx(encrypted_tx))
+        TxSeismic::new_from_encrypted_tx(encrypted_tx).map_err(serde::de::Error::custom)
     }
 }
 
@@ -229,7 +224,8 @@ impl Clone for TxSeismic {
 impl<'a> arbitrary::Arbitrary<'a> for TxSeismic {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
         let encrypted_tx: EncryptedTx = u.arbitrary()?;
-        Ok(TxSeismic::new_from_encrypted_tx(encrypted_tx))
+        TxSeismic::new_from_encrypted_tx(encrypted_tx)
+            .map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
 
@@ -240,16 +236,12 @@ impl reth_codecs::Compact for TxSeismic {
         B: bytes::BufMut + AsMut<[u8]>,
     {
         let mut buf = Vec::new();
-        self.encrypted_tx.to_compact(&mut buf)
+        self.decrypted_tx.to_compact(&mut buf) 
     }
     fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
-        let (encrypted_input, buf) = EncryptedTx::from_compact(buf, len);
-        let decrypted_input = DecryptedTx::from_encrypted_tx(&encrypted_input);
+        let (decrypted_tx, buf) = DecryptedTx::from_compact(buf, len);
         return (
-            TxSeismic {
-                encrypted_tx: encrypted_input,
-                decrypted_tx: decrypted_input,
-            },
+            TxSeismic::new_from_decrypted_tx(decrypted_tx),
             &buf[len..],
         );
     }
@@ -303,7 +295,7 @@ impl TxSeismic {
         to: TxKind,
         value: U256,
         encrypted_input: Vec<u8>,
-    ) -> Self {
+    ) -> Result<Self, Error> {
         let encrypted_tx = EncryptedTx {
             chain_id,
             nonce,
@@ -313,12 +305,12 @@ impl TxSeismic {
             value,
             input: encrypted_input.clone(),
         };
-        TxSeismic::new_from_encrypted_tx(encrypted_tx) 
+        TxSeismic::new_from_encrypted_tx(encrypted_tx)
     }
 
-    pub fn new_from_encrypted_tx(encrypted_tx: EncryptedTx) -> Self {
-        let decrypted_tx = DecryptedTx::from_encrypted_tx(&encrypted_tx);
-        TxSeismic { encrypted_tx, decrypted_tx }
+    pub fn new_from_encrypted_tx(encrypted_tx: EncryptedTx) -> alloy_rlp::Result<Self> {
+        let decrypted_tx = DecryptedTx::from_encrypted_tx(&encrypted_tx)?;
+        Ok(TxSeismic { encrypted_tx, decrypted_tx })
     }
 
     // should only be used for testing purpose
@@ -340,14 +332,14 @@ impl TxSeismic {
             value,
             input: decrypted_input,
         };
-        TxSeismic::new_from_decrypted_tx(decrypted_tx) 
+        TxSeismic::new_from_decrypted_tx(decrypted_tx)
     }
 
     pub fn new_from_decrypted_tx(decrypted_tx: DecryptedTx) -> Self {
-        let encrypted_tx = EncryptedTx::from_decrypted_tx(&decrypted_tx);
+        let encrypted_tx = EncryptedTx::from_decrypted_tx(&decrypted_tx)
+            .expect("Failed to encrypt seismic transaction");
         TxSeismic { encrypted_tx, decrypted_tx }
     }
-
 
     generate_decrypted_setters!(
         chain_id: ChainId,
@@ -391,7 +383,7 @@ impl TxSeismic {
     /// - encrypted_input
     pub fn decode_inner(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         let encrypted_tx = Decodable::decode(buf)?;
-        let tx = TxSeismic::new_from_encrypted_tx(encrypted_tx);
+        let tx = TxSeismic::new_from_encrypted_tx(encrypted_tx)?;
         Ok(tx)
     }
 
@@ -489,7 +481,6 @@ impl TxSeismic {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use core::str::FromStr;
@@ -501,22 +492,24 @@ mod tests {
         // initialize an encrypted_tx
         let decrypted_input: Bytes = Bytes::from(vec![1, 2, 3, 4, 5]);
         let decrypted_tx = DecryptedTx {
-                chain_id: 4u64,
-                nonce: 2,
-                gas_price: 1000000000,
-                gas_limit: 100000,
-                to: Address::from_str("d3e8763675e4c425df46cc3b5c0f6cbdac396046").unwrap().into(),
-                value: U256::from(1000000000000000u64),
-                input: decrypted_input.clone(),
+            chain_id: 4u64,
+            nonce: 2,
+            gas_price: 1000000000,
+            gas_limit: 100000,
+            to: Address::from_str("d3e8763675e4c425df46cc3b5c0f6cbdac396046").unwrap().into(),
+            value: U256::from(1000000000000000u64),
+            input: decrypted_input.clone(),
         };
-        let encrypted_tx = EncryptedTx::from_decrypted_tx(&decrypted_tx);
+        let encrypted_tx = EncryptedTx::from_decrypted_tx(&decrypted_tx)
+            .expect("Failed to encrypt seismic transaction");
 
         // encode it
         let mut encrypted_tx_encoding = Vec::new();
         encrypted_tx.encode(&mut encrypted_tx_encoding);
 
         // initialize a TxSeismic
-        let tx_seismic = TxSeismic::new_from_encrypted_tx(encrypted_tx.clone());
+        let tx_seismic = TxSeismic::new_from_encrypted_tx(encrypted_tx.clone())
+            .expect("Failed to create TxSeismic from encrypted_tx");
 
         // encode it
         let mut tx_seismic_encoding = Vec::new();

@@ -23,7 +23,7 @@ pub enum TypedTransactionRequest {
     /// Represents an EIP4844 transaction request
     EIP4844(EIP4844TransactionRequest),
     /// Represents a seismic transaction request
-    SeismicTransactionRequest(SeismicTransactionRequest),
+    Seismic(SeismicTransactionRequest),
 }
 
 /// Represents a legacy transaction request

@@ -1,5 +1,3 @@
-use reth_primitives::transaction::TxSeismic;
-
 /// Converts a typed transaction request into a primitive transaction.
 ///
 /// Returns `None` if any of the following are true:
@@ -9,7 +7,7 @@ use reth_primitives::transaction::TxSeismic;
 pub fn to_primitive_transaction(
     tx_request: reth_rpc_types::TypedTransactionRequest,
 ) -> Option<reth_primitives::Transaction> {
-    use reth_primitives::{Transaction, TxEip1559, TxEip2930, TxEip4844, TxLegacy};
+    use reth_primitives::{Transaction, TxEip1559, TxEip2930, TxEip4844, TxLegacy, TxSeismic};
     use reth_rpc_types::TypedTransactionRequest;
 
     Some(match tx_request {
@@ -57,8 +55,8 @@ pub fn to_primitive_transaction(
             max_fee_per_blob_gas: tx.max_fee_per_blob_gas.to(),
             input: tx.input,
         }),
-        TypedTransactionRequest::SeismicTransactionRequest(tx) => {
-            Transaction::Seismic(TxSeismic::new_from_encrypted_params(
+        TypedTransactionRequest::Seismic(tx) => {
+            let seismic_tx = TxSeismic::new_from_encrypted_params(
                 tx.chain_id,
                 tx.nonce,
                 tx.gas_price.to(),
@@ -66,7 +64,8 @@ pub fn to_primitive_transaction(
                 tx.kind,
                 tx.value,
                 tx.encrypted_input,
-            ))
+            ).ok()?;
+            Transaction::Seismic(seismic_tx)
         }
     })
 }
