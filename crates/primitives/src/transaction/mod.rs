@@ -2128,7 +2128,8 @@ mod tests {
     #[test]
     fn encode_decode_seismic_tx() {
         // init a signed transaction with seismic transaction type
-        let decrypted_input: Bytes = Bytes::from(vec![1, 2, 3, 4, 5]);
+        let mut rng = rand::thread_rng();
+        let decrypted_input: Bytes = (0..1024 * 1024).map(|_| rand::Rng::gen::<u8>(&mut rng)).collect();
         let orig_decoded_tx = Transaction::Seismic(TxSeismic::new_from_decrypted_params(
                 4u64,
                 2,
