@@ -32,7 +32,7 @@ impl TransactionTestContext {
     ) -> eyre::Result<TxEnvelope> {
         let mut tx = tx(chain_id, None, 0);
 
-        let mut builder: SidecarBuilder = SidecarBuilder::<SimpleCoder>::new();
+        let mut builder = SidecarBuilder::<SimpleCoder>::new();
         builder.ingest(b"dummy blob");
         let sidecar: BlobTransactionSidecar = builder.build()?;
 

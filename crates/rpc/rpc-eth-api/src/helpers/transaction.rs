@@ -302,7 +302,6 @@ pub trait EthTransactions: LoadTransaction {
                 max_fee_per_blob_gas,
                 blob_versioned_hashes,
                 sidecar,
-                encrypted_input,
                 ..
             } = request;
 
@@ -314,7 +313,6 @@ pub trait EthTransactions: LoadTransaction {
                 max_fee_per_blob_gas,
                 blob_versioned_hashes,
                 sidecar,
-                encrypted_input
             ) {
                 // legacy transaction
                 // gas price required

@@ -154,6 +154,5 @@ pub fn transaction_to_call_request(tx: TransactionSignedEcRecovered) -> Transact
         transaction_type: Some(tx_type.into()),
         sidecar: None,
         authorization_list,
-        encrypted_input: encrypted_input
     }
 }
