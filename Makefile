@@ -429,6 +429,11 @@ rustdocs: ## Runs `cargo docs` to generate the Rust documents in the `target/doc
 	cargo +nightly docs \
 	--document-private-items
 
+test-seismic-reth:
+	cargo test \
+	--package \
+	reth-rpc-seismic
+
 test-reth:
 	cargo test \
 	--workspace \
@@ -464,6 +469,7 @@ test-doc:
 test:
 	make test-reth && \
 	make test-op-reth && \
+	make test-seismic-reth && \
 	make test-doc && \
 	make test-other-targets
 
