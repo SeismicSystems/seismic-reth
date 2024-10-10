@@ -348,6 +348,10 @@ impl Decodable for ReceiptWithBloom {
                         buf.advance(1);
                         Self::decode_receipt(buf, TxType::Eip7702)
                     }
+                    SEISMIC_TX_TYPE_ID => {
+                        buf.advance(1);
+                        Self::decode_receipt(buf, TxType::Seismic)
+                    }
                     #[cfg(feature = "optimism")]
                     crate::DEPOSIT_TX_TYPE_ID => {
                         buf.advance(1);

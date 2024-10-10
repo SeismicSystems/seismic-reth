@@ -29,12 +29,13 @@ pub const EIP4844_TX_TYPE_ID: u8 = 3;
 /// Identifier for [`TxEip7702`](crate::TxEip7702) transaction.
 pub const EIP7702_TX_TYPE_ID: u8 = 4;
 
-/// Identifier for [`TxSeismic`](crate::Sesimic) transaction.
-pub const SEISMIC_TX_TYPE_ID: u8 = 5;
-
 /// Identifier for [`TxDeposit`](crate::TxDeposit) transaction.
 #[cfg(feature = "optimism")]
 pub const DEPOSIT_TX_TYPE_ID: u8 = 126;
+
+/// Identifier for [`TxSeismic`](crate::Sesimic) transaction.
+pub const SEISMIC_TX_TYPE_ID: u8 = 127;
+
 
 /// Transaction Type
 ///
@@ -60,12 +61,11 @@ pub enum TxType {
     Eip4844 = 3_isize,
     /// EOA Contract Code Transactions - EIP-7702
     Eip7702 = 4_isize,
-    /// Seismic transaction
-    Seismic = 5_isize, 
     /// Optimism Deposit transaction.
     #[cfg(feature = "optimism")]
     Deposit = 126_isize,
-
+    /// Seismic transaction
+    Seismic = 127_isize, 
 }
 
 impl TxType {
