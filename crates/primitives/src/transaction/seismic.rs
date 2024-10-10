@@ -35,9 +35,12 @@ fn nonce_to_generic_array(nonce: u64) -> GenericArray<u8, <Aes256Gcm as AeadCore
     GenericArray::clone_from_slice(&nonce_bytes)
 }
 
+pub trait Encryptable: Encodable + Decodable {}
+impl<T: Encodable + Decodable> Encryptable for T {}
+
 fn decrypt<T>(ciphertext: &Vec<u8>, nonce: u64) -> T
 where
-    T: Decodable,
+    T: Encryptable,
 {
     let cipher = Aes256Gcm::new(&AES_KEY);
     let nonce = nonce_to_generic_array(nonce);
@@ -45,7 +48,7 @@ where
     T::decode(&mut &buf[..]).unwrap_or_else(|err| panic!("Failed to decode: {:?}", err))
 }
 
-fn encrypt<T: Encodable>(plaintext: &T, nonce: u64) -> Vec<u8> {
+fn encrypt<T: Encryptable>(plaintext: &T, nonce: u64) -> Vec<u8> {
     let cipher = Aes256Gcm::new(&AES_KEY);
     let nonce = nonce_to_generic_array(nonce);
     let mut buf = Vec::new();
@@ -54,6 +57,7 @@ fn encrypt<T: Encodable>(plaintext: &T, nonce: u64) -> Vec<u8> {
         .encrypt(&nonce, buf.as_ref())
         .unwrap_or_else(|err| panic!("Encryption failed: {:?}", err))
 }
+
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]

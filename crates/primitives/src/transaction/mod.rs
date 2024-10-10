@@ -472,7 +472,7 @@ impl Transaction {
             Self::Eip7702(_) => None,
             Self::Seismic(tx) => Some(tx.encrypted_input().clone()),
             #[cfg(feature = "optimism")]
-            Self::Deposit(TxDeposit { input, .. }) => input,
+            Self::Deposit(_) => None,
         }
     }
 
@@ -1556,7 +1556,7 @@ impl<'a> arbitrary::Arbitrary<'a> for TransactionSigned {
         // it's `None` if zero.
         if let Transaction::Deposit(ref mut tx_deposit) = transaction {
             if tx_deposit.mint == Some(0) {
-                tx_deposit.mint = Noneld;
+                tx_deposit.mint = None;
             }
         }
 
