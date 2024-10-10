@@ -9,6 +9,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "viem": "^2.21.21"
+    "viem": "^2.21.21",
+    "terminate": "^2.6.1"
   }
 }
