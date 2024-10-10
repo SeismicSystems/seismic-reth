@@ -1,7 +1,6 @@
-import { describe, test, afterAll, beforeEach } from "bun:test"
-import { createPublicClient, http, createWalletClient, defineChain } from "viem"
+import { describe, test, expect } from "bun:test"
+import { createPublicClient, http, createWalletClient, defineChain} from "viem"
 import { privateKeyToAccount } from "viem/accounts"
-import { sleep } from "bun"
 
 const TEST_ADDRESS = '0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f'
 const TEST_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
@@ -34,8 +33,9 @@ const walletClient = createWalletClient({
   transport: http()
 })
 
-const a = await walletClient.request(
-    {
+describe('Seismic Transaction', () => {
+  test('node detects seismic transaction', async () => {
+    const response = await walletClient.request({
       // @ts-ignore
       method: "seismic_sendTransaction",
       params: [
@@ -45,6 +45,7 @@ const a = await walletClient.request(
           // @ts-ignore
           input: "0x123456",
           transaction_type: 0x64,
+          gas: "0x33450",
           // @ts-ignore
           secretData: [
             {
@@ -56,7 +57,10 @@ const a = await walletClient.request(
           ]
         }
       ]
-    }
-  )
+    });
 
-console.log(a)
+    // Add assertions here to verify the response
+    expect(response).toBeDefined();
+    console.log('Seismic transaction response:', response);
+  });
+});
