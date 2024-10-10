@@ -24,18 +24,12 @@ static AES_KEY: Lazy<Key<Aes256Gcm>> = Lazy::new(|| {
 
 fn nonce_to_generic_array(nonce: u64) -> GenericArray<u8, <Aes256Gcm as AeadCore>::NonceSize> {
     let mut nonce_bytes = nonce.to_be_bytes().to_vec();
-
     let crypto_nonce_size = GenericArray::<u8, <Aes256Gcm as AeadCore>::NonceSize>::default().len();
-
     nonce_bytes.resize(crypto_nonce_size, 0); // pad for crypto
-
-    let rng = AesRng::default();
-    let libnonce = Aes256Gcm::generate_nonce(rng);
-
     GenericArray::clone_from_slice(&nonce_bytes)
 }
 
-pub trait Encryptable: Encodable + Decodable {}
+trait Encryptable: Encodable + Decodable {}
 impl<T: Encodable + Decodable> Encryptable for T {}
 
 fn decrypt<T>(ciphertext: &Vec<u8>, nonce: u64) -> alloy_rlp::Result<T>
@@ -178,10 +172,14 @@ impl DecryptedTx {
     }
 }
 
+/// Basic encrypted transaction type
 #[derive(Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(any(test, feature = "reth-codec"), reth_codecs::add_arbitrary_tests(compact))]
 pub struct TxSeismic {
+    /// encrypted transaction inputted from users
     pub encrypted_tx: EncryptedTx,
+    /// decrypted counterpart of the encrypted transaction for usage inside reth
+    /// At any point in time only encrypted_tx is sent outside of reth
     pub decrypted_tx: DecryptedTx,
 }
 
@@ -236,20 +234,17 @@ impl reth_codecs::Compact for TxSeismic {
         B: bytes::BufMut + AsMut<[u8]>,
     {
         let mut buf = Vec::new();
-        self.decrypted_tx.to_compact(&mut buf) 
+        self.decrypted_tx.to_compact(&mut buf)
     }
     fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
         let (decrypted_tx, buf) = DecryptedTx::from_compact(buf, len);
-        return (
-            TxSeismic::new_from_decrypted_tx(decrypted_tx),
-            &buf[len..],
-        );
+        return (TxSeismic::new_from_decrypted_tx(decrypted_tx), &buf[len..]);
     }
 }
 macro_rules! generate_decrypted_getters {
     ($($field:ident: $type:ty),*) => {
         $(
-            // Create getter function for each field using paste to concatenate function names #[inline]
+            // Create getter function for each decrypted field
             pub const fn $field(&self) -> &$type {
                 &self.decrypted_tx.$field
             }
@@ -261,6 +256,7 @@ macro_rules! generate_encrypted_getters {
     ($($field:ident: $type:ty),*) => {
         $(
             paste! {
+                // Create getter function for each decrypted field
                 #[inline]
                 pub const fn [<encrypted_ $field>](&self) -> &$type {
                     &self.encrypted_tx.$field
@@ -275,7 +271,7 @@ macro_rules! generate_decrypted_setters {
     ($($field:ident: $type:ty),* $(,)?) => {
         $(
             paste! {
-                // Create setter function for each field using paste to concatenate function names
+                // since the transaction content is not supposed to change, this is only for testing functions
                 #[inline]
                 pub fn [<set_ $field>](&mut self, value: $type) {
                     self.decrypted_tx.$field = value;
