@@ -325,14 +325,14 @@ where
                 };
                 match old {
                     Some((old_value, old_is_private)) => {
-                        return Some(StorageEntry {value: old_value, is_private: old_is_private, ..entry });
-                    }
-                    None => {
                         return Some(StorageEntry {
-                            value: U256::ZERO,
-                            is_private: false,
+                            value: old_value,
+                            is_private: old_is_private,
                             ..entry
                         });
+                    }
+                    None => {
+                        return Some(StorageEntry { value: U256::ZERO, is_private: false, ..entry });
                     }
                 }
             })
