@@ -8,6 +8,7 @@ repository = "https://github.com/paradigmxyz/reth"
 exclude = [".github/"]
 
 [workspace]
+
 members = [
     "bin/reth-bench/",
     "bin/reth/",
@@ -95,7 +96,7 @@ members = [
     "crates/rpc/rpc-testing-util/",
     "crates/rpc/rpc-types-compat/",
     "crates/rpc/rpc-types/",
-    "crates/rpc/rpc/",
+    "crates/rpc/rpc/", "crates/seismic/evm", "crates/seismic/helpers", "crates/seismic/node", "crates/seismic/rpc",
     "crates/stages/api/",
     "crates/stages/stages/",
     "crates/stages/types/",
@@ -395,6 +396,10 @@ reth-trie = { path = "crates/trie/trie" }
 reth-trie-common = { path = "crates/trie/common" }
 reth-trie-db = { path = "crates/trie/db" }
 reth-trie-parallel = { path = "crates/trie/parallel" }
+reth-node-seismic = { path = "crates/seismic/node" }
+reth-rpc-seismic = { path = "crates/seismic/rpc" }
+reth-evm-seismic = { path = "crates/seismic/evm" }
+reth-helpers-seismic = { path = "crates/seismic/helpers" }
 
 # revm
 revm = { version = "14.0.0", features = [
@@ -408,10 +413,10 @@ revm-primitives = { version = "9.0.0", features = [
 
 # eth
 alloy-chains = "0.1.18"
-alloy-dyn-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "93e5949" }
-alloy-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "93e5949", default-features = false }
+alloy-dyn-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
+alloy-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2", default-features = false }
 alloy-rlp = "0.3.4"
-alloy-sol-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "93e5949" }
+alloy-sol-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
 alloy-trie = { version = "0.5", default-features = false }
 
 alloy-consensus = { version = "0.3.0", default-features = false }
@@ -445,6 +450,7 @@ alloy-transport-http = { version = "0.3.0", features = [
 ], default-features = false }
 alloy-transport-ipc = { version = "0.3.0", default-features = false }
 alloy-transport-ws = { version = "0.3.0", default-features = false }
+
 
 # op
 op-alloy-rpc-types = "0.2"
@@ -564,10 +570,17 @@ similar-asserts = "1.5.0"
 tempfile = "3.8"
 test-fuzz = "5"
 
+# seismic-alloy-core
+seismic-transaction = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
+seismic-types = { git = "ssh://git@github.com/SeismicSystems/mantle.git", rev = "90277e21", features = ["zero-salt"] }
+
+
 [patch.crates-io]
 # If our dependencies depend on these things,
 # then this will override whatever versions they point to
 # and instead use our local version
+
+reth-rpc-types = { version = "1.0.6", path = "crates/rpc/rpc-types" }
 
 # seismic-revm
 revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "7176369" }
@@ -577,10 +590,16 @@ revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git"
 revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "a77b988" }
 
 # seismic-alloy-core
-alloy-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "93e5949" }
-alloy-json-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "93e5949" }
-alloy-sol-macro = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "93e5949" }
-alloy-sol-macro-expander = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "93e5949" }
-alloy-sol-macro-input = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "93e5949" }
-alloy-sol-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "93e5949" }
-alloy-sol-type-parser = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "93e5949" }
+alloy-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
+alloy-json-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
+alloy-sol-macro = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
+alloy-sol-macro-expander = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
+alloy-sol-macro-input = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
+alloy-sol-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
+alloy-sol-type-parser = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
+
+[patch."ssh://git@github.com/SeismicSystems/seismic-reth.git"]
+reth-rpc-types = { path = "crates/rpc/rpc-types" }
+
+
+
