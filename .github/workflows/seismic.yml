@@ -52,3 +52,6 @@ jobs:
         run: cargo test
       - name: make test
         run: make test
+      - name: bun test
+        run: bun test
+
