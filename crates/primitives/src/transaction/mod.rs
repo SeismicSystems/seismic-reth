@@ -140,6 +140,7 @@ pub enum Transaction {
     /// Optimism deposit transaction.
     #[cfg(feature = "optimism")]
     Deposit(TxDeposit),
+    /// Seismic transaction.
     Seismic(TxSeismic),
 }
 

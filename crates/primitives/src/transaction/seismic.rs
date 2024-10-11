@@ -243,7 +243,8 @@ impl reth_codecs::Compact for TxSeismic {
 macro_rules! generate_decrypted_getters {
     ($($field:ident: $type:ty),*) => {
         $(
-            // Create getter function for each decrypted field
+            /// Create getter function for each decrypted field
+            #[inline]
             pub const fn $field(&self) -> &$type {
                 &self.decrypted_tx.$field
             }
@@ -255,7 +256,7 @@ macro_rules! generate_encrypted_getters {
     ($($field:ident: $type:ty),*) => {
         $(
             paste! {
-                // Create getter function for each decrypted field
+                /// Create getter function for each decrypted field
                 #[inline]
                 pub const fn [<encrypted_ $field>](&self) -> &$type {
                     &self.encrypted_tx.$field
@@ -270,7 +271,7 @@ macro_rules! generate_decrypted_setters {
     ($($field:ident: $type:ty),* $(,)?) => {
         $(
             paste! {
-                // since the transaction content is not supposed to change, this is only for testing functions
+                /// since the transaction content is not supposed to change, this is only for testing functions
                 #[inline]
                 pub fn [<set_ $field>](&mut self, value: $type) {
                     self.decrypted_tx.$field = value;
@@ -303,12 +304,13 @@ impl TxSeismic {
         TxSeismic::new_from_encrypted_tx(encrypted_tx)
     }
 
+    /// Construct a new TxSeismic from an encrypted transaction
     pub fn new_from_encrypted_tx(encrypted_tx: EncryptedTx) -> alloy_rlp::Result<Self> {
         let decrypted_tx = DecryptedTx::from_encrypted_tx(&encrypted_tx)?;
         Ok(TxSeismic { encrypted_tx, decrypted_tx })
     }
 
-    // should only be used for testing purpose
+    /// should only be used for testing purpose
     pub fn new_from_decrypted_params(
         chain_id: ChainId,
         nonce: u64,
@@ -330,6 +332,7 @@ impl TxSeismic {
         TxSeismic::new_from_decrypted_tx(decrypted_tx)
     }
 
+    /// should only be used for testing purpose
     pub fn new_from_decrypted_tx(decrypted_tx: DecryptedTx) -> Self {
         let encrypted_tx = EncryptedTx::from_decrypted_tx(&decrypted_tx)
             .expect("Failed to encrypt seismic transaction");
@@ -478,7 +481,8 @@ impl TxSeismic {
 
 #[cfg(test)]
 mod tests {
-    use core::str::FromStr;
+    use alloy_primitives::Address;
+    use derive_more::FromStr;
 
     use super::*;
 
