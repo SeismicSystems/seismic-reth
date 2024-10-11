@@ -26,15 +26,15 @@ pub const EIP1559_TX_TYPE_ID: u8 = 2;
 /// Identifier for [`TxEip4844`](crate::TxEip4844) transaction.
 pub const EIP4844_TX_TYPE_ID: u8 = 3;
 
+/// Identifier for [`TxSeismic`](crate::Sesimic) transaction.
+pub const SEISMIC_TX_TYPE_ID: u8 = 0x4A;
+
 /// Identifier for [`TxEip7702`](crate::TxEip7702) transaction.
 pub const EIP7702_TX_TYPE_ID: u8 = 4;
 
 /// Identifier for [`TxDeposit`](crate::TxDeposit) transaction.
 #[cfg(feature = "optimism")]
 pub const DEPOSIT_TX_TYPE_ID: u8 = 126;
-
-/// Identifier for [`TxSeismic`](crate::Sesimic) transaction.
-pub const SEISMIC_TX_TYPE_ID: u8 = 127;
 
 
 /// Transaction Type
