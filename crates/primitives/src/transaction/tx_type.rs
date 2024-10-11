@@ -5,8 +5,6 @@ use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use reth_codecs::Compact;
 
-use super::seismic;
-
 /// For backwards compatibility purposes only 2 bits of the type are encoded in the identifier
 /// parameter. In the case of a 3, the full transaction type is read from the buffer as a
 /// single byte.

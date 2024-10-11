@@ -317,7 +317,7 @@ where
                 let old = if entry.value.is_zero() {
                     let old = storage.remove(&entry.key);
                     if matches!(old, Some((U256::ZERO, false))) {
-                        return None
+                        return None;
                     }
                     old
                 } else {
@@ -332,7 +332,11 @@ where
                         });
                     }
                     None => {
-                        return Some(StorageEntry { value: U256::ZERO, is_private: false, ..entry });
+                        return Some(StorageEntry {
+                            value: U256::ZERO,
+                            is_private: false,
+                            ..entry
+                        });
                     }
                 }
             })

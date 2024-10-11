@@ -1,4 +1,4 @@
-use crate::{keccak256, Address, Bytes, ChainId, Signature, TxKind, TxType, B256, U256};
+use crate::{keccak256, Bytes, ChainId, Signature, TxKind, TxType, B256, U256};
 use aes_gcm::{
     aead::{generic_array::GenericArray, Aead, AeadCore, KeyInit, OsRng as AesRng},
     Aes256Gcm, Key,
@@ -233,7 +233,6 @@ impl reth_codecs::Compact for TxSeismic {
     where
         B: bytes::BufMut + AsMut<[u8]>,
     {
-        let mut buf = Vec::new();
         self.decrypted_tx.to_compact(&mut buf)
     }
     fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
