@@ -43,6 +43,7 @@ jobs:
               ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
               ${{ secrets.ACTIONS_SREVM_SSH_ED25519 }}
               ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
+              ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
       - name: cargo build
         run: cargo build
       - name: cargo check warnings
