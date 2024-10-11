@@ -233,7 +233,7 @@ impl reth_codecs::Compact for TxSeismic {
     where
         B: bytes::BufMut + AsMut<[u8]>,
     {
-        self.decrypted_tx.to_compact(&mut buf)
+        self.decrypted_tx.to_compact(buf)
     }
     fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
         let (decrypted_tx, buf) = DecryptedTx::from_compact(buf, len);
