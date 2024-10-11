@@ -446,6 +446,13 @@ pub trait EthTransactions: LoadTransaction {
 
                     TypedTransactionRequest::EIP4844(req)
                 }
+                Some(TypedTransactionRequest::Seismic(mut req)) => {
+                    req.chain_id = chain_id.to();
+                    req.gas_limit = gas_limit.saturating_to();
+                    req.gas_price = self.legacy_gas_price(gas_price.map(U256::from)).await?;
+
+                    TypedTransactionRequest::Seismic(req)
+                }
                 None => return Err(EthApiError::ConflictingFeeFieldsInRequest.into()),
             };
 

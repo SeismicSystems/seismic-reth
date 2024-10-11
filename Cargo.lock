@@ -8245,6 +8245,7 @@ dependencies = [
 name = "reth-primitives"
 version = "1.0.6"
 dependencies = [
+ "aes-gcm",
  "alloy-consensus",
  "alloy-eips",
  "alloy-genesis",
@@ -8262,6 +8263,7 @@ dependencies = [
  "modular-bitfield",
  "once_cell",
  "op-alloy-rpc-types",
+ "paste",
  "pprof",
  "proptest",
  "proptest-arbitrary-interop",

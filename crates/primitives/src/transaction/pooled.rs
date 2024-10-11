@@ -1,7 +1,7 @@
 //! Defines the types for blob transactions, legacy, and other EIP-2718 transactions included in a
 //! response to `GetPooledTransactions`.
 
-use super::{error::TransactionConversionError, TxEip7702};
+use super::{error::TransactionConversionError, TxEip7702, TxSeismic};
 use crate::{
     Address, BlobTransaction, BlobTransactionSidecar, Bytes, Signature, Transaction,
     TransactionSigned, TransactionSignedEcRecovered, TxEip1559, TxEip2930, TxEip4844, TxHash,
@@ -58,6 +58,15 @@ pub enum PooledTransactionsElement {
     },
     /// A blob transaction, which includes the transaction, blob data, commitments, and proofs.
     BlobTransaction(BlobTransaction),
+    /// A Seismic transaction
+    Seismic {
+        /// The inner transaction
+        transaction: TxSeismic,
+        /// The signature
+        signature: Signature,
+        /// The hash of the transaction
+        hash: TxHash,
+    },
 }
 
 impl PooledTransactionsElement {
@@ -70,6 +79,9 @@ impl PooledTransactionsElement {
         match tx {
             TransactionSigned { transaction: Transaction::Legacy(tx), signature, hash } => {
                 Ok(Self::Legacy { transaction: tx, signature, hash })
+            }
+            TransactionSigned { transaction: Transaction::Seismic(tx), signature, hash } => {
+                Ok(Self::Seismic { transaction: tx, signature, hash })
             }
             TransactionSigned { transaction: Transaction::Eip2930(tx), signature, hash } => {
                 Ok(Self::Eip2930 { transaction: tx, signature, hash })
@@ -114,6 +126,7 @@ impl PooledTransactionsElement {
     pub fn signature_hash(&self) -> B256 {
         match self {
             Self::Legacy { transaction, .. } => transaction.signature_hash(),
+            Self::Seismic { transaction, .. } => transaction.signature_hash(),
             Self::Eip2930 { transaction, .. } => transaction.signature_hash(),
             Self::Eip1559 { transaction, .. } => transaction.signature_hash(),
             Self::Eip7702 { transaction, .. } => transaction.signature_hash(),
@@ -127,6 +140,7 @@ impl PooledTransactionsElement {
             Self::Legacy { hash, .. } |
             Self::Eip2930 { hash, .. } |
             Self::Eip1559 { hash, .. } |
+            Self::Seismic { hash, .. } |
             Self::Eip7702 { hash, .. } => hash,
             Self::BlobTransaction(tx) => &tx.hash,
         }
@@ -136,6 +150,7 @@ impl PooledTransactionsElement {
     pub const fn signature(&self) -> &Signature {
         match self {
             Self::Legacy { signature, .. } |
+            Self::Seismic { signature, .. } |
             Self::Eip2930 { signature, .. } |
             Self::Eip1559 { signature, .. } |
             Self::Eip7702 { signature, .. } => signature,
@@ -151,6 +166,7 @@ impl PooledTransactionsElement {
             Self::Eip1559 { transaction, .. } => transaction.nonce,
             Self::Eip7702 { transaction, .. } => transaction.nonce,
             Self::BlobTransaction(blob_tx) => blob_tx.transaction.nonce,
+            Self::Seismic { transaction, .. } => *transaction.nonce(),
         }
     }
 
@@ -240,6 +256,9 @@ impl PooledTransactionsElement {
                     Transaction::Legacy(_) => Err(RlpError::Custom(
                         "legacy transactions should not be a result of EIP-2718 decoding",
                     )),
+                    Transaction::Seismic(_) => Err(RlpError::Custom(
+                        "Seimic transactions should not be a result of EIP-2718 decoding",
+                    )),
                     Transaction::Eip4844(_) => Err(RlpError::Custom(
                         "EIP-4844 transactions can only be decoded with transaction type 0x03",
                     )),
@@ -277,6 +296,11 @@ impl PooledTransactionsElement {
             Self::Legacy { transaction, signature, hash } => {
                 TransactionSigned { transaction: Transaction::Legacy(transaction), signature, hash }
             }
+            Self::Seismic { transaction, signature, hash } => TransactionSigned {
+                transaction: Transaction::Seismic(transaction),
+                signature,
+                hash,
+            },
             Self::Eip2930 { transaction, signature, hash } => TransactionSigned {
                 transaction: Transaction::Eip2930(transaction),
                 signature,
@@ -300,6 +324,10 @@ impl PooledTransactionsElement {
     pub fn length_without_header(&self) -> usize {
         match self {
             Self::Legacy { transaction, signature, .. } => {
+                // method computes the payload len with a RLP header
+                transaction.payload_len_with_signature(signature)
+            }
+            Self::Seismic { transaction, signature, .. } => {
                 // method computes the payload len with a RLP header
                 transaction.payload_len_with_signature(signature)
             }
@@ -349,6 +377,9 @@ impl PooledTransactionsElement {
         match self {
             Self::Legacy { transaction, signature, .. } => {
                 transaction.encode_with_signature(signature, out)
+            }
+            Self::Seismic { transaction, signature, .. } => {
+                transaction.encode_with_signature(signature, out, false)
             }
             Self::Eip2930 { transaction, signature, .. } => {
                 transaction.encode_with_signature(signature, out, false)
@@ -441,7 +472,7 @@ impl PooledTransactionsElement {
     /// This is also commonly referred to as the "Gas Tip Cap" (`GasTipCap`).
     pub const fn max_priority_fee_per_gas(&self) -> Option<u128> {
         match self {
-            Self::Legacy { .. } | Self::Eip2930 { .. } => None,
+            Self::Legacy { .. } | Self::Seismic { .. } | Self::Eip2930 { .. } => None,
             Self::Eip1559 { transaction, .. } => Some(transaction.max_priority_fee_per_gas),
             Self::Eip7702 { transaction, .. } => Some(transaction.max_priority_fee_per_gas),
             Self::BlobTransaction(tx) => Some(tx.transaction.max_priority_fee_per_gas),
@@ -454,6 +485,7 @@ impl PooledTransactionsElement {
     pub const fn max_fee_per_gas(&self) -> u128 {
         match self {
             Self::Legacy { transaction, .. } => transaction.gas_price,
+            Self::Seismic { transaction, .. } => *transaction.gas_price(),
             Self::Eip2930 { transaction, .. } => transaction.gas_price,
             Self::Eip1559 { transaction, .. } => transaction.max_fee_per_gas,
             Self::Eip7702 { transaction, .. } => transaction.max_fee_per_gas,
@@ -481,6 +513,9 @@ impl Encodable for PooledTransactionsElement {
             Self::Legacy { transaction, signature, .. } => {
                 transaction.encode_with_signature(signature, out)
             }
+            Self::Seismic { transaction, signature, .. } => {
+                transaction.encode_with_signature(signature, out, true)
+            }
             Self::Eip2930 { transaction, signature, .. } => {
                 // encodes with string header
                 transaction.encode_with_signature(signature, out, true)
@@ -505,6 +540,10 @@ impl Encodable for PooledTransactionsElement {
     fn length(&self) -> usize {
         match self {
             Self::Legacy { transaction, signature, .. } => {
+                // method computes the payload len with a RLP header
+                transaction.payload_len_with_signature(signature)
+            }
+            Self::Seismic { transaction, signature, .. } => {
                 // method computes the payload len with a RLP header
                 transaction.payload_len_with_signature(signature)
             }
@@ -611,6 +650,9 @@ impl Decodable for PooledTransactionsElement {
                 match typed_tx.transaction {
                     Transaction::Legacy(_) => Err(RlpError::Custom(
                         "legacy transactions should not be a result of EIP-2718 decoding",
+                    )),
+                    Transaction::Seismic(_) => Err(RlpError::Custom(
+                        "Seismic transactions should not be a result of EIP-2718 decoding",
                     )),
                     Transaction::Eip4844(_) => Err(RlpError::Custom(
                         "EIP-4844 transactions can only be decoded with transaction type 0x03",
