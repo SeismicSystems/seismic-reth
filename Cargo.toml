@@ -114,6 +114,7 @@ members = [
     "crates/storage/provider/",
     "crates/storage/storage-api/",
     "crates/tasks/",
+    "crates/tee-client/",
     "crates/tokio-util/",
     "crates/tracing/",
     "crates/transaction-pool/",
