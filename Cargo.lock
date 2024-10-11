@@ -3425,7 +3425,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http 0.2.12",
- "indexmap 2.5.0",
+ "indexmap 2.6.0",
  "slab",
  "tokio",
  "tokio-util",
@@ -3443,7 +3443,7 @@ dependencies = [
  "fnv",
  "futures-core",
  "futures-sink",
- "http",
+ "http 1.1.0",
  "indexmap 2.6.0",
  "slab",
  "tokio",
@@ -9628,6 +9628,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "seismic-tee-client"
+version = "1.0.6"
+dependencies = [
+ "anyhow",
+ "hyper 1.4.1",
+ "reqwest",
+ "secp256k1",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "warp",
+]
+
+[[package]]
 name = "seismic-transaction"
 version = "0.8.1"
 source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=adc0cf2#adc0cf2fb96c9be80df1d71cfe8ba745dc33f1c6"
@@ -9655,22 +9671,6 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
- ]
-
-[[package]]
-name = "seismic-tee-client"
-version = "1.0.6"
-dependencies = [
- "anyhow",
- "hyper 1.4.1",
- "reqwest",
- "secp256k1",
- "serde",
- "serde_json",
- "tokio",
- "tokio-stream",
- "tracing",
- "warp",
 ]
 
 [[package]]

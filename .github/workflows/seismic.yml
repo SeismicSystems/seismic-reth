@@ -50,3 +50,5 @@ jobs:
         run: RUSTFLAGS="-D warnings" cargo check
       - name: cargo test
         run: cargo test
+      - name: make test
+        run: make test
