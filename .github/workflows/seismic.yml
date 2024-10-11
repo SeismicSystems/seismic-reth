@@ -52,6 +52,10 @@ jobs:
         run: cargo test
       - name: make test
         run: make test
+      - name: Install dependencies and install seismic-reth binary
+        run: |
+          cargo install --locked --path bin/reth --bin seismic-reth --features="seismic"
+          bun install
       - name: bun test
         run: bun test
 
