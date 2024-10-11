@@ -38,7 +38,7 @@ pub use compat::FillTxEnv;
 pub use signature::{extract_chain_id, Signature};
 pub use tx_type::{
     TxType, EIP1559_TX_TYPE_ID, EIP2930_TX_TYPE_ID, EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID,
-    LEGACY_TX_TYPE_ID, SEISMIC_TX_TYPE_ID
+    LEGACY_TX_TYPE_ID, SEISMIC_TX_TYPE_ID,
 };
 pub use variant::TransactionSignedVariant;
 
@@ -48,11 +48,11 @@ mod eip1559;
 mod eip2930;
 mod eip4844;
 mod eip7702;
-mod seismic;
 mod error;
 mod legacy;
 mod meta;
 mod pooled;
+mod seismic;
 mod sidecar;
 mod signature;
 mod tx_type;
@@ -140,7 +140,7 @@ pub enum Transaction {
     /// Optimism deposit transaction.
     #[cfg(feature = "optimism")]
     Deposit(TxDeposit),
-    Seismic(TxSeismic), 
+    Seismic(TxSeismic),
 }
 
 // === impl Transaction ===
@@ -169,7 +169,7 @@ impl Transaction {
             Self::Eip2930(TxEip2930 { chain_id, .. }) |
             Self::Eip1559(TxEip1559 { chain_id, .. }) |
             Self::Eip4844(TxEip4844 { chain_id, .. }) |
-            Self::Eip7702(TxEip7702 { chain_id, .. })  => Some(*chain_id),
+            Self::Eip7702(TxEip7702 { chain_id, .. }) => Some(*chain_id),
             #[cfg(feature = "optimism")]
             Self::Deposit(_) => None,
         }
@@ -178,14 +178,12 @@ impl Transaction {
     /// Sets the transaction's chain id to the provided value.
     pub fn set_chain_id(&mut self, chain_id: u64) {
         match self {
-            Self::Legacy(TxLegacy { chain_id: ref mut c, .. }) 
-                => *c = Some(chain_id),
+            Self::Legacy(TxLegacy { chain_id: ref mut c, .. }) => *c = Some(chain_id),
             Self::Seismic(tx) => tx.set_chain_id(chain_id),
             Self::Eip2930(TxEip2930 { chain_id: ref mut c, .. }) |
             Self::Eip1559(TxEip1559 { chain_id: ref mut c, .. }) |
             Self::Eip4844(TxEip4844 { chain_id: ref mut c, .. }) |
-            Self::Eip7702(TxEip7702 { chain_id: ref mut c, .. }) 
-                => *c = chain_id,
+            Self::Eip7702(TxEip7702 { chain_id: ref mut c, .. }) => *c = chain_id,
             #[cfg(feature = "optimism")]
             Self::Deposit(_) => { /* noop */ }
         }
@@ -199,8 +197,7 @@ impl Transaction {
             Self::Eip2930(TxEip2930 { to, .. }) |
             Self::Eip1559(TxEip1559 { to, .. }) |
             Self::Eip7702(TxEip7702 { to, .. }) => *to,
-            Self::Eip4844(TxEip4844 { to, .. }) 
-            => TxKind::Call(*to),
+            Self::Eip4844(TxEip4844 { to, .. }) => TxKind::Call(*to),
             Self::Seismic(tx) => *tx.to(),
             #[cfg(feature = "optimism")]
             Self::Deposit(TxDeposit { to, .. }) => *to,
@@ -236,8 +233,7 @@ impl Transaction {
             Self::Eip2930(TxEip2930 { value, .. }) |
             Self::Eip1559(TxEip1559 { value, .. }) |
             Self::Eip4844(TxEip4844 { value, .. }) |
-            Self::Eip7702(TxEip7702 { value, .. }) 
-            => value,
+            Self::Eip7702(TxEip7702 { value, .. }) => value,
             Self::Seismic(tx) => tx.value(),
             #[cfg(feature = "optimism")]
             Self::Deposit(TxDeposit { value, .. }) => value,
@@ -350,9 +346,12 @@ impl Transaction {
     /// This is also commonly referred to as the "blob versioned hashes" (`BlobVersionedHashes`).
     pub fn blob_versioned_hashes(&self) -> Option<Vec<B256>> {
         match self {
-            Self::Legacy(_) | Self::Seismic(_) | Self::Eip2930(_) | Self::Eip1559(_) | Self::Eip7702(_) => None,
-            Self::Eip4844(TxEip4844 { blob_versioned_hashes, .. }) 
-             => {
+            Self::Legacy(_) |
+            Self::Seismic(_) |
+            Self::Eip2930(_) |
+            Self::Eip1559(_) |
+            Self::Eip7702(_) => None,
+            Self::Eip4844(TxEip4844 { blob_versioned_hashes, .. }) => {
                 Some(blob_versioned_hashes.clone())
             }
             #[cfg(feature = "optimism")]
@@ -689,7 +688,6 @@ impl Transaction {
             _ => None,
         }
     }
-
 }
 
 impl From<TxLegacy> for Transaction {
@@ -1226,7 +1224,9 @@ impl TransactionSigned {
     pub(crate) fn payload_len_inner(&self) -> usize {
         match &self.transaction {
             Transaction::Legacy(legacy_tx) => legacy_tx.payload_len_with_signature(&self.signature),
-            Transaction::Seismic(legacy_tx) => legacy_tx.payload_len_with_signature(&self.signature),
+            Transaction::Seismic(legacy_tx) => {
+                legacy_tx.payload_len_with_signature(&self.signature)
+            }
             Transaction::Eip2930(access_list_tx) => {
                 access_list_tx.payload_len_with_signature(&self.signature)
             }
@@ -1432,7 +1432,9 @@ impl TransactionSigned {
         // method computes the payload len without a RLP header
         match &self.transaction {
             Transaction::Legacy(legacy_tx) => legacy_tx.payload_len_with_signature(&self.signature),
-            Transaction::Seismic(legacy_tx) => legacy_tx.payload_len_with_signature(&self.signature),
+            Transaction::Seismic(legacy_tx) => {
+                legacy_tx.payload_len_with_signature(&self.signature)
+            }
             Transaction::Eip2930(access_list_tx) => {
                 access_list_tx.payload_len_with_signature_without_header(&self.signature)
             }
@@ -2129,16 +2131,17 @@ mod tests {
     fn encode_decode_seismic_tx() {
         // init a signed transaction with seismic transaction type
         let mut rng = rand::thread_rng();
-        let decrypted_input: Bytes = (0..1024 * 1024).map(|_| rand::Rng::gen::<u8>(&mut rng)).collect();
+        let decrypted_input: Bytes =
+            (0..1024 * 1024).map(|_| rand::Rng::gen::<u8>(&mut rng)).collect();
         let orig_decoded_tx = Transaction::Seismic(TxSeismic::new_from_decrypted_params(
-                4u64,
-                2,
-                1000000000,
-                100000,
-                 Address::from_str("d3e8763675e4c425df46cc3b5c0f6cbdac396046").unwrap().into(),
-                U256::from(1000000000000000u64),
-                decrypted_input.clone(),
-        ) );
+            4u64,
+            2,
+            1000000000,
+            100000,
+            Address::from_str("d3e8763675e4c425df46cc3b5c0f6cbdac396046").unwrap().into(),
+            U256::from(1000000000000000u64),
+            decrypted_input.clone(),
+        ));
 
         let signature = Signature {
             odd_y_parity: false,
@@ -2148,7 +2151,10 @@ mod tests {
                 .unwrap(),
         };
 
-        let orig_decoded_tx_sign = TransactionSigned::from_transaction_and_signature(orig_decoded_tx.clone(), signature.clone());
+        let orig_decoded_tx_sign = TransactionSigned::from_transaction_and_signature(
+            orig_decoded_tx.clone(),
+            signature.clone(),
+        );
 
         // encode the transaction
         let mut encoding = Vec::new();
@@ -2163,5 +2169,4 @@ mod tests {
         assert_eq!(signature, decoded_tx_sign.signature);
         assert_eq!(decrypted_input, *decoded_tx_sign.transaction.input());
     }
-
 }

@@ -34,7 +34,6 @@ pub const EIP7702_TX_TYPE_ID: u8 = 4;
 #[cfg(feature = "optimism")]
 pub const DEPOSIT_TX_TYPE_ID: u8 = 126;
 
-
 /// Transaction Type
 ///
 /// Currently being used as 2-bit type when encoding it to `reth_codecs::Compact` on
@@ -63,7 +62,7 @@ pub enum TxType {
     #[cfg(feature = "optimism")]
     Deposit = 126_isize,
     /// Seismic transaction
-    Seismic = 127_isize, 
+    Seismic = 127_isize,
 }
 
 impl TxType {

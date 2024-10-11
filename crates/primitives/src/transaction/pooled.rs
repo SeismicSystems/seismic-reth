@@ -296,9 +296,11 @@ impl PooledTransactionsElement {
             Self::Legacy { transaction, signature, hash } => {
                 TransactionSigned { transaction: Transaction::Legacy(transaction), signature, hash }
             }
-            Self::Seismic { transaction, signature, hash } => {
-                TransactionSigned { transaction: Transaction::Seismic(transaction), signature, hash }
-            }
+            Self::Seismic { transaction, signature, hash } => TransactionSigned {
+                transaction: Transaction::Seismic(transaction),
+                signature,
+                hash,
+            },
             Self::Eip2930 { transaction, signature, hash } => TransactionSigned {
                 transaction: Transaction::Eip2930(transaction),
                 signature,

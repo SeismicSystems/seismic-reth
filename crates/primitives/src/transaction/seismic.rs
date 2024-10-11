@@ -122,13 +122,13 @@ impl Encodable for EncryptedTx {
     }
 
     fn length(&self) -> usize {
-        self.chain_id.length()
-            + self.nonce.length()
-            + self.gas_price.length()
-            + self.gas_limit.length()
-            + self.to.length()
-            + self.value.length()
-            + self.input.length()
+        self.chain_id.length() +
+            self.nonce.length() +
+            self.gas_price.length() +
+            self.gas_limit.length() +
+            self.to.length() +
+            self.value.length() +
+            self.input.length()
     }
 }
 
