@@ -64,7 +64,8 @@ pub fn to_primitive_transaction(
                 tx.kind,
                 tx.value,
                 tx.encrypted_input,
-            ).ok()?;
+            )
+            .ok()?;
             Transaction::Seismic(seismic_tx)
         }
     })

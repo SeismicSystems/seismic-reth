@@ -14,7 +14,7 @@ use reth_rpc_eth_types::{
 use reth_rpc_types::{
     transaction::{
         EIP1559TransactionRequest, EIP2930TransactionRequest, EIP4844TransactionRequest,
-        LegacyTransactionRequest
+        LegacyTransactionRequest,
     },
     AnyTransactionReceipt, TransactionInfo, TransactionRequest, TypedTransactionRequest,
 };
