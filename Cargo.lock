@@ -8714,6 +8714,7 @@ dependencies = [
  "secp256k1",
  "seismic-transaction",
  "seismic-types",
+ "serde",
  "serde_json",
  "thiserror",
  "tokio",

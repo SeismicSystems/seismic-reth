@@ -1,4 +1,5 @@
 use alloy_dyn_abi::TypedData;
+use serde::{Serialize, Deserialize};
 use reth_provider::BlockReaderIdExt;
 use reth_rpc_eth_types::{
     utils::recover_raw_transaction, EthApiError, SignError, TransactionSource,
@@ -13,37 +14,48 @@ use reth_node_core::{
     },
 };
 use reth_primitives::{
-    Address, BlockId, Bytes, Receipt, TransactionSigned, TxHash, TxKind, TxType, B256, U256
+    Address, BlockId, Bytes, Receipt, TransactionSigned, TxHash, TxKind, TxType, B256, U256,
 };
 use reth_provider::{ReceiptProvider, TransactionsProvider};
 use reth_rpc_eth_api::{FromEthApiError, IntoEthApiError, RpcTransaction};
 use reth_rpc_types::{
     transaction::{
         EIP1559TransactionRequest, EIP2930TransactionRequest, EIP4844TransactionRequest,
-        LegacyTransactionRequest,
+        LegacyTransactionRequest, SeismicTransactionRequest,
     },
-    AnyTransactionReceipt, OtherFields, TransactionInfo, TransactionRequest,
-    TypedTransactionRequest, WithOtherFields,
+    AnyTransactionReceipt, TransactionInfo, TransactionRequest,
+    TypedTransactionRequest, 
 };
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
-use seismic_transaction::{
-    transaction::{SeismicTransactionBase, SeismicTransactionRequest, SeismicTx},
-    types::{SecretData, SeismicTypedTransactionRequest},
-};
 use std::future::Future;
-use tracing::trace;
 
-use super::error::SeismicApiError;
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct SeismicFields {
+    pub encrypted_input: Vec<u8>,
+}
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct RPCSeismicTransactionRequest {
+    pub request: TransactionRequest,
+    pub seismic_fields: Option<SeismicFields>,
+}
 
 /// Seismic transaction related functions
 pub trait SeismicTransactions: LoadTransaction {
     /// Returns a handle for reading data from disk.
+    ///
+    /// Data access in default (L1) trait method implementations.
     fn provider(&self) -> impl BlockReaderIdExt;
 
     /// Returns a handle for signing data.
+    ///
+    /// Singer access in default (L1) trait method implementations.
     fn signers(&self) -> &parking_lot::RwLock<Vec<Box<dyn EthSigner>>>;
 
     /// Returns the transaction by hash.
+    ///
+    /// Checks the pool and state.
+    ///
+    /// Returns `Ok(None)` if no matching transaction was found.
     fn transaction_by_hash(
         &self,
         hash: B256,
@@ -52,6 +64,8 @@ pub trait SeismicTransactions: LoadTransaction {
     }
 
     /// Get all transactions in the block with the given hash.
+    ///
+    /// Returns `None` if block does not exist.
     fn transactions_by_block(
         &self,
         block: B256,
@@ -62,15 +76,22 @@ pub trait SeismicTransactions: LoadTransaction {
     }
 
     /// Returns the EIP-2718 encoded transaction by hash.
+    ///
+    /// If this is a pooled EIP-4844 transaction, the blob sidecar is included.
+    ///
+    /// Checks the pool and state.
+    ///
+    /// Returns `Ok(None)` if no matching transaction was found.
     fn raw_transaction_by_hash(
         &self,
         hash: B256,
     ) -> impl Future<Output = Result<Option<Bytes>, Self::Error>> + Send {
         async move {
+            // Note: this is mostly used to fetch pooled transactions so we check the pool first
             if let Some(tx) =
                 self.pool().get_pooled_transaction_element(hash).map(|tx| tx.envelope_encoded())
             {
-                return Ok(Some(tx));
+                return Ok(Some(tx))
             }
 
             self.spawn_blocking_io(move |ref this| {
@@ -97,6 +118,9 @@ pub trait SeismicTransactions: LoadTransaction {
     }
 
     /// Returns the transaction receipt for the given hash.
+    ///
+    /// Returns None if the transaction does not exist or is pending
+    /// Note: The tx receipt is not available for pending transactions.
     fn transaction_receipt(
         &self,
         hash: B256,
@@ -177,7 +201,10 @@ pub trait SeismicTransactions: LoadTransaction {
             Ok(None)
         }
     }
+
     /// Get transaction, as raw bytes, by [`BlockId`] and index of transaction within that block.
+    ///
+    /// Returns `Ok(None)` if the block does not exist, or index is out of range.
     fn raw_transaction_by_block_and_tx_index(
         &self,
         block_id: BlockId,
@@ -189,7 +216,7 @@ pub trait SeismicTransactions: LoadTransaction {
         async move {
             if let Some(block) = self.block_with_senders(block_id).await? {
                 if let Some(tx) = block.transactions().nth(index) {
-                    return Ok(Some(tx.envelope_encoded()));
+                    return Ok(Some(tx.envelope_encoded()))
                 }
             }
 
@@ -198,6 +225,8 @@ pub trait SeismicTransactions: LoadTransaction {
     }
 
     /// Decodes and recovers the transaction and submits it to the pool.
+    ///
+    /// Returns the hash of the transaction.
     fn send_raw_transaction(
         &self,
         tx: Bytes,
@@ -207,6 +236,7 @@ pub trait SeismicTransactions: LoadTransaction {
             let pool_transaction =
                 <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
 
+            // submit the transaction to the pool with a `Local` origin
             let hash = self
                 .pool()
                 .add_transaction(TransactionOrigin::Local, pool_transaction)
@@ -218,38 +248,223 @@ pub trait SeismicTransactions: LoadTransaction {
     }
 
     /// Signs transaction with a matching signer, if any and submits the transaction to the pool.
+    /// Returns the hash of the signed transaction.
     fn send_transaction(
         &self,
-        mut request: WithOtherFields<TransactionRequest>,
+        request_with_seismic_fields: RPCSeismicTransactionRequest,
     ) -> impl Future<Output = Result<B256, Self::Error>> + Send
     where
         Self: EthApiSpec + LoadBlock + LoadPendingBlock + LoadFee + Call,
     {
         async move {
+            let mut request = request_with_seismic_fields.request;
             let from = match request.from {
                 Some(from) => from,
                 None => return Err(SignError::NoAccount.into_eth_err()),
             };
+
             if self.find_signer(&from).is_err() {
                 return Err(SignError::NoAccount.into_eth_err());
             }
+
+            // set nonce if not already set before
             if request.nonce.is_none() {
                 let nonce = self.transaction_count(from, Some(BlockId::pending())).await?;
-                request.nonce = Some(u64::try_from(nonce).unwrap());
+                // note: `.to()` can't panic because the nonce is constructed from a `u64`
+                request.nonce = Some(nonce.to::<u64>());
             }
 
-            let (nonce, _) = self.request_nonce(&request, from).await?;
+            let chain_id = self.chain_id();
 
-            let request = self.build_typed_tx_request(request, nonce).await?;
+            let estimated_gas =
+                self.estimate_gas_at(request.clone(), BlockId::pending(), None).await?;
+            let gas_limit = estimated_gas;
 
-            if let SeismicTypedTransactionRequest::Seismic(seismic_data) = &request {
-                // let mut db = SEISMIC_DB.clone();
-                println!(
-                    "Detected Seismic transaction with {} preimages",
-                    seismic_data.secret_data.len()
-                );
-            }
-            let signed_tx = self.sign_request(&from, request)?;
+            let TransactionRequest {
+                to,
+                gas_price,
+                max_fee_per_gas,
+                max_priority_fee_per_gas,
+                gas,
+                value,
+                input: data,
+                nonce,
+                mut access_list,
+                max_fee_per_blob_gas,
+                blob_versioned_hashes,
+                sidecar,
+                ..
+            } = request;
+
+            // todo: remove this inlining after https://github.com/alloy-rs/alloy/pull/183#issuecomment-1928161285
+            let transaction = match request_with_seismic_fields.seismic_fields {
+                None => {
+                    match (
+                        gas_price,
+                        max_fee_per_gas,
+                        access_list.take(),
+                        max_fee_per_blob_gas,
+                        blob_versioned_hashes,
+                        sidecar,
+                    ) {
+                        (Some(_), None, None, None, None, None) => {
+                            Some(TypedTransactionRequest::Legacy(LegacyTransactionRequest {
+                                nonce: nonce.unwrap_or_default(),
+                                gas_price: U256::from(gas_price.unwrap_or_default()),
+                                gas_limit: U256::from(gas.unwrap_or_default()),
+                                value: value.unwrap_or_default(),
+                                input: data.into_input().unwrap_or_default(),
+                                kind: to.unwrap_or(TxKind::Create),
+                                chain_id: None,
+                            }))
+                        }
+                        // EIP2930
+                        // if only accesslist is set, and no eip1599 fees
+                        (_, None, Some(access_list), None, None, None) => {
+                            Some(TypedTransactionRequest::EIP2930(EIP2930TransactionRequest {
+                                nonce: nonce.unwrap_or_default(),
+                                gas_price: U256::from(gas_price.unwrap_or_default()),
+                                gas_limit: U256::from(gas.unwrap_or_default()),
+                                value: value.unwrap_or_default(),
+                                input: data.into_input().unwrap_or_default(),
+                                kind: to.unwrap_or(TxKind::Create),
+                                chain_id: 0,
+                                access_list,
+                            }))
+                        }
+                        // EIP1559
+                        // if 4844 fields missing
+                        // gas_price, max_fee_per_gas, access_list, max_fee_per_blob_gas,
+                        // blob_versioned_hashes, sidecar,
+                        (None, _, _, None, None, None) => {
+                            // Empty fields fall back to the canonical transaction schema.
+                            Some(TypedTransactionRequest::EIP1559(EIP1559TransactionRequest {
+                                nonce: nonce.unwrap_or_default(),
+                                max_fee_per_gas: U256::from(max_fee_per_gas.unwrap_or_default()),
+                                max_priority_fee_per_gas: U256::from(
+                                    max_priority_fee_per_gas.unwrap_or_default(),
+                                ),
+                                gas_limit: U256::from(gas.unwrap_or_default()),
+                                value: value.unwrap_or_default(),
+                                input: data.into_input().unwrap_or_default(),
+                                kind: to.unwrap_or(TxKind::Create),
+                                chain_id: 0,
+                                access_list: access_list.unwrap_or_default(),
+                            }))
+                        }
+                        // EIP4884
+                        // all blob fields required
+                        (
+                            None,
+                            _,
+                            _,
+                            Some(max_fee_per_blob_gas),
+                            Some(blob_versioned_hashes),
+                            Some(sidecar),
+                        ) => {
+                            // As per the EIP, we follow the same semantics as EIP-1559.
+                            Some(TypedTransactionRequest::EIP4844(EIP4844TransactionRequest {
+                                chain_id: 0,
+                                nonce: nonce.unwrap_or_default(),
+                                max_priority_fee_per_gas: U256::from(
+                                    max_priority_fee_per_gas.unwrap_or_default(),
+                                ),
+                                max_fee_per_gas: U256::from(max_fee_per_gas.unwrap_or_default()),
+                                gas_limit: U256::from(gas.unwrap_or_default()),
+                                value: value.unwrap_or_default(),
+                                input: data.into_input().unwrap_or_default(),
+                                to: match to {
+                                    Some(TxKind::Call(to)) => to,
+                                    _ => Address::default(),
+                                },
+                                access_list: access_list.unwrap_or_default(),
+
+                                // eip-4844 specific.
+                                max_fee_per_blob_gas: U256::from(max_fee_per_blob_gas),
+                                blob_versioned_hashes,
+                                sidecar,
+                            }))
+                        }
+
+                        _ => None,
+                    }
+                    // legacy transaction
+                    // gas price required
+                },
+
+                Some(seismic_fields) => {
+                    Some(TypedTransactionRequest::Seismic(SeismicTransactionRequest {
+                            nonce: nonce.unwrap_or_default(),
+                            gas_price: U256::from(gas_price.unwrap_or_default()),
+                            gas_limit: U256::from(gas.unwrap_or_default()),
+                            value: value.unwrap_or_default(),
+                            encrypted_input: seismic_fields.encrypted_input,
+                            kind: to.unwrap_or(TxKind::Create),
+                            chain_id: 0,
+                    }))
+                }
+            };
+
+            let transaction = match transaction {
+                Some(TypedTransactionRequest::Legacy(mut req)) => {
+                    req.chain_id = Some(chain_id.to());
+                    req.gas_limit = gas_limit.saturating_to();
+                    req.gas_price = self.legacy_gas_price(gas_price.map(U256::from)).await?;
+
+                    TypedTransactionRequest::Legacy(req)
+                }
+                Some(TypedTransactionRequest::EIP2930(mut req)) => {
+                    req.chain_id = chain_id.to();
+                    req.gas_limit = gas_limit.saturating_to();
+                    req.gas_price = self.legacy_gas_price(gas_price.map(U256::from)).await?;
+
+                    TypedTransactionRequest::EIP2930(req)
+                }
+                Some(TypedTransactionRequest::EIP1559(mut req)) => {
+                    let (max_fee_per_gas, max_priority_fee_per_gas) = self
+                        .eip1559_fees(
+                            max_fee_per_gas.map(U256::from),
+                            max_priority_fee_per_gas.map(U256::from),
+                        )
+                        .await?;
+
+                    req.chain_id = chain_id.to();
+                    req.gas_limit = gas_limit.saturating_to();
+                    req.max_fee_per_gas = max_fee_per_gas.saturating_to();
+                    req.max_priority_fee_per_gas = max_priority_fee_per_gas.saturating_to();
+
+                    TypedTransactionRequest::EIP1559(req)
+                }
+                Some(TypedTransactionRequest::EIP4844(mut req)) => {
+                    let (max_fee_per_gas, max_priority_fee_per_gas) = self
+                        .eip1559_fees(
+                            max_fee_per_gas.map(U256::from),
+                            max_priority_fee_per_gas.map(U256::from),
+                        )
+                        .await?;
+
+                    req.max_fee_per_gas = max_fee_per_gas;
+                    req.max_priority_fee_per_gas = max_priority_fee_per_gas;
+                    req.max_fee_per_blob_gas =
+                        self.eip4844_blob_fee(max_fee_per_blob_gas.map(U256::from)).await?;
+
+                    req.chain_id = chain_id.to();
+                    req.gas_limit = gas_limit;
+
+                    TypedTransactionRequest::EIP4844(req)
+                }
+                Some(TypedTransactionRequest::Seismic(mut req)) => {
+                    req.chain_id = chain_id.to();
+                    req.gas_limit = gas_limit.saturating_to();
+                    req.gas_price = self.legacy_gas_price(gas_price.map(U256::from)).await?;
+
+                    TypedTransactionRequest::Seismic(req)
+                }
+                None => return Err(EthApiError::ConflictingFeeFieldsInRequest.into()),
+            };
+
+            let signed_tx = self.sign_request(&from, transaction)?;
+
             let recovered =
                 signed_tx.into_ecrecovered().ok_or(EthApiError::InvalidTransactionSignature)?;
 
@@ -269,15 +484,14 @@ pub trait SeismicTransactions: LoadTransaction {
     fn sign_request(
         &self,
         from: &Address,
-        request: SeismicTypedTransactionRequest,
+        request: TypedTransactionRequest,
     ) -> Result<TransactionSigned, Self::Error> {
         for signer in self.signers().read().iter() {
             if signer.is_signer_for(from) {
-                let request_for_signing = build_request_for_signing(request);
-                return match signer.sign_transaction(request_for_signing, from) {
+                return match signer.sign_transaction(request, from) {
                     Ok(tx) => Ok(tx),
                     Err(e) => Err(e.into_eth_err()),
-                };
+                }
             }
         }
         Err(EthApiError::InvalidTransactionSignature.into())
@@ -319,258 +533,5 @@ pub trait SeismicTransactions: LoadTransaction {
             .find(|signer| signer.is_signer_for(account))
             .map(|signer| dyn_clone::clone_box(&**signer))
             .ok_or_else(|| SignError::NoAccount.into_eth_err())
-    }
-
-    /// Returns the nonce for this request
-    ///
-    /// This returns a tuple of `(request nonce, highest nonce)`
-    /// If the nonce field of the `request` is `None` then the tuple will be `(highest nonce,
-    /// highest nonce)`.
-    ///
-    /// This will also check the tx pool for pending transactions from the sender.
-    fn request_nonce<'a>(
-        &'a self,
-        request: &'a TransactionRequest,
-        from: Address,
-    ) -> impl Future<Output = Result<(u64, u64), Self::Error>> + Send + 'a
-    where
-        Self: EthApiSpec + LoadBlock + LoadPendingBlock + LoadFee + Call + Send + Sync,
-    {
-        async move {
-            let highest_nonce = self.transaction_count(from, Some(BlockId::pending())).await?;
-            let nonce = request.nonce.unwrap_or(u64::try_from(highest_nonce).unwrap());
-            Ok((nonce, u64::try_from(highest_nonce).unwrap()))
-        }
-    }
-
-    /// Recognizes the transaction request and builds the typed transaction request.
-    fn build_typed_tx_request(
-        &self,
-        request: WithOtherFields<TransactionRequest>,
-        nonce: u64,
-    ) -> impl Future<Output = Result<SeismicTypedTransactionRequest, Self::Error>> + Send
-    where
-        Self: EthApiSpec + LoadBlock + LoadPendingBlock + LoadFee + Call,
-    {
-        async move {
-            let chain_id = self.chain_id();
-            // let request_without_other_fields = separate_other_fields(&request);
-            // let estimated_gas = self
-            //     .estimate_gas_at( -- buggy for now
-            //         request_without_other_fields.clone(),
-            //         BlockId::pending(),
-            //         None,
-            //     ) // todo: make into TransactionRequest and send to sign
-            //     .await?;
-            let gas_limit = U256::from(request.gas.unwrap_or_default());
-            let max_fee_per_gas = request.max_fee_per_gas;
-            let max_priority_fee_per_gas = request.max_priority_fee_per_gas;
-            let max_fee_per_blob_gas = request.max_fee_per_blob_gas;
-            let gas_price = request.gas_price;
-            let request = match transaction_request_to_seismic_typed(request) {
-                Some(SeismicTypedTransactionRequest::Legacy(mut req)) => {
-                    req.chain_id = Some(chain_id.to());
-                    req.gas_limit = gas_limit.saturating_to();
-                    req.gas_price = self.legacy_gas_price(gas_price.map(U256::from)).await?;
-                    SeismicTypedTransactionRequest::Legacy(req)
-                }
-                Some(SeismicTypedTransactionRequest::EIP2930(mut req)) => {
-                    req.chain_id = chain_id.to();
-                    req.gas_limit = gas_limit.saturating_to();
-                    req.gas_price = self.legacy_gas_price(gas_price.map(U256::from)).await?;
-                    SeismicTypedTransactionRequest::EIP2930(req)
-                }
-                Some(SeismicTypedTransactionRequest::EIP1559(mut req)) => {
-                    // let (max_fee_per_gas, max_priority_fee_per_gas) = self
-                    //     .eip1559_fees(
-                    //         max_fee_per_gas.map(U256::from),
-                    //         max_priority_fee_per_gas.map(U256::from),
-                    //     )
-                    //     .await?;
-                    let (max_fee_per_gas, max_priority_fee_per_gas) =
-                        (U256::from(210000), U256::from(0));
-                    req.chain_id = chain_id.to();
-                    req.gas_limit = gas_limit.saturating_to();
-                    req.max_fee_per_gas = max_fee_per_gas.saturating_to();
-                    req.max_priority_fee_per_gas = max_priority_fee_per_gas.saturating_to();
-                    SeismicTypedTransactionRequest::EIP1559(req)
-                }
-                Some(SeismicTypedTransactionRequest::EIP4844(mut req)) => {
-                    let (max_fee_per_gas, max_priority_fee_per_gas) = self
-                        .eip1559_fees(
-                            max_fee_per_gas.map(U256::from),
-                            max_priority_fee_per_gas.map(U256::from),
-                        )
-                        .await?;
-                    req.max_fee_per_gas = max_fee_per_gas;
-                    req.max_priority_fee_per_gas = max_priority_fee_per_gas;
-                    req.max_fee_per_blob_gas =
-                        self.eip4844_blob_fee(max_fee_per_blob_gas.map(U256::from)).await?;
-                    req.chain_id = chain_id.to();
-                    req.gas_limit = gas_limit;
-                    SeismicTypedTransactionRequest::EIP4844(req)
-                }
-                Some(SeismicTypedTransactionRequest::Seismic(mut m)) => {
-                    m.base_mut().nonce = nonce;
-                    m.base_mut().chain_id = chain_id.to();
-                    m.base_mut().gas_limit = u128::try_from(gas_limit).unwrap();
-                    if max_fee_per_gas.is_none() {
-                        m.base_mut().max_fee_per_gas = 210000;
-                    }
-                    SeismicTypedTransactionRequest::Seismic(m)
-                }
-
-                None => {
-                    return Err(Self::Error::from(SeismicApiError::FailedToDecodeTransaction.into()))
-                }
-            };
-
-            Ok(request)
-        }
-    }
-}
-
-pub fn transaction_request_to_seismic_typed(
-    tx: WithOtherFields<TransactionRequest>,
-) -> Option<SeismicTypedTransactionRequest> {
-    let WithOtherFields::<TransactionRequest> {
-        inner:
-            TransactionRequest {
-                from: _,
-                to,
-                gas_price,
-                max_fee_per_gas,
-                max_priority_fee_per_gas,
-                max_fee_per_blob_gas,
-                blob_versioned_hashes,
-                gas,
-                value,
-                input,
-                nonce,
-                mut access_list,
-                sidecar,
-                transaction_type,
-                ..
-            },
-        other,
-    } = tx;
-
-    if transaction_type == Some(TxType::Seismic.into()) {
-        return Some(SeismicTypedTransactionRequest::Seismic(SeismicTransactionRequest {
-            base: SeismicTransactionBase {
-                nonce: nonce.unwrap_or_default(),
-                max_fee_per_gas: max_fee_per_gas.unwrap_or_default(),
-                max_priority_fee_per_gas: max_priority_fee_per_gas.unwrap_or_default(),
-                gas_limit: gas.unwrap_or_default(),
-                value: value.unwrap_or(U256::ZERO),
-                input: input.into_input().unwrap_or_default(),
-                to: to.unwrap_or_default(),
-                chain_id: 0,
-                access_list: access_list.unwrap_or_default(),
-            },
-            secret_data: other.get_deserialized::<Vec<SecretData>>("secretData")?.ok()?,
-        }));
-    }
-
-    match (
-        gas_price,
-        max_fee_per_gas,
-        access_list.take(),
-        max_fee_per_blob_gas,
-        blob_versioned_hashes,
-        sidecar,
-    ) {
-        // legacy transaction
-        (Some(_), None, None, None, None, None) => {
-            Some(SeismicTypedTransactionRequest::Legacy(LegacyTransactionRequest {
-                nonce: nonce.unwrap_or_default(),
-                gas_price: U256::from(gas_price.unwrap_or_default()),
-                gas_limit: U256::from(gas.unwrap_or_default()),
-                value: value.unwrap_or_default(),
-                input: input.into_input().unwrap_or_default(),
-                kind: to.unwrap_or(TxKind::Create),
-                chain_id: None,
-            }))
-        }
-        // EIP2930
-        (_, None, Some(access_list), None, None, None) => {
-            Some(SeismicTypedTransactionRequest::EIP2930(EIP2930TransactionRequest {
-                nonce: nonce.unwrap_or_default(),
-                gas_price: U256::from(gas_price.unwrap_or_default()),
-                gas_limit: U256::from(gas.unwrap_or_default()),
-                value: value.unwrap_or_default(),
-                input: input.into_input().unwrap_or_default(),
-                kind: to.unwrap_or(TxKind::Create),
-                chain_id: 0,
-                access_list,
-            }))
-        }
-        // EIP1559
-        (None, _, _, None, None, None) => {
-            Some(SeismicTypedTransactionRequest::EIP1559(EIP1559TransactionRequest {
-                nonce: nonce.unwrap_or_default(),
-                max_fee_per_gas: U256::from(max_fee_per_gas.unwrap_or_default()),
-                max_priority_fee_per_gas: U256::from(max_priority_fee_per_gas.unwrap_or_default()),
-                gas_limit: U256::from(gas.unwrap_or_default()),
-                value: value.unwrap_or_default(),
-                input: input.into_input().unwrap_or_default(),
-                kind: to.unwrap_or(TxKind::Create),
-                chain_id: 0,
-                access_list: access_list.unwrap_or_default(),
-            }))
-        }
-        // EIP4844
-        (None, _, _, Some(max_fee_per_blob_gas), Some(blob_versioned_hashes), Some(sidecar)) => {
-            Some(SeismicTypedTransactionRequest::EIP4844(EIP4844TransactionRequest {
-                chain_id: 0,
-                nonce: nonce.unwrap_or_default(),
-                max_priority_fee_per_gas: U256::from(max_priority_fee_per_gas.unwrap_or_default()),
-                max_fee_per_gas: U256::from(max_fee_per_gas.unwrap_or_default()),
-                gas_limit: U256::from(gas.unwrap_or_default()),
-                value: value.unwrap_or_default(),
-                input: input.into_input().unwrap_or_default(),
-                to: match to {
-                    Some(TxKind::Call(to)) => to,
-                    _ => Address::default(),
-                },
-                access_list: access_list.unwrap_or_default(),
-                max_fee_per_blob_gas: U256::from(max_fee_per_blob_gas),
-                blob_versioned_hashes,
-                sidecar,
-            }))
-        }
-        _ => None,
-    }
-}
-
-pub fn separate_other_fields(tx: &WithOtherFields<TransactionRequest>) -> &TransactionRequest {
-    &tx.inner
-}
-
-pub fn build_request_for_signing(
-    request: SeismicTypedTransactionRequest,
-) -> TypedTransactionRequest {
-    match request {
-        SeismicTypedTransactionRequest::Legacy(tx) => TypedTransactionRequest::Legacy(tx),
-        SeismicTypedTransactionRequest::EIP2930(tx) => TypedTransactionRequest::EIP2930(tx),
-        SeismicTypedTransactionRequest::EIP1559(tx) => TypedTransactionRequest::EIP1559(tx),
-        SeismicTypedTransactionRequest::EIP4844(tx) => TypedTransactionRequest::EIP4844(tx),
-        SeismicTypedTransactionRequest::Seismic(seismic_tx) => {
-            let eip1559_tx = EIP1559TransactionRequest {
-                nonce: seismic_tx.base().nonce,
-                max_fee_per_gas: U256::try_from(seismic_tx.base().max_fee_per_gas).unwrap(),
-                max_priority_fee_per_gas: U256::try_from(
-                    seismic_tx.base().max_priority_fee_per_gas,
-                )
-                .unwrap(),
-                gas_limit: U256::try_from(seismic_tx.base().gas_limit).unwrap(),
-                value: seismic_tx.base().value,
-                input: seismic_tx.base().input.clone(),
-                kind: seismic_tx.base().to,
-                chain_id: seismic_tx.base().chain_id,
-                access_list: seismic_tx.base().access_list.clone(),
-            };
-            TypedTransactionRequest::EIP1559(eip1559_tx)
-        }
     }
 }
