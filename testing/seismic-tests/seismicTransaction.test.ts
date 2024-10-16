@@ -49,7 +49,7 @@ describe('Seismic Transaction', () => {
           to: TEST_ADDRESS,
           // @ts-ignore
           input: "0x123456",
-          transaction_type: 0x64,
+          transaction_type: 127,
           gas: "0x33450",
           // @ts-ignore
           secretData: [

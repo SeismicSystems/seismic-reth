@@ -606,7 +606,7 @@ mod tests {
     };
     use reth_evm_seismic::evm_config::SeismicEvmConfig;
     use reth_network_api::noop::NoopNetwork;
-    use reth_primitives::{hex, Address, Bytes, U256};
+    use reth_primitives::{hex, Address, Bytes, TxType, U256};
     use reth_provider::test_utils::{NoopProvider, TestCanonStateSubscriptions};
     use reth_rpc_types::{TransactionRequest, WithOtherFields};
     use reth_tasks::TokioTaskExecutor;
@@ -671,7 +671,7 @@ mod tests {
             .with_to(to)
             .with_gas_limit(210000)
             .with_input(Bytes::from(hex::decode(input_data).unwrap()))
-            .transaction_type(0x64);
+            .transaction_type(TxType::Seismic.into());
         let tx = WithOtherFields {
             inner: tx,
             other: SeismicTransactionFields {
