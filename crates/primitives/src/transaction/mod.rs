@@ -689,6 +689,14 @@ impl Transaction {
             _ => None,
         }
     }
+
+    /// Returns the [`TxSeismic`] variant if the transaction is an EIP-7702 transaction.
+    pub const fn as_seismic(&self) -> Option<&TxSeismic> {
+        match self {
+            Self::Seismic(tx) => Some(tx),
+            _ => None,
+        }
+    }
 }
 
 impl From<TxLegacy> for Transaction {

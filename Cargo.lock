@@ -8703,6 +8703,7 @@ dependencies = [
  "reth-node-ethereum",
  "reth-primitives",
  "reth-provider",
+ "reth-revm",
  "reth-rpc",
  "reth-rpc-eth-api",
  "reth-rpc-eth-types",
@@ -9136,7 +9137,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "14.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=7176369#71763699d7b4b002d121f3fb2714fff63c38b607"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=b6b3601#b6b3601b40e8b5dd55cb631d25a5c5f593d59056"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -9167,7 +9168,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "10.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=7176369#71763699d7b4b002d121f3fb2714fff63c38b607"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=b6b3601#b6b3601b40e8b5dd55cb631d25a5c5f593d59056"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -9176,7 +9177,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "11.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=7176369#71763699d7b4b002d121f3fb2714fff63c38b607"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=b6b3601#b6b3601b40e8b5dd55cb631d25a5c5f593d59056"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
@@ -9194,7 +9195,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "9.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=7176369#71763699d7b4b002d121f3fb2714fff63c38b607"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=b6b3601#b6b3601b40e8b5dd55cb631d25a5c5f593d59056"
 dependencies = [
  "alloy-eips",
  "alloy-primitives 0.8.1",
