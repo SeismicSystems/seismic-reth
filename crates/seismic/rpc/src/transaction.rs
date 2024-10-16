@@ -13,7 +13,7 @@ use reth_node_core::{
     },
 };
 use reth_primitives::{
-    Address, BlockId, Bytes, Receipt, TransactionSigned, TxHash, TxKind, B256, U256,
+    Address, BlockId, Bytes, Receipt, TransactionSigned, TxHash, TxKind, TxType, B256, U256
 };
 use reth_provider::{ReceiptProvider, TransactionsProvider};
 use reth_rpc_eth_api::{FromEthApiError, IntoEthApiError, RpcTransaction};
@@ -455,7 +455,7 @@ pub fn transaction_request_to_seismic_typed(
         other,
     } = tx;
 
-    if transaction_type == Some(0x64) && has_seismic_fields(&other) {
+    if transaction_type == Some(TxType::Seismic.into()) {
         return Some(SeismicTypedTransactionRequest::Seismic(SeismicTransactionRequest {
             base: SeismicTransactionBase {
                 nonce: nonce.unwrap_or_default(),
@@ -541,10 +541,6 @@ pub fn transaction_request_to_seismic_typed(
         }
         _ => None,
     }
-}
-
-pub fn has_seismic_fields(other: &OtherFields) -> bool {
-    other.contains_key("secretData")
 }
 
 pub fn separate_other_fields(tx: &WithOtherFields<TransactionRequest>) -> &TransactionRequest {
