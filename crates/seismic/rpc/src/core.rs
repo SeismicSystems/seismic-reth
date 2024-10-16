@@ -703,18 +703,14 @@ mod tests {
         let tx = TransactionRequest::default()
             .with_from(from)
             .with_to(to)
-            .with_gas_limit(210000)
+            .with_gas_limit(21000)
+            .with_value(U256::from(1))
             .transaction_type(0x64);
 
         let tx = WithOtherFields {
             inner: tx,
             other: SeismicTransactionFields {
-                secret_data: Some(vec![SecretData {
-                    index: 4,
-                    preimage: PreImageValue::Uint(10),
-                    preimage_type: "uint256".to_string(),
-                    salt: B256::from(U256::from(0)).into(),
-                }]),
+                secret_data: None,
             }
             .into(),
         };

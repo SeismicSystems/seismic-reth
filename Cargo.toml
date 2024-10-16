@@ -583,8 +583,8 @@ seismic-types = { git = "ssh://git@github.com/SeismicSystems/mantle.git", rev = 
 reth-rpc-types = { version = "1.0.6", path = "crates/rpc/rpc-types" }
 
 # seismic-revm
-revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "7176369" }
-revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "7176369" }
+revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "b6b3601" }
+revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "b6b3601" }
 
 # seismic-revm-inspectors
 revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "a77b988" }
