@@ -1,11 +1,20 @@
 use futures::Future;
-use reth_primitives::{revm_primitives::{db::DatabaseRef, BlockEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg}, Bytes, U256};
+use reth_primitives::{
+    revm_primitives::{db::DatabaseRef, BlockEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg},
+    Bytes, U256,
+};
+use reth_revm::{database::StateProviderDatabase, db::CacheDB, primitives::ResultAndState};
 use reth_rpc_eth_api::{
     helpers::{Call, LoadPendingBlock},
     FromEthApiError,
 };
-use reth_revm::{database::StateProviderDatabase, db::CacheDB, primitives::ResultAndState};
-use reth_rpc_eth_types::{cache::db::{StateCacheDbRefMutWrapper, StateProviderTraitObjWrapper}, error::ensure_success, revm_utils::cap_tx_gas_limit_with_caller_allowance, utils::recover_raw_transaction, EthApiError};
+use reth_rpc_eth_types::{
+    cache::db::{StateCacheDbRefMutWrapper, StateProviderTraitObjWrapper},
+    error::ensure_success,
+    revm_utils::cap_tx_gas_limit_with_caller_allowance,
+    utils::recover_raw_transaction,
+    EthApiError,
+};
 use reth_rpc_types::{BlockId, TransactionRequest};
 use reth_rpc_types_compat::transaction::transaction_to_call_request;
 use tracing::trace;
@@ -20,8 +29,8 @@ pub trait SeismicCall: Call + LoadPendingBlock {
             let transaction_request =
                 transaction_to_call_request(recovered.into_ecrecovered_transaction());
 
-            let (res, _env) = SeismicCall::transact_call_at(self, transaction_request, BlockId::latest())
-                .await?;
+            let (res, _env) =
+                SeismicCall::transact_call_at(self, transaction_request, BlockId::latest()).await?;
 
             ensure_success(res.result).map_err(Self::Error::from_eth_err)
         }

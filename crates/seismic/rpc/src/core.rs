@@ -709,10 +709,7 @@ mod tests {
 
         let tx = WithOtherFields {
             inner: tx,
-            other: SeismicTransactionFields {
-                secret_data: None,
-            }
-            .into(),
+            other: SeismicTransactionFields { secret_data: None }.into(),
         };
 
         let typed_tx_request =
