@@ -1,10 +1,6 @@
 use alloy_network::AnyNetwork;
 use derive_more::Deref;
-use jsonrpsee::{
-    core::{JsonRawValue, RpcResult},
-    proc_macros::rpc,
-    types::{ErrorCode, ErrorObject},
-};
+use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use reth_chainspec::ChainSpec;
 use reth_rpc_eth_api::{
     helpers::{
@@ -16,7 +12,7 @@ use reth_rpc_eth_api::{
 };
 use secp256k1::SecretKey;
 
-use crate::{error::SeismicApiError, transaction::SeismicTransactions};
+use crate::{call::SeismicCall, error::SeismicApiError, transaction::SeismicTransactions};
 
 use reth_evm::{provider::EvmEnvProvider, ConfigureEvm};
 use reth_helpers_seismic::signer::{AddCustomDevSigners, CustomDevSigner};
@@ -24,7 +20,7 @@ use reth_network_api::NetworkInfo;
 use reth_node_api::{BuilderProvider, FullNodeComponents};
 use reth_primitives::{
     revm_primitives::{BlockEnv, TxEnv},
-    Address, TxKind, B256, U256,
+    Address, Bytes, TxKind, B256, U256,
 };
 use reth_provider::{
     BlockIdReader, BlockNumReader, BlockReaderIdExt, CanonStateSubscriptions, ChainSpecProvider,
@@ -71,6 +67,11 @@ pub trait SeismicApi {
         &self,
         request: WithOtherFields<TransactionRequest>,
     ) -> RpcResult<B256>;
+
+    /// Executes a new (signed!) message call immediately without creating a transaction on the
+    /// block chain. Will fail on nonstatic function calls.
+    #[method(name = "call")]
+    async fn call(&self, request: Bytes) -> RpcResult<Bytes>;
 }
 
 // pub type EthApiNodeBackend = EthApiInner<
@@ -308,6 +309,11 @@ where
         trace!(target: "rpc::eth", ?request, "Serving seismic_sendTransaction");
         Ok(SeismicTransactions::send_transaction(self, request).await?)
     }
+
+    async fn call(&self, request: Bytes) -> RpcResult<Bytes> {
+        trace!(target: "rpc::eth", ?request, "Serving seismic_call");
+        Ok(SeismicCall::call(self, request).await?)
+    }
 }
 
 impl<Provider, Pool, Network, EvmConfig> SeismicTransactions
@@ -324,6 +330,13 @@ where
     fn signers(&self) -> &parking_lot::RwLock<Vec<Box<dyn EthSigner>>> {
         self.inner.signers()
     }
+}
+
+impl<Provider, Pool, Network, EvmConfig> SeismicCall
+    for SeismicApi<Provider, Pool, Network, EvmConfig>
+where
+    Self: Call + LoadPendingBlock,
+{
 }
 
 impl<Provider, Pool, Network, EvmConfig> EthBlocks
@@ -601,7 +614,11 @@ mod tests {
     use seismic_transaction::types::{SecretData, SeismicTransactionFields};
     use seismic_types::preimage::value::PreImageValue;
 
-    async fn start_server() -> (std::net::SocketAddr, Vec<Address>) {
+    async fn start_server() -> (
+        std::net::SocketAddr,
+        Vec<Address>,
+        SeismicApi<NoopProvider, TestPool, NoopNetwork, SeismicEvmConfig>,
+    ) {
         let server = ServerBuilder::default().build("127.0.0.1:0").await.unwrap();
 
         let addr = server.local_addr().unwrap();
@@ -631,11 +648,11 @@ mod tests {
             <SeismicApi<_, _, _, _> as SeismicTransactions>::signers(&api).read().clone();
         let accounts: Vec<Address> = signers.iter().flat_map(|signer| signer.accounts()).collect();
 
-        let server_handle = server.start(api.into_rpc());
+        let server_handle = server.start(api.clone().into_rpc());
 
         tokio::spawn(server_handle.stopped());
 
-        (addr, accounts)
+        (addr, accounts, api)
     }
 
     async fn test_seismic_detect_tx<C>(client: &C, accounts: Vec<Address>)
@@ -673,12 +690,58 @@ mod tests {
         assert!(result.is_ok(), "Failed to send Seismic transaction");
     }
 
+    async fn test_seismic_call<C>(
+        client: &C,
+        accounts: Vec<Address>,
+        api: SeismicApi<NoopProvider, TestPool, NoopNetwork, SeismicEvmConfig>,
+    ) where
+        C: ClientT + SubscriptionClientT + Sync,
+    {
+        let from = accounts[1];
+        let to = accounts[2];
+
+        let tx = TransactionRequest::default()
+            .with_from(from)
+            .with_to(to)
+            .with_gas_limit(210000)
+            .transaction_type(0x64);
+
+        let tx = WithOtherFields {
+            inner: tx,
+            other: SeismicTransactionFields {
+                secret_data: Some(vec![SecretData {
+                    index: 4,
+                    preimage: PreImageValue::Uint(10),
+                    preimage_type: "uint256".to_string(),
+                    salt: B256::from(U256::from(0)).into(),
+                }]),
+            }
+            .into(),
+        };
+
+        let typed_tx_request =
+            SeismicTransactions::build_typed_tx_request(&api, tx, 0).await.unwrap();
+        let signed_tx = SeismicTransactions::sign_request(&api, &from, typed_tx_request).unwrap();
+
+        let result = SeismicApiClient::call(client, signed_tx.envelope_encoded()).await;
+        println!("test_seismic_call result: {:?}", result);
+    }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn test_seismic_detect_transaction() {
-        let (server_addr, accounts) = start_server().await;
+        let (server_addr, accounts, _) = start_server().await;
         let uri = format!("http://{}", server_addr);
         let client = HttpClientBuilder::default().build(&uri).unwrap();
 
         test_seismic_detect_tx(&client, accounts).await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_seismic_call_call() {
+        let (server_addr, accounts, api) = start_server().await;
+        let uri = format!("http://{}", server_addr);
+        let client = HttpClientBuilder::default().build(&uri).unwrap();
+
+        test_seismic_call(&client, accounts, api).await;
     }
 }
