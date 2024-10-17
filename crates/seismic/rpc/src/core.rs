@@ -71,11 +71,7 @@ pub trait SeismicApi {
     /// Executes a new (signed!) message call immediately without creating a transaction on the
     /// block chain. Will fail on nonstatic function calls.
     #[method(name = "call")]
-    async fn call(
-        &self,
-        request: Bytes,
-        block_number: Option<BlockId>,
-    ) -> RpcResult<Bytes>;
+    async fn call(&self, request: Bytes, block_number: Option<BlockId>) -> RpcResult<Bytes>;
 }
 
 // pub type EthApiNodeBackend = EthApiInner<
@@ -314,11 +310,7 @@ where
         Ok(SeismicTransactions::send_transaction(self, request).await?)
     }
 
-    async fn call(
-        &self,
-        request: Bytes,
-        block_number: Option<BlockId>,
-    ) -> RpcResult<Bytes> {
+    async fn call(&self, request: Bytes, block_number: Option<BlockId>) -> RpcResult<Bytes> {
         trace!(target: "rpc::eth", ?request, "Serving seismic_call");
         Ok(SeismicCall::call(self, request, block_number).await?)
     }

@@ -33,8 +33,12 @@ pub trait SeismicCall: Call + LoadPendingBlock {
             let transaction_request =
                 transaction_to_call_request(recovered.into_ecrecovered_transaction());
 
-            let (res, _env) =
-                SeismicCall::transact_call_at(self, transaction_request, block_number.unwrap_or_default()).await?;
+            let (res, _env) = SeismicCall::transact_call_at(
+                self,
+                transaction_request,
+                block_number.unwrap_or_default(),
+            )
+            .await?;
 
             ensure_success(res.result).map_err(Self::Error::from_eth_err)
         }
