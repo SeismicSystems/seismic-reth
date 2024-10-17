@@ -22,7 +22,11 @@ use tracing::trace;
 /// Seismic call related functions
 pub trait SeismicCall: Call + LoadPendingBlock {
     /// Executes the call request (`eth_call`) and returns the output
-    fn call(&self, request: Bytes) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
+    fn call(
+        &self,
+        request: Bytes,
+        block_number: Option<BlockId>,
+    ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
             // `call` must be accompanied with a valid signature.
             let recovered = recover_raw_transaction(request.clone())?;
@@ -30,7 +34,7 @@ pub trait SeismicCall: Call + LoadPendingBlock {
                 transaction_to_call_request(recovered.into_ecrecovered_transaction());
 
             let (res, _env) =
-                SeismicCall::transact_call_at(self, transaction_request, BlockId::latest()).await?;
+                SeismicCall::transact_call_at(self, transaction_request, block_number.unwrap_or_default()).await?;
 
             ensure_success(res.result).map_err(Self::Error::from_eth_err)
         }

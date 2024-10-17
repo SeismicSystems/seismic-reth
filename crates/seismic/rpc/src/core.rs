@@ -32,7 +32,7 @@ use reth_rpc_eth_types::{
     revm_utils::CallFees, EthApiBuilderCtx, EthStateCache, FeeHistoryCache, GasPriceOracle,
     PendingBlock, RpcInvalidTransactionError,
 };
-use reth_rpc_types::{TransactionRequest, WithOtherFields};
+use reth_rpc_types::{BlockId, TransactionRequest, WithOtherFields};
 use reth_tasks::{
     pool::{BlockingTaskGuard, BlockingTaskPool},
     TaskExecutor, TaskSpawner,
@@ -71,7 +71,11 @@ pub trait SeismicApi {
     /// Executes a new (signed!) message call immediately without creating a transaction on the
     /// block chain. Will fail on nonstatic function calls.
     #[method(name = "call")]
-    async fn call(&self, request: Bytes) -> RpcResult<Bytes>;
+    async fn call(
+        &self,
+        request: Bytes,
+        block_number: Option<BlockId>,
+    ) -> RpcResult<Bytes>;
 }
 
 // pub type EthApiNodeBackend = EthApiInner<
@@ -310,9 +314,13 @@ where
         Ok(SeismicTransactions::send_transaction(self, request).await?)
     }
 
-    async fn call(&self, request: Bytes) -> RpcResult<Bytes> {
+    async fn call(
+        &self,
+        request: Bytes,
+        block_number: Option<BlockId>,
+    ) -> RpcResult<Bytes> {
         trace!(target: "rpc::eth", ?request, "Serving seismic_call");
-        Ok(SeismicCall::call(self, request).await?)
+        Ok(SeismicCall::call(self, request, block_number).await?)
     }
 }
 
@@ -704,7 +712,6 @@ mod tests {
             .with_from(from)
             .with_to(to)
             .with_gas_limit(21000)
-            .with_value(U256::from(1))
             .transaction_type(0x64);
 
         let tx = WithOtherFields {
@@ -716,7 +723,7 @@ mod tests {
             SeismicTransactions::build_typed_tx_request(&api, tx, 0).await.unwrap();
         let signed_tx = SeismicTransactions::sign_request(&api, &from, typed_tx_request).unwrap();
 
-        let result = SeismicApiClient::call(client, signed_tx.envelope_encoded()).await;
+        let result = SeismicApiClient::call(client, signed_tx.envelope_encoded(), None).await;
         println!("test_seismic_call result: {:?}", result);
     }
 
