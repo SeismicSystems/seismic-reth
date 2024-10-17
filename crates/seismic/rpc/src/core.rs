@@ -32,7 +32,7 @@ use reth_rpc_eth_types::{
     revm_utils::CallFees, EthApiBuilderCtx, EthStateCache, FeeHistoryCache, GasPriceOracle,
     PendingBlock, RpcInvalidTransactionError,
 };
-use reth_rpc_types::{TransactionRequest, WithOtherFields};
+use reth_rpc_types::{BlockId, TransactionRequest, WithOtherFields};
 use reth_tasks::{
     pool::{BlockingTaskGuard, BlockingTaskPool},
     TaskExecutor, TaskSpawner,
@@ -58,7 +58,7 @@ pub trait SeismicApi {
     /// Executes a new (signed!) message call immediately without creating a transaction on the
     /// block chain. Will fail on nonstatic function calls.
     #[method(name = "call")]
-    async fn call(&self, request: Bytes) -> RpcResult<Bytes>;
+    async fn call(&self, request: Bytes, block_number: Option<BlockId>) -> RpcResult<Bytes>;
 }
 
 // pub type EthApiNodeBackend = EthApiInner<
@@ -297,9 +297,9 @@ where
         Ok(SeismicTransactions::send_transaction(self, request).await?)
     }
 
-    async fn call(&self, request: Bytes) -> RpcResult<Bytes> {
+    async fn call(&self, request: Bytes, block_number: Option<BlockId>) -> RpcResult<Bytes> {
         trace!(target: "rpc::eth", ?request, "Serving seismic_call");
-        Ok(SeismicCall::call(self, request).await?)
+        Ok(SeismicCall::call(self, request, block_number).await?)
     }
 }
 
@@ -721,7 +721,7 @@ mod tests {
             chain_id: chain_id,
         });
         let signed_tx = SeismicTransactions::sign_request(&api, &accounts[0], typed_tx_request);
-        SeismicApiClient::call(client, signed_tx.unwrap().envelope_encoded()).await.unwrap_err();
+        SeismicApiClient::call(client, signed_tx.unwrap().envelope_encoded(), None).await.unwrap_err();
     }
 
     #[tokio::test(flavor = "multi_thread")]

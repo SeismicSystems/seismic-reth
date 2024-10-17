@@ -22,15 +22,23 @@ use tracing::trace;
 /// Seismic call related functions
 pub trait SeismicCall: Call + LoadPendingBlock {
     /// Executes the call request (`eth_call`) and returns the output
-    fn call(&self, request: Bytes) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
+    fn call(
+        &self,
+        request: Bytes,
+        block_number: Option<BlockId>,
+    ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
             // `call` must be accompanied with a valid signature.
             let recovered = recover_raw_transaction(request.clone())?;
             let transaction_request =
                 transaction_to_call_request(recovered.into_ecrecovered_transaction());
 
-            let (res, _env) =
-                SeismicCall::transact_call_at(self, transaction_request, BlockId::latest()).await?;
+            let (res, _env) = SeismicCall::transact_call_at(
+                self,
+                transaction_request,
+                block_number.unwrap_or_default(),
+            )
+            .await?;
 
             ensure_success(res.result).map_err(Self::Error::from_eth_err)
         }
@@ -116,7 +124,7 @@ pub trait SeismicCall: Call + LoadPendingBlock {
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
         cfg.disable_base_fee = true;
 
-        // TODO: COME BACK HERE WHEN SEISMIC-REVM CAN BE EXECUTED STATIC-ONLY
+        // Can only execute static functions, as to prevent viewing unauthorized state
         cfg.execute_static = true;
 
         // set nonce to None so that the correct nonce is chosen by the EVM
