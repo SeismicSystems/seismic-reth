@@ -455,7 +455,7 @@ pub trait SeismicTransactions: LoadTransaction {
                 }
                 Some(TypedTransactionRequest::Seismic(mut req)) => {
                     req.chain_id = chain_id.to();
-                    req.gas_limit = gas_limit.saturating_to();
+                    req.gas_limit = gas_limit.saturating_to();// TODO estimated gas need to use decrypted input 
                     req.gas_price = self.legacy_gas_price(gas_price.map(U256::from)).await?;
 
                     TypedTransactionRequest::Seismic(req)

@@ -136,3 +136,4 @@ pub struct SeismicTransactionRequest {
     /// The optional chain ID for the transaction
     pub chain_id: u64,
 }
+

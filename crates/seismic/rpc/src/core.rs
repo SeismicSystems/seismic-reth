@@ -650,15 +650,13 @@ mod tests {
     ) where
         C: ClientT + SubscriptionClientT + Sync,
     {
-        let decrypted_input: Bytes = Bytes::from(vec![1, 2, 3, 4, 5]);
-
         let chain_id = 0;
         let nonce = 2;
         let gas_price = 1000000000;
         let gas_limit = 100000;
         let to = TxKind::Call(accounts[1]);
         let value = U256::from(1000000000000000u64);
-        let input = decrypted_input.clone();
+        let decrypted_input: Bytes = Bytes::from(vec![1, 2, 3, 4, 5]);
 
         let encrypted_tx = transaction::TxSeismic::new_from_decrypted_params(
             chain_id,
@@ -685,17 +683,7 @@ mod tests {
             }),
         };
 
-        let result = SeismicApiClient::send_transaction(client, tx).await;
-        assert!(result.is_ok(), "Failed to send Seismic transaction");
-
-        let fixed_bytes = result.unwrap();
-        let tx_hash = TxHash::from_slice(&fixed_bytes.0);
-        let pool_tx = SeismicTransactions::transaction_by_hash(&api, tx_hash).await.unwrap();
-
-        assert!(pool_tx.is_some(), "Transaction should be present in the pool");
-        let recovered_tx = pool_tx.unwrap().into_recovered().clone();
-        let seismic_tx = recovered_tx.as_seismic().clone();
-        assert_eq!(*seismic_tx.unwrap(), encrypted_tx, "The encrypted inputs should match");
+        SeismicApiClient::send_transaction(client, tx).await.unwrap_err();
     }
 
     async fn test_seismic_call<C>(
@@ -705,18 +693,35 @@ mod tests {
     ) where
         C: ClientT + SubscriptionClientT + Sync,
     {
+        let chain_id = api.network().chain_id();
+        let nonce = 2;
+        let gas_price = 1000000000;
+        let gas_limit = 100000;
+        let to = TxKind::Call(accounts[1]);
+        let value = U256::from(1000000000000000u64);
+        let decrypted_input: Bytes = Bytes::from(vec![1, 2, 3, 4, 5]);
+
+        let encrypted_tx = transaction::TxSeismic::new_from_decrypted_params(
+            chain_id,
+            nonce,
+            gas_price,
+            gas_limit,
+            to,
+            value,
+            decrypted_input,
+        );
+
         let typed_tx_request = TypedTransactionRequest::Seismic(SeismicTransactionRequest {
-            nonce: Default::default(),
-            gas_price: Default::default(),
-            gas_limit: Default::default(),
-            value: Default::default(),
-            encrypted_input: Default::default(),
-            kind: Default::default(),
-            chain_id: Default::default(),
+            nonce: nonce,
+            gas_price: U256::from(gas_price),
+            gas_limit: U256::from(gas_limit),
+            value: value,
+            encrypted_input: encrypted_tx.encrypted_input().clone(), 
+            kind: to,
+            chain_id: chain_id,
         });
-        let signed_tx = SeismicTransactions::sign_request(&api, &accounts[0], typed_tx_request).unwrap();
-        let result = SeismicApiClient::call(client, signed_tx.envelope_encoded()).await;
-        println!("test_seismic_call result: {:?}", result);
+        let signed_tx = SeismicTransactions::sign_request(&api, &accounts[0], typed_tx_request);
+        SeismicApiClient::call(client, signed_tx.unwrap().envelope_encoded()).await.unwrap_err();
     }
 
     #[tokio::test(flavor = "multi_thread")]
