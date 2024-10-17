@@ -1,6 +1,6 @@
 use alloy_network::AnyNetwork;
-use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use derive_more::Deref;
+use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use reth_chainspec::ChainSpec;
 use reth_rpc_eth_api::{
     helpers::{
@@ -14,6 +14,7 @@ use secp256k1::SecretKey;
 
 use crate::{call::SeismicCall, error::SeismicApiError, transaction::SeismicTransactions};
 
+use crate::transaction::RPCSeismicTransactionRequest;
 use reth_evm::{provider::EvmEnvProvider, ConfigureEvm};
 use reth_helpers_seismic::signer::{AddCustomDevSigners, CustomDevSigner};
 use reth_network_api::NetworkInfo;
@@ -40,8 +41,6 @@ use reth_tasks::{
 use reth_transaction_pool::TransactionPool;
 use std::{fmt, sync::Arc};
 use tracing::trace;
-use crate::transaction::RPCSeismicTransactionRequest;
-
 
 #[cfg_attr(not(test), rpc(server, namespace = "seismic"))]
 #[cfg_attr(test, rpc(server, client, namespace = "seismic"))]
@@ -50,10 +49,7 @@ pub trait SeismicApi {
     /// transaction hash. Handler detects a Seismic transaction with preimages
     /// in the im
     #[method(name = "sendTransaction")]
-    async fn send_transaction(
-        &self,
-        request: RPCSeismicTransactionRequest,
-    ) -> RpcResult<B256>;
+    async fn send_transaction(&self, request: RPCSeismicTransactionRequest) -> RpcResult<B256>;
 
     /// Executes a new (signed!) message call immediately without creating a transaction on the
     /// block chain. Will fail on nonstatic function calls.
@@ -289,10 +285,7 @@ where
     Network: NetworkInfo + Clone + 'static,
     EvmConfig: Send + Sync + ConfigureEvm + Clone + 'static,
 {
-    async fn send_transaction(
-        &self,
-        request: RPCSeismicTransactionRequest
-    ) -> RpcResult<B256> {
+    async fn send_transaction(&self, request: RPCSeismicTransactionRequest) -> RpcResult<B256> {
         trace!(target: "rpc::eth", ?request, "Serving seismic_sendTransaction");
         Ok(SeismicTransactions::send_transaction(self, request).await?)
     }
@@ -596,7 +589,10 @@ mod tests {
     use reth_network_api::noop::NoopNetwork;
     use reth_primitives::{hex, transaction, Address, Bytes, TxHash, U256};
     use reth_provider::test_utils::{NoopProvider, TestCanonStateSubscriptions};
-    use reth_rpc_types::{transaction::SeismicTransactionRequest, TransactionRequest, TypedTransactionRequest, WithOtherFields};
+    use reth_rpc_types::{
+        transaction::SeismicTransactionRequest, TransactionRequest, TypedTransactionRequest,
+        WithOtherFields,
+    };
     use reth_tasks::TokioTaskExecutor;
     use reth_transaction_pool::test_utils::{TestPool, TestPoolBuilder};
     use seismic_transaction::types::{SecretData, SeismicTransactionFields};
@@ -712,16 +708,18 @@ mod tests {
         );
 
         let typed_tx_request = TypedTransactionRequest::Seismic(SeismicTransactionRequest {
-            nonce: nonce,
+            nonce,
             gas_price: U256::from(gas_price),
             gas_limit: U256::from(gas_limit),
-            value: value,
-            encrypted_input: encrypted_tx.encrypted_input().clone(), 
+            value,
+            encrypted_input: encrypted_tx.encrypted_input().clone(),
             kind: to,
-            chain_id: chain_id,
+            chain_id,
         });
         let signed_tx = SeismicTransactions::sign_request(&api, &accounts[0], typed_tx_request);
-        SeismicApiClient::call(client, signed_tx.unwrap().envelope_encoded(), None).await.unwrap_err();
+        SeismicApiClient::call(client, signed_tx.unwrap().envelope_encoded(), None)
+            .await
+            .unwrap_err();
     }
 
     #[tokio::test(flavor = "multi_thread")]

@@ -1,10 +1,10 @@
 use alloy_dyn_abi::TypedData;
-use serde::{Serialize, Deserialize};
 use reth_provider::BlockReaderIdExt;
 use reth_rpc_eth_types::{
     utils::recover_raw_transaction, EthApiError, SignError, TransactionSource,
 };
 use reth_rpc_types_compat::transaction::from_recovered_with_block_context;
+use serde::{Deserialize, Serialize};
 
 use reth_node_core::{
     primitives::TransactionMeta,
@@ -23,8 +23,7 @@ use reth_rpc_types::{
         EIP1559TransactionRequest, EIP2930TransactionRequest, EIP4844TransactionRequest,
         LegacyTransactionRequest, SeismicTransactionRequest,
     },
-    AnyTransactionReceipt, TransactionInfo, TransactionRequest,
-    TypedTransactionRequest, 
+    AnyTransactionReceipt, TransactionInfo, TransactionRequest, TypedTransactionRequest,
 };
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
 use std::future::Future;
@@ -390,17 +389,17 @@ pub trait SeismicTransactions: LoadTransaction {
                     }
                     // legacy transaction
                     // gas price required
-                },
+                }
 
                 Some(seismic_fields) => {
                     Some(TypedTransactionRequest::Seismic(SeismicTransactionRequest {
-                            nonce: nonce.unwrap_or_default(),
-                            gas_price: U256::from(gas_price.unwrap_or_default()),
-                            gas_limit: U256::from(gas.unwrap_or_default()),
-                            value: value.unwrap_or_default(),
-                            encrypted_input: seismic_fields.encrypted_input,
-                            kind: to.unwrap_or(TxKind::Create),
-                            chain_id: 0,
+                        nonce: nonce.unwrap_or_default(),
+                        gas_price: U256::from(gas_price.unwrap_or_default()),
+                        gas_limit: U256::from(gas.unwrap_or_default()),
+                        value: value.unwrap_or_default(),
+                        encrypted_input: seismic_fields.encrypted_input,
+                        kind: to.unwrap_or(TxKind::Create),
+                        chain_id: 0,
                     }))
                 }
             };
@@ -455,7 +454,7 @@ pub trait SeismicTransactions: LoadTransaction {
                 }
                 Some(TypedTransactionRequest::Seismic(mut req)) => {
                     req.chain_id = chain_id.to();
-                    req.gas_limit = gas_limit.saturating_to();// TODO estimated gas need to use decrypted input 
+                    req.gas_limit = gas_limit.saturating_to(); // TODO estimated gas need to use decrypted input
                     req.gas_price = self.legacy_gas_price(gas_price.map(U256::from)).await?;
 
                     TypedTransactionRequest::Seismic(req)
