@@ -45,11 +45,14 @@ use tracing::trace;
 #[cfg_attr(not(test), rpc(server, namespace = "seismic"))]
 #[cfg_attr(test, rpc(server, client, namespace = "seismic"))]
 pub trait SeismicApi {
-    /// Sends a transaction; will block waiting for signer to return the
-    /// transaction hash. Handler detects a Seismic transaction with preimages
-    /// in the im
+    /// Sends transaction; will block waiting for signer to return the
+    /// transaction hash.
     #[method(name = "sendTransaction")]
     async fn send_transaction(&self, request: RPCSeismicTransactionRequest) -> RpcResult<B256>;
+
+    /// Sends signed transaction, returning its hash.
+    #[method(name = "sendRawTransaction")]
+    async fn send_raw_transaction(&self, bytes: Bytes) -> RpcResult<B256>;
 
     /// Executes a new (signed!) message call immediately without creating a transaction on the
     /// block chain. Will fail on nonstatic function calls.
@@ -288,6 +291,12 @@ where
     async fn send_transaction(&self, request: RPCSeismicTransactionRequest) -> RpcResult<B256> {
         trace!(target: "rpc::eth", ?request, "Serving seismic_sendTransaction");
         Ok(SeismicTransactions::send_transaction(self, request).await?)
+    }
+
+    /// Handler for: `eth_sendRawTransaction`
+    async fn send_raw_transaction(&self, tx: Bytes) -> RpcResult<B256> {
+        trace!(target: "rpc::eth", ?tx, "Serving seismic_sendRawTransaction");
+        Ok(SeismicTransactions::send_raw_transaction(self, tx).await?)
     }
 
     async fn call(&self, request: Bytes, block_number: Option<BlockId>) -> RpcResult<Bytes> {

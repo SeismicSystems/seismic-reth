@@ -28,6 +28,8 @@ use reth_rpc_types::{
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
 use std::future::Future;
 
+use crate::call::SeismicCall;
+
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct SeismicFields {
     pub encrypted_input: Vec<u8>,
@@ -253,7 +255,7 @@ pub trait SeismicTransactions: LoadTransaction {
         request_with_seismic_fields: RPCSeismicTransactionRequest,
     ) -> impl Future<Output = Result<B256, Self::Error>> + Send
     where
-        Self: EthApiSpec + LoadBlock + LoadPendingBlock + LoadFee + Call,
+        Self: EthApiSpec + LoadBlock + LoadPendingBlock + LoadFee + SeismicCall,
     {
         async move {
             let mut request = request_with_seismic_fields.request;
