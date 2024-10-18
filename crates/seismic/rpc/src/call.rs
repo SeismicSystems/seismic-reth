@@ -6,7 +6,9 @@ use reth_rpc_eth_api::{
     helpers::{Call, LoadPendingBlock},
     FromEthApiError,
 };
-use reth_rpc_eth_types::{cache::db::StateProviderTraitObjWrapper, error::ensure_success, utils::recover_raw_transaction};
+use reth_rpc_eth_types::{
+    cache::db::StateProviderTraitObjWrapper, error::ensure_success, utils::recover_raw_transaction,
+};
 use reth_rpc_types::BlockId;
 
 /// Seismic call related functions
