@@ -296,7 +296,8 @@ impl Transaction {
         }
     }
 
-    /// Get the gas price of the transaction. This matches the conversion from Transaction to TxEnv for REVM purposes.
+    /// Get the gas price of the transaction. This matches the conversion from Transaction to TxEnv
+    /// for REVM purposes.
     pub const fn gas_price(&self) -> u128 {
         match self {
             Self::Legacy(tx) => tx.gas_price,
