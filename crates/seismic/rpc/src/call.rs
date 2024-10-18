@@ -1,8 +1,16 @@
 use futures::Future;
+use reth_evm::ConfigureEvmEnv;
 use reth_primitives::{
-    revm_primitives::{db::DatabaseRef, BlockEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg}, transaction::FillTxEnv, Bytes, PooledTransactionsElement, TransactionSigned, TransactionSignedEcRecovered, TxKind, U256
+    revm_primitives::{db::DatabaseRef, BlockEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg},
+    transaction::FillTxEnv,
+    Bytes, PooledTransactionsElement, TransactionSigned, TransactionSignedEcRecovered, TxKind,
+    U256,
 };
-use reth_revm::{database::StateProviderDatabase, db::CacheDB, primitives::{AuthorizationList, ResultAndState, SignedAuthorization, TxEnv}};
+use reth_revm::{
+    database::StateProviderDatabase,
+    db::CacheDB,
+    primitives::{AuthorizationList, ResultAndState, SignedAuthorization, TxEnv},
+};
 use reth_rpc_eth_api::{
     helpers::{Call, LoadPendingBlock},
     FromEthApiError, IntoEthApiError,
@@ -19,7 +27,7 @@ use tracing::trace;
 
 /// Seismic call related functions
 pub trait SeismicCall: Call + LoadPendingBlock {
-    /// Executes the call request (`eth_call`) and returns the output
+    /// Executes the call request (`seismic_call`) and returns the output
     fn call(
         &self,
         request: Bytes,
@@ -28,22 +36,11 @@ pub trait SeismicCall: Call + LoadPendingBlock {
         async move {
             // `call` must be accompanied with a valid signature.
             let recovered = recover_raw_transaction(request.clone())?;
-            // let tx = match recovered.into_transaction() {
-            //     PooledTransactionsElement::Seismic { transaction, .. } => {
-            //         transaction
-            //     }
-            //     _ => {
-            //         return Err(RpcInvalidTransactionError::TxTypeNotSupported.into_eth_err());
-            //     }
-            // };
             let transaction = recovered.into_ecrecovered_transaction();
 
-            let (res, _env) = SeismicCall::transact_call_at(
-                self,
-                transaction,
-                block_number.unwrap_or_default(),
-            )
-            .await?;
+            let (res, _env) =
+                SeismicCall::transact_call_at(self, transaction, block_number.unwrap_or_default())
+                    .await?;
 
             ensure_success(res.result).map_err(Self::Error::from_eth_err)
         }
@@ -52,14 +49,14 @@ pub trait SeismicCall: Call + LoadPendingBlock {
     /// Executes the call request at the given [`BlockId`].
     fn transact_call_at(
         &self,
-        request: TransactionSignedEcRecovered,
+        tx: TransactionSignedEcRecovered,
         at: BlockId,
     ) -> impl Future<Output = Result<(ResultAndState, EnvWithHandlerCfg), Self::Error>> + Send
     where
         Self: LoadPendingBlock,
     {
         let this = self.clone();
-        SeismicCall::spawn_with_call_at(self, request, at, move |db, env| this.transact(db, env))
+        SeismicCall::spawn_with_call_at(self, tx, at, move |db, env| this.transact(db, env))
     }
 
     /// Prepares the state and env for the given [`TransactionRequest`] at the given [`BlockId`] and
@@ -69,7 +66,7 @@ pub trait SeismicCall: Call + LoadPendingBlock {
     /// the given [`BlockId`] and with configured call settings: `prepare_call_env`.
     fn spawn_with_call_at<F, R>(
         &self,
-        request: TransactionSignedEcRecovered,
+        tx: TransactionSignedEcRecovered,
         at: BlockId,
         f: F,
     ) -> impl Future<Output = Result<R, Self::Error>> + Send
@@ -92,7 +89,7 @@ pub trait SeismicCall: Call + LoadPendingBlock {
                     &this,
                     cfg,
                     block_env,
-                    request,
+                    tx,
                     this.call_gas_limit(),
                     &mut db,
                 )?;
@@ -108,7 +105,7 @@ pub trait SeismicCall: Call + LoadPendingBlock {
         &self,
         mut cfg: CfgEnvWithHandlerCfg,
         block: BlockEnv,
-        request: TransactionSignedEcRecovered,
+        tx: TransactionSignedEcRecovered,
         gas_limit: u64,
         db: &mut CacheDB<DB>,
     ) -> Result<EnvWithHandlerCfg, Self::Error>
@@ -116,15 +113,15 @@ pub trait SeismicCall: Call + LoadPendingBlock {
         DB: DatabaseRef,
         EthApiError: From<<DB as DatabaseRef>::Error>,
     {
-        // we want to disable this in eth_call, since this is common practice used by other node
+        // we want to disable this in seismic_call, since this is common practice used by other node
         // impls and providers <https://github.com/foundry-rs/foundry/issues/4388>
         cfg.disable_block_gas_limit = true;
 
-        // Disabled because eth_call is sometimes used with eoa senders
+        // Disabled because seismic_call is sometimes used with eoa senders
         // See <https://github.com/paradigmxyz/reth/issues/1959>
         cfg.disable_eip3607 = true;
 
-        // The basefee should be ignored for eth_call
+        // The basefee should be ignored for seismic_call
         // See:
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
         cfg.disable_base_fee = true;
@@ -135,10 +132,10 @@ pub trait SeismicCall: Call + LoadPendingBlock {
         // set nonce to None so that the correct nonce is chosen by the EVM
         // request.nonce = None;
 
-        let request_gas = request.gas_limit();
-        let mut env = SeismicCall::build_call_evm_env(self, cfg, block, request)?;
+        let request_gas = tx.gas_limit();
+        let mut env = SeismicCall::build_call_evm_env(self, cfg, block, tx)?;
 
-        if request_gas.is_none() {
+        if request_gas == 0 {
             // No gas limit was provided in the request, so we need to cap the transaction gas limit
             if env.tx.gas_price > U256::ZERO {
                 // If gas price is specified, cap transaction gas limit with caller allowance
@@ -159,16 +156,16 @@ pub trait SeismicCall: Call + LoadPendingBlock {
     }
 
     /// Creates a new [`EnvWithHandlerCfg`] to be used for executing the [`TransactionRequest`] in
-    /// `eth_call`.
+    /// `seismic_call`.
     ///
     /// Note: this does _not_ access the Database to check the sender.
     fn build_call_evm_env(
         &self,
         cfg: CfgEnvWithHandlerCfg,
         block: BlockEnv,
-        request: TransactionSignedEcRecovered,
+        tx: TransactionSignedEcRecovered,
     ) -> Result<EnvWithHandlerCfg, Self::Error> {
-        let tx = SeismicCall::create_txn_env(self, &block, request)?;
+        let tx = SeismicCall::create_txn_env(self, &block, tx)?;
         Ok(EnvWithHandlerCfg::new_with_cfg_env(cfg, block, tx))
     }
 
@@ -179,29 +176,41 @@ pub trait SeismicCall: Call + LoadPendingBlock {
     fn create_txn_env(
         &self,
         block_env: &BlockEnv,
-        request: TransactionSignedEcRecovered,
+        tx: TransactionSignedEcRecovered,
     ) -> Result<TxEnv, Self::Error> {
         // Ensure that if versioned hashes are set, they're not empty
-        if request.transaction.blob_versioned_hashes().as_ref().map_or(false, |hashes| hashes.is_empty()) {
+        if tx.transaction.blob_versioned_hashes().as_ref().map_or(false, |hashes| hashes.is_empty())
+        {
             return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err())
         }
 
+        let from = Some(tx.signer());
+        let to = Some(tx.transaction.kind());
+        let gas_price = Some(tx.transaction.gas_price());
+        let max_fee_per_gas = Some(tx.transaction.max_fee_per_gas());
+        let max_priority_fee_per_gas = tx.transaction.max_priority_fee_per_gas();
+        let gas = Some(tx.transaction.gas_limit());
+        let value = Some(tx.transaction.value());
+        let input = Some(tx.transaction.input().clone());
+        let nonce = Some(tx.transaction.nonce());
+        let access_list = tx.transaction.access_list().map(|x| x.clone());
+        let chain_id = tx.transaction.chain_id();
+        let blob_versioned_hashes = tx.transaction.blob_versioned_hashes();
+        let max_fee_per_blob_gas = tx.transaction.max_fee_per_blob_gas();
+        let authorization_list = tx.transaction.authorization_list().clone();
+
         let CallFees { max_priority_fee_per_gas, gas_price, max_fee_per_blob_gas } =
             CallFees::ensure_fees(
-                Some(U256::from(request.transaction.gas_price())),
-                Some(U256::from(request.transaction.max_fee_per_gas())),
-                request.max_priority_fee_per_gas().map(U256::from),
+                gas_price.map(U256::from),
+                max_fee_per_gas.map(U256::from),
+                max_priority_fee_per_gas.map(U256::from),
                 block_env.basefee,
-                request.transaction.blob_versioned_hashes().as_deref(),
-                request.transaction.max_fee_per_blob_gas().map(U256::from),
+                blob_versioned_hashes.as_deref(),
+                max_fee_per_blob_gas.map(U256::from),
                 block_env.get_blob_gasprice().map(U256::from),
             )?;
 
-            let gas_limit = if request.transaction.gas_limit() == 0 {
-                block_env.gas_limit.min(U256::from(u64::MAX)).to()
-            } else {
-                request.transaction.gas_limit()
-            };
+        let gas_limit = gas.unwrap_or_else(|| block_env.gas_limit.min(U256::from(u64::MAX)).to());
 
         #[allow(clippy::needless_update)]
         let env = TxEnv {
@@ -209,20 +218,20 @@ pub trait SeismicCall: Call + LoadPendingBlock {
                 .try_into()
                 .map_err(|_| RpcInvalidTransactionError::GasUintOverflow)
                 .map_err(Self::Error::from_eth_err)?,
-            nonce: Some(request.transaction.nonce()),
-            caller: request.signer(),   // Caller must be the signer
+            nonce,
+            caller: from.unwrap_or_default(),
             gas_price,
             gas_priority_fee: max_priority_fee_per_gas,
-            transact_to: request.transaction.kind(),
-            value: request.transaction.value(),
-            data: *request.transaction.input(),
-            chain_id: request.transaction.chain_id(),
-            access_list: request.transaction.access_list().map_or(vec![], |access_list| access_list.clone().into()),
+            transact_to: to.unwrap_or(TxKind::Create),
+            value: value.unwrap_or_default(),
+            data: input.unwrap_or_default(),
+            chain_id,
+            access_list: access_list.unwrap_or_default().into(),
             // EIP-4844 fields
-            blob_hashes: request.transaction.blob_versioned_hashes().unwrap_or_default(),
+            blob_hashes: blob_versioned_hashes.unwrap_or_default(),
             max_fee_per_blob_gas,
             // EIP-7702 fields
-            authorization_list: request.transaction.authorization_list().map(|list| *<&[SignedAuthorization] as Into<AuthorizationList>>::into(list.clone())),
+            authorization_list: authorization_list.map(|x| x.to_vec().into()),
             ..Default::default()
         };
 
