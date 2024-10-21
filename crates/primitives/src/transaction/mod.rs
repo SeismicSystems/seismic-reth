@@ -296,6 +296,21 @@ impl Transaction {
         }
     }
 
+    /// Get the gas price of the transaction. This matches the conversion from Transaction to TxEnv
+    /// for REVM purposes.
+    pub const fn gas_price(&self) -> u128 {
+        match self {
+            Self::Legacy(tx) => tx.gas_price,
+            Self::Eip2930(tx) => tx.gas_price,
+            Self::Eip1559(tx) => tx.max_fee_per_gas,
+            Self::Eip4844(tx) => tx.max_fee_per_gas,
+            Self::Eip7702(tx) => tx.max_fee_per_gas,
+            #[cfg(feature = "optimism")]
+            Self::Deposit(_) => 0,
+            Self::Seismic(tx) => *tx.gas_price(),
+        }
+    }
+
     /// Returns true if the tx supports dynamic fees
     pub const fn is_dynamic_fee(&self) -> bool {
         match self {
@@ -686,6 +701,14 @@ impl Transaction {
     pub const fn as_eip7702(&self) -> Option<&TxEip7702> {
         match self {
             Self::Eip7702(tx) => Some(tx),
+            _ => None,
+        }
+    }
+
+    /// Returns the [`TxSeismic`] variant if the transaction is an EIP-7702 transaction.
+    pub const fn as_seismic(&self) -> Option<&TxSeismic> {
+        match self {
+            Self::Seismic(tx) => Some(tx),
             _ => None,
         }
     }
