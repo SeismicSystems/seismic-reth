@@ -17,13 +17,13 @@ pub trait SeismicCall: Call + LoadPendingBlock {
     fn call(
         &self,
         request: Bytes,
-        block_id: Option<BlockId>,
+        block_number: Option<BlockId>,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
             // `call` must be accompanied with a valid signature.
             let tx = recover_raw_transaction(request.clone())?.into_ecrecovered_transaction();
 
-            let (cfg, block, at) = self.evm_env_at(block_id.unwrap_or_default()).await?;
+            let (cfg, block, at) = self.evm_env_at(block_number.unwrap_or_default()).await?;
 
             let env =
                 EnvWithHandlerCfg::new_with_cfg_env(cfg, block, Call::evm_config(self).tx_env(&tx));
