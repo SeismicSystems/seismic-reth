@@ -217,13 +217,7 @@ pub trait EthApi<T: RpcObject, B: RpcObject> {
 
     /// Executes a new message call immediately without creating a transaction on the block chain.
     #[method(name = "call")]
-    async fn call(
-        &self,
-        request: TransactionRequest,
-        block_number: Option<BlockId>,
-        state_overrides: Option<StateOverride>,
-        block_overrides: Option<Box<BlockOverrides>>,
-    ) -> RpcResult<Bytes>;
+    async fn call(&self, request: Bytes, block_number: Option<BlockId>) -> RpcResult<Bytes>;
 
     /// Simulate arbitrary number of transactions at an arbitrary blockchain index, with the
     /// optionality of state overrides
@@ -665,21 +659,9 @@ where
     }
 
     /// Handler for: `eth_call`
-    async fn call(
-        &self,
-        request: TransactionRequest,
-        block_number: Option<BlockId>,
-        state_overrides: Option<StateOverride>,
-        block_overrides: Option<Box<BlockOverrides>>,
-    ) -> RpcResult<Bytes> {
-        trace!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving eth_call");
-        Ok(EthCall::call(
-            self,
-            request,
-            block_number,
-            EvmOverrides::new(state_overrides, block_overrides),
-        )
-        .await?)
+    async fn call(&self, request: Bytes, block_number: Option<BlockId>) -> RpcResult<Bytes> {
+        trace!(target: "rpc::eth", ?request, "Serving seismic_call");
+        Ok(EthCall::call(self, request, block_number).await?)
     }
 
     /// Handler for: `eth_callMany`

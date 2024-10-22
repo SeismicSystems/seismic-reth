@@ -237,10 +237,8 @@ pub trait EngineEthApi<B: RpcObject> {
     #[method(name = "call")]
     async fn call(
         &self,
-        request: TransactionRequest,
+        request: Bytes,
         block_number: Option<BlockId>,
-        state_overrides: Option<StateOverride>,
-        block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes>;
 
     /// Returns code at a given address at given block number.

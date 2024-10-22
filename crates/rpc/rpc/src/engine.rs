@@ -68,13 +68,11 @@ where
     /// Handler for: `eth_call`
     async fn call(
         &self,
-        request: TransactionRequest,
+        request: Bytes,
         block_number: Option<BlockId>,
-        state_overrides: Option<StateOverride>,
-        block_overrides: Option<Box<BlockOverrides>>,
     ) -> Result<Bytes> {
         self.eth
-            .call(request, block_number, state_overrides, block_overrides)
+            .call(request, block_number)
             .instrument(engine_span!())
             .await
     }

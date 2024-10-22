@@ -181,7 +181,7 @@ where
         .unwrap();
     EthApiClient::<Transaction, Block>::block_number(client).await.unwrap();
     EthApiClient::<Transaction, Block>::get_code(client, address, None).await.unwrap();
-    EthApiClient::<Transaction, Block>::send_raw_transaction(client, tx).await.unwrap();
+    EthApiClient::<Transaction, Block>::send_raw_transaction(client, tx.clone()).await.unwrap();
     EthApiClient::<Transaction, Block>::fee_history(client, U64::from(0), block_number, None)
         .await
         .unwrap();
@@ -244,10 +244,8 @@ where
     .unwrap();
     EthApiClient::<Transaction, Block>::call(
         client,
-        call_request.clone(),
+        tx.clone(),
         Some(block_number.into()),
-        None,
-        None,
     )
     .await
     .unwrap();
