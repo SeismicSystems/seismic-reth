@@ -22,8 +22,7 @@ use tracing::trace;
 use crate::{
     helpers::{
         EthApiSpec, EthBlocks, EthCall, EthFees, EthState, EthTransactions, FullEthApi, LoadState,
-    },
-    RpcBlock, RpcTransaction,
+    }, types::RPCSeismicTransactionRequest, RpcBlock, RpcTransaction
 };
 
 /// Helper trait, unifies functionality that must be supported to implement all RPC methods for
@@ -323,7 +322,7 @@ pub trait EthApi<T: RpcObject, B: RpcObject> {
     /// Sends transaction; will block waiting for signer to return the
     /// transaction hash.
     #[method(name = "sendTransaction")]
-    async fn send_transaction(&self, request: TransactionRequest) -> RpcResult<B256>;
+    async fn send_transaction(&self, request: RPCSeismicTransactionRequest) -> RpcResult<B256>;
 
     /// Sends signed transaction, returning its hash.
     #[method(name = "sendRawTransaction")]
@@ -780,7 +779,7 @@ where
     }
 
     /// Handler for: `eth_sendTransaction`
-    async fn send_transaction(&self, request: TransactionRequest) -> RpcResult<B256> {
+    async fn send_transaction(&self, request: RPCSeismicTransactionRequest) -> RpcResult<B256> {
         trace!(target: "rpc::eth", ?request, "Serving eth_sendTransaction");
         Ok(EthTransactions::send_transaction(self, request).await?)
     }

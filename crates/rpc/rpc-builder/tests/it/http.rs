@@ -20,6 +20,7 @@ use reth_rpc_api::{
     DebugApiClient, EthFilterApiClient, NetApiClient, OtterscanClient, TraceApiClient,
     Web3ApiClient,
 };
+use reth_rpc_eth_api::types::RPCSeismicTransactionRequest;
 use reth_rpc_server_types::RethRpcModule;
 use reth_rpc_types::{
     trace::filter::TraceFilter, Block, FeeHistory, Filter, Index, Log,
@@ -157,7 +158,7 @@ where
     let tx_hash = TxHash::default();
     let block_number = BlockNumberOrTag::default();
     let call_request = TransactionRequest::default();
-    let transaction_request = TransactionRequest::default();
+    let transaction_request = RPCSeismicTransactionRequest::default();
     let bytes = Bytes::default();
     let tx = Bytes::from(hex!("02f871018303579880850555633d1b82520894eee27662c2b8eba3cd936a23f039f3189633e4c887ad591c62bdaeb180c080a07ea72c68abfb8fca1bd964f0f99132ed9280261bdca3e549546c0205e800f7d0a05b4ef3039e9c9b9babc179a1878fb825b5aaf5aed2fa8744854150157b08d6f3"));
     let typed_data = serde_json::from_str(

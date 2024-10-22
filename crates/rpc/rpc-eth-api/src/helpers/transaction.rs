@@ -14,14 +14,14 @@ use reth_rpc_eth_types::{
 use reth_rpc_types::{
     transaction::{
         EIP1559TransactionRequest, EIP2930TransactionRequest, EIP4844TransactionRequest,
-        LegacyTransactionRequest,
+        LegacyTransactionRequest, SeismicTransactionRequest,
     },
     AnyTransactionReceipt, TransactionInfo, TransactionRequest, TypedTransactionRequest,
 };
 use reth_rpc_types_compat::transaction::from_recovered_with_block_context;
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
 
-use crate::{FromEthApiError, IntoEthApiError, RpcTransaction};
+use crate::{types::RPCSeismicTransactionRequest, FromEthApiError, IntoEthApiError, RpcTransaction};
 
 use super::{
     Call, EthApiSpec, EthSigner, LoadBlock, LoadFee, LoadPendingBlock, LoadReceipt, SpawnBlocking,
@@ -261,12 +261,13 @@ pub trait EthTransactions: LoadTransaction {
     /// Returns the hash of the signed transaction.
     fn send_transaction(
         &self,
-        mut request: TransactionRequest,
+        request_with_seismic_fields: RPCSeismicTransactionRequest,
     ) -> impl Future<Output = Result<B256, Self::Error>> + Send
     where
         Self: EthApiSpec + LoadBlock + LoadPendingBlock + LoadFee + Call,
     {
         async move {
+            let mut request = request_with_seismic_fields.request;
             let from = match request.from {
                 Some(from) => from,
                 None => return Err(SignError::NoAccount.into_eth_err()),
@@ -306,96 +307,112 @@ pub trait EthTransactions: LoadTransaction {
             } = request;
 
             // todo: remove this inlining after https://github.com/alloy-rs/alloy/pull/183#issuecomment-1928161285
-            let transaction = match (
-                gas_price,
-                max_fee_per_gas,
-                access_list.take(),
-                max_fee_per_blob_gas,
-                blob_versioned_hashes,
-                sidecar,
-            ) {
-                // legacy transaction
-                // gas price required
-                (Some(_), None, None, None, None, None) => {
-                    Some(TypedTransactionRequest::Legacy(LegacyTransactionRequest {
-                        nonce: nonce.unwrap_or_default(),
-                        gas_price: U256::from(gas_price.unwrap_or_default()),
-                        gas_limit: U256::from(gas.unwrap_or_default()),
-                        value: value.unwrap_or_default(),
-                        input: data.into_input().unwrap_or_default(),
-                        kind: to.unwrap_or(TxKind::Create),
-                        chain_id: None,
-                    }))
-                }
-                // EIP2930
-                // if only accesslist is set, and no eip1599 fees
-                (_, None, Some(access_list), None, None, None) => {
-                    Some(TypedTransactionRequest::EIP2930(EIP2930TransactionRequest {
-                        nonce: nonce.unwrap_or_default(),
-                        gas_price: U256::from(gas_price.unwrap_or_default()),
-                        gas_limit: U256::from(gas.unwrap_or_default()),
-                        value: value.unwrap_or_default(),
-                        input: data.into_input().unwrap_or_default(),
-                        kind: to.unwrap_or(TxKind::Create),
-                        chain_id: 0,
-                        access_list,
-                    }))
-                }
-                // EIP1559
-                // if 4844 fields missing
-                // gas_price, max_fee_per_gas, access_list, max_fee_per_blob_gas,
-                // blob_versioned_hashes, sidecar,
-                (None, _, _, None, None, None) => {
-                    // Empty fields fall back to the canonical transaction schema.
-                    Some(TypedTransactionRequest::EIP1559(EIP1559TransactionRequest {
-                        nonce: nonce.unwrap_or_default(),
-                        max_fee_per_gas: U256::from(max_fee_per_gas.unwrap_or_default()),
-                        max_priority_fee_per_gas: U256::from(
-                            max_priority_fee_per_gas.unwrap_or_default(),
-                        ),
-                        gas_limit: U256::from(gas.unwrap_or_default()),
-                        value: value.unwrap_or_default(),
-                        input: data.into_input().unwrap_or_default(),
-                        kind: to.unwrap_or(TxKind::Create),
-                        chain_id: 0,
-                        access_list: access_list.unwrap_or_default(),
-                    }))
-                }
-                // EIP4884
-                // all blob fields required
-                (
-                    None,
-                    _,
-                    _,
-                    Some(max_fee_per_blob_gas),
-                    Some(blob_versioned_hashes),
-                    Some(sidecar),
-                ) => {
-                    // As per the EIP, we follow the same semantics as EIP-1559.
-                    Some(TypedTransactionRequest::EIP4844(EIP4844TransactionRequest {
-                        chain_id: 0,
-                        nonce: nonce.unwrap_or_default(),
-                        max_priority_fee_per_gas: U256::from(
-                            max_priority_fee_per_gas.unwrap_or_default(),
-                        ),
-                        max_fee_per_gas: U256::from(max_fee_per_gas.unwrap_or_default()),
-                        gas_limit: U256::from(gas.unwrap_or_default()),
-                        value: value.unwrap_or_default(),
-                        input: data.into_input().unwrap_or_default(),
-                        to: match to {
-                            Some(TxKind::Call(to)) => to,
-                            _ => Address::default(),
-                        },
-                        access_list: access_list.unwrap_or_default(),
-
-                        // eip-4844 specific.
-                        max_fee_per_blob_gas: U256::from(max_fee_per_blob_gas),
+            let transaction = match request_with_seismic_fields.seismic_fields {
+                None => {
+                    match (
+                        gas_price,
+                        max_fee_per_gas,
+                        access_list.take(),
+                        max_fee_per_blob_gas,
                         blob_versioned_hashes,
                         sidecar,
-                    }))
+                    ) {
+                        (Some(_), None, None, None, None, None) => {
+                            Some(TypedTransactionRequest::Legacy(LegacyTransactionRequest {
+                                nonce: nonce.unwrap_or_default(),
+                                gas_price: U256::from(gas_price.unwrap_or_default()),
+                                gas_limit: U256::from(gas.unwrap_or_default()),
+                                value: value.unwrap_or_default(),
+                                input: data.into_input().unwrap_or_default(),
+                                kind: to.unwrap_or(TxKind::Create),
+                                chain_id: None,
+                            }))
+                        }
+                        // EIP2930
+                        // if only accesslist is set, and no eip1599 fees
+                        (_, None, Some(access_list), None, None, None) => {
+                            Some(TypedTransactionRequest::EIP2930(EIP2930TransactionRequest {
+                                nonce: nonce.unwrap_or_default(),
+                                gas_price: U256::from(gas_price.unwrap_or_default()),
+                                gas_limit: U256::from(gas.unwrap_or_default()),
+                                value: value.unwrap_or_default(),
+                                input: data.into_input().unwrap_or_default(),
+                                kind: to.unwrap_or(TxKind::Create),
+                                chain_id: 0,
+                                access_list,
+                            }))
+                        }
+                        // EIP1559
+                        // if 4844 fields missing
+                        // gas_price, max_fee_per_gas, access_list, max_fee_per_blob_gas,
+                        // blob_versioned_hashes, sidecar,
+                        (None, _, _, None, None, None) => {
+                            // Empty fields fall back to the canonical transaction schema.
+                            Some(TypedTransactionRequest::EIP1559(EIP1559TransactionRequest {
+                                nonce: nonce.unwrap_or_default(),
+                                max_fee_per_gas: U256::from(max_fee_per_gas.unwrap_or_default()),
+                                max_priority_fee_per_gas: U256::from(
+                                    max_priority_fee_per_gas.unwrap_or_default(),
+                                ),
+                                gas_limit: U256::from(gas.unwrap_or_default()),
+                                value: value.unwrap_or_default(),
+                                input: data.into_input().unwrap_or_default(),
+                                kind: to.unwrap_or(TxKind::Create),
+                                chain_id: 0,
+                                access_list: access_list.unwrap_or_default(),
+                            }))
+                        }
+                        // EIP4884
+                        // all blob fields required
+                        (
+                            None,
+                            _,
+                            _,
+                            Some(max_fee_per_blob_gas),
+                            Some(blob_versioned_hashes),
+                            Some(sidecar),
+                        ) => {
+                            // As per the EIP, we follow the same semantics as EIP-1559.
+                            Some(TypedTransactionRequest::EIP4844(EIP4844TransactionRequest {
+                                chain_id: 0,
+                                nonce: nonce.unwrap_or_default(),
+                                max_priority_fee_per_gas: U256::from(
+                                    max_priority_fee_per_gas.unwrap_or_default(),
+                                ),
+                                max_fee_per_gas: U256::from(max_fee_per_gas.unwrap_or_default()),
+                                gas_limit: U256::from(gas.unwrap_or_default()),
+                                value: value.unwrap_or_default(),
+                                input: data.into_input().unwrap_or_default(),
+                                to: match to {
+                                    Some(TxKind::Call(to)) => to,
+                                    _ => Address::default(),
+                                },
+                                access_list: access_list.unwrap_or_default(),
+
+                                // eip-4844 specific.
+                                max_fee_per_blob_gas: U256::from(max_fee_per_blob_gas),
+                                blob_versioned_hashes,
+                                sidecar,
+                            }))
+                        }
+
+                        _ => None,
+                    }
+                    // legacy transaction
+                    // gas price required
                 }
 
-                _ => None,
+                Some(seismic_fields) => {
+                    Some(TypedTransactionRequest::Seismic(SeismicTransactionRequest {
+                        nonce: nonce.unwrap_or_default(),
+                        gas_price: U256::from(gas_price.unwrap_or_default()),
+                        gas_limit: U256::from(gas.unwrap_or_default()),
+                        value: value.unwrap_or_default(),
+                        encrypted_input: seismic_fields.encrypted_input,
+                        kind: to.unwrap_or(TxKind::Create),
+                        chain_id: 0,
+                    }))
+                }
             };
 
             let transaction = match transaction {
@@ -448,7 +465,7 @@ pub trait EthTransactions: LoadTransaction {
                 }
                 Some(TypedTransactionRequest::Seismic(mut req)) => {
                     req.chain_id = chain_id.to();
-                    req.gas_limit = gas_limit.saturating_to();
+                    req.gas_limit = gas_limit.saturating_to(); // TODO estimated gas need to use decrypted input
                     req.gas_price = self.legacy_gas_price(gas_price.map(U256::from)).await?;
 
                     TypedTransactionRequest::Seismic(req)
