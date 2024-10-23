@@ -243,13 +243,9 @@ where
     )
     .await
     .unwrap();
-    EthApiClient::<Transaction, Block>::call(
-        client,
-        tx.clone(),
-        Some(block_number.into()),
-    )
-    .await
-    .unwrap();
+    EthApiClient::<Transaction, Block>::call(client, tx.clone(), Some(block_number.into()))
+        .await
+        .unwrap();
     EthApiClient::<Transaction, Block>::syncing(client).await.unwrap();
     EthApiClient::<Transaction, Block>::send_transaction(client, transaction_request)
         .await
