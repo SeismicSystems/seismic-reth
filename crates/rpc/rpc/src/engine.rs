@@ -6,8 +6,7 @@ use reth_rpc_api::{EngineEthApiServer, EthApiServer, EthFilterApiServer};
 pub use reth_rpc_engine_api::EngineApi;
 use reth_rpc_eth_api::{EthApiTypes, RpcBlock, RpcTransaction};
 use reth_rpc_types::{
-    EIP1186AccountProofResponse, Filter, JsonStorageKey, Log,
-    SyncStatus, WithOtherFields,
+    EIP1186AccountProofResponse, Filter, JsonStorageKey, Log, SyncStatus, WithOtherFields,
 };
 use tracing_futures::Instrument;
 
