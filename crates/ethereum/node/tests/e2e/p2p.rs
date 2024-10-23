@@ -1,7 +1,10 @@
 use crate::utils::eth_payload_attributes;
 use alloy_primitives::{Bytes, TxHash};
 use reth_chainspec::{ChainSpecBuilder, MAINNET};
-use reth_e2e_test_utils::{setup, transaction::{SeismicTransactionTestContext, TransactionTestContext}};
+use reth_e2e_test_utils::{
+    setup,
+    transaction::{SeismicTransactionTestContext, TransactionTestContext},
+};
 use reth_node_ethereum::EthereumNode;
 use std::{io::Read, sync::Arc};
 
@@ -26,7 +29,8 @@ async fn can_sync() -> eyre::Result<()> {
     let mut first_node = nodes.pop().unwrap();
 
     // ==================== first block with regular transfer transaction ========
-    let raw_tx = TransactionTestContext::transfer_tx_bytes(MAINNET.chain.id(), wallet.inner.clone()).await;
+    let raw_tx =
+        TransactionTestContext::transfer_tx_bytes(MAINNET.chain.id(), wallet.inner.clone()).await;
 
     // Make the first node advance
     let tx_hash = first_node.rpc.inject_tx(raw_tx).await?;
@@ -47,7 +51,9 @@ async fn can_sync() -> eyre::Result<()> {
     second_node.assert_new_block(tx_hash, block_hash, 1).await?;
 
     // ==================== second block for encrypted transaction ====================
-    let raw_tx = SeismicTransactionTestContext::deploy_tx_bytes(MAINNET.chain.id(), wallet.inner.clone(), 1).await;
+    let raw_tx =
+        SeismicTransactionTestContext::deploy_tx_bytes(MAINNET.chain.id(), wallet.inner.clone(), 1)
+            .await;
 
     // Make the first node advance
     let tx_hash = first_node.rpc.inject_tx(raw_tx).await?;
@@ -73,7 +79,14 @@ async fn can_sync() -> eyre::Result<()> {
     let deployed_contract_address = tx_receipt.contract_address.unwrap();
     let data: Bytes = vec![3u8; 32].into();
 
-    let raw_tx = SeismicTransactionTestContext::call_tx_bytes(MAINNET.chain.id(), wallet.inner.clone(), 2, deployed_contract_address, data.clone()).await;
+    let raw_tx = SeismicTransactionTestContext::call_tx_bytes(
+        MAINNET.chain.id(),
+        wallet.inner.clone(),
+        2,
+        deployed_contract_address,
+        data.clone(),
+    )
+    .await;
 
     let output = first_node.rpc.call(raw_tx, 2).await?;
 
