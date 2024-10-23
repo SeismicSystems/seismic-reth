@@ -156,7 +156,6 @@ where
         mut transaction: Tx,
     ) -> TransactionValidationOutcome<Tx> {
         // Checks for tx_type
-        let txtype = transaction.tx_type();
         match transaction.tx_type() {
             LEGACY_TX_TYPE_ID => {
                 // Accept legacy transactions
