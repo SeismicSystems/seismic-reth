@@ -13,7 +13,7 @@ use reth_chainspec::{ChainSpec, EthereumHardforks};
 use reth_primitives::{
     constants::eip4844::MAX_BLOBS_PER_BLOCK, GotExpected, InvalidTransactionError, SealedBlock,
     EIP1559_TX_TYPE_ID, EIP2930_TX_TYPE_ID, EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID,
-    LEGACY_TX_TYPE_ID,
+    LEGACY_TX_TYPE_ID, SEISMIC_TX_TYPE_ID,
 };
 use reth_storage_api::{AccountReader, BlockReaderIdExt, StateProviderFactory};
 use reth_tasks::TaskSpawner;
@@ -159,6 +159,9 @@ where
         match transaction.tx_type() {
             LEGACY_TX_TYPE_ID => {
                 // Accept legacy transactions
+            }
+            SEISMIC_TX_TYPE_ID => {
+                // Accept seismic transactions
             }
             EIP2930_TX_TYPE_ID => {
                 // Accept only legacy transactions until EIP-2718/2930 activates

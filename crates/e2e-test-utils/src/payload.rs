@@ -30,7 +30,6 @@ impl<E: EngineTypes> PayloadTestContext<E> {
         self.payload_builder.new_payload(attributes.clone()).await.unwrap();
         Ok(attributes)
     }
-
     /// Asserts that the next event is a payload attributes event
     pub async fn expect_attr_event(
         &mut self,

@@ -221,7 +221,7 @@ impl Transaction {
             Self::Eip1559(dynamic_fee_tx) => dynamic_fee_tx.tx_type(),
             Self::Eip4844(blob_tx) => blob_tx.tx_type(),
             Self::Eip7702(set_code_tx) => set_code_tx.tx_type(),
-            Self::Seismic(legacy_tx) => legacy_tx.tx_type(),
+            Self::Seismic(seismic_tx) => seismic_tx.tx_type(),
             #[cfg(feature = "optimism")]
             Self::Deposit(deposit_tx) => deposit_tx.tx_type(),
         }
@@ -309,6 +309,12 @@ impl Transaction {
             Self::Deposit(_) => 0,
             Self::Seismic(tx) => *tx.gas_price(),
         }
+    }
+
+    /// Get the gas cost of the transaction. This is used in EthPooledTransaction
+    /// for REVM purposes.
+    pub const fn gas_cost(&self) -> u128 {
+        self.gas_price().saturating_mul(self.gas_limit() as u128)
     }
 
     /// Returns true if the tx supports dynamic fees
@@ -817,6 +823,10 @@ impl reth_codecs::Compact for Transaction {
                     4 => {
                         let (tx, buf) = TxEip7702::from_compact(buf, buf.len());
                         (Self::Eip7702(tx), buf)
+                    }
+                    74 => {
+                        let (tx, buf) = TxSeismic::from_compact(buf, buf.len());
+                        (Self::Seismic(tx), buf)
                     }
                     #[cfg(feature = "optimism")]
                     126 => {

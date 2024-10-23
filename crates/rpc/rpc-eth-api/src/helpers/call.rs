@@ -21,6 +21,7 @@ use reth_rpc_eth_types::{
         apply_block_overrides, apply_state_overrides, caller_gas_allowance,
         cap_tx_gas_limit_with_caller_allowance, get_precompiles, CallFees,
     },
+    utils::recover_raw_transaction,
     EthApiError, RevertError, RpcInvalidTransactionError, StateCacheDb,
 };
 use reth_rpc_server_types::constants::gas_oracle::{
@@ -65,13 +66,28 @@ pub trait EthCall: Call + LoadPendingBlock {
     /// Executes the call request (`eth_call`) and returns the output
     fn call(
         &self,
-        request: TransactionRequest,
+        request: Bytes,
         block_number: Option<BlockId>,
-        overrides: EvmOverrides,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
-            let (res, _env) =
-                self.transact_call_at(request, block_number.unwrap_or_default(), overrides).await?;
+            // `call` must be accompanied with a valid signature.
+            let tx = recover_raw_transaction(request.clone())?.into_ecrecovered_transaction();
+
+            let (cfg, block, at) = self.evm_env_at(block_number.unwrap_or_default()).await?;
+
+            let env =
+                EnvWithHandlerCfg::new_with_cfg_env(cfg, block, Call::evm_config(self).tx_env(&tx));
+
+            let this = self.clone();
+
+            let (res, _) = self
+                .spawn_with_state_at_block(at, move |state| {
+                    let db = CacheDB::new(StateProviderDatabase::new(
+                        StateProviderTraitObjWrapper(&state),
+                    ));
+                    this.transact(db, env)
+                })
+                .await?;
 
             ensure_success(res.result).map_err(Self::Error::from_eth_err)
         }
@@ -330,6 +346,7 @@ pub trait Call: LoadState + SpawnBlocking {
     {
         let mut evm = self.evm_config().evm_with_env(db, env);
         let res = evm.transact().map_err(Self::Error::from_evm_err)?;
+        println!("res: {:?}", res);
         let (_, env) = evm.into_db_and_env_with_handler_cfg();
         Ok((res, env))
     }

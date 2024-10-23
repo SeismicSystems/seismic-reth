@@ -4,7 +4,8 @@ use std::error::Error;
 
 use alloy_network::{AnyNetwork, Network};
 use reth_rpc_eth_types::EthApiError;
-use reth_rpc_types::{Block, Transaction, WithOtherFields};
+use reth_rpc_types::{Block, Transaction, TransactionRequest, WithOtherFields};
+use serde::{Deserialize, Serialize};
 
 use crate::{AsEthApiError, FromEthApiError, FromEvmError};
 
@@ -33,3 +34,18 @@ pub type RpcTransaction<T> = <T as Network>::TransactionResponse;
 
 /// Adapter for network specific block type.
 pub type RpcBlock<T> = Block<RpcTransaction<T>>;
+
+/// Seismic specific types
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct SeismicFields {
+    /// Encrypted input data
+    pub encrypted_input: Vec<u8>,
+}
+/// RPC request for seismic transaction
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct RPCSeismicTransactionRequest {
+    /// Transaction request
+    pub request: TransactionRequest,
+    /// Seismic specific fields
+    pub seismic_fields: Option<SeismicFields>,
+}
