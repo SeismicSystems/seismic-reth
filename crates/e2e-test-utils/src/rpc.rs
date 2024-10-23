@@ -38,13 +38,15 @@ where
         let block_id = Some(BlockId::Number(BlockNumberOrTag::Number(block_number.into())));
         eth_api.call(raw_tx, block_id).await
     }
-    
+
     /// get transaction receipt
-    pub async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<AnyTransactionReceipt>, EthApi::Error> {
+    pub async fn get_transaction_receipt(
+        &self,
+        tx_hash: B256,
+    ) -> Result<Option<AnyTransactionReceipt>, EthApi::Error> {
         let eth_api = self.inner.eth_api();
         eth_api.transaction_receipt(tx_hash).await
     }
-
 
     /// Retrieves a transaction envelope by its hash
     pub async fn envelope_by_hash(&self, hash: B256) -> eyre::Result<TxEnvelope> {

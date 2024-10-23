@@ -1,9 +1,6 @@
 use std::ops::Add;
 
-use alloy_consensus::{
-    EnvKzgSettings, SidecarBuilder, SimpleCoder, TxEip4844Variant,
-    TxEnvelope,
-};
+use alloy_consensus::{EnvKzgSettings, SidecarBuilder, SimpleCoder, TxEip4844Variant, TxEnvelope};
 use alloy_network::{
     eip2718::Encodable2718, Ethereum, EthereumWallet, TransactionBuilder, TransactionBuilder4844,
 };
@@ -11,7 +8,9 @@ use alloy_rpc_types::{TransactionInput, TransactionRequest};
 use alloy_signer::Signer;
 use alloy_signer_local::PrivateKeySigner;
 use eyre::Ok;
-use reth_primitives::{hex, Address, Bytes, Transaction, TransactionSigned, TxKind, TxSeismic, B256, U256};
+use reth_primitives::{
+    hex, Address, Bytes, Transaction, TransactionSigned, TxKind, TxSeismic, B256, U256,
+};
 
 /// Helper for transaction operations
 #[derive(Debug)]
@@ -111,10 +110,8 @@ fn tx(chain_id: u64, data: Option<Bytes>, nonce: u64) -> TransactionRequest {
     }
 }
 
-
 pub struct SeismicTransactionTestContext;
 impl SeismicTransactionTestContext {
-
     /// Creates a static transfer and signs it, returning bytes
     pub async fn deploy_tx_bytes(chain_id: u64, wallet: PrivateKeySigner, nonce: u64) -> Bytes {
         // Source code of the contract deployed:
@@ -123,7 +120,7 @@ impl SeismicTransactionTestContext {
 
         // contract A {
         //     uint256 public data;
-        
+
         //     function set(uint256 _data) public returns (uint256) {
         //         data = _data;
         //         return data;
@@ -137,8 +134,13 @@ impl SeismicTransactionTestContext {
     }
 
     /// Creates a static transfer and signs it, returning bytes
-    pub async fn call_tx_bytes(chain_id: u64, wallet: PrivateKeySigner, nonce: u64, address: Address, data: Bytes) -> Bytes {
-
+    pub async fn call_tx_bytes(
+        chain_id: u64,
+        wallet: PrivateKeySigner,
+        nonce: u64,
+        address: Address,
+        data: Bytes,
+    ) -> Bytes {
         let selector = Bytes::from("60fe47b");
         let tx_input = [selector, data].concat();
 
@@ -154,7 +156,6 @@ impl SeismicTransactionTestContext {
         let signature = wallet.sign_hash(&tx.signature_hash()).await.unwrap();
         TransactionSigned::from_transaction_and_signature(tx, signature.into())
     }
-
 }
 
 /// Creates a type 2 transaction
