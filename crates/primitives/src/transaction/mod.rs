@@ -311,7 +311,7 @@ impl Transaction {
         }
     }
 
-    /// Get the gas cost of the transaction. This is used in EthPooledTransaction 
+    /// Get the gas cost of the transaction. This is used in EthPooledTransaction
     /// for REVM purposes.
     pub const fn gas_cost(&self) -> u128 {
         self.gas_price().saturating_mul(self.gas_limit() as u128)
