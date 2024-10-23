@@ -66,15 +66,8 @@ where
     }
 
     /// Handler for: `eth_call`
-    async fn call(
-        &self,
-        request: Bytes,
-        block_number: Option<BlockId>,
-    ) -> Result<Bytes> {
-        self.eth
-            .call(request, block_number)
-            .instrument(engine_span!())
-            .await
+    async fn call(&self, request: Bytes, block_number: Option<BlockId>) -> Result<Bytes> {
+        self.eth.call(request, block_number).instrument(engine_span!()).await
     }
 
     /// Handler for: `eth_getCode`

@@ -324,7 +324,7 @@ where
         );
         PayloadBuilderError::Internal(err.into())
     })?;
-    
+
     // apply eip-2935 blockhashes update
     pre_block_blockhashes_contract_call(
         &mut db,
