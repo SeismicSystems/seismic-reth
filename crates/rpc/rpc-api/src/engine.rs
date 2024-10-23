@@ -235,11 +235,7 @@ pub trait EngineEthApi<B: RpcObject> {
 
     /// Executes a new message call immediately without creating a transaction on the block chain.
     #[method(name = "call")]
-    async fn call(
-        &self,
-        request: Bytes,
-        block_number: Option<BlockId>,
-    ) -> RpcResult<Bytes>;
+    async fn call(&self, request: Bytes, block_number: Option<BlockId>) -> RpcResult<Bytes>;
 
     /// Returns code at a given address at given block number.
     #[method(name = "getCode")]
