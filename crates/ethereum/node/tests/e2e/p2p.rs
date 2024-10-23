@@ -1,8 +1,9 @@
 use crate::utils::eth_payload_attributes;
+use alloy_primitives::{Bytes, TxHash};
 use reth_chainspec::{ChainSpecBuilder, MAINNET};
 use reth_e2e_test_utils::{setup, transaction::{SeismicTransactionTestContext, TransactionTestContext}};
 use reth_node_ethereum::EthereumNode;
-use std::sync::Arc;
+use std::{io::Read, sync::Arc};
 
 #[tokio::test]
 async fn can_sync() -> eyre::Result<()> {
@@ -46,7 +47,7 @@ async fn can_sync() -> eyre::Result<()> {
     second_node.assert_new_block(tx_hash, block_hash, 1).await?;
 
     // ==================== second block for encrypted transaction ====================
-    let raw_tx = SeismicTransactionTestContext::deploy_tx_bytes(MAINNET.chain.id(), wallet.inner, 1).await;
+    let raw_tx = SeismicTransactionTestContext::deploy_tx_bytes(MAINNET.chain.id(), wallet.inner.clone(), 1).await;
 
     // Make the first node advance
     let tx_hash = first_node.rpc.inject_tx(raw_tx).await?;
@@ -65,6 +66,16 @@ async fn can_sync() -> eyre::Result<()> {
 
     // expect second node advanced via p2p gossip
     second_node.assert_new_block(tx_hash, block_hash, 2).await?;
+
+    // ========= testing call =================
+    let tx_receipt = second_node.rpc.get_transaction_receipt(tx_hash).await?.unwrap();
+
+    let deployed_contract_address = tx_receipt.contract_address.unwrap();
+    let data: Bytes = vec![3u8; 32].into();
+
+    let raw_tx = SeismicTransactionTestContext::call_tx_bytes(MAINNET.chain.id(), wallet.inner.clone(), 2, deployed_contract_address, data.clone()).await;
+
+    let output = first_node.rpc.call(raw_tx, 2).await?;
 
     Ok(())
 }

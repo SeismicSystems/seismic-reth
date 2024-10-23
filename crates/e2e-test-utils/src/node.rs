@@ -11,7 +11,7 @@ use reth::{
     payload::PayloadTypes,
     providers::{BlockReader, BlockReaderIdExt, CanonStateSubscriptions, StageCheckpointReader},
     rpc::{
-        api::eth::helpers::{EthApiSpec, EthTransactions, TraceExt},
+        api::eth::helpers::{EthApiSpec, EthTransactions, FullEthApi, TraceExt},
         types::engine::PayloadStatusEnum,
     },
 };
@@ -93,7 +93,7 @@ where
     where
         <Node::Engine as EngineTypes>::ExecutionPayloadV3:
             From<<Node::Engine as PayloadTypes>::BuiltPayload> + PayloadEnvelopeExt,
-        AddOns::EthApi: EthApiSpec + EthTransactions + TraceExt,
+        AddOns::EthApi: EthApiSpec + FullEthApi + TraceExt,
         <AddOns::EthApi as EthApiTypes>::NetworkTypes:
             Network<TransactionResponse = WithOtherFields<alloy_rpc_types::Transaction>>,
     {

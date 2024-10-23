@@ -3,13 +3,13 @@ use alloy_network::{eip2718::Decodable2718, Network};
 use reth::{
     builder::{rpc::RpcRegistry, FullNodeComponents},
     rpc::api::{
-        eth::helpers::{EthApiSpec, EthTransactions, TraceExt},
+        eth::helpers::{EthApiSpec, EthTransactions, FullEthApi, TraceExt},
         DebugApiServer,
     },
 };
 use reth_node_builder::EthApiTypes;
 use reth_primitives::{Bytes, B256};
-use reth_rpc_types::WithOtherFields;
+use reth_rpc_types::{AnyTransactionReceipt, BlockId, BlockNumberOrTag, WithOtherFields};
 
 #[allow(missing_debug_implementations)]
 pub struct RpcTestContext<Node: FullNodeComponents, EthApi: EthApiTypes> {
@@ -20,7 +20,7 @@ impl<Node, EthApi> RpcTestContext<Node, EthApi>
 where
     Node: FullNodeComponents,
     EthApi: EthApiSpec
-        + EthTransactions<
+        + FullEthApi<
             NetworkTypes: Network<
                 TransactionResponse = WithOtherFields<alloy_rpc_types::Transaction>,
             >,
@@ -31,6 +31,20 @@ where
         let eth_api = self.inner.eth_api();
         eth_api.send_raw_transaction(raw_tx).await
     }
+
+    /// call a raw transaction RPC server
+    pub async fn call(&self, raw_tx: Bytes, block_number: u64) -> Result<Bytes, EthApi::Error> {
+        let eth_api = self.inner.eth_api();
+        let block_id = Some(BlockId::Number(BlockNumberOrTag::Number(block_number.into())));
+        eth_api.call(raw_tx, block_id).await
+    }
+    
+    /// get transaction receipt
+    pub async fn get_transaction_receipt(&self, tx_hash: B256) -> Result<Option<AnyTransactionReceipt>, EthApi::Error> {
+        let eth_api = self.inner.eth_api();
+        eth_api.transaction_receipt(tx_hash).await
+    }
+
 
     /// Retrieves a transaction envelope by its hash
     pub async fn envelope_by_hash(&self, hash: B256) -> eyre::Result<TxEnvelope> {

@@ -27,10 +27,9 @@ impl<E: EngineTypes> PayloadTestContext<E> {
     ) -> eyre::Result<E::PayloadBuilderAttributes> {
         self.timestamp += 1;
         let attributes: E::PayloadBuilderAttributes = attributes_generator(self.timestamp);
-        let payload_id = self.payload_builder.new_payload(attributes.clone()).await.unwrap();
+        self.payload_builder.new_payload(attributes.clone()).await.unwrap();
         Ok(attributes)
     }
-
     /// Asserts that the next event is a payload attributes event
     pub async fn expect_attr_event(
         &mut self,

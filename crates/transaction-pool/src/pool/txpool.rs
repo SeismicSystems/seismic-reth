@@ -271,7 +271,6 @@ impl<T: TransactionOrdering> TxPool<T> {
     {
         // First we need to check if the given base fee is different than what's currently being
         // tracked
-        println!("best_transactions_with_attributes {:?}", best_transactions_attributes);
         match best_transactions_attributes.basefee.cmp(&self.all_transactions.pending_fees.base_fee)
         {
             Ordering::Equal => {
