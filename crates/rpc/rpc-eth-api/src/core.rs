@@ -22,7 +22,9 @@ use tracing::trace;
 use crate::{
     helpers::{
         EthApiSpec, EthBlocks, EthCall, EthFees, EthState, EthTransactions, FullEthApi, LoadState,
-    }, types::RPCSeismicTransactionRequest, RpcBlock, RpcTransaction
+    },
+    types::RPCSeismicTransactionRequest,
+    RpcBlock, RpcTransaction,
 };
 
 /// Helper trait, unifies functionality that must be supported to implement all RPC methods for

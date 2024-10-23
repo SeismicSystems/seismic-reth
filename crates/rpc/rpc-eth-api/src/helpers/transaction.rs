@@ -21,7 +21,9 @@ use reth_rpc_types::{
 use reth_rpc_types_compat::transaction::from_recovered_with_block_context;
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
 
-use crate::{types::RPCSeismicTransactionRequest, FromEthApiError, IntoEthApiError, RpcTransaction};
+use crate::{
+    types::RPCSeismicTransactionRequest, FromEthApiError, IntoEthApiError, RpcTransaction,
+};
 
 use super::{
     Call, EthApiSpec, EthSigner, LoadBlock, LoadFee, LoadPendingBlock, LoadReceipt, SpawnBlocking,

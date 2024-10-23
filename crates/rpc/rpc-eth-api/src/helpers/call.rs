@@ -15,10 +15,14 @@ use reth_primitives::{
 use reth_provider::{ChainSpecProvider, StateProvider};
 use reth_revm::{database::StateProviderDatabase, db::CacheDB, DatabaseRef};
 use reth_rpc_eth_types::{
-    cache::db::{StateCacheDbRefMutWrapper, StateProviderTraitObjWrapper}, error::ensure_success, revm_utils::{
+    cache::db::{StateCacheDbRefMutWrapper, StateProviderTraitObjWrapper},
+    error::ensure_success,
+    revm_utils::{
         apply_block_overrides, apply_state_overrides, caller_gas_allowance,
         cap_tx_gas_limit_with_caller_allowance, get_precompiles, CallFees,
-    }, utils::recover_raw_transaction, EthApiError, RevertError, RpcInvalidTransactionError, StateCacheDb
+    },
+    utils::recover_raw_transaction,
+    EthApiError, RevertError, RpcInvalidTransactionError, StateCacheDb,
 };
 use reth_rpc_server_types::constants::gas_oracle::{
     CALL_STIPEND_GAS, ESTIMATE_GAS_ERROR_RATIO, MIN_TRANSACTION_GAS,
