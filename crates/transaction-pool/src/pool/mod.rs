@@ -519,6 +519,8 @@ where
         let mut added =
             transactions.into_iter().map(|tx| self.add_transaction(origin, tx)).collect::<Vec<_>>();
 
+        println!("add_transactions {:?}", added);
+
         // If at least one transaction was added successfully, then we enforce the pool size limits.
         let discarded =
             if added.iter().any(Result::is_ok) { self.discard_worst() } else { Default::default() };

@@ -246,6 +246,8 @@ pub trait EthTransactions: LoadTransaction {
             let pool_transaction =
                 <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
 
+            println!("Pool transaction: {:?}", pool_transaction);
+
             // submit the transaction to the pool with a `Local` origin
             let hash = self
                 .pool()

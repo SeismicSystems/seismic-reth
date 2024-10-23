@@ -58,11 +58,11 @@ pub enum TxType {
     Eip4844 = 3_isize,
     /// EOA Contract Code Transactions - EIP-7702
     Eip7702 = 4_isize,
+    /// Seismic transaction
+    Seismic = 74_isize,
     /// Optimism Deposit transaction.
     #[cfg(feature = "optimism")]
     Deposit = 126_isize,
-    /// Seismic transaction
-    Seismic = 127_isize,
 }
 
 impl TxType {
