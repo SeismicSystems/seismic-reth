@@ -271,9 +271,11 @@ impl<T: TransactionOrdering> TxPool<T> {
     {
         // First we need to check if the given base fee is different than what's currently being
         // tracked
+        println!("best_transactions_with_attributes {:?}", best_transactions_attributes);
         match best_transactions_attributes.basefee.cmp(&self.all_transactions.pending_fees.base_fee)
         {
             Ordering::Equal => {
+                println!("best_transactions_with_attributes equal ");
                 // for EIP-4844 transactions we also need to check if the blob fee is now lower than
                 // what's currently being tracked, if so we need to include transactions from the
                 // blob pool that are valid with the lower blob fee
@@ -284,15 +286,19 @@ impl<T: TransactionOrdering> TxPool<T> {
                     let unlocked_by_blob_fee =
                         self.blob_pool.satisfy_attributes(best_transactions_attributes);
 
+                    println!("best_transactions_with_attributes best_with_unlocked ");
                     Box::new(self.pending_pool.best_with_unlocked(
                         unlocked_by_blob_fee,
                         self.all_transactions.pending_fees.base_fee,
                     ))
                 } else {
+                    println!("best_transactions_with_attributes best ");
+                    println!("best_transactions_with_attributes pending pool size {:?}", self.pending_pool.size());  
                     Box::new(self.pending_pool.best())
                 }
             }
             Ordering::Greater => {
+                println!("best_transactions_with_attributes greater ");
                 // base fee increased, we only need to enforce this on the pending pool
                 Box::new(self.pending_pool.best_with_basefee_and_blobfee(
                     best_transactions_attributes.basefee,
@@ -300,6 +306,7 @@ impl<T: TransactionOrdering> TxPool<T> {
                 ))
             }
             Ordering::Less => {
+                println!("best_transactions_with_attributes less ");
                 // base fee decreased, we need to move transactions from the basefee + blob pool to
                 // the pending pool that might be unlocked by the lower base fee
                 let mut unlocked = self
@@ -1672,7 +1679,9 @@ impl<T: PoolTransaction> AllTransactions<T> {
 
         self.update_size_metrics();
 
-        Ok(InsertOk { transaction, move_to: state.into(), state, replaced_tx, updates })
+        let res = Ok(InsertOk { transaction, move_to: state.into(), state, replaced_tx, updates });
+        println!("InsertOk: {:?}", res);
+        res
     }
 
     /// Number of transactions in the entire pool

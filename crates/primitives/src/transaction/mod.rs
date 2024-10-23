@@ -824,6 +824,10 @@ impl reth_codecs::Compact for Transaction {
                         let (tx, buf) = TxEip7702::from_compact(buf, buf.len());
                         (Self::Eip7702(tx), buf)
                     }
+                    74 => {
+                        let (tx, buf) = TxSeismic::from_compact(buf, buf.len());
+                        (Self::Seismic(tx), buf)
+                    }
                     #[cfg(feature = "optimism")]
                     126 => {
                         let (tx, buf) = TxDeposit::from_compact(buf, buf.len());

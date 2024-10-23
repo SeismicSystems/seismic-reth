@@ -127,6 +127,7 @@ where
     {
         // trigger new payload building draining the pool
         let eth_attr = self.payload.new_payload(attributes_generator).await.unwrap();
+        println!("new_payload {:?}", eth_attr);
         // first event is the payload attributes
         self.payload.expect_attr_event(eth_attr.clone()).await?;
         // wait for the payload builder to have finished building

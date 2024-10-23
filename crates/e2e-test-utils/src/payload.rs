@@ -27,7 +27,7 @@ impl<E: EngineTypes> PayloadTestContext<E> {
     ) -> eyre::Result<E::PayloadBuilderAttributes> {
         self.timestamp += 1;
         let attributes: E::PayloadBuilderAttributes = attributes_generator(self.timestamp);
-        self.payload_builder.new_payload(attributes.clone()).await.unwrap();
+        let payload_id = self.payload_builder.new_payload(attributes.clone()).await.unwrap();
         Ok(attributes)
     }
 
@@ -49,6 +49,7 @@ impl<E: EngineTypes> PayloadTestContext<E> {
     pub async fn wait_for_built_payload(&self, payload_id: PayloadId) {
         loop {
             let payload = self.payload_builder.best_payload(payload_id).await.unwrap().unwrap();
+            // println!("wait_for_built_payload {:?}", payload);
             if payload.block().body.is_empty() {
                 tokio::time::sleep(std::time::Duration::from_millis(20)).await;
                 continue

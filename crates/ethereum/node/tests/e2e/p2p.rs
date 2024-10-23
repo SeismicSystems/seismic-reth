@@ -1,5 +1,5 @@
 use crate::utils::eth_payload_attributes;
-use reth_chainspec::{ChainSpecBuilder, MAINNET};
+use reth_chainspec::{ChainSpecBuilder, DEV};
 use reth_e2e_test_utils::{setup, transaction::{SeismicTransactionTestContext, TransactionTestContext}};
 use reth_node_ethereum::EthereumNode;
 use std::sync::Arc;
@@ -12,7 +12,7 @@ async fn can_sync() -> eyre::Result<()> {
         2,
         Arc::new(
             ChainSpecBuilder::default()
-                .chain(MAINNET.chain)
+                .chain(DEV.chain)
                 .genesis(serde_json::from_str(include_str!("../assets/genesis.json")).unwrap())
                 .cancun_activated()
                 .build(),
@@ -47,7 +47,7 @@ async fn can_sync() -> eyre::Result<()> {
 
     // second block for encrypted transaction
 
-    let raw_tx = SeismicTransactionTestContext::deploy_tx_bytes(1, wallet.inner).await;
+    let raw_tx = SeismicTransactionTestContext::deploy_tx_bytes(DEV.chain.id(), wallet.inner, 0).await;
 
     // Make the first node advance
     let tx_hash = first_node.rpc.inject_tx(raw_tx).await?;

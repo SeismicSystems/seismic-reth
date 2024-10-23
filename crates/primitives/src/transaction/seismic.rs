@@ -237,7 +237,7 @@ impl reth_codecs::Compact for TxSeismic {
     }
     fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
         let (decrypted_tx, buf) = DecryptedTx::from_compact(buf, len);
-        return (TxSeismic::new_from_decrypted_tx(decrypted_tx), &buf[len..]);
+        return (TxSeismic::new_from_decrypted_tx(decrypted_tx), &buf);
     }
 }
 macro_rules! generate_decrypted_getters {

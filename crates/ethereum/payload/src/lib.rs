@@ -273,6 +273,7 @@ where
     Client: StateProviderFactory,
     Pool: TransactionPool,
 {
+    println!("default_ethereum_payload_builder args");
     let BuildArguments { client, pool, mut cached_reads, config, cancel, best_payload } = args;
 
     let state_provider = client.state_by_block_hash(config.parent_block.hash())?;
@@ -324,6 +325,8 @@ where
         );
         PayloadBuilderError::Internal(err.into())
     })?;
+    
+    println!("default_ethereum_payload_builder args 3");
 
     // apply eip-2935 blockhashes update
     pre_block_blockhashes_contract_call(
@@ -339,14 +342,18 @@ where
         PayloadBuilderError::Internal(err.into())
     })?;
 
+    println!("default_ethereum_payload_builder args 4");
+
     let mut receipts = Vec::new();
     while let Some(pool_tx) = best_txs.next() {
+        println!("default_ethereum_payload_builder pool_tx {:?}", pool_tx);
         // ensure we still have capacity for this transaction
         if cumulative_gas_used + pool_tx.gas_limit() > block_gas_limit {
             // we can't fit this transaction into the block, so we need to mark it as invalid
             // which also removes all dependent transaction from the iterator before we can
             // continue
             best_txs.mark_invalid(&pool_tx);
+            println!("default_ethereum_payload_builder invalid pool_tx {:?}", pool_tx);
             continue
         }
 
