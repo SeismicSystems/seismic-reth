@@ -38,10 +38,14 @@ pub type RpcBlock<T> = Block<RpcTransaction<T>>;
 /// Seismic specific types
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct SeismicFields {
+    /// Encrypted input data
     pub encrypted_input: Vec<u8>,
 }
+/// RPC request for seismic transaction
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct RPCSeismicTransactionRequest {
+    /// Transaction request
     pub request: TransactionRequest,
+    /// Seismic specific fields
     pub seismic_fields: Option<SeismicFields>,
 }
