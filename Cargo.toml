@@ -115,7 +115,7 @@ members = [
     "crates/storage/provider/",
     "crates/storage/storage-api/",
     "crates/tasks/",
-    "crates/tee-client/",
+    "crates/tee/",
     "crates/tokio-util/",
     "crates/tracing/",
     "crates/transaction-pool/",
@@ -400,6 +400,7 @@ reth-node-seismic = { path = "crates/seismic/node" }
 reth-rpc-seismic = { path = "crates/seismic/rpc" }
 reth-evm-seismic = { path = "crates/seismic/evm" }
 reth-helpers-seismic = { path = "crates/seismic/helpers" }
+reth-tee ={ path = "crates/tee" }
 
 # revm
 revm = { version = "14.0.0", features = [

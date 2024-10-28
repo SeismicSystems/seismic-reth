@@ -6,15 +6,13 @@
 //! traits define the API and implementation for the TEE client.
 #![allow(async_fn_in_trait)]
 
-mod structs;
-
 use reqwest::Client;
-use structs::{
+use crate::types::{
     IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,
 };
 
 /// Trait for the API of the TEE client
-pub trait TeeClientAPI {
+pub trait TeeAPI {
     /// Encrypts the given data using the public key included in the request
     /// and the private key of the TEE server
     async fn io_encrypt(
@@ -47,7 +45,7 @@ impl TeeHttpClient {
     }
 }
 
-impl TeeClientAPI for TeeHttpClient {
+impl TeeAPI for TeeHttpClient {
     async fn io_encrypt(
         &self,
         payload: IoEncryptionRequest,
@@ -57,7 +55,7 @@ impl TeeClientAPI for TeeHttpClient {
         // Using reqwest's Client to send a POST request
         let response = self
             .client
-            .post(format!("{}/io_encrypt", self.base_url))
+            .post(format!("{}/tx_io_encrypt", self.base_url))
             .header("Content-Type", "application/json")
             .body(payload_json)
             .send()
@@ -81,7 +79,7 @@ impl TeeClientAPI for TeeHttpClient {
         // Using reqwest's Client to send a POST request
         let response = self
             .client
-            .post(format!("{}/io_decrypt", self.base_url))
+            .post(format!("{}/tx_io_decrypt", self.base_url))
             .header("Content-Type", "application/json")
             .body(payload_json)
             .send()
@@ -99,16 +97,18 @@ impl TeeClientAPI for TeeHttpClient {
 
 #[cfg(test)]
 mod tests {
+    use crate::server::build_server;
+
     use super::*;
     use reqwest::Client;
     use secp256k1::PublicKey;
     use serde_json::json;
     use std::{
-        str::FromStr,
-        sync::{Arc, Mutex},
+        net::SocketAddr, str::FromStr, sync::{Arc, Mutex}
     };
-    use tokio::spawn;
+    use tokio::{spawn, task};
     use warp::Filter;
+    use std::process::Command;
 
     #[tokio::test]
     async fn test_io_encrypt() {
@@ -122,8 +122,8 @@ mod tests {
         let mock_dec_response = IoDecryptionResponse { decrypted_data: plaintext.clone() };
 
         let mock_response = json!({
-            "/io_encrypt": serde_json::to_string(&mock_enc_response).unwrap(),
-            "/io_decrypt": serde_json::to_string(&mock_dec_response).unwrap(),
+            "/tx_io_encrypt": serde_json::to_string(&mock_enc_response).unwrap(),
+            "/tx_io_decrypt": serde_json::to_string(&mock_dec_response).unwrap(),
         });
 
         let mock_response = Arc::new(Mutex::new(mock_response));
@@ -179,5 +179,44 @@ mod tests {
         // Test decrypt
         let dec_response = tee_client.io_decrypt(decryption_request.clone()).await.unwrap();
         assert_eq!(dec_response.decrypted_data, plaintext);
+    }
+
+    #[tokio::test]
+    async fn test_encrypt_decrypt_mock_server() {
+
+        println!("server starting");
+        let server = build_server();
+        let addr = server.local_addr();
+        let _ = spawn(server);
+
+        let base_url = format!("http://{}", addr);
+        let tee_client = TeeHttpClient::new(base_url.clone());
+
+        // Original encryption request
+        let plaintext = vec![72, 101, 108, 108, 111]; 
+        let encryption_request = IoEncryptionRequest {
+            msg_sender: PublicKey::from_str(
+                "03e31e68908a6404a128904579c677534d19d0e5db80c7d9cf4de6b4b7fe0518bd",
+            )
+            .unwrap(),
+            data: plaintext.clone(),
+            nonce: 12345678,
+        };
+
+        let enc_response = tee_client.io_encrypt(encryption_request).await.unwrap();
+
+        let decrpytion_request = IoDecryptionRequest {
+            msg_sender: PublicKey::from_str(
+                "03e31e68908a6404a128904579c677534d19d0e5db80c7d9cf4de6b4b7fe0518bd",
+            )
+            .unwrap(),
+            data: enc_response.encrypted_data,
+            nonce: 12345678,
+        };
+
+        let dec_response = tee_client.io_decrypt(decrpytion_request).await.unwrap();
+
+        assert!(dec_response.decrypted_data == plaintext);
+
     }
 }

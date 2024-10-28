@@ -8942,6 +8942,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "reth-tee"
+version = "1.0.6"
+dependencies = [
+ "aes-gcm",
+ "alloy-rlp",
+ "anyhow",
+ "hyper 0.14.30",
+ "once_cell",
+ "reqwest",
+ "routerify",
+ "secp256k1",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "warp",
+]
+
+[[package]]
 name = "reth-testing-utils"
 version = "1.0.6"
 dependencies = [
@@ -9308,6 +9327,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afab94fb28594581f62d981211a9a4d53cc8130bbcbbb89a0440d9b8e81a7746"
 
 [[package]]
+name = "routerify"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "496c1d3718081c45ba9c31fbfc07417900aa96f4070ff90dc29961836b7a9945"
+dependencies = [
+ "http 0.2.12",
+ "hyper 0.14.30",
+ "lazy_static",
+ "percent-encoding",
+ "regex",
+]
+
+[[package]]
 name = "ruint"
 version = "1.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9629,22 +9661,6 @@ checksum = "ea4a292869320c0272d7bc55a5a6aafaff59b4f63404a003887b679a2e05b4b6"
 dependencies = [
  "core-foundation-sys",
  "libc",
-]
-
-[[package]]
-name = "seismic-tee-client"
-version = "1.0.6"
-dependencies = [
- "anyhow",
- "hyper 1.4.1",
- "reqwest",
- "secp256k1",
- "serde",
- "serde_json",
- "tokio",
- "tokio-stream",
- "tracing",
- "warp",
 ]
 
 [[package]]
