@@ -123,7 +123,7 @@ where
         let env = EnvWithHandlerCfg::new_with_cfg_env(
             cfg,
             block,
-            Call::evm_config(self.eth_api()).tx_env(&tx.into_ecrecovered_transaction()),
+            Call::evm_config(self.eth_api()).tx_env(&tx.into_ecrecovered_transaction()).map_err(|_|EthApiError::FailedToDecodeSignedTransaction)?,
         );
 
         let config = TracingInspectorConfig::from_parity_config(&trace_types);

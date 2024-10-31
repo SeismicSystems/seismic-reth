@@ -20,6 +20,8 @@ reth-revm.workspace = true
 reth-ethereum-consensus.workspace = true
 reth-prune-types.workspace = true
 reth-execution-types.workspace = true
+reth-tee.workspace = true
+reth-errors.workspace = true
 
 # Ethereum
 revm-primitives.workspace = true
@@ -27,6 +29,8 @@ revm-primitives.workspace = true
 # Alloy
 alloy-eips.workspace = true
 alloy-sol-types.workspace = true
+
+tokio.workspace = true
 
 [dev-dependencies]
 reth-testing-utils.workspace = true

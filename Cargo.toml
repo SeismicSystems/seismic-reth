@@ -400,7 +400,7 @@ reth-node-seismic = { path = "crates/seismic/node" }
 reth-rpc-seismic = { path = "crates/seismic/rpc" }
 reth-evm-seismic = { path = "crates/seismic/evm" }
 reth-helpers-seismic = { path = "crates/seismic/helpers" }
-reth-tee ={ path = "crates/tee" }
+reth-tee = { path = "crates/tee" }
 
 # revm
 revm = { version = "14.0.0", features = [

@@ -21,6 +21,7 @@ revm-primitives = { workspace = true, features = ["serde"] }
 reth-chainspec = { workspace = true, optional = true }
 reth-codecs = { workspace = true, optional = true }
 reth-optimism-chainspec = { workspace = true, optional = true }
+reth-tee.workspace = true
 
 # ethereum
 alloy-primitives = { workspace = true, features = ["rand", "rlp"] }

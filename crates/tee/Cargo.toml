@@ -30,10 +30,8 @@ tokio = { workspace = true, features = ["full"] }
 aes-gcm = "0.10"
 once_cell.workspace = true
 alloy-rlp = { workspace = true, features = ["arrayvec"] }
+hkdf = "0.12" 
+sha2 = "0.10"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full", "macros"] }
-
-[[bin]]
-name = "tee-server"
-path = "src/bin/server.rs"

@@ -1,0 +1,201 @@
+use aes_gcm::{
+    aead::{generic_array::GenericArray, Aead, AeadCore, KeyInit, OsRng},
+    Aes256Gcm, Key,
+};
+use alloy_rlp::{Decodable, Encodable};
+use anyhow::{anyhow, Error, Result};
+use hkdf::Hkdf;
+use hyper::{body::to_bytes, Body, Request, Response, Server, StatusCode};
+use once_cell::sync::Lazy;
+use routerify::{ext::RequestExt, Middleware, RequestInfo, Router, RouterService};
+use secp256k1::{ecdh::SharedSecret, Keypair, SecretKey};
+use serde_json::json;
+use sha2::Sha256;
+use std::{convert::Infallible, net::SocketAddr, str::FromStr};
+
+use crate::{client::{TeeAPI, TeeError, WalletAPI}, types::{
+    IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,
+}};
+
+struct MockTeeClient {}
+
+impl TeeAPI for MockTeeClient {
+    async fn io_encrypt(
+        &self,
+        payload: IoEncryptionRequest,
+    ) -> Result<IoEncryptionResponse, anyhow::Error> {
+        // load key and decrypt data
+        let ecdh_sk = get_sample_secp256k1_sk();
+        let shared_secret = SharedSecret::new(&payload.msg_sender, &ecdh_sk);
+
+        let aes_key = derive_aes_key(&shared_secret)
+            .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
+        let encrypted_data = aes_encrypt(&aes_key, &payload.data, payload.nonce);
+
+        Ok(IoEncryptionResponse { encrypted_data })
+    }
+
+    async fn io_decrypt(
+        &self,
+        payload: IoDecryptionRequest,
+    ) -> Result<IoDecryptionResponse, anyhow::Error> {
+        // load key and decrypt data
+        let ecdh_sk = get_sample_secp256k1_sk();
+        let shared_secret = SharedSecret::new(&payload.msg_sender, &ecdh_sk);
+
+        let aes_key = derive_aes_key(&shared_secret)
+            .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
+        let decrypted_data = aes_decrypt(&aes_key, &payload.data, payload.nonce).map_err(|e| anyhow!("Decryption error: {:?}", e))?;
+
+        Ok(IoDecryptionResponse { decrypted_data })
+    }
+}
+
+struct MockWallet {}
+impl WalletAPI for MockWallet {
+    fn encrypt(&self, data: &Vec<u8>, nonce: u64, private_key: &secp256k1::SecretKey) -> Result<Vec<u8>, anyhow::Error> {
+        let ecdh_pk = get_sample_secp256k1_pk();
+        let shared_secret = SharedSecret::new(&ecdh_pk, private_key);
+
+        let aes_key = derive_aes_key(&shared_secret)
+            .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
+        let encrypted_data = aes_encrypt(&aes_key, &data, nonce);
+        Ok(encrypted_data)
+    }
+}
+
+pub fn derive_aes_key(shared_secret: &SharedSecret) -> Result<Key<Aes256Gcm>, hkdf::InvalidLength> {
+    // Initialize HKDF with SHA-256
+    let hk = Hkdf::<Sha256>::new(None, &shared_secret.secret_bytes());
+
+    // Output a 32-byte key for AES-256
+    let mut okm = [0u8; 32];
+    hk.expand(b"aes-gcm key", &mut okm)?;
+    Ok(*Key::<Aes256Gcm>::from_slice(&okm))
+}
+
+pub fn aes_encrypt<T: Encodable>(key: &Key<Aes256Gcm>, plaintext: &T, nonce: u64) -> Vec<u8> {
+    let cipher = Aes256Gcm::new(key);
+    let nonce = u64_to_generic_u8_array(nonce);
+
+    // convert the encodable object to a Vec<u8>
+    let mut buf = Vec::new();
+    plaintext.encode(&mut buf);
+
+    // encrypt the Vec<u8>
+    cipher
+        .encrypt(&nonce, buf.as_ref())
+        .unwrap_or_else(|err| panic!("Encryption failed: {:?}", err))
+}
+
+pub fn aes_decrypt<T>(
+    key: &Key<Aes256Gcm>,
+    ciphertext: &[u8],
+    nonce: u64,
+) -> Result<T, anyhow::Error>
+where
+    T: Decodable,
+{
+    let cipher = Aes256Gcm::new(key);
+    let nonce = u64_to_generic_u8_array(nonce);
+
+    // recover the plaintext byte encoding of the object
+    let buf = cipher
+        .decrypt(&nonce, ciphertext.as_ref())
+        .map_err(|e| anyhow!("AES decryption failed: {:?}", e))?;
+
+    // recover the object from the byte encoding
+    let plaintext =
+        T::decode(&mut &buf[..]).map_err(|e| anyhow!("Failed to decode plaintext: {:?}", e))?;
+
+    Ok(plaintext)
+}
+
+/// Returns a sample Secp256k1 secret key for testing purposes.
+pub fn get_sample_secp256k1_sk() -> secp256k1::SecretKey {
+    secp256k1::SecretKey::from_str(
+        "311d54d3bf8359c70827122a44a7b4458733adce3c51c6b59d9acfce85e07505",
+    )
+    .unwrap()
+}
+
+/// Returns a sample Secp256k1 public key for testing purposes.
+pub fn get_sample_secp256k1_pk() -> secp256k1::PublicKey {
+    secp256k1::PublicKey::from_str(
+        "028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0",
+    )
+    .unwrap()
+}
+
+fn u64_to_generic_u8_array(nonce: u64) -> GenericArray<u8, <Aes256Gcm as AeadCore>::NonceSize> {
+    let mut nonce_bytes = nonce.to_be_bytes().to_vec();
+    let crypto_nonce_size = GenericArray::<u8, <Aes256Gcm as AeadCore>::NonceSize>::default().len();
+    nonce_bytes.resize(crypto_nonce_size, 0); // pad to the expected size
+    GenericArray::clone_from_slice(&nonce_bytes)
+}
+
+/// Returns 400 Bad Request
+/// Meant to be used if there is an error while reading the request body
+pub fn invalid_req_body_resp() -> Response<Body> {
+    let error_response = json!({ "error": "Invalid request body" }).to_string();
+    Response::builder()
+        .status(StatusCode::BAD_REQUEST)
+        .body(Body::from(error_response))
+        .unwrap()
+}
+
+// Returns 400 Bad Request
+// Meant to be used if deserializing the body into a json fails
+pub fn invalid_json_body_resp() -> Response<Body> {
+    let error_response = json!({ "error": "Invalid JSON in request body" }).to_string();
+    Response::builder()
+        .status(StatusCode::BAD_REQUEST)
+        .body(Body::from(error_response))
+        .unwrap()
+}
+
+// Returns 422 Unprocessable Entity
+// Meant to be used if decrypting the ciphertext fails
+pub fn invalid_ciphertext_resp(e: Error) -> Response<Body> {
+    let error_message = format!("Invalid ciphertext: {}", e); // Use error's Display trait
+    let error_response = json!({ "error": error_message }).to_string();
+
+    Response::builder()
+        .status(StatusCode::UNPROCESSABLE_ENTITY)
+        .body(Body::from(error_response))
+        .unwrap()
+}
+
+mod tests {
+
+    use aes_gcm::aead::OsRng;
+    use secp256k1::{PublicKey, Secp256k1, SecretKey};
+
+    use crate::{client::{TeeAPI, WalletAPI}, mock::{MockTeeClient, MockWallet}, types::{IoDecryptionRequest, IoEncryptionRequest}};
+
+    #[tokio::test]
+    async fn test_encrypt_decrypt_mock_client_wallet() {
+        // Generate a new secp256k1 key pair
+        let secp = Secp256k1::new();
+        let mut rng = OsRng;
+        let wallet_secret_key = SecretKey::new(&mut rng);
+        let wallet_public_key = PublicKey::from_secret_key(&secp, &wallet_secret_key);
+
+        let wallet = MockWallet {};
+        let plaintext = vec![1,2,3];
+        let nonce: u64 = 10;
+        let cyphertext = wallet.encrypt(&plaintext, nonce, &wallet_secret_key).unwrap();
+        
+        // Original encryption request
+        let decryption_request = IoDecryptionRequest {
+            msg_sender: wallet_public_key,
+            data: cyphertext.clone(),
+            nonce: nonce,
+        };
+
+        let tee = MockTeeClient {};
+        let dec_response = tee.io_decrypt(decryption_request).await.unwrap();
+
+        assert!(dec_response.decrypted_data == plaintext);
+    }
+}

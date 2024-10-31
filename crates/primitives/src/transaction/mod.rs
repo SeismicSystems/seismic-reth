@@ -9,6 +9,7 @@ use alloy_rlp::{
     Decodable, Encodable, Error as RlpError, Header, EMPTY_LIST_CODE, EMPTY_STRING_CODE,
 };
 use bytes::Buf;
+use secp256k1::PublicKey;
 use core::mem;
 use derive_more::{AsRef, Deref};
 use once_cell::sync::Lazy;
@@ -483,20 +484,6 @@ impl Transaction {
         }
     }
 
-    /// Get the transaction's encrypted field.
-    pub fn encrypted_input(&self) -> Option<Vec<u8>> {
-        match self {
-            Self::Legacy(_) |
-            Self::Eip2930(_) |
-            Self::Eip1559(_) |
-            Self::Eip4844(_) |
-            Self::Eip7702(_) => None,
-            Self::Seismic(tx) => Some(tx.encrypted_input().clone()),
-            #[cfg(feature = "optimism")]
-            Self::Deposit(_) => None,
-        }
-    }
-
     /// Returns the source hash of the transaction, which uniquely identifies its source.
     /// If not a deposit transaction, this will always return `None`.
     #[cfg(feature = "optimism")]
@@ -669,6 +656,12 @@ impl Transaction {
     #[inline]
     pub const fn is_eip7702(&self) -> bool {
         matches!(self, Self::Eip7702(_))
+    }
+
+    /// Returns true if the transaction is an Seismic transaction.
+    #[inline]
+    pub const fn is_seismic(&self) -> bool {
+        matches!(self, Self::Seismic(_))
     }
 
     /// Returns the [`TxLegacy`] variant if the transaction is a legacy transaction.
@@ -1141,6 +1134,22 @@ impl TransactionSigned {
         }
         let signature_hash = self.signature_hash();
         self.signature.recover_signer_unchecked(signature_hash)
+    }
+
+    pub fn recover_pubkey(&self) -> Option<PublicKey> {
+        let signature_hash = self.signature_hash();
+        self.signature.recover_pubkey(signature_hash)
+    }
+
+    pub fn recover_pubkey_unchecked(&self) -> Option<PublicKey> {
+        // Optimism's Deposit transaction does not have a signature. Directly return the
+        // `from` address.
+        #[cfg(feature = "optimism")]
+        if let Transaction::Deposit(TxDeposit { from, .. }) = self.transaction {
+            return Some(from)
+        }
+        let signature_hash = self.signature_hash();
+        self.signature.recover_pubkey_unchecked(signature_hash)
     }
 
     /// Recovers a list of signers from a transaction list iterator.
@@ -2167,15 +2176,15 @@ mod tests {
         let mut rng = rand::thread_rng();
         let decrypted_input: Bytes =
             (0..1024 * 1024).map(|_| rand::Rng::gen::<u8>(&mut rng)).collect();
-        let orig_decoded_tx = Transaction::Seismic(TxSeismic::new_from_decrypted_params(
-            4u64,
-            2,
-            1000000000,
-            100000,
-            Address::from_str("d3e8763675e4c425df46cc3b5c0f6cbdac396046").unwrap().into(),
-            U256::from(1000000000000000u64),
-            decrypted_input.clone(),
-        ));
+        let orig_decoded_tx = Transaction::Seismic(TxSeismic {
+            chain_id: 4u64,
+            nonce: 2,
+            gas_price: 1000000000,
+            gas_limit: 100000,
+            to: Address::from_str("d3e8763675e4c425df46cc3b5c0f6cbdac396046").unwrap().into(),
+            value: U256::from(1000000000000000u64),
+            input: decrypted_input.clone(),
+        });
 
         let signature = Signature {
             odd_y_parity: false,

@@ -13,7 +13,7 @@ use reth_basic_payload_builder::{
     commit_withdrawals, is_better_payload, BuildArguments, BuildOutcome, PayloadBuilder,
     PayloadConfig, WithdrawalsOutcome,
 };
-use reth_errors::RethError;
+use reth_errors::{BlockValidationError, ProviderError, RethError};
 use reth_evm::{
     system_calls::{
         post_block_consolidation_requests_contract_call,
@@ -376,7 +376,14 @@ where
         let env = EnvWithHandlerCfg::new_with_cfg_env(
             initialized_cfg.clone(),
             initialized_block_env.clone(),
-            evm_config.tx_env(&tx),
+            evm_config.tx_env(&tx).map_err(|err| {
+                let new_err = match err {
+                    EVMError::Custom(e) => EVMError::Custom(e),
+                    _ => EVMError::Custom("fill_tx_env failed".to_string()),
+                };
+
+                PayloadBuilderError::EvmExecutionError(new_err)
+            })?,
         );
 
         // Configure the environment for the block.
