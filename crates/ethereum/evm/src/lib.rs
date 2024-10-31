@@ -36,7 +36,7 @@ pub mod dao_fork;
 pub mod eip6110;
 
 /// Ethereum-related EVM configuration.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct EthEvmConfig {
     /// tee client decrypting tx

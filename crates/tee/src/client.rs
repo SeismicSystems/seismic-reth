@@ -54,7 +54,7 @@ pub trait WalletAPI {
 
 /// An implementation of the TEE client API that
 /// makes HTTP requests to the TEE server
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct TeeHttpClient {
     /// url of the TEE server
     pub base_url: String,

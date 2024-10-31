@@ -5,7 +5,7 @@ use reth_primitives::{
     revm_primitives::{Address, AnalysisKind, Bytes, CfgEnvWithHandlerCfg, Env, TxEnv},
     Header, TransactionSigned, U256,
 };
-use reth_revm::{inspector_handle_register, Database, Evm, EvmBuilder, GetInspector};
+use reth_revm::{inspector_handle_register, primitives::EVMResultGeneric, Database, Evm, EvmBuilder, GetInspector};
 
 #[derive(Debug, Clone, Copy, Default)]
 #[non_exhaustive]
@@ -60,7 +60,7 @@ impl ConfigureEvmEnv for SeismicEvmConfig {
         cfg_env.handler_cfg.spec_id = spec_id;
     }
 
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &TransactionSigned, sender: Address) {
+    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &TransactionSigned, sender: Address) ->  EVMResultGeneric<(), ()> {
         EthEvmConfig::default().fill_tx_env(tx_env, transaction, sender)
     }
 
