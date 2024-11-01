@@ -5,7 +5,7 @@ use std::sync::Arc;
 use alloy_network::Network;
 use node::NodeTestContext;
 use reth::{
-    args::{DiscoveryArgs, NetworkArgs, RpcServerArgs},
+    args::{DiscoveryArgs, NetworkArgs, RpcServerArgs, TeeArgs},
     builder::{NodeBuilder, NodeConfig, NodeHandle},
     network::PeersHandleProvider,
     rpc::api::eth::{helpers::AddDevSigners, FullEthApiServer},
@@ -18,6 +18,8 @@ use reth_node_builder::{
     NodeAdapter, NodeAddOns, NodeComponents, NodeTypes, RethFullAdapter,
 };
 use reth_provider::providers::BlockchainProvider;
+use reth_tee::mock::MockTeeServer;
+use tokio::task;
 use tracing::{span, Level};
 use wallet::Wallet;
 
@@ -66,6 +68,12 @@ where
                     + EthApiBuilderProvider<Adapter<N>>,
     >,
 {
+    // set up tee server
+    let _ = task::spawn(async {
+        let tee_server = MockTeeServer {};
+        tee_server.run().await.map_err(|_| eyre::Error::msg("tee server failed"))
+    });
+
     let tasks = TaskManager::current();
     let exec = tasks.executor();
 

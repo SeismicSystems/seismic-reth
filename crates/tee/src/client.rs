@@ -7,8 +7,7 @@
 #![allow(async_fn_in_trait)]
 
 use std::{
-    net::{IpAddr, Ipv4Addr},
-    str::FromStr,
+    net::{IpAddr, Ipv4Addr, SocketAddr}, str::FromStr
 };
 
 use crate::types::{
@@ -81,6 +80,14 @@ impl TeeHttpClient {
     pub fn new_from_addr_port(addr: IpAddr, port: u16) -> Self {
         Self {
             base_url: format!("http://{}:{}", addr, port),
+            client: Client::new(),
+        }
+    }
+
+    pub fn new_from_addr(addr: &SocketAddr) -> Self {
+        let base_url = format!("http://{}", addr);
+        Self {
+            base_url,
             client: Client::new(),
         }
     }

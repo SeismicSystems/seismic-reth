@@ -13,12 +13,63 @@ use serde_json::json;
 use sha2::Sha256;
 use std::{convert::Infallible, net::SocketAddr, str::FromStr};
 
-use crate::{client::{TeeAPI, TeeError, WalletAPI}, types::{
-    IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,
-}};
+use crate::{
+    client::{TeeAPI, TeeError, WalletAPI, TEE_DEFAULT_ENDPOINT_ADDR, TEE_DEFAULT_ENDPOINT_PORT},
+    types::{IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse},
+};
 
-struct MockTeeClient {}
+pub struct MockTeeServer {}
+impl MockTeeServer {
+    pub async fn run(&self, addr: &SocketAddr) -> Result<()> {
+        let router = Router::builder()
+            .post("/io_encrypt", MockTeeServer::handle_io_encrypt)
+            .post("/io_decrypt", MockTeeServer::handle_io_decrypt)
+            .build()
+            .unwrap();
 
+        let service = RouterService::new(router).unwrap();
+
+        let server = Server::bind(&addr).serve(service);
+
+        println!("MockTeeServer running on http://{}", addr);
+        server.await?;
+        Ok(())
+    }
+
+    async fn handle_io_encrypt(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+        let body_bytes = to_bytes(req.into_body()).await.unwrap();
+        let payload: IoEncryptionRequest = match serde_json::from_slice(&body_bytes) {
+            Ok(p) => p,
+            Err(_) => return Ok(invalid_json_body_resp()),
+        };
+
+        let client = MockTeeClient {};
+        match client.io_encrypt(payload).await {
+            Ok(response) => {
+                Ok(Response::new(Body::from(serde_json::to_string(&response).unwrap())))
+            }
+            Err(e) => Ok(invalid_ciphertext_resp(e)),
+        }
+    }
+
+    async fn handle_io_decrypt(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+        let body_bytes = to_bytes(req.into_body()).await.unwrap();
+        let payload: IoDecryptionRequest = match serde_json::from_slice(&body_bytes) {
+            Ok(p) => p,
+            Err(_) => return Ok(invalid_json_body_resp()),
+        };
+
+        let client = MockTeeClient {};
+        match client.io_decrypt(payload).await {
+            Ok(response) => {
+                Ok(Response::new(Body::from(serde_json::to_string(&response).unwrap())))
+            }
+            Err(e) => Ok(invalid_ciphertext_resp(e)),
+        }
+    }
+}
+
+pub struct MockTeeClient {}
 impl TeeAPI for MockTeeClient {
     async fn io_encrypt(
         &self,
@@ -45,15 +96,21 @@ impl TeeAPI for MockTeeClient {
 
         let aes_key = derive_aes_key(&shared_secret)
             .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
-        let decrypted_data = aes_decrypt(&aes_key, &payload.data, payload.nonce).map_err(|e| anyhow!("Decryption error: {:?}", e))?;
+        let decrypted_data = aes_decrypt(&aes_key, &payload.data, payload.nonce)
+            .map_err(|e| anyhow!("Decryption error: {:?}", e))?;
 
         Ok(IoDecryptionResponse { decrypted_data })
     }
 }
 
-struct MockWallet {}
+pub struct MockWallet {}
 impl WalletAPI for MockWallet {
-    fn encrypt(&self, data: &Vec<u8>, nonce: u64, private_key: &secp256k1::SecretKey) -> Result<Vec<u8>, anyhow::Error> {
+    fn encrypt(
+        &self,
+        data: &Vec<u8>,
+        nonce: u64,
+        private_key: &secp256k1::SecretKey,
+    ) -> Result<Vec<u8>, anyhow::Error> {
         let ecdh_pk = get_sample_secp256k1_pk();
         let shared_secret = SharedSecret::new(&ecdh_pk, private_key);
 
@@ -138,20 +195,14 @@ fn u64_to_generic_u8_array(nonce: u64) -> GenericArray<u8, <Aes256Gcm as AeadCor
 /// Meant to be used if there is an error while reading the request body
 pub fn invalid_req_body_resp() -> Response<Body> {
     let error_response = json!({ "error": "Invalid request body" }).to_string();
-    Response::builder()
-        .status(StatusCode::BAD_REQUEST)
-        .body(Body::from(error_response))
-        .unwrap()
+    Response::builder().status(StatusCode::BAD_REQUEST).body(Body::from(error_response)).unwrap()
 }
 
 // Returns 400 Bad Request
 // Meant to be used if deserializing the body into a json fails
 pub fn invalid_json_body_resp() -> Response<Body> {
     let error_response = json!({ "error": "Invalid JSON in request body" }).to_string();
-    Response::builder()
-        .status(StatusCode::BAD_REQUEST)
-        .body(Body::from(error_response))
-        .unwrap()
+    Response::builder().status(StatusCode::BAD_REQUEST).body(Body::from(error_response)).unwrap()
 }
 
 // Returns 422 Unprocessable Entity
@@ -168,10 +219,19 @@ pub fn invalid_ciphertext_resp(e: Error) -> Response<Body> {
 
 mod tests {
 
+    use crate::{
+        client::{TeeHttpClient, TEE_DEFAULT_ENDPOINT_PORT}, mock::MockTeeServer, types::{IoDecryptionRequest, IoEncryptionRequest, IoEncryptionResponse}
+    };
     use aes_gcm::aead::OsRng;
+    use hyper::{Body, Client, Method, Request, StatusCode};
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
+    use std::{net::SocketAddr, str::FromStr};
+    use tokio::{net::{TcpListener}, task};
 
-    use crate::{client::{TeeAPI, WalletAPI}, mock::{MockTeeClient, MockWallet}, types::{IoDecryptionRequest, IoEncryptionRequest}};
+    use crate::{
+        client::{TeeAPI, WalletAPI},
+        mock::{MockTeeClient, MockWallet},
+    };
 
     #[tokio::test]
     async fn test_encrypt_decrypt_mock_client_wallet() {
@@ -181,21 +241,74 @@ mod tests {
         let wallet_secret_key = SecretKey::new(&mut rng);
         let wallet_public_key = PublicKey::from_secret_key(&secp, &wallet_secret_key);
 
-        let wallet = MockWallet {};
-        let plaintext = vec![1,2,3];
+        let plaintext = vec![1, 2, 3];
         let nonce: u64 = 10;
-        let cyphertext = wallet.encrypt(&plaintext, nonce, &wallet_secret_key).unwrap();
-        
+        let mock_wallet = MockWallet {};
+        let cyphertext = mock_wallet.encrypt(&plaintext, nonce, &wallet_secret_key).unwrap();
+
         // Original encryption request
-        let decryption_request = IoDecryptionRequest {
-            msg_sender: wallet_public_key,
-            data: cyphertext.clone(),
-            nonce: nonce,
-        };
+        let decryption_request =
+            IoDecryptionRequest { msg_sender: wallet_public_key, data: cyphertext.clone(), nonce };
 
         let tee = MockTeeClient {};
         let dec_response = tee.io_decrypt(decryption_request).await.unwrap();
 
         assert!(dec_response.decrypted_data == plaintext);
+    }
+
+    #[tokio::test]
+    async fn test_mock_tee_server_encrypt_decrypt() {
+        // Start the MockTeeServer in a separate task
+        let addr = SocketAddr::from_str("127.0.0.1:7878").unwrap();
+
+        // Start the MockTeeServer in a separate task
+        let server_task = task::spawn(async move {
+            let server = MockTeeServer {};
+            server.run(&addr).await.unwrap();
+        });
+
+        // Give the server some time to start
+        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+        // Create a client to send requests to the server
+        let tee_client = TeeHttpClient::new_from_addr(&addr);
+
+        // Generate a new secp256k1 key pair
+        let secp = Secp256k1::new();
+        let mut rng = OsRng;
+        let wallet_secret_key = SecretKey::new(&mut rng);
+        let wallet_public_key = PublicKey::from_secret_key(&secp, &wallet_secret_key);
+
+        let plaintext = vec![1, 2, 3];
+        let nonce: u64 = 10;
+
+        // Create an encryption request
+        let encryption_request =
+            IoEncryptionRequest { msg_sender: wallet_public_key, data: plaintext.clone(), nonce };
+
+        // Send the encryption request
+        let encryption_response = match tee_client.io_encrypt(encryption_request).await {
+            Ok(response) => response,
+            Err(e) => {
+            eprintln!("Encryption request failed: {:?}", e);
+            return;
+            }
+        };
+
+        // Create a decryption request
+        let decryption_request = IoDecryptionRequest {
+            msg_sender: wallet_public_key,
+            data: encryption_response.encrypted_data,
+            nonce,
+        };
+
+        // Send the decryption request
+        let decryption_response =
+            tee_client.io_decrypt(decryption_request).await.unwrap();
+
+        assert_eq!(decryption_response.decrypted_data, plaintext);
+
+        // Stop the server task
+        server_task.abort();
     }
 }

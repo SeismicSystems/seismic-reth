@@ -23,7 +23,6 @@ pub struct TeeArgs {
     pub tee_server_port: u16,
 }
 
-
 impl Default for TeeArgs {
     fn default() -> Self {
         Self {

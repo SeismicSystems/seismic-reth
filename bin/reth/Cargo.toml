@@ -73,10 +73,6 @@ reth-prune.workspace = true
 reth-stages-api.workspace = true
 reth-optimism-cli = { workspace = true, optional = true }
 reth-optimism-rpc.workspace = true
-reth-node-seismic = { workspace = true, optional = true }
-reth-evm-seismic = { workspace = true, optional = true }
-reth-rpc-seismic = { workspace = true, optional = true }
-reth-helpers-seismic = { workspace = true, optional = true }
 
 # crypto
 alloy-rlp.workspace = true
@@ -150,7 +146,6 @@ optimism = [
     "reth-rpc/optimism",
 ]
 
-seismic = ["dep:reth-node-seismic", "dep:reth-evm-seismic", "dep:reth-rpc-seismic", "dep:reth-helpers-seismic"]
 
 # no-op feature flag for switching between the `optimism` and default functionality in CI matrices
 ethereum = []
@@ -163,8 +158,3 @@ path = "src/main.rs"
 name = "op-reth"
 path = "src/optimism.rs"
 required-features = ["optimism"]
-
-[[bin]]
-name = "seismic-reth"
-path = "src/seismic.rs"
-required-features = ["seismic"]

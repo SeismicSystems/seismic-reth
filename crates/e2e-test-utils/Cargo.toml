@@ -27,6 +27,7 @@ reth-network-peers.workspace = true
 reth-node-ethereum.workspace = true
 reth-rpc-types.workspace = true
 reth-rpc-types-compat.workspace = true
+reth-tee.workspace = true
 
 # rpc
 jsonrpsee-types.workspace = true
@@ -43,3 +44,5 @@ alloy-rpc-types.workspace = true
 alloy-network.workspace = true
 alloy-consensus = { workspace = true, features = ["kzg"] }
 tracing.workspace = true
+
+secp256k1.workspace = true
