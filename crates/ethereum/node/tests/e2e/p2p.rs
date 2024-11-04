@@ -9,7 +9,7 @@ use reth_node_ethereum::EthereumNode;
 use tokio::{runtime::Runtime, task};
 use std::{io::Read, sync::Arc, time::Instant};
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn can_sync() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
 
