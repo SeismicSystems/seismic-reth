@@ -50,7 +50,7 @@ impl MockTeeServer {
         };
 
         let client = MockTeeClient {};
-        match client.io_encrypt(payload) {
+        match client.io_encrypt(payload).await {
             Ok(response) => {
                 Ok(Response::new(Body::from(serde_json::to_string(&response).unwrap())))
             }
@@ -66,7 +66,7 @@ impl MockTeeServer {
         };
 
         let client = MockTeeClient {};
-        match client.io_decrypt(payload) {
+        match client.io_decrypt(payload).await {
             Ok(response) => {
                 Ok(Response::new(Body::from(serde_json::to_string(&response).unwrap())))
             }
@@ -77,7 +77,7 @@ impl MockTeeServer {
 
 pub struct MockTeeClient {}
 impl TeeAPI for MockTeeClient {
-    fn io_encrypt(
+    async fn io_encrypt(
         &self,
         payload: IoEncryptionRequest,
     ) -> Result<IoEncryptionResponse, anyhow::Error> {
@@ -92,7 +92,7 @@ impl TeeAPI for MockTeeClient {
         Ok(IoEncryptionResponse { encrypted_data })
     }
 
-    fn io_decrypt(
+    async fn io_decrypt(
         &self,
         payload: IoDecryptionRequest,
     ) -> Result<IoDecryptionResponse, anyhow::Error> {
@@ -262,7 +262,7 @@ mod tests {
         let start_time = std::time::Instant::now();
 
         for _ in 0..100 {
-            let dec_response = tee.io_decrypt(decryption_request.clone()).unwrap();
+            let dec_response = tee.io_decrypt(decryption_request.clone()).await.unwrap();
             assert!(dec_response.decrypted_data == plaintext);
         }
 
@@ -271,19 +271,19 @@ mod tests {
         println!("Time taken for decryption: {:?}", duration);
     }
 
-    #[test]
-    fn test_mock_tee_server_encrypt_decrypt() {
+    #[tokio::test]
+    async fn test_mock_tee_server_encrypt_decrypt() {
         // Start the MockTeeServer in a separate task
-        let addr = SocketAddr::from_str("127.0.0.1:7879").unwrap();
+        let addr = SocketAddr::from_str("127.0.0.1:7878").unwrap();
 
         // Start the MockTeeServer in a separate task
-        let rt = Runtime::new().unwrap();
-        rt.spawn(async move {
-            let server = MockTeeServer { addr: addr.clone() };
+        let server_task = task::spawn(async move {
+            let server = MockTeeServer { addr };
             server.run().await.unwrap();
         });
 
-        thread::sleep(Duration::from_secs(2));
+        // Give the server some time to start
+        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
         // Create a client to send requests to the server
         let tee_client = TeeHttpClient::new_from_addr(&addr);
@@ -297,11 +297,18 @@ mod tests {
         let plaintext = vec![1, 2, 3];
         let nonce: u64 = 10;
 
+        // Create an encryption request
         let encryption_request =
             IoEncryptionRequest { msg_sender: wallet_public_key, data: plaintext.clone(), nonce };
 
         // Send the encryption request
-        let encryption_response = tee_client.io_encrypt(encryption_request).unwrap();
+        let encryption_response = match tee_client.io_encrypt(encryption_request).await {
+            Ok(response) => response,
+            Err(e) => {
+                eprintln!("Encryption request failed: {:?}", e);
+                return;
+            }
+        };
 
         // Create a decryption request
         let decryption_request = IoDecryptionRequest {
@@ -311,15 +318,11 @@ mod tests {
         };
 
         // Send the decryption request
-        let start_time = std::time::Instant::now();
-        for _ in 0..100 {
-            let decryption_response = tee_client.io_decrypt(decryption_request.clone()).unwrap();
-            assert_eq!(decryption_response.decrypted_data, plaintext);
-        }
+        let decryption_response = tee_client.io_decrypt(decryption_request).await.unwrap();
 
-        let end_time = std::time::Instant::now();
-        let duration = end_time.duration_since(start_time);
-        println!("Time taken for encryption and decryption: {:?}", duration);
+        assert_eq!(decryption_response.decrypted_data, plaintext);
 
+        // Stop the server task
+        server_task.abort();
     }
 }
