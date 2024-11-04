@@ -6,7 +6,8 @@ use reth_e2e_test_utils::{
     transaction::{SeismicTransactionTestContext, TransactionTestContext},
 };
 use reth_node_ethereum::EthereumNode;
-use std::{io::Read, sync::Arc};
+use tokio::{runtime::Runtime, task};
+use std::{io::Read, sync::Arc, time::Instant};
 
 #[tokio::test]
 async fn can_sync() -> eyre::Result<()> {

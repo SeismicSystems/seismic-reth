@@ -33,7 +33,7 @@ pub mod transaction;
 pub mod wallet;
 
 /// Helper for payload operations
-mod payload;
+pub mod payload;
 
 /// Helper for network operations
 mod network;
@@ -70,7 +70,7 @@ where
 {
     // set up tee server
     let _ = task::spawn(async {
-        let tee_server = MockTeeServer {};
+        let tee_server = MockTeeServer::new("127.0.0.1:7878");
         tee_server.run().await.map_err(|_| eyre::Error::msg("tee server failed"))
     });
 

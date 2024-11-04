@@ -146,8 +146,6 @@ impl SeismicTransactionTestContext {
         let selector = Bytes::from("60fe47b");
         let tx_input = [selector, data].concat();
 
-        println!("Transaction input: {:?}", tx_input);
-
         let tx = seismic_tx(&wallet, chain_id, tx_input.into(), nonce, TxKind::Call(address));
         let tx_signed = Self::sign_tx(&wallet, tx).await;
         tx_signed.envelope_encoded().into()

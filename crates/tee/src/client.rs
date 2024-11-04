@@ -103,7 +103,7 @@ impl TeeAPI for TeeHttpClient {
         // Using reqwest's Client to send a POST request
         let response = self
             .client
-            .post(format!("{}/tx_io_encrypt", self.base_url))
+            .post(format!("{}/tx_io/encrypt", self.base_url))
             .header("Content-Type", "application/json")
             .body(payload_json)
             .send()
@@ -127,7 +127,7 @@ impl TeeAPI for TeeHttpClient {
         // Using reqwest's Client to send a POST request
         let response = self
             .client
-            .post(format!("{}/tx_io_decrypt", self.base_url))
+            .post(format!("{}/tx_io/decrypt", self.base_url))
             .header("Content-Type", "application/json")
             .body(payload_json)
             .send()
@@ -213,8 +213,8 @@ mod tests {
         let mock_dec_response = IoDecryptionResponse { decrypted_data: plaintext.clone() };
 
         let mock_response = json!({
-            "/tx_io_encrypt": serde_json::to_string(&mock_enc_response).unwrap(),
-            "/tx_io_decrypt": serde_json::to_string(&mock_dec_response).unwrap(),
+            "/tx_io/encrypt": serde_json::to_string(&mock_enc_response).unwrap(),
+            "/tx_io/decrypt": serde_json::to_string(&mock_dec_response).unwrap(),
         });
 
         let mock_response = Arc::new(Mutex::new(mock_response));
