@@ -50,7 +50,7 @@ impl MockTeeServer {
         };
 
         let client = MockTeeClient {};
-        match client.io_encrypt(payload).await {
+        match client.io_encrypt(payload) {
             Ok(response) => {
                 Ok(Response::new(Body::from(serde_json::to_string(&response).unwrap())))
             }
@@ -66,7 +66,7 @@ impl MockTeeServer {
         };
 
         let client = MockTeeClient {};
-        match client.io_decrypt(payload).await {
+        match client.io_decrypt(payload) {
             Ok(response) => {
                 Ok(Response::new(Body::from(serde_json::to_string(&response).unwrap())))
             }
@@ -77,7 +77,7 @@ impl MockTeeServer {
 
 pub struct MockTeeClient {}
 impl TeeAPI for MockTeeClient {
-    async fn io_encrypt(
+    fn io_encrypt(
         &self,
         payload: IoEncryptionRequest,
     ) -> Result<IoEncryptionResponse, anyhow::Error> {
@@ -92,7 +92,7 @@ impl TeeAPI for MockTeeClient {
         Ok(IoEncryptionResponse { encrypted_data })
     }
 
-    async fn io_decrypt(
+    fn io_decrypt(
         &self,
         payload: IoDecryptionRequest,
     ) -> Result<IoDecryptionResponse, anyhow::Error> {
@@ -233,8 +233,8 @@ mod tests {
     use aes_gcm::aead::OsRng;
     use hyper::{Body, Client, Method, Request, StatusCode};
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
-    use std::{net::SocketAddr, str::FromStr};
-    use tokio::{net::TcpListener, task};
+    use std::{net::SocketAddr, str::FromStr, thread, time::Duration};
+    use tokio::{net::TcpListener, runtime::Runtime, task};
 
     use crate::{
         client::{TeeAPI, WalletAPI},
@@ -262,29 +262,28 @@ mod tests {
         let start_time = std::time::Instant::now();
 
         for _ in 0..100 {
-            let dec_response = tee.io_decrypt(decryption_request.clone()).await.unwrap();
+            let dec_response = tee.io_decrypt(decryption_request.clone()).unwrap();
             assert!(dec_response.decrypted_data == plaintext);
         }
 
         let end_time = std::time::Instant::now();
         let duration = end_time.duration_since(start_time);
         println!("Time taken for decryption: {:?}", duration);
-
     }
 
-    #[tokio::test]
-    async fn test_mock_tee_server_encrypt_decrypt() {
+    #[test]
+    fn test_mock_tee_server_encrypt_decrypt() {
         // Start the MockTeeServer in a separate task
-        let addr = SocketAddr::from_str("127.0.0.1:7878").unwrap();
+        let addr = SocketAddr::from_str("127.0.0.1:7879").unwrap();
 
         // Start the MockTeeServer in a separate task
-        let server_task = task::spawn(async move {
+        let rt = Runtime::new().unwrap();
+        rt.spawn(async move {
             let server = MockTeeServer { addr: addr.clone() };
             server.run().await.unwrap();
         });
 
-        // Give the server some time to start
-        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+        thread::sleep(Duration::from_secs(2));
 
         // Create a client to send requests to the server
         let tee_client = TeeHttpClient::new_from_addr(&addr);
@@ -302,7 +301,7 @@ mod tests {
             IoEncryptionRequest { msg_sender: wallet_public_key, data: plaintext.clone(), nonce };
 
         // Send the encryption request
-        let encryption_response = tee_client.io_encrypt(encryption_request).await.unwrap();
+        let encryption_response = tee_client.io_encrypt(encryption_request).unwrap();
 
         // Create a decryption request
         let decryption_request = IoDecryptionRequest {
@@ -314,8 +313,7 @@ mod tests {
         // Send the decryption request
         let start_time = std::time::Instant::now();
         for _ in 0..100 {
-            let decryption_response =
-                tee_client.io_decrypt(decryption_request.clone()).await.unwrap();
+            let decryption_response = tee_client.io_decrypt(decryption_request.clone()).unwrap();
             assert_eq!(decryption_response.decrypted_data, plaintext);
         }
 
@@ -323,7 +321,5 @@ mod tests {
         let duration = end_time.duration_since(start_time);
         println!("Time taken for encryption and decryption: {:?}", duration);
 
-        // Stop the server task
-        server_task.abort();
     }
 }

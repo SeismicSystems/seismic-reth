@@ -7,7 +7,8 @@
 #![allow(async_fn_in_trait)]
 
 use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr}, str::FromStr
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    str::FromStr,
 };
 
 use crate::types::{
@@ -18,7 +19,7 @@ use aes_gcm::{Aes256Gcm, Key};
 use alloy_rlp::{Decodable, Encodable, Error};
 use hkdf::Hkdf;
 use hyper::Response;
-use reqwest::Client;
+use reqwest::blocking::Client;
 use secp256k1::{ecdh::SharedSecret, ecdsa::Signature, Message, PublicKey, Secp256k1, SecretKey};
 use sha2::{Digest, Sha256};
 
@@ -29,14 +30,14 @@ pub const TEE_DEFAULT_ENDPOINT_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 pub trait TeeAPI {
     /// Encrypts the given data using the public key included in the request
     /// and the private key of the TEE server
-    async fn io_encrypt(
+    fn io_encrypt(
         &self,
         payload: IoEncryptionRequest,
     ) -> Result<IoEncryptionResponse, anyhow::Error>;
 
     /// Decrypts the given data using the public key included in the request
     /// and the private key of the TEE server
-    async fn io_decrypt(
+    fn io_decrypt(
         &self,
         payload: IoDecryptionRequest,
     ) -> Result<IoDecryptionResponse, anyhow::Error>;
@@ -73,28 +74,24 @@ impl Default for TeeHttpClient {
 impl TeeHttpClient {
     /// Creates a new instance of the TEE client
     pub fn new(base_url: String) -> Self {
+        println!("Base URL: {}", base_url);
         Self { base_url, client: Client::new() }
     }
 
     /// Creates a new instance of the TEE client
     pub fn new_from_addr_port(addr: IpAddr, port: u16) -> Self {
-        Self {
-            base_url: format!("http://{}:{}", addr, port),
-            client: Client::new(),
-        }
+        Self { base_url: format!("http://{}:{}", addr, port), client: Client::new() }
     }
 
     pub fn new_from_addr(addr: &SocketAddr) -> Self {
         let base_url = format!("http://{}", addr);
-        Self {
-            base_url,
-            client: Client::new(),
-        }
+        println!("Base URL: {}", base_url);
+        Self { base_url, client: Client::new() }
     }
 }
 
 impl TeeAPI for TeeHttpClient {
-    async fn io_encrypt(
+    fn io_encrypt(
         &self,
         payload: IoEncryptionRequest,
     ) -> Result<IoEncryptionResponse, anyhow::Error> {
@@ -106,11 +103,10 @@ impl TeeAPI for TeeHttpClient {
             .post(format!("{}/tx_io/encrypt", self.base_url))
             .header("Content-Type", "application/json")
             .body(payload_json)
-            .send()
-            .await?;
+            .send()?;
 
         // Extract the response body as bytes
-        let body: Vec<u8> = response.bytes().await?.to_vec();
+        let body: Vec<u8> = response.bytes()?.to_vec();
 
         // Parse the response body into the IoEncryptionResponse struct
         let enc_response: IoEncryptionResponse = serde_json::from_slice(&body)?;
@@ -118,7 +114,7 @@ impl TeeAPI for TeeHttpClient {
         Ok(enc_response)
     }
 
-    async fn io_decrypt(
+    fn io_decrypt(
         &self,
         payload: IoDecryptionRequest,
     ) -> Result<IoDecryptionResponse, anyhow::Error> {
@@ -130,11 +126,10 @@ impl TeeAPI for TeeHttpClient {
             .post(format!("{}/tx_io/decrypt", self.base_url))
             .header("Content-Type", "application/json")
             .body(payload_json)
-            .send()
-            .await?;
+            .send()?;
 
         // Extract the response body as bytes
-        let body: Vec<u8> = response.bytes().await?.to_vec();
+        let body: Vec<u8> = response.bytes()?.to_vec();
 
         // Parse the response body into the IoDecryptionResponse struct
         let dec_response: IoDecryptionResponse = serde_json::from_slice(&body)?;
@@ -164,10 +159,8 @@ pub fn decrypt<I: Encodable + Decodable, T: TeeAPI>(
     nonce: u64,
 ) -> Result<I, TeeError> {
     let payload = IoDecryptionRequest { msg_sender, data, nonce };
-    let IoDecryptionResponse { decrypted_data } = tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(tee_client.io_decrypt(payload))
-    })
-    .map_err(|_| TeeError::EncryptionError)?;
+    let IoDecryptionResponse { decrypted_data } =
+        tee_client.io_decrypt(payload).map_err(|_| TeeError::EncryptionError)?;
     I::decode(&mut &decrypted_data[..]).map_err(|err| TeeError::CodingError(err))
 }
 
@@ -181,10 +174,8 @@ pub fn encrypt<I: Encodable + Decodable, T: TeeAPI>(
     let mut data = Vec::new();
     plaintext.encode(&mut data);
     let payload = IoEncryptionRequest { msg_sender, data, nonce };
-    let IoEncryptionResponse { encrypted_data } = tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(tee_client.io_encrypt(payload))
-    })
-    .map_err(|_| TeeError::DecryptionError)?;
+    let IoEncryptionResponse { encrypted_data } =
+        tee_client.io_encrypt(payload).map_err(|_| TeeError::DecryptionError)?;
     Ok(encrypted_data)
 }
 
@@ -198,11 +189,10 @@ mod tests {
         str::FromStr,
         sync::{Arc, Mutex},
     };
-    use tokio::spawn;
+    use tokio::{spawn, task};
     use warp::Filter;
 
-    #[tokio::test]
-    async fn test_io_encrypt() {
+    fn test_io_encrypt() {
         let plaintext = vec![72, 101, 108, 108, 111]; // Example plaintext
         let ciphertext = vec![
             5, 119, 55, 108, 84, 7, 255, 70, 233, 138, 125, 130, 228, 149, 140, 144, 126, 138, 10,
@@ -232,16 +222,15 @@ mod tests {
 
         // Start warp server
         let (addr, server) =
-            warp::serve(mock_service).bind_with_graceful_shutdown(([127, 0, 0, 1], 0), async {
+            warp::serve(mock_service).bind_with_graceful_shutdown(([127, 0, 0, 1], 7878), async {
                 tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
             });
 
         let server_addr = addr;
         let _ = spawn(server);
 
-        let client = Client::new();
         let base_url = format!("http://{}", server_addr);
-        let tee_client = TeeHttpClient { base_url: base_url.clone(), client: client.clone() };
+        let tee_client = TeeHttpClient::new(base_url);
 
         // Original encryption request
         let encryption_request = IoEncryptionRequest {
@@ -254,7 +243,7 @@ mod tests {
         };
 
         // Test encrypt
-        let enc_response = tee_client.io_encrypt(encryption_request).await.unwrap();
+        let enc_response = tee_client.io_encrypt(encryption_request).unwrap();
         assert_eq!(enc_response.encrypted_data, ciphertext);
 
         // Original decryption request
@@ -268,8 +257,7 @@ mod tests {
         };
 
         // Test decrypt
-        let dec_response = tee_client.io_decrypt(payload.clone()).await.unwrap();
+        let dec_response = tee_client.io_decrypt(payload.clone()).unwrap();
         assert_eq!(dec_response.decrypted_data, plaintext);
     }
-
 }
