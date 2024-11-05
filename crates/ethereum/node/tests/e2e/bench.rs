@@ -80,6 +80,8 @@ async fn bench() -> eyre::Result<()> {
         let _ = first_node.rpc.call(raw_tx, block_number).await?;
     }
 
+    let call_end_time = Instant::now();
+
     // run raw transactions
     for _ in 0..send_raw_tx_cnt {
         let raw_tx = SeismicTransactionTestContext::call_seismic_tx_bytes(
@@ -115,7 +117,8 @@ async fn bench() -> eyre::Result<()> {
 
     let end_time = Instant::now();
     let duration = end_time.duration_since(start_time);
-    let duration_inner = end_time_inner.duration_since(start_time_inner);
+    let duration_call = call_end_time.duration_since(start_time);
+    let duration_advance_block = end_time_inner.duration_since(start_time_inner);
     debug!(
         target: "e2e:bench",
         ?duration,
@@ -123,10 +126,16 @@ async fn bench() -> eyre::Result<()> {
         call_cnt,
         send_raw_tx_cnt
     );
-
     debug!(
         target: "e2e:bench",
-        ?duration_inner,
+        ?duration_call,
+        "Duration for calls with {} calls and {} raw transactions",
+        call_cnt,
+        send_raw_tx_cnt
+    );
+    debug!(
+        target: "e2e:bench",
+        ?duration_advance_block,
         "Duration for encrypted transaction in a block with {} calls and {} raw transactions",
         call_cnt,
         send_raw_tx_cnt
@@ -166,6 +175,7 @@ async fn bench() -> eyre::Result<()> {
         let tx_hash = first_node.rpc.inject_tx(raw_tx).await?;
         tx_hashes.push(tx_hash);
     }
+    let call_end_time = Instant::now();
 
     // make the node advance
     let start_time_inner = Instant::now();
@@ -186,11 +196,19 @@ async fn bench() -> eyre::Result<()> {
 
     let end_time = Instant::now();
     let duration = end_time.duration_since(start_time);
+    let duration_call = call_end_time.duration_since(start_time);
     let duration_inner = end_time_inner.duration_since(start_time_inner);
     debug!(
         target: "e2e:bench",
         ?duration,
         "Duration for normal transaction in a block with {} calls and {} raw transactions",
+        call_cnt,
+        send_raw_tx_cnt
+    );
+    debug!(
+        target: "e2e:bench",
+        ?duration_call,
+        "Duration of calls for normal transaction in a block with {} calls and {} raw transactions",
         call_cnt,
         send_raw_tx_cnt
     );
