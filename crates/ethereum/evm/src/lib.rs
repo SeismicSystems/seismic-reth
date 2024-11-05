@@ -12,15 +12,11 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
-use core::default;
-
 use reth_chainspec::{ChainSpec, Head};
-use reth_errors::{ProviderError, RethResult};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
 use reth_primitives::{transaction::FillTxEnv, Address, Header, TransactionSigned, U256};
 use reth_tee::{
-    client::{decrypt, encrypt, TeeAPI, TeeError, TeeHttpClient},
-    types::IoDecryptionRequest,
+    client::{TeeError, TeeHttpClient},
 };
 use revm_primitives::{
     AnalysisKind, Bytes, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, TxEnv, TxKind,
