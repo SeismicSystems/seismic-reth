@@ -23,6 +23,7 @@ use reth_node_builder::{
 use reth_payload_builder::{PayloadBuilderHandle, PayloadBuilderService};
 use reth_provider::CanonStateSubscriptions;
 use reth_rpc::EthApi;
+use reth_tee::client::TeeHttpClient;
 use reth_tracing::tracing::{debug, info};
 use reth_transaction_pool::{
     blobstore::DiskFileBlobStore, EthTransactionPool, TransactionPool,
@@ -115,8 +116,12 @@ where
         ctx: &BuilderContext<Node>,
     ) -> eyre::Result<(Self::EVM, Self::Executor)> {
         let chain_spec = ctx.chain_spec();
-        let evm_config = EthEvmConfig::default();
-        let executor = EthExecutorProvider::new(chain_spec, evm_config);
+        let tee_client = TeeHttpClient::new_from_addr_port(
+            ctx.config().tee.tee_server_addr,
+            ctx.config().tee.tee_server_port,
+        );
+        let evm_config = EthEvmConfig::new(tee_client);
+        let executor = EthExecutorProvider::new(chain_spec, evm_config.clone());
 
         Ok((evm_config, executor))
     }

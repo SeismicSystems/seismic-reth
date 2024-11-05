@@ -6,9 +6,10 @@ use reth_e2e_test_utils::{
     transaction::{SeismicTransactionTestContext, TransactionTestContext},
 };
 use reth_node_ethereum::EthereumNode;
-use std::{io::Read, sync::Arc};
+use std::{io::Read, sync::Arc, time::Instant};
+use tokio::{runtime::Runtime, task};
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn can_sync() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
 
@@ -79,7 +80,7 @@ async fn can_sync() -> eyre::Result<()> {
     let deployed_contract_address = tx_receipt.contract_address.unwrap();
     let data: Bytes = vec![3u8; 32].into();
 
-    let raw_tx = SeismicTransactionTestContext::call_tx_bytes(
+    let raw_tx = SeismicTransactionTestContext::call_seismic_tx_bytes(
         MAINNET.chain.id(),
         wallet.inner.clone(),
         2,

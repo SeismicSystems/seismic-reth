@@ -207,7 +207,9 @@ pub trait Trace: LoadState {
                 let env = EnvWithHandlerCfg::new_with_cfg_env(
                     cfg,
                     block_env,
-                    Call::evm_config(&this).tx_env(&tx),
+                    Call::evm_config(&this)
+                        .tx_env(&tx)
+                        .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
                 );
                 let (res, _) =
                     this.inspect(StateCacheDbRefMutWrapper(&mut db), env, &mut inspector)?;
@@ -335,7 +337,8 @@ pub trait Trace: LoadState {
                 let mut db =
                     CacheDB::new(StateProviderDatabase::new(StateProviderTraitObjWrapper(&state)));
 
-                while let Some((tx_info, tx)) = transactions.next() {
+                while let Some((tx_info, tx_err)) = transactions.next() {
+                    let tx = tx_err.map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
                     let env =
                         EnvWithHandlerCfg::new_with_cfg_env(cfg.clone(), block_env.clone(), tx);
 

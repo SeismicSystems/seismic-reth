@@ -7,7 +7,7 @@ use reth_rpc_eth_api::{
     FromEthApiError,
 };
 use reth_rpc_eth_types::{
-    cache::db::StateProviderTraitObjWrapper, error::ensure_success, utils::recover_raw_transaction,
+    cache::db::StateProviderTraitObjWrapper, error::ensure_success, utils::recover_raw_transaction, EthApiError,
 };
 use reth_rpc_types::BlockId;
 
@@ -26,7 +26,7 @@ pub trait SeismicCall: Call + LoadPendingBlock {
             let (cfg, block, at) = self.evm_env_at(block_number.unwrap_or_default()).await?;
 
             let env =
-                EnvWithHandlerCfg::new_with_cfg_env(cfg, block, Call::evm_config(self).tx_env(&tx));
+                EnvWithHandlerCfg::new_with_cfg_env(cfg, block, Call::evm_config(self).tx_env(&tx).map_err(|_|EthApiError::FailedToDecodeSignedTransaction)?);
 
             let this = self.clone();
 

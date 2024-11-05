@@ -1,4 +1,5 @@
 use crate::{transaction::util::secp256k1, Address, B256, U256};
+use ::secp256k1::PublicKey;
 use alloy_primitives::Bytes;
 use alloy_rlp::{Decodable, Encodable, Error as RlpError};
 use serde::{Deserialize, Serialize};
@@ -168,6 +169,19 @@ impl Signature {
         secp256k1::recover_signer_unchecked(&sig, &hash.0).ok()
     }
 
+    /// Recover public key from message hash, _without ensuring that the signature has a low `s`
+    pub fn recover_pubkey_unchecked(&self, hash: B256) -> Option<PublicKey> {
+        let mut sig: [u8; 65] = [0; 65];
+
+        sig[0..32].copy_from_slice(&self.r.to_be_bytes::<32>());
+        sig[32..64].copy_from_slice(&self.s.to_be_bytes::<32>());
+        sig[64] = self.odd_y_parity as u8;
+
+        // NOTE: we are removing error from underlying crypto library as it will restrain primitive
+        // errors and we care only if recovery is passing or not.
+        secp256k1::recover_pubkey_unchecked(&sig, &hash.0).ok()
+    }
+
     /// Recover signer address from message hash. This ensures that the signature S value is
     /// greater than `secp256k1n / 2`, as specified in
     /// [EIP-2](https://eips.ethereum.org/EIPS/eip-2).
@@ -179,6 +193,15 @@ impl Signature {
         }
 
         self.recover_signer_unchecked(hash)
+    }
+
+    /// Recover public key from message hash. This ensures that the signature S value is
+    pub fn recover_pubkey(&self, hash: B256) -> Option<PublicKey> {
+        if self.s > SECP256K1N_HALF {
+            return None
+        }
+
+        self.recover_pubkey_unchecked(hash)
     }
 
     /// Turn this signature into its byte

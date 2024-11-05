@@ -6305,11 +6305,9 @@ dependencies = [
  "reth-errors",
  "reth-ethereum-payload-builder",
  "reth-evm",
- "reth-evm-seismic",
  "reth-execution-types",
  "reth-exex",
  "reth-fs-util",
- "reth-helpers-seismic",
  "reth-network",
  "reth-network-api",
  "reth-network-p2p",
@@ -6320,7 +6318,6 @@ dependencies = [
  "reth-node-events",
  "reth-node-metrics",
  "reth-node-optimism",
- "reth-node-seismic",
  "reth-optimism-cli",
  "reth-optimism-primitives",
  "reth-optimism-rpc",
@@ -6335,7 +6332,6 @@ dependencies = [
  "reth-rpc-api",
  "reth-rpc-builder",
  "reth-rpc-eth-types",
- "reth-rpc-seismic",
  "reth-rpc-server-types",
  "reth-rpc-types",
  "reth-rpc-types-compat",
@@ -7018,8 +7014,10 @@ dependencies = [
  "reth-rpc-types",
  "reth-rpc-types-compat",
  "reth-stages-types",
+ "reth-tee",
  "reth-tokio-util",
  "reth-tracing",
+ "secp256k1",
  "serde_json",
  "tokio",
  "tokio-stream",
@@ -7339,6 +7337,7 @@ dependencies = [
  "reth-primitives",
  "reth-prune-types",
  "reth-storage-errors",
+ "reth-tee",
  "revm",
  "revm-primitives",
 ]
@@ -7357,6 +7356,7 @@ dependencies = [
  "reth-primitives",
  "reth-prune-types",
  "reth-revm",
+ "reth-tee",
  "reth-testing-utils",
  "revm-primitives",
  "secp256k1",
@@ -7381,23 +7381,6 @@ dependencies = [
  "revm-primitives",
  "thiserror",
  "tracing",
-]
-
-[[package]]
-name = "reth-evm-seismic"
-version = "1.0.6"
-dependencies = [
- "async-trait",
- "eyre",
- "reth-chainspec",
- "reth-evm",
- "reth-evm-ethereum",
- "reth-node-api",
- "reth-node-builder",
- "reth-node-ethereum",
- "reth-primitives",
- "reth-revm",
- "serde_json",
 ]
 
 [[package]]
@@ -7508,22 +7491,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
-]
-
-[[package]]
-name = "reth-helpers-seismic"
-version = "1.0.6"
-dependencies = [
- "alloy-dyn-abi",
- "async-trait",
- "reth-chainspec",
- "reth-primitives",
- "reth-rpc-eth-api",
- "reth-rpc-eth-types",
- "reth-rpc-types",
- "reth-rpc-types-compat",
- "secp256k1",
- "serde_json",
 ]
 
 [[package]]
@@ -7881,6 +7848,7 @@ dependencies = [
  "reth-rpc-types-compat",
  "reth-stages-types",
  "reth-storage-errors",
+ "reth-tee",
  "reth-tracing",
  "reth-transaction-pool",
  "secp256k1",
@@ -7923,6 +7891,7 @@ dependencies = [
  "reth-provider",
  "reth-rpc",
  "reth-tasks",
+ "reth-tee",
  "reth-tracing",
  "reth-transaction-pool",
  "serde_json",
@@ -8020,47 +7989,6 @@ dependencies = [
  "reth-tracing",
  "reth-transaction-pool",
  "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "reth-node-seismic"
-version = "1.0.6"
-dependencies = [
- "alloy-dyn-abi",
- "alloy-network",
- "async-trait",
- "derive_more 0.99.18",
- "dyn-clone",
- "eyre",
- "jsonrpsee",
- "jsonrpsee-types",
- "parking_lot 0.12.3",
- "reth-chainspec",
- "reth-ethereum-engine-primitives",
- "reth-evm",
- "reth-evm-ethereum",
- "reth-evm-seismic",
- "reth-network-api",
- "reth-node-api",
- "reth-node-builder",
- "reth-node-core",
- "reth-node-ethereum",
- "reth-primitives",
- "reth-provider",
- "reth-rpc",
- "reth-rpc-eth-api",
- "reth-rpc-seismic",
- "reth-rpc-types",
- "reth-rpc-types-compat",
- "reth-tasks",
- "reth-tracing",
- "reth-transaction-pool",
- "secp256k1",
- "seismic-transaction",
  "serde_json",
  "thiserror",
  "tokio",
@@ -8245,7 +8173,6 @@ dependencies = [
 name = "reth-primitives"
 version = "1.0.6"
 dependencies = [
- "aes-gcm",
  "alloy-consensus",
  "alloy-eips",
  "alloy-genesis",
@@ -8275,6 +8202,7 @@ dependencies = [
  "reth-optimism-chainspec",
  "reth-primitives-traits",
  "reth-static-file-types",
+ "reth-tee",
  "reth-trie-common",
  "revm-primitives",
  "secp256k1",
@@ -8678,52 +8606,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "reth-rpc-seismic"
-version = "1.0.6"
-dependencies = [
- "alloy-dyn-abi",
- "alloy-network",
- "async-trait",
- "derive_more 0.99.18",
- "dyn-clone",
- "eyre",
- "futures",
- "jsonrpsee",
- "jsonrpsee-types",
- "parking_lot 0.12.3",
- "reth-chainspec",
- "reth-ethereum-engine-primitives",
- "reth-evm",
- "reth-evm-ethereum",
- "reth-evm-seismic",
- "reth-helpers-seismic",
- "reth-network-api",
- "reth-node-api",
- "reth-node-builder",
- "reth-node-core",
- "reth-node-ethereum",
- "reth-primitives",
- "reth-provider",
- "reth-revm",
- "reth-rpc",
- "reth-rpc-eth-api",
- "reth-rpc-eth-types",
- "reth-rpc-types",
- "reth-rpc-types-compat",
- "reth-tasks",
- "reth-tracing",
- "reth-transaction-pool",
- "secp256k1",
- "seismic-transaction",
- "seismic-types",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "reth-rpc-server-types"
 version = "1.0.6"
 dependencies = [
@@ -8922,6 +8804,7 @@ dependencies = [
  "derive_more 1.0.0",
  "reth-fs-util",
  "reth-primitives",
+ "reth-tee",
 ]
 
 [[package]]
@@ -8939,6 +8822,28 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-futures",
+]
+
+[[package]]
+name = "reth-tee"
+version = "1.0.6"
+dependencies = [
+ "aes-gcm",
+ "alloy-rlp",
+ "anyhow",
+ "derive_more 1.0.0",
+ "hkdf",
+ "hyper 0.14.30",
+ "once_cell",
+ "reqwest",
+ "routerify",
+ "secp256k1",
+ "serde",
+ "serde_json",
+ "sha2 0.10.8",
+ "tokio",
+ "tracing",
+ "warp",
 ]
 
 [[package]]
@@ -9308,6 +9213,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afab94fb28594581f62d981211a9a4d53cc8130bbcbbb89a0440d9b8e81a7746"
 
 [[package]]
+name = "routerify"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "496c1d3718081c45ba9c31fbfc07417900aa96f4070ff90dc29961836b7a9945"
+dependencies = [
+ "http 0.2.12",
+ "hyper 0.14.30",
+ "lazy_static",
+ "percent-encoding",
+ "regex",
+]
+
+[[package]]
 name = "ruint"
 version = "1.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9629,52 +9547,6 @@ checksum = "ea4a292869320c0272d7bc55a5a6aafaff59b4f63404a003887b679a2e05b4b6"
 dependencies = [
  "core-foundation-sys",
  "libc",
-]
-
-[[package]]
-name = "seismic-tee-client"
-version = "1.0.6"
-dependencies = [
- "anyhow",
- "hyper 1.4.1",
- "reqwest",
- "secp256k1",
- "serde",
- "serde_json",
- "tokio",
- "tokio-stream",
- "tracing",
- "warp",
-]
-
-[[package]]
-name = "seismic-transaction"
-version = "0.8.1"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=adc0cf2#adc0cf2fb96c9be80df1d71cfe8ba745dc33f1c6"
-dependencies = [
- "alloy-consensus",
- "alloy-eips",
- "alloy-primitives 0.8.1",
- "alloy-rlp",
- "alloy-serde",
- "lazy_static",
- "reth-rpc-types",
- "seismic-types",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "seismic-types"
-version = "0.1.0"
-source = "git+ssh://git@github.com/SeismicSystems/mantle.git?rev=90277e21#90277e21888c166b24966c7f27e5b269f42172f6"
-dependencies = [
- "alloy-primitives 0.8.1",
- "lazy_static",
- "once_cell",
- "rand 0.8.5",
- "serde",
- "serde_json",
 ]
 
 [[package]]

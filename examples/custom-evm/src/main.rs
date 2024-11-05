@@ -27,7 +27,7 @@ use reth_node_ethereum::{
     EthExecutorProvider, EthereumNode,
 };
 use reth_primitives::{
-    revm_primitives::{AnalysisKind, CfgEnvWithHandlerCfg, TxEnv},
+    revm_primitives::{AnalysisKind, CfgEnvWithHandlerCfg, EVMResultGeneric, TxEnv},
     Address, Header, TransactionSigned, U256,
 };
 use reth_tracing::{RethTracer, Tracer};
@@ -94,7 +94,12 @@ impl ConfigureEvmEnv for MyEvmConfig {
         cfg_env.handler_cfg.spec_id = spec_id;
     }
 
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &TransactionSigned, sender: Address) {
+    fn fill_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        transaction: &TransactionSigned,
+        sender: Address,
+    ) -> EVMResultGeneric<(), ()> {
         EthEvmConfig::default().fill_tx_env(tx_env, transaction, sender)
     }
 

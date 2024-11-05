@@ -10,7 +10,7 @@ use reth_node_core::{
     args::{
         utils::{chain_help, chain_value_parser, SUPPORTED_CHAINS},
         DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, NetworkArgs, PayloadBuilderArgs,
-        PruningArgs, RpcServerArgs, TxPoolArgs,
+        PruningArgs, RpcServerArgs, TeeArgs, TxPoolArgs,
     },
     node_config::NodeConfig,
     version,
@@ -80,6 +80,10 @@ pub struct NodeCommand<Ext: clap::Args + fmt::Debug = NoArgs> {
     #[command(flatten)]
     pub rpc: RpcServerArgs,
 
+    /// All tee related arguments
+    #[command(flatten)]
+    pub tee: TeeArgs,
+
     /// All txpool related arguments with --txpool prefix
     #[command(flatten)]
     pub txpool: TxPoolArgs,
@@ -146,6 +150,7 @@ impl<Ext: clap::Args + fmt::Debug> NodeCommand<Ext> {
             with_unused_ports,
             network,
             rpc,
+            tee,
             txpool,
             builder,
             debug,
@@ -164,6 +169,7 @@ impl<Ext: clap::Args + fmt::Debug> NodeCommand<Ext> {
             instance,
             network,
             rpc,
+            tee,
             txpool,
             builder,
             debug,

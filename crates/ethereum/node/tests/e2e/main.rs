@@ -1,3 +1,4 @@
+mod bench;
 mod blobs;
 mod dev;
 mod eth;

@@ -314,7 +314,16 @@ where
         let tx_recovered = tx.clone().try_into_ecrecovered().map_err(|_| {
             BlockExecutionError::Validation(BlockValidationError::SenderRecoveryError)
         })?;
-        evm_config.fill_tx_env(evm.tx_mut(), &tx_recovered, tx_recovered.signer());
+
+        evm_config.fill_tx_env(evm.tx_mut(), &tx_recovered, tx_recovered.signer()).map_err(
+            move |err| {
+                BlockExecutionError::Validation(BlockValidationError::EVM {
+                    hash: tx.hash,
+                    error: Box::new(err.map_db_err(|e| e.into())),
+                })
+            },
+        )?;
+
         let exec_result = match evm.transact() {
             Ok(result) => result,
             error @ Err(EVMError::Transaction(_) | EVMError::Header(_)) => {

@@ -3,7 +3,7 @@
 use crate::{
     args::{
         DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, NetworkArgs, PayloadBuilderArgs,
-        PruningArgs, RpcServerArgs, TxPoolArgs,
+        PruningArgs, RpcServerArgs, TeeArgs, TxPoolArgs,
     },
     dirs::{ChainPath, DataDirPath},
     utils::get_single_header,
@@ -110,6 +110,9 @@ pub struct NodeConfig {
     /// All rpc related arguments
     pub rpc: RpcServerArgs,
 
+    /// All tee related arguments
+    pub tee: TeeArgs,
+
     /// All txpool related arguments with --txpool prefix
     pub txpool: TxPoolArgs,
 
@@ -195,6 +198,12 @@ impl NodeConfig {
     /// Set the rpc args for the node
     pub fn with_rpc(mut self, rpc: RpcServerArgs) -> Self {
         self.rpc = rpc;
+        self
+    }
+
+    /// Set the tee args for the node
+    pub fn with_tee(mut self, tee: TeeArgs) -> Self {
+        self.tee = tee;
         self
     }
 
@@ -406,6 +415,7 @@ impl Default for NodeConfig {
             instance: 1,
             network: NetworkArgs::default(),
             rpc: RpcServerArgs::default(),
+            tee: TeeArgs::default(),
             txpool: TxPoolArgs::default(),
             builder: PayloadBuilderArgs::default(),
             debug: DebugArgs::default(),

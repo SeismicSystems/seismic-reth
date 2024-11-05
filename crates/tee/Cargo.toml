@@ -1,0 +1,40 @@
+[package]
+name = "reth-tee"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Additional utilities for working with tee in reth."
+
+[lints]
+workspace = true
+
+[dependencies]
+tracing.workspace = true
+hyper = { version = "0.14", features = ["full"] }                                   
+routerify = "3.0.0"
+reqwest.workspace = true
+warp = "0.3"
+anyhow = "1.0"
+
+serde_json = {workspace = true}
+secp256k1 = {workspace = true, features = ["rand", "recovery", "std", "serde"]}
+serde = { workspace = true, features = ["derive"]}
+
+# async
+tokio = { workspace = true, features = ["full"] }
+
+# encryption 
+aes-gcm = "0.10"
+once_cell.workspace = true
+alloy-rlp = { workspace = true, features = ["arrayvec"] }
+hkdf = "0.12" 
+sha2 = "0.10"
+
+# misc
+derive_more.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full", "macros"] }

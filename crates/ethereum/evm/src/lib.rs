@@ -15,7 +15,10 @@ extern crate alloc;
 use reth_chainspec::{ChainSpec, Head};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
 use reth_primitives::{transaction::FillTxEnv, Address, Header, TransactionSigned, U256};
-use revm_primitives::{AnalysisKind, Bytes, CfgEnvWithHandlerCfg, Env, TxEnv, TxKind};
+use reth_tee::client::{TeeError, TeeHttpClient};
+use revm_primitives::{
+    AnalysisKind, Bytes, CfgEnvWithHandlerCfg, EVMResultGeneric, Env, TxEnv, TxKind,
+};
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -32,9 +35,19 @@ pub mod dao_fork;
 pub mod eip6110;
 
 /// Ethereum-related EVM configuration.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 #[non_exhaustive]
-pub struct EthEvmConfig;
+pub struct EthEvmConfig {
+    /// tee client decrypting tx
+    tee_client: TeeHttpClient,
+}
+
+impl EthEvmConfig {
+    /// Create a new `EthEvmConfig` with the given `tee_client`.
+    pub fn new(tee_client: TeeHttpClient) -> Self {
+        Self { tee_client }
+    }
+}
 
 impl ConfigureEvmEnv for EthEvmConfig {
     fn fill_cfg_env(
@@ -61,8 +74,13 @@ impl ConfigureEvmEnv for EthEvmConfig {
         cfg_env.handler_cfg.spec_id = spec_id;
     }
 
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &TransactionSigned, sender: Address) {
-        transaction.fill_tx_env(tx_env, sender);
+    fn fill_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        transaction: &TransactionSigned,
+        sender: Address,
+    ) -> EVMResultGeneric<(), TeeError> {
+        transaction.fill_tx_env(tx_env, sender, &self.tee_client)
     }
 
     fn fill_tx_env_system_contract_call(

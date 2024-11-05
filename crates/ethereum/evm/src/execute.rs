@@ -178,7 +178,15 @@ where
                 .into())
             }
 
-            self.evm_config.fill_tx_env(evm.tx_mut(), transaction, *sender);
+            self.evm_config.fill_tx_env(evm.tx_mut(), transaction, *sender).map_err(
+                move |err| {
+                    // Ensure hash is calculated for error log, if not already done
+                    BlockValidationError::EVM {
+                        hash: transaction.recalculate_hash(),
+                        error: Box::new(err.map_db_err(|e| e.into())),
+                    }
+                },
+            )?;
 
             // Execute transaction.
             let ResultAndState { result, state } = evm.transact().map_err(move |err| {

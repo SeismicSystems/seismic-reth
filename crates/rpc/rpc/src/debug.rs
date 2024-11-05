@@ -111,7 +111,9 @@ where
                         env: Env::boxed(
                             cfg.cfg_env.clone(),
                             block_env.clone(),
-                            Call::evm_config(this.eth_api()).tx_env(&tx),
+                            Call::evm_config(this.eth_api())
+                                .tx_env(&tx)
+                                .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
                         ),
                         handler_cfg: cfg.handler_cfg,
                     };
@@ -258,7 +260,9 @@ where
                     env: Env::boxed(
                         cfg.cfg_env.clone(),
                         block_env,
-                        Call::evm_config(this.eth_api()).tx_env(&tx),
+                        Call::evm_config(this.eth_api())
+                            .tx_env(&tx)
+                            .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
                     ),
                     handler_cfg: cfg.handler_cfg,
                 };
@@ -508,7 +512,9 @@ where
                             env: Env::boxed(
                                 cfg.cfg_env.clone(),
                                 block_env.clone(),
-                                Call::evm_config(this.eth_api()).tx_env(&tx),
+                                Call::evm_config(this.eth_api())
+                                    .tx_env(&tx)
+                                    .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
                             ),
                             handler_cfg: cfg.handler_cfg,
                         };
@@ -614,7 +620,9 @@ where
                         env: Env::boxed(
                             cfg.cfg_env.clone(),
                             block_env.clone(),
-                            evm_config.tx_env(&tx),
+                            evm_config
+                                .tx_env(&tx)
+                                .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
                         ),
                         handler_cfg: cfg.handler_cfg,
                     };

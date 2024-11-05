@@ -1,6 +1,8 @@
 use futures_util::StreamExt;
 use reth::api::{BuiltPayload, EngineTypes, PayloadBuilderAttributes};
-use reth_payload_builder::{Events, PayloadBuilderHandle, PayloadId};
+use reth_payload_builder::{EthPayloadBuilderAttributes, Events, PayloadBuilderHandle, PayloadId};
+use reth_primitives::{Address, B256};
+use reth_rpc_types::engine::PayloadAttributes;
 use tokio_stream::wrappers::BroadcastStream;
 
 /// Helper for payload operations
@@ -65,4 +67,15 @@ impl<E: EngineTypes> PayloadTestContext<E> {
             panic!("Expect a built payload event.");
         }
     }
+}
+
+pub fn eth_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
+    let attributes = PayloadAttributes {
+        timestamp,
+        prev_randao: B256::ZERO,
+        suggested_fee_recipient: Address::ZERO,
+        withdrawals: Some(vec![]),
+        parent_beacon_block_root: Some(B256::ZERO),
+    };
+    EthPayloadBuilderAttributes::new(B256::ZERO, attributes)
 }

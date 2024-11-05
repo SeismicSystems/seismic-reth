@@ -3,6 +3,7 @@
 use std::error::Error;
 
 use alloy_network::{AnyNetwork, Network};
+use reth_primitives::Bytes;
 use reth_rpc_eth_types::EthApiError;
 use reth_rpc_types::{Block, Transaction, TransactionRequest, WithOtherFields};
 use serde::{Deserialize, Serialize};
@@ -39,7 +40,7 @@ pub type RpcBlock<T> = Block<RpcTransaction<T>>;
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct SeismicFields {
     /// Encrypted input data
-    pub encrypted_input: Vec<u8>,
+    pub encrypted_input: Bytes,
 }
 /// RPC request for seismic transaction
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]

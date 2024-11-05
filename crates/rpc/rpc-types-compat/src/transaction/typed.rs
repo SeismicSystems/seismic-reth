@@ -55,18 +55,14 @@ pub fn to_primitive_transaction(
             max_fee_per_blob_gas: tx.max_fee_per_blob_gas.to(),
             input: tx.input,
         }),
-        TypedTransactionRequest::Seismic(tx) => {
-            let seismic_tx = TxSeismic::new_from_encrypted_params(
-                tx.chain_id,
-                tx.nonce,
-                tx.gas_price.to(),
-                tx.gas_limit.try_into().ok()?,
-                tx.kind,
-                tx.value,
-                tx.encrypted_input,
-            )
-            .ok()?;
-            Transaction::Seismic(seismic_tx)
-        }
+        TypedTransactionRequest::Seismic(tx) => Transaction::Seismic(TxSeismic {
+            chain_id: tx.chain_id,
+            nonce: tx.nonce,
+            gas_price: tx.gas_price.to(),
+            gas_limit: tx.gas_limit.try_into().ok()?,
+            to: tx.kind,
+            value: tx.value,
+            input: tx.encrypted_input,
+        }),
     })
 }

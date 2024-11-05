@@ -9,8 +9,10 @@ use alloy_signer::Signer;
 use alloy_signer_local::PrivateKeySigner;
 use eyre::Ok;
 use reth_primitives::{
-    hex, Address, Bytes, Transaction, TransactionSigned, TxKind, TxSeismic, B256, U256,
+    hex, Address, Bytes, Transaction, TransactionSigned, TxKind, TxLegacy, TxSeismic, B256, U256,
 };
+use reth_tee::{client::WalletAPI, mock::MockWallet};
+use secp256k1::SecretKey;
 
 /// Helper for transaction operations
 #[derive(Debug)]
@@ -115,58 +117,92 @@ impl SeismicTransactionTestContext {
     /// Creates a static transfer and signs it, returning bytes
     pub async fn deploy_tx_bytes(chain_id: u64, wallet: PrivateKeySigner, nonce: u64) -> Bytes {
         // Source code of the contract deployed:
+        // pragma solidity ^0.8.0;
 
-        // pragma solidity ^0.8.13;
-
-        // contract A {
-        //     uint256 public data;
-
-        //     function set(uint256 _data) public returns (uint256) {
-        //         data = _data;
-        //         return data;
+        // contract NoOpContract {
+        //     // A function that does nothing and has no return value.
+        //     function noop() external pure {
+        //         // This function is intentionally left blank.
         //     }
         // }
 
-        let contract_deploy = Bytes::from_static(&hex!("6080604052348015600e575f5ffd5b5061015b8061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610034575f3560e01c806360fe47b11461003857806373d4a13a14610068575b5f5ffd5b610052600480360381019061004d91906100d2565b610086565b60405161005f919061010c565b60405180910390f35b610070610096565b60405161007d919061010c565b60405180910390f35b5f815f819055505f549050919050565b5f5481565b5f5ffd5b5f819050919050565b6100b18161009f565b81146100bb575f5ffd5b50565b5f813590506100cc816100a8565b92915050565b5f602082840312156100e7576100e661009b565b5b5f6100f4848285016100be565b91505092915050565b6101068161009f565b82525050565b5f60208201905061011f5f8301846100fd565b9291505056fea26469706673582212208bdf5b3b792578bfedc6cd1cab0a48c5e122c7522ca74a61e266f69b7e3fdcb764736f6c634300081c0033"));
-        let tx = seismic_tx(chain_id, contract_deploy, nonce, TxKind::Create);
-        let tx_signed = Self::sign_tx(wallet, tx).await;
-        tx_signed.envelope_encoded()
+        let contract_deploy = Bytes::from_static(&hex!("6080604052348015600e575f5ffd5b50606a80601a5f395ff3fe6080604052348015600e575f5ffd5b50600436106026575f3560e01c80635dfc2e4a14602a575b5f5ffd5b60306032565b005b56fea2646970667358221220e809544020cceb1476f64dbe65da32b56bf6da2cf6da4aabbd286bf9905380c764736f6c634300081c0033"));
+        let tx = seismic_tx(&wallet, chain_id, contract_deploy, nonce, TxKind::Create);
+        let tx_signed = Self::sign_tx(&wallet, tx).await;
+        tx_signed.envelope_encoded().into()
     }
 
     /// Creates a static transfer and signs it, returning bytes
-    pub async fn call_tx_bytes(
+    pub async fn call_seismic_tx_bytes(
         chain_id: u64,
         wallet: PrivateKeySigner,
         nonce: u64,
         address: Address,
         data: Bytes,
     ) -> Bytes {
-        let selector = Bytes::from("60fe47b");
+        let selector = Bytes::from("5dfc2e4a");
         let tx_input = [selector, data].concat();
 
-        println!("Transaction input: {:?}", tx_input);
+        let tx = seismic_tx(&wallet, chain_id, tx_input.into(), nonce, TxKind::Call(address));
+        let tx_signed = Self::sign_tx(&wallet, tx).await;
+        tx_signed.envelope_encoded().into()
+    }
 
-        let tx = seismic_tx(chain_id, tx_input.into(), nonce, TxKind::Call(address));
-        let tx_signed = Self::sign_tx(wallet, tx).await;
-        tx_signed.envelope_encoded()
+    /// Creates a static transfer and signs it, returning bytes
+    pub async fn call_legacy_tx_bytes(
+        chain_id: u64,
+        wallet: PrivateKeySigner,
+        nonce: u64,
+        address: Address,
+        data: Bytes,
+    ) -> Bytes {
+        let selector = Bytes::from("5dfc2e4a");
+        let tx_input = [selector, data].concat();
+
+        let tx = legacy_tx(chain_id, tx_input.into(), nonce, TxKind::Call(address));
+        let tx_signed = Self::sign_tx(&wallet, tx).await;
+        tx_signed.envelope_encoded().into()
     }
 
     /// Signs an arbitrary [`TransactionRequest`] using the provided wallet
-    pub async fn sign_tx(wallet: PrivateKeySigner, tx: Transaction) -> TransactionSigned {
+    pub async fn sign_tx(wallet: &PrivateKeySigner, tx: Transaction) -> TransactionSigned {
         let signature = wallet.sign_hash(&tx.signature_hash()).await.unwrap();
         TransactionSigned::from_transaction_and_signature(tx, signature.into())
     }
 }
 
 /// Creates a type 2 transaction
-fn seismic_tx(chain_id: u64, decrypted_input: Bytes, nonce: u64, to: TxKind) -> Transaction {
-    Transaction::Seismic(TxSeismic::new_from_decrypted_params(
+fn legacy_tx(chain_id: u64, input: Bytes, nonce: u64, to: TxKind) -> Transaction {
+    Transaction::Legacy(TxLegacy {
+        chain_id: Some(chain_id),
+        nonce,
+        gas_price: 20e9 as u128,
+        gas_limit: 600000,
+        to,
+        value: U256::from(1000),
+        input,
+    })
+}
+
+/// Creates a type 2 transaction
+fn seismic_tx(
+    sk_wallet: &PrivateKeySigner,
+    chain_id: u64,
+    decrypted_input: Bytes,
+    nonce: u64,
+    to: TxKind,
+) -> Transaction {
+    let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
+        .expect("32 bytes, within curve order");
+    let tee_wallet = MockWallet {};
+    let encrypted_input = tee_wallet.encrypt(&decrypted_input.to_vec(), nonce, &sk).unwrap();
+    Transaction::Seismic(TxSeismic {
         chain_id,
         nonce,
-        20e9 as u128,
-        600000,
+        gas_price: 20e9 as u128,
+        gas_limit: 600000,
         to,
-        U256::from(1000),
-        decrypted_input,
-    ))
+        value: U256::from(1000),
+        input: encrypted_input.into(),
+    })
 }

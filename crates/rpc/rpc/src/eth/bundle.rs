@@ -183,7 +183,9 @@ where
                         .effective_tip_per_gas(basefee)
                         .ok_or_else(|| RpcInvalidTransactionError::FeeCapTooLow)
                         .map_err(Eth::Error::from_eth_err)?;
-                    Call::evm_config(&eth_api).fill_tx_env(evm.tx_mut(), &tx, signer);
+                    Call::evm_config(&eth_api)
+                        .fill_tx_env(evm.tx_mut(), &tx, signer)
+                        .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
                     let ResultAndState { result, state } =
                         evm.transact().map_err(Eth::Error::from_evm_err)?;
 

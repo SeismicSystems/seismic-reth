@@ -376,7 +376,9 @@ where
         let env = EnvWithHandlerCfg::new_with_cfg_env(
             initialized_cfg.clone(),
             initialized_block_env.clone(),
-            evm_config.tx_env(&tx),
+            evm_config.tx_env(&tx).map_err(|err| {
+                PayloadBuilderError::EvmExecutionError(err.map_db_err(|e| e.into()))
+            })?,
         );
 
         // Configure the environment for the block.
