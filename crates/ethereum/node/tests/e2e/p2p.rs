@@ -80,14 +80,13 @@ async fn can_sync() -> eyre::Result<()> {
     let deployed_contract_address = tx_receipt.contract_address.unwrap();
     let data: Bytes = vec![3u8; 32].into();
 
-    let raw_tx = SeismicTransactionTestContext::call_tx_bytes(
+    let raw_tx = SeismicTransactionTestContext::call_seismic_tx_bytes(
         MAINNET.chain.id(),
         wallet.inner.clone(),
         2,
         deployed_contract_address,
         data.clone(),
-    )
-    .await;
+    ).await;
 
     let output = first_node.rpc.call(raw_tx, 2).await?;
 

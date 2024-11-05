@@ -135,6 +135,8 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
             }
         }
 
+        println!("tx_env {:?}", tx_env);
+
         #[cfg(feature = "optimism")]
         if !self.is_deposit() {
             tx_env.optimism = revm_primitives::OptimismFields {
