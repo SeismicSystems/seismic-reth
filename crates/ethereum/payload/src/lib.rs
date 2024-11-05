@@ -377,7 +377,7 @@ where
             initialized_cfg.clone(),
             initialized_block_env.clone(),
             evm_config.tx_env(&tx).map_err(|err| {
-                PayloadBuilderError::EvmExecutionError(err.map_db_err(|e|e.into()))
+                PayloadBuilderError::EvmExecutionError(err.map_db_err(|e| e.into()))
             })?,
         );
 

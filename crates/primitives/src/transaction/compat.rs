@@ -8,8 +8,12 @@ use alloc::vec::Vec;
 /// Implements behaviour to fill a [`TxEnv`] from another transaction.
 pub trait FillTxEnv<T: TeeAPI> {
     /// Fills [`TxEnv`] with an [`Address`] and transaction.
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, sender: Address, tee: &T)
-        -> EVMResultGeneric<(), TeeError>;
+    fn fill_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        sender: Address,
+        tee: &T,
+    ) -> EVMResultGeneric<(), TeeError>;
 }
 
 impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {

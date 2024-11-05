@@ -110,7 +110,10 @@ pub trait ConfigureEvm: ConfigureEvmEnv {
 #[auto_impl::auto_impl(&, Arc)]
 pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
     /// Returns a [`TxEnv`] from a [`TransactionSignedEcRecovered`].
-    fn tx_env(&self, transaction: &TransactionSignedEcRecovered) -> EVMResultGeneric<TxEnv, TeeError> {
+    fn tx_env(
+        &self,
+        transaction: &TransactionSignedEcRecovered,
+    ) -> EVMResultGeneric<TxEnv, TeeError> {
         let mut tx_env = TxEnv::default();
         self.fill_tx_env(&mut tx_env, transaction.deref(), transaction.signer())?;
         Ok(tx_env)

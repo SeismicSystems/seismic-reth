@@ -183,7 +183,7 @@ where
                     // Ensure hash is calculated for error log, if not already done
                     BlockValidationError::EVM {
                         hash: transaction.recalculate_hash(),
-                        error: Box::new(err.map_db_err(|e|e.into())),
+                        error: Box::new(err.map_db_err(|e| e.into())),
                     }
                 },
             )?;
