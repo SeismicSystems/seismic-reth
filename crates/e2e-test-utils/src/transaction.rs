@@ -9,7 +9,7 @@ use alloy_signer::Signer;
 use alloy_signer_local::PrivateKeySigner;
 use eyre::Ok;
 use reth_primitives::{
-    hex, Address, Bytes, Transaction, TransactionSigned, TxKind, TxLegacy, TxSeismic, B256, U256
+    hex, Address, Bytes, Transaction, TransactionSigned, TxKind, TxLegacy, TxSeismic, B256, U256,
 };
 use reth_tee::{client::WalletAPI, mock::MockWallet};
 use secp256k1::SecretKey;
@@ -172,12 +172,7 @@ impl SeismicTransactionTestContext {
 }
 
 /// Creates a type 2 transaction
-fn legacy_tx(
-    chain_id: u64,
-    input: Bytes,
-    nonce: u64,
-    to: TxKind,
-) -> Transaction {
+fn legacy_tx(chain_id: u64, input: Bytes, nonce: u64, to: TxKind) -> Transaction {
     Transaction::Legacy(TxLegacy {
         chain_id: Some(chain_id),
         nonce,
@@ -185,10 +180,9 @@ fn legacy_tx(
         gas_limit: 600000,
         to,
         value: U256::from(1000),
-        input: input,
+        input,
     })
 }
-
 
 /// Creates a type 2 transaction
 fn seismic_tx(

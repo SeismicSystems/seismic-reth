@@ -36,6 +36,7 @@ mod impl_secp256k1 {
         Ok(public_key_to_address(public))
     }
 
+    /// Recovers the public key of the sender using secp256k1 pubkey recovery.
     pub fn recover_pubkey_unchecked(sig: &[u8; 65], msg: &[u8; 32]) -> Result<PublicKey, Error> {
         let sig =
             RecoverableSignature::from_compact(&sig[0..64], RecoveryId::from_i32(sig[64] as i32)?)?;
@@ -43,7 +44,6 @@ mod impl_secp256k1 {
         let public = SECP256K1.recover_ecdsa(&Message::from_digest(*msg), &sig)?;
         Ok(public)
     }
-
 
     /// Signs message with the given secret key.
     /// Returns the corresponding signature.

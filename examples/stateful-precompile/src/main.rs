@@ -23,7 +23,7 @@ use reth_node_api::{ConfigureEvm, ConfigureEvmEnv, FullNodeTypes};
 use reth_node_core::{args::RpcServerArgs, node_config::NodeConfig};
 use reth_node_ethereum::{node::EthereumAddOns, EthEvmConfig, EthExecutorProvider, EthereumNode};
 use reth_primitives::{
-    revm_primitives::{SpecId, StatefulPrecompileMut},
+    revm_primitives::{EVMResultGeneric, SpecId, StatefulPrecompileMut},
     Header, TransactionSigned,
 };
 use reth_tracing::{RethTracer, Tracer};
@@ -138,7 +138,12 @@ impl StatefulPrecompileMut for WrappedPrecompile {
 }
 
 impl ConfigureEvmEnv for MyEvmConfig {
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &TransactionSigned, sender: Address) -> EVMResultGeneric<(), ()> {
+    fn fill_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        transaction: &TransactionSigned,
+        sender: Address,
+    ) -> EVMResultGeneric<(), ()> {
         EthEvmConfig::default().fill_tx_env(tx_env, transaction, sender)
     }
 

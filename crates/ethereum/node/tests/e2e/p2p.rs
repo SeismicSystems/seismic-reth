@@ -6,8 +6,8 @@ use reth_e2e_test_utils::{
     transaction::{SeismicTransactionTestContext, TransactionTestContext},
 };
 use reth_node_ethereum::EthereumNode;
-use tokio::{runtime::Runtime, task};
 use std::{io::Read, sync::Arc, time::Instant};
+use tokio::{runtime::Runtime, task};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn can_sync() -> eyre::Result<()> {
@@ -86,7 +86,8 @@ async fn can_sync() -> eyre::Result<()> {
         2,
         deployed_contract_address,
         data.clone(),
-    ).await;
+    )
+    .await;
 
     let output = first_node.rpc.call(raw_tx, 2).await?;
 

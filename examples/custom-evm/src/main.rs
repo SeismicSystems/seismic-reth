@@ -27,7 +27,7 @@ use reth_node_ethereum::{
     EthExecutorProvider, EthereumNode,
 };
 use reth_primitives::{
-    revm_primitives::{AnalysisKind, CfgEnvWithHandlerCfg, TxEnv},
+    revm_primitives::{AnalysisKind, CfgEnvWithHandlerCfg, EVMResultGeneric, TxEnv},
     Address, Header, TransactionSigned, U256,
 };
 use reth_tracing::{RethTracer, Tracer};

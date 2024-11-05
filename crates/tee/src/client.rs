@@ -6,25 +6,20 @@
 //! traits define the API and implementation for the TEE client.
 #![allow(async_fn_in_trait)]
 
-use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    str::FromStr,
-};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use crate::types::{
     IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,
 };
 
-use aes_gcm::{Aes256Gcm, Key};
-use alloy_rlp::{Decodable, Encodable, Error};
-use hkdf::Hkdf;
-use hyper::Response;
+use alloy_rlp::{Decodable, Encodable};
 use reqwest::Client;
-use secp256k1::{ecdh::SharedSecret, ecdsa::Signature, Message, PublicKey, Secp256k1, SecretKey};
-use sha2::{Digest, Sha256};
-use tokio::task;
+use secp256k1::PublicKey;
 
+/// Default port for the TEE server endpoint
 pub const TEE_DEFAULT_ENDPOINT_PORT: u16 = 7878;
+
+/// Default IP address for the TEE server endpoint
 pub const TEE_DEFAULT_ENDPOINT_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 
 /// Trait for the API of the TEE client
@@ -44,7 +39,9 @@ pub trait TeeAPI {
     ) -> Result<IoDecryptionResponse, anyhow::Error>;
 }
 
+/// Trait for the API of the wallet with tee public key to encrypt
 pub trait WalletAPI {
+    /// Encrypts the given data using the public key included in the request
     fn encrypt(
         &self,
         data: &Vec<u8>,
@@ -84,6 +81,7 @@ impl TeeHttpClient {
         Self { base_url: format!("http://{}:{}", addr, port), client: Client::new() }
     }
 
+    /// Creates a new instance of the TEE client
     pub fn new_from_addr(addr: &SocketAddr) -> Self {
         let base_url = format!("http://{}", addr);
         println!("Base URL: {}", base_url);

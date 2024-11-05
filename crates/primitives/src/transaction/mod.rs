@@ -9,11 +9,11 @@ use alloy_rlp::{
     Decodable, Encodable, Error as RlpError, Header, EMPTY_LIST_CODE, EMPTY_STRING_CODE,
 };
 use bytes::Buf;
-use secp256k1::PublicKey;
 use core::mem;
 use derive_more::{AsRef, Deref};
 use once_cell::sync::Lazy;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
+use secp256k1::PublicKey;
 use serde::{Deserialize, Serialize};
 
 pub use access_list::{AccessList, AccessListItem, AccessListResult};
@@ -1136,11 +1136,13 @@ impl TransactionSigned {
         self.signature.recover_signer_unchecked(signature_hash)
     }
 
+    /// Returns the public key from the signature.
     pub fn recover_pubkey(&self) -> Option<PublicKey> {
         let signature_hash = self.signature_hash();
         self.signature.recover_pubkey(signature_hash)
     }
 
+    /// Returns the public key from the signature _without ensuring that the signature has a low `s`
     pub fn recover_pubkey_unchecked(&self) -> Option<PublicKey> {
         // Optimism's Deposit transaction does not have a signature. Directly return the
         // `from` address.

@@ -18,8 +18,13 @@ use reth_chainspec::{ChainSpec, Head};
 use reth_errors::{ProviderError, RethResult};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
 use reth_primitives::{transaction::FillTxEnv, Address, Header, TransactionSigned, U256};
-use reth_tee::{client::{decrypt, encrypt, TeeAPI, TeeHttpClient}, types::IoDecryptionRequest};
-use revm_primitives::{AnalysisKind, Bytes, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, TxEnv, TxKind};
+use reth_tee::{
+    client::{decrypt, encrypt, TeeAPI, TeeHttpClient},
+    types::IoDecryptionRequest,
+};
+use revm_primitives::{
+    AnalysisKind, Bytes, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, TxEnv, TxKind,
+};
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -40,7 +45,7 @@ pub mod eip6110;
 #[non_exhaustive]
 pub struct EthEvmConfig {
     /// tee client decrypting tx
-    tee_client: TeeHttpClient
+    tee_client: TeeHttpClient,
 }
 
 impl EthEvmConfig {
@@ -74,7 +79,12 @@ impl ConfigureEvmEnv for EthEvmConfig {
         cfg_env.handler_cfg.spec_id = spec_id;
     }
 
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &TransactionSigned, sender: Address) -> EVMResultGeneric<(), ()> {
+    fn fill_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        transaction: &TransactionSigned,
+        sender: Address,
+    ) -> EVMResultGeneric<(), ()> {
         transaction.fill_tx_env(tx_env, sender, &self.tee_client)
     }
 

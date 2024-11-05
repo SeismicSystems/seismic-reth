@@ -8,11 +8,17 @@ use alloc::vec::Vec;
 /// Implements behaviour to fill a [`TxEnv`] from another transaction.
 pub trait FillTxEnv<T: TeeAPI> {
     /// Fills [`TxEnv`] with an [`Address`] and transaction.
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, sender: Address, tee: &T) -> EVMResultGeneric<(), ()>;
+    fn fill_tx_env(&self, tx_env: &mut TxEnv, sender: Address, tee: &T)
+        -> EVMResultGeneric<(), ()>;
 }
 
 impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, sender: Address, tee: &T) -> EVMResultGeneric<(), ()> {
+    fn fill_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        sender: Address,
+        tee: &T,
+    ) -> EVMResultGeneric<(), ()> {
         #[cfg(feature = "optimism")]
         let envelope = {
             let mut envelope = Vec::with_capacity(self.length_without_header());
@@ -115,10 +121,17 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                 return;
             }
             Transaction::Seismic(tx) => {
+                let msg_sender = self
+                    .recover_pubkey()
+                    .ok_or(EVMError::Custom("Invalid Signature".to_string()))?;
 
-                let msg_sender = self.recover_pubkey().ok_or(EVMError::Custom("Invalid Signature".to_string()))?;
-
-                let decrypted_input: Bytes = decrypt(tee, msg_sender, Vec::<u8>::from(tx.input().as_ref()), tx.nonce().clone()).map_err(|_|EVMError::Custom("Decryption Failed".to_string()))?;
+                let decrypted_input: Bytes = decrypt(
+                    tee,
+                    msg_sender,
+                    Vec::<u8>::from(tx.input().as_ref()),
+                    tx.nonce().clone(),
+                )
+                .map_err(|_| EVMError::Custom("Decryption Failed".to_string()))?;
 
                 tx_env.gas_limit = *tx.gas_limit();
                 tx_env.gas_price = U256::from(*tx.gas_price());

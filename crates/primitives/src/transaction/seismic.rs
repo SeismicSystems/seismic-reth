@@ -1,11 +1,6 @@
 use crate::{keccak256, Bytes, ChainId, Signature, TxKind, TxType, B256, U256};
-use aes_gcm::{
-    aead::{generic_array::GenericArray, Aead, AeadCore, KeyInit, OsRng as AesRng},
-    Aes256Gcm, Key,
-};
-use alloy_rlp::{length_of_length, Decodable, Encodable, Error, Header};
+use alloy_rlp::{length_of_length, Decodable, Encodable, Header};
 use core::mem;
-use once_cell::sync::Lazy;
 use paste::paste;
 
 #[cfg(any(test, feature = "reth-codec"))]
@@ -15,13 +10,6 @@ use reth_codecs::Compact;
 use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
-// Static variable that will hold the generated key, initialized lazily
-static AES_KEY: Lazy<Key<Aes256Gcm>> = Lazy::new(|| {
-    let rng = AesRng::default();
-    let key: Key<Aes256Gcm> = Aes256Gcm::generate_key(rng);
-    return key;
-});
-
 /// Basic encrypted transaction type
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
@@ -30,11 +18,35 @@ static AES_KEY: Lazy<Key<Aes256Gcm>> = Lazy::new(|| {
 pub struct TxSeismic {
     /// encrypted transaction inputted from users
     pub chain_id: ChainId,
+    /// A scalar value equal to the number of transactions sent by the sender; formally Tn.
     pub nonce: u64,
+    /// A scalar value equal to the number of
+    /// Wei to be paid per unit of gas for all computation
+    /// costs incurred as a result of the execution of this transaction; formally Tp.
+    ///
+    /// As ethereum circulation is around 120mil eth as of 2022 that is around
+    /// 120000000000000000000000000 wei we are safe to use u128 as its max number is:
+    /// 340282366920938463463374607431768211455
     pub gas_price: u128,
+    /// A scalar value equal to the maximum
+    /// amount of gas that should be used in executing
+    /// this transaction. This is paid up-front, before any
+    /// computation is done and may not be increased
+    /// later; formally Tg.
     pub gas_limit: u64,
+    /// The 160-bit address of the message call’s recipient or, for a contract creation
+    /// transaction, ∅, used here to denote the only member of B0 ; formally Tt.
     pub to: TxKind,
+    /// A scalar value equal to the number of Wei to
+    /// be transferred to the message call’s recipient or,
+    /// in the case of contract creation, as an endowment
+    /// to the newly created account; formally Tv.
     pub value: U256,
+    /// Input has two uses depending if transaction is Create or Call (if `to` field is None or
+    /// Some). pub init: An unlimited size byte array specifying the
+    /// EVM-code for the account initialisation procedure CREATE,
+    /// data: An unlimited size byte array specifying the
+    /// input data of the message call, formally Td.
     pub input: Bytes,
 }
 
@@ -68,7 +80,6 @@ macro_rules! generate_setters {
 }
 
 impl TxSeismic {
-
     generate_getters!(
         chain_id: ChainId,
         nonce: u64,
@@ -246,7 +257,8 @@ mod tests {
 
         let mut encoded_tx = Vec::new();
         tx.encode_fields(&mut encoded_tx);
-        let decoded_tx = TxSeismic::decode_inner(&mut &encoded_tx[..]).expect("Failed to decode seismic transaction");
+        let decoded_tx = TxSeismic::decode_inner(&mut &encoded_tx[..])
+            .expect("Failed to decode seismic transaction");
 
         // check that the decoded transaction matches the original transaction
         assert_eq!(decoded_tx, tx);

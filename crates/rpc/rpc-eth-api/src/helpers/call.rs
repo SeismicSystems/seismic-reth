@@ -75,8 +75,13 @@ pub trait EthCall: Call + LoadPendingBlock {
 
             let (cfg, block, at) = self.evm_env_at(block_number.unwrap_or_default()).await?;
 
-            let env =
-                EnvWithHandlerCfg::new_with_cfg_env(cfg, block, Call::evm_config(self).tx_env(&tx).map_err(|_|EthApiError::FailedToDecodeSignedTransaction)?);
+            let env = EnvWithHandlerCfg::new_with_cfg_env(
+                cfg,
+                block,
+                Call::evm_config(self)
+                    .tx_env(&tx)
+                    .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
+            );
 
             let this = self.clone();
 
@@ -155,7 +160,9 @@ pub trait EthCall: Call + LoadPendingBlock {
                         let env = EnvWithHandlerCfg::new_with_cfg_env(
                             cfg.clone(),
                             block_env.clone(),
-                            Call::evm_config(&this).tx_env(&tx).map_err(|_|EthApiError::FailedToDecodeSignedTransaction)?,
+                            Call::evm_config(&this)
+                                .tx_env(&tx)
+                                .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
                         );
                         let (res, _) = this.transact(&mut db, env)?;
                         db.commit(res.state);
@@ -474,7 +481,9 @@ pub trait Call: LoadState + SpawnBlocking {
                 let env = EnvWithHandlerCfg::new_with_cfg_env(
                     cfg,
                     block_env,
-                    Call::evm_config(&this).tx_env(&tx).map_err(|_|EthApiError::FailedToDecodeSignedTransaction)?,
+                    Call::evm_config(&this)
+                        .tx_env(&tx)
+                        .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
                 );
 
                 let (res, _) = this.transact(&mut db, env)?;
@@ -515,7 +524,9 @@ pub trait Call: LoadState + SpawnBlocking {
             }
 
             let sender = tx.signer();
-            self.evm_config().fill_tx_env(evm.tx_mut(), &tx.into_signed(), sender).map_err(|_|EthApiError::FailedToDecodeSignedTransaction)?;
+            self.evm_config()
+                .fill_tx_env(evm.tx_mut(), &tx.into_signed(), sender)
+                .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
             evm.transact_commit().map_err(Self::Error::from_evm_err)?;
             index += 1;
         }

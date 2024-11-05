@@ -1,31 +1,37 @@
 use aes_gcm::{
-    aead::{generic_array::GenericArray, Aead, AeadCore, KeyInit, OsRng},
+    aead::{generic_array::GenericArray, Aead, AeadCore, KeyInit},
     Aes256Gcm, Key,
 };
 use alloy_rlp::{Decodable, Encodable};
 use anyhow::{anyhow, Error, Result};
 use hkdf::Hkdf;
 use hyper::{body::to_bytes, Body, Request, Response, Server, StatusCode};
-use once_cell::sync::Lazy;
-use routerify::{ext::RequestExt, Middleware, RequestInfo, Router, RouterService};
-use secp256k1::{ecdh::SharedSecret, Keypair, SecretKey};
+use routerify::{Router, RouterService};
+use secp256k1::ecdh::SharedSecret;
 use serde_json::json;
 use sha2::Sha256;
 use std::{convert::Infallible, net::SocketAddr, str::FromStr};
 
 use crate::{
-    client::{TeeAPI, TeeError, WalletAPI, TEE_DEFAULT_ENDPOINT_ADDR, TEE_DEFAULT_ENDPOINT_PORT},
+    client::{TeeAPI, WalletAPI},
     types::{IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse},
 };
 
+/// MockTeeServer is a mock implementation of a TEE (Trusted Execution Environment) server.
+/// It provides endpoints for encrypting and decrypting data using AES-256-GCM encryption.
+#[derive(Debug)]
 pub struct MockTeeServer {
+    /// The address on which the server is running
     addr: SocketAddr,
 }
 
 impl MockTeeServer {
+    /// create a new tee mock server that runs on the given address
     pub fn new(addr: &str) -> Self {
         MockTeeServer { addr: SocketAddr::from_str(addr).unwrap() }
     }
+
+    /// start the mock tee server
     pub async fn run(&self) -> Result<()> {
         let router = Router::builder()
             .post("/tx_io/encrypt", MockTeeServer::handle_io_encrypt)
@@ -42,6 +48,7 @@ impl MockTeeServer {
         Ok(())
     }
 
+    /// handle the io_encrypt endpoint
     async fn handle_io_encrypt(req: Request<Body>) -> Result<Response<Body>, Infallible> {
         let body_bytes = to_bytes(req.into_body()).await.unwrap();
         let payload: IoEncryptionRequest = match serde_json::from_slice(&body_bytes) {
@@ -58,6 +65,7 @@ impl MockTeeServer {
         }
     }
 
+    /// handle the io_decrypt endpoint
     async fn handle_io_decrypt(req: Request<Body>) -> Result<Response<Body>, Infallible> {
         let body_bytes = to_bytes(req.into_body()).await.unwrap();
         let payload: IoDecryptionRequest = match serde_json::from_slice(&body_bytes) {
@@ -75,6 +83,8 @@ impl MockTeeServer {
     }
 }
 
+/// MockTeeClient is a mock implementation of a TEE (Trusted Execution Environment) client.
+#[derive(Debug)]
 pub struct MockTeeClient {}
 impl TeeAPI for MockTeeClient {
     async fn io_encrypt(
@@ -109,6 +119,8 @@ impl TeeAPI for MockTeeClient {
     }
 }
 
+/// MockWallet is the wallet that has tee public key to encrypt transactions
+#[derive(Debug)]
 pub struct MockWallet {}
 impl WalletAPI for MockWallet {
     fn encrypt(
@@ -127,6 +139,7 @@ impl WalletAPI for MockWallet {
     }
 }
 
+/// Derives an AES key from a shared secret using HKDF and SHA-256.
 pub fn derive_aes_key(shared_secret: &SharedSecret) -> Result<Key<Aes256Gcm>, hkdf::InvalidLength> {
     // Initialize HKDF with SHA-256
     let hk = Hkdf::<Sha256>::new(None, &shared_secret.secret_bytes());
@@ -137,6 +150,7 @@ pub fn derive_aes_key(shared_secret: &SharedSecret) -> Result<Key<Aes256Gcm>, hk
     Ok(*Key::<Aes256Gcm>::from_slice(&okm))
 }
 
+/// Encrypts the given plaintext using AES-256-GCM encryption.
 pub fn aes_encrypt<T: Encodable>(key: &Key<Aes256Gcm>, plaintext: &T, nonce: u64) -> Vec<u8> {
     let cipher = Aes256Gcm::new(key);
     let nonce = u64_to_generic_u8_array(nonce);
@@ -151,6 +165,7 @@ pub fn aes_encrypt<T: Encodable>(key: &Key<Aes256Gcm>, plaintext: &T, nonce: u64
         .unwrap_or_else(|err| panic!("Encryption failed: {:?}", err))
 }
 
+/// Decrypts the given ciphertext using AES-256-GCM encryption.
 pub fn aes_decrypt<T>(
     key: &Key<Aes256Gcm>,
     ciphertext: &[u8],
@@ -190,6 +205,7 @@ pub fn get_sample_secp256k1_pk() -> secp256k1::PublicKey {
     .unwrap()
 }
 
+/// Converts a u64 nonce to a GenericArray of u8 bytes.
 fn u64_to_generic_u8_array(nonce: u64) -> GenericArray<u8, <Aes256Gcm as AeadCore>::NonceSize> {
     let mut nonce_bytes = nonce.to_be_bytes().to_vec();
     let crypto_nonce_size = GenericArray::<u8, <Aes256Gcm as AeadCore>::NonceSize>::default().len();
@@ -204,15 +220,15 @@ pub fn invalid_req_body_resp() -> Response<Body> {
     Response::builder().status(StatusCode::BAD_REQUEST).body(Body::from(error_response)).unwrap()
 }
 
-// Returns 400 Bad Request
-// Meant to be used if deserializing the body into a json fails
+/// Returns 400 Bad Request
+/// Meant to be used if deserializing the body into a json fails
 pub fn invalid_json_body_resp() -> Response<Body> {
     let error_response = json!({ "error": "Invalid JSON in request body" }).to_string();
     Response::builder().status(StatusCode::BAD_REQUEST).body(Body::from(error_response)).unwrap()
 }
 
-// Returns 422 Unprocessable Entity
-// Meant to be used if decrypting the ciphertext fails
+/// Returns 422 Unprocessable Entity
+/// Meant to be used if decrypting the ciphertext fails
 pub fn invalid_ciphertext_resp(e: Error) -> Response<Body> {
     let error_message = format!("Invalid ciphertext: {}", e); // Use error's Display trait
     let error_response = json!({ "error": error_message }).to_string();
@@ -222,19 +238,18 @@ pub fn invalid_ciphertext_resp(e: Error) -> Response<Body> {
         .body(Body::from(error_response))
         .unwrap()
 }
-
+#[cfg(test)]
 mod tests {
 
     use crate::{
-        client::{TeeHttpClient, TEE_DEFAULT_ENDPOINT_PORT},
+        client::TeeHttpClient,
         mock::MockTeeServer,
-        types::{IoDecryptionRequest, IoEncryptionRequest, IoEncryptionResponse},
+        types::{IoDecryptionRequest, IoEncryptionRequest},
     };
     use aes_gcm::aead::OsRng;
-    use hyper::{Body, Client, Method, Request, StatusCode};
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
-    use std::{net::SocketAddr, str::FromStr, thread, time::Duration};
-    use tokio::{net::TcpListener, runtime::Runtime, task};
+    use std::{net::SocketAddr, str::FromStr};
+    use tokio::task;
 
     use crate::{
         client::{TeeAPI, WalletAPI},

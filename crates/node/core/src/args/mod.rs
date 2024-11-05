@@ -1,6 +1,5 @@
 //! Parameters for configuring the rpc more granularity via CLI
-//! 
-/// TeeArgs struct for configuring the tee 
+/// TeeArgs struct for configuring the tee
 mod tee;
 pub use tee::TeeArgs;
 

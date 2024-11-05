@@ -1,19 +1,14 @@
 //! clap [Args](clap::Args) for RPC related arguments.
 
-use std::{
-    net::{IpAddr, Ipv4Addr},
-};
+use std::net::{IpAddr, Ipv4Addr};
 
 use clap::Args;
 use reth_tee::client::{TEE_DEFAULT_ENDPOINT_ADDR, TEE_DEFAULT_ENDPOINT_PORT};
-
-
 
 /// Parameters for configuring the tee more granularity via CLI
 #[derive(Debug, Clone, Args, PartialEq, Eq)]
 #[command(next_help_heading = "TEE")]
 pub struct TeeArgs {
-
     /// Auth server address to listen on
     #[arg(long = "tee.endpoint-addr", default_value_t = TEE_DEFAULT_ENDPOINT_ADDR)]
     pub tee_server_addr: IpAddr,
@@ -48,9 +43,7 @@ mod tests {
 
     #[test]
     fn test_tee_args_parser() {
-        let args =
-            CommandParser::<TeeArgs>::parse_from(["reth"])
-                .args;
+        let args = CommandParser::<TeeArgs>::parse_from(["reth"]).args;
 
         let addr = args.tee_server_addr;
         let port = args.tee_server_port;
@@ -58,5 +51,4 @@ mod tests {
         assert_eq!(port, TEE_DEFAULT_ENDPOINT_PORT);
         assert_eq!(addr, IpAddr::V4(Ipv4Addr::LOCALHOST));
     }
-
 }

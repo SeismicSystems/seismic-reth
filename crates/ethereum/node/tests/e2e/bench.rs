@@ -1,13 +1,10 @@
 use crate::utils::eth_payload_attributes;
 use alloy_primitives::Bytes;
 use reth_chainspec::{ChainSpecBuilder, MAINNET};
-use reth_e2e_test_utils::{
-    setup,
-    transaction::{SeismicTransactionTestContext},
-};
+use reth_e2e_test_utils::{setup, transaction::SeismicTransactionTestContext};
 use reth_node_ethereum::EthereumNode;
-use std::{sync::Arc, time::Instant};
 use reth_tracing::tracing::*;
+use std::{sync::Arc, time::Instant};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn bench() -> eyre::Result<()> {
@@ -34,9 +31,12 @@ async fn bench() -> eyre::Result<()> {
     let call_cnt = send_raw_tx_cnt * 3;
 
     // ==================== first block for encrypted transaction ====================
-    let raw_tx =
-        SeismicTransactionTestContext::deploy_tx_bytes(MAINNET.chain.id(), wallet.inner.clone(), nonce)
-            .await;
+    let raw_tx = SeismicTransactionTestContext::deploy_tx_bytes(
+        MAINNET.chain.id(),
+        wallet.inner.clone(),
+        nonce,
+    )
+    .await;
     nonce += 1;
 
     // Make the first node advance
@@ -74,7 +74,8 @@ async fn bench() -> eyre::Result<()> {
             nonce,
             deployed_contract_address,
             data.clone(),
-        ).await;
+        )
+        .await;
 
         let _ = first_node.rpc.call(raw_tx, block_number).await?;
     }
@@ -87,7 +88,8 @@ async fn bench() -> eyre::Result<()> {
             nonce,
             deployed_contract_address,
             data.clone(),
-        ).await;
+        )
+        .await;
         nonce += 1;
 
         let tx_hash = first_node.rpc.inject_tx(raw_tx).await?;
@@ -127,12 +129,11 @@ async fn bench() -> eyre::Result<()> {
             nonce,
             deployed_contract_address,
             data.clone(),
-        ).await;
+        )
+        .await;
         debug!(target: "e2e:bench", ?nonce, "nonce");
         let _ = first_node.rpc.call(raw_tx, block_number).await?;
     }
-
-
 
     // run transactions
     for _ in 0..send_raw_tx_cnt {
@@ -142,7 +143,8 @@ async fn bench() -> eyre::Result<()> {
             nonce,
             deployed_contract_address,
             data.clone(),
-        ).await;
+        )
+        .await;
         nonce += 1;
 
         let tx_hash = first_node.rpc.inject_tx(raw_tx).await?;
