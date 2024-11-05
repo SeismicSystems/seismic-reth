@@ -230,7 +230,7 @@ where
         // pool is actually present in the canonical block
         let head = self.engine_api.canonical_stream.next().await.unwrap();
         let tx = head.tip().transactions().next();
-        // assert_eq!(tx.unwrap().hash().as_slice(), tip_tx_hash.as_slice());
+        assert_eq!(tx.unwrap().hash().as_slice(), tip_tx_hash.as_slice());
 
         loop {
             // wait for the block to commit
