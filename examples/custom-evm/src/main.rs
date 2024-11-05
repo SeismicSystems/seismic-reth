@@ -94,7 +94,12 @@ impl ConfigureEvmEnv for MyEvmConfig {
         cfg_env.handler_cfg.spec_id = spec_id;
     }
 
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &TransactionSigned, sender: Address) ->  EVMResultGeneric<(), ()> {
+    fn fill_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        transaction: &TransactionSigned,
+        sender: Address,
+    ) -> EVMResultGeneric<(), ()> {
         EthEvmConfig::default().fill_tx_env(tx_env, transaction, sender)
     }
 
