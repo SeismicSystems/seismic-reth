@@ -317,13 +317,9 @@ where
 
         evm_config.fill_tx_env(evm.tx_mut(), &tx_recovered, tx_recovered.signer()).map_err(
             move |err| {
-                let new_err = match err {
-                    EVMError::Custom(e) => EVMError::Custom(e),
-                    _ => EVMError::Custom("fill_tx_env failed".to_string()),
-                };
                 BlockExecutionError::Validation(BlockValidationError::EVM {
                     hash: tx.hash,
-                    error: Box::new(new_err),
+                    error: Box::new(err.map_db_err(|e| e.into())),
                 })
             },
         )?;

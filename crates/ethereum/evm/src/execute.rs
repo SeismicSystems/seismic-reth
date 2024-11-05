@@ -180,14 +180,10 @@ where
 
             self.evm_config.fill_tx_env(evm.tx_mut(), transaction, *sender).map_err(
                 move |err| {
-                    let new_err = match err {
-                        EVMError::Custom(e) => EVMError::Custom(e),
-                        _ => EVMError::Custom("fill_tx_env failed".to_string()),
-                    };
                     // Ensure hash is calculated for error log, if not already done
                     BlockValidationError::EVM {
                         hash: transaction.recalculate_hash(),
-                        error: Box::new(new_err),
+                        error: Box::new(err.map_db_err(|e|e.into())),
                     }
                 },
             )?;

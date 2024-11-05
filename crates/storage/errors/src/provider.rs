@@ -4,6 +4,7 @@ use reth_primitives::{
     Address, BlockHash, BlockHashOrNumber, BlockNumber, GotExpected, StaticFileSegment,
     TxHashOrNumber, TxNumber, B256, U256,
 };
+use reth_tee::client::TeeError;
 
 #[cfg(feature = "std")]
 use std::path::PathBuf;
@@ -148,6 +149,8 @@ pub enum ProviderError {
     StorageLockError(StorageLockError),
     /// Storage writer error.
     UnifiedStorageWriterError(UnifiedStorageWriterError),
+    /// Tee encryptography error.
+    TeeError(TeeError),
 }
 
 impl From<DatabaseError> for ProviderError {
@@ -171,6 +174,12 @@ impl From<StorageLockError> for ProviderError {
 impl From<UnifiedStorageWriterError> for ProviderError {
     fn from(error: UnifiedStorageWriterError) -> Self {
         Self::UnifiedStorageWriterError(error)
+    }
+}
+
+impl From<TeeError> for ProviderError {
+    fn from(err: TeeError) -> Self {
+        Self::TeeError(err)
     }
 }
 

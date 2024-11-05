@@ -19,7 +19,7 @@ use reth_errors::{ProviderError, RethResult};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
 use reth_primitives::{transaction::FillTxEnv, Address, Header, TransactionSigned, U256};
 use reth_tee::{
-    client::{decrypt, encrypt, TeeAPI, TeeHttpClient},
+    client::{decrypt, encrypt, TeeAPI, TeeError, TeeHttpClient},
     types::IoDecryptionRequest,
 };
 use revm_primitives::{
@@ -84,7 +84,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
         tx_env: &mut TxEnv,
         transaction: &TransactionSigned,
         sender: Address,
-    ) -> EVMResultGeneric<(), ()> {
+    ) -> EVMResultGeneric<(), TeeError> {
         transaction.fill_tx_env(tx_env, sender, &self.tee_client)
     }
 

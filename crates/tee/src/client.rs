@@ -11,6 +11,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use crate::types::{
     IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,
 };
+use derive_more::Display;
 
 use alloy_rlp::{Decodable, Encodable};
 use reqwest::Client;
@@ -138,17 +139,20 @@ impl TeeAPI for TeeHttpClient {
 }
 
 /// Tee error type.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Display)]
 pub enum TeeError {
     /// tee encryption fails
     EncryptionError,
     /// tee decryption fails
     DecryptionError,
+    /// recover public key fails
+    PublicKeyRecoveryError,
     /// encoding or decoding
     CodingError(alloy_rlp::Error),
     /// Custom error.
     Custom(&'static str),
 }
+
 
 /// Blocking decrypt function call to contact TeeAPI
 pub fn decrypt<I: Encodable + Decodable, T: TeeAPI>(

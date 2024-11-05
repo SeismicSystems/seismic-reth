@@ -377,12 +377,7 @@ where
             initialized_cfg.clone(),
             initialized_block_env.clone(),
             evm_config.tx_env(&tx).map_err(|err| {
-                let new_err = match err {
-                    EVMError::Custom(e) => EVMError::Custom(e),
-                    _ => EVMError::Custom("fill_tx_env failed".to_string()),
-                };
-
-                PayloadBuilderError::EvmExecutionError(new_err)
+                PayloadBuilderError::EvmExecutionError(err.map_db_err(|e|e.into()))
             })?,
         );
 

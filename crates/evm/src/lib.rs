@@ -17,6 +17,7 @@ use core::ops::Deref;
 use crate::builder::RethEvmBuilder;
 use reth_chainspec::ChainSpec;
 use reth_primitives::{Address, Header, TransactionSigned, TransactionSignedEcRecovered, U256};
+use reth_tee::client::TeeError;
 use revm::{Database, Evm, GetInspector};
 use revm_primitives::{
     BlockEnv, Bytes, CfgEnvWithHandlerCfg, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId, TxEnv,
@@ -109,7 +110,7 @@ pub trait ConfigureEvm: ConfigureEvmEnv {
 #[auto_impl::auto_impl(&, Arc)]
 pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
     /// Returns a [`TxEnv`] from a [`TransactionSignedEcRecovered`].
-    fn tx_env(&self, transaction: &TransactionSignedEcRecovered) -> EVMResultGeneric<TxEnv, ()> {
+    fn tx_env(&self, transaction: &TransactionSignedEcRecovered) -> EVMResultGeneric<TxEnv, TeeError> {
         let mut tx_env = TxEnv::default();
         self.fill_tx_env(&mut tx_env, transaction.deref(), transaction.signer())?;
         Ok(tx_env)
@@ -121,7 +122,7 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
         tx_env: &mut TxEnv,
         transaction: &TransactionSigned,
         sender: Address,
-    ) -> EVMResultGeneric<(), ()>;
+    ) -> EVMResultGeneric<(), TeeError>;
 
     /// Fill transaction environment with a system contract call.
     fn fill_tx_env_system_contract_call(

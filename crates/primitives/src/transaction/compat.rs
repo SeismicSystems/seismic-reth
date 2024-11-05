@@ -1,5 +1,5 @@
 use crate::{Address, Transaction, TransactionSigned, TxKind, U256};
-use reth_tee::client::{decrypt, TeeAPI};
+use reth_tee::client::{decrypt, TeeAPI, TeeError};
 use revm_primitives::{AuthorizationList, Bytes, EVMError, EVMResult, EVMResultGeneric, TxEnv};
 
 #[cfg(all(not(feature = "std"), feature = "optimism"))]
@@ -9,7 +9,7 @@ use alloc::vec::Vec;
 pub trait FillTxEnv<T: TeeAPI> {
     /// Fills [`TxEnv`] with an [`Address`] and transaction.
     fn fill_tx_env(&self, tx_env: &mut TxEnv, sender: Address, tee: &T)
-        -> EVMResultGeneric<(), ()>;
+        -> EVMResultGeneric<(), TeeError>;
 }
 
 impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
@@ -18,7 +18,7 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
         tx_env: &mut TxEnv,
         sender: Address,
         tee: &T,
-    ) -> EVMResultGeneric<(), ()> {
+    ) -> EVMResultGeneric<(), TeeError> {
         #[cfg(feature = "optimism")]
         let envelope = {
             let mut envelope = Vec::with_capacity(self.length_without_header());
@@ -123,7 +123,7 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
             Transaction::Seismic(tx) => {
                 let msg_sender = self
                     .recover_pubkey()
-                    .ok_or(EVMError::Custom("Invalid Signature".to_string()))?;
+                    .ok_or(EVMError::Database(TeeError::PublicKeyRecoveryError))?;
 
                 let decrypted_input: Bytes = decrypt(
                     tee,
@@ -131,7 +131,7 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                     Vec::<u8>::from(tx.input().as_ref()),
                     tx.nonce().clone(),
                 )
-                .map_err(|_| EVMError::Custom("Decryption Failed".to_string()))?;
+                .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
 
                 tx_env.gas_limit = *tx.gas_limit();
                 tx_env.gas_price = U256::from(*tx.gas_price());
