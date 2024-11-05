@@ -28,7 +28,7 @@ async fn bench() -> eyre::Result<()> {
     let mut nonce = 0;
     let mut block_number;
     let send_raw_tx_cnt = 1399;
-    let call_cnt = send_raw_tx_cnt * 3;
+    let call_cnt = send_raw_tx_cnt * 1;
 
     // ==================== first block for encrypted transaction ====================
     let raw_tx = SeismicTransactionTestContext::deploy_tx_bytes(
@@ -97,7 +97,9 @@ async fn bench() -> eyre::Result<()> {
     }
 
     // make the node advance
+    let start_time_inner = Instant::now();
     let (payload, _) = first_node.advance_block(vec![], eth_payload_attributes).await?;
+    let end_time_inner = Instant::now();
 
     let block_hash = payload.block().hash();
     block_number = payload.block().number;
@@ -113,7 +115,22 @@ async fn bench() -> eyre::Result<()> {
 
     let end_time = Instant::now();
     let duration = end_time.duration_since(start_time);
-    debug!(target: "e2e:bench", ?duration, "Duration for encrypted transaction in a block");
+    let duration_inner = end_time_inner.duration_since(start_time_inner);
+    debug!(
+        target: "e2e:bench",
+        ?duration,
+        "Duration for encrypted transaction in a block with {} calls and {} raw transactions",
+        call_cnt,
+        send_raw_tx_cnt
+    );
+
+    debug!(
+        target: "e2e:bench",
+        ?duration_inner,
+        "Duration for encrypted transaction in a block with {} calls and {} raw transactions",
+        call_cnt,
+        send_raw_tx_cnt
+    );
     debug!(target: "e2e:bench", ?nonce, "after the first block");
     debug!(target: "e2e:bench", ?block_number, "after the first block");
 
@@ -151,7 +168,9 @@ async fn bench() -> eyre::Result<()> {
     }
 
     // make the node advance
+    let start_time_inner = Instant::now();
     let (payload, _) = first_node.advance_block(vec![], eth_payload_attributes).await?;
+    let end_time_inner = Instant::now();
 
     let block_hash = payload.block().hash();
     let block_number = payload.block().number;
@@ -167,7 +186,21 @@ async fn bench() -> eyre::Result<()> {
 
     let end_time = Instant::now();
     let duration = end_time.duration_since(start_time);
-    debug!(target: "e2e:bench", ?duration, "Duration for normal transaction in a block");
+    let duration_inner = end_time_inner.duration_since(start_time_inner);
+    debug!(
+        target: "e2e:bench",
+        ?duration,
+        "Duration for normal transaction in a block with {} calls and {} raw transactions",
+        call_cnt,
+        send_raw_tx_cnt
+    );
 
+    debug!(
+        target: "e2e:bench",
+        ?duration_inner,
+        "Duration of block production for normal transaction in a block with {} calls and {} raw transactions",
+        call_cnt,
+        send_raw_tx_cnt
+    );
     Ok(())
 }
