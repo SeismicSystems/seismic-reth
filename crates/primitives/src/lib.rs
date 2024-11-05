@@ -67,7 +67,7 @@ pub use transaction::{
 pub use transaction::BlobTransactionValidationError;
 
 pub use transaction::{
-    util::secp256k1::{public_key_to_address, recover_signer_unchecked, sign_message},
+    util::secp256k1::{public_key_to_address, recover_signer_unchecked, sign_message, recover_pubkey_unchecked},
     AccessList, AccessListItem, IntoRecoveredTransaction, InvalidTransactionError, Signature,
     Transaction, TransactionMeta, TransactionSigned, TransactionSignedEcRecovered,
     TransactionSignedNoHash, TxEip1559, TxEip2930, TxEip4844, TxEip7702, TxHashOrNumber, TxLegacy,

@@ -1,6 +1,6 @@
 use crate::{Address, Transaction, TransactionSigned, TxKind, U256};
 use reth_tee::client::{decrypt, TeeAPI, TeeError};
-use revm_primitives::{AuthorizationList, Bytes, EVMError, EVMResult, EVMResultGeneric, TxEnv};
+use revm_primitives::{AuthorizationList, Bytes, EVMError, EVMResultGeneric, TxEnv};
 
 #[cfg(all(not(feature = "std"), feature = "optimism"))]
 use alloc::vec::Vec;
