@@ -153,7 +153,6 @@ pub enum TeeError {
     Custom(&'static str),
 }
 
-
 /// Blocking decrypt function call to contact TeeAPI
 pub fn decrypt<I: Encodable + Decodable, T: TeeAPI>(
     tee_client: &T,
