@@ -13,7 +13,7 @@ use reth_basic_payload_builder::{
     commit_withdrawals, is_better_payload, BuildArguments, BuildOutcome, PayloadBuilder,
     PayloadConfig, WithdrawalsOutcome,
 };
-use reth_errors::{BlockValidationError, ProviderError, RethError};
+use reth_errors::RethError;
 use reth_evm::{
     system_calls::{
         post_block_consolidation_requests_contract_call,

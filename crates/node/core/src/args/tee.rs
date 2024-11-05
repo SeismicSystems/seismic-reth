@@ -1,6 +1,6 @@
 //! clap [Args](clap::Args) for RPC related arguments.
 
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
 
 use clap::Args;
 use reth_tee::client::{TEE_DEFAULT_ENDPOINT_ADDR, TEE_DEFAULT_ENDPOINT_PORT};

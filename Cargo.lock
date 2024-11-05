@@ -7349,7 +7349,6 @@ dependencies = [
  "alloy-eips",
  "alloy-sol-types",
  "reth-chainspec",
- "reth-errors",
  "reth-ethereum-consensus",
  "reth-ethereum-forks",
  "reth-evm",

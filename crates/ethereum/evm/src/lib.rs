@@ -17,7 +17,7 @@ use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
 use reth_primitives::{transaction::FillTxEnv, Address, Header, TransactionSigned, U256};
 use reth_tee::client::{TeeError, TeeHttpClient};
 use revm_primitives::{
-    AnalysisKind, Bytes, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, TxEnv, TxKind,
+    AnalysisKind, Bytes, CfgEnvWithHandlerCfg, EVMResultGeneric, Env, TxEnv, TxKind,
 };
 
 #[cfg(not(feature = "std"))]
@@ -43,6 +43,7 @@ pub struct EthEvmConfig {
 }
 
 impl EthEvmConfig {
+    /// Create a new `EthEvmConfig` with the given `tee_client`.
     pub fn new(tee_client: TeeHttpClient) -> Self {
         Self { tee_client }
     }
