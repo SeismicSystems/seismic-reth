@@ -72,7 +72,6 @@ impl Default for TeeHttpClient {
 impl TeeHttpClient {
     /// Creates a new instance of the TEE client
     pub fn new(base_url: String) -> Self {
-        println!("Base URL: {}", base_url);
         Self { base_url, client: Client::new() }
     }
 
@@ -84,7 +83,6 @@ impl TeeHttpClient {
     /// Creates a new instance of the TEE client
     pub fn new_from_addr(addr: &SocketAddr) -> Self {
         let base_url = format!("http://{}", addr);
-        println!("Base URL: {}", base_url);
         Self { base_url, client: Client::new() }
     }
 }

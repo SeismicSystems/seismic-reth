@@ -42,8 +42,6 @@ impl MockTeeServer {
         let service = RouterService::new(router).unwrap();
 
         let server = Server::bind(&self.addr).serve(service);
-
-        println!("MockTeeServer running on http://{}", self.addr);
         server.await?;
         Ok(())
     }
@@ -320,7 +318,6 @@ mod tests {
         let encryption_response = match tee_client.io_encrypt(encryption_request).await {
             Ok(response) => response,
             Err(e) => {
-                eprintln!("Encryption request failed: {:?}", e);
                 return;
             }
         };
