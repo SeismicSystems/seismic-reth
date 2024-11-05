@@ -353,7 +353,6 @@ pub trait Call: LoadState + SpawnBlocking {
     {
         let mut evm = self.evm_config().evm_with_env(db, env);
         let res = evm.transact().map_err(Self::Error::from_evm_err)?;
-        println!("res: {:?}", res);
         let (_, env) = evm.into_db_and_env_with_handler_cfg();
         Ok((res, env))
     }

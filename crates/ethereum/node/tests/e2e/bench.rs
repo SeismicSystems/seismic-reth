@@ -131,7 +131,6 @@ async fn bench() -> eyre::Result<()> {
             data.clone(),
         )
         .await;
-        debug!(target: "e2e:bench", ?nonce, "nonce");
         let _ = first_node.rpc.call(raw_tx, block_number).await?;
     }
 
