@@ -10207,7 +10207,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 [[package]]
 name = "tee_service_api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=322e896ea4671910de85b700767da564bcbcd3a1#322e896ea4671910de85b700767da564bcbcd3a1"
+source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=26b10be077b6e581cc9717a684469a107d6ea3d5#26b10be077b6e581cc9717a684469a107d6ea3d5"
 dependencies = [
  "aes-gcm",
  "alloy-rlp",
