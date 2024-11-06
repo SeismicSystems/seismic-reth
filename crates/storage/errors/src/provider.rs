@@ -4,7 +4,7 @@ use reth_primitives::{
     Address, BlockHash, BlockHashOrNumber, BlockNumber, GotExpected, StaticFileSegment,
     TxHashOrNumber, TxNumber, B256, U256,
 };
-use reth_tee::client::TeeError;
+use reth_tee::TeeError;
 
 #[cfg(feature = "std")]
 use std::path::PathBuf;

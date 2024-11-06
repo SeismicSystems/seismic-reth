@@ -23,7 +23,7 @@ use reth_node_builder::{
 use reth_payload_builder::{PayloadBuilderHandle, PayloadBuilderService};
 use reth_provider::CanonStateSubscriptions;
 use reth_rpc::EthApi;
-use reth_tee::client::TeeHttpClient;
+use reth_tee::TeeHttpClient;
 use reth_tracing::tracing::{debug, info};
 use reth_transaction_pool::{
     blobstore::DiskFileBlobStore, EthTransactionPool, TransactionPool,

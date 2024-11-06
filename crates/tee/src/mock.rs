@@ -11,11 +11,9 @@ use secp256k1::ecdh::SharedSecret;
 use serde_json::json;
 use sha2::Sha256;
 use std::{convert::Infallible, net::SocketAddr, str::FromStr};
+use crate::{TeeAPI, WalletAPI};
+use tee_service_api::request_types::tx_io::{IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse};
 
-use crate::{
-    client::{TeeAPI, WalletAPI},
-    types::{IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse},
-};
 
 /// MockTeeServer is a mock implementation of a TEE (Trusted Execution Environment) server.
 /// It provides endpoints for encrypting and decrypting data using AES-256-GCM encryption.
@@ -55,7 +53,7 @@ impl MockTeeServer {
         };
 
         let client = MockTeeClient {};
-        match client.io_encrypt(payload).await {
+        match client.tx_io_encrypt(payload).await {
             Ok(response) => {
                 Ok(Response::new(Body::from(serde_json::to_string(&response).unwrap())))
             }
@@ -72,7 +70,7 @@ impl MockTeeServer {
         };
 
         let client = MockTeeClient {};
-        match client.io_decrypt(payload).await {
+        match client.tx_io_decrypt(payload).await {
             Ok(response) => {
                 Ok(Response::new(Body::from(serde_json::to_string(&response).unwrap())))
             }
@@ -85,7 +83,7 @@ impl MockTeeServer {
 #[derive(Debug)]
 pub struct MockTeeClient {}
 impl TeeAPI for MockTeeClient {
-    async fn io_encrypt(
+    async fn tx_io_encrypt(
         &self,
         payload: IoEncryptionRequest,
     ) -> Result<IoEncryptionResponse, anyhow::Error> {
@@ -100,7 +98,7 @@ impl TeeAPI for MockTeeClient {
         Ok(IoEncryptionResponse { encrypted_data })
     }
 
-    async fn io_decrypt(
+    async fn tx_io_decrypt(
         &self,
         payload: IoDecryptionRequest,
     ) -> Result<IoDecryptionResponse, anyhow::Error> {
@@ -123,7 +121,7 @@ pub struct MockWallet {}
 impl WalletAPI for MockWallet {
     fn encrypt(
         &self,
-        data: &Vec<u8>,
+        data: Vec<u8>,
         nonce: u64,
         private_key: &secp256k1::SecretKey,
     ) -> Result<Vec<u8>, anyhow::Error> {
@@ -239,10 +237,14 @@ pub fn invalid_ciphertext_resp(e: Error) -> Response<Body> {
 #[cfg(test)]
 mod tests {
 
+    use tee_service_api::{TeeAPI, WalletAPI};
+    use tee_service_api::tx_io::{IoDecryptionRequest, IoEncryptionRequest};
+    use tee_service_api::http_client::TeeHttpClient;
+
     use crate::{
-        client::TeeHttpClient,
+        // client::TeeHttpClient,
         mock::MockTeeServer,
-        types::{IoDecryptionRequest, IoEncryptionRequest},
+        // types::{IoDecryptionRequest, IoEncryptionRequest},
     };
     use aes_gcm::aead::OsRng;
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
@@ -250,7 +252,7 @@ mod tests {
     use tokio::task;
 
     use crate::{
-        client::{TeeAPI, WalletAPI},
+    //     client::{TeeAPI, WalletAPI},
         mock::{MockTeeClient, MockWallet},
     };
 
@@ -265,7 +267,7 @@ mod tests {
         let plaintext = vec![1, 2, 3];
         let nonce: u64 = 10;
         let mock_wallet = MockWallet {};
-        let cyphertext = mock_wallet.encrypt(&plaintext, nonce, &wallet_secret_key).unwrap();
+        let cyphertext = mock_wallet.encrypt(plaintext.clone(), nonce, &wallet_secret_key).unwrap();
 
         // Original encryption request
         let decryption_request =
@@ -275,7 +277,7 @@ mod tests {
         let start_time = std::time::Instant::now();
 
         for _ in 0..100 {
-            let dec_response = tee.io_decrypt(decryption_request.clone()).await.unwrap();
+            let dec_response = tee.tx_io_decrypt(decryption_request.clone()).await.unwrap();
             assert!(dec_response.decrypted_data == plaintext);
         }
 
@@ -315,9 +317,9 @@ mod tests {
             IoEncryptionRequest { msg_sender: wallet_public_key, data: plaintext.clone(), nonce };
 
         // Send the encryption request
-        let encryption_response = match tee_client.io_encrypt(encryption_request).await {
+        let encryption_response = match tee_client.tx_io_encrypt(encryption_request).await {
             Ok(response) => response,
-            Err(e) => {
+            Err(_) => {
                 return;
             }
         };
@@ -330,7 +332,7 @@ mod tests {
         };
 
         // Send the decryption request
-        let decryption_response = tee_client.io_decrypt(decryption_request).await.unwrap();
+        let decryption_response = tee_client.tx_io_decrypt(decryption_request).await.unwrap();
 
         assert_eq!(decryption_response.decrypted_data, plaintext);
 

@@ -1271,22 +1271,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
 
 [[package]]
-name = "bitcoin-io"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b47c4ab7a93edb0c7198c5535ed9b52b63095f4e9b45279c6736cec4b856baf"
-
-[[package]]
-name = "bitcoin_hashes"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb18c03d0db0247e147a21a6faafd5a7eb851c743db062de72018b6b7e8e4d16"
-dependencies = [
- "bitcoin-io",
- "hex-conservative",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2698,7 +2682,7 @@ dependencies = [
  "k256",
  "log",
  "rand 0.8.5",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde",
  "sha3",
  "zeroize",
@@ -2810,7 +2794,7 @@ dependencies = [
  "reth-network-peers",
  "reth-primitives",
  "reth-tracing",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde_json",
  "tokio",
  "tokio-stream",
@@ -2954,7 +2938,7 @@ dependencies = [
  "reth-network",
  "reth-network-peers",
  "reth-primitives",
- "secp256k1 0.29.1",
+ "secp256k1",
  "tokio",
 ]
 
@@ -3010,7 +2994,7 @@ dependencies = [
  "reth-primitives",
  "reth-provider",
  "reth-tracing",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde_json",
  "tokio",
  "tokio-stream",
@@ -3591,15 +3575,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "hex-conservative"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5313b072ce3c597065a808dbf612c4c8e8590bdbf8b579508bf7a762c5eae6cd"
-dependencies = [
- "arrayvec",
 ]
 
 [[package]]
@@ -6386,7 +6361,7 @@ dependencies = [
  "reth-transaction-pool",
  "reth-trie",
  "reth-trie-db",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde",
  "serde_json",
  "similar-asserts",
@@ -6687,7 +6662,7 @@ dependencies = [
  "reth-static-file-types",
  "reth-trie",
  "reth-trie-db",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde",
  "serde_json",
  "tokio",
@@ -6714,7 +6689,7 @@ dependencies = [
  "libc",
  "rand 0.8.5",
  "reth-fs-util",
- "secp256k1 0.29.1",
+ "secp256k1",
  "thiserror",
 ]
 
@@ -6934,7 +6909,7 @@ dependencies = [
  "reth-network-peers",
  "reth-tracing",
  "schnellru",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde",
  "thiserror",
  "tokio",
@@ -6960,7 +6935,7 @@ dependencies = [
  "reth-metrics",
  "reth-network-peers",
  "reth-tracing",
- "secp256k1 0.29.1",
+ "secp256k1",
  "thiserror",
  "tokio",
  "tracing",
@@ -6984,7 +6959,7 @@ dependencies = [
  "reth-tokio-util",
  "reth-tracing",
  "schnellru",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde",
  "serde_with",
  "thiserror",
@@ -7059,7 +7034,7 @@ dependencies = [
  "reth-tee",
  "reth-tokio-util",
  "reth-tracing",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde_json",
  "tokio",
  "tokio-stream",
@@ -7085,7 +7060,7 @@ dependencies = [
  "pin-project",
  "rand 0.8.5",
  "reth-network-peers",
- "secp256k1 0.29.1",
+ "secp256k1",
  "sha2 0.10.8",
  "sha3",
  "thiserror",
@@ -7244,7 +7219,7 @@ dependencies = [
  "reth-network-peers",
  "reth-primitives",
  "reth-tracing",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde",
  "snap",
  "test-fuzz",
@@ -7401,7 +7376,7 @@ dependencies = [
  "reth-tee",
  "reth-testing-utils",
  "revm-primitives",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde_json",
 ]
 
@@ -7482,7 +7457,7 @@ dependencies = [
  "reth-tasks",
  "reth-testing-utils",
  "reth-tracing",
- "secp256k1 0.29.1",
+ "secp256k1",
  "tokio",
  "tokio-util",
 ]
@@ -7672,7 +7647,7 @@ dependencies = [
  "reth-transaction-pool",
  "rustc-hash 2.0.0",
  "schnellru",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde",
  "serial_test",
  "smallvec",
@@ -7733,7 +7708,7 @@ dependencies = [
  "alloy-rlp",
  "enr",
  "rand 0.8.5",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde_json",
  "serde_with",
  "thiserror",
@@ -7843,7 +7818,7 @@ dependencies = [
  "reth-tokio-util",
  "reth-tracing",
  "reth-transaction-pool",
- "secp256k1 0.29.1",
+ "secp256k1",
  "tempfile",
  "tokio",
  "tokio-stream",
@@ -7893,7 +7868,7 @@ dependencies = [
  "reth-tee",
  "reth-tracing",
  "reth-transaction-pool",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde",
  "serde_json",
  "shellexpand",
@@ -8247,7 +8222,7 @@ dependencies = [
  "reth-tee",
  "reth-trie-common",
  "revm-primitives",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde",
  "serde_json",
  "tempfile",
@@ -8437,7 +8412,7 @@ dependencies = [
  "revm",
  "revm-inspectors",
  "revm-primitives",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde",
  "serde_json",
  "thiserror",
@@ -8879,7 +8854,7 @@ dependencies = [
  "once_cell",
  "reqwest",
  "routerify",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -8897,7 +8872,7 @@ dependencies = [
  "alloy-genesis",
  "rand 0.8.5",
  "reth-primitives",
- "secp256k1 0.29.1",
+ "secp256k1",
 ]
 
 [[package]]
@@ -9136,7 +9111,7 @@ dependencies = [
  "p256",
  "revm-primitives",
  "ripemd",
- "secp256k1 0.29.1",
+ "secp256k1",
  "sha2 0.10.8",
  "substrate-bn",
 ]
@@ -9554,18 +9529,6 @@ version = "0.29.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9465315bc9d4566e1724f0fffcbcc446268cb522e60f9a27bcded6b19c108113"
 dependencies = [
- "rand 0.8.5",
- "secp256k1-sys",
- "serde",
-]
-
-[[package]]
-name = "secp256k1"
-version = "0.30.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b50c5943d326858130af85e049f2661ba3c78b26589b8ab98e65e80ae44a1252"
-dependencies = [
- "bitcoin_hashes",
  "rand 0.8.5",
  "secp256k1-sys",
  "serde",
@@ -10244,7 +10207,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 [[package]]
 name = "tee_service_api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/SeismicSystems/TEEService.git#3364663d501548aa53b2e4a43ebb4365d278576f"
+source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=0559d61f9f61e7c80a03fd0f84026713f1653713#0559d61f9f61e7c80a03fd0f84026713f1653713"
 dependencies = [
  "aes-gcm",
  "alloy-rlp",
@@ -10257,7 +10220,7 @@ dependencies = [
  "kbs-types",
  "once_cell",
  "reqwest",
- "secp256k1 0.30.0",
+ "secp256k1",
  "serde",
  "serde_json",
  "sha2 0.10.8",

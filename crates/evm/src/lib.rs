@@ -17,7 +17,7 @@ use core::ops::Deref;
 use crate::builder::RethEvmBuilder;
 use reth_chainspec::ChainSpec;
 use reth_primitives::{Address, Header, TransactionSigned, TransactionSignedEcRecovered, U256};
-use reth_tee::client::TeeError;
+use reth_tee::TeeError;
 use revm::{Database, Evm, GetInspector};
 use revm_primitives::{
     BlockEnv, Bytes, CfgEnvWithHandlerCfg, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId, TxEnv,
