@@ -11,7 +11,7 @@ use eyre::Ok;
 use reth_primitives::{
     hex, Address, Bytes, Transaction, TransactionSigned, TxKind, TxLegacy, TxSeismic, B256, U256,
 };
-use reth_tee::{WalletAPI, mock::MockWallet};
+use reth_tee::{mock::MockWallet, WalletAPI};
 use secp256k1::SecretKey;
 
 /// Helper for transaction operations

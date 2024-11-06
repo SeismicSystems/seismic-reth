@@ -5,19 +5,15 @@ use secp256k1::ecdh::SharedSecret;
 use std::{convert::Infallible, net::SocketAddr, str::FromStr};
 
 use crate::{TeeAPI, WalletAPI};
-use tee_service_api::request_types::tx_io::{IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse};
-use tee_service_api::crypto::{
-    aes_decrypt, 
-    aes_encrypt, 
-    derive_aes_key,
-    get_sample_secp256k1_pk,
-    get_sample_secp256k1_sk,
+use tee_service_api::{
+    crypto::{
+        aes_decrypt, aes_encrypt, derive_aes_key, get_sample_secp256k1_pk, get_sample_secp256k1_sk,
+    },
+    errors::{invalid_ciphertext_resp, invalid_json_body_resp},
+    request_types::tx_io::{
+        IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,
+    },
 };
-use tee_service_api::errors::{
-    invalid_json_body_resp,
-    invalid_ciphertext_resp,
-};
-
 
 /// MockTeeServer is a mock implementation of a TEE (Trusted Execution Environment) server.
 /// It provides endpoints for encrypting and decrypting data using AES-256-GCM encryption.
@@ -139,13 +135,12 @@ impl WalletAPI for MockWallet {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tee_service_api::http_client::TeeHttpClient;
     use aes_gcm::aead::OsRng;
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
+    use tee_service_api::http_client::TeeHttpClient;
     use tokio::task;
 
     #[tokio::test]

@@ -4,9 +4,10 @@
 /// Mock module for testing purposes.
 pub mod mock;
 
-pub use tee_service_api::http_client::TeeHttpClient;
-pub use tee_service_api::{TeeAPI, WalletAPI};
-pub use tee_service_api::http_client::{TEE_DEFAULT_ENDPOINT_ADDR, TEE_DEFAULT_ENDPOINT_PORT};
+pub use tee_service_api::{
+    http_client::{TeeHttpClient, TEE_DEFAULT_ENDPOINT_ADDR, TEE_DEFAULT_ENDPOINT_PORT},
+    TeeAPI, WalletAPI,
+};
 
 use alloy_rlp::{Decodable, Encodable};
 use derive_more::Display;
@@ -14,7 +15,6 @@ use secp256k1::PublicKey;
 use tee_service_api::request_types::tx_io::{
     IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,
 };
-
 
 /// Custom error type for reth error handling.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Display)]
