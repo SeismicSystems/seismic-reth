@@ -26,6 +26,8 @@ serde = { workspace = true, features = ["derive"]}
 # async
 tokio = { workspace = true, features = ["full"] }
 
+# TEE Service
+tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api"}
 # encryption 
 aes-gcm = "0.10"
 once_cell.workspace = true
