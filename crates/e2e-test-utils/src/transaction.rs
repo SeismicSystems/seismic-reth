@@ -11,7 +11,7 @@ use eyre::Ok;
 use reth_primitives::{
     hex, Address, Bytes, Transaction, TransactionSigned, TxKind, TxLegacy, TxSeismic, B256, U256,
 };
-use reth_tee::{client::WalletAPI, mock::MockWallet};
+use reth_tee::{mock::MockWallet, WalletAPI};
 use secp256k1::SecretKey;
 
 /// Helper for transaction operations
@@ -195,7 +195,7 @@ fn seismic_tx(
     let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
         .expect("32 bytes, within curve order");
     let tee_wallet = MockWallet {};
-    let encrypted_input = tee_wallet.encrypt(&decrypted_input.to_vec(), nonce, &sk).unwrap();
+    let encrypted_input = tee_wallet.encrypt(decrypted_input.to_vec(), nonce, &sk).unwrap();
     Transaction::Seismic(TxSeismic {
         chain_id,
         nonce,

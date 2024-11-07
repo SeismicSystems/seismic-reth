@@ -1,5 +1,5 @@
 use crate::{Address, Transaction, TransactionSigned, TxKind, U256};
-use reth_tee::client::{decrypt, TeeAPI, TeeError};
+use reth_tee::{decrypt, TeeAPI, TeeError};
 use revm_primitives::{AuthorizationList, Bytes, EVMError, EVMResultGeneric, TxEnv};
 
 #[cfg(all(not(feature = "std"), feature = "optimism"))]
@@ -168,7 +168,7 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
 mod tests {
     use core::str::FromStr;
 
-    use reth_tee::client::TeeHttpClient;
+    use reth_tee::TeeHttpClient;
 
     use crate::{Signature, TxSeismic};
 

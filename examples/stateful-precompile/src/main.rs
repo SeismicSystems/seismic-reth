@@ -26,6 +26,7 @@ use reth_primitives::{
     revm_primitives::{EVMResultGeneric, SpecId, StatefulPrecompileMut},
     Header, TransactionSigned,
 };
+use reth_tee::TeeError;
 use reth_tracing::{RethTracer, Tracer};
 use schnellru::{ByLength, LruMap};
 use std::{collections::HashMap, sync::Arc};
@@ -143,7 +144,7 @@ impl ConfigureEvmEnv for MyEvmConfig {
         tx_env: &mut TxEnv,
         transaction: &TransactionSigned,
         sender: Address,
-    ) -> EVMResultGeneric<(), ()> {
+    ) -> EVMResultGeneric<(), TeeError> {
         EthEvmConfig::default().fill_tx_env(tx_env, transaction, sender)
     }
 
