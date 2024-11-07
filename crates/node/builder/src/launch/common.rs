@@ -744,6 +744,11 @@ where
         StaticFileProducer::new(self.provider_factory().clone(), self.prune_modes())
     }
 
+    /// Creates a new [`StaticFileProducer`] with the attached database.
+    pub fn back_up_producer(&self) -> BackUpProducer<DB> {
+        BackUpProducer::new(self.provider_factory().clone(), self.prune_modes())
+    }
+
     /// Returns the current head block.
     pub const fn head(&self) -> Head {
         self.right().head

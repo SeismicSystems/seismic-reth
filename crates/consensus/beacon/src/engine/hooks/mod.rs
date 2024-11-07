@@ -14,6 +14,9 @@ pub use prune::PruneHook;
 mod static_file;
 pub use static_file::StaticFileHook;
 
+mod backup;
+pub use backup::BackupHook;
+
 /// Collection of [engine hooks][`EngineHook`].
 #[derive(Default)]
 pub struct EngineHooks {

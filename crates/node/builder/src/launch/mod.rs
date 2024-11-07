@@ -218,6 +218,12 @@ where
         ));
         info!(target: "reth::cli", "StaticFileProducer initialized");
 
+        hooks.add(StaticFileHook::new(
+            static_file_producer.clone(),
+            Box::new(ctx.task_executor().clone()),
+        ));
+        info!(target: "reth::cli", "BackUpProducer initialized");
+
         // Configure the pipeline
         let pipeline_exex_handle =
             exex_manager_handle.clone().unwrap_or_else(ExExManagerHandle::empty);
