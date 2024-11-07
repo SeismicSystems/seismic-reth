@@ -2850,6 +2850,7 @@ dependencies = [
  "reth-node-core",
  "reth-node-ethereum",
  "reth-primitives",
+ "reth-tee",
  "reth-tracing",
  "tokio",
 ]
@@ -3029,6 +3030,7 @@ dependencies = [
  "reth-node-core",
  "reth-node-ethereum",
  "reth-primitives",
+ "reth-tee",
  "reth-tracing",
  "schnellru",
  "tokio",
@@ -10207,7 +10209,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 [[package]]
 name = "tee_service_api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=26b10be077b6e581cc9717a684469a107d6ea3d5#26b10be077b6e581cc9717a684469a107d6ea3d5"
+source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=8bfc1d7b6ca56931223ea3990344f2b54c6a91d6#8bfc1d7b6ca56931223ea3990344f2b54c6a91d6"
 dependencies = [
  "aes-gcm",
  "alloy-rlp",
