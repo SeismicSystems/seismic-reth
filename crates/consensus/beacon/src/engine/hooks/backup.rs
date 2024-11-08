@@ -3,17 +3,16 @@ use crate::{
     hooks::EngineHookDBAccessLevel,
 };
 use futures::FutureExt;
-use reth_db::backup_producer::{self, backup_dir, should_backup};
+use reth_db::backup_producer::{backup_dir, should_backup};
 use reth_errors::{ProviderError, RethResult};
 use reth_primitives::BlockNumber;
 use reth_tasks::TaskSpawner;
 use reth_tracing::tracing::*;
 use std::{
-    fmt::Display,
-    path::{Path, PathBuf},
+    path::PathBuf,
     task::{ready, Context, Poll},
 };
-use tokio::{fs, sync::oneshot};
+use tokio::sync::oneshot;
 use tracing::trace;
 
 /// Manages backing up a data directory under the control of the engine.
