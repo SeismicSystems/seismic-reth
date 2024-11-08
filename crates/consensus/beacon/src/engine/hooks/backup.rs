@@ -3,12 +3,16 @@ use crate::{
     hooks::EngineHookDBAccessLevel,
 };
 use futures::FutureExt;
+use reth_tracing::tracing::*;
+use reth_db::backup_producer::{self, backup_dir, should_backup};
 use reth_errors::{ProviderError, RethResult};
+use reth_primitives::BlockNumber;
 use reth_tasks::TaskSpawner;
 use std::{
-    fmt::Display, path::{Path, PathBuf}, task::{ready, Context, Poll}
+    fmt::Display,
+    path::{Path, PathBuf},
+    task::{ready, Context, Poll},
 };
-use reth_db::backup_producer::{self, backup_dir};
 use tokio::{fs, sync::oneshot};
 use tracing::trace;
 
@@ -29,27 +33,15 @@ pub struct BackupHook {
 
 impl BackupHook {
     /// Creates a new instance of `BackupHook`.
-    pub fn new(
-        source_dir: PathBuf,
-        dest_dir: PathBuf,
-        task_spawner: Box<dyn TaskSpawner>,
-    ) -> Self {
-        Self {
-            state: BackupProducerState::Idle,
-            task_spawner,
-            source_dir,
-            dest_dir,
-        }
+    pub fn new(source_dir: PathBuf, dest_dir: PathBuf, task_spawner: Box<dyn TaskSpawner>) -> Self {
+        Self { state: BackupProducerState::Idle, task_spawner, source_dir, dest_dir }
     }
 
     /// Advances the backup operation state.
     ///
     /// This checks for the result in the channel or returns pending if the backup
     /// is idle.
-    fn poll_backup_producer(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<RethResult<EngineHookEvent>> {
+    fn poll_backup_producer(&mut self, cx: &mut Context<'_>) -> Poll<RethResult<EngineHookEvent>> {
         let result = match &mut self.state {
             BackupProducerState::Idle => return Poll::Pending,
             BackupProducerState::Running(ref mut rx) => {
@@ -62,9 +54,7 @@ impl BackupHook {
                 self.state = BackupProducerState::Idle;
                 match result {
                     Ok(_) => EngineHookEvent::Finished(Ok(())),
-                    Err(err) => {
-                        EngineHookEvent::Finished(Err(EngineHookError::Common(err.into())))
-                    }
+                    Err(err) => EngineHookEvent::Finished(Err(EngineHookError::Common(err.into()))),
                 }
             }
             Err(_) => {
@@ -79,23 +69,32 @@ impl BackupHook {
     /// Attempts to spawn the backup task if it is idle.
     ///
     /// If the backup is already running, it does nothing.
-    fn try_spawn_backup(&mut self) -> RethResult<Option<EngineHookEvent>> {
+    fn try_spawn_backup(
+        &mut self,
+        finalized_block_number: BlockNumber,
+    ) -> RethResult<Option<EngineHookEvent>> {
         match &self.state {
             BackupProducerState::Idle => {
-                let source_dir = self.source_dir.clone();
-                let dest_dir = self.dest_dir.clone();
-                let (tx, rx) = oneshot::channel();
+                debug!(name: "consensus::engine::hooks::backup", ?finalized_block_number, "Checking if backup is needed");
+                if should_backup(finalized_block_number) {
+                    let source_dir = self.source_dir.clone();
+                    let dest_dir = self.dest_dir.clone();
 
-                self.task_spawner.spawn_critical_blocking(
-                    "backup_task",
-                    Box::pin(async move {
-                        let result = backup_dir(&source_dir, &dest_dir).await;
-                        let _ = tx.send(result);
-                    }),
-                );
-                self.state = BackupProducerState::Running(rx);
+                    let (tx, rx) = oneshot::channel();
+                    self.task_spawner.spawn_critical_blocking(
+                        "backup_task",
+                        Box::pin(async move {
+                            let result = backup_dir(&source_dir, &dest_dir).await;
+                            let _ = tx.send(result);
+                        }),
+                    );
+                    self.state = BackupProducerState::Running(rx);
 
-                Ok(Some(EngineHookEvent::Started))
+                    Ok(Some(EngineHookEvent::Started))
+                } else {
+                    self.state = BackupProducerState::Idle;
+                    Ok(Some(EngineHookEvent::NotReady))
+                }
             }
             BackupProducerState::Running(_) => Ok(None),
         }
@@ -110,10 +109,16 @@ impl EngineHook for BackupHook {
     fn poll(
         &mut self,
         cx: &mut Context<'_>,
-        _ctx: EngineHookContext,
+        ctx: EngineHookContext,
     ) -> Poll<RethResult<EngineHookEvent>> {
+        let Some(finalized_block_number) = ctx.finalized_block_number else {
+            trace!(target: "consensus::engine::hooks::backup", ?ctx, "Finalized block number is not available");
+            return Poll::Pending
+        };
+
         // Try to spawn the backup task.
-        match self.try_spawn_backup()? {
+        match self.try_spawn_backup(finalized_block_number)? {
+            Some(EngineHookEvent::NotReady) => return Poll::Pending,
             Some(event) => return Poll::Ready(Ok(event)),
             None => (),
         }

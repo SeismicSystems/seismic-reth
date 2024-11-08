@@ -1,7 +1,17 @@
 //! reth's database backup functionality
+use reth_primitives::{constants::BACKUP_SLOTS, BlockNumber};
 use reth_storage_errors::provider::ProviderError;
 use std::path::PathBuf;
 use tokio::fs;
+use reth_tracing::tracing::*;
+
+/// Back up every epoch
+pub fn should_backup(finalized_block_number: BlockNumber) -> bool {
+    let remainder = finalized_block_number % BACKUP_SLOTS;
+    let ans = finalized_block_number != 0 && remainder == 0;
+    debug!(target: "consensus::engine::hooks::backup", ?remainder, ?finalized_block_number, ?ans);
+    return ans;
+}
 
 /// Recursively copies the source directory to the destination directory.
 ///
@@ -17,6 +27,9 @@ use tokio::fs;
 /// * `Ok(())` if the backup is successful.
 /// * `Err(anyhow::Error)` if an error occurs during the backup.
 pub async fn backup_dir(source: &PathBuf, destination: &PathBuf) -> Result<(), ProviderError> {
+
+    debug!(target: "consensus::engine::hooks::backup", ?source, ?destination);
+
     let source_path = source.as_path();
     let destination_path = destination.as_path();
     

@@ -1,5 +1,6 @@
 use crate::utils::eth_payload_attributes;
 use alloy_primitives::Bytes;
+use reth::rpc::compat::block;
 use reth_chainspec::{ChainSpecBuilder, MAINNET};
 use reth_e2e_test_utils::{setup, transaction::SeismicTransactionTestContext};
 use reth_node_ethereum::EthereumNode;
@@ -192,7 +193,7 @@ async fn bench() -> eyre::Result<()> {
     second_node.engine_api.update_forkchoice(block_hash, block_hash).await?;
 
     // expect second node advanced via p3p gossip
-    second_node.assert_new_block(tx_hashes[0], block_hash, 3).await?;
+    second_node.assert_new_block(tx_hashes[0], block_hash, block_number).await?;
 
     let end_time = Instant::now();
     let duration = end_time.duration_since(start_time);

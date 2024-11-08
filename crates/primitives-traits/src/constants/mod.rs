@@ -19,6 +19,9 @@ pub const MAXIMUM_EXTRA_DATA_SIZE: usize = 32;
 /// An EPOCH is a series of 32 slots.
 pub const EPOCH_SLOTS: u64 = 32;
 
+/// Backup every 2 slots
+pub const BACKUP_SLOTS: u64 = 3;
+
 /// The duration of a slot in seconds.
 ///
 /// This is the time period of 12 seconds in which a randomly chosen validator has time to propose a
