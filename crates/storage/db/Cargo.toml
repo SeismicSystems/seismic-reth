@@ -47,6 +47,8 @@ derive_more.workspace = true
 paste.workspace = true
 rustc-hash = { workspace = true, optional = true }
 sysinfo = { version = "0.30", default-features = false }
+tokio.workspace = true
+parking_lot = { workspace = true, features = ["send_guard", "arc_lock"] }
 
 # arbitrary utils
 strum = { workspace = true, features = ["derive"], optional = true }
@@ -73,6 +75,7 @@ proptest.workspace = true
 paste.workspace = true
 
 assert_matches.workspace = true
+async-recursion = "1.0"
 
 [features]
 default = ["mdbx"]

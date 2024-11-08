@@ -1037,6 +1037,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-recursion"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b43422f69d8ff38f95f1b2bb76517c91589a924d1559a0e935d7c8ce0274c11"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.79",
+]
+
+[[package]]
 name = "async-sse"
 version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6771,6 +6782,7 @@ version = "1.0.6"
 dependencies = [
  "arbitrary",
  "assert_matches",
+ "async-recursion",
  "bytes",
  "criterion",
  "derive_more 1.0.0",
@@ -6778,6 +6790,7 @@ dependencies = [
  "iai-callgrind",
  "metrics",
  "page_size",
+ "parking_lot 0.12.3",
  "paste",
  "pprof",
  "proptest",
@@ -6802,6 +6815,7 @@ dependencies = [
  "tempfile",
  "test-fuzz",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]

@@ -289,6 +289,13 @@ impl<D> ChainPath<D> {
         self.data_dir().join("db")
     }
 
+    /// Returns the path to the db directory for this chain.
+    ///
+    /// `<DIR>/<CHAIN_ID>/db`
+    pub fn backup(&self) -> PathBuf {
+        self.data_dir().join("db-backup")
+    }
+
     /// Returns the path to the static files directory for this chain.
     ///
     /// `<DIR>/<CHAIN_ID>/static_files`

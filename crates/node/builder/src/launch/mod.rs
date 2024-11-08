@@ -12,7 +12,7 @@ use std::{future::Future, sync::Arc};
 
 use futures::{future::Either, stream, stream_select, StreamExt};
 use reth_beacon_consensus::{
-    hooks::{EngineHooks, PruneHook, StaticFileHook},
+    hooks::{EngineHooks, PruneHook, StaticFileHook, BackupHook},
     BeaconConsensusEngine,
 };
 use reth_blockchain_tree::{noop::NoopBlockchainTree, BlockchainTreeConfig};
@@ -218,11 +218,12 @@ where
         ));
         info!(target: "reth::cli", "StaticFileProducer initialized");
 
-        hooks.add(StaticFileHook::new(
-            static_file_producer.clone(),
+        hooks.add(BackupHook::new(
+            ctx.data_dir().db(),
+            ctx.data_dir().backup(),
             Box::new(ctx.task_executor().clone()),
         ));
-        info!(target: "reth::cli", "BackUpProducer initialized");
+        info!(target: "reth::cli", "BackupProducer initialized");
 
         // Configure the pipeline
         let pipeline_exex_handle =

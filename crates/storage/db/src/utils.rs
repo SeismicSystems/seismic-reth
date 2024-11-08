@@ -35,6 +35,7 @@ pub fn is_database_empty<P: AsRef<Path>>(path: P) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
 
     #[test]
     fn is_database_empty_false_if_db_path_is_a_file() {
@@ -44,4 +45,5 @@ mod tests {
 
         assert!(!result);
     }
+
 }
