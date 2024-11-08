@@ -3,7 +3,7 @@
 use std::net::IpAddr;
 
 use clap::Args;
-use reth_tee::client::{TEE_DEFAULT_ENDPOINT_ADDR, TEE_DEFAULT_ENDPOINT_PORT};
+use reth_tee::{TEE_DEFAULT_ENDPOINT_ADDR, TEE_DEFAULT_ENDPOINT_PORT};
 
 /// Parameters for configuring the tee more granularity via CLI
 #[derive(Debug, Clone, Args, PartialEq, Eq)]

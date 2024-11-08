@@ -239,7 +239,6 @@ impl TxSeismic {
 mod tests {
     use alloy_primitives::Address;
     use derive_more::FromStr;
-    use serde_json::from_value;
 
     use super::*;
 
