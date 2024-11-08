@@ -74,6 +74,7 @@ mod impl_secp256k1 {
 mod impl_k256 {
     use super::*;
     use crate::keccak256;
+    use ::secp256k1::PublicKey;
     pub(crate) use k256::ecdsa::Error;
     use k256::ecdsa::{RecoveryId, SigningKey, VerifyingKey};
     use revm_primitives::U256;

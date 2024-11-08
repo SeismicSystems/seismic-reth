@@ -47,13 +47,14 @@ derive_more.workspace = true
 paste.workspace = true
 rustc-hash = { workspace = true, optional = true }
 sysinfo = { version = "0.30", default-features = false }
+tokio.workspace = true
 
 # arbitrary utils
 strum = { workspace = true, features = ["derive"], optional = true }
 
 [dev-dependencies]
 # reth libs with arbitrary
-reth-primitives = { workspace = true, features = ["arbitrary"] }
+reth-primitives = { workspace = true, features = ["arbitrary", "default"] }
 rand.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
@@ -73,6 +74,7 @@ proptest.workspace = true
 paste.workspace = true
 
 assert_matches.workspace = true
+async-recursion = "1.0"
 
 [features]
 default = ["mdbx"]

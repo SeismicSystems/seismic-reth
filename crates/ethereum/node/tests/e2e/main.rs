@@ -1,3 +1,4 @@
+mod backup;
 mod bench;
 mod blobs;
 mod dev;

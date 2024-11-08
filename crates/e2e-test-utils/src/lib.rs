@@ -121,6 +121,48 @@ where
     Ok((nodes, tasks, Wallet::default().with_chain_id(chain_spec.chain().into())))
 }
 
+// pub async fn recover_backup<N>(
+//     num_nodes: usize,
+//     chain_spec: Arc<ChainSpec>,
+//     is_dev: bool,
+// ) -> eyre::Result<(Vec<NodeHelperType<N, N::AddOns>>, TaskManager, Wallet)>
+// where
+//     N: Default + Node<TmpNodeAdapter<N>> + NodeTypes<ChainSpec = ChainSpec>,
+//     N::ComponentsBuilder: NodeComponentsBuilder<
+//         TmpNodeAdapter<N>,
+//         Components: NodeComponents<TmpNodeAdapter<N>, Network: PeersHandleProvider>,
+//     >,
+//     N::AddOns: NodeAddOns<
+//         Adapter<N>,
+//         EthApi: FullEthApiServer<
+//             NetworkTypes: Network<
+//                 TransactionResponse =
+// reth_rpc_types::WithOtherFields<reth_rpc_types::Transaction>,             >,
+//         > + AddDevSigners
+//                     + EthApiBuilderProvider<Adapter<N>>,
+//     >,
+// {
+//     let backup_dir = first_node.inner.data_dir.backup();
+
+//     let node_config = NodeConfig::test()
+//         .with_chain(chain_spec.clone())
+//         .with_network(network_config.clone())
+//         .with_unused_ports()
+//         .with_rpc(RpcServerArgs::default().with_unused_ports().with_http())
+//         .set_dev(is_dev);
+
+//     let span = span!(Level::INFO, "node", idx);
+//     let _enter = span.enter();
+//     let NodeHandle { node, node_exit_future: _ } = NodeBuilder::new(node_config.clone())
+//         .testing_node(exec.clone())
+//         .node(Default::default())
+//         .launch()
+//         .await?;
+
+//     let mut node = NodeTestContext::new(node).await?;
+
+// }
+
 // Type aliases
 
 type TmpDB = Arc<TempDatabase<DatabaseEnv>>;
