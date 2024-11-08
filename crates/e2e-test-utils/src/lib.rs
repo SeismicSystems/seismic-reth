@@ -136,8 +136,8 @@ where
 //         Adapter<N>,
 //         EthApi: FullEthApiServer<
 //             NetworkTypes: Network<
-//                 TransactionResponse = reth_rpc_types::WithOtherFields<reth_rpc_types::Transaction>,
-//             >,
+//                 TransactionResponse =
+// reth_rpc_types::WithOtherFields<reth_rpc_types::Transaction>,             >,
 //         > + AddDevSigners
 //                     + EthApiBuilderProvider<Adapter<N>>,
 //     >,

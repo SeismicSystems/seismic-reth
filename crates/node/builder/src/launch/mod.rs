@@ -12,7 +12,7 @@ use std::{future::Future, sync::Arc};
 
 use futures::{future::Either, stream, stream_select, StreamExt};
 use reth_beacon_consensus::{
-    hooks::{EngineHooks, PruneHook, StaticFileHook, BackupHook},
+    hooks::{BackupHook, EngineHooks, PruneHook, StaticFileHook},
     BeaconConsensusEngine,
 };
 use reth_blockchain_tree::{noop::NoopBlockchainTree, BlockchainTreeConfig};

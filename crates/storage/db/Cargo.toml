@@ -48,7 +48,6 @@ paste.workspace = true
 rustc-hash = { workspace = true, optional = true }
 sysinfo = { version = "0.30", default-features = false }
 tokio.workspace = true
-parking_lot = { workspace = true, features = ["send_guard", "arc_lock"] }
 
 # arbitrary utils
 strum = { workspace = true, features = ["derive"], optional = true }

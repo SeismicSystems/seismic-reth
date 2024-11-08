@@ -44,5 +44,4 @@ mod tests {
 
         assert!(!result);
     }
-
 }

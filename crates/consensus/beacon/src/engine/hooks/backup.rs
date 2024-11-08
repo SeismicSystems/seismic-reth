@@ -3,11 +3,11 @@ use crate::{
     hooks::EngineHookDBAccessLevel,
 };
 use futures::FutureExt;
-use reth_tracing::tracing::*;
 use reth_db::backup_producer::{self, backup_dir, should_backup};
 use reth_errors::{ProviderError, RethResult};
 use reth_primitives::BlockNumber;
 use reth_tasks::TaskSpawner;
+use reth_tracing::tracing::*;
 use std::{
     fmt::Display,
     path::{Path, PathBuf},

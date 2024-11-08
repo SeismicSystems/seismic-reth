@@ -94,7 +94,6 @@ async fn backup() -> eyre::Result<()> {
             target: "e2e:backup",
             ?block_number,
         );
-
     }
 
     let backup_dir = first_node.inner.data_dir.backup();

@@ -1,7 +1,7 @@
 use crate::{transaction::util::secp256k1, Address, B256, U256};
+use ::secp256k1::PublicKey;
 use alloy_primitives::Bytes;
 use alloy_rlp::{Decodable, Encodable, Error as RlpError};
-use ::secp256k1::PublicKey;
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
