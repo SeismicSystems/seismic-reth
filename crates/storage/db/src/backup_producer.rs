@@ -1,8 +1,7 @@
+//! reth's database backup functionality
 use reth_storage_errors::provider::ProviderError;
 use std::path::PathBuf;
 use tokio::fs;
-
-struct BcakupProducer{}
 
 /// Recursively copies the source directory to the destination directory.
 ///
@@ -82,15 +81,11 @@ pub async fn backup_dir(source: &PathBuf, destination: &PathBuf) -> Result<(), P
 mod tests {
     use super::*;
     use std::collections::HashSet;
-    use std::future::Future;
-    use std::io::Write;
-    use std::path::{Path, PathBuf};
-    use std::pin::Pin;
+    use std::path::Path;
     use fs::File;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use async_recursion::async_recursion;
     use ProviderError;
-    use tokio::fs as tokio_fs;
     use tempfile::tempdir;
 
     #[tokio::test]
@@ -222,6 +217,4 @@ mod tests {
     
         true
     }
-
-
 }

@@ -1,7 +1,7 @@
 use crate::{transaction::util::secp256k1, Address, B256, U256};
-use ::secp256k1::PublicKey;
 use alloy_primitives::Bytes;
 use alloy_rlp::{Decodable, Encodable, Error as RlpError};
+use ::secp256k1::PublicKey;
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
@@ -169,7 +169,7 @@ impl Signature {
         secp256k1::recover_signer_unchecked(&sig, &hash.0).ok()
     }
 
-    /// Recover public key from message hash, _without ensuring that the signature has a low `s`
+    /// recover public key from signature
     pub fn recover_pubkey_unchecked(&self, hash: B256) -> Option<PublicKey> {
         let mut sig: [u8; 65] = [0; 65];
 
