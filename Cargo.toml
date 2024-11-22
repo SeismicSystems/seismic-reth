@@ -96,7 +96,7 @@ members = [
     "crates/rpc/rpc-testing-util/",
     "crates/rpc/rpc-types-compat/",
     "crates/rpc/rpc-types/",
-    "crates/rpc/rpc/", 
+    "crates/rpc/rpc/",
     "crates/stages/api/",
     "crates/stages/stages/",
     "crates/stages/types/",
@@ -576,8 +576,6 @@ seismic-types = { git = "ssh://git@github.com/SeismicSystems/mantle.git", rev = 
 # If our dependencies depend on these things,
 # then this will override whatever versions they point to
 # and instead use our local version
-
-reth-rpc-types = { version = "1.0.6", path = "crates/rpc/rpc-types" }
 
 # seismic-revm
 revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "b6b3601" }
