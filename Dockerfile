@@ -1,7 +1,7 @@
 FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
 WORKDIR /app
 
-LABEL org.opencontainers.image.source=https://github.com/paradigmxyz/reth
+LABEL org.opencontainers.image.source=https://github.com/SeismicSystems/seismic-reth
 LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"
 
 # Install system dependencies
@@ -18,7 +18,7 @@ RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 RUN --mount=type=secret,id=ssh_key \
     cp /run/secrets/ssh_key ~/.ssh/id_ed25519 && \
-    chmod 600 ~/.ssh/id_ed25519 
+    chmod 600 ~/.ssh/id_ed25519
 
 COPY --from=planner /app/recipe.json recipe.json
 
