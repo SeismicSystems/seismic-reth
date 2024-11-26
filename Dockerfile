@@ -56,6 +56,12 @@ COPY --from=builder /app/reth /usr/local/bin
 # Copy license files
 COPY LICENSE-* ./
 
+# Set up the reth configs
+# Copy the files from the docker folder to the container's directory
+COPY docker/genesis.json ./genesis.json
+COPY docker/nodekey ./nodekey
+COPY docker/jwtsecret ./jwt.hex
+
 # Expose the necessary ports
 EXPOSE 8551 \
        8000 \
@@ -73,14 +79,12 @@ ENV DISCOVERY_PORT=30303
 ENV WS_PORT=8546
 ENV METRICS_PORT=6060
 
-ENV SAMPLE_JWT_SECRET=0xaa13d85acacbfb95ed57d4695dca264d4b220291e12ffcb44f2f0597325384dc
-RUN echo $SAMPLE_JWT_SECRET > /app/jwt.hex
-
 ENTRYPOINT /usr/local/bin/reth node \
             -vvvvv --authrpc.port $AUTHRPC_PORT \
             --http.port $HTTP_PORT --port $PEER_PORT \
             --discovery.port $DISCOVERY_PORT \
             --ws.port $WS_PORT \
             --metrics $METRICS_PORT \
-            --authrpc.jwtsecret /app/jwt.hex
-
+            --authrpc.jwtsecret /app/jwt.hex \
+            --chain ./genesis.json \
+            --p2p-secret-key ./nodekey
