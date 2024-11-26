@@ -10,7 +10,13 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y libclang-dev pkg-
 
 # Build the cargo-chef plan
 FROM chef AS planner
-COPY . .
+
+COPY ./bin/ ./bin/
+COPY ./crates/ ./crates/
+COPY ./testing/ ./testing/
+COPY ./examples/ ./examples/
+COPY Cargo.toml Cargo.lock deny.toml Makefile .
+# COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 # Build the application
@@ -40,7 +46,11 @@ ENV FEATURES=$FEATURES
 RUN cargo chef cook --profile $BUILD_PROFILE --features "$FEATURES" --recipe-path recipe.json
 
 # Build the application binary
-COPY . .
+COPY ./bin/ ./bin/
+COPY ./crates/ ./crates/
+COPY ./testing/ ./testing/
+COPY ./examples/ ./examples/
+COPY Cargo.toml Cargo.lock deny.toml Makefile .
 RUN cargo build --profile $BUILD_PROFILE --features "$FEATURES" --locked --bin reth
 
 # Copy the binary to a temporary location
