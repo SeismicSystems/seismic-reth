@@ -89,13 +89,18 @@ ENV WS_PORT=8546
 ENV METRICS_PORT=6060
 
 ENTRYPOINT /usr/local/bin/reth node \
-            -vvvvv --authrpc.port $AUTHRPC_PORT \
+            -vvvv \
+            --http \
+            --http.addr 0.0.0.0 \
             --http.port $HTTP_PORT --port $PEER_PORT \
             --discovery.port $DISCOVERY_PORT \
             --ws.port $WS_PORT \
             --metrics $METRICS_PORT \
+            --authrpc.port $AUTHRPC_PORT \
+            --authrpc.addr 0.0.0.0 \
             --authrpc.jwtsecret /app/jwt.hex \
             --chain ./genesis.json \
             --p2p-secret-key ./nodekey \
             --trusted-peers enode://f435477cdb474dcb5903cf9df6b9b39be66b71308c5ade95a4a7780be180d22ba847f44ae7adbfb484e9d64cf22a4f19a25ac72fd83a7eef8062ca6528388528@10.186.73.102:30303,enode://3116e85de20404db0c64a75b72afffa90e914b2e7c5e7141c445e03fd6702c3da986e23ea554b87c1b6feb58e2423a8588ec17b9a635f3fa0ab2c0b341bb0cf5@10.186.73.101:30303 \
             --bootnodes enode://f435477cdb474dcb5903cf9df6b9b39be66b71308c5ade95a4a7780be180d22ba847f44ae7adbfb484e9d64cf22a4f19a25ac72fd83a7eef8062ca6528388528@10.186.73.102:30303,enode://3116e85de20404db0c64a75b72afffa90e914b2e7c5e7141c445e03fd6702c3da986e23ea554b87c1b6feb58e2423a8588ec17b9a635f3fa0ab2c0b341bb0cf5@10.186.73.101:30303
+
