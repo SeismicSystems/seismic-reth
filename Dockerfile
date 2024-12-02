@@ -15,8 +15,7 @@ COPY ./bin/ ./bin/
 COPY ./crates/ ./crates/
 COPY ./testing/ ./testing/
 COPY ./examples/ ./examples/
-COPY Cargo.toml Cargo.lock deny.toml Makefile .
-# COPY . .
+COPY Cargo.toml Cargo.lock deny.toml Makefile ./
 RUN cargo chef prepare --recipe-path recipe.json
 
 # Build the application
@@ -50,7 +49,7 @@ COPY ./bin/ ./bin/
 COPY ./crates/ ./crates/
 COPY ./testing/ ./testing/
 COPY ./examples/ ./examples/
-COPY Cargo.toml Cargo.lock deny.toml Makefile .
+COPY Cargo.toml Cargo.lock deny.toml Makefile ./
 RUN cargo build --profile $BUILD_PROFILE --features "$FEATURES" --locked --bin reth
 
 # Copy the binary to a temporary location
