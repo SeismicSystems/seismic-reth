@@ -1,6 +1,6 @@
 {
     "genesis_time": "2024-11-26T18:58:13.537853Z",
-    "chain_id": "omni-1001651",
+    "chain_id": "1651",
     "initial_height": "1",
     "consensus_params": {
       "block": {
