@@ -67,7 +67,7 @@ COPY LICENSE-* ./
 
 # Set up the reth configs
 # Copy the files from the docker folder to the container's directory
-COPY docker/genesis.json ./genesis.json
+COPY docker/execution_genesis.json ./genesis.json
 COPY docker/nodekey ./nodekey
 COPY docker/jwtsecret ./jwt.hex
 
