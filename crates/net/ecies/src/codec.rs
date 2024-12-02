@@ -83,7 +83,7 @@ impl Decoder for ECIESCodec {
                     let total_size = payload_size + 2;
 
                     if buf.len() < total_size {
-                        trace!("current len {}, need {}", buf.len(), total_size);
+                        trace!("ECIESState::Ack current len {}, need {}", buf.len(), total_size);
                         return Ok(None)
                     }
 
@@ -94,7 +94,7 @@ impl Decoder for ECIESCodec {
                 }
                 ECIESState::Header => {
                     if buf.len() < ECIES::header_len() {
-                        trace!("current len {}, need {}", buf.len(), ECIES::header_len());
+                        trace!("ECIESState::Header current len {}, need {}", buf.len(), ECIES::header_len());
                         return Ok(None)
                     }
 

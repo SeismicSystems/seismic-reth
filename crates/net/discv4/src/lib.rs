@@ -1667,7 +1667,7 @@ impl Discv4Service {
                         debug!(target: "discv4", %err, "failed to read datagram");
                     }
                     IngressEvent::BadPacket(from, err, data) => {
-                        trace!(target: "discv4", ?from, %err, packet=?hex::encode(&data), "bad packet");
+                        trace!(target: "discv4", ?from, %err, packet=?hex::encode(&data), packet_len=?data.len(), "bad packet");
                     }
                     IngressEvent::Packet(remote_addr, Packet { msg, node_id, hash }) => {
                         trace!(target: "discv4", r#type=?msg.msg_type(), from=?remote_addr,"received packet");
