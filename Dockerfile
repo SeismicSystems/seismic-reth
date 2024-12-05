@@ -95,6 +95,7 @@ ENTRYPOINT /usr/local/bin/reth node \
             --http.port $HTTP_PORT --port $PEER_PORT \
             --discovery.port $DISCOVERY_PORT \
             --ws.port $WS_PORT \
+            --ws.addr 0.0.0.0 \
             --metrics $METRICS_PORT \
             --authrpc.port $AUTHRPC_PORT \
             --authrpc.addr 0.0.0.0 \
