@@ -1,0 +1,282 @@
+networks:
+  devnet1:
+    labels:
+      e2e: true
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: 10.186.73.0/24
+
+services:
+  fullnode01:
+    labels:
+      e2e: true
+    container_name: fullnode01
+    image: omniops/halovisor:f8bbcbf
+    restart: unless-stopped
+    init: true
+    ports:
+    - 26656 # CometBFT Consensus P2P
+    - 5701:26657 # CometBFT Consensus RPC
+    - 9090 # Cosmos gRPC API (VM port 9090 used by grafana-agent)
+    - 1317 # Cosmos REST API
+    - 6701:26660 # Prometheus
+    - 6060 # Pprof
+    volumes:
+    - ./fullnode01:/halo
+    logging:
+      driver: local
+    networks:
+      devnet1:
+        ipv4_address: 10.186.73.2
+
+  validator01:
+    labels:
+      e2e: true
+    container_name: validator01
+    image: omniops/halovisor:f8bbcbf
+    restart: unless-stopped
+    init: true
+    ports:
+    - 26656 # CometBFT Consensus P2P
+    - 5702:26657 # CometBFT Consensus RPC
+    - 9090 # Cosmos gRPC API (VM port 9090 used by grafana-agent)
+    - 1317 # Cosmos REST API
+    - 6702:26660 # Prometheus
+    - 6060 # Pprof
+    volumes:
+    - ./validator01:/halo
+    logging:
+      driver: local
+    networks:
+      devnet1:
+        ipv4_address: 10.186.73.3
+
+  validator02:
+    labels:
+      e2e: true
+    container_name: validator02
+    image: omniops/halovisor:f8bbcbf
+    restart: unless-stopped
+    init: true
+    ports:
+    - 26656 # CometBFT Consensus P2P
+    - 5703:26657 # CometBFT Consensus RPC
+    - 9090 # Cosmos gRPC API (VM port 9090 used by grafana-agent)
+    - 1317 # Cosmos REST API
+    - 6703:26660 # Prometheus
+    - 6060 # Pprof
+    volumes:
+    - ./validator02:/halo
+    logging:
+      driver: local
+    networks:
+      devnet1:
+        ipv4_address: 10.186.73.4
+
+  mock_l1:
+    labels:
+      e2e: true
+    container_name: mock_l1
+    platform: linux/amd64
+    image: omniops/anvilproxy:f8bbcbf
+    environment:
+      - ANVILPROXY_CHAIN_ID=1652
+      - ANVILPROXY_BLOCK_TIME=1
+      - ANVILPROXY_SLOTS_IN_AN_EPOCH=4 # Finality in 4*2*BlockPeriod
+      - FORKPROXY_LOAD_STATE=/anvil/state.json
+    ports:
+      - 8003:8545
+    networks:
+      devnet1:
+        ipv4_address: 10.186.73.103
+    
+    volumes:
+      - ./anvil/state.json:/anvil/state.json
+    logging:
+      driver: local
+    
+  mock_l2:
+    labels:
+      e2e: true
+    container_name: mock_l2
+    platform: linux/amd64
+    image: omniops/anvilproxy:f8bbcbf
+    environment:
+      - ANVILPROXY_CHAIN_ID=1654
+      - ANVILPROXY_BLOCK_TIME=1
+      - ANVILPROXY_SLOTS_IN_AN_EPOCH=4 # Finality in 4*2*BlockPeriod
+      - FORKPROXY_LOAD_STATE=/anvil/state.json
+    ports:
+      - 8004:8545
+    networks:
+      devnet1:
+        ipv4_address: 10.186.73.104
+    
+    volumes:
+      - ./anvil/state.json:/anvil/state.json
+    logging:
+      driver: local
+    
+
+  # Use geth as the omni EVMs.
+  fullnode01_evm:
+    labels:
+      e2e: true
+    container_name: fullnode01_evm
+    image: "ethereum/client-go:v1.14.11"
+    restart: unless-stopped
+    command:
+      - --config=/geth/config.toml
+      # Flags not available via config.toml
+      - --nat=extip:10.186.73.102
+      - --pprof
+      - --pprof.addr=0.0.0.0
+      - --metrics
+      - --graphql
+      - --verbosity=4 # Log level (1=error,2=warn,3=info,4=debug)
+      - --gcmode=archive
+    ports:
+      - 8551 # Auth RPC
+      - 8002:8545 # HTTP RPC
+      - 30303 # Execution P2P
+      - 30303/udp # Execution P2P Discovery
+      - 8546 # Websockets RPC
+      - 6060 # Prometheus metrics and pprof
+    healthcheck:
+      test: "nc -z localhost 8545"
+      interval: 1s
+      retries: 30
+    volumes:
+      - ./fullnode01_evm:/geth
+    logging:
+      driver: local
+    networks:
+      devnet1:
+        ipv4_address: 10.186.73.102
+
+  validator01_evm:
+    container_name: validator01_evm
+    image: seismic-reth
+    restart: unless-stopped
+    ports:
+      - "8551"             # Auth RPC
+      - "8010:8545"       # HTTP RPC
+      - "30303"            # Execution P2P
+      - "30303:30303/udp"  # Execution P2P Discovery
+      - "8546"             # Websockets RPC
+      - "6060"             # Prometheus metrics and pprof
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8545"]
+      interval: 1s
+      retries: 30
+    logging:
+      driver: local
+    networks:
+      devnet1:
+        ipv4_address: 10.186.73.100
+
+  validator02_evm:
+    labels:
+      e2e: true
+    container_name: validator02_evm
+    image: "ethereum/client-go:v1.14.11"
+    restart: unless-stopped
+    command:
+      - --config=/geth/config.toml
+      # Flags not available via config.toml
+      - --nat=extip:10.186.73.101
+      - --pprof
+      - --pprof.addr=0.0.0.0
+      - --metrics
+      - --graphql
+      - --verbosity=4 # Log level (1=error,2=warn,3=info,4=debug)
+      
+    ports:
+      - 8551 # Auth RPC
+      - 8001:8545 # HTTP RPC
+      - 30303 # Execution P2P
+      - 30303/udp # Execution P2P Discovery
+      - 8546 # Websockets RPC
+      - 6060 # Prometheus metrics and pprof
+    healthcheck:
+      test: "nc -z localhost 8545"
+      interval: 1s
+      retries: 30
+    volumes:
+      - ./validator02_evm:/geth
+    logging:
+      driver: local
+    networks:
+      devnet1:
+        ipv4_address: 10.186.73.101
+
+  relayer:
+    labels:
+      e2e: true
+    container_name: relayer
+    image: omniops/relayer:f8bbcbf
+    restart: unless-stopped
+    ports:
+      - 26660 # Prometheus and pprof
+    volumes:
+      - ./relayer:/relayer
+    logging:
+      driver: local
+    networks:
+      devnet1:
+        ipv4_address: 10.186.73.200
+
+  monitor:
+    labels:
+      e2e: true
+    container_name: monitor
+    image: omniops/monitor:f8bbcbf
+    restart: unless-stopped
+    ports:
+      - 26660 # Prometheus and pprof
+    volumes:
+      - ./monitor:/monitor
+    logging:
+      driver: local
+    networks:
+      devnet1:
+        ipv4_address: 10.186.73.201
+
+  solver:
+    labels:
+      e2e: true
+    container_name: solver
+    image: omniops/solver:f8bbcbf
+    restart: unless-stopped
+    ports:
+      - 26660 # Prometheus and pprof
+    volumes:
+      - ./solver:/solver
+    logging:
+      driver: local
+    networks:
+      devnet1:
+        ipv4_address: 10.186.73.203
+
+  prometheus:
+    labels:
+      e2e: true
+    container_name: prometheus
+    image: prom/prometheus:latest
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+      - --enable-feature=exemplar-storage
+      - --enable-feature=agent
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yaml:/etc/prometheus/prometheus.yaml
+    logging:
+      driver: local
+    networks:
+      devnet1:
+        ipv4_address: 10.186.73.202
+
