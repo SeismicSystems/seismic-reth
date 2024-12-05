@@ -89,7 +89,7 @@ ENV WS_PORT=8546
 ENV METRICS_PORT=6060
 
 ENTRYPOINT /usr/local/bin/reth node \
-            -vvvv \
+            -vvv \
             --http \
             --http.addr 0.0.0.0 \
             --http.port $HTTP_PORT --port $PEER_PORT \

@@ -45,7 +45,7 @@ use revm::{
     primitives::{EVMError, EnvWithHandlerCfg, InvalidTransaction, ResultAndState},
     DatabaseCommit, State,
 };
-use tracing::{debug, trace, warn};
+use tracing::{debug, trace, warn, info};
 
 /// Ethereum payload builder
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -564,7 +564,7 @@ where
     let block = Block { header, body: executed_txs, ommers: vec![], withdrawals, requests };
 
     let sealed_block = block.seal_slow();
-    debug!(target: "payload_builder", ?sealed_block, "sealed built block");
+    info!(target: "payload_builder", ?sealed_block, "sealed built block");
 
     let mut payload = EthBuiltPayload::new(attributes.id, sealed_block, total_fees);
 
