@@ -88,7 +88,7 @@ ENV DISCOVERY_PORT=30303
 ENV WS_PORT=8546
 ENV METRICS_PORT=6060
 
-ENTRYPOINT /usr/local/bin/reth node \
+ENTRYPOINT /usr/local/bin/reth node --dev \
             -vvvv \
             --http \
             --http.addr 0.0.0.0 \
