@@ -1,3 +1,4 @@
+# Use cargo-chef for build caching
 FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
 WORKDIR /app
 
@@ -7,19 +8,20 @@ LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"
 # Install system dependencies
 RUN apt-get update && apt-get -y upgrade && apt-get install -y libclang-dev pkg-config
 
-# Builds a cargo-chef plan
+# Build the cargo-chef plan
 FROM chef AS planner
-COPY . .
+
+COPY ./bin/ ./bin/
+COPY ./crates/ ./crates/
+COPY ./testing/ ./testing/
+COPY ./examples/ ./examples/
+COPY Cargo.toml Cargo.lock deny.toml Makefile ./
 RUN cargo chef prepare --recipe-path recipe.json
 
+# Build the application
 FROM chef AS builder
-# Setting up ssh for github
+# Setting up SSH for GitHub access
 RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
-ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
-RUN --mount=type=secret,id=ssh_key \
-    cp /run/secrets/ssh_key ~/.ssh/id_ed25519 && \
-    chmod 600 ~/.ssh/id_ed25519
-
 COPY --from=planner /app/recipe.json recipe.json
 
 # Build profile, release by default
@@ -34,26 +36,58 @@ ENV RUSTFLAGS="$RUSTFLAGS"
 ARG FEATURES=""
 ENV FEATURES=$FEATURES
 
-# Builds dependencies
-RUN cargo chef cook --profile $BUILD_PROFILE --features "$FEATURES" --recipe-path recipe.json
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
+# Build dependencies
+RUN --mount=type=ssh cargo chef cook --profile $BUILD_PROFILE --features "$FEATURES" --recipe-path recipe.json
 
-# Build application
-COPY . .
-RUN cargo build --profile $BUILD_PROFILE --features "$FEATURES" --locked --bin reth
+# Build the application binary
+COPY ./bin/ ./bin/
+COPY ./crates/ ./crates/
+COPY ./testing/ ./testing/
+COPY ./examples/ ./examples/
+COPY Cargo.toml Cargo.lock deny.toml Makefile ./
+RUN --mount=type=ssh cargo build --profile $BUILD_PROFILE --features "$FEATURES" --locked --bin reth
 
-# ARG is not resolved in COPY so we have to hack around it by copying the
-# binary to a temporary location
+# Copy the binary to a temporary location
 RUN cp /app/target/$BUILD_PROFILE/reth /app/reth
 
-# Use Ubuntu as the release image
-FROM ubuntu AS runtime
+# Use Ubuntu as the runtime image
+FROM ubuntu:latest AS runtime
 WORKDIR /app
 
 # Copy reth over from the build stage
 COPY --from=builder /app/reth /usr/local/bin
 
-# Copy licenses
+# Copy license files
 COPY LICENSE-* ./
 
-EXPOSE 30303 30303/udp 9001 8545 8546
-ENTRYPOINT ["/usr/local/bin/reth"]
+# Define the ENTRYPOINT to run the reth node with the specified arguments
+ENV HTTP_PORT=8545
+ENV WS_PORT=8546
+ENV AUTHRPC_PORT=8551
+ENV METRICS_PORT=9001
+ENV PEER_PORT=30303
+ENV DISCOVERY_PORT=30303
+
+# Expose the necessary ports
+EXPOSE \
+    $HTTP_PORT \
+    $WS_PORT \
+    $AUTHRPC_PORT \
+    $METRICS_PORT \
+    $PEER_PORT \
+    $DISCOVERY_PORT/udp
+
+
+ENTRYPOINT /usr/local/bin/reth node \
+            --dev \
+            -vvvv \
+            --http \
+            --http.addr 0.0.0.0 \
+            --http.port $HTTP_PORT \
+            --ws.port $WS_PORT \
+            --authrpc.port $AUTHRPC_PORT \
+            --authrpc.addr 0.0.0.0 \
+            --port $PEER_PORT \
+            --discovery.port $DISCOVERY_PORT \
+            --metrics $METRICS_PORT
