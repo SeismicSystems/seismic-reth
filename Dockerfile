@@ -22,11 +22,6 @@ RUN cargo chef prepare --recipe-path recipe.json
 FROM chef AS builder
 # Setting up SSH for GitHub access
 RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
-ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
-# RUN --mount=type=secret,id=ssh_key \
-#     cp /run/secrets/ssh_key ~/.ssh/id_ed25519 && \
-#     chmod 600 ~/.ssh/id_ed25519
-
 COPY --from=planner /app/recipe.json recipe.json
 
 # Build profile, release by default
@@ -41,6 +36,7 @@ ENV RUSTFLAGS="$RUSTFLAGS"
 ARG FEATURES=""
 ENV FEATURES=$FEATURES
 
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 # Build dependencies
 RUN --mount=type=ssh cargo chef cook --profile $BUILD_PROFILE --features "$FEATURES" --recipe-path recipe.json
 
