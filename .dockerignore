@@ -23,6 +23,3 @@
 
 # include example files
 !/examples
-
-# include my docker files
-!docker

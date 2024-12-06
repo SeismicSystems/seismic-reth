@@ -24,11 +24,7 @@ impl AuthValidator for JwtAuthValidator {
     fn validate(&self, headers: &HeaderMap) -> Result<(), HttpResponse> {
         match get_bearer(headers) {
             Some(jwt) => match self.secret.validate(&jwt) {
-                Ok(_) => {
-                    use tracing::debug;
-                    debug!(target: "engine::jwt-validator", "Valid JWT");
-                    Ok(())
-                },
+                Ok(_) => Ok(()),
                 Err(e) => {
                     error!(target: "engine::jwt-validator", "Invalid JWT: {e}");
                     let response = err_response(e);
