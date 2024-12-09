@@ -1,11 +1,55 @@
 use crate::utils::eth_payload_attributes;
-use alloy_primitives::Bytes;
+use alloy_primitives::{address, hex, Bytes, TxKind};
+use eyre::Ok;
 use reth::rpc::compat::block;
-use reth_chainspec::{ChainSpecBuilder, MAINNET};
-use reth_e2e_test_utils::{setup, transaction::SeismicTransactionTestContext};
+use reth_chainspec::{ChainSpecBuilder, DEV, MAINNET};
+use reth_e2e_test_utils::{setup, transaction::{seismic_tx, SeismicTransactionTestContext}};
 use reth_node_ethereum::EthereumNode;
 use reth_tracing::tracing::*;
 use std::{sync::Arc, time::Instant};
+
+#[tokio::test(flavor = "multi_thread")]
+async fn print_tx() -> eyre::Result<()> {
+    let (mut nodes, _tasks, wallet) = setup::<EthereumNode>(
+        2,
+        Arc::new(
+            ChainSpecBuilder::default()
+                .chain(MAINNET.chain)
+                .genesis(serde_json::from_str(include_str!("../assets/genesis.json")).unwrap())
+                .cancun_activated()
+                .build(),
+        ),
+        false,
+    )
+    .await?;
+    let mut second_node = nodes.pop().unwrap();
+    let mut first_node = nodes.pop().unwrap();
+
+    let input = Bytes::from_static(&hex!("6080604052348015600f57600080fd5b506101598061001f6000396000f3fe6080604052348015600f57600080fd5b5060043610603c5760003560e01c806324a7f0b714604157806343bd0d70146053578063d09de08a14606d575b600080fd5b6051604c366004609e565b6000b1565b005b60596073565b604051901515815260200160405180910390f35b6051608a565b600060026000b06082919060b6565b600114905090565b600080b0908060978360d7565b919050b150565b60006020828403121560af57600080fd5b5035919050565b60008260d257634e487b7160e01b600052601260045260246000fd5b500690565b60006001820160f657634e487b7160e01b600052601160045260246000fd5b506001019056fea26469706673582212206c8d0b6848aef0a4ceb33182854a75dcd854a9740ac84abe06feaaa63d3f96c164736f6c637828302e382e32382d646576656c6f702e323032342e31322e352b636f6d6d69742e39383863313261660059"));
+    let nonce = 0;
+    let tx = seismic_tx(&wallet.inner, DEV.chain.id(), input, nonce, TxKind::Create);
+    let tx_signed = SeismicTransactionTestContext::sign_tx(&wallet.inner, tx).await;
+    let raw_tx = tx_signed.envelope_encoded();
+    println!("raw_tx: {:?}", raw_tx);
+
+    let input = Bytes::from_static(&hex!("24a7f0b70000000000000000000000000000000000000000000000000000000000000003"));
+    let nonce = 1;
+    let contract_addr = address!("5fbdb2315678afecb367f032d93f642f64180aa3");
+    let tx = seismic_tx(&wallet.inner, DEV.chain.id(), input, nonce, TxKind::Call(contract_addr));
+    let tx_signed = SeismicTransactionTestContext::sign_tx(&wallet.inner, tx).await;
+    let raw_tx = tx_signed.envelope_encoded();
+    println!("raw_tx: {:?}", raw_tx);
+
+    let input = Bytes::from_static(&hex!("43bd0d70"));
+    let nonce = 3;
+    let contract_addr = address!("5fbdb2315678afecb367f032d93f642f64180aa3");
+    let tx = seismic_tx(&wallet.inner, DEV.chain.id(), input, nonce, TxKind::Call(contract_addr));
+    let tx_signed = SeismicTransactionTestContext::sign_tx(&wallet.inner, tx).await;
+    let raw_tx = tx_signed.envelope_encoded();
+    println!("raw_tx: {:?}", raw_tx);
+
+    Ok(())
+}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn bench() -> eyre::Result<()> {

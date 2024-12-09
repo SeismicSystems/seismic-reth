@@ -185,7 +185,7 @@ fn legacy_tx(chain_id: u64, input: Bytes, nonce: u64, to: TxKind) -> Transaction
 }
 
 /// Creates a type 2 transaction
-fn seismic_tx(
+pub fn seismic_tx(
     sk_wallet: &PrivateKeySigner,
     chain_id: u64,
     decrypted_input: Bytes,
