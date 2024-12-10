@@ -27,6 +27,7 @@ use reth_revm::{
     batch::BlockBatchRecord, db::states::bundle_state::BundleRetention,
     state_change::post_block_balance_increments, Evm, State,
 };
+use reth_tracing::tracing::{debug, field::debug};
 use revm_primitives::{
     db::{Database, DatabaseCommit},
     BlockEnv, CfgEnvWithHandlerCfg, EVMError, EnvWithHandlerCfg, ResultAndState,
@@ -203,6 +204,12 @@ where
                     error: Box::new(new_err),
                 }
             })?;
+            debug!(
+                target: "reth::ethevmexecutor",
+                "Executing transaction: {:?} from sender: {:?} post state: {:?} result: {:?}",
+                transaction, sender, state, result.is_success()
+            );
+
             evm.db_mut().commit(state);
 
             // append gas used
