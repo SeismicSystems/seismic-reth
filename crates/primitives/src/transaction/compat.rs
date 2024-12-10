@@ -1,5 +1,6 @@
 use crate::{Address, Transaction, TransactionSigned, TxKind, U256};
 use reth_tee::{decrypt, TeeAPI, TeeError};
+use reth_tracing::tracing::debug;
 use revm_primitives::{AuthorizationList, Bytes, EVMError, EVMResultGeneric, TxEnv};
 
 #[cfg(all(not(feature = "std"), feature = "optimism"))]
@@ -135,7 +136,10 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                     Vec::<u8>::from(tx.input().as_ref()),
                     tx.nonce().clone(),
                 )
-                .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
+                .map_err(|_| EVMError::Database(TeeError::DecryptionError))?
+                .into();
+
+                debug!(target: "reth::fill_tx_env", ?decrypted_input, "Encrypted input {:?}", tx.input());
 
                 tx_env.gas_limit = *tx.gas_limit();
                 tx_env.gas_price = U256::from(*tx.gas_price());

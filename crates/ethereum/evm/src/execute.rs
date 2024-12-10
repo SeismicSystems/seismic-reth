@@ -203,6 +203,7 @@ where
                     error: Box::new(new_err),
                 }
             })?;
+
             evm.db_mut().commit(state);
 
             // append gas used
