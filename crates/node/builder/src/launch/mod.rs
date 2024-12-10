@@ -36,6 +36,7 @@ use reth_rpc_types::{engine::ClientVersionV1, WithOtherFields};
 use reth_tasks::TaskExecutor;
 use reth_tracing::tracing::{debug, info};
 use reth_transaction_pool::TransactionPool;
+use reth_tee::mock::MockTeeServer;
 use tokio::sync::{mpsc::unbounded_channel, oneshot};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
@@ -416,6 +417,17 @@ where
             });
         }
 
+        ctx.task_executor().spawn(async move {
+            let tee_server_url = format!(
+                "127.0.0.1:7878",
+            );
+            let tee_server = MockTeeServer::new(&tee_server_url);
+            tee_server
+                .run()
+                .await
+                .expect("mock tee server failed to start in dev mode");
+        });
+
         if let Some(rpc_ws_url) = ctx.node_config().debug.rpc_consensus_ws.clone() {
             info!(target: "reth::cli", "Using rpc provider as consensus client");
 
@@ -428,7 +440,6 @@ where
                 rpc_consensus_client.run::<T::Engine>().await
             });
         }
-
         let full_node = FullNode {
             evm_config: ctx.components().evm_config().clone(),
             block_executor: ctx.components().block_executor().clone(),

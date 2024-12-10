@@ -172,7 +172,7 @@ impl SeismicTransactionTestContext {
 }
 
 /// Creates a type 2 transaction
-fn legacy_tx(chain_id: u64, input: Bytes, nonce: u64, to: TxKind) -> Transaction {
+pub fn legacy_tx(chain_id: u64, input: Bytes, nonce: u64, to: TxKind) -> Transaction {
     Transaction::Legacy(TxLegacy {
         chain_id: Some(chain_id),
         nonce,

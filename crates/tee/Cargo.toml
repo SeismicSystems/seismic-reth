@@ -12,6 +12,7 @@ description = "Additional utilities for working with tee in reth."
 workspace = true
 
 [dependencies]
+reth-tracing.workspace = true
 tracing.workspace = true
 hyper = { version = "0.14", features = ["full"] }                                   
 routerify = "3.0.0"

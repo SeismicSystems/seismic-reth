@@ -206,8 +206,8 @@ where
             })?;
             debug!(
                 target: "reth::ethevmexecutor",
-                "Executing transaction: {:?} from sender: {:?} post state: {:?} result: {:?}",
-                transaction, sender, state, result.is_success()
+                "Executing transaction: {:?}\n from sender: {:?}\n post state: {:?}\n result: {:?}\n tx env: {:?}",
+                transaction, sender, state, result,  evm.tx_mut()
             );
 
             evm.db_mut().commit(state);
