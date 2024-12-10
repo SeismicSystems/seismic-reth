@@ -1,5 +1,4 @@
 use crate::{Address, Transaction, TransactionSigned, TxKind, U256};
-use alloy_rlp::Decodable;
 use reth_tee::{decrypt, TeeAPI, TeeError};
 use reth_tracing::tracing::debug;
 use revm_primitives::{AuthorizationList, Bytes, EVMError, EVMResultGeneric, TxEnv};

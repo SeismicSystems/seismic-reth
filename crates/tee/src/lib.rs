@@ -9,7 +9,6 @@ pub use tee_service_api::{
     TeeAPI, WalletAPI,
 };
 
-use alloy_rlp::{Decodable, Encodable};
 use derive_more::Display;
 use secp256k1::PublicKey;
 use tee_service_api::request_types::tx_io::{
