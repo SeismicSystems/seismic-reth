@@ -8,7 +8,6 @@ static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 #[cfg(not(feature = "seismic"))]
 compile_error!("Cannot build the `seismic-reth` binary with the `seismic` feature flag disabled.");
 
-#[cfg(feature = "seismic")]
 fn main() {
     use eyre::Ok;
     use reth::{
