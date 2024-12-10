@@ -1,4 +1,3 @@
-version: '2.4'
 networks:
   devnet1:
     labels:
@@ -122,41 +121,6 @@ services:
     
 
   # Use geth as the omni EVMs.
-  validator02_evm:
-    labels:
-      e2e: true
-    container_name: validator02_evm
-    image: "ethereum/client-go:v1.14.11"
-    restart: unless-stopped
-    command:
-      - --config=/geth/config.toml
-      # Flags not available via config.toml
-      - --nat=extip:10.186.73.100
-      - --pprof
-      - --pprof.addr=0.0.0.0
-      - --metrics
-      - --graphql
-      - --verbosity=3 # Log level (1=error,2=warn,3=info,4=debug)
-      
-    ports:
-      - 8551 # Auth RPC
-      - 8000:8545 # HTTP RPC
-      - 30303 # Execution P2P
-      - 30303/udp # Execution P2P Discovery
-      - 8546 # Websockets RPC
-      - 6060 # Prometheus metrics and pprof
-    healthcheck:
-      test: "nc -z localhost 8545"
-      interval: 1s
-      retries: 30
-    volumes:
-      - ./validator02_evm:/geth
-    logging:
-      driver: local
-    networks:
-      devnet1:
-        ipv4_address: 10.186.73.100
-
   fullnode01_evm:
     labels:
       e2e: true
@@ -166,16 +130,16 @@ services:
     command:
       - --config=/geth/config.toml
       # Flags not available via config.toml
-      - --nat=extip:10.186.73.101
+      - --nat=extip:10.186.73.102
       - --pprof
       - --pprof.addr=0.0.0.0
       - --metrics
       - --graphql
-      - --verbosity=3 # Log level (1=error,2=warn,3=info,4=debug)
+      - --verbosity=4 # Log level (1=error,2=warn,3=info,4=debug)
       - --gcmode=archive
     ports:
       - 8551 # Auth RPC
-      - 8001:8545 # HTTP RPC
+      - 8002:8545 # HTTP RPC
       - 30303 # Execution P2P
       - 30303/udp # Execution P2P Discovery
       - 8546 # Websockets RPC
@@ -190,7 +154,7 @@ services:
       driver: local
     networks:
       devnet1:
-        ipv4_address: 10.186.73.101
+        ipv4_address: 10.186.73.102
 
   validator01_evm:
     container_name: validator01_evm
@@ -198,7 +162,7 @@ services:
     restart: unless-stopped
     ports:
       - "8551"             # Auth RPC
-      - "8545:8545"       # HTTP RPC
+      - "8010:8545"       # HTTP RPC
       - "30303"            # Execution P2P
       - "30303:30303/udp"  # Execution P2P Discovery
       - "8546"             # Websockets RPC
@@ -211,7 +175,42 @@ services:
       driver: local
     networks:
       devnet1:
-        ipv4_address: 10.186.73.102
+        ipv4_address: 10.186.73.100
+
+  validator02_evm:
+    labels:
+      e2e: true
+    container_name: validator02_evm
+    image: "ethereum/client-go:v1.14.11"
+    restart: unless-stopped
+    command:
+      - --config=/geth/config.toml
+      # Flags not available via config.toml
+      - --nat=extip:10.186.73.101
+      - --pprof
+      - --pprof.addr=0.0.0.0
+      - --metrics
+      - --graphql
+      - --verbosity=4 # Log level (1=error,2=warn,3=info,4=debug)
+      
+    ports:
+      - 8551 # Auth RPC
+      - 8545:8545 # HTTP RPC
+      - 30303 # Execution P2P
+      - 30303/udp # Execution P2P Discovery
+      - 8546 # Websockets RPC
+      - 6060 # Prometheus metrics and pprof
+    healthcheck:
+      test: "nc -z localhost 8545"
+      interval: 1s
+      retries: 30
+    volumes:
+      - ./validator02_evm:/geth
+    logging:
+      driver: local
+    networks:
+      devnet1:
+        ipv4_address: 10.186.73.101
 
   relayer:
     labels:
@@ -280,4 +279,3 @@ services:
     networks:
       devnet1:
         ipv4_address: 10.186.73.202
-
