@@ -202,7 +202,7 @@ pub fn seismic_tx(
         gas_price: 20e9 as u128,
         gas_limit: 600000,
         to,
-        value: U256::from(1000),
+        value: U256::from(0),
         input: encrypted_input.into(),
     })
 }

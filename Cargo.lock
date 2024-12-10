@@ -9166,6 +9166,7 @@ dependencies = [
  "revm-precompile",
  "serde",
  "serde_json",
+ "tracing",
 ]
 
 [[package]]
