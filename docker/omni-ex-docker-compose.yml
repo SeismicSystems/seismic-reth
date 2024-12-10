@@ -198,7 +198,7 @@ services:
     restart: unless-stopped
     ports:
       - "8551"             # Auth RPC
-      - "8010:8545"       # HTTP RPC
+      - "8545:8545"       # HTTP RPC
       - "30303"            # Execution P2P
       - "30303:30303/udp"  # Execution P2P Discovery
       - "8546"             # Websockets RPC
@@ -211,7 +211,7 @@ services:
       driver: local
     networks:
       devnet1:
-        ipv4_address: 10.186.73.100
+        ipv4_address: 10.186.73.102
 
   relayer:
     labels:
