@@ -21,7 +21,6 @@ reth-ethereum-consensus.workspace = true
 reth-prune-types.workspace = true
 reth-execution-types.workspace = true
 reth-tee.workspace = true
-reth-tracing.workspace = true
 
 # Ethereum
 revm-primitives.workspace = true

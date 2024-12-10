@@ -578,8 +578,8 @@ seismic-types = { git = "ssh://git@github.com/SeismicSystems/mantle.git", rev = 
 # and instead use our local version
 
 # seismic-revm
-revm = { path = "../seismic-revm/crates/revm" }
-revm-primitives = { path = "../seismic-revm/crates/primitives" }
+revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "b6b3601" }
+revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "b6b3601" }
 
 # seismic-revm-inspectors
 revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "a77b988" }

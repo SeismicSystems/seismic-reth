@@ -158,7 +158,7 @@ use reth_primitives::{Address, BlobTransactionSidecar, PooledTransactionsElement
 use reth_storage_api::StateProviderFactory;
 use std::{collections::HashSet, sync::Arc};
 use tokio::sync::mpsc::Receiver;
-use tracing::{debug, instrument, trace};
+use tracing::{instrument, trace};
 
 pub use crate::{
     blobstore::{BlobStore, BlobStoreError},
@@ -350,10 +350,6 @@ where
         transaction: Self::Transaction,
     ) -> PoolResult<TxHash> {
         let (_, tx) = self.validate(origin, transaction).await;
-        debug!(
-            target: "add_transaction",
-            ?tx,
-        );
         let mut results = self.pool.add_transactions(origin, std::iter::once(tx));
         results.pop().expect("result length is the same as the input")
     }

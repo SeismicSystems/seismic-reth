@@ -20,7 +20,6 @@ use reth_rpc_types::{
 };
 use reth_rpc_types_compat::transaction::from_recovered_with_block_context;
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
-use tracing::{debug, field::debug};
 
 use crate::{
     types::RPCSeismicTransactionRequest, FromEthApiError, IntoEthApiError, RpcTransaction,
@@ -248,11 +247,6 @@ pub trait EthTransactions: LoadTransaction {
             let recovered = recover_raw_transaction(tx.clone())?;
             let pool_transaction =
                 <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
-
-            debug!(
-                target: "send_raw_transaction",
-                ?pool_transaction,
-            );
 
             // submit the transaction to the pool with a `Local` origin
             let hash = self

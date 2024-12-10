@@ -21,7 +21,6 @@ use revm::{
     interpreter::gas::validate_initial_tx_gas,
     primitives::{EnvKzgSettings, SpecId},
 };
-use tracing::debug;
 use std::{
     marker::PhantomData,
     sync::{atomic::AtomicBool, Arc},
@@ -348,11 +347,6 @@ where
         }
 
         let cost = transaction.cost();
-        debug!(
-            target: "validate_one",
-            ?cost,
-            ?account.balance,
-        );
 
         // Checks for max cost
         if cost > account.balance {

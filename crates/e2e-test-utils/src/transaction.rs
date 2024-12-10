@@ -114,6 +114,14 @@ fn tx(chain_id: u64, data: Option<Bytes>, nonce: u64) -> TransactionRequest {
 
 pub struct SeismicTransactionTestContext;
 impl SeismicTransactionTestContext {
+
+    /// Creates an arbitrary and signs it, returning bytes
+    pub async fn sign_seismic_tx(wallet: &PrivateKeySigner, chain_id: u64, nonce: u64, to: TxKind, input: Bytes) -> Bytes {
+        let tx = seismic_tx(&wallet, chain_id, input, nonce, to);
+        let tx_signed = Self::sign_tx(&wallet, tx).await;
+        tx_signed.envelope_encoded().into()
+    }
+
     /// Creates a static transfer and signs it, returning bytes
     pub async fn deploy_tx_bytes(chain_id: u64, wallet: PrivateKeySigner, nonce: u64) -> Bytes {
         // Source code of the contract deployed:
@@ -184,7 +192,6 @@ pub fn legacy_tx(chain_id: u64, input: Bytes, nonce: u64, to: TxKind) -> Transac
     })
 }
 
-/// Creates a type 2 transaction
 pub fn seismic_tx(
     sk_wallet: &PrivateKeySigner,
     chain_id: u64,

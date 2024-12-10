@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 use hyper::{body::to_bytes, Body, Request, Response, Server};
-use reth_tracing::tracing_subscriber::field::debug;
 use routerify::{Router, RouterService};
 use secp256k1::ecdh::SharedSecret;
 use tracing::debug;
@@ -70,12 +69,10 @@ impl MockTeeServer {
             Ok(p) => p,
             Err(_) => return Ok(invalid_json_body_resp()),
         };
-        debug!(target: "reth::mockteeserver", ?payload);
 
         let client = MockTeeClient {};
         match client.tx_io_decrypt(payload).await {
             Ok(response) => {
-                debug!(target: "reth::mockteeserver", ?response);
                 Ok(Response::new(Body::from(serde_json::to_string(&response).unwrap())))
             }
             Err(e) => Ok(invalid_ciphertext_resp(e)),

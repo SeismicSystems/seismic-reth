@@ -27,7 +27,6 @@ use reth_revm::{
     batch::BlockBatchRecord, db::states::bundle_state::BundleRetention,
     state_change::post_block_balance_increments, Evm, State,
 };
-use reth_tracing::tracing::{debug, field::debug};
 use revm_primitives::{
     db::{Database, DatabaseCommit},
     BlockEnv, CfgEnvWithHandlerCfg, EVMError, EnvWithHandlerCfg, ResultAndState,
@@ -204,11 +203,6 @@ where
                     error: Box::new(new_err),
                 }
             })?;
-            debug!(
-                target: "reth::ethevmexecutor",
-                "Executing transaction: {:?}\n from sender: {:?}\n post state: {:?}\n result: {:?}\n tx env: {:?}",
-                transaction, sender, state, result,  evm.tx_mut()
-            );
 
             evm.db_mut().commit(state);
 

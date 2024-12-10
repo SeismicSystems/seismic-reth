@@ -15,7 +15,6 @@ use secp256k1::PublicKey;
 use tee_service_api::request_types::tx_io::{
     IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,
 };
-use tracing::debug;
 
 /// Custom error type for reth error handling.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Display)]
@@ -44,7 +43,6 @@ pub fn decrypt<T: TeeAPI>(
         tokio::runtime::Handle::current().block_on(tee_client.tx_io_decrypt(payload))
     })
     .map_err(|_| TeeError::DecryptionError)?;
-    debug!(target: "reth::teelib", ?decrypted_data);
     Ok(decrypted_data)
 }
 
