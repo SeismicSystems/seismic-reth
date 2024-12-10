@@ -2,7 +2,6 @@ use anyhow::{anyhow, Result};
 use hyper::{body::to_bytes, Body, Request, Response, Server};
 use routerify::{Router, RouterService};
 use secp256k1::ecdh::SharedSecret;
-use tracing::debug;
 use std::{convert::Infallible, net::SocketAddr, str::FromStr};
 
 use crate::{TeeAPI, WalletAPI};
