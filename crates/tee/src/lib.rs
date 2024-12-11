@@ -9,7 +9,6 @@ pub use tee_service_api::{
     TeeAPI, WalletAPI,
 };
 
-use alloy_rlp::{Decodable, Encodable};
 use derive_more::Display;
 use secp256k1::PublicKey;
 use tee_service_api::request_types::tx_io::{
@@ -32,29 +31,27 @@ pub enum TeeError {
 }
 
 /// Blocking decrypt function call to contact TeeAPI
-pub fn decrypt<I: Encodable + Decodable, T: TeeAPI>(
+pub fn decrypt<T: TeeAPI>(
     tee_client: &T,
     msg_sender: PublicKey,
     data: Vec<u8>,
     nonce: u64,
-) -> Result<I, TeeError> {
+) -> Result<Vec<u8>, TeeError> {
     let payload = IoDecryptionRequest { msg_sender, data, nonce };
     let IoDecryptionResponse { decrypted_data } = tokio::task::block_in_place(|| {
         tokio::runtime::Handle::current().block_on(tee_client.tx_io_decrypt(payload))
     })
     .map_err(|_| TeeError::DecryptionError)?;
-    I::decode(&mut &decrypted_data[..]).map_err(|err| TeeError::CodingError(err))
+    Ok(decrypted_data)
 }
 
 /// Blocking encrypt function call to contact TeeAPI
-pub fn encrypt<I: Encodable + Decodable, T: TeeAPI>(
+pub fn encrypt<T: TeeAPI>(
     tee_client: &T,
     msg_sender: PublicKey,
-    plaintext: I,
+    data: Vec<u8>,
     nonce: u64,
 ) -> Result<Vec<u8>, TeeError> {
-    let mut data = Vec::new();
-    plaintext.encode(&mut data);
     let payload = IoEncryptionRequest { msg_sender, data, nonce };
 
     let IoEncryptionResponse { encrypted_data } = tokio::task::block_in_place(|| {

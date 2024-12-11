@@ -114,6 +114,19 @@ fn tx(chain_id: u64, data: Option<Bytes>, nonce: u64) -> TransactionRequest {
 
 pub struct SeismicTransactionTestContext;
 impl SeismicTransactionTestContext {
+    /// Creates an arbitrary and signs it, returning bytes
+    pub async fn sign_seismic_tx(
+        wallet: &PrivateKeySigner,
+        chain_id: u64,
+        nonce: u64,
+        to: TxKind,
+        input: Bytes,
+    ) -> Bytes {
+        let tx = seismic_tx(&wallet, chain_id, input, nonce, to);
+        let tx_signed = Self::sign_tx(&wallet, tx).await;
+        tx_signed.envelope_encoded().into()
+    }
+
     /// Creates a static transfer and signs it, returning bytes
     pub async fn deploy_tx_bytes(chain_id: u64, wallet: PrivateKeySigner, nonce: u64) -> Bytes {
         // Source code of the contract deployed:
@@ -172,7 +185,7 @@ impl SeismicTransactionTestContext {
 }
 
 /// Creates a type 2 transaction
-fn legacy_tx(chain_id: u64, input: Bytes, nonce: u64, to: TxKind) -> Transaction {
+pub fn legacy_tx(chain_id: u64, input: Bytes, nonce: u64, to: TxKind) -> Transaction {
     Transaction::Legacy(TxLegacy {
         chain_id: Some(chain_id),
         nonce,
@@ -184,8 +197,7 @@ fn legacy_tx(chain_id: u64, input: Bytes, nonce: u64, to: TxKind) -> Transaction
     })
 }
 
-/// Creates a type 2 transaction
-fn seismic_tx(
+pub fn seismic_tx(
     sk_wallet: &PrivateKeySigner,
     chain_id: u64,
     decrypted_input: Bytes,
@@ -202,7 +214,7 @@ fn seismic_tx(
         gas_price: 20e9 as u128,
         gas_limit: 600000,
         to,
-        value: U256::from(1000),
+        value: U256::from(0),
         input: encrypted_input.into(),
     })
 }

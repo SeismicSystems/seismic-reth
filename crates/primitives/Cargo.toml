@@ -22,6 +22,7 @@ reth-chainspec = { workspace = true, optional = true }
 reth-codecs = { workspace = true, optional = true }
 reth-optimism-chainspec = { workspace = true, optional = true }
 reth-tee.workspace = true
+reth-tracing.workspace = true
 
 # ethereum
 alloy-primitives = { workspace = true, features = ["rand", "rlp"] }
