@@ -39,6 +39,7 @@ pub fn decrypt<I: Encodable + Decodable, T: TeeAPI>(
     nonce: u64,
 ) -> Result<I, TeeError> {
     let payload = IoDecryptionRequest { msg_sender, data, nonce };
+    println!("Decryption payload: {:?}", payload);
     let IoDecryptionResponse { decrypted_data } = tokio::task::block_in_place(|| {
         tokio::runtime::Handle::current().block_on(tee_client.tx_io_decrypt(payload))
     })
