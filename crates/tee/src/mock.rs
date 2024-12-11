@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
-use hyper::{body::to_bytes, Body, Request, Response, Server};
-use routerify::{Router, RouterService};
+use hyper::{body::to_bytes, Body, Request, Response, Server, StatusCode};
+use routerify::{RequestInfo, Router, RouterService};
 use secp256k1::ecdh::SharedSecret;
 use std::{convert::Infallible, net::SocketAddr, str::FromStr};
 
@@ -23,6 +23,15 @@ pub struct MockTeeServer {
     addr: SocketAddr,
 }
 
+async fn error_handler(err: routerify::RouteError, _: RequestInfo) -> Response<Body> {
+    println!("\n\nError: {:?}\n\n", err);
+    eprintln!("{}", err);
+    Response::builder()
+        .status(StatusCode::INTERNAL_SERVER_ERROR)
+        .body(Body::from(format!("Something went wrong: {}", err)))
+        .unwrap()
+}
+
 impl MockTeeServer {
     /// create a new tee mock server that runs on the given address
     pub fn new(addr: &str) -> Self {
@@ -34,6 +43,7 @@ impl MockTeeServer {
         let router = Router::builder()
             .post("/tx_io/encrypt", MockTeeServer::handle_io_encrypt)
             .post("/tx_io/decrypt", MockTeeServer::handle_io_decrypt)
+            .err_handler_with_info(error_handler)
             .build()
             .unwrap();
 
