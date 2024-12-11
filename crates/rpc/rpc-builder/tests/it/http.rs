@@ -243,7 +243,13 @@ where
     )
     .await
     .unwrap();
-    EthApiClient::<Transaction, Block>::call(client, tx.clone(), Some(block_number.into()))
+    EthApiClient::<Transaction, Block>::call(
+        client, 
+        reth_rpc_eth_api::types::SeismicCallRequest::Bytes(tx.clone()),
+        Some(block_number.into()),
+        None,
+        None
+    )
         .await
         .unwrap();
     EthApiClient::<Transaction, Block>::syncing(client).await.unwrap();

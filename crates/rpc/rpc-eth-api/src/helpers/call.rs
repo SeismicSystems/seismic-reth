@@ -66,6 +66,21 @@ pub trait EthCall: Call + LoadPendingBlock {
     /// Executes the call request (`eth_call`) and returns the output
     fn call(
         &self,
+        request: TransactionRequest,
+        block_number: Option<BlockId>,
+        overrides: EvmOverrides,
+    ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
+        async move {
+            let (res, _env) =
+                self.transact_call_at(request, block_number.unwrap_or_default(), overrides).await?;
+
+            ensure_success(res.result).map_err(Self::Error::from_eth_err)
+        }
+    }
+
+    /// Executes the call request (`eth_call`) and returns the output
+    fn signed_call(
+        &self,
         request: Bytes,
         block_number: Option<BlockId>,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {

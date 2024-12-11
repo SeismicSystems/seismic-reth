@@ -7,13 +7,13 @@ use alloy_json_rpc::RpcObject;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use reth_engine_primitives::EngineTypes;
 use reth_primitives::{Address, BlockHash, BlockId, BlockNumberOrTag, Bytes, B256, U256, U64};
+use reth_rpc_eth_api::types::SeismicCallRequest;
 use reth_rpc_types::{
     engine::{
         ClientVersionV1, ExecutionPayloadBodiesV1, ExecutionPayloadBodiesV2,
         ExecutionPayloadInputV2, ExecutionPayloadV1, ExecutionPayloadV3, ExecutionPayloadV4,
         ForkchoiceState, ForkchoiceUpdated, PayloadId, PayloadStatus, TransitionConfiguration,
-    },
-    EIP1186AccountProofResponse, Filter, JsonStorageKey, Log, SyncStatus,
+    }, state::StateOverride, BlockOverrides, EIP1186AccountProofResponse, Filter, JsonStorageKey, Log, SyncStatus
 };
 // NOTE: We can't use associated types in the `EngineApi` trait because of jsonrpsee, so we use a
 // generic here. It would be nice if the rpc macro would understand which types need to have serde.
@@ -233,7 +233,13 @@ pub trait EngineEthApi<B: RpcObject> {
 
     /// Executes a new message call immediately without creating a transaction on the block chain.
     #[method(name = "call")]
-    async fn call(&self, request: Bytes, block_number: Option<BlockId>) -> RpcResult<Bytes>;
+    async fn call(
+        &self, 
+        request: SeismicCallRequest,
+        block_number: Option<BlockId>,
+        state_overrides: Option<StateOverride>,
+        block_overrides: Option<Box<BlockOverrides>>,
+    ) -> RpcResult<Bytes>;
 
     /// Returns code at a given address at given block number.
     #[method(name = "getCode")]

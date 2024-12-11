@@ -10,11 +10,7 @@ use reth_primitives::{
 use reth_rpc_eth_types::{utils::binary_search, EthApiError};
 use reth_rpc_server_types::{result::internal_rpc_err, ToRpcResult};
 use reth_rpc_types::{
-    serde_helpers::JsonStorageKey,
-    simulate::{SimBlock, SimulatedBlock},
-    state::StateOverride,
-    AnyTransactionReceipt, BlockTransactions, Bundle, EIP1186AccountProofResponse, EthCallResponse,
-    FeeHistory, Header, Index, StateContext, SyncStatus, TransactionRequest, Work,
+    serde_helpers::JsonStorageKey, simulate::{SimBlock, SimulatedBlock}, state::{EvmOverrides, StateOverride}, AnyTransactionReceipt, BlockOverrides, BlockTransactions, Bundle, EIP1186AccountProofResponse, EthCallResponse, FeeHistory, Header, Index, StateContext, SyncStatus, TransactionRequest, Work
 };
 use reth_transaction_pool::{PoolTransaction, TransactionPool};
 use tracing::trace;
@@ -23,7 +19,7 @@ use crate::{
     helpers::{
         EthApiSpec, EthBlocks, EthCall, EthFees, EthState, EthTransactions, FullEthApi, LoadState,
     },
-    types::RPCSeismicTransactionRequest,
+    types::{RPCSeismicTransactionRequest, SeismicCallRequest},
     RpcBlock, RpcTransaction,
 };
 
@@ -218,7 +214,12 @@ pub trait EthApi<T: RpcObject, B: RpcObject> {
 
     /// Executes a new message call immediately without creating a transaction on the block chain.
     #[method(name = "call")]
-    async fn call(&self, request: Bytes, block_number: Option<BlockId>) -> RpcResult<Bytes>;
+    async fn call(&self,
+        request: SeismicCallRequest,
+        block_number: Option<BlockId>, 
+        state_overrides: Option<StateOverride>,
+        block_overrides: Option<Box<BlockOverrides>>
+    ) -> RpcResult<Bytes>;
 
     /// Simulate arbitrary number of transactions at an arbitrary blockchain index, with the
     /// optionality of state overrides
@@ -305,7 +306,7 @@ pub trait EthApi<T: RpcObject, B: RpcObject> {
     async fn hashrate(&self) -> RpcResult<U256>;
 
     /// Returns the hash of the current block, the seedHash, and the boundary condition to be met
-    /// (“target”)
+    /// ("target")
     #[method(name = "getWork")]
     async fn get_work(&self) -> RpcResult<Work>;
 
@@ -660,9 +661,25 @@ where
     }
 
     /// Handler for: `eth_call`
-    async fn call(&self, request: Bytes, block_number: Option<BlockId>) -> RpcResult<Bytes> {
+    async fn call(&self,
+        request: SeismicCallRequest,
+        block_number: Option<BlockId>,
+        state_overrides: Option<StateOverride>,
+        block_overrides: Option<Box<BlockOverrides>>
+    ) -> RpcResult<Bytes> {
         trace!(target: "rpc::eth", ?request, "Serving seismic_call");
-        Ok(EthCall::call(self, request, block_number).await?)
+        match request {
+            SeismicCallRequest::Bytes(bytes) => Ok(EthCall::signed_call(self, bytes, block_number).await?),
+            SeismicCallRequest::TransactionRequest(request) => {
+                Ok(EthCall::call(
+                    self,
+                    request,
+                    block_number,
+                    EvmOverrides::new(state_overrides, block_overrides),
+                )
+                .await?)
+            }
+        }
     }
 
     /// Handler for: `eth_callMany`

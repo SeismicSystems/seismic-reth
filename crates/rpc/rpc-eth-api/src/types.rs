@@ -50,3 +50,13 @@ pub struct RPCSeismicTransactionRequest {
     /// Seismic specific fields
     pub seismic_fields: Option<SeismicFields>,
 }
+
+/// Either a normal ETH call or a signed/serialized one
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum SeismicCallRequest {
+    /// signed call request
+    Bytes(Bytes),
+    /// normal call request
+    TransactionRequest(TransactionRequest),
+}
