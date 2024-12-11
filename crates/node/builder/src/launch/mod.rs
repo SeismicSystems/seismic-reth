@@ -428,7 +428,6 @@ where
                 rpc_consensus_client.run::<T::Engine>().await
             });
         }
-
         let full_node = FullNode {
             evm_config: ctx.components().evm_config().clone(),
             block_executor: ctx.components().block_executor().clone(),
