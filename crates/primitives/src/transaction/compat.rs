@@ -130,6 +130,7 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                     .recover_pubkey()
                     .ok_or(EVMError::Database(TeeError::PublicKeyRecoveryError))?;
                 println!("Sender public key = {:?}", msg_sender);
+                println!("Tx input: {:?}", tx);
                 let decrypted_input: Bytes = decrypt(
                     tee,
                     msg_sender,
