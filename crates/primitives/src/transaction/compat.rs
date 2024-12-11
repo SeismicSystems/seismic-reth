@@ -135,7 +135,7 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                     Vec::<u8>::from(tx.input().as_ref()),
                     tx.nonce().clone(),
                 )
-                .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
+                .map_err(|e| EVMError::Database(TeeError::DecryptionError(e.to_string())))?;
 
                 tx_env.gas_limit = *tx.gas_limit();
                 tx_env.gas_price = U256::from(*tx.gas_price());
