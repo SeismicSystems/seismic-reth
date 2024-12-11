@@ -85,6 +85,8 @@ ENV METRICS_PORT=6060
 
 ENTRYPOINT /usr/local/bin/reth node \
             -vvv \
+            --tee.mock-server \
+            # --dev --dev.block-max-transactions 1 \
             --http \
             --http.addr 0.0.0.0 \
             --http.port $HTTP_PORT \
