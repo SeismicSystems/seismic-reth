@@ -7102,6 +7102,7 @@ version = "1.0.6"
 dependencies = [
  "alloy-consensus",
  "alloy-network",
+ "alloy-rlp",
  "alloy-rpc-types",
  "alloy-signer",
  "alloy-signer-local",
@@ -10331,10 +10332,9 @@ checksum = "42a4d50cdb458045afc8131fd91b64904da29548bcb63c7236e0844936c13078"
 [[package]]
 name = "tee_service_api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=8bfc1d7b6ca56931223ea3990344f2b54c6a91d6#8bfc1d7b6ca56931223ea3990344f2b54c6a91d6"
+source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=b7946b0#b7946b0cee9e1213a5ec6a6547c3ffcf4026c043"
 dependencies = [
  "aes-gcm",
- "alloy-rlp",
  "anyhow",
  "bincode",
  "byteorder",
