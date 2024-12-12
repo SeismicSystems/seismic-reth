@@ -1,3 +1,4 @@
+use aes_gcm::{Aes256Gcm, Key};
 use anyhow::{anyhow, Result};
 use hyper::{body::to_bytes, Body, Request, Response, Server, StatusCode};
 use routerify::{RequestInfo, Router, RouterService};
@@ -129,6 +130,19 @@ impl TeeAPI for MockTeeClient {
 /// MockWallet is the wallet that has tee public key to encrypt transactions
 #[derive(Debug)]
 pub struct MockWallet {}
+
+impl MockWallet {
+    pub fn generate_aes_key(private_key: &secp256k1::SecretKey) -> Result<Key<Aes256Gcm>> {
+        let ecdh_pk = get_sample_secp256k1_pk();
+        let shared_secret = SharedSecret::new(&ecdh_pk, private_key);
+
+        let aes_key = derive_aes_key(&shared_secret)
+            .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
+        Ok(aes_key)
+    }
+}
+
+
 impl WalletAPI for MockWallet {
     fn encrypt(
         &self,
@@ -136,11 +150,7 @@ impl WalletAPI for MockWallet {
         nonce: u64,
         private_key: &secp256k1::SecretKey,
     ) -> Result<Vec<u8>, anyhow::Error> {
-        let ecdh_pk = get_sample_secp256k1_pk();
-        let shared_secret = SharedSecret::new(&ecdh_pk, private_key);
-
-        let aes_key = derive_aes_key(&shared_secret)
-            .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
+        let aes_key = MockWallet::generate_aes_key(private_key)?;        
         let encrypted_data = aes_encrypt(&aes_key, &data, nonce)?;
         Ok(encrypted_data)
     }
@@ -148,8 +158,6 @@ impl WalletAPI for MockWallet {
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::LowerHex;
-
     use super::*;
     use aes_gcm::aead::OsRng;
     use secp256k1::{ecdh::shared_secret_point, PublicKey, Secp256k1, SecretKey};

@@ -1,11 +1,14 @@
 use crate::utils::eth_payload_attributes;
-use alloy_primitives::{hex, Bytes, TxKind};
+use alloy_primitives::{hex, Address, Bytes, TxKind};
 use eyre::Ok;
 use reth_chainspec::{ChainSpecBuilder, MAINNET};
 use reth_e2e_test_utils::{setup, transaction::SeismicTransactionTestContext};
+use reth_network::config::SecretKey;
 use reth_node_ethereum::EthereumNode;
+use reth_tee::{mock::MockWallet, WalletAPI};
 use reth_tracing::tracing::*;
-use std::{sync::Arc, time::Instant};
+use std::{str::FromStr, sync::Arc, time::Instant};
+use reth_e2e_test_utils::wallet::Wallet;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn send_call() -> eyre::Result<()> {
@@ -359,5 +362,30 @@ async fn bench() -> eyre::Result<()> {
         call_cnt,
         send_raw_tx_cnt
     );
+    Ok(())
+}
+
+#[test]
+fn test_encryption() -> eyre::Result<()> {
+    let wallet = Wallet::default().with_chain_id(MAINNET.chain().into());
+    let signer = &wallet.gen()[0];
+    let cred = signer.credential();
+    // let pubkey = cred.verifying_key();
+    let privkey = hex::encode(cred.to_bytes());
+    println!("Signer private key: {}", privkey);
+    let nonce = 1;
+    let contract_address = Address::from_str("0x5fbdb2315678afecb367f032d93f642f64180aa3").unwrap();
+    let tx_kind = TxKind::Call(contract_address);
+    let input = Bytes::from_static(&hex!(
+        "24a7f0b70000000000000000000000000000000000000000000000000000000000000003"
+    ));
+    println!("Input = {:?}", input.to_vec());
+    let sk = SecretKey::from_slice(&signer.credential().to_bytes())
+        .expect("32 bytes, within curve order");
+    let tee_wallet = MockWallet {};
+    let aes_key = MockWallet::generate_aes_key(&sk).unwrap();
+    println!("Aes key = {:?}", aes_key);
+    let encrypted_input = tee_wallet.encrypt(input.to_vec(), nonce, &sk).unwrap();
+    println!("Encrypted input: {:?}", encrypted_input);
     Ok(())
 }
