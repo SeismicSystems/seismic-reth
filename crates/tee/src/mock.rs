@@ -25,11 +25,6 @@ pub struct MockTeeServer {
 }
 
 async fn error_handler(err: routerify::RouteError, _: RequestInfo) -> Response<Body> {
-<<<<<<< HEAD
-    println!("\n\nError: {:?}\n\n", err);
-    eprintln!("{}", err);
-=======
->>>>>>> 464b7142c4485df8b54e495871ae9f1b6187d7e8
     Response::builder()
         .status(StatusCode::INTERNAL_SERVER_ERROR)
         .body(Body::from(format!("Something went wrong: {}", err)))
