@@ -10327,7 +10327,11 @@ checksum = "42a4d50cdb458045afc8131fd91b64904da29548bcb63c7236e0844936c13078"
 [[package]]
 name = "tee_service_api"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?branch=tee-service-error-handling#af49ecfa1fb1ea8bed2be1972dfdb6e7ce24515a"
+=======
+source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=9ab28c87247b876f5875c470f39bd3a3b07b3e8b#9ab28c87247b876f5875c470f39bd3a3b07b3e8b"
+>>>>>>> eac8dfe8366b2fa3493841e22d3555882816d10f
 dependencies = [
  "aes-gcm",
  "anyhow",

@@ -130,8 +130,7 @@ impl TeeAPI for MockTeeClient {
 pub struct MockWallet {}
 
 impl MockWallet {
-    /// Create an AES key from a wallet's public key 
-    pub fn generate_aes_key(private_key: &secp256k1::SecretKey) -> Result<Key<Aes256Gcm>> {
+    fn generate_aes_key(private_key: &secp256k1::SecretKey) -> Result<Key<Aes256Gcm>> {
         let ecdh_pk = get_sample_secp256k1_pk();
         let shared_secret = SharedSecret::new(&ecdh_pk, private_key);
 
