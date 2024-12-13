@@ -430,9 +430,9 @@ reth-zstd-compressors = { path = "crates/storage/zstd-compressors", default-feat
 
 # revm
 revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "upstream-merge"}
-revm-inspectors = "0.13.0"
 revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "upstream-merge"}
-revm-interpreter = { version = "14.0.0", default-features = false }
+revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "upstream-merge"}
+revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "upstream-merge"}
 
 # eth
 alloy-chains = { version = "0.1.32", default-features = false }
@@ -629,9 +629,6 @@ seismic-types = { git = "ssh://git@github.com/SeismicSystems/mantle.git", rev = 
 # then this will override whatever versions they point to
 # and instead use our local version
 
-# seismic-revm-inspectors
-revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "a77b988" }
-
 # seismic-alloy-core
 alloy-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
 alloy-json-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
@@ -640,6 +637,11 @@ alloy-sol-macro-expander = { git = "ssh://git@github.com/SeismicSystems/seismic-
 alloy-sol-macro-input = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
 alloy-sol-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
 alloy-sol-type-parser = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
+
+revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "upstream-merge"}
+revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "upstream-merge"}
+revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "upstream-merge"}
+revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "upstream-merge"}
 
 # alloy-consensus = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "tx" }
 # alloy-eips = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "tx" }

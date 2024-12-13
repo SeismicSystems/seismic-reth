@@ -135,8 +135,9 @@ where
                 cursor.append_dup(
                     B256::from_slice(&addr_key_is_private[..32]),
                     StorageEntry {
-                        key: B256::from_slice(&addr_key[32..]),
-                        value: CompactU256::decompress_owned(value)?.into(),
+                        key: B256::from_slice(&addr_key_is_private[32..64]),
+                        is_private: addr_key_is_private[64] != 0,
+                        value: CompactU256::decompress(&val)?.into(),
                     },
                 )?;
             }

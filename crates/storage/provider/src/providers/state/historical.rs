@@ -555,7 +555,6 @@ mod tests {
         StateCommitmentProvider,
     };
     use reth_storage_errors::provider::ProviderError;
-    use revm::primitives::FlaggedStorage;
 
     const ADDRESS: Address = address!("0000000000000000000000000000000000000001");
     const HIGHER_ADDRESS: Address = address!("0000000000000000000000000000000000000005");
@@ -706,16 +705,13 @@ mod tests {
         )
         .unwrap();
 
-        let higher_entry_plain =
-            StorageEntry { key: STORAGE, value: U256::from(1000), ..Default::default() };
-        let higher_entry_at4 =
-            StorageEntry { key: STORAGE, value: U256::from(0), ..Default::default() };
-        let entry_plain =
-            StorageEntry { key: STORAGE, value: U256::from(100), ..Default::default() };
-        let entry_at15 = StorageEntry { key: STORAGE, value: U256::from(15), ..Default::default() };
-        let entry_at10 = StorageEntry { key: STORAGE, value: U256::from(10), ..Default::default() };
-        let entry_at7 = StorageEntry { key: STORAGE, value: U256::from(7), ..Default::default() };
-        let entry_at3 = StorageEntry { key: STORAGE, value: U256::from(0), ..Default::default() };
+        let higher_entry_plain = StorageEntry { key: STORAGE, value: U256::from(1000) };
+        let higher_entry_at4 = StorageEntry { key: STORAGE, value: U256::from(0) };
+        let entry_plain = StorageEntry { key: STORAGE, value: U256::from(100) };
+        let entry_at15 = StorageEntry { key: STORAGE, value: U256::from(15) };
+        let entry_at10 = StorageEntry { key: STORAGE, value: U256::from(10) };
+        let entry_at7 = StorageEntry { key: STORAGE, value: U256::from(7) };
+        let entry_at3 = StorageEntry { key: STORAGE, value: U256::from(0) };
 
         // setup
         tx.put::<tables::StorageChangeSets>((3, ADDRESS).into(), entry_at3).unwrap();
@@ -735,31 +731,31 @@ mod tests {
         assert_eq!(HistoricalStateProviderRef::new(&db, 0).storage(ADDRESS, STORAGE), Ok(None));
         assert_eq!(
             HistoricalStateProviderRef::new(&db, 3).storage(ADDRESS, STORAGE),
-            Ok(Some(FlaggedStorage::ZERO))
+            Ok(Some(U256::ZERO))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&db, 4).storage(ADDRESS, STORAGE),
-            Ok(Some(FlaggedStorage::new_from_value(entry_at7.value)))
+            Ok(Some(entry_at7.value))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&db, 7).storage(ADDRESS, STORAGE),
-            Ok(Some(FlaggedStorage::new_from_value(entry_at7.value)))
+            Ok(Some(entry_at7.value))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&db, 9).storage(ADDRESS, STORAGE),
-            Ok(Some(FlaggedStorage::new_from_value(entry_at10.value)))
+            Ok(Some(entry_at10.value))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&db, 10).storage(ADDRESS, STORAGE),
-            Ok(Some(FlaggedStorage::new_from_value(entry_at10.value)))
+            Ok(Some(entry_at10.value))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&db, 11).storage(ADDRESS, STORAGE),
-            Ok(Some(FlaggedStorage::new_from_value(entry_at15.value)))
+            Ok(Some(entry_at15.value))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&db, 16).storage(ADDRESS, STORAGE),
-            Ok(Some(FlaggedStorage::new_from_value(entry_plain.value)))
+            Ok(Some(entry_plain.value))
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&db, 1).storage(HIGHER_ADDRESS, STORAGE),
@@ -767,7 +763,7 @@ mod tests {
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&db, 1000).storage(HIGHER_ADDRESS, STORAGE),
-            Ok(Some(FlaggedStorage::new_from_value(higher_entry_plain.value)))
+            Ok(Some(higher_entry_plain.value))
         );
     }
 

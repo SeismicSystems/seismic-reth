@@ -4,9 +4,7 @@ use alloy_primitives::{
     keccak256, map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, StorageValue, B256,
 };
 use reth_errors::ProviderResult;
-use reth_primitives::{
-    keccak256, Account, Address, BlockNumber, Bytecode, Bytes, StorageKey, StorageValue, B256,
-};
+use reth_primitives::{Account, Bytecode, NodePrimitives};
 use reth_storage_api::{
     AccountReader, BlockHashReader, HashedPostStateProvider, StateProofProvider, StateProvider,
     StateRootProvider, StorageRootProvider,
@@ -15,7 +13,7 @@ use reth_trie::{
     updates::TrieUpdates, AccountProof, HashedPostState, HashedStorage, MultiProof,
     MultiProofTargets, StorageMultiProof, TrieInput,
 };
-use revm::db::BundleState;
+use revm::{db::BundleState, primitives::FlaggedStorage};
 use std::sync::OnceLock;
 
 /// A state provider that stores references to in-memory blocks along with their state as well as a
@@ -219,17 +217,23 @@ macro_rules! impl_state_provider {
             }
         }
 
-impl StateProvider for MemoryOverlayStateProvider {
-    fn storage(
-        &self,
-        address: Address,
-        storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>> {
-        for block in &self.in_memory {
-            if let Some(value) = block.execution_output.storage(&address, storage_key.into()) {
-                return Ok(Some(value))
+        impl $($tokens)* HashedPostStateProvider for $type {
+            fn hashed_post_state(&self, bundle_state: &BundleState) -> HashedPostState {
+                self.historical.hashed_post_state(bundle_state)
             }
         }
+
+        impl $($tokens)* StateProvider for $type {
+            fn storage(
+                &self,
+                address: Address,
+                storage_key: StorageKey,
+            ) -> ProviderResult<Option<FlaggedStorage>> {
+                for block in &self.in_memory {
+                    if let Some(value) = block.execution_output.storage(&address, storage_key.into()) {
+                        return Ok(Some(value))
+                    }
+                }
 
                 self.historical.storage(address, storage_key)
             }

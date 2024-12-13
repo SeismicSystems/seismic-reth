@@ -46,14 +46,12 @@ pub mod eip6110;
 #[derive(Debug, Clone)]
 pub struct EthEvmConfig {
     chain_spec: Arc<ChainSpec>,
-    /// tee client decrypting tx
-    tee_client: TeeHttpClient,
 }
 
 impl EthEvmConfig {
     /// Creates a new Ethereum EVM configuration with the given chain spec.
-    pub const fn new(chain_spec: Arc<ChainSpec>, tee_client: TeeHttpClient) -> Self {
-        Self { chain_spec, tee_client }
+    pub const fn new(chain_spec: Arc<ChainSpec>) -> Self {
+        Self { chain_spec }
     }
 
     /// Returns the chain spec associated with this configuration.
@@ -67,13 +65,8 @@ impl ConfigureEvmEnv for EthEvmConfig {
     type Transaction = TransactionSigned;
     type Error = Infallible;
 
-    fn fill_tx_env(
-        &self,
-        tx_env: &mut TxEnv,
-        transaction: &TransactionSigned,
-        sender: Address,
-    ) -> EVMResultGeneric<(), TeeError> {
-        transaction.fill_tx_env(tx_env, sender, &self.tee_client)
+    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &TransactionSigned, sender: Address) {
+        transaction.fill_tx_env(tx_env, sender);
     }
 
     fn fill_tx_env_system_contract_call(
@@ -161,7 +154,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
             self.chain_spec.base_fee_params_at_timestamp(attributes.timestamp),
         );
 
-        let mut gas_limit = U256::from(parent.gas_limit);
+        let mut gas_limit = U256::from(attributes.gas_limit);
 
         // If we are on the London fork boundary, we need to multiply the parent's gas limit by the
         // elasticity multiplier to get the new gas limit.

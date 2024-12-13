@@ -23,7 +23,6 @@ use alloy_eips::{
     eip4844::{env_settings::EnvKzgSettings, MAX_BLOBS_PER_BLOCK},
 };
 use reth_chainspec::{ChainSpec, EthereumHardforks};
-use reth_primitives::SEISMIC_TX_TYPE_ID;
 use reth_primitives::{InvalidTransactionError, SealedBlock};
 use reth_primitives_traits::GotExpected;
 use reth_storage_api::{AccountReader, StateProviderFactory};
@@ -46,8 +45,8 @@ pub struct EthTransactionValidator<Client, T> {
 
 impl<Client, Tx> EthTransactionValidator<Client, Tx> {
     /// Returns the configured chain spec
-    pub fn chain_spec(&self) -> Arc<ChainSpec> {
-        self.inner.chain_spec.clone()
+    pub fn chain_spec(&self) -> &Arc<ChainSpec> {
+        &self.inner.chain_spec
     }
 
     /// Returns the configured client
@@ -182,9 +181,6 @@ where
         match transaction.tx_type() {
             LEGACY_TX_TYPE_ID => {
                 // Accept legacy transactions
-            }
-            SEISMIC_TX_TYPE_ID => {
-                // Accept seismic transactions
             }
             EIP2930_TX_TYPE_ID => {
                 // Accept only legacy transactions until EIP-2718/2930 activates

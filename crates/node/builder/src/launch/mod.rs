@@ -13,7 +13,7 @@ use std::{future::Future, sync::Arc};
 
 use futures::{future::Either, stream, stream_select, StreamExt};
 use reth_beacon_consensus::{
-    hooks::{BackupHook, EngineHooks, PruneHook, StaticFileHook},
+    hooks::{EngineHooks, PruneHook, StaticFileHook},
     BeaconConsensusEngine,
 };
 use reth_blockchain_tree::{
@@ -227,13 +227,6 @@ where
         ));
         info!(target: "reth::cli", "StaticFileProducer initialized");
 
-        hooks.add(BackupHook::new(
-            ctx.data_dir().db(),
-            ctx.data_dir().backup(),
-            Box::new(ctx.task_executor().clone()),
-        ));
-        info!(target: "reth::cli", "BackupProducer initialized");
-
         // Configure the pipeline
         let pipeline_exex_handle =
             exex_manager_handle.clone().unwrap_or_else(ExExManagerHandle::empty);
@@ -373,6 +366,7 @@ where
                 rpc_consensus_client.run::<Types::Engine>().await
             });
         }
+
         let full_node = FullNode {
             evm_config: ctx.components().evm_config().clone(),
             block_executor: ctx.components().block_executor().clone(),

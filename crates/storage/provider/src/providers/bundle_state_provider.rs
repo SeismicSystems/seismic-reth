@@ -197,7 +197,7 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateProvider for BundleStat
     fn storage(
         &self,
         account: Address,
-        storage_key: reth_primitives::StorageKey,
+        storage_key: alloy_primitives::StorageKey,
     ) -> ProviderResult<Option<FlaggedStorage>> {
         let u256_storage_key = storage_key.into();
         if let Some(value) = self

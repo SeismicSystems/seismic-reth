@@ -995,7 +995,7 @@ mod tests {
             &self,
             _address: Address,
             _storage_key: StorageKey,
-        ) -> ProviderResult<Option<FlaggedStorage>> {
+        ) -> ProviderResult<Option<StorageValue>> {
             Ok(None)
         }
 

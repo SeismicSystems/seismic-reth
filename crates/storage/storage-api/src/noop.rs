@@ -29,6 +29,7 @@ use reth_trie::{
     updates::TrieUpdates, AccountProof, HashedPostState, HashedStorage, MultiProof,
     MultiProofTargets, TrieInput,
 };
+use revm::primitives::FlaggedStorage;
 use std::{
     marker::PhantomData,
     ops::{RangeBounds, RangeInclusive},
@@ -461,7 +462,7 @@ impl<C: Send + Sync, N: NodePrimitives> StateProvider for NoopProvider<C, N> {
         &self,
         _account: Address,
         _storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>> {
+    ) -> ProviderResult<Option<FlaggedStorage>> {
         Ok(None)
     }
 

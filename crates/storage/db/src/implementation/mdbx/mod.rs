@@ -577,16 +577,8 @@ mod tests {
 
         let mut dup_cursor = tx.cursor_dup_write::<PlainStorageState>().unwrap();
 
-        let entry_0 = StorageEntry {
-            key: B256::with_last_byte(1),
-            value: U256::from(0),
-            ..Default::default()
-        };
-        let entry_1 = StorageEntry {
-            key: B256::with_last_byte(1),
-            value: U256::from(1),
-            ..Default::default()
-        };
+        let entry_0 = StorageEntry { key: B256::with_last_byte(1), value: U256::from(0) };
+        let entry_1 = StorageEntry { key: B256::with_last_byte(1), value: U256::from(1) };
 
         dup_cursor.upsert(Address::with_last_byte(1), entry_0).expect(ERROR_UPSERT);
         dup_cursor.upsert(Address::with_last_byte(1), entry_1).expect(ERROR_UPSERT);
@@ -954,11 +946,11 @@ mod tests {
         let subkey1 = B256::random();
         let subkey2 = B256::random();
 
-        let entry1 = StorageEntry { key: subkey1, value: U256::ZERO, ..Default::default() };
+        let entry1 = StorageEntry { key: subkey1, value: U256::ZERO };
         assert!(dup_cursor.insert(key, entry1).is_ok());
 
         // Can't insert
-        let entry2 = StorageEntry { key: subkey2, value: U256::ZERO, ..Default::default() };
+        let entry2 = StorageEntry { key: subkey2, value: U256::ZERO };
         assert!(dup_cursor.insert(key, entry2).is_err());
     }
 
@@ -1111,12 +1103,12 @@ mod tests {
         let subkey = B256::random();
 
         let value = U256::from(1);
-        let entry1 = StorageEntry { key: subkey, value, ..Default::default() };
+        let entry1 = StorageEntry { key: subkey, value };
         dup_cursor.upsert(key, entry1).expect(ERROR_UPSERT);
         assert_eq!(dup_cursor.seek_by_key_subkey(key, subkey), Ok(Some(entry1)));
 
         let value = U256::from(2);
-        let entry2 = StorageEntry { key: subkey, value, ..Default::default() };
+        let entry2 = StorageEntry { key: subkey, value };
         dup_cursor.upsert(key, entry2).expect(ERROR_UPSERT);
         assert_eq!(dup_cursor.seek_by_key_subkey(key, subkey), Ok(Some(entry1)));
         assert_eq!(dup_cursor.next_dup_val(), Ok(Some(entry2)));
@@ -1228,19 +1220,11 @@ mod tests {
         env.update(|tx| tx.put::<PlainStorageState>(key, value00).expect(ERROR_PUT)).unwrap();
 
         // PUT (2,2)
-        let value22 = StorageEntry {
-            key: B256::with_last_byte(2),
-            value: U256::from(2),
-            ..Default::default()
-        };
+        let value22 = StorageEntry { key: B256::with_last_byte(2), value: U256::from(2) };
         env.update(|tx| tx.put::<PlainStorageState>(key, value22).expect(ERROR_PUT)).unwrap();
 
         // PUT (1,1)
-        let value11 = StorageEntry {
-            key: B256::with_last_byte(1),
-            value: U256::from(1),
-            ..Default::default()
-        };
+        let value11 = StorageEntry { key: B256::with_last_byte(1), value: U256::from(1) };
         env.update(|tx| tx.put::<PlainStorageState>(key, value11).expect(ERROR_PUT)).unwrap();
 
         // Iterate with cursor
@@ -1282,19 +1266,11 @@ mod tests {
         env.update(|tx| tx.put::<PlainStorageState>(key1, value00).expect(ERROR_PUT)).unwrap();
 
         // PUT key1 (1,1)
-        let value11 = StorageEntry {
-            key: B256::with_last_byte(1),
-            value: U256::from(1),
-            ..Default::default()
-        };
+        let value11 = StorageEntry { key: B256::with_last_byte(1), value: U256::from(1) };
         env.update(|tx| tx.put::<PlainStorageState>(key1, value11).expect(ERROR_PUT)).unwrap();
 
         // PUT key2 (2,2)
-        let value22 = StorageEntry {
-            key: B256::with_last_byte(2),
-            value: U256::from(2),
-            ..Default::default()
-        };
+        let value22 = StorageEntry { key: B256::with_last_byte(2), value: U256::from(2) };
         env.update(|tx| tx.put::<PlainStorageState>(key2, value22).expect(ERROR_PUT)).unwrap();
 
         // Iterate with walk_dup
@@ -1330,11 +1306,7 @@ mod tests {
         let key2 = Address::new([0x22; 20]);
 
         // PUT key1 (0,1)
-        let value01 = StorageEntry {
-            key: B256::with_last_byte(0),
-            value: U256::from(1),
-            ..Default::default()
-        };
+        let value01 = StorageEntry { key: B256::with_last_byte(0), value: U256::from(1) };
         env.update(|tx| tx.put::<PlainStorageState>(key1, value01).expect(ERROR_PUT)).unwrap();
 
         // PUT key1 (0,0)
@@ -1342,11 +1314,7 @@ mod tests {
         env.update(|tx| tx.put::<PlainStorageState>(key1, value00).expect(ERROR_PUT)).unwrap();
 
         // PUT key2 (2,2)
-        let value22 = StorageEntry {
-            key: B256::with_last_byte(2),
-            value: U256::from(2),
-            ..Default::default()
-        };
+        let value22 = StorageEntry { key: B256::with_last_byte(2), value: U256::from(2) };
         env.update(|tx| tx.put::<PlainStorageState>(key2, value22).expect(ERROR_PUT)).unwrap();
 
         // Iterate with walk
