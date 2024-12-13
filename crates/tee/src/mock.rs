@@ -93,7 +93,7 @@ impl TeeAPI for MockTeeClient {
 
         let aes_key = derive_aes_key(&shared_secret)
             .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
-        let encrypted_data = aes_encrypt(&aes_key, &payload.data, payload.nonce);
+        let encrypted_data = aes_encrypt(&aes_key, &payload.data, payload.nonce)?;
 
         Ok(IoEncryptionResponse { encrypted_data })
     }
@@ -130,7 +130,7 @@ impl WalletAPI for MockWallet {
 
         let aes_key = derive_aes_key(&shared_secret)
             .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
-        let encrypted_data = aes_encrypt(&aes_key, &data, nonce);
+        let encrypted_data = aes_encrypt(&aes_key, &data, nonce)?;
         Ok(encrypted_data)
     }
 }
