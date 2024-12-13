@@ -7978,6 +7978,7 @@ version = "1.0.6"
 dependencies = [
  "alloy-genesis",
  "alloy-primitives 0.8.1",
+ "alloy-rlp",
  "eyre",
  "futures",
  "futures-util",
@@ -10326,7 +10327,7 @@ checksum = "42a4d50cdb458045afc8131fd91b64904da29548bcb63c7236e0844936c13078"
 [[package]]
 name = "tee_service_api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?branch=tee-service-error-handling#9fb5f97ed38d7e1d755aa46ec5d993d33624e6c9"
+source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?branch=tee-service-error-handling#af49ecfa1fb1ea8bed2be1972dfdb6e7ce24515a"
 dependencies = [
  "aes-gcm",
  "anyhow",

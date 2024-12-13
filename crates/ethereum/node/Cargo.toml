@@ -46,6 +46,7 @@ reth-tasks.workspace = true
 futures.workspace = true
 alloy-primitives.workspace = true
 alloy-genesis.workspace = true
+alloy-rlp.workspace = true
 tokio.workspace = true
 futures-util.workspace = true
 serde_json.workspace = true
