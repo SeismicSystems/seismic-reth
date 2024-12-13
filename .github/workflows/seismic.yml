@@ -47,10 +47,6 @@ jobs:
               ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
       - name: cargo build
         run: cargo build
-      - name: cargo check warnings
-        run: RUSTFLAGS="-D warnings" cargo check
-      - name: cargo test
-        run: cargo test
   
   warnings:
     runs-on: ubuntu-latest
