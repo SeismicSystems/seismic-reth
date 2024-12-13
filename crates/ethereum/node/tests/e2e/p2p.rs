@@ -1,12 +1,13 @@
 use crate::utils::eth_payload_attributes;
-use alloy_primitives::Bytes;
+use alloy_primitives::{Bytes, TxHash};
 use reth_chainspec::{ChainSpecBuilder, MAINNET};
 use reth_e2e_test_utils::{
     setup,
     transaction::{SeismicTransactionTestContext, TransactionTestContext},
 };
 use reth_node_ethereum::EthereumNode;
-use std::sync::Arc;
+use std::{io::Read, sync::Arc, time::Instant};
+use tokio::{runtime::Runtime, task};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn can_sync() -> eyre::Result<()> {
@@ -88,7 +89,7 @@ async fn can_sync() -> eyre::Result<()> {
     )
     .await;
 
-    let _ = first_node.rpc.call(raw_tx, 2).await?;
+    let output = first_node.rpc.call(raw_tx, 2).await?;
 
     Ok(())
 }

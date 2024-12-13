@@ -154,7 +154,7 @@ impl WalletAPI for MockWallet {
 mod tests {
     use super::*;
     use aes_gcm::aead::OsRng;
-    use secp256k1::{ecdh::shared_secret_point, PublicKey, Secp256k1, SecretKey};
+    use secp256k1::{PublicKey, Secp256k1, SecretKey};
     use tee_service_api::http_client::TeeHttpClient;
     use tokio::task;
 
@@ -240,40 +240,5 @@ mod tests {
 
         // Stop the server task
         server_task.abort();
-    }
-
-    fn bytes_to_hex<const N: usize>(bytes: [u8; N]) -> String {
-        bytes.iter()
-        .map(|byte| format!("{:02x}", byte))
-        .collect()
-    }
-
-    fn bytes_to_hex2(bytes: &[u8]) -> String {
-        bytes.iter()
-        .map(|byte| format!("{:02x}", byte))
-        .collect()
-    }
-
-    #[test]
-    fn test_aes_key_generation() -> anyhow::Result<()> {
-        let private_key = secp256k1::SecretKey::from_str(
-            "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-        )
-        .unwrap();
-        println!("Wallet Public key: {:?}", private_key.public_key(&Secp256k1::new()));
-        let ecdh_pk = get_sample_secp256k1_pk();
-        println!("Uncompressed: {:?}", ecdh_pk);
-        println!("Network public key: {:?}", bytes_to_hex(ecdh_pk.serialize()));
-        let shared_secret_pt = shared_secret_point(&ecdh_pk, &private_key);
-        println!("sec2 = {}", bytes_to_hex2(&shared_secret_pt[0..32]));
-
-        let shared_secret = SharedSecret::new(&ecdh_pk, &private_key);
-        println!("Shared secret: {:?}", shared_secret.display_secret());
-        let shared_secret_hex: String = bytes_to_hex(shared_secret.secret_bytes());
-        println!("Shared secret = {}", shared_secret_hex);
-        let aes_key = derive_aes_key(&shared_secret)
-            .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
-        println!("AES KEY = {:0x}", aes_key);
-        Ok(())
     }
 }

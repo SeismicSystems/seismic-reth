@@ -16,12 +16,12 @@ use tee_service_api::request_types::tx_io::{
 };
 
 /// Custom error type for reth error handling.
-#[derive(Clone, Debug, Eq, PartialEq, Display)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Display)]
 pub enum TeeError {
     /// tee encryption fails
     EncryptionError,
     /// tee decryption fails
-    DecryptionError(String),
+    DecryptionError,
     /// recover public key fails
     PublicKeyRecoveryError,
     /// encoding or decoding
@@ -38,11 +38,10 @@ pub fn decrypt<T: TeeAPI>(
     nonce: u64,
 ) -> Result<Vec<u8>, TeeError> {
     let payload = IoDecryptionRequest { msg_sender, data, nonce };
-    println!("Decryption payload: {:?}", payload);
     let IoDecryptionResponse { decrypted_data } = tokio::task::block_in_place(|| {
         tokio::runtime::Handle::current().block_on(tee_client.tx_io_decrypt(payload))
     })
-    .map_err(|e| TeeError::DecryptionError(e.to_string()))?;
+    .map_err(|_| TeeError::DecryptionError)?;
     Ok(decrypted_data)
 }
 
@@ -58,6 +57,6 @@ pub fn encrypt<T: TeeAPI>(
     let IoEncryptionResponse { encrypted_data } = tokio::task::block_in_place(|| {
         tokio::runtime::Handle::current().block_on(tee_client.tx_io_encrypt(payload))
     })
-    .map_err(|e| TeeError::DecryptionError(e.to_string()))?;
+    .map_err(|_| TeeError::DecryptionError)?;
     Ok(encrypted_data)
 }

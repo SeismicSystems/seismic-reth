@@ -245,7 +245,6 @@ pub trait EthTransactions: LoadTransaction {
     ) -> impl Future<Output = Result<B256, Self::Error>> + Send {
         async move {
             let recovered = recover_raw_transaction(tx.clone())?;
-            println!("Recovered tx: {:?}", recovered);
             let pool_transaction =
                 <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
 
