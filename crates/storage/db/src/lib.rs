@@ -17,8 +17,6 @@
 
 mod implementation;
 pub mod lockfile;
-
-pub mod backup_producer;
 #[cfg(feature = "mdbx")]
 mod metrics;
 pub mod static_file;
