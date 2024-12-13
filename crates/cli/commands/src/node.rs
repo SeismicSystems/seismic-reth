@@ -11,7 +11,7 @@ use reth_node_builder::{NodeBuilder, WithLaunchContext};
 use reth_node_core::{
     args::{
         DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, NetworkArgs, PayloadBuilderArgs,
-        PruningArgs, RpcServerArgs, TeeArgs, TxPoolArgs,
+        PruningArgs, RpcServerArgs, TxPoolArgs,
     },
     node_config::NodeConfig,
     version,
@@ -83,10 +83,6 @@ pub struct NodeCommand<
     #[command(flatten)]
     pub rpc: RpcServerArgs,
 
-    /// All tee related arguments
-    #[command(flatten)]
-    pub tee: TeeArgs,
-
     /// All txpool related arguments with --txpool prefix
     #[command(flatten)]
     pub txpool: TxPoolArgs,
@@ -157,7 +153,6 @@ impl<
             with_unused_ports,
             network,
             rpc,
-            tee,
             txpool,
             builder,
             debug,
@@ -176,7 +171,6 @@ impl<
             instance,
             network,
             rpc,
-            tee,
             txpool,
             builder,
             debug,
