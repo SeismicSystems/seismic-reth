@@ -1,9 +1,8 @@
-use std::ops::Add;
-
 use alloy_consensus::{EnvKzgSettings, SidecarBuilder, SimpleCoder, TxEip4844Variant, TxEnvelope};
 use alloy_network::{
     eip2718::Encodable2718, Ethereum, EthereumWallet, TransactionBuilder, TransactionBuilder4844,
 };
+use alloy_rlp::Encodable;
 use alloy_rpc_types::{TransactionInput, TransactionRequest};
 use alloy_signer::Signer;
 use alloy_signer_local::PrivateKeySigner;
@@ -197,6 +196,7 @@ pub fn legacy_tx(chain_id: u64, input: Bytes, nonce: u64, to: TxKind) -> Transac
     })
 }
 
+/// Create a seismic transaction
 pub fn seismic_tx(
     sk_wallet: &PrivateKeySigner,
     chain_id: u64,
@@ -207,7 +207,12 @@ pub fn seismic_tx(
     let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
         .expect("32 bytes, within curve order");
     let tee_wallet = MockWallet {};
-    let encrypted_input = tee_wallet.encrypt(decrypted_input.to_vec(), nonce, &sk).unwrap();
+
+    // TODO: unclear why we need to RLP-encode/decode here
+    let mut data = Vec::new();
+    decrypted_input.encode(&mut data);
+
+    let encrypted_input = tee_wallet.encrypt(data, nonce, &sk).unwrap();
     Transaction::Seismic(TxSeismic {
         chain_id,
         nonce,

@@ -38,6 +38,7 @@ eyre.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 serde_json.workspace = true
+alloy-rlp.workspace = true
 alloy-signer.workspace = true
 alloy-signer-local = { workspace = true, features = ["mnemonic"] }
 alloy-rpc-types.workspace = true

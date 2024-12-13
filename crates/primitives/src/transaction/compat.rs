@@ -1,4 +1,5 @@
 use crate::{Address, Transaction, TransactionSigned, TxKind, U256};
+use alloy_rlp::Decodable;
 use reth_tee::{decrypt, TeeAPI, TeeError};
 use reth_tracing::tracing::debug;
 use revm_primitives::{AuthorizationList, Bytes, EVMError, EVMResultGeneric, TxEnv};
@@ -130,14 +131,17 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                     .recover_pubkey()
                     .ok_or(EVMError::Database(TeeError::PublicKeyRecoveryError))?;
 
-                let decrypted_input: Bytes = decrypt(
+                let decrypted_input: Vec<u8> = decrypt(
                     tee,
                     msg_sender,
                     Vec::<u8>::from(tx.input().as_ref()),
                     tx.nonce().clone(),
                 )
-                .map_err(|_| EVMError::Database(TeeError::DecryptionError))?
-                .into();
+                .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
+
+                // TODO: unclear why we need to RLP-encode/decode here
+                let data = Bytes::decode(&mut decrypted_input.as_slice())
+                    .map_err(|e| EVMError::Database(TeeError::CodingError(e)))?;
 
                 debug!(target: "reth::fill_tx_env", ?decrypted_input, "Encrypted input {:?}", tx.input());
 
@@ -146,7 +150,7 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                 tx_env.gas_priority_fee = None;
                 tx_env.transact_to = *tx.to();
                 tx_env.value = *tx.value();
-                tx_env.data = decrypted_input;
+                tx_env.data = data;
                 tx_env.chain_id = Some(*tx.chain_id());
                 tx_env.nonce = Some(*tx.nonce());
                 tx_env.access_list.clear();
