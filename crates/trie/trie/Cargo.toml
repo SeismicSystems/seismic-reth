@@ -1,0 +1,86 @@
+[package]
+name = "reth-trie"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Merkle trie implementation"
+
+[lints]
+workspace = true
+
+[dependencies]
+# reth
+reth-execution-errors.workspace = true
+reth-primitives.workspace = true
+reth-stages-types.workspace = true
+reth-storage-errors.workspace = true
+reth-trie-sparse.workspace = true
+reth-trie-common.workspace = true
+
+revm.workspace = true
+
+# alloy
+alloy-eips.workspace = true
+alloy-rlp.workspace = true
+alloy-primitives.workspace = true
+alloy-consensus.workspace = true
+alloy-trie.workspace = true
+
+# tracing
+tracing.workspace = true
+
+# misc
+rayon.workspace = true
+auto_impl.workspace = true
+itertools.workspace = true
+
+# `metrics` feature
+reth-metrics = { workspace = true, optional = true }
+metrics = { workspace = true, optional = true }
+
+# `test-utils` feature
+triehash = { version = "0.8", optional = true }
+
+[dev-dependencies]
+# reth
+reth-primitives = { workspace = true, features = ["test-utils", "arbitrary"] }
+reth-trie-common = { workspace = true, features = ["test-utils", "arbitrary"] }
+
+# trie
+triehash = "0.8"
+
+# misc
+proptest.workspace = true
+proptest-arbitrary-interop.workspace = true
+serde_json.workspace = true
+criterion.workspace = true
+
+[features]
+metrics = ["reth-metrics", "dep:metrics"]
+serde = [
+	"alloy-primitives/serde",
+	"alloy-consensus/serde",
+	"alloy-trie/serde",
+    "alloy-eips/serde",
+	"revm/serde",
+	"reth-trie-common/serde"
+]
+test-utils = [
+	"triehash",
+	"revm/test-utils",
+	"reth-primitives/test-utils",
+	"reth-trie-common/test-utils",
+	"reth-stages-types/test-utils"
+]
+
+[[bench]]
+name = "hash_post_state"
+harness = false
+
+[[bench]]
+name = "trie_root"
+required-features = ["test-utils"]
+harness = false
