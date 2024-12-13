@@ -30,8 +30,14 @@ pub const DEFAULT_DISCOVERY_V5_ADDR_IPV6: Ipv6Addr = Ipv6Addr::UNSPECIFIED;
 
 /// The default port for discv5 via UDP.
 ///
-/// Default is port 9000. See [`discv5::ListenConfig`] default.
-pub const DEFAULT_DISCOVERY_V5_PORT: u16 = 9000;
+/// Default is port 9200.
+pub const DEFAULT_DISCOVERY_V5_PORT: u16 = 9200;
+
+/// The default [`discv5::ListenConfig`].
+///
+/// This is different from the upstream default.
+pub const DEFAULT_DISCOVERY_V5_LISTEN_CONFIG: ListenConfig =
+    ListenConfig::Ipv4 { ip: DEFAULT_DISCOVERY_V5_ADDR, port: DEFAULT_DISCOVERY_V5_PORT };
 
 /// Default interval in seconds at which to run a lookup up query.
 ///
@@ -222,8 +228,9 @@ impl ConfigBuilder {
             discovered_peer_filter,
         } = self;
 
-        let mut discv5_config = discv5_config
-            .unwrap_or_else(|| discv5::ConfigBuilder::new(ListenConfig::default()).build());
+        let mut discv5_config = discv5_config.unwrap_or_else(|| {
+            discv5::ConfigBuilder::new(DEFAULT_DISCOVERY_V5_LISTEN_CONFIG).build()
+        });
 
         discv5_config.listen_config =
             amend_listen_config_wrt_rlpx(&discv5_config.listen_config, tcp_socket.ip());
@@ -290,7 +297,7 @@ impl Config {
     pub fn builder(rlpx_tcp_socket: SocketAddr) -> ConfigBuilder {
         ConfigBuilder {
             discv5_config: None,
-            bootstrap_nodes: HashSet::new(),
+            bootstrap_nodes: HashSet::default(),
             fork: None,
             tcp_socket: rlpx_tcp_socket,
             other_enr_kv_pairs: Vec::new(),
@@ -405,11 +412,13 @@ pub fn discv5_sockets_wrt_rlpx_addr(
                 discv5_addr_ipv6.map(|ip| SocketAddrV6::new(ip, discv5_port_ipv6, 0, 0));
 
             if let Some(discv5_addr) = discv5_addr_ipv4 {
-                warn!(target: "discv5",
-                    %discv5_addr,
-                    %rlpx_addr,
-                    "Overwriting discv5 IPv4 address with RLPx IPv4 address, limited to one advertised IP address per IP version"
-                );
+                if discv5_addr != rlpx_addr {
+                    warn!(target: "net::discv5",
+                        %discv5_addr,
+                        %rlpx_addr,
+                        "Overwriting discv5 IPv4 address with RLPx IPv4 address, limited to one advertised IP address per IP version"
+                    );
+                }
             }
 
             // overwrite discv5 ipv4 addr with RLPx address. this is since there is no
@@ -422,11 +431,13 @@ pub fn discv5_sockets_wrt_rlpx_addr(
                 discv5_addr_ipv4.map(|ip| SocketAddrV4::new(ip, discv5_port_ipv4));
 
             if let Some(discv5_addr) = discv5_addr_ipv6 {
-                warn!(target: "discv5",
-                    %discv5_addr,
-                    %rlpx_addr,
-                    "Overwriting discv5 IPv6 address with RLPx IPv6 address, limited to one advertised IP address per IP version"
-                );
+                if discv5_addr != rlpx_addr {
+                    warn!(target: "net::discv5",
+                        %discv5_addr,
+                        %rlpx_addr,
+                        "Overwriting discv5 IPv6 address with RLPx IPv6 address, limited to one advertised IP address per IP version"
+                    );
+                }
             }
 
             // overwrite discv5 ipv6 addr with RLPx address. this is since there is no
@@ -470,11 +481,9 @@ impl BootNode {
 
 #[cfg(test)]
 mod test {
-    use std::net::SocketAddrV4;
-
-    use alloy_primitives::hex;
-
     use super::*;
+    use alloy_primitives::hex;
+    use std::net::SocketAddrV4;
 
     const MULTI_ADDRESSES: &str = "/ip4/184.72.129.189/udp/30301/p2p/16Uiu2HAmSG2hdLwyQHQmG4bcJBgD64xnW63WMTLcrNq6KoZREfGb,/ip4/3.231.11.52/udp/30301/p2p/16Uiu2HAmMy4V8bi3XP7KDfSLQcLACSvTLroRRwEsTyFUKo8NCkkp,/ip4/54.198.153.150/udp/30301/p2p/16Uiu2HAmSVsb7MbRf1jg3Dvd6a3n5YNqKQwn1fqHCFgnbqCsFZKe,/ip4/3.220.145.177/udp/30301/p2p/16Uiu2HAm74pBDGdQ84XCZK27GRQbGFFwQ7RsSqsPwcGmCR3Cwn3B,/ip4/3.231.138.188/udp/30301/p2p/16Uiu2HAmMnTiJwgFtSVGV14ZNpwAvS1LUoF4pWWeNtURuV6C3zYB";
     const BOOT_NODES_OP_MAINNET_AND_BASE_MAINNET: &[&str] = &[
@@ -528,7 +537,7 @@ mod test {
     fn overwrite_ipv4_addr() {
         let rlpx_addr: Ipv4Addr = "192.168.0.1".parse().unwrap();
 
-        let listen_config = ListenConfig::default();
+        let listen_config = DEFAULT_DISCOVERY_V5_LISTEN_CONFIG;
 
         let amended_config = amend_listen_config_wrt_rlpx(&listen_config, rlpx_addr.into());
 
@@ -543,7 +552,7 @@ mod test {
     fn overwrite_ipv6_addr() {
         let rlpx_addr: Ipv6Addr = "fe80::1".parse().unwrap();
 
-        let listen_config = ListenConfig::default();
+        let listen_config = DEFAULT_DISCOVERY_V5_LISTEN_CONFIG;
 
         let amended_config = amend_listen_config_wrt_rlpx(&listen_config, rlpx_addr.into());
 

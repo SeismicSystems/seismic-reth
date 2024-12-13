@@ -1,12 +1,15 @@
 #![allow(unreachable_pub)]
+use alloy_primitives::{Address, B256, U256};
 use itertools::concat;
-use reth_db::{tables, test_utils::TempDatabase, DatabaseEnv};
+use reth_db::{tables, test_utils::TempDatabase, Database, DatabaseEnv};
 use reth_db_api::{
     cursor::DbCursorRO,
     transaction::{DbTx, DbTxMut},
 };
-use reth_primitives::{Account, Address, SealedBlock, B256, U256};
-use reth_provider::TrieWriter;
+use reth_primitives::{Account, SealedBlock, SealedHeader};
+use reth_provider::{
+    test_utils::MockNodeTypesWithDB, DatabaseProvider, DatabaseProviderFactory, TrieWriter,
+};
 use reth_stages::{
     stages::{AccountHashingStage, StorageHashingStage},
     test_utils::{StorageKind, TestStageDB},
@@ -16,7 +19,7 @@ use reth_testing_utils::generators::{
     random_eoa_accounts, BlockRangeParams,
 };
 use reth_trie::StateRoot;
-use std::{collections::BTreeMap, fs, path::Path, sync::Arc};
+use std::{collections::BTreeMap, fs, path::Path};
 use tokio::runtime::Handle;
 
 mod constants;
@@ -28,7 +31,10 @@ use reth_trie_db::DatabaseStateRoot;
 
 pub(crate) type StageRange = (ExecInput, UnwindInput);
 
-pub(crate) fn stage_unwind<S: Clone + Stage<Arc<TempDatabase<DatabaseEnv>>>>(
+pub(crate) fn stage_unwind<
+    S: Clone
+        + Stage<DatabaseProvider<<TempDatabase<DatabaseEnv> as Database>::TXMut, MockNodeTypesWithDB>>,
+>(
     stage: S,
     db: &TestStageDB,
     range: StageRange,
@@ -57,15 +63,15 @@ pub(crate) fn stage_unwind<S: Clone + Stage<Arc<TempDatabase<DatabaseEnv>>>>(
     });
 }
 
-pub(crate) fn unwind_hashes<S: Clone + Stage<Arc<TempDatabase<DatabaseEnv>>>>(
-    stage: S,
-    db: &TestStageDB,
-    range: StageRange,
-) {
+pub(crate) fn unwind_hashes<S>(stage: S, db: &TestStageDB, range: StageRange)
+where
+    S: Clone
+        + Stage<DatabaseProvider<<TempDatabase<DatabaseEnv> as Database>::TXMut, MockNodeTypesWithDB>>,
+{
     let (input, unwind) = range;
 
     let mut stage = stage;
-    let provider = db.factory.provider_rw().unwrap();
+    let provider = db.factory.database_provider_rw().unwrap();
 
     StorageHashingStage::default().unwind(&provider, unwind).unwrap();
     AccountHashingStage::default().unwind(&provider, unwind).unwrap();
@@ -141,7 +147,7 @@ pub(crate) fn txs_testdata(num_blocks: u64) -> TestStageDB {
         let cloned_second = second_block.clone();
         let mut updated_header = cloned_second.header.unseal();
         updated_header.state_root = root;
-        *second_block = SealedBlock { header: updated_header.seal_slow(), ..cloned_second };
+        *second_block = SealedBlock { header: SealedHeader::seal(updated_header), ..cloned_second };
 
         let offset = transitions.len() as u64;
 
@@ -174,7 +180,7 @@ pub(crate) fn txs_testdata(num_blocks: u64) -> TestStageDB {
         let cloned_last = last_block.clone();
         let mut updated_header = cloned_last.header.unseal();
         updated_header.state_root = root;
-        *last_block = SealedBlock { header: updated_header.seal_slow(), ..cloned_last };
+        *last_block = SealedBlock { header: SealedHeader::seal(updated_header), ..cloned_last };
 
         db.insert_blocks(blocks.iter(), StorageKind::Static).unwrap();
 

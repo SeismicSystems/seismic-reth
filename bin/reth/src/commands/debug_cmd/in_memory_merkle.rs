@@ -1,46 +1,49 @@
 //! Command for debugging in-memory merkle trie calculation.
 
-use std::{path::PathBuf, sync::Arc};
-
+use crate::{
+    args::NetworkArgs,
+    utils::{get_single_body, get_single_header},
+};
+use alloy_eips::BlockHashOrNumber;
 use backon::{ConstantBuilder, Retryable};
 use clap::Parser;
-use reth_cli_commands::common::{AccessRights, Environment, EnvironmentArgs};
+use reth_beacon_consensus::EthBeaconConsensus;
+use reth_chainspec::ChainSpec;
+use reth_cli::chainspec::ChainSpecParser;
+use reth_cli_commands::common::{AccessRights, CliNodeTypes, Environment, EnvironmentArgs};
 use reth_cli_runner::CliContext;
 use reth_cli_util::get_secret_key;
 use reth_config::Config;
-use reth_db::DatabaseEnv;
 use reth_errors::BlockValidationError;
 use reth_evm::execute::{BlockExecutorProvider, Executor};
 use reth_execution_types::ExecutionOutcome;
 use reth_network::{BlockDownloaderProvider, NetworkHandle};
 use reth_network_api::NetworkInfo;
-use reth_primitives::BlockHashOrNumber;
+use reth_node_api::{BlockTy, NodePrimitives};
+use reth_node_ethereum::EthExecutorProvider;
+use reth_primitives::BlockExt;
 use reth_provider::{
-    writer::UnifiedStorageWriter, AccountExtReader, ChainSpecProvider, HashingWriter,
-    HeaderProvider, LatestStateProviderRef, OriginalValuesKnown, ProviderFactory,
-    StageCheckpointReader, StateWriter, StaticFileProviderFactory, StorageReader,
+    providers::ProviderNodeTypes, AccountExtReader, ChainSpecProvider, DatabaseProviderFactory,
+    HashedPostStateProvider, HashingWriter, HeaderProvider, LatestStateProviderRef,
+    OriginalValuesKnown, ProviderFactory, StageCheckpointReader, StateWriter, StorageLocation,
+    StorageReader,
 };
 use reth_revm::database::StateProviderDatabase;
 use reth_stages::StageId;
 use reth_tasks::TaskExecutor;
 use reth_trie::StateRoot;
 use reth_trie_db::DatabaseStateRoot;
+use std::{path::PathBuf, sync::Arc};
 use tracing::*;
-
-use crate::{
-    args::NetworkArgs,
-    macros::block_executor,
-    utils::{get_single_body, get_single_header},
-};
 
 /// `reth debug in-memory-merkle` command
 /// This debug routine requires that the node is positioned at the block before the target.
 /// The script will then download the block from p2p network and attempt to calculate and verify
 /// merkle root for it.
 #[derive(Debug, Parser)]
-pub struct Command {
+pub struct Command<C: ChainSpecParser> {
     #[command(flatten)]
-    env: EnvironmentArgs,
+    env: EnvironmentArgs<C>,
 
     #[command(flatten)]
     network: NetworkArgs,
@@ -54,12 +57,21 @@ pub struct Command {
     skip_node_depth: Option<usize>,
 }
 
-impl Command {
-    async fn build_network(
+impl<C: ChainSpecParser<ChainSpec = ChainSpec>> Command<C> {
+    async fn build_network<
+        N: ProviderNodeTypes<
+            ChainSpec = C::ChainSpec,
+            Primitives: NodePrimitives<
+                Block = reth_primitives::Block,
+                Receipt = reth_primitives::Receipt,
+                BlockHeader = reth_primitives::Header,
+            >,
+        >,
+    >(
         &self,
         config: &Config,
         task_executor: TaskExecutor,
-        provider_factory: ProviderFactory<Arc<DatabaseEnv>>,
+        provider_factory: ProviderFactory<N>,
         network_secret_path: PathBuf,
         default_peers_path: PathBuf,
     ) -> eyre::Result<NetworkHandle> {
@@ -77,8 +89,12 @@ impl Command {
     }
 
     /// Execute `debug in-memory-merkle` command
-    pub async fn execute(self, ctx: CliContext) -> eyre::Result<()> {
-        let Environment { provider_factory, config, data_dir } = self.env.init(AccessRights::RW)?;
+    pub async fn execute<N: CliNodeTypes<ChainSpec = C::ChainSpec>>(
+        self,
+        ctx: CliContext,
+    ) -> eyre::Result<()> {
+        let Environment { provider_factory, config, data_dir } =
+            self.env.init::<N>(AccessRights::RW)?;
 
         let provider = provider_factory.provider()?;
 
@@ -114,25 +130,24 @@ impl Command {
         let header = (move || {
             get_single_header(client.clone(), BlockHashOrNumber::Number(target_block_number))
         })
-        .retry(&backoff)
+        .retry(backoff)
         .notify(|err, _| warn!(target: "reth::cli", "Error requesting header: {err}. Retrying..."))
         .await?;
 
         let client = fetch_client.clone();
         let chain = provider_factory.chain_spec();
-        let block = (move || get_single_body(client.clone(), Arc::clone(&chain), header.clone()))
-            .retry(&backoff)
+        let consensus = Arc::new(EthBeaconConsensus::new(chain.clone()));
+        let block = (move || get_single_body(client.clone(), header.clone(), consensus.clone()))
+            .retry(backoff)
             .notify(
                 |err, _| warn!(target: "reth::cli", "Error requesting body: {err}. Retrying..."),
             )
             .await?;
 
-        let db = StateProviderDatabase::new(LatestStateProviderRef::new(
-            provider.tx_ref(),
-            provider_factory.static_file_provider(),
-        ));
+        let state_provider = LatestStateProviderRef::new(&provider);
+        let db = StateProviderDatabase::new(&state_provider);
 
-        let executor = block_executor!(provider_factory.chain_spec()).executor(db);
+        let executor = EthExecutorProvider::ethereum(provider_factory.chain_spec()).executor(db);
 
         let merkle_block_td =
             provider.header_td_by_number(merkle_block_number)?.unwrap_or_default();
@@ -140,7 +155,7 @@ impl Command {
             (
                 &block
                     .clone()
-                    .unseal()
+                    .unseal::<BlockTy<N>>()
                     .with_recovered_senders()
                     .ok_or(BlockValidationError::SenderRecoveryError)?,
                 merkle_block_td + block.difficulty,
@@ -152,7 +167,7 @@ impl Command {
         // Unpacked `BundleState::state_root_slow` function
         let (in_memory_state_root, in_memory_updates) = StateRoot::overlay_root_with_updates(
             provider.tx_ref(),
-            execution_outcome.hash_state_slow(),
+            state_provider.hashed_post_state(execution_outcome.state()),
         )?;
 
         if in_memory_state_root == block.state_root {
@@ -160,7 +175,7 @@ impl Command {
             return Ok(())
         }
 
-        let provider_rw = provider_factory.provider_rw()?;
+        let provider_rw = provider_factory.database_provider_rw()?;
 
         // Insert block, state and hashes
         provider_rw.insert_historical_block(
@@ -169,8 +184,11 @@ impl Command {
                 .try_seal_with_senders()
                 .map_err(|_| BlockValidationError::SenderRecoveryError)?,
         )?;
-        let mut storage_writer = UnifiedStorageWriter::from_database(&provider_rw);
-        storage_writer.write_to_storage(execution_outcome, OriginalValuesKnown::No)?;
+        provider_rw.write_state(
+            execution_outcome,
+            OriginalValuesKnown::No,
+            StorageLocation::Database,
+        )?;
         let storage_lists = provider_rw.changed_storages_with_range(block.number..=block.number)?;
         let storages = provider_rw.plain_state_storages(storage_lists)?;
         provider_rw.insert_storage_for_hashing(storages)?;

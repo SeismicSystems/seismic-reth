@@ -1,14 +1,17 @@
-use std::{collections::HashSet, time::Instant};
+//! Integration tests for the trace API.
 
+use alloy_primitives::map::HashSet;
+use alloy_rpc_types_eth::{Block, Header, Transaction};
+use alloy_rpc_types_trace::{
+    filter::TraceFilter, parity::TraceType, tracerequest::TraceCallRequest,
+};
 use futures::StreamExt;
 use jsonrpsee::http_client::HttpClientBuilder;
 use jsonrpsee_http_client::HttpClient;
+use reth_primitives::Receipt;
 use reth_rpc_api_testing_util::{debug::DebugApiExt, trace::TraceApiExt, utils::parse_env_url};
 use reth_rpc_eth_api::EthApiClient;
-use reth_rpc_types::{
-    trace::{filter::TraceFilter, parity::TraceType, tracerequest::TraceCallRequest},
-    Block, Transaction,
-};
+use std::time::Instant;
 
 /// This is intended to be run locally against a running node.
 ///
@@ -42,7 +45,7 @@ async fn replay_transactions() {
         "0xea2817f1aeeb587b82f4ab87a6dbd3560fc35ed28de1be280cb40b2a24ab48bb".parse().unwrap(),
     ];
 
-    let trace_types = HashSet::from([TraceType::StateDiff, TraceType::VmTrace]);
+    let trace_types = HashSet::from_iter([TraceType::StateDiff, TraceType::VmTrace]);
 
     let mut stream = client.replay_transactions(tx_hashes, trace_types);
     let now = Instant::now();
@@ -110,7 +113,7 @@ async fn debug_trace_block_entire_chain() {
 
     let client = HttpClientBuilder::default().build(url).unwrap();
     let current_block: u64 =
-        <HttpClient as EthApiClient<Transaction, Block>>::block_number(&client)
+        <HttpClient as EthApiClient<Transaction, Block, Receipt, Header>>::block_number(&client)
             .await
             .unwrap()
             .try_into()
@@ -120,6 +123,50 @@ async fn debug_trace_block_entire_chain() {
     let now = Instant::now();
     while let Some((err, block)) = stream.next_err().await {
         eprintln!("Error tracing block {block:?}: {err}");
+    }
+    println!("Traced all blocks in {:?}", now.elapsed());
+}
+
+/// This is intended to be run locally against a running node. This traces all blocks for a given
+/// chain.
+///
+/// This is a noop of env var `RETH_RPC_TEST_NODE_URL` is not set.
+#[tokio::test(flavor = "multi_thread")]
+async fn debug_trace_block_opcodes_entire_chain() {
+    let opcodes7702 = ["EXTCODESIZE", "EXTCODECOPY", "EXTCODEHASH"];
+    let url = parse_env_url("RETH_RPC_TEST_NODE_URL");
+    if url.is_err() {
+        return
+    }
+    let url = url.unwrap();
+
+    let client = HttpClientBuilder::default().build(url).unwrap();
+    let current_block: u64 =
+        <HttpClient as EthApiClient<Transaction, Block, Receipt, Header>>::block_number(&client)
+            .await
+            .unwrap()
+            .try_into()
+            .unwrap();
+    let range = 0..=current_block;
+    println!("Tracing blocks {range:?} for opcodes");
+    let mut stream = client.trace_block_opcode_gas_unordered(range, 2).enumerate();
+    let now = Instant::now();
+    while let Some((num, next)) = stream.next().await {
+        match next {
+            Ok((block_opcodes, block)) => {
+                for opcode in opcodes7702 {
+                    if block_opcodes.contains(opcode) {
+                        eprintln!("Found opcode {opcode}: in {block}");
+                    }
+                }
+            }
+            Err((err, block)) => {
+                eprintln!("Error tracing block {block:?}: {err}");
+            }
+        };
+        if num % 10000 == 0 {
+            println!("Traced {num} blocks");
+        }
     }
     println!("Traced all blocks in {:?}", now.elapsed());
 }

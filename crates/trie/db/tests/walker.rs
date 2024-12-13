@@ -1,11 +1,13 @@
+#![allow(missing_docs)]
+
+use alloy_primitives::B256;
 use reth_db::tables;
 use reth_db_api::{cursor::DbCursorRW, transaction::DbTxMut};
-use reth_primitives::B256;
 use reth_provider::test_utils::create_test_provider_factory;
 use reth_trie::{
-    prefix_set::PrefixSetMut, trie_cursor::TrieCursor, walker::TrieWalker, StorageTrieEntry,
+    prefix_set::PrefixSetMut, trie_cursor::TrieCursor, walker::TrieWalker, BranchNodeCompact,
+    Nibbles, StorageTrieEntry,
 };
-use reth_trie_common::{BranchNodeCompact, Nibbles};
 use reth_trie_db::{DatabaseAccountTrieCursor, DatabaseStorageTrieCursor};
 
 #[test]
@@ -61,13 +63,14 @@ where
 
     // We're traversing the path in lexicographical order.
     for expected in expected {
-        let got = walker.advance().unwrap();
+        walker.advance().unwrap();
+        let got = walker.key().cloned();
         assert_eq!(got.unwrap(), Nibbles::from_nibbles_unchecked(expected.clone()));
     }
 
     // There should be 8 paths traversed in total from 3 branches.
-    let got = walker.advance().unwrap();
-    assert!(got.is_none());
+    walker.advance().unwrap();
+    assert!(walker.key().is_none());
 }
 
 #[test]

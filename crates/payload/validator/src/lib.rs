@@ -8,20 +8,22 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-use reth_chainspec::{ChainSpec, EthereumHardforks};
-use reth_primitives::SealedBlock;
-use reth_rpc_types::{engine::MaybeCancunPayloadFields, ExecutionPayload, PayloadError};
+use alloy_rpc_types::engine::{
+    ExecutionPayload, ExecutionPayloadSidecar, MaybeCancunPayloadFields, PayloadError,
+};
+use reth_chainspec::EthereumHardforks;
+use reth_primitives::{BlockExt, SealedBlock};
 use reth_rpc_types_compat::engine::payload::try_into_block;
 use std::sync::Arc;
 
 /// Execution payload validator.
 #[derive(Clone, Debug)]
-pub struct ExecutionPayloadValidator {
+pub struct ExecutionPayloadValidator<ChainSpec> {
     /// Chain spec to validate against.
     chain_spec: Arc<ChainSpec>,
 }
 
-impl ExecutionPayloadValidator {
+impl<ChainSpec> ExecutionPayloadValidator<ChainSpec> {
     /// Create a new validator.
     pub const fn new(chain_spec: Arc<ChainSpec>) -> Self {
         Self { chain_spec }
@@ -29,10 +31,12 @@ impl ExecutionPayloadValidator {
 
     /// Returns the chain spec used by the validator.
     #[inline]
-    pub fn chain_spec(&self) -> &ChainSpec {
+    pub const fn chain_spec(&self) -> &Arc<ChainSpec> {
         &self.chain_spec
     }
+}
 
+impl<ChainSpec: EthereumHardforks> ExecutionPayloadValidator<ChainSpec> {
     /// Returns true if the Cancun hardfork is active at the given timestamp.
     #[inline]
     fn is_cancun_active_at_timestamp(&self, timestamp: u64) -> bool {
@@ -102,7 +106,7 @@ impl ExecutionPayloadValidator {
     ///
     /// If the cancun fields are provided this also validates that the versioned hashes in the block
     /// match the versioned hashes passed in the
-    /// [`CancunPayloadFields`](reth_rpc_types::engine::CancunPayloadFields), if the cancun payload
+    /// [`CancunPayloadFields`](alloy_rpc_types::engine::CancunPayloadFields), if the cancun payload
     /// fields are provided. If the payload fields are not provided, but versioned hashes exist
     /// in the block, this is considered an error: [`PayloadError::InvalidVersionedHashes`].
     ///
@@ -111,13 +115,12 @@ impl ExecutionPayloadValidator {
     pub fn ensure_well_formed_payload(
         &self,
         payload: ExecutionPayload,
-        cancun_fields: MaybeCancunPayloadFields,
+        sidecar: ExecutionPayloadSidecar,
     ) -> Result<SealedBlock, PayloadError> {
         let expected_hash = payload.block_hash();
 
         // First parse the block
-        let sealed_block =
-            try_into_block(payload, cancun_fields.parent_beacon_block_root())?.seal_slow();
+        let sealed_block = try_into_block(payload, &sidecar)?.seal_slow();
 
         // Ensure the hash included in the payload matches the block hash
         if expected_hash != sealed_block.hash() {
@@ -136,12 +139,12 @@ impl ExecutionPayloadValidator {
                 // cancun active but excess blob gas not present
                 return Err(PayloadError::PostCancunBlockWithoutExcessBlobGas)
             }
-            if cancun_fields.as_ref().is_none() {
+            if sidecar.cancun().is_none() {
                 // cancun active but cancun fields not present
                 return Err(PayloadError::PostCancunWithoutCancunFields)
             }
         } else {
-            if sealed_block.has_blob_transactions() {
+            if sealed_block.has_eip4844_transactions() {
                 // cancun not active but blob transactions present
                 return Err(PayloadError::PreCancunBlockWithBlobTransactions)
             }
@@ -153,16 +156,16 @@ impl ExecutionPayloadValidator {
                 // cancun not active but excess blob gas present
                 return Err(PayloadError::PreCancunBlockWithExcessBlobGas)
             }
-            if cancun_fields.as_ref().is_some() {
+            if sidecar.cancun().is_some() {
                 // cancun not active but cancun fields present
                 return Err(PayloadError::PreCancunWithCancunFields)
             }
         }
 
         let shanghai_active = self.is_shanghai_active_at_timestamp(sealed_block.timestamp);
-        if !shanghai_active && sealed_block.withdrawals.is_some() {
+        if !shanghai_active && sealed_block.body.withdrawals.is_some() {
             // shanghai not active but withdrawals present
-            return Err(PayloadError::PreShanghaiBlockWithWitdrawals)
+            return Err(PayloadError::PreShanghaiBlockWithWithdrawals)
         }
 
         if !self.is_prague_active_at_timestamp(sealed_block.timestamp) &&
@@ -172,7 +175,10 @@ impl ExecutionPayloadValidator {
         }
 
         // EIP-4844 checks
-        self.ensure_matching_blob_versioned_hashes(&sealed_block, &cancun_fields)?;
+        self.ensure_matching_blob_versioned_hashes(
+            &sealed_block,
+            &sidecar.cancun().cloned().into(),
+        )?;
 
         Ok(sealed_block)
     }

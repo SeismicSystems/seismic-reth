@@ -2,13 +2,14 @@
 
 use crate::{
     segments::{PruneInput, Segment},
-    Metrics, PrunerError, PrunerEvent,
+    Metrics, PruneLimiter, PrunerError, PrunerEvent,
 };
 use alloy_primitives::BlockNumber;
-use reth_db_api::database::Database;
 use reth_exex_types::FinishedExExHeight;
-use reth_provider::{DatabaseProviderRW, ProviderFactory, PruneCheckpointReader};
-use reth_prune_types::{PruneLimiter, PruneProgress, PruneSegment, PrunerOutput};
+use reth_provider::{
+    DBProvider, DatabaseProviderFactory, PruneCheckpointReader, PruneCheckpointWriter,
+};
+use reth_prune_types::{PruneProgress, PrunedSegmentInfo, PrunerOutput};
 use reth_tokio_util::{EventSender, EventStream};
 use std::time::{Duration, Instant};
 use tokio::sync::watch;
@@ -20,14 +21,15 @@ pub type PrunerResult = Result<PrunerOutput, PrunerError>;
 /// The pruner type itself with the result of [`Pruner::run`]
 pub type PrunerWithResult<S, DB> = (Pruner<S, DB>, PrunerResult);
 
-type PrunerStats = Vec<(PruneSegment, usize, PruneProgress)>;
+/// Pruner with preset provider factory.
+pub type PrunerWithFactory<PF> = Pruner<<PF as DatabaseProviderFactory>::ProviderRW, PF>;
 
 /// Pruning routine. Main pruning logic happens in [`Pruner::run`].
 #[derive(Debug)]
-pub struct Pruner<DB, PF> {
+pub struct Pruner<Provider, PF> {
     /// Provider factory. If pruner is initialized without it, it will be set to `()`.
     provider_factory: PF,
-    segments: Vec<Box<dyn Segment<DB>>>,
+    segments: Vec<Box<dyn Segment<Provider>>>,
     /// Minimum pruning interval measured in blocks. All prune segments are checked and, if needed,
     /// pruned, when the chain advances by the specified number of blocks.
     min_block_interval: usize,
@@ -46,10 +48,10 @@ pub struct Pruner<DB, PF> {
     event_sender: EventSender<PrunerEvent>,
 }
 
-impl<DB> Pruner<DB, ()> {
+impl<Provider> Pruner<Provider, ()> {
     /// Creates a new [Pruner] without a provider factory.
     pub fn new(
-        segments: Vec<Box<dyn Segment<DB>>>,
+        segments: Vec<Box<dyn Segment<Provider>>>,
         min_block_interval: usize,
         delete_limit: usize,
         timeout: Option<Duration>,
@@ -69,11 +71,14 @@ impl<DB> Pruner<DB, ()> {
     }
 }
 
-impl<DB: Database> Pruner<DB, ProviderFactory<DB>> {
+impl<PF> Pruner<PF::ProviderRW, PF>
+where
+    PF: DatabaseProviderFactory,
+{
     /// Crates a new pruner with the given provider factory.
-    pub fn new(
-        provider_factory: ProviderFactory<DB>,
-        segments: Vec<Box<dyn Segment<DB>>>,
+    pub fn new_with_factory(
+        provider_factory: PF,
+        segments: Vec<Box<dyn Segment<PF::ProviderRW>>>,
         min_block_interval: usize,
         delete_limit: usize,
         timeout: Option<Duration>,
@@ -93,15 +98,23 @@ impl<DB: Database> Pruner<DB, ProviderFactory<DB>> {
     }
 }
 
-impl<DB: Database, S> Pruner<DB, S> {
+impl<Provider, S> Pruner<Provider, S>
+where
+    Provider: PruneCheckpointReader + PruneCheckpointWriter,
+{
     /// Listen for events on the pruner.
     pub fn events(&self) -> EventStream<PrunerEvent> {
         self.event_sender.new_listener()
     }
 
-    fn run_with_provider(
+    /// Run the pruner with the given provider. This will only prune data up to the highest finished
+    /// `ExEx` height, if there are no `ExExes`.
+    ///
+    /// Returns a [`PruneProgress`], indicating whether pruning is finished, or there is more data
+    /// to prune.
+    pub fn run_with_provider(
         &mut self,
-        provider: &DatabaseProviderRW<DB>,
+        provider: &Provider,
         tip_block_number: BlockNumber,
     ) -> PrunerResult {
         let Some(tip_block_number) =
@@ -159,14 +172,15 @@ impl<DB: Database, S> Pruner<DB, S> {
     /// be pruned according to the highest `static_files`. Segments are parts of the database that
     /// represent one or more tables.
     ///
-    /// Returns [`PrunerStats`], total number of entries pruned, and [`PruneProgress`].
+    /// Returns a list of stats per pruned segment, total number of entries pruned, and
+    /// [`PruneProgress`].
     fn prune_segments(
         &mut self,
-        provider: &DatabaseProviderRW<DB>,
+        provider: &Provider,
         tip_block_number: BlockNumber,
         limiter: &mut PruneLimiter,
-    ) -> Result<(PrunerStats, usize, PrunerOutput), PrunerError> {
-        let mut stats = PrunerStats::new();
+    ) -> Result<(Vec<PrunedSegmentInfo>, usize, PrunerOutput), PrunerError> {
+        let mut stats = Vec::with_capacity(self.segments.len());
         let mut pruned = 0;
         let mut output = PrunerOutput {
             progress: PruneProgress::Finished,
@@ -234,7 +248,12 @@ impl<DB: Database, S> Pruner<DB, S> {
                 if segment_output.pruned > 0 {
                     limiter.increment_deleted_entries_count_by(segment_output.pruned);
                     pruned += segment_output.pruned;
-                    stats.push((segment.segment(), segment_output.pruned, segment_output.progress));
+                    let info = PrunedSegmentInfo {
+                        segment: segment.segment(),
+                        pruned: segment_output.pruned,
+                        progress: segment_output.progress,
+                    };
+                    stats.push(info);
                 }
             } else {
                 debug!(target: "pruner", segment = ?segment.segment(), purpose = ?segment.purpose(), "Nothing to prune for the segment");
@@ -296,31 +315,17 @@ impl<DB: Database, S> Pruner<DB, S> {
     }
 }
 
-impl<DB: Database> Pruner<DB, ()> {
-    /// Run the pruner with the given provider. This will only prune data up to the highest finished
-    /// ExEx height, if there are no ExExes.
-    ///
-    /// Returns a [`PruneProgress`], indicating whether pruning is finished, or there is more data
-    /// to prune.
-    #[allow(clippy::doc_markdown)]
-    pub fn run(
-        &mut self,
-        provider: &DatabaseProviderRW<DB>,
-        tip_block_number: BlockNumber,
-    ) -> PrunerResult {
-        self.run_with_provider(provider, tip_block_number)
-    }
-}
-
-impl<DB: Database> Pruner<DB, ProviderFactory<DB>> {
+impl<PF> Pruner<PF::ProviderRW, PF>
+where
+    PF: DatabaseProviderFactory<ProviderRW: PruneCheckpointWriter + PruneCheckpointReader>,
+{
     /// Run the pruner. This will only prune data up to the highest finished ExEx height, if there
     /// are no ExExes.
     ///
     /// Returns a [`PruneProgress`], indicating whether pruning is finished, or there is more data
     /// to prune.
-    #[allow(clippy::doc_markdown)]
     pub fn run(&mut self, tip_block_number: BlockNumber) -> PrunerResult {
-        let provider = self.provider_factory.provider_rw()?;
+        let provider = self.provider_factory.database_provider_rw()?;
         let result = self.run_with_provider(&provider, tip_block_number);
         provider.commit()?;
         result
@@ -331,7 +336,7 @@ impl<DB: Database> Pruner<DB, ProviderFactory<DB>> {
 mod tests {
     use crate::Pruner;
     use reth_exex_types::FinishedExExHeight;
-    use reth_provider::{test_utils::create_test_provider_factory, ProviderFactory};
+    use reth_provider::test_utils::create_test_provider_factory;
 
     #[test]
     fn is_pruning_needed() {
@@ -340,14 +345,8 @@ mod tests {
         let (finished_exex_height_tx, finished_exex_height_rx) =
             tokio::sync::watch::channel(FinishedExExHeight::NoExExs);
 
-        let mut pruner = Pruner::<_, ProviderFactory<_>>::new(
-            provider_factory,
-            vec![],
-            5,
-            0,
-            None,
-            finished_exex_height_rx,
-        );
+        let mut pruner =
+            Pruner::new_with_factory(provider_factory, vec![], 5, 0, None, finished_exex_height_rx);
 
         // No last pruned block number was set before
         let first_block_number = 1;

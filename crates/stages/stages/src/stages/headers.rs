@@ -1,19 +1,22 @@
+use alloy_consensus::BlockHeader;
+use alloy_eips::{eip1898::BlockWithParent, NumHash};
+use alloy_primitives::{BlockHash, BlockNumber, Bytes, B256};
 use futures_util::StreamExt;
-use reth_codecs::Compact;
 use reth_config::config::EtlConfig;
-use reth_consensus::Consensus;
-use reth_db::{tables, RawKey, RawTable, RawValue};
+use reth_consensus::HeaderValidator;
+use reth_db::{table::Value, tables, transaction::DbTx, RawKey, RawTable, RawValue};
 use reth_db_api::{
     cursor::{DbCursorRO, DbCursorRW},
-    database::Database,
     transaction::DbTxMut,
+    DbTxUnwindExt,
 };
 use reth_etl::Collector;
 use reth_network_p2p::headers::{downloader::HeaderDownloader, error::HeadersDownloaderError};
-use reth_primitives::{BlockHash, BlockNumber, SealedHeader, StaticFileSegment, B256};
+use reth_primitives::{NodePrimitives, SealedHeader, StaticFileSegment};
+use reth_primitives_traits::{serde_bincode_compat, FullBlockHeader};
 use reth_provider::{
-    providers::{StaticFileProvider, StaticFileWriter},
-    BlockHashReader, DatabaseProviderRW, HeaderProvider, HeaderSyncGap, HeaderSyncGapProvider,
+    providers::StaticFileWriter, BlockHashReader, DBProvider, HeaderProvider, HeaderSyncGap,
+    HeaderSyncGapProvider, StaticFileProviderFactory,
 };
 use reth_stages_api::{
     BlockErrorKind, CheckpointBlockRange, EntitiesCheckpoint, ExecInput, ExecOutput,
@@ -47,13 +50,13 @@ pub struct HeaderStage<Provider, Downloader: HeaderDownloader> {
     /// The tip for the stage.
     tip: watch::Receiver<B256>,
     /// Consensus client implementation
-    consensus: Arc<dyn Consensus>,
+    consensus: Arc<dyn HeaderValidator<Downloader::Header>>,
     /// Current sync gap.
-    sync_gap: Option<HeaderSyncGap>,
+    sync_gap: Option<HeaderSyncGap<Downloader::Header>>,
     /// ETL collector with `HeaderHash` -> `BlockNumber`
     hash_collector: Collector<BlockHash, BlockNumber>,
-    /// ETL collector with `BlockNumber` -> `SealedHeader`
-    header_collector: Collector<BlockNumber, SealedHeader>,
+    /// ETL collector with `BlockNumber` -> `BincodeSealedHeader`
+    header_collector: Collector<BlockNumber, Bytes>,
     /// Returns true if the ETL collector has all necessary headers to fill the gap.
     is_etl_ready: bool,
 }
@@ -69,7 +72,7 @@ where
         database: Provider,
         downloader: Downloader,
         tip: watch::Receiver<B256>,
-        consensus: Arc<dyn Consensus>,
+        consensus: Arc<dyn HeaderValidator<Downloader::Header>>,
         etl_config: EtlConfig,
     ) -> Self {
         Self {
@@ -88,14 +91,17 @@ where
     ///
     /// Writes to static files ( `Header | HeaderTD | HeaderHash` ) and [`tables::HeaderNumbers`]
     /// database table.
-    fn write_headers<DB: Database>(
-        &mut self,
-        provider: &DatabaseProviderRW<DB>,
-        static_file_provider: StaticFileProvider,
-    ) -> Result<BlockNumber, StageError> {
+    fn write_headers<P>(&mut self, provider: &P) -> Result<BlockNumber, StageError>
+    where
+        P: DBProvider<Tx: DbTxMut> + StaticFileProviderFactory,
+        Downloader: HeaderDownloader<Header = <P::Primitives as NodePrimitives>::BlockHeader>,
+        <P::Primitives as NodePrimitives>::BlockHeader: Value + FullBlockHeader,
+    {
         let total_headers = self.header_collector.len();
 
         info!(target: "sync::stages::headers", total = total_headers, "Writing headers");
+
+        let static_file_provider = provider.static_file_provider();
 
         // Consistency check of expected headers in static files vs DB is done on provider::sync_gap
         // when poll_execute_ready is polled.
@@ -119,20 +125,27 @@ where
                 info!(target: "sync::stages::headers", progress = %format!("{:.2}%", (index as f64 / total_headers as f64) * 100.0), "Writing headers");
             }
 
-            let (sealed_header, _) = SealedHeader::from_compact(&header_buf, header_buf.len());
+            let sealed_header: SealedHeader<Downloader::Header> =
+                bincode::deserialize::<serde_bincode_compat::SealedHeader<'_, _>>(&header_buf)
+                    .map_err(|err| StageError::Fatal(Box::new(err)))?
+                    .into();
+
             let (header, header_hash) = sealed_header.split();
-            if header.number == 0 {
+            if header.number() == 0 {
                 continue
             }
-            last_header_number = header.number;
+            last_header_number = header.number();
 
             // Increase total difficulty
-            td += header.difficulty;
+            td += header.difficulty();
 
             // Header validation
             self.consensus.validate_header_with_total_difficulty(&header, td).map_err(|error| {
                 StageError::Block {
-                    block: Box::new(header.clone().seal(header_hash)),
+                    block: Box::new(BlockWithParent::new(
+                        header.parent_hash(),
+                        NumHash::new(header.number(), header_hash),
+                    )),
                     error: BlockErrorKind::Validation(error),
                 }
             })?;
@@ -149,11 +162,13 @@ where
 
         // If we only have the genesis block hash, then we are at first sync, and we can remove it,
         // add it to the collector and use tx.append on all hashes.
-        if let Some((hash, block_number)) = cursor_header_numbers.last()? {
-            if block_number.value()? == 0 {
-                self.hash_collector.insert(hash.key()?, 0)?;
-                cursor_header_numbers.delete_current()?;
-                first_sync = true;
+        if provider.tx_ref().entries::<RawTable<tables::HeaderNumbers>>()? == 1 {
+            if let Some((hash, block_number)) = cursor_header_numbers.last()? {
+                if block_number.value()? == 0 {
+                    self.hash_collector.insert(hash.key()?, 0)?;
+                    cursor_header_numbers.delete_current()?;
+                    first_sync = true;
+                }
             }
         }
 
@@ -183,11 +198,12 @@ where
     }
 }
 
-impl<DB, Provider, D> Stage<DB> for HeaderStage<Provider, D>
+impl<Provider, P, D> Stage<Provider> for HeaderStage<P, D>
 where
-    DB: Database,
-    Provider: HeaderSyncGapProvider,
-    D: HeaderDownloader,
+    Provider: DBProvider<Tx: DbTxMut> + StaticFileProviderFactory,
+    P: HeaderSyncGapProvider<Header = <Provider::Primitives as NodePrimitives>::BlockHeader>,
+    D: HeaderDownloader<Header = <Provider::Primitives as NodePrimitives>::BlockHeader>,
+    <Provider::Primitives as NodePrimitives>::BlockHeader: FullBlockHeader + Value,
 {
     /// Return the id of the stage
     fn id(&self) -> StageId {
@@ -224,7 +240,7 @@ where
         }
 
         debug!(target: "sync::stages::headers", ?tip, head = ?gap.local_head.hash(), "Commencing sync");
-        let local_head_number = gap.local_head.number;
+        let local_head_number = gap.local_head.number();
 
         // let the downloader know what to sync
         self.downloader.update_sync_gap(gap.local_head, gap.target);
@@ -233,12 +249,20 @@ where
         loop {
             match ready!(self.downloader.poll_next_unpin(cx)) {
                 Some(Ok(headers)) => {
-                    info!(target: "sync::stages::headers", total = headers.len(), from_block = headers.first().map(|h| h.number), to_block = headers.last().map(|h| h.number), "Received headers");
+                    info!(target: "sync::stages::headers", total = headers.len(), from_block = headers.first().map(|h| h.number()), to_block = headers.last().map(|h| h.number()), "Received headers");
                     for header in headers {
-                        let header_number = header.number;
+                        let header_number = header.number();
 
                         self.hash_collector.insert(header.hash(), header_number)?;
-                        self.header_collector.insert(header_number, header)?;
+                        self.header_collector.insert(
+                            header_number,
+                            Bytes::from(
+                                bincode::serialize(&serde_bincode_compat::SealedHeader::from(
+                                    &header,
+                                ))
+                                .map_err(|err| StageError::Fatal(Box::new(err)))?,
+                            ),
+                        )?;
 
                         // Headers are downloaded in reverse, so if we reach here, we know we have
                         // filled the gap.
@@ -250,7 +274,11 @@ where
                 }
                 Some(Err(HeadersDownloaderError::DetachedHead { local_head, header, error })) => {
                     error!(target: "sync::stages::headers", %error, "Cannot attach header to head");
-                    return Poll::Ready(Err(StageError::DetachedHead { local_head, header, error }))
+                    return Poll::Ready(Err(StageError::DetachedHead {
+                        local_head: Box::new(local_head.block_with_parent()),
+                        header: Box::new(header.block_with_parent()),
+                        error,
+                    }))
                 }
                 None => return Poll::Ready(Err(StageError::ChannelClosed)),
             }
@@ -259,11 +287,7 @@ where
 
     /// Download the headers in reverse order (falling block numbers)
     /// starting from the tip of the chain
-    fn execute(
-        &mut self,
-        provider: &DatabaseProviderRW<DB>,
-        input: ExecInput,
-    ) -> Result<ExecOutput, StageError> {
+    fn execute(&mut self, provider: &Provider, input: ExecInput) -> Result<ExecOutput, StageError> {
         let current_checkpoint = input.checkpoint();
 
         if self.sync_gap.as_ref().ok_or(StageError::MissingSyncGap)?.is_closed() {
@@ -281,8 +305,7 @@ where
 
         // Write the headers and related tables to DB from ETL space
         let to_be_processed = self.hash_collector.len() as u64;
-        let last_header_number =
-            self.write_headers(provider, provider.static_file_provider().clone())?;
+        let last_header_number = self.write_headers(provider)?;
 
         // Clear ETL collectors
         self.hash_collector.clear();
@@ -310,20 +333,25 @@ where
     /// Unwind the stage.
     fn unwind(
         &mut self,
-        provider: &DatabaseProviderRW<DB>,
+        provider: &Provider,
         input: UnwindInput,
     ) -> Result<UnwindOutput, StageError> {
         self.sync_gap.take();
 
         // First unwind the db tables, until the unwind_to block number. use the walker to unwind
         // HeaderNumbers based on the index in CanonicalHeaders
-        provider.unwind_table_by_walker::<tables::CanonicalHeaders, tables::HeaderNumbers>(
-            input.unwind_to..,
-        )?;
-        provider.unwind_table_by_num::<tables::CanonicalHeaders>(input.unwind_to)?;
-        provider.unwind_table_by_num::<tables::HeaderTerminalDifficulties>(input.unwind_to)?;
+        // unwind from the next block number since the unwind_to block is exclusive
+        provider
+            .tx_ref()
+            .unwind_table_by_walker::<tables::CanonicalHeaders, tables::HeaderNumbers>(
+                (input.unwind_to + 1)..,
+            )?;
+        provider.tx_ref().unwind_table_by_num::<tables::CanonicalHeaders>(input.unwind_to)?;
+        provider
+            .tx_ref()
+            .unwind_table_by_num::<tables::HeaderTerminalDifficulties>(input.unwind_to)?;
         let unfinalized_headers_unwound =
-            provider.unwind_table_by_num::<tables::Headers>(input.unwind_to)?;
+            provider.tx_ref().unwind_table_by_num::<tables::Headers>(input.unwind_to)?;
 
         // determine how many headers to unwind from the static files based on the highest block and
         // the unwind_to block
@@ -376,9 +404,10 @@ mod tests {
     use crate::test_utils::{
         stage_test_suite, ExecuteStageTestRunner, StageTestRunner, UnwindStageTestRunner,
     };
+    use alloy_primitives::B256;
     use assert_matches::assert_matches;
     use reth_execution_types::ExecutionOutcome;
-    use reth_primitives::{BlockBody, SealedBlock, SealedBlockWithSenders, B256};
+    use reth_primitives::{BlockBody, SealedBlock, SealedBlockWithSenders};
     use reth_provider::{BlockWriter, ProviderFactory, StaticFileProviderFactory};
     use reth_stages_api::StageUnitCheckpoint;
     use reth_testing_utils::generators::{self, random_header, random_header_range};
@@ -389,12 +418,11 @@ mod tests {
         use super::*;
         use crate::test_utils::{TestRunnerError, TestStageDB};
         use reth_consensus::test_utils::TestConsensus;
-        use reth_db::{test_utils::TempDatabase, DatabaseEnv};
         use reth_downloaders::headers::reverse_headers::{
             ReverseHeadersDownloader, ReverseHeadersDownloaderBuilder,
         };
         use reth_network_p2p::test_utils::{TestHeaderDownloader, TestHeadersClient};
-        use reth_provider::BlockNumReader;
+        use reth_provider::{test_utils::MockNodeTypesWithDB, BlockNumReader};
         use tokio::sync::watch;
 
         pub(crate) struct HeadersTestRunner<D: HeaderDownloader> {
@@ -425,8 +453,10 @@ mod tests {
             }
         }
 
-        impl<D: HeaderDownloader + 'static> StageTestRunner for HeadersTestRunner<D> {
-            type S = HeaderStage<ProviderFactory<Arc<TempDatabase<DatabaseEnv>>>, D>;
+        impl<D: HeaderDownloader<Header = alloy_consensus::Header> + 'static> StageTestRunner
+            for HeadersTestRunner<D>
+        {
+            type S = HeaderStage<ProviderFactory<MockNodeTypesWithDB>, D>;
 
             fn db(&self) -> &TestStageDB {
                 &self.db
@@ -443,7 +473,9 @@ mod tests {
             }
         }
 
-        impl<D: HeaderDownloader + 'static> ExecuteStageTestRunner for HeadersTestRunner<D> {
+        impl<D: HeaderDownloader<Header = alloy_consensus::Header> + 'static> ExecuteStageTestRunner
+            for HeadersTestRunner<D>
+        {
             type Seed = Vec<SealedHeader>;
 
             fn seed_execution(&mut self, input: ExecInput) -> Result<Self::Seed, TestRunnerError> {
@@ -489,7 +521,7 @@ mod tests {
                             // validate the header
                             let header = provider.header_by_number(block_num)?;
                             assert!(header.is_some());
-                            let header = header.unwrap().seal_slow();
+                            let header = SealedHeader::seal(header.unwrap());
                             assert_eq!(header.hash(), hash);
 
                             // validate the header total difficulty
@@ -519,7 +551,9 @@ mod tests {
             }
         }
 
-        impl<D: HeaderDownloader + 'static> UnwindStageTestRunner for HeadersTestRunner<D> {
+        impl<D: HeaderDownloader<Header = alloy_consensus::Header> + 'static> UnwindStageTestRunner
+            for HeadersTestRunner<D>
+        {
             fn validate_unwind(&self, input: UnwindInput) -> Result<(), TestRunnerError> {
                 self.check_no_header_entry_above(input.unwind_to)
             }

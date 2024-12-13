@@ -20,16 +20,83 @@ use syn::{
 mod arbitrary;
 mod compact;
 
-#[proc_macro_derive(Compact, attributes(maybe_zero))]
-pub fn derive(input: TokenStream) -> TokenStream {
-    let is_zstd = false;
-    compact::derive(input, is_zstd)
+#[derive(Clone)]
+pub(crate) struct ZstdConfig {
+    compressor: syn::Path,
+    decompressor: syn::Path,
 }
 
-#[proc_macro_derive(CompactZstd, attributes(maybe_zero))]
+/// Derives the `Compact` trait for custom structs, optimizing serialization with a possible
+/// bitflag struct.
+///
+/// ## Implementation:
+/// The derived `Compact` implementation leverages a bitflag struct when needed to manage the
+/// presence of certain field types, primarily for compacting fields efficiently. This bitflag
+/// struct records information about fields that require a small, fixed number of bits for their
+/// encoding, such as `bool`, `Option<T>`, or other small types.
+///
+/// ### Bit Sizes for Fields:
+/// The amount of bits used to store a field size is determined by the field's type. For specific
+/// types, a fixed number of bits is allocated (from `fn get_bit_size`):
+/// - `bool`, `Option<T>`, `TransactionKind`, `Signature`: **1 bit**
+/// - `TxType`: **2 bits**
+/// - `u64`, `BlockNumber`, `TxNumber`, `ChainId`, `NumTransactions`: **4 bits**
+/// - `u128`: **5 bits**
+/// - `U256`: **6 bits**
+///
+/// ### Warning: Extending structs, unused bits and backwards compatibility:
+/// When the bitflag only has one bit left (for example, when adding many `Option<T>` fields),
+/// you should introduce a new struct (e.g., `TExtension`) with additional fields, and use
+/// `Option<TExtension>` in the original struct. This approach allows further field extensions while
+/// maintaining backward compatibility.
+///
+/// ### Limitations:
+/// - Fields not listed above, or types such `Vec`, or large composite types, should manage their
+///   own encoding and do not rely on the bitflag struct.
+/// - `Bytes` fields and any types containing a `Bytes` field should be placed last to ensure
+///   efficient decoding.
+#[proc_macro_derive(Compact, attributes(maybe_zero, reth_codecs))]
+pub fn derive(input: TokenStream) -> TokenStream {
+    compact::derive(parse_macro_input!(input as DeriveInput), None)
+}
+
+/// Adds `zstd` compression to derived [`Compact`].
+#[proc_macro_derive(CompactZstd, attributes(maybe_zero, reth_codecs, reth_zstd))]
 pub fn derive_zstd(input: TokenStream) -> TokenStream {
-    let is_zstd = true;
-    compact::derive(input, is_zstd)
+    let input = parse_macro_input!(input as DeriveInput);
+
+    let mut compressor = None;
+    let mut decompressor = None;
+
+    for attr in &input.attrs {
+        if attr.path().is_ident("reth_zstd") {
+            if let Err(err) = attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("compressor") {
+                    let value = meta.value()?;
+                    let path: syn::Path = value.parse()?;
+                    compressor = Some(path);
+                } else if meta.path.is_ident("decompressor") {
+                    let value = meta.value()?;
+                    let path: syn::Path = value.parse()?;
+                    decompressor = Some(path);
+                } else {
+                    return Err(meta.error("unsupported attribute"))
+                }
+                Ok(())
+            }) {
+                return err.to_compile_error().into()
+            }
+        }
+    }
+
+    let (Some(compressor), Some(decompressor)) = (compressor, decompressor) else {
+        return quote! {
+            compile_error!("missing compressor or decompressor attribute");
+        }
+        .into()
+    };
+
+    compact::derive(input, Some(ZstdConfig { compressor, decompressor }))
 }
 
 /// Generates tests for given type.

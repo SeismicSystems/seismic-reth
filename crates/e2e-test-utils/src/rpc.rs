@@ -1,15 +1,15 @@
 use alloy_consensus::TxEnvelope;
-use alloy_network::{eip2718::Decodable2718, Network};
-use reth::{
-    builder::{rpc::RpcRegistry, FullNodeComponents},
-    rpc::api::{
-        eth::helpers::{EthApiSpec, EthTransactions, FullEthApi, TraceExt},
-        DebugApiServer,
-    },
+use alloy_network::eip2718::Decodable2718;
+use alloy_primitives::{Bytes, B256};
+use reth_chainspec::EthereumHardforks;
+use reth_node_api::{FullNodeComponents, NodePrimitives};
+use reth_node_builder::{rpc::RpcRegistry, NodeTypes};
+use reth_provider::BlockReader;
+use reth_rpc_api::DebugApiServer;
+use reth_rpc_eth_api::{
+    helpers::{EthApiSpec, EthTransactions, TraceExt},
+    EthApiTypes,
 };
-use reth_node_builder::EthApiTypes;
-use reth_primitives::{Bytes, B256};
-use reth_rpc_types::{AnyTransactionReceipt, BlockId, BlockNumberOrTag, WithOtherFields};
 
 #[allow(missing_debug_implementations)]
 pub struct RpcTestContext<Node: FullNodeComponents, EthApi: EthApiTypes> {
@@ -18,13 +18,18 @@ pub struct RpcTestContext<Node: FullNodeComponents, EthApi: EthApiTypes> {
 
 impl<Node, EthApi> RpcTestContext<Node, EthApi>
 where
-    Node: FullNodeComponents,
-    EthApi: EthApiSpec
-        + FullEthApi<
-            NetworkTypes: Network<
-                TransactionResponse = WithOtherFields<alloy_rpc_types::Transaction>,
+    Node: FullNodeComponents<
+        Types: NodeTypes<
+            ChainSpec: EthereumHardforks,
+            Primitives: NodePrimitives<
+                Block = reth_primitives::Block,
+                Receipt = reth_primitives::Receipt,
             >,
-        > + TraceExt,
+        >,
+    >,
+    EthApi: EthApiSpec<Provider: BlockReader<Block = reth_primitives::Block>>
+        + EthTransactions
+        + TraceExt,
 {
     /// Injects a raw transaction into the node tx pool via RPC server
     pub async fn inject_tx(&self, raw_tx: Bytes) -> Result<B256, EthApi::Error> {

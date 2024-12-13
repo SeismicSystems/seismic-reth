@@ -1,14 +1,14 @@
 use crate::{
+    db_ext::DbTxPruneExt,
     segments::{user::history::prune_history_indices, PruneInput, Segment},
     PrunerError,
 };
 use itertools::Itertools;
-use reth_db::tables;
-use reth_db_api::{database::Database, models::ShardedKey};
-use reth_provider::DatabaseProviderRW;
+use reth_db::{tables, transaction::DbTxMut};
+use reth_db_api::models::ShardedKey;
+use reth_provider::DBProvider;
 use reth_prune_types::{
-    PruneInterruptReason, PruneMode, PruneProgress, PrunePurpose, PruneSegment, SegmentOutput,
-    SegmentOutputCheckpoint,
+    PruneMode, PrunePurpose, PruneSegment, SegmentOutput, SegmentOutputCheckpoint,
 };
 use rustc_hash::FxHashMap;
 use tracing::{instrument, trace};
@@ -30,7 +30,10 @@ impl AccountHistory {
     }
 }
 
-impl<DB: Database> Segment<DB> for AccountHistory {
+impl<Provider> Segment<Provider> for AccountHistory
+where
+    Provider: DBProvider<Tx: DbTxMut>,
+{
     fn segment(&self) -> PruneSegment {
         PruneSegment::AccountHistory
     }
@@ -44,11 +47,7 @@ impl<DB: Database> Segment<DB> for AccountHistory {
     }
 
     #[instrument(level = "trace", target = "pruner", skip(self, provider), ret)]
-    fn prune(
-        &self,
-        provider: &DatabaseProviderRW<DB>,
-        input: PruneInput,
-    ) -> Result<SegmentOutput, PrunerError> {
+    fn prune(&self, provider: &Provider, input: PruneInput) -> Result<SegmentOutput, PrunerError> {
         let range = match input.get_next_block_range() {
             Some(range) => range,
             None => {
@@ -65,7 +64,7 @@ impl<DB: Database> Segment<DB> for AccountHistory {
         };
         if limiter.is_limit_reached() {
             return Ok(SegmentOutput::not_done(
-                PruneInterruptReason::new(&limiter),
+                limiter.interrupt_reason(),
                 input.previous_checkpoint.map(SegmentOutputCheckpoint::from_prune_checkpoint),
             ))
         }
@@ -80,8 +79,8 @@ impl<DB: Database> Segment<DB> for AccountHistory {
         // size should be up to 0.5MB + some hashmap overhead. `blocks_since_last_run` is
         // additionally limited by the `max_reorg_depth`, so no OOM is expected here.
         let mut highest_deleted_accounts = FxHashMap::default();
-        let (pruned_changesets, done) = provider
-            .prune_table_with_range::<tables::AccountChangeSets>(
+        let (pruned_changesets, done) =
+            provider.tx_ref().prune_table_with_range::<tables::AccountChangeSets>(
                 range,
                 &mut limiter,
                 |_| false,
@@ -106,14 +105,14 @@ impl<DB: Database> Segment<DB> for AccountHistory {
             .map(|(address, block_number)| {
                 ShardedKey::new(address, block_number.min(last_changeset_pruned_block))
             });
-        let outcomes = prune_history_indices::<DB, tables::AccountsHistory, _>(
+        let outcomes = prune_history_indices::<Provider, tables::AccountsHistory, _>(
             provider,
             highest_sharded_keys,
             |a, b| a.key == b.key,
         )?;
         trace!(target: "pruner", ?outcomes, %done, "Pruned account history (indices)");
 
-        let progress = PruneProgress::new(done, &limiter);
+        let progress = limiter.progress(done);
 
         Ok(SegmentOutput {
             progress,
@@ -130,14 +129,14 @@ impl<DB: Database> Segment<DB> for AccountHistory {
 mod tests {
     use crate::segments::{
         user::account_history::ACCOUNT_HISTORY_TABLES_TO_PRUNE, AccountHistory, PruneInput,
-        Segment, SegmentOutput,
+        PruneLimiter, Segment, SegmentOutput,
     };
     use alloy_primitives::{BlockNumber, B256};
     use assert_matches::assert_matches;
     use reth_db::{tables, BlockNumberList};
-    use reth_provider::PruneCheckpointReader;
+    use reth_provider::{DatabaseProviderFactory, PruneCheckpointReader};
     use reth_prune_types::{
-        PruneCheckpoint, PruneInterruptReason, PruneLimiter, PruneMode, PruneProgress, PruneSegment,
+        PruneCheckpoint, PruneInterruptReason, PruneMode, PruneProgress, PruneSegment,
     };
     use reth_stages::test_utils::{StorageKind, TestStageDB};
     use reth_testing_utils::generators::{
@@ -203,7 +202,7 @@ mod tests {
                 };
                 let segment = AccountHistory::new(prune_mode);
 
-                let provider = db.factory.provider_rw().unwrap();
+                let provider = db.factory.database_provider_rw().unwrap();
                 let result = segment.prune(&provider, input).unwrap();
                 limiter.increment_deleted_entries_count_by(result.pruned);
 
@@ -275,10 +274,8 @@ mod tests {
                     .iter()
                     .filter(|(key, _)| key.highest_block_number > last_pruned_block_number)
                     .map(|(key, blocks)| {
-                        let new_blocks = blocks
-                            .iter()
-                            .skip_while(|block| *block <= last_pruned_block_number)
-                            .collect::<Vec<_>>();
+                        let new_blocks =
+                            blocks.iter().skip_while(|block| *block <= last_pruned_block_number);
                         (key.clone(), BlockNumberList::new_pre_sorted(new_blocks))
                     })
                     .collect::<Vec<_>>();

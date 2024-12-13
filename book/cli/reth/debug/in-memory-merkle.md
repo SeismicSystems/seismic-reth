@@ -4,6 +4,8 @@ Debug in-memory state root calculation
 
 ```bash
 $ reth debug in-memory-merkle --help
+```
+```txt
 Usage: reth debug in-memory-merkle [OPTIONS]
 
 Options:
@@ -33,7 +35,7 @@ Datadir:
 
           [default: default]
 
-      --datadir.static_files <PATH>
+      --datadir.static-files <PATH>
           The absolute path to store static files in.
 
       --config <FILE>
@@ -67,6 +69,15 @@ Database:
 
           [possible values: true, false]
 
+      --db.max-size <MAX_SIZE>
+          Maximum database size (e.g., 4TB, 8MB)
+
+      --db.growth-step <GROWTH_STEP>
+          Database growth step (e.g., 4GB, 4KB)
+
+      --db.read-transaction-timeout <READ_TRANSACTION_TIMEOUT>
+          Read transaction timeout in seconds, 0 means no timeout
+
 Networking:
   -d, --disable-discovery
           Disable the discovery service
@@ -79,6 +90,9 @@ Networking:
 
       --enable-discv5-discovery
           Enable Discv5 discovery
+
+      --disable-nat
+          Disable Nat discovery
 
       --discovery.addr <DISCOVERY_ADDR>
           The UDP address to use for devp2p peer discovery version 4
@@ -99,12 +113,12 @@ Networking:
       --discovery.v5.port <DISCOVERY_V5_PORT>
           The UDP IPv4 port to use for devp2p peer discovery version 5. Not used unless `--addr` is IPv4, or `--discovery.v5.addr` is set
 
-          [default: 9000]
+          [default: 9200]
 
       --discovery.v5.port.ipv6 <DISCOVERY_V5_PORT_IPV6>
           The UDP IPv6 port to use for devp2p peer discovery version 5. Not used unless `--addr` is IPv6, or `--discovery.addr.ipv6` is set
 
-          [default: 9000]
+          [default: 9200]
 
       --discovery.v5.lookup-interval <DISCOVERY_V5_LOOKUP_INTERVAL>
           The interval in seconds at which to carry out periodic lookup queries, for the whole run of the program
@@ -220,6 +234,16 @@ Networking:
           Default is 128 KiB.
 
           [default: 131072]
+
+      --max-tx-pending-fetch <COUNT>
+          Max capacity of cache of hashes for transactions pending fetch.
+
+          [default: 25600]
+
+      --net-if.experimental <IF_NAME>
+          Name of network interface used to communicate with peers.
+
+          If flag is set, but no value is passed, the default interface for docker `eth0` is tried.
 
       --retries <RETRIES>
           The number of retries per request

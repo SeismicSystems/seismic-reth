@@ -1,67 +1,82 @@
-use crate::{U64, U8};
+use alloy_consensus::{
+    constants::{
+        EIP1559_TX_TYPE_ID, EIP2930_TX_TYPE_ID, EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID,
+        LEGACY_TX_TYPE_ID,
+    },
+    Typed2718,
+};
+use alloy_primitives::{U64, U8};
 use alloy_rlp::{Decodable, Encodable};
+use derive_more::Display;
+use reth_primitives_traits::InMemorySize;
 use serde::{Deserialize, Serialize};
 
-#[cfg(test)]
-use reth_codecs::Compact;
+/// Identifier parameter for legacy transaction
+#[cfg(any(test, feature = "reth-codec"))]
+pub const COMPACT_IDENTIFIER_LEGACY: usize = 0;
+
+/// Identifier parameter for EIP-2930 transaction
+#[cfg(any(test, feature = "reth-codec"))]
+pub const COMPACT_IDENTIFIER_EIP2930: usize = 1;
+
+/// Identifier parameter for EIP-1559 transaction
+#[cfg(any(test, feature = "reth-codec"))]
+pub const COMPACT_IDENTIFIER_EIP1559: usize = 2;
 
 /// For backwards compatibility purposes only 2 bits of the type are encoded in the identifier
-/// parameter. In the case of a 3, the full transaction type is read from the buffer as a
-/// single byte.
+/// parameter. In the case of a [`COMPACT_EXTENDED_IDENTIFIER_FLAG`], the full transaction type is
+/// read from the buffer as a single byte.
 #[cfg(any(test, feature = "reth-codec"))]
-const COMPACT_EXTENDED_IDENTIFIER_FLAG: usize = 3;
+pub const COMPACT_EXTENDED_IDENTIFIER_FLAG: usize = 3;
 
-/// Identifier for legacy transaction, however [`TxLegacy`](crate::TxLegacy) this is technically not
-/// typed.
-pub const LEGACY_TX_TYPE_ID: u8 = 0;
-
-/// Identifier for [`TxEip2930`](crate::TxEip2930) transaction.
-pub const EIP2930_TX_TYPE_ID: u8 = 1;
-
-/// Identifier for [`TxEip1559`](crate::TxEip1559) transaction.
-pub const EIP1559_TX_TYPE_ID: u8 = 2;
-
-/// Identifier for [`TxEip4844`](crate::TxEip4844) transaction.
-pub const EIP4844_TX_TYPE_ID: u8 = 3;
-
-/// Identifier for [`TxSeismic`](crate::Sesimic) transaction.
-pub const SEISMIC_TX_TYPE_ID: u8 = 0x4A;
-
-/// Identifier for [`TxEip7702`](crate::TxEip7702) transaction.
-pub const EIP7702_TX_TYPE_ID: u8 = 4;
-
-/// Identifier for [`TxDeposit`](crate::TxDeposit) transaction.
-#[cfg(feature = "optimism")]
-pub const DEPOSIT_TX_TYPE_ID: u8 = 126;
+pub const SEISMIC_TX_TYPE_ID: u8 = 74;
 
 /// Transaction Type
 ///
 /// Currently being used as 2-bit type when encoding it to `reth_codecs::Compact` on
-/// [`crate::TransactionSignedNoHash`]. Adding more transaction types will break the codec and
+/// [`crate::TransactionSigned`]. Adding more transaction types will break the codec and
 /// database format.
 ///
 /// Other required changes when adding a new type can be seen on [PR#3953](https://github.com/paradigmxyz/reth/pull/3953/files).
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize, Hash,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Default,
+    Serialize,
+    Deserialize,
+    Hash,
+    Display,
 )]
 #[cfg_attr(any(test, feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 #[cfg_attr(any(test, feature = "reth-codec"), reth_codecs::add_arbitrary_tests(compact))]
+#[display("tx type: {_variant}")]
 pub enum TxType {
     /// Legacy transaction pre EIP-2929
     #[default]
+    #[display("legacy (0)")]
     Legacy = 0_isize,
     /// AccessList transaction
+    #[display("eip2930 (1)")]
     Eip2930 = 1_isize,
     /// Transaction with Priority fee
+    #[display("eip1559 (2)")]
     Eip1559 = 2_isize,
     /// Shard Blob Transactions - EIP-4844
+    #[display("eip4844 (3)")]
     Eip4844 = 3_isize,
     /// EOA Contract Code Transactions - EIP-7702
+    #[display("eip7702 (4)")]
     Eip7702 = 4_isize,
     /// Seismic transaction
     Seismic = 74_isize,
     /// Optimism Deposit transaction.
     #[cfg(feature = "optimism")]
+    #[display("deposit (126)")]
     Deposit = 126_isize,
 }
 
@@ -80,6 +95,20 @@ impl TxType {
     }
 }
 
+impl Typed2718 for TxType {
+    fn ty(&self) -> u8 {
+        (*self).into()
+    }
+}
+
+impl InMemorySize for TxType {
+    /// Calculates a heuristic for the in-memory size of the [`TxType`].
+    #[inline]
+    fn size(&self) -> usize {
+        core::mem::size_of::<Self>()
+    }
+}
+
 impl From<TxType> for u8 {
     fn from(value: TxType) -> Self {
         match value {
@@ -90,7 +119,7 @@ impl From<TxType> for u8 {
             TxType::Eip7702 => EIP7702_TX_TYPE_ID,
             TxType::Seismic => SEISMIC_TX_TYPE_ID,
             #[cfg(feature = "optimism")]
-            TxType::Deposit => DEPOSIT_TX_TYPE_ID,
+            TxType::Deposit => op_alloy_consensus::DEPOSIT_TX_TYPE_ID,
         }
     }
 }
@@ -151,16 +180,18 @@ impl reth_codecs::Compact for TxType {
     where
         B: bytes::BufMut + AsMut<[u8]>,
     {
+        use reth_codecs::txtype::*;
+
         match self {
-            Self::Legacy => 0,
-            Self::Eip2930 => 1,
-            Self::Eip1559 => 2,
+            Self::Legacy => COMPACT_IDENTIFIER_LEGACY,
+            Self::Eip2930 => COMPACT_IDENTIFIER_EIP2930,
+            Self::Eip1559 => COMPACT_IDENTIFIER_EIP1559,
             Self::Eip4844 => {
-                buf.put_u8(*self as u8);
+                buf.put_u8(EIP4844_TX_TYPE_ID);
                 COMPACT_EXTENDED_IDENTIFIER_FLAG
             }
             Self::Eip7702 => {
-                buf.put_u8(*self as u8);
+                buf.put_u8(EIP7702_TX_TYPE_ID);
                 COMPACT_EXTENDED_IDENTIFIER_FLAG
             }
             Self::Seismic => {
@@ -169,30 +200,30 @@ impl reth_codecs::Compact for TxType {
             }
             #[cfg(feature = "optimism")]
             Self::Deposit => {
-                buf.put_u8(*self as u8);
+                buf.put_u8(op_alloy_consensus::DEPOSIT_TX_TYPE_ID);
                 COMPACT_EXTENDED_IDENTIFIER_FLAG
             }
         }
     }
 
     // For backwards compatibility purposes only 2 bits of the type are encoded in the identifier
-    // parameter. In the case of a 3, the full transaction type is read from the buffer as a
-    // single byte.
+    // parameter. In the case of a [`COMPACT_EXTENDED_IDENTIFIER_FLAG`], the full transaction type
+    // is read from the buffer as a single byte.
     fn from_compact(mut buf: &[u8], identifier: usize) -> (Self, &[u8]) {
         use bytes::Buf;
         (
             match identifier {
-                0 => Self::Legacy,
-                1 => Self::Eip2930,
-                2 => Self::Eip1559,
-                COMPACT_EXTENDED_IDENTIFIER_FLAG => {
+                reth_codecs::txtype::COMPACT_IDENTIFIER_LEGACY => Self::Legacy,
+                reth_codecs::txtype::COMPACT_IDENTIFIER_EIP2930 => Self::Eip2930,
+                reth_codecs::txtype::COMPACT_IDENTIFIER_EIP1559 => Self::Eip1559,
+                reth_codecs::txtype::COMPACT_EXTENDED_IDENTIFIER_FLAG => {
                     let extended_identifier = buf.get_u8();
                     match extended_identifier {
                         EIP4844_TX_TYPE_ID => Self::Eip4844,
                         EIP7702_TX_TYPE_ID => Self::Eip7702,
                         SEISMIC_TX_TYPE_ID => Self::Seismic,
                         #[cfg(feature = "optimism")]
-                        DEPOSIT_TX_TYPE_ID => Self::Deposit,
+                        op_alloy_consensus::DEPOSIT_TX_TYPE_ID => Self::Deposit,
                         _ => panic!("Unsupported TxType identifier: {extended_identifier}"),
                     }
                 }
@@ -233,133 +264,80 @@ impl Decodable for TxType {
     }
 }
 
-impl From<alloy_consensus::TxType> for TxType {
-    fn from(value: alloy_consensus::TxType) -> Self {
-        match value {
-            alloy_consensus::TxType::Legacy => Self::Legacy,
-            alloy_consensus::TxType::Eip2930 => Self::Eip2930,
-            alloy_consensus::TxType::Eip1559 => Self::Eip1559,
-            alloy_consensus::TxType::Eip4844 => Self::Eip4844,
-            alloy_consensus::TxType::Eip7702 => Self::Eip7702,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::hex;
-    use rand::Rng;
-    use reth_codecs::Compact;
-
     use super::*;
+    use alloy_primitives::hex;
+    use reth_codecs::Compact;
+    use rstest::rstest;
 
-    #[test]
-    fn test_u64_to_tx_type() {
-        // Test for Legacy transaction
-        assert_eq!(TxType::try_from(U64::from(0)).unwrap(), TxType::Legacy);
-
-        // Test for EIP2930 transaction
-        assert_eq!(TxType::try_from(U64::from(1)).unwrap(), TxType::Eip2930);
-
-        // Test for EIP1559 transaction
-        assert_eq!(TxType::try_from(U64::from(2)).unwrap(), TxType::Eip1559);
-
-        // Test for EIP4844 transaction
-        assert_eq!(TxType::try_from(U64::from(3)).unwrap(), TxType::Eip4844);
-
-        // Test for EIP7702 transaction
-        assert_eq!(TxType::try_from(U64::from(4)).unwrap(), TxType::Eip7702);
-
-        // Test for Seismic transaction
-        assert_eq!(TxType::try_from(U64::from(5)).unwrap(), TxType::Seismic);
-
-        // Test for Deposit transaction
-        #[cfg(feature = "optimism")]
-        assert_eq!(TxType::try_from(U64::from(126)).unwrap(), TxType::Deposit);
-
-        // For transactions with unsupported values
-        assert!(TxType::try_from(U64::from(5)).is_err());
+    #[rstest]
+    #[case(U64::from(LEGACY_TX_TYPE_ID), Ok(TxType::Legacy))]
+    #[case(U64::from(SEISMIC_TX_TYPE_ID), Ok(TxType::Seismic))]
+    #[case(U64::from(EIP2930_TX_TYPE_ID), Ok(TxType::Eip2930))]
+    #[case(U64::from(EIP1559_TX_TYPE_ID), Ok(TxType::Eip1559))]
+    #[case(U64::from(EIP4844_TX_TYPE_ID), Ok(TxType::Eip4844))]
+    #[case(U64::from(EIP7702_TX_TYPE_ID), Ok(TxType::Eip7702))]
+    #[cfg_attr(
+        feature = "optimism",
+        case(U64::from(op_alloy_consensus::DEPOSIT_TX_TYPE_ID), Ok(TxType::Deposit))
+    )]
+    #[case(U64::MAX, Err("invalid tx type"))]
+    fn test_u64_to_tx_type(#[case] input: U64, #[case] expected: Result<TxType, &'static str>) {
+        let tx_type_result = TxType::try_from(input);
+        assert_eq!(tx_type_result, expected);
     }
 
-    #[test]
-    fn test_txtype_to_compat() {
-        let cases = vec![
-            (TxType::Legacy, 0, vec![]),
-            (TxType::Eip2930, 1, vec![]),
-            (TxType::Eip1559, 2, vec![]),
-            (TxType::Eip4844, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP4844_TX_TYPE_ID]),
-            (TxType::Eip7702, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP7702_TX_TYPE_ID]),
-            (TxType::Seismic, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![SEISMIC_TX_TYPE_ID]),
-            #[cfg(feature = "optimism")]
-            (TxType::Deposit, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![DEPOSIT_TX_TYPE_ID]),
-        ];
+    #[rstest]
+    #[case(TxType::Legacy, COMPACT_IDENTIFIER_LEGACY, vec![])]
+    #[case(TxType::Eip2930, COMPACT_IDENTIFIER_EIP2930, vec![])]
+    #[case(TxType::Eip1559, COMPACT_IDENTIFIER_EIP1559, vec![])]
+    #[case(TxType::Eip4844, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP4844_TX_TYPE_ID])]
+    #[case(TxType::Eip7702, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP7702_TX_TYPE_ID])]
+    #[case(TxType::Seismic, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![SEISMIC_TX_TYPE_ID])]
+    #[cfg_attr(feature = "optimism", case(TxType::Deposit, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![op_alloy_consensus::DEPOSIT_TX_TYPE_ID]))]
+    fn test_txtype_to_compact(
+        #[case] tx_type: TxType,
+        #[case] expected_identifier: usize,
+        #[case] expected_buf: Vec<u8>,
+    ) {
+        let mut buf = vec![];
+        let identifier = tx_type.to_compact(&mut buf);
 
-        for (tx_type, expected_identifier, expected_buf) in cases {
-            let mut buf = vec![];
-            let identifier = tx_type.to_compact(&mut buf);
-            assert_eq!(
-                identifier, expected_identifier,
-                "Unexpected identifier for TxType {tx_type:?}",
-            );
-            assert_eq!(buf, expected_buf, "Unexpected buffer for TxType {tx_type:?}");
-        }
+        assert_eq!(identifier, expected_identifier, "Unexpected identifier for TxType {tx_type:?}",);
+        assert_eq!(buf, expected_buf, "Unexpected buffer for TxType {tx_type:?}",);
     }
 
-    #[test]
-    fn test_txtype_from_compact() {
-        let cases = vec![
-            (TxType::Legacy, 0, vec![]),
-            (TxType::Eip2930, 1, vec![]),
-            (TxType::Eip1559, 2, vec![]),
-            (TxType::Eip4844, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP4844_TX_TYPE_ID]),
-            (TxType::Eip7702, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP7702_TX_TYPE_ID]),
-            (TxType::Seismic, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![SEISMIC_TX_TYPE_ID]),
-            #[cfg(feature = "optimism")]
-            (TxType::Deposit, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![DEPOSIT_TX_TYPE_ID]),
-        ];
+    #[rstest]
+    #[case(TxType::Legacy, COMPACT_IDENTIFIER_LEGACY, vec![])]
+    #[case(TxType::Eip2930, COMPACT_IDENTIFIER_EIP2930, vec![])]
+    #[case(TxType::Eip1559, COMPACT_IDENTIFIER_EIP1559, vec![])]
+    #[case(TxType::Eip4844, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP4844_TX_TYPE_ID])]
+    #[case(TxType::Eip7702, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP7702_TX_TYPE_ID])]
+    #[case(TxType::Seismic, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![SEISMIC_TX_TYPE_ID])]
+    #[cfg_attr(feature = "optimism", case(TxType::Deposit, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![op_alloy_consensus::DEPOSIT_TX_TYPE_ID]))]
+    fn test_txtype_from_compact(
+        #[case] expected_type: TxType,
+        #[case] identifier: usize,
+        #[case] buf: Vec<u8>,
+    ) {
+        let (actual_type, remaining_buf) = TxType::from_compact(&buf, identifier);
 
-        for (expected_type, identifier, buf) in cases {
-            let (actual_type, remaining_buf) = TxType::from_compact(&buf, identifier);
-            assert_eq!(actual_type, expected_type, "Unexpected TxType for identifier {identifier}",);
-            assert!(
-                remaining_buf.is_empty(),
-                "Buffer not fully consumed for identifier {identifier}",
-            );
-        }
+        assert_eq!(actual_type, expected_type, "Unexpected TxType for identifier {identifier}");
+        assert!(remaining_buf.is_empty(), "Buffer not fully consumed for identifier {identifier}");
     }
 
-    #[test]
-    fn decode_tx_type() {
-        // Test for Legacy transaction
-        let tx_type = TxType::decode(&mut &hex!("80")[..]).unwrap();
-        assert_eq!(tx_type, TxType::Legacy);
-
-        // Test for EIP2930 transaction
-        let tx_type = TxType::decode(&mut &[1u8][..]).unwrap();
-        assert_eq!(tx_type, TxType::Eip2930);
-
-        // Test for EIP1559 transaction
-        let tx_type = TxType::decode(&mut &[2u8][..]).unwrap();
-        assert_eq!(tx_type, TxType::Eip1559);
-
-        // Test for EIP4844 transaction
-        let tx_type = TxType::decode(&mut &[3u8][..]).unwrap();
-        assert_eq!(tx_type, TxType::Eip4844);
-
-        // Test for EIP7702 transaction
-        let tx_type = TxType::decode(&mut &[4u8][..]).unwrap();
-        assert_eq!(tx_type, TxType::Eip7702);
-
-        // Test random byte not in range
-        let buf = [rand::thread_rng().gen_range(5..=u8::MAX)];
-        assert!(TxType::decode(&mut &buf[..]).is_err());
-
-        // Test for Deposit transaction
-        #[cfg(feature = "optimism")]
-        {
-            let buf = [126u8];
-            let tx_type = TxType::decode(&mut &buf[..]).unwrap();
-            assert_eq!(tx_type, TxType::Deposit);
-        }
+    #[rstest]
+    #[case(&hex!("80"), Ok(TxType::Legacy))]
+    #[case(&[EIP2930_TX_TYPE_ID], Ok(TxType::Eip2930))]
+    #[case(&[EIP1559_TX_TYPE_ID], Ok(TxType::Eip1559))]
+    #[case(&[EIP4844_TX_TYPE_ID], Ok(TxType::Eip4844))]
+    #[case(&[EIP7702_TX_TYPE_ID], Ok(TxType::Eip7702))]
+    #[case(&[SEISMIC_TX_TYPE_ID], Ok(TxType::Seismic))]
+    #[case(&[u8::MAX], Err(alloy_rlp::Error::InputTooShort))]
+    #[cfg_attr(feature = "optimism", case(&[op_alloy_consensus::DEPOSIT_TX_TYPE_ID], Ok(TxType::Deposit)))]
+    fn decode_tx_type(#[case] input: &[u8], #[case] expected: Result<TxType, alloy_rlp::Error>) {
+        let tx_type_result = TxType::decode(&mut &input[..]);
+        assert_eq!(tx_type_result, expected)
     }
 }

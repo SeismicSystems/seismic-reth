@@ -37,14 +37,14 @@ pub enum RethError {
 
     /// Any other error.
     #[error(transparent)]
-    Other(Box<dyn std::error::Error + Send + Sync>),
+    Other(Box<dyn core::error::Error + Send + Sync>),
 }
 
 impl RethError {
     /// Create a new `RethError` from a given error.
     pub fn other<E>(error: E) -> Self
     where
-        E: std::error::Error + Send + Sync + 'static,
+        E: core::error::Error + Send + Sync + 'static,
     {
         Self::Other(Box::new(error))
     }
@@ -81,7 +81,7 @@ mod size_asserts {
     static_assert_size!(RethError, 64);
     static_assert_size!(BlockExecutionError, 56);
     static_assert_size!(ConsensusError, 48);
-    static_assert_size!(DatabaseError, 40);
+    static_assert_size!(DatabaseError, 32);
     static_assert_size!(ProviderError, 48);
     static_assert_size!(CanonicalError, 56);
 }

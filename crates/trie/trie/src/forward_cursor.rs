@@ -21,7 +21,7 @@ impl<'a, K, V> ForwardInMemoryCursor<'a, K, V> {
     }
 }
 
-impl<'a, K, V> ForwardInMemoryCursor<'a, K, V>
+impl<K, V> ForwardInMemoryCursor<'_, K, V>
 where
     K: PartialOrd + Clone,
     V: Clone,
@@ -30,7 +30,7 @@ where
     /// exhausted. Returns the first entry for which `comparator` returns `false` or `None`.
     fn advance_while_false(&mut self, comparator: impl Fn(&K) -> bool) -> Option<(K, V)> {
         let mut entry = self.entries.get(self.index);
-        while entry.map_or(false, |entry| comparator(&entry.0)) {
+        while entry.is_some_and(|entry| comparator(&entry.0)) {
             self.index += 1;
             entry = self.entries.get(self.index);
         }

@@ -13,10 +13,6 @@
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-/// The implementation of a container for storing intermediate changes to a trie.
-/// The container indicates when the trie has been modified.
-pub mod prefix_set;
-
 /// The implementation of forward-only in-memory cursor.
 pub mod forward_cursor;
 
@@ -36,6 +32,10 @@ pub mod node_iter;
 mod state;
 pub use state::*;
 
+/// Input for trie computation.
+mod input;
+pub use input::TrieInput;
+
 /// Merkle proof generation.
 pub mod proof;
 
@@ -45,9 +45,6 @@ pub mod witness;
 /// The implementation of the Merkle Patricia Trie.
 mod trie;
 pub use trie::{StateRoot, StorageRoot};
-
-/// Buffer for trie updates.
-pub mod updates;
 
 /// Utilities for state root checkpoint progress.
 mod progress;

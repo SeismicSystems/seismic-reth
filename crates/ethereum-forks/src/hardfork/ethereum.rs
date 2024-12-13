@@ -1,4 +1,5 @@
 use crate::{hardfork, ChainHardforks, ForkCondition, Hardfork};
+use alloc::{boxed::Box, format, string::String};
 use alloy_chains::Chain;
 use alloy_primitives::{uint, U256};
 use core::{
@@ -8,9 +9,6 @@ use core::{
 };
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, string::String};
 
 hardfork!(
     /// The name of an Ethereum hardfork.
@@ -51,6 +49,8 @@ hardfork!(
         Cancun,
         /// Prague: <https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/prague.md>
         Prague,
+        /// Osaka: <https://eips.ethereum.org/EIPS/eip-7607>
+        Osaka,
     }
 );
 

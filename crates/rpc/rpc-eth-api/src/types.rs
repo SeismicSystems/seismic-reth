@@ -1,18 +1,21 @@
 //! Trait for specifying `eth` network dependent API types.
 
-use std::error::Error;
+use std::{
+    error::Error,
+    fmt::{self},
+};
 
-use alloy_network::{AnyNetwork, Network};
-use reth_primitives::Bytes;
-use reth_rpc_eth_types::EthApiError;
-use reth_rpc_types::{Block, Transaction, TransactionRequest, WithOtherFields};
-use serde::{Deserialize, Serialize};
+use alloy_network::Network;
+use alloy_rpc_types_eth::Block;
+use reth_provider::{ProviderTx, ReceiptProvider, TransactionsProvider};
+use reth_rpc_types_compat::TransactionCompat;
+use reth_transaction_pool::{PoolTransaction, TransactionPool};
 
-use crate::{AsEthApiError, FromEthApiError, FromEvmError};
+use crate::{AsEthApiError, FromEthApiError, FromEvmError, RpcNodeCore};
 
 /// Network specific `eth` API types.
 pub trait EthApiTypes: Send + Sync + Clone {
-    /// Extension of [`EthApiError`], with network specific errors.
+    /// Extension of [`FromEthApiError`], with network specific errors.
     type Error: Into<jsonrpsee_types::error::ErrorObject<'static>>
         + FromEthApiError
         + AsEthApiError
@@ -21,32 +24,59 @@ pub trait EthApiTypes: Send + Sync + Clone {
         + Send
         + Sync;
     /// Blockchain primitive types, specific to network, e.g. block and transaction.
-    // todo: remove restriction `reth_rpc_types::Transaction`
-    type NetworkTypes: Network<TransactionResponse = WithOtherFields<Transaction>>;
-}
+    type NetworkTypes: Network;
+    /// Conversion methods for transaction RPC type.
+    type TransactionCompat: Send + Sync + Clone + fmt::Debug;
 
-impl EthApiTypes for () {
-    type Error = EthApiError;
-    type NetworkTypes = AnyNetwork;
+    /// Returns reference to transaction response builder.
+    fn tx_resp_builder(&self) -> &Self::TransactionCompat;
 }
 
 /// Adapter for network specific transaction type.
 pub type RpcTransaction<T> = <T as Network>::TransactionResponse;
 
 /// Adapter for network specific block type.
-pub type RpcBlock<T> = Block<RpcTransaction<T>>;
+pub type RpcBlock<T> = Block<RpcTransaction<T>, <T as Network>::HeaderResponse>;
 
-/// Seismic specific types
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub struct SeismicFields {
-    /// Encrypted input data
-    pub encrypted_input: Bytes,
+/// Adapter for network specific receipt type.
+pub type RpcReceipt<T> = <T as Network>::ReceiptResponse;
+
+/// Adapter for network specific header type.
+pub type RpcHeader<T> = <T as Network>::HeaderResponse;
+
+/// Adapter for network specific error type.
+pub type RpcError<T> = <T as EthApiTypes>::Error;
+
+/// Helper trait holds necessary trait bounds on [`EthApiTypes`] to implement `eth` API.
+pub trait FullEthApiTypes
+where
+    Self: RpcNodeCore<
+            Provider: TransactionsProvider + ReceiptProvider,
+            Pool: TransactionPool<
+                Transaction: PoolTransaction<Consensus = ProviderTx<Self::Provider>>,
+            >,
+        > + EthApiTypes<
+            TransactionCompat: TransactionCompat<
+                <Self::Provider as TransactionsProvider>::Transaction,
+                Transaction = RpcTransaction<Self::NetworkTypes>,
+                Error = RpcError<Self>,
+            >,
+        >,
+{
 }
-/// RPC request for seismic transaction
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub struct RPCSeismicTransactionRequest {
-    /// Transaction request
-    pub request: TransactionRequest,
-    /// Seismic specific fields
-    pub seismic_fields: Option<SeismicFields>,
+
+impl<T> FullEthApiTypes for T where
+    T: RpcNodeCore<
+            Provider: TransactionsProvider + ReceiptProvider,
+            Pool: TransactionPool<
+                Transaction: PoolTransaction<Consensus = ProviderTx<Self::Provider>>,
+            >,
+        > + EthApiTypes<
+            TransactionCompat: TransactionCompat<
+                <Self::Provider as TransactionsProvider>::Transaction,
+                Transaction = RpcTransaction<T::NetworkTypes>,
+                Error = RpcError<T>,
+            >,
+        >
+{
 }

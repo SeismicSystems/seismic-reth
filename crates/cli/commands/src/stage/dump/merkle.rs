@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use super::setup;
+use alloy_primitives::BlockNumber;
 use eyre::Result;
 use reth_config::config::EtlConfig;
 use reth_db::{tables, DatabaseEnv};
@@ -6,9 +9,12 @@ use reth_db_api::{database::Database, table::TableImporter};
 use reth_db_common::DbTool;
 use reth_evm::noop::NoopBlockExecutorProvider;
 use reth_exex::ExExManagerHandle;
+use reth_node_api::NodePrimitives;
 use reth_node_core::dirs::{ChainPath, DataDirPath};
-use reth_primitives::BlockNumber;
-use reth_provider::{providers::StaticFileProvider, ProviderFactory};
+use reth_provider::{
+    providers::{ProviderNodeTypes, StaticFileProvider},
+    DatabaseProviderFactory, ProviderFactory,
+};
 use reth_prune::PruneModes;
 use reth_stages::{
     stages::{
@@ -19,13 +25,23 @@ use reth_stages::{
 };
 use tracing::info;
 
-pub(crate) async fn dump_merkle_stage<DB: Database>(
-    db_tool: &DbTool<DB>,
+pub(crate) async fn dump_merkle_stage<N>(
+    db_tool: &DbTool<N>,
     from: BlockNumber,
     to: BlockNumber,
     output_datadir: ChainPath<DataDirPath>,
     should_run: bool,
-) -> Result<()> {
+) -> Result<()>
+where
+    N: ProviderNodeTypes<
+        DB = Arc<DatabaseEnv>,
+        Primitives: NodePrimitives<
+            Block = reth_primitives::Block,
+            Receipt = reth_primitives::Receipt,
+            BlockHeader = reth_primitives::Header,
+        >,
+    >,
+{
     let (output_db, tip_block_number) = setup(from, to, &output_datadir.db(), db_tool)?;
 
     output_db.update(|tx| {
@@ -48,8 +64,8 @@ pub(crate) async fn dump_merkle_stage<DB: Database>(
 
     if should_run {
         dry_run(
-            ProviderFactory::new(
-                output_db,
+            ProviderFactory::<N>::new(
+                Arc::new(output_db),
                 db_tool.chain(),
                 StaticFileProvider::read_write(output_datadir.static_files())?,
             ),
@@ -62,14 +78,22 @@ pub(crate) async fn dump_merkle_stage<DB: Database>(
 }
 
 /// Dry-run an unwind to FROM block and copy the necessary table data to the new database.
-fn unwind_and_copy<DB: Database>(
-    db_tool: &DbTool<DB>,
+fn unwind_and_copy<
+    N: ProviderNodeTypes<
+        Primitives: NodePrimitives<
+            Block = reth_primitives::Block,
+            Receipt = reth_primitives::Receipt,
+            BlockHeader = reth_primitives::Header,
+        >,
+    >,
+>(
+    db_tool: &DbTool<N>,
     range: (u64, u64),
     tip_block_number: u64,
     output_db: &DatabaseEnv,
 ) -> eyre::Result<()> {
     let (from, to) = range;
-    let provider = db_tool.provider_factory.provider_rw()?;
+    let provider = db_tool.provider_factory.database_provider_rw()?;
 
     let unwind = UnwindInput {
         unwind_to: from,
@@ -88,7 +112,7 @@ fn unwind_and_copy<DB: Database>(
 
     // Bring Plainstate to TO (hashing stage execution requires it)
     let mut exec_stage = ExecutionStage::new(
-        NoopBlockExecutorProvider::default(), // Not necessary for unwinding.
+        NoopBlockExecutorProvider::<N::Primitives>::default(), // Not necessary for unwinding.
         ExecutionStageThresholds {
             max_blocks: Some(u64::MAX),
             max_changes: None,
@@ -140,13 +164,12 @@ fn unwind_and_copy<DB: Database>(
 }
 
 /// Try to re-execute the stage straight away
-fn dry_run<DB: Database>(
-    output_provider_factory: ProviderFactory<DB>,
-    to: u64,
-    from: u64,
-) -> eyre::Result<()> {
+fn dry_run<N>(output_provider_factory: ProviderFactory<N>, to: u64, from: u64) -> eyre::Result<()>
+where
+    N: ProviderNodeTypes<Primitives: NodePrimitives<BlockHeader = reth_primitives::Header>>,
+{
     info!(target: "reth::cli", "Executing stage.");
-    let provider = output_provider_factory.provider_rw()?;
+    let provider = output_provider_factory.database_provider_rw()?;
 
     let mut stage = MerkleStage::Execution {
         // Forces updating the root instead of calculating from scratch

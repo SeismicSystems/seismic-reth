@@ -2,6 +2,13 @@
 //! Standalone http tests
 
 use crate::utils::{launch_http, launch_http_ws, launch_ws};
+use alloy_eips::{BlockId, BlockNumberOrTag};
+use alloy_primitives::{hex_literal::hex, Address, Bytes, TxHash, B256, B64, U256, U64};
+use alloy_rpc_types_eth::{
+    transaction::TransactionRequest, Block, FeeHistory, Filter, Header, Index, Log,
+    PendingTransactionFilterKind, SyncStatus, Transaction, TransactionReceipt,
+};
+use alloy_rpc_types_trace::filter::TraceFilter;
 use jsonrpsee::{
     core::{
         client::{ClientT, SubscriptionClientT},
@@ -12,9 +19,7 @@ use jsonrpsee::{
     types::error::ErrorCode,
 };
 use reth_network_peers::NodeRecord;
-use reth_primitives::{
-    hex_literal::hex, Address, BlockId, BlockNumberOrTag, Bytes, TxHash, B256, B64, U256, U64,
-};
+use reth_primitives::Receipt;
 use reth_rpc_api::{
     clients::{AdminApiClient, EthApiClient},
     DebugApiClient, EthFilterApiClient, NetApiClient, OtterscanClient, TraceApiClient,
@@ -22,10 +27,6 @@ use reth_rpc_api::{
 };
 use reth_rpc_eth_api::types::RPCSeismicTransactionRequest;
 use reth_rpc_server_types::RethRpcModule;
-use reth_rpc_types::{
-    trace::filter::TraceFilter, Block, FeeHistory, Filter, Index, Log,
-    PendingTransactionFilterKind, SyncStatus, Transaction, TransactionReceipt, TransactionRequest,
-};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashSet;
@@ -174,102 +175,175 @@ where
     .unwrap();
 
     // Implemented
-    EthApiClient::<Transaction, Block>::protocol_version(client).await.unwrap();
-    EthApiClient::<Transaction, Block>::chain_id(client).await.unwrap();
-    EthApiClient::<Transaction, Block>::accounts(client).await.unwrap();
-    EthApiClient::<Transaction, Block>::get_account(client, address, block_number.into())
+    EthApiClient::<Transaction, Block, Receipt, Header>::protocol_version(client).await.unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::chain_id(client).await.unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::accounts(client).await.unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::get_account(
+        client,
+        address,
+        block_number.into(),
+    )
+    .await
+    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::block_number(client).await.unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::get_code(client, address, None)
         .await
         .unwrap();
-    EthApiClient::<Transaction, Block>::block_number(client).await.unwrap();
-    EthApiClient::<Transaction, Block>::get_code(client, address, None).await.unwrap();
-    EthApiClient::<Transaction, Block>::send_raw_transaction(client, tx.clone()).await.unwrap();
-    EthApiClient::<Transaction, Block>::fee_history(client, U64::from(0), block_number, None)
+    EthApiClient::<Transaction, Block, Receipt, Header>::send_raw_transaction(client, tx)
         .await
         .unwrap();
-    EthApiClient::<Transaction, Block>::balance(client, address, None).await.unwrap();
-    EthApiClient::<Transaction, Block>::transaction_count(client, address, None).await.unwrap();
-    EthApiClient::<Transaction, Block>::storage_at(client, address, U256::default().into(), None)
+    EthApiClient::<Transaction, Block, Receipt, Header>::fee_history(
+        client,
+        U64::from(0),
+        block_number,
+        None,
+    )
+    .await
+    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::balance(client, address, None)
         .await
         .unwrap();
-    EthApiClient::<Transaction, Block>::block_by_hash(client, hash, false).await.unwrap();
-    EthApiClient::<Transaction, Block>::block_by_number(client, block_number, false).await.unwrap();
-    EthApiClient::<Transaction, Block>::block_transaction_count_by_number(client, block_number)
+    EthApiClient::<Transaction, Block, Receipt, Header>::transaction_count(client, address, None)
         .await
         .unwrap();
-    EthApiClient::<Transaction, Block>::block_transaction_count_by_hash(client, hash)
+    EthApiClient::<Transaction, Block, Receipt, Header>::storage_at(
+        client,
+        address,
+        U256::default().into(),
+        None,
+    )
+    .await
+    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::block_by_hash(client, hash, false)
         .await
         .unwrap();
-    EthApiClient::<Transaction, Block>::block_uncles_count_by_hash(client, hash).await.unwrap();
-    EthApiClient::<Transaction, Block>::block_uncles_count_by_number(client, block_number)
+    EthApiClient::<Transaction, Block, Receipt, Header>::block_by_number(
+        client,
+        block_number,
+        false,
+    )
+    .await
+    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::block_transaction_count_by_number(
+        client,
+        block_number,
+    )
+    .await
+    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::block_transaction_count_by_hash(
+        client, hash,
+    )
+    .await
+    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::block_uncles_count_by_hash(client, hash)
         .await
         .unwrap();
-    EthApiClient::<Transaction, Block>::uncle_by_block_hash_and_index(client, hash, index)
-        .await
-        .unwrap();
-    EthApiClient::<Transaction, Block>::uncle_by_block_number_and_index(
+    EthApiClient::<Transaction, Block, Receipt, Header>::block_uncles_count_by_number(
+        client,
+        block_number,
+    )
+    .await
+    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::uncle_by_block_hash_and_index(
+        client, hash, index,
+    )
+    .await
+    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::uncle_by_block_number_and_index(
         client,
         block_number,
         index,
     )
     .await
     .unwrap();
-    EthApiClient::<Transaction, Block>::sign(client, address, bytes.clone()).await.unwrap_err();
-    EthApiClient::<Transaction, Block>::sign_typed_data(client, address, typed_data)
+    EthApiClient::<Transaction, Block, Receipt, Header>::sign(client, address, bytes.clone())
         .await
         .unwrap_err();
-    EthApiClient::<Transaction, Block>::transaction_by_hash(client, tx_hash).await.unwrap();
-    EthApiClient::<Transaction, Block>::transaction_by_block_hash_and_index(client, hash, index)
+    EthApiClient::<Transaction, Block, Receipt, Header>::sign_typed_data(
+        client, address, typed_data,
+    )
+    .await
+    .unwrap_err();
+    EthApiClient::<Transaction, Block, Receipt, Header>::transaction_by_hash(client, tx_hash)
         .await
         .unwrap();
-    EthApiClient::<Transaction, Block>::transaction_by_block_number_and_index(
+    EthApiClient::<Transaction, Block, Receipt, Header>::transaction_by_block_hash_and_index(
+        client, hash, index,
+    )
+    .await
+    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::transaction_by_block_number_and_index(
         client,
         block_number,
         index,
     )
     .await
     .unwrap();
-    EthApiClient::<Transaction, Block>::create_access_list(
+    EthApiClient::<Transaction, Block, Receipt, Header>::create_access_list(
         client,
         call_request.clone(),
         Some(block_number.into()),
     )
     .await
-    .unwrap();
-    EthApiClient::<Transaction, Block>::estimate_gas(
+    .unwrap_err();
+    EthApiClient::<Transaction, Block, Receipt, Header>::estimate_gas(
         client,
         call_request.clone(),
         Some(block_number.into()),
         None,
     )
     .await
+    .unwrap_err();
+    EthApiClient::<Transaction, Block, Receipt, Header>::call(
+        client,
+        call_request.clone(),
+        Some(block_number.into()),
+        None,
+        None,
+    )
+    .await
+    .unwrap_err();
+    EthApiClient::<Transaction, Block, Receipt, Header>::syncing(client).await.unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::send_transaction(
+        client,
+        transaction_request.clone(),
+    )
+    .await
+    .unwrap_err();
+    EthApiClient::<Transaction, Block, Receipt, Header>::sign_transaction(
+        client,
+        transaction_request,
+    )
+    .await
+    .unwrap_err();
+    EthApiClient::<Transaction, Block, Receipt, Header>::hashrate(client).await.unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::submit_hashrate(
+        client,
+        U256::default(),
+        B256::default(),
+    )
+    .await
     .unwrap();
-    EthApiClient::<Transaction, Block>::call(client, tx.clone(), Some(block_number.into()))
-        .await
-        .unwrap();
-    EthApiClient::<Transaction, Block>::syncing(client).await.unwrap();
-    EthApiClient::<Transaction, Block>::send_transaction(client, transaction_request)
+    EthApiClient::<Transaction, Block, Receipt, Header>::gas_price(client).await.unwrap_err();
+    EthApiClient::<Transaction, Block, Receipt, Header>::max_priority_fee_per_gas(client)
         .await
         .unwrap_err();
-    EthApiClient::<Transaction, Block>::hashrate(client).await.unwrap();
-    EthApiClient::<Transaction, Block>::submit_hashrate(client, U256::default(), B256::default())
+    EthApiClient::<Transaction, Block, Receipt, Header>::get_proof(client, address, vec![], None)
         .await
         .unwrap();
-    EthApiClient::<Transaction, Block>::gas_price(client).await.unwrap_err();
-    EthApiClient::<Transaction, Block>::max_priority_fee_per_gas(client).await.unwrap_err();
-    EthApiClient::<Transaction, Block>::get_proof(client, address, vec![], None).await.unwrap();
 
     // Unimplemented
     assert!(is_unimplemented(
-        EthApiClient::<Transaction, Block>::author(client).await.err().unwrap()
+        EthApiClient::<Transaction, Block, Receipt, Header>::author(client).await.err().unwrap()
     ));
     assert!(is_unimplemented(
-        EthApiClient::<Transaction, Block>::is_mining(client).await.err().unwrap()
+        EthApiClient::<Transaction, Block, Receipt, Header>::is_mining(client).await.err().unwrap()
     ));
     assert!(is_unimplemented(
-        EthApiClient::<Transaction, Block>::get_work(client).await.err().unwrap()
+        EthApiClient::<Transaction, Block, Receipt, Header>::get_work(client).await.err().unwrap()
     ));
     assert!(is_unimplemented(
-        EthApiClient::<Transaction, Block>::submit_work(
+        EthApiClient::<Transaction, Block, Receipt, Header>::submit_work(
             client,
             B64::default(),
             B256::default(),
@@ -278,12 +352,6 @@ where
         .await
         .err()
         .unwrap()
-    ));
-    assert!(is_unimplemented(
-        EthApiClient::<Transaction, Block>::sign_transaction(client, call_request.clone())
-            .await
-            .err()
-            .unwrap()
     ));
 }
 
@@ -329,13 +397,15 @@ where
         .unwrap_err();
     TraceApiClient::trace_call_many(client, vec![], Some(BlockNumberOrTag::Latest.into()))
         .await
-        .unwrap();
+        .unwrap_err();
     TraceApiClient::replay_transaction(client, B256::default(), HashSet::default())
         .await
         .err()
         .unwrap();
-    TraceApiClient::trace_block(client, block_id).await.unwrap();
-    TraceApiClient::replay_block_transactions(client, block_id, HashSet::default()).await.unwrap();
+    TraceApiClient::trace_block(client, block_id).await.unwrap_err();
+    TraceApiClient::replay_block_transactions(client, block_id, HashSet::default())
+        .await
+        .unwrap_err();
 
     TraceApiClient::trace_filter(client, trace_filter).await.unwrap();
 }
@@ -361,45 +431,73 @@ where
     let nonce = 1;
     let block_hash = B256::default();
 
-    OtterscanClient::get_header_by_number(client, block_number).await.unwrap();
-
-    OtterscanClient::has_code(client, address, None).await.unwrap();
-    OtterscanClient::has_code(client, address, Some(block_number)).await.unwrap();
-
-    OtterscanClient::get_api_level(client).await.unwrap();
-
-    OtterscanClient::get_internal_operations(client, tx_hash).await.unwrap();
-
-    OtterscanClient::get_transaction_error(client, tx_hash).await.unwrap();
-
-    OtterscanClient::trace_transaction(client, tx_hash).await.unwrap();
-
-    OtterscanClient::get_block_details(client, block_number).await.unwrap_err();
-
-    OtterscanClient::get_block_details_by_hash(client, block_hash).await.unwrap_err();
-
-    OtterscanClient::get_block_transactions(client, block_number, page_number, page_size)
+    OtterscanClient::<Transaction, Header>::get_header_by_number(client, block_number)
         .await
-        .err()
         .unwrap();
 
+    OtterscanClient::<Transaction, Header>::has_code(client, address, None).await.unwrap();
+    OtterscanClient::<Transaction, Header>::has_code(client, address, Some(block_number.into()))
+        .await
+        .unwrap();
+
+    OtterscanClient::<Transaction, Header>::get_api_level(client).await.unwrap();
+
+    OtterscanClient::<Transaction, Header>::get_internal_operations(client, tx_hash).await.unwrap();
+
+    OtterscanClient::<Transaction, Header>::get_transaction_error(client, tx_hash).await.unwrap();
+
+    OtterscanClient::<Transaction, Header>::trace_transaction(client, tx_hash).await.unwrap();
+
+    OtterscanClient::<Transaction, Header>::get_block_details(client, block_number)
+        .await
+        .unwrap_err();
+
+    OtterscanClient::<Transaction, Header>::get_block_details_by_hash(client, block_hash)
+        .await
+        .unwrap_err();
+
+    OtterscanClient::<Transaction, Header>::get_block_transactions(
+        client,
+        block_number,
+        page_number,
+        page_size,
+    )
+    .await
+    .err()
+    .unwrap();
+
     assert!(is_unimplemented(
-        OtterscanClient::search_transactions_before(client, address, block_number, page_size,)
-            .await
-            .err()
-            .unwrap()
-    ));
-    assert!(is_unimplemented(
-        OtterscanClient::search_transactions_after(client, address, block_number, page_size,)
-            .await
-            .err()
-            .unwrap()
-    ));
-    assert!(OtterscanClient::get_transaction_by_sender_and_nonce(client, sender, nonce)
+        OtterscanClient::<Transaction, Header>::search_transactions_before(
+            client,
+            address,
+            block_number,
+            page_size,
+        )
         .await
         .err()
+        .unwrap()
+    ));
+    assert!(is_unimplemented(
+        OtterscanClient::<Transaction, Header>::search_transactions_after(
+            client,
+            address,
+            block_number,
+            page_size,
+        )
+        .await
+        .err()
+        .unwrap()
+    ));
+    assert!(OtterscanClient::<Transaction, Header>::get_transaction_by_sender_and_nonce(
+        client, sender, nonce
+    )
+    .await
+    .err()
+    .is_none());
+    assert!(OtterscanClient::<Transaction, Header>::get_contract_creator(client, address)
+        .await
+        .unwrap()
         .is_none());
-    assert!(OtterscanClient::get_contract_creator(client, address).await.unwrap().is_none());
 }
 
 #[tokio::test(flavor = "multi_thread")]

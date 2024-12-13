@@ -1,5 +1,7 @@
 use super::request::BodiesRequestFuture;
 use crate::metrics::BodyDownloaderMetrics;
+use alloy_consensus::BlockHeader;
+use alloy_primitives::BlockNumber;
 use futures::{stream::FuturesUnordered, Stream};
 use futures_util::StreamExt;
 use reth_consensus::Consensus;
@@ -7,7 +9,8 @@ use reth_network_p2p::{
     bodies::{client::BodiesClient, response::BlockResponse},
     error::DownloadResult,
 };
-use reth_primitives::{BlockNumber, SealedHeader};
+use reth_primitives::SealedHeader;
+use reth_primitives_traits::InMemorySize;
 use std::{
     pin::Pin,
     sync::Arc,
@@ -17,18 +20,19 @@ use std::{
 /// The wrapper around [`FuturesUnordered`] that keeps information
 /// about the blocks currently being requested.
 #[derive(Debug)]
-pub(crate) struct BodiesRequestQueue<B: BodiesClient> {
+pub(crate) struct BodiesRequestQueue<H, B: BodiesClient> {
     /// Inner body request queue.
-    inner: FuturesUnordered<BodiesRequestFuture<B>>,
+    inner: FuturesUnordered<BodiesRequestFuture<H, B>>,
     /// The downloader metrics.
     metrics: BodyDownloaderMetrics,
     /// Last requested block number.
     pub(crate) last_requested_block_number: Option<BlockNumber>,
 }
 
-impl<B> BodiesRequestQueue<B>
+impl<H, B> BodiesRequestQueue<H, B>
 where
     B: BodiesClient + 'static,
+    H: BlockHeader,
 {
     /// Create new instance of request queue.
     pub(crate) fn new(metrics: BodyDownloaderMetrics) -> Self {
@@ -50,23 +54,23 @@ where
         self.inner.clear();
         self.last_requested_block_number.take();
     }
-
     /// Add new request to the queue.
     /// Expects a sorted list of headers.
     pub(crate) fn push_new_request(
         &mut self,
         client: Arc<B>,
-        consensus: Arc<dyn Consensus>,
-        request: Vec<SealedHeader>,
+        consensus: Arc<dyn Consensus<H, B::Body>>,
+        request: Vec<SealedHeader<H>>,
     ) {
         // Set last max requested block number
         self.last_requested_block_number = request
             .last()
             .map(|last| match self.last_requested_block_number {
-                Some(num) => last.number.max(num),
-                None => last.number,
+                Some(num) => last.number().max(num),
+                None => last.number(),
             })
             .or(self.last_requested_block_number);
+
         // Create request and push into the queue.
         self.inner.push(
             BodiesRequestFuture::new(client, consensus, self.metrics.clone()).with_headers(request),
@@ -74,11 +78,12 @@ where
     }
 }
 
-impl<B> Stream for BodiesRequestQueue<B>
+impl<H, B> Stream for BodiesRequestQueue<H, B>
 where
-    B: BodiesClient + 'static,
+    H: BlockHeader + Send + Sync + Unpin + 'static,
+    B: BodiesClient<Body: InMemorySize> + 'static,
 {
-    type Item = DownloadResult<Vec<BlockResponse>>;
+    type Item = DownloadResult<Vec<BlockResponse<H, B::Body>>>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.get_mut().inner.poll_next_unpin(cx)

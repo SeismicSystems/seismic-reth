@@ -1,14 +1,16 @@
 use crate::utils::{test_address, test_rpc_builder};
+use alloy_rpc_types_eth::{Block, Header, Receipt, Transaction};
 use jsonrpsee::{
     server::{middleware::rpc::RpcServiceT, RpcServiceBuilder},
     types::Request,
     MethodResponse,
 };
+use reth_chainspec::MAINNET;
+use reth_ethereum_engine_primitives::EthereumEngineValidator;
 use reth_rpc::EthApi;
 use reth_rpc_builder::{RpcServerConfig, TransportRpcModuleConfig};
 use reth_rpc_eth_api::EthApiClient;
 use reth_rpc_server_types::RpcModuleSelection;
-use reth_rpc_types::{Block, Transaction};
 use std::{
     future::Future,
     pin::Pin,
@@ -63,6 +65,7 @@ async fn test_rpc_middleware() {
     let modules = builder.build(
         TransportRpcModuleConfig::set_http(RpcModuleSelection::All),
         Box::new(EthApi::with_spawner),
+        Arc::new(EthereumEngineValidator::new(MAINNET.clone())),
     );
 
     let mylayer = MyMiddlewareLayer::default();
@@ -75,7 +78,7 @@ async fn test_rpc_middleware() {
         .unwrap();
 
     let client = handle.http_client().unwrap();
-    EthApiClient::<Transaction, Block>::protocol_version(&client).await.unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::protocol_version(&client).await.unwrap();
     let count = mylayer.count.load(Ordering::Relaxed);
     assert_eq!(count, 1);
 }

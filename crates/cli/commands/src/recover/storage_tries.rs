@@ -1,5 +1,7 @@
-use crate::common::{AccessRights, Environment, EnvironmentArgs};
+use crate::common::{AccessRights, CliNodeTypes, Environment, EnvironmentArgs};
 use clap::Parser;
+use reth_chainspec::{EthChainSpec, EthereumHardforks};
+use reth_cli::chainspec::ChainSpecParser;
 use reth_cli_runner::CliContext;
 use reth_db::tables;
 use reth_db_api::{
@@ -13,21 +15,24 @@ use tracing::*;
 
 /// `reth recover storage-tries` command
 #[derive(Debug, Parser)]
-pub struct Command {
+pub struct Command<C: ChainSpecParser> {
     #[command(flatten)]
-    env: EnvironmentArgs,
+    env: EnvironmentArgs<C>,
 }
 
-impl Command {
+impl<C: ChainSpecParser<ChainSpec: EthChainSpec + EthereumHardforks>> Command<C> {
     /// Execute `storage-tries` recovery command
-    pub async fn execute(self, _ctx: CliContext) -> eyre::Result<()> {
-        let Environment { provider_factory, .. } = self.env.init(AccessRights::RW)?;
+    pub async fn execute<N: CliNodeTypes<ChainSpec = C::ChainSpec>>(
+        self,
+        _ctx: CliContext,
+    ) -> eyre::Result<()> {
+        let Environment { provider_factory, .. } = self.env.init::<N>(AccessRights::RW)?;
 
         let mut provider = provider_factory.provider_rw()?;
         let best_block = provider.best_block_number()?;
         let best_header = provider
             .sealed_header(best_block)?
-            .ok_or(ProviderError::HeaderNotFound(best_block.into()))?;
+            .ok_or_else(|| ProviderError::HeaderNotFound(best_block.into()))?;
 
         let mut deleted_tries = 0;
         let tx_mut = provider.tx_mut();

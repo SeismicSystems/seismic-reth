@@ -1,23 +1,25 @@
 //! Command that initializes the node from a genesis file.
 
-use crate::common::{AccessRights, Environment, EnvironmentArgs};
+use crate::common::{AccessRights, CliNodeTypes, Environment, EnvironmentArgs};
 use clap::Parser;
+use reth_chainspec::{EthChainSpec, EthereumHardforks};
+use reth_cli::chainspec::ChainSpecParser;
 use reth_provider::BlockHashReader;
 use tracing::info;
 
 /// Initializes the database with the genesis block.
 #[derive(Debug, Parser)]
-pub struct InitCommand {
+pub struct InitCommand<C: ChainSpecParser> {
     #[command(flatten)]
-    env: EnvironmentArgs,
+    env: EnvironmentArgs<C>,
 }
 
-impl InitCommand {
+impl<C: ChainSpecParser<ChainSpec: EthChainSpec + EthereumHardforks>> InitCommand<C> {
     /// Execute the `init` command
-    pub async fn execute(self) -> eyre::Result<()> {
+    pub async fn execute<N: CliNodeTypes<ChainSpec = C::ChainSpec>>(self) -> eyre::Result<()> {
         info!(target: "reth::cli", "reth init starting");
 
-        let Environment { provider_factory, .. } = self.env.init(AccessRights::RW)?;
+        let Environment { provider_factory, .. } = self.env.init::<N>(AccessRights::RW)?;
 
         let hash = provider_factory
             .block_hash(0)?
