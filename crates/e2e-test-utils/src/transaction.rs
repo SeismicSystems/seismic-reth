@@ -208,6 +208,7 @@ pub fn seismic_tx(
         .expect("32 bytes, within curve order");
     let tee_wallet = MockWallet {};
 
+    // TODO: unclear why we need to RLP-encode/decode here
     let mut data = Vec::new();
     decrypted_input.encode(&mut data);
 
