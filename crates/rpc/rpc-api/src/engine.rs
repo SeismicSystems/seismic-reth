@@ -13,7 +13,9 @@ use reth_rpc_types::{
         ClientVersionV1, ExecutionPayloadBodiesV1, ExecutionPayloadBodiesV2,
         ExecutionPayloadInputV2, ExecutionPayloadV1, ExecutionPayloadV3, ExecutionPayloadV4,
         ForkchoiceState, ForkchoiceUpdated, PayloadId, PayloadStatus, TransitionConfiguration,
-    }, state::StateOverride, BlockOverrides, EIP1186AccountProofResponse, Filter, JsonStorageKey, Log, SyncStatus
+    },
+    state::StateOverride,
+    BlockOverrides, EIP1186AccountProofResponse, Filter, JsonStorageKey, Log, SyncStatus,
 };
 // NOTE: We can't use associated types in the `EngineApi` trait because of jsonrpsee, so we use a
 // generic here. It would be nice if the rpc macro would understand which types need to have serde.
@@ -234,7 +236,7 @@ pub trait EngineEthApi<B: RpcObject> {
     /// Executes a new message call immediately without creating a transaction on the block chain.
     #[method(name = "call")]
     async fn call(
-        &self, 
+        &self,
         request: SeismicCallRequest,
         block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,

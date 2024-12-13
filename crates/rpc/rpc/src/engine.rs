@@ -6,7 +6,8 @@ use reth_rpc_api::{EngineEthApiServer, EthApiServer, EthFilterApiServer};
 pub use reth_rpc_engine_api::EngineApi;
 use reth_rpc_eth_api::{types::SeismicCallRequest, EthApiTypes, RpcBlock, RpcTransaction};
 use reth_rpc_types::{
-    state::StateOverride, BlockOverrides, EIP1186AccountProofResponse, Filter, JsonStorageKey, Log, SyncStatus, WithOtherFields
+    state::StateOverride, BlockOverrides, EIP1186AccountProofResponse, Filter, JsonStorageKey, Log,
+    SyncStatus, WithOtherFields,
 };
 use tracing_futures::Instrument;
 
@@ -65,13 +66,17 @@ where
     }
 
     /// Handler for: `eth_call`
-    async fn call(&self,
+    async fn call(
+        &self,
         request: SeismicCallRequest,
         block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> Result<Bytes> {
-        self.eth.call(request, block_number, state_overrides, block_overrides).instrument(engine_span!()).await
+        self.eth
+            .call(request, block_number, state_overrides, block_overrides)
+            .instrument(engine_span!())
+            .await
     }
 
     /// Handler for: `eth_getCode`
