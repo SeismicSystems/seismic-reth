@@ -507,7 +507,7 @@ mod tests {
             DEFAULT_ETH_PROOF_WINDOW,
             BlockingTaskPool::build().expect("failed to build tracing pool"),
             fee_history_cache,
-            evm_config.clone(),
+            evm_config,
             DEFAULT_PROOF_PERMITS,
         )
     }

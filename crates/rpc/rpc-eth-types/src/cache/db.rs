@@ -8,7 +8,6 @@ use reth_revm::{database::StateProviderDatabase, db::CacheDB, DatabaseRef};
 use reth_storage_api::{HashedPostStateProvider, StateProvider};
 use reth_trie::{HashedStorage, MultiProofTargets};
 use revm::Database;
-use revm_primitives::FlaggedStorage;
 
 /// Helper alias type for the state's [`CacheDB`]
 pub type StateCacheDb<'a> = CacheDB<StateProviderDatabase<StateProviderTraitObjWrapper<'a>>>;
@@ -206,7 +205,7 @@ impl<'a> Database for StateCacheDbRefMutWrapper<'a, '_> {
         &mut self,
         address: revm_primitives::Address,
         index: U256,
-    ) -> Result<FlaggedStorage, Self::Error> {
+    ) -> Result<U256, Self::Error> {
         self.0.storage(address, index)
     }
 
@@ -233,7 +232,7 @@ impl<'a> DatabaseRef for StateCacheDbRefMutWrapper<'a, '_> {
         &self,
         address: revm_primitives::Address,
         index: U256,
-    ) -> Result<FlaggedStorage, Self::Error> {
+    ) -> Result<U256, Self::Error> {
         self.0.storage_ref(address, index)
     }
 

@@ -222,33 +222,13 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
     /// Executes the call request (`eth_call`) and returns the output
     fn call(
         &self,
-        request: Bytes,
+        request: TransactionRequest,
         block_number: Option<BlockId>,
+        overrides: EvmOverrides,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
-            // `call` must be accompanied with a valid signature.
-            let tx = recover_raw_transaction(request.clone())?.into_ecrecovered_transaction();
-
-            let (cfg, block, at) = self.evm_env_at(block_number.unwrap_or_default()).await?;
-
-            let env = EnvWithHandlerCfg::new_with_cfg_env(
-                cfg,
-                block,
-                Call::evm_config(self)
-                    .tx_env(&tx)
-                    .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
-            );
-
-            let this = self.clone();
-
-            let (res, _) = self
-                .spawn_with_state_at_block(at, move |state| {
-                    let db = CacheDB::new(StateProviderDatabase::new(
-                        StateProviderTraitObjWrapper(&state),
-                    ));
-                    this.transact(db, env)
-                })
-                .await?;
+            let (res, _env) =
+                self.transact_call_at(request, block_number.unwrap_or_default(), overrides).await?;
 
             ensure_success(res.result).map_err(Self::Error::from_eth_err)
         }

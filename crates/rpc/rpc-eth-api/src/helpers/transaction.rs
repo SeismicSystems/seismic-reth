@@ -378,7 +378,6 @@ pub trait EthTransactions: LoadTransaction<Provider: BlockReaderIdExt> {
                     transaction,
                 )
                 .map_err(|_| EthApiError::TransactionConversionError)?;
-            // seismic todo
 
             // submit the transaction to the pool with a `Local` origin
             let hash = self

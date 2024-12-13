@@ -219,7 +219,13 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
 
     /// Executes a new message call immediately without creating a transaction on the block chain.
     #[method(name = "call")]
-    async fn call(&self, request: Bytes, block_number: Option<BlockId>) -> RpcResult<Bytes>;
+    async fn call(
+        &self,
+        request: TransactionRequest,
+        block_number: Option<BlockId>,
+        state_overrides: Option<StateOverride>,
+        block_overrides: Option<Box<BlockOverrides>>,
+    ) -> RpcResult<Bytes>;
 
     /// Simulate arbitrary number of transactions at an arbitrary blockchain index, with the
     /// optionality of state overrides
@@ -325,7 +331,7 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
     /// Sends transaction; will block waiting for signer to return the
     /// transaction hash.
     #[method(name = "sendTransaction")]
-    async fn send_transaction(&self, request: RPCSeismicTransactionRequest) -> RpcResult<B256>;
+    async fn send_transaction(&self, request: TransactionRequest) -> RpcResult<B256>;
 
     /// Sends signed transaction, returning its hash.
     #[method(name = "sendRawTransaction")]
@@ -630,9 +636,21 @@ where
     }
 
     /// Handler for: `eth_call`
-    async fn call(&self, request: Bytes, block_number: Option<BlockId>) -> RpcResult<Bytes> {
-        trace!(target: "rpc::eth", ?request, "Serving seismic_call");
-        Ok(EthCall::call(self, request, block_number).await?)
+    async fn call(
+        &self,
+        request: TransactionRequest,
+        block_number: Option<BlockId>,
+        state_overrides: Option<StateOverride>,
+        block_overrides: Option<Box<BlockOverrides>>,
+    ) -> RpcResult<Bytes> {
+        trace!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving eth_call");
+        Ok(EthCall::call(
+            self,
+            request,
+            block_number,
+            EvmOverrides::new(state_overrides, block_overrides),
+        )
+        .await?)
     }
 
     /// Handler for: `eth_callMany`
@@ -751,7 +769,7 @@ where
     }
 
     /// Handler for: `eth_sendTransaction`
-    async fn send_transaction(&self, request: RPCSeismicTransactionRequest) -> RpcResult<B256> {
+    async fn send_transaction(&self, request: TransactionRequest) -> RpcResult<B256> {
         trace!(target: "rpc::eth", ?request, "Serving eth_sendTransaction");
         Ok(EthTransactions::send_transaction(self, request).await?)
     }
