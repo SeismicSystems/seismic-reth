@@ -25,8 +25,11 @@ pub struct MockTeeServer {
 }
 
 async fn error_handler(err: routerify::RouteError, _: RequestInfo) -> Response<Body> {
+<<<<<<< HEAD
     println!("\n\nError: {:?}\n\n", err);
     eprintln!("{}", err);
+=======
+>>>>>>> 464b7142c4485df8b54e495871ae9f1b6187d7e8
     Response::builder()
         .status(StatusCode::INTERNAL_SERVER_ERROR)
         .body(Body::from(format!("Something went wrong: {}", err)))
@@ -133,13 +136,11 @@ impl MockWallet {
     fn generate_aes_key(private_key: &secp256k1::SecretKey) -> Result<Key<Aes256Gcm>> {
         let ecdh_pk = get_sample_secp256k1_pk();
         let shared_secret = SharedSecret::new(&ecdh_pk, private_key);
-
         let aes_key = derive_aes_key(&shared_secret)
             .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
         Ok(aes_key)
     }
 }
-
 
 impl WalletAPI for MockWallet {
     fn encrypt(
@@ -148,7 +149,7 @@ impl WalletAPI for MockWallet {
         nonce: u64,
         private_key: &secp256k1::SecretKey,
     ) -> Result<Vec<u8>, anyhow::Error> {
-        let aes_key = MockWallet::generate_aes_key(private_key)?;        
+        let aes_key = MockWallet::generate_aes_key(private_key)?;
         let encrypted_data = aes_encrypt(&aes_key, &data, nonce)?;
         Ok(encrypted_data)
     }

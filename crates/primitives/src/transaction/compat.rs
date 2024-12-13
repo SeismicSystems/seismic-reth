@@ -137,7 +137,7 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                     Vec::<u8>::from(tx.input().as_ref()),
                     tx.nonce().clone(),
                 )
-                .map_err(|e| EVMError::Database(TeeError::DecryptionError(e.to_string())))?;
+                .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
 
                 let data = Bytes::decode(&mut decrypted_input.as_slice())
                     .map_err(|e| EVMError::Database(TeeError::CodingError(e)))?;
