@@ -1,6 +1,7 @@
+use aes_gcm::{Aes256Gcm, Key};
 use anyhow::{anyhow, Result};
-use hyper::{body::to_bytes, Body, Request, Response, Server};
-use routerify::{Router, RouterService};
+use hyper::{body::to_bytes, Body, Request, Response, Server, StatusCode};
+use routerify::{RequestInfo, Router, RouterService};
 use secp256k1::ecdh::SharedSecret;
 use std::{convert::Infallible, net::SocketAddr, str::FromStr};
 
@@ -23,6 +24,13 @@ pub struct MockTeeServer {
     addr: SocketAddr,
 }
 
+async fn error_handler(err: routerify::RouteError, _: RequestInfo) -> Response<Body> {
+    Response::builder()
+        .status(StatusCode::INTERNAL_SERVER_ERROR)
+        .body(Body::from(format!("Something went wrong: {}", err)))
+        .unwrap()
+}
+
 impl MockTeeServer {
     /// create a new tee mock server that runs on the given address
     pub fn new(addr: &str) -> Self {
@@ -34,6 +42,7 @@ impl MockTeeServer {
         let router = Router::builder()
             .post("/tx_io/encrypt", MockTeeServer::handle_io_encrypt)
             .post("/tx_io/decrypt", MockTeeServer::handle_io_decrypt)
+            .err_handler_with_info(error_handler)
             .build()
             .unwrap();
 
@@ -93,7 +102,7 @@ impl TeeAPI for MockTeeClient {
 
         let aes_key = derive_aes_key(&shared_secret)
             .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
-        let encrypted_data = aes_encrypt(&aes_key, &payload.data, payload.nonce);
+        let encrypted_data = aes_encrypt(&aes_key, &payload.data, payload.nonce)?;
 
         Ok(IoEncryptionResponse { encrypted_data })
     }
@@ -108,8 +117,7 @@ impl TeeAPI for MockTeeClient {
 
         let aes_key = derive_aes_key(&shared_secret)
             .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
-        let decrypted_data = aes_decrypt(&aes_key, &payload.data, payload.nonce)
-            .map_err(|e| anyhow!("Decryption error: {:?}", e))?;
+        let decrypted_data = aes_decrypt(&aes_key, &payload.data, payload.nonce)?;
 
         Ok(IoDecryptionResponse { decrypted_data })
     }
@@ -118,6 +126,17 @@ impl TeeAPI for MockTeeClient {
 /// MockWallet is the wallet that has tee public key to encrypt transactions
 #[derive(Debug)]
 pub struct MockWallet {}
+
+impl MockWallet {
+    fn generate_aes_key(private_key: &secp256k1::SecretKey) -> Result<Key<Aes256Gcm>> {
+        let ecdh_pk = get_sample_secp256k1_pk();
+        let shared_secret = SharedSecret::new(&ecdh_pk, private_key);
+        let aes_key = derive_aes_key(&shared_secret)
+            .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
+        Ok(aes_key)
+    }
+}
+
 impl WalletAPI for MockWallet {
     fn encrypt(
         &self,
@@ -125,12 +144,8 @@ impl WalletAPI for MockWallet {
         nonce: u64,
         private_key: &secp256k1::SecretKey,
     ) -> Result<Vec<u8>, anyhow::Error> {
-        let ecdh_pk = get_sample_secp256k1_pk();
-        let shared_secret = SharedSecret::new(&ecdh_pk, private_key);
-
-        let aes_key = derive_aes_key(&shared_secret)
-            .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
-        let encrypted_data = aes_encrypt(&aes_key, &data, nonce);
+        let aes_key = MockWallet::generate_aes_key(private_key)?;
+        let encrypted_data = aes_encrypt(&aes_key, &data, nonce)?;
         Ok(encrypted_data)
     }
 }
