@@ -14,6 +14,7 @@ use reth_trie::{
 };
 use reth_trie_common::{HashBuilder, Nibbles};
 use reth_trie_sparse::SparseTrie;
+use revm_primitives::FlaggedStorage;
 
 pub fn calculate_root_from_leaves(c: &mut Criterion) {
     let mut group = c.benchmark_group("calculate root from leaves");
@@ -26,7 +27,7 @@ pub fn calculate_root_from_leaves(c: &mut Criterion) {
         group.bench_function(BenchmarkId::new("hash builder", size), |b| {
             b.iter_with_setup(HashBuilder::default, |mut hb| {
                 for (key, value) in state.iter().sorted_by_key(|(key, _)| *key) {
-                    hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(value));
+                    hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value.value));
                 }
                 hb.root();
             })
@@ -39,7 +40,7 @@ pub fn calculate_root_from_leaves(c: &mut Criterion) {
                     sparse
                         .update_leaf(
                             Nibbles::unpack(key),
-                            alloy_rlp::encode_fixed_size(value).to_vec(),
+                            alloy_rlp::encode_fixed_size(&value.value).to_vec(),
                         )
                         .unwrap();
                 }
@@ -80,7 +81,7 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                             for (key, value) in init_state.iter().sorted_by_key(|(key, _)| *key) {
                                 hb.add_leaf(
                                     Nibbles::unpack(key),
-                                    &alloy_rlp::encode_fixed_size(value),
+                                    &alloy_rlp::encode_fixed_size(&value.value),
                                 );
                             }
                             hb.root();
@@ -138,7 +139,7 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                         TrieElement::Leaf(hashed_slot, value) => {
                                             hb.add_leaf(
                                                 Nibbles::unpack(hashed_slot),
-                                                alloy_rlp::encode_fixed_size(&value).as_ref(),
+                                                alloy_rlp::encode_fixed_size(&value.value).as_ref(),
                                             );
                                         }
                                     }
@@ -166,7 +167,7 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                 sparse
                                     .update_leaf(
                                         Nibbles::unpack(key),
-                                        alloy_rlp::encode_fixed_size(value).to_vec(),
+                                        alloy_rlp::encode_fixed_size(&value.value).to_vec(),
                                     )
                                     .unwrap();
                             }
@@ -179,7 +180,7 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                     sparse
                                         .update_leaf(
                                             Nibbles::unpack(key),
-                                            alloy_rlp::encode_fixed_size(value).to_vec(),
+                                            alloy_rlp::encode_fixed_size(&value.value).to_vec(),
                                         )
                                         .unwrap();
                                 }
@@ -193,9 +194,9 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
     }
 }
 
-fn generate_test_data(size: usize) -> B256HashMap<U256> {
+fn generate_test_data(size: usize) -> B256HashMap<FlaggedStorage> {
     let mut runner = TestRunner::new(ProptestConfig::default());
-    proptest::collection::hash_map(any::<B256>(), any::<U256>(), size)
+    proptest::collection::hash_map(any::<B256>(), any::<FlaggedStorage>(), size)
         .new_tree(&mut runner)
         .unwrap()
         .current()

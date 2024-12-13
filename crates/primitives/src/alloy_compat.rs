@@ -125,38 +125,6 @@ impl TryFrom<AnyRpcTransaction> for TransactionSigned {
                 let (tx, signature, hash) = tx.into_parts();
                 (Transaction::Eip7702(tx), signature, hash)
             }
-            AnyTxEnvelope::Unknown(alloy_network::UnknownTxEnvelope { hash, inner }) => {
-
-                use alloy_consensus::{Transaction as _, Typed2718};
-
-                if inner.ty() == crate::TxType::Seismic {
-                    let fields: op_alloy_rpc_types::OpTransactionFields = inner
-                        .fields
-                        .clone()
-                        .deserialize_into::<op_alloy_rpc_types::OpTransactionFields>()
-                        .map_err(|e| ConversionError::Custom(e.to_string()))?;
-                    (
-                        Transaction::Deposit(op_alloy_consensus::TxDeposit {
-                            source_hash: fields.source_hash.ok_or_else(|| {
-                                ConversionError::Custom("MissingSourceHash".to_string())
-                            })?,
-                            from: tx.from,
-                            to: revm_primitives::TxKind::from(inner.to()),
-                            mint: fields.mint.filter(|n| *n != 0),
-                            value: inner.value(),
-                            gas_limit: inner.gas_limit(),
-                            is_system_transaction: fields.is_system_tx.unwrap_or(false),
-                            input: inner.input().clone(),
-                        }),
-                        op_alloy_consensus::TxDeposit::signature(),
-                        hash,
-                    )
-                } else {
-                    return Err(ConversionError::Custom("unknown transaction type".to_string()))
-                }
-                // let (tx, signature, hash) = tx.into_parts();
-                // (Transaction::Seismic(tx), signature, hash)
-            }
             #[cfg(feature = "optimism")]
             AnyTxEnvelope::Unknown(alloy_network::UnknownTxEnvelope { hash, inner }) => {
                 use alloy_consensus::{Transaction as _, Typed2718};

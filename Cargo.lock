@@ -9807,6 +9807,7 @@ dependencies = [
  "reth-trie",
  "reth-trie-common",
  "reth-trie-db",
+ "revm-primitives",
  "thiserror 2.0.7",
  "tokio",
  "tracing",
@@ -9832,6 +9833,7 @@ dependencies = [
  "reth-tracing",
  "reth-trie",
  "reth-trie-common",
+ "revm-primitives",
  "smallvec",
  "thiserror 2.0.7",
 ]
