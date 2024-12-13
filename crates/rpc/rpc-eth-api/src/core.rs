@@ -691,7 +691,7 @@ where
                     EvmOverrides::new(state_overrides, block_overrides),
                 )
                 .await?)
-            },
+            }
         }
     }
 
