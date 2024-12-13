@@ -139,6 +139,7 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                 )
                 .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
 
+                // TODO: unclear why we need to RLP-encode/decode here
                 let data = Bytes::decode(&mut decrypted_input.as_slice())
                     .map_err(|e| EVMError::Database(TeeError::CodingError(e)))?;
 
