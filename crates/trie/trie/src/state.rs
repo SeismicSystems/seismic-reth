@@ -374,7 +374,7 @@ mod tests {
         let hashed_slot2 = B256::with_last_byte(65);
 
         // Initialize post state storage
-        let original_slot_value = U256::from(123);
+        let original_slot_value = FlaggedStorage::new(123, true);
         let mut hashed_state = HashedPostState::default().with_storages([(
             hashed_address,
             HashedStorage::from_iter(
@@ -384,7 +384,7 @@ mod tests {
         )]);
 
         // Update single slot value
-        let updated_slot_value = U256::from(321);
+        let updated_slot_value = FlaggedStorage::new_from_tuple((321, false));
         let extension = HashedPostState::default().with_storages([(
             hashed_address,
             HashedStorage::from_iter(false, [(hashed_slot, updated_slot_value)]),
@@ -457,7 +457,7 @@ mod tests {
         let mut storage = StorageWithOriginalValues::default();
         storage.insert(
             U256::from(1),
-            StorageSlot { present_value: U256::from(4), ..Default::default() },
+            StorageSlot { present_value: FlaggedStorage::new_from_value(4), ..Default::default() },
         );
 
         // Create a `BundleAccount` struct to represent the account and its storage.
@@ -499,7 +499,7 @@ mod tests {
         };
 
         let mut storage = PlainStorage::default();
-        storage.insert(U256::from(1), U256::from(35636));
+        storage.insert(U256::from(1), FlaggedStorage::new_from_value(35636));
 
         // Create a `CacheAccount` with the mock account info.
         let account = CacheAccount {
