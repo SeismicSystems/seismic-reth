@@ -4,6 +4,7 @@ use hyper::{body::to_bytes, Body, Request, Response, Server, StatusCode};
 use routerify::{RequestInfo, Router, RouterService};
 use secp256k1::ecdh::SharedSecret;
 use std::{convert::Infallible, net::SocketAddr, str::FromStr};
+use tracing::debug;
 
 use crate::{TeeAPI, WalletAPI};
 use tee_service_api::{
@@ -114,6 +115,8 @@ impl TeeAPI for MockTeeClient {
         // load key and decrypt data
         let ecdh_sk = get_sample_secp256k1_sk();
         let shared_secret = SharedSecret::new(&payload.msg_sender, &ecdh_sk);
+
+        debug!(target: "reth::mock_client", ?payload);
 
         let aes_key = derive_aes_key(&shared_secret)
             .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
