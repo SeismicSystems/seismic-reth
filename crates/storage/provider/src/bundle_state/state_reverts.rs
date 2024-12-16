@@ -104,7 +104,7 @@ mod tests {
         // Create sample data for only reverts.
         let reverts = vec![
             (B256::from_slice(&[4; 32]), RevertToSlot::Destroyed),
-            (B256::from_slice(&[5; 32]), RevertToSlot::Some(FlaggedStorage::from(40))),
+            (B256::from_slice(&[5; 32]), RevertToSlot::Some(FlaggedStorage::new_from_value(40))),
         ];
 
         // Create the iterator with only reverts and no wiped entries.
@@ -118,7 +118,8 @@ mod tests {
             results,
             vec![
                 (B256::from_slice(&[4; 32]), FlaggedStorage::ZERO), // Revert slot previous value
-                (B256::from_slice(&[5; 32]), FlaggedStorage::from(40)), // Only revert present.
+                (B256::from_slice(&[5; 32]), FlaggedStorage::new_from_value(40)), /* Only revert
+                                                                     * present. */
             ]
         );
     }
@@ -127,8 +128,8 @@ mod tests {
     fn test_storage_reverts_iter_wiped_only() {
         // Create sample data for only wiped entries.
         let wiped = vec![
-            (B256::from_slice(&[6; 32]), FlaggedStorage::from(50)),
-            (B256::from_slice(&[7; 32]), FlaggedStorage::from(60)),
+            (B256::from_slice(&[6; 32]), FlaggedStorage::new_from_value(50)),
+            (B256::from_slice(&[7; 32]), FlaggedStorage::new_from_value(60)),
         ];
 
         // Create the iterator with only wiped entries and no reverts.
@@ -141,8 +142,10 @@ mod tests {
         assert_eq!(
             results,
             vec![
-                (B256::from_slice(&[6; 32]), FlaggedStorage::from(50)), // Only wiped present.
-                (B256::from_slice(&[7; 32]), FlaggedStorage::from(60)), // Only wiped present.
+                (B256::from_slice(&[6; 32]), FlaggedStorage::new_from_value(50)), /* Only wiped
+                                                                                   * present. */
+                (B256::from_slice(&[7; 32]), FlaggedStorage::new_from_value(60)), /* Only wiped
+                                                                                   * present. */
             ]
         );
     }
@@ -151,15 +154,15 @@ mod tests {
     fn test_storage_reverts_iter_interleaved() {
         // Create sample data for interleaved reverts and wiped entries.
         let reverts = vec![
-            (B256::from_slice(&[8; 32]), RevertToSlot::Some(FlaggedStorage::from(70))),
-            (B256::from_slice(&[9; 32]), RevertToSlot::Some(FlaggedStorage::from(80))),
+            (B256::from_slice(&[8; 32]), RevertToSlot::Some(FlaggedStorage::new_from_value(70))),
+            (B256::from_slice(&[9; 32]), RevertToSlot::Some(FlaggedStorage::new_from_value(80))),
             // Some higher key than wiped
-            (B256::from_slice(&[15; 32]), RevertToSlot::Some(FlaggedStorage::from(90))),
+            (B256::from_slice(&[15; 32]), RevertToSlot::Some(FlaggedStorage::new_from_value(90))),
         ];
 
         let wiped = vec![
-            (B256::from_slice(&[8; 32]), FlaggedStorage::from(75)), // Same key as revert
-            (B256::from_slice(&[10; 32]), FlaggedStorage::from(85)), // Wiped with new key
+            (B256::from_slice(&[8; 32]), FlaggedStorage::new_from_value(75)), // Same key as revert
+            (B256::from_slice(&[10; 32]), FlaggedStorage::new_from_value(85)), // Wiped with new key
         ];
 
         // Create the iterator with the sample data.
@@ -172,10 +175,11 @@ mod tests {
         assert_eq!(
             results,
             vec![
-                (B256::from_slice(&[8; 32]), FlaggedStorage::from(70)), // Revert takes priority.
-                (B256::from_slice(&[9; 32]), FlaggedStorage::from(80)), // Only revert present.
-                (B256::from_slice(&[10; 32]), FlaggedStorage::from(85)), // Wiped entry.
-                (B256::from_slice(&[15; 32]), FlaggedStorage::from(90)), // WGreater revert entry
+                (B256::from_slice(&[8; 32]), FlaggedStorage::new_from_value(70)), /* Revert takes priority. */
+                (B256::from_slice(&[9; 32]), FlaggedStorage::new_from_value(80)), /* Only revert
+                                                                                   * present. */
+                (B256::from_slice(&[10; 32]), FlaggedStorage::new_from_value(85)), // Wiped entry.
+                (B256::from_slice(&[15; 32]), FlaggedStorage::new_from_value(90)), /* WGreater revert entry */
             ]
         );
     }

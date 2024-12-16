@@ -956,6 +956,7 @@ mod tests {
         AccountProof, HashedStorage, MultiProof, MultiProofTargets, StorageMultiProof,
         StorageProof, TrieInput,
     };
+    use revm::primitives::FlaggedStorage;
 
     fn create_mock_state(
         test_block_builder: &mut TestBlockBuilder<EthPrimitives>,
@@ -995,7 +996,7 @@ mod tests {
             &self,
             _address: Address,
             _storage_key: StorageKey,
-        ) -> ProviderResult<Option<StorageValue>> {
+        ) -> ProviderResult<Option<FlaggedStorage>> {
             Ok(None)
         }
 

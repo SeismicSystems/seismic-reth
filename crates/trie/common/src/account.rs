@@ -33,10 +33,11 @@ impl From<GenesisAccount> for TrieAccount {
             .storage
             .map(|storage| {
                 storage_root_unhashed(
-                    storage
-                        .into_iter()
-                        .filter(|(_, value)| !value.is_zero())
-                        .map(|(slot, value)| (slot, FlaggedStorage::new_from_value(U256::from_be_bytes(*value)))),
+                    storage.into_iter().filter(|(_, value)| !value.is_zero()).map(
+                        |(slot, value)| {
+                            (slot, FlaggedStorage::new_from_value(U256::from_be_bytes(*value)))
+                        },
+                    ),
                 )
             })
             .unwrap_or(EMPTY_ROOT_HASH);
@@ -117,7 +118,7 @@ mod tests {
 
         let expected_storage_root = storage_root_unhashed(BTreeMap::from([(
             B256::from([0x01; 32]),
-            U256::from_be_bytes(*B256::from([0x02; 32])),
+            FlaggedStorage::from(U256::from_be_bytes(*B256::from([0x02; 32]))),
         )]));
 
         // Check that the fields are properly set.

@@ -258,6 +258,7 @@ mod tests {
     use reth_primitives::{Account, StorageEntry};
     use reth_provider::{test_utils::create_test_provider_factory, HashingWriter};
     use reth_trie::{test_utils, HashedPostState, HashedStorage};
+    use revm_primitives::FlaggedStorage;
 
     #[tokio::test]
     async fn random_parallel_root() {
@@ -295,9 +296,11 @@ mod tests {
                 .insert_storage_for_hashing(state.iter().map(|(address, (_, storage))| {
                     (
                         *address,
-                        storage
-                            .iter()
-                            .map(|(slot, value)| StorageEntry { key: *slot, value: *value }),
+                        storage.iter().map(|(slot, value)| StorageEntry {
+                            key: *slot,
+                            value: *value,
+                            is_private: false,
+                        }),
                     )
                 }))
                 .unwrap();
@@ -331,7 +334,7 @@ mod tests {
                         .entry(hashed_address)
                         .or_insert_with(HashedStorage::default)
                         .storage
-                        .insert(hashed_slot, *value);
+                        .insert(hashed_slot, FlaggedStorage::from(*value));
                 }
             }
         }

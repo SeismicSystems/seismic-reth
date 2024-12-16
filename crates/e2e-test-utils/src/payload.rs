@@ -38,6 +38,7 @@ impl<T: PayloadTypes> PayloadTestContext<T> {
         self.payload_builder.send_new_payload(attributes.clone()).await.unwrap()?;
         Ok(attributes)
     }
+
     /// Asserts that the next event is a payload attributes event
     pub async fn expect_attr_event(
         &mut self,
@@ -73,15 +74,4 @@ impl<T: PayloadTypes> PayloadTestContext<T> {
             panic!("Expect a built payload event.");
         }
     }
-}
-
-pub fn eth_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
-    let attributes = PayloadAttributes {
-        timestamp,
-        prev_randao: B256::ZERO,
-        suggested_fee_recipient: Address::ZERO,
-        withdrawals: Some(vec![]),
-        parent_beacon_block_root: Some(B256::ZERO),
-    };
-    EthPayloadBuilderAttributes::new(B256::ZERO, attributes)
 }

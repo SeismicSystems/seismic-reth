@@ -19,8 +19,8 @@ use reth_trie::{
 };
 use reth_trie_db::{DatabaseHashedCursorFactory, DatabaseTrieCursorFactory};
 use revm_primitives::{
-    Account as RevmAccount, AccountInfo, AccountStatus, Address, EvmState, EvmStorageSlot, HashMap,
-    B256, KECCAK_EMPTY, U256,
+    Account as RevmAccount, AccountInfo, AccountStatus, Address, EvmState, EvmStorageSlot,
+    FlaggedStorage, HashMap, B256, KECCAK_EMPTY, U256,
 };
 use std::sync::Arc;
 
@@ -48,7 +48,10 @@ fn create_bench_state_updates(params: &BenchParams) -> Vec<EvmState> {
                 let slot = U256::from(rng.gen::<u64>());
                 storage.insert(
                     slot,
-                    EvmStorageSlot::new_changed(U256::ZERO, U256::from(rng.gen::<u64>())),
+                    EvmStorageSlot::new_changed(
+                        FlaggedStorage::ZERO,
+                        FlaggedStorage::new_from_value(rng.gen::<u64>()),
+                    ),
                 );
             }
 
@@ -99,7 +102,8 @@ fn setup_provider(
         let storage_updates = update.iter().map(|(address, account)| {
             let storage_entries = account.storage.iter().map(|(slot, value)| StorageEntry {
                 key: B256::from(*slot),
-                value: value.present_value,
+                value: value.present_value.value,
+                is_private: value.present_value.is_private,
             });
             (*address, storage_entries)
         });

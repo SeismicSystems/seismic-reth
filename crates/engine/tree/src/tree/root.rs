@@ -698,7 +698,7 @@ mod tests {
     use reth_trie_db::{DatabaseHashedCursorFactory, DatabaseTrieCursorFactory};
     use revm_primitives::{
         Account as RevmAccount, AccountInfo, AccountStatus, Address, EvmState, EvmStorageSlot,
-        HashMap, B256, KECCAK_EMPTY, U256,
+        FlaggedStorage, HashMap, B256, KECCAK_EMPTY, U256,
     };
     use std::sync::Arc;
 
@@ -732,7 +732,10 @@ mod tests {
                         let slot = U256::from(rng.gen::<u64>());
                         storage.insert(
                             slot,
-                            EvmStorageSlot::new_changed(U256::ZERO, U256::from(rng.gen::<u64>())),
+                            EvmStorageSlot::new_changed(
+                                FlaggedStorage::ZERO,
+                                FlaggedStorage::new_from_value(rng.gen::<u64>()),
+                            ),
                         );
                     }
                 }
@@ -780,9 +783,12 @@ mod tests {
                     .expect("failed to insert accounts");
 
                 let storage_updates = update.iter().map(|(address, account)| {
-                    let storage_entries = account.storage.iter().map(|(slot, value)| {
-                        StorageEntry { key: B256::from(*slot), value: value.present_value }
-                    });
+                    let storage_entries =
+                        account.storage.iter().map(|(slot, value)| StorageEntry {
+                            key: B256::from(*slot),
+                            value: value.present_value.value,
+                            is_private: value.present_value.is_private,
+                        });
                     (*address, storage_entries)
                 });
                 provider_rw
@@ -799,7 +805,7 @@ mod tests {
                 let storage: HashMap<B256, U256> = account
                     .storage
                     .iter()
-                    .map(|(k, v)| (B256::from(*k), v.present_value))
+                    .map(|(k, v)| (B256::from(*k), v.present_value.value))
                     .collect();
 
                 let entry = accumulated_state.entry(*address).or_default();
@@ -1009,8 +1015,8 @@ mod tests {
         let mut storage = HashedStorage::default();
         let slot1 = B256::random();
         let slot2 = B256::random();
-        storage.storage.insert(slot1, U256::ZERO);
-        storage.storage.insert(slot2, U256::from(1));
+        storage.storage.insert(slot1, FlaggedStorage::ZERO);
+        storage.storage.insert(slot2, FlaggedStorage::new_from_value(1));
         state.storages.insert(addr1, storage);
 
         state
@@ -1115,8 +1121,8 @@ mod tests {
         state.accounts.insert(addr2, Some(Default::default()));
 
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, U256::ZERO);
-        storage.storage.insert(slot2, U256::from(1));
+        storage.storage.insert(slot1, FlaggedStorage::ZERO);
+        storage.storage.insert(slot2, FlaggedStorage::new_from_value(1));
         state.storages.insert(addr1, storage);
 
         let mut fetched_slots = HashSet::default();
@@ -1142,8 +1148,8 @@ mod tests {
         // don't add the account to state.accounts (simulating unmodified account)
         // but add storage updates for this account
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, U256::from(1));
-        storage.storage.insert(slot2, U256::from(2));
+        storage.storage.insert(slot1, FlaggedStorage::new_from_value(1));
+        storage.storage.insert(slot2, FlaggedStorage::new_from_value(2));
         state.storages.insert(addr, storage);
 
         assert!(!state.accounts.contains_key(&addr));

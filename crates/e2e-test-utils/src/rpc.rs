@@ -37,22 +37,6 @@ where
         eth_api.send_raw_transaction(raw_tx).await
     }
 
-    /// call a raw transaction RPC server
-    pub async fn call(&self, raw_tx: Bytes, block_number: u64) -> Result<Bytes, EthApi::Error> {
-        let eth_api = self.inner.eth_api();
-        let block_id = Some(BlockId::Number(BlockNumberOrTag::Number(block_number.into())));
-        eth_api.call(raw_tx, block_id).await
-    }
-
-    /// get transaction receipt
-    pub async fn get_transaction_receipt(
-        &self,
-        tx_hash: B256,
-    ) -> Result<Option<AnyTransactionReceipt>, EthApi::Error> {
-        let eth_api = self.inner.eth_api();
-        eth_api.transaction_receipt(tx_hash).await
-    }
-
     /// Retrieves a transaction envelope by its hash
     pub async fn envelope_by_hash(&self, hash: B256) -> eyre::Result<TxEnvelope> {
         let tx = self.inner.debug_api().raw_transaction(hash).await?.unwrap();

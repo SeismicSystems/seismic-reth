@@ -52,6 +52,8 @@ reth-storage-errors.workspace = true
 reth-trie-common = { workspace = true, features = ["test-utils", "arbitrary"] }
 reth-trie = { workspace = true, features = ["test-utils"] }
 
+revm-primitives.workspace = true
+
 alloy-consensus.workspace = true
 
 # trie
