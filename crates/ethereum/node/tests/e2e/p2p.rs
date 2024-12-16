@@ -89,7 +89,7 @@ async fn can_sync() -> eyre::Result<()> {
     )
     .await;
 
-    let output = first_node.rpc.call(raw_tx, 2).await?;
+    let output = first_node.rpc.signed_call(raw_tx, 2).await?;
 
     Ok(())
 }

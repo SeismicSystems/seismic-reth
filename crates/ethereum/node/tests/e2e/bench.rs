@@ -80,7 +80,7 @@ async fn bench() -> eyre::Result<()> {
         )
         .await;
 
-        let _ = first_node.rpc.call(raw_tx, block_number).await?;
+        let _ = first_node.rpc.signed_call(raw_tx, block_number).await?;
     }
 
     let call_end_time = Instant::now();
@@ -160,7 +160,7 @@ async fn bench() -> eyre::Result<()> {
             data.clone(),
         )
         .await;
-        let _ = first_node.rpc.call(raw_tx, block_number).await?;
+        let _ = first_node.rpc.signed_call(raw_tx, block_number).await?;
     }
 
     // run transactions

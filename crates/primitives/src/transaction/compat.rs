@@ -130,7 +130,7 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                     .recover_pubkey()
                     .ok_or(EVMError::Database(TeeError::PublicKeyRecoveryError))?;
 
-                debug!(target: "reth::fill_tx_env", ?tx, "Seismic transaction");
+                debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
 
                 let tee_decryption: Vec<u8> = decrypt(
                     tee,
@@ -174,12 +174,7 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
 #[cfg(test)]
 mod tests {
     use core::str::FromStr;
-    use rand::rngs::OsRng;
-    use revm_primitives::hex;
-    use secp256k1::{PublicKey, Secp256k1, SecretKey};
-    use tokio::task;
-
-    use reth_tee::{mock::{MockTeeServer, MockWallet}, TeeHttpClient, WalletAPI};
+    use reth_tee::TeeHttpClient;
 
     use crate::{Signature, TxSeismic};
 
