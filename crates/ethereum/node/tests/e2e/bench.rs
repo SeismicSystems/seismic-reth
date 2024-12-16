@@ -7,7 +7,6 @@ use reth_node_ethereum::EthereumNode;
 use reth_tracing::tracing::*;
 use std::{sync::Arc, time::Instant};
 
-
 #[tokio::test(flavor = "multi_thread")]
 async fn bench() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();

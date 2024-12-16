@@ -3,8 +3,8 @@ use anyhow::{anyhow, Result};
 use hyper::{body::to_bytes, Body, Request, Response, Server, StatusCode};
 use routerify::{RequestInfo, Router, RouterService};
 use secp256k1::ecdh::SharedSecret;
-use tracing::debug;
 use std::{convert::Infallible, net::SocketAddr, str::FromStr};
+use tracing::debug;
 
 use crate::{TeeAPI, WalletAPI};
 use tee_service_api::{
