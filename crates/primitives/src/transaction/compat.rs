@@ -1,5 +1,4 @@
 use crate::{Address, Transaction, TransactionSigned, TxKind, U256};
-use alloy_rlp::Decodable;
 use reth_tee::{decrypt, TeeAPI, TeeError};
 use reth_tracing::tracing::debug;
 use revm_primitives::{AuthorizationList, Bytes, EVMError, EVMResultGeneric, TxEnv};
@@ -131,7 +130,9 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                     .recover_pubkey()
                     .ok_or(EVMError::Database(TeeError::PublicKeyRecoveryError))?;
 
-                let decrypted_input: Vec<u8> = decrypt(
+                debug!(target: "reth::fill_tx_env", ?tx, "Seismic transaction");
+
+                let tee_decryption: Vec<u8> = decrypt(
                     tee,
                     msg_sender,
                     Vec::<u8>::from(tx.input().as_ref()),
@@ -139,11 +140,9 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                 )
                 .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
 
-                // TODO: unclear why we need to RLP-encode/decode here
-                let data = Bytes::decode(&mut decrypted_input.as_slice())
-                    .map_err(|e| EVMError::Database(TeeError::CodingError(e)))?;
+                let data = Bytes::from(tee_decryption.clone());
 
-                debug!(target: "reth::fill_tx_env", ?decrypted_input, "Encrypted input {:?}", tx.input());
+                debug!(target: "reth::fill_tx_env", ?tee_decryption, ?data, "Encrypted input {:?}", tx.input());
 
                 tx_env.gas_limit = *tx.gas_limit();
                 tx_env.gas_price = U256::from(*tx.gas_price());
@@ -175,8 +174,12 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
 #[cfg(test)]
 mod tests {
     use core::str::FromStr;
+    use rand::rngs::OsRng;
+    use revm_primitives::hex;
+    use secp256k1::{PublicKey, Secp256k1, SecretKey};
+    use tokio::task;
 
-    use reth_tee::TeeHttpClient;
+    use reth_tee::{mock::{MockTeeServer, MockWallet}, TeeHttpClient, WalletAPI};
 
     use crate::{Signature, TxSeismic};
 
