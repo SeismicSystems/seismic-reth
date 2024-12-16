@@ -1,5 +1,5 @@
 use crate::utils::eth_payload_attributes;
-use alloy_primitives::{hex, Bytes, TxKind};
+use alloy_primitives::{hex, Bytes, TxKind, U256};
 use eyre::Ok;
 use reth_chainspec::{ChainSpecBuilder, MAINNET};
 use reth_e2e_test_utils::{setup, transaction::SeismicTransactionTestContext};
@@ -9,6 +9,8 @@ use std::sync::Arc;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn send_call() -> eyre::Result<()> {
+    reth_tracing::init_test_tracing();
+
     let (mut nodes, _tasks, wallet) = setup::<EthereumNode>(
         2,
         Arc::new(
@@ -74,9 +76,6 @@ async fn send_call() -> eyre::Result<()> {
     // call contract function to wverify
     nonce += 1;
 
-    let code = first_node.rpc.get_code(contract_addr, block_number).await?;
-    println!("code: {:?}", code);
-
     let raw_tx = SeismicTransactionTestContext::sign_seismic_tx(
         &wallet.inner,
         MAINNET.chain.id(),
@@ -91,11 +90,7 @@ async fn send_call() -> eyre::Result<()> {
     );
 
     let output = first_node.rpc.signed_call(raw_tx, block_number).await?;
-    debug!(
-        target: "e2e:send_call",
-        ?output,
-    );
-    println!("output: {:?}", output);
+    assert_eq!(U256::from_be_slice(&output), U256::ZERO);
 
     // ==================== second block for changing the state of the contract account
     let input = Bytes::from_static(&hex!(
@@ -121,9 +116,7 @@ async fn send_call() -> eyre::Result<()> {
     block_number = payload.block().number;
     first_node.assert_new_block(tx_hash, block_hash, block_number).await?;
     second_node.engine_api.update_forkchoice(block_hash, block_hash).await?;
-    second_node.assert_new_block(tx_hash, block_hash, 1).await?;
-    let tx_receipt = second_node.rpc.get_transaction_receipt(tx_hash).await?.unwrap();
-    let contract_addr = tx_receipt.contract_address.unwrap();
+    second_node.assert_new_block(tx_hash, block_hash, 2).await?;
 
     // call contract function to verify
     nonce += 1;
@@ -140,11 +133,12 @@ async fn send_call() -> eyre::Result<()> {
         ?raw_tx,
     );
 
-    let output = first_node.rpc.call(raw_tx, block_number).await?;
+    let output = first_node.rpc.signed_call(raw_tx, block_number).await?;
     debug!(
         target: "e2e:send_call",
         ?output,
     );
+    assert_eq!(U256::from_be_slice(&output), U256::from(1));
 
     Ok(())
 }
