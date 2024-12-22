@@ -429,10 +429,10 @@ reth-trie-sparse = { path = "crates/trie/sparse" }
 reth-zstd-compressors = { path = "crates/storage/zstd-compressors", default-features = false }
 
 # revm
-revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "upstream-merge"}
-revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "upstream-merge"}
-revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "upstream-merge"}
-revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "upstream-merge"}
+revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
+revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
+revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
+revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "seismic"}
 
 # eth
 alloy-chains = { version = "0.1.32", default-features = false }
