@@ -432,7 +432,7 @@ reth-zstd-compressors = { path = "crates/storage/zstd-compressors", default-feat
 revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
 revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
 revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
-revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "seismic"}
+revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "upstream-merge"}
 
 # eth
 alloy-chains = { version = "0.1.32", default-features = false }
@@ -641,7 +641,7 @@ alloy-sol-type-parser = { git = "ssh://git@github.com/SeismicSystems/seismic-all
 revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
 revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
 revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
-revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "seismic"}
+revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "upstream-merge"}
 
 # alloy-consensus = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "tx" }
 # alloy-eips = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "tx" }
