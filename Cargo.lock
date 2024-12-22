@@ -12669,3 +12669,23 @@ source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=adc
 name = "alloy-sol-types"
 version = "0.8.1"
 source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=adc0cf2#adc0cf2fb96c9be80df1d71cfe8ba745dc33f1c6"
+
+[[patch.unused]]
+name = "revm"
+version = "18.0.0"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?branch=seismic#0cee8e845fb47e31e741976144c46e3df4d7a521"
+
+[[patch.unused]]
+name = "revm-inspectors"
+version = "0.6.0"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git?branch=seismic#a77b988b82486f521193f01231def7809a38e8b3"
+
+[[patch.unused]]
+name = "revm-interpreter"
+version = "14.0.0"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?branch=seismic#0cee8e845fb47e31e741976144c46e3df4d7a521"
+
+[[patch.unused]]
+name = "revm-primitives"
+version = "14.0.0"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?branch=seismic#0cee8e845fb47e31e741976144c46e3df4d7a521"

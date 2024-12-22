@@ -638,10 +638,10 @@ alloy-sol-macro-input = { git = "ssh://git@github.com/SeismicSystems/seismic-all
 alloy-sol-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
 alloy-sol-type-parser = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "adc0cf2" }
 
-revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "upstream-merge"}
-revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "upstream-merge"}
-revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "upstream-merge"}
-revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "upstream-merge"}
+revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
+revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
+revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
+revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "seismic"}
 
 # alloy-consensus = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "tx" }
 # alloy-eips = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "tx" }
