@@ -3,7 +3,7 @@
 use crate::{
     args::{
         DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, NetworkArgs, PayloadBuilderArgs,
-        PruningArgs, RpcServerArgs, TxPoolArgs,
+        PruningArgs, RpcServerArgs, TeeArgs, TxPoolArgs,
     },
     dirs::{ChainPath, DataDirPath},
     utils::get_single_header,
@@ -133,6 +133,9 @@ pub struct NodeConfig<ChainSpec> {
 
     /// All pruning related arguments
     pub pruning: PruningArgs,
+
+    /// All tee related arguments
+    pub tee: TeeArgs,
 }
 
 impl NodeConfig<ChainSpec> {
@@ -161,6 +164,7 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
             dev: DevArgs::default(),
             pruning: PruningArgs::default(),
             datadir: DatadirArgs::default(),
+            tee: TeeArgs::default(),
         }
     }
 
@@ -449,6 +453,7 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
             db: self.db,
             dev: self.dev,
             pruning: self.pruning,
+            tee: self.tee,
         }
     }
 }
@@ -475,6 +480,7 @@ impl<ChainSpec> Clone for NodeConfig<ChainSpec> {
             dev: self.dev,
             pruning: self.pruning.clone(),
             datadir: self.datadir.clone(),
+            tee: self.tee.clone(),
         }
     }
 }

@@ -24,15 +24,19 @@ use alloy_consensus::Header;
 use alloy_primitives::{Address, Bytes, TxKind, U256};
 use reth_chainspec::{ChainSpec, Head};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};
-use reth_primitives::{transaction::FillTxEnv, TransactionSigned};
+use reth_primitives::{transaction::FillTxEnv, Transaction, TransactionSigned};
+use reth_tee::{decrypt, TeeError, TeeHttpClient};
+use reth_tracing::tracing::debug;
 use revm_primitives::{
-    AnalysisKind, BlobExcessGasAndPrice, BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, Env, SpecId, TxEnv,
+    AnalysisKind, BlobExcessGasAndPrice, BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, EVMError,
+    EVMResultGeneric, Env, SpecId, TxEnv,
 };
 
 mod config;
 use alloy_eips::eip1559::INITIAL_BASE_FEE;
 pub use config::{revm_spec, revm_spec_by_timestamp_after_merge};
 use reth_ethereum_forks::EthereumHardfork;
+use secp256k1::PublicKey;
 
 pub mod execute;
 
@@ -46,17 +50,33 @@ pub mod eip6110;
 #[derive(Debug, Clone)]
 pub struct EthEvmConfig {
     chain_spec: Arc<ChainSpec>,
+    tee_client: TeeHttpClient,
 }
 
 impl EthEvmConfig {
     /// Creates a new Ethereum EVM configuration with the given chain spec.
-    pub const fn new(chain_spec: Arc<ChainSpec>) -> Self {
-        Self { chain_spec }
+    pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
+        Self { chain_spec, tee_client: TeeHttpClient::default() }
+    }
+
+    /// Creates a new Ethereum EVM configuration with the given chain spec.
+    pub fn new_with_tee_client(chain_spec: Arc<ChainSpec>, tee_client: TeeHttpClient) -> Self {
+        Self { chain_spec, tee_client }
     }
 
     /// Returns the chain spec associated with this configuration.
     pub const fn chain_spec(&self) -> &Arc<ChainSpec> {
         &self.chain_spec
+    }
+
+    /// Returns the public key from the signature.
+    pub fn recover_pubkey(&self, tx: &TransactionSigned) -> Option<PublicKey> {
+        let signature_hash = tx.signature_hash();
+
+        tx.signature.recover_from_prehash(&signature_hash).ok().and_then(|verifying_key| {
+            let pbk_bytes = verifying_key.to_encoded_point(false);
+            PublicKey::from_slice(pbk_bytes.as_bytes()).ok()
+        })
     }
 }
 
@@ -65,8 +85,51 @@ impl ConfigureEvmEnv for EthEvmConfig {
     type Transaction = TransactionSigned;
     type Error = Infallible;
 
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &TransactionSigned, sender: Address) {
-        transaction.fill_tx_env(tx_env, sender);
+    fn fill_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        transaction: &TransactionSigned,
+        sender: Address,
+    ) -> EVMResultGeneric<(), TeeError> {
+        match &transaction.transaction {
+            Transaction::Seismic(tx) => {
+                let msg_sender = self
+                    .recover_pubkey(&transaction)
+                    .ok_or(EVMError::Database(TeeError::PublicKeyRecoveryError))?;
+
+                debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
+
+                let tee_decryption: Vec<u8> = decrypt(
+                    &self.tee_client,
+                    msg_sender,
+                    Vec::<u8>::from(tx.input.as_ref()),
+                    tx.nonce.clone(),
+                )
+                .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
+
+                let data = Bytes::from(tee_decryption.clone());
+
+                debug!(target: "reth::fill_tx_env", ?data, ?tee_decryption, ?tx.input, "Decrypted input data");
+
+                tx_env.gas_limit = tx.gas_limit;
+                tx_env.gas_price = U256::from(tx.gas_price);
+                tx_env.gas_priority_fee = None;
+                tx_env.transact_to = tx.to;
+                tx_env.value = tx.value;
+                tx_env.data = tx.input.clone();
+                tx_env.chain_id = Some(tx.chain_id);
+                tx_env.nonce = Some(tx.nonce);
+                tx_env.access_list.clear();
+                tx_env.blob_hashes.clear();
+                tx_env.max_fee_per_blob_gas.take();
+                tx_env.authorization_list = None;
+
+                debug!(target: "reth::fill_tx_env", ?tx_env, "Filled Seismic transaction");
+
+                Ok(())
+            }
+            _ => Ok(transaction.fill_tx_env(tx_env, sender)),
+        }
     }
 
     fn fill_tx_env_system_contract_call(

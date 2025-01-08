@@ -1,4 +1,7 @@
 //! Parameters for configuring the rpc more granularity via CLI
+/// TeeArgs struct for configuring the tee
+mod tee;
+pub use tee::TeeArgs;
 
 /// NetworkArg struct for configuring the network
 mod network;

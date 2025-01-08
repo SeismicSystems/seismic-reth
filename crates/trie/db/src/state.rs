@@ -1,7 +1,7 @@
 use crate::{DatabaseHashedCursorFactory, DatabaseTrieCursorFactory, PrefixSetLoader};
 use alloy_primitives::{
     map::{AddressHashMap, B256HashMap},
-    Address, BlockNumber, B256, U256,
+    Address, BlockNumber, B256,
 };
 use reth_db::tables;
 use reth_db_api::{

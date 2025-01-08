@@ -3,7 +3,7 @@
 use alloc::vec::Vec;
 use alloy_consensus::{
     transaction::RlpEcdsaTx, SignableTransaction, Signed, Transaction as _, TxEip1559, TxEip2930,
-    TxEip4844, TxEip4844Variant, TxEip7702, TxLegacy, Typed2718, TypedTransaction,
+    TxEip4844, TxEip4844Variant, TxEip7702, TxLegacy, TxSeismic, Typed2718, TypedTransaction,
 };
 use alloy_eips::{
     eip2718::{Decodable2718, Eip2718Error, Eip2718Result, Encodable2718},
@@ -25,6 +25,7 @@ use op_alloy_consensus::DepositTransaction;
 use op_alloy_consensus::TxDeposit;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use reth_primitives_traits::{InMemorySize, SignedTransaction};
+use reth_tracing::tracing::info;
 use revm_primitives::{AuthorizationList, TxEnv};
 use serde::{Deserialize, Serialize};
 use signature::decode_with_eip155_chain_id;
@@ -125,6 +126,8 @@ pub enum Transaction {
     /// Optimism deposit transaction.
     #[cfg(feature = "optimism")]
     Deposit(TxDeposit),
+    /// Seismic transaction
+    Seismic(TxSeismic),
 }
 
 #[cfg(feature = "optimism")]
@@ -177,6 +180,10 @@ impl<'a> arbitrary::Arbitrary<'a> for Transaction {
                 let tx = TxEip7702::arbitrary(u)?;
                 Self::Eip7702(tx)
             }
+            TxType::Seismic => {
+                let tx = TxSeismic::arbitrary(u)?;
+                Self::Seismic(tx)
+            }
             #[cfg(feature = "optimism")]
             TxType::Deposit => {
                 let tx = TxDeposit::arbitrary(u)?;
@@ -201,6 +208,7 @@ impl Typed2718 for Transaction {
             Self::Eip1559(tx) => tx.ty(),
             Self::Eip4844(tx) => tx.ty(),
             Self::Eip7702(tx) => tx.ty(),
+            Self::Seismic(tx) => tx.ty(),
             #[cfg(feature = "optimism")]
             Self::Deposit(tx) => tx.ty(),
         }
@@ -219,6 +227,7 @@ impl Transaction {
             Self::Eip1559(tx) => tx.signature_hash(),
             Self::Eip4844(tx) => tx.signature_hash(),
             Self::Eip7702(tx) => tx.signature_hash(),
+            Self::Seismic(tx) => tx.signature_hash(),
             #[cfg(feature = "optimism")]
             Self::Deposit(_) => B256::ZERO,
         }
@@ -229,6 +238,7 @@ impl Transaction {
         match self {
             Self::Legacy(TxLegacy { chain_id: ref mut c, .. }) => *c = Some(chain_id),
             Self::Eip2930(TxEip2930 { chain_id: ref mut c, .. }) |
+            Self::Seismic(TxSeismic { chain_id: ref mut c, .. }) |
             Self::Eip1559(TxEip1559 { chain_id: ref mut c, .. }) |
             Self::Eip4844(TxEip4844 { chain_id: ref mut c, .. }) |
             Self::Eip7702(TxEip7702 { chain_id: ref mut c, .. }) => *c = chain_id,
@@ -245,6 +255,7 @@ impl Transaction {
             Self::Eip1559(_) => TxType::Eip1559,
             Self::Eip4844(_) => TxType::Eip4844,
             Self::Eip7702(_) => TxType::Eip7702,
+            Self::Seismic(_) => TxType::Seismic,
             #[cfg(feature = "optimism")]
             Self::Deposit(_) => TxType::Deposit,
         }
@@ -299,6 +310,7 @@ impl Transaction {
             Self::Eip1559(tx) => tx.encode_for_signing(out),
             Self::Eip4844(tx) => tx.encode_for_signing(out),
             Self::Eip7702(tx) => tx.encode_for_signing(out),
+            Self::Seismic(tx) => tx.encode_for_signing(out),
             #[cfg(feature = "optimism")]
             Self::Deposit(_) => {}
         }
@@ -321,6 +333,9 @@ impl Transaction {
             Self::Eip7702(set_code_tx) => {
                 set_code_tx.eip2718_encode(signature, out);
             }
+            Self::Seismic(seismic_tx) => {
+                seismic_tx.eip2718_encode(signature, out);
+            }
             #[cfg(feature = "optimism")]
             Self::Deposit(deposit_tx) => deposit_tx.encode_2718(out),
         }
@@ -330,6 +345,7 @@ impl Transaction {
     pub fn set_gas_limit(&mut self, gas_limit: u64) {
         match self {
             Self::Legacy(tx) => tx.gas_limit = gas_limit,
+            Self::Seismic(tx) => tx.gas_limit = gas_limit,
             Self::Eip2930(tx) => tx.gas_limit = gas_limit,
             Self::Eip1559(tx) => tx.gas_limit = gas_limit,
             Self::Eip4844(tx) => tx.gas_limit = gas_limit,
@@ -343,6 +359,7 @@ impl Transaction {
     pub fn set_nonce(&mut self, nonce: u64) {
         match self {
             Self::Legacy(tx) => tx.nonce = nonce,
+            Self::Seismic(tx) => tx.nonce = nonce,
             Self::Eip2930(tx) => tx.nonce = nonce,
             Self::Eip1559(tx) => tx.nonce = nonce,
             Self::Eip4844(tx) => tx.nonce = nonce,
@@ -356,6 +373,7 @@ impl Transaction {
     pub fn set_value(&mut self, value: U256) {
         match self {
             Self::Legacy(tx) => tx.value = value,
+            Self::Seismic(tx) => tx.value = value,
             Self::Eip2930(tx) => tx.value = value,
             Self::Eip1559(tx) => tx.value = value,
             Self::Eip4844(tx) => tx.value = value,
@@ -369,6 +387,7 @@ impl Transaction {
     pub fn set_input(&mut self, input: Bytes) {
         match self {
             Self::Legacy(tx) => tx.input = input,
+            Self::Seismic(tx) => tx.input = input,
             Self::Eip2930(tx) => tx.input = input,
             Self::Eip1559(tx) => tx.input = input,
             Self::Eip4844(tx) => tx.input = input,
@@ -455,6 +474,7 @@ impl InMemorySize for Transaction {
     fn size(&self) -> usize {
         match self {
             Self::Legacy(tx) => tx.size(),
+            Self::Seismic(tx) => tx.size(),
             Self::Eip2930(tx) => tx.size(),
             Self::Eip1559(tx) => tx.size(),
             Self::Eip4844(tx) => tx.size(),
@@ -488,6 +508,9 @@ impl reth_codecs::Compact for Transaction {
                 tx.to_compact(buf);
             }
             Self::Eip7702(tx) => {
+                tx.to_compact(buf);
+            }
+            Self::Seismic(tx) => {
                 tx.to_compact(buf);
             }
             #[cfg(feature = "optimism")]
@@ -563,6 +586,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn chain_id(&self) -> Option<ChainId> {
         match self {
             Self::Legacy(tx) => tx.chain_id(),
+            Self::Seismic(tx) => tx.chain_id(),
             Self::Eip2930(tx) => tx.chain_id(),
             Self::Eip1559(tx) => tx.chain_id(),
             Self::Eip4844(tx) => tx.chain_id(),
@@ -575,6 +599,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn nonce(&self) -> u64 {
         match self {
             Self::Legacy(tx) => tx.nonce(),
+            Self::Seismic(tx) => tx.nonce(),
             Self::Eip2930(tx) => tx.nonce(),
             Self::Eip1559(tx) => tx.nonce(),
             Self::Eip4844(tx) => tx.nonce(),
@@ -587,6 +612,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn gas_limit(&self) -> u64 {
         match self {
             Self::Legacy(tx) => tx.gas_limit(),
+            Self::Seismic(tx) => tx.gas_limit(),
             Self::Eip2930(tx) => tx.gas_limit(),
             Self::Eip1559(tx) => tx.gas_limit(),
             Self::Eip4844(tx) => tx.gas_limit(),
@@ -599,6 +625,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn gas_price(&self) -> Option<u128> {
         match self {
             Self::Legacy(tx) => tx.gas_price(),
+            Self::Seismic(tx) => tx.gas_price(),
             Self::Eip2930(tx) => tx.gas_price(),
             Self::Eip1559(tx) => tx.gas_price(),
             Self::Eip4844(tx) => tx.gas_price(),
@@ -611,6 +638,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn max_fee_per_gas(&self) -> u128 {
         match self {
             Self::Legacy(tx) => tx.max_fee_per_gas(),
+            Self::Seismic(tx) => tx.max_fee_per_gas(),
             Self::Eip2930(tx) => tx.max_fee_per_gas(),
             Self::Eip1559(tx) => tx.max_fee_per_gas(),
             Self::Eip4844(tx) => tx.max_fee_per_gas(),
@@ -623,6 +651,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn max_priority_fee_per_gas(&self) -> Option<u128> {
         match self {
             Self::Legacy(tx) => tx.max_priority_fee_per_gas(),
+            Self::Seismic(tx) => tx.max_priority_fee_per_gas(),
             Self::Eip2930(tx) => tx.max_priority_fee_per_gas(),
             Self::Eip1559(tx) => tx.max_priority_fee_per_gas(),
             Self::Eip4844(tx) => tx.max_priority_fee_per_gas(),
@@ -635,6 +664,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn max_fee_per_blob_gas(&self) -> Option<u128> {
         match self {
             Self::Legacy(tx) => tx.max_fee_per_blob_gas(),
+            Self::Seismic(tx) => tx.max_fee_per_blob_gas(),
             Self::Eip2930(tx) => tx.max_fee_per_blob_gas(),
             Self::Eip1559(tx) => tx.max_fee_per_blob_gas(),
             Self::Eip4844(tx) => tx.max_fee_per_blob_gas(),
@@ -647,6 +677,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn priority_fee_or_price(&self) -> u128 {
         match self {
             Self::Legacy(tx) => tx.priority_fee_or_price(),
+            Self::Seismic(tx) => tx.priority_fee_or_price(),
             Self::Eip2930(tx) => tx.priority_fee_or_price(),
             Self::Eip1559(tx) => tx.priority_fee_or_price(),
             Self::Eip4844(tx) => tx.priority_fee_or_price(),
@@ -659,6 +690,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn effective_gas_price(&self, base_fee: Option<u64>) -> u128 {
         match self {
             Self::Legacy(tx) => tx.effective_gas_price(base_fee),
+            Self::Seismic(tx) => tx.effective_gas_price(base_fee),
             Self::Eip2930(tx) => tx.effective_gas_price(base_fee),
             Self::Eip1559(tx) => tx.effective_gas_price(base_fee),
             Self::Eip4844(tx) => tx.effective_gas_price(base_fee),
@@ -670,7 +702,7 @@ impl alloy_consensus::Transaction for Transaction {
 
     fn is_dynamic_fee(&self) -> bool {
         match self {
-            Self::Legacy(_) | Self::Eip2930(_) => false,
+            Self::Legacy(_) | Self::Eip2930(_) | Self::Seismic(_) => false,
             Self::Eip1559(_) | Self::Eip4844(_) | Self::Eip7702(_) => true,
             #[cfg(feature = "optimism")]
             Self::Deposit(_) => false,
@@ -680,6 +712,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn kind(&self) -> TxKind {
         match self {
             Self::Legacy(tx) => tx.kind(),
+            Self::Seismic(tx) => tx.kind(),
             Self::Eip2930(tx) => tx.kind(),
             Self::Eip1559(tx) => tx.kind(),
             Self::Eip4844(tx) => tx.kind(),
@@ -692,6 +725,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn is_create(&self) -> bool {
         match self {
             Self::Legacy(tx) => tx.is_create(),
+            Self::Seismic(tx) => tx.is_create(),
             Self::Eip2930(tx) => tx.is_create(),
             Self::Eip1559(tx) => tx.is_create(),
             Self::Eip4844(tx) => tx.is_create(),
@@ -704,6 +738,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn value(&self) -> U256 {
         match self {
             Self::Legacy(tx) => tx.value(),
+            Self::Seismic(tx) => tx.value(),
             Self::Eip2930(tx) => tx.value(),
             Self::Eip1559(tx) => tx.value(),
             Self::Eip4844(tx) => tx.value(),
@@ -716,6 +751,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn input(&self) -> &Bytes {
         match self {
             Self::Legacy(tx) => tx.input(),
+            Self::Seismic(tx) => tx.input(),
             Self::Eip2930(tx) => tx.input(),
             Self::Eip1559(tx) => tx.input(),
             Self::Eip4844(tx) => tx.input(),
@@ -728,6 +764,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn access_list(&self) -> Option<&AccessList> {
         match self {
             Self::Legacy(tx) => tx.access_list(),
+            Self::Seismic(tx) => tx.access_list(),
             Self::Eip2930(tx) => tx.access_list(),
             Self::Eip1559(tx) => tx.access_list(),
             Self::Eip4844(tx) => tx.access_list(),
@@ -740,6 +777,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn blob_versioned_hashes(&self) -> Option<&[B256]> {
         match self {
             Self::Legacy(tx) => tx.blob_versioned_hashes(),
+            Self::Seismic(tx) => tx.blob_versioned_hashes(),
             Self::Eip2930(tx) => tx.blob_versioned_hashes(),
             Self::Eip1559(tx) => tx.blob_versioned_hashes(),
             Self::Eip4844(tx) => tx.blob_versioned_hashes(),
@@ -752,6 +790,7 @@ impl alloy_consensus::Transaction for Transaction {
     fn authorization_list(&self) -> Option<&[SignedAuthorization]> {
         match self {
             Self::Legacy(tx) => tx.authorization_list(),
+            Self::Seismic(tx) => tx.authorization_list(),
             Self::Eip2930(tx) => tx.authorization_list(),
             Self::Eip1559(tx) => tx.authorization_list(),
             Self::Eip4844(tx) => tx.authorization_list(),
@@ -775,6 +814,7 @@ impl From<TypedTransaction> for Transaction {
     fn from(value: TypedTransaction) -> Self {
         match value {
             TypedTransaction::Legacy(tx) => tx.into(),
+            TypedTransaction::Seismic(tx) => tx.into(),
             TypedTransaction::Eip2930(tx) => tx.into(),
             TypedTransaction::Eip1559(tx) => tx.into(),
             TypedTransaction::Eip4844(tx) => tx.into(),
@@ -874,6 +914,9 @@ impl TransactionSigned {
             }
             Self { transaction: Transaction::Eip7702(tx), signature, .. } => {
                 Ok(PooledTransactionsElement::Eip7702(Signed::new_unchecked(tx, signature, hash)))
+            }
+            Self { transaction: Transaction::Seismic(tx), signature, .. } => {
+                Ok(PooledTransactionsElement::Seismic(Signed::new_unchecked(tx, signature, hash)))
             }
             // Not supported because missing blob sidecar
             tx @ Self { transaction: Transaction::Eip4844(_), .. } => Err(tx),
@@ -1138,6 +1181,11 @@ impl reth_primitives_traits::FillTxEnv for TransactionSigned {
                 tx_env.authorization_list =
                     Some(AuthorizationList::Signed(tx.authorization_list.clone()));
             }
+            Transaction::Seismic(_tx) => {
+                // implementation is in EthEvmConfig to avoid changing FillTxEnv trait
+                info!(target: "reth::fill_tx_env", "Seismic transaction not filled");
+                return
+            }
             #[cfg(feature = "optimism")]
             Transaction::Deposit(_) => {}
         }
@@ -1303,6 +1351,7 @@ impl Encodable2718 for TransactionSigned {
             Transaction::Eip7702(set_code_tx) => {
                 set_code_tx.eip2718_encoded_length(&self.signature)
             }
+            Transaction::Seismic(seismic_tx) => seismic_tx.eip2718_encoded_length(&self.signature),
             #[cfg(feature = "optimism")]
             Transaction::Deposit(deposit_tx) => deposit_tx.eip2718_encoded_length(),
         }
@@ -1336,6 +1385,10 @@ impl Decodable2718 for TransactionSigned {
             TxType::Eip4844 => {
                 let (tx, signature, hash) = TxEip4844::rlp_decode_signed(buf)?.into_parts();
                 Ok(Self { transaction: Transaction::Eip4844(tx), signature, hash: hash.into() })
+            }
+            TxType::Seismic => {
+                let (tx, signature, hash) = TxSeismic::rlp_decode_signed(buf)?.into_parts();
+                Ok(Self { transaction: Transaction::Seismic(tx), signature, hash: hash.into() })
             }
             #[cfg(feature = "optimism")]
             TxType::Deposit => Ok(Self::new_unhashed(
@@ -1443,7 +1496,15 @@ macro_rules! impl_from_signed {
     };
 }
 
-impl_from_signed!(TxLegacy, TxEip2930, TxEip1559, TxEip7702, TxEip4844, TypedTransaction);
+impl_from_signed!(
+    TxLegacy,
+    TxEip2930,
+    TxEip1559,
+    TxEip7702,
+    TxEip4844,
+    TypedTransaction,
+    TxSeismic
+);
 
 impl From<Signed<Transaction>> for TransactionSigned {
     fn from(value: Signed<Transaction>) -> Self {
@@ -1626,7 +1687,7 @@ impl<T> SignedTransactionIntoRecoveredExt for T where T: SignedTransaction {}
 pub mod serde_bincode_compat {
     use alloc::borrow::Cow;
     use alloy_consensus::{
-        transaction::serde_bincode_compat::{TxEip1559, TxEip2930, TxEip7702, TxLegacy},
+        transaction::serde_bincode_compat::{TxEip1559, TxEip2930, TxEip7702, TxLegacy, TxSeismic},
         TxEip4844,
     };
     use alloy_primitives::{PrimitiveSignature as Signature, TxHash};
@@ -1652,6 +1713,7 @@ pub mod serde_bincode_compat {
     #[allow(missing_docs)]
     pub enum Transaction<'a> {
         Legacy(TxLegacy<'a>),
+        Seismic(TxSeismic<'a>),
         Eip2930(TxEip2930<'a>),
         Eip1559(TxEip1559<'a>),
         Eip4844(Cow<'a, TxEip4844>),
@@ -1664,6 +1726,7 @@ pub mod serde_bincode_compat {
         fn from(value: &'a super::Transaction) -> Self {
             match value {
                 super::Transaction::Legacy(tx) => Self::Legacy(TxLegacy::from(tx)),
+                super::Transaction::Seismic(tx) => Self::Seismic(TxSeismic::from(tx)),
                 super::Transaction::Eip2930(tx) => Self::Eip2930(TxEip2930::from(tx)),
                 super::Transaction::Eip1559(tx) => Self::Eip1559(TxEip1559::from(tx)),
                 super::Transaction::Eip4844(tx) => Self::Eip4844(Cow::Borrowed(tx)),
@@ -1684,6 +1747,7 @@ pub mod serde_bincode_compat {
                 Transaction::Eip1559(tx) => Self::Eip1559(tx.into()),
                 Transaction::Eip4844(tx) => Self::Eip4844(tx.into_owned()),
                 Transaction::Eip7702(tx) => Self::Eip7702(tx.into()),
+                Transaction::Seismic(tx) => Self::Seismic(tx.into()),
                 #[cfg(feature = "optimism")]
                 Transaction::Deposit(tx) => Self::Deposit(tx.into()),
             }

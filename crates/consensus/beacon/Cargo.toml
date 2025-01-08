@@ -31,8 +31,6 @@ reth-static-file.workspace = true
 reth-tokio-util.workspace = true
 reth-engine-primitives.workspace = true
 reth-network-p2p.workspace = true
-reth-db.workspace = true
-reth-tracing.workspace = true
 reth-node-types.workspace = true
 reth-chainspec = { workspace = true, optional = true }
 

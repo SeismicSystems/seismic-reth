@@ -9,7 +9,9 @@ use jsonrpsee::core::RpcResult as Result;
 use reth_rpc_api::{EngineEthApiServer, EthApiServer, EthFilterApiServer};
 /// Re-export for convenience
 pub use reth_rpc_engine_api::EngineApi;
-use reth_rpc_eth_api::{FullEthApiTypes, RpcBlock, RpcHeader, RpcReceipt, RpcTransaction};
+use reth_rpc_eth_api::{
+    types::SeismicCallRequest, FullEthApiTypes, RpcBlock, RpcHeader, RpcReceipt, RpcTransaction,
+};
 use tracing_futures::Instrument;
 
 macro_rules! engine_span {
@@ -69,13 +71,13 @@ where
     /// Handler for: `eth_call`
     async fn call(
         &self,
-        request: TransactionRequest,
-        block_id: Option<BlockId>,
+        request: SeismicCallRequest,
+        block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> Result<Bytes> {
         self.eth
-            .call(request, block_id, state_overrides, block_overrides)
+            .call(request, block_number, state_overrides, block_overrides)
             .instrument(engine_span!())
             .await
     }

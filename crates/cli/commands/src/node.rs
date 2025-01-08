@@ -11,7 +11,7 @@ use reth_node_builder::{NodeBuilder, WithLaunchContext};
 use reth_node_core::{
     args::{
         DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, NetworkArgs, PayloadBuilderArgs,
-        PruningArgs, RpcServerArgs, TxPoolArgs,
+        PruningArgs, RpcServerArgs, TeeArgs, TxPoolArgs,
     },
     node_config::NodeConfig,
     version,
@@ -110,6 +110,10 @@ pub struct NodeCommand<
     /// Additional cli arguments
     #[command(flatten, next_help_heading = "Extension")]
     pub ext: Ext,
+
+    /// All tee related arguments
+    #[command(flatten)]
+    pub tee: TeeArgs,
 }
 
 impl<C: ChainSpecParser> NodeCommand<C> {
@@ -160,6 +164,7 @@ impl<
             dev,
             pruning,
             ext,
+            tee,
         } = self;
 
         // set up node config
@@ -177,6 +182,7 @@ impl<
             db,
             dev,
             pruning,
+            tee,
         };
 
         let data_dir = node_config.datadir();

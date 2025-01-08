@@ -3,9 +3,7 @@ use crate::{
     HashedPostStateProvider, ProviderError, StateProvider, StateRootProvider,
 };
 use alloy_eips::merge::EPOCH_SLOTS;
-use alloy_primitives::{
-    map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, StorageValue, B256,
-};
+use alloy_primitives::{map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, B256};
 use reth_db::{tables, BlockNumberList};
 use reth_db_api::{
     cursor::{DbCursorRO, DbDupCursorRO},

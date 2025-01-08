@@ -14,7 +14,7 @@ use alloy_eips::{
 };
 use alloy_primitives::{
     map::{B256HashMap, HashMap},
-    Address, BlockHash, BlockNumber, Bytes, StorageKey, StorageValue, TxHash, TxNumber, B256, U256,
+    Address, BlockHash, BlockNumber, Bytes, StorageKey, TxHash, TxNumber, B256, U256,
 };
 use reth_chainspec::{ChainInfo, ChainSpecProvider, EthChainSpec, MAINNET};
 use reth_db_models::{AccountBeforeTx, StoredBlockBodyIndices};

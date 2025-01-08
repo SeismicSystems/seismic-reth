@@ -1,4 +1,4 @@
-use alloy_primitives::{B256, U256};
+use alloy_primitives::B256;
 use revm::{db::states::RevertToSlot, primitives::FlaggedStorage};
 use std::iter::Peekable;
 

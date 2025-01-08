@@ -12,31 +12,26 @@ description = "Additional utilities for working with tee in reth."
 workspace = true
 
 [dependencies]
+anyhow = "1.0"
+derive_more.workspace = true
+once_cell.workspace = true
+serde_json = {workspace = true}
+serde = { workspace = true, features = ["derive"]}
 tracing.workspace = true
+
 hyper = { version = "0.14", features = ["full"] }                                   
 routerify = "3.0.0"
 reqwest.workspace = true
-warp = "0.3"
-anyhow = "1.0"
-
-serde_json = {workspace = true}
-secp256k1 = {workspace = true, features = ["rand", "recovery", "std", "serde"]}
-serde = { workspace = true, features = ["derive"]}
-
-# async
 tokio = { workspace = true, features = ["full"] }
+warp = "0.3"
 
-# TEE Service
-tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "8bfc1d7b6ca56931223ea3990344f2b54c6a91d6"}
-# encryption 
 aes-gcm = "0.10"
-once_cell.workspace = true
-alloy-rlp = { workspace = true, features = ["arrayvec"] }
 hkdf = "0.12" 
+secp256k1 = {workspace = true, features = ["rand", "recovery", "std", "serde"]}
 sha2 = "0.10"
 
-# misc
-derive_more.workspace = true
+alloy-rlp = { workspace = true, features = ["arrayvec"] }
+tee_service_api.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full", "macros"] }

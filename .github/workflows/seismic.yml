@@ -47,7 +47,49 @@ jobs:
               ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
       - name: cargo build
         run: cargo build
+  
+  warnings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "warnings-cache"
+      - name: Install SSH Keys
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+            ssh-private-key: |
+              ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
+              ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
+              ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
+              ${{ secrets.ACTIONS_SREVM_SSH_ED25519 }}
+              ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
+              ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
+              ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
       - name: cargo check warnings
         run: RUSTFLAGS="-D warnings" cargo check
+  
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "test-cache"
+      - name: Install SSH Keys
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+            ssh-private-key: |
+              ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
+              ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
+              ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
+              ${{ secrets.ACTIONS_SREVM_SSH_ED25519 }}
+              ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
+              ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
+              ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
       - name: cargo test
         run: cargo test
