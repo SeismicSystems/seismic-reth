@@ -108,7 +108,9 @@ fn generate_test_data(size: usize) -> (HashedPostState, HashedPostState) {
                 address,
                 slots_to_update
                     .into_iter()
-                    .map(|slot| (slot, any::<FlaggedStorage>().new_tree(&mut runner).unwrap().current()))
+                    .map(|slot| {
+                        (slot, any::<FlaggedStorage>().new_tree(&mut runner).unwrap().current())
+                    })
                     .collect::<HashMap<_, _>>(),
             )
         })

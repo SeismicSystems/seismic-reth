@@ -1966,7 +1966,11 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
             // cast storages to B256.
             let mut storage = storage
                 .into_iter()
-                .map(|(k, value)| StorageEntry { key: k.into(), value: value.value, is_private: value.is_private })
+                .map(|(k, value)| StorageEntry {
+                    key: k.into(),
+                    value: value.value,
+                    is_private: value.is_private,
+                })
                 .collect::<Vec<_>>();
             // sort storage slots by key.
             storage.par_sort_unstable_by_key(|a| a.key);
@@ -2009,7 +2013,11 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
             }
 
             for (hashed_slot, value) in storage.storage_slots_sorted() {
-                let entry = StorageEntry { key: hashed_slot, value: value.value, is_private: value.is_private };
+                let entry = StorageEntry {
+                    key: hashed_slot,
+                    value: value.value,
+                    is_private: value.is_private,
+                };
                 if let Some(db_entry) =
                     hashed_storage_cursor.seek_by_key_subkey(*hashed_address, entry.key)?
                 {
@@ -2099,7 +2107,11 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
 
             // revert storages
             for (storage_key, (old_storage_value, _new_storage_value)) in storage {
-                let storage_entry = StorageEntry { key: *storage_key, value: old_storage_value.0, is_private: old_storage_value.1 };
+                let storage_entry = StorageEntry {
+                    key: *storage_key,
+                    value: old_storage_value.0,
+                    is_private: old_storage_value.1,
+                };
                 // delete previous value
                 // TODO: This does not use dupsort features
                 if plain_storage_cursor
@@ -2199,7 +2211,11 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
 
             // revert storages
             for (storage_key, (old_storage_value, _new_storage_value)) in storage {
-                let storage_entry = StorageEntry { key: *storage_key, value: old_storage_value.0, is_private: old_storage_value.1 };
+                let storage_entry = StorageEntry {
+                    key: *storage_key,
+                    value: old_storage_value.0,
+                    is_private: old_storage_value.1,
+                };
                 // delete previous value
                 // TODO: This does not use dupsort features
                 if plain_storage_cursor
@@ -2420,7 +2436,12 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypes> HashingWriter for DatabaseProvi
         let mut hashed_storages = changesets
             .into_iter()
             .map(|(BlockNumberAddress((_, address)), storage_entry)| {
-                (keccak256(address), keccak256(storage_entry.key), storage_entry.value, storage_entry.is_private)
+                (
+                    keccak256(address),
+                    keccak256(storage_entry.key),
+                    storage_entry.value,
+                    storage_entry.is_private,
+                )
             })
             .collect::<Vec<_>>();
         hashed_storages.sort_by_key(|(ha, hk, _, _)| (*ha, *hk));

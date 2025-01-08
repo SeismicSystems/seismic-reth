@@ -349,7 +349,11 @@ impl HashedStorageSorted {
         self.non_zero_valued_slots
             .iter()
             .map(|(hashed_slot, value)| (*hashed_slot, *value))
-            .chain(self.zero_valued_slots.iter().map(|hashed_slot| (*hashed_slot, FlaggedStorage::ZERO)))
+            .chain(
+                self.zero_valued_slots
+                    .iter()
+                    .map(|hashed_slot| (*hashed_slot, FlaggedStorage::ZERO)),
+            )
             .sorted_by_key(|entry| *entry.0)
     }
 }

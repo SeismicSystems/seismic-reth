@@ -267,7 +267,10 @@ impl<N: ProviderNodeTypes> ConsistentProvider<N> {
                 hash_map::Entry::Vacant(entry) => {
                     let new_storage_value =
                         state_provider.storage(address, old_storage.key)?.unwrap_or_default();
-                    entry.insert(((old_storage.value, old_storage.is_private), (new_storage_value.value, old_storage.is_private)));
+                    entry.insert((
+                        (old_storage.value, old_storage.is_private),
+                        (new_storage_value.value, old_storage.is_private),
+                    ));
                 }
                 hash_map::Entry::Occupied(mut entry) => {
                     entry.get_mut().0 = (old_storage.value, old_storage.is_private);
