@@ -437,11 +437,11 @@ revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-insp
 # eth
 alloy-chains = { version = "0.1.32", default-features = false }
 alloy-dyn-abi = "0.8.15"
-alloy-primitives = { version = "0.8.15", default-features = false, features = [
+alloy-primitives = {  git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", branch = "seismic", default-features = false, features = [
     "map-foldhash",
 ] }
+alloy-sol-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", branch = "seismic" }
 alloy-rlp = { version = "0.3.10", default-features = false }
-alloy-sol-types = "0.8.15"
 alloy-trie = { version = "=0.7.6", default-features = false }
 
 # alloy
