@@ -9653,6 +9653,57 @@ dependencies = [
 ]
 
 [[package]]
+name = "reth-seismic-node"
+version = "1.1.4"
+dependencies = [
+ "alloy-consensus 0.8.0",
+ "alloy-eips 0.8.0",
+ "alloy-network 0.8.0",
+ "alloy-primitives 0.8.15",
+ "alloy-rpc-types",
+ "alloy-rpc-types-eth 0.8.0",
+ "eyre",
+ "futures",
+ "jsonrpsee",
+ "reth-beacon-consensus",
+ "reth-blockchain-tree",
+ "reth-chainspec",
+ "reth-cli",
+ "reth-consensus-debug-client",
+ "reth-engine-util",
+ "reth-errors",
+ "reth-evm",
+ "reth-exex",
+ "reth-network",
+ "reth-network-types",
+ "reth-node-api",
+ "reth-node-builder",
+ "reth-node-core",
+ "reth-node-ethereum",
+ "reth-node-events",
+ "reth-payload-builder",
+ "reth-primitives",
+ "reth-provider",
+ "reth-revm",
+ "reth-rpc-builder",
+ "reth-rpc-engine-api",
+ "reth-rpc-eth-api",
+ "reth-rpc-eth-types",
+ "reth-tasks",
+ "reth-tee",
+ "reth-tracing",
+ "reth-transaction-pool",
+ "reth-trie-common",
+ "reth-trie-db",
+ "secp256k1",
+ "serde_json",
+ "tee_service_api",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+]
+
+[[package]]
 name = "reth-stages"
 version = "1.1.4"
 dependencies = [
@@ -10681,6 +10732,30 @@ checksum = "49db231d56a190491cb4aeda9527f1ad45345af50b0851622a7adb8c03b01c32"
 dependencies = [
  "core-foundation-sys",
  "libc",
+]
+
+[[package]]
+name = "seismic-reth"
+version = "1.1.4"
+dependencies = [
+ "alloy-network 0.8.0",
+ "alloy-primitives 0.8.15",
+ "alloy-signer-local",
+ "clap",
+ "eyre",
+ "reth",
+ "reth-cli-commands",
+ "reth-cli-util",
+ "reth-node-builder",
+ "reth-node-core",
+ "reth-node-ethereum",
+ "reth-node-metrics",
+ "reth-primitives",
+ "reth-provider",
+ "reth-seismic-node",
+ "reth-tee",
+ "reth-tracing",
+ "tracing",
 ]
 
 [[package]]

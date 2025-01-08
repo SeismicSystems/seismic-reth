@@ -102,6 +102,8 @@ members = [
     "crates/rpc/rpc-testing-util/",
     "crates/rpc/rpc-types-compat/",
     "crates/rpc/rpc/",
+    "crates/seismic/bin",
+    "crates/seismic/node",
     "crates/stages/api/",
     "crates/stages/stages/",
     "crates/stages/types/",
@@ -154,7 +156,7 @@ members = [
     "testing/ef-tests/",
     "testing/testing-utils",
 ]
-default-members = ["bin/reth"]
+default-members = ["crates/seismic/bin"]
 exclude = ["book/sources"]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
@@ -427,6 +429,10 @@ reth-trie-parallel = { path = "crates/trie/parallel" }
 reth-tee = { path = "crates/tee" }
 reth-trie-sparse = { path = "crates/trie/sparse" }
 reth-zstd-compressors = { path = "crates/storage/zstd-compressors", default-features = false }
+
+# seismic reth 
+reth-seismic-node = { path = "crates/seismic/node" }
+seismic-reth = { path = "crates/seismic/bin" }
 
 # revm
 revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
