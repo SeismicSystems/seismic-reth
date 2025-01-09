@@ -77,7 +77,6 @@ proptest.workspace = true
 paste.workspace = true
 
 assert_matches.workspace = true
-async-recursion = "1.0"
 
 [features]
 default = ["mdbx"]

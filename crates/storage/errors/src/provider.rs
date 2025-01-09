@@ -135,8 +135,16 @@ pub enum ProviderError {
     StorageLockError(StorageLockError),
     /// Storage writer error.
     UnifiedStorageWriterError(UnifiedStorageWriterError),
+    /// Received invalid output from configured storage implementation.
+    InvalidStorageOutput,
     /// Tee encryptography error.
     TeeError(TeeError),
+}
+
+impl From<TeeError> for ProviderError {
+    fn from(err: TeeError) -> Self {
+        Self::TeeError(err)
+    }
 }
 
 impl From<DatabaseError> for ProviderError {
@@ -163,15 +171,8 @@ impl From<UnifiedStorageWriterError> for ProviderError {
     }
 }
 
-impl From<TeeError> for ProviderError {
-    fn from(err: TeeError) -> Self {
-        Self::TeeError(err)
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for ProviderError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl core::error::Error for ProviderError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
             Self::Database(source) => core::error::Error::source(source),
             Self::StorageLockError(source) => core::error::Error::source(source),

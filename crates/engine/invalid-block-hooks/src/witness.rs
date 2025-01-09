@@ -94,11 +94,13 @@ where
         // Re-execute all of the transactions in the block to load all touched accounts into
         // the cache DB.
         for tx in block.transactions() {
-            self.evm_config.fill_tx_env(
-                evm.tx_mut(),
-                tx,
-                tx.recover_signer().ok_or_eyre("failed to recover sender")?,
-            );
+            self.evm_config
+                .fill_tx_env(
+                    evm.tx_mut(),
+                    tx,
+                    tx.recover_signer().ok_or_eyre("failed to recover sender")?,
+                )
+                .map_err(|err| eyre::eyre!("failed to fill tx env: {:?}", err))?;
             let result = evm.transact()?;
             evm.db_mut().commit(result.state);
         }

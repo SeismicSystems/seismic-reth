@@ -34,9 +34,8 @@ reth-net-nat.workspace = true
 reth-network-peers.workspace = true
 reth-prune-types.workspace = true
 reth-stages-types.workspace = true
-reth-optimism-chainspec = { workspace = true, optional = true }
-reth-tee.workspace = true
 reth-ethereum-forks.workspace = true
+reth-tee.workspace = true
 
 # ethereum
 alloy-primitives.workspace = true

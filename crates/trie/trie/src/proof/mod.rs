@@ -14,7 +14,8 @@ use alloy_primitives::{
 use alloy_rlp::{BufMut, Encodable};
 use reth_execution_errors::trie::StateProofError;
 use reth_trie_common::{
-    proof::ProofRetainer, AccountProof, MultiProof, StorageMultiProof, TrieAccount,
+    proof::ProofRetainer, AccountProof, MultiProof, MultiProofTargets, StorageMultiProof,
+    TrieAccount,
 };
 
 mod blinded;
@@ -93,17 +94,17 @@ where
         slots: &[B256],
     ) -> Result<AccountProof, StateProofError> {
         Ok(self
-            .multiproof(HashMap::from_iter([(
-                keccak256(address),
-                slots.iter().map(keccak256).collect(),
-            )]))?
+            .multiproof(
+                HashMap::from_iter([(keccak256(address), slots.iter().map(keccak256).collect())])
+                    .into(),
+            )?
             .account_proof(address, slots)?)
     }
 
     /// Generate a state multiproof according to specified targets.
     pub fn multiproof(
         mut self,
-        mut targets: B256HashMap<B256HashSet>,
+        mut targets: MultiProofTargets,
     ) -> Result<MultiProof, StateProofError> {
         let hashed_account_cursor = self.hashed_cursor_factory.hashed_account_cursor()?;
         let trie_cursor = self.trie_cursor_factory.account_trie_cursor()?;
@@ -292,7 +293,7 @@ where
                 TrieElement::Leaf(hashed_slot, value) => {
                     hash_builder.add_leaf(
                         Nibbles::unpack(hashed_slot),
-                        alloy_rlp::encode_fixed_size(&value).as_ref(),
+                        alloy_rlp::encode_fixed_size(&value.value).as_ref(),
                     );
                 }
             }

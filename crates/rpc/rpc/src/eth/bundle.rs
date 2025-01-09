@@ -207,7 +207,9 @@ where
 
                     hasher.update(*tx.tx_hash());
                     let gas_price = tx.effective_gas_price(basefee);
-                    eth_api.evm_config().fill_tx_env(evm.tx_mut(), &tx, signer);
+                    eth_api.evm_config().fill_tx_env(evm.tx_mut(), &tx, signer).map_err(|_| {
+                        Eth::Error::from_eth_err(EthApiError::FailedToDecodeSignedTransaction)
+                    })?;
                     let ResultAndState { result, state } =
                         evm.transact().map_err(Eth::Error::from_evm_err)?;
 

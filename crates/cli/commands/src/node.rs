@@ -83,10 +83,6 @@ pub struct NodeCommand<
     #[command(flatten)]
     pub rpc: RpcServerArgs,
 
-    /// All tee related arguments
-    #[command(flatten)]
-    pub tee: TeeArgs,
-
     /// All txpool related arguments with --txpool prefix
     #[command(flatten)]
     pub txpool: TxPoolArgs,
@@ -114,6 +110,10 @@ pub struct NodeCommand<
     /// Additional cli arguments
     #[command(flatten, next_help_heading = "Extension")]
     pub ext: Ext,
+
+    /// All tee related arguments
+    #[command(flatten)]
+    pub tee: TeeArgs,
 }
 
 impl<C: ChainSpecParser> NodeCommand<C> {
@@ -157,7 +157,6 @@ impl<
             with_unused_ports,
             network,
             rpc,
-            tee,
             txpool,
             builder,
             debug,
@@ -165,6 +164,7 @@ impl<
             dev,
             pruning,
             ext,
+            tee,
         } = self;
 
         // set up node config
@@ -176,13 +176,13 @@ impl<
             instance,
             network,
             rpc,
-            tee,
             txpool,
             builder,
             debug,
             db,
             dev,
             pruning,
+            tee,
         };
 
         let data_dir = node_config.datadir();

@@ -1,4 +1,4 @@
-use crate::primitives::alloy_primitives::{BlockNumber, StorageKey, StorageValue};
+use crate::primitives::alloy_primitives::{BlockNumber, StorageKey};
 use alloy_primitives::{Address, B256, U256};
 use core::ops::{Deref, DerefMut};
 use reth_primitives::Account;

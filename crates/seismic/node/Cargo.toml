@@ -1,54 +1,57 @@
 [package]
-name = "reth-node-seismic"
+name = "reth-seismic-node"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-homepage.workspace = true
 repository.workspace = true
 
-[lints]
-workspace = true
-
 [dependencies]
-async-trait.workspace = true
-seismic-transaction.workspace = true
-reth-evm-seismic.workspace = true
-reth-rpc-seismic.workspace = true
-reth-chainspec.workspace = true
-reth-evm.workspace = true
-reth-evm-ethereum.workspace = true
+reth-cli.workspace = true
+reth-errors.workspace = true
 reth-node-api.workspace = true
-reth-node-core.workspace = true
-reth-node-ethereum = { workspace = true, features = ["test-utils"] }
-reth-primitives.workspace = true
-reth-tracing.workspace = true
-reth-transaction-pool.workspace = true
-reth-rpc-types.workspace = true
-reth-rpc.workspace = true
+reth-node-ethereum.workspace = true
 reth-node-builder.workspace = true
-reth-provider.workspace = true
-reth-ethereum-engine-primitives.workspace = true
-reth-network-api.workspace = true
+reth-chainspec.workspace = true
+reth-payload-builder.workspace = true
+reth-primitives.workspace = true
+reth-evm.workspace = true
+reth-revm.workspace = true
 reth-rpc-eth-api.workspace = true
+reth-rpc-eth-types.workspace = true
+reth-rpc-builder.workspace = true
+reth-transaction-pool.workspace = true
+reth-tracing.workspace = true
+reth-trie-common.workspace = true
+reth-trie-db.workspace = true
+reth-network.workspace = true
+reth-network-types.workspace = true
+reth-tee.workspace = true
 reth-tasks.workspace = true
-reth-rpc-types-compat.workspace = true
-alloy-dyn-abi.workspace = true
-alloy-network.workspace = true
-parking_lot = "0.12"
-thiserror = "1.0"
-jsonrpsee-types = "0.24"
-derive_more = "0.99.17"
-dyn-clone = "1.0.17"
+reth-node-core.workspace = true
+reth-provider.workspace = true  
+reth-blockchain-tree.workspace = true
+reth-beacon-consensus.workspace = true
+reth-consensus-debug-client.workspace = true
+reth-engine-util.workspace = true
+reth-exex.workspace = true
+reth-node-events.workspace = true
+reth-rpc-engine-api.workspace = true
 
-# clap = { workspace = true, features = ["derive"] }
-eyre.workspace = true
-tokio.workspace = true
-jsonrpsee = { workspace = true, features = ["server", "macros", "client"] }
-secp256k1 = { version = "0.29", default-features = false, features = [
-    "global-context",
-    "recovery",
-] }
-tracing.workspace = true
+alloy-consensus.workspace = true
+alloy-eips.workspace = true
+alloy-primitives.workspace = true
+alloy-network.workspace = true
+alloy-rpc-types.workspace  = true
+alloy-rpc-types-eth.workspace  = true
 
 serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+eyre.workspace = true
+jsonrpsee.workspace = true
+secp256k1 = {workspace = true, features = ["rand", "recovery", "std", "serde"]}
+futures.workspace = true
+tokio-stream.workspace = true
+
+tee_service_api.workspace = true

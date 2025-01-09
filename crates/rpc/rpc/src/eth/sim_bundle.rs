@@ -323,7 +323,10 @@ where
                         )
                         .into());
                     }
-                    eth_api.evm_config().fill_tx_env(evm.tx_mut(), &item.tx, item.signer);
+                    eth_api
+                        .evm_config()
+                        .fill_tx_env(evm.tx_mut(), &item.tx, item.signer)
+                        .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
 
                     let ResultAndState { result, state } =
                         evm.transact().map_err(EthApiError::from_eth_err)?;

@@ -11,7 +11,10 @@ use itertools::Itertools;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use reth_primitives::Account;
 use reth_trie_common::KeyHasher;
-use revm::db::{states::CacheAccount, AccountStatus, BundleAccount, primitives::FlaggedStorage};
+use revm::{
+    db::{states::CacheAccount, AccountStatus, BundleAccount},
+    primitives::FlaggedStorage,
+};
 use std::borrow::Cow;
 
 /// Representation of in-memory hashed state.
@@ -64,12 +67,7 @@ impl HashedPostState {
                 let hashed_account = account.account.as_ref().map(|a| (&a.info).into());
                 let hashed_storage = HashedStorage::from_plain_storage(
                     account.status,
-                    account
-                        .account
-                        .as_ref()
-                        .map(|a| a.storage.iter().map(|entry| (entry.0, entry.1)))
-                        .into_iter()
-                        .flatten(),
+                    account.account.as_ref().map(|a| a.storage.iter()).into_iter().flatten(),
                 );
                 (hashed_address, (hashed_account, hashed_storage))
             })
@@ -215,7 +213,7 @@ pub struct HashedStorage {
     /// Flag indicating whether the storage was wiped or not.
     pub wiped: bool,
     /// Mapping of hashed storage slot to storage value.
-    pub storage: HashMap<B256, FlaggedStorage>,
+    pub storage: B256HashMap<FlaggedStorage>,
 }
 
 impl HashedStorage {
@@ -463,7 +461,7 @@ mod tests {
         let mut storage = StorageWithOriginalValues::default();
         storage.insert(
             U256::from(1),
-            StorageSlot { present_value: U256::from(4), ..Default::default() },
+            StorageSlot { present_value: FlaggedStorage::new_from_value(4), ..Default::default() },
         );
 
         // Create a `BundleAccount` struct to represent the account and its storage.
@@ -505,7 +503,7 @@ mod tests {
         };
 
         let mut storage = PlainStorage::default();
-        storage.insert(U256::from(1), U256::from(35636));
+        storage.insert(U256::from(1), FlaggedStorage::new_from_value(35636));
 
         // Create a `CacheAccount` with the mock account info.
         let account = CacheAccount {

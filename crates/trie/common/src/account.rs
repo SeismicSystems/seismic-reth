@@ -118,7 +118,7 @@ mod tests {
 
         let expected_storage_root = storage_root_unhashed(BTreeMap::from([(
             B256::from([0x01; 32]),
-            U256::from_be_bytes(*B256::from([0x02; 32])),
+            FlaggedStorage::from(U256::from_be_bytes(*B256::from([0x02; 32]))),
         )]));
 
         // Check that the fields are properly set.

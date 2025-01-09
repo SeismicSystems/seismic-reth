@@ -1,6 +1,6 @@
 use crate::{
     hashed_cursor::{HashedCursorFactory, HashedStorageCursor},
-    node_iter::{TrieElement, TrieLeafNode, TrieNodeIter},
+    node_iter::{TrieElement, TrieNodeIter},
     prefix_set::{PrefixSet, TriePrefixSets},
     progress::{IntermediateStateRootState, StateRootProgress},
     stats::TrieTracker,
@@ -187,11 +187,7 @@ where
                     tracker.inc_branch();
                     hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
                 }
-                TrieElement::Leaf(TrieLeafNode {
-                    key: hashed_address,
-                    value: account,
-                    is_private: _,
-                }) => {
+                TrieElement::Leaf(hashed_address, account) => {
                     tracker.inc_leaf();
                     hashed_entries_walked += 1;
 
@@ -423,7 +419,7 @@ where
                     tracker.inc_branch();
                     hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
                 }
-                TrieElement::Leaf(TrieLeafNode { key: hashed_slot, value, is_private: _ }) => {
+                TrieElement::Leaf(hashed_slot, value) => {
                     tracker.inc_leaf();
                     hash_builder.add_leaf(
                         Nibbles::unpack(hashed_slot),

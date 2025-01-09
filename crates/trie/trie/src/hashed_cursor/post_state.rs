@@ -3,10 +3,10 @@ use crate::{
     forward_cursor::ForwardInMemoryCursor, HashedAccountsSorted, HashedPostStateSorted,
     HashedStorageSorted,
 };
-use alloy_primitives::{map::B256HashSet, B256, U256};
-use revm::primitives::FlaggedStorage;
+use alloy_primitives::{map::B256HashSet, B256};
 use reth_primitives::Account;
 use reth_storage_errors::db::DatabaseError;
+use revm::primitives::FlaggedStorage;
 
 /// The hashed cursor factory for the post state.
 #[derive(Clone, Debug)]

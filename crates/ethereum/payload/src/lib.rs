@@ -284,7 +284,10 @@ where
         }
 
         // Configure the environment for the tx.
-        *evm.tx_mut() = evm_config.tx_env(tx.as_signed(), tx.signer());
+        *evm.tx_mut() = evm_config.tx_env(tx.as_signed(), tx.signer()).map_err(|err| {
+            warn!(target: "payload_builder", %err, ?tx, "failed to configure tx environment for payload");
+            PayloadBuilderError::EvmExecutionError(err.map_db_err(|err|err.into()))
+        })?;
 
         let ResultAndState { result, state } = match evm.transact() {
             Ok(res) => res,

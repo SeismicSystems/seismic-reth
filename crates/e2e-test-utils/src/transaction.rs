@@ -248,6 +248,7 @@ pub fn legacy_tx(chain_id: u64, input: Bytes, nonce: u64, to: TxKind) -> Transac
     })
 }
 
+/// Create a seismic transaction
 pub fn seismic_tx(
     sk_wallet: &PrivateKeySigner,
     chain_id: u64,
@@ -258,7 +259,9 @@ pub fn seismic_tx(
     let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
         .expect("32 bytes, within curve order");
     let tee_wallet = MockWallet {};
+
     let encrypted_input = tee_wallet.encrypt(decrypted_input.to_vec(), nonce, &sk).unwrap();
+
     Transaction::Seismic(TxSeismic {
         chain_id,
         nonce,

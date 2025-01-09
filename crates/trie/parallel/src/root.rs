@@ -162,11 +162,7 @@ where
                 TrieElement::Branch(node) => {
                     hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
                 }
-                TrieElement::Leaf(TrieLeafNode {
-                    key: hashed_address,
-                    value: account,
-                    is_private: _,
-                }) => {
+                TrieElement::Leaf(hashed_address, account) => {
                     let (storage_root, _, updates) = match storage_roots.remove(&hashed_address) {
                         Some(rx) => rx.recv().map_err(|_| {
                             ParallelStateRootError::StorageRoot(StorageRootError::Database(
@@ -259,9 +255,10 @@ mod tests {
     use super::*;
     use alloy_primitives::{keccak256, Address, U256};
     use rand::Rng;
-    use reth_primitives::{Account, StorageEntry, revm_primitives::FlaggedStorage};
+    use reth_primitives::{Account, StorageEntry};
     use reth_provider::{test_utils::create_test_provider_factory, HashingWriter};
     use reth_trie::{test_utils, HashedPostState, HashedStorage};
+    use revm_primitives::FlaggedStorage;
 
     #[tokio::test]
     async fn random_parallel_root() {
@@ -302,7 +299,7 @@ mod tests {
                         storage.iter().map(|(slot, value)| StorageEntry {
                             key: *slot,
                             value: *value,
-                            ..Default::default()
+                            is_private: false,
                         }),
                     )
                 }))
@@ -337,7 +334,7 @@ mod tests {
                         .entry(hashed_address)
                         .or_insert_with(HashedStorage::default)
                         .storage
-                        .insert(hashed_slot, FlaggedStorage::new_from_value(*value));
+                        .insert(hashed_slot, FlaggedStorage::from(*value));
                 }
             }
         }

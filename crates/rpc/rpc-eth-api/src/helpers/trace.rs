@@ -220,7 +220,9 @@ pub trait Trace:
                 let env = EnvWithHandlerCfg::new_with_cfg_env(
                     cfg,
                     block_env,
-                    RpcNodeCore::evm_config(&this).tx_env(tx.as_signed(), tx.signer()),
+                    RpcNodeCore::evm_config(&this)
+                        .tx_env(tx.as_signed(), tx.signer())
+                        .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
                 );
                 let (res, _) =
                     this.inspect(StateCacheDbRefMutWrapper(&mut db), env, &mut inspector)?;
@@ -356,26 +358,41 @@ pub trait Trace:
                             block_number: Some(block_number),
                             base_fee: Some(base_fee),
                         };
-                        let tx_env = this.evm_config().tx_env(tx, *signer);
-                        (tx_info, tx_env)
+                        let tx_env = this
+                            .evm_config()
+                            .tx_env(tx, *signer)
+                            .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
+                        Ok((tx_info, tx_env))
                     })
                     .peekable();
 
-                while let Some((tx_info, tx)) = transactions.next() {
-                    let env =
-                        EnvWithHandlerCfg::new_with_cfg_env(cfg.clone(), block_env.clone(), tx);
+                while let Some(res) = transactions.next() {
+                    match res {
+                        Ok((tx_info, tx)) => {
+                            let env = EnvWithHandlerCfg::new_with_cfg_env(
+                                cfg.clone(),
+                                block_env.clone(),
+                                tx,
+                            );
 
-                    let mut inspector = inspector_setup();
-                    let (res, _) =
-                        this.inspect(StateCacheDbRefMutWrapper(&mut db), env, &mut inspector)?;
-                    let ResultAndState { result, state } = res;
-                    results.push(f(tx_info, inspector, result, &state, &db)?);
+                            let mut inspector = inspector_setup();
+                            let (res, _) = this.inspect(
+                                StateCacheDbRefMutWrapper(&mut db),
+                                env,
+                                &mut inspector,
+                            )?;
+                            let ResultAndState { result, state } = res;
+                            results.push(f(tx_info, inspector, result, &state, &db)?);
 
-                    // need to apply the state changes of this transaction before executing the
-                    // next transaction, but only if there's a next transaction
-                    if transactions.peek().is_some() {
-                        // commit the state changes to the DB
-                        db.commit(state)
+                            // need to apply the state changes of this transaction before executing
+                            // the next transaction, but only if there's
+                            // a next transaction
+                            if transactions.peek().is_some() {
+                                // commit the state changes to the DB
+                                db.commit(state)
+                            }
+                        }
+                        Err(err) => return Err(err),
                     }
                 }
 

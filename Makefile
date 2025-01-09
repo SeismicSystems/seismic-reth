@@ -495,7 +495,6 @@ test-doc:
 
 test:
 	make test-reth && \
-	make test-op-reth && \
 	make test-seismic-reth && \
 	make test-doc && \
 	make test-other-targets

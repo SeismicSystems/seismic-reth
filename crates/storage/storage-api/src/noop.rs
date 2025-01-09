@@ -14,7 +14,7 @@ use alloy_eips::{
 };
 use alloy_primitives::{
     map::{B256HashMap, HashMap},
-    Address, BlockHash, BlockNumber, Bytes, StorageKey, StorageValue, TxHash, TxNumber, B256, U256,
+    Address, BlockHash, BlockNumber, Bytes, StorageKey, TxHash, TxNumber, B256, U256,
 };
 use reth_chainspec::{ChainInfo, ChainSpecProvider, EthChainSpec, MAINNET};
 use reth_db_models::{AccountBeforeTx, StoredBlockBodyIndices};
@@ -29,6 +29,7 @@ use reth_trie::{
     updates::TrieUpdates, AccountProof, HashedPostState, HashedStorage, MultiProof,
     MultiProofTargets, TrieInput,
 };
+use revm::primitives::FlaggedStorage;
 use std::{
     marker::PhantomData,
     ops::{RangeBounds, RangeInclusive},
@@ -461,7 +462,7 @@ impl<C: Send + Sync, N: NodePrimitives> StateProvider for NoopProvider<C, N> {
         &self,
         _account: Address,
         _storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>> {
+    ) -> ProviderResult<Option<FlaggedStorage>> {
         Ok(None)
     }
 

@@ -43,6 +43,7 @@ metrics = { workspace = true, optional = true }
 reth-primitives = { workspace = true, features = ["test-utils", "arbitrary"] }
 reth-provider = { workspace = true, features = ["test-utils"] }
 reth-trie = { workspace = true, features = ["test-utils"] }
+revm-primitives.workspace = true
 
 # misc
 rand.workspace = true

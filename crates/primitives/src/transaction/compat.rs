@@ -2,6 +2,7 @@ use crate::{Transaction, TransactionSigned};
 use alloy_primitives::{Address, TxKind, U256};
 #[cfg(feature = "optimism")]
 use op_alloy_consensus::DepositTransaction;
+use reth_tracing::tracing::{debug, info};
 use revm_primitives::{AuthorizationList, TxEnv};
 
 /// Implements behaviour to fill a [`TxEnv`] from another transaction.
@@ -109,6 +110,11 @@ impl FillTxEnv for TransactionSigned {
                 };
                 return;
             }
+            Transaction::Seismic(_tx) => {
+                // implementation is in EthEvmConfig to avoid changing FillTxEnv trait
+                info!(target: "reth::fill_tx_env", "Seismic transaction not filled");
+                return
+            }
         }
 
         #[cfg(feature = "optimism")]
@@ -120,5 +126,29 @@ impl FillTxEnv for TransactionSigned {
                 enveloped_tx: Some(envelope.into()),
             }
         }
+        debug!(target: "reth::fill_tx_env", ?tx_env, "Filled transaction environment");
+    }
+}
+#[cfg(test)]
+mod tests {
+    use core::str::FromStr;
+    use reth_tee::TeeHttpClient;
+
+    use crate::{Signature, TxSeismic};
+
+    use super::*;
+
+    #[test]
+    fn test_fill_tx_env_seismic_invalid_signature() {
+        let tx = Transaction::Seismic(TxSeismic::default());
+        let signature = Signature::default();
+        let tx_signed = TransactionSigned::from_transaction_and_signature(tx, signature);
+        let sender = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
+        let tee = TeeHttpClient::default();
+        let mut tx_env = TxEnv::default();
+
+        let result = tx_signed.fill_tx_env(&mut tx_env, sender, &tee);
+
+        assert!(matches!(result, Err(EVMError::Custom(err)) if err == "Invalid Signature"));
     }
 }
