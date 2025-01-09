@@ -378,6 +378,7 @@ where
                 best_payload,
             };
             let result = builder.try_build(args);
+            debug!(target: "payload_builder", "result: {:?}", result);
             let _ = tx.send(result);
         }));
 
@@ -413,6 +414,7 @@ where
                 this.spawn_build_job();
             }
         }
+        debug!(target: "payload_builder", "pending block: {:?}", this.pending_block);
 
         // poll the pending block
         if let Some(mut fut) = this.pending_block.take() {
@@ -441,6 +443,7 @@ where
                     this.metrics.inc_failed_payload_builds();
                 }
                 Poll::Pending => {
+                    debug!(target: "payload_builder", "awaiting payload build job");
                     this.pending_block = Some(fut);
                 }
             }

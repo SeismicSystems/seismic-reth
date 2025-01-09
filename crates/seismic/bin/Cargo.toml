@@ -26,7 +26,7 @@ reth-primitives.workspace = true
 reth.workspace = true
 
 # seismic
-reth-seismic-node.workspace = true
+seismic-node.workspace = true
 
 # misc
 clap = { workspace = true, features = ["derive"] }

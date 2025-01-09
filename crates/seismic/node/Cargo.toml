@@ -1,5 +1,5 @@
 [package]
-name = "reth-seismic-node"
+name = "seismic-node"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -44,6 +44,7 @@ alloy-primitives.workspace = true
 alloy-network.workspace = true
 alloy-rpc-types.workspace  = true
 alloy-rpc-types-eth.workspace  = true
+alloy-signer-local.workspace = true
 
 serde_json.workspace = true
 tokio.workspace = true
@@ -55,3 +56,6 @@ futures.workspace = true
 tokio-stream.workspace = true
 
 tee_service_api.workspace = true
+
+[dev-dependencies]
+reth-e2e-test-utils.workspace = true    

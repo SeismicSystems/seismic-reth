@@ -11,6 +11,7 @@ use reth_primitives::SealedBlock;
 
 use alloy_eips::eip7685::Requests;
 use std::{error::Error, fmt};
+use tracing::debug;
 
 /// hand rolled Either enum to handle two builder types
 #[derive(Debug, Clone)]

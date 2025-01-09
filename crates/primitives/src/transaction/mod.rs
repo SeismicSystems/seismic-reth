@@ -25,7 +25,7 @@ use op_alloy_consensus::DepositTransaction;
 use op_alloy_consensus::TxDeposit;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use reth_primitives_traits::{InMemorySize, SignedTransaction};
-use reth_tracing::tracing::info;
+use reth_tracing::tracing::{debug, info};
 use revm_primitives::{AuthorizationList, TxEnv};
 use serde::{Deserialize, Serialize};
 use signature::decode_with_eip155_chain_id;
@@ -560,6 +560,10 @@ impl reth_codecs::Compact for Transaction {
                     alloy_consensus::constants::EIP7702_TX_TYPE_ID => {
                         let (tx, buf) = TxEip7702::from_compact(buf, buf.len());
                         (Self::Eip7702(tx), buf)
+                    }
+                    alloy_consensus::constants::SEISMIC_TX_TYPE_ID => {
+                        let (tx, buf) = TxSeismic::from_compact(buf, buf.len());
+                        (Self::Seismic(tx), buf)
                     }
                     #[cfg(feature = "optimism")]
                     op_alloy_consensus::DEPOSIT_TX_TYPE_ID => {
@@ -1368,6 +1372,7 @@ impl Encodable2718 for TransactionSigned {
 
 impl Decodable2718 for TransactionSigned {
     fn typed_decode(ty: u8, buf: &mut &[u8]) -> Eip2718Result<Self> {
+        debug!("Decoding transaction with type: {}", ty);
         match ty.try_into().map_err(|_| Eip2718Error::UnexpectedType(ty))? {
             TxType::Legacy => Err(Eip2718Error::UnexpectedType(0)),
             TxType::Eip2930 => {

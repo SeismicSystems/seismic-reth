@@ -91,6 +91,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
         transaction: &TransactionSigned,
         sender: Address,
     ) -> EVMResultGeneric<(), TeeError> {
+        debug!(target: "reth::fill_tx_env", ?transaction, "Parsing transaction");
         match &transaction.transaction {
             Transaction::Seismic(tx) => {
                 let msg_sender = self
@@ -111,12 +112,13 @@ impl ConfigureEvmEnv for EthEvmConfig {
 
                 debug!(target: "reth::fill_tx_env", ?data, ?tee_decryption, ?tx.input, "Decrypted input data");
 
+                tx_env.caller = sender;
                 tx_env.gas_limit = tx.gas_limit;
                 tx_env.gas_price = U256::from(tx.gas_price);
                 tx_env.gas_priority_fee = None;
                 tx_env.transact_to = tx.to;
                 tx_env.value = tx.value;
-                tx_env.data = tx.input.clone();
+                tx_env.data = data;
                 tx_env.chain_id = Some(tx.chain_id);
                 tx_env.nonce = Some(tx.nonce);
                 tx_env.access_list.clear();

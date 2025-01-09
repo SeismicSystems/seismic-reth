@@ -155,8 +155,10 @@ members = [
     "examples/custom-beacon-withdrawals",
     "testing/ef-tests/",
     "testing/testing-utils",
+    "crates/seismic/bin",
+    "crates/seismic/node",
 ]
-default-members = ["crates/seismic/bin"]
+default-members = ["crates/seismic/bin", "bin/reth"]
 exclude = ["book/sources"]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
@@ -431,7 +433,7 @@ reth-trie-sparse = { path = "crates/trie/sparse" }
 reth-zstd-compressors = { path = "crates/storage/zstd-compressors", default-features = false }
 
 # seismic reth 
-reth-seismic-node = { path = "crates/seismic/node" }
+seismic-node = { path = "crates/seismic/node" }
 seismic-reth = { path = "crates/seismic/bin" }
 
 # revm
@@ -451,34 +453,34 @@ alloy-rlp = { version = "0.3.10", default-features = false }
 alloy-trie = { version = "=0.7.6", default-features = false }
 
 # alloy
-alloy-consensus = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-contract = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-eips = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-genesis = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-json-rpc = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-network = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-network-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-node-bindings = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-provider = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", features = ["reqwest"], default-features = false }
-alloy-pubsub = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-rpc-client = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-rpc-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", features = ["eth"], default-features = false }
-alloy-rpc-types-admin = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-rpc-types-anvil = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-rpc-types-beacon = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-rpc-types-debug = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-rpc-types-engine = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-rpc-types-eth = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-rpc-types-mev = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-rpc-types-trace = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-rpc-types-txpool = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-serde = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-signer = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-signer-local = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-transport = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic" }
-alloy-transport-http = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", features = ["reqwest-rustls-tls"], default-features = false }
-alloy-transport-ipc = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
-alloy-transport-ws = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "seismic", default-features = false }
+alloy-consensus = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-contract = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-eips = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-genesis = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-json-rpc = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-network = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-network-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-node-bindings = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-provider = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", features = ["reqwest"], default-features = false }
+alloy-pubsub = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-client = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", features = ["eth"], default-features = false }
+alloy-rpc-types-admin = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-anvil = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-beacon = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-debug = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-engine = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-eth = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-mev = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-trace = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-txpool = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-serde = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-signer = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-signer-local = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-transport = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix" }
+alloy-transport-http = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", features = ["reqwest-rustls-tls"], default-features = false }
+alloy-transport-ipc = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-transport-ws = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
 
 # op
 op-alloy-rpc-types = "0.8.1"
@@ -486,6 +488,7 @@ op-alloy-rpc-types-engine = "0.8.1"
 op-alloy-rpc-jsonrpsee = "0.8.1"
 op-alloy-network = "0.8.1"
 op-alloy-consensus = "0.8.1"
+op-alloy-genesis = "0.8.1"
 
 # misc
 aquamarine = "0.6"
@@ -642,4 +645,40 @@ alloy-sol-type-parser = { git = "ssh://git@github.com/SeismicSystems/seismic-all
 revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
 revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
 revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", branch = "seismic"}
-revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "upstream-merge"} # seismic todo change branch
+revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "seismic"} # seismic todo change branch
+
+alloy-consensus = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-contract = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-eips = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-genesis = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-json-rpc = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-network = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-network-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-node-bindings = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-provider = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", features = ["reqwest"], default-features = false }
+alloy-pubsub = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-client = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", features = ["eth"], default-features = false }
+alloy-rpc-types-admin = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-anvil = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-beacon = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-debug = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-engine = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-eth = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-mev = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-trace = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-rpc-types-txpool = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-serde = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-signer = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-signer-local = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-transport = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix" }
+alloy-transport-http = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", features = ["reqwest-rustls-tls"], default-features = false }
+alloy-transport-ipc = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+alloy-transport-ws = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", branch = "fix", default-features = false }
+
+op-alloy-rpc-types = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
+op-alloy-rpc-types-engine = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
+op-alloy-rpc-jsonrpsee = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
+op-alloy-network = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
+op-alloy-consensus = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
+op-alloy-genesis = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }

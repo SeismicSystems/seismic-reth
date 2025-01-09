@@ -4,6 +4,7 @@ use super::{EthApiError, EthResult};
 use reth_primitives::{transaction::SignedTransactionIntoRecoveredExt, RecoveredTx};
 use reth_primitives_traits::SignedTransaction;
 use std::future::Future;
+use tracing::debug;
 
 /// Recovers a [`SignedTransaction`] from an enveloped encoded byte stream.
 ///
@@ -16,8 +17,12 @@ pub fn recover_raw_transaction<T: SignedTransaction>(mut data: &[u8]) -> EthResu
         return Err(EthApiError::EmptyRawTransactionData)
     }
 
+    debug!(target: "reth::recover_raw_transaction", "{:?}", data);
+
     let transaction =
         T::decode_2718(&mut data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
+
+    debug!(target: "reth::recover_raw_transaction", "{:?}", transaction);
 
     transaction.try_into_ecrecovered().or(Err(EthApiError::InvalidTransactionSignature))
 }

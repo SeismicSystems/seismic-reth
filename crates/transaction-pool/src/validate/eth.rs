@@ -14,7 +14,7 @@ use crate::{
 use alloy_consensus::{
     constants::{
         EIP1559_TX_TYPE_ID, EIP2930_TX_TYPE_ID, EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID,
-        LEGACY_TX_TYPE_ID,
+        LEGACY_TX_TYPE_ID, SEISMIC_TX_TYPE_ID,
     },
     BlockHeader,
 };
@@ -217,6 +217,10 @@ where
                         InvalidTransactionError::Eip7702Disabled.into(),
                     )
                 }
+            }
+
+            SEISMIC_TX_TYPE_ID => {
+                // Accept Seismic transactions.
             }
 
             _ => {

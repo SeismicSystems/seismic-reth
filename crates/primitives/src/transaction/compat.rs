@@ -2,7 +2,7 @@ use crate::{Transaction, TransactionSigned};
 use alloy_primitives::{Address, TxKind, U256};
 #[cfg(feature = "optimism")]
 use op_alloy_consensus::DepositTransaction;
-use reth_tracing::tracing::{debug, info};
+use reth_tracing::tracing::*;
 use revm_primitives::{AuthorizationList, TxEnv};
 
 /// Implements behaviour to fill a [`TxEnv`] from another transaction.
@@ -126,6 +126,7 @@ impl FillTxEnv for TransactionSigned {
                 enveloped_tx: Some(envelope.into()),
             }
         }
+        debug!(target: "reth::fill_tx_env", "{} {}", (self.transaction.tx_type()), "Tranasction type");
         debug!(target: "reth::fill_tx_env", ?tx_env, "Filled transaction environment");
     }
 }

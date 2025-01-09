@@ -3,6 +3,7 @@ use reth_payload_builder::{PayloadBuilderHandle, PayloadId};
 use reth_payload_builder_primitives::{Events, PayloadBuilder};
 use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes, PayloadTypes};
 use tokio_stream::wrappers::BroadcastStream;
+use tracing::debug;
 
 /// Helper for payload operations
 #[derive(derive_more::Debug)]
@@ -56,6 +57,7 @@ impl<T: PayloadTypes> PayloadTestContext<T> {
     /// Wait until the best built payload is ready
     pub async fn wait_for_built_payload(&self, payload_id: PayloadId) {
         loop {
+            debug!("Waiting for payload {:?}", payload_id);
             let payload = self.payload_builder.best_payload(payload_id).await.unwrap().unwrap();
             if payload.block().body.transactions.is_empty() {
                 tokio::time::sleep(std::time::Duration::from_millis(20)).await;

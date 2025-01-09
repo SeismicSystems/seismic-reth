@@ -6,8 +6,8 @@ use reth::chainspec::EthereumChainSpecParser;
 use reth_cli_commands::node::NoArgs;
 use reth_node_builder::DefaultNodeLauncher;
 use reth_provider::providers::BlockchainProvider;
-use reth_seismic_node::rpc::{SeismicApi, SeismicApiServer};
 use reth_tee::mock::MockTeeServer;
+use seismic_node::rpc::{SeismicApi, SeismicApiServer};
 use tracing::info;
 
 /// Parameters for configuring the engine
