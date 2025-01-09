@@ -21,8 +21,11 @@ use crate::builder::RethEvmBuilder;
 use alloy_consensus::BlockHeader as _;
 use alloy_primitives::{Address, Bytes, B256, U256};
 use reth_primitives_traits::BlockHeader;
+use reth_tee::TeeError;
 use revm::{Database, Evm, GetInspector};
-use revm_primitives::{BlockEnv, CfgEnvWithHandlerCfg, Env, EnvWithHandlerCfg, SpecId, TxEnv};
+use revm_primitives::{
+    BlockEnv, CfgEnvWithHandlerCfg, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId, TxEnv,
+};
 
 pub mod builder;
 pub mod either;
@@ -122,14 +125,23 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
     type Error: core::error::Error + Send + Sync;
 
     /// Returns a [`TxEnv`] from a transaction and [`Address`].
-    fn tx_env(&self, transaction: &Self::Transaction, signer: Address) -> TxEnv {
+    fn tx_env(
+        &self,
+        transaction: &Self::Transaction,
+        signer: Address,
+    ) -> EVMResultGeneric<TxEnv, TeeError> {
         let mut tx_env = TxEnv::default();
-        self.fill_tx_env(&mut tx_env, transaction, signer);
-        tx_env
+        self.fill_tx_env(&mut tx_env, transaction, signer)?;
+        Ok(tx_env)
     }
 
     /// Fill transaction environment from a transaction  and the given sender address.
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &Self::Transaction, sender: Address);
+    fn fill_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        transaction: &Self::Transaction,
+        sender: Address,
+    ) -> EVMResultGeneric<(), TeeError>;
 
     /// Fill transaction environment with a system contract call.
     fn fill_tx_env_system_contract_call(

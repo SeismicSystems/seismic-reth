@@ -18,6 +18,7 @@ use tracing::trace;
 
 use crate::{
     helpers::{EthApiSpec, EthBlocks, EthCall, EthFees, EthState, EthTransactions, FullEthApi},
+    types::SeismicCallRequest,
     RpcBlock, RpcHeader, RpcReceipt, RpcTransaction,
 };
 
@@ -221,7 +222,7 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
     #[method(name = "call")]
     async fn call(
         &self,
-        request: TransactionRequest,
+        request: SeismicCallRequest,
         block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
@@ -312,7 +313,7 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
     async fn hashrate(&self) -> RpcResult<U256>;
 
     /// Returns the hash of the current block, the seedHash, and the boundary condition to be met
-    /// (“target”)
+    /// ("target")
     #[method(name = "getWork")]
     async fn get_work(&self) -> RpcResult<Work>;
 
@@ -638,19 +639,31 @@ where
     /// Handler for: `eth_call`
     async fn call(
         &self,
-        request: TransactionRequest,
+        request: SeismicCallRequest,
         block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
-        trace!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving eth_call");
-        Ok(EthCall::call(
-            self,
-            request,
-            block_number,
-            EvmOverrides::new(state_overrides, block_overrides),
-        )
-        .await?)
+        trace!(target: "rpc::eth", ?request, "Serving seismic_call");
+        match request {
+            SeismicCallRequest::Bytes(bytes) => {
+                Ok(EthCall::signed_call(self, bytes, block_number).await?)
+            }
+            SeismicCallRequest::TransactionRequest(mut tx_request) => {
+                // If user calls with the standard (unsigned) eth_call,
+                // then disregard whatever they put in the from field
+                // They will still be able to read public contract functions,
+                // but they will not be able to spoof msg.sender in these calls
+                tx_request.from = None;
+                Ok(EthCall::call(
+                    self,
+                    tx_request,
+                    block_number,
+                    EvmOverrides::new(state_overrides, block_overrides),
+                )
+                .await?)
+            }
+        }
     }
 
     /// Handler for: `eth_callMany`

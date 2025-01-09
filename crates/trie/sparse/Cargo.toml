@@ -31,6 +31,7 @@ reth-primitives-traits = { workspace = true, features = ["arbitrary"] }
 reth-trie = { workspace = true, features = ["test-utils"] }
 reth-trie-common = { workspace = true, features = ["test-utils", "arbitrary"] }
 reth-testing-utils.workspace = true
+revm-primitives.workspace = true
 
 arbitrary.workspace = true
 assert_matches.workspace = true

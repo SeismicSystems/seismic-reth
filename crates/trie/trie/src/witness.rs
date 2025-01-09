@@ -15,7 +15,7 @@ use reth_execution_errors::{
     SparseStateTrieError, SparseStateTrieErrorKind, SparseTrieError, SparseTrieErrorKind,
     StateProofError, TrieWitnessError,
 };
-use reth_trie_common::Nibbles;
+use reth_trie_common::{MultiProofTargets, Nibbles};
 use reth_trie_sparse::{
     blinded::{BlindedProvider, BlindedProviderFactory},
     SparseStateTrie,
@@ -134,7 +134,7 @@ where
                 let maybe_leaf_value = storage
                     .and_then(|s| s.storage.get(&hashed_slot))
                     .filter(|v| !v.is_zero())
-                    .map(|v| alloy_rlp::encode_fixed_size(v).to_vec());
+                    .map(|v| alloy_rlp::encode_fixed_size(&v.value).to_vec());
 
                 if let Some(value) = maybe_leaf_value {
                     storage_trie
@@ -171,8 +171,8 @@ where
     fn get_proof_targets(
         &self,
         state: &HashedPostState,
-    ) -> Result<B256HashMap<B256HashSet>, StateProofError> {
-        let mut proof_targets = B256HashMap::default();
+    ) -> Result<MultiProofTargets, StateProofError> {
+        let mut proof_targets = MultiProofTargets::default();
         for hashed_address in state.accounts.keys() {
             proof_targets.insert(*hashed_address, B256HashSet::default());
         }

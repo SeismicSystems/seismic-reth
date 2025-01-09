@@ -3,9 +3,7 @@ use crate::{
     HashedPostStateProvider, ProviderError, StateProvider, StateRootProvider,
 };
 use alloy_eips::merge::EPOCH_SLOTS;
-use alloy_primitives::{
-    map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, StorageValue, B256,
-};
+use alloy_primitives::{map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, B256};
 use reth_db::{tables, BlockNumberList};
 use reth_db_api::{
     cursor::{DbCursorRO, DbDupCursorRO},
@@ -707,15 +705,14 @@ mod tests {
         .unwrap();
 
         let higher_entry_plain =
-            StorageEntry { key: STORAGE, value: U256::from(1000), ..Default::default() };
+            StorageEntry { key: STORAGE, value: U256::from(1000), is_private: false };
         let higher_entry_at4 =
-            StorageEntry { key: STORAGE, value: U256::from(0), ..Default::default() };
-        let entry_plain =
-            StorageEntry { key: STORAGE, value: U256::from(100), ..Default::default() };
-        let entry_at15 = StorageEntry { key: STORAGE, value: U256::from(15), ..Default::default() };
-        let entry_at10 = StorageEntry { key: STORAGE, value: U256::from(10), ..Default::default() };
-        let entry_at7 = StorageEntry { key: STORAGE, value: U256::from(7), ..Default::default() };
-        let entry_at3 = StorageEntry { key: STORAGE, value: U256::from(0), ..Default::default() };
+            StorageEntry { key: STORAGE, value: U256::from(0), is_private: false };
+        let entry_plain = StorageEntry { key: STORAGE, value: U256::from(100), is_private: false };
+        let entry_at15 = StorageEntry { key: STORAGE, value: U256::from(15), is_private: false };
+        let entry_at10 = StorageEntry { key: STORAGE, value: U256::from(10), is_private: false };
+        let entry_at7 = StorageEntry { key: STORAGE, value: U256::from(7), is_private: false };
+        let entry_at3 = StorageEntry { key: STORAGE, value: U256::from(0), is_private: false };
 
         // setup
         tx.put::<tables::StorageChangeSets>((3, ADDRESS).into(), entry_at3).unwrap();

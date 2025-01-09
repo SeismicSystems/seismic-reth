@@ -185,8 +185,8 @@ impl State {
                 tx.put::<tables::HashedStorages>(
                     hashed_address,
                     StorageEntry { key: keccak256(storage_key), value: *v, ..Default::default() },
-                )
-            }?;
+                )?;
+            }
         }
         Ok(())
     }

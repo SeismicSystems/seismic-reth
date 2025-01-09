@@ -3,7 +3,7 @@
 
 use super::{LoadBlock, LoadPendingBlock, LoadState, LoadTransaction, SpawnBlocking, Trace};
 use crate::{
-    helpers::estimate::EstimateCall, FromEthApiError, FromEvmError, FullEthApiTypes,
+    helpers::estimate::EstimateCall, EthApiTypes, FromEthApiError, FromEvmError, FullEthApiTypes,
     IntoEthApiError, RpcBlock, RpcNodeCore,
 };
 use alloy_consensus::BlockHeader;
@@ -19,6 +19,7 @@ use futures::Future;
 use reth_chainspec::EthChainSpec;
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
 use reth_node_api::BlockBody;
+use reth_primitives::TransactionSigned;
 use reth_primitives_traits::SignedTransaction;
 use reth_provider::{BlockIdReader, ChainSpecProvider, ProviderHeader};
 use reth_revm::{
@@ -37,8 +38,10 @@ use reth_rpc_eth_types::{
         CallFees,
     },
     simulate::{self, EthSimulateError},
+    utils::recover_raw_transaction,
     EthApiError, RevertError, RpcInvalidTransactionError, StateCacheDb,
 };
+use reth_transaction_pool::{PoolConsensusTx, PoolPooledTx, PoolTransaction, TransactionPool};
 use revm::{Database, DatabaseCommit, GetInspector};
 use revm_inspectors::{access_list::AccessListInspector, transfer::TransferInspector};
 use tracing::trace;
@@ -234,6 +237,43 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         }
     }
 
+    /// Executes the call request (`eth_call`) and returns the output
+    fn signed_call(
+        &self,
+        tx: Bytes,
+        block_number: Option<BlockId>,
+    ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
+        async move {
+            // `call` must be accompanied with a valid signature.
+            let tx = recover_raw_transaction::<PoolPooledTx<Self::Pool>>(&tx)?.map_transaction(
+                <Self::Pool as TransactionPool>::Transaction::pooled_into_consensus,
+            );
+
+            let (cfg, block, at) = self.evm_env_at(block_number.unwrap_or_default()).await?;
+
+            let env = EnvWithHandlerCfg::new_with_cfg_env(
+                cfg,
+                block,
+                self.evm_config()
+                    .tx_env(tx.as_signed(), tx.signer())
+                    .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
+            );
+
+            let this = self.clone();
+
+            let (res, _) = self
+                .spawn_with_state_at_block(at, move |state| {
+                    let db = CacheDB::new(StateProviderDatabase::new(
+                        StateProviderTraitObjWrapper(&state),
+                    ));
+                    this.transact(db, env)
+                })
+                .await?;
+
+            ensure_success(res.result).map_err(Self::Error::from_eth_err)
+        }
+    }
+
     /// Simulate arbitrary number of transactions at an arbitrary blockchain index, with the
     /// optionality of state overrides
     fn call_many(
@@ -304,7 +344,9 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                         let env = EnvWithHandlerCfg::new_with_cfg_env(
                             cfg.clone(),
                             block_env.clone(),
-                            RpcNodeCore::evm_config(&this).tx_env(tx, *signer),
+                            RpcNodeCore::evm_config(&this)
+                                .tx_env(tx, *signer)
+                                .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
                         );
                         let (res, _) = this.transact(&mut db, env)?;
                         db.commit(res.state);
@@ -637,7 +679,9 @@ pub trait Call:
                 let env = EnvWithHandlerCfg::new_with_cfg_env(
                     cfg,
                     block_env,
-                    RpcNodeCore::evm_config(&this).tx_env(tx.as_signed(), tx.signer()),
+                    RpcNodeCore::evm_config(&this)
+                        .tx_env(tx.as_signed(), tx.signer())
+                        .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
                 );
 
                 let (res, _) = this.transact(&mut db, env)?;
@@ -679,7 +723,9 @@ pub trait Call:
                 break
             }
 
-            self.evm_config().fill_tx_env(evm.tx_mut(), tx, *sender);
+            self.evm_config()
+                .fill_tx_env(evm.tx_mut(), tx, *sender)
+                .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
             evm.transact_commit().map_err(Self::Error::from_evm_err)?;
             index += 1;
         }

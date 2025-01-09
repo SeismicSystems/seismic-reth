@@ -116,9 +116,6 @@ pub struct NodeConfig<ChainSpec> {
     /// All rpc related arguments
     pub rpc: RpcServerArgs,
 
-    /// All tee related arguments
-    pub tee: TeeArgs,
-
     /// All txpool related arguments with --txpool prefix
     pub txpool: TxPoolArgs,
 
@@ -136,6 +133,9 @@ pub struct NodeConfig<ChainSpec> {
 
     /// All pruning related arguments
     pub pruning: PruningArgs,
+
+    /// All tee related arguments
+    pub tee: TeeArgs,
 }
 
 impl NodeConfig<ChainSpec> {
@@ -164,6 +164,7 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
             dev: DevArgs::default(),
             pruning: PruningArgs::default(),
             datadir: DatadirArgs::default(),
+            tee: TeeArgs::default(),
         }
     }
 
@@ -225,12 +226,6 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
     /// Set the rpc args for the node
     pub fn with_rpc(mut self, rpc: RpcServerArgs) -> Self {
         self.rpc = rpc;
-        self
-    }
-
-    /// Set the tee args for the node
-    pub fn with_tee(mut self, tee: TeeArgs) -> Self {
-        self.tee = tee;
         self
     }
 
@@ -458,6 +453,7 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
             db: self.db,
             dev: self.dev,
             pruning: self.pruning,
+            tee: self.tee,
         }
     }
 }
@@ -471,19 +467,20 @@ impl Default for NodeConfig<ChainSpec> {
 impl<ChainSpec> Clone for NodeConfig<ChainSpec> {
     fn clone(&self) -> Self {
         Self {
-            config: None,
-            chain: MAINNET.clone(),
-            metrics: None,
-            instance: 1,
-            network: NetworkArgs::default(),
-            rpc: RpcServerArgs::default(),
-            txpool: TxPoolArgs::default(),
-            builder: PayloadBuilderArgs::default(),
-            debug: DebugArgs::default(),
-            db: DatabaseArgs::default(),
-            dev: DevArgs::default(),
-            pruning: PruningArgs::default(),
-            datadir: DatadirArgs::default(),
+            chain: self.chain.clone(),
+            config: self.config.clone(),
+            metrics: self.metrics,
+            instance: self.instance,
+            network: self.network.clone(),
+            rpc: self.rpc.clone(),
+            txpool: self.txpool.clone(),
+            builder: self.builder.clone(),
+            debug: self.debug.clone(),
+            db: self.db,
+            dev: self.dev,
+            pruning: self.pruning.clone(),
+            datadir: self.datadir.clone(),
+            tee: self.tee.clone(),
         }
     }
 }

@@ -18,7 +18,7 @@ use reth_primitives::{
 use reth_trie::root::{state_root_unhashed, storage_root_unhashed};
 use revm::{
     db::BundleState,
-    primitives::{AccountInfo, FlaggedStorage, HashMap},
+    primitives::{AccountInfo, FlaggedStorage},
 };
 use std::{str::FromStr, sync::LazyLock};
 
@@ -205,7 +205,10 @@ fn block1(number: BlockNumber) -> (SealedBlockWithSenders, ExecutionOutcome) {
             .revert_account_info(number, account2, Some(None))
             .state_storage(
                 account1,
-                HashMap::from([(slot, (FlaggedStorage::ZERO, FlaggedStorage::new_from_value(10)))]),
+                HashMap::from_iter([(
+                    slot,
+                    (FlaggedStorage::ZERO, FlaggedStorage::new_from_value(10)),
+                )]),
             )
             .build(),
         vec![vec![Some(
@@ -262,7 +265,10 @@ fn block2(
             )
             .state_storage(
                 account,
-                HashMap::from([(slot, (FlaggedStorage::ZERO, FlaggedStorage::new_from_value(15)))]),
+                HashMap::from_iter([(
+                    slot,
+                    (FlaggedStorage::ZERO, FlaggedStorage::new_from_value(15)),
+                )]),
             )
             .revert_account_info(
                 number,

@@ -226,6 +226,7 @@ mod tests {
         test_utils::create_test_provider_factory, AccountReader, StorageTrieWriter, TrieWriter,
     };
     use alloy_primitives::{keccak256, map::HashMap, Address, B256, U256};
+    use notify::event::Flag;
     use reth_db::tables;
     use reth_db_api::{
         cursor::{DbCursorRO, DbCursorRW, DbDupCursorRO},
@@ -279,11 +280,7 @@ mod tests {
                 storage_cursor
                     .insert(
                         hashed_address,
-                        StorageEntry {
-                            key: hashed_slot,
-                            value: U256::from(1),
-                            ..Default::default()
-                        },
+                        StorageEntry { key: hashed_slot, value: U256::from(1), is_private: false },
                     )
                     .unwrap();
             }
@@ -460,12 +457,12 @@ mod tests {
         state.insert_account_with_storage(
             address_b,
             account_b.clone(),
-            HashMap::from([(U256::from(1), FlaggedStorage::new(1, false))]),
+            HashMap::from_iter([(U256::from(1), FlaggedStorage::new(1, false))]),
         );
         state.insert_account_with_storage(
             address_c,
             account_c.clone(),
-            HashMap::from([(U256::from(3), FlaggedStorage::new(1, false))]),
+            HashMap::from_iter([(U256::from(3), FlaggedStorage::new(1, false))]),
         );
 
         state.commit(HashMap::from_iter([
@@ -516,7 +513,7 @@ mod tests {
                     status: AccountStatus::Touched,
                     info: account_c,
                     // 0x03 => {private: false, value: 1} => {private: true, value: 2}
-                    storage: HashMap::from([(
+                    storage: HashMap::from_iter([(
                         U256::from(3),
                         EvmStorageSlot {
                             present_value: FlaggedStorage::new(2, true),
@@ -771,7 +768,7 @@ mod tests {
         state.insert_account_with_storage(
             address1,
             account_info.clone(),
-            HashMap::from([
+            HashMap::from_iter([
                 (U256::ZERO, FlaggedStorage::new_from_value(1)),
                 (U256::from(1), FlaggedStorage::new_from_value(2)),
             ]),
@@ -952,22 +949,14 @@ mod tests {
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((0, address1)),
-                StorageEntry {
-                    key: B256::with_last_byte(0),
-                    value: U256::ZERO,
-                    ..Default::default()
-                }
+                StorageEntry { key: B256::with_last_byte(0), value: U256::ZERO, is_private: false }
             )))
         );
         assert_eq!(
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((0, address1)),
-                StorageEntry {
-                    key: B256::with_last_byte(1),
-                    value: U256::ZERO,
-                    ..Default::default()
-                }
+                StorageEntry { key: B256::with_last_byte(1), value: U256::ZERO, is_private: false }
             )))
         );
 
@@ -980,7 +969,7 @@ mod tests {
                 StorageEntry {
                     key: B256::with_last_byte(0),
                     value: U256::from(1),
-                    ..Default::default()
+                    is_private: false
                 }
             )))
         );
@@ -995,7 +984,7 @@ mod tests {
                 StorageEntry {
                     key: B256::with_last_byte(0),
                     value: U256::from(2),
-                    ..Default::default()
+                    is_private: false
                 }
             )))
         );
@@ -1006,7 +995,7 @@ mod tests {
                 StorageEntry {
                     key: B256::with_last_byte(1),
                     value: U256::from(2),
-                    ..Default::default()
+                    is_private: false
                 }
             )))
         );
@@ -1022,33 +1011,21 @@ mod tests {
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((4, address1)),
-                StorageEntry {
-                    key: B256::with_last_byte(0),
-                    value: U256::ZERO,
-                    ..Default::default()
-                }
+                StorageEntry { key: B256::with_last_byte(0), value: U256::ZERO, is_private: false }
             )))
         );
         assert_eq!(
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((4, address1)),
-                StorageEntry {
-                    key: B256::with_last_byte(2),
-                    value: U256::ZERO,
-                    ..Default::default()
-                }
+                StorageEntry { key: B256::with_last_byte(2), value: U256::ZERO, is_private: false }
             )))
         );
         assert_eq!(
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((4, address1)),
-                StorageEntry {
-                    key: B256::with_last_byte(6),
-                    value: U256::ZERO,
-                    ..Default::default()
-                }
+                StorageEntry { key: B256::with_last_byte(6), value: U256::ZERO, is_private: false }
             )))
         );
 
@@ -1063,7 +1040,7 @@ mod tests {
                 StorageEntry {
                     key: B256::with_last_byte(0),
                     value: U256::from(2),
-                    ..Default::default()
+                    is_private: false
                 }
             )))
         );
@@ -1074,7 +1051,7 @@ mod tests {
                 StorageEntry {
                     key: B256::with_last_byte(2),
                     value: U256::from(4),
-                    ..Default::default()
+                    is_private: false
                 }
             )))
         );
@@ -1085,7 +1062,7 @@ mod tests {
                 StorageEntry {
                     key: B256::with_last_byte(6),
                     value: U256::from(6),
-                    ..Default::default()
+                    is_private: false
                 }
             )))
         );
@@ -1099,11 +1076,7 @@ mod tests {
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((7, address1)),
-                StorageEntry {
-                    key: B256::with_last_byte(0),
-                    value: U256::ZERO,
-                    ..Default::default()
-                }
+                StorageEntry { key: B256::with_last_byte(0), value: U256::ZERO, is_private: false }
             )))
         );
         assert_eq!(storage_changes.next(), None);
@@ -1156,7 +1129,7 @@ mod tests {
         state.insert_account_with_storage(
             address1,
             account1.clone(),
-            HashMap::from([
+            HashMap::from_iter([
                 (U256::ZERO, FlaggedStorage::new_from_value(1)),
                 (U256::from(1), FlaggedStorage::new_from_value(2)),
             ]),
@@ -1219,7 +1192,7 @@ mod tests {
                 StorageEntry {
                     key: B256::with_last_byte(0),
                     value: U256::from(1),
-                    ..Default::default()
+                    is_private: false
                 }
             )))
         );
@@ -1230,7 +1203,7 @@ mod tests {
                 StorageEntry {
                     key: B256::with_last_byte(1),
                     value: U256::from(2),
-                    ..Default::default()
+                    is_private: false
                 }
             )))
         );
@@ -1290,7 +1263,7 @@ mod tests {
             for (slot, value) in storage {
                 tx.put::<tables::HashedStorages>(
                     hashed_address,
-                    StorageEntry { key: keccak256(slot), value: *value, ..Default::default() },
+                    StorageEntry { key: keccak256(slot), value: *value, is_private: false },
                 )
                 .unwrap();
             }
@@ -1343,7 +1316,7 @@ mod tests {
         state.insert_account_with_storage(
             address2,
             account2.0.into(),
-            HashMap::from([(slot2, FlaggedStorage::new_from_value(account2_slot2_old_value))]),
+            HashMap::from_iter([(slot2, FlaggedStorage::new_from_value(account2_slot2_old_value))]),
         );
 
         let account2_slot2_new_value = U256::from(100);
@@ -1493,7 +1466,7 @@ mod tests {
                 "51e6784c736ef8548f856909870b38e49ef7a4e3e77e5e945e0d5e6fcaa3037f",
             ]
             .into_iter()
-            .map(|str| (B256::from_str(str).unwrap(), FlaggedStorage::new(1, false))),
+            .map(|str| (B256::from_str(str).unwrap(), FlaggedStorage::new_from_value(1))),
         );
         let mut state = HashedPostState::default();
         state.storages.insert(hashed_address, init_storage.clone());
@@ -1519,7 +1492,7 @@ mod tests {
                 "88d233b7380bb1bcdc866f6871c94685848f54cf0ee033b1480310b4ddb75fc9",
             ]
             .into_iter()
-            .map(|str| (B256::from_str(str).unwrap(), FlaggedStorage::new(1, true))),
+            .map(|str| (B256::from_str(str).unwrap(), FlaggedStorage::new_from_value(1))),
         );
         let mut state = HashedPostState::default();
         state.storages.insert(hashed_address, updated_storage.clone());
