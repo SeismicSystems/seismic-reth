@@ -12,8 +12,7 @@ use alloy_rpc_types_engine::{
     TransitionConfiguration,
 };
 use alloy_rpc_types_eth::{
-    state::StateOverride, transaction::TransactionRequest, BlockOverrides,
-    EIP1186AccountProofResponse, Filter, Log, SyncStatus,
+    state::StateOverride, BlockOverrides, EIP1186AccountProofResponse, Filter, Log, SyncStatus,
 };
 use alloy_serde::JsonStorageKey;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};

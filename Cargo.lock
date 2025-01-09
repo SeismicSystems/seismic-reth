@@ -7231,7 +7231,6 @@ dependencies = [
  "reth-stages-types",
  "reth-static-file",
  "reth-static-file-types",
- "reth-tee",
  "reth-trie",
  "reth-trie-common",
  "reth-trie-db",
