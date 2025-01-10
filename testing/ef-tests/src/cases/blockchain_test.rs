@@ -6,10 +6,11 @@ use crate::{
 };
 use alloy_rlp::Decodable;
 use rayon::iter::{ParallelBridge, ParallelIterator};
+use reth_chainspec::ChainSpec;
 use reth_primitives::{BlockBody, SealedBlock, StaticFileSegment};
 use reth_provider::{
     providers::StaticFileWriter, test_utils::create_test_provider_factory_with_chain_spec,
-    HashingWriter,
+    DatabaseProviderFactory, HashingWriter, StaticFileProviderFactory,
 };
 use reth_stages::{stages::ExecutionStage, ExecInput, Stage};
 use std::{collections::BTreeMap, fs, path::Path, sync::Arc};
@@ -83,11 +84,10 @@ impl Case for BlockchainTestCase {
             .par_bridge()
             .try_for_each(|case| {
                 // Create a new test database and initialize a provider for the test case.
-                let provider = create_test_provider_factory_with_chain_spec(Arc::new(
-                    case.network.clone().into(),
-                ))
-                .provider_rw()
-                .unwrap();
+                let chain_spec: Arc<ChainSpec> = Arc::new(case.network.into());
+                let provider = create_test_provider_factory_with_chain_spec(chain_spec.clone())
+                    .database_provider_rw()
+                    .unwrap();
 
                 // Insert initial test state into the provider.
                 provider.insert_historical_block(
@@ -102,10 +102,9 @@ impl Case for BlockchainTestCase {
 
                 // Initialize receipts static file with genesis
                 {
-                    let mut receipts_writer = provider
-                        .static_file_provider()
-                        .latest_writer(StaticFileSegment::Receipts)
-                        .unwrap();
+                    let static_file_provider = provider.static_file_provider();
+                    let mut receipts_writer =
+                        static_file_provider.latest_writer(StaticFileSegment::Receipts).unwrap();
                     receipts_writer.increment_block(0).unwrap();
                     receipts_writer.commit_without_sync_all().unwrap();
                 }
@@ -128,9 +127,7 @@ impl Case for BlockchainTestCase {
                 // Execute the execution stage using the EVM processor factory for the test case
                 // network.
                 let _ = ExecutionStage::new_with_executor(
-                    reth_evm_ethereum::execute::EthExecutorProvider::ethereum(Arc::new(
-                        case.network.clone().into(),
-                    )),
+                    reth_evm_ethereum::execute::EthExecutorProvider::ethereum(chain_spec),
                 )
                 .execute(
                     &provider,

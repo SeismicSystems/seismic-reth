@@ -1,13 +1,11 @@
-use jsonrpsee::{core::RpcResult, proc_macros::rpc};
-use reth_primitives::{Address, BlockId, BlockNumberOrTag, Bytes, B256};
-use reth_rpc_types::{
-    trace::geth::{
-        BlockTraceResult, GethDebugTracingCallOptions, GethDebugTracingOptions, GethTrace,
-        TraceResult,
-    },
-    Block, Bundle, StateContext, TransactionRequest,
+use alloy_eips::{BlockId, BlockNumberOrTag};
+use alloy_primitives::{Address, Bytes, B256};
+use alloy_rpc_types_debug::ExecutionWitness;
+use alloy_rpc_types_eth::{transaction::TransactionRequest, Block, Bundle, StateContext};
+use alloy_rpc_types_trace::geth::{
+    BlockTraceResult, GethDebugTracingCallOptions, GethDebugTracingOptions, GethTrace, TraceResult,
 };
-use std::collections::HashMap;
+use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 
 /// Debug rpc interface.
 #[cfg_attr(not(feature = "client"), rpc(server, namespace = "debug"))]
@@ -106,7 +104,7 @@ pub trait DebugApi {
     async fn debug_trace_call(
         &self,
         request: TransactionRequest,
-        block_number: Option<BlockId>,
+        block_id: Option<BlockId>,
         opts: Option<GethDebugTracingCallOptions>,
     ) -> RpcResult<GethTrace>;
 
@@ -138,12 +136,10 @@ pub trait DebugApi {
     /// to their preimages that were required during the execution of the block, including during
     /// state root recomputation.
     ///
-    /// The first and only argument is the block number or block hash.
+    /// The first argument is the block number or block hash.
     #[method(name = "executionWitness")]
-    async fn debug_execution_witness(
-        &self,
-        block: BlockNumberOrTag,
-    ) -> RpcResult<HashMap<B256, Bytes>>;
+    async fn debug_execution_witness(&self, block: BlockNumberOrTag)
+        -> RpcResult<ExecutionWitness>;
 
     /// Sets the logging backtrace location. When a backtrace location is set and a log message is
     /// emitted at that location, the stack of the goroutine executing the log statement will
@@ -388,4 +384,27 @@ pub trait DebugApi {
     /// Writes a goroutine blocking profile to the given file.
     #[method(name = "writeMutexProfile")]
     async fn debug_write_mutex_profile(&self, file: String) -> RpcResult<()>;
+}
+
+/// An extension to the `debug_` namespace that provides additional methods for retrieving
+/// witnesses.
+///
+/// This is separate from the regular `debug_` api, because this depends on the network specific
+/// params. For optimism this will expect the optimism specific payload attributes
+#[cfg_attr(not(feature = "client"), rpc(server, namespace = "debug"))]
+#[cfg_attr(feature = "client", rpc(server, client, namespace = "debug"))]
+pub trait DebugExecutionWitnessApi<Attributes> {
+    /// The `debug_executePayload` method allows for re-execution of a group of transactions with
+    /// the purpose of generating an execution witness. The witness comprises of a map of all
+    /// hashed trie nodes to their preimages that were required during the execution of the block,
+    /// including during state root recomputation.
+    ///
+    /// The first argument is the parent block hash. The second argument is the payload
+    /// attributes for the new block.
+    #[method(name = "executePayload")]
+    async fn execute_payload(
+        &self,
+        parent_block_hash: B256,
+        attributes: Attributes,
+    ) -> RpcResult<ExecutionWitness>;
 }

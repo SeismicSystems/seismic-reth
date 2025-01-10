@@ -5,22 +5,26 @@
 //! - [`crate::segments::static_file::Receipts`] is responsible for pruning receipts on an archive
 //!   node after static file producer has finished
 
-use crate::{segments::PruneInput, PrunerError};
-use reth_db::tables;
-use reth_db_api::database::Database;
+use crate::{db_ext::DbTxPruneExt, segments::PruneInput, PrunerError};
+use reth_db::{table::Value, tables, transaction::DbTxMut};
+use reth_primitives_traits::NodePrimitives;
 use reth_provider::{
-    errors::provider::ProviderResult, DatabaseProviderRW, PruneCheckpointWriter,
-    TransactionsProvider,
+    errors::provider::ProviderResult, BlockReader, DBProvider, NodePrimitivesProvider,
+    PruneCheckpointWriter, TransactionsProvider,
 };
-use reth_prune_types::{
-    PruneCheckpoint, PruneProgress, PruneSegment, SegmentOutput, SegmentOutputCheckpoint,
-};
+use reth_prune_types::{PruneCheckpoint, PruneSegment, SegmentOutput, SegmentOutputCheckpoint};
 use tracing::trace;
 
-pub(crate) fn prune<DB: Database>(
-    provider: &DatabaseProviderRW<DB>,
+pub(crate) fn prune<Provider>(
+    provider: &Provider,
     input: PruneInput,
-) -> Result<SegmentOutput, PrunerError> {
+) -> Result<SegmentOutput, PrunerError>
+where
+    Provider: DBProvider<Tx: DbTxMut>
+        + TransactionsProvider
+        + BlockReader
+        + NodePrimitivesProvider<Primitives: NodePrimitives<Receipt: Value>>,
+{
     let tx_range = match input.get_next_tx_num_range(provider)? {
         Some(range) => range,
         None => {
@@ -33,7 +37,9 @@ pub(crate) fn prune<DB: Database>(
     let mut limiter = input.limiter;
 
     let mut last_pruned_transaction = tx_range_end;
-    let (pruned, done) = provider.prune_table_with_range::<tables::Receipts>(
+    let (pruned, done) = provider.tx_ref().prune_table_with_range::<tables::Receipts<
+        <Provider::Primitives as NodePrimitives>::Receipt,
+    >>(
         tx_range,
         &mut limiter,
         |_| false,
@@ -48,7 +54,7 @@ pub(crate) fn prune<DB: Database>(
         // so we could finish pruning its receipts on the next run.
         .checked_sub(if done { 0 } else { 1 });
 
-    let progress = PruneProgress::new(done, &limiter);
+    let progress = limiter.progress(done);
 
     Ok(SegmentOutput {
         progress,
@@ -60,8 +66,8 @@ pub(crate) fn prune<DB: Database>(
     })
 }
 
-pub(crate) fn save_checkpoint<DB: Database>(
-    provider: &DatabaseProviderRW<DB>,
+pub(crate) fn save_checkpoint(
+    provider: impl PruneCheckpointWriter,
     checkpoint: PruneCheckpoint,
 ) -> ProviderResult<()> {
     provider.save_prune_checkpoint(PruneSegment::Receipts, checkpoint)?;
@@ -75,7 +81,7 @@ pub(crate) fn save_checkpoint<DB: Database>(
 
 #[cfg(test)]
 mod tests {
-    use crate::segments::{PruneInput, SegmentOutput};
+    use crate::segments::{PruneInput, PruneLimiter, SegmentOutput};
     use alloy_primitives::{BlockNumber, TxNumber, B256};
     use assert_matches::assert_matches;
     use itertools::{
@@ -83,9 +89,9 @@ mod tests {
         Itertools,
     };
     use reth_db::tables;
-    use reth_provider::PruneCheckpointReader;
+    use reth_provider::{DatabaseProviderFactory, PruneCheckpointReader};
     use reth_prune_types::{
-        PruneCheckpoint, PruneInterruptReason, PruneLimiter, PruneMode, PruneProgress, PruneSegment,
+        PruneCheckpoint, PruneInterruptReason, PruneMode, PruneProgress, PruneSegment,
     };
     use reth_stages::test_utils::{StorageKind, TestStageDB};
     use reth_testing_utils::generators::{
@@ -107,16 +113,18 @@ mod tests {
 
         let mut receipts = Vec::new();
         for block in &blocks {
-            for transaction in &block.body {
+            receipts.reserve_exact(block.body.transactions.len());
+            for transaction in &block.body.transactions {
                 receipts
                     .push((receipts.len() as u64, random_receipt(&mut rng, transaction, Some(0))));
             }
         }
-        db.insert_receipts(receipts.clone()).expect("insert receipts");
+        let receipts_len = receipts.len();
+        db.insert_receipts(receipts).expect("insert receipts");
 
         assert_eq!(
             db.table::<tables::Transactions>().unwrap().len(),
-            blocks.iter().map(|block| block.body.len()).sum::<usize>()
+            blocks.iter().map(|block| block.body.transactions.len()).sum::<usize>()
         );
         assert_eq!(
             db.table::<tables::Transactions>().unwrap().len(),
@@ -150,7 +158,7 @@ mod tests {
             let last_pruned_tx_number = blocks
                 .iter()
                 .take(to_block as usize)
-                .map(|block| block.body.len())
+                .map(|block| block.body.transactions.len())
                 .sum::<usize>()
                 .min(
                     next_tx_number_to_prune as usize +
@@ -158,7 +166,7 @@ mod tests {
                 )
                 .sub(1);
 
-            let provider = db.factory.provider_rw().unwrap();
+            let provider = db.factory.database_provider_rw().unwrap();
             let result = super::prune(&provider, input).unwrap();
             limiter.increment_deleted_entries_count_by(result.pruned);
 
@@ -178,7 +186,7 @@ mod tests {
             let last_pruned_block_number = blocks
                 .iter()
                 .fold_while((0, 0), |(_, mut tx_count), block| {
-                    tx_count += block.body.len();
+                    tx_count += block.body.transactions.len();
 
                     if tx_count > last_pruned_tx_number {
                         Done((block.number, tx_count))
@@ -192,7 +200,7 @@ mod tests {
 
             assert_eq!(
                 db.table::<tables::Receipts>().unwrap().len(),
-                receipts.len() - (last_pruned_tx_number + 1)
+                receipts_len - (last_pruned_tx_number + 1)
             );
             assert_eq!(
                 db.factory

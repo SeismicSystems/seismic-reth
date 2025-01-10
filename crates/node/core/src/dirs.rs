@@ -289,13 +289,6 @@ impl<D> ChainPath<D> {
         self.data_dir().join("db")
     }
 
-    /// Returns the path to the db directory for this chain.
-    ///
-    /// `<DIR>/<CHAIN_ID>/db`
-    pub fn backup(&self) -> PathBuf {
-        self.data_dir().join("db-backup")
-    }
-
     /// Returns the path to the static files directory for this chain.
     ///
     /// `<DIR>/<CHAIN_ID>/static_files`
@@ -349,6 +342,18 @@ impl<D> ChainPath<D> {
     /// `<DIR>/<CHAIN_ID>/jwt.hex`
     pub fn jwt(&self) -> PathBuf {
         self.data_dir().join("jwt.hex")
+    }
+
+    /// Returns the path to the invalid block hooks directory for this chain.
+    ///
+    /// `<DIR>/<CHAIN_ID>/invalid_block_hooks`
+    pub fn invalid_block_hooks(&self) -> PathBuf {
+        self.data_dir().join("invalid_block_hooks")
+    }
+
+    /// Returns the path to the ExEx WAL directory for this chain.
+    pub fn exex_wal(&self) -> PathBuf {
+        self.data_dir().join("exex/wal")
     }
 }
 

@@ -51,9 +51,10 @@ impl BenchContext {
         let mut benchmark_mode = BenchMode::new(bench_args.from, bench_args.to)?;
 
         // construct the authenticated provider
-        let auth_jwt = bench_args.auth_jwtsecret.clone().ok_or_else(|| {
-            eyre::eyre!("--auth-jwtsecret must be provided for authenticated RPC")
-        })?;
+        let auth_jwt = bench_args
+            .auth_jwtsecret
+            .clone()
+            .ok_or_else(|| eyre::eyre!("--jwtsecret must be provided for authenticated RPC"))?;
 
         // fetch jwt from file
         //
@@ -73,14 +74,17 @@ impl BenchContext {
         let first_block = match benchmark_mode {
             BenchMode::Continuous => {
                 // fetch Latest block
-                block_provider.get_block_by_number(BlockNumberOrTag::Latest, true).await?.unwrap()
+                block_provider
+                    .get_block_by_number(BlockNumberOrTag::Latest, true.into())
+                    .await?
+                    .unwrap()
             }
             BenchMode::Range(ref mut range) => {
                 match range.next() {
                     Some(block_number) => {
                         // fetch first block in range
                         block_provider
-                            .get_block_by_number(block_number.into(), true)
+                            .get_block_by_number(block_number.into(), true.into())
                             .await?
                             .unwrap()
                     }

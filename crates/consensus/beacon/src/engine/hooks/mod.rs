@@ -1,5 +1,5 @@
+use alloy_primitives::BlockNumber;
 use reth_errors::{RethError, RethResult};
-use reth_primitives::BlockNumber;
 use std::{
     fmt,
     task::{Context, Poll},
@@ -13,9 +13,6 @@ pub use prune::PruneHook;
 
 mod static_file;
 pub use static_file::StaticFileHook;
-
-mod backup;
-pub use backup::BackupHook;
 
 /// Collection of [engine hooks][`EngineHook`].
 #[derive(Default)]
@@ -107,7 +104,7 @@ pub enum EngineHookError {
     Common(#[from] RethError),
     /// An internal error occurred.
     #[error(transparent)]
-    Internal(#[from] Box<dyn std::error::Error + Send + Sync>),
+    Internal(#[from] Box<dyn core::error::Error + Send + Sync>),
 }
 
 /// Level of database access the hook needs for execution.

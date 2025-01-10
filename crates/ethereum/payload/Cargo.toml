@@ -16,17 +16,25 @@ workspace = true
 reth-primitives.workspace = true
 reth-revm.workspace = true
 reth-transaction-pool.workspace = true
-reth-provider.workspace = true
 reth-payload-builder.workspace = true
+reth-storage-api.workspace = true
+reth-payload-builder-primitives.workspace = true
+reth-payload-primitives.workspace = true
 reth-execution-types.workspace = true
 reth-basic-payload-builder.workspace = true
 reth-evm.workspace = true
 reth-evm-ethereum.workspace = true
 reth-errors.workspace = true
-reth-trie.workspace = true
+reth-chain-state.workspace = true
+reth-chainspec.workspace = true
 
 # ethereum
 revm.workspace = true
+
+# alloy
+alloy-eips.workspace = true
+alloy-consensus.workspace = true
+alloy-primitives.workspace = true
 
 # misc
 tracing.workspace = true

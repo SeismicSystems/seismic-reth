@@ -2,11 +2,12 @@ use std::{net::SocketAddr, path::PathBuf};
 
 use jsonrpsee::server::ServerBuilder;
 use reth_node_core::{args::RpcServerArgs, utils::get_or_create_jwt_secret_from_path};
+use reth_rpc::ValidationApiConfig;
 use reth_rpc_eth_types::{EthConfig, EthStateCacheConfig, GasPriceOracleConfig};
 use reth_rpc_layer::{JwtError, JwtSecret};
 use reth_rpc_server_types::RpcModuleSelection;
 use tower::layer::util::Identity;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::{
     auth::AuthServerConfig, error::RpcError, IpcServerBuilder, RpcModuleConfig, RpcServerConfig,
@@ -26,6 +27,9 @@ pub trait RethRpcServerConfig {
 
     /// The configured ethereum RPC settings.
     fn eth_config(&self) -> EthConfig;
+
+    /// The configured ethereum RPC settings.
+    fn flashbots_config(&self) -> ValidationApiConfig;
 
     /// Returns state cache configuration.
     fn state_cache_config(&self) -> EthStateCacheConfig;
@@ -95,16 +99,21 @@ impl RethRpcServerConfig for RpcServerArgs {
             .max_logs_per_response(self.rpc_max_logs_per_response.unwrap_or_max() as usize)
             .eth_proof_window(self.rpc_eth_proof_window)
             .rpc_gas_cap(self.rpc_gas_cap)
+            .rpc_max_simulate_blocks(self.rpc_max_simulate_blocks)
             .state_cache(self.state_cache_config())
             .gpo_config(self.gas_price_oracle_config())
             .proof_permits(self.rpc_proof_permits)
+    }
+
+    fn flashbots_config(&self) -> ValidationApiConfig {
+        ValidationApiConfig { disallow: self.builder_disallow.clone().unwrap_or_default() }
     }
 
     fn state_cache_config(&self) -> EthStateCacheConfig {
         EthStateCacheConfig {
             max_blocks: self.rpc_state_cache.max_blocks,
             max_receipts: self.rpc_state_cache.max_receipts,
-            max_envs: self.rpc_state_cache.max_envs,
+            max_headers: self.rpc_state_cache.max_headers,
             max_concurrent_db_requests: self.rpc_state_cache.max_concurrent_db_requests,
         }
     }
@@ -123,7 +132,7 @@ impl RethRpcServerConfig for RpcServerArgs {
 
     fn transport_rpc_module_config(&self) -> TransportRpcModuleConfig {
         let mut config = TransportRpcModuleConfig::default()
-            .with_config(RpcModuleConfig::new(self.eth_config()));
+            .with_config(RpcModuleConfig::new(self.eth_config(), self.flashbots_config()));
 
         if self.http {
             config = config.with_http(
@@ -166,6 +175,13 @@ impl RethRpcServerConfig for RpcServerArgs {
 
     fn rpc_server_config(&self) -> RpcServerConfig {
         let mut config = RpcServerConfig::default().with_jwt_secret(self.rpc_secret_key());
+
+        if self.http_api.is_some() && !self.http {
+            warn!(
+                target: "reth::cli",
+                "The --http.api flag is set but --http is not enabled. HTTP RPC API will not be exposed."
+            );
+        }
 
         if self.http {
             let socket_address = SocketAddr::new(self.http_addr, self.http_port);
@@ -237,7 +253,7 @@ mod tests {
     fn test_rpc_gas_cap() {
         let args = CommandParser::<RpcServerArgs>::parse_from(["reth"]).args;
         let config = args.eth_config();
-        assert_eq!(config.rpc_gas_cap, Into::<u64>::into(RPC_DEFAULT_GAS_CAP));
+        assert_eq!(config.rpc_gas_cap, u64::from(RPC_DEFAULT_GAS_CAP));
 
         let args =
             CommandParser::<RpcServerArgs>::parse_from(["reth", "--rpc.gascap", "1000"]).args;

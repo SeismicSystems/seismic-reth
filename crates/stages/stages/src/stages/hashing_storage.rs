@@ -1,16 +1,16 @@
+use alloy_primitives::{bytes::BufMut, keccak256, B256};
 use itertools::Itertools;
 use reth_config::config::{EtlConfig, HashingConfig};
 use reth_db::tables;
 use reth_db_api::{
     cursor::{DbCursorRO, DbDupCursorRW},
-    database::Database,
     models::{BlockNumberAddress, CompactU256},
     table::Decompress,
     transaction::{DbTx, DbTxMut},
 };
 use reth_etl::Collector;
-use reth_primitives::{keccak256, BufMut, StorageEntry, B256};
-use reth_provider::{DatabaseProviderRW, HashingWriter, StatsReader, StorageReader};
+use reth_primitives::StorageEntry;
+use reth_provider::{DBProvider, HashingWriter, StatsReader, StorageReader};
 use reth_stages_api::{
     EntitiesCheckpoint, ExecInput, ExecOutput, Stage, StageCheckpoint, StageError, StageId,
     StorageHashingCheckpoint, UnwindInput, UnwindOutput,
@@ -62,18 +62,17 @@ impl Default for StorageHashingStage {
     }
 }
 
-impl<DB: Database> Stage<DB> for StorageHashingStage {
+impl<Provider> Stage<Provider> for StorageHashingStage
+where
+    Provider: DBProvider<Tx: DbTxMut> + StorageReader + HashingWriter + StatsReader,
+{
     /// Return the id of the stage
     fn id(&self) -> StageId {
         StageId::StorageHashing
     }
 
     /// Execute the stage.
-    fn execute(
-        &mut self,
-        provider: &DatabaseProviderRW<DB>,
-        input: ExecInput,
-    ) -> Result<ExecOutput, StageError> {
+    fn execute(&mut self, provider: &Provider, input: ExecInput) -> Result<ExecOutput, StageError> {
         let tx = provider.tx_ref();
         if input.target_reached() {
             return Ok(ExecOutput::done(input.checkpoint()))
@@ -138,7 +137,7 @@ impl<DB: Database> Stage<DB> for StorageHashingStage {
                     StorageEntry {
                         key: B256::from_slice(&addr_key_is_private[32..64]),
                         is_private: addr_key_is_private[64] != 0,
-                        value: CompactU256::decompress(val)?.into(),
+                        value: CompactU256::decompress(&val)?.into(),
                     },
                 )?;
             }
@@ -167,13 +166,13 @@ impl<DB: Database> Stage<DB> for StorageHashingStage {
     /// Unwind the stage.
     fn unwind(
         &mut self,
-        provider: &DatabaseProviderRW<DB>,
+        provider: &Provider,
         input: UnwindInput,
     ) -> Result<UnwindOutput, StageError> {
         let (range, unwind_progress, _) =
             input.unwind_block_range_with_threshold(self.commit_threshold);
 
-        provider.unwind_storage_hashing(BlockNumberAddress::range(range))?;
+        provider.unwind_storage_hashing_range(BlockNumberAddress::range(range))?;
 
         let mut stage_checkpoint =
             input.checkpoint.storage_hashing_stage_checkpoint().unwrap_or_default();
@@ -202,9 +201,7 @@ fn collect(
     Ok(())
 }
 
-fn stage_checkpoint_progress<DB: Database>(
-    provider: &DatabaseProviderRW<DB>,
-) -> ProviderResult<EntitiesCheckpoint> {
+fn stage_checkpoint_progress(provider: &impl StatsReader) -> ProviderResult<EntitiesCheckpoint> {
     Ok(EntitiesCheckpoint {
         processed: provider.count_entries::<tables::HashedStorages>()? as u64,
         total: provider.count_entries::<tables::PlainStorageState>()? as u64,
@@ -218,13 +215,14 @@ mod tests {
         stage_test_suite_ext, ExecuteStageTestRunner, StageTestRunner, TestRunnerError,
         TestStageDB, UnwindStageTestRunner,
     };
+    use alloy_primitives::{Address, U256};
     use assert_matches::assert_matches;
     use rand::Rng;
     use reth_db_api::{
         cursor::{DbCursorRW, DbDupCursorRO},
         models::StoredBlockBodyIndices,
     };
-    use reth_primitives::{Address, SealedBlock, U256};
+    use reth_primitives::SealedBlock;
     use reth_provider::providers::StaticFileWriter;
     use reth_testing_utils::generators::{
         self, random_block_range, random_contract_account_range, BlockRangeParams,
@@ -358,16 +356,13 @@ mod tests {
                 // Insert last progress data
                 let block_number = progress.number;
                 self.db.commit(|tx| {
-                    progress.body.iter().try_for_each(
+                    progress.body.transactions.iter().try_for_each(
                         |transaction| -> Result<(), reth_db::DatabaseError> {
                             tx.put::<tables::TransactionHashNumbers>(
                                 transaction.hash(),
                                 next_tx_num,
                             )?;
-                            tx.put::<tables::Transactions>(
-                                next_tx_num,
-                                transaction.clone().into(),
-                            )?;
+                            tx.put::<tables::Transactions>(next_tx_num, transaction.clone())?;
 
                             let (addr, _) =
                                 accounts.get_mut(rng.gen::<usize>() % n_accounts as usize).unwrap();
@@ -408,7 +403,7 @@ mod tests {
 
                     let body = StoredBlockBodyIndices {
                         first_tx_num,
-                        tx_count: progress.body.len() as u64,
+                        tx_count: progress.body.transactions.len() as u64,
                     };
 
                     first_tx_num = next_tx_num;

@@ -1,12 +1,11 @@
-use crate::{cli::config::PayloadBuilderConfig, version::default_extradata};
+use crate::{cli::config::PayloadBuilderConfig, version::default_extra_data};
+use alloy_consensus::constants::MAXIMUM_EXTRA_DATA_SIZE;
+use alloy_eips::{eip1559::ETHEREUM_BLOCK_GAS_LIMIT, merge::SLOT_DURATION};
 use clap::{
     builder::{RangedU64ValueParser, TypedValueParser},
     Arg, Args, Command,
 };
 use reth_cli_util::{parse_duration_from_secs, parse_duration_from_secs_or_ms};
-use reth_primitives::constants::{
-    ETHEREUM_BLOCK_GAS_LIMIT, MAXIMUM_EXTRA_DATA_SIZE, SLOT_DURATION,
-};
 use std::{borrow::Cow, ffi::OsStr, time::Duration};
 
 /// Parameters for configuring the Payload Builder
@@ -14,12 +13,12 @@ use std::{borrow::Cow, ffi::OsStr, time::Duration};
 #[command(next_help_heading = "Builder")]
 pub struct PayloadBuilderArgs {
     /// Block extra data set by the payload builder.
-    #[arg(long = "builder.extradata", value_parser = ExtradataValueParser::default(), default_value_t = default_extradata())]
+    #[arg(long = "builder.extradata", value_parser = ExtradataValueParser::default(), default_value_t = default_extra_data())]
     pub extradata: String,
 
-    /// Target gas ceiling for built blocks.
-    #[arg(long = "builder.gaslimit", default_value = "30000000", value_name = "GAS_LIMIT")]
-    pub max_gas_limit: u64,
+    /// Target gas limit for built blocks.
+    #[arg(long = "builder.gaslimit", default_value_t = ETHEREUM_BLOCK_GAS_LIMIT, value_name = "GAS_LIMIT")]
+    pub gas_limit: u64,
 
     /// The interval at which the job should build a new payload after the last.
     ///
@@ -41,8 +40,8 @@ pub struct PayloadBuilderArgs {
 impl Default for PayloadBuilderArgs {
     fn default() -> Self {
         Self {
-            extradata: default_extradata(),
-            max_gas_limit: ETHEREUM_BLOCK_GAS_LIMIT,
+            extradata: default_extra_data(),
+            gas_limit: ETHEREUM_BLOCK_GAS_LIMIT,
             interval: Duration::from_secs(1),
             deadline: SLOT_DURATION,
             max_payload_tasks: 3,
@@ -63,8 +62,8 @@ impl PayloadBuilderConfig for PayloadBuilderArgs {
         self.deadline
     }
 
-    fn max_gas_limit(&self) -> u64 {
-        self.max_gas_limit
+    fn gas_limit(&self) -> u64 {
+        self.gas_limit
     }
 
     fn max_payload_tasks(&self) -> usize {
@@ -87,7 +86,7 @@ impl TypedValueParser for ExtradataValueParser {
     ) -> Result<Self::Value, clap::Error> {
         let val =
             value.to_str().ok_or_else(|| clap::Error::new(clap::error::ErrorKind::InvalidUtf8))?;
-        if val.as_bytes().len() > MAXIMUM_EXTRA_DATA_SIZE {
+        if val.len() > MAXIMUM_EXTRA_DATA_SIZE {
             return Err(clap::Error::raw(
                 clap::error::ErrorKind::InvalidValue,
                 format!(
@@ -130,8 +129,8 @@ mod tests {
     }
 
     #[test]
-    fn test_default_extradata() {
-        let extradata = default_extradata();
+    fn test_default_extra_data() {
+        let extradata = default_extra_data();
         let args = CommandParser::<PayloadBuilderArgs>::parse_from([
             "reth",
             "--builder.extradata",

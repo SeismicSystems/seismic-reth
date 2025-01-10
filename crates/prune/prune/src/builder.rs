@@ -1,9 +1,14 @@
 use crate::{segments::SegmentSet, Pruner};
+use alloy_eips::eip2718::Encodable2718;
 use reth_chainspec::MAINNET;
 use reth_config::PruneConfig;
-use reth_db_api::database::Database;
+use reth_db::{table::Value, transaction::DbTxMut};
 use reth_exex_types::FinishedExExHeight;
-use reth_provider::{providers::StaticFileProvider, ProviderFactory, StaticFileProviderFactory};
+use reth_primitives_traits::NodePrimitives;
+use reth_provider::{
+    providers::StaticFileProvider, BlockReader, DBProvider, DatabaseProviderFactory,
+    NodePrimitivesProvider, PruneCheckpointWriter, StaticFileProviderFactory,
+};
 use reth_prune_types::PruneModes;
 use std::time::Duration;
 use tokio::sync::watch;
@@ -71,16 +76,22 @@ impl PrunerBuilder {
     }
 
     /// Builds a [Pruner] from the current configuration with the given provider factory.
-    pub fn build_with_provider_factory<DB: Database>(
-        self,
-        provider_factory: ProviderFactory<DB>,
-    ) -> Pruner<DB, ProviderFactory<DB>> {
-        let segments = SegmentSet::<DB>::from_components(
-            provider_factory.static_file_provider(),
-            self.segments,
-        );
+    pub fn build_with_provider_factory<PF>(self, provider_factory: PF) -> Pruner<PF::ProviderRW, PF>
+    where
+        PF: DatabaseProviderFactory<
+                ProviderRW: PruneCheckpointWriter
+                                + BlockReader<Transaction: Encodable2718>
+                                + StaticFileProviderFactory<
+                    Primitives: NodePrimitives<SignedTx: Value, Receipt: Value>,
+                >,
+            > + StaticFileProviderFactory<
+                Primitives = <PF::ProviderRW as NodePrimitivesProvider>::Primitives,
+            >,
+    {
+        let segments =
+            SegmentSet::from_components(provider_factory.static_file_provider(), self.segments);
 
-        Pruner::<_, ProviderFactory<DB>>::new(
+        Pruner::new_with_factory(
             provider_factory,
             segments.into_vec(),
             self.block_interval,
@@ -91,10 +102,19 @@ impl PrunerBuilder {
     }
 
     /// Builds a [Pruner] from the current configuration with the given static file provider.
-    pub fn build<DB: Database>(self, static_file_provider: StaticFileProvider) -> Pruner<DB, ()> {
-        let segments = SegmentSet::<DB>::from_components(static_file_provider, self.segments);
+    pub fn build<Provider>(
+        self,
+        static_file_provider: StaticFileProvider<Provider::Primitives>,
+    ) -> Pruner<Provider, ()>
+    where
+        Provider: StaticFileProviderFactory<Primitives: NodePrimitives<SignedTx: Value, Receipt: Value>>
+            + DBProvider<Tx: DbTxMut>
+            + BlockReader<Transaction: Encodable2718>
+            + PruneCheckpointWriter,
+    {
+        let segments = SegmentSet::<Provider>::from_components(static_file_provider, self.segments);
 
-        Pruner::<_, ()>::new(
+        Pruner::new(
             segments.into_vec(),
             self.block_interval,
             self.delete_limit,

@@ -1,17 +1,18 @@
 use crate::{
     hashed_cursor::{HashedCursorFactory, HashedStorageCursor},
-    node_iter::{TrieElement, TrieLeafNode, TrieNodeIter},
+    node_iter::{TrieElement, TrieNodeIter},
     prefix_set::{PrefixSet, TriePrefixSets},
     progress::{IntermediateStateRootState, StateRootProgress},
     stats::TrieTracker,
     trie_cursor::TrieCursorFactory,
     updates::{StorageTrieUpdates, TrieUpdates},
     walker::TrieWalker,
-    HashBuilder, Nibbles, TrieAccount,
+    HashBuilder, Nibbles, TrieAccount, TRIE_ACCOUNT_RLP_MAX_SIZE,
 };
+use alloy_consensus::EMPTY_ROOT_HASH;
+use alloy_primitives::{keccak256, Address, B256};
 use alloy_rlp::{BufMut, Encodable};
 use reth_execution_errors::{StateRootError, StorageRootError};
-use reth_primitives::{constants::EMPTY_ROOT_HASH, keccak256, Address, B256};
 use tracing::trace;
 
 #[cfg(feature = "metrics")]
@@ -24,7 +25,7 @@ pub struct StateRoot<T, H> {
     pub trie_cursor_factory: T,
     /// The factory for hashed cursors.
     pub hashed_cursor_factory: H,
-    /// A set of prefix sets that have changes.
+    /// A set of prefix sets that have changed.
     pub prefix_sets: TriePrefixSets,
     /// Previous intermediate state.
     previous_state: Option<IntermediateStateRootState>,
@@ -177,7 +178,7 @@ where
             }
         };
 
-        let mut account_rlp = Vec::with_capacity(128);
+        let mut account_rlp = Vec::with_capacity(TRIE_ACCOUNT_RLP_MAX_SIZE);
         let mut hashed_entries_walked = 0;
         let mut updated_storage_nodes = 0;
         while let Some(node) = account_node_iter.try_next()? {
@@ -186,11 +187,7 @@ where
                     tracker.inc_branch();
                     hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
                 }
-                TrieElement::Leaf(TrieLeafNode {
-                    key: hashed_address,
-                    value: account,
-                    is_private: _,
-                }) => {
+                TrieElement::Leaf(hashed_address, account) => {
                     tracker.inc_leaf();
                     hashed_entries_walked += 1;
 
@@ -205,15 +202,13 @@ where
                         self.trie_cursor_factory.clone(),
                         self.hashed_cursor_factory.clone(),
                         hashed_address,
-                        #[cfg(feature = "metrics")]
-                        self.metrics.storage_trie.clone(),
-                    )
-                    .with_prefix_set(
                         self.prefix_sets
                             .storage_prefix_sets
                             .get(&hashed_address)
                             .cloned()
                             .unwrap_or_default(),
+                        #[cfg(feature = "metrics")]
+                        self.metrics.storage_trie.clone(),
                     );
 
                     let storage_root = if retain_updates {
@@ -261,11 +256,8 @@ where
 
         let root = hash_builder.root();
 
-        trie_updates.finalize(
-            account_node_iter.walker,
-            hash_builder,
-            self.prefix_sets.destroyed_accounts,
-        );
+        let removed_keys = account_node_iter.walker.take_removed_keys();
+        trie_updates.finalize(hash_builder, removed_keys, self.prefix_sets.destroyed_accounts);
 
         let stats = tracker.finish();
 
@@ -307,29 +299,32 @@ impl<T, H> StorageRoot<T, H> {
         trie_cursor_factory: T,
         hashed_cursor_factory: H,
         address: Address,
+        prefix_set: PrefixSet,
         #[cfg(feature = "metrics")] metrics: TrieRootMetrics,
     ) -> Self {
         Self::new_hashed(
             trie_cursor_factory,
             hashed_cursor_factory,
             keccak256(address),
+            prefix_set,
             #[cfg(feature = "metrics")]
             metrics,
         )
     }
 
     /// Creates a new storage root calculator given a hashed address.
-    pub fn new_hashed(
+    pub const fn new_hashed(
         trie_cursor_factory: T,
         hashed_cursor_factory: H,
         hashed_address: B256,
+        prefix_set: PrefixSet,
         #[cfg(feature = "metrics")] metrics: TrieRootMetrics,
     ) -> Self {
         Self {
             trie_cursor_factory,
             hashed_cursor_factory,
             hashed_address,
-            prefix_set: PrefixSet::default(),
+            prefix_set,
             #[cfg(feature = "metrics")]
             metrics,
         }
@@ -424,7 +419,7 @@ where
                     tracker.inc_branch();
                     hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
                 }
-                TrieElement::Leaf(TrieLeafNode { key: hashed_slot, value, is_private: _ }) => {
+                TrieElement::Leaf(hashed_slot, value) => {
                     tracker.inc_leaf();
                     hash_builder.add_leaf(
                         Nibbles::unpack(hashed_slot),
@@ -437,7 +432,8 @@ where
         let root = hash_builder.root();
 
         let mut trie_updates = StorageTrieUpdates::default();
-        trie_updates.finalize(storage_node_iter.walker, hash_builder);
+        let removed_keys = storage_node_iter.walker.take_removed_keys();
+        trie_updates.finalize(hash_builder, removed_keys);
 
         let stats = tracker.finish();
 

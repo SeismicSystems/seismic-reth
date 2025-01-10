@@ -85,6 +85,8 @@ pub struct SessionManagerMetrics {
     pub(crate) total_dial_successes: Counter,
     /// Number of dropped outgoing peer messages.
     pub(crate) total_outgoing_peer_messages_dropped: Counter,
+    /// Number of queued outgoing messages
+    pub(crate) queued_outgoing_messages: Gauge,
 }
 
 /// Metrics for the [`TransactionsManager`](crate::transactions::TransactionsManager).
@@ -347,6 +349,9 @@ pub struct AnnouncedTxTypesMetrics {
 
     /// Histogram for tracking frequency of EIP-7702 transaction type
     pub(crate) eip7702: Histogram,
+
+    /// Histogram for tracking frequency of seismic transaction type
+    pub(crate) seismic: Histogram,
 }
 
 /// Counts the number of transactions by their type in a block or collection.
@@ -369,6 +374,9 @@ pub struct TxTypesCounter {
 
     /// Count of transactions conforming to EIP-7702 (Restricted Storage Windows).
     pub(crate) eip7702: usize,
+
+    /// Count of seismic transactions conforming
+    pub(crate) seismic: usize,
 }
 
 impl TxTypesCounter {
@@ -390,6 +398,9 @@ impl TxTypesCounter {
             TxType::Eip7702 => {
                 self.eip7702 += 1;
             }
+            TxType::Seismic => {
+                self.seismic += 1;
+            }
             _ => {}
         }
     }
@@ -404,5 +415,6 @@ impl AnnouncedTxTypesMetrics {
         self.eip1559.record(tx_types_counter.eip1559 as f64);
         self.eip4844.record(tx_types_counter.eip4844 as f64);
         self.eip7702.record(tx_types_counter.eip7702 as f64);
+        self.seismic.record(tx_types_counter.seismic as f64);
     }
 }

@@ -1,10 +1,14 @@
-use reth_primitives::{Account, B256};
+use alloy_primitives::B256;
+use reth_primitives::Account;
 use reth_storage_errors::db::DatabaseError;
 
 /// Implementation of hashed state cursor traits for the post state.
 mod post_state;
 pub use post_state::*;
 use revm::primitives::FlaggedStorage;
+
+/// Implementation of noop hashed state cursor.
+pub mod noop;
 
 /// The factory trait for creating cursors over the hashed state.
 pub trait HashedCursorFactory {
@@ -26,7 +30,7 @@ pub trait HashedCursorFactory {
 /// The cursor for iterating over hashed entries.
 pub trait HashedCursor {
     /// Value returned by the cursor.
-    type Value: std::fmt::Debug + Default;
+    type Value: std::fmt::Debug;
 
     /// Seek an entry greater or equal to the given key and position the cursor there.
     /// Returns the first entry with the key greater or equal to the sought key.

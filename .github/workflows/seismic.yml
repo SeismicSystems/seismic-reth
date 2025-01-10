@@ -2,9 +2,9 @@ name: Seismic CI
 
 on:
   push:
-    branches: [ seismic ]
+    branches: [seismic]
   pull_request:
-    branches: [ seismic ]
+    branches: [seismic]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -16,7 +16,7 @@ env:
 
 jobs:
   rustfmt:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +26,7 @@ jobs:
       - run: cargo fmt --all --check
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -37,19 +37,20 @@ jobs:
       - name: Install SSH Keys
         uses: webfactory/ssh-agent@v0.9.0
         with:
-            ssh-private-key: |
-              ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SREVM_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
+          ssh-private-key: |
+            ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SALLOY_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SREVM_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
       - name: cargo build
         run: cargo build
-  
+
   warnings:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -60,19 +61,20 @@ jobs:
       - name: Install SSH Keys
         uses: webfactory/ssh-agent@v0.9.0
         with:
-            ssh-private-key: |
-              ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SREVM_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
+          ssh-private-key: |
+            ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SALLOY_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SREVM_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
       - name: cargo check warnings
         run: RUSTFLAGS="-D warnings" cargo check
-  
+
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -83,13 +85,14 @@ jobs:
       - name: Install SSH Keys
         uses: webfactory/ssh-agent@v0.9.0
         with:
-            ssh-private-key: |
-              ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SREVM_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
+          ssh-private-key: |
+            ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SALLOY_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SREVM_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
       - name: cargo test
         run: cargo test

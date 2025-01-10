@@ -18,16 +18,32 @@ pub fn maybe_generate_tests(
     let mut traits = vec![];
     let mut roundtrips = vec![];
     let mut additional_tests = vec![];
+    let mut is_crate = false;
 
-    for arg in args {
+    let mut iter = args.into_iter().peekable();
+
+    // we check if there's a crate argument which is used from inside the codecs crate directly
+    if let Some(arg) = iter.peek() {
+        if arg.to_string() == "crate" {
+            is_crate = true;
+            iter.next();
+        }
+    }
+
+    for arg in iter {
         if arg.to_string() == "compact" {
-            traits.push(quote! { use super::Compact; });
+            let path = if is_crate {
+                quote! { use crate::Compact; }
+            } else {
+                quote! { use reth_codecs::Compact; }
+            };
+            traits.push(path);
             roundtrips.push(quote! {
                 {
                     let mut buf = vec![];
                     let len = field.clone().to_compact(&mut buf);
                     let (decoded, _): (super::#type_ident, _) = Compact::from_compact(&buf, len);
-                    assert!(field == decoded, "maybe_generate_tests::compact");
+                    assert_eq!(field, decoded, "maybe_generate_tests::compact");
                 }
             });
         } else if arg.to_string() == "rlp" {
@@ -51,7 +67,7 @@ pub fn maybe_generate_tests(
                     use rand::RngCore;
 
                     // get random instance of type
-                    let mut raw = [0u8; 1024];
+                    let mut raw = vec![0u8; 1024];
                     rand::thread_rng().fill_bytes(&mut raw);
                     let mut unstructured = arbitrary::Unstructured::new(&raw[..]);
                     let val: Result<super::#type_ident, _> = arbitrary::Arbitrary::arbitrary(&mut unstructured);

@@ -14,6 +14,9 @@ use std::{
 
 const EXTENSION: &str = "toml";
 
+/// The default prune block interval
+pub const DEFAULT_BLOCK_INTERVAL: usize = 5;
+
 /// Configuration for the reth node.
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(default)]
@@ -383,7 +386,7 @@ pub struct PruneConfig {
 
 impl Default for PruneConfig {
     fn default() -> Self {
-        Self { block_interval: 5, segments: PruneModes::none() }
+        Self { block_interval: DEFAULT_BLOCK_INTERVAL, segments: PruneModes::none() }
     }
 }
 
@@ -391,6 +394,40 @@ impl PruneConfig {
     /// Returns whether there is any kind of receipt pruning configuration.
     pub fn has_receipts_pruning(&self) -> bool {
         self.segments.receipts.is_some() || !self.segments.receipts_log_filter.is_empty()
+    }
+
+    /// Merges another `PruneConfig` into this one, taking values from the other config if and only
+    /// if the corresponding value in this config is not set.
+    pub fn merge(&mut self, other: Option<Self>) {
+        let Some(other) = other else { return };
+        let Self {
+            block_interval,
+            segments:
+                PruneModes {
+                    sender_recovery,
+                    transaction_lookup,
+                    receipts,
+                    account_history,
+                    storage_history,
+                    receipts_log_filter,
+                },
+        } = other;
+
+        // Merge block_interval, only update if it's the default interval
+        if self.block_interval == DEFAULT_BLOCK_INTERVAL {
+            self.block_interval = block_interval;
+        }
+
+        // Merge the various segment prune modes
+        self.segments.sender_recovery = self.segments.sender_recovery.or(sender_recovery);
+        self.segments.transaction_lookup = self.segments.transaction_lookup.or(transaction_lookup);
+        self.segments.receipts = self.segments.receipts.or(receipts);
+        self.segments.account_history = self.segments.account_history.or(account_history);
+        self.segments.storage_history = self.segments.storage_history.or(storage_history);
+
+        if self.segments.receipts_log_filter.0.is_empty() && !receipts_log_filter.0.is_empty() {
+            self.segments.receipts_log_filter = receipts_log_filter;
+        }
     }
 }
 
@@ -415,8 +452,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::{Config, EXTENSION};
+    use crate::PruneConfig;
+    use alloy_primitives::Address;
     use reth_network_peers::TrustedPeer;
-    use std::{path::Path, str::FromStr, time::Duration};
+    use reth_prune_types::{PruneMode, PruneModes, ReceiptsLogPruneConfig};
+    use std::{collections::BTreeMap, path::Path, str::FromStr, time::Duration};
 
     fn with_tempdir(filename: &str, proc: fn(&std::path::Path)) {
         let temp_dir = tempfile::tempdir().unwrap();
@@ -891,6 +931,52 @@ receipts = 'full'
 #";
         let err = toml::from_str::<Config>(s).unwrap_err().to_string();
         assert!(err.contains("invalid value: string \"full\""), "{}", err);
+    }
+
+    #[test]
+    fn test_prune_config_merge() {
+        let mut config1 = PruneConfig {
+            block_interval: 5,
+            segments: PruneModes {
+                sender_recovery: Some(PruneMode::Full),
+                transaction_lookup: None,
+                receipts: Some(PruneMode::Distance(1000)),
+                account_history: None,
+                storage_history: Some(PruneMode::Before(5000)),
+                receipts_log_filter: ReceiptsLogPruneConfig(BTreeMap::from([(
+                    Address::random(),
+                    PruneMode::Full,
+                )])),
+            },
+        };
+
+        let config2 = PruneConfig {
+            block_interval: 10,
+            segments: PruneModes {
+                sender_recovery: Some(PruneMode::Distance(500)),
+                transaction_lookup: Some(PruneMode::Full),
+                receipts: Some(PruneMode::Full),
+                account_history: Some(PruneMode::Distance(2000)),
+                storage_history: Some(PruneMode::Distance(3000)),
+                receipts_log_filter: ReceiptsLogPruneConfig(BTreeMap::from([
+                    (Address::random(), PruneMode::Distance(1000)),
+                    (Address::random(), PruneMode::Before(2000)),
+                ])),
+            },
+        };
+
+        let original_filter = config1.segments.receipts_log_filter.clone();
+        config1.merge(Some(config2));
+
+        // Check that the configuration has been merged. Any configuration present in config1
+        // should not be overwritten by config2
+        assert_eq!(config1.block_interval, 10);
+        assert_eq!(config1.segments.sender_recovery, Some(PruneMode::Full));
+        assert_eq!(config1.segments.transaction_lookup, Some(PruneMode::Full));
+        assert_eq!(config1.segments.receipts, Some(PruneMode::Distance(1000)));
+        assert_eq!(config1.segments.account_history, Some(PruneMode::Distance(2000)));
+        assert_eq!(config1.segments.storage_history, Some(PruneMode::Before(5000)));
+        assert_eq!(config1.segments.receipts_log_filter, original_filter);
     }
 
     #[test]

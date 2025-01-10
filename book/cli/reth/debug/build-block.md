@@ -4,6 +4,8 @@ Debug block building
 
 ```bash
 $ reth debug build-block --help
+```
+```txt
 Usage: reth debug build-block [OPTIONS] --prev-randao <PREV_RANDAO> --timestamp <TIMESTAMP> --suggested-fee-recipient <SUGGESTED_FEE_RECIPIENT>
 
 Options:
@@ -33,7 +35,7 @@ Datadir:
 
           [default: default]
 
-      --datadir.static_files <PATH>
+      --datadir.static-files <PATH>
           The absolute path to store static files in.
 
       --config <FILE>
@@ -66,6 +68,15 @@ Database:
           Open environment in exclusive/monopolistic mode. Makes it possible to open a database on an NFS volume
 
           [possible values: true, false]
+
+      --db.max-size <MAX_SIZE>
+          Maximum database size (e.g., 4TB, 8MB)
+
+      --db.growth-step <GROWTH_STEP>
+          Database growth step (e.g., 4GB, 4KB)
+
+      --db.read-transaction-timeout <READ_TRANSACTION_TIMEOUT>
+          Read transaction timeout in seconds, 0 means no timeout
 
       --trusted-setup-file <PATH>
           Overrides the KZG trusted setup by reading from the supplied file

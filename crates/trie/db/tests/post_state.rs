@@ -1,8 +1,11 @@
+#![allow(missing_docs)]
+
+use alloy_primitives::{B256, U256};
 use proptest::prelude::*;
 use proptest_arbitrary_interop::arb;
 use reth_db::{tables, test_utils::create_test_rw_db};
 use reth_db_api::{database::Database, transaction::DbTxMut};
-use reth_primitives::{Account, StorageEntry, B256, U256};
+use reth_primitives::{Account, StorageEntry};
 use reth_trie::{
     hashed_cursor::{
         HashedCursor, HashedCursorFactory, HashedPostStateCursorFactory, HashedStorageCursor,
@@ -10,7 +13,7 @@ use reth_trie::{
     HashedPostState, HashedStorage,
 };
 use reth_trie_db::DatabaseHashedCursorFactory;
-use revm::primitives::FlaggedStorage;
+use revm_primitives::FlaggedStorage;
 use std::collections::BTreeMap;
 
 fn assert_account_cursor_order(
@@ -32,12 +35,11 @@ fn assert_account_cursor_order(
 
 fn assert_storage_cursor_order(
     factory: &impl HashedCursorFactory,
-    expected: impl Iterator<Item = (B256, BTreeMap<B256, U256>)>,
+    expected: impl Iterator<Item = (B256, BTreeMap<B256, FlaggedStorage>)>,
 ) {
     for (account, storage) in expected {
         let mut cursor = factory.hashed_storage_cursor(account).unwrap();
-        let mut expected_storage =
-            storage.into_iter().map(|(slot, value)| (slot, FlaggedStorage::new_from_value(value)));
+        let mut expected_storage = storage.into_iter();
 
         let first_storage = cursor.seek(B256::default()).unwrap();
         assert_eq!(first_storage, expected_storage.next());
@@ -54,7 +56,7 @@ fn assert_storage_cursor_order(
 #[test]
 fn post_state_only_accounts() {
     let accounts =
-        Vec::from_iter((1..11).map(|key| (B256::with_last_byte(key), Account::default())));
+        (1..11).map(|key| (B256::with_last_byte(key), Account::default())).collect::<Vec<_>>();
 
     let mut hashed_post_state = HashedPostState::default();
     for (hashed_address, account) in &accounts {
@@ -72,7 +74,7 @@ fn post_state_only_accounts() {
 #[test]
 fn db_only_accounts() {
     let accounts =
-        Vec::from_iter((1..11).map(|key| (B256::with_last_byte(key), Account::default())));
+        (1..11).map(|key| (B256::with_last_byte(key), Account::default())).collect::<Vec<_>>();
 
     let db = create_test_rw_db();
     db.update(|tx| {
@@ -95,7 +97,7 @@ fn db_only_accounts() {
 fn account_cursor_correct_order() {
     // odd keys are in post state, even keys are in db
     let accounts =
-        Vec::from_iter((1..111).map(|key| (B256::with_last_byte(key), Account::default())));
+        (1..111).map(|key| (B256::with_last_byte(key), Account::default())).collect::<Vec<_>>();
 
     let db = create_test_rw_db();
     db.update(|tx| {
@@ -120,9 +122,9 @@ fn account_cursor_correct_order() {
 fn removed_accounts_are_discarded() {
     // odd keys are in post state, even keys are in db
     let accounts =
-        Vec::from_iter((1..111).map(|key| (B256::with_last_byte(key), Account::default())));
+        (1..111).map(|key| (B256::with_last_byte(key), Account::default())).collect::<Vec<_>>();
     // accounts 5, 9, 11 should be considered removed from post state
-    let removed_keys = Vec::from_iter([5, 9, 11].into_iter().map(B256::with_last_byte));
+    let removed_keys = [5, 9, 11].into_iter().map(B256::with_last_byte).collect::<Vec<_>>();
 
     let db = create_test_rw_db();
     db.update(|tx| {
@@ -149,9 +151,9 @@ fn removed_accounts_are_discarded() {
 
 #[test]
 fn post_state_accounts_take_precedence() {
-    let accounts = Vec::from_iter((1..10).map(|key| {
-        (B256::with_last_byte(key), Account { nonce: key as u64, ..Default::default() })
-    }));
+    let accounts = (1..10)
+        .map(|key| (B256::with_last_byte(key), Account { nonce: key as u64, ..Default::default() }))
+        .collect::<Vec<_>>();
 
     let db = create_test_rw_db();
     db.update(|tx| {
@@ -223,13 +225,13 @@ fn storage_is_empty() {
     }
 
     let db_storage =
-        BTreeMap::from_iter((0..10).map(|key| (B256::with_last_byte(key), U256::from(key))));
+        (0..10).map(|key| (B256::with_last_byte(key), U256::from(key))).collect::<BTreeMap<_, _>>();
     db.update(|tx| {
         for (slot, value) in &db_storage {
             // insert zero value accounts to the database
             tx.put::<tables::HashedStorages>(
                 address,
-                StorageEntry { key: *slot, value: *value, ..Default::default() },
+                StorageEntry { key: *slot, value: *value, is_private: false },
             )
             .unwrap();
         }
@@ -300,10 +302,12 @@ fn storage_is_empty() {
 #[test]
 fn storage_cursor_correct_order() {
     let address = B256::random();
-    let db_storage =
-        BTreeMap::from_iter((1..11).map(|key| (B256::with_last_byte(key), U256::from(key))));
-    let post_state_storage =
-        BTreeMap::from_iter((11..21).map(|key| (B256::with_last_byte(key), U256::from(key))));
+    let db_storage = (1..11)
+        .map(|key| (B256::with_last_byte(key), FlaggedStorage::new_from_value(key)))
+        .collect::<BTreeMap<_, _>>();
+    let post_state_storage = (11..21)
+        .map(|key| (B256::with_last_byte(key), FlaggedStorage::new_from_value(key)))
+        .collect::<BTreeMap<_, _>>();
 
     let db = create_test_rw_db();
     db.update(|tx| {
@@ -311,7 +315,7 @@ fn storage_cursor_correct_order() {
             // insert zero value accounts to the database
             tx.put::<tables::HashedStorages>(
                 address,
-                StorageEntry { key: *slot, value: *value, ..Default::default() },
+                StorageEntry { key: *slot, value: value.value, is_private: value.is_private },
             )
             .unwrap();
         }
@@ -321,7 +325,7 @@ fn storage_cursor_correct_order() {
     let wiped = false;
     let mut hashed_storage = HashedStorage::new(wiped);
     for (slot, value) in &post_state_storage {
-        hashed_storage.storage.insert(*slot, FlaggedStorage::new_from_value(*value));
+        hashed_storage.storage.insert(*slot, *value);
     }
 
     let mut hashed_post_state = HashedPostState::default();
@@ -338,11 +342,21 @@ fn storage_cursor_correct_order() {
 #[test]
 fn zero_value_storage_entries_are_discarded() {
     let address = B256::random();
-    let db_storage =
-        BTreeMap::from_iter((0..10).map(|key| (B256::with_last_byte(key), U256::from(key)))); // every even number is changed to zero value
-    let post_state_storage = BTreeMap::from_iter((0..10).map(|key| {
-        (B256::with_last_byte(key), if key % 2 == 0 { U256::ZERO } else { U256::from(key) })
-    }));
+    let db_storage = (0..10)
+        .map(|key| (B256::with_last_byte(key), FlaggedStorage::new_from_value(key)))
+        .collect::<BTreeMap<_, _>>(); // every even number is changed to zero value
+    let post_state_storage = (0..10)
+        .map(|key| {
+            (
+                B256::with_last_byte(key),
+                if key % 2 == 0 {
+                    FlaggedStorage::ZERO
+                } else {
+                    FlaggedStorage::new_from_value(key)
+                },
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
 
     let db = create_test_rw_db();
     db.update(|tx| {
@@ -350,7 +364,7 @@ fn zero_value_storage_entries_are_discarded() {
             // insert zero value accounts to the database
             tx.put::<tables::HashedStorages>(
                 address,
-                StorageEntry { key: slot, value, ..Default::default() },
+                StorageEntry { key: slot, value: value.value, is_private: value.is_private },
             )
             .unwrap();
         }
@@ -360,7 +374,7 @@ fn zero_value_storage_entries_are_discarded() {
     let wiped = false;
     let mut hashed_storage = HashedStorage::new(wiped);
     for (slot, value) in &post_state_storage {
-        hashed_storage.storage.insert(*slot, FlaggedStorage::new_from_value(*value));
+        hashed_storage.storage.insert(*slot, *value);
     }
 
     let mut hashed_post_state = HashedPostState::default();
@@ -371,7 +385,7 @@ fn zero_value_storage_entries_are_discarded() {
     let factory = HashedPostStateCursorFactory::new(DatabaseHashedCursorFactory::new(&tx), &sorted);
     let expected = std::iter::once((
         address,
-        post_state_storage.into_iter().filter(|(_, value)| *value > U256::ZERO).collect(),
+        post_state_storage.into_iter().filter(|(_, value)| value.value > U256::ZERO).collect(),
     ));
     assert_storage_cursor_order(&factory, expected);
 }
@@ -379,10 +393,12 @@ fn zero_value_storage_entries_are_discarded() {
 #[test]
 fn wiped_storage_is_discarded() {
     let address = B256::random();
-    let db_storage =
-        BTreeMap::from_iter((1..11).map(|key| (B256::with_last_byte(key), U256::from(key))));
-    let post_state_storage =
-        BTreeMap::from_iter((11..21).map(|key| (B256::with_last_byte(key), U256::from(key))));
+    let db_storage = (1..11)
+        .map(|key| (B256::with_last_byte(key), FlaggedStorage::new_from_value(key)))
+        .collect::<BTreeMap<_, _>>();
+    let post_state_storage = (11..21)
+        .map(|key| (B256::with_last_byte(key), FlaggedStorage::new_from_value(key)))
+        .collect::<BTreeMap<_, _>>();
 
     let db = create_test_rw_db();
     db.update(|tx| {
@@ -390,7 +406,7 @@ fn wiped_storage_is_discarded() {
             // insert zero value accounts to the database
             tx.put::<tables::HashedStorages>(
                 address,
-                StorageEntry { key: slot, value, ..Default::default() },
+                StorageEntry { key: slot, value: value.value, is_private: value.is_private },
             )
             .unwrap();
         }
@@ -400,7 +416,7 @@ fn wiped_storage_is_discarded() {
     let wiped = true;
     let mut hashed_storage = HashedStorage::new(wiped);
     for (slot, value) in &post_state_storage {
-        hashed_storage.storage.insert(*slot, FlaggedStorage::new_from_value(*value));
+        hashed_storage.storage.insert(*slot, *value);
     }
 
     let mut hashed_post_state = HashedPostState::default();
@@ -416,8 +432,9 @@ fn wiped_storage_is_discarded() {
 #[test]
 fn post_state_storages_take_precedence() {
     let address = B256::random();
-    let storage =
-        BTreeMap::from_iter((1..10).map(|key| (B256::with_last_byte(key), U256::from(key))));
+    let storage = (1..10)
+        .map(|key| (B256::with_last_byte(key), FlaggedStorage::new_from_value(key)))
+        .collect::<BTreeMap<_, _>>();
 
     let db = create_test_rw_db();
     db.update(|tx| {
@@ -425,7 +442,7 @@ fn post_state_storages_take_precedence() {
             // insert zero value accounts to the database
             tx.put::<tables::HashedStorages>(
                 address,
-                StorageEntry { key: *slot, value: U256::ZERO, ..Default::default() },
+                StorageEntry { key: *slot, value: U256::ZERO, is_private: false },
             )
             .unwrap();
         }
@@ -435,7 +452,7 @@ fn post_state_storages_take_precedence() {
     let wiped = false;
     let mut hashed_storage = HashedStorage::new(wiped);
     for (slot, value) in &storage {
-        hashed_storage.storage.insert(*slot, FlaggedStorage::new_from_value(*value));
+        hashed_storage.storage.insert(*slot, *value);
     }
 
     let mut hashed_post_state = HashedPostState::default();
@@ -452,15 +469,15 @@ fn post_state_storages_take_precedence() {
 fn fuzz_hashed_storage_cursor() {
     proptest!(ProptestConfig::with_cases(10),
         |(
-            db_storages: BTreeMap<B256, BTreeMap<B256, U256>>,
-            post_state_storages: BTreeMap<B256, (bool, BTreeMap<B256, U256>)>
+            db_storages: BTreeMap<B256, BTreeMap<B256, FlaggedStorage>>,
+            post_state_storages: BTreeMap<B256, (bool, BTreeMap<B256, FlaggedStorage>)>
         )|
     {
         let db = create_test_rw_db();
         db.update(|tx| {
             for (address, storage) in &db_storages {
                 for (slot, value) in storage {
-                    let entry = StorageEntry { key: *slot, value: *value, ..Default::default() };
+                    let entry = StorageEntry { key: *slot, value: value.value, is_private: value.is_private };
                     tx.put::<tables::HashedStorages>(*address, entry).unwrap();
                 }
             }
@@ -472,7 +489,7 @@ fn fuzz_hashed_storage_cursor() {
         for (address, (wiped, storage)) in &post_state_storages {
             let mut hashed_storage = HashedStorage::new(*wiped);
             for (slot, value) in storage {
-                hashed_storage.storage.insert(*slot, FlaggedStorage::new_from_value(*value));
+                hashed_storage.storage.insert(*slot, *value);
             }
             hashed_post_state.storages.insert(*address, hashed_storage);
         }

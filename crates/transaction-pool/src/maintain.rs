@@ -4,21 +4,25 @@ use crate::{
     blobstore::{BlobStoreCanonTracker, BlobStoreUpdates},
     error::PoolError,
     metrics::MaintainPoolMetrics,
-    traits::{CanonicalStateUpdate, TransactionPool, TransactionPoolExt},
-    BlockInfo, PoolTransaction,
+    traits::{CanonicalStateUpdate, EthPoolTransaction, TransactionPool, TransactionPoolExt},
+    BlockInfo, PoolTransaction, PoolUpdateKind,
 };
+use alloy_consensus::BlockHeader;
+use alloy_eips::BlockNumberOrTag;
+use alloy_primitives::{Address, BlockHash, BlockNumber};
+use alloy_rlp::Encodable;
 use futures_util::{
     future::{BoxFuture, Fuse, FusedFuture},
     FutureExt, Stream, StreamExt,
 };
 use reth_chain_state::CanonStateNotification;
-use reth_chainspec::{ChainSpec, ChainSpecProvider};
+use reth_chainspec::{ChainSpecProvider, EthChainSpec};
 use reth_execution_types::ChangedAccount;
 use reth_fs_util::FsPathError;
 use reth_primitives::{
-    Address, BlockHash, BlockNumber, BlockNumberOrTag, IntoRecoveredTransaction,
-    PooledTransactionsElementEcRecovered, TransactionSigned,
+    transaction::SignedTransactionIntoRecoveredExt, SealedHeader, TransactionSigned,
 };
+use reth_primitives_traits::SignedTransaction;
 use reth_storage_api::{errors::provider::ProviderError, BlockReaderIdExt, StateProviderFactory};
 use reth_tasks::TaskSpawner;
 use std::{
@@ -26,6 +30,7 @@ use std::{
     collections::HashSet,
     hash::{Hash, Hasher},
     path::{Path, PathBuf},
+    sync::Arc,
 };
 use tokio::sync::oneshot;
 use tracing::{debug, error, info, trace, warn};
@@ -73,13 +78,8 @@ pub fn maintain_transaction_pool_future<Client, P, St, Tasks>(
     config: MaintainPoolConfig,
 ) -> BoxFuture<'static, ()>
 where
-    Client: StateProviderFactory
-        + BlockReaderIdExt
-        + ChainSpecProvider<ChainSpec = ChainSpec>
-        + Clone
-        + Send
-        + 'static,
-    P: TransactionPoolExt + 'static,
+    Client: StateProviderFactory + BlockReaderIdExt + ChainSpecProvider + Clone + Send + 'static,
+    P: TransactionPoolExt<Transaction: PoolTransaction<Consensus = TransactionSigned>> + 'static,
     St: Stream<Item = CanonStateNotification> + Send + Unpin + 'static,
     Tasks: TaskSpawner + 'static,
 {
@@ -99,13 +99,8 @@ pub async fn maintain_transaction_pool<Client, P, St, Tasks>(
     task_spawner: Tasks,
     config: MaintainPoolConfig,
 ) where
-    Client: StateProviderFactory
-        + BlockReaderIdExt
-        + ChainSpecProvider<ChainSpec = ChainSpec>
-        + Clone
-        + Send
-        + 'static,
-    P: TransactionPoolExt + 'static,
+    Client: StateProviderFactory + BlockReaderIdExt + ChainSpecProvider + Clone + Send + 'static,
+    P: TransactionPoolExt<Transaction: PoolTransaction<Consensus = TransactionSigned>> + 'static,
     St: Stream<Item = CanonStateNotification> + Send + Unpin + 'static,
     Tasks: TaskSpawner + 'static,
 {
@@ -113,13 +108,16 @@ pub async fn maintain_transaction_pool<Client, P, St, Tasks>(
     let MaintainPoolConfig { max_update_depth, max_reload_accounts, .. } = config;
     // ensure the pool points to latest state
     if let Ok(Some(latest)) = client.header_by_number_or_tag(BlockNumberOrTag::Latest) {
-        let latest = latest.seal_slow();
+        let latest = SealedHeader::seal(latest);
         let chain_spec = client.chain_spec();
         let info = BlockInfo {
+            block_gas_limit: latest.gas_limit(),
             last_seen_block_hash: latest.hash(),
-            last_seen_block_number: latest.number,
+            last_seen_block_number: latest.number(),
             pending_basefee: latest
-                .next_block_base_fee(chain_spec.base_fee_params_at_timestamp(latest.timestamp + 12))
+                .next_block_base_fee(
+                    chain_spec.base_fee_params_at_timestamp(latest.timestamp() + 12),
+                )
                 .unwrap_or_default(),
             pending_blob_fee: latest.next_block_blob_fee(),
         };
@@ -134,7 +132,7 @@ pub async fn maintain_transaction_pool<Client, P, St, Tasks>(
         FinalizedBlockTracker::new(client.finalized_block_number().ok().flatten());
 
     // keeps track of any dirty accounts that we know of are out of sync with the pool
-    let mut dirty_addresses = HashSet::new();
+    let mut dirty_addresses = HashSet::default();
 
     // keeps track of the state of the pool wrt to blocks
     let mut maintained_state = MaintainedPoolState::InSync;
@@ -323,7 +321,7 @@ pub async fn maintain_transaction_pool<Client, P, St, Tasks>(
                 // find all transactions that were mined in the old chain but not in the new chain
                 let pruned_old_transactions = old_blocks
                     .transactions_ecrecovered()
-                    .filter(|tx| !new_mined_transactions.contains(&tx.hash))
+                    .filter(|tx| !new_mined_transactions.contains(tx.tx_hash()))
                     .filter_map(|tx| {
                         if tx.is_eip4844() {
                             // reorged blobs no longer include the blob, which is necessary for
@@ -331,21 +329,17 @@ pub async fn maintain_transaction_pool<Client, P, St, Tasks>(
                             // been validated previously, we still need the blob in order to
                             // accurately set the transaction's
                             // encoded-length which is propagated over the network.
-                            pool.get_blob(tx.hash)
+                            pool.get_blob(TransactionSigned::hash(&tx))
                                 .ok()
                                 .flatten()
+                                .map(Arc::unwrap_or_clone)
                                 .and_then(|sidecar| {
-                                    PooledTransactionsElementEcRecovered::try_from_blob_transaction(
+                                    <P as TransactionPool>::Transaction::try_from_eip4844(
                                         tx, sidecar,
                                     )
-                                    .ok()
-                                })
-                                .map(|tx| {
-                                    <<P as TransactionPool>::Transaction as PoolTransaction>::from_pooled(tx)
                                 })
                         } else {
-
-                            <P::Transaction as PoolTransaction>::try_from_consensus(tx).ok()
+                            <P as TransactionPool>::Transaction::try_from_consensus(tx).ok()
                         }
                     })
                     .collect::<Vec<_>>();
@@ -358,6 +352,7 @@ pub async fn maintain_transaction_pool<Client, P, St, Tasks>(
                     changed_accounts,
                     // all transactions mined in the new chain need to be removed from the pool
                     mined_transactions: new_blocks.transaction_hashes().collect(),
+                    update_kind: PoolUpdateKind::Reorg,
                 };
                 pool.on_canonical_state_change(update);
 
@@ -402,6 +397,7 @@ pub async fn maintain_transaction_pool<Client, P, St, Tasks>(
                     maintained_state = MaintainedPoolState::Drifted;
                     debug!(target: "txpool", ?depth, "skipping deep canonical update");
                     let info = BlockInfo {
+                        block_gas_limit: tip.gas_limit,
                         last_seen_block_hash: tip.hash(),
                         last_seen_block_number: tip.number,
                         pending_basefee: pending_block_base_fee,
@@ -439,6 +435,7 @@ pub async fn maintain_transaction_pool<Client, P, St, Tasks>(
                     pending_block_blob_fee,
                     changed_accounts,
                     mined_transactions,
+                    update_kind: PoolUpdateKind::Commit,
                 };
                 pool.on_canonical_state_change(update);
 
@@ -460,21 +457,11 @@ impl FinalizedBlockTracker {
 
     /// Updates the tracked finalized block and returns the new finalized block if it changed
     fn update(&mut self, finalized_block: Option<BlockNumber>) -> Option<BlockNumber> {
-        match (self.last_finalized_block, finalized_block) {
-            (Some(last), Some(finalized)) => {
-                self.last_finalized_block = Some(finalized);
-                if last < finalized {
-                    Some(finalized)
-                } else {
-                    None
-                }
-            }
-            (None, Some(finalized)) => {
-                self.last_finalized_block = Some(finalized);
-                Some(finalized)
-            }
-            _ => None,
-        }
+        let finalized = finalized_block?;
+        self.last_finalized_block
+            .replace(finalized)
+            .is_none_or(|last| last < finalized)
+            .then_some(finalized)
     }
 }
 
@@ -496,7 +483,7 @@ impl MaintainedPoolState {
     }
 }
 
-/// A unique `ChangedAccount` identified by its address that can be used for deduplication
+/// A unique [`ChangedAccount`] identified by its address that can be used for deduplication
 #[derive(Eq)]
 struct ChangedAccountEntry(ChangedAccount);
 
@@ -569,7 +556,7 @@ async fn load_and_reinsert_transactions<P>(
     file_path: &Path,
 ) -> Result<(), TransactionsBackupError>
 where
-    P: TransactionPool,
+    P: TransactionPool<Transaction: PoolTransaction<Consensus: SignedTransaction>>,
 {
     if !file_path.exists() {
         return Ok(())
@@ -582,7 +569,8 @@ where
         return Ok(())
     }
 
-    let txs_signed: Vec<TransactionSigned> = alloy_rlp::Decodable::decode(&mut data.as_slice())?;
+    let txs_signed: Vec<<P::Transaction as PoolTransaction>::Consensus> =
+        alloy_rlp::Decodable::decode(&mut data.as_slice())?;
 
     let pool_transactions = txs_signed
         .into_iter()
@@ -591,7 +579,7 @@ where
             // Filter out errors
             <P::Transaction as PoolTransaction>::try_from_consensus(tx).ok()
         })
-        .collect::<Vec<_>>();
+        .collect();
 
     let outcome = pool.add_transactions(crate::TransactionOrigin::Local, pool_transactions).await;
 
@@ -602,7 +590,7 @@ where
 
 fn save_local_txs_backup<P>(pool: P, file_path: &Path)
 where
-    P: TransactionPool,
+    P: TransactionPool<Transaction: PoolTransaction<Consensus: Encodable>>,
 {
     let local_transactions = pool.get_local_transactions();
     if local_transactions.is_empty() {
@@ -612,7 +600,7 @@ where
 
     let local_transactions = local_transactions
         .into_iter()
-        .map(|tx| tx.to_recovered_transaction().into_signed())
+        .map(|tx| tx.transaction.clone_into_consensus().into_signed())
         .collect::<Vec<_>>();
 
     let num_txs = local_transactions.len();
@@ -652,7 +640,7 @@ pub async fn backup_local_transactions_task<P>(
     pool: P,
     config: LocalTransactionBackupConfig,
 ) where
-    P: TransactionPool + Clone,
+    P: TransactionPool<Transaction: PoolTransaction<Consensus: SignedTransaction>> + Clone,
 {
     let Some(transactions_path) = config.transactions_path else {
         // nothing to do
@@ -678,9 +666,11 @@ mod tests {
         blobstore::InMemoryBlobStore, validate::EthTransactionValidatorBuilder,
         CoinbaseTipOrdering, EthPooledTransaction, Pool, TransactionOrigin,
     };
+    use alloy_eips::eip2718::Decodable2718;
+    use alloy_primitives::{hex, U256};
     use reth_chainspec::MAINNET;
     use reth_fs_util as fs;
-    use reth_primitives::{hex, PooledTransactionsElement, U256};
+    use reth_primitives::PooledTransactionsElement;
     use reth_provider::test_utils::{ExtendedAccount, MockEthProvider};
     use reth_tasks::TaskManager;
 
@@ -700,7 +690,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let transactions_path = temp_dir.path().join(FILENAME).with_extension(EXTENSION);
         let tx_bytes = hex!("02f87201830655c2808505ef61f08482565f94388c818ca8b9251b393131c08a736a67ccb192978801049e39c4b5b1f580c001a01764ace353514e8abdfb92446de356b260e3c1225b73fc4c8876a6258d12a129a04f02294aa61ca7676061cd99f29275491218b4754b46a0248e5e42bc5091f507");
-        let tx = PooledTransactionsElement::decode_enveloped(&mut &tx_bytes[..]).unwrap();
+        let tx = PooledTransactionsElement::decode_2718(&mut &tx_bytes[..]).unwrap();
         let provider = MockEthProvider::default();
         let transaction: EthPooledTransaction = tx.try_into_ecrecovered().unwrap().into();
         let tx_to_cmp = transaction.clone();

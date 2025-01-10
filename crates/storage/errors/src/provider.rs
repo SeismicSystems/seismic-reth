@@ -1,16 +1,11 @@
 use crate::{db::DatabaseError, lockfile::StorageLockError, writer::UnifiedStorageWriterError};
-use derive_more::Display;
-use reth_primitives::{
-    Address, BlockHash, BlockHashOrNumber, BlockNumber, GotExpected, StaticFileSegment,
-    TxHashOrNumber, TxNumber, B256, U256,
-};
-use reth_tee::TeeError;
-
-#[cfg(feature = "std")]
-use std::path::PathBuf;
-
-#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, string::String};
+use alloy_eips::{BlockHashOrNumber, HashOrNumber};
+use alloy_primitives::{Address, BlockHash, BlockNumber, TxNumber, B256};
+use derive_more::Display;
+use reth_primitives_traits::GotExpected;
+use reth_static_file_types::StaticFileSegment;
+use reth_tee::TeeError;
 
 /// Provider result type.
 pub type ProviderResult<Ok> = Result<Ok, ProviderError>;
@@ -69,12 +64,12 @@ pub enum ProviderError {
     /// when required header related data was not found but was required.
     #[display("no header found for {_0:?}")]
     HeaderNotFound(BlockHashOrNumber),
-    /// The specific transaction is missing.
+    /// The specific transaction identified by hash or id is missing.
     #[display("no transaction found for {_0:?}")]
-    TransactionNotFound(TxHashOrNumber),
-    /// The specific receipt is missing
+    TransactionNotFound(HashOrNumber),
+    /// The specific receipt for a transaction identified by hash or id is missing
     #[display("no receipt found for {_0:?}")]
-    ReceiptNotFound(TxHashOrNumber),
+    ReceiptNotFound(HashOrNumber),
     /// Unable to find the best block.
     #[display("best block does not exist")]
     BestBlockNotFound,
@@ -84,15 +79,6 @@ pub enum ProviderError {
     /// Unable to find the safe block.
     #[display("safe block does not exist")]
     SafeBlockNotFound,
-    /// Mismatch of sender and transaction.
-    #[display("mismatch of sender and transaction id {tx_id}")]
-    MismatchOfTransactionAndSenderId {
-        /// The transaction ID.
-        tx_id: TxNumber,
-    },
-    /// Block body wrong transaction count.
-    #[display("stored block indices does not match transaction count")]
-    BlockBodyTransactionCount,
     /// Thrown when the cache service task dropped.
     #[display("cache service task stopped")]
     CacheServiceUnavailable,
@@ -123,7 +109,7 @@ pub enum ProviderError {
     /// Static File is not found at specified path.
     #[cfg(feature = "std")]
     #[display("not able to find {_0} static file at {_1:?}")]
-    MissingStaticFilePath(StaticFileSegment, PathBuf),
+    MissingStaticFilePath(StaticFileSegment, std::path::PathBuf),
     /// Static File is not found for requested block.
     #[display("not able to find {_0} static file for block number {_1}")]
     MissingStaticFileBlock(StaticFileSegment, BlockNumber),
@@ -136,12 +122,12 @@ pub enum ProviderError {
     /// Trying to insert data from an unexpected block number.
     #[display("trying to append data to {_0} as block #{_1} but expected block #{_2}")]
     UnexpectedStaticFileBlockNumber(StaticFileSegment, BlockNumber, BlockNumber),
+    /// Trying to insert data from an unexpected block number.
+    #[display("trying to append row to {_0} at index #{_1} but expected index #{_2}")]
+    UnexpectedStaticFileTxNumber(StaticFileSegment, TxNumber, TxNumber),
     /// Static File Provider was initialized as read-only.
     #[display("cannot get a writer on a read-only environment.")]
     ReadOnlyStaticFileAccess,
-    /// Error encountered when the block number conversion from U256 to u64 causes an overflow.
-    #[display("failed to convert block number U256 to u64: {_0}")]
-    BlockNumberOverflow(U256),
     /// Consistent view error.
     #[display("failed to initialize consistent view: {_0}")]
     ConsistentView(Box<ConsistentViewError>),
@@ -149,8 +135,16 @@ pub enum ProviderError {
     StorageLockError(StorageLockError),
     /// Storage writer error.
     UnifiedStorageWriterError(UnifiedStorageWriterError),
+    /// Received invalid output from configured storage implementation.
+    InvalidStorageOutput,
     /// Tee encryptography error.
     TeeError(TeeError),
+}
+
+impl From<TeeError> for ProviderError {
+    fn from(err: TeeError) -> Self {
+        Self::TeeError(err)
+    }
 }
 
 impl From<DatabaseError> for ProviderError {
@@ -177,20 +171,12 @@ impl From<UnifiedStorageWriterError> for ProviderError {
     }
 }
 
-impl From<TeeError> for ProviderError {
-    fn from(err: TeeError) -> Self {
-        Self::TeeError(err)
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for ProviderError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl core::error::Error for ProviderError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
-            Self::Database(source) => std::error::Error::source(source),
-            Self::Rlp(source) => std::error::Error::source(source),
-            Self::StorageLockError(source) => std::error::Error::source(source),
-            Self::UnifiedStorageWriterError(source) => std::error::Error::source(source),
+            Self::Database(source) => core::error::Error::source(source),
+            Self::StorageLockError(source) => core::error::Error::source(source),
+            Self::UnifiedStorageWriterError(source) => core::error::Error::source(source),
             _ => Option::None,
         }
     }

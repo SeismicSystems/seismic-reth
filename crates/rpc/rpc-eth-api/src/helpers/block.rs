@@ -2,30 +2,49 @@
 
 use std::sync::Arc;
 
+use alloy_eips::BlockId;
+use alloy_primitives::Sealable;
+use alloy_rlp::Encodable;
+use alloy_rpc_types_eth::{Block, BlockTransactions, Header, Index};
 use futures::Future;
-use reth_primitives::{BlockId, Receipt, SealedBlock, SealedBlockWithSenders, TransactionMeta};
-use reth_provider::{BlockIdReader, BlockReader, BlockReaderIdExt, HeaderProvider};
-use reth_rpc_eth_types::{EthApiError, EthStateCache, ReceiptBuilder};
-use reth_rpc_types::{AnyTransactionReceipt, Header, Index};
-use reth_rpc_types_compat::block::{from_block, uncle_block_from_header};
+use reth_node_api::BlockBody;
+use reth_primitives::{SealedBlockFor, SealedBlockWithSenders};
+use reth_provider::{
+    BlockIdReader, BlockReader, BlockReaderIdExt, ProviderHeader, ProviderReceipt,
+};
+use reth_rpc_types_compat::block::from_block;
+use revm_primitives::U256;
 
-use crate::{FromEthApiError, RpcBlock};
+use crate::{
+    node::RpcNodeCoreExt, EthApiTypes, FromEthApiError, FullEthApiTypes, RpcBlock, RpcNodeCore,
+    RpcReceipt,
+};
 
 use super::{LoadPendingBlock, LoadReceipt, SpawnBlocking};
+
+/// Result type of the fetched block receipts.
+pub type BlockReceiptsResult<N, E> = Result<Option<Vec<RpcReceipt<N>>>, E>;
+/// Result type of the fetched block and its receipts.
+pub type BlockAndReceiptsResult<Eth> = Result<
+    Option<(
+        SealedBlockFor<<<Eth as RpcNodeCore>::Provider as BlockReader>::Block>,
+        Arc<Vec<ProviderReceipt<<Eth as RpcNodeCore>::Provider>>>,
+    )>,
+    <Eth as EthApiTypes>::Error,
+>;
 
 /// Block related functions for the [`EthApiServer`](crate::EthApiServer) trait in the
 /// `eth_` namespace.
 pub trait EthBlocks: LoadBlock {
-    /// Returns a handle for reading data from disk.
-    ///
-    /// Data access in default (L1) trait method implementations.
-    fn provider(&self) -> impl HeaderProvider;
-
     /// Returns the block header for the given block id.
+    #[expect(clippy::type_complexity)]
     fn rpc_block_header(
         &self,
         block_id: BlockId,
-    ) -> impl Future<Output = Result<Option<Header>, Self::Error>> + Send {
+    ) -> impl Future<Output = Result<Option<Header<ProviderHeader<Self::Provider>>>, Self::Error>> + Send
+    where
+        Self: FullEthApiTypes,
+    {
         async move { Ok(self.rpc_block(block_id, false).await?.map(|block| block.header)) }
     }
 
@@ -38,19 +57,19 @@ pub trait EthBlocks: LoadBlock {
         block_id: BlockId,
         full: bool,
     ) -> impl Future<Output = Result<Option<RpcBlock<Self::NetworkTypes>>, Self::Error>> + Send
+    where
+        Self: FullEthApiTypes,
     {
         async move {
-            let block = match self.block_with_senders(block_id).await? {
-                Some(block) => block,
-                None => return Ok(None),
-            };
+            let Some(block) = self.block_with_senders(block_id).await? else { return Ok(None) };
             let block_hash = block.hash();
-            let total_difficulty = EthBlocks::provider(self)
-                .header_td_by_number(block.number)
-                .map_err(Self::Error::from_eth_err)?
-                .ok_or(EthApiError::UnknownBlockNumber)?;
-            let block = from_block(block.unseal(), total_difficulty, full.into(), Some(block_hash))
-                .map_err(Self::Error::from_eth_err)?;
+
+            let block = from_block(
+                (*block).clone().unseal(),
+                full.into(),
+                Some(block_hash),
+                self.tx_resp_builder(),
+            )?;
             Ok(Some(block))
         }
     }
@@ -65,13 +84,15 @@ pub trait EthBlocks: LoadBlock {
         async move {
             if block_id.is_pending() {
                 // Pending block can be fetched directly without need for caching
-                return Ok(LoadBlock::provider(self)
+                return Ok(self
+                    .provider()
                     .pending_block()
                     .map_err(Self::Error::from_eth_err)?
-                    .map(|block| block.body.len()))
+                    .map(|block| block.body.transactions().len()))
             }
 
-            let block_hash = match LoadBlock::provider(self)
+            let block_hash = match self
+                .provider()
                 .block_hash_for_id(block_id)
                 .map_err(Self::Error::from_eth_err)?
             {
@@ -81,65 +102,30 @@ pub trait EthBlocks: LoadBlock {
 
             Ok(self
                 .cache()
-                .get_block_transactions(block_hash)
+                .get_sealed_block_with_senders(block_hash)
                 .await
                 .map_err(Self::Error::from_eth_err)?
-                .map(|txs| txs.len()))
+                .map(|b| b.body.transactions().len()))
         }
     }
 
     /// Helper function for `eth_getBlockReceipts`.
     ///
     /// Returns all transaction receipts in block, or `None` if block wasn't found.
+    #[allow(clippy::type_complexity)]
     fn block_receipts(
         &self,
         block_id: BlockId,
-    ) -> impl Future<Output = Result<Option<Vec<AnyTransactionReceipt>>, Self::Error>> + Send
+    ) -> impl Future<Output = BlockReceiptsResult<Self::NetworkTypes, Self::Error>> + Send
     where
-        Self: LoadReceipt,
-    {
-        async move {
-            if let Some((block, receipts)) = self.load_block_and_receipts(block_id).await? {
-                let block_number = block.number;
-                let base_fee = block.base_fee_per_gas;
-                let block_hash = block.hash();
-                let excess_blob_gas = block.excess_blob_gas;
-                let timestamp = block.timestamp;
-                let block = block.unseal();
-
-                let receipts = block
-                    .body
-                    .into_iter()
-                    .zip(receipts.iter())
-                    .enumerate()
-                    .map(|(idx, (tx, receipt))| {
-                        let meta = TransactionMeta {
-                            tx_hash: tx.hash,
-                            index: idx as u64,
-                            block_hash,
-                            block_number,
-                            base_fee,
-                            excess_blob_gas,
-                            timestamp,
-                        };
-
-                        ReceiptBuilder::new(&tx, meta, receipt, &receipts)
-                            .map(|builder| builder.build())
-                            .map_err(Self::Error::from_eth_err)
-                    })
-                    .collect::<Result<Vec<_>, Self::Error>>();
-                return receipts.map(Some)
-            }
-
-            Ok(None)
-        }
-    }
+        Self: LoadReceipt;
 
     /// Helper method that loads a bock and all its receipts.
+    #[allow(clippy::type_complexity)]
     fn load_block_and_receipts(
         &self,
         block_id: BlockId,
-    ) -> impl Future<Output = Result<Option<(SealedBlock, Arc<Vec<Receipt>>)>, Self::Error>> + Send
+    ) -> impl Future<Output = BlockAndReceiptsResult<Self>> + Send
     where
         Self: LoadReceipt,
     {
@@ -147,7 +133,8 @@ pub trait EthBlocks: LoadBlock {
             if block_id.is_pending() {
                 // First, try to get the pending block from the provider, in case we already
                 // received the actual pending block from the CL.
-                if let Some((block, receipts)) = LoadBlock::provider(self)
+                if let Some((block, receipts)) = self
+                    .provider()
                     .pending_block_and_receipts()
                     .map_err(Self::Error::from_eth_err)?
                 {
@@ -160,14 +147,15 @@ pub trait EthBlocks: LoadBlock {
                 }
             }
 
-            if let Some(block_hash) = LoadBlock::provider(self)
-                .block_hash_for_id(block_id)
-                .map_err(Self::Error::from_eth_err)?
+            if let Some(block_hash) =
+                self.provider().block_hash_for_id(block_id).map_err(Self::Error::from_eth_err)?
             {
-                return LoadReceipt::cache(self)
+                return self
+                    .cache()
                     .get_block_and_receipts(block_hash)
                     .await
                     .map_err(Self::Error::from_eth_err)
+                    .map(|b| b.map(|(b, r)| (b.block.clone(), r)))
             }
 
             Ok(None)
@@ -177,11 +165,12 @@ pub trait EthBlocks: LoadBlock {
     /// Returns uncle headers of given block.
     ///
     /// Returns an empty vec if there are none.
+    #[expect(clippy::type_complexity)]
     fn ommers(
         &self,
         block_id: BlockId,
-    ) -> Result<Option<Vec<reth_primitives::Header>>, Self::Error> {
-        LoadBlock::provider(self).ommers_by_id(block_id).map_err(Self::Error::from_eth_err)
+    ) -> Result<Option<Vec<ProviderHeader<Self::Provider>>>, Self::Error> {
+        self.provider().ommers_by_id(block_id).map_err(Self::Error::from_eth_err)
     }
 
     /// Returns uncle block at given index in given block.
@@ -196,18 +185,25 @@ pub trait EthBlocks: LoadBlock {
         async move {
             let uncles = if block_id.is_pending() {
                 // Pending block can be fetched directly without need for caching
-                LoadBlock::provider(self)
+                self.provider()
                     .pending_block()
                     .map_err(Self::Error::from_eth_err)?
-                    .map(|block| block.ommers)
+                    .and_then(|block| block.body.ommers().map(|o| o.to_vec()))
             } else {
-                LoadBlock::provider(self)
-                    .ommers_by_id(block_id)
-                    .map_err(Self::Error::from_eth_err)?
+                self.provider().ommers_by_id(block_id).map_err(Self::Error::from_eth_err)?
             }
             .unwrap_or_default();
 
-            Ok(uncles.into_iter().nth(index.into()).map(uncle_block_from_header))
+            Ok(uncles.into_iter().nth(index.into()).map(|header| {
+                let block = alloy_consensus::Block::<alloy_consensus::TxEnvelope, _>::uncle(header);
+                let size = U256::from(block.length());
+                Block {
+                    uncles: vec![],
+                    header: Header::from_consensus(block.header.seal_slow(), None, Some(size)),
+                    transactions: BlockTransactions::Uncle,
+                    withdrawals: None,
+                }
+            }))
         }
     }
 }
@@ -215,52 +211,38 @@ pub trait EthBlocks: LoadBlock {
 /// Loads a block from database.
 ///
 /// Behaviour shared by several `eth_` RPC methods, not exclusive to `eth_` blocks RPC methods.
-pub trait LoadBlock: LoadPendingBlock + SpawnBlocking {
-    // Returns a handle for reading data from disk.
-    ///
-    /// Data access in default (L1) trait method implementations.
-    fn provider(&self) -> impl BlockReaderIdExt;
-
-    /// Returns a handle for reading data from memory.
-    ///
-    /// Data access in default (L1) trait method implementations.
-    fn cache(&self) -> &EthStateCache;
-
+pub trait LoadBlock: LoadPendingBlock + SpawnBlocking + RpcNodeCoreExt {
     /// Returns the block object for the given block id.
-    fn block(
-        &self,
-        block_id: BlockId,
-    ) -> impl Future<Output = Result<Option<SealedBlock>, Self::Error>> + Send {
-        async move {
-            self.block_with_senders(block_id)
-                .await
-                .map(|maybe_block| maybe_block.map(|block| block.block))
-        }
-    }
-
-    /// Returns the block object for the given block id.
+    #[expect(clippy::type_complexity)]
     fn block_with_senders(
         &self,
         block_id: BlockId,
-    ) -> impl Future<Output = Result<Option<SealedBlockWithSenders>, Self::Error>> + Send {
+    ) -> impl Future<
+        Output = Result<
+            Option<Arc<SealedBlockWithSenders<<Self::Provider as BlockReader>::Block>>>,
+            Self::Error,
+        >,
+    > + Send {
         async move {
             if block_id.is_pending() {
                 // Pending block can be fetched directly without need for caching
-                let maybe_pending = LoadPendingBlock::provider(self)
+                if let Some(pending_block) = self
+                    .provider()
                     .pending_block_with_senders()
-                    .map_err(Self::Error::from_eth_err)?;
-                return if maybe_pending.is_some() {
-                    Ok(maybe_pending)
-                } else {
-                    // If no pending block from provider, try to get local pending block
-                    return match self.local_pending_block().await? {
-                        Some((block, _)) => Ok(Some(block)),
-                        None => Ok(None),
-                    };
+                    .map_err(Self::Error::from_eth_err)?
+                {
+                    return Ok(Some(Arc::new(pending_block)));
+                }
+
+                // If no pending block from provider, try to get local pending block
+                return match self.local_pending_block().await? {
+                    Some((block, _)) => Ok(Some(Arc::new(block))),
+                    None => Ok(None),
                 };
             }
 
-            let block_hash = match LoadPendingBlock::provider(self)
+            let block_hash = match self
+                .provider()
                 .block_hash_for_id(block_id)
                 .map_err(Self::Error::from_eth_err)?
             {

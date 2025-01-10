@@ -1,13 +1,15 @@
-use alloy_network::Network;
+use alloy_eips::{BlockId, BlockNumberOrTag};
+use alloy_primitives::{Address, Bytes, B256, U256, U64};
+use alloy_rpc_types_eth::{
+    state::StateOverride, BlockOverrides, EIP1186AccountProofResponse, Filter, Log, SyncStatus,
+};
+use alloy_serde::JsonStorageKey;
 use jsonrpsee::core::RpcResult as Result;
-use reth_primitives::{Address, BlockId, BlockNumberOrTag, Bytes, B256, U256, U64};
 use reth_rpc_api::{EngineEthApiServer, EthApiServer, EthFilterApiServer};
 /// Re-export for convenience
 pub use reth_rpc_engine_api::EngineApi;
-use reth_rpc_eth_api::{types::SeismicCallRequest, EthApiTypes, RpcBlock, RpcTransaction};
-use reth_rpc_types::{
-    state::StateOverride, BlockOverrides, EIP1186AccountProofResponse, Filter, JsonStorageKey, Log,
-    SyncStatus, WithOtherFields,
+use reth_rpc_eth_api::{
+    types::SeismicCallRequest, FullEthApiTypes, RpcBlock, RpcHeader, RpcReceipt, RpcTransaction,
 };
 use tracing_futures::Instrument;
 
@@ -36,12 +38,12 @@ impl<Eth, EthFilter> EngineEthApi<Eth, EthFilter> {
 impl<Eth, EthFilter> EngineEthApiServer<RpcBlock<Eth::NetworkTypes>>
     for EngineEthApi<Eth, EthFilter>
 where
-    Eth: EthApiServer<RpcTransaction<Eth::NetworkTypes>, RpcBlock<Eth::NetworkTypes>>
-        + EthApiTypes<
-            NetworkTypes: Network<
-                TransactionResponse = WithOtherFields<reth_rpc_types::Transaction>,
-            >,
-        >,
+    Eth: EthApiServer<
+            RpcTransaction<Eth::NetworkTypes>,
+            RpcBlock<Eth::NetworkTypes>,
+            RpcReceipt<Eth::NetworkTypes>,
+            RpcHeader<Eth::NetworkTypes>,
+        > + FullEthApiTypes,
     EthFilter: EthFilterApiServer<RpcTransaction<Eth::NetworkTypes>>,
 {
     /// Handler for: `eth_syncing`
@@ -80,8 +82,8 @@ where
     }
 
     /// Handler for: `eth_getCode`
-    async fn get_code(&self, address: Address, block_number: Option<BlockId>) -> Result<Bytes> {
-        self.eth.get_code(address, block_number).instrument(engine_span!()).await
+    async fn get_code(&self, address: Address, block_id: Option<BlockId>) -> Result<Bytes> {
+        self.eth.get_code(address, block_id).instrument(engine_span!()).await
     }
 
     /// Handler for: `eth_getBlockByHash`

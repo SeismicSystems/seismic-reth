@@ -1,16 +1,19 @@
 use crate::{
+    db_ext::DbTxPruneExt,
     segments::{PruneInput, Segment},
     PrunerError,
 };
-use reth_db::tables;
-use reth_db_api::database::Database;
-use reth_provider::{BlockReader, DatabaseProviderRW, PruneCheckpointWriter, TransactionsProvider};
+use alloy_consensus::TxReceipt;
+use reth_db::{table::Value, tables, transaction::DbTxMut};
+use reth_primitives_traits::NodePrimitives;
+use reth_provider::{
+    BlockReader, DBProvider, NodePrimitivesProvider, PruneCheckpointWriter, TransactionsProvider,
+};
 use reth_prune_types::{
-    PruneCheckpoint, PruneMode, PruneProgress, PrunePurpose, PruneSegment, ReceiptsLogPruneConfig,
-    SegmentOutput, MINIMUM_PRUNING_DISTANCE,
+    PruneCheckpoint, PruneMode, PrunePurpose, PruneSegment, ReceiptsLogPruneConfig, SegmentOutput,
+    MINIMUM_PRUNING_DISTANCE,
 };
 use tracing::{instrument, trace};
-
 #[derive(Debug)]
 pub struct ReceiptsByLogs {
     config: ReceiptsLogPruneConfig,
@@ -22,7 +25,14 @@ impl ReceiptsByLogs {
     }
 }
 
-impl<DB: Database> Segment<DB> for ReceiptsByLogs {
+impl<Provider> Segment<Provider> for ReceiptsByLogs
+where
+    Provider: DBProvider<Tx: DbTxMut>
+        + PruneCheckpointWriter
+        + TransactionsProvider
+        + BlockReader
+        + NodePrimitivesProvider<Primitives: NodePrimitives<Receipt: Value>>,
+{
     fn segment(&self) -> PruneSegment {
         PruneSegment::ContractLogs
     }
@@ -36,11 +46,7 @@ impl<DB: Database> Segment<DB> for ReceiptsByLogs {
     }
 
     #[instrument(level = "trace", target = "pruner", skip(self, provider), ret)]
-    fn prune(
-        &self,
-        provider: &DatabaseProviderRW<DB>,
-        input: PruneInput,
-    ) -> Result<SegmentOutput, PrunerError> {
+    fn prune(&self, provider: &Provider, input: PruneInput) -> Result<SegmentOutput, PrunerError> {
         // Contract log filtering removes every receipt possible except the ones in the list. So,
         // for the other receipts it's as if they had a `PruneMode::Distance()` of
         // `MINIMUM_PRUNING_DISTANCE`.
@@ -143,12 +149,14 @@ impl<DB: Database> Segment<DB> for ReceiptsByLogs {
             // Delete receipts, except the ones in the inclusion list
             let mut last_skipped_transaction = 0;
             let deleted;
-            (deleted, done) = provider.prune_table_with_range::<tables::Receipts>(
+            (deleted, done) = provider.tx_ref().prune_table_with_range::<tables::Receipts<
+                <Provider::Primitives as NodePrimitives>::Receipt,
+            >>(
                 tx_range,
                 &mut limiter,
                 |(tx_num, receipt)| {
                     let skip = num_addresses > 0 &&
-                        receipt.logs.iter().any(|log| {
+                        receipt.logs().iter().any(|log| {
                             filtered_addresses[..num_addresses].contains(&&log.address)
                         });
 
@@ -211,7 +219,7 @@ impl<DB: Database> Segment<DB> for ReceiptsByLogs {
             },
         )?;
 
-        let progress = PruneProgress::new(done, &limiter);
+        let progress = limiter.progress(done);
 
         Ok(SegmentOutput { progress, pruned, checkpoint: None })
     }
@@ -219,13 +227,14 @@ impl<DB: Database> Segment<DB> for ReceiptsByLogs {
 
 #[cfg(test)]
 mod tests {
-    use crate::segments::{PruneInput, ReceiptsByLogs, Segment};
+    use crate::segments::{PruneInput, PruneLimiter, ReceiptsByLogs, Segment};
     use alloy_primitives::B256;
     use assert_matches::assert_matches;
     use reth_db::tables;
     use reth_db_api::{cursor::DbCursorRO, transaction::DbTx};
-    use reth_provider::{PruneCheckpointReader, TransactionsProvider};
-    use reth_prune_types::{PruneLimiter, PruneMode, PruneSegment, ReceiptsLogPruneConfig};
+    use reth_primitives_traits::InMemorySize;
+    use reth_provider::{DatabaseProviderFactory, PruneCheckpointReader, TransactionsProvider};
+    use reth_prune_types::{PruneMode, PruneSegment, ReceiptsLogPruneConfig};
     use reth_stages::test_utils::{StorageKind, TestStageDB};
     use reth_testing_utils::generators::{
         self, random_block_range, random_eoa_account, random_log, random_receipt, BlockRangeParams,
@@ -264,11 +273,12 @@ mod tests {
 
         let (deposit_contract_addr, _) = random_eoa_account(&mut rng);
         for block in &blocks {
-            for (txi, transaction) in block.body.iter().enumerate() {
+            receipts.reserve_exact(block.body.size());
+            for (txi, transaction) in block.body.transactions.iter().enumerate() {
                 let mut receipt = random_receipt(&mut rng, transaction, Some(1));
                 receipt.logs.push(random_log(
                     &mut rng,
-                    if txi == (block.body.len() - 1) { Some(deposit_contract_addr) } else { None },
+                    (txi == (block.body.transactions.len() - 1)).then_some(deposit_contract_addr),
                     Some(1),
                 ));
                 receipts.push((receipts.len() as u64, receipt));
@@ -278,7 +288,7 @@ mod tests {
 
         assert_eq!(
             db.table::<tables::Transactions>().unwrap().len(),
-            blocks.iter().map(|block| block.body.len()).sum::<usize>()
+            blocks.iter().map(|block| block.body.transactions.len()).sum::<usize>()
         );
         assert_eq!(
             db.table::<tables::Transactions>().unwrap().len(),
@@ -286,7 +296,7 @@ mod tests {
         );
 
         let run_prune = || {
-            let provider = db.factory.provider_rw().unwrap();
+            let provider = db.factory.database_provider_rw().unwrap();
 
             let prune_before_block: usize = 20;
             let prune_mode = PruneMode::Before(prune_before_block as u64);
@@ -327,7 +337,7 @@ mod tests {
 
             assert_eq!(
                 db.table::<tables::Receipts>().unwrap().len(),
-                blocks.iter().map(|block| block.body.len()).sum::<usize>() -
+                blocks.iter().map(|block| block.body.transactions.len()).sum::<usize>() -
                     ((pruned_tx + 1) - unprunable) as usize
             );
 

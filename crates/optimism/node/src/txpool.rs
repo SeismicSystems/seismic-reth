@@ -1,8 +1,11 @@
 //! OP transaction pool types
+use alloy_eips::eip2718::Encodable2718;
 use parking_lot::RwLock;
 use reth_chainspec::ChainSpec;
-use reth_evm_optimism::RethL1BlockInfo;
-use reth_primitives::{Block, GotExpected, InvalidTransactionError, SealedBlock};
+use reth_optimism_evm::RethL1BlockInfo;
+use reth_primitives::{
+    Block, GotExpected, InvalidTransactionError, SealedBlock, TransactionSigned,
+};
 use reth_provider::{BlockReaderIdExt, StateProviderFactory};
 use reth_revm::L1BlockInfo;
 use reth_transaction_pool::{
@@ -41,6 +44,11 @@ impl<Client, Tx> OpTransactionValidator<Client, Tx> {
         self.inner.chain_spec()
     }
 
+    /// Returns the configured client
+    pub fn client(&self) -> &Client {
+        self.inner.client()
+    }
+
     /// Returns the current block timestamp.
     fn block_timestamp(&self) -> u64 {
         self.block_info.timestamp.load(Ordering::Relaxed)
@@ -61,14 +69,14 @@ impl<Client, Tx> OpTransactionValidator<Client, Tx> {
 
 impl<Client, Tx> OpTransactionValidator<Client, Tx>
 where
-    Client: StateProviderFactory + BlockReaderIdExt,
-    Tx: EthPoolTransaction,
+    Client: StateProviderFactory + BlockReaderIdExt<Block = reth_primitives::Block>,
+    Tx: EthPoolTransaction<Consensus = TransactionSigned>,
 {
     /// Create a new [`OpTransactionValidator`].
     pub fn new(inner: EthTransactionValidator<Client, Tx>) -> Self {
         let this = Self::with_block_info(inner, OpL1BlockInfo::default());
         if let Ok(Some(block)) =
-            this.inner.client().block_by_number_or_tag(reth_primitives::BlockNumberOrTag::Latest)
+            this.inner.client().block_by_number_or_tag(alloy_eips::BlockNumberOrTag::Latest)
         {
             // genesis block has no txs, so we can't extract L1 info, we set the block info to empty
             // so that we will accept txs into the pool before the first block
@@ -93,7 +101,7 @@ where
     /// Update the L1 block info.
     fn update_l1_block_info(&self, block: &Block) {
         self.block_info.timestamp.store(block.timestamp, Ordering::Relaxed);
-        if let Ok(cost_addition) = reth_evm_optimism::extract_l1_info(block) {
+        if let Ok(cost_addition) = reth_optimism_evm::extract_l1_info(&block.body) {
             *self.block_info.l1_block_info.write() = cost_addition;
         }
     }
@@ -134,7 +142,8 @@ where
             let l1_block_info = self.block_info.l1_block_info.read().clone();
 
             let mut encoded = Vec::with_capacity(valid_tx.transaction().encoded_length());
-            valid_tx.transaction().clone().into_consensus().encode_enveloped(&mut encoded);
+            let tx = valid_tx.transaction().clone_into_consensus();
+            tx.encode_2718(&mut encoded);
 
             let cost_addition = match l1_block_info.l1_tx_data_fee(
                 &self.chain_spec(),
@@ -186,8 +195,8 @@ where
 
 impl<Client, Tx> TransactionValidator for OpTransactionValidator<Client, Tx>
 where
-    Client: StateProviderFactory + BlockReaderIdExt,
-    Tx: EthPoolTransaction,
+    Client: StateProviderFactory + BlockReaderIdExt<Block = reth_primitives::Block>,
+    Tx: EthPoolTransaction<Consensus = TransactionSigned>,
 {
     type Transaction = Tx;
 
@@ -224,17 +233,16 @@ pub struct OpL1BlockInfo {
 #[cfg(test)]
 mod tests {
     use crate::txpool::OpTransactionValidator;
+    use alloy_eips::eip2718::Encodable2718;
+    use alloy_primitives::{PrimitiveSignature as Signature, TxKind, U256};
+    use op_alloy_consensus::TxDeposit;
     use reth_chainspec::MAINNET;
-    use reth_primitives::{
-        Signature, Transaction, TransactionSigned, TransactionSignedEcRecovered, TxDeposit, TxKind,
-        U256,
-    };
+    use reth_primitives::{RecoveredTx, Transaction, TransactionSigned};
     use reth_provider::test_utils::MockEthProvider;
     use reth_transaction_pool::{
         blobstore::InMemoryBlobStore, validate::EthTransactionValidatorBuilder,
         EthPooledTransaction, TransactionOrigin, TransactionValidationOutcome,
     };
-
     #[test]
     fn validate_optimism_transaction() {
         let client = MockEthProvider::default();
@@ -252,15 +260,14 @@ mod tests {
             to: TxKind::Create,
             mint: None,
             value: U256::ZERO,
-            gas_limit: 0u64,
+            gas_limit: 0,
             is_system_transaction: false,
             input: Default::default(),
         });
-        let signature = Signature::default();
-        let signed_tx = TransactionSigned::from_transaction_and_signature(deposit_tx, signature);
-        let signed_recovered =
-            TransactionSignedEcRecovered::from_signed_transaction(signed_tx, signer);
-        let len = signed_recovered.length_without_header();
+        let signature = Signature::test_signature();
+        let signed_tx = TransactionSigned::new_unhashed(deposit_tx, signature);
+        let signed_recovered = RecoveredTx::from_signed_transaction(signed_tx, signer);
+        let len = signed_recovered.encode_2718_len();
         let pooled_tx = EthPooledTransaction::new(signed_recovered, len);
         let outcome = validator.validate_one(origin, pooled_tx);
 

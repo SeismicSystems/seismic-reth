@@ -1,45 +1,44 @@
 //! Loads and formats OP transaction RPC response.
 
-use alloy_primitives::{Bytes, B256};
-
-use reth_evm_optimism::RethL1BlockInfo;
+use alloy_consensus::{Signed, Transaction as _};
+use alloy_primitives::{Bytes, PrimitiveSignature as Signature, Sealable, Sealed, B256};
+use alloy_rpc_types_eth::TransactionInfo;
+use op_alloy_consensus::OpTxEnvelope;
+use op_alloy_rpc_types::Transaction;
 use reth_node_api::FullNodeComponents;
-use reth_primitives::TransactionSigned;
-use reth_provider::{BlockReaderIdExt, TransactionsProvider};
-use reth_rpc_eth_api::{
-    helpers::{EthApiSpec, EthSigner, EthTransactions, LoadTransaction, SpawnBlocking},
-    EthApiTypes, FromEthApiError,
+use reth_primitives::{RecoveredTx, TransactionSigned};
+use reth_provider::{
+    BlockReader, BlockReaderIdExt, ProviderTx, ReceiptProvider, TransactionsProvider,
 };
-use reth_rpc_eth_types::{utils::recover_raw_transaction, EthStateCache};
+use reth_rpc_eth_api::{
+    helpers::{EthSigner, EthTransactions, LoadTransaction, SpawnBlocking},
+    FromEthApiError, FullEthApiTypes, RpcNodeCore, RpcNodeCoreExt, TransactionCompat,
+};
+use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
-use revm::L1BlockInfo;
 
-use crate::{eth::rpc::SequencerClient, OpEthApi, OpEthApiError};
+use crate::{eth::OpNodeCore, OpEthApi, OpEthApiError, SequencerClient};
 
 impl<N> EthTransactions for OpEthApi<N>
 where
-    Self: LoadTransaction,
-    N: FullNodeComponents,
+    Self: LoadTransaction<Provider: BlockReaderIdExt>,
+    N: OpNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
 {
-    fn provider(&self) -> impl BlockReaderIdExt {
-        self.inner.provider()
-    }
-
-    fn signers(&self) -> &parking_lot::RwLock<Vec<Box<dyn EthSigner>>> {
-        self.inner.signers()
+    fn signers(&self) -> &parking_lot::RwLock<Vec<Box<dyn EthSigner<ProviderTx<Self::Provider>>>>> {
+        self.inner.eth_api.signers()
     }
 
     /// Decodes and recovers the transaction and submits it to the pool.
     ///
     /// Returns the hash of the transaction.
     async fn send_raw_transaction(&self, tx: Bytes) -> Result<B256, Self::Error> {
-        let recovered = recover_raw_transaction(tx.clone())?;
+        let recovered = recover_raw_transaction(&tx)?;
         let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
 
         // On optimism, transactions are forwarded directly to the sequencer to be included in
         // blocks that it builds.
         if let Some(client) = self.raw_tx_forwarder().as_ref() {
-            tracing::debug!( target: "rpc::eth",  "forwarding raw transaction to");
+            tracing::debug!(target: "rpc::eth", hash = %pool_transaction.hash(), "forwarding raw transaction to sequencer");
             let _ = client.forward_raw_transaction(&tx).await.inspect_err(|err| {
                     tracing::debug!(target: "rpc::eth", %err, hash=% *pool_transaction.hash(), "failed to forward raw transaction");
                 });
@@ -58,96 +57,132 @@ where
 
 impl<N> LoadTransaction for OpEthApi<N>
 where
-    Self: SpawnBlocking,
-    N: FullNodeComponents,
+    Self: SpawnBlocking + FullEthApiTypes + RpcNodeCoreExt,
+    N: OpNodeCore<Provider: TransactionsProvider, Pool: TransactionPool>,
+    Self::Pool: TransactionPool,
 {
-    type Pool = N::Pool;
-
-    fn provider(&self) -> impl TransactionsProvider {
-        self.inner.provider()
-    }
-
-    fn cache(&self) -> &EthStateCache {
-        self.inner.cache()
-    }
-
-    fn pool(&self) -> &Self::Pool {
-        self.inner.pool()
-    }
-}
-
-/// L1 fee and data gas for a transaction, along with the L1 block info.
-#[derive(Debug, Default, Clone)]
-pub struct OptimismTxMeta {
-    /// The L1 block info.
-    pub l1_block_info: Option<L1BlockInfo>,
-    /// The L1 fee for the block.
-    pub l1_fee: Option<u128>,
-    /// The L1 data gas for the block.
-    pub l1_data_gas: Option<u128>,
-}
-
-impl OptimismTxMeta {
-    /// Creates a new [`OptimismTxMeta`].
-    pub const fn new(
-        l1_block_info: Option<L1BlockInfo>,
-        l1_fee: Option<u128>,
-        l1_data_gas: Option<u128>,
-    ) -> Self {
-        Self { l1_block_info, l1_fee, l1_data_gas }
-    }
 }
 
 impl<N> OpEthApi<N>
 where
-    Self: EthApiSpec + LoadTransaction,
-    <Self as EthApiTypes>::Error: From<OpEthApiError>,
-    N: FullNodeComponents,
+    N: OpNodeCore,
 {
-    /// Builds [`OptimismTxMeta`] object using the provided [`TransactionSigned`], L1 block
-    /// info and block timestamp. The [`L1BlockInfo`] is used to calculate the l1 fee and l1 data
-    /// gas for the transaction. If the [`L1BlockInfo`] is not provided, the meta info will be
-    /// empty.
-    pub fn build_op_tx_meta(
+    /// Returns the [`SequencerClient`] if one is set.
+    pub fn raw_tx_forwarder(&self) -> Option<SequencerClient> {
+        self.inner.sequencer_client.clone()
+    }
+}
+
+impl<N> TransactionCompat for OpEthApi<N>
+where
+    N: FullNodeComponents<Provider: ReceiptProvider<Receipt = reth_primitives::Receipt>>,
+{
+    type Transaction = Transaction;
+    type Error = OpEthApiError;
+
+    fn fill(
         &self,
-        tx: &TransactionSigned,
-        l1_block_info: Option<L1BlockInfo>,
-        block_timestamp: u64,
-    ) -> Result<OptimismTxMeta, <Self as EthApiTypes>::Error> {
-        let Some(l1_block_info) = l1_block_info else { return Ok(OptimismTxMeta::default()) };
+        tx: RecoveredTx,
+        tx_info: TransactionInfo,
+    ) -> Result<Self::Transaction, Self::Error> {
+        let from = tx.signer();
+        let hash = tx.hash();
+        let TransactionSigned { transaction, signature, .. } = tx.into_signed();
+        let mut deposit_receipt_version = None;
+        let mut deposit_nonce = None;
 
-        let (l1_fee, l1_data_gas) = if tx.is_deposit() {
-            (None, None)
-        } else {
-            let envelope_buf = tx.envelope_encoded();
+        let inner = match transaction {
+            reth_primitives::Transaction::Legacy(tx) => {
+                Signed::new_unchecked(tx, signature, hash).into()
+            }
+            reth_primitives::Transaction::Eip2930(tx) => {
+                Signed::new_unchecked(tx, signature, hash).into()
+            }
+            reth_primitives::Transaction::Eip1559(tx) => {
+                Signed::new_unchecked(tx, signature, hash).into()
+            }
+            reth_primitives::Transaction::Eip4844(_) => unreachable!(),
+            reth_primitives::Transaction::Eip7702(tx) => {
+                Signed::new_unchecked(tx, signature, hash).into()
+            }
+            reth_primitives::Transaction::Deposit(tx) => {
+                self.inner
+                    .eth_api
+                    .provider()
+                    .receipt_by_hash(hash)
+                    .map_err(Self::Error::from_eth_err)?
+                    .inspect(|receipt| {
+                        deposit_receipt_version = receipt.deposit_receipt_version;
+                        deposit_nonce = receipt.deposit_nonce;
+                    });
 
-            let inner_l1_fee = l1_block_info
-                .l1_tx_data_fee(&self.chain_spec(), block_timestamp, &envelope_buf, tx.is_deposit())
-                .map_err(|_| OpEthApiError::L1BlockFeeError)?;
-            let inner_l1_data_gas = l1_block_info
-                .l1_data_gas(&self.chain_spec(), block_timestamp, &envelope_buf)
-                .map_err(|_| OpEthApiError::L1BlockGasError)?;
-            (
-                Some(inner_l1_fee.saturating_to::<u128>()),
-                Some(inner_l1_data_gas.saturating_to::<u128>()),
-            )
+                OpTxEnvelope::Deposit(tx.seal_unchecked(hash))
+            }
         };
 
-        Ok(OptimismTxMeta::new(Some(l1_block_info), l1_fee, l1_data_gas))
-    }
-}
+        let TransactionInfo {
+            block_hash, block_number, index: transaction_index, base_fee, ..
+        } = tx_info;
 
-impl<N> OpEthApi<N>
-where
-    N: FullNodeComponents,
-{
-    /// Sets a `SequencerClient` for `eth_sendRawTransaction` to forward transactions to.
-    pub fn set_sequencer_client(&self, sequencer_client: SequencerClient) {
-        *self.sequencer_client.write() = Some(sequencer_client);
+        let effective_gas_price = if inner.is_deposit() {
+            // For deposits, we must always set the `gasPrice` field to 0 in rpc
+            // deposit tx don't have a gas price field, but serde of `Transaction` will take care of
+            // it
+            0
+        } else {
+            base_fee
+                .map(|base_fee| {
+                    inner.effective_tip_per_gas(base_fee as u64).unwrap_or_default() + base_fee
+                })
+                .unwrap_or_else(|| inner.max_fee_per_gas())
+        };
+
+        Ok(Transaction {
+            inner: alloy_rpc_types_eth::Transaction {
+                inner,
+                block_hash,
+                block_number,
+                transaction_index,
+                from,
+                effective_gas_price: Some(effective_gas_price),
+            },
+            deposit_nonce,
+            deposit_receipt_version,
+        })
     }
 
-    /// Returns the `SequencerClient` if one is set.
-    pub fn raw_tx_forwarder(&self) -> Option<SequencerClient> {
-        self.sequencer_client.read().clone()
+    fn build_simulate_v1_transaction(
+        &self,
+        request: alloy_rpc_types_eth::TransactionRequest,
+    ) -> Result<TransactionSigned, Self::Error> {
+        let Ok(tx) = request.build_typed_tx() else {
+            return Err(OpEthApiError::Eth(EthApiError::TransactionConversionError))
+        };
+
+        // Create an empty signature for the transaction.
+        let signature = Signature::new(Default::default(), Default::default(), false);
+        Ok(TransactionSigned::new_unhashed(tx.into(), signature))
+    }
+
+    fn otterscan_api_truncate_input(tx: &mut Self::Transaction) {
+        let input = match &mut tx.inner.inner {
+            OpTxEnvelope::Eip1559(tx) => &mut tx.tx_mut().input,
+            OpTxEnvelope::Eip2930(tx) => &mut tx.tx_mut().input,
+            OpTxEnvelope::Legacy(tx) => &mut tx.tx_mut().input,
+            OpTxEnvelope::Eip7702(tx) => &mut tx.tx_mut().input,
+            OpTxEnvelope::Deposit(tx) => {
+                let (mut deposit, hash) = std::mem::replace(
+                    tx,
+                    Sealed::new_unchecked(Default::default(), Default::default()),
+                )
+                .split();
+                deposit.input = deposit.input.slice(..4);
+                let mut deposit = deposit.seal_unchecked(hash);
+                std::mem::swap(tx, &mut deposit);
+                return
+            }
+            _ => return,
+        };
+        *input = input.slice(..4);
     }
 }

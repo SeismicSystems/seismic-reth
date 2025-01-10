@@ -4,6 +4,8 @@
 /// Mock module for testing purposes.
 pub mod mock;
 
+use std::future::Future;
+
 pub use tee_service_api::{
     http_client::{TeeHttpClient, TEE_DEFAULT_ENDPOINT_ADDR, TEE_DEFAULT_ENDPOINT_PORT},
     TeeAPI, WalletAPI,
@@ -14,7 +16,7 @@ use secp256k1::PublicKey;
 use tee_service_api::request_types::tx_io::{
     IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,
 };
-use tracing::debug;
+use tokio::runtime::{Handle, Runtime};
 
 /// Custom error type for reth error handling.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Display)]
@@ -31,6 +33,27 @@ pub enum TeeError {
     Custom(&'static str),
 }
 
+/// A wrapper function that runs a future to completion.
+/// It uses the current Tokio runtime if available; otherwise, it creates a new one.
+pub fn block_on_with_runtime<F, T>(future: F) -> T
+where
+    F: Future<Output = T>,
+{
+    tokio::task::block_in_place(|| {
+        match Handle::try_current() {
+            Ok(handle) => {
+                // Runtime exists, use it
+                handle.block_on(future)
+            }
+            Err(_) => {
+                // No runtime, create a new one
+                let runtime = Runtime::new().expect("Failed to create a Tokio runtime");
+                runtime.block_on(future)
+            }
+        }
+    })
+}
+
 /// Blocking decrypt function call to contact TeeAPI
 pub fn decrypt<T: TeeAPI>(
     tee_client: &T,
@@ -40,11 +63,9 @@ pub fn decrypt<T: TeeAPI>(
 ) -> Result<Vec<u8>, TeeError> {
     let payload = IoDecryptionRequest { msg_sender, data, nonce };
 
-    debug!(target: "reth::decrypt", ?payload);
-    let IoDecryptionResponse { decrypted_data } = tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(tee_client.tx_io_decrypt(payload))
-    })
-    .map_err(|_| TeeError::DecryptionError)?;
+    let IoDecryptionResponse { decrypted_data } =
+        block_on_with_runtime(tee_client.tx_io_decrypt(payload))
+            .map_err(|_| TeeError::DecryptionError)?;
     Ok(decrypted_data)
 }
 
@@ -57,9 +78,8 @@ pub fn encrypt<T: TeeAPI>(
 ) -> Result<Vec<u8>, TeeError> {
     let payload = IoEncryptionRequest { msg_sender, data, nonce };
 
-    let IoEncryptionResponse { encrypted_data } = tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(tee_client.tx_io_encrypt(payload))
-    })
-    .map_err(|_| TeeError::DecryptionError)?;
+    let IoEncryptionResponse { encrypted_data } =
+        block_on_with_runtime(tee_client.tx_io_encrypt(payload))
+            .map_err(|_| TeeError::DecryptionError)?;
     Ok(encrypted_data)
 }

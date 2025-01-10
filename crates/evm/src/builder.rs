@@ -1,8 +1,6 @@
 //! Builder for creating an EVM with a database and environment.
 
-#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
-
 use revm::{inspector_handle_register, Database, Evm, EvmBuilder, GetInspector};
 use revm_primitives::EnvWithHandlerCfg;
 
@@ -47,7 +45,7 @@ where
         let mut builder =
             EvmBuilder::default().with_db(self.db).with_external_context(self.external_context);
         if let Some(env) = self.env {
-            builder = builder.with_spec_id(env.clone().spec_id());
+            builder = builder.with_spec_id(env.spec_id());
             builder = builder.with_env(env.env);
         }
 
@@ -63,7 +61,7 @@ where
         let mut builder =
             EvmBuilder::default().with_db(self.db).with_external_context(self.external_context);
         if let Some(env) = self.env {
-            builder = builder.with_spec_id(env.clone().spec_id());
+            builder = builder.with_spec_id(env.spec_id());
             builder = builder.with_env(env.env);
         }
         builder

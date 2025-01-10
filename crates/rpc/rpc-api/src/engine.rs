@@ -3,20 +3,21 @@
 //! This contains the `engine_` namespace and the subset of the `eth_` namespace that is exposed to
 //! the consensus client.
 
+use alloy_eips::{eip4844::BlobAndProofV1, eip7685::Requests, BlockId, BlockNumberOrTag};
 use alloy_json_rpc::RpcObject;
+use alloy_primitives::{Address, BlockHash, Bytes, B256, U256, U64};
+use alloy_rpc_types_engine::{
+    ClientVersionV1, ExecutionPayloadBodiesV1, ExecutionPayloadInputV2, ExecutionPayloadV1,
+    ExecutionPayloadV3, ForkchoiceState, ForkchoiceUpdated, PayloadId, PayloadStatus,
+    TransitionConfiguration,
+};
+use alloy_rpc_types_eth::{
+    state::StateOverride, BlockOverrides, EIP1186AccountProofResponse, Filter, Log, SyncStatus,
+};
+use alloy_serde::JsonStorageKey;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use reth_engine_primitives::EngineTypes;
-use reth_primitives::{Address, BlockHash, BlockId, BlockNumberOrTag, Bytes, B256, U256, U64};
 use reth_rpc_eth_api::types::SeismicCallRequest;
-use reth_rpc_types::{
-    engine::{
-        ClientVersionV1, ExecutionPayloadBodiesV1, ExecutionPayloadBodiesV2,
-        ExecutionPayloadInputV2, ExecutionPayloadV1, ExecutionPayloadV3, ExecutionPayloadV4,
-        ForkchoiceState, ForkchoiceUpdated, PayloadId, PayloadStatus, TransitionConfiguration,
-    },
-    state::StateOverride,
-    BlockOverrides, EIP1186AccountProofResponse, Filter, JsonStorageKey, Log, SyncStatus,
-};
 // NOTE: We can't use associated types in the `EngineApi` trait because of jsonrpsee, so we use a
 // generic here. It would be nice if the rpc macro would understand which types need to have serde.
 // By default, if the trait has a generic, the rpc macro will add e.g. `Engine: DeserializeOwned` to
@@ -53,9 +54,10 @@ pub trait EngineApi<Engine: EngineTypes> {
     #[method(name = "newPayloadV4")]
     async fn new_payload_v4(
         &self,
-        payload: ExecutionPayloadV4,
+        payload: ExecutionPayloadV3,
         versioned_hashes: Vec<B256>,
         parent_beacon_block_root: B256,
+        execution_requests: Requests,
     ) -> RpcResult<PayloadStatus>;
 
     /// See also <https://github.com/ethereum/execution-apis/blob/6709c2a795b707202e93c4f2867fa0bf2640a84f/src/engine/paris.md#engine_forkchoiceupdatedv1>
@@ -108,7 +110,10 @@ pub trait EngineApi<Engine: EngineTypes> {
     /// Note:
     /// > Provider software MAY stop the corresponding build process after serving this call.
     #[method(name = "getPayloadV1")]
-    async fn get_payload_v1(&self, payload_id: PayloadId) -> RpcResult<Engine::ExecutionPayloadV1>;
+    async fn get_payload_v1(
+        &self,
+        payload_id: PayloadId,
+    ) -> RpcResult<Engine::ExecutionPayloadEnvelopeV1>;
 
     /// See also <https://github.com/ethereum/execution-apis/blob/6709c2a795b707202e93c4f2867fa0bf2640a84f/src/engine/shanghai.md#engine_getpayloadv2>
     ///
@@ -116,7 +121,10 @@ pub trait EngineApi<Engine: EngineTypes> {
     /// payload build process at the time of receiving this call. Note:
     /// > Provider software MAY stop the corresponding build process after serving this call.
     #[method(name = "getPayloadV2")]
-    async fn get_payload_v2(&self, payload_id: PayloadId) -> RpcResult<Engine::ExecutionPayloadV2>;
+    async fn get_payload_v2(
+        &self,
+        payload_id: PayloadId,
+    ) -> RpcResult<Engine::ExecutionPayloadEnvelopeV2>;
 
     /// Post Cancun payload handler which also returns a blobs bundle.
     ///
@@ -126,7 +134,10 @@ pub trait EngineApi<Engine: EngineTypes> {
     /// payload build process at the time of receiving this call. Note:
     /// > Provider software MAY stop the corresponding build process after serving this call.
     #[method(name = "getPayloadV3")]
-    async fn get_payload_v3(&self, payload_id: PayloadId) -> RpcResult<Engine::ExecutionPayloadV3>;
+    async fn get_payload_v3(
+        &self,
+        payload_id: PayloadId,
+    ) -> RpcResult<Engine::ExecutionPayloadEnvelopeV3>;
 
     /// Post Prague payload handler.
     ///
@@ -136,7 +147,10 @@ pub trait EngineApi<Engine: EngineTypes> {
     /// payload build process at the time of receiving this call. Note:
     /// > Provider software MAY stop the corresponding build process after serving this call.
     #[method(name = "getPayloadV4")]
-    async fn get_payload_v4(&self, payload_id: PayloadId) -> RpcResult<Engine::ExecutionPayloadV4>;
+    async fn get_payload_v4(
+        &self,
+        payload_id: PayloadId,
+    ) -> RpcResult<Engine::ExecutionPayloadEnvelopeV4>;
 
     /// See also <https://github.com/ethereum/execution-apis/blob/6452a6b194d7db269bf1dbd087a267251d3cc7f8/src/engine/shanghai.md#engine_getpayloadbodiesbyhashv1>
     #[method(name = "getPayloadBodiesByHashV1")]
@@ -144,13 +158,6 @@ pub trait EngineApi<Engine: EngineTypes> {
         &self,
         block_hashes: Vec<BlockHash>,
     ) -> RpcResult<ExecutionPayloadBodiesV1>;
-
-    /// See also <https://github.com/ethereum/execution-apis/blob/main/src/engine/prague.md#engine_getpayloadbodiesbyhashv2>
-    #[method(name = "getPayloadBodiesByHashV2")]
-    async fn get_payload_bodies_by_hash_v2(
-        &self,
-        block_hashes: Vec<BlockHash>,
-    ) -> RpcResult<ExecutionPayloadBodiesV2>;
 
     /// See also <https://github.com/ethereum/execution-apis/blob/6452a6b194d7db269bf1dbd087a267251d3cc7f8/src/engine/shanghai.md#engine_getpayloadbodiesbyrangev1>
     ///
@@ -170,16 +177,6 @@ pub trait EngineApi<Engine: EngineTypes> {
         start: U64,
         count: U64,
     ) -> RpcResult<ExecutionPayloadBodiesV1>;
-
-    /// See also <https://github.com/ethereum/execution-apis/blob/main/src/engine/prague.md#engine_getpayloadbodiesbyrangev2>
-    ///
-    /// Similar to `getPayloadBodiesByRangeV1`, but returns [`ExecutionPayloadBodiesV2`]
-    #[method(name = "getPayloadBodiesByRangeV2")]
-    async fn get_payload_bodies_by_range_v2(
-        &self,
-        start: U64,
-        count: U64,
-    ) -> RpcResult<ExecutionPayloadBodiesV2>;
 
     /// See also <https://github.com/ethereum/execution-apis/blob/6709c2a795b707202e93c4f2867fa0bf2640a84f/src/engine/paris.md#engine_exchangetransitionconfigurationv1>
     ///
@@ -213,6 +210,13 @@ pub trait EngineApi<Engine: EngineTypes> {
     /// See also <https://github.com/ethereum/execution-apis/blob/6452a6b194d7db269bf1dbd087a267251d3cc7f8/src/engine/common.md#capabilities>
     #[method(name = "exchangeCapabilities")]
     async fn exchange_capabilities(&self, capabilities: Vec<String>) -> RpcResult<Vec<String>>;
+
+    /// Fetch blobs for the consensus layer from the in-memory blob cache.
+    #[method(name = "getBlobsV1")]
+    async fn get_blobs_v1(
+        &self,
+        versioned_hashes: Vec<B256>,
+    ) -> RpcResult<Vec<Option<BlobAndProofV1>>>;
 }
 
 /// A subset of the ETH rpc interface: <https://ethereum.github.io/execution-apis/api-documentation/>
@@ -245,7 +249,7 @@ pub trait EngineEthApi<B: RpcObject> {
 
     /// Returns code at a given address at given block number.
     #[method(name = "getCode")]
-    async fn get_code(&self, address: Address, block_number: Option<BlockId>) -> RpcResult<Bytes>;
+    async fn get_code(&self, address: Address, block_id: Option<BlockId>) -> RpcResult<Bytes>;
 
     /// Returns information about a block by hash.
     #[method(name = "getBlockByHash")]

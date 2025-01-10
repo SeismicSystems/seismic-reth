@@ -31,6 +31,10 @@ reth-primitives.workspace = true
 reth-provider = { workspace = true, features = ["test-utils"] }
 reth-tasks.workspace = true
 reth-transaction-pool = { workspace = true, features = ["test-utils"] }
+reth-trie-db.workspace = true
+
+## alloy
+alloy-eips.workspace = true
 
 ## async
 futures-util.workspace = true
@@ -39,4 +43,5 @@ tokio.workspace = true
 ## misc
 eyre.workspace = true
 rand.workspace = true
+tempfile.workspace = true
 thiserror.workspace = true

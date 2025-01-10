@@ -12,6 +12,10 @@
 
 pub mod error;
 pub mod eth;
+pub mod miner;
+pub mod sequencer;
+pub mod witness;
 
-pub use error::OpEthApiError;
-pub use eth::{receipt::op_receipt_fields, transaction::OptimismTxMeta, OpEthApi};
+pub use error::{OpEthApiError, OpInvalidTransactionError, SequencerClientError};
+pub use eth::{OpEthApi, OpReceiptBuilder};
+pub use sequencer::SequencerClient;

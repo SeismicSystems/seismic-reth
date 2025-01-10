@@ -1,35 +1,20 @@
-use crate::{Address, Transaction, TransactionSigned, TxKind, U256};
-use reth_tee::{decrypt, TeeAPI, TeeError};
-use reth_tracing::tracing::debug;
-use revm_primitives::{AuthorizationList, Bytes, EVMError, EVMResultGeneric, TxEnv};
-
-#[cfg(all(not(feature = "std"), feature = "optimism"))]
-use alloc::vec::Vec;
+use crate::{Transaction, TransactionSigned};
+use alloy_primitives::{Address, TxKind, U256};
+#[cfg(feature = "optimism")]
+use op_alloy_consensus::DepositTransaction;
+use reth_tracing::tracing::*;
+use revm_primitives::{AuthorizationList, TxEnv};
 
 /// Implements behaviour to fill a [`TxEnv`] from another transaction.
-pub trait FillTxEnv<T: TeeAPI> {
+pub trait FillTxEnv {
     /// Fills [`TxEnv`] with an [`Address`] and transaction.
-    fn fill_tx_env(
-        &self,
-        tx_env: &mut TxEnv,
-        sender: Address,
-        tee: &T,
-    ) -> EVMResultGeneric<(), TeeError>;
+    fn fill_tx_env(&self, tx_env: &mut TxEnv, sender: Address);
 }
 
-impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
-    fn fill_tx_env(
-        &self,
-        tx_env: &mut TxEnv,
-        sender: Address,
-        tee: &T,
-    ) -> EVMResultGeneric<(), TeeError> {
+impl FillTxEnv for TransactionSigned {
+    fn fill_tx_env(&self, tx_env: &mut TxEnv, sender: Address) {
         #[cfg(feature = "optimism")]
-        let envelope = {
-            let mut envelope = Vec::with_capacity(self.length_without_header());
-            self.encode_enveloped(&mut envelope);
-            envelope
-        };
+        let envelope = alloy_eips::eip2718::Encodable2718::encoded_2718(self);
 
         tx_env.caller = sender;
         match self.as_ref() {
@@ -93,7 +78,7 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                 tx_env.gas_limit = tx.gas_limit;
                 tx_env.gas_price = U256::from(tx.max_fee_per_gas);
                 tx_env.gas_priority_fee = Some(U256::from(tx.max_priority_fee_per_gas));
-                tx_env.transact_to = tx.to;
+                tx_env.transact_to = tx.to.into();
                 tx_env.value = tx.value;
                 tx_env.data = tx.input.clone();
                 tx_env.chain_id = Some(tx.chain_id);
@@ -125,37 +110,10 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                 };
                 return;
             }
-            Transaction::Seismic(tx) => {
-                let msg_sender = self
-                    .recover_pubkey()
-                    .ok_or(EVMError::Database(TeeError::PublicKeyRecoveryError))?;
-
-                debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
-
-                let tee_decryption: Vec<u8> = decrypt(
-                    tee,
-                    msg_sender,
-                    Vec::<u8>::from(tx.input().as_ref()),
-                    tx.nonce().clone(),
-                )
-                .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
-
-                let data = Bytes::from(tee_decryption.clone());
-
-                debug!(target: "reth::fill_tx_env", ?tee_decryption, ?data, "Encrypted input {:?}", tx.input());
-
-                tx_env.gas_limit = *tx.gas_limit();
-                tx_env.gas_price = U256::from(*tx.gas_price());
-                tx_env.gas_priority_fee = None;
-                tx_env.transact_to = *tx.to();
-                tx_env.value = *tx.value();
-                tx_env.data = data;
-                tx_env.chain_id = Some(*tx.chain_id());
-                tx_env.nonce = Some(*tx.nonce());
-                tx_env.access_list.clear();
-                tx_env.blob_hashes.clear();
-                tx_env.max_fee_per_blob_gas.take();
-                tx_env.authorization_list = None;
+            Transaction::Seismic(_tx) => {
+                // implementation is in EthEvmConfig to avoid changing FillTxEnv trait
+                error!(target: "reth::fill_tx_env", "Seismic transaction not filled");
+                return
             }
         }
 
@@ -168,7 +126,8 @@ impl<T: TeeAPI> FillTxEnv<T> for TransactionSigned {
                 enveloped_tx: Some(envelope.into()),
             }
         }
-        Ok(())
+        debug!(target: "reth::fill_tx_env", "{} {}", (self.transaction.tx_type()), "Tranasction type");
+        debug!(target: "reth::fill_tx_env", ?tx_env, "Filled transaction environment");
     }
 }
 #[cfg(test)]

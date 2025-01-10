@@ -8,21 +8,27 @@ use crate::{
     dirs::{ChainPath, DataDirPath},
     utils::get_single_header,
 };
+use alloy_consensus::BlockHeader;
+use alloy_eips::BlockHashOrNumber;
+use alloy_primitives::{BlockNumber, B256};
 use eyre::eyre;
-use reth_chainspec::{ChainSpec, MAINNET};
+use reth_chainspec::{ChainSpec, EthChainSpec, MAINNET};
 use reth_config::config::PruneConfig;
-use reth_db_api::database::Database;
+use reth_ethereum_forks::Head;
 use reth_network_p2p::headers::client::HeadersClient;
-use serde::{de::DeserializeOwned, Serialize};
-use std::{fs, path::Path};
-
-use reth_primitives::{
-    revm_primitives::EnvKzgSettings, BlockHashOrNumber, BlockNumber, Head, SealedHeader, B256,
-};
-use reth_provider::{BlockHashReader, HeaderProvider, ProviderFactory, StageCheckpointReader};
+use reth_primitives_traits::SealedHeader;
 use reth_stages_types::StageId;
+use reth_storage_api::{
+    BlockHashReader, DatabaseProviderFactory, HeaderProvider, StageCheckpointReader,
+};
 use reth_storage_errors::provider::ProviderResult;
-use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use serde::{de::DeserializeOwned, Serialize};
+use std::{
+    fs,
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use tracing::*;
 
 /// This includes all necessary configuration to launch the node.
@@ -70,8 +76,8 @@ use tracing::*;
 ///     let builder = builder.with_rpc(rpc);
 /// }
 /// ```
-#[derive(Debug, Clone)]
-pub struct NodeConfig {
+#[derive(Debug)]
+pub struct NodeConfig<ChainSpec> {
     /// All data directory related arguments
     pub datadir: DatadirArgs,
 
@@ -110,9 +116,6 @@ pub struct NodeConfig {
     /// All rpc related arguments
     pub rpc: RpcServerArgs,
 
-    /// All tee related arguments
-    pub tee: TeeArgs,
-
     /// All txpool related arguments with --txpool prefix
     pub txpool: TxPoolArgs,
 
@@ -130,14 +133,39 @@ pub struct NodeConfig {
 
     /// All pruning related arguments
     pub pruning: PruningArgs,
+
+    /// All tee related arguments
+    pub tee: TeeArgs,
 }
 
-impl NodeConfig {
+impl NodeConfig<ChainSpec> {
     /// Creates a testing [`NodeConfig`], causing the database to be launched ephemerally.
     pub fn test() -> Self {
         Self::default()
             // set all ports to zero by default for test instances
             .with_unused_ports()
+    }
+}
+
+impl<ChainSpec> NodeConfig<ChainSpec> {
+    /// Creates a new config with given chain spec, setting all fields to default values.
+    pub fn new(chain: Arc<ChainSpec>) -> Self {
+        Self {
+            config: None,
+            chain,
+            metrics: None,
+            instance: 1,
+            network: NetworkArgs::default(),
+            rpc: RpcServerArgs::default(),
+            txpool: TxPoolArgs::default(),
+            builder: PayloadBuilderArgs::default(),
+            debug: DebugArgs::default(),
+            db: DatabaseArgs::default(),
+            dev: DevArgs::default(),
+            pruning: PruningArgs::default(),
+            datadir: DatadirArgs::default(),
+            tee: TeeArgs::default(),
+        }
     }
 
     /// Sets --dev mode for the node.
@@ -201,12 +229,6 @@ impl NodeConfig {
         self
     }
 
-    /// Set the tee args for the node
-    pub fn with_tee(mut self, tee: TeeArgs) -> Self {
-        self.tee = tee;
-        self
-    }
-
     /// Set the txpool args for the node
     pub fn with_txpool(mut self, txpool: TxPoolArgs) -> Self {
         self.txpool = txpool;
@@ -238,13 +260,16 @@ impl NodeConfig {
     }
 
     /// Set the pruning args for the node
-    pub const fn with_pruning(mut self, pruning: PruningArgs) -> Self {
+    pub fn with_pruning(mut self, pruning: PruningArgs) -> Self {
         self.pruning = pruning;
         self
     }
 
     /// Returns pruning configuration.
-    pub fn prune_config(&self) -> Option<PruneConfig> {
+    pub fn prune_config(&self) -> Option<PruneConfig>
+    where
+        ChainSpec: EthChainSpec,
+    {
         self.pruning.prune_config(&self.chain)
     }
 
@@ -257,7 +282,7 @@ impl NodeConfig {
     ) -> eyre::Result<Option<BlockNumber>>
     where
         Provider: HeaderProvider,
-        Client: HeadersClient,
+        Client: HeadersClient<Header: reth_primitives_traits::BlockHeader>,
     {
         let max_block = if let Some(block) = self.debug.max_block {
             Some(block)
@@ -270,16 +295,16 @@ impl NodeConfig {
         Ok(max_block)
     }
 
-    /// Loads '`EnvKzgSettings::Default`'
-    pub const fn kzg_settings(&self) -> eyre::Result<EnvKzgSettings> {
-        Ok(EnvKzgSettings::Default)
-    }
-
     /// Fetches the head block from the database.
     ///
     /// If the database is empty, returns the genesis block.
-    pub fn lookup_head<DB: Database>(&self, factory: ProviderFactory<DB>) -> ProviderResult<Head> {
-        let provider = factory.provider()?;
+    pub fn lookup_head<Factory>(&self, factory: &Factory) -> ProviderResult<Head>
+    where
+        Factory: DatabaseProviderFactory<
+            Provider: HeaderProvider + StageCheckpointReader + BlockHashReader,
+        >,
+    {
+        let provider = factory.database_provider_ro()?;
 
         let head = provider.get_stage_checkpoint(StageId::Finish)?.unwrap_or_default().block_number;
 
@@ -298,9 +323,9 @@ impl NodeConfig {
         Ok(Head {
             number: head,
             hash,
-            difficulty: header.difficulty,
+            difficulty: header.difficulty(),
             total_difficulty,
-            timestamp: header.timestamp,
+            timestamp: header.timestamp(),
         })
     }
 
@@ -316,17 +341,17 @@ impl NodeConfig {
     ) -> ProviderResult<u64>
     where
         Provider: HeaderProvider,
-        Client: HeadersClient,
+        Client: HeadersClient<Header: reth_primitives_traits::BlockHeader>,
     {
         let header = provider.header_by_hash_or_number(tip.into())?;
 
         // try to look up the header in the database
         if let Some(header) = header {
             info!(target: "reth::cli", ?tip, "Successfully looked up tip block in the database");
-            return Ok(header.number)
+            return Ok(header.number())
         }
 
-        Ok(self.fetch_tip_from_network(client, tip.into()).await.number)
+        Ok(self.fetch_tip_from_network(client, tip.into()).await.number())
     }
 
     /// Attempt to look up the block with the given number and return the header.
@@ -336,9 +361,9 @@ impl NodeConfig {
         &self,
         client: Client,
         tip: BlockHashOrNumber,
-    ) -> SealedHeader
+    ) -> SealedHeader<Client::Header>
     where
-        Client: HeadersClient,
+        Client: HeadersClient<Header: reth_primitives_traits::BlockHeader>,
     {
         info!(target: "reth::cli", ?tip, "Fetching tip block from the network.");
         let mut fetch_failures = 0;
@@ -374,8 +399,11 @@ impl NodeConfig {
     }
 
     /// Resolve the final datadir path.
-    pub fn datadir(&self) -> ChainPath<DataDirPath> {
-        self.datadir.clone().resolve_datadir(self.chain.chain)
+    pub fn datadir(&self) -> ChainPath<DataDirPath>
+    where
+        ChainSpec: EthChainSpec,
+    {
+        self.datadir.clone().resolve_datadir(self.chain.chain())
     }
 
     /// Load an application configuration from a specified path.
@@ -404,25 +432,55 @@ impl NodeConfig {
             Err(e) => Err(eyre!("Failed to load configuration: {e}")),
         }
     }
+
+    /// Modifies the [`ChainSpec`] generic of the config using the provided closure.
+    pub fn map_chainspec<F, C>(self, f: F) -> NodeConfig<C>
+    where
+        F: FnOnce(Arc<ChainSpec>) -> C,
+    {
+        let chain = Arc::new(f(self.chain));
+        NodeConfig {
+            chain,
+            datadir: self.datadir,
+            config: self.config,
+            metrics: self.metrics,
+            instance: self.instance,
+            network: self.network,
+            rpc: self.rpc,
+            txpool: self.txpool,
+            builder: self.builder,
+            debug: self.debug,
+            db: self.db,
+            dev: self.dev,
+            pruning: self.pruning,
+            tee: self.tee,
+        }
+    }
 }
 
-impl Default for NodeConfig {
+impl Default for NodeConfig<ChainSpec> {
     fn default() -> Self {
+        Self::new(MAINNET.clone())
+    }
+}
+
+impl<ChainSpec> Clone for NodeConfig<ChainSpec> {
+    fn clone(&self) -> Self {
         Self {
-            config: None,
-            chain: MAINNET.clone(),
-            metrics: None,
-            instance: 1,
-            network: NetworkArgs::default(),
-            rpc: RpcServerArgs::default(),
-            tee: TeeArgs::default(),
-            txpool: TxPoolArgs::default(),
-            builder: PayloadBuilderArgs::default(),
-            debug: DebugArgs::default(),
-            db: DatabaseArgs::default(),
-            dev: DevArgs::default(),
-            pruning: PruningArgs::default(),
-            datadir: DatadirArgs::default(),
+            chain: self.chain.clone(),
+            config: self.config.clone(),
+            metrics: self.metrics,
+            instance: self.instance,
+            network: self.network.clone(),
+            rpc: self.rpc.clone(),
+            txpool: self.txpool.clone(),
+            builder: self.builder.clone(),
+            debug: self.debug.clone(),
+            db: self.db,
+            dev: self.dev,
+            pruning: self.pruning.clone(),
+            datadir: self.datadir.clone(),
+            tee: self.tee.clone(),
         }
     }
 }

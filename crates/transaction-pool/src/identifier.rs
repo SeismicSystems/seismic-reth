@@ -1,5 +1,5 @@
 //! Identifier types for transactions and senders.
-use reth_primitives::Address;
+use alloy_primitives::Address;
 use rustc_hash::FxHashMap;
 use std::collections::HashMap;
 
@@ -58,6 +58,11 @@ impl SenderId {
     /// Returns a `Bound` for [`TransactionId`] starting with nonce `0`
     pub const fn start_bound(self) -> std::ops::Bound<TransactionId> {
         std::ops::Bound::Included(TransactionId::new(self, 0))
+    }
+
+    /// Converts the sender to a [`TransactionId`] with the given nonce.
+    pub const fn into_transaction_id(self, nonce: u64) -> TransactionId {
+        TransactionId::new(self, nonce)
     }
 }
 
