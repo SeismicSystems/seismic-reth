@@ -32,6 +32,7 @@ seismic-node.workspace = true
 clap = { workspace = true, features = ["derive"] }
 eyre.workspace = true
 tracing.workspace = true
+tokio.workspace = true
 
 [features]
 default = ["jemalloc"]
@@ -50,3 +51,7 @@ min-trace-logs = ["tracing/release_max_level_trace"]
 [[bin]]
 name = "seismic-reth"
 path = "src/main.rs"
+
+[[bin]]
+name = "seismic-reth-dev-init"
+path = "src/dev_init.rs"

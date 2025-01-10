@@ -1,5 +1,6 @@
 //! End-to-end tests for the Seismic node.
 
+mod basic;
 mod bench;
-mod tx;
+mod integration;
 mod utils;

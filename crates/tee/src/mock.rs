@@ -4,7 +4,7 @@ use hyper::{body::to_bytes, Body, Request, Response, Server, StatusCode};
 use routerify::{RequestInfo, Router, RouterService};
 use secp256k1::ecdh::SharedSecret;
 use std::{convert::Infallible, net::SocketAddr, str::FromStr};
-use tracing::debug;
+use tracing::{debug, error, info};
 
 use crate::{TeeAPI, WalletAPI};
 use tee_service_api::{
@@ -48,10 +48,20 @@ impl MockTeeServer {
             .unwrap();
 
         let service = RouterService::new(router).unwrap();
-
         let server = Server::bind(&self.addr).serve(service);
-        server.await?;
-        Ok(())
+
+        info!(target: "reth::server", "Starting Hyper server on {}", self.addr);
+
+        match server.await {
+            Ok(_) => {
+                info!(target: "reth::server", "Hyper server stopped gracefully.");
+                Ok(())
+            }
+            Err(err) => {
+                error!(target: "reth::server", "Hyper server failed: {}", err);
+                Err(anyhow::anyhow!("Hyper server failed to start: {}", err))
+            }
+        }
     }
 
     /// handle the io_encrypt endpoint
@@ -61,6 +71,7 @@ impl MockTeeServer {
             Ok(p) => p,
             Err(_) => return Ok(invalid_json_body_resp()),
         };
+        debug!(target: "reth::mock_server", "Received request: {:?}", payload);
 
         let client = MockTeeClient {};
         match client.tx_io_encrypt(payload).await {
@@ -78,6 +89,7 @@ impl MockTeeServer {
             Ok(p) => p,
             Err(_) => return Ok(invalid_json_body_resp()),
         };
+        debug!(target: "reth::mock_server", "Received request: {:?}", payload);
 
         let client = MockTeeClient {};
         match client.tx_io_decrypt(payload).await {

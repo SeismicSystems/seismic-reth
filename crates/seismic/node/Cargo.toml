@@ -7,6 +7,8 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+tee_service_api.workspace = true
+
 reth-cli.workspace = true
 reth-errors.workspace = true
 reth-node-api.workspace = true
@@ -46,6 +48,7 @@ alloy-rpc-types.workspace  = true
 alloy-rpc-types-eth.workspace  = true
 alloy-signer-local.workspace = true
 
+# misc
 serde_json.workspace = true
 tokio.workspace = true
 tracing.workspace = true
@@ -54,8 +57,11 @@ jsonrpsee.workspace = true
 secp256k1 = {workspace = true, features = ["rand", "recovery", "std", "serde"]}
 futures.workspace = true
 tokio-stream.workspace = true
+assert_cmd.workspace = true
+reqwest.workspace = true
 
-tee_service_api.workspace = true
 
 [dev-dependencies]
 reth-e2e-test-utils.workspace = true    
+assert_cmd.workspace = true
+reqwest.workspace = true

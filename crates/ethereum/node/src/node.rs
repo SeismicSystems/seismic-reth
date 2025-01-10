@@ -152,6 +152,7 @@ where
             ctx.config().tee.tee_server_addr,
             ctx.config().tee.tee_server_port,
         );
+        info!(target: "reth::cli", "TEE client initialized url={}", tee_client.base_url);
         let evm_config = EthEvmConfig::new_with_tee_client(ctx.chain_spec(), tee_client);
         let strategy_factory = EthExecutionStrategyFactory::new(chain_spec, evm_config.clone());
         let executor = BasicBlockExecutorProvider::new(strategy_factory);
