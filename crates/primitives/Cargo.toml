@@ -162,7 +162,7 @@ optimism = [
 alloy-compat = [
 	"dep:alloy-rpc-types",
 	"dep:alloy-serde",
-	"dep:op-alloy-rpc-types",
+	# "dep:op-alloy-rpc-types",
     "dep:alloy-network",
 ]
 test-utils = [

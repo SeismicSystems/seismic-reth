@@ -5,7 +5,7 @@ use alloc::{string::ToString, vec::Vec};
 use alloy_consensus::{constants::EMPTY_TRANSACTIONS, Header, TxEnvelope};
 use alloy_network::{AnyHeader, AnyRpcBlock, AnyRpcTransaction, AnyTxEnvelope};
 use alloy_serde::WithOtherFields;
-use op_alloy_rpc_types as _;
+// use op_alloy_rpc_types as _;
 
 impl TryFrom<AnyRpcBlock> for Block {
     type Error = alloy_rpc_types::ConversionError;
