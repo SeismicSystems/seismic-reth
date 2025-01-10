@@ -158,11 +158,14 @@ optimism = [
 	"dep:op-alloy-consensus",
 	"reth-codecs?/op",
 	"revm-primitives/optimism",
+	# Was originally not here, but in alloy-compat
+	"dep:op-alloy-rpc-types",
 ]
 alloy-compat = [
 	"dep:alloy-rpc-types",
 	"dep:alloy-serde",
-	"dep:op-alloy-rpc-types",
+	# Removed from here for malachite-reth
+	# "dep:op-alloy-rpc-types",
     "dep:alloy-network",
 ]
 test-utils = [
