@@ -112,7 +112,7 @@ impl FillTxEnv for TransactionSigned {
             }
             Transaction::Seismic(_tx) => {
                 // implementation is in EthEvmConfig to avoid changing FillTxEnv trait
-                info!(target: "reth::fill_tx_env", "Seismic transaction not filled");
+                error!(target: "reth::fill_tx_env", "Seismic transaction not filled");
                 return
             }
         }

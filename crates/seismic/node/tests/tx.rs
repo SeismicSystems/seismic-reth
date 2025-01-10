@@ -3,12 +3,11 @@ use alloy_consensus::TxEnvelope;
 use alloy_eips::eip2718::Decodable2718;
 use alloy_primitives::{bytes::Buf, hex, Address, Bytes, TxKind, U256};
 use eyre::Ok;
-use reth_chainspec::{ChainSpecBuilder, DEV, MAINNET};
-use reth_e2e_test_utils::{setup, transaction::TransactionTestContext};
+use reth_chainspec::DEV;
+use reth_e2e_test_utils::setup;
 use reth_node_ethereum::EthereumNode;
-use reth_tracing::{tracing::*, tracing_subscriber::field::debug};
-use seismic_node::node::SeismicNode;
-use std::{str::FromStr, sync::Arc};
+use reth_tracing::tracing::*;
+use std::str::FromStr;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn contract() -> eyre::Result<()> {

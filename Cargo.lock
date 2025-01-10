@@ -106,9 +106,9 @@ checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
 name = "alloy-chains"
-version = "0.1.54"
+version = "0.1.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d38fdd69239714d7625cda1e3730773a3c1a8719d506370eb17bb0103b7c2e15"
+checksum = "1e39f295f876b61a1222d937e1dd31f965e4a1acc3bba98e448dd7e84b1a4566"
 dependencies = [
  "alloy-primitives 0.8.18",
  "alloy-rlp",
@@ -122,7 +122,7 @@ dependencies = [
 [[package]]
 name = "alloy-consensus"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-eips",
  "alloy-primitives 0.8.15",
@@ -141,7 +141,7 @@ dependencies = [
 [[package]]
 name = "alloy-consensus-any"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -154,7 +154,7 @@ dependencies = [
 [[package]]
 name = "alloy-contract"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-dyn-abi",
  "alloy-json-abi",
@@ -220,7 +220,7 @@ dependencies = [
 [[package]]
 name = "alloy-eips"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-eip2930",
  "alloy-eip7702",
@@ -240,7 +240,7 @@ dependencies = [
 [[package]]
 name = "alloy-genesis"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-primitives 0.8.15",
  "alloy-serde",
@@ -262,7 +262,7 @@ dependencies = [
 [[package]]
 name = "alloy-json-rpc"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-primitives 0.8.15",
  "alloy-sol-types",
@@ -275,7 +275,7 @@ dependencies = [
 [[package]]
 name = "alloy-network"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-consensus",
  "alloy-consensus-any",
@@ -299,7 +299,7 @@ dependencies = [
 [[package]]
 name = "alloy-network-primitives"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -311,7 +311,7 @@ dependencies = [
 [[package]]
 name = "alloy-node-bindings"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-genesis",
  "alloy-primitives 0.8.15",
@@ -388,7 +388,7 @@ dependencies = [
 [[package]]
 name = "alloy-provider"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -428,7 +428,7 @@ dependencies = [
 [[package]]
 name = "alloy-pubsub"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-json-rpc",
  "alloy-primitives 0.8.15",
@@ -462,13 +462,13 @@ checksum = "5a833d97bf8a5f0f878daf2c8451fff7de7f9de38baa5a45d936ec718d81255a"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
 name = "alloy-rpc-client"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-json-rpc",
  "alloy-primitives 0.8.15",
@@ -492,7 +492,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-primitives 0.8.15",
  "alloy-rpc-types-engine",
@@ -504,7 +504,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-admin"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-genesis",
  "alloy-primitives 0.8.15",
@@ -515,7 +515,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-anvil"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-primitives 0.8.15",
  "alloy-rpc-types-eth",
@@ -526,7 +526,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-any"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-consensus-any",
  "alloy-rpc-types-eth",
@@ -536,7 +536,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-beacon"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-eips",
  "alloy-primitives 0.8.15",
@@ -550,7 +550,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-debug"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-primitives 0.8.15",
  "serde",
@@ -559,7 +559,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-engine"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -579,7 +579,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-eth"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-consensus",
  "alloy-consensus-any",
@@ -600,7 +600,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-mev"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-eips",
  "alloy-primitives 0.8.15",
@@ -613,7 +613,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-trace"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-primitives 0.8.15",
  "alloy-rpc-types-eth",
@@ -626,7 +626,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-txpool"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-primitives 0.8.15",
  "alloy-rpc-types-eth",
@@ -637,7 +637,7 @@ dependencies = [
 [[package]]
 name = "alloy-serde"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-primitives 0.8.15",
  "arbitrary",
@@ -648,7 +648,7 @@ dependencies = [
 [[package]]
 name = "alloy-signer"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-primitives 0.8.15",
  "async-trait",
@@ -661,7 +661,7 @@ dependencies = [
 [[package]]
 name = "alloy-signer-local"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-consensus",
  "alloy-network",
@@ -685,7 +685,7 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -699,7 +699,7 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -714,7 +714,7 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
  "syn-solidity 0.8.15",
  "tiny-keccak",
 ]
@@ -732,7 +732,7 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
  "syn-solidity 0.8.18",
  "tiny-keccak",
 ]
@@ -747,7 +747,7 @@ dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
  "syn-solidity 0.8.15",
 ]
 
@@ -762,7 +762,7 @@ dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
  "syn-solidity 0.8.18",
 ]
 
@@ -790,7 +790,7 @@ dependencies = [
 [[package]]
 name = "alloy-transport"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-json-rpc",
  "base64 0.22.1",
@@ -809,7 +809,7 @@ dependencies = [
 [[package]]
 name = "alloy-transport-http"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-json-rpc",
  "alloy-transport",
@@ -823,7 +823,7 @@ dependencies = [
 [[package]]
 name = "alloy-transport-ipc"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-json-rpc",
  "alloy-pubsub",
@@ -841,7 +841,7 @@ dependencies = [
 [[package]]
 name = "alloy-transport-ws"
 version = "0.8.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=fix#8842d51e8a1e74dace33d55a07232c99dc8ac70f"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy.git?branch=seismic#6848003e33e7b30d2ccacd55019c94ea6bcaf34d"
 dependencies = [
  "alloy-pubsub",
  "alloy-transport",
@@ -962,7 +962,7 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -1160,7 +1160,7 @@ checksum = "3b43422f69d8ff38f95f1b2bb76517c91589a924d1559a0e935d7c8ce0274c11"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -1196,7 +1196,7 @@ checksum = "c7c24de15d275a1ecfd47a380fb4d5ec9bfe0933f309ed5e705b775596a3574d"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -1207,7 +1207,7 @@ checksum = "3f934833b4b7233644e5848f235df3f57ed8c80f1528a26c3dfa13d2147fa056"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -1245,7 +1245,7 @@ checksum = "3c87f3f15e7794432337fc718554eaa4dc8f04c9677a950ffe366f20a162ae42"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -1342,7 +1342,7 @@ version = "0.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f49d8fed880d473ea71efb9bf597651e77201bdd4893efe54c9e5d65ae04ce6f"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "cexpr",
  "clang-sys",
  "itertools 0.13.0",
@@ -1351,7 +1351,7 @@ dependencies = [
  "regex",
  "rustc-hash 1.1.0",
  "shlex",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -1377,9 +1377,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.6.0"
+version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
+checksum = "1be3f42a67d6d345ecd59f675f3f012d6974981560836e938c22b424b85ce1be"
 dependencies = [
  "arbitrary",
  "serde",
@@ -1443,7 +1443,7 @@ version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a69ee3a749ea36d4e56d92941e7b25076b493d4917c3d155b6cf369e23547d9"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "boa_interner",
  "boa_macros",
  "indexmap 2.7.0",
@@ -1458,7 +1458,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06e4559b35b80ceb2e6328481c0eca9a24506663ea33ee1e279be6b5b618b25c"
 dependencies = [
  "arrayvec",
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "boa_ast",
  "boa_gc",
  "boa_interner",
@@ -1533,7 +1533,7 @@ checksum = "240f4126219a83519bad05c9a40bfc0303921eeb571fc2d7e44c17ffac99d3f1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
  "synstructure",
 ]
 
@@ -1543,7 +1543,7 @@ version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62b59dc05bf1dc019b11478a92986f590cff43fced4d20e866eefb913493e91c"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "boa_ast",
  "boa_interner",
  "boa_macros",
@@ -1655,7 +1655,7 @@ checksum = "3fa76293b4f7bb636ab88fd78228235b5248b4d05cc589aed610f954af5d7c7a"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -1873,7 +1873,7 @@ dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -2215,7 +2215,7 @@ version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "829d955a0bb380ef178a640b91779e3987da38c9aea133b20614cfed8cdea9c6"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "crossterm_winapi",
  "mio 1.0.3",
  "parking_lot",
@@ -2327,7 +2327,7 @@ checksum = "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -2351,7 +2351,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "strsim",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -2362,7 +2362,7 @@ checksum = "d336a2a514f6ccccaa3e09b02d41d35330c07ddf03a62165fcec10bb561c7806"
 dependencies = [
  "darling_core",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -2484,7 +2484,7 @@ checksum = "30542c1ad912e0e3d22a1935c290e12e8a29d704a420177a31faad4a601a0800"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -2505,7 +2505,7 @@ dependencies = [
  "convert_case",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
  "unicode-xid",
 ]
 
@@ -2619,7 +2619,7 @@ checksum = "97369cbbc041bc366949bc74d34658d6cda5621039731c6310521892a3a20ae0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -2780,7 +2780,7 @@ dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -2791,7 +2791,7 @@ checksum = "2f9ed6b3789237c8a0c1c505af1c7eb2c560df6186f01b098c3a1064ea532f38"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -2811,7 +2811,7 @@ checksum = "3bf679796c0322556351f287a51b49e48f7c4986e727b5dd78c972d30e2e16cc"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -2867,7 +2867,7 @@ dependencies = [
  "darling",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -3443,7 +3443,7 @@ checksum = "162ee34ebcb7c64a8abebc059ce0fee27c2262618d7b60ed8faf72fef13c3650"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -4112,7 +4112,7 @@ dependencies = [
  "quote",
  "serde",
  "serde_json",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -4262,7 +4262,7 @@ checksum = "1ec89e9337638ecdc08744df490b221a7399bf8d164eb52a665454e60e075ad6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -4319,7 +4319,7 @@ checksum = "a0eb5a3343abf848c0984fe4604b2b105da9539376e24fc0a3b0007411ae4fd9"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -4440,7 +4440,7 @@ dependencies = [
  "indoc",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -4689,7 +4689,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -4916,7 +4916,7 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0ff37bd590ca25063e35af745c343cb7a0271906fb7b37e4813e8f79f00268d"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "libc",
  "redox_syscall",
 ]
@@ -5109,7 +5109,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -5270,7 +5270,7 @@ dependencies = [
  "cfg-if",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -5404,7 +5404,7 @@ version = "6.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6205bd8bb1e454ad2e27422015fb5e4f2bcc7e08fa8f27058670d208324a4d2d"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "filetime",
  "fsevent-sys",
  "inotify",
@@ -5555,7 +5555,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -5938,7 +5938,7 @@ dependencies = [
  "phf_shared",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -5967,7 +5967,7 @@ checksum = "d56a66c0c55993aa927429d0f8a0abfd74f084e4d9c192cffed01e418d83eefb"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -6140,7 +6140,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "483f8c21f64f3ea09fe0f30f5d48c3e8eefe5dac9129f0075f76593b4c1da705"
 dependencies = [
  "proc-macro2",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -6191,7 +6191,7 @@ dependencies = [
  "proc-macro-error-attr2",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -6209,7 +6209,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "731e0d9356b0c25f16f33b5be79b1c57b562f141ebfcdb0ad8ac2c13a24293b4"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "chrono",
  "flate2",
  "hex",
@@ -6224,7 +6224,7 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc5b72d8145275d844d4b5f6d4e1eef00c8cd889edb6035c21675d1bb1f45c9f"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "hex",
  "procfs-core 0.17.0",
  "rustix",
@@ -6236,7 +6236,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d3554923a69f4ce04c4a754260c338f505ce22642d3830e049a399fc2059a29"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "chrono",
  "hex",
 ]
@@ -6247,7 +6247,7 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "239df02d8349b06fc07398a3a1697b06418223b1c7725085e801e7c0fc6a12ec"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "hex",
 ]
 
@@ -6259,7 +6259,7 @@ checksum = "b4c2511913b88df1637da85cc8d96ec8e43a3f8bb8ccb71ee1ac240d6f3df58d"
 dependencies = [
  "bit-set",
  "bit-vec",
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "lazy_static",
  "num-traits",
  "rand 0.8.5",
@@ -6289,7 +6289,7 @@ checksum = "4ee1c9ac207483d5e7db4940700de86a9aae46ef90c48b57f99fe7edb8345e49"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -6494,7 +6494,7 @@ version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fdef7f9be5c0122f890d58bdf4d964349ba6a6161f705907526d891efabba57d"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "cassowary",
  "compact_str",
  "crossterm",
@@ -6515,7 +6515,7 @@ version = "11.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ab240315c661615f2ee9f0f2cd32d5a7343a84d5ebcccb99d46e6637565e7b0"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
 ]
 
 [[package]]
@@ -6550,7 +6550,7 @@ version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03a862b389f93e68874fbf580b9de08dd02facb9a788ebadaf4a3fd33cf58834"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
 ]
 
 [[package]]
@@ -7116,7 +7116,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "similar-asserts",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -8104,7 +8104,7 @@ dependencies = [
 name = "reth-libmdbx"
 version = "1.1.4"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "byteorder",
  "criterion",
  "dashmap 6.1.0",
@@ -9725,7 +9725,7 @@ dependencies = [
  "aquamarine",
  "assert_matches",
  "auto_impl",
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "criterion",
  "futures-util",
  "metrics",
@@ -9928,7 +9928,7 @@ dependencies = [
 [[package]]
 name = "revm-inspectors"
 version = "0.13.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git?branch=upstream-merge#3ed2e214fc6bfba44ddbd8caca1350436833e545"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git?branch=seismic#19828b8cf93a3b918324f8ef70e8f3411f516846"
 dependencies = [
  "alloy-primitives 0.8.15",
  "alloy-rpc-types-eth",
@@ -9983,7 +9983,7 @@ dependencies = [
  "alloy-eip7702",
  "alloy-primitives 0.8.15",
  "auto_impl",
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "bitvec",
  "c-kzg",
  "cfg-if",
@@ -10149,7 +10149,7 @@ dependencies = [
  "regex",
  "relative-path",
  "rustc_version 0.4.1",
- "syn 2.0.95",
+ "syn 2.0.96",
  "unicode-ident",
 ]
 
@@ -10237,7 +10237,7 @@ version = "0.38.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a78891ee6bf2340288408954ac787aa063d8e8817e9f53abb37c695c6d834ef6"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "errno",
  "libc",
  "linux-raw-sys",
@@ -10246,9 +10246,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.20"
+version = "0.23.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5065c3f250cbd332cd894be57c40fa52387247659b14a2d6041d121547903b1b"
+checksum = "8f287924602bf649d949c63dc8ac8b235fa5387d394020705b80c4eb597ce5b8"
 dependencies = [
  "log",
  "once_cell",
@@ -10467,7 +10467,7 @@ version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "897b2245f0b511c87893af39b033e5ca9cce68824c4d7e7630b5a1d339658d02"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "core-foundation 0.9.4",
  "core-foundation-sys",
  "libc",
@@ -10481,7 +10481,7 @@ version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "271720403f46ca04f7ba6f55d438f8bd878d6b8ca0a1046e8228c4145bcbb316"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "core-foundation 0.10.0",
  "core-foundation-sys",
  "libc",
@@ -10631,7 +10631,7 @@ checksum = "5a9bf7cf98d04a2b28aead066b7496853d4779c9cc183c440dbac457641e19a0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -10666,7 +10666,7 @@ checksum = "6c64451ba24fc7a6a2d60fc75dd9c83c90903b19028d4eff35e88fc1e86564e9"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -10717,7 +10717,7 @@ dependencies = [
  "darling",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -10750,7 +10750,7 @@ checksum = "5d69265a08751de7844521fd15003ae0a888e035773ba05695c5c759a6f89eef"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -11042,7 +11042,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustversion",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -11055,7 +11055,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustversion",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -11113,9 +11113,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.95"
+version = "2.0.96"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46f71c0377baf4ef1cc3e3402ded576dccc315800fbc62dfc7fe04b009773b4a"
+checksum = "d5d0adab1ae378d7f53bdebc67a39f1f151407ef230f0ce2883572f5d8985c80"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -11130,7 +11130,7 @@ dependencies = [
  "paste",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -11142,7 +11142,7 @@ dependencies = [
  "paste",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -11162,7 +11162,7 @@ checksum = "c8af7666ab7b6390ab78131fb5b0fce11d6b7a6951602017c35fa82800708971"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -11269,7 +11269,7 @@ dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -11317,7 +11317,7 @@ checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -11328,7 +11328,7 @@ checksum = "9e9465d30713b56a37ede7185763c3492a91be2f5fa68d958c44e41ab9248beb"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -11485,7 +11485,7 @@ checksum = "6e06d43f1345a3bcd39f6a56dbb7dcab2ba47e68e8ac134855e7e2bdbaf8cab8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -11631,7 +11631,7 @@ checksum = "403fa3b783d4b626a8ad51d766ab03cb6d2dbfc46b1c5d4448395e6628dc9697"
 dependencies = [
  "async-compression",
  "base64 0.22.1",
- "bitflags 2.6.0",
+ "bitflags 2.7.0",
  "bytes",
  "futures-core",
  "futures-util",
@@ -11698,7 +11698,7 @@ checksum = "395ae124c09f9e6918a2310af6038fba074bcf474ac352496d5910dd59a2226d"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -12012,9 +12012,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.11.0"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8c5f0a0af699448548ad1a2fbf920fb4bee257eae39953ba95cb84891a0446a"
+checksum = "b913a3b5fe84142e269d63cc62b64319ccaf89b748fc31fe025177f767a756c4"
 dependencies = [
  "getrandom 0.2.15",
 ]
@@ -12053,7 +12053,7 @@ checksum = "d674d135b4a8c1d7e813e2f8d1c9a58308aee4a680323066025e53132218bd91"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -12152,7 +12152,7 @@ dependencies = [
  "log",
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
  "wasm-bindgen-shared",
 ]
 
@@ -12187,7 +12187,7 @@ checksum = "30d7a95b763d3c45903ed6c81f156801839e5ee968bb07e534c44df0fcd330c2"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
@@ -12353,7 +12353,7 @@ checksum = "9107ddc059d5b6fbfbffdfa7a7fe3e22a226def0b2608f72e9d552763d3e1ad7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -12364,7 +12364,7 @@ checksum = "2bbd5b46c938e506ecbce286b6628a02171d56153ba733b6c741fc627ec9579b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -12375,7 +12375,7 @@ checksum = "29bee4b38ea3cde66011baa44dba677c432a78593e202392d1e9070cf2a7fca7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -12386,7 +12386,7 @@ checksum = "053c4c462dc91d3b1504c6fe5a726dd15e216ba718e84a0e46a88fbe5ded3515"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -12661,7 +12661,7 @@ checksum = "2380878cad4ac9aac1e2435f3eb4020e8374b5f13c296cb75b4620ff8e229154"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
  "synstructure",
 ]
 
@@ -12683,7 +12683,7 @@ checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -12703,7 +12703,7 @@ checksum = "595eed982f7d355beb85837f651fa22e90b3c044842dc7f2c2842c086f295808"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
  "synstructure",
 ]
 
@@ -12724,7 +12724,7 @@ checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -12746,7 +12746,7 @@ checksum = "6eafa6dfb17584ea3e2bd6e76e0cc15ad7af12b09abdd1ca55961bed9b1063c6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.95",
+ "syn 2.0.96",
 ]
 
 [[package]]
@@ -12776,8 +12776,3 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "revm-inspectors"
-version = "0.13.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git?branch=seismic#19828b8cf93a3b918324f8ef70e8f3411f516846"

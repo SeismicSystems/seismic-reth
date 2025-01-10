@@ -25,7 +25,7 @@ use op_alloy_consensus::DepositTransaction;
 use op_alloy_consensus::TxDeposit;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use reth_primitives_traits::{InMemorySize, SignedTransaction};
-use reth_tracing::tracing::{debug, info};
+use reth_tracing::tracing::*;
 use revm_primitives::{AuthorizationList, TxEnv};
 use serde::{Deserialize, Serialize};
 use signature::decode_with_eip155_chain_id;
@@ -1187,7 +1187,7 @@ impl reth_primitives_traits::FillTxEnv for TransactionSigned {
             }
             Transaction::Seismic(_tx) => {
                 // implementation is in EthEvmConfig to avoid changing FillTxEnv trait
-                info!(target: "reth::fill_tx_env", "Seismic transaction not filled");
+                error!(target: "reth::fill_tx_env", "Seismic transaction not filled");
                 return
             }
             #[cfg(feature = "optimism")]
