@@ -2,6 +2,20 @@ use assert_cmd::Command;
 use reqwest::Client;
 use serde_json::{json, Value};
 use std::{thread, time::Duration};
+use alloy_consensus::{TxEnvelope, TxSeismic};
+use alloy_eips::eip2718::Encodable2718;
+use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
+use alloy_rpc_types::engine::PayloadAttributes;
+use alloy_rpc_types_eth::{TransactionInput, TransactionRequest};
+use alloy_signer_local::PrivateKeySigner;
+use reth_payload_builder::EthPayloadBuilderAttributes;
+use reth_tee::{
+    mock::{MockTeeServer, MockWallet},
+    WalletAPI,
+};
+use reth_tracing::tracing::*;
+use secp256k1::SecretKey;
+use tokio::task;
 
 pub async fn seismic_reth_dev_init() {
     const RETH_RPC_URL: &str = "http://127.0.0.1:8545";
@@ -174,4 +188,73 @@ pub async fn seismic_reth_dev_init() {
         response["result"] == "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
     println!("eth_call Response (parity 1): {:?}", response);
+}
+
+
+
+pub async fn start_mock_tee_server() {
+    let _ = task::spawn(async {
+        let tee_server = MockTeeServer::new("127.0.0.1:7878");
+        tee_server.run().await.map_err(|_| eyre::Error::msg("tee server failed"))
+    });
+}
+
+/// Helper function to create a new eth payload attributes
+pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
+    let attributes = PayloadAttributes {
+        timestamp,
+        prev_randao: B256::ZERO,
+        suggested_fee_recipient: Address::ZERO,
+        withdrawals: Some(vec![]),
+        parent_beacon_block_root: Some(B256::ZERO),
+        target_blobs_per_block: None,
+        max_blobs_per_block: None,
+    };
+    EthPayloadBuilderAttributes::new(B256::ZERO, attributes)
+}
+
+// #[cfg(test)]
+pub mod test_utils {
+    use super::*;
+    use reth_e2e_test_utils::transaction::TransactionTestContext;
+
+    /// Create a seismic transaction
+    pub async fn seismic_tx(
+        sk_wallet: &PrivateKeySigner,
+        nonce: u64,
+        to: TxKind,
+        chain_id: u64,
+        decrypted_input: Bytes,
+    ) -> Bytes {
+        let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
+            .expect("32 bytes, within curve order");
+        let tee_wallet = MockWallet {};
+
+        let encrypted_input =
+            <MockWallet as WalletAPI>::encrypt(&tee_wallet, decrypted_input.to_vec(), nonce, &sk)
+                .unwrap();
+
+        debug!(target: "e2e:seismic_tx", "encrypted_input: {:?}", encrypted_input.clone());
+        debug!(target: "e2e:seismic_tx", "encrypted_input: {:?}", Bytes::from(encrypted_input.clone()));
+
+        let encryption_pubkey = secp256k1::PublicKey::from_secret_key_global(&sk);
+        let tx = TransactionRequest {
+            nonce: Some(nonce),
+            value: Some(U256::from(0)),
+            to: Some(to),
+            gas: Some(600000),
+            gas_price: Some(20e9 as u128),
+            max_fee_per_gas: Some(20e9 as u128),
+            max_priority_fee_per_gas: Some(20e9 as u128),
+            chain_id: Some(chain_id),
+            input: TransactionInput { input: Some(Bytes::from(encrypted_input)), data: None },
+            transaction_type: Some(TxSeismic::TX_TYPE),
+            encryption_pubkey: Some(alloy_consensus::transaction::EncryptionPublicKey::from(encryption_pubkey.serialize())),
+            ..Default::default()
+        };
+
+        let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
+        debug!(target: "e2e:seismic_tx", "signed: {:?}", signed.clone());
+        <TxEnvelope as Encodable2718>::encoded_2718(&signed).into()
+    }
 }

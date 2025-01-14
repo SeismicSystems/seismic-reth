@@ -60,8 +60,9 @@ tokio-stream.workspace = true
 assert_cmd.workspace = true
 reqwest.workspace = true
 
+reth-e2e-test-utils.workspace = true
 
 [dev-dependencies]
-reth-e2e-test-utils.workspace = true    
+reth-e2e-test-utils.workspace = true
 assert_cmd.workspace = true
 reqwest.workspace = true

@@ -1,4 +1,6 @@
-use crate::utils::{seismic_payload_attributes, seismic_tx, start_mock_tee_server};
+use seismic_node::utils::{seismic_payload_attributes, start_mock_tee_server};
+#[cfg(test)]
+use seismic_node::utils::test_utils::seismic_tx; 
 use alloy_consensus::TxEnvelope;
 use alloy_eips::eip2718::Decodable2718;
 use alloy_primitives::{bytes::Buf, hex, Address, Bytes, TxKind, U256};

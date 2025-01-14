@@ -40,6 +40,9 @@ impl SeismicApiServer for SeismicApi {
 
 #[cfg(test)]
 mod tests {
+    use jsonrpsee::{core::client::{ClientT, SubscriptionClientT}, Methods};
+    use reth_rpc_builder::{RpcServerConfig, RpcServerHandle, TransportRpcModules};
+
     use super::*;
 
     /// Launches a new server with http only with the given modules
