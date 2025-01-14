@@ -239,7 +239,7 @@ pub mod test_utils {
         debug!(target: "e2e:seismic_tx", "encrypted_input: {:?}", encrypted_input.clone());
         debug!(target: "e2e:seismic_tx", "encrypted_input: {:?}", Bytes::from(encrypted_input.clone()));
 
-        // let encryption_pubkey = secp256k1::PublicKey::from_secret_key_global(&sk);
+        let encryption_pubkey = secp256k1::PublicKey::from_secret_key_global(&sk);
         let tx = TransactionRequest {
             nonce: Some(nonce),
             value: Some(U256::from(0)),
@@ -251,9 +251,9 @@ pub mod test_utils {
             chain_id: Some(chain_id),
             input: TransactionInput { input: Some(Bytes::from(encrypted_input)), data: None },
             transaction_type: Some(TxSeismic::TX_TYPE),
-            // encryption_pubkey:
-            // Some(alloy_consensus::transaction::EncryptionPublicKey::from(encryption_pubkey.
-            // serialize())),
+            encryption_pubkey: Some(alloy_consensus::transaction::EncryptionPublicKey::from(
+                encryption_pubkey.serialize(),
+            )),
             ..Default::default()
         };
 

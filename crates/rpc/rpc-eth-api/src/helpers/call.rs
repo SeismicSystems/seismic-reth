@@ -762,6 +762,7 @@ pub trait Call:
             authorization_list,
             transaction_type: _,
             sidecar: _,
+            encryption_pubkey: _,
         } = request;
 
         let CallFees { max_priority_fee_per_gas, gas_price, max_fee_per_blob_gas } =
