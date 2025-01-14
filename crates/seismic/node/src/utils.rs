@@ -239,7 +239,7 @@ pub mod test_utils {
         debug!(target: "e2e:seismic_tx", "encrypted_input: {:?}", encrypted_input.clone());
         debug!(target: "e2e:seismic_tx", "encrypted_input: {:?}", Bytes::from(encrypted_input.clone()));
 
-        // let encryption_pubkey = secp256k1::PublicKey::from_secret_key_global(&sk);
+        let encryption_pubkey = secp256k1::PublicKey::from_secret_key_global(&sk);
         let tx = TransactionRequest {
             nonce: Some(nonce),
             value: Some(U256::from(0)),
@@ -251,9 +251,9 @@ pub mod test_utils {
             chain_id: Some(chain_id),
             input: TransactionInput { input: Some(Bytes::from(encrypted_input)), data: None },
             transaction_type: Some(TxSeismic::TX_TYPE),
-            // encryption_pubkey:
-            // Some(alloy_consensus::transaction::EncryptionPublicKey::from(encryption_pubkey.
-            // serialize())),
+            encryption_pubkey: Some(alloy_consensus::transaction::EncryptionPublicKey::from(
+                encryption_pubkey.serialize(),
+            )),
             ..Default::default()
         };
 
@@ -318,6 +318,19 @@ pub mod test_utils {
         pub fn write(&self) {
             let file = File::create(Self::IT_TX_FILEPATH).unwrap();
             serde_json::to_writer_pretty(file, &self).unwrap();
+        }
+
+        /// This is here to prevent us from mistakenly re-writing
+        /// the expected test values while the basic integration test runs
+        /// If we are careful about setting `REWRITE_IT_TX`,
+        /// this would be unneccessary, but it will definitely happen lol
+        pub fn should_rewrite_it() -> bool {
+            // Check if SEISMIC_CI is present in the environment
+            if std::env::var("SEISMIC_CI").is_ok() {
+                false
+            } else {
+                true
+            }
         }
     }
 }

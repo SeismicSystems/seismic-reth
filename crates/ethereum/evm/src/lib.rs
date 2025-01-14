@@ -94,9 +94,8 @@ impl ConfigureEvmEnv for EthEvmConfig {
         debug!(target: "reth::fill_tx_env", ?transaction, "Parsing transaction");
         match &transaction.transaction {
             Transaction::Seismic(tx) => {
-                let msg_sender = self
-                    .recover_pubkey(&transaction)
-                    .ok_or(EVMError::Database(TeeError::PublicKeyRecoveryError))?;
+                let msg_sender = secp256k1::PublicKey::from_slice(tx.encryption_pubkey.as_slice())
+                    .map_err(|_| EVMError::Database(TeeError::PublicKeyRecoveryError))?;
 
                 debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
 
