@@ -1,7 +1,7 @@
 //! Compact implementation for [`AlloyTxSeismic`]
 
 use crate::Compact;
-use alloy_consensus::transaction::TxSeismic as AlloyTxSeismic;
+use alloy_consensus::TxSeismic as AlloyTxSeismic;
 use alloy_primitives::{Bytes, ChainId, FixedBytes, TxKind, U256};
 
 /// Seismic transaction.
@@ -41,7 +41,7 @@ pub(crate) struct TxSeismic {
     /// to the newly created account; formally Tv.
     value: U256,
     /// The public key to which we should encrypt the output
-    encryption_pubkey: alloy_consensus::transaction::EncryptionPublicKey,
+    encryption_pubkey: FixedBytes<33>,
     /// Input has two uses depending if transaction is Create or Call (if `to` field is None or
     /// Some). pub init: An unlimited size byte array specifying the
     /// EVM-code for the account initialisation procedure CREATE,
@@ -62,8 +62,8 @@ impl Compact for AlloyTxSeismic {
             gas_limit: self.gas_limit,
             to: self.to,
             value: self.value,
-            input: self.input.clone(),
             encryption_pubkey: self.encryption_pubkey.clone(),
+            input: self.input.clone(),
         };
 
         tx.to_compact(buf)
@@ -79,8 +79,8 @@ impl Compact for AlloyTxSeismic {
             gas_limit: tx.gas_limit,
             to: tx.to,
             value: tx.value,
-            input: tx.input,
             encryption_pubkey: tx.encryption_pubkey,
+            input: tx.input,
         };
 
         (alloy_tx, buf)
