@@ -2,14 +2,14 @@ use alloy_consensus::TxEnvelope;
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_network::eip2718::Decodable2718;
 use alloy_primitives::{Address, Bytes, B256};
-use alloy_rpc_types_eth::{Account, EIP1186AccountProofResponse};
+use alloy_rpc_types_eth::Account;
 use reth_chainspec::EthereumHardforks;
 use reth_node_api::{FullNodeComponents, NodePrimitives};
 use reth_node_builder::{rpc::RpcRegistry, NodeTypes};
 use reth_provider::BlockReader;
 use reth_rpc_api::DebugApiServer;
 use reth_rpc_eth_api::{
-    helpers::{EthApiSpec, EthState, FullEthApi, LoadState, TraceExt},
+    helpers::{EthApiSpec, EthState, FullEthApi, TraceExt},
     EthApiTypes, RpcReceipt,
 };
 
