@@ -14,7 +14,7 @@ use std::str::FromStr;
 
 // should we re-write tests/it-tx.json with new values?
 // NOTE: only set this to true if we have changed our protocol
-const REWRITE_IT_TX: bool = false;
+const REWRITE_IT_TX: bool = true;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn contract() -> eyre::Result<()> {

@@ -96,10 +96,9 @@ jobs:
             ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
       - name: cargo test
         run: cargo test
-      - name: seismic-node basic test
-        run: cargo test --package seismic-node --test basic -- contract --exact --show-output
       - name: build seismic-reth
         run: cargo build --bin seismic-reth
+      - name: seismic-node basic test
+        run: cargo test --package seismic-node --test basic -- contract --exact --show-output
       - name: seismic-node integration test
         run: cargo test --package seismic-node --test integration -- test_seismic_reth_rpc --exact --show-output
-
