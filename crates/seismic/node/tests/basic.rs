@@ -1,5 +1,3 @@
-use seismic_node::utils::{seismic_payload_attributes, start_mock_tee_server};
-use seismic_node::utils::test_utils::{seismic_tx, IntegrationTestTx}; 
 use alloy_consensus::TxEnvelope;
 use alloy_eips::eip2718::Decodable2718;
 use alloy_primitives::{bytes::Buf, hex, Address, Bytes, TxKind, U256};
@@ -8,12 +6,15 @@ use reth_chainspec::DEV;
 use reth_e2e_test_utils::setup;
 use reth_node_ethereum::EthereumNode;
 use reth_tracing::tracing::*;
+use seismic_node::utils::{
+    seismic_payload_attributes, start_mock_tee_server,
+    test_utils::{seismic_tx, IntegrationTestTx},
+};
 use std::str::FromStr;
 
 // should we re-write tests/it-tx.json with new values?
 // NOTE: only set this to true if we have changed our protocol
 const REWRITE_IT_TX: bool = true;
-
 
 #[tokio::test(flavor = "multi_thread")]
 async fn contract() -> eyre::Result<()> {
