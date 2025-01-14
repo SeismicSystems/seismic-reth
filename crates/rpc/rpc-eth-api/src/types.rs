@@ -92,3 +92,15 @@ pub enum SeismicCallRequest {
     /// normal call request
     TransactionRequest(TransactionRequest),
 }
+
+impl From<TransactionRequest> for SeismicCallRequest {
+    fn from(value: TransactionRequest) -> Self {
+        SeismicCallRequest::TransactionRequest(value)
+    }
+}
+
+impl From<Bytes> for SeismicCallRequest {
+    fn from(value: Bytes) -> Self {
+        SeismicCallRequest::Bytes(value)
+    }
+}
