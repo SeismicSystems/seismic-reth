@@ -173,7 +173,7 @@ async fn contract() -> eyre::Result<()> {
     );
     assert_eq!(U256::from_be_slice(&output), U256::from(1));
 
-    if REWRITE_IT_TX {
+    if REWRITE_IT_TX && IntegrationTestTx::should_rewrite_it() {
         itx.write();
     }
 

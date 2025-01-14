@@ -76,6 +76,8 @@ jobs:
   test:
     runs-on: large-github-runner
     timeout-minutes: 30
+    env:
+      SEISMIC_CI: 1
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
