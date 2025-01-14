@@ -273,7 +273,7 @@ pub mod test_utils {
     }
 
     impl IntegrationTestTx {
-        const IT_TX_FILEPATH: &'static str = "tests/data/it-tx.json";
+        const IT_TX_FILEPATH: &'static str = "tests/seismic-data/it-tx.json";
 
         pub fn new(deploy_tx: &Bytes) -> IntegrationTestTx {
             IntegrationTestTx {
