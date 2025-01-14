@@ -1,13 +1,11 @@
-use assert_cmd::Command;
-use reqwest::Client;
-use serde_json::{json, Value};
-use std::{thread, time::Duration};
 use alloy_consensus::{TxEnvelope, TxSeismic};
 use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types::engine::PayloadAttributes;
 use alloy_rpc_types_eth::{TransactionInput, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
+use assert_cmd::Command;
+use reqwest::Client;
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use reth_tee::{
     mock::{MockTeeServer, MockWallet},
@@ -15,6 +13,8 @@ use reth_tee::{
 };
 use reth_tracing::tracing::*;
 use secp256k1::SecretKey;
+use serde_json::{json, Value};
+use std::{thread, time::Duration};
 use tokio::task;
 
 pub async fn seismic_reth_dev_init() {
@@ -190,8 +190,6 @@ pub async fn seismic_reth_dev_init() {
     println!("eth_call Response (parity 1): {:?}", response);
 }
 
-
-
 pub async fn start_mock_tee_server() {
     let _ = task::spawn(async {
         let tee_server = MockTeeServer::new("127.0.0.1:7878");
@@ -253,7 +251,9 @@ pub mod test_utils {
             chain_id: Some(chain_id),
             input: TransactionInput { input: Some(Bytes::from(encrypted_input)), data: None },
             transaction_type: Some(TxSeismic::TX_TYPE),
-            // encryption_pubkey: Some(alloy_consensus::transaction::EncryptionPublicKey::from(encryption_pubkey.serialize())),
+            // encryption_pubkey:
+            // Some(alloy_consensus::transaction::EncryptionPublicKey::from(encryption_pubkey.
+            // serialize())),
             ..Default::default()
         };
 
@@ -317,7 +317,7 @@ pub mod test_utils {
 
         pub fn write(&self) {
             let file = File::create(Self::IT_TX_FILEPATH).unwrap();
-            serde_json::to_writer_pretty(file, &self).unwrap();    
+            serde_json::to_writer_pretty(file, &self).unwrap();
         }
     }
 }

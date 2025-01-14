@@ -2,9 +2,9 @@ use assert_cmd::Command;
 use reqwest::Client;
 use seismic_node::utils::test_utils::IntegrationTestTx;
 use serde_json::{json, Value};
-use tokio::process::Child;
 use std::{thread, time::Duration};
 use sysinfo::{Pid, PidExt, ProcessExt, System, SystemExt};
+use tokio::process::Child;
 
 struct RethCommand(Child);
 
@@ -33,14 +33,13 @@ impl Drop for RethCommand {
         let pid = self.0.id().unwrap();
         if let Some(process) = System::new_all().process(Pid::from_u32(pid)) {
             process.kill();
-        }    
+        }
     }
 }
 
 // this is the same test as basic.rs but with actual RPC calls and standalone reth instance
 #[tokio::test]
 async fn test_seismic_reth_rpc() {
-
     let itx = IntegrationTestTx::load();
 
     const RETH_RPC_URL: &str = "http://127.0.0.1:8545";
