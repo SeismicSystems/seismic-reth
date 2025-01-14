@@ -97,6 +97,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
                 let msg_sender = self
                     .recover_pubkey(&transaction)
                     .ok_or(EVMError::Database(TeeError::PublicKeyRecoveryError))?;
+                let msg_sender = tx.encryption_pubkey;
 
                 debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
 

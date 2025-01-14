@@ -5,8 +5,9 @@ use crate::txtype::{
     COMPACT_IDENTIFIER_LEGACY,
 };
 use alloy_consensus::{
-    constants::{EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID, SEISMIC_TX_TYPE_ID},
+    constants::{EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID},
     TxType,
+    transaction::TxSeismic,
 };
 
 impl crate::Compact for TxType {
@@ -29,7 +30,7 @@ impl crate::Compact for TxType {
                 COMPACT_EXTENDED_IDENTIFIER_FLAG
             }
             Self::Seismic => {
-                buf.put_u8(SEISMIC_TX_TYPE_ID);
+                buf.put_u8(TxSeismic::TX_TYPE);
                 COMPACT_EXTENDED_IDENTIFIER_FLAG
             }
         }
