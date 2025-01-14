@@ -215,8 +215,12 @@ pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes
 
 // #[cfg(test)]
 pub mod test_utils {
+    use std::fs::File;
+
     use super::*;
+    use alloy_primitives::FixedBytes;
     use reth_e2e_test_utils::transaction::TransactionTestContext;
+    use serde::{Deserialize, Serialize};
 
     /// Create a seismic transaction
     pub async fn seismic_tx(
@@ -256,5 +260,64 @@ pub mod test_utils {
         let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
         debug!(target: "e2e:seismic_tx", "signed: {:?}", signed.clone());
         <TxEnvelope as Encodable2718>::encoded_2718(&signed).into()
+    }
+
+    #[derive(Serialize, Deserialize)]
+    pub struct IntegrationTestTx {
+        pub deploy_tx: String,
+        pub contract: String,
+        pub code: String,
+        pub tx_hashes: Vec<String>,
+        pub signed_calls: Vec<String>,
+        pub raw_txs: Vec<String>,
+    }
+
+    impl IntegrationTestTx {
+        const IT_TX_FILEPATH: &'static str = "tests/data/it-tx.json";
+
+        pub fn new(deploy_tx: &Bytes) -> IntegrationTestTx {
+            IntegrationTestTx {
+                deploy_tx: Self::fmt(deploy_tx),
+                contract: "".into(),
+                code: "".into(),
+                tx_hashes: vec![],
+                signed_calls: vec![],
+                raw_txs: vec![],
+            }
+        }
+
+        fn fmt(bytes: &Bytes) -> String {
+            format!("{:0x}", bytes)
+        }
+
+        pub fn contract(&mut self, addr: &Address) {
+            self.contract = format!("{:0x}", addr);
+        }
+
+        pub fn code(&mut self, code: &Bytes) {
+            self.code = Self::fmt(code);
+        }
+
+        pub fn tx_hash(&mut self, bytes: &FixedBytes<32>) {
+            self.tx_hashes.push(format!("0x{:0x}", bytes))
+        }
+
+        pub fn signed_call(&mut self, bytes: &Bytes) {
+            self.signed_calls.push(Self::fmt(bytes));
+        }
+
+        pub fn raw_tx(&mut self, bytes: &Bytes) {
+            self.raw_txs.push(Self::fmt(bytes));
+        }
+
+        pub fn load() -> IntegrationTestTx {
+            let file = File::open(Self::IT_TX_FILEPATH).unwrap();
+            serde_json::from_reader(file).unwrap()
+        }
+
+        pub fn write(&self) {
+            let file = File::create(Self::IT_TX_FILEPATH).unwrap();
+            serde_json::to_writer_pretty(file, &self).unwrap();    
+        }
     }
 }

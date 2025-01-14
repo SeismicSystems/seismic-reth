@@ -1,6 +1,5 @@
 use seismic_node::utils::{seismic_payload_attributes, start_mock_tee_server};
-#[cfg(test)]
-use seismic_node::utils::test_utils::seismic_tx; 
+use seismic_node::utils::test_utils::{seismic_tx, IntegrationTestTx}; 
 use alloy_consensus::TxEnvelope;
 use alloy_eips::eip2718::Decodable2718;
 use alloy_primitives::{bytes::Buf, hex, Address, Bytes, TxKind, U256};
@@ -10,6 +9,11 @@ use reth_e2e_test_utils::setup;
 use reth_node_ethereum::EthereumNode;
 use reth_tracing::tracing::*;
 use std::str::FromStr;
+
+// should we re-write tests/it-tx.json with new values?
+// NOTE: only set this to true if we have changed our protocol
+const REWRITE_IT_TX: bool = true;
+
 
 #[tokio::test(flavor = "multi_thread")]
 async fn contract() -> eyre::Result<()> {
@@ -56,6 +60,8 @@ async fn contract() -> eyre::Result<()> {
     let raw_tx =
         seismic_tx(&wallet.inner, nonce, TxKind::Create, chain_id.id(), input.clone()).await;
 
+    let mut itx: IntegrationTestTx = IntegrationTestTx::new(&raw_tx);
+
     let mut input_bytes = vec![0u8; raw_tx.len()];
     raw_tx.clone().copy_to_slice(&mut input_bytes);
     let mut input_bytes_slice = &input_bytes[..];
@@ -76,6 +82,7 @@ async fn contract() -> eyre::Result<()> {
 
     // Make the first node advance
     let tx_hash = first_node.rpc.inject_tx(raw_tx).await?;
+    itx.tx_hash(&tx_hash);
     let (payload, _) = first_node.advance_block().await?;
     let block_hash = payload.block().hash();
     block_number = payload.block().number;
@@ -85,8 +92,10 @@ async fn contract() -> eyre::Result<()> {
 
     let tx_receipt = second_node.rpc.transaction_receipt(tx_hash).await?.unwrap();
     let contract_addr = tx_receipt.contract_address.unwrap();
+    itx.contract(&contract_addr);
 
     let code = second_node.rpc.get_code(contract_addr, block_number).await?;
+    itx.code(&code);
 
     debug!(
         target: "e2e:send_call",
@@ -106,6 +115,7 @@ async fn contract() -> eyre::Result<()> {
         Bytes::from_static(&hex!("43bd0d70")),
     )
     .await;
+    itx.signed_call(&raw_tx);
 
     let output: Bytes = first_node.rpc.signed_call(raw_tx.clone(), block_number).await?;
     assert_eq!(U256::from_be_slice(&output), U256::ZERO);
@@ -124,6 +134,7 @@ async fn contract() -> eyre::Result<()> {
     let raw_tx =
         seismic_tx(&wallet.inner, nonce, TxKind::Call(contract_addr), chain_id.id(), input.clone())
             .await;
+    itx.raw_tx(&raw_tx);
     debug!(
         target: "e2e:send_call",
         ?raw_tx,
@@ -132,6 +143,7 @@ async fn contract() -> eyre::Result<()> {
 
     // Make the first node advance
     let tx_hash = first_node.rpc.inject_tx(raw_tx).await?;
+    itx.tx_hash(&tx_hash);
     let (payload, _) = first_node.advance_block().await?;
     let block_hash = payload.block().hash();
     block_number = payload.block().number;
@@ -149,6 +161,7 @@ async fn contract() -> eyre::Result<()> {
         Bytes::from_static(&hex!("43bd0d70")),
     )
     .await;
+    itx.signed_call(&raw_tx);
 
     let output: Bytes = first_node.rpc.signed_call(raw_tx.clone(), block_number).await?;
     debug!(
@@ -158,6 +171,10 @@ async fn contract() -> eyre::Result<()> {
         "transaction call isOdd() after change",
     );
     assert_eq!(U256::from_be_slice(&output), U256::from(1));
+
+    if REWRITE_IT_TX {
+        itx.write();
+    }
 
     Ok(())
 }
