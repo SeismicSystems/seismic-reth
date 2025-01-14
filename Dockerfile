@@ -46,17 +46,17 @@ COPY ./crates/ ./crates/
 COPY ./testing/ ./testing/
 COPY ./examples/ ./examples/
 COPY Cargo.toml Cargo.lock deny.toml Makefile ./
-RUN --mount=type=ssh cargo build --profile $BUILD_PROFILE --features "$FEATURES" --locked --bin reth
+RUN --mount=type=ssh cargo build --profile $BUILD_PROFILE --features "$FEATURES" --locked --bin seismic-reth
 
 # Copy the binary to a temporary location
-RUN cp /app/target/$BUILD_PROFILE/reth /app/reth
+RUN cp /app/target/$BUILD_PROFILE/seismic-reth /app/seismic-reth
 
 # Use Ubuntu as the runtime image
 FROM ubuntu:latest AS runtime
 WORKDIR /app
 
 # Copy reth over from the build stage
-COPY --from=builder /app/reth /usr/local/bin
+COPY --from=builder /app/seismic-reth /usr/local/bin
 
 # Copy license files
 COPY LICENSE-* ./
@@ -79,7 +79,7 @@ EXPOSE \
     $DISCOVERY_PORT/udp
 
 
-ENTRYPOINT /usr/local/bin/reth node \
+ENTRYPOINT /usr/local/bin/seismic-reth node \
             --dev \
             -vvvv \
             --http \
