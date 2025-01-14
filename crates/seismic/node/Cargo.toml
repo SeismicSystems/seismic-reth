@@ -49,6 +49,7 @@ alloy-rpc-types-eth.workspace  = true
 alloy-signer-local.workspace = true
 
 # misc
+serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 tracing.workspace = true
@@ -60,8 +61,10 @@ tokio-stream.workspace = true
 assert_cmd.workspace = true
 reqwest.workspace = true
 
+reth-e2e-test-utils.workspace = true
+sysinfo = "0.29"
 
 [dev-dependencies]
-reth-e2e-test-utils.workspace = true    
+reth-e2e-test-utils.workspace = true
 assert_cmd.workspace = true
 reqwest.workspace = true

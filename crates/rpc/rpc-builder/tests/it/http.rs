@@ -188,7 +188,7 @@ where
     EthApiClient::<Transaction, Block, Receipt, Header>::get_code(client, address, None)
         .await
         .unwrap();
-    EthApiClient::<Transaction, Block, Receipt, Header>::send_raw_transaction(client, tx)
+    EthApiClient::<Transaction, Block, Receipt, Header>::send_raw_transaction(client, tx.clone())
         .await
         .unwrap();
     EthApiClient::<Transaction, Block, Receipt, Header>::fee_history(
@@ -295,7 +295,7 @@ where
     .unwrap_err();
     EthApiClient::<Transaction, Block, Receipt, Header>::call(
         client,
-        call_request.clone(),
+        call_request.clone().into(),
         Some(block_number.into()),
         None,
         None,
@@ -323,9 +323,9 @@ where
     )
     .await
     .unwrap();
-    EthApiClient::<Transaction, Block>::call(
+    EthApiClient::<Transaction, Block, Receipt, Header>::call(
         client,
-        reth_rpc_eth_api::types::SeismicCallRequest::Bytes(tx.clone()),
+        tx.clone().into(),
         Some(block_number.into()),
         None,
         None,

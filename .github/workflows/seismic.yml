@@ -26,7 +26,7 @@ jobs:
       - run: cargo fmt --all --check
 
   build:
-    runs-on: ubuntu-24.04
+    runs-on: large-github-runner
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -96,3 +96,9 @@ jobs:
             ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
       - name: cargo test
         run: cargo test
+      - name: build seismic-reth
+        run: cargo build --bin seismic-reth
+      - name: seismic-node basic test
+        run: cargo test --package seismic-node --test basic -- contract --exact --show-output
+      - name: seismic-node integration test
+        run: cargo test --package seismic-node --test integration -- test_seismic_reth_rpc --exact --show-output
