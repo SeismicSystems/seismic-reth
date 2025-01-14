@@ -76,6 +76,8 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      SEISMIC_CI: 1
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
