@@ -1,5 +1,9 @@
 participants:
   - el_type: reth
-    el_image: seismic-reth:local
+    el_image: seismic-reth
     cl_type: lighthouse
     cl_image: sigp/lighthouse:latest
+additional_services: ["tx_spammer"]
+tx_spammer_params:
+  image: seismic-spammer
+  tx_spammer_extra_args: []

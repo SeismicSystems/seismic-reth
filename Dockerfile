@@ -76,18 +76,8 @@ EXPOSE \
     $AUTHRPC_PORT \
     $METRICS_PORT \
     $PEER_PORT \
-    $DISCOVERY_PORT/udp
+    $DISCOVERY_PORT \
+    30303/udp 
 
-
-ENTRYPOINT /usr/local/bin/seismic-reth node \
-            --dev \
-            -vvvv \
-            --http \
-            --http.addr 0.0.0.0 \
-            --http.port $HTTP_PORT \
-            --ws.port $WS_PORT \
-            --authrpc.port $AUTHRPC_PORT \
-            --authrpc.addr 0.0.0.0 \
-            --port $PEER_PORT \
-            --discovery.port $DISCOVERY_PORT \
-            --metrics $METRICS_PORT
+EXPOSE 30303 30303/udp 9001 8545 8546
+ENTRYPOINT ["/usr/local/bin/seismic-reth"]
