@@ -622,10 +622,6 @@ tikv-jemalloc-ctl = "0.6"
 tikv-jemallocator = "0.6"
 tracy-client = "0.17.3"
 
-# seismic-alloy-core
-# seismic-transaction = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", branch = "seismic" }
-# seismic-types = { git = "ssh://git@github.com/SeismicSystems/mantle.git", rev = "90277e21", features = ["zero-salt"] }
-
 tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "74b1780" }
 
 [patch.crates-io]
