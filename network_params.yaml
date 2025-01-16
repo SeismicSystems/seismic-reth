@@ -1,5 +1,11 @@
 participants:
   - el_type: reth
-    el_image: seismic-reth:local
+    el_image: seismic-reth
+    el_extra_params: ["--tee.mock-server"]
     cl_type: lighthouse
-    cl_image: sigp/lighthouse:latest
+    cl_image: sigp/lighthouse:v6.0.0
+additional_services: ["tx_spammer"]
+tx_spammer_params:
+  image: seismic-spammer
+  tx_spammer_extra_args: []
+global_log_level: debug
