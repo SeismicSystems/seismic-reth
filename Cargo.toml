@@ -626,7 +626,7 @@ tracy-client = "0.17.3"
 # seismic-transaction = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", branch = "seismic" }
 # seismic-types = { git = "ssh://git@github.com/SeismicSystems/mantle.git", rev = "90277e21", features = ["zero-salt"] }
 
-tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "35c66c7" }
+tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", branch = "main" }
 
 [patch.crates-io]
 # If our dependencies depend on these things,
