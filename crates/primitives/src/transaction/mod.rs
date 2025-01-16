@@ -804,7 +804,7 @@ impl alloy_consensus::Transaction for Transaction {
         }
     }
 
-    fn encryption_pubkey(&self) -> Option< &alloy_consensus::transaction::EncryptionPublicKey> {
+    fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey> {
         match self {
             Self::Seismic(tx) => tx.encryption_pubkey(),
             _ => None,

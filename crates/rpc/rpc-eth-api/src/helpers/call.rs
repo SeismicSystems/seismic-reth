@@ -250,11 +250,10 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
             let (cfg, block, at) = self.evm_env_at(block_number.unwrap_or_default()).await?;
 
-            let evm_config = self.evm_config();
             let env = EnvWithHandlerCfg::new_with_cfg_env(
                 cfg,
                 block,
-                evm_config
+                self.evm_config()
                     .tx_env(tx.as_signed(), tx.signer())
                     .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
             );
@@ -271,7 +270,8 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                 .await?;
 
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
-            let tx_signed: &<<Self as RpcNodeCore>::Provider as TransactionsProvider>::Transaction = tx.as_signed();
+            let tx_signed: &<<Self as RpcNodeCore>::Provider as TransactionsProvider>::Transaction =
+                tx.as_signed();
             if TxSeismic::TX_TYPE != tx_signed.ty() {
                 return Ok(output);
             }
