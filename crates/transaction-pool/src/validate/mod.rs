@@ -148,6 +148,11 @@ impl<T: PoolTransaction> ValidTransaction<T> {
     pub fn nonce(&self) -> u64 {
         self.transaction().nonce()
     }
+
+    /// Returns the encryption pubkey of the transaction (Seismic)
+    pub fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey> {
+        self.transaction().encryption_pubkey()
+    }
 }
 
 /// Provides support for validating transaction at any given state of the chain
@@ -436,6 +441,11 @@ impl<T: PoolTransaction> ValidPoolTransaction<T> {
         }
 
         false
+    }
+
+    /// Returns the encryption pubkey of the transaction (Seismic)
+    pub fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey> {
+        self.transaction.encryption_pubkey()
     }
 }
 

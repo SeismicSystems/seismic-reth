@@ -773,6 +773,10 @@ impl PoolTransaction for MockTransaction {
             Self::Eip2930 { chain_id, .. } => Some(*chain_id),
         }
     }
+
+    fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey> {
+        None
+    }
 }
 
 impl EthPoolTransaction for MockTransaction {
