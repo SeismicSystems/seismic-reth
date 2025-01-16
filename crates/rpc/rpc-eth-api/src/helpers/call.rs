@@ -20,7 +20,7 @@ use reth_chainspec::EthChainSpec;
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
 use reth_node_api::BlockBody;
 use reth_primitives_traits::SignedTransaction;
-use reth_provider::{BlockIdReader, ChainSpecProvider, ProviderHeader};
+use reth_provider::{BlockIdReader, ChainSpecProvider, ProviderHeader, TransactionsProvider};
 use reth_revm::{
     database::StateProviderDatabase,
     db::CacheDB,
@@ -271,7 +271,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                 .await?;
 
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
-            let tx_signed = tx.as_signed();
+            let tx_signed: &<<Self as RpcNodeCore>::Provider as TransactionsProvider>::Transaction = tx.as_signed();
             if TxSeismic::TX_TYPE != tx_signed.ty() {
                 return Ok(output);
             }
