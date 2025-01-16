@@ -85,9 +85,13 @@ ENTRYPOINT /usr/local/bin/seismic-reth node \
             --http \
             --http.addr 0.0.0.0 \
             --http.port $HTTP_PORT \
+            --http.api all \
+            --ws \
+            --ws.addr 0.0.0.0 \
             --ws.port $WS_PORT \
-            --authrpc.port $AUTHRPC_PORT \
+            --ws.api all \
             --authrpc.addr 0.0.0.0 \
+            --authrpc.port $AUTHRPC_PORT \
             --port $PEER_PORT \
             --discovery.port $DISCOVERY_PORT \
             --metrics $METRICS_PORT
