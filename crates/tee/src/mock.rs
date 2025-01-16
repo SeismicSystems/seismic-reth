@@ -163,6 +163,17 @@ impl WalletAPI for MockWallet {
         let encrypted_data = aes_encrypt(&aes_key, &data, nonce)?;
         Ok(encrypted_data)
     }
+
+    fn decrypt(
+        &self,
+        data: Vec<u8>,
+        nonce: u64,
+        private_key: &secp256k1::SecretKey,
+    ) -> Result<Vec<u8>, anyhow::Error> {
+        let aes_key = MockWallet::generate_aes_key(private_key)?;
+        let decrypted_data = aes_decrypt(&aes_key, &data, nonce)?;
+        Ok(decrypted_data)
+    }
 }
 
 #[cfg(test)]
