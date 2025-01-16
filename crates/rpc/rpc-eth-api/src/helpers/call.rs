@@ -6,7 +6,7 @@ use crate::{
     helpers::estimate::EstimateCall, FromEthApiError, FromEvmError, FullEthApiTypes,
     IntoEthApiError, RpcBlock, RpcNodeCore,
 };
-use alloy_consensus::{BlockHeader, Transaction, TxSeismic, Typed2718};
+use alloy_consensus::{BlockHeader, Transaction, Typed2718};
 use alloy_eips::{eip1559::calc_next_block_base_fee, eip2930::AccessListResult};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_eth::{
@@ -20,7 +20,7 @@ use reth_chainspec::EthChainSpec;
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
 use reth_node_api::BlockBody;
 use reth_primitives_traits::SignedTransaction;
-use reth_provider::{BlockIdReader, ChainSpecProvider, ProviderHeader, TransactionsProvider};
+use reth_provider::{BlockIdReader, ChainSpecProvider, ProviderHeader};
 use reth_revm::{
     database::StateProviderDatabase,
     db::CacheDB,
@@ -270,9 +270,8 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                 .await?;
 
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
-            let tx_signed: &<<Self as RpcNodeCore>::Provider as TransactionsProvider>::Transaction =
-                tx.as_signed();
-            if TxSeismic::TX_TYPE != tx_signed.ty() {
+            let tx_signed = tx.as_signed();
+            if alloy_consensus::transaction::TxSeismic::TX_TYPE != tx_signed.ty() {
                 return Ok(output);
             }
 
