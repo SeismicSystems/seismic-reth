@@ -66,10 +66,10 @@ std = [
 	"revm-primitives/std",
     "reth-primitives-traits/std",
 	"revm/std",
-	"reth-optimism-primitives/std",
+	# "reth-optimism-primitives/std",
 	"reth-ethereum-forks/std",
 	"derive_more/std",
-	"reth-optimism-forks/std"
+	# "reth-optimism-forks/std"
 ]
 optimism = [
 	"reth-primitives/optimism",
