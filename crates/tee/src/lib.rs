@@ -57,11 +57,11 @@ where
 /// Blocking decrypt function call to contact TeeAPI
 pub fn decrypt<T: TeeAPI>(
     tee_client: &T,
-    encryption_pubkey: PublicKey,
+    key: PublicKey,
     data: Vec<u8>,
     nonce: u64,
 ) -> Result<Vec<u8>, TeeError> {
-    let payload = IoDecryptionRequest { msg_sender: encryption_pubkey, data, nonce };
+    let payload = IoDecryptionRequest { key, data, nonce };
 
     let IoDecryptionResponse { decrypted_data } =
         block_on_with_runtime(tee_client.tx_io_decrypt(payload))
@@ -72,11 +72,11 @@ pub fn decrypt<T: TeeAPI>(
 /// Blocking encrypt function call to contact TeeAPI
 pub fn encrypt<T: TeeAPI>(
     tee_client: &T,
-    encryption_pubkey: PublicKey,
+    key: PublicKey,
     data: Vec<u8>,
     nonce: u64,
 ) -> Result<Vec<u8>, TeeError> {
-    let payload = IoEncryptionRequest { msg_sender: encryption_pubkey, data, nonce };
+    let payload = IoEncryptionRequest { key, data, nonce };
 
     let IoEncryptionResponse { encrypted_data } =
         block_on_with_runtime(tee_client.tx_io_encrypt(payload))

@@ -12,7 +12,7 @@ use reth_tee::{
     WalletAPI,
 };
 use reth_tracing::tracing::*;
-use secp256k1::SecretKey;
+use secp256k1::{SecretKey, PublicKey};
 use serde_json::{json, Value};
 use std::{thread, time::Duration};
 use tokio::task;
@@ -220,7 +220,7 @@ pub mod test_utils {
     use reth_e2e_test_utils::transaction::TransactionTestContext;
     use serde::{Deserialize, Serialize};
 
-    pub async fn decrypt(sk_wallet: &PrivateKeySigner, nonce: u64, ciphertext: Bytes) -> Bytes {
+    pub async fn decrypt(sk_wallet: &PrivateKeySigner, nonce: u64, ciphertext: &Bytes) -> Bytes {
         let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
             .expect("32 bytes, within curve order");
         let tee_wallet = MockWallet {};
@@ -230,7 +230,7 @@ pub mod test_utils {
         Bytes::from(decrypted_output)
     }
 
-    pub async fn encrypt(sk_wallet: &PrivateKeySigner, nonce: u64, plaintext: Bytes) -> Bytes {
+    pub async fn encrypt(sk_wallet: &PrivateKeySigner, nonce: u64, plaintext: &Bytes) -> Bytes {
         let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
             .expect("32 bytes, within curve order");
         let tee_wallet = MockWallet {};
@@ -243,7 +243,7 @@ pub mod test_utils {
     pub fn get_encryption_pubkey(sk_wallet: &PrivateKeySigner) -> PublicKey {
         let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
             .expect("32 bytes, within curve order");
-        secp256k1::PublicKey::from_secret_key_global(&sk);
+        PublicKey::from_secret_key_global(&sk)
     }
 
     /// Create a seismic transaction
@@ -255,7 +255,7 @@ pub mod test_utils {
         decrypted_input: Bytes,
     ) -> Bytes {
 
-        let encrypted_input = encrypt(sk_wallet, nonce, decrypted_input).await;
+        let encrypted_input = encrypt(sk_wallet, nonce, &decrypted_input).await;
         debug!(target: "e2e:seismic_tx", "encrypted_input: {:?}", encrypted_input.clone());
         debug!(target: "e2e:seismic_tx", "encrypted_input: {:?}", Bytes::from(encrypted_input.clone()));
 
@@ -290,6 +290,7 @@ pub mod test_utils {
         pub tx_hashes: Vec<String>,
         pub signed_calls: Vec<String>,
         pub raw_txs: Vec<String>,
+        pub encrypted_outputs: Vec<String>,
     }
 
     impl IntegrationTestTx {
@@ -303,6 +304,7 @@ pub mod test_utils {
                 tx_hashes: vec![],
                 signed_calls: vec![],
                 raw_txs: vec![],
+                encrypted_outputs: vec![],
             }
         }
 
@@ -328,6 +330,10 @@ pub mod test_utils {
 
         pub fn raw_tx(&mut self, bytes: &Bytes) {
             self.raw_txs.push(Self::fmt(bytes));
+        }
+
+        pub fn encrypted_output(&mut self, bytes: &Bytes) {
+            self.encrypted_outputs.push(Self::fmt(bytes));
         }
 
         pub fn load() -> IntegrationTestTx {

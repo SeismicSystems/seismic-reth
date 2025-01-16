@@ -111,7 +111,7 @@ impl TeeAPI for MockTeeClient {
     ) -> Result<IoEncryptionResponse, anyhow::Error> {
         // load key and decrypt data
         let ecdh_sk = get_sample_secp256k1_sk();
-        let shared_secret = SharedSecret::new(&payload.msg_sender, &ecdh_sk);
+        let shared_secret = SharedSecret::new(&payload.key, &ecdh_sk);
 
         let aes_key = derive_aes_key(&shared_secret)
             .map_err(|e| anyhow!("Error while deriving AES key: {:?}", e))?;
@@ -126,7 +126,7 @@ impl TeeAPI for MockTeeClient {
     ) -> Result<IoDecryptionResponse, anyhow::Error> {
         // load key and decrypt data
         let ecdh_sk = get_sample_secp256k1_sk();
-        let shared_secret = SharedSecret::new(&payload.msg_sender, &ecdh_sk);
+        let shared_secret = SharedSecret::new(&payload.key, &ecdh_sk);
 
         debug!(target: "reth::mock_client", ?payload);
 
@@ -199,7 +199,7 @@ mod tests {
 
         // Original encryption request
         let decryption_request =
-            IoDecryptionRequest { msg_sender: wallet_public_key, data: cyphertext.clone(), nonce };
+            IoDecryptionRequest { key: wallet_public_key, data: cyphertext.clone(), nonce };
 
         let tee = MockTeeClient {};
         let start_time = std::time::Instant::now();
@@ -242,7 +242,7 @@ mod tests {
 
         // Create an encryption request
         let encryption_request =
-            IoEncryptionRequest { msg_sender: wallet_public_key, data: plaintext.clone(), nonce };
+            IoEncryptionRequest { key: wallet_public_key, data: plaintext.clone(), nonce };
 
         // Send the encryption request
         let encryption_response = match tee_client.tx_io_encrypt(encryption_request).await {
@@ -254,7 +254,7 @@ mod tests {
 
         // Create a decryption request
         let decryption_request = IoDecryptionRequest {
-            msg_sender: wallet_public_key,
+            key: wallet_public_key,
             data: encryption_response.encrypted_data,
             nonce,
         };
