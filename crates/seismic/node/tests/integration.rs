@@ -127,9 +127,7 @@ async fn test_seismic_reth_rpc() {
         .json()
         .await
         .expect("Failed to parse code");
-    assert!(
-        response["result"] == itx.encrypted_outputs[0]
-    );
+    assert!(response["result"] == itx.encrypted_outputs[0]);
     println!("eth_call Response (parity 0): {:?}", response["result"]);
 
     // Step 3: Send transaction to set suint
@@ -190,8 +188,6 @@ async fn test_seismic_reth_rpc() {
         .json()
         .await
         .expect("Failed to parse code");
-    assert!(
-        response["result"] == itx.encrypted_outputs[1]
-    );
+    assert!(response["result"] == itx.encrypted_outputs[1]);
     println!("eth_call Response (parity 1): {:?}", response);
 }

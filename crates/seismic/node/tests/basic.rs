@@ -8,7 +8,7 @@ use reth_node_ethereum::EthereumNode;
 use reth_tracing::tracing::*;
 use seismic_node::utils::{
     seismic_payload_attributes, start_mock_tee_server,
-    test_utils::{seismic_tx, IntegrationTestTx, decrypt},
+    test_utils::{decrypt, seismic_tx, IntegrationTestTx},
 };
 use std::str::FromStr;
 

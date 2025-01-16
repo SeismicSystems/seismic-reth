@@ -12,7 +12,7 @@ use reth_tee::{
     WalletAPI,
 };
 use reth_tracing::tracing::*;
-use secp256k1::{SecretKey, PublicKey};
+use secp256k1::{PublicKey, SecretKey};
 use serde_json::{json, Value};
 use std::{thread, time::Duration};
 use tokio::task;
@@ -254,7 +254,6 @@ pub mod test_utils {
         chain_id: u64,
         decrypted_input: Bytes,
     ) -> Bytes {
-
         let encrypted_input = encrypt(sk_wallet, nonce, &decrypted_input).await;
         debug!(target: "e2e:seismic_tx", "encrypted_input: {:?}", encrypted_input.clone());
         debug!(target: "e2e:seismic_tx", "encrypted_input: {:?}", Bytes::from(encrypted_input.clone()));
