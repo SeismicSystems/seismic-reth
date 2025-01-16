@@ -2,7 +2,10 @@
 
 use reth::chainspec::EthereumChainSpecParser;
 use reth_cli_commands::node::NoArgs;
-use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher};
+use reth_node_builder::{
+    engine_tree_config::{TreeConfig, DEFAULT_BACKUP_THRESHOLD},
+    EngineNodeLauncher,
+};
 use reth_provider::providers::BlockchainProvider2;
 use reth_tee::mock::MockTeeServer;
 use seismic_node::rpc::{SeismicApi, SeismicApiServer};
@@ -21,7 +24,8 @@ fn main() {
     }
 
     if let Err(err) = Cli::<EthereumChainSpecParser, NoArgs>::parse().run(|builder, _| async move {
-        let engine_tree_config = TreeConfig::default();
+        let engine_tree_config = TreeConfig::default()
+            .with_data_dir(builder.config().datadir());
         let node = builder
             .with_types_and_provider::<EthereumNode, BlockchainProvider2<_>>()
             .with_components(EthereumNode::components())

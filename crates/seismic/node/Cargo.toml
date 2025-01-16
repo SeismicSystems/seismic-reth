@@ -39,7 +39,7 @@ reth-engine-util.workspace = true
 reth-exex.workspace = true
 reth-node-events.workspace = true
 reth-rpc-engine-api.workspace = true
-
+reth-storage-api.workspace = true
 alloy-consensus.workspace = true
 alloy-eips.workspace = true
 alloy-primitives.workspace = true

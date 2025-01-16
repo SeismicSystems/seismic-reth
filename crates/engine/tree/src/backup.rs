@@ -1,0 +1,252 @@
+//! reth's database backup functionality
+use crate::tree::TreeConfig;
+use alloy_eips::BlockNumHash;
+use alloy_rlp::BufMut;
+use reth_errors::ProviderError;
+use reth_node_core::dirs::{ChainPath, DataDirPath};
+use reth_provider::{DatabaseProviderFactory, ProviderFactory, StaticFileProviderFactory};
+use std::{
+    path::PathBuf,
+    sync::{
+        mpsc::{Receiver, SendError, Sender},
+        Arc, Mutex,
+    },
+    time::Instant,
+};
+use thiserror::Error;
+use tokio::sync::oneshot;
+use tracing::{debug, error, info};
+
+/// Configuration for the backup service
+#[derive(Debug, Clone)]
+pub struct BackupConfig {
+    /// Source directory to backup
+    pub source_dir: PathBuf,
+    /// Destination directory for backups
+    pub dest_dir: PathBuf,
+}
+
+/// Service that handles database backups based on block events
+#[derive(Debug)]
+pub struct BackupService {
+    /// Incoming backup requests
+    incoming: Receiver<BackupAction>,
+    /// The data directory for the engine tree.
+    data_dir: ChainPath<DataDirPath>,
+}
+/// A signal to the backup service that a backup should be performed.
+#[derive(Debug)]
+pub enum BackupAction {
+    /// Perform a backup at the given block number.
+    BackupAtBlock(BlockNumHash, oneshot::Sender<Option<BlockNumHash>>),
+}
+impl BackupService {
+    /// Create a new backup service
+    pub fn new(incoming: Receiver<BackupAction>, config: &TreeConfig) -> Self {
+        Self { incoming, data_dir: config.data_dir() }
+    }
+
+    /// Main loop that processes backup actions
+    pub fn run(mut self) -> Result<(), ProviderError> {
+        while let Ok(action) = self.incoming.recv() {
+            match action {
+                BackupAction::BackupAtBlock(block_number, sender) => {
+                    let result = self.perform_backup(block_number);
+                    if let Err(e) = result {
+                        error!(target: "engine::backup", ?e, "Backup failed");
+                        let _ = sender.send(None);
+                    } else {
+                        let _ = sender.send(Some(block_number));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Perform the actual backup operation
+    fn perform_backup(&self, block_number: BlockNumHash) -> Result<(), ProviderError> {
+        debug!(target: "engine::backup", ?block_number, "Starting backup");
+        let backup_name = format!("backup_block_{}", block_number.number);
+        let backup_path = self.data_dir.data_dir().join(backup_name);
+
+        // Perform the actual backup using the provider
+        BackupService::backup_dir(&PathBuf::from(self.data_dir.data_dir()), &backup_path)?;
+
+        // Rotate old backups if needed
+        // self.rotate_backups()?;
+
+        info!(
+            target: "engine::backup",
+            ?block_number,
+            "Backup completed successfully"
+        );
+
+        Ok(())
+    }
+
+    /// Recursively copies the source directory to the destination directory.
+    ///
+    /// This function uses asynchronous file operations to perform the backup.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - The source directory to backup.
+    /// * `destination` - The destination directory where the backup will be stored.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if the backup is successful.
+    /// * `Err(anyhow::Error)` if an error occurs during the backup.
+    pub fn backup_dir(source: &PathBuf, destination: &PathBuf) -> Result<(), ProviderError> {
+        debug!(target: "consensus::engine::hooks::backup", ?source, ?destination);
+
+        let source_path = source.as_path();
+        let destination_path = destination.as_path();
+
+        // Retrieve the metadata of the source path
+        let metadata = std::fs::metadata(source_path).map_err(|e| {
+            ProviderError::FsPathError(format!("Failed to access source path: {}", e))
+        })?;
+
+        // If the source is a directory, create the destination directory if it does not exist
+        if metadata.is_dir() {
+            if !destination_path.exists() {
+                std::fs::create_dir_all(destination_path).map_err(|e| {
+                    ProviderError::FsPathError(format!(
+                        "Failed to create destination directory: {}",
+                        e
+                    ))
+                })?;
+            }
+
+            // Stack to manage recursive copying
+            let mut entries_stack =
+                vec![(source_path.to_path_buf(), destination_path.to_path_buf())];
+
+            while let Some((current_src, current_dst)) = entries_stack.pop() {
+                let mut entries = std::fs::read_dir(&current_src).map_err(|e| {
+                    ProviderError::FsPathError(format!(
+                        "Failed to read directory {}: {}",
+                        current_src.display(),
+                        e
+                    ))
+                })?;
+
+                while let Some(entry) = entries.next().transpose().map_err(|e| {
+                    ProviderError::FsPathError(format!("Failed to get diredctory entry: {}", e))
+                })? {
+                    let entry_path = entry.path();
+                    let entry_name = entry.file_name();
+                    let dst_path = current_dst.join(&entry_name);
+                    let entry_metadata = entry.metadata().map_err(|e| {
+                        ProviderError::FsPathError(format!("Failed to get diredctory entry: {}", e))
+                    })?;
+
+                    if entry_metadata.is_dir() {
+                        if !dst_path.exists() {
+                            std::fs::create_dir_all(&dst_path).map_err(|e| {
+                                ProviderError::FsPathError(format!(
+                                    "Failed to create directory {}: {}",
+                                    dst_path.display(),
+                                    e
+                                ))
+                            })?;
+                        }
+                        entries_stack.push((entry_path, dst_path));
+                    } else {
+                        std::fs::copy(&entry_path, &dst_path).map_err(|e| {
+                            ProviderError::FsPathError(format!(
+                                "Failed to copy file from {} to {}: {}",
+                                entry_path.display(),
+                                dst_path.display(),
+                                e
+                            ))
+                        })?;
+                    }
+                }
+            }
+        } else {
+            // If the source is a file, copy it directly, creating parent directories if necessary
+            if let Some(parent) = destination_path.parent() {
+                if !parent.exists() {
+                    std::fs::create_dir_all(parent).map_err(|e| {
+                        ProviderError::FsPathError(format!(
+                            "Failed to create parent directory {}: {}",
+                            parent.display(),
+                            e
+                        ))
+                    })?;
+                }
+            }
+            std::fs::copy(source_path, destination_path).map_err(|e| {
+                ProviderError::FsPathError(format!(
+                    "Failed to copy file from {} to {}: {}",
+                    source_path.display(),
+                    destination_path.display(),
+                    e
+                ))
+            })?;
+        }
+
+        Ok(())
+    }
+}
+
+/// Errors that can occur during backup operations
+#[derive(Debug, Error)]
+pub enum BackupError {
+    /// IO error
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    /// Provider error
+    #[error(transparent)]
+    Provider(#[from] reth_provider::ProviderError),
+}
+
+/// Handle to interact with the backup service
+#[derive(Debug)]
+pub struct BackupHandle {
+    pub sender: Sender<BackupAction>,
+    pub rx: Option<(oneshot::Receiver<Option<BlockNumHash>>, Instant)>,
+    pub latest_backup_block: BlockNumHash,
+}
+
+impl BackupHandle {
+    /// Create a new backup handle
+    pub fn new(sender: Sender<BackupAction>) -> Self {
+        Self { sender, rx: None, latest_backup_block: BlockNumHash::default() }
+    }
+
+    /// Spawn a new backup service
+    pub fn spawn_service(config: &TreeConfig) -> BackupHandle {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let handle = BackupHandle::new(tx);
+
+        let service = BackupService::new(rx, config);
+        std::thread::Builder::new()
+            .name("Backup Service".to_string())
+            .spawn(move || {
+                if let Err(err) = service.run() {
+                    error!(target: "engine::backup", ?err, "Backup service failed");
+                }
+            })
+            .unwrap();
+
+        handle
+    }
+
+    pub fn in_progress(&self) -> bool {
+        self.rx.is_some()
+    }
+
+    /// Sets state for a started backup task.
+    pub(crate) fn start(&mut self, rx: oneshot::Receiver<Option<BlockNumHash>>) {
+        self.rx = Some((rx, Instant::now()));
+    }
+
+    pub fn finish(&mut self, block_number: BlockNumHash) {
+        self.latest_backup_block = block_number;
+        self.rx = None;
+    }
+}

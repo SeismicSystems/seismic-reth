@@ -1,5 +1,6 @@
 use crate::{
     backfill::{BackfillAction, BackfillSyncState},
+    backup::{BackupAction, BackupHandle},
     chain::FromOrchestrator,
     engine::{DownloadRequest, EngineApiEvent, EngineApiKind, EngineApiRequest, FromEngine},
     persistence::PersistenceHandle,
@@ -511,6 +512,8 @@ where
     invalid_block_hook: Box<dyn InvalidBlockHook<N>>,
     /// The engine API variant of this handler
     engine_kind: EngineApiKind,
+    /// The backup handler
+    backup: BackupHandle,
 }
 
 impl<N, P: Debug, E: Debug, T: EngineTypes + Debug, V: Debug> std::fmt::Debug
@@ -574,6 +577,8 @@ where
     ) -> Self {
         let (incoming_tx, incoming) = std::sync::mpsc::channel();
 
+        let backup = BackupHandle::spawn_service(&config);
+
         Self {
             provider,
             executor_provider,
@@ -592,6 +597,7 @@ where
             incoming_tx,
             invalid_block_hook: Box::new(NoopInvalidBlockHook),
             engine_kind,
+            backup,
         }
     }
 
@@ -684,6 +690,10 @@ where
 
             if let Err(err) = self.advance_persistence() {
                 error!(target: "engine::tree", %err, "Advancing persistence failed");
+                return
+            }
+            if let Err(err) = self.advance_backup() {
+                error!(target: "engine::tree", %err, "Advancing backup failed");
                 return
             }
         }
@@ -1180,7 +1190,6 @@ where
             // Check if persistence has complete
             match rx.try_recv() {
                 Ok(last_persisted_hash_num) => {
-                    self.metrics.engine.persistence_duration.record(start_time.elapsed());
                     let Some(BlockNumHash {
                         hash: last_persisted_block_hash,
                         number: last_persisted_block_number,
@@ -1199,6 +1208,49 @@ where
                 }
                 Err(TryRecvError::Closed) => return Err(TryRecvError::Closed.into()),
                 Err(TryRecvError::Empty) => self.persistence_state.rx = Some((rx, start_time)),
+            }
+        }
+        Ok(())
+    }
+
+    fn advance_backup(&mut self) -> Result<(), AdvancePersistenceError> {
+        if !self.backup.in_progress() {
+            if self.should_backup() {
+                let (tx, rx) = oneshot::channel();
+                let _ = self.backup.sender.send(BackupAction::BackupAtBlock(
+                    self.persistence_state.last_persisted_block,
+                    tx,
+                ));
+                self.backup.start(rx);
+            }
+        }
+
+        if self.backup.in_progress() {
+            let (mut rx, start_time) = self
+                .backup
+                .rx
+                .take()
+                .expect("if a backup task is in progress Receiver must be Some");
+            // Check if persistence has complete
+            match rx.try_recv() {
+                Ok(last_backup_hash_num) => {
+                    let Some(BlockNumHash {
+                        hash: last_backup_block_hash,
+                        number: last_backup_block_number,
+                    }) = last_backup_hash_num
+                    else {
+                        warn!(target: "engine::tree", "Backup task completed but did not backup any blocks");
+                        return Ok(())
+                    };
+
+                    debug!(target: "engine::tree", ?last_backup_hash_num, "Finished backup, calling finish");
+                    self.backup.finish(BlockNumHash::new(
+                        last_backup_block_number,
+                        last_backup_block_hash,
+                    ));
+                }
+                Err(TryRecvError::Closed) => return Err(TryRecvError::Closed.into()),
+                Err(TryRecvError::Empty) => self.backup.rx = Some((rx, start_time)),
             }
         }
         Ok(())
@@ -1487,6 +1539,20 @@ where
         let min_block = self.persistence_state.last_persisted_block.number;
         self.state.tree_state.canonical_block_number().saturating_sub(min_block) >
             self.config.persistence_threshold()
+    }
+
+    /// Returns true if the canonical chain length minus the last persisted
+    /// block is greater than or equal to the backup threshold and
+    /// backfill is not running.
+    const fn should_backup(&self) -> bool {
+        if !self.backfill_sync_state.is_idle() {
+            // can't backup if backfill is running
+            return false
+        }
+
+        let min_block = self.backup.latest_backup_block.number;
+        self.persistence_state.last_persisted_block.number.saturating_sub(min_block) >
+            self.config.backup_threshold()
     }
 
     /// Returns a batch of consecutive canonical blocks to persist in the range
