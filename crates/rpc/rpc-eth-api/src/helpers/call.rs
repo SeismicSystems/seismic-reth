@@ -7,14 +7,13 @@ use crate::{
     IntoEthApiError, RpcBlock, RpcNodeCore,
 };
 use alloy_consensus::{BlockHeader, Typed2718};
-use alloy_rpc_types_eth::TransactionTrait;
 use alloy_eips::{eip1559::calc_next_block_base_fee, eip2930::AccessListResult};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_eth::{
     simulate::{SimBlock, SimulatePayload, SimulatedBlock},
     state::{EvmOverrides, StateOverride},
     transaction::TransactionRequest,
-    BlockId, Bundle, EthCallResponse, StateContext, TransactionInfo,
+    BlockId, Bundle, EthCallResponse, StateContext, TransactionInfo, TransactionTrait,
 };
 use futures::Future;
 use reth_chainspec::EthChainSpec;
@@ -238,7 +237,11 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
     }
 
     /// Encrypts the output of a call using the encryption pubkey of the transaction
-    fn encrypt_output<T: TransactionTrait + Typed2718>(&self, output: Bytes, tx_signed: &T) -> Result<Bytes, Self::Error> {
+    fn encrypt_output<T: TransactionTrait + Typed2718>(
+        &self,
+        output: Bytes,
+        tx_signed: &T,
+    ) -> Result<Bytes, Self::Error> {
         let nonce = tx_signed.nonce();
         let enc_pk_opt = tx_signed.encryption_pubkey();
         let enc_pk = enc_pk_opt.ok_or(EthApiError::InvalidParams(
@@ -250,9 +253,8 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
             })?;
         let tee_client = reth_tee::TeeHttpClient::default();
         let encrypted_output =
-            reth_tee::encrypt(&tee_client, encryption_pubkey, output.to_vec(), nonce).map_err(
-                |_| EthApiError::InvalidParams("Failed to encrypt output".to_string()),
-            )?;
+            reth_tee::encrypt(&tee_client, encryption_pubkey, output.to_vec(), nonce)
+                .map_err(|_| EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
         Ok(Bytes::from(encrypted_output))
     }
 
