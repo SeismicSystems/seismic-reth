@@ -2,10 +2,7 @@
 
 use reth::chainspec::EthereumChainSpecParser;
 use reth_cli_commands::node::NoArgs;
-use reth_node_builder::{
-    engine_tree_config::{TreeConfig, DEFAULT_BACKUP_THRESHOLD},
-    EngineNodeLauncher,
-};
+use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher};
 use reth_provider::providers::BlockchainProvider2;
 use reth_tee::mock::MockTeeServer;
 use seismic_node::rpc::{SeismicApi, SeismicApiServer};

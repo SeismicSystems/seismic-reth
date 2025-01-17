@@ -1,17 +1,12 @@
 //! reth's database backup functionality
 use crate::tree::TreeConfig;
 use alloy_eips::BlockNumHash;
-use alloy_rlp::BufMut;
 use reth_errors::ProviderError;
 use reth_node_core::dirs::{ChainPath, DataDirPath};
-use reth_provider::{DatabaseProviderFactory, ProviderFactory, StaticFileProviderFactory};
 use reth_tracing::tracing::*;
 use std::{
     path::PathBuf,
-    sync::{
-        mpsc::{Receiver, SendError, Sender},
-        Arc, Mutex,
-    },
+    sync::mpsc::{Receiver, Sender},
     time::Instant,
 };
 use thiserror::Error;
@@ -208,8 +203,11 @@ pub enum BackupError {
 /// Handle to interact with the backup service
 #[derive(Debug)]
 pub struct BackupHandle {
+    /// The sender for backup actions
     pub sender: Sender<BackupAction>,
+    /// The receiver from backup service
     pub rx: Option<(oneshot::Receiver<Option<BlockNumHash>>, Instant)>,
+    /// The latest backup block number
     pub latest_backup_block: BlockNumHash,
 }
 
@@ -237,6 +235,7 @@ impl BackupHandle {
         handle
     }
 
+    /// Checks if a backup is currently in progress.
     pub fn in_progress(&self) -> bool {
         self.rx.is_some()
     }
@@ -246,6 +245,7 @@ impl BackupHandle {
         self.rx = Some((rx, Instant::now()));
     }
 
+    /// Sets state for a finished backup task.
     pub fn finish(&mut self, block_number: BlockNumHash) {
         self.latest_backup_block = block_number;
         self.rx = None;

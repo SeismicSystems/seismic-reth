@@ -688,8 +688,6 @@ where
                 }
             }
 
-            debug!(target: "engine::tree", "processing next iteration of engine api handler loop");
-
             if let Err(err) = self.advance_persistence() {
                 error!(target: "engine::tree", %err, "Advancing persistence failed");
                 return
@@ -1192,6 +1190,7 @@ where
             // Check if persistence has complete
             match rx.try_recv() {
                 Ok(last_persisted_hash_num) => {
+                    self.metrics.engine.persistence_duration.record(start_time.elapsed());
                     let Some(BlockNumHash {
                         hash: last_persisted_block_hash,
                         number: last_persisted_block_number,
