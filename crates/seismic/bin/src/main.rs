@@ -21,7 +21,8 @@ fn main() {
     }
 
     if let Err(err) = Cli::<EthereumChainSpecParser, NoArgs>::parse().run(|builder, _| async move {
-        let engine_tree_config = TreeConfig::default();
+        let engine_tree_config = TreeConfig::default()
+            .with_data_dir(builder.config().datadir());
         let node = builder
             .with_types_and_provider::<EthereumNode, BlockchainProvider2<_>>()
             .with_components(EthereumNode::components())

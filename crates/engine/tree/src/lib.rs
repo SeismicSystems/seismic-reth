@@ -97,6 +97,8 @@ pub use reth_blockchain_tree_api::*;
 
 /// Support for backfill sync mode.
 pub mod backfill;
+/// The background backup service
+pub mod backup;
 /// The type that drives the chain forward.
 pub mod chain;
 /// Support for downloading blocks on demand for live sync.

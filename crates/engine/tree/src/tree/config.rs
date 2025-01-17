@@ -1,7 +1,13 @@
 //! Engine tree configuration.
 
+use reth_chainspec::Chain;
+use reth_node_core::dirs::{ChainPath, DataDirPath, PlatformPath};
+
 /// Triggers persistence when the number of canonical blocks in memory exceeds this threshold.
 pub const DEFAULT_PERSISTENCE_THRESHOLD: u64 = 2;
+
+/// Triggers backup when the number of canonical blocks persisted exceeds this threshold.
+pub const DEFAULT_BACKUP_THRESHOLD: u64 = 10;
 
 /// How close to the canonical head we persist blocks.
 pub const DEFAULT_MEMORY_BLOCK_BUFFER_TARGET: u64 = 2;
@@ -32,6 +38,10 @@ pub struct TreeConfig {
     /// This is used as a cutoff to prevent long-running sequential block execution when we receive
     /// a batch of downloaded blocks.
     max_execute_block_batch_size: usize,
+    /// Maximum number of blocks to be persisted without triggering a backup
+    backup_threshold: u64,
+    /// The data directory for the engine tree.
+    data_dir: ChainPath<DataDirPath>,
 }
 
 impl Default for TreeConfig {
@@ -42,6 +52,12 @@ impl Default for TreeConfig {
             block_buffer_limit: DEFAULT_BLOCK_BUFFER_LIMIT,
             max_invalid_header_cache_length: DEFAULT_MAX_INVALID_HEADER_CACHE_LENGTH,
             max_execute_block_batch_size: DEFAULT_MAX_EXECUTE_BLOCK_BATCH_SIZE,
+            backup_threshold: DEFAULT_BACKUP_THRESHOLD,
+            data_dir: ChainPath::new(
+                PlatformPath::<DataDirPath>::default(),
+                Chain::mainnet(),
+                reth_node_core::args::DatadirArgs::default(),
+            ),
         }
     }
 }
@@ -54,6 +70,8 @@ impl TreeConfig {
         block_buffer_limit: u32,
         max_invalid_header_cache_length: u32,
         max_execute_block_batch_size: usize,
+        backup_threshold: u64,
+        data_dir: ChainPath<DataDirPath>,
     ) -> Self {
         Self {
             persistence_threshold,
@@ -61,6 +79,8 @@ impl TreeConfig {
             block_buffer_limit,
             max_invalid_header_cache_length,
             max_execute_block_batch_size,
+            backup_threshold,
+            data_dir,
         }
     }
 
@@ -87,6 +107,16 @@ impl TreeConfig {
     /// Return the maximum execute block batch size.
     pub const fn max_execute_block_batch_size(&self) -> usize {
         self.max_execute_block_batch_size
+    }
+
+    /// Return the backup threshold.
+    pub const fn backup_threshold(&self) -> u64 {
+        self.backup_threshold
+    }
+
+    /// Return the data directory.
+    pub fn data_dir(&self) -> ChainPath<DataDirPath> {
+        self.data_dir.clone()
     }
 
     /// Setter for persistence threshold.
@@ -125,6 +155,18 @@ impl TreeConfig {
         max_execute_block_batch_size: usize,
     ) -> Self {
         self.max_execute_block_batch_size = max_execute_block_batch_size;
+        self
+    }
+
+    /// Setter for backup threshold.
+    pub const fn with_backup_threshold(mut self, backup_threshold: u64) -> Self {
+        self.backup_threshold = backup_threshold;
+        self
+    }
+
+    /// Setter for data directory.
+    pub fn with_data_dir(mut self, data_dir: ChainPath<DataDirPath>) -> Self {
+        self.data_dir = data_dir;
         self
     }
 }

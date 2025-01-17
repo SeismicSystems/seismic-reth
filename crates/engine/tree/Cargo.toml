@@ -37,6 +37,7 @@ reth-trie-db.workspace = true
 reth-trie-parallel.workspace = true
 reth-trie-sparse.workspace = true
 reth-trie.workspace = true
+reth-node-core.workspace = true
 
 # alloy
 alloy-consensus.workspace = true
