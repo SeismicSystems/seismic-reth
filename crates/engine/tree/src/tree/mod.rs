@@ -688,6 +688,8 @@ where
                 }
             }
 
+            debug!(target: "engine::tree", "processing next iteration of engine api handler loop");
+
             if let Err(err) = self.advance_persistence() {
                 error!(target: "engine::tree", %err, "Advancing persistence failed");
                 return
@@ -1140,7 +1142,7 @@ where
     fn try_recv_engine_message(
         &self,
     ) -> Result<Option<FromEngine<EngineApiRequest<T, N>, N::Block>>, RecvError> {
-        if self.persistence_state.in_progress() {
+        if self.persistence_state.in_progress() || self.backup.in_progress() {
             // try to receive the next request with a timeout to not block indefinitely
             match self.incoming.recv_timeout(std::time::Duration::from_millis(500)) {
                 Ok(msg) => Ok(Some(msg)),
@@ -1214,8 +1216,11 @@ where
     }
 
     fn advance_backup(&mut self) -> Result<(), AdvancePersistenceError> {
+        debug!(target: "engine::tree", "advance_backup called");
         if !self.backup.in_progress() {
+            debug!(target: "engine::tree", "checking if we should backup");
             if self.should_backup() {
+                debug!(target: "engine::tree", "sending backup action");
                 let (tx, rx) = oneshot::channel();
                 let _ = self.backup.sender.send(BackupAction::BackupAtBlock(
                     self.persistence_state.last_persisted_block,
@@ -1544,14 +1549,19 @@ where
     /// Returns true if the canonical chain length minus the last persisted
     /// block is greater than or equal to the backup threshold and
     /// backfill is not running.
-    const fn should_backup(&self) -> bool {
+    fn should_backup(&self) -> bool {
+        debug!(target: "engine::tree", "checking if we should backup");
         if !self.backfill_sync_state.is_idle() {
             // can't backup if backfill is running
             return false
         }
 
         let min_block = self.backup.latest_backup_block.number;
-        self.persistence_state.last_persisted_block.number.saturating_sub(min_block) >
+        let last_persisted_block = self.persistence_state.last_persisted_block.number;
+        let diff = last_persisted_block.saturating_sub(min_block);
+        debug!(target: "engine::tree", min_block=?min_block, last_persisted_block=?last_persisted_block, diff=?diff, threshold=?self.config.backup_threshold(), "min block");
+
+        self.persistence_state.last_persisted_block.number.saturating_sub(min_block) >=
             self.config.backup_threshold()
     }
 

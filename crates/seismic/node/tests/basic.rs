@@ -4,11 +4,13 @@ use alloy_primitives::{bytes::Buf, hex, Address, Bytes, TxKind, U256};
 use eyre::Ok;
 use reth_chainspec::DEV;
 use reth_e2e_test_utils::setup;
-use reth_node_ethereum::EthereumNode;
 use reth_tracing::tracing::*;
-use seismic_node::utils::{
-    seismic_payload_attributes, start_mock_tee_server,
-    test_utils::{seismic_tx, IntegrationTestTx},
+use seismic_node::{
+    node::SeismicNode,
+    utils::{
+        seismic_payload_attributes, start_mock_tee_server,
+        test_utils::{decrypt, seismic_tx, IntegrationTestTx},
+    },
 };
 use std::str::FromStr;
 
@@ -21,12 +23,12 @@ async fn contract() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
     let chain_id = DEV.chain;
 
-    debug!(target: "e2e:send_call", ?DEV, "dev chain");
+    debug!(target: "e2e:contract", ?DEV, "dev chain");
 
     let (mut nodes, _tasks, wallet) =
-        setup::<EthereumNode>(2, DEV.clone(), false, seismic_payload_attributes).await?;
+        setup::<SeismicNode>(2, DEV.clone(), false, seismic_payload_attributes).await?;
     start_mock_tee_server().await;
-    debug!(target: "e2e:send_call", "setup seismic node");
+    debug!(target: "e2e:contract", "setup seismic node");
     let mut second_node = nodes.pop().unwrap();
     let mut first_node = nodes.pop().unwrap();
     let mut nonce = 0;
@@ -36,7 +38,7 @@ async fn contract() -> eyre::Result<()> {
         .rpc
         .get_account(Address::from_str("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")?, 0)
         .await?;
-    debug!(target: "e2e:send_call", ?acc, "account");
+    debug!(target: "e2e:contract", ?acc, "account");
 
     // ==================== first block for encrypted transaction ====================
     // Contract deployed
@@ -63,6 +65,7 @@ async fn contract() -> eyre::Result<()> {
 
     let mut itx: IntegrationTestTx = IntegrationTestTx::new(&raw_tx);
 
+    // decoding the transaction to verify the payload
     let mut input_bytes = vec![0u8; raw_tx.len()];
     raw_tx.clone().copy_to_slice(&mut input_bytes);
     let mut input_bytes_slice = &input_bytes[..];
@@ -70,18 +73,18 @@ async fn contract() -> eyre::Result<()> {
         .expect("decoding failed");
 
     debug!(
-        target: "e2e:send_call",
+        target: "e2e:contract",
         ?decoded_tx ,
         "decoded transaction",
     );
 
     debug!(
-        target: "e2e:send_call",
+        target: "e2e:contract",
         ?raw_tx,
         "transaction deploy contract",
     );
 
-    // Make the first node advance
+    // Make the nodes advance
     let tx_hash = first_node.rpc.inject_tx(raw_tx).await?;
     itx.tx_hash(&tx_hash);
     let (payload, _) = first_node.advance_block().await?;
@@ -99,7 +102,7 @@ async fn contract() -> eyre::Result<()> {
     itx.code(&code);
 
     debug!(
-        target: "e2e:send_call",
+        target: "e2e:contract",
         ?contract_addr,
         ?code,
         "contract deployed",
@@ -118,13 +121,16 @@ async fn contract() -> eyre::Result<()> {
     .await;
     itx.signed_call(&raw_tx);
 
-    let output: Bytes = first_node.rpc.signed_call(raw_tx.clone(), block_number).await?;
-    assert_eq!(U256::from_be_slice(&output), U256::ZERO);
+    let encrypted_output: Bytes = first_node.rpc.signed_call(raw_tx.clone(), block_number).await?;
+    itx.encrypted_output(&encrypted_output);
+    let decrypted_output = decrypt(&wallet.inner, nonce, &encrypted_output).await;
+    assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 
     debug!(
-        target: "e2e:send_call",
+        target: "e2e:contract",
         ?raw_tx,
-        ?output,
+        ?encrypted_output,
+        ?decrypted_output,
         "transaction call isOdd() before change",
     );
 
@@ -137,7 +143,7 @@ async fn contract() -> eyre::Result<()> {
             .await;
     itx.raw_tx(&raw_tx);
     debug!(
-        target: "e2e:send_call",
+        target: "e2e:contract",
         ?raw_tx,
         "transaction to change contract storage",
     );
@@ -164,14 +170,17 @@ async fn contract() -> eyre::Result<()> {
     .await;
     itx.signed_call(&raw_tx);
 
-    let output: Bytes = first_node.rpc.signed_call(raw_tx.clone(), block_number).await?;
+    let encrypted_output: Bytes = first_node.rpc.signed_call(raw_tx.clone(), block_number).await?;
+    itx.encrypted_output(&encrypted_output);
+    let decrypted_output: Bytes = decrypt(&wallet.inner, nonce, &encrypted_output).await;
     debug!(
-        target: "e2e:send_call",
+        target: "e2e:contract",
         ?raw_tx,
-        ?output,
+        ?encrypted_output,
+        ?decrypted_output,
         "transaction call isOdd() after change",
     );
-    assert_eq!(U256::from_be_slice(&output), U256::from(1));
+    assert_eq!(U256::from_be_slice(&decrypted_output), U256::from(1));
 
     if REWRITE_IT_TX && IntegrationTestTx::should_rewrite_it() {
         itx.write();

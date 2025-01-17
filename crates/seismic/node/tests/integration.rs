@@ -1,21 +1,33 @@
+use alloy_primitives::{hex, Address, Bytes};
 use assert_cmd::Command;
+use futures::future::lazy;
 use reqwest::Client;
-use seismic_node::utils::test_utils::IntegrationTestTx;
+use reth_chainspec::{Chain, DEV};
+use reth_e2e_test_utils::wallet::Wallet;
+use reth_errors::ProviderError;
+use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
+use reth_tracing::tracing::*;
+use seismic_node::utils::test_utils::{seismic_tx, IntegrationTestTx};
 use serde_json::{json, Value};
-use std::{thread, time::Duration};
+use std::{path::PathBuf, str::FromStr, thread, time::Duration};
 use sysinfo::{Pid, PidExt, ProcessExt, System, SystemExt};
 use tokio::process::Child;
 
 struct RethCommand(Child);
 
 impl RethCommand {
+    fn data_dir() -> PathBuf {
+        static TEMP_DIR: once_cell::sync::Lazy<tempfile::TempDir> =
+            once_cell::sync::Lazy::new(|| tempfile::tempdir().unwrap());
+        TEMP_DIR.path().to_path_buf()
+    }
     fn run() -> RethCommand {
         let cmd = Command::cargo_bin("seismic-reth").unwrap();
         let cmd_str = cmd.get_program().to_str().unwrap();
         let child = tokio::process::Command::new(cmd_str)
             .arg("node")
             .arg("--datadir")
-            .arg("./tmp/reth")
+            .arg(RethCommand::data_dir().to_str().unwrap())
             .arg("--dev")
             .arg("--dev.block-max-transactions")
             .arg("1")
@@ -127,10 +139,7 @@ async fn test_seismic_reth_rpc() {
         .json()
         .await
         .expect("Failed to parse code");
-    println!("eth_call Response (parity 0): {:?}", response);
-    assert!(
-        response["result"] == "0x0000000000000000000000000000000000000000000000000000000000000000"
-    );
+    assert!(response["result"] == itx.encrypted_outputs[0]);
 
     // Step 3: Send transaction to set suint
     let send_transaction = json!({
@@ -190,8 +199,123 @@ async fn test_seismic_reth_rpc() {
         .json()
         .await
         .expect("Failed to parse code");
-    assert!(
-        response["result"] == "0x0000000000000000000000000000000000000000000000000000000000000001"
+    assert!(response["result"] == itx.encrypted_outputs[1]);
+}
+
+#[tokio::test]
+async fn test_seismic_reth_backup() {
+    let itx = IntegrationTestTx::load();
+    let chain_id = DEV.chain;
+
+    const RETH_RPC_URL: &str = "http://127.0.0.1:8545";
+    // Step 1: Start the binary
+    let _cmd = RethCommand::run();
+
+    // Step 2: Allow the binary some time to start
+    thread::sleep(Duration::from_secs(5));
+
+    // Step 3: Send RPC calls
+    let client = Client::new();
+
+    // Deploy the contract
+    let deploy_tx = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_sendRawTransaction",
+        "params": [itx.deploy_tx],
+        "id": 1
+    });
+
+    let deploy_response = client
+        .post(RETH_RPC_URL)
+        .json(&deploy_tx)
+        .send()
+        .await
+        .expect("Failed to send deploy transaction");
+
+    let deploy_result: serde_json::Value = deploy_response.json().await.unwrap();
+    println!("Deploy Result: {:?}", deploy_result);
+    assert!(deploy_result["result"] == itx.tx_hashes[0]);
+    thread::sleep(Duration::from_secs(1));
+
+    // Get the transaction receipt
+    let receipt_tx = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_getTransactionReceipt",
+        "params": [itx.tx_hashes[0]],
+        "id": 1
+    });
+
+    let receipt_response = client
+        .post(RETH_RPC_URL)
+        .json(&receipt_tx)
+        .send()
+        .await
+        .expect("Failed to get transaction receipt");
+    let receipt_result: Value = receipt_response.json().await.unwrap();
+    println!("Transaction Receipt: {:?}", receipt_result);
+    assert!(receipt_result["result"]["status"] == "0x1");
+
+    // getting contract address
+    let contract_addr =
+        Address::from_str(receipt_result["result"]["contractAddress"].as_str().unwrap()).unwrap();
+
+    // send enough transaction to trigger a backup
+    let mut nonce = 1;
+    let wallet = Wallet::default().with_chain_id(chain_id.into());
+    for _ in 0..DEFAULT_BACKUP_THRESHOLD + 1 {
+        let input = Bytes::from_static(&hex!(
+            "24a7f0b70000000000000000000000000000000000000000000000000000000000000003"
+        ));
+        let raw_tx = seismic_tx(
+            &wallet.inner,
+            nonce,
+            alloy_primitives::TxKind::Call(contract_addr),
+            chain_id.id(),
+            input.clone(),
+        )
+        .await;
+        nonce += 1;
+
+        // interact with the contract
+        let tx = json!({
+            "jsonrpc": "2.0",
+            "method": "eth_sendRawTransaction",
+            "params": [raw_tx.to_string()],
+            "id": 1
+        });
+
+        let tx_response = client
+            .post(RETH_RPC_URL)
+            .json(&tx)
+            .send()
+            .await
+            .expect("Failed to send deploy transaction");
+
+        let tx_result: serde_json::Value = tx_response.json().await.unwrap();
+        println!("Transaction Result: {:?}", tx_result);
+    }
+
+    thread::sleep(Duration::from_secs(10));
+
+    let backup_path = PathBuf::from(format!("{}_backup", RethCommand::data_dir().display(),));
+    let data_dir = RethCommand::data_dir();
+    let backup_size = std::fs::read_dir(&backup_path)
+        .unwrap()
+        .map(|entry| entry.map(|e| e.metadata().map(|m| m.len()).unwrap_or(0)).unwrap_or(0))
+        .sum::<u64>();
+
+    // Compare contents of backup and data directories
+    let mut data_dir_files: Vec<_> =
+        std::fs::read_dir(&data_dir).unwrap().map(|entry| entry.unwrap().file_name()).collect();
+    data_dir_files.sort();
+
+    let mut backup_files: Vec<_> =
+        std::fs::read_dir(&backup_path).unwrap().map(|entry| entry.unwrap().file_name()).collect();
+    backup_files.sort();
+
+    assert_eq!(
+        data_dir_files, backup_files,
+        "Backup directory contents do not match data directory contents.\nData dir: {:?}\nBackup dir: {:?}",
+        data_dir_files, backup_files
     );
-    println!("eth_call Response (parity 1): {:?}", response);
 }

@@ -5,6 +5,7 @@ use alloy_rlp::BufMut;
 use reth_errors::ProviderError;
 use reth_node_core::dirs::{ChainPath, DataDirPath};
 use reth_provider::{DatabaseProviderFactory, ProviderFactory, StaticFileProviderFactory};
+use reth_tracing::tracing::*;
 use std::{
     path::PathBuf,
     sync::{
@@ -15,7 +16,6 @@ use std::{
 };
 use thiserror::Error;
 use tokio::sync::oneshot;
-use tracing::{debug, error, info};
 
 /// Configuration for the backup service
 #[derive(Debug, Clone)]
@@ -47,8 +47,10 @@ impl BackupService {
     }
 
     /// Main loop that processes backup actions
-    pub fn run(mut self) -> Result<(), ProviderError> {
+    pub fn run(self) -> Result<(), ProviderError> {
+        debug!(target: "engine::backup", service=?self, "Backup service starting to run");
         while let Ok(action) = self.incoming.recv() {
+            debug!(target: "engine::backup", action=?action, "Backup service received action");
             match action {
                 BackupAction::BackupAtBlock(block_number, sender) => {
                     let result = self.perform_backup(block_number);
@@ -67,8 +69,7 @@ impl BackupService {
     /// Perform the actual backup operation
     fn perform_backup(&self, block_number: BlockNumHash) -> Result<(), ProviderError> {
         debug!(target: "engine::backup", ?block_number, "Starting backup");
-        let backup_name = format!("backup_block_{}", block_number.number);
-        let backup_path = self.data_dir.data_dir().join(backup_name);
+        let backup_path = PathBuf::from(format!("{}_backup", self.data_dir.data_dir().display(),));
 
         // Perform the actual backup using the provider
         BackupService::backup_dir(&PathBuf::from(self.data_dir.data_dir()), &backup_path)?;
@@ -99,7 +100,7 @@ impl BackupService {
     /// * `Ok(())` if the backup is successful.
     /// * `Err(anyhow::Error)` if an error occurs during the backup.
     pub fn backup_dir(source: &PathBuf, destination: &PathBuf) -> Result<(), ProviderError> {
-        debug!(target: "consensus::engine::hooks::backup", ?source, ?destination);
+        debug!(target: "engine::backup", ?source, ?destination);
 
         let source_path = source.as_path();
         let destination_path = destination.as_path();

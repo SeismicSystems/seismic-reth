@@ -12,7 +12,7 @@ use reth_tee::{
     WalletAPI,
 };
 use reth_tracing::tracing::*;
-use secp256k1::SecretKey;
+use secp256k1::{PublicKey, SecretKey};
 use serde_json::{json, Value};
 use std::{thread, time::Duration};
 use tokio::task;
@@ -220,6 +220,32 @@ pub mod test_utils {
     use reth_e2e_test_utils::transaction::TransactionTestContext;
     use serde::{Deserialize, Serialize};
 
+    pub async fn decrypt(sk_wallet: &PrivateKeySigner, nonce: u64, ciphertext: &Bytes) -> Bytes {
+        let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
+            .expect("32 bytes, within curve order");
+        let tee_wallet = MockWallet {};
+        let decrypted_output =
+            <MockWallet as WalletAPI>::decrypt(&tee_wallet, ciphertext.to_vec(), nonce, &sk)
+                .unwrap();
+        Bytes::from(decrypted_output)
+    }
+
+    pub async fn encrypt(sk_wallet: &PrivateKeySigner, nonce: u64, plaintext: &Bytes) -> Bytes {
+        let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
+            .expect("32 bytes, within curve order");
+        let tee_wallet = MockWallet {};
+        let encrypted_output =
+            <MockWallet as WalletAPI>::encrypt(&tee_wallet, plaintext.to_vec(), nonce, &sk)
+                .unwrap();
+        Bytes::from(encrypted_output)
+    }
+
+    pub fn get_encryption_pubkey(sk_wallet: &PrivateKeySigner) -> PublicKey {
+        let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
+            .expect("32 bytes, within curve order");
+        PublicKey::from_secret_key_global(&sk)
+    }
+
     /// Create a seismic transaction
     pub async fn seismic_tx(
         sk_wallet: &PrivateKeySigner,
@@ -228,18 +254,11 @@ pub mod test_utils {
         chain_id: u64,
         decrypted_input: Bytes,
     ) -> Bytes {
-        let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
-            .expect("32 bytes, within curve order");
-        let tee_wallet = MockWallet {};
-
-        let encrypted_input =
-            <MockWallet as WalletAPI>::encrypt(&tee_wallet, decrypted_input.to_vec(), nonce, &sk)
-                .unwrap();
-
+        let encrypted_input = encrypt(sk_wallet, nonce, &decrypted_input).await;
         debug!(target: "e2e:seismic_tx", "encrypted_input: {:?}", encrypted_input.clone());
         debug!(target: "e2e:seismic_tx", "encrypted_input: {:?}", Bytes::from(encrypted_input.clone()));
 
-        let encryption_pubkey = secp256k1::PublicKey::from_secret_key_global(&sk);
+        let encryption_pubkey = get_encryption_pubkey(sk_wallet);
         let tx = TransactionRequest {
             nonce: Some(nonce),
             value: Some(U256::from(0)),
@@ -270,6 +289,7 @@ pub mod test_utils {
         pub tx_hashes: Vec<String>,
         pub signed_calls: Vec<String>,
         pub raw_txs: Vec<String>,
+        pub encrypted_outputs: Vec<String>,
     }
 
     impl IntegrationTestTx {
@@ -283,6 +303,7 @@ pub mod test_utils {
                 tx_hashes: vec![],
                 signed_calls: vec![],
                 raw_txs: vec![],
+                encrypted_outputs: vec![],
             }
         }
 
@@ -308,6 +329,10 @@ pub mod test_utils {
 
         pub fn raw_tx(&mut self, bytes: &Bytes) {
             self.raw_txs.push(Self::fmt(bytes));
+        }
+
+        pub fn encrypted_output(&mut self, bytes: &Bytes) {
+            self.encrypted_outputs.push(Self::fmt(bytes));
         }
 
         pub fn load() -> IntegrationTestTx {

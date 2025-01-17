@@ -6,14 +6,14 @@ use crate::{
     helpers::estimate::EstimateCall, FromEthApiError, FromEvmError, FullEthApiTypes,
     IntoEthApiError, RpcBlock, RpcNodeCore,
 };
-use alloy_consensus::BlockHeader;
+use alloy_consensus::{BlockHeader, Typed2718};
 use alloy_eips::{eip1559::calc_next_block_base_fee, eip2930::AccessListResult};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_eth::{
     simulate::{SimBlock, SimulatePayload, SimulatedBlock},
     state::{EvmOverrides, StateOverride},
     transaction::TransactionRequest,
-    BlockId, Bundle, EthCallResponse, StateContext, TransactionInfo,
+    BlockId, Bundle, EthCallResponse, StateContext, TransactionInfo, TransactionTrait,
 };
 use futures::Future;
 use reth_chainspec::EthChainSpec;
@@ -236,6 +236,28 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         }
     }
 
+    /// Encrypts the output of a call using the encryption pubkey of the transaction
+    fn encrypt_output<T: TransactionTrait + Typed2718>(
+        &self,
+        output: Bytes,
+        tx_signed: &T,
+    ) -> Result<Bytes, Self::Error> {
+        let nonce = tx_signed.nonce();
+        let enc_pk_opt = tx_signed.encryption_pubkey();
+        let enc_pk = enc_pk_opt.ok_or(EthApiError::InvalidParams(
+            "Signed calls must provide an encryption pubkey".to_string(),
+        ))?;
+        let encryption_pubkey =
+            secp256k1::PublicKey::from_slice(enc_pk.as_slice()).map_err(|_| {
+                EthApiError::InvalidParams("Failed to parse encryption pubkey".to_string())
+            })?;
+        let tee_client = reth_tee::TeeHttpClient::default();
+        let encrypted_output =
+            reth_tee::encrypt(&tee_client, encryption_pubkey, output.to_vec(), nonce)
+                .map_err(|_| EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
+        Ok(Bytes::from(encrypted_output))
+    }
+
     /// Executes the call request (`eth_call`) and returns the output
     fn signed_call(
         &self,
@@ -269,7 +291,12 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                 })
                 .await?;
 
-            ensure_success(res.result).map_err(Self::Error::from_eth_err)
+            let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
+            let tx_signed = tx.as_signed();
+            if alloy_consensus::transaction::TxSeismic::TX_TYPE != tx_signed.ty() {
+                return Ok(output);
+            }
+            self.encrypt_output(output, tx_signed)
         }
     }
 
