@@ -62,13 +62,14 @@ futures.workspace = true
 tokio-stream.workspace = true
 assert_cmd.workspace = true
 reqwest.workspace = true
-tempfile.workspace = true
-once_cell.workspace = true
 
-reth-e2e-test-utils.workspace = true
 sysinfo = "0.29"
 
 [dev-dependencies]
 reth-e2e-test-utils.workspace = true
 assert_cmd.workspace = true
-reqwest.workspace = true
+arbitrary.workspace = true
+tempfile.workspace = true
+once_cell.workspace = true
+k256.workspace = true
+enr.workspace = true

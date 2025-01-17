@@ -211,7 +211,7 @@ pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes
     EthPayloadBuilderAttributes::new(B256::ZERO, attributes)
 }
 
-// #[cfg(test)]
+#[cfg(test)]
 pub mod test_utils {
     use std::fs::File;
 
