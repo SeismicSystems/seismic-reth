@@ -8,6 +8,7 @@ use crate::{
 };
 use alloy_consensus::{BlockHeader, Typed2718};
 use alloy_eips::{eip1559::calc_next_block_base_fee, eip2930::AccessListResult};
+use alloy_network::{Ethereum, TransactionBuilder};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_eth::{
     simulate::{SimBlock, SimulatePayload, SimulatedBlock},
@@ -19,6 +20,7 @@ use futures::Future;
 use reth_chainspec::EthChainSpec;
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
 use reth_node_api::BlockBody;
+use reth_primitives::TransactionSigned;
 use reth_primitives_traits::SignedTransaction;
 use reth_provider::{BlockIdReader, ChainSpecProvider, ProviderHeader};
 use reth_revm::{
@@ -43,7 +45,8 @@ use reth_rpc_eth_types::{
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
 use revm::{Database, DatabaseCommit, GetInspector};
 use revm_inspectors::{access_list::AccessListInspector, transfer::TransferInspector};
-use tracing::trace;
+use secp256k1::PublicKey;
+use tracing::{debug, trace};
 
 /// Result type for `eth_simulateV1` RPC method.
 pub type SimulatedBlocksResult<N, E> = Result<Vec<SimulatedBlock<RpcBlock<N>>>, E>;
@@ -293,7 +296,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
             let tx_signed = tx.as_signed();
-            if alloy_consensus::transaction::TxSeismic::TX_TYPE != tx_signed.ty() {
+            if alloy_consensus::TxSeismic::TX_TYPE != tx_signed.ty() {
                 return Ok(output);
             }
             self.encrypt_output(output, tx_signed)
@@ -787,9 +790,9 @@ pub trait Call:
             blob_versioned_hashes,
             max_fee_per_blob_gas,
             authorization_list,
-            transaction_type: _,
+            transaction_type,
+            encryption_pubkey,
             sidecar: _,
-            encryption_pubkey: _,
         } = request;
 
         let CallFees { max_priority_fee_per_gas, gas_price, max_fee_per_blob_gas } =
@@ -812,6 +815,35 @@ pub trait Call:
             block_env.gas_limit.saturating_to()
         });
 
+        debug!(target: "rpc::eth", ?from, ?to, ?gas_price, ?max_fee_per_gas, ?max_priority_fee_per_gas, ?gas, ?value, ?input, ?nonce, ?chain_id, ?access_list, ?blob_versioned_hashes, ?max_fee_per_blob_gas, ?authorization_list, ?transaction_type, ?encryption_pubkey, "Request fields before decryption");
+
+        let input =
+            input.try_into_unique_input().map_err(Self::Error::from_eth_err)?.unwrap_or_default();
+
+        let input = if transaction_type == Some(alloy_consensus::TxSeismic::TX_TYPE) {
+            let mut tx_env = TxEnv::default();
+            let seismic_tx = alloy_consensus::TxSeismic {
+                chain_id: chain_id.unwrap_or_default(),
+                nonce: nonce.ok_or(EthApiError::TransactionConversionError.into())?,
+                gas_price: 0,
+                gas_limit: 0,
+                to: to.unwrap_or_default(),
+                value: value.unwrap_or_default(),
+                encryption_pubkey: encryption_pubkey
+                    .ok_or(EthApiError::TransactionConversionError.into())?,
+                input,
+            };
+
+            self.evm_config()
+                .fill_seismic_tx_env(&mut tx_env, &seismic_tx, from.unwrap_or_default())
+                .map_err(|_| EthApiError::TransactionConversionError.into())?;
+            tx_env.data
+        } else {
+            input
+        };
+
+        debug!(target: "rpc::eth", ?from, ?to, ?gas_price, ?max_fee_per_gas, ?max_priority_fee_per_gas, ?gas, ?value, ?input, ?nonce, ?chain_id, ?access_list, ?blob_versioned_hashes, ?max_fee_per_blob_gas, ?authorization_list, ?transaction_type, ?encryption_pubkey, "Request fields after decryption");
+
         #[allow(clippy::needless_update)]
         let env = TxEnv {
             gas_limit,
@@ -821,10 +853,7 @@ pub trait Call:
             gas_priority_fee: max_priority_fee_per_gas,
             transact_to: to.unwrap_or(TxKind::Create),
             value: value.unwrap_or_default(),
-            data: input
-                .try_into_unique_input()
-                .map_err(Self::Error::from_eth_err)?
-                .unwrap_or_default(),
+            data: input,
             chain_id,
             access_list: access_list.unwrap_or_default().into(),
             // EIP-4844 fields
@@ -834,6 +863,8 @@ pub trait Call:
             authorization_list: authorization_list.map(Into::into),
             ..Default::default()
         };
+
+        debug!(target: "rpc::eth", ?env, "Transaction environment");
 
         Ok(env)
     }

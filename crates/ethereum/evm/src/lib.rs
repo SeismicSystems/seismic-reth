@@ -20,7 +20,7 @@ extern crate alloc;
 use core::convert::Infallible;
 
 use alloc::{sync::Arc, vec::Vec};
-use alloy_consensus::Header;
+use alloy_consensus::{Header, TxSeismic};
 use alloy_primitives::{Address, Bytes, TxKind, U256};
 use reth_chainspec::{ChainSpec, Head};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};
@@ -85,6 +85,50 @@ impl ConfigureEvmEnv for EthEvmConfig {
     type Transaction = TransactionSigned;
     type Error = Infallible;
 
+    /// seismic feature decrypt the transaction
+    fn fill_seismic_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        tx: &TxSeismic,
+        sender: Address,
+    ) -> EVMResultGeneric<(), TeeError> {
+        let encryption_pubkey =
+            secp256k1::PublicKey::from_slice(tx.encryption_pubkey.as_slice())
+                .map_err(|_| EVMError::Database(TeeError::PublicKeyRecoveryError))?;
+
+        debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
+
+        let tee_decryption: Vec<u8> = decrypt(
+            &self.tee_client,
+            encryption_pubkey,
+            Vec::<u8>::from(tx.input.as_ref()),
+            tx.nonce.clone(),
+        )
+        .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
+
+        let data = Bytes::from(tee_decryption.clone());
+
+        debug!(target: "reth::fill_tx_env", ?data, ?tee_decryption, ?tx.input, "Decrypted input data");
+
+        tx_env.caller = sender;
+        tx_env.gas_limit = tx.gas_limit;
+        tx_env.gas_price = U256::from(tx.gas_price);
+        tx_env.gas_priority_fee = None;
+        tx_env.transact_to = tx.to;
+        tx_env.value = tx.value;
+        tx_env.data = data;
+        tx_env.chain_id = Some(tx.chain_id);
+        tx_env.nonce = Some(tx.nonce);
+        tx_env.access_list.clear();
+        tx_env.blob_hashes.clear();
+        tx_env.max_fee_per_blob_gas.take();
+        tx_env.authorization_list = None;
+
+        debug!(target: "reth::fill_tx_env", ?tx_env, "Filled Seismic transaction");
+
+        Ok(())
+    }
+
     fn fill_tx_env(
         &self,
         tx_env: &mut TxEnv,
@@ -94,40 +138,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
         debug!(target: "reth::fill_tx_env", ?transaction, "Parsing transaction");
         match &transaction.transaction {
             Transaction::Seismic(tx) => {
-                let encryption_pubkey =
-                    secp256k1::PublicKey::from_slice(tx.encryption_pubkey.as_slice())
-                        .map_err(|_| EVMError::Database(TeeError::PublicKeyRecoveryError))?;
-
-                debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
-
-                let tee_decryption: Vec<u8> = decrypt(
-                    &self.tee_client,
-                    encryption_pubkey,
-                    Vec::<u8>::from(tx.input.as_ref()),
-                    tx.nonce.clone(),
-                )
-                .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
-
-                let data = Bytes::from(tee_decryption.clone());
-
-                debug!(target: "reth::fill_tx_env", ?data, ?tee_decryption, ?tx.input, "Decrypted input data");
-
-                tx_env.caller = sender;
-                tx_env.gas_limit = tx.gas_limit;
-                tx_env.gas_price = U256::from(tx.gas_price);
-                tx_env.gas_priority_fee = None;
-                tx_env.transact_to = tx.to;
-                tx_env.value = tx.value;
-                tx_env.data = data;
-                tx_env.chain_id = Some(tx.chain_id);
-                tx_env.nonce = Some(tx.nonce);
-                tx_env.access_list.clear();
-                tx_env.blob_hashes.clear();
-                tx_env.max_fee_per_blob_gas.take();
-                tx_env.authorization_list = None;
-
-                debug!(target: "reth::fill_tx_env", ?tx_env, "Filled Seismic transaction");
-
+                self.fill_seismic_tx_env(tx_env, tx, sender)?;
                 Ok(())
             }
             _ => Ok(transaction.fill_tx_env(tx_env, sender)),

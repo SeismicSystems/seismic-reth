@@ -18,13 +18,14 @@
 extern crate alloc;
 
 use crate::builder::RethEvmBuilder;
-use alloy_consensus::BlockHeader as _;
+use alloy_consensus::{BlockHeader as _, TxSeismic};
 use alloy_primitives::{Address, Bytes, B256, U256};
 use reth_primitives_traits::BlockHeader;
 use reth_tee::TeeError;
 use revm::{Database, Evm, GetInspector};
 use revm_primitives::{
-    BlockEnv, CfgEnvWithHandlerCfg, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId, TxEnv,
+    BlockEnv, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId,
+    TxEnv,
 };
 
 pub mod builder;
@@ -123,6 +124,16 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
 
     /// The error type that is returned by [`Self::next_cfg_and_block_env`].
     type Error: core::error::Error + Send + Sync;
+
+    /// seismic feature decrypt the transaction
+    fn fill_seismic_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        tx: &TxSeismic,
+        sender: Address,
+    ) -> EVMResultGeneric<(), TeeError> {
+        Err(EVMError::Database(TeeError::DecryptionError))
+    }
 
     /// Returns a [`TxEnv`] from a transaction and [`Address`].
     fn tx_env(
