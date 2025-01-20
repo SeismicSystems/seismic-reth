@@ -1,12 +1,9 @@
 use alloy_primitives::{hex, Address, Bytes};
 use assert_cmd::Command;
-use futures::future::lazy;
 use reqwest::Client;
-use reth_chainspec::{Chain, DEV};
+use reth_chainspec::DEV;
 use reth_e2e_test_utils::wallet::Wallet;
-use reth_errors::ProviderError;
 use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
-use reth_tracing::tracing::*;
 use seismic_node::utils::test_utils::{seismic_tx, IntegrationTestTx};
 use serde_json::{json, Value};
 use std::{path::PathBuf, str::FromStr, thread, time::Duration};
@@ -299,11 +296,6 @@ async fn test_seismic_reth_backup() {
 
     let backup_path = PathBuf::from(format!("{}_backup", RethCommand::data_dir().display(),));
     let data_dir = RethCommand::data_dir();
-    let backup_size = std::fs::read_dir(&backup_path)
-        .unwrap()
-        .map(|entry| entry.map(|e| e.metadata().map(|m| m.len()).unwrap_or(0)).unwrap_or(0))
-        .sum::<u64>();
-
     // Compare contents of backup and data directories
     let mut data_dir_files: Vec<_> =
         std::fs::read_dir(&data_dir).unwrap().map(|entry| entry.unwrap().file_name()).collect();
