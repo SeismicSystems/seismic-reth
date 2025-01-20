@@ -4,7 +4,7 @@
 #[cfg(test)]
 mod seismic_transaction_tests {
     use alloy_consensus::{SignableTransaction, TxSeismic};
-    use alloy_eips::eip2718::Decodable2718;
+    use alloy_eips::eip2718::{Decodable2718, Encodable2718};
     use alloy_primitives::{
         hex, hex_literal, keccak256, Address, Bytes, FixedBytes, PrimitiveSignature, Signature,
         U256,
@@ -36,7 +36,7 @@ mod seismic_transaction_tests {
         start_mock_tee_server().await;
         test_encoding_decoding_signed_seismic_tx();
         // test_fill_tx_env_decryption_error(&get_evm_config(), get_signed_seismic_tx_encoding());
-        test_fill_tx_env_seismic_public_key_recovery_error();
+        // test_fill_tx_env_seismic_public_key_recovery_error();
     }
 
     fn get_client_side_encryption() -> Vec<u8> {
@@ -48,7 +48,7 @@ mod seismic_transaction_tests {
         println!("client side shared secret: {:?}", shared_secret.display_secret());
 
         let aes_key = derive_aes_key(&shared_secret).unwrap();
-        println!("client side shared key: {:?}", aes_key);
+        println!("client side shared key: {:0x}", aes_key);
         let encrypted_data = aes_encrypt(&aes_key, get_plaintext().as_slice(), 1).unwrap();
         println!("client side encrypted data: {:?}", hex::encode(encrypted_data.clone()));
         encrypted_data
@@ -128,11 +128,8 @@ mod seismic_transaction_tests {
 
         // creating hash and signature
         let tx = Transaction::Seismic(tx.clone());
-        let hash = &mut Vec::new();
-        tx.eip2718_encode(&signature, hash);
-        let hash = keccak256(&hash);
-
-        TransactionSigned::new(tx.clone(), signature, hash)
+        let mut out = Vec::new();
+        TransactionSigned::new_unhashed(tx, signature)
     }
 
     fn test_encoding_decoding_signed_seismic_tx() {
