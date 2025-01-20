@@ -3,4 +3,5 @@
 mod basic;
 mod bench;
 mod integration;
+mod unit;
 pub mod utils;

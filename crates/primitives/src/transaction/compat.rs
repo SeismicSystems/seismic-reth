@@ -130,26 +130,3 @@ impl FillTxEnv for TransactionSigned {
         debug!(target: "reth::fill_tx_env", ?tx_env, "Filled transaction environment");
     }
 }
-#[cfg(test)]
-mod tests {
-    use core::str::FromStr;
-    use reth_tee::TeeHttpClient;
-
-    use crate::{Signature, TxSeismic};
-
-    use super::*;
-
-    #[test]
-    fn test_fill_tx_env_seismic_invalid_signature() {
-        let tx = Transaction::Seismic(TxSeismic::default());
-        let signature = Signature::default();
-        let tx_signed = TransactionSigned::from_transaction_and_signature(tx, signature);
-        let sender = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
-        let tee = TeeHttpClient::default();
-        let mut tx_env = TxEnv::default();
-
-        let result = tx_signed.fill_tx_env(&mut tx_env, sender, &tee);
-
-        assert!(matches!(result, Err(EVMError::Custom(err)) if err == "Invalid Signature"));
-    }
-}
