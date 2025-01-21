@@ -5,7 +5,7 @@ use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
 use reth_tracing::tracing::*;
 use seismic_node::{
     node::SeismicNode,
-    utils::{seismic_payload_attributes, test_utils::seismic_tx},
+    utils::{seismic_payload_attributes, test_utils::get_signed_seismic_tx_bytes},
 };
 use std::{sync::Arc, time::Instant};
 
@@ -23,7 +23,7 @@ async fn backup() -> eyre::Result<()> {
 
     // ==================== first block for encrypted transaction ====================
     let raw_tx =
-        seismic_tx(&wallet.inner, nonce, TxKind::Create, chain_id.id(), input.clone()).await;
+        get_signed_seismic_tx_bytes(&wallet.inner, nonce, TxKind::Create, chain_id.id(), input.clone()).await;
 
     nonce += 1;
 
@@ -43,7 +43,7 @@ async fn backup() -> eyre::Result<()> {
 
     // run raw transactions
     for _ in 0..DEFAULT_BACKUP_THRESHOLD + 1 {
-        let raw_tx = seismic_tx(
+        let raw_tx = get_signed_seismic_tx_bytes(
             &wallet.inner,
             nonce,
             alloy_primitives::TxKind::Call(deployed_contract_address),

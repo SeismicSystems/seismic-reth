@@ -815,34 +815,43 @@ pub trait Call:
             block_env.gas_limit.saturating_to()
         });
 
-        debug!(target: "rpc::eth", ?from, ?to, ?gas_price, ?max_fee_per_gas, ?max_priority_fee_per_gas, ?gas, ?value, ?input, ?nonce, ?chain_id, ?access_list, ?blob_versioned_hashes, ?max_fee_per_blob_gas, ?authorization_list, ?transaction_type, ?encryption_pubkey, "Request fields before decryption");
+        debug!(target: "rpc::eth::call", ?from, ?to, ?gas_price, ?max_fee_per_gas, ?max_priority_fee_per_gas, ?gas, ?value, ?input, ?nonce, ?chain_id, ?access_list, ?blob_versioned_hashes, ?max_fee_per_blob_gas, ?authorization_list, ?transaction_type, ?encryption_pubkey, "Request fields before decryption");
 
         let input =
             input.try_into_unique_input().map_err(Self::Error::from_eth_err)?.unwrap_or_default();
 
-        let input = if transaction_type == Some(alloy_consensus::TxSeismic::TX_TYPE) {
+        let input = if transaction_type == Some(alloy_consensus::TxSeismic::TX_TYPE) &&
+            input.len() > 0
+        {
             let mut tx_env = TxEnv::default();
             let seismic_tx = alloy_consensus::TxSeismic {
                 chain_id: chain_id.unwrap_or_default(),
-                nonce: nonce.ok_or(EthApiError::TransactionConversionError.into())?,
+                nonce: nonce
+                    .ok_or(EthApiError::InvalidParams("nonce is required".to_string()).into())?,
                 gas_price: 0,
                 gas_limit: 0,
                 to: to.unwrap_or_default(),
                 value: value.unwrap_or_default(),
-                encryption_pubkey: encryption_pubkey
-                    .ok_or(EthApiError::TransactionConversionError.into())?,
+                encryption_pubkey: encryption_pubkey.ok_or(
+                    EthApiError::InvalidParams("encryption_pubkey is required".to_string()).into(),
+                )?,
                 input,
             };
+            debug!(target: "rpc::eth::call", ?seismic_tx, "Seismic transaction");
 
             self.evm_config()
                 .fill_seismic_tx_env(&mut tx_env, &seismic_tx, from.unwrap_or_default())
-                .map_err(|_| EthApiError::TransactionConversionError.into())?;
+                .map_err(|_| {
+                    EthApiError::InvalidParams("failed to fill seismic tx env".to_string()).into()
+                })?;
             tx_env.data
         } else {
             input
         };
 
-        debug!(target: "rpc::eth", ?from, ?to, ?gas_price, ?max_fee_per_gas, ?max_priority_fee_per_gas, ?gas, ?value, ?input, ?nonce, ?chain_id, ?access_list, ?blob_versioned_hashes, ?max_fee_per_blob_gas, ?authorization_list, ?transaction_type, ?encryption_pubkey, "Request fields after decryption");
+        let nonce: Option<u64> = None;
+
+        debug!(target: "rpc::eth::call", ?from, ?to, ?gas_price, ?max_fee_per_gas, ?max_priority_fee_per_gas, ?gas, ?value, ?input, ?nonce, ?chain_id, ?access_list, ?blob_versioned_hashes, ?max_fee_per_blob_gas, ?authorization_list, ?transaction_type, ?encryption_pubkey, "Request fields after decryption");
 
         #[allow(clippy::needless_update)]
         let env = TxEnv {
@@ -864,7 +873,7 @@ pub trait Call:
             ..Default::default()
         };
 
-        debug!(target: "rpc::eth", ?env, "Transaction environment");
+        debug!(target: "rpc::call", ?env, "Transaction environment");
 
         Ok(env)
     }
@@ -926,9 +935,6 @@ pub trait Call:
         // See:
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
         cfg.disable_base_fee = true;
-
-        // set nonce to None so that the correct nonce is chosen by the EVM
-        request.nonce = None;
 
         if let Some(block_overrides) = overrides.block {
             apply_block_overrides(*block_overrides, db, &mut block);

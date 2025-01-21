@@ -102,8 +102,6 @@ members = [
     "crates/rpc/rpc-testing-util/",
     "crates/rpc/rpc-types-compat/",
     "crates/rpc/rpc/",
-    "crates/seismic/bin",
-    "crates/seismic/node",
     "crates/stages/api/",
     "crates/stages/stages/",
     "crates/stages/types/",
@@ -157,6 +155,7 @@ members = [
     "testing/testing-utils",
     "crates/seismic/bin",
     "crates/seismic/node",
+    "crates/seismic/rpc-api",
 ]
 default-members = ["crates/seismic/bin", "bin/reth"]
 exclude = ["book/sources"]
@@ -306,6 +305,12 @@ codegen-units = 1
 overflow-checks = true
 
 [workspace.dependencies]
+# seismic dependencies
+seismic-node = { path = "crates/seismic/node" }
+seismic-reth = { path = "crates/seismic/bin" }
+seismic-rpc-api = { path = "crates/seismic/rpc-api" }
+tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "ac7f255" }
+
 # reth
 op-reth = { path = "crates/optimism/bin" }
 reth = { path = "bin/reth" }
@@ -431,10 +436,6 @@ reth-trie-parallel = { path = "crates/trie/parallel" }
 reth-tee = { path = "crates/tee" }
 reth-trie-sparse = { path = "crates/trie/sparse" }
 reth-zstd-compressors = { path = "crates/storage/zstd-compressors", default-features = false }
-
-# seismic reth 
-seismic-node = { path = "crates/seismic/node" }
-seismic-reth = { path = "crates/seismic/bin" }
 
 # revm
 revm = "18.0.0"
@@ -622,7 +623,6 @@ tikv-jemalloc-ctl = "0.6"
 tikv-jemallocator = "0.6"
 tracy-client = "0.17.3"
 
-tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "ac7f255" }
 
 [patch.crates-io]
 # If our dependencies depend on these things,

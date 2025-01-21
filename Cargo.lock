@@ -1582,9 +1582,9 @@ dependencies = [
 
 [[package]]
 name = "brotli-decompressor"
-version = "4.0.1"
+version = "4.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a45bd2e4095a8b518033b128020dd4a55aab1c0a381ba4404a472630f4bc362"
+checksum = "74fa05ad7d803d413eb8380983b092cbbaf9a85f151b871360e7b00cd7060b37"
 dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
@@ -6589,9 +6589,9 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "regress"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f56e622c2378013c6c61e2bd776604c46dc1087b2dc5293275a0c20a44f0771"
+checksum = "78ef7fa9ed0256d64a688a3747d0fef7a88851c18a5e1d57f115f38ec2e09366"
 dependencies = [
  "hashbrown 0.15.2",
  "memchr",
@@ -10533,6 +10533,7 @@ dependencies = [
  "reth-trie-common",
  "reth-trie-db",
  "secp256k1",
+ "seismic-rpc-api",
  "serde",
  "serde_json",
  "sysinfo 0.29.11",
@@ -10564,8 +10565,19 @@ dependencies = [
  "reth-tee",
  "reth-tracing",
  "seismic-node",
+ "seismic-rpc-api",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "seismic-rpc-api"
+version = "1.1.4"
+dependencies = [
+ "jsonrpsee",
+ "reth-tracing",
+ "secp256k1",
+ "tee_service_api",
 ]
 
 [[package]]
@@ -12020,9 +12032,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.12.0"
+version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "744018581f9a3454a9e15beb8a33b017183f1e7c0cd170232a2d1453b23a51c4"
+checksum = "b3758f5e68192bb96cc8f9b7e2c2cfdabb435499a28499a42f8f984092adad4b"
 dependencies = [
  "getrandom 0.2.15",
 ]

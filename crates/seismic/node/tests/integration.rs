@@ -1,10 +1,16 @@
-use alloy_primitives::{hex, Address, Bytes};
+use alloy_primitives::{hex, Address, Bytes, TxKind};
+use alloy_rpc_types::{Block, Header, Receipt, Transaction, TransactionRequest};
 use assert_cmd::Command;
 use reqwest::Client;
 use reth_chainspec::DEV;
-use reth_e2e_test_utils::wallet::Wallet;
+use reth_e2e_test_utils::wallet::{self, Wallet};
 use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
-use seismic_node::utils::test_utils::{seismic_tx, IntegrationTestTx};
+use reth_rpc_eth_api::EthApiClient;
+use seismic_node::utils::test_utils::{
+    get_signed_seismic_tx_bytes, get_unsigned_seismic_tx_request, ContractTestContext,
+    IntegrationTestContext, UnitTestContext,
+};
+use seismic_rpc_api::rpc::SeismicApiClient;
 use serde_json::{json, Value};
 use std::{path::PathBuf, str::FromStr, thread, time::Duration};
 use sysinfo::{Pid, PidExt, ProcessExt, System, SystemExt};
@@ -29,7 +35,7 @@ impl RethCommand {
             .arg("--dev.block-max-transactions")
             .arg("1")
             .arg("--tee.mock-server")
-            .arg("-vvvv")
+            .arg("-vvvvv")
             .spawn()
             .expect("Failed to start the binary");
         RethCommand(child)
@@ -39,6 +45,7 @@ impl RethCommand {
 impl Drop for RethCommand {
     fn drop(&mut self) {
         // kill the process
+        thread::sleep(Duration::from_secs(2));
         let pid = self.0.id().unwrap();
         if let Some(process) = System::new_all().process(Pid::from_u32(pid)) {
             process.kill();
@@ -49,7 +56,7 @@ impl Drop for RethCommand {
 // this is the same test as basic.rs but with actual RPC calls and standalone reth instance
 #[tokio::test]
 async fn test_seismic_reth_rpc() {
-    let itx = IntegrationTestTx::load();
+    let itx = IntegrationTestContext::load();
 
     const RETH_RPC_URL: &str = "http://127.0.0.1:8545";
     // Step 1: Start the binary
@@ -65,7 +72,7 @@ async fn test_seismic_reth_rpc() {
     let deploy_tx = json!({
         "jsonrpc": "2.0",
         "method": "eth_sendRawTransaction",
-        "params": [itx.deploy_tx],
+        "params": [],
         "id": 1
     });
 
@@ -200,8 +207,49 @@ async fn test_seismic_reth_rpc() {
 }
 
 #[tokio::test]
+async fn test_seismic_reth_rpc_new() {
+    let itx = IntegrationTestContext::load();
+    let chain_id = DEV.chain;
+
+    const RETH_RPC_URL: &str = "http://127.0.0.1:8545";
+    // Step 1: Start the binary
+    let _cmd = RethCommand::run();
+
+    // Step 2: Allow the binary some time to start
+    thread::sleep(Duration::from_secs(5));
+
+    // Step 3: Send RPC calls
+    let client = jsonrpsee::http_client::HttpClientBuilder::default().build(RETH_RPC_URL).unwrap();
+
+    let pubkey = client.get_tee_public_key().await.unwrap();
+    let wallet = Wallet::default().with_chain_id(chain_id.id());
+    let mut nonce = 0;
+
+    let seismic_tx_request = get_unsigned_seismic_tx_request(
+        &wallet.inner,
+        nonce,
+        TxKind::Create,
+        chain_id.id(),
+        ContractTestContext::get_deploy_input_plaintext(),
+    )
+    .await;
+
+    println!("seismic tx request: {:?}", seismic_tx_request);
+
+    let gas = EthApiClient::<Transaction, Block, Receipt, Header>::estimate_gas(
+        &client,
+        seismic_tx_request,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    println!("gas: {:?}", gas);
+}
+
+#[tokio::test]
 async fn test_seismic_reth_backup() {
-    let itx = IntegrationTestTx::load();
+    let itx = IntegrationTestContext::load();
     let chain_id = DEV.chain;
 
     const RETH_RPC_URL: &str = "http://127.0.0.1:8545";
@@ -263,7 +311,7 @@ async fn test_seismic_reth_backup() {
         let input = Bytes::from_static(&hex!(
             "24a7f0b70000000000000000000000000000000000000000000000000000000000000003"
         ));
-        let raw_tx = seismic_tx(
+        let raw_tx = get_signed_seismic_tx_bytes(
             &wallet.inner,
             nonce,
             alloy_primitives::TxKind::Call(contract_addr),
