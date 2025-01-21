@@ -42,16 +42,13 @@ where
     let caller = db.basic(env.caller)?;
     // Get the caller balance.
     let balance = caller.map(|acc| acc.balance).unwrap_or_default();
-    debug!(target: "rpc::eth::caller_gas_allowance", ?balance, "Caller balance");
     // Get transaction value.
     let value = env.value;
-    debug!(target: "rpc::eth::caller_gas_allowance", ?value, "Transaction value");
     // Subtract transferred value from the caller balance. Return error if the caller has
     // insufficient funds.
     let balance = balance
         .checked_sub(env.value)
         .ok_or_else(|| RpcInvalidTransactionError::InsufficientFunds { cost: value, balance })?;
-    debug!(target: "rpc::eth::caller_gas_allowance", ?balance, "Caller balance after subtracting value");
     Ok(balance
         // Calculate the amount of gas the caller can afford with the specified gas price.
         .checked_div(env.gas_price)

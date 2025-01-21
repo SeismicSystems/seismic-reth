@@ -18,7 +18,7 @@ use reth_rpc_eth_types::{
 };
 use reth_rpc_server_types::constants::gas_oracle::{CALL_STIPEND_GAS, ESTIMATE_GAS_ERROR_RATIO};
 use revm_primitives::{db::Database, EnvWithHandlerCfg};
-use tracing::{debug, trace};
+use tracing::trace;
 
 /// Gas execution estimates
 pub trait EstimateCall: Call {
@@ -59,6 +59,9 @@ pub trait EstimateCall: Call {
         // the gas limit of the corresponding block
         let block_env_gas_limit = block.gas_limit;
 
+        // set nonce to None so that the correct nonce is chosen by the EVM
+        request.nonce = None;
+
         // Determine the highest possible gas limit, considering both the request's specified limit
         // and the block's limit.
         let mut highest_gas_limit = tx_request_gas_limit
@@ -70,8 +73,6 @@ pub trait EstimateCall: Call {
                 tx_gas_limit
             })
             .unwrap_or(block_env_gas_limit);
-
-        debug!(target: "rpc::eth::estimate", ?highest_gas_limit, "Highest gas limit");
 
         // Configure the evm env
         let mut env = self.build_call_evm_env(cfg, block, request)?;
@@ -110,21 +111,15 @@ pub trait EstimateCall: Call {
         // The caller allowance is check by doing `(account.balance - tx.value) / tx.gas_price`
         if env.tx.gas_price > U256::ZERO {
             // cap the highest gas limit by max gas caller can afford with given gas price
-            let caller_gas_allowance =
-                caller_gas_allowance(&mut db, &env.tx).map_err(Self::Error::from_eth_err)?;
-
-            debug!(target: "rpc::eth::estimate", ?caller_gas_allowance, "Caller gas allowance");
-
-            highest_gas_limit = highest_gas_limit.min(caller_gas_allowance);
+            highest_gas_limit = highest_gas_limit
+                .min(caller_gas_allowance(&mut db, &env.tx).map_err(Self::Error::from_eth_err)?);
         }
 
         // We can now normalize the highest gas limit to a u64
         let mut highest_gas_limit = highest_gas_limit.saturating_to::<u64>();
-        debug!(target: "rpc::eth::estimate", ?highest_gas_limit, "Highest gas limit");
 
         // If the provided gas limit is less than computed cap, use that
         env.tx.gas_limit = env.tx.gas_limit.min(highest_gas_limit);
-        debug!(target: "rpc::eth::estimate", "Gas limit: {}", env.tx.gas_limit);
 
         trace!(target: "rpc::eth::estimate", ?env, "Starting gas estimation");
 
@@ -138,17 +133,11 @@ pub trait EstimateCall: Call {
                 if err.is_gas_too_high() &&
                     (tx_request_gas_limit.is_some() || tx_request_gas_price.is_some()) =>
             {
-                debug!(target: "rpc::eth::estimate", ?err, "Execution result");
                 return Err(self.map_out_of_gas_err(block_env_gas_limit, env, &mut db))
             }
             // Propagate other results (successful or other errors).
-            ethres => {
-                debug!(target: "rpc::eth::estimate", ?ethres, "Execution result");
-                ethres?
-            }
+            ethres => ethres?,
         };
-
-        debug!(target: "rpc::eth::estimate", ?res, "Execution result");
 
         let gas_refund = match res.result {
             ExecutionResult::Success { gas_refunded, .. } => gas_refunded,
