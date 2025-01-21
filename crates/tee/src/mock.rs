@@ -10,9 +10,12 @@ use crate::{TeeAPI, WalletAPI};
 use tee_service_api::{
     crypto::{
         aes_decrypt, aes_encrypt, derive_aes_key, get_sample_secp256k1_pk, get_sample_secp256k1_sk,
-    }, errors::{invalid_ciphertext_resp, invalid_json_body_resp}, nonce::Nonce, request_types::tx_io::{
+    },
+    errors::{invalid_ciphertext_resp, invalid_json_body_resp},
+    nonce::Nonce,
+    request_types::tx_io::{
         IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,
-    }
+    },
 };
 
 /// MockTeeServer is a mock implementation of a TEE (Trusted Execution Environment) server.
@@ -196,8 +199,11 @@ mod tests {
         let cyphertext = mock_wallet.encrypt(plaintext.clone(), nonce, &wallet_secret_key).unwrap();
 
         // Original encryption request
-        let decryption_request =
-            IoDecryptionRequest { key: wallet_public_key, data: cyphertext.clone(), nonce: Nonce::from(nonce) };
+        let decryption_request = IoDecryptionRequest {
+            key: wallet_public_key,
+            data: cyphertext.clone(),
+            nonce: Nonce::from(nonce),
+        };
 
         let tee = MockTeeClient {};
         let start_time = std::time::Instant::now();
@@ -239,8 +245,11 @@ mod tests {
         let nonce: u64 = 10;
 
         // Create an encryption request
-        let encryption_request =
-            IoEncryptionRequest { key: wallet_public_key, data: plaintext.clone(), nonce: Nonce::from(nonce).into() };
+        let encryption_request = IoEncryptionRequest {
+            key: wallet_public_key,
+            data: plaintext.clone(),
+            nonce: Nonce::from(nonce).into(),
+        };
 
         // Send the encryption request
         let encryption_response = match tee_client.tx_io_encrypt(encryption_request).await {
