@@ -28,18 +28,10 @@ mod seismic_transaction_tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_seismic_transactions() {
         start_mock_tee_server().await;
-        sign();
-        // test_encoding_decoding_signed_seismic_tx();
-        // test_fill_tx_env();
-        // test_fill_tx_env_decryption_error();
-        // test_fill_tx_env_seismic_public_key_recovery_error();
-    }
-
-    fn sign() {
-        let tx = UnitTestContext::get_seismic_tx();
-
-        let signature = UnitTestContext::sign_seismic_tx(&tx);
-        println!("signature: {:?}", signature);
+        test_fill_tx_env();
+        test_fill_tx_env_decryption_error();
+        test_encoding_decoding_signed_seismic_tx();
+        test_fill_tx_env_seismic_public_key_recovery_error();
     }
 
     // This route is used to test the encoding and decoding of the signed seismic tx

@@ -443,7 +443,7 @@ pub mod test_utils {
 
         pub fn get_encryption_private_key() -> SigningKey {
             let private_key_bytes = hex_literal::hex!(
-                "1cfdbd8b72f811ea5b97adc8112c2dd26067c94a8a06e2d464d243975902053c"
+                "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
             );
             SigningKey::from_bytes(&private_key_bytes.into()).expect("Invalid private key")
         }
