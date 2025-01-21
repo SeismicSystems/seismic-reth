@@ -110,8 +110,12 @@ pub trait EstimateCall: Call {
         // The caller allowance is check by doing `(account.balance - tx.value) / tx.gas_price`
         if env.tx.gas_price > U256::ZERO {
             // cap the highest gas limit by max gas caller can afford with given gas price
-            highest_gas_limit = highest_gas_limit
-                .min(caller_gas_allowance(&mut db, &env.tx).map_err(Self::Error::from_eth_err)?);
+            let caller_gas_allowance =
+                caller_gas_allowance(&mut db, &env.tx).map_err(Self::Error::from_eth_err)?;
+
+            debug!(target: "rpc::eth::estimate", ?caller_gas_allowance, "Caller gas allowance");
+
+            highest_gas_limit = highest_gas_limit.min(caller_gas_allowance);
         }
 
         // We can now normalize the highest gas limit to a u64

@@ -276,6 +276,7 @@ pub mod test_utils {
 
         let encryption_pubkey = get_encryption_pubkey(sk_wallet);
         TransactionRequest {
+            from: Some(sk_wallet.address()),
             nonce: Some(nonce),
             value: Some(U256::from(0)),
             to: Some(to),
