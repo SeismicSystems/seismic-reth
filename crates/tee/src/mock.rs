@@ -248,7 +248,7 @@ mod tests {
         let encryption_request = IoEncryptionRequest {
             key: wallet_public_key,
             data: plaintext.clone(),
-            nonce: Nonce::from(nonce).into(),
+            nonce: nonce.into(),
         };
 
         // Send the encryption request
@@ -263,7 +263,7 @@ mod tests {
         let decryption_request = IoDecryptionRequest {
             key: wallet_public_key,
             data: encryption_response.encrypted_data,
-            nonce: Nonce::from(nonce),
+            nonce: nonce.into(),
         };
 
         // Send the decryption request
