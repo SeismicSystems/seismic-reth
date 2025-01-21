@@ -59,9 +59,6 @@ pub trait EstimateCall: Call {
         // the gas limit of the corresponding block
         let block_env_gas_limit = block.gas_limit;
 
-        // set nonce to None so that the correct nonce is chosen by the EVM
-        request.nonce = None;
-
         // Determine the highest possible gas limit, considering both the request's specified limit
         // and the block's limit.
         let mut highest_gas_limit = tx_request_gas_limit

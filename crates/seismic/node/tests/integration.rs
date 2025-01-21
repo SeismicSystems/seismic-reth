@@ -1,8 +1,8 @@
-use alloy_primitives::{hex, Address, Bytes, TxKind};
+use alloy_primitives::{hex, Address, Bytes, TxKind, U256};
 use alloy_rpc_types::{Block, Header, Receipt, Transaction, TransactionRequest};
 use assert_cmd::Command;
 use reqwest::Client;
-use reth_chainspec::DEV;
+use reth_chainspec::{ChainSpec, DEV};
 use reth_e2e_test_utils::wallet::{self, Wallet};
 use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
 use reth_rpc_eth_api::EthApiClient;
@@ -39,6 +39,9 @@ impl RethCommand {
             .spawn()
             .expect("Failed to start the binary");
         RethCommand(child)
+    }
+    fn chain_id() -> u64 {
+        DEV.chain().into()
     }
 }
 
@@ -208,12 +211,10 @@ async fn test_seismic_reth_rpc() {
 
 #[tokio::test]
 async fn test_seismic_reth_rpc_new() {
-    let itx = IntegrationTestContext::load();
-    let chain_id = DEV.chain;
-
     const RETH_RPC_URL: &str = "http://127.0.0.1:8545";
     // Step 1: Start the binary
     let _cmd = RethCommand::run();
+    let chain_id = RethCommand::chain_id();
 
     // Step 2: Allow the binary some time to start
     thread::sleep(Duration::from_secs(5));
@@ -221,20 +222,17 @@ async fn test_seismic_reth_rpc_new() {
     // Step 3: Send RPC calls
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(RETH_RPC_URL).unwrap();
 
-    let pubkey = client.get_tee_public_key().await.unwrap();
-    let wallet = Wallet::default().with_chain_id(chain_id.id());
-    let mut nonce = 0;
+    let wallet = Wallet::default().with_chain_id(chain_id);
+    let nonce = 0;
 
     let seismic_tx_request = get_unsigned_seismic_tx_request(
         &wallet.inner,
         nonce,
         TxKind::Create,
-        chain_id.id(),
+        chain_id,
         ContractTestContext::get_deploy_input_plaintext(),
     )
     .await;
-
-    println!("seismic tx request: {:?}", seismic_tx_request);
 
     let gas = EthApiClient::<Transaction, Block, Receipt, Header>::estimate_gas(
         &client,
@@ -245,6 +243,7 @@ async fn test_seismic_reth_rpc_new() {
     .await
     .unwrap();
     println!("gas: {:?}", gas);
+    assert!(gas > U256::ZERO);
 }
 
 #[tokio::test]

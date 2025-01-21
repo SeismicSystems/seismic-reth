@@ -826,14 +826,8 @@ pub trait Call:
             let mut tx_env = TxEnv::default();
             let seismic_tx = alloy_consensus::TxSeismic {
                 chain_id: chain_id.unwrap_or_default(),
-                nonce: self.next_available_nonce(
-                    from.ok_or(
-                        EthApiError::InvalidParams(
-                            "from is required for seismic transactions".to_string(),
-                        )
-                        .into(),
-                    )?,
-                )?,
+                nonce: nonce
+                    .ok_or(EthApiError::InvalidParams("nonce is required".to_string()).into())?,
                 gas_price: 0,
                 gas_limit: 0,
                 to: to.unwrap_or_default(),
@@ -938,9 +932,6 @@ pub trait Call:
         // See:
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
         cfg.disable_base_fee = true;
-
-        // set nonce to None so that the correct nonce is chosen by the EVM
-        request.nonce = None;
 
         if let Some(block_overrides) = overrides.block {
             apply_block_overrides(*block_overrides, db, &mut block);
