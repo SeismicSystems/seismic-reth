@@ -1,8 +1,9 @@
-use alloy_primitives::{hex, Signature, B256, U256};
+use alloy_consensus::{transaction::EncryptionPublicKey, TxSeismic};
+use alloy_eips::eip2718::Encodable2718;
+use alloy_primitives::{hex::{self, FromHex}, Address, PrimitiveSignature, B256, U256};
 use assert_cmd::Command;
 use reqwest::Client;
-use reth_node_core::primitives::Transaction;
-use reth_primitives::TransactionSigned;
+use reth_primitives::{Transaction, TransactionSigned};
 use seismic_node::utils::test_utils::IntegrationTestTx;
 use serde_json::{json, Value};
 use std::{str::FromStr, thread, time::Duration};
@@ -154,6 +155,28 @@ async fn test_seismic_reth_rpc() {
         .expect("Failed to parse code");
     println!("eth_sendRawTransaction Response: {:?}", response);
     assert!(response["result"] == itx.tx_hashes[1]);
+
+    // Replay transaction, need to add right here, must be done before tx is mined.
+    let replay_resp = replay_transaction(&client, RETH_RPC_URL, &itx.tx_hashes[0]).await.expect("Replay failed");
+    println!("eth_call Response REPLAY ATTACK: {:?}", replay_resp);
+    assert!(replay_resp["result"] == "0x");
+
+    let get_transaction_hash = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_getTransactionByHash",
+        "params": [itx.tx_hashes[0]],
+        "id": 1
+    });
+
+    let response: Value = client
+        .post(RETH_RPC_URL)
+        .json(&get_transaction_hash)
+        .send()
+        .await
+        .expect("Failed to get code")
+        .json()
+        .await
+        .expect("Failed to parse code");
     thread::sleep(Duration::from_secs(1));
 
     // Step 4: Get the transaction receipt
@@ -173,7 +196,6 @@ async fn test_seismic_reth_rpc() {
         .json()
         .await
         .expect("Failed to parse code");
-    println!("eth_getTransactionReceipt Response: {:?}", response);
     assert!(response["result"]["status"] == "0x1");
 
     // Step 5: Final eth_call to check the parity. Should be 1
@@ -197,76 +219,96 @@ async fn test_seismic_reth_rpc() {
         response["result"] == "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
     println!("eth_call Response (parity 1): {:?}", response);
+}
 
-    // Step 6: Replay Transaction in step 3
-    // get transction hash
+
+async fn replay_transaction(
+    client: &reqwest::Client,
+    reth_rpc_url: &str,
+    tx_hash: &str,
+) -> Result<Value, Box<dyn std::error::Error>> {
+    // Step 1: Get transaction by hash
     let get_transaction_hash = json!({
         "jsonrpc": "2.0",
         "method": "eth_getTransactionByHash",
-        "params": [itx.tx_hashes[0]],
+        "params": [tx_hash],
         "id": 1
     });
 
     let response: Value = client
-        .post(RETH_RPC_URL)
+        .post(reth_rpc_url)
         .json(&get_transaction_hash)
         .send()
-        .await
-        .expect("Failed to get code")
+        .await?
         .json()
-        .await
-        .expect("Failed to parse code");
+        .await?;
 
-    // Generate signed transaction with the given fields
+    // Step 2: Generate signed transaction with the given fields
+    let signed_tx = construct_transaction_signed(&response)
+        .expect("Failed to construct signed transaction");
+    let signed_call = signed_tx.encoded_2718();
 
-    // Send signed transaction eth eth_call endpoint, unveiling suint without nonce checks
+    // Step 3: Replay transaction using eth_call
+    let eth_call_replay = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_call",
+        "params": [signed_call],
+        "id": 1
+    });
 
-    println!("eth_getTransactionByHash Response: {:?}", response);
+    let replay_response: Value = client
+        .post(reth_rpc_url)
+        .json(&eth_call_replay)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    Ok(replay_response)
 }
 
 fn construct_transaction_signed(response: &Value) -> eyre::Result<TransactionSigned> {
-    // Extract fields from the response
-    let nonce = U256::from_str_radix(response["nonce"].as_str().unwrap().trim_start_matches("0x"), 16)?;
-    let gas_price = U256::from_str_radix(response["gasPrice"].as_str().unwrap().trim_start_matches("0x"), 16)?;
-    let gas = U256::from_str_radix(response["gas"].as_str().unwrap().trim_start_matches("0x"), 16)?;
-    let value = U256::from_str_radix(response["value"].as_str().unwrap().trim_start_matches("0x"), 16)?;
-    let input = hex::decode(response["input"].as_str().unwrap().trim_start_matches("0x"))?;
-    let chain_id = U256::from_str_radix(response["chainId"].as_str().unwrap().trim_start_matches("0x"), 16)?;
-
-    let to = if let Some(to) = response["to"].as_str() {
-        Some(to.parse()?)
+    let nonce = u64::from_str_radix(response["result"]["nonce"].as_str().unwrap().trim_start_matches("0x"), 16)?;
+    let gas_limit = u64::from_str_radix(response["result"]["gas"].as_str().unwrap().trim_start_matches("0x"), 16)?;
+    let gas_price = u128::from_str_radix(response["result"]["gasPrice"].as_str().unwrap().trim_start_matches("0x"), 16)?;
+    let value = U256::from_str_radix(response["result"]["value"].as_str().unwrap().trim_start_matches("0x"), 16)?;
+    let input = hex::decode(response["result"]["input"].as_str().unwrap().trim_start_matches("0x"))?;
+    let chain_id = u64::from_str_radix(response["result"]["chainId"].as_str().unwrap().trim_start_matches("0x"), 16)?;
+    let encryption_pubkey: EncryptionPublicKey = alloy_primitives::FixedBytes::from_slice(
+    hex::decode(response["result"]["encryptionPubkey"].as_str().unwrap().trim_start_matches("0x"))?.as_ref()
+    );
+    let tx_hash = B256::from_hex(response["result"]["hash"].as_str().unwrap())?;
+    let to = if let Some(to) = response["result"]["to"].as_str() {
+        Some(Address::from_str(to)?)
     } else {
         None
     };
 
-    // Extract signature components
-    let r_bytes = B256::from_str(response["r"].as_str().unwrap())?;
-    let s_bytes = B256::from_str(response["s"].as_str().unwrap())?;
-    let r = U256::from_be_bytes(r_bytes.0);
-    let s = U256::from_be_bytes(s_bytes.0);
-    let v = Some(response["v"].as_bool());
+    // extract signature components
+    let r = U256::from_str(response["result"]["r"].as_str().unwrap())?;
+    let s = U256::from_str(response["result"]["s"].as_str().unwrap())?;
+    let v = match response["result"]["v"].as_str().unwrap() {
+        "0x1" => true,
+        "0x0" => false,
+        _ => return Err(eyre::format_err!("Invalid v value")),
+    };
+    // construct the signature object
+    let signature = PrimitiveSignature::new(r, s, v);
 
-    // Construct the Signature object
-    let signature = Signature::new(r, s, alloy_primitives::Parity::from(v));
-
-    // Construct the Transaction object
-    let transaction = Transaction {
-        nonce,
-        gas_price: Some(gas_price),
-        gas_limit: gas,
-        to,
+    // construct the transaction object
+    let transaction = Transaction::Seismic(TxSeismic {
+        nonce: nonce.into(),
+        gas_price,
+        gas_limit,
+        to: to.into(),
         value,
-        data: input.into(),
-        chain_id: Some(chain_id.as_u64()),
+        input: input.into(),
+        chain_id,
+        encryption_pubkey,
         ..Default::default()
-    };
+    });
 
-    // Construct the TransactionSigned object
-    let tx_signed = TransactionSigned {
-        hash: OnceLock::new(),
-        signature,
-        transaction,
-    };
+    let signed_tx = TransactionSigned::new(transaction, signature, tx_hash);
 
-    Ok(tx_signed)
+    Ok(signed_tx)
 }
