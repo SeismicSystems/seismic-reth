@@ -157,26 +157,9 @@ async fn test_seismic_reth_rpc() {
     assert!(response["result"] == itx.tx_hashes[1]);
 
     // Replay transaction, need to add right here, must be done before tx is mined.
-    let replay_resp = replay_transaction(&client, RETH_RPC_URL, &itx.tx_hashes[0]).await.expect("Replay failed");
-    println!("eth_call Response REPLAY ATTACK: {:?}", replay_resp);
+    let replay_resp = replay_transaction(&client, RETH_RPC_URL, &itx.tx_hashes[1]).await.expect("Replay failed");
+    // Setters doesn't return the new number, but if it did we'd get the secret.
     assert!(replay_resp["result"] == "0x");
-
-    let get_transaction_hash = json!({
-        "jsonrpc": "2.0",
-        "method": "eth_getTransactionByHash",
-        "params": [itx.tx_hashes[0]],
-        "id": 1
-    });
-
-    let response: Value = client
-        .post(RETH_RPC_URL)
-        .json(&get_transaction_hash)
-        .send()
-        .await
-        .expect("Failed to get code")
-        .json()
-        .await
-        .expect("Failed to parse code");
     thread::sleep(Duration::from_secs(1));
 
     // Step 4: Get the transaction receipt
