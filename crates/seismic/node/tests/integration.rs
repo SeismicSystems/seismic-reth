@@ -234,6 +234,8 @@ async fn test_seismic_reth_rpc_new() {
     )
     .await;
 
+    println!("seismic_tx_request: {:?}", seismic_tx_request);
+
     let gas = EthApiClient::<Transaction, Block, Receipt, Header>::estimate_gas(
         &client,
         seismic_tx_request,

@@ -53,6 +53,9 @@ pub trait EstimateCall: Call {
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
         cfg.disable_base_fee = true;
 
+        // set nonce to None so that the correct nonce is chosen by the EVM
+        request.nonce = None;
+
         // Keep a copy of gas related request values
         let tx_request_gas_limit = request.gas.map(U256::from);
         let tx_request_gas_price = request.gas_price;

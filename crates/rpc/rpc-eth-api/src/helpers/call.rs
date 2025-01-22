@@ -928,6 +928,9 @@ pub trait Call:
         // See <https://github.com/paradigmxyz/reth/issues/1959>
         cfg.disable_eip3607 = true;
 
+        // set nonce to None so that the correct nonce is chosen by the EVM
+        request.nonce = None;
+
         // The basefee should be ignored for eth_call
         // See:
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
