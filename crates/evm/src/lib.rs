@@ -18,7 +18,7 @@
 extern crate alloc;
 
 use crate::builder::RethEvmBuilder;
-use alloy_consensus::{BlockHeader as _, TxSeismic};
+use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader as _, TxSeismic};
 use alloy_primitives::{Address, Bytes, B256, U256};
 use reth_primitives_traits::BlockHeader;
 use reth_tee::TeeError;
@@ -125,12 +125,32 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
     /// The error type that is returned by [`Self::next_cfg_and_block_env`].
     type Error: core::error::Error + Send + Sync;
 
+    /// seismic feature encrypt the transaction
+    fn encrypt(
+        &self,
+        _data: Vec<u8>,
+        _pubkey: EncryptionPublicKey,
+        _nonce: u64,
+    ) -> EVMResultGeneric<Vec<u8>, TeeError> {
+        Err(EVMError::Database(TeeError::EncryptionError))
+    }
+
+    /// seismic feature decrypt the transaction
+    fn decrypt(
+        &self,
+        _data: Vec<u8>,
+        _pubkey: EncryptionPublicKey,
+        _nonce: u64,
+    ) -> EVMResultGeneric<Vec<u8>, TeeError> {
+        Err(EVMError::Database(TeeError::DecryptionError))
+    }
+
     /// seismic feature decrypt the transaction
     fn fill_seismic_tx_env(
         &self,
-        tx_env: &mut TxEnv,
-        tx: &TxSeismic,
-        sender: Address,
+        _tx_env: &mut TxEnv,
+        _tx: &TxSeismic,
+        _sender: Address,
     ) -> EVMResultGeneric<(), TeeError> {
         Err(EVMError::Database(TeeError::DecryptionError))
     }

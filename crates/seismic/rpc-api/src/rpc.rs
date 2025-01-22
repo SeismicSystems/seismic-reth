@@ -18,8 +18,11 @@ pub trait SeismicApi {
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey>;
 }
 
+/// Implementation of the seismic rpc api
+#[derive(Debug)]
 pub struct SeismicApi {}
 impl SeismicApi {
+    /// Creates a new seismic api instance
     pub fn new() -> Self {
         Self {}
     }

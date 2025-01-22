@@ -13,7 +13,6 @@ use revm::{
 };
 use revm_primitives::BlockEnv;
 use std::cmp::min;
-use tracing::debug;
 
 use super::{EthApiError, EthResult, RpcInvalidTransactionError};
 
@@ -49,6 +48,7 @@ where
     let balance = balance
         .checked_sub(env.value)
         .ok_or_else(|| RpcInvalidTransactionError::InsufficientFunds { cost: value, balance })?;
+
     Ok(balance
         // Calculate the amount of gas the caller can afford with the specified gas price.
         .checked_div(env.gas_price)

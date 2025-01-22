@@ -8,7 +8,6 @@ use crate::{
 };
 use alloy_consensus::{BlockHeader, Typed2718};
 use alloy_eips::{eip1559::calc_next_block_base_fee, eip2930::AccessListResult};
-use alloy_network::{Ethereum, TransactionBuilder};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_eth::{
     simulate::{SimBlock, SimulatePayload, SimulatedBlock},
@@ -20,7 +19,6 @@ use futures::Future;
 use reth_chainspec::EthChainSpec;
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
 use reth_node_api::BlockBody;
-use reth_primitives::TransactionSigned;
 use reth_primitives_traits::SignedTransaction;
 use reth_provider::{BlockIdReader, ChainSpecProvider, ProviderHeader};
 use reth_revm::{
@@ -45,7 +43,6 @@ use reth_rpc_eth_types::{
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
 use revm::{Database, DatabaseCommit, GetInspector};
 use revm_inspectors::{access_list::AccessListInspector, transfer::TransferInspector};
-use secp256k1::PublicKey;
 use tracing::{debug, trace};
 
 /// Result type for `eth_simulateV1` RPC method.
@@ -466,6 +463,9 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         // <https://github.com/ethereum/go-ethereum/blob/8990c92aea01ca07801597b00c0d83d4e2d9b811/internal/ethapi/api.go#L1476-L1476>
         env.cfg.disable_base_fee = true;
 
+        // set nonce to None so that the correct nonce is chosen by the EVM
+        request.nonce = None;
+
         let mut db = CacheDB::new(StateProviderDatabase::new(state));
 
         if request.gas.is_none() && env.tx.gas_price > U256::ZERO {
@@ -775,6 +775,8 @@ pub trait Call:
             return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err())
         }
 
+        debug!(target: "rpc::eth::call", ?request, "Creating transaction environment");
+
         let TransactionRequest {
             from,
             to,
@@ -792,6 +794,7 @@ pub trait Call:
             authorization_list,
             transaction_type,
             encryption_pubkey,
+            encryption_nonce,
             sidecar: _,
         } = request;
 
@@ -815,8 +818,6 @@ pub trait Call:
             block_env.gas_limit.saturating_to()
         });
 
-        debug!(target: "rpc::eth::call", ?from, ?to, ?gas_price, ?max_fee_per_gas, ?max_priority_fee_per_gas, ?gas, ?value, ?input, ?nonce, ?chain_id, ?access_list, ?blob_versioned_hashes, ?max_fee_per_blob_gas, ?authorization_list, ?transaction_type, ?encryption_pubkey, "Request fields before decryption");
-
         let input =
             input.try_into_unique_input().map_err(Self::Error::from_eth_err)?.unwrap_or_default();
 
@@ -824,25 +825,18 @@ pub trait Call:
             input.len() > 0
         {
             let mut tx_env = TxEnv::default();
-            let seismic_tx = alloy_consensus::TxSeismic {
-                chain_id: chain_id.unwrap_or_default(),
-                nonce: nonce
-                    .ok_or(EthApiError::InvalidParams("nonce is required".to_string()).into())?,
-                gas_price: 0,
-                gas_limit: 0,
-                to: to.unwrap_or_default(),
-                value: value.unwrap_or_default(),
-                encryption_pubkey: encryption_pubkey.ok_or(
-                    EthApiError::InvalidParams(
-                        "encryption_pubkey is required for seismic transactions".to_string(),
-                    )
-                    .into(),
-                )?,
-                input,
-            };
 
             self.evm_config()
-                .fill_seismic_tx_env(&mut tx_env, &seismic_tx, from.unwrap_or_default())
+                .decrypt(
+                    input,
+                    encryption_pubkey.ok_or(
+                        EthApiError::InvalidParams(
+                            "encryption_pubkey is required for seismic transactions".to_string(),
+                        )
+                        .into(),
+                    )?,
+                    encryption_nonce.ok_or(),
+                )
                 .map_err(|_| {
                     EthApiError::InvalidParams("failed to fill seismic transaction env".to_string())
                         .into()
@@ -871,6 +865,7 @@ pub trait Call:
             authorization_list: authorization_list.map(Into::into),
             ..Default::default()
         };
+        debug!(target: "rpc::eth::call", ?env, "Created transaction environment");
 
         Ok(env)
     }
@@ -906,7 +901,7 @@ pub trait Call:
         &self,
         mut cfg: CfgEnvWithHandlerCfg,
         mut block: BlockEnv,
-        mut request: TransactionRequest,
+        request: TransactionRequest,
         db: &mut CacheDB<DB>,
         overrides: EvmOverrides,
     ) -> Result<EnvWithHandlerCfg, Self::Error>
@@ -945,6 +940,8 @@ pub trait Call:
 
         let request_gas = request.gas;
         let mut env = self.build_call_evm_env(cfg, block, request)?;
+
+        debug!(target: "rpc::eth::call", ?env, "Prepared call environment");
 
         if request_gas.is_none() {
             // No gas limit was provided in the request, so we need to cap the transaction gas limit

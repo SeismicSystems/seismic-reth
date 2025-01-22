@@ -3,27 +3,16 @@
 
 mod seismic_transaction_tests {
     use alloy_consensus::{SignableTransaction, TxSeismic};
-    use alloy_eips::eip2718::Encodable2718;
-    use alloy_primitives::{
-        hex_literal, keccak256, Address, Bytes, FixedBytes, PrimitiveSignature, U256,
-    };
+    use alloy_primitives::{keccak256, Address, FixedBytes, PrimitiveSignature};
     use arbitrary::Arbitrary;
     use core::str::FromStr;
     use enr::EnrKey;
-    use k256::ecdsa::SigningKey;
-    use reth_chainspec::MAINNET;
     use reth_evm::ConfigureEvmEnv;
-    use reth_node_ethereum::EthEvmConfig;
     use reth_primitives::{Transaction, TransactionSigned};
     use reth_revm::primitives::{EVMError, TxEnv};
     use reth_rpc_eth_types::utils::recover_raw_transaction;
     use reth_tee::TeeError;
-    use secp256k1::ecdh::SharedSecret;
-    use seismic_node::utils::{
-        start_mock_tee_server,
-        test_utils::{IntegrationTestContext, UnitTestContext},
-    };
-    use tee_service_api::{aes_encrypt, derive_aes_key, get_sample_secp256k1_pk};
+    use seismic_node::utils::{start_mock_tee_server, test_utils::UnitTestContext};
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_seismic_transactions() {

@@ -1,16 +1,15 @@
 use alloy_primitives::{hex, Address, Bytes, TxKind, U256};
-use alloy_rpc_types::{Block, Header, Receipt, Transaction, TransactionRequest};
+use alloy_rpc_types::{Block, Header, Transaction, TransactionReceipt};
 use assert_cmd::Command;
 use reqwest::Client;
-use reth_chainspec::{ChainSpec, DEV};
-use reth_e2e_test_utils::wallet::{self, Wallet};
+use reth_chainspec::DEV;
+use reth_e2e_test_utils::wallet::Wallet;
 use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
 use reth_rpc_eth_api::EthApiClient;
 use seismic_node::utils::test_utils::{
     get_signed_seismic_tx_bytes, get_unsigned_seismic_tx_request, ContractTestContext,
-    IntegrationTestContext, UnitTestContext,
+    IntegrationTestContext,
 };
-use seismic_rpc_api::rpc::SeismicApiClient;
 use serde_json::{json, Value};
 use std::{path::PathBuf, str::FromStr, thread, time::Duration};
 use sysinfo::{Pid, PidExt, ProcessExt, System, SystemExt};
@@ -223,9 +222,9 @@ async fn test_seismic_reth_rpc_new() {
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(RETH_RPC_URL).unwrap();
 
     let wallet = Wallet::default().with_chain_id(chain_id);
-    let nonce = 0;
+    let mut nonce = 0;
 
-    let seismic_tx_request = get_unsigned_seismic_tx_request(
+    let deploy_tx = get_signed_seismic_tx_bytes(
         &wallet.inner,
         nonce,
         TxKind::Create,
@@ -234,11 +233,42 @@ async fn test_seismic_reth_rpc_new() {
     )
     .await;
 
+    let tx_hash =
+        EthApiClient::<Transaction, Block, TransactionReceipt, Header>::send_raw_transaction(
+            &client, deploy_tx,
+        )
+        .await
+        .unwrap();
+    thread::sleep(Duration::from_secs(1));
+
+    println!("tx_hash: {:?}", tx_hash);
+
+    let tx_receipt =
+        EthApiClient::<Transaction, Block, TransactionReceipt, Header>::transaction_receipt(
+            &client, tx_hash,
+        )
+        .await
+        .unwrap();
+    println!("tx_receipt: {:?}", tx_receipt);
+
+    let contract_addr = tx_receipt.unwrap().contract_address.unwrap();
+    nonce += 1;
+
+    let seismic_tx_request = get_unsigned_seismic_tx_request(
+        &wallet.inner,
+        nonce,
+        TxKind::Call(contract_addr),
+        chain_id,
+        ContractTestContext::get_is_odd_input_plaintext(),
+    )
+    .await;
+
     println!("seismic_tx_request: {:?}", seismic_tx_request);
 
-    let gas = EthApiClient::<Transaction, Block, Receipt, Header>::estimate_gas(
+    // test eth_estimateGas
+    let gas = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::estimate_gas(
         &client,
-        seismic_tx_request,
+        seismic_tx_request.clone(),
         None,
         None,
     )
@@ -246,6 +276,39 @@ async fn test_seismic_reth_rpc_new() {
     .unwrap();
     println!("gas: {:?}", gas);
     assert!(gas > U256::ZERO);
+
+    let gas = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::estimate_gas(
+        &client,
+        seismic_tx_request.clone(),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    println!("gas: {:?}", gas);
+    assert!(gas > U256::ZERO);
+
+    let access_list =
+        EthApiClient::<Transaction, Block, TransactionReceipt, Header>::create_access_list(
+            &client,
+            seismic_tx_request.clone(),
+            None,
+        )
+        .await
+        .unwrap();
+    println!("access_list: {:?}", access_list);
+
+    // test call
+    let output = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::call(
+        &client,
+        reth_rpc_eth_api::types::SeismicCallRequest::TransactionRequest(seismic_tx_request.clone()),
+        None,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    println!("output: {:?}", output);
 }
 
 #[tokio::test]
