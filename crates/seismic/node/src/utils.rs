@@ -286,6 +286,7 @@ pub mod test_utils {
             encryption_pubkey: Some(alloy_consensus::transaction::EncryptionPublicKey::from(
                 encryption_pubkey.serialize(),
             )),
+            encryption_nonce: Some(nonce),
             ..Default::default()
         }
     }

@@ -232,6 +232,8 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
             let (res, _env) =
                 self.transact_call_at(request, block_number.unwrap_or_default(), overrides).await?;
 
+            debug!(target: "rpc::eth::call", ?res, "Transacted");
+
             ensure_success(res.result).map_err(Self::Error::from_eth_err)
         }
     }
@@ -556,7 +558,10 @@ pub trait Call:
         EthApiError: From<DB::Error>,
     {
         let mut evm = self.evm_config().evm_with_env(db, env);
-        let res = evm.transact().map_err(Self::Error::from_evm_err)?;
+        debug!(target: "rpc::eth::call::transact", "Transacting");
+        let err = evm.transact().map_err(Self::Error::from_evm_err);
+        debug!(target: "rpc::eth::call::transact", ?err, "Transacted");
+        let res = err?;
         let (_, env) = evm.into_db_and_env_with_handler_cfg();
         Ok((res, env))
     }
@@ -648,6 +653,8 @@ pub trait Call:
 
                 let env = this.prepare_call_env(cfg, block_env, request, &mut db, overrides)?;
 
+                debug!(target: "rpc::eth::call::spawn_with_call_at", ?env, "Prepared call environment");
+                
                 f(StateCacheDbRefMutWrapper(&mut db), env)
             })
             .await
@@ -821,24 +828,28 @@ pub trait Call:
         let input = if transaction_type == Some(alloy_consensus::TxSeismic::TX_TYPE) &&
             input.len() > 0
         {
-            let mut tx_env = TxEnv::default();
-
-            self.evm_config()
+            let decrypted_input = self.evm_config()
                 .decrypt(
-                    input,
+                    input.to_vec(),
                     encryption_pubkey.ok_or(
                         EthApiError::InvalidParams(
-                            "encryption_pubkey is required for seismic transactions".to_string(),
+                            "encryption_pubkey is required for decrypting seismic transactions".to_string(),
                         )
                         .into(),
                     )?,
-                    encryption_nonce.ok_or(),
+                    nonce.or(encryption_nonce).ok_or(
+                        EthApiError::InvalidParams(
+                            "nonce or encryption_nonce is required for decrypting seismic transactions"
+                                .to_string(),
+                        )
+                        .into(),
+                    )?,
                 )
                 .map_err(|_| {
-                    EthApiError::InvalidParams("failed to fill seismic transaction env".to_string())
+                    EthApiError::InvalidParams("failed to decrypt seismic transaction".to_string())
                         .into()
                 })?;
-            tx_env.data
+            Bytes::from(decrypted_input)
         } else {
             input
         };
@@ -898,7 +909,7 @@ pub trait Call:
         &self,
         mut cfg: CfgEnvWithHandlerCfg,
         mut block: BlockEnv,
-        request: TransactionRequest,
+        mut request: TransactionRequest,
         db: &mut CacheDB<DB>,
         overrides: EvmOverrides,
     ) -> Result<EnvWithHandlerCfg, Self::Error>
@@ -906,6 +917,7 @@ pub trait Call:
         DB: DatabaseRef,
         EthApiError: From<<DB as DatabaseRef>::Error>,
     {
+        Self::seismic_override_call_request(&mut request);
         if request.gas > Some(self.call_gas_limit()) {
             // configured gas exceeds limit
             return Err(
@@ -951,6 +963,25 @@ pub trait Call:
             }
         }
 
+        debug!(target: "rpc::eth::call", ?env, "Overridden seismic call environment");
+
         Ok(env)
     }
+
+    /// Override the request for seismic calls
+    fn seismic_override_call_request(request: &mut TransactionRequest) {
+        // If user calls with the standard (unsigned) eth_call,
+        // then disregard whatever they put in the from field
+        // They will still be able to read public contract functions,
+        // but they will not be able to spoof msg.sender in these calls
+        request.from = None;
+        request.gas_price = None; // preventing InsufficientFunds error
+        request.max_fee_per_gas = None; // preventing InsufficientFunds error
+        request.max_priority_fee_per_gas = None; // preventing InsufficientFunds error
+        request.max_fee_per_blob_gas = None; // preventing InsufficientFunds error
+        request.value = None; // preventing InsufficientFunds error
+        request.encryption_nonce = request.nonce; // nonce is null by prepare_call_env
+    }
 }
+
+

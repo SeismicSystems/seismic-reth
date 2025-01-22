@@ -298,6 +298,8 @@ async fn test_seismic_reth_rpc_new() {
         .unwrap();
     println!("access_list: {:?}", access_list);
 
+    println!("seismic_tx_request: {:?}", seismic_tx_request);
+
     // test call
     let output = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::call(
         &client,
