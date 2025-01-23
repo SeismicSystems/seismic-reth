@@ -6,7 +6,7 @@ use crate::{
     helpers::estimate::EstimateCall, FromEthApiError, FromEvmError, FullEthApiTypes,
     IntoEthApiError, RpcBlock, RpcNodeCore,
 };
-use alloy_consensus::{BlockHeader, Typed2718};
+use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader, Typed2718};
 use alloy_eips::{eip1559::calc_next_block_base_fee, eip2930::AccessListResult};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_eth::{
@@ -30,15 +30,10 @@ use reth_revm::{
     DatabaseRef,
 };
 use reth_rpc_eth_types::{
-    cache::db::{StateCacheDbRefMutWrapper, StateProviderTraitObjWrapper},
-    error::ensure_success,
-    revm_utils::{
+    cache::db::{StateCacheDbRefMutWrapper, StateProviderTraitObjWrapper}, error::ensure_success, revm_utils::{
         apply_block_overrides, apply_state_overrides, caller_gas_allowance, get_precompiles,
         CallFees,
-    },
-    simulate::{self, EthSimulateError},
-    utils::recover_raw_transaction,
-    EthApiError, RevertError, RpcInvalidTransactionError, StateCacheDb,
+    }, simulate::{self, EthSimulateError}, utils::recover_raw_transaction, EthApiError, RevertError, RpcInvalidTransactionError, StateCacheDb
 };
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
 use revm::{Database, DatabaseCommit, GetInspector};
@@ -229,13 +224,48 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         overrides: EvmOverrides,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
+
+            let tx_type = request.transaction_type;
+            let encryption_pubkey = request.encryption_pubkey;
+            let nonce = request.nonce;
+
             let (res, _env) =
                 self.transact_call_at(request, block_number.unwrap_or_default(), overrides).await?;
 
             debug!(target: "rpc::eth::call", ?res, "Transacted");
 
-            ensure_success(res.result).map_err(Self::Error::from_eth_err)
+            let output = ensure_success(res.result)
+                .map_err(Self::Error::from_eth_err)?;
+
+            self.encrypt_(tx_type, encryption_pubkey.as_ref(), nonce, output)
         }
+    }
+
+    /// Encrypts the output of a call using the encryption pubkey of the transaction
+    fn encrypt_(
+        &self,
+        tx_type: Option<u8>,
+        encryption_pubkey: Option<&EncryptionPublicKey>,
+        nonce: Option<u64>,
+        output: Bytes,
+    ) -> Result<Bytes, Self::Error> {
+
+        if let Some(tx_type) = tx_type {
+            if alloy_consensus::TxSeismic::TX_TYPE != tx_type {
+                return Ok(output);
+            }
+        }
+
+        let encryption_pubkey = encryption_pubkey.ok_or(EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
+
+        let nonce = nonce.ok_or(EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
+
+        let encrypted_output = self.evm_config()
+            .encrypt(output.to_vec(), encryption_pubkey.clone(), nonce)
+            .map(|encrypted_output| Bytes::from(encrypted_output))
+            .map_err(|_| EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
+
+        Ok(encrypted_output)
     }
 
     /// Encrypts the output of a call using the encryption pubkey of the transaction
@@ -272,12 +302,32 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                 <Self::Pool as TransactionPool>::Transaction::pooled_into_consensus,
             );
 
+            let (cfg, block, at) = self.evm_env_at(block_number.unwrap_or_default()).await?;
+
+            let env = EnvWithHandlerCfg::new_with_cfg_env(
+                cfg,
+                block,
+                self.evm_config()
+                    .tx_env(tx.as_signed(), tx.signer())
+                    .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
+            );
+
+            let this = self.clone();
+
+            let (res, _) = self
+                .spawn_with_state_at_block(at, move |state| {
+                    let db = CacheDB::new(StateProviderDatabase::new(
+                        StateProviderTraitObjWrapper(&state),
+                    ));
+                    this.transact(db, env)
+                })
+                .await?;
+
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
             let tx_signed = tx.as_signed();
-            if alloy_consensus::TxSeismic::TX_TYPE != tx_signed.ty() {
-                return Ok(output);
-            }
-            self.encrypt_output(output, tx_signed)
+            self.encrypt_(Some(tx_signed.ty()), 
+                tx_signed.encryption_pubkey(), 
+                Some(tx_signed.nonce()), output)
         }
     }
 
