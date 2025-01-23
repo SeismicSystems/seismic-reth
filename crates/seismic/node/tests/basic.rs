@@ -10,7 +10,7 @@ use seismic_node::{
     node::SeismicNode,
     utils::{
         seismic_payload_attributes, start_mock_tee_server,
-        test_utils::{decrypt, get_signed_seismic_tx_bytes, IntegrationTestContext},
+        test_utils::{client_decrypt, get_signed_seismic_tx_bytes, IntegrationTestContext},
     },
 };
 use std::str::FromStr;
@@ -130,7 +130,7 @@ async fn contract() -> eyre::Result<()> {
 
     let encrypted_output: Bytes = first_node.rpc.signed_call(raw_tx.clone(), block_number).await?;
     itx.encrypted_output(&encrypted_output);
-    let decrypted_output = decrypt(&wallet.inner, nonce, &encrypted_output).await;
+    let decrypted_output = client_decrypt(&wallet.inner, nonce, &encrypted_output).await;
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 
     debug!(
@@ -184,7 +184,7 @@ async fn contract() -> eyre::Result<()> {
 
     let encrypted_output: Bytes = first_node.rpc.signed_call(raw_tx.clone(), block_number).await?;
     itx.encrypted_output(&encrypted_output);
-    let decrypted_output: Bytes = decrypt(&wallet.inner, nonce, &encrypted_output).await;
+    let decrypted_output: Bytes = client_decrypt(&wallet.inner, nonce, &encrypted_output).await;
     debug!(
         target: "e2e:contract",
         ?raw_tx,

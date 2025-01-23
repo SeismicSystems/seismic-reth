@@ -14,6 +14,7 @@ use alloy_primitives::{
     keccak256, Address, Bytes, ChainId, PrimitiveSignature as Signature, TxHash, TxKind, B256, U256,
 };
 use alloy_rlp::{Decodable, Encodable, Error as RlpError, Header};
+use alloy_rpc_types_eth::TransactionRequest;
 use core::hash::{Hash, Hasher};
 use derive_more::{AsRef, Deref};
 use once_cell as _;
@@ -1659,6 +1660,23 @@ impl<T: Encodable2718> Encodable2718 for RecoveredTx<T> {
 
     fn trie_hash(&self) -> B256 {
         self.signed_transaction.trie_hash()
+    }
+}
+
+impl From<RecoveredTx> for TransactionRequest {
+    fn from(tx: RecoveredTx) -> Self {
+        let mut request: TransactionRequest = match tx.signed_transaction.transaction {
+            Transaction::Legacy(tx) => tx.into(),
+            Transaction::Eip2930(tx) => tx.into(),
+            Transaction::Eip1559(tx) => tx.into(),
+            Transaction::Eip4844(tx) => tx.into(),
+            Transaction::Eip7702(tx) => tx.into(),
+            Transaction::Seismic(tx) => tx.into(),
+            #[cfg(feature = "optimism")]
+            Transaction::Deposit(tx) => tx.into(),
+        };
+        request.from = Some(tx.signer);
+        request
     }
 }
 

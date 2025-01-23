@@ -37,7 +37,7 @@ pub trait EstimateCall: Call {
         &self,
         mut cfg: CfgEnvWithHandlerCfg,
         block: BlockEnv,
-        mut request: TransactionRequest,
+        request: TransactionRequest,
         state: S,
         state_override: Option<StateOverride>,
     ) -> Result<U256, Self::Error>

@@ -272,27 +272,6 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                 <Self::Pool as TransactionPool>::Transaction::pooled_into_consensus,
             );
 
-            let (cfg, block, at) = self.evm_env_at(block_number.unwrap_or_default()).await?;
-
-            let env = EnvWithHandlerCfg::new_with_cfg_env(
-                cfg,
-                block,
-                self.evm_config()
-                    .tx_env(tx.as_signed(), tx.signer())
-                    .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
-            );
-
-            let this = self.clone();
-
-            let (res, _) = self
-                .spawn_with_state_at_block(at, move |state| {
-                    let db = CacheDB::new(StateProviderDatabase::new(
-                        StateProviderTraitObjWrapper(&state),
-                    ));
-                    this.transact(db, env)
-                })
-                .await?;
-
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
             let tx_signed = tx.as_signed();
             if alloy_consensus::TxSeismic::TX_TYPE != tx_signed.ty() {
@@ -558,10 +537,7 @@ pub trait Call:
         EthApiError: From<DB::Error>,
     {
         let mut evm = self.evm_config().evm_with_env(db, env);
-        debug!(target: "rpc::eth::call::transact", "Transacting");
-        let err = evm.transact().map_err(Self::Error::from_evm_err);
-        debug!(target: "rpc::eth::call::transact", ?err, "Transacted");
-        let res = err?;
+        let res = evm.transact().map_err(Self::Error::from_evm_err)?;
         let (_, env) = evm.into_db_and_env_with_handler_cfg();
         Ok((res, env))
     }
