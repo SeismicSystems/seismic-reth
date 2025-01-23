@@ -53,9 +53,6 @@ pub trait EstimateCall: Call {
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
         cfg.disable_base_fee = true;
 
-        // set nonce to None so that the correct nonce is chosen by the EVM
-        request.nonce = None;
-
         // Keep a copy of gas related request values
         let tx_request_gas_limit = request.gas.map(U256::from);
         let tx_request_gas_price = request.gas_price;
@@ -77,6 +74,10 @@ pub trait EstimateCall: Call {
         // Configure the evm env
         let mut env = self.build_call_evm_env(cfg, block, request)?;
         let mut db = CacheDB::new(StateProviderDatabase::new(state));
+
+        // set nonce to None so that the correct nonce is chosen by the EVM
+        // seismic moved from request.nonce = None;
+        env.tx.nonce = None;
 
         // Apply any state overrides if specified.
         if let Some(state_override) = state_override {
@@ -120,8 +121,6 @@ pub trait EstimateCall: Call {
 
         // If the provided gas limit is less than computed cap, use that
         env.tx.gas_limit = env.tx.gas_limit.min(highest_gas_limit);
-
-        trace!(target: "rpc::eth::estimate", ?env, "Starting gas estimation");
 
         // Execute the transaction with the highest possible gas limit.
         let (mut res, mut env) = match self.transact(&mut db, env.clone()) {

@@ -130,7 +130,7 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
         &self,
         _data: Vec<u8>,
         _pubkey: EncryptionPublicKey,
-        _nonce: u64,
+        _encryption_nonce: u64,
     ) -> EVMResultGeneric<Vec<u8>, TeeError> {
         Err(EVMError::Database(TeeError::EncryptionError))
     }
@@ -140,7 +140,7 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
         &self,
         _data: Vec<u8>,
         _pubkey: EncryptionPublicKey,
-        _nonce: u64,
+        _encryption_nonce: u64,
     ) -> EVMResultGeneric<Vec<u8>, TeeError> {
         Err(EVMError::Database(TeeError::DecryptionError))
     }

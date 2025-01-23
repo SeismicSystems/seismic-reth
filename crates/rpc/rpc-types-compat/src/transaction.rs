@@ -110,6 +110,5 @@ pub fn transaction_to_call_request(tx: RecoveredTx) -> TransactionRequest {
         // TODO: Peter?
         // alloy_consensus::transaction::EncryptionPublicKey::new([0u8;33])
         encryption_pubkey: None,
-        encryption_nonce: None,
     }
 }

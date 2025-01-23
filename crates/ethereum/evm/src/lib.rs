@@ -89,25 +89,27 @@ impl ConfigureEvmEnv for EthEvmConfig {
         &self,
         data: Vec<u8>,
         pubkey: EncryptionPublicKey,
-        nonce: u64,
+        encryption_nonce: u64,
     ) -> EVMResultGeneric<Vec<u8>, TeeError> {
         let encryption_pubkey = secp256k1::PublicKey::from_slice(pubkey.as_slice())
             .map_err(|_| EVMError::Database(TeeError::PublicKeyRecoveryError))?;
-        let tee_encryption: Vec<u8> = encrypt(&self.tee_client, encryption_pubkey, data, nonce)
-            .map_err(|_| EVMError::Database(TeeError::EncryptionError))?;
+        let tee_encryption: Vec<u8> =
+            encrypt(&self.tee_client, encryption_pubkey, data, encryption_nonce)
+                .map_err(|_| EVMError::Database(TeeError::EncryptionError))?;
         Ok(tee_encryption)
     }
     fn decrypt(
         &self,
         data: Vec<u8>,
         pubkey: EncryptionPublicKey,
-        nonce: u64,
+        encryption_nonce: u64,
     ) -> EVMResultGeneric<Vec<u8>, TeeError> {
         let encryption_pubkey = secp256k1::PublicKey::from_slice(pubkey.as_slice())
             .map_err(|_| EVMError::Database(TeeError::PublicKeyRecoveryError))?;
 
-        let tee_decryption: Vec<u8> = decrypt(&self.tee_client, encryption_pubkey, data, nonce)
-            .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
+        let tee_decryption: Vec<u8> =
+            decrypt(&self.tee_client, encryption_pubkey, data, encryption_nonce)
+                .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
         Ok(tee_decryption)
     }
 

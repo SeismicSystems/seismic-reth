@@ -798,7 +798,6 @@ pub trait Call:
             authorization_list,
             transaction_type,
             encryption_pubkey,
-            encryption_nonce,
             sidecar: _,
         } = request;
 
@@ -837,9 +836,9 @@ pub trait Call:
                         )
                         .into(),
                     )?,
-                    nonce.or(encryption_nonce).ok_or(
+                    nonce.ok_or(
                         EthApiError::InvalidParams(
-                            "nonce or encryption_nonce is required for decrypting seismic transactions"
+                            "nonce is required for decrypting seismic transactions"
                                 .to_string(),
                         )
                         .into(),
@@ -932,9 +931,6 @@ pub trait Call:
         // See <https://github.com/paradigmxyz/reth/issues/1959>
         cfg.disable_eip3607 = true;
 
-        // set nonce to None so that the correct nonce is chosen by the EVM
-        request.nonce = None;
-
         // The basefee should be ignored for eth_call
         // See:
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
@@ -950,6 +946,10 @@ pub trait Call:
         let request_gas = request.gas;
         let mut env = self.build_call_evm_env(cfg, block, request)?;
 
+        // set nonce to None so that the correct nonce is chosen by the EVM
+        // seismic moved from request.nonce = None;
+        env.tx.nonce = None;
+
         debug!(target: "rpc::eth::call", ?env, "Prepared call environment");
 
         if request_gas.is_none() {
@@ -962,8 +962,6 @@ pub trait Call:
                 env.tx.gas_limit = cap.min(env.block.gas_limit).saturating_to();
             }
         }
-
-        debug!(target: "rpc::eth::call", ?env, "Overridden seismic call environment");
 
         Ok(env)
     }
@@ -980,7 +978,6 @@ pub trait Call:
         request.max_priority_fee_per_gas = None; // preventing InsufficientFunds error
         request.max_fee_per_blob_gas = None; // preventing InsufficientFunds error
         request.value = None; // preventing InsufficientFunds error
-        request.encryption_nonce = request.nonce; // nonce is null by prepare_call_env
     }
 }
 
