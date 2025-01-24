@@ -62,7 +62,7 @@ pub fn decrypt<T: TeeAPI>(
     tee_client: &T,
     key: PublicKey,
     data: Vec<u8>,
-    encryption_nonce: u64,
+    nonce: u64,
 ) -> Result<Vec<u8>, TeeError> {
     let payload = IoDecryptionRequest { key, data, nonce: Nonce::from(nonce) };
     let IoDecryptionResponse { decrypted_data } =
@@ -76,7 +76,7 @@ pub fn encrypt<T: TeeAPI>(
     tee_client: &T,
     key: PublicKey,
     data: Vec<u8>,
-    encryption_nonce: u64,
+    nonce: u64,
 ) -> Result<Vec<u8>, TeeError> {
     let payload = IoEncryptionRequest { key, data, nonce: Nonce::from(nonce).into() };
     let IoEncryptionResponse { encrypted_data } =

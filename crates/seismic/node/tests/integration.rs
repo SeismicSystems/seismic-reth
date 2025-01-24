@@ -7,7 +7,7 @@ use reth_e2e_test_utils::wallet::Wallet;
 use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
 use reth_rpc_eth_api::EthApiClient;
 use seismic_node::utils::test_utils::{
-    client_decrypt, get_signed_seismic_tx_bytes, get_unsigned_seismic_tx_request,
+    client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_unsigned_seismic_tx_request,
     ContractTestContext, IntegrationTestContext,
 };
 use serde_json::{json, Value};
@@ -42,6 +42,9 @@ impl RethCommand {
     fn chain_id() -> u64 {
         DEV.chain().into()
     }
+    fn url() -> String {
+        format!("http://127.0.0.1:8545")
+    }
 }
 
 impl Drop for RethCommand {
@@ -55,29 +58,28 @@ impl Drop for RethCommand {
     }
 }
 
-// this is the same test as basic.rs but with actual RPC calls and standalone reth instance
 #[tokio::test]
-async fn test_seismic_reth_rpc() {
-    const RETH_RPC_URL: &str = "http://127.0.0.1:8545";
-    // Step 1: Start the binary
+async fn integration_test() {
     let _cmd = RethCommand::run();
-    let chain_id = RethCommand::chain_id();
-
-    // Step 2: Allow the binary some time to start
     thread::sleep(Duration::from_secs(5));
 
-    // Step 3: Send RPC calls using EthApiClient static methods
-    let client = jsonrpsee::http_client::HttpClientBuilder::default().build(RETH_RPC_URL).unwrap();
-    let wallet = Wallet::default().with_chain_id(chain_id);
-    let mut nonce = 0;
+    test_seismic_reth_backup().await;
+    test_seismic_reth_rpc().await;
+}
 
-    // Deploy the contract
+// this is the same test as basic.rs but with actual RPC calls and standalone reth instance
+async fn test_seismic_reth_rpc() {
+    let reth_rpc_url = RethCommand::url();
+    let chain_id = RethCommand::chain_id();
+    let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
+    let wallet = Wallet::default().with_chain_id(chain_id);
+
     let tx_hash =
         EthApiClient::<Transaction, Block, TransactionReceipt, Header>::send_raw_transaction(
             &client,
             get_signed_seismic_tx_bytes(
                 &wallet.inner,
-                nonce,
+                get_nonce(&client, wallet.inner.address()).await,
                 TxKind::Create,
                 chain_id,
                 ContractTestContext::get_deploy_input_plaintext(),
@@ -89,7 +91,6 @@ async fn test_seismic_reth_rpc() {
     // assert_eq!(tx_hash, itx.tx_hashes[0]);
     thread::sleep(Duration::from_secs(1));
     println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
-    nonce += 1;
 
     // Get the transaction receipt
     let receipt =
@@ -123,7 +124,7 @@ async fn test_seismic_reth_rpc() {
         reth_rpc_eth_api::types::SeismicCallRequest::Bytes(
             get_signed_seismic_tx_bytes(
                 &wallet.inner,
-                nonce,
+                get_nonce(&client, wallet.inner.address()).await,
                 TxKind::Call(contract_addr),
                 chain_id,
                 ContractTestContext::get_is_odd_input_plaintext(),
@@ -136,7 +137,9 @@ async fn test_seismic_reth_rpc() {
     )
     .await
     .unwrap();
-    let decrypted_output = client_decrypt(&wallet.inner, nonce, &output).await;
+    let decrypted_output =
+        client_decrypt(&wallet.inner, get_nonce(&client, wallet.inner.address()).await, &output)
+            .await;
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 
@@ -146,7 +149,7 @@ async fn test_seismic_reth_rpc() {
             &client,
             get_signed_seismic_tx_bytes(
                 &wallet.inner,
-                nonce,
+                get_nonce(&client, wallet.inner.address()).await,
                 TxKind::Call(contract_addr),
                 chain_id,
                 ContractTestContext::get_set_number_input_plaintext(),
@@ -157,7 +160,6 @@ async fn test_seismic_reth_rpc() {
         .unwrap();
     println!("eth_sendRawTransaction setting number transaction tx_hash: {:?}", tx_hash);
     thread::sleep(Duration::from_secs(1));
-    nonce += 1;
 
     // Get the transaction receipt
     let receipt =
@@ -176,7 +178,7 @@ async fn test_seismic_reth_rpc() {
         reth_rpc_eth_api::types::SeismicCallRequest::Bytes(
             get_signed_seismic_tx_bytes(
                 &wallet.inner,
-                nonce,
+                get_nonce(&client, wallet.inner.address()).await,
                 TxKind::Call(contract_addr),
                 chain_id,
                 ContractTestContext::get_is_odd_input_plaintext(),
@@ -189,13 +191,15 @@ async fn test_seismic_reth_rpc() {
     )
     .await
     .unwrap();
-    let decrypted_output = client_decrypt(&wallet.inner, nonce, &output).await;
+    let decrypted_output =
+        client_decrypt(&wallet.inner, get_nonce(&client, wallet.inner.address()).await, &output)
+            .await;
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::from(1));
 
     let simulate_tx_request = get_unsigned_seismic_tx_request(
         &wallet.inner,
-        nonce,
+        get_nonce(&client, wallet.inner.address()).await,
         TxKind::Call(contract_addr),
         chain_id,
         ContractTestContext::get_is_odd_input_plaintext(),
@@ -261,17 +265,11 @@ async fn test_seismic_reth_rpc() {
     println!("eth_call is_odd() with no transaction type decrypted output: {:?}", output);
 }
 
-#[tokio::test]
 async fn test_seismic_reth_backup() {
     let itx = IntegrationTestContext::load();
     let chain_id = DEV.chain;
 
     const RETH_RPC_URL: &str = "http://127.0.0.1:8545";
-    // Step 1: Start the binary
-    let _cmd = RethCommand::run();
-
-    // Step 2: Allow the binary some time to start
-    thread::sleep(Duration::from_secs(5));
 
     // Step 3: Send RPC calls
     let client = Client::new();

@@ -221,16 +221,30 @@ pub mod test_utils {
     use alloy_primitives::{
         hex, hex_literal, Address, Bytes, FixedBytes, PrimitiveSignature, U256,
     };
+    use alloy_rpc_types::{Block, Header, Transaction, TransactionInput, TransactionReceipt};
     use core::str::FromStr;
     use enr::EnrKey;
-    use k256::ecdsa::SigningKey;
+    use jsonrpsee::http_client::HttpClient;
+    use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::le::read_u64_into};
     use reth_chainspec::MAINNET;
     use reth_e2e_test_utils::transaction::TransactionTestContext;
     use reth_node_ethereum::EthEvmConfig;
     use reth_primitives::TransactionSigned;
+    use reth_rpc_eth_api::EthApiClient;
     use secp256k1::ecdh::SharedSecret;
     use serde::{Deserialize, Serialize};
     use tee_service_api::{aes_encrypt, derive_aes_key, get_sample_secp256k1_pk};
+
+    /// Get the nonce from the client
+    pub async fn get_nonce(client: &HttpClient, address: Address) -> u64 {
+        let nonce =
+            EthApiClient::<Transaction, Block, TransactionReceipt, Header>::transaction_count(
+                client, address, None,
+            )
+            .await
+            .unwrap();
+        nonce.wrapping_to::<u64>()
+    }
 
     /// Decrypt ciphertext using network public key and client private key
     pub async fn client_decrypt(
