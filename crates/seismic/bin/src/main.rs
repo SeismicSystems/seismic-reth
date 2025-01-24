@@ -5,8 +5,8 @@ use reth_cli_commands::node::NoArgs;
 use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher};
 use reth_provider::providers::BlockchainProvider2;
 use reth_tee::mock::MockTeeServer;
-use seismic_node::rpc::{SeismicApi, SeismicApiServer};
-use tracing::info;
+use reth_tracing::tracing::*;
+use seismic_rpc_api::rpc::{SeismicApi, SeismicApiServer};
 
 fn main() {
     use clap::Parser;

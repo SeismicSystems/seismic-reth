@@ -14,6 +14,7 @@ use alloy_primitives::{
     keccak256, Address, Bytes, ChainId, PrimitiveSignature as Signature, TxHash, TxKind, B256, U256,
 };
 use alloy_rlp::{Decodable, Encodable, Error as RlpError, Header};
+use alloy_rpc_types_eth::TransactionRequest;
 use core::hash::{Hash, Hasher};
 use derive_more::{AsRef, Deref};
 use once_cell as _;
@@ -1563,6 +1564,21 @@ impl<'a> arbitrary::Arbitrary<'a> for TransactionSigned {
         #[cfg(feature = "optimism")]
         let signature = if transaction.is_deposit() { TxDeposit::signature() } else { signature };
         Ok(Self::new_unhashed(transaction, signature))
+    }
+}
+
+impl From<TransactionSigned> for TransactionRequest {
+    fn from(tx: TransactionSigned) -> Self {
+        match tx.transaction {
+            Transaction::Legacy(tx) => tx.into(),
+            Transaction::Eip2930(tx) => tx.into(),
+            Transaction::Eip1559(tx) => tx.into(),
+            Transaction::Eip4844(tx) => tx.into(),
+            Transaction::Eip7702(tx) => tx.into(),
+            Transaction::Seismic(tx) => tx.into(),
+            #[cfg(feature = "optimism")]
+            Transaction::Deposit(tx) => tx.into(),
+        }
     }
 }
 

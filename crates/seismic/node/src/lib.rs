@@ -1,3 +1,6 @@
+//! Seismic node
+/// Seismic node crate
 pub mod node;
-pub mod rpc;
+
+/// Seismic node utils
 pub mod utils;

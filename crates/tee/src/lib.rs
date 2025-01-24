@@ -65,7 +65,6 @@ pub fn decrypt<T: TeeAPI>(
     nonce: u64,
 ) -> Result<Vec<u8>, TeeError> {
     let payload = IoDecryptionRequest { key, data, nonce: Nonce::from(nonce) };
-
     let IoDecryptionResponse { decrypted_data } =
         block_on_with_runtime(tee_client.tx_io_decrypt(payload))
             .map_err(|_| TeeError::DecryptionError)?;
@@ -80,7 +79,6 @@ pub fn encrypt<T: TeeAPI>(
     nonce: u64,
 ) -> Result<Vec<u8>, TeeError> {
     let payload = IoEncryptionRequest { key, data, nonce: Nonce::from(nonce).into() };
-
     let IoEncryptionResponse { encrypted_data } =
         block_on_with_runtime(tee_client.tx_io_encrypt(payload))
             .map_err(|_| TeeError::DecryptionError)?;

@@ -6,7 +6,7 @@ use crate::{
     helpers::estimate::EstimateCall, FromEthApiError, FromEvmError, FullEthApiTypes,
     IntoEthApiError, RpcBlock, RpcNodeCore,
 };
-use alloy_consensus::{BlockHeader, Typed2718};
+use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader, Typed2718};
 use alloy_eips::{eip1559::calc_next_block_base_fee, eip2930::AccessListResult};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_eth::{
@@ -43,7 +43,7 @@ use reth_rpc_eth_types::{
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
 use revm::{Database, DatabaseCommit, GetInspector};
 use revm_inspectors::{access_list::AccessListInspector, transfer::TransferInspector};
-use tracing::trace;
+use tracing::{debug, trace};
 
 /// Result type for `eth_simulateV1` RPC method.
 pub type SimulatedBlocksResult<N, E> = Result<Vec<SimulatedBlock<RpcBlock<N>>>, E>;
@@ -229,11 +229,48 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         overrides: EvmOverrides,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
+            let tx_type = request.transaction_type;
+            let encryption_pubkey = request.encryption_pubkey;
+            let nonce = request.nonce;
+
             let (res, _env) =
                 self.transact_call_at(request, block_number.unwrap_or_default(), overrides).await?;
 
-            ensure_success(res.result).map_err(Self::Error::from_eth_err)
+            debug!(target: "rpc::eth::call", ?res, "Transacted");
+
+            let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
+
+            self.encrypt_(tx_type, encryption_pubkey.as_ref(), nonce, output)
         }
+    }
+
+    /// Encrypts the output of a call using the encryption pubkey of the transaction
+    fn encrypt_(
+        &self,
+        tx_type: Option<u8>,
+        encryption_pubkey: Option<&EncryptionPublicKey>,
+        nonce: Option<u64>,
+        output: Bytes,
+    ) -> Result<Bytes, Self::Error> {
+        debug!(target: "rpc::eth::call::encrypt", ?tx_type, ?encryption_pubkey, ?nonce, ?output, "Encrypting output");
+
+        if tx_type.map_or(true, |t| t != alloy_consensus::TxSeismic::TX_TYPE) {
+            return Ok(output);
+        }
+
+        let encryption_pubkey = encryption_pubkey
+            .ok_or(EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
+
+        let nonce =
+            nonce.ok_or(EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
+
+        let encrypted_output = self
+            .evm_config()
+            .encrypt(output.to_vec(), encryption_pubkey.clone(), nonce)
+            .map(|encrypted_output| Bytes::from(encrypted_output))
+            .map_err(|_| EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
+
+        Ok(encrypted_output)
     }
 
     /// Encrypts the output of a call using the encryption pubkey of the transaction
@@ -293,10 +330,12 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
             let tx_signed = tx.as_signed();
-            if alloy_consensus::transaction::TxSeismic::TX_TYPE != tx_signed.ty() {
-                return Ok(output);
-            }
-            self.encrypt_output(output, tx_signed)
+            self.encrypt_(
+                Some(tx_signed.ty()),
+                tx_signed.encryption_pubkey(),
+                Some(tx_signed.nonce()),
+                output,
+            )
         }
     }
 
@@ -648,6 +687,8 @@ pub trait Call:
 
                 let env = this.prepare_call_env(cfg, block_env, request, &mut db, overrides)?;
 
+                debug!(target: "rpc::eth::call::spawn_with_call_at", ?env, "Prepared call environment");
+
                 f(StateCacheDbRefMutWrapper(&mut db), env)
             })
             .await
@@ -772,6 +813,8 @@ pub trait Call:
             return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err())
         }
 
+        debug!(target: "rpc::eth::call", ?request, "Creating transaction environment");
+
         let TransactionRequest {
             from,
             to,
@@ -787,9 +830,9 @@ pub trait Call:
             blob_versioned_hashes,
             max_fee_per_blob_gas,
             authorization_list,
-            transaction_type: _,
+            transaction_type,
+            encryption_pubkey,
             sidecar: _,
-            encryption_pubkey: _,
         } = request;
 
         let CallFees { max_priority_fee_per_gas, gas_price, max_fee_per_blob_gas } =
@@ -812,6 +855,39 @@ pub trait Call:
             block_env.gas_limit.saturating_to()
         });
 
+        let input =
+            input.try_into_unique_input().map_err(Self::Error::from_eth_err)?.unwrap_or_default();
+
+        let input = if transaction_type == Some(alloy_consensus::TxSeismic::TX_TYPE) &&
+            input.len() > 0
+        {
+            let decrypted_input = self
+                .evm_config()
+                .decrypt(
+                    input.to_vec(),
+                    encryption_pubkey.ok_or(
+                        EthApiError::InvalidParams(
+                            "encryption_pubkey is required for decrypting seismic transactions"
+                                .to_string(),
+                        )
+                        .into(),
+                    )?,
+                    nonce.ok_or(
+                        EthApiError::InvalidParams(
+                            "nonce is required for decrypting seismic transactions".to_string(),
+                        )
+                        .into(),
+                    )?,
+                )
+                .map_err(|_| {
+                    EthApiError::InvalidParams("failed to decrypt seismic transaction".to_string())
+                        .into()
+                })?;
+            Bytes::from(decrypted_input)
+        } else {
+            input
+        };
+
         #[allow(clippy::needless_update)]
         let env = TxEnv {
             gas_limit,
@@ -821,10 +897,7 @@ pub trait Call:
             gas_priority_fee: max_priority_fee_per_gas,
             transact_to: to.unwrap_or(TxKind::Create),
             value: value.unwrap_or_default(),
-            data: input
-                .try_into_unique_input()
-                .map_err(Self::Error::from_eth_err)?
-                .unwrap_or_default(),
+            data: input,
             chain_id,
             access_list: access_list.unwrap_or_default().into(),
             // EIP-4844 fields
@@ -834,6 +907,7 @@ pub trait Call:
             authorization_list: authorization_list.map(Into::into),
             ..Default::default()
         };
+        debug!(target: "rpc::eth::call", ?env, "Created transaction environment");
 
         Ok(env)
     }
@@ -877,6 +951,7 @@ pub trait Call:
         DB: DatabaseRef,
         EthApiError: From<<DB as DatabaseRef>::Error>,
     {
+        Self::seismic_override_call_request(&mut request);
         if request.gas > Some(self.call_gas_limit()) {
             // configured gas exceeds limit
             return Err(
@@ -896,9 +971,6 @@ pub trait Call:
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
         cfg.disable_base_fee = true;
 
-        // set nonce to None so that the correct nonce is chosen by the EVM
-        request.nonce = None;
-
         if let Some(block_overrides) = overrides.block {
             apply_block_overrides(*block_overrides, db, &mut block);
         }
@@ -908,6 +980,12 @@ pub trait Call:
 
         let request_gas = request.gas;
         let mut env = self.build_call_evm_env(cfg, block, request)?;
+
+        // set nonce to None so that the correct nonce is chosen by the EVM
+        // seismic moved from request.nonce = None;
+        env.tx.nonce = None;
+
+        debug!(target: "rpc::eth::call", ?env, "Prepared call environment");
 
         if request_gas.is_none() {
             // No gas limit was provided in the request, so we need to cap the transaction gas limit
@@ -921,5 +999,19 @@ pub trait Call:
         }
 
         Ok(env)
+    }
+
+    /// Override the request for seismic calls
+    fn seismic_override_call_request(request: &mut TransactionRequest) {
+        // If user calls with the standard (unsigned) eth_call,
+        // then disregard whatever they put in the from field
+        // They will still be able to read public contract functions,
+        // but they will not be able to spoof msg.sender in these calls
+        request.from = None;
+        request.gas_price = None; // preventing InsufficientFunds error
+        request.max_fee_per_gas = None; // preventing InsufficientFunds error
+        request.max_priority_fee_per_gas = None; // preventing InsufficientFunds error
+        request.max_fee_per_blob_gas = None; // preventing InsufficientFunds error
+        request.value = None; // preventing InsufficientFunds error
     }
 }

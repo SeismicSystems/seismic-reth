@@ -1,3 +1,4 @@
+#![cfg(test)] // Compile this file only during testing
 use alloy_consensus::TxEnvelope;
 use alloy_eips::eip2718::Decodable2718;
 use alloy_primitives::{bytes::Buf, hex, Address, Bytes, TxKind, U256};
@@ -9,7 +10,7 @@ use seismic_node::{
     node::SeismicNode,
     utils::{
         seismic_payload_attributes, start_mock_tee_server,
-        test_utils::{decrypt, seismic_tx, IntegrationTestTx},
+        test_utils::{client_decrypt, get_signed_seismic_tx_bytes, IntegrationTestContext},
     },
 };
 use std::str::FromStr;
@@ -60,10 +61,16 @@ async fn contract() -> eyre::Result<()> {
     // }
     // deploy contract
     let input = Bytes::from_static(&hex!("60806040525f5f8190b150610285806100175f395ff3fe608060405234801561000f575f5ffd5b506004361061003f575f3560e01c806324a7f0b71461004357806343bd0d701461005f578063d09de08a1461007d575b5f5ffd5b61005d600480360381019061005891906100f6565b610087565b005b610067610090565b604051610074919061013b565b60405180910390f35b6100856100a7565b005b805f8190b15050565b5f600160025fb06100a19190610181565b14905090565b5f5f81b0809291906100b8906101de565b919050b150565b5f5ffd5b5f819050919050565b6100d5816100c3565b81146100df575f5ffd5b50565b5f813590506100f0816100cc565b92915050565b5f6020828403121561010b5761010a6100bf565b5b5f610118848285016100e2565b91505092915050565b5f8115159050919050565b61013581610121565b82525050565b5f60208201905061014e5f83018461012c565b92915050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52601260045260245ffd5b5f61018b826100c3565b9150610196836100c3565b9250826101a6576101a5610154565b5b828206905092915050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52601160045260245ffd5b5f6101e8826100c3565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff820361021a576102196101b1565b5b60018201905091905056fea2646970667358221220ea421d58b6748a9089335034d76eb2f01bceafe3dfac2e57d9d2e766852904df64736f6c63782c302e382e32382d646576656c6f702e323032342e31322e392b636f6d6d69742e39383863313261662e6d6f64005d"));
-    let raw_tx =
-        seismic_tx(&wallet.inner, nonce, TxKind::Create, chain_id.id(), input.clone()).await;
+    let raw_tx = get_signed_seismic_tx_bytes(
+        &wallet.inner,
+        nonce,
+        TxKind::Create,
+        chain_id.id(),
+        input.clone(),
+    )
+    .await;
 
-    let mut itx: IntegrationTestTx = IntegrationTestTx::new(&raw_tx);
+    let mut itx: IntegrationTestContext = IntegrationTestContext::new(&raw_tx);
 
     // decoding the transaction to verify the payload
     let mut input_bytes = vec![0u8; raw_tx.len()];
@@ -111,7 +118,7 @@ async fn contract() -> eyre::Result<()> {
     // call contract function to verify
     nonce += 1;
 
-    let raw_tx = seismic_tx(
+    let raw_tx = get_signed_seismic_tx_bytes(
         &wallet.inner,
         nonce,
         TxKind::Call(contract_addr),
@@ -123,7 +130,7 @@ async fn contract() -> eyre::Result<()> {
 
     let encrypted_output: Bytes = first_node.rpc.signed_call(raw_tx.clone(), block_number).await?;
     itx.encrypted_output(&encrypted_output);
-    let decrypted_output = decrypt(&wallet.inner, nonce, &encrypted_output).await;
+    let decrypted_output = client_decrypt(&wallet.inner, nonce, &encrypted_output).await;
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 
     debug!(
@@ -138,9 +145,14 @@ async fn contract() -> eyre::Result<()> {
     let input = Bytes::from_static(&hex!(
         "24a7f0b70000000000000000000000000000000000000000000000000000000000000003"
     ));
-    let raw_tx =
-        seismic_tx(&wallet.inner, nonce, TxKind::Call(contract_addr), chain_id.id(), input.clone())
-            .await;
+    let raw_tx = get_signed_seismic_tx_bytes(
+        &wallet.inner,
+        nonce,
+        TxKind::Call(contract_addr),
+        chain_id.id(),
+        input.clone(),
+    )
+    .await;
     itx.raw_tx(&raw_tx);
     debug!(
         target: "e2e:contract",
@@ -160,7 +172,7 @@ async fn contract() -> eyre::Result<()> {
 
     // call contract function to verify
     nonce += 1;
-    let raw_tx = seismic_tx(
+    let raw_tx = get_signed_seismic_tx_bytes(
         &wallet.inner,
         nonce,
         TxKind::Call(contract_addr),
@@ -172,7 +184,7 @@ async fn contract() -> eyre::Result<()> {
 
     let encrypted_output: Bytes = first_node.rpc.signed_call(raw_tx.clone(), block_number).await?;
     itx.encrypted_output(&encrypted_output);
-    let decrypted_output: Bytes = decrypt(&wallet.inner, nonce, &encrypted_output).await;
+    let decrypted_output: Bytes = client_decrypt(&wallet.inner, nonce, &encrypted_output).await;
     debug!(
         target: "e2e:contract",
         ?raw_tx,
@@ -182,7 +194,7 @@ async fn contract() -> eyre::Result<()> {
     );
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::from(1));
 
-    if REWRITE_IT_TX && IntegrationTestTx::should_rewrite_it() {
+    if REWRITE_IT_TX && IntegrationTestContext::should_rewrite_it() {
         itx.write();
     }
 

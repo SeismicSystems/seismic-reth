@@ -1,0 +1,21 @@
+[package]
+name = "seismic-rpc-api"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Seismic RPC API"
+
+[lints]
+workspace = true
+
+[dependencies]
+reth-tracing.workspace = true
+jsonrpsee = { workspace = true, features = ["server", "macros"] }
+secp256k1.workspace = true
+tee_service_api.workspace = true
+
+[features]
+client = ["jsonrpsee/client", "jsonrpsee/async-client"]

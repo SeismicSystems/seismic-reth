@@ -2,32 +2,30 @@ use jsonrpsee::{
     core::{async_trait, RpcResult},
     proc_macros::rpc,
 };
+use reth_tracing::tracing::*;
 use secp256k1::PublicKey;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use tee_service_api::get_sample_secp256k1_pk;
-use tracing::trace;
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///
 /// This defines an additional namespace where all methods are configured as trait functions.
-#[cfg_attr(not(test), rpc(server, namespace = "seismic"))]
-#[cfg_attr(test, rpc(server, client, namespace = "seismic"))]
+#[cfg_attr(not(feature = "client"), rpc(server, namespace = "seismic"))]
+#[cfg_attr(feature = "client", rpc(server, client, namespace = "seismic"))]
 pub trait SeismicApi {
     /// Returns the number of transactions in the pool.
     #[method(name = "getTeePublicKey")]
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey>;
 }
 
+/// Implementation of the seismic rpc api
+#[derive(Debug)]
 pub struct SeismicApi {}
 impl SeismicApi {
+    /// Creates a new seismic api instance
     pub fn new() -> Self {
         Self {}
     }
-}
-
-/// Localhost with port 0 so a free port is used.
-pub const fn test_address() -> SocketAddr {
-    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))
 }
 
 #[async_trait]
@@ -36,6 +34,11 @@ impl SeismicApiServer for SeismicApi {
         trace!(target: "rpc::seismic", "Serving seismic_getTeePublicKey");
         Ok(get_sample_secp256k1_pk())
     }
+}
+
+/// Localhost with port 0 so a free port is used.
+pub const fn test_address() -> SocketAddr {
+    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))
 }
 
 #[cfg(test)]

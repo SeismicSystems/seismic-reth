@@ -6,8 +6,14 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
+# seismic dependencies
+seismic-rpc-api = { workspace = true, features = ["client"] }
 tee_service_api.workspace = true
+
 
 reth-cli.workspace = true
 reth-errors.workspace = true
@@ -56,7 +62,7 @@ serde_json.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 eyre.workspace = true
-jsonrpsee.workspace = true
+jsonrpsee = { workspace = true, features = ["server", "macros"] }
 secp256k1 = {workspace = true, features = ["rand", "recovery", "std", "serde"]}
 futures.workspace = true
 tokio-stream.workspace = true
@@ -68,6 +74,10 @@ once_cell.workspace = true
 reth-e2e-test-utils.workspace = true
 sysinfo = "0.29"
 
+# dependencies for test_utils
+k256.workspace = true
+enr.workspace = true
+
 [dev-dependencies]
 reth-e2e-test-utils.workspace = true
 assert_cmd.workspace = true
@@ -75,5 +85,3 @@ reqwest.workspace = true
 arbitrary.workspace = true
 tempfile.workspace = true
 once_cell.workspace = true
-k256.workspace = true
-enr.workspace = true
