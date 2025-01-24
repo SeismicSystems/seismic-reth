@@ -457,9 +457,7 @@ rustdocs: ## Runs `cargo docs` to generate the Rust documents in the `target/doc
 	--document-private-items
 
 test-seismic-reth:
-	cargo test \
-	--package \
-	reth-rpc-seismic
+	cargo test --package seismic-node -- --exact --show-output     
 
 test-reth:
 	cargo test \
