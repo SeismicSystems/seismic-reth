@@ -98,4 +98,5 @@ jobs:
             ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
       - name: cargo build
         run: cargo build
-      -
+      - name: integration test
+        run: make test-seismic-reth
