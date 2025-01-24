@@ -25,30 +25,6 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all --check
 
-  build:
-    runs-on: large-github-runner
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "build-cache"
-      - name: Install SSH Keys
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: |
-            ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
-            ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
-            ${{ secrets.ACTIONS_SALLOY_SSH_ED25519 }}
-            ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
-            ${{ secrets.ACTIONS_SREVM_SSH_ED25519 }}
-            ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
-            ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
-            ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
-      - name: cargo build
-        run: cargo build
-
   warnings:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -99,28 +75,27 @@ jobs:
       - name: cargo test
         run: cargo test
 
-  integration-test:
+  build-integration-test:
     runs-on: large-github-runner
     timeout-minutes: 30
-    env:
-      SEISMIC_CI: 1
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "integration-test-cache"
+          shared-key: "build-cache"
       - name: Install SSH Keys
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: |
             ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
             ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
-            ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
             ${{ secrets.ACTIONS_SALLOY_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
             ${{ secrets.ACTIONS_SREVM_SSH_ED25519 }}
             ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
             ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
             ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
-      - name: seismic-node test
-        run: make test-seismic-reth
+      - name: cargo build
+        run: cargo build
+      -
