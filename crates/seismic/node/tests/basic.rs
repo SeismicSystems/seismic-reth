@@ -1,6 +1,5 @@
 //! This file is used to test the features of the seismic node without rpc interactions.
 //! See integration.rs for rpc interactions.
-#![cfg(test)] // Compile this file only during testing
 use alloy_consensus::TxEnvelope;
 use alloy_eips::eip2718::Decodable2718;
 use alloy_primitives::{bytes::Buf, hex, Address, Bytes, TxKind, U256};
