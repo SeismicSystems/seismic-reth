@@ -1,7 +1,7 @@
 use alloy_consensus::TxEnvelope;
 use alloy_primitives::{Address, TxKind, B256};
 use alloy_rpc_types::engine::PayloadAttributes;
-use alloy_rpc_types_eth::{TransactionInput, TransactionRequest};
+use alloy_rpc_types_eth::TransactionRequest;
 use alloy_signer_local::PrivateKeySigner;
 use assert_cmd::Command;
 use reqwest::Client;
@@ -225,7 +225,7 @@ pub mod test_utils {
     use core::str::FromStr;
     use enr::EnrKey;
     use jsonrpsee::http_client::HttpClient;
-    use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::le::read_u64_into};
+    use k256::ecdsa::SigningKey;
     use reth_chainspec::MAINNET;
     use reth_e2e_test_utils::transaction::TransactionTestContext;
     use reth_node_ethereum::EthEvmConfig;
