@@ -1,5 +1,5 @@
 use alloy_primitives::{hex, Address, Bytes, TxKind, U256};
-use alloy_rpc_types::{Block, Header, Transaction, TransactionReceipt};
+use alloy_rpc_types::{Block, Header, Transaction, TransactionInput, TransactionReceipt};
 use assert_cmd::Command;
 use reqwest::Client;
 use reth_chainspec::DEV;
@@ -237,6 +237,28 @@ async fn test_seismic_reth_rpc() {
     .await
     .unwrap();
     println!("eth_call is_odd() decrypted output: {:?}", output);
+
+    // call with no transaction type
+    let output = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::call(
+        &client,
+        reth_rpc_eth_api::types::SeismicCallRequest::TransactionRequest(
+            alloy_rpc_types::TransactionRequest {
+                from: Some(wallet.inner.address()),
+                input: TransactionInput {
+                    data: Some(ContractTestContext::get_is_odd_input_plaintext()),
+                    ..Default::default()
+                },
+                to: Some(TxKind::Call(contract_addr)),
+                ..Default::default()
+            },
+        ),
+        None,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    println!("eth_call is_odd() with no transaction type decrypted output: {:?}", output);
 }
 
 #[tokio::test]

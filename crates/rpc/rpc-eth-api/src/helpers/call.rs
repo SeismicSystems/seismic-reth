@@ -250,10 +250,10 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         output: Bytes,
     ) -> Result<Bytes, Self::Error> {
 
-        if let Some(tx_type) = tx_type {
-            if alloy_consensus::TxSeismic::TX_TYPE != tx_type {
-                return Ok(output);
-            }
+        debug!(target: "rpc::eth::call::encrypt", ?tx_type, ?encryption_pubkey, ?nonce, ?output, "Encrypting output");
+
+        if tx_type.map_or(true, |t| t != alloy_consensus::TxSeismic::TX_TYPE) {
+            return Ok(output);
         }
 
         let encryption_pubkey = encryption_pubkey.ok_or(EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
