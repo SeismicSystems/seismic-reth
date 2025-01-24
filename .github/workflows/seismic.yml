@@ -122,11 +122,9 @@ jobs:
             ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
             ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
             ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
-      - name: build seismic-reth
-        run: cargo build --bin seismic-reth
       - name: seismic-node unit test
-        run: cargo test --package seismic-node --test lib -- unit::seismic_transaction_tests::test_seismic_transactions --exact --show-output
-      - name: seismic-node basic test
-        run: cargo test --package seismic-node --test basic -- contract --exact --show-output
+        run: cargo test --package seismic-node --test unit -- --exact --show-output
+      - name: seismic-node integration test
+        run: cargo test --package seismic-node --test integration --exact --show-output
       - name: seismic-node basic test
         run: cargo test --package seismic-node --test basic -- contract --exact --show-output

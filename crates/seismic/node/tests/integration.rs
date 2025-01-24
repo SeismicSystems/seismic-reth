@@ -1,3 +1,4 @@
+//! This file is used to test the seismic node.
 use alloy_primitives::{hex, Address, Bytes, TxKind, U256};
 use alloy_rpc_types::{Block, Header, Transaction, TransactionInput, TransactionReceipt};
 use assert_cmd::Command;
