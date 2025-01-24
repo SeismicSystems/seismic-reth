@@ -30,10 +30,15 @@ use reth_revm::{
     DatabaseRef,
 };
 use reth_rpc_eth_types::{
-    cache::db::{StateCacheDbRefMutWrapper, StateProviderTraitObjWrapper}, error::ensure_success, revm_utils::{
+    cache::db::{StateCacheDbRefMutWrapper, StateProviderTraitObjWrapper},
+    error::ensure_success,
+    revm_utils::{
         apply_block_overrides, apply_state_overrides, caller_gas_allowance, get_precompiles,
         CallFees,
-    }, simulate::{self, EthSimulateError}, utils::recover_raw_transaction, EthApiError, RevertError, RpcInvalidTransactionError, StateCacheDb
+    },
+    simulate::{self, EthSimulateError},
+    utils::recover_raw_transaction,
+    EthApiError, RevertError, RpcInvalidTransactionError, StateCacheDb,
 };
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
 use revm::{Database, DatabaseCommit, GetInspector};
@@ -224,7 +229,6 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         overrides: EvmOverrides,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
-
             let tx_type = request.transaction_type;
             let encryption_pubkey = request.encryption_pubkey;
             let nonce = request.nonce;
@@ -234,8 +238,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
             debug!(target: "rpc::eth::call", ?res, "Transacted");
 
-            let output = ensure_success(res.result)
-                .map_err(Self::Error::from_eth_err)?;
+            let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
 
             self.encrypt_(tx_type, encryption_pubkey.as_ref(), nonce, output)
         }
@@ -249,18 +252,20 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         nonce: Option<u64>,
         output: Bytes,
     ) -> Result<Bytes, Self::Error> {
-
         debug!(target: "rpc::eth::call::encrypt", ?tx_type, ?encryption_pubkey, ?nonce, ?output, "Encrypting output");
 
         if tx_type.map_or(true, |t| t != alloy_consensus::TxSeismic::TX_TYPE) {
             return Ok(output);
         }
 
-        let encryption_pubkey = encryption_pubkey.ok_or(EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
+        let encryption_pubkey = encryption_pubkey
+            .ok_or(EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
 
-        let nonce = nonce.ok_or(EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
+        let nonce =
+            nonce.ok_or(EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
 
-        let encrypted_output = self.evm_config()
+        let encrypted_output = self
+            .evm_config()
             .encrypt(output.to_vec(), encryption_pubkey.clone(), nonce)
             .map(|encrypted_output| Bytes::from(encrypted_output))
             .map_err(|_| EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
@@ -325,9 +330,12 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
             let tx_signed = tx.as_signed();
-            self.encrypt_(Some(tx_signed.ty()), 
-                tx_signed.encryption_pubkey(), 
-                Some(tx_signed.nonce()), output)
+            self.encrypt_(
+                Some(tx_signed.ty()),
+                tx_signed.encryption_pubkey(),
+                Some(tx_signed.nonce()),
+                output,
+            )
         }
     }
 
@@ -680,7 +688,7 @@ pub trait Call:
                 let env = this.prepare_call_env(cfg, block_env, request, &mut db, overrides)?;
 
                 debug!(target: "rpc::eth::call::spawn_with_call_at", ?env, "Prepared call environment");
-                
+
                 f(StateCacheDbRefMutWrapper(&mut db), env)
             })
             .await
@@ -853,19 +861,20 @@ pub trait Call:
         let input = if transaction_type == Some(alloy_consensus::TxSeismic::TX_TYPE) &&
             input.len() > 0
         {
-            let decrypted_input = self.evm_config()
+            let decrypted_input = self
+                .evm_config()
                 .decrypt(
                     input.to_vec(),
                     encryption_pubkey.ok_or(
                         EthApiError::InvalidParams(
-                            "encryption_pubkey is required for decrypting seismic transactions".to_string(),
+                            "encryption_pubkey is required for decrypting seismic transactions"
+                                .to_string(),
                         )
                         .into(),
                     )?,
                     nonce.ok_or(
                         EthApiError::InvalidParams(
-                            "nonce is required for decrypting seismic transactions"
-                                .to_string(),
+                            "nonce is required for decrypting seismic transactions".to_string(),
                         )
                         .into(),
                     )?,
@@ -1006,5 +1015,3 @@ pub trait Call:
         request.value = None; // preventing InsufficientFunds error
     }
 }
-
-
