@@ -309,7 +309,7 @@ overflow-checks = true
 seismic-node = { path = "crates/seismic/node" }
 seismic-reth = { path = "crates/seismic/bin" }
 seismic-rpc-api = { path = "crates/seismic/rpc-api" }
-tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "ac7f255" }
+tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "cb0fb08" }
 
 # reth
 op-reth = { path = "crates/optimism/bin" }
@@ -622,7 +622,6 @@ assert_cmd = "2.0"
 tikv-jemalloc-ctl = "0.6"
 tikv-jemallocator = "0.6"
 tracy-client = "0.17.3"
-
 
 [patch.crates-io]
 # If our dependencies depend on these things,

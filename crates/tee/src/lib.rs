@@ -13,8 +13,11 @@ pub use tee_service_api::{
 
 use derive_more::Display;
 use secp256k1::PublicKey;
-use tee_service_api::request_types::tx_io::{
-    IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,
+use tee_service_api::{
+    nonce::Nonce,
+    request_types::tx_io::{
+        IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,
+    },
 };
 use tokio::runtime::{Handle, Runtime};
 
@@ -61,8 +64,7 @@ pub fn decrypt<T: TeeAPI>(
     data: Vec<u8>,
     encryption_nonce: u64,
 ) -> Result<Vec<u8>, TeeError> {
-    let payload = IoDecryptionRequest { key, data, nonce: encryption_nonce };
-
+    let payload = IoDecryptionRequest { key, data, nonce: Nonce::from(nonce) };
     let IoDecryptionResponse { decrypted_data } =
         block_on_with_runtime(tee_client.tx_io_decrypt(payload))
             .map_err(|_| TeeError::DecryptionError)?;
@@ -76,8 +78,7 @@ pub fn encrypt<T: TeeAPI>(
     data: Vec<u8>,
     encryption_nonce: u64,
 ) -> Result<Vec<u8>, TeeError> {
-    let payload = IoEncryptionRequest { key, data, nonce: encryption_nonce };
-
+    let payload = IoEncryptionRequest { key, data, nonce: Nonce::from(nonce).into() };
     let IoEncryptionResponse { encrypted_data } =
         block_on_with_runtime(tee_client.tx_io_encrypt(payload))
             .map_err(|_| TeeError::DecryptionError)?;
