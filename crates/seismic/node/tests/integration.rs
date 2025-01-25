@@ -230,7 +230,7 @@ async fn test_seismic_reth_rpc() {
     // test call
     let output = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::call(
         &client,
-        TransactionRequest(simulate_tx_request.clone()),
+        simulate_tx_request.clone().into(),
         None,
         None,
         None,
