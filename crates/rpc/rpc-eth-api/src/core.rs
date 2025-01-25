@@ -661,22 +661,22 @@ where
                 data,
                 signature,
             }) => {
-                // let tx: TxSeismic = data.try_into().map_err(|e| {
-                //     BlockchainError::Message(format!(
-                //         "Failed to decode typed data into seismic tx: {e:?}"
-                //     ))
-                // })?;
-                // let signed_seismic_tx = tx.into_signed(signature);
-                // // NOTE: this is recover_caller, not recover_signer
-                // let sender = signed_seismic_tx.recover_caller().map_err(|e| {
+                let tx: alloy_consensus::transaction::TxSeismic = data.try_into().map_err(|e| {
+                    alloy_json_rpc::RpcError::InvalidParams(format!(
+                        "Failed to decode typed data into seismic tx: {e:?}"
+                    ))
+                })?;
+                let signed_seismic_tx = tx.into_signed(signature);
+                // NOTE: this is recover_caller, not recover_signer
+                let sender = signed_seismic_tx.recover_caller()?;
+                // .map_err(|e| {
                 //     BlockchainError::Message(format!("Failed to recover signer: {e:?}"))
                 // })?;
-                // let tx = signed_seismic_tx.into_parts().0;
-                // let mut request: WithOtherFields<TransactionRequest> =
-                //     WithOtherFields::new(tx.into());
-                // request.inner.from = Some(sender);
-                // Ok(EthCall::signed_call(self, typed_data.inner, block_number).await?)
-                unimplemented!()
+                let tx = signed_seismic_tx.into_parts().0;
+                let mut request: WithOtherFields<TransactionRequest> =
+                    WithOtherFields::new(tx.into());
+                request.inner.from = Some(sender);
+                Ok(EthCall::signed_call(self, typed_data.inner, block_number).await?)
             }
         }
     }
