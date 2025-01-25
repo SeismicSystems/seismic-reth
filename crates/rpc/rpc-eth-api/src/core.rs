@@ -18,7 +18,6 @@ use tracing::trace;
 
 use crate::{
     helpers::{EthApiSpec, EthBlocks, EthCall, EthFees, EthState, EthTransactions, FullEthApi},
-    types::SeismicCallRequest,
     RpcBlock, RpcHeader, RpcReceipt, RpcTransaction,
 };
 
@@ -222,7 +221,7 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
     #[method(name = "call")]
     async fn call(
         &self,
-        request: SeismicCallRequest,
+        request: alloy_rpc_types::SeismicCallRequest,
         block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
@@ -639,23 +638,46 @@ where
     /// Handler for: `eth_call`
     async fn call(
         &self,
-        request: SeismicCallRequest,
+        request: alloy_rpc_types::SeismicCallRequest,
         block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
         trace!(target: "rpc::eth", ?request, "Serving seismic_call");
         match request {
-            SeismicCallRequest::Bytes(bytes) => {
+            alloy_rpc_types::SeismicCallRequest::Bytes(bytes) => {
                 Ok(EthCall::signed_call(self, bytes, block_number).await?)
             }
-            SeismicCallRequest::TransactionRequest(tx_request) => Ok(EthCall::call(
-                self,
-                tx_request,
-                block_number,
-                EvmOverrides::new(state_overrides, block_overrides),
-            )
-            .await?),
+            alloy_rpc_types::SeismicCallRequest::TransactionRequest(tx_request) => {
+                Ok(EthCall::call(
+                    self,
+                    tx_request.inner,
+                    block_number,
+                    EvmOverrides::new(state_overrides, block_overrides),
+                )
+                .await?)
+            }
+            alloy_rpc_types::SeismicCallRequest::TypedData(alloy_rpc_types::TypedDataRequest {
+                data,
+                signature,
+            }) => {
+                // let tx: TxSeismic = data.try_into().map_err(|e| {
+                //     BlockchainError::Message(format!(
+                //         "Failed to decode typed data into seismic tx: {e:?}"
+                //     ))
+                // })?;
+                // let signed_seismic_tx = tx.into_signed(signature);
+                // // NOTE: this is recover_caller, not recover_signer
+                // let sender = signed_seismic_tx.recover_caller().map_err(|e| {
+                //     BlockchainError::Message(format!("Failed to recover signer: {e:?}"))
+                // })?;
+                // let tx = signed_seismic_tx.into_parts().0;
+                // let mut request: WithOtherFields<TransactionRequest> =
+                //     WithOtherFields::new(tx.into());
+                // request.inner.from = Some(sender);
+                // Ok(EthCall::signed_call(self, typed_data.inner, block_number).await?)
+                unimplemented!()
+            }
         }
     }
 

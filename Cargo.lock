@@ -9327,6 +9327,7 @@ dependencies = [
  "alloy-network",
  "alloy-primitives",
  "alloy-rlp",
+ "alloy-rpc-types",
  "alloy-rpc-types-eth",
  "alloy-rpc-types-mev",
  "alloy-serde",

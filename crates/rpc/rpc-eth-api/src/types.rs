@@ -82,25 +82,3 @@ impl<T> FullEthApiTypes for T where
         >
 {
 }
-
-/// Either a normal ETH call or a signed/serialized one
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(untagged)]
-pub enum SeismicCallRequest {
-    /// signed call request
-    Bytes(Bytes),
-    /// normal call request
-    TransactionRequest(TransactionRequest),
-}
-
-impl From<TransactionRequest> for SeismicCallRequest {
-    fn from(value: TransactionRequest) -> Self {
-        SeismicCallRequest::TransactionRequest(value)
-    }
-}
-
-impl From<Bytes> for SeismicCallRequest {
-    fn from(value: Bytes) -> Self {
-        SeismicCallRequest::Bytes(value)
-    }
-}
