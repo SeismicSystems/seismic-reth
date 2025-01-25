@@ -242,7 +242,7 @@ async fn test_seismic_reth_rpc() {
     // call with no transaction type
     let output = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::call(
         &client,
-        TransactionRequest(alloy_rpc_types::TransactionRequest {
+        alloy_rpc_types::TransactionRequest {
             from: Some(wallet.inner.address()),
             input: TransactionInput {
                 data: Some(ContractTestContext::get_is_odd_input_plaintext()),
@@ -250,8 +250,7 @@ async fn test_seismic_reth_rpc() {
             },
             to: Some(TxKind::Call(contract_addr)),
             ..Default::default()
-        })
-        .into(),
+        }.into(),
         None,
         None,
         None,
