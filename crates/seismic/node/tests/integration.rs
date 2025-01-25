@@ -122,16 +122,15 @@ async fn test_seismic_reth_rpc() {
     // eth_call to check the parity. Should be 0
     let output = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::call(
         &client,
-        Bytes(
-            get_signed_seismic_tx_bytes(
-                &wallet.inner,
-                get_nonce(&client, wallet.inner.address()).await,
-                TxKind::Call(contract_addr),
-                chain_id,
-                ContractTestContext::get_is_odd_input_plaintext(),
-            )
-            .await,
-        ).into(),
+        get_signed_seismic_tx_bytes(
+            &wallet.inner,
+            get_nonce(&client, wallet.inner.address()).await,
+            TxKind::Call(contract_addr),
+            chain_id,
+            ContractTestContext::get_is_odd_input_plaintext(),
+        )
+        .await
+        .into(),
         None,
         None,
         None,
@@ -176,16 +175,15 @@ async fn test_seismic_reth_rpc() {
     // Final eth_call to check the parity. Should be 1
     let output = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::call(
         &client,
-        Bytes(
-            get_signed_seismic_tx_bytes(
-                &wallet.inner,
-                get_nonce(&client, wallet.inner.address()).await,
-                TxKind::Call(contract_addr),
-                chain_id,
-                ContractTestContext::get_is_odd_input_plaintext(),
-            )
-            .await,
-        ).into(),
+        get_signed_seismic_tx_bytes(
+            &wallet.inner,
+            get_nonce(&client, wallet.inner.address()).await,
+            TxKind::Call(contract_addr),
+            chain_id,
+            ContractTestContext::get_is_odd_input_plaintext(),
+        )
+        .await
+        .into(),
         None,
         None,
         None,
@@ -232,9 +230,7 @@ async fn test_seismic_reth_rpc() {
     // test call
     let output = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::call(
         &client,
-        TransactionRequest(
-            simulate_tx_request.clone(),
-        ),
+        TransactionRequest(simulate_tx_request.clone()),
         None,
         None,
         None,
@@ -246,17 +242,16 @@ async fn test_seismic_reth_rpc() {
     // call with no transaction type
     let output = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::call(
         &client,
-        TransactionRequest(
-            alloy_rpc_types::TransactionRequest {
-                from: Some(wallet.inner.address()),
-                input: TransactionInput {
-                    data: Some(ContractTestContext::get_is_odd_input_plaintext()),
-                    ..Default::default()
-                },
-                to: Some(TxKind::Call(contract_addr)),
+        TransactionRequest(alloy_rpc_types::TransactionRequest {
+            from: Some(wallet.inner.address()),
+            input: TransactionInput {
+                data: Some(ContractTestContext::get_is_odd_input_plaintext()),
                 ..Default::default()
             },
-        ).into(),
+            to: Some(TxKind::Call(contract_addr)),
+            ..Default::default()
+        })
+        .into(),
         None,
         None,
         None,
