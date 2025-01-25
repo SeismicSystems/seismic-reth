@@ -208,7 +208,7 @@ async fn test_seismic_reth_rpc() {
     // test eth_estimateGas
     let gas = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::estimate_gas(
         &client,
-        simulate_tx_request.clone(),
+        simulate_tx_request.clone().into(),
         None,
         None,
     )
