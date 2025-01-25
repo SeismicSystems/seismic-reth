@@ -545,6 +545,7 @@ pub mod test_utils {
                 encryption_pubkey: FixedBytes::from_slice(
                     &Self::get_encryption_private_key().public().to_sec1_bytes(),
                 ),
+                message_version: 0,
             }
         }
 
