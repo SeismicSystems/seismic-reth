@@ -113,4 +113,3 @@ pub fn transaction_to_call_request(tx: RecoveredTx) -> TransactionRequest {
         message_version: None,
     }
 }
-
