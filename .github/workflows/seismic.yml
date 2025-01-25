@@ -46,8 +46,12 @@ jobs:
             ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
             ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
             ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
-      - name: cargo build
-        run: cargo build
+      # Removing this because build --bin seismic-reth runs in integration-test
+      # and this is very slow right now.
+      # TODO: eventually uncomment it when we open source,
+      # so we know other crates build correctly
+      # - name: cargo build
+      #   run: cargo build
 
   warnings:
     runs-on: ubuntu-24.04
