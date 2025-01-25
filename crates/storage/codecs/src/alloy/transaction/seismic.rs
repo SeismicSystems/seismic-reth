@@ -42,6 +42,8 @@ pub(crate) struct TxSeismic {
     value: U256,
     /// The public key to which we should encrypt the output
     encryption_pubkey: FixedBytes<33>,
+    /// The version of the message
+    message_version: u8,
     /// Input has two uses depending if transaction is Create or Call (if `to` field is None or
     /// Some). pub init: An unlimited size byte array specifying the
     /// EVM-code for the account initialisation procedure CREATE,
@@ -63,6 +65,7 @@ impl Compact for AlloyTxSeismic {
             to: self.to,
             value: self.value,
             encryption_pubkey: self.encryption_pubkey.clone(),
+            message_version: self.message_version,
             input: self.input.clone(),
         };
 
@@ -80,6 +83,7 @@ impl Compact for AlloyTxSeismic {
             to: tx.to,
             value: tx.value,
             encryption_pubkey: tx.encryption_pubkey,
+            message_version: tx.message_version,
             input: tx.input,
         };
 
