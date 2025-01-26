@@ -261,7 +261,10 @@ pub trait EngineEthApi<B: RpcObject> {
 
     /// Sends signed transaction, returning its hash.
     #[method(name = "sendRawTransaction")]
-    async fn send_raw_transaction(&self, bytes: Bytes) -> RpcResult<B256>;
+    async fn send_raw_transaction(
+        &self,
+        tx: alloy_rpc_types::SeismicRawTxRequest,
+    ) -> RpcResult<B256>;
 
     /// Returns logs matching given filter object.
     #[method(name = "getLogs")]

@@ -103,8 +103,8 @@ where
     }
 
     /// Handler for: `eth_sendRawTransaction`
-    async fn send_raw_transaction(&self, bytes: Bytes) -> Result<B256> {
-        self.eth.send_raw_transaction(bytes).instrument(engine_span!()).await
+    async fn send_raw_transaction(&self, tx: alloy_rpc_types::SeismicRawTxRequest) -> Result<B256> {
+        self.eth.send_raw_transaction(tx).instrument(engine_span!()).await
     }
 
     /// Handler for `eth_getLogs`

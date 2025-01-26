@@ -335,7 +335,10 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
 
     /// Sends signed transaction, returning its hash.
     #[method(name = "sendRawTransaction")]
-    async fn send_raw_transaction(&self, bytes: Bytes) -> RpcResult<B256>;
+    async fn send_raw_transaction(
+        &self,
+        bytes: alloy_rpc_types::SeismicRawTxRequest,
+    ) -> RpcResult<B256>;
 
     /// Returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed Message:\n"
     /// + len(message) + message))).
@@ -645,9 +648,6 @@ where
     ) -> RpcResult<Bytes> {
         trace!(target: "rpc::eth", ?request, "Serving seismic_call");
         match request {
-            alloy_rpc_types::SeismicCallRequest::Bytes(bytes) => {
-                Ok(EthCall::signed_call(self, bytes, block_number).await?)
-            }
             alloy_rpc_types::SeismicCallRequest::TransactionRequest(tx_request) => {
                 Ok(EthCall::call(
                     self,
@@ -660,23 +660,9 @@ where
             alloy_rpc_types::SeismicCallRequest::TypedData(alloy_rpc_types::TypedDataRequest {
                 data,
                 signature,
-            }) => {
-                let tx: alloy_consensus::transaction::TxSeismic = data.try_into().map_err(|e| {
-                    alloy_json_rpc::RpcError::InvalidParams(format!(
-                        "Failed to decode typed data into seismic tx: {e:?}"
-                    ))
-                })?;
-                let signed_seismic_tx = tx.into_signed(signature);
-                // NOTE: this is recover_caller, not recover_signer
-                let sender = signed_seismic_tx.recover_caller()?;
-                // .map_err(|e| {
-                //     BlockchainError::Message(format!("Failed to recover signer: {e:?}"))
-                // })?;
-                let tx = signed_seismic_tx.into_parts().0;
-                let mut request: WithOtherFields<TransactionRequest> =
-                    WithOtherFields::new(tx.into());
-                request.inner.from = Some(sender);
-                Ok(EthCall::signed_call(self, typed_data.inner, block_number).await?)
+            }) => Ok(EthCall::signed_call_typed_data(self, data, signature, block_number).await?),
+            alloy_rpc_types::SeismicCallRequest::Bytes(bytes) => {
+                Ok(EthCall::signed_call(self, bytes, block_number).await?)
             }
         }
     }
@@ -803,9 +789,22 @@ where
     }
 
     /// Handler for: `eth_sendRawTransaction`
-    async fn send_raw_transaction(&self, tx: Bytes) -> RpcResult<B256> {
+    async fn send_raw_transaction(
+        &self,
+        tx: alloy_rpc_types::SeismicRawTxRequest,
+    ) -> RpcResult<B256> {
         trace!(target: "rpc::eth", ?tx, "Serving eth_sendRawTransaction");
-        Ok(EthTransactions::send_raw_transaction(self, tx).await?)
+        match tx {
+            alloy_rpc_types::SeismicRawTxRequest::Bytes(bytes) => {
+                Ok(EthTransactions::send_raw_transaction(self, bytes).await?)
+            }
+            alloy_rpc_types::SeismicRawTxRequest::TypedData(
+                alloy_rpc_types::TypedDataRequest { data, signature },
+            ) => {
+                // Ok(EthTransactions::send_raw_transaction(self, tx_request.inner).await?)
+                unimplemented!()
+            }
+        }
     }
 
     /// Handler for: `eth_sign`

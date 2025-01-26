@@ -85,7 +85,8 @@ async fn test_seismic_reth_rpc() {
                 chain_id,
                 ContractTestContext::get_deploy_input_plaintext(),
             )
-            .await,
+            .await
+            .into(),
         )
         .await
         .unwrap();
@@ -154,7 +155,8 @@ async fn test_seismic_reth_rpc() {
                 chain_id,
                 ContractTestContext::get_set_number_input_plaintext(),
             )
-            .await,
+            .await
+            .into(),
         )
         .await
         .unwrap();
@@ -250,7 +252,8 @@ async fn test_seismic_reth_rpc() {
             },
             to: Some(TxKind::Call(contract_addr)),
             ..Default::default()
-        }.into(),
+        }
+        .into(),
         None,
         None,
         None,
