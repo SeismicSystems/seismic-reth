@@ -799,10 +799,9 @@ where
                 Ok(EthTransactions::send_raw_transaction(self, bytes).await?)
             }
             alloy_rpc_types::SeismicRawTxRequest::TypedData(
-                alloy_rpc_types::TypedDataRequest { data, signature },
+                alloy_rpc_types::TypedDataRequest { data: _, signature: _ },
             ) => {
-                // Ok(EthTransactions::send_raw_transaction(self, tx_request.inner).await?)
-                unimplemented!()
+                todo!("eth_sendRawTransaction with typed data")
             }
         }
     }

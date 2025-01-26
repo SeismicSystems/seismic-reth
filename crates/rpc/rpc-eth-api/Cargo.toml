@@ -62,7 +62,6 @@ tokio.workspace = true
 auto_impl.workspace = true
 dyn-clone.workspace = true
 tracing.workspace = true
-serde.workspace = true  
 
 [features]
 js-tracer = ["revm-inspectors/js-tracer", "reth-rpc-eth-types/js-tracer"]

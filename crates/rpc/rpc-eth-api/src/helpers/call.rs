@@ -7,7 +7,7 @@ use crate::{
     IntoEthApiError, RpcBlock, RpcNodeCore,
 };
 use alloy_consensus::{
-    transaction::EncryptionPublicKey, BlockHeader, SignableTransaction, Typed2718,
+    transaction::EncryptionPublicKey, BlockHeader, Typed2718,
 };
 use alloy_eips::{eip1559::calc_next_block_base_fee, eip2930::AccessListResult};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
@@ -356,9 +356,9 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
     /// Executes a signed call via eth_signTypedData_v4
     fn signed_call_typed_data(
         &self,
-        data: alloy_dyn_abi::TypedData,
-        signature: alloy_primitives::PrimitiveSignature,
-        block_number: Option<BlockId>,
+        _data: alloy_dyn_abi::TypedData,
+        _signature: alloy_primitives::PrimitiveSignature,
+        _block_number: Option<BlockId>,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
             // let seismic_tx: alloy_consensus::transaction::TxSeismic = data.try_into()
@@ -405,7 +405,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
             //     Some(signed_seismic_tx.nonce()),
             //     output,
             // )
-            unimplemented!()
+            todo!("eth_call with typed data")
         }
     }
 

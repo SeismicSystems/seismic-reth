@@ -6,12 +6,10 @@ use std::{
 };
 
 use alloy_network::Network;
-use alloy_primitives::Bytes;
-use alloy_rpc_types_eth::{Block, TransactionRequest};
+use alloy_rpc_types_eth::Block;
 use reth_provider::{ProviderTx, ReceiptProvider, TransactionsProvider};
 use reth_rpc_types_compat::TransactionCompat;
 use reth_transaction_pool::{PoolTransaction, TransactionPool};
-use serde::{Deserialize, Serialize};
 
 use crate::{AsEthApiError, FromEthApiError, FromEvmError, RpcNodeCore};
 
