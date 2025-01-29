@@ -19,7 +19,7 @@ extern crate alloc;
 
 use crate::builder::RethEvmBuilder;
 use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader as _, TxSeismic};
-use alloy_primitives::{Address, Bytes, B256, U256};
+use alloy_primitives::{Address, Bytes, TxHash, B256, U256};
 use reth_primitives_traits::BlockHeader;
 use reth_tee::TeeError;
 use revm::{Database, Evm, GetInspector};
@@ -68,6 +68,25 @@ pub trait ConfigureEvm: ConfigureEvmEnv {
         let mut evm = self.evm(db);
         evm.modify_spec_id(env.spec_id());
         evm.context.evm.env = env.env;
+        evm
+    }
+
+    /// Returns a new EVM with the given database configured with the given environment settings,
+    /// including the spec id and the kernel.
+    ///
+    /// This will preserve any handler modifications
+    fn evm_with_kernel_and_optional_env<DB: Database>(
+        &self,
+        db: DB,
+        env: Option<EnvWithHandlerCfg>,
+        kernel: revm::seismic::Kernel,
+    ) -> Evm<'_, Self::DefaultExternalContext<'_>, DB> {
+        let mut evm = self.evm(db);
+        if let Some(env) = env {
+            evm.modify_spec_id(env.spec_id());
+            evm.context.evm.env = env.env;
+        }
+        evm.context.evm = evm.context.evm.with_kernel(kernel);
         evm
     }
 
@@ -151,6 +170,7 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
         _tx_env: &mut TxEnv,
         _tx: &TxSeismic,
         _sender: Address,
+        _tx_hash: TxHash,
     ) -> EVMResultGeneric<(), TeeError> {
         Err(EVMError::Database(TeeError::DecryptionError))
     }
