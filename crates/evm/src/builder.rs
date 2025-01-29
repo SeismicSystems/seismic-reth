@@ -1,7 +1,7 @@
 //! Builder for creating an EVM with a database and environment.
 
 use alloc::boxed::Box;
-use revm::{inspector_handle_register, Database, Evm, EvmBuilder, GetInspector};
+use revm::{inspector_handle_register, seismic::Kernel, Database, Evm, EvmBuilder, GetInspector};
 use revm_primitives::EnvWithHandlerCfg;
 
 /// Builder for creating an EVM with a database and environment.
@@ -18,6 +18,7 @@ pub struct RethEvmBuilder<DB: Database, EXT = ()> {
     env: Option<Box<EnvWithHandlerCfg>>,
     /// The external context for the EVM.
     external_context: EXT,
+    kernel: Option<Kernel>
 }
 
 impl<DB, EXT> RethEvmBuilder<DB, EXT>
@@ -26,7 +27,7 @@ where
 {
     /// Create a new EVM builder with the given database.
     pub const fn new(db: DB, external_context: EXT) -> Self {
-        Self { db, env: None, external_context }
+        Self { db, env: None, external_context, kernel: None }
     }
 
     /// Set the environment for the EVM.
@@ -35,9 +36,15 @@ where
         self
     }
 
+    /// Set the kernel for Seismic EVM.
+    pub fn with_kernel(mut self, kernel: Kernel) -> Self {
+        self.kernel = Some(kernel);
+        self
+    }
+
     /// Set the external context for the EVM.
     pub fn with_external_context<EXT1>(self, external_context: EXT1) -> RethEvmBuilder<DB, EXT1> {
-        RethEvmBuilder { db: self.db, env: self.env, external_context }
+        RethEvmBuilder { db: self.db, env: self.env, external_context, kernel: None }
     }
 
     /// Build the EVM with the given database and environment.
@@ -47,6 +54,9 @@ where
         if let Some(env) = self.env {
             builder = builder.with_spec_id(env.spec_id());
             builder = builder.with_env(env.env);
+        }
+        if let Some(kernel) = self.kernel {
+            builder = builder.with_kernel(kernel);
         }
 
         builder.build()
@@ -141,6 +151,20 @@ pub trait EvmFactory {
         I: GetInspector<DB>,
     {
         RethEvmBuilder::new(db, self.default_external_context()).build_with_inspector(inspector)
+    }
+
+
+    /// Returns a new EVM with the given database configured with the given environment settings,
+    /// including the spec id. It also includes the given kernel.
+    ///
+    /// This will preserve any handler modifications
+    fn evm_with_kernel<'a, DB: Database + 'a>(
+        &self,
+        db: DB,
+        env: EnvWithHandlerCfg,
+        kernel: Kernel,
+    ) -> Evm<'a, Self::DefaultExternalContext<'a>, DB> {
+        RethEvmBuilder::new(db, self.default_external_context()).with_env(env.into()).with_kernel(kernel).build()
     }
 }
 
