@@ -355,7 +355,6 @@ async fn test_seismic_reth_rpc() {
 async fn test_seismic_reth_backup() {
     let itx = IntegrationTestContext::load();
     let chain_id = DEV.chain;
-
     const RETH_RPC_URL: &str = "http://127.0.0.1:8545";
 
     // Step 3: Send RPC calls
