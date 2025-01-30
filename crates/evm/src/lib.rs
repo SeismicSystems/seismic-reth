@@ -37,6 +37,7 @@ pub mod noop;
 pub mod provider;
 pub mod state_change;
 pub mod system_calls;
+pub mod kernel;
 #[cfg(any(test, feature = "test-utils"))]
 /// test helpers for mocking executor
 pub mod test_utils;
