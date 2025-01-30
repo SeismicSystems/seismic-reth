@@ -309,7 +309,7 @@ overflow-checks = true
 seismic-node = { path = "crates/seismic/node" }
 seismic-reth = { path = "crates/seismic/bin" }
 seismic-rpc-api = { path = "crates/seismic/rpc-api" }
-tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "cb0fb08" }
+tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "80f75d55d5897f49f719dbb0469d785e7bc1bb29" }
 
 # reth
 op-reth = { path = "crates/optimism/bin" }
@@ -667,9 +667,9 @@ alloy-transport-http = { git = "ssh://git@github.com/SeismicSystems/seismic-allo
 alloy-transport-ipc = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "ed774e3" }
 alloy-transport-ws = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "ed774e3" }
 
-revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "9e9ea6646dd6436e5ad5d034c328f7fa0b21f113"}
-revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "9e9ea6646dd6436e5ad5d034c328f7fa0b21f113"}
-revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "9e9ea6646dd6436e5ad5d034c328f7fa0b21f113"}
+revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "04c78d70"}
+revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "04c78d70"}
+revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "04c78d70"}
 revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "seismic"} # seismic todo change branch
 
 op-alloy-rpc-types = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
