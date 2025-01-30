@@ -17,7 +17,7 @@ use alloy_rpc_types_eth::{
 };
 use futures::Future;
 use reth_chainspec::EthChainSpec;
-use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
+use reth_evm::{kernel::CallKernel, ConfigureEvm, ConfigureEvmEnv};
 use reth_node_api::BlockBody;
 use reth_primitives_traits::SignedTransaction;
 use reth_provider::{BlockIdReader, ChainSpecProvider, ProviderHeader};
@@ -41,7 +41,7 @@ use reth_rpc_eth_types::{
     EthApiError, RevertError, RpcInvalidTransactionError, StateCacheDb,
 };
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
-use revm::{Database, DatabaseCommit, GetInspector};
+use revm::{seismic::Kernel, Database, DatabaseCommit, GetInspector};
 use revm_inspectors::{access_list::AccessListInspector, transfer::TransferInspector};
 use tracing::{debug, trace};
 
@@ -594,7 +594,10 @@ pub trait Call:
         DB: Database,
         EthApiError: From<DB::Error>,
     {
-        let mut evm = self.evm_config().evm_with_env(db, env);
+        //TODO: Undersntand here if we're in mainnet or not, and then toggle CallKernel with
+        //TestKernel.
+        let kernel = Kernel::from_boxed(Box::new(CallKernel::default()));
+        let mut evm = self.evm_config().evm_with_kernel_and_optional_env(db, Some(env), kernel);
         let res = evm.transact().map_err(Self::Error::from_evm_err)?;
         let (_, env) = evm.into_db_and_env_with_handler_cfg();
         Ok((res, env))
