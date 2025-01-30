@@ -1,11 +1,9 @@
 use reth_revm::seismic::{kernel::{get_sample_schnorrkel_keypair, kernel_interface::{KernelKeys, KernelRng}}, rng::{LeafRng, RootRng, SchnorrkelKeypair}, Kernel, precompiles::SecretKey};
 use revm::seismic::RngContainer;
-use tee_service_api::get_sample_secp256k1_sk;
 use std::fmt;
 
 pub struct CallKernel {
     rng_container: RngContainer,
-    secret_key: SecretKey,
     eph_rng_keypair: SchnorrkelKeypair,
 }
 
@@ -36,9 +34,6 @@ impl KernelRng for CallKernel {
 }
 
 impl KernelKeys for CallKernel {
-    fn get_io_key(&self) -> SecretKey {
-        self.secret_key
-    }
     fn get_eph_rng_keypair(&self) -> SchnorrkelKeypair {
         self.eph_rng_keypair.clone()
     }
@@ -59,7 +54,6 @@ impl Clone for CallKernel {
     fn clone(&self) -> Self {
         Self {
             rng_container: self.rng_container.clone(),
-            secret_key: self.secret_key,
             eph_rng_keypair: self.eph_rng_keypair.clone(),
         }
     }
@@ -69,17 +63,15 @@ impl Default for CallKernel {
     fn default() -> Self {
         Self {
             rng_container: RngContainer::default(),
-            secret_key: get_sample_secp256k1_sk(),
             eph_rng_keypair: get_sample_schnorrkel_keypair(),
         }
     }
 }
 
 impl CallKernel {
-    pub fn new(root_vrf_key: SchnorrkelKeypair, secret_key: SecretKey, eph_rng_keypair: SchnorrkelKeypair) -> Self {
+    pub fn new(root_vrf_key: SchnorrkelKeypair, eph_rng_keypair: SchnorrkelKeypair) -> Self {
         Self {
             rng_container: RngContainer::new(root_vrf_key),
-            secret_key,
             eph_rng_keypair,
         }
     }
@@ -89,7 +81,6 @@ impl CallKernel {
 // TODO: Wire this to mainnet actual TEE_service
 pub struct SeismicKernel {
     rng_container: RngContainer,
-    secret_key: SecretKey,
     eph_rng_keypair: SchnorrkelKeypair,
 }
 
@@ -119,9 +110,6 @@ impl KernelRng for SeismicKernel {
 }
 
 impl KernelKeys for SeismicKernel {
-    fn get_io_key(&self) -> SecretKey {
-        self.secret_key
-    }
     fn get_eph_rng_keypair(&self) -> SchnorrkelKeypair {
         self.eph_rng_keypair.clone()
     }
@@ -142,7 +130,6 @@ impl Clone for SeismicKernel {
     fn clone(&self) -> Self {
         Self {
             rng_container: self.rng_container.clone(),
-            secret_key: self.secret_key,
             eph_rng_keypair: self.eph_rng_keypair.clone(),
         }
     }
@@ -152,17 +139,15 @@ impl Default for SeismicKernel {
     fn default() -> Self {
         Self {
             rng_container: RngContainer::default(),
-            secret_key: get_sample_secp256k1_sk(),
             eph_rng_keypair: get_sample_schnorrkel_keypair(),
         }
     }
 }
 
 impl SeismicKernel {
-    pub fn new(root_vrf_key: SchnorrkelKeypair, secret_key: SecretKey, eph_rng_keypair: SchnorrkelKeypair) -> Self {
+    pub fn new(root_vrf_key: SchnorrkelKeypair, eph_rng_keypair: SchnorrkelKeypair) -> Self {
         Self {
             rng_container: RngContainer::new(root_vrf_key),
-            secret_key,
             eph_rng_keypair,
         }
     }
