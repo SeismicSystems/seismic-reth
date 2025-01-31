@@ -5131,9 +5131,9 @@ dependencies = [
 
 [[package]]
 name = "metrics-exporter-prometheus"
-version = "0.16.1"
+version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12779523996a67c13c84906a876ac6fe4d07a6e1adb54978378e13f199251a62"
+checksum = "dd7399781913e5393588a8d8c6a2867bf85fb38eaf2502fdce465aad2dc6f034"
 dependencies = [
  "base64 0.22.1",
  "indexmap 2.7.1",
@@ -9938,7 +9938,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "18.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?branch=seismic#63da31ce7febb17ed8e655d587380f9e84b1bb7a"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?branch=seismic#d24972bdf4b9f3d4bd172d15fbf6a3df07bade8c"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -9953,7 +9953,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=c3243bf)",
+ "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=4036092)",
 ]
 
 [[package]]
@@ -9978,7 +9978,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "14.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?branch=seismic#63da31ce7febb17ed8e655d587380f9e84b1bb7a"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?branch=seismic#d24972bdf4b9f3d4bd172d15fbf6a3df07bade8c"
 dependencies = [
  "paste",
  "phf",
@@ -9989,7 +9989,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "15.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?branch=seismic#63da31ce7febb17ed8e655d587380f9e84b1bb7a"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?branch=seismic#d24972bdf4b9f3d4bd172d15fbf6a3df07bade8c"
 dependencies = [
  "aurora-engine-modexp",
  "blst",
@@ -10008,7 +10008,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "14.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?branch=seismic#63da31ce7febb17ed8e655d587380f9e84b1bb7a"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?branch=seismic#d24972bdf4b9f3d4bd172d15fbf6a3df07bade8c"
 dependencies = [
  "alloy-eip2930",
  "alloy-eip7702",
@@ -11337,7 +11337,7 @@ dependencies = [
 [[package]]
 name = "tee_service_api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=c3243bf#c3243bf1df8d52e832b58a31abd81e5bb01f54af"
+source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=4036092#4036092a11b51fe575a8ea685ee533c10cf9c1d9"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -11349,6 +11349,7 @@ dependencies = [
  "kbs-types",
  "once_cell",
  "reqwest",
+ "schnorrkel",
  "secp256k1",
  "serde",
  "serde_json",
@@ -12404,9 +12405,9 @@ dependencies = [
 
 [[package]]
 name = "webpki-roots"
-version = "0.26.7"
+version = "0.26.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d642ff16b7e79272ae451b7322067cdc17cadf68c23264be9d94a32319efe7e"
+checksum = "2210b291f7ea53617fbafcc4939f10914214ec15aace5ba62293a668f322c5c9"
 dependencies = [
  "rustls-pki-types",
 ]
