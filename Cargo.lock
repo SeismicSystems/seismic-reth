@@ -7907,7 +7907,7 @@ dependencies = [
  "reth-tee",
  "revm",
  "revm-primitives",
- "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=f4cbab5f320e47ff88f3cc8170fa71b18d244fb2)",
+ "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=39b2865)",
 ]
 
 [[package]]
@@ -9695,7 +9695,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=f4cbab5f320e47ff88f3cc8170fa71b18d244fb2)",
+ "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=39b2865)",
  "tokio",
  "tracing",
  "warp",
@@ -10604,7 +10604,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sysinfo 0.29.11",
- "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=f4cbab5f320e47ff88f3cc8170fa71b18d244fb2)",
+ "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=39b2865)",
  "tempfile",
  "tokio",
  "tokio-stream",
@@ -10644,7 +10644,7 @@ dependencies = [
  "jsonrpsee",
  "reth-tracing",
  "secp256k1",
- "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=f4cbab5f320e47ff88f3cc8170fa71b18d244fb2)",
+ "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=39b2865)",
 ]
 
 [[package]]
@@ -11289,7 +11289,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 [[package]]
 name = "tee_service_api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=4036092#4036092a11b51fe575a8ea685ee533c10cf9c1d9"
+source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=39b2865#39b286548069755498c16a4b4f0242945c8b363c"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -11313,7 +11313,7 @@ dependencies = [
 [[package]]
 name = "tee_service_api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=f4cbab5f320e47ff88f3cc8170fa71b18d244fb2#f4cbab5f320e47ff88f3cc8170fa71b18d244fb2"
+source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=4036092#4036092a11b51fe575a8ea685ee533c10cf9c1d9"
 dependencies = [
  "aes-gcm",
  "anyhow",
