@@ -354,7 +354,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
     /// Executes a signed call via eth_signTypedData_v4
     fn signed_call_typed_data(
         &self,
-        _typed_data: TypedDataRequest,
+        _typed_data: alloy_eips::eip712::TypedDataRequest,
         _block_number: Option<BlockId>,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {

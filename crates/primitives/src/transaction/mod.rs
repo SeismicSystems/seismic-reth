@@ -8,6 +8,7 @@ use alloy_consensus::{
 use alloy_eips::{
     eip2718::{Decodable2718, Eip2718Error, Eip2718Result, Encodable2718},
     eip2930::AccessList,
+    eip712::{Decodable712, Eip712Result, TypedDataRequest},
     eip7702::SignedAuthorization,
 };
 use alloy_primitives::{
@@ -1421,7 +1422,12 @@ impl Decodable2718 for TransactionSigned {
 }
 
 impl Decodable712 for TransactionSigned {
-    fn decode_712(buf: &mut &Typed) -> Eip712Result<Self> {}
+    fn decode_712(typed_data: &TypedDataRequest) -> Eip712Result<Self> {
+        let (tx, signature, hash) = TxSeismic::eip712_decode(&typed_data.data)?
+            .into_signed(typed_data.signature)
+            .into_parts();
+        Ok(Self { transaction: Transaction::Seismic(tx), signature, hash: hash.into() })
+    }
 }
 
 #[cfg(any(test, feature = "reth-codec"))]

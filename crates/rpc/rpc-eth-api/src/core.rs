@@ -658,10 +658,9 @@ where
                 .await?)
             }
 
-            alloy_rpc_types::SeismicCallRequest::TypedData(alloy_rpc_types::TypedDataRequest {
-                data,
-                signature,
-            }) => Ok(EthCall::signed_call_typed_data(self, data, signature, block_number).await?),
+            alloy_rpc_types::SeismicCallRequest::TypedData(typed_request) => {
+                Ok(EthCall::signed_call_typed_data(self, typed_request, block_number).await?)
+            }
 
             alloy_rpc_types::SeismicCallRequest::Bytes(bytes) => {
                 Ok(EthCall::signed_call(self, bytes, block_number).await?)
@@ -801,7 +800,7 @@ where
                 Ok(EthTransactions::send_raw_transaction(self, bytes).await?)
             }
             alloy_rpc_types::SeismicRawTxRequest::TypedData(
-                alloy_rpc_types::TypedDataRequest { data: _, signature: _ },
+                alloy_eips::eip712::TypedDataRequest { data: _, signature: _ },
             ) => {
                 todo!("eth_sendRawTransaction with typed data")
             }

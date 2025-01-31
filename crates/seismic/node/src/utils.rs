@@ -510,7 +510,7 @@ pub mod test_utils {
         pub fn sign_seismic_tx(tx: &TxSeismic) -> PrimitiveSignature {
             let _signature = Self::get_signing_private_key()
                 .clone()
-                .sign_recoverable(tx.signature_hash().as_slice())
+                .sign_prehash_recoverable(tx.signature_hash().as_slice())
                 .expect("Failed to sign");
 
             let recoverid = _signature.1;

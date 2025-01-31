@@ -1,7 +1,7 @@
 //! Commonly used code snippets
 
 use super::{EthApiError, EthResult};
-use alloy_rpc_types_eth::TypedDataRequest;
+use alloy_eips::eip712::TypedDataRequest;
 use reth_primitives::{transaction::SignedTransactionIntoRecoveredExt, RecoveredTx};
 use reth_primitives_traits::SignedTransaction;
 use std::future::Future;
@@ -37,16 +37,12 @@ pub fn recover_raw_transaction<T: SignedTransaction>(mut data: &[u8]) -> EthResu
 pub fn recover_typed_data_request<T: SignedTransaction>(
     mut data: &TypedDataRequest,
 ) -> EthResult<RecoveredTx<T>> {
-    if data.is_empty() {
-        return Err(EthApiError::EmptyRawTransactionData)
-    }
-
-    debug!(target: "reth::recover_raw_transaction", "{:?}", data);
+    debug!(target: "reth::recover_typed_data_request", "{:?}", data);
 
     let transaction =
         T::decode_712(&mut data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
 
-    debug!(target: "reth::recover_raw_transaction", "{:?}", transaction);
+    debug!(target: "reth::recover_typed_data_request", "{:?}", transaction);
 
     transaction.try_into_ecrecovered().or(Err(EthApiError::InvalidTransactionSignature))
 }
