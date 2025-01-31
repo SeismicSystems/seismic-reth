@@ -21,7 +21,7 @@ use crate::builder::RethEvmBuilder;
 use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader as _, TxSeismic};
 use alloy_primitives::{Address, Bytes, TxHash, B256, U256};
 use reth_primitives_traits::BlockHeader;
-use reth_tee::TeeError;
+use reth_tee::{TeeError, SchnorrkelKeypair};
 use revm::{Database, Evm, GetInspector};
 use revm_primitives::{
     BlockEnv, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId,
@@ -163,6 +163,11 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
         _encryption_nonce: u64,
     ) -> EVMResultGeneric<Vec<u8>, TeeError> {
         Err(EVMError::Database(TeeError::DecryptionError))
+    }
+
+    /// Get current eph_rng_keypair
+    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, TeeError> {
+        Err(EVMError::Database(TeeError::EphRngKeypairGenerationError))
     }
 
     /// seismic feature decrypt the transaction
