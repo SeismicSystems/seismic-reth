@@ -799,10 +799,8 @@ where
             alloy_rpc_types::SeismicRawTxRequest::Bytes(bytes) => {
                 Ok(EthTransactions::send_raw_transaction(self, bytes).await?)
             }
-            alloy_rpc_types::SeismicRawTxRequest::TypedData(
-                alloy_eips::eip712::TypedDataRequest { data: _, signature: _ },
-            ) => {
-                todo!("eth_sendRawTransaction with typed data")
+            alloy_rpc_types::SeismicRawTxRequest::TypedData(typed_data) => {
+                Ok(EthTransactions::send_typed_data_transaction(self, typed_data).await?)
             }
         }
     }
