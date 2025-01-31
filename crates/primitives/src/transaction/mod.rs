@@ -1420,6 +1420,10 @@ impl Decodable2718 for TransactionSigned {
     }
 }
 
+impl Decodable712 for TransactionSigned {
+    fn decode_712(buf: &mut &Typed) -> Eip712Result<Self> {}
+}
+
 #[cfg(any(test, feature = "reth-codec"))]
 impl reth_codecs::Compact for TransactionSigned {
     fn to_compact<B>(&self, buf: &mut B) -> usize

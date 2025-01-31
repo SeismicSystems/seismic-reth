@@ -6,9 +6,7 @@ use crate::{
     helpers::estimate::EstimateCall, FromEthApiError, FromEvmError, FullEthApiTypes,
     IntoEthApiError, RpcBlock, RpcNodeCore,
 };
-use alloy_consensus::{
-    transaction::EncryptionPublicKey, BlockHeader, Typed2718,
-};
+use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader, Typed2718};
 use alloy_eips::{eip1559::calc_next_block_base_fee, eip2930::AccessListResult};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_eth::{
@@ -356,8 +354,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
     /// Executes a signed call via eth_signTypedData_v4
     fn signed_call_typed_data(
         &self,
-        _data: alloy_dyn_abi::TypedData,
-        _signature: alloy_primitives::PrimitiveSignature,
+        _typed_data: TypedDataRequest,
         _block_number: Option<BlockId>,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {

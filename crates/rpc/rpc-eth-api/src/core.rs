@@ -657,10 +657,12 @@ where
                 )
                 .await?)
             }
+
             alloy_rpc_types::SeismicCallRequest::TypedData(alloy_rpc_types::TypedDataRequest {
                 data,
                 signature,
             }) => Ok(EthCall::signed_call_typed_data(self, data, signature, block_number).await?),
+
             alloy_rpc_types::SeismicCallRequest::Bytes(bytes) => {
                 Ok(EthCall::signed_call(self, bytes, block_number).await?)
             }
