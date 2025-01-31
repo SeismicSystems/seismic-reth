@@ -20,9 +20,10 @@ extern crate alloc;
 use crate::builder::RethEvmBuilder;
 use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader as _, TxSeismic};
 use alloy_primitives::{Address, Bytes, TxHash, B256, U256};
+use builder::EvmFactory;
 use reth_primitives_traits::BlockHeader;
 use reth_tee::{TeeError, SchnorrkelKeypair};
-use revm::{Database, Evm, GetInspector};
+use revm::{seismic::seismic_handle_register, Database, Evm, GetInspector};
 use revm_primitives::{
     BlockEnv, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId,
     TxEnv,
@@ -76,19 +77,16 @@ pub trait ConfigureEvm: ConfigureEvmEnv {
     /// including the spec id and the kernel.
     ///
     /// This will preserve any handler modifications
-    fn evm_with_kernel_and_optional_env<DB: Database>(
+    fn evm_with_kernel_and_env<DB: Database>(
         &self,
         db: DB,
-        env: Option<EnvWithHandlerCfg>,
+        env: EnvWithHandlerCfg,
         kernel: revm::seismic::Kernel,
     ) -> Evm<'_, Self::DefaultExternalContext<'_>, DB> {
-        let mut evm = self.evm(db);
-        if let Some(env) = env {
-            evm.modify_spec_id(env.spec_id());
-            evm.context.evm.env = env.env;
-        }
-        evm.context.evm = evm.context.evm.with_kernel(kernel);
-        evm
+        RethEvmBuilder::new(db, self.default_external_context())
+            .with_env(Box::new(env))
+            .with_kernel(kernel)
+            .build()
     }
 
     /// Returns a new EVM with the given database configured with the given environment settings,

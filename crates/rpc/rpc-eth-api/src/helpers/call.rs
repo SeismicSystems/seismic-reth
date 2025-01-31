@@ -597,7 +597,7 @@ pub trait Call:
         //TODO: Undersntand here if we're in mainnet or not, and then toggle CallKernel with
         //TestKernel.
         let kernel = Kernel::from_boxed(Box::new(CallKernel::default()));
-        let mut evm = self.evm_config().evm_with_kernel_and_optional_env(db, Some(env), kernel);
+        let mut evm = self.evm_config().evm_with_kernel_and_env(db, env, kernel);
         let res = evm.transact().map_err(Self::Error::from_evm_err)?;
         let (_, env) = evm.into_db_and_env_with_handler_cfg();
         Ok((res, env))

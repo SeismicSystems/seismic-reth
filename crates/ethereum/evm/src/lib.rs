@@ -640,7 +640,7 @@ mod tests {
 
         let env_with_handler = EnvWithHandlerCfg { env: Box::new(Env::default()), handler_cfg };
 
-        let evm = evm_config.evm_with_kernel_and_optional_env(db.clone(), Some(env_with_handler), Kernel::test_default());
+        let evm = evm_config.evm_with_kernel_and_env(db.clone(), env_with_handler, Kernel::test_default());
 
         // Check that the spec ID is setup properly
         assert_eq!(evm.handler.spec_id(), SpecId::MERCURY);

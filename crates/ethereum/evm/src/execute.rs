@@ -158,7 +158,7 @@ where
         let concrete_kernel = SeismicKernel::new(self.evm_config.get_eph_rng_keypair()?);
         let kernel= Kernel::from_boxed(Box::new(concrete_kernel));
         let env = self.evm_env_for_block(&block.header, total_difficulty);
-        let mut evm = self.evm_config.evm_with_kernel_and_optional_env(&mut self.state, Some(env), kernel);
+        let mut evm = self.evm_config.evm_with_kernel_and_env(&mut self.state, env, kernel);
 
         self.system_caller.apply_pre_execution_changes(&block.block, &mut evm)?;
 
@@ -173,7 +173,7 @@ where
         let env = self.evm_env_for_block(&block.header, total_difficulty);
         let concrete_kernel = SeismicKernel::new(self.evm_config.get_eph_rng_keypair()?);
         let kernel= Kernel::from_boxed(Box::new(concrete_kernel));
-        let mut evm = self.evm_config.evm_with_kernel_and_optional_env(&mut self.state, Some(env), kernel);
+        let mut evm = self.evm_config.evm_with_kernel_and_env(&mut self.state, env, kernel);
 
         let mut cumulative_gas_used = 0;
         let mut receipts = Vec::with_capacity(block.body.transactions.len());
@@ -245,7 +245,7 @@ where
         let env = self.evm_env_for_block(&block.header, total_difficulty);
         let concrete_kernel = SeismicKernel::new(self.evm_config.get_eph_rng_keypair()?);
         let kernel= Kernel::from_boxed(Box::new(concrete_kernel));
-        let mut evm = self.evm_config.evm_with_kernel_and_optional_env(&mut self.state, Some(env), kernel);
+        let mut evm = self.evm_config.evm_with_kernel_and_env(&mut self.state, env, kernel);
 
         let requests = if self.chain_spec.is_prague_active_at_timestamp(block.timestamp) {
             // Collect all EIP-6110 deposits
