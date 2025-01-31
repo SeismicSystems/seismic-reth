@@ -667,9 +667,9 @@ alloy-transport-http = { git = "ssh://git@github.com/SeismicSystems/seismic-allo
 alloy-transport-ipc = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "ed774e3" }
 alloy-transport-ws = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "ed774e3" }
 
-revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "2a3fd6ec"}
-revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "2a3fd6ec"}
-revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "2a3fd6ec"}
+revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "d24972b"}
+revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "d24972b"}
+revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "d24972b"}
 revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "seismic"} # seismic todo change branch
 
 op-alloy-rpc-types = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
