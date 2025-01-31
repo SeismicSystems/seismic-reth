@@ -25,7 +25,7 @@ use alloy_primitives::{Address, Bytes, TxHash, TxKind, U256};
 use reth_chainspec::{ChainSpec, Head};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};
 use reth_primitives::{transaction::FillTxEnv, Transaction, TransactionSigned};
-use reth_tee::{decrypt, encrypt, TeeError, TeeHttpClient};
+use reth_tee::{decrypt, encrypt, SchnorrkelKeypair, TeeError, TeeHttpClient, get_eph_rng_keypair};
 use reth_tracing::tracing::debug;
 use revm_primitives::{
     AnalysisKind, BlobExcessGasAndPrice, BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, EVMError,
@@ -111,6 +111,12 @@ impl ConfigureEvmEnv for EthEvmConfig {
             decrypt(&self.tee_client, encryption_pubkey, data, encryption_nonce)
                 .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
         Ok(tee_decryption)
+    }
+
+    /// Get current eph_rng_keypair
+    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, TeeError>  {
+        get_eph_rng_keypair(&self.tee_client)
+            .map_err(|_| EVMError::Database(TeeError::EphRngKeypairGenerationError))
     }
 
     /// seismic feature decrypt the transaction
