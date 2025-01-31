@@ -15,6 +15,7 @@ use alloy_eips::{
     eip2718::{Decodable2718, Eip2718Result, Encodable2718},
     eip2930::AccessList,
     eip4844::BlobTransactionSidecar,
+    eip712::{Decodable712, Eip712Error, Eip712Result, TypedDataRequest},
     eip7702::SignedAuthorization,
 };
 use alloy_primitives::{
@@ -402,6 +403,18 @@ impl Typed2718 for PooledTransactionsElement {
             Self::Eip1559(tx) => tx.tx().ty(),
             Self::BlobTransaction(tx) => tx.tx().ty(),
             Self::Eip7702(tx) => tx.tx().ty(),
+        }
+    }
+}
+
+impl Decodable712 for PooledTransactionsElement {
+    fn decode_712(typed_data: &TypedDataRequest) -> Eip712Result<Self> {
+        let tx_signed = TransactionSigned::decode_712(typed_data)?;
+        let sig = tx_signed.signature;
+        let hash = tx_signed.hash();
+        match tx_signed.transaction {
+            Transaction::Seismic(tx) => Ok(Self::Seismic(Signed::new_unchecked(tx, sig, hash))),
+            _ => Err(Eip712Error::InvalidType),
         }
     }
 }

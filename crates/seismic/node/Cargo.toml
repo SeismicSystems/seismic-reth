@@ -86,3 +86,4 @@ arbitrary.workspace = true
 tempfile.workspace = true
 once_cell.workspace = true
 alloy-provider.workspace = true
+alloy-eips.workspace = true

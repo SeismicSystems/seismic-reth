@@ -19,6 +19,7 @@ use futures::Future;
 use reth_chainspec::EthChainSpec;
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
 use reth_node_api::BlockBody;
+use reth_primitives::RecoveredTx;
 use reth_primitives_traits::SignedTransaction;
 use reth_provider::{BlockIdReader, ChainSpecProvider, ProviderHeader};
 use reth_revm::{
@@ -37,7 +38,7 @@ use reth_rpc_eth_types::{
         CallFees,
     },
     simulate::{self, EthSimulateError},
-    utils::recover_raw_transaction,
+    utils::{recover_raw_transaction, recover_typed_data_request},
     EthApiError, RevertError, RpcInvalidTransactionError, StateCacheDb,
 };
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
@@ -295,18 +296,15 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         Ok(Bytes::from(encrypted_output))
     }
 
-    /// Executes the call request (`eth_call`) and returns the output
-    fn signed_call(
+    /// Executes a signed call via eth_call
+    fn common_signed_call(
         &self,
-        tx: Bytes,
+        tx: RecoveredTx<
+            <<Self as RpcNodeCore>::Provider as reth_provider::TransactionsProvider>::Transaction,
+        >,
         block_number: Option<BlockId>,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
-            // `call` must be accompanied with a valid signature.
-            let tx = recover_raw_transaction::<PoolPooledTx<Self::Pool>>(&tx)?.map_transaction(
-                <Self::Pool as TransactionPool>::Transaction::pooled_into_consensus,
-            );
-
             let (cfg, block, at) = self.evm_env_at(block_number.unwrap_or_default()).await?;
 
             let env = EnvWithHandlerCfg::new_with_cfg_env(
@@ -336,6 +334,35 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                 Some(tx_signed.nonce()),
                 output,
             )
+        }
+    }
+
+    /// Executes the call request (`eth_call`) and returns the output
+    fn signed_call(
+        &self,
+        tx: Bytes,
+        block_number: Option<BlockId>,
+    ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
+        async move {
+            let tx = recover_raw_transaction::<PoolPooledTx<Self::Pool>>(&tx)?.map_transaction(
+                <Self::Pool as TransactionPool>::Transaction::pooled_into_consensus,
+            );
+            self.common_signed_call(tx, block_number).await
+        }
+    }
+
+    /// Executes a signed call via eth_signTypedData_v4
+    fn signed_call_typed_data(
+        &self,
+        _typed_data: alloy_eips::eip712::TypedDataRequest,
+        _block_number: Option<BlockId>,
+    ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
+        async move {
+            let tx = recover_typed_data_request::<PoolPooledTx<Self::Pool>>(&_typed_data)?
+                .map_transaction(
+                    <Self::Pool as TransactionPool>::Transaction::pooled_into_consensus,
+                );
+            self.common_signed_call(tx, _block_number).await
         }
     }
 

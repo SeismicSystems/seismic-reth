@@ -2,7 +2,9 @@
 use alloy_network::{Ethereum, EthereumWallet, NetworkWallet};
 use alloy_primitives::{hex, Address, Bytes, TxKind, U256};
 use alloy_provider::{create_seismic_provider, test_utils, Provider, SendableTx};
-use alloy_rpc_types::{Block, Header, Transaction, TransactionInput, TransactionReceipt};
+use alloy_rpc_types::{
+    Block, Header, Transaction, TransactionInput, TransactionReceipt, TransactionRequest,
+};
 use assert_cmd::Command;
 use reqwest::Client;
 use reth_chainspec::DEV;
@@ -10,8 +12,8 @@ use reth_e2e_test_utils::wallet::Wallet;
 use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
 use reth_rpc_eth_api::EthApiClient;
 use seismic_node::utils::test_utils::{
-    client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_unsigned_seismic_tx_request,
-    IntegrationTestContext,
+    client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
+    get_unsigned_seismic_tx_request, IntegrationTestContext,
 };
 use serde_json::{json, Value};
 use std::{path::PathBuf, str::FromStr, thread, time::Duration};
@@ -68,6 +70,82 @@ async fn integration_test() {
     test_seismic_reth_backup().await;
     test_seismic_reth_rpc_with_rust_client().await;
     test_seismic_reth_rpc().await;
+    test_seismic_reth_rpc_with_typed_data().await;
+}
+async fn test_seismic_reth_rpc_with_typed_data() {
+    let reth_rpc_url = RethCommand::url();
+    let chain_id = RethCommand::chain_id();
+    let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
+    let wallet = Wallet::default().with_chain_id(chain_id);
+
+    let tx_hash =
+        EthApiClient::<Transaction, Block, TransactionReceipt, Header>::send_raw_transaction(
+            &client,
+            get_signed_seismic_tx_typed_data(
+                &wallet.inner,
+                get_nonce(&client, wallet.inner.address()).await,
+                TxKind::Create,
+                chain_id,
+                test_utils::ContractTestContext::get_deploy_input_plaintext(),
+            )
+            .await
+            .into(),
+        )
+        .await
+        .unwrap();
+    // assert_eq!(tx_hash, itx.tx_hashes[0]);
+    thread::sleep(Duration::from_secs(1));
+    println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
+
+    // Get the transaction receipt
+    let receipt =
+        EthApiClient::<Transaction, Block, TransactionReceipt, Header>::transaction_receipt(
+            &client, tx_hash,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let contract_addr = receipt.contract_address.unwrap();
+    println!(
+        "eth_getTransactionReceipt getting contract deployment transaction receipt: {:?}",
+        receipt
+    );
+    assert_eq!(receipt.status(), true);
+
+    // Make sure the code of the contract is deployed
+    let code = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::get_code(
+        &client,
+        contract_addr,
+        None,
+    )
+    .await
+    .unwrap();
+    assert_eq!(test_utils::ContractTestContext::get_code(), code);
+    println!("eth_getCode getting contract deployment code: {:?}", code);
+
+    // eth_call to check the parity. Should be 0
+    let output = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::call(
+        &client,
+        get_signed_seismic_tx_typed_data(
+            &wallet.inner,
+            get_nonce(&client, wallet.inner.address()).await,
+            TxKind::Call(contract_addr),
+            chain_id,
+            test_utils::ContractTestContext::get_is_odd_input_plaintext(),
+        )
+        .await
+        .into(),
+        None,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    let decrypted_output =
+        client_decrypt(&wallet.inner, get_nonce(&client, wallet.inner.address()).await, &output)
+            .await;
+    println!("eth_call decrypted output: {:?}", decrypted_output);
+    assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 }
 
 // this is the same test as basic.rs but with actual RPC calls and standalone reth instance
@@ -152,6 +230,7 @@ async fn test_seismic_reth_rpc_with_rust_client() {
 
     // eth_estimateGas cannot be called directly with rust client
     // eth_createAccessList cannot be called directly with rust client
+    // rust client also does not support Eip712::typed data requests
 }
 
 // this is the same test as basic.rs but with actual RPC calls and standalone reth instance
@@ -171,7 +250,8 @@ async fn test_seismic_reth_rpc() {
                 chain_id,
                 test_utils::ContractTestContext::get_deploy_input_plaintext(),
             )
-            .await,
+            .await
+            .into(),
         )
         .await
         .unwrap();
@@ -208,16 +288,15 @@ async fn test_seismic_reth_rpc() {
     // eth_call to check the parity. Should be 0
     let output = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::call(
         &client,
-        reth_rpc_eth_api::types::SeismicCallRequest::Bytes(
-            get_signed_seismic_tx_bytes(
-                &wallet.inner,
-                get_nonce(&client, wallet.inner.address()).await,
-                TxKind::Call(contract_addr),
-                chain_id,
-                test_utils::ContractTestContext::get_is_odd_input_plaintext(),
-            )
-            .await,
-        ),
+        get_signed_seismic_tx_bytes(
+            &wallet.inner,
+            get_nonce(&client, wallet.inner.address()).await,
+            TxKind::Call(contract_addr),
+            chain_id,
+            test_utils::ContractTestContext::get_is_odd_input_plaintext(),
+        )
+        .await
+        .into(),
         None,
         None,
         None,
@@ -241,7 +320,8 @@ async fn test_seismic_reth_rpc() {
                 chain_id,
                 test_utils::ContractTestContext::get_set_number_input_plaintext(),
             )
-            .await,
+            .await
+            .into(),
         )
         .await
         .unwrap();
@@ -262,16 +342,15 @@ async fn test_seismic_reth_rpc() {
     // Final eth_call to check the parity. Should be 1
     let output = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::call(
         &client,
-        reth_rpc_eth_api::types::SeismicCallRequest::Bytes(
-            get_signed_seismic_tx_bytes(
-                &wallet.inner,
-                get_nonce(&client, wallet.inner.address()).await,
-                TxKind::Call(contract_addr),
-                chain_id,
-                test_utils::ContractTestContext::get_is_odd_input_plaintext(),
-            )
-            .await,
-        ),
+        get_signed_seismic_tx_bytes(
+            &wallet.inner,
+            get_nonce(&client, wallet.inner.address()).await,
+            TxKind::Call(contract_addr),
+            chain_id,
+            test_utils::ContractTestContext::get_is_odd_input_plaintext(),
+        )
+        .await
+        .into(),
         None,
         None,
         None,
@@ -318,9 +397,7 @@ async fn test_seismic_reth_rpc() {
     // test call
     let output = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::call(
         &client,
-        reth_rpc_eth_api::types::SeismicCallRequest::TransactionRequest(
-            simulate_tx_request.clone(),
-        ),
+        simulate_tx_request.clone().into(),
         None,
         None,
         None,
@@ -332,17 +409,16 @@ async fn test_seismic_reth_rpc() {
     // call with no transaction type
     let output = EthApiClient::<Transaction, Block, TransactionReceipt, Header>::call(
         &client,
-        reth_rpc_eth_api::types::SeismicCallRequest::TransactionRequest(
-            alloy_rpc_types::TransactionRequest {
-                from: Some(wallet.inner.address()),
-                input: TransactionInput {
-                    data: Some(test_utils::ContractTestContext::get_is_odd_input_plaintext()),
-                    ..Default::default()
-                },
-                to: Some(TxKind::Call(contract_addr)),
+        TransactionRequest {
+            from: Some(wallet.inner.address()),
+            input: TransactionInput {
+                data: Some(test_utils::ContractTestContext::get_is_odd_input_plaintext()),
                 ..Default::default()
             },
-        ),
+            to: Some(TxKind::Call(contract_addr)),
+            ..Default::default()
+        }
+        .into(),
         None,
         None,
         None,

@@ -7,7 +7,7 @@ use reth_rpc_eth_api::{
     helpers::{EthSigner, EthTransactions, LoadTransaction, SpawnBlocking},
     FromEthApiError, FullEthApiTypes, RpcNodeCore, RpcNodeCoreExt,
 };
-use reth_rpc_eth_types::utils::recover_raw_transaction;
+use reth_rpc_eth_types::utils::{recover_raw_transaction, recover_typed_data_request};
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
 use tracing::debug;
 
@@ -30,6 +30,37 @@ where
 
         // broadcast raw transaction to subscribers if there is any.
         self.broadcast_raw_transaction(tx);
+
+        debug!(target: "reth::send_raw_transaction", "tx recovered");
+
+        let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
+
+        debug!(target: "reth::send_raw_transaction", "tx convereted to pool tx");
+
+        // submit the transaction to the pool with a `Local` origin
+        let hash = self
+            .pool()
+            .add_transaction(TransactionOrigin::Local, pool_transaction)
+            .await
+            .map_err(Self::Error::from_eth_err)?;
+
+        Ok(hash)
+    }
+
+    /// Decodes and recovers the transaction and submits it to the pool.
+    ///
+    /// Returns the hash of the transaction.
+    async fn send_typed_data_transaction(
+        &self,
+        tx: alloy_eips::eip712::TypedDataRequest,
+    ) -> Result<B256, Self::Error> {
+        let recovered = recover_typed_data_request(&tx)?;
+
+        // broadcast raw transaction to subscribers if there is any.
+        // TODO: maybe we need to broadcast the encoded tx instead of the recovered tx
+        // when other nodes receive the raw bytes the hash they recover needs to be
+        // type
+        // self.broadcast_raw_transaction(recovered.to);
 
         debug!(target: "reth::send_raw_transaction", "tx recovered");
 

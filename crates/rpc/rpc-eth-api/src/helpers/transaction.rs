@@ -66,6 +66,14 @@ pub trait EthTransactions: LoadTransaction<Provider: BlockReaderIdExt> {
         tx: Bytes,
     ) -> impl Future<Output = Result<B256, Self::Error>> + Send;
 
+    /// Decodes and recovers the transaction and submits it to the pool.
+    ///
+    /// Returns the hash of the transaction.
+    fn send_typed_data_transaction(
+        &self,
+        tx: alloy_eips::eip712::TypedDataRequest,
+    ) -> impl Future<Output = Result<B256, Self::Error>> + Send;
+
     /// Returns the transaction by hash.
     ///
     /// Checks the pool and state.
