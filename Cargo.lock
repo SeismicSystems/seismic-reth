@@ -7907,7 +7907,7 @@ dependencies = [
  "reth-tee",
  "revm",
  "revm-primitives",
- "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=8859962)",
+ "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=f4cbab5f320e47ff88f3cc8170fa71b18d244fb2)",
 ]
 
 [[package]]
@@ -9695,7 +9695,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=8859962)",
+ "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=f4cbab5f320e47ff88f3cc8170fa71b18d244fb2)",
  "tokio",
  "tracing",
  "warp",
@@ -10604,7 +10604,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sysinfo 0.29.11",
- "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=8859962)",
+ "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=f4cbab5f320e47ff88f3cc8170fa71b18d244fb2)",
  "tempfile",
  "tokio",
  "tokio-stream",
@@ -10644,7 +10644,7 @@ dependencies = [
  "jsonrpsee",
  "reth-tracing",
  "secp256k1",
- "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=8859962)",
+ "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=f4cbab5f320e47ff88f3cc8170fa71b18d244fb2)",
 ]
 
 [[package]]
@@ -11313,7 +11313,7 @@ dependencies = [
 [[package]]
 name = "tee_service_api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=8859962#885996262341619ced2416acc2a74acdbe23394e"
+source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=f4cbab5f320e47ff88f3cc8170fa71b18d244fb2#f4cbab5f320e47ff88f3cc8170fa71b18d244fb2"
 dependencies = [
  "aes-gcm",
  "anyhow",

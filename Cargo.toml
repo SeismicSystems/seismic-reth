@@ -309,7 +309,7 @@ overflow-checks = true
 seismic-node = { path = "crates/seismic/node" }
 seismic-reth = { path = "crates/seismic/bin" }
 seismic-rpc-api = { path = "crates/seismic/rpc-api" }
-tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "8859962" }
+tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "39b2865" }
 
 # reth
 op-reth = { path = "crates/optimism/bin" }
