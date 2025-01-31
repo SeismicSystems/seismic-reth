@@ -38,7 +38,7 @@ use reth_rpc_eth_types::{
         CallFees,
     },
     simulate::{self, EthSimulateError},
-    utils::recover_raw_transaction,
+    utils::{recover_raw_transaction, recover_typed_data_request},
     EthApiError, RevertError, RpcInvalidTransactionError, StateCacheDb,
 };
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
@@ -358,51 +358,11 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         _block_number: Option<BlockId>,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
-            // let seismic_tx: alloy_consensus::transaction::TxSeismic = data.try_into()
-            //     .map_err(|e| EthApiError::InvalidParams(format!("Failed to decode typed data into
-            // seismic tx: {e:?}")))?; let signed_seismic_tx =
-            // seismic_tx.into_signed(signature); let provider_tx: <<Self as
-            // RpcNodeCore>::Provider as reth_provider::TransactionsProvider>::Transaction =
-            //     signed_seismic_tx.try_into()
-            //         .map_err(|e| EthApiError::InvalidParams(format!("Failed to convert
-            // transaction: {e:?}")))?;
-
-            // // NOTE: this is recover_caller, not recover_signer
-            // let sender = signed_seismic_tx.recover_caller().map_err(|e| {
-            //     EthApiError::InvalidParams(format!("Failed to recover signer: {e:?}"))
-            // })?;
-
-            // let tx = RecoveredTx::from_signed_transaction(signed_seismic_tx, sender);
-
-            // let (cfg, block, at) = self.evm_env_at(block_number.unwrap_or_default()).await?;
-
-            // let env = EnvWithHandlerCfg::new_with_cfg_env(
-            //     cfg,
-            //     block,
-            //     self.evm_config()
-            //         .tx_env(&signed_seismic_tx, sender)
-            //         .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
-            // );
-
-            // let this = self.clone();
-
-            // let (res, _) = self
-            //     .spawn_with_state_at_block(at, move |state| {
-            //         let db = CacheDB::new(StateProviderDatabase::new(
-            //             StateProviderTraitObjWrapper(&state),
-            //         ));
-            //         this.transact(db, env)
-            //     })
-            //     .await?;
-
-            // let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
-            // self.encrypt_(
-            //     Some(signed_seismic_tx.ty()),
-            //     signed_seismic_tx.encryption_pubkey(),
-            //     Some(signed_seismic_tx.nonce()),
-            //     output,
-            // )
-            todo!("eth_call with typed data")
+            let tx = recover_typed_data_request::<PoolPooledTx<Self::Pool>>(&_typed_data)?
+                .map_transaction(
+                    <Self::Pool as TransactionPool>::Transaction::pooled_into_consensus,
+                );
+            self.common_signed_call(tx, _block_number).await
         }
     }
 
