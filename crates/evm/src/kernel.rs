@@ -2,7 +2,6 @@
 //! simulating calls or bridging with TEE services.
 use reth_revm::seismic::{kernel::{kernel_interface::{KernelKeys, KernelRng}}, rng::{LeafRng, RootRng, SchnorrkelKeypair}, Kernel};
 use revm::seismic::RngContainer;
-use tee_service_api::get_sample_schnorrkel_keypair;
 use std::fmt;
 
 /// A `Kernel` variant used for simulating calls. The main difference is adding
@@ -10,7 +9,6 @@ use std::fmt;
 /// Holds an internal RNG container and ephemeral Schnorrkel keypair.
 pub struct CallKernel {
     rng_container: RngContainer,
-    eph_rng_keypair: SchnorrkelKeypair,
 }
 
 impl fmt::Debug for CallKernel {
@@ -23,8 +21,13 @@ impl fmt::Debug for CallKernel {
 
 impl KernelRng for CallKernel {
     /// Resets the `RootRng` to a new instance derived from the `root_vrf_key`.
-    fn reset_rng(&mut self, root_vrf_key: SchnorrkelKeypair) {
-        self.rng_container.reset_rng(root_vrf_key);
+    fn reset_rng(&mut self) {
+        self.rng_container.reset_rng();
+    }
+
+    /// Returns a reference to the underlying `RootRng`.
+    fn root_rng_ref(&self) -> &RootRng {
+        self.rng_container.root_rng_ref()
     }
 
     /// Returns a mutable reference to the underlying `RootRng`.
@@ -46,9 +49,10 @@ impl KernelRng for CallKernel {
 
 impl KernelKeys for CallKernel {
     /// Returns a clone of the ephemeral Schnorrkel keypair for RNG usage.
-    fn get_eph_rng_keypair(&self) -> SchnorrkelKeypair {
-        self.eph_rng_keypair.clone()
+    fn get_root_vrf_key(&self) -> SchnorrkelKeypair {
+        self.root_rng_ref().get_root_vrf_key()
     }
+
 }
 
 impl From<CallKernel> for Kernel {
@@ -67,7 +71,6 @@ impl Clone for CallKernel {
     fn clone(&self) -> Self {
         Self {
             rng_container: self.rng_container.clone(),
-            eph_rng_keypair: self.eph_rng_keypair.clone(),
         }
     }
 }
@@ -78,17 +81,15 @@ impl Default for CallKernel {
     fn default() -> Self {
         Self {
             rng_container: RngContainer::default(),
-            eph_rng_keypair: get_sample_schnorrkel_keypair(),
         }
     }
 }
 
 impl CallKernel {
     /// Creates a new `CallKernel` from a given `root_vrf_key` and ephemeral keypair.
-    pub fn new(root_vrf_key: SchnorrkelKeypair, eph_rng_keypair: SchnorrkelKeypair) -> Self {
+    pub fn new(root_vrf_key: SchnorrkelKeypair) -> Self {
         Self {
             rng_container: RngContainer::new(root_vrf_key),
-            eph_rng_keypair,
         }
     }
 }
@@ -98,7 +99,6 @@ impl CallKernel {
 /// for real-world bridging rather than local simulation.
 pub struct SeismicKernel {
     rng_container: RngContainer,
-    eph_rng_keypair: SchnorrkelKeypair,
 }
 
 impl fmt::Debug for SeismicKernel {
@@ -111,9 +111,15 @@ impl fmt::Debug for SeismicKernel {
 
 impl KernelRng for SeismicKernel {
     /// Resets the `RootRng` to a new instance derived from the `root_vrf_key`.
-    fn reset_rng(&mut self, root_vrf_key: SchnorrkelKeypair) {
-        self.rng_container.reset_rng(root_vrf_key);
+    fn reset_rng(&mut self) {
+        self.rng_container.reset_rng()
     }
+
+    /// Returns a reference to the underlying `RootRng`.
+    fn root_rng_ref(&self) -> &RootRng {
+        self.rng_container.root_rng_ref()
+    }
+
 
     /// Returns a mutable reference to the underlying `RootRng`.
     fn root_rng_mut_ref(&mut self) -> &mut RootRng {
@@ -133,8 +139,8 @@ impl KernelRng for SeismicKernel {
 
 impl KernelKeys for SeismicKernel {
     /// Returns a clone of the ephemeral Schnorrkel keypair for RNG usage.
-    fn get_eph_rng_keypair(&self) -> SchnorrkelKeypair {
-        self.eph_rng_keypair.clone()
+    fn get_root_vrf_key(&self) -> SchnorrkelKeypair {
+        self.root_rng_ref().get_root_vrf_key()
     }
 }
 
@@ -154,7 +160,6 @@ impl Clone for SeismicKernel {
     fn clone(&self) -> Self {
         Self {
             rng_container: self.rng_container.clone(),
-            eph_rng_keypair: self.eph_rng_keypair.clone(),
         }
     }
 }
@@ -165,17 +170,15 @@ impl Default for SeismicKernel {
     fn default() -> Self {
         Self {
             rng_container: RngContainer::default(),
-            eph_rng_keypair: get_sample_schnorrkel_keypair(),
         }
     }
 }
 
 impl SeismicKernel {
     /// Creates a new `SeismicKernel` from a given `root_vrf_key` and ephemeral keypair.
-    pub fn new(root_vrf_key: SchnorrkelKeypair, eph_rng_keypair: SchnorrkelKeypair) -> Self {
+    pub fn new(root_vrf_key: SchnorrkelKeypair) -> Self {
         Self {
             rng_container: RngContainer::new(root_vrf_key),
-            eph_rng_keypair,
         }
     }
 }
