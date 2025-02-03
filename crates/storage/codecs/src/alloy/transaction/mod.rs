@@ -32,7 +32,7 @@ mod tests {
     fn test_ensure_backwards_compatibility() {
         assert_eq!(TxEip4844::bitflag_encoded_bytes(), 5);
         assert_eq!(TxLegacy::bitflag_encoded_bytes(), 3);
-        assert_eq!(TxSeismic::bitflag_encoded_bytes(), 3);
+        assert_eq!(TxSeismic::bitflag_encoded_bytes(), 4);
         assert_eq!(TxEip1559::bitflag_encoded_bytes(), 4);
         assert_eq!(TxEip2930::bitflag_encoded_bytes(), 3);
         assert_eq!(TxEip7702::bitflag_encoded_bytes(), 4);
