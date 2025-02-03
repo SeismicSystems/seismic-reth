@@ -69,17 +69,18 @@ members = [
     "crates/node/events/",
     "crates/node/metrics",
     "crates/node/types",
-    "crates/optimism/bin",
-    "crates/optimism/chainspec",
-    "crates/optimism/cli",
-    "crates/optimism/consensus",
-    "crates/optimism/evm/",
-    "crates/optimism/hardforks/",
-    "crates/optimism/node/",
-    "crates/optimism/payload/",
-    "crates/optimism/primitives/",
-    "crates/optimism/rpc/",
-    "crates/optimism/storage",
+    # disable optimism because seismic-alloy breaks op-alloy
+    # "crates/optimism/bin",
+    # "crates/optimism/chainspec",
+    # "crates/optimism/cli",
+    # "crates/optimism/consensus",
+    # "crates/optimism/evm/",
+    # "crates/optimism/hardforks/",
+    # "crates/optimism/node/",
+    # "crates/optimism/payload/",
+    # "crates/optimism/primitives/",
+    # "crates/optimism/rpc/",
+    # "crates/optimism/storage",
     "crates/payload/basic/",
     "crates/payload/builder/",
     "crates/payload/builder-primitives/",
@@ -158,7 +159,9 @@ members = [
     "crates/seismic/rpc-api",
 ]
 default-members = ["crates/seismic/bin", "bin/reth"]
-exclude = ["book/sources"]
+exclude = [
+    "book/sources",
+]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
 # https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
@@ -671,7 +674,7 @@ alloy-transport-ws = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.
 revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "fe4db09"}
 revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "fe4db09"}
 revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "fe4db09"}
-revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "seismic"}
+revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "19828b8"}
 
 op-alloy-rpc-types = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
 op-alloy-rpc-types-engine = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }

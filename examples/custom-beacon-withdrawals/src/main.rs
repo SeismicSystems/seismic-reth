@@ -248,6 +248,7 @@ fn fill_tx_env_with_system_contract_call(
     contract: Address,
     data: Bytes,
 ) {
+    let tx_hash = env.tx.tx_hash;
     env.tx = TxEnv {
         caller,
         transact_to: TransactTo::Call(contract),
@@ -269,6 +270,7 @@ fn fill_tx_env_with_system_contract_call(
         blob_hashes: Vec::new(),
         max_fee_per_blob_gas: None,
         authorization_list: None,
+        tx_hash,
         #[cfg(feature = "optimism")]
         optimism: OptimismFields::default(),
     };
