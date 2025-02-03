@@ -216,7 +216,8 @@ pub mod test_utils {
     use std::fs::File;
 
     use super::*;
-    use alloy_consensus::{SignableTransaction, TxSeismic};
+    use alloy_consensus::{SignableTransaction, TxSeismic, TypedTransaction};
+    use alloy_dyn_abi::TypedData;
     use alloy_eips::{eip2718::Encodable2718, eip712::TypedDataRequest};
     use alloy_network::TransactionBuilder;
     use alloy_primitives::{hex_literal, Address, Bytes, FixedBytes, PrimitiveSignature, U256};
@@ -323,6 +324,22 @@ pub mod test_utils {
             get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, decrypted_input).await;
         let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
         <TxEnvelope as Encodable2718>::encoded_2718(&signed).into()
+    }
+
+    pub async fn get_unsigned_seismic_tx_typed_data(
+        sk_wallet: &PrivateKeySigner,
+        nonce: u64,
+        to: TxKind,
+        chain_id: u64,
+        decrypted_input: Bytes,
+    ) -> TypedData {
+        let tx_request =
+            get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, decrypted_input).await;
+        let typed_tx = tx_request.build_consensus_tx().unwrap();
+        match typed_tx {
+            TypedTransaction::Seismic(seismic) => seismic.eip712_to_type_data(),
+            _ => panic!("Typed transaction is not a seismic transaction"),
+        }
     }
 
     /// Create a seismic transaction with typed data

@@ -10555,6 +10555,7 @@ name = "seismic-node"
 version = "1.1.4"
 dependencies = [
  "alloy-consensus",
+ "alloy-dyn-abi",
  "alloy-eips",
  "alloy-network",
  "alloy-primitives",
@@ -10646,7 +10647,12 @@ dependencies = [
 name = "seismic-rpc-api"
 version = "1.1.4"
 dependencies = [
+ "alloy-dyn-abi",
+ "alloy-primitives",
+ "alloy-rpc-types",
  "jsonrpsee",
+ "reth-rpc-eth-api",
+ "reth-rpc-eth-types",
  "reth-tracing",
  "secp256k1",
  "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=21218a3)",
