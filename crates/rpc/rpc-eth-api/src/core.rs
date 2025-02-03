@@ -18,7 +18,6 @@ use tracing::trace;
 
 use crate::{
     helpers::{EthApiSpec, EthBlocks, EthCall, EthFees, EthState, EthTransactions, FullEthApi},
-    types::SeismicCallRequest,
     RpcBlock, RpcHeader, RpcReceipt, RpcTransaction,
 };
 
@@ -222,7 +221,7 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
     #[method(name = "call")]
     async fn call(
         &self,
-        request: SeismicCallRequest,
+        request: alloy_rpc_types::SeismicCallRequest,
         block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
@@ -336,7 +335,10 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
 
     /// Sends signed transaction, returning its hash.
     #[method(name = "sendRawTransaction")]
-    async fn send_raw_transaction(&self, bytes: Bytes) -> RpcResult<B256>;
+    async fn send_raw_transaction(
+        &self,
+        bytes: alloy_rpc_types::SeismicRawTxRequest,
+    ) -> RpcResult<B256>;
 
     /// Returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed Message:\n"
     /// + len(message) + message))).
@@ -639,23 +641,30 @@ where
     /// Handler for: `eth_call`
     async fn call(
         &self,
-        request: SeismicCallRequest,
+        request: alloy_rpc_types::SeismicCallRequest,
         block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
         trace!(target: "rpc::eth", ?request, "Serving seismic_call");
         match request {
-            SeismicCallRequest::Bytes(bytes) => {
+            alloy_rpc_types::SeismicCallRequest::TransactionRequest(tx_request) => {
+                Ok(EthCall::call(
+                    self,
+                    tx_request.inner,
+                    block_number,
+                    EvmOverrides::new(state_overrides, block_overrides),
+                )
+                .await?)
+            }
+
+            alloy_rpc_types::SeismicCallRequest::TypedData(typed_request) => {
+                Ok(EthCall::signed_call_typed_data(self, typed_request, block_number).await?)
+            }
+
+            alloy_rpc_types::SeismicCallRequest::Bytes(bytes) => {
                 Ok(EthCall::signed_call(self, bytes, block_number).await?)
             }
-            SeismicCallRequest::TransactionRequest(tx_request) => Ok(EthCall::call(
-                self,
-                tx_request,
-                block_number,
-                EvmOverrides::new(state_overrides, block_overrides),
-            )
-            .await?),
         }
     }
 
@@ -781,9 +790,19 @@ where
     }
 
     /// Handler for: `eth_sendRawTransaction`
-    async fn send_raw_transaction(&self, tx: Bytes) -> RpcResult<B256> {
+    async fn send_raw_transaction(
+        &self,
+        tx: alloy_rpc_types::SeismicRawTxRequest,
+    ) -> RpcResult<B256> {
         trace!(target: "rpc::eth", ?tx, "Serving eth_sendRawTransaction");
-        Ok(EthTransactions::send_raw_transaction(self, tx).await?)
+        match tx {
+            alloy_rpc_types::SeismicRawTxRequest::Bytes(bytes) => {
+                Ok(EthTransactions::send_raw_transaction(self, bytes).await?)
+            }
+            alloy_rpc_types::SeismicRawTxRequest::TypedData(typed_data) => {
+                Ok(EthTransactions::send_typed_data_transaction(self, typed_data).await?)
+            }
+        }
     }
 
     /// Handler for: `eth_sign`

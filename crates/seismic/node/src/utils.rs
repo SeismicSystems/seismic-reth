@@ -1,4 +1,4 @@
-use alloy_consensus::TxEnvelope;
+use alloy_consensus::{TxEnvelope, TxEnvelope::Seismic};
 use alloy_primitives::{Address, TxKind, B256};
 use alloy_rpc_types::engine::PayloadAttributes;
 use alloy_rpc_types_eth::TransactionRequest;
@@ -217,7 +217,8 @@ pub mod test_utils {
 
     use super::*;
     use alloy_consensus::{SignableTransaction, TxSeismic};
-    use alloy_eips::eip2718::Encodable2718;
+    use alloy_eips::{eip2718::Encodable2718, eip712::TypedDataRequest};
+    use alloy_network::TransactionBuilder;
     use alloy_primitives::{hex_literal, Address, Bytes, FixedBytes, PrimitiveSignature, U256};
     use alloy_rpc_types::{Block, Header, Transaction, TransactionInput, TransactionReceipt};
     use core::str::FromStr;
@@ -322,6 +323,25 @@ pub mod test_utils {
             get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, decrypted_input).await;
         let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
         <TxEnvelope as Encodable2718>::encoded_2718(&signed).into()
+    }
+
+    /// Create a seismic transaction with typed data
+    pub async fn get_signed_seismic_tx_typed_data(
+        sk_wallet: &PrivateKeySigner,
+        nonce: u64,
+        to: TxKind,
+        chain_id: u64,
+        decrypted_input: Bytes,
+    ) -> TypedDataRequest {
+        let tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, decrypted_input)
+            .await
+            .with_message_version(2); //message version makes it a typed data
+        let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
+
+        match signed {
+            Seismic(tx) => tx.into(),
+            _ => panic!("Signed transaction is not a seismic transaction"),
+        }
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -510,7 +530,7 @@ pub mod test_utils {
         pub fn sign_seismic_tx(tx: &TxSeismic) -> PrimitiveSignature {
             let _signature = Self::get_signing_private_key()
                 .clone()
-                .sign_recoverable(tx.signature_hash().as_slice())
+                .sign_prehash_recoverable(tx.signature_hash().as_slice())
                 .expect("Failed to sign");
 
             let recoverid = _signature.1;
