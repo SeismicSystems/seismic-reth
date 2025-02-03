@@ -326,6 +326,7 @@ pub mod test_utils {
         <TxEnvelope as Encodable2718>::encoded_2718(&signed).into()
     }
 
+    /// Get an unsigned seismic transaction typed data
     pub async fn get_unsigned_seismic_tx_typed_data(
         sk_wallet: &PrivateKeySigner,
         nonce: u64,

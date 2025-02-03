@@ -9,16 +9,12 @@
 //! - `eth_signTypedData_v4` will sign a typed data request using the Seismic tee.
 
 use alloy_dyn_abi::TypedData;
-use alloy_primitives::{Address, Bytes};
+use alloy_primitives::Address;
 use jsonrpsee::{
     core::{async_trait, RpcResult},
     proc_macros::rpc,
 };
-use reth_rpc_eth_api::{
-    helpers::{EthState, EthTransactions, FullEthApi},
-    FromEthApiError, IntoEthApiError,
-};
-use reth_rpc_eth_types::{EthApiError, SignError};
+use reth_rpc_eth_api::helpers::{EthTransactions, FullEthApi};
 use reth_tracing::tracing::*;
 use secp256k1::PublicKey;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
