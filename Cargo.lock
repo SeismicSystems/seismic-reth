@@ -10231,6 +10231,7 @@ name = "seismic-node"
 version = "1.1.4"
 dependencies = [
  "alloy-consensus",
+ "alloy-dyn-abi",
  "alloy-eips",
  "alloy-network",
  "alloy-primitives",
@@ -10322,8 +10323,12 @@ dependencies = [
 name = "seismic-rpc-api"
 version = "1.1.4"
 dependencies = [
+ "alloy-dyn-abi",
+ "alloy-primitives",
+ "alloy-rpc-types",
  "jsonrpsee",
- "reth-rpc-builder",
+ "reth-rpc-eth-api",
+ "reth-rpc-eth-types",
  "reth-tracing",
  "secp256k1",
  "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=21218a3)",
@@ -11386,7 +11391,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "winnow 0.7.0",
+ "winnow 0.7.1",
 ]
 
 [[package]]
@@ -12402,9 +12407,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e49d2d35d3fad69b39b94139037ecfb4f359f08958b9c11e7315ce770462419"
+checksum = "86e376c75f4f43f44db463cf729e0d3acbf954d13e22c51e26e4c264b4ab545f"
 dependencies = [
  "memchr",
 ]
