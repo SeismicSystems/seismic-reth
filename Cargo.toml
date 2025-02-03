@@ -630,12 +630,12 @@ tracy-client = "0.17.3"
 alloy-chains = { git = "https://github.com/alloy-rs/chains", tag = "v0.1.32"}
 
 # seismic-alloy-core
-alloy-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", branch = "seismic" }
-alloy-json-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", branch = "seismic" }
-alloy-sol-macro-expander = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", branch = "seismic" }
-alloy-sol-macro-input = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", branch = "seismic" }
-alloy-sol-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", branch = "seismic" }
-alloy-sol-type-parser = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", branch = "seismic" }
+alloy-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "a273736b8410f1ec81cfd45ca4c080a72143a43c" }
+alloy-json-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "a273736b8410f1ec81cfd45ca4c080a72143a43c" }
+alloy-sol-macro-expander = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "a273736b8410f1ec81cfd45ca4c080a72143a43c" }
+alloy-sol-macro-input = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "a273736b8410f1ec81cfd45ca4c080a72143a43c" }
+alloy-sol-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "a273736b8410f1ec81cfd45ca4c080a72143a43c" }
+alloy-sol-type-parser = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "a273736b8410f1ec81cfd45ca4c080a72143a43c" }
 
 # seismic-alloy
 alloy-consensus = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "d6ac98e" }
