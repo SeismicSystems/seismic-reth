@@ -46,7 +46,7 @@ impl RethCommand {
             .arg("--dev.block-max-transactions")
             .arg("1")
             .arg("--tee.mock-server")
-            .arg("-vvvvv")
+            .arg("-vv")
             .spawn()
             .expect("Failed to start the binary");
         RethCommand(child)
