@@ -14,7 +14,8 @@ use reth::{
         inspector_handle_register,
         precompile::{Precompile, PrecompileSpecId},
         primitives::{
-            BlockEnv, CfgEnvWithHandlerCfg, EVMResultGeneric, Env, PrecompileResult, SpecId, StatefulPrecompileMut, TxEnv
+            BlockEnv, CfgEnvWithHandlerCfg, EVMResultGeneric, Env, PrecompileResult, SpecId,
+            StatefulPrecompileMut, TxEnv,
         },
         ContextPrecompile, ContextPrecompiles, Database, Evm, EvmBuilder, GetInspector,
     },
@@ -151,7 +152,12 @@ impl ConfigureEvmEnv for MyEvmConfig {
     type Transaction = TransactionSigned;
     type Error = Infallible;
 
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &TransactionSigned, sender: Address) -> EVMResultGeneric<(), TeeError> {
+    fn fill_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        transaction: &TransactionSigned,
+        sender: Address,
+    ) -> EVMResultGeneric<(), TeeError> {
         self.inner.fill_tx_env(tx_env, transaction, sender)
     }
 

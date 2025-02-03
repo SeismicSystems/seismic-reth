@@ -52,7 +52,7 @@ mod tests {
     use super::*;
 
     /// Launches a new server with http only with the given modules
-    pub (crate) async fn launch_http(modules: impl Into<Methods>) -> RpcServerHandle {
+    pub(crate) async fn launch_http(modules: impl Into<Methods>) -> RpcServerHandle {
         let mut server = TransportRpcModules::default();
         let _ = server.merge_configured(modules);
         RpcServerConfig::http(Default::default())
