@@ -1390,23 +1390,43 @@ impl Decodable2718 for TransactionSigned {
             TxType::Legacy => Err(Eip2718Error::UnexpectedType(0)),
             TxType::Eip2930 => {
                 let (tx, signature, hash) = TxEip2930::rlp_decode_signed(buf)?.into_parts();
-                Ok(Self { transaction: Transaction::Eip2930(tx), signature, hash: hash.into() })
+                Ok(Self {
+                    transaction: Transaction::Eip2930(tx),
+                    signature,
+                    hash: Default::default(),
+                })
             }
             TxType::Eip1559 => {
                 let (tx, signature, hash) = TxEip1559::rlp_decode_signed(buf)?.into_parts();
-                Ok(Self { transaction: Transaction::Eip1559(tx), signature, hash: hash.into() })
+                Ok(Self {
+                    transaction: Transaction::Eip1559(tx),
+                    signature,
+                    hash: Default::default(),
+                })
             }
             TxType::Eip7702 => {
                 let (tx, signature, hash) = TxEip7702::rlp_decode_signed(buf)?.into_parts();
-                Ok(Self { transaction: Transaction::Eip7702(tx), signature, hash: hash.into() })
+                Ok(Self {
+                    transaction: Transaction::Eip7702(tx),
+                    signature,
+                    hash: Default::default(),
+                })
             }
             TxType::Eip4844 => {
                 let (tx, signature, hash) = TxEip4844::rlp_decode_signed(buf)?.into_parts();
-                Ok(Self { transaction: Transaction::Eip4844(tx), signature, hash: hash.into() })
+                Ok(Self {
+                    transaction: Transaction::Eip4844(tx),
+                    signature,
+                    hash: Default::default(),
+                })
             }
             TxType::Seismic => {
                 let (tx, signature, hash) = TxSeismic::rlp_decode_signed(buf)?.into_parts();
-                Ok(Self { transaction: Transaction::Seismic(tx), signature, hash: hash.into() })
+                Ok(Self {
+                    transaction: Transaction::Seismic(tx),
+                    signature,
+                    hash: Default::default(),
+                })
             }
             #[cfg(feature = "optimism")]
             TxType::Deposit => Ok(Self::new_unhashed(

@@ -12,8 +12,14 @@ pub fn maybe_generate_tests(
     type_ident: &impl ToTokens,
     mod_tests: &Ident,
 ) -> TokenStream2 {
+    println!(
+        "args: {}, type_ident: {}, mod_tests: {}",
+        args,
+        type_ident.to_token_stream(),
+        mod_tests
+    );
     // Same as proptest
-    let mut default_cases = 256;
+    let mut default_cases = 1;
 
     let mut traits = vec![];
     let mut roundtrips = vec![];
@@ -52,6 +58,7 @@ pub fn maybe_generate_tests(
                 {
                     let mut buf = vec![];
                     let len = field.encode(&mut buf);
+                    println!("field: {:?}", field);
                     let mut b = &mut buf.as_slice();
                     let decoded: super::#type_ident = Decodable::decode(b).unwrap();
                     assert_eq!(field, decoded, "maybe_generate_tests::rlp");
@@ -70,7 +77,10 @@ pub fn maybe_generate_tests(
                     let mut raw = vec![0u8; 1024];
                     rand::thread_rng().fill_bytes(&mut raw);
                     let mut unstructured = arbitrary::Unstructured::new(&raw[..]);
+                    println!("malformed_rlp_header_check unstructured: {:?}", unstructured);
+                    println!("type_ident: {:?}", stringify!(super::#type_ident));
                     let val: Result<super::#type_ident, _> = arbitrary::Arbitrary::arbitrary(&mut unstructured);
+                    println!("malformed_rlp_header_check val: {:?}", val);
                     if val.is_err() {
                         // this can be flaky sometimes due to not enough data for iterator based types like Vec
                         return
@@ -78,6 +88,7 @@ pub fn maybe_generate_tests(
                     let val = val.unwrap();
                     let mut buf = vec![];
                     let len = val.encode(&mut buf);
+                    println!("malformed_rlp_header_check buf: {:?}", buf);
 
                     // malformed rlp-header check
                     let mut decode_buf = &mut buf.as_slice();

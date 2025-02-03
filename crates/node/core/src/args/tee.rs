@@ -56,7 +56,7 @@ mod tests {
         let mock = args.mock_server;
 
         assert_eq!(port, TEE_DEFAULT_ENDPOINT_PORT);
-        assert_eq!(addr, IpAddr::V4(Ipv4Addr::LOCALHOST));
+        assert_eq!(addr, TEE_DEFAULT_ENDPOINT_ADDR);
         assert_eq!(mock, false);
     }
 }
