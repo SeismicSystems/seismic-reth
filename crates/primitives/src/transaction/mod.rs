@@ -1014,7 +1014,30 @@ impl TransactionSigned {
     /// Calculate transaction hash, eip2728 transaction does not contain rlp header and start with
     /// tx type.
     pub fn recalculate_hash(&self) -> B256 {
-        keccak256(self.encoded_2718())
+        match &self.transaction {
+            Transaction::Legacy(tx) => {
+                *SignableTransaction::<Signature>::into_signed(tx.clone(), self.signature).hash()
+            }
+            Transaction::Eip2930(tx) => {
+                *SignableTransaction::<Signature>::into_signed(tx.clone(), self.signature).hash()
+            }
+            Transaction::Eip1559(tx) => {
+                *SignableTransaction::<Signature>::into_signed(tx.clone(), self.signature).hash()
+            }
+            Transaction::Eip4844(tx) => {
+                *SignableTransaction::<Signature>::into_signed(tx.clone(), self.signature).hash()
+            }
+            Transaction::Eip7702(tx) => {
+                *SignableTransaction::<Signature>::into_signed(tx.clone(), self.signature).hash()
+            }
+            Transaction::Seismic(tx) => {
+                *SignableTransaction::<Signature>::into_signed(tx.clone(), self.signature).hash()
+            }
+            #[cfg(feature = "optimism")]
+            Transaction::Deposit(tx) => {
+                *SignableTransaction::<Signature>::into_signed(tx.clone(), self.signature).hash()
+            }
+        }
     }
 
     /// Splits the transaction into parts.
@@ -1390,43 +1413,23 @@ impl Decodable2718 for TransactionSigned {
             TxType::Legacy => Err(Eip2718Error::UnexpectedType(0)),
             TxType::Eip2930 => {
                 let (tx, signature, hash) = TxEip2930::rlp_decode_signed(buf)?.into_parts();
-                Ok(Self {
-                    transaction: Transaction::Eip2930(tx),
-                    signature,
-                    hash: Default::default(),
-                })
+                Ok(Self { transaction: Transaction::Eip2930(tx), signature, hash: hash.into() })
             }
             TxType::Eip1559 => {
                 let (tx, signature, hash) = TxEip1559::rlp_decode_signed(buf)?.into_parts();
-                Ok(Self {
-                    transaction: Transaction::Eip1559(tx),
-                    signature,
-                    hash: Default::default(),
-                })
+                Ok(Self { transaction: Transaction::Eip1559(tx), signature, hash: hash.into() })
             }
             TxType::Eip7702 => {
                 let (tx, signature, hash) = TxEip7702::rlp_decode_signed(buf)?.into_parts();
-                Ok(Self {
-                    transaction: Transaction::Eip7702(tx),
-                    signature,
-                    hash: Default::default(),
-                })
+                Ok(Self { transaction: Transaction::Eip7702(tx), signature, hash: hash.into() })
             }
             TxType::Eip4844 => {
                 let (tx, signature, hash) = TxEip4844::rlp_decode_signed(buf)?.into_parts();
-                Ok(Self {
-                    transaction: Transaction::Eip4844(tx),
-                    signature,
-                    hash: Default::default(),
-                })
+                Ok(Self { transaction: Transaction::Eip4844(tx), signature, hash: hash.into() })
             }
             TxType::Seismic => {
                 let (tx, signature, hash) = TxSeismic::rlp_decode_signed(buf)?.into_parts();
-                Ok(Self {
-                    transaction: Transaction::Seismic(tx),
-                    signature,
-                    hash: Default::default(),
-                })
+                Ok(Self { transaction: Transaction::Seismic(tx), signature, hash: hash.into() })
             }
             #[cfg(feature = "optimism")]
             TxType::Deposit => Ok(Self::new_unhashed(
@@ -1593,7 +1596,9 @@ impl<'a> arbitrary::Arbitrary<'a> for TransactionSigned {
 
         #[cfg(feature = "optimism")]
         let signature = if transaction.is_deposit() { TxDeposit::signature() } else { signature };
-        Ok(Self::new_unhashed(transaction, signature))
+        let tx_signed = Self::new_unhashed(transaction, signature);
+        let hash = tx_signed.hash();
+        Ok(Self::new(tx_signed.transaction, tx_signed.signature, hash))
     }
 }
 

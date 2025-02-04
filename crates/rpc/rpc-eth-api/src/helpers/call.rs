@@ -241,12 +241,12 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
 
-            self.encrypt_(tx_type, encryption_pubkey.as_ref(), nonce, output)
+            self.encrypt_output(tx_type, encryption_pubkey.as_ref(), nonce, output)
         }
     }
 
     /// Encrypts the output of a call using the encryption pubkey of the transaction
-    fn encrypt_(
+    fn encrypt_output(
         &self,
         tx_type: Option<u8>,
         encryption_pubkey: Option<&EncryptionPublicKey>,
@@ -272,28 +272,6 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
             .map_err(|_| EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
 
         Ok(encrypted_output)
-    }
-
-    /// Encrypts the output of a call using the encryption pubkey of the transaction
-    fn encrypt_output<T: TransactionTrait + Typed2718>(
-        &self,
-        output: Bytes,
-        tx_signed: &T,
-    ) -> Result<Bytes, Self::Error> {
-        let nonce = tx_signed.nonce();
-        let enc_pk_opt = tx_signed.encryption_pubkey();
-        let enc_pk = enc_pk_opt.ok_or(EthApiError::InvalidParams(
-            "Signed calls must provide an encryption pubkey".to_string(),
-        ))?;
-        let encryption_pubkey =
-            secp256k1::PublicKey::from_slice(enc_pk.as_slice()).map_err(|_| {
-                EthApiError::InvalidParams("Failed to parse encryption pubkey".to_string())
-            })?;
-        let tee_client = reth_tee::TeeHttpClient::default();
-        let encrypted_output =
-            reth_tee::encrypt(&tee_client, encryption_pubkey, output.to_vec(), nonce)
-                .map_err(|_| EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
-        Ok(Bytes::from(encrypted_output))
     }
 
     /// Executes a signed call via eth_call
@@ -328,7 +306,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
             let tx_signed = tx.as_signed();
-            self.encrypt_(
+            self.encrypt_output(
                 Some(tx_signed.ty()),
                 tx_signed.encryption_pubkey(),
                 Some(tx_signed.nonce()),

@@ -487,8 +487,8 @@ alloy-transport-ws = { version = "0.8.0", default-features = false }
 # op
 op-alloy-rpc-types = "0.8.1"
 op-alloy-rpc-types-engine = "0.8.1"
-op-alloy-rpc-jsonrpsee = "0.8.1"
-op-alloy-network = "0.8.1"
+# op-alloy-rpc-jsonrpsee = "0.8.1"
+# op-alloy-network = "0.8.1"
 op-alloy-consensus = "0.8.1"
 op-alloy-genesis = "0.8.1"
 
@@ -627,11 +627,6 @@ tikv-jemallocator = "0.6"
 tracy-client = "0.17.3"
 
 [patch.crates-io]
-# If our dependencies depend on these things,
-# then this will override whatever versions they point to
-# and instead use our local version
-alloy-chains = { git = "https://github.com/alloy-rs/chains", tag = "v0.1.32"}
-
 # seismic-alloy-core
 alloy-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "6e1c0e9" }
 alloy-json-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "6e1c0e9" }
@@ -675,10 +670,3 @@ revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "fe
 revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "fe4db09"}
 revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "fe4db09"}
 revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "19828b8"}
-
-op-alloy-rpc-types = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
-op-alloy-rpc-types-engine = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
-op-alloy-rpc-jsonrpsee = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
-op-alloy-network = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
-op-alloy-consensus = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
-op-alloy-genesis = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
