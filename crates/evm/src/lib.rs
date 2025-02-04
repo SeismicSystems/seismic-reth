@@ -20,10 +20,9 @@ extern crate alloc;
 use crate::builder::RethEvmBuilder;
 use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader as _, TxSeismic};
 use alloy_primitives::{Address, Bytes, TxHash, B256, U256};
-use builder::EvmFactory;
 use reth_primitives_traits::BlockHeader;
 use reth_tee::{SchnorrkelKeypair, TeeError};
-use revm::{seismic::seismic_handle_register, Database, Evm, GetInspector};
+use revm::{Database, Evm, GetInspector};
 use revm_primitives::{
     BlockEnv, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId,
     TxEnv,

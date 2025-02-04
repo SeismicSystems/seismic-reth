@@ -7862,7 +7862,6 @@ dependencies = [
  "reth-tee",
  "revm",
  "revm-primitives",
- "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=39b2865)",
 ]
 
 [[package]]

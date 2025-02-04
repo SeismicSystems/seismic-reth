@@ -20,7 +20,7 @@ use seismic_node::utils::test_utils::{
     client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
     get_unsigned_seismic_tx_request, get_unsigned_seismic_tx_typed_data, IntegrationTestContext,
 };
-use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideClient};
+use seismic_rpc_api::rpc::EthApiOverrideClient;
 use serde_json::{json, Value};
 use std::{path::PathBuf, str::FromStr, thread, time::Duration};
 use sysinfo::{Pid, PidExt, ProcessExt, System, SystemExt};
@@ -84,15 +84,16 @@ async fn integration_test() {
     test_seismic_reth_rpc_with_rust_client().await;
     test_seismic_reth_rpc().await;
     test_seismic_precompiles_end_to_end().await;
+    test_seismic_reth_rpc_with_typed_data().await;
 }
 
-#[tokio::test]
-async fn try_seismic_precompiles_end_to_end() {
-    let _cmd = RethCommand::run();
-    thread::sleep(Duration::from_secs(5));
-
-    test_seismic_precompiles_end_to_end().await;
-}
+//#[tokio::test]
+//async fn try_seismic_precompiles_end_to_end() {
+//    let _cmd = RethCommand::run();
+//    thread::sleep(Duration::from_secs(5));
+//
+//    test_seismic_precompiles_end_to_end().await;
+//}
 async fn test_seismic_reth_rpc_with_typed_data() {
     let reth_rpc_url = RethCommand::url();
     let chain_id = RethCommand::chain_id();
