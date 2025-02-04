@@ -463,6 +463,7 @@ test-reth:
 	cargo test \
 	--workspace \
 	--bin "reth" \
+	--exclude optimism \
 	--lib \
 	--examples \
 	--tests \

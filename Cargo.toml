@@ -69,17 +69,18 @@ members = [
     "crates/node/events/",
     "crates/node/metrics",
     "crates/node/types",
-    "crates/optimism/bin",
-    "crates/optimism/chainspec",
-    "crates/optimism/cli",
-    "crates/optimism/consensus",
-    "crates/optimism/evm/",
-    "crates/optimism/hardforks/",
-    "crates/optimism/node/",
-    "crates/optimism/payload/",
-    "crates/optimism/primitives/",
-    "crates/optimism/rpc/",
-    "crates/optimism/storage",
+    # disable optimism because seismic-alloy breaks op-alloy
+    # "crates/optimism/bin",
+    # "crates/optimism/chainspec",
+    # "crates/optimism/cli",
+    # "crates/optimism/consensus",
+    # "crates/optimism/evm/",
+    # "crates/optimism/hardforks/",
+    # "crates/optimism/node/",
+    # "crates/optimism/payload/",
+    # "crates/optimism/primitives/",
+    # "crates/optimism/rpc/",
+    # "crates/optimism/storage",
     "crates/payload/basic/",
     "crates/payload/builder/",
     "crates/payload/builder-primitives/",
@@ -158,7 +159,9 @@ members = [
     "crates/seismic/rpc-api",
 ]
 default-members = ["crates/seismic/bin", "bin/reth"]
-exclude = ["book/sources"]
+exclude = [
+    "book/sources",
+]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
 # https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
@@ -667,7 +670,6 @@ alloy-transport = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git
 alloy-transport-http = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
 alloy-transport-ipc = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
 alloy-transport-ws = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-
 
 revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "d24972b"}
 revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "d24972b"}

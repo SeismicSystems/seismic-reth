@@ -15,8 +15,9 @@ use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
 use reth_rpc_eth_api::EthApiClient;
 use seismic_node::utils::test_utils::{
     client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
-    get_unsigned_seismic_tx_request, IntegrationTestContext,
+    get_unsigned_seismic_tx_request, get_unsigned_seismic_tx_typed_data, IntegrationTestContext,
 };
+use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideClient};
 use serde_json::{json, Value};
 use tee_service_api::aes_decrypt;
 use std::{path::PathBuf, str::FromStr, thread, time::Duration};
@@ -166,6 +167,22 @@ async fn test_seismic_reth_rpc_with_typed_data() {
             .await;
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
+
+    // test eth_signTypedData_v4
+    let signature = EthApiOverrideClient::sign_typed_data_v4(
+        &client,
+        wallet.inner.address(),
+        get_unsigned_seismic_tx_typed_data(
+            &wallet.inner,
+            get_nonce(&client, wallet.inner.address()).await,
+            TxKind::Call(contract_addr),
+            chain_id,
+            test_utils::ContractTestContext::get_is_odd_input_plaintext(),
+        )
+        .await,
+    )
+    .await;
+    println!("eth_signTypedData_v4 signature: {:?}", signature);
 }
 
 // this is the same test as basic.rs but with actual RPC calls and standalone reth instance

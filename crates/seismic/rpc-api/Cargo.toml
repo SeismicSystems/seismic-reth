@@ -13,9 +13,17 @@ workspace = true
 
 [dependencies]
 reth-tracing.workspace = true
+reth-rpc-eth-types.workspace = true
+reth-rpc-eth-api.workspace = true
+
+alloy-primitives.workspace = true
+alloy-rpc-types.workspace = true
+alloy-dyn-abi.workspace = true
+
 jsonrpsee = { workspace = true, features = ["server", "macros"] }
 secp256k1.workspace = true
 tee_service_api.workspace = true
+tokio = { workspace = true, features = ["full"] }
 
 [features]
 client = ["jsonrpsee/client", "jsonrpsee/async-client"]
