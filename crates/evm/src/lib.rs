@@ -83,13 +83,6 @@ pub trait ConfigureEvm: ConfigureEvmEnv {
         env: EnvWithHandlerCfg,
         kernel: revm::seismic::Kernel,
     ) -> Evm<'_, Self::DefaultExternalContext<'_>, DB> {
-        println!("#########");
-        println!("#########");
-        println!("#########");
-        println!("EVM WITH KERNEL AND ENV");
-        println!("#########");
-        println!("#########");
-        println!("#########");
         RethEvmBuilder::new(db, self.default_external_context())
             .with_env(Box::new(env))
             .with_kernel(kernel)
