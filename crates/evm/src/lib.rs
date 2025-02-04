@@ -22,7 +22,7 @@ use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader as _, TxSeis
 use alloy_primitives::{Address, Bytes, TxHash, B256, U256};
 use builder::EvmFactory;
 use reth_primitives_traits::BlockHeader;
-use reth_tee::{TeeError, SchnorrkelKeypair};
+use reth_tee::{SchnorrkelKeypair, TeeError};
 use revm::{seismic::seismic_handle_register, Database, Evm, GetInspector};
 use revm_primitives::{
     BlockEnv, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId,
@@ -32,13 +32,13 @@ use revm_primitives::{
 pub mod builder;
 pub mod either;
 pub mod execute;
+pub mod kernel;
 #[cfg(feature = "std")]
 pub mod metrics;
 pub mod noop;
 pub mod provider;
 pub mod state_change;
 pub mod system_calls;
-pub mod kernel;
 #[cfg(any(test, feature = "test-utils"))]
 /// test helpers for mocking executor
 pub mod test_utils;

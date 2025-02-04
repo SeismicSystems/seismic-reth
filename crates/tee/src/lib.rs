@@ -13,13 +13,13 @@ pub use tee_service_api::{
 
 use derive_more::Display;
 use secp256k1::PublicKey;
+pub use tee_service_api::SchnorrkelKeypair;
 use tee_service_api::{
     nonce::Nonce,
     request_types::tx_io::{
         IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,
     },
 };
-pub use tee_service_api::SchnorrkelKeypair;
 use tokio::runtime::{Handle, Runtime};
 
 /// Custom error type for reth error handling.

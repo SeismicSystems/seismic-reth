@@ -1,8 +1,11 @@
 //! This file is used to test the seismic node.
 use alloy_network::{Ethereum, EthereumWallet, NetworkWallet};
-use alloy_primitives::aliases::{B96, U96};
-use alloy_primitives::{hex::FromHex, Address, Bytes, TxKind, B256, U256, IntoLogData};
-use alloy_primitives::hex;
+use alloy_primitives::{
+    aliases::{B96, U96},
+    hex,
+    hex::FromHex,
+    Address, Bytes, IntoLogData, TxKind, B256, U256,
+};
 use alloy_provider::{create_seismic_provider, test_utils, Provider, SendableTx};
 use alloy_rpc_types::{
     Block, Header, Transaction, TransactionInput, TransactionReceipt, TransactionRequest,
@@ -19,16 +22,14 @@ use seismic_node::utils::test_utils::{
 };
 use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideClient};
 use serde_json::{json, Value};
-use tee_service_api::aes_decrypt;
 use std::{path::PathBuf, str::FromStr, thread, time::Duration};
 use sysinfo::{Pid, PidExt, ProcessExt, System, SystemExt};
+use tee_service_api::aes_decrypt;
 use tokio::process::Child;
 struct RethCommand(Child);
-use alloy_sol_types::{sol, SolCall, SolValue};
 use alloy_dyn_abi::EventExt;
 use alloy_json_abi::{Event, EventParam};
-
-
+use alloy_sol_types::{sol, SolCall, SolValue};
 
 impl RethCommand {
     fn data_dir() -> PathBuf {
@@ -70,7 +71,6 @@ impl Drop for RethCommand {
         }
     }
 }
-
 
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
 const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessage(bytes)

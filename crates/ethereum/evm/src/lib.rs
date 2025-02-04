@@ -25,7 +25,7 @@ use alloy_primitives::{Address, Bytes, TxHash, TxKind, U256};
 use reth_chainspec::{ChainSpec, Head};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};
 use reth_primitives::{transaction::FillTxEnv, Transaction, TransactionSigned};
-use reth_tee::{decrypt, encrypt, SchnorrkelKeypair, TeeError, TeeHttpClient, get_eph_rng_keypair};
+use reth_tee::{decrypt, encrypt, get_eph_rng_keypair, SchnorrkelKeypair, TeeError, TeeHttpClient};
 use reth_tracing::tracing::debug;
 use revm_primitives::{
     AnalysisKind, BlobExcessGasAndPrice, BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, EVMError,
@@ -114,7 +114,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
     }
 
     /// Get current eph_rng_keypair
-    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, TeeError>  {
+    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, TeeError> {
         get_eph_rng_keypair(&self.tee_client)
             .map_err(|_| EVMError::Database(TeeError::EphRngKeypairGenerationError))
     }
@@ -305,7 +305,12 @@ mod tests {
     use reth_chainspec::{Chain, ChainSpec, MAINNET};
     use reth_evm::execute::ProviderError;
     use reth_revm::{
-        db::{CacheDB, EmptyDBTyped}, handler::register::EvmHandler, inspectors::NoOpInspector, primitives::{BlockEnv, CfgEnv, SpecId}, seismic::{seismic_handle_register, Kernel}, Evm, Handler, JournaledState
+        db::{CacheDB, EmptyDBTyped},
+        handler::register::EvmHandler,
+        inspectors::NoOpInspector,
+        primitives::{BlockEnv, CfgEnv, SpecId},
+        seismic::{seismic_handle_register, Kernel},
+        Evm, Handler, JournaledState,
     };
     use revm_primitives::{EnvWithHandlerCfg, HandlerCfg};
     use std::collections::HashSet;
@@ -640,15 +645,20 @@ mod tests {
 
         let env_with_handler = EnvWithHandlerCfg { env: Box::new(Env::default()), handler_cfg };
 
-        let evm = evm_config.evm_with_kernel_and_env(db.clone(), env_with_handler, Kernel::test_default());
+        let evm = evm_config.evm_with_kernel_and_env(
+            db.clone(),
+            env_with_handler,
+            Kernel::test_default(),
+        );
 
         // Check that the spec ID is setup properly
         assert_eq!(evm.handler.spec_id(), SpecId::MERCURY);
         assert!(evm.handler.is_seismic());
-        type DB = CacheDB::<EmptyDBTyped<Infallible>>;
+        type DB = CacheDB<EmptyDBTyped<Infallible>>;
         type EXT = ();
 
-        let seismic_handler: Handler<'_, reth_revm::Context<EXT, DB>, EXT, DB> = EvmHandler::seismic_with_spec(SpecId::MERCURY);
+        let seismic_handler: Handler<'_, reth_revm::Context<EXT, DB>, EXT, DB> =
+            EvmHandler::seismic_with_spec(SpecId::MERCURY);
         let seismic_evm = Evm::builder()
             .with_db(db)
             .with_handler(seismic_handler)
