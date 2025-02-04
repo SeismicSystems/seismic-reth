@@ -1835,9 +1835,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.27"
+version = "4.5.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "769b0145982b4b48713e01ec42d61614425f27b7058bda7180a3a41f30104796"
+checksum = "3e77c3243bd94243c03672cb5154667347c457ca271254724f9f393aee1c05ff"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1857,9 +1857,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.5.24"
+version = "4.5.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54b755194d6389280185988721fffba69495eed5ee9feeee9a599b53db80318c"
+checksum = "bf4ced95c6f4a675af3da73304b9ac4ed991640c36374e4b46795c49e17cf1ed"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -2848,9 +2848,9 @@ dependencies = [
 
 [[package]]
 name = "ethereum_ssz"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "862e41ea8eea7508f70cfd8cd560f0c34bb0af37c719a8e06c2672f0f031d8e5"
+checksum = "86da3096d1304f5f28476ce383005385459afeaf0eea08592b65ddbc9b258d16"
 dependencies = [
  "alloy-primitives",
  "ethereum_serde_utils",
@@ -2863,9 +2863,9 @@ dependencies = [
 
 [[package]]
 name = "ethereum_ssz_derive"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d31ecf6640112f61dc34b4d8359c081102969af0edd18381fed2052f6db6a410"
+checksum = "d832a5c38eba0e7ad92592f7a22d693954637fbb332b4f669590d66a5c3183e5"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -9940,7 +9940,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "18.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=b38386ca#b38386ca5001340d2cd9a226cf8af604860342e7"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=873b025b#873b025b160ef4a363ffc6ada799da14e7bebe2b"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -9981,7 +9981,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "14.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=b38386ca#b38386ca5001340d2cd9a226cf8af604860342e7"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=873b025b#873b025b160ef4a363ffc6ada799da14e7bebe2b"
 dependencies = [
  "paste",
  "phf",
@@ -9992,7 +9992,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "15.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=b38386ca#b38386ca5001340d2cd9a226cf8af604860342e7"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=873b025b#873b025b160ef4a363ffc6ada799da14e7bebe2b"
 dependencies = [
  "aurora-engine-modexp",
  "blst",
@@ -10011,7 +10011,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "14.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=b38386ca#b38386ca5001340d2cd9a226cf8af604860342e7"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=873b025b#873b025b160ef4a363ffc6ada799da14e7bebe2b"
 dependencies = [
  "alloy-eip2930",
  "alloy-eip7702",
@@ -11735,7 +11735,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "winnow 0.7.0",
+ "winnow 0.7.1",
 ]
 
 [[package]]
@@ -12751,9 +12751,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e49d2d35d3fad69b39b94139037ecfb4f359f08958b9c11e7315ce770462419"
+checksum = "86e376c75f4f43f44db463cf729e0d3acbf954d13e22c51e26e4c264b4ab545f"
 dependencies = [
  "memchr",
 ]
