@@ -6,7 +6,7 @@ use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher};
 use reth_provider::providers::BlockchainProvider2;
 use reth_tee::mock::MockTeeServer;
 use reth_tracing::tracing::*;
-use seismic_rpc_api::rpc::{SeismicApi, SeismicApiServer};
+use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 
 fn main() {
     use clap::Parser;
@@ -47,6 +47,13 @@ fn main() {
                 Ok(())
             })
             .extend_rpc_modules(move |ctx| {
+
+                // replace eth_ namespace
+                ctx.modules.replace_configured(
+                    EthApiExt::new(ctx.registry.eth_api().clone()).into_rpc(),
+                )?;
+
+                // add seismic_ namespace
                 let seismic_api = SeismicApi::new();
                 ctx.modules.merge_configured(seismic_api.into_rpc())?;
                 info!(target: "reth::cli", "seismic api configured");

@@ -1,7 +1,20 @@
+//! Seismic rpc logic.
+//!
+//! `seismic_` namespace overrides:
+//!
+//! - `seismic_getTeePublicKey` will return the public key of the Seismic tee.
+//!
+//! `eth_` namespace overrides:
+//!
+//! - `eth_signTypedData_v4` will sign a typed data request using the Seismic tee.
+
+use alloy_dyn_abi::TypedData;
+use alloy_primitives::Address;
 use jsonrpsee::{
     core::{async_trait, RpcResult},
     proc_macros::rpc,
 };
+use reth_rpc_eth_api::helpers::{EthTransactions, FullEthApi};
 use reth_tracing::tracing::*;
 use secp256k1::PublicKey;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
@@ -39,6 +52,44 @@ impl SeismicApiServer for SeismicApi {
 /// Localhost with port 0 so a free port is used.
 pub const fn test_address() -> SocketAddr {
     SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))
+}
+
+/// Seismic `eth_` RPC namespace overrides.
+#[cfg_attr(not(feature = "client"), rpc(server, namespace = "eth"))]
+#[cfg_attr(feature = "client", rpc(server, client, namespace = "eth"))]
+pub trait EthApiOverride {
+    /// Returns the account and storage values of the specified account including the Merkle-proof.
+    /// This call can be used to verify that the data you are pulling from is not tampered with.
+    #[method(name = "signTypedData_v4")]
+    async fn sign_typed_data_v4(&self, address: Address, data: TypedData) -> RpcResult<String>;
+}
+
+/// Implementation of the `eth_` namespace override
+#[derive(Debug)]
+pub struct EthApiExt<Eth> {
+    eth_api: Eth,
+}
+
+impl<E> EthApiExt<E> {
+    /// Create a new `EthApiExt` module.
+    pub const fn new(eth_api: E) -> Self {
+        Self { eth_api }
+    }
+}
+
+#[async_trait]
+impl<Eth> EthApiOverrideServer for EthApiExt<Eth>
+where
+    Eth: FullEthApi + Send + Sync + 'static,
+{
+    /// Handler for: `eth_signTypedData_v4`
+    async fn sign_typed_data_v4(&self, from: Address, data: TypedData) -> RpcResult<String> {
+        trace!(target: "rpc::eth", "Serving eth_signTypedData_v4");
+        let signature = EthTransactions::sign_typed_data(&self.eth_api, &data, from)
+            .map_err(|err| err.into())?;
+        let signature = alloy_primitives::hex::encode(signature);
+        Ok(format!("0x{signature}"))
+    }
 }
 
 #[cfg(test)]
