@@ -72,22 +72,6 @@ pub trait ConfigureEvm: ConfigureEvmEnv {
     }
 
     /// Returns a new EVM with the given database configured with the given environment settings,
-    /// including the spec id and the kernel.
-    ///
-    /// This will preserve any handler modifications
-    fn evm_with_kernel_and_env<DB: Database>(
-        &self,
-        db: DB,
-        env: EnvWithHandlerCfg,
-        kernel: revm::seismic::Kernel,
-    ) -> Evm<'_, Self::DefaultExternalContext<'_>, DB> {
-        RethEvmBuilder::new(db, self.default_external_context())
-            .with_env(Box::new(env))
-            .with_kernel(kernel)
-            .build()
-    }
-
-    /// Returns a new EVM with the given database configured with the given environment settings,
     /// including the spec id.
     ///
     /// This will use the given external inspector as the EVM external context.

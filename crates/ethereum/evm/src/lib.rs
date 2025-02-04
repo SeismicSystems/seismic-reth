@@ -645,10 +645,9 @@ mod tests {
 
         let env_with_handler = EnvWithHandlerCfg { env: Box::new(Env::default()), handler_cfg };
 
-        let evm = evm_config.evm_with_kernel_and_env(
+        let evm = evm_config.evm_with_env(
             db.clone(),
             env_with_handler,
-            Kernel::test_default(),
         );
 
         // Check that the spec ID is setup properly

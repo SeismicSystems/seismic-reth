@@ -46,7 +46,6 @@ use revm::{
         calc_excess_blob_gas, BlockEnv, CfgEnvWithHandlerCfg, EVMError, EnvWithHandlerCfg,
         InvalidTransaction, ResultAndState, TxEnv,
     },
-    seismic::Kernel,
     DatabaseCommit,
 };
 use std::sync::Arc;
@@ -244,8 +243,7 @@ where
         TxEnv::default(),
     );
 
-    let kernel = Kernel::new_production(evm_config.get_eph_rng_keypair()?);
-    let mut evm = evm_config.evm_with_kernel_and_env(&mut db, env, kernel);
+    let mut evm = evm_config.evm_with_env(&mut db, env);
 
     let mut receipts = Vec::new();
     while let Some(pool_tx) = best_txs.next() {

@@ -14,7 +14,7 @@ use reth_primitives_traits::SignedTransaction;
 use reth_provider::{BlockExecutionOutput, ChainSpecProvider, StateProviderFactory};
 use reth_revm::{
     database::StateProviderDatabase, db::states::bundle_state::BundleRetention,
-    primitives::EnvWithHandlerCfg, seismic::Kernel, DatabaseCommit, StateBuilder,
+    primitives::EnvWithHandlerCfg, DatabaseCommit, StateBuilder,
 };
 use reth_rpc_api::DebugApiClient;
 use reth_tracing::tracing::warn;
@@ -80,16 +80,9 @@ where
         // Setup environment for the execution.
         let (cfg, block_env) = self.evm_config.cfg_and_block_env(block.header(), U256::MAX);
 
-        // Setup EVM
-        let kernel = Kernel::new_production(
-            self.evm_config
-                .get_eph_rng_keypair()
-                .map_err(|e| eyre::eyre!(format!("Failed to get ephemeral rng keypair: {}", e)))?,
-        );
-        let mut evm = self.evm_config.evm_with_kernel_and_env(
+        let mut evm = self.evm_config.evm_with_env(
             &mut db,
             EnvWithHandlerCfg::new_with_cfg_env(cfg, block_env, Default::default()),
-            kernel,
         );
 
         let mut system_caller =
