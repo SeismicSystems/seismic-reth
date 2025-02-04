@@ -1,7 +1,7 @@
 //! This file is used to test the seismic node.
 use alloy_network::{Ethereum, EthereumWallet, NetworkWallet};
 use alloy_primitives::aliases::{B96, U96};
-use alloy_primitives::{hex::FromHex, Address, Bytes, FixedBytes, TxKind, B256, U256, IntoLogData};
+use alloy_primitives::{hex::FromHex, Address, Bytes, TxKind, B256, U256, IntoLogData};
 use alloy_primitives::hex;
 use alloy_provider::{create_seismic_provider, test_utils, Provider, SendableTx};
 use alloy_rpc_types::{
@@ -18,7 +18,7 @@ use seismic_node::utils::test_utils::{
     get_unsigned_seismic_tx_request, IntegrationTestContext,
 };
 use serde_json::{json, Value};
-use tee_service_api::{get_sample_secp256k1_pk, get_sample_secp256k1_sk};
+use tee_service_api::aes_decrypt;
 use std::{path::PathBuf, str::FromStr, thread, time::Duration};
 use sysinfo::{Pid, PidExt, ProcessExt, System, SystemExt};
 use tokio::process::Child;
@@ -71,8 +71,8 @@ impl Drop for RethCommand {
 }
 
 
-pub const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
-pub const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessage(bytes)
+const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
+const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessage(bytes)
 
 #[tokio::test]
 async fn integration_test() {
@@ -572,27 +572,17 @@ async fn test_seismic_precompiles_end_to_end() {
         .await
         .unwrap();
     let tx_hash = pending_transaction.tx_hash();
-    // assert_eq!(tx_hash, itx.tx_hashes[0]);
     thread::sleep(Duration::from_secs(1));
-    println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
 
     // Get the transaction receipt
     let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
     let contract_addr = receipt.contract_address.unwrap();
-    println!(
-        "eth_getTransactionReceipt getting contract deployment transaction receipt: {:?}",
-        receipt
-    );
     assert_eq!(receipt.status(), true);
 
     let code = provider.get_code_at(contract_addr).await.unwrap();
     assert_eq!(get_runtime_code(), code);
 
-
     // Prepare addresses & keys
-    let encryption_sk = get_sample_secp256k1_sk();
-    let encryption_pk = Bytes::from(get_sample_secp256k1_pk().serialize());
-    let encryption_pk_write_tx = FixedBytes::<33>::from(get_sample_secp256k1_pk().serialize());
     let private_key =
         B256::from_hex("7e34abdcd62eade2e803e0a8123a0015ce542b380537eff288d6da420bcc2d3b").unwrap();
 
@@ -609,9 +599,7 @@ async fn test_seismic_precompiles_end_to_end() {
         .await
         .unwrap();
     let tx_hash = pending_transaction.tx_hash();
-    // assert_eq!(tx_hash, itx.tx_hashes[0]);
     thread::sleep(Duration::from_secs(1));
-    println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
 
     // Get the transaction receipt
     let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
@@ -620,7 +608,8 @@ async fn test_seismic_precompiles_end_to_end() {
     //
     // 3. Tx #2: Encrypt & send "hello world"
     //
-    let message = Bytes::from("hello world");
+    let raw_message = "hello world";
+    let message = Bytes::from(raw_message);
     type PlaintextType = Bytes; // used for AbiEncode / AbiDecode
 
     let encoded_message = PlaintextType::abi_encode(&message);
@@ -636,9 +625,7 @@ async fn test_seismic_precompiles_end_to_end() {
         .await
         .unwrap();
     let tx_hash = pending_transaction.tx_hash();
-    // assert_eq!(tx_hash, itx.tx_hashes[0]);
     thread::sleep(Duration::from_secs(1));
-    println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
 
     // Get the transaction receipt
     let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
@@ -682,7 +669,7 @@ async fn test_seismic_precompiles_end_to_end() {
     let call = Encryption::decryptCall { nonce, ciphertext: ciphertext.clone() };
     let unencrypted_decrypt_call = call.abi_encode();
 
-    let output = provider
+    let decrypted_output = provider
         .seismic_call(SendableTx::Builder(test_utils::get_seismic_tx_builder(
             unencrypted_decrypt_call.into(),
             TxKind::Call(contract_addr),
@@ -690,7 +677,19 @@ async fn test_seismic_precompiles_end_to_end() {
         )))
         .await
         .unwrap();
-    println!("eth_call decrypted output: {:?}", output);
+    let result_bytes = PlaintextType::abi_decode(&Bytes::from(decrypted_output), false)
+        .expect("failed to decode the bytes");
+    let final_string =
+        String::from_utf8(result_bytes.to_vec()).expect("invalid utf8 in decrypted bytes");
+    assert_eq!(final_string, raw_message);
+
+    // Local Decrypt
+    let secp_private = secp256k1::SecretKey::from_slice(private_key.as_ref()).unwrap();
+    let aes_key: &[u8; 32] = &secp_private.secret_bytes()[0..32].try_into().unwrap();
+    let decrypted_locally =
+        aes_decrypt(aes_key.into(), &ciphertext, decoded.indexed[0].abi_encode_packed())
+            .expect("AES decryption failed");
+    assert_eq!(decrypted_locally, message);
 }
 
 /// Get the deploy input plaintext
