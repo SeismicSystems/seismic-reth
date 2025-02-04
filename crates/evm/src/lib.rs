@@ -31,7 +31,6 @@ use revm_primitives::{
 pub mod builder;
 pub mod either;
 pub mod execute;
-pub mod kernel;
 #[cfg(feature = "std")]
 pub mod metrics;
 pub mod noop;

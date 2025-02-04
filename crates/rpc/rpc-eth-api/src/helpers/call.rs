@@ -17,7 +17,7 @@ use alloy_rpc_types_eth::{
 };
 use futures::Future;
 use reth_chainspec::EthChainSpec;
-use reth_evm::{kernel::CallKernel, ConfigureEvm, ConfigureEvmEnv};
+use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
 use reth_node_api::BlockBody;
 use reth_primitives::RecoveredTx;
 use reth_primitives_traits::SignedTransaction;
@@ -621,9 +621,9 @@ pub trait Call:
         DB: Database,
         EthApiError: From<DB::Error>,
     {
-        //TODO: Undersntand here if we're in mainnet or not, and then toggle CallKernel with
-        //TestKernel.
-        let kernel = Kernel::from_boxed(Box::new(CallKernel::default()));
+        let keypair = self.evm_config().get_eph_rng_keypair()
+        .map_err(|e| EthApiError::EvmCustom(format!("Failed to get ephemeral keypair: {}", e)))?;
+        let kernel = Kernel::new_simulation(keypair);
         let mut evm = self.evm_config().evm_with_kernel_and_env(db, env, kernel);
         let res = evm.transact().map_err(Self::Error::from_evm_err)?;
         let (_, env) = evm.into_db_and_env_with_handler_cfg();

@@ -17,7 +17,6 @@ use reth_evm::{
         BlockExecutionStrategy, BlockExecutionStrategyFactory, BlockValidationError, ExecuteOutput,
         ProviderError,
     },
-    kernel::SeismicKernel,
     state_change::post_block_balance_increments,
     system_calls::{OnStateHook, SystemCaller},
     ConfigureEvm, TxEnvOverrides,
@@ -159,8 +158,7 @@ where
         let state_clear_flag =
             (*self.chain_spec).is_spurious_dragon_active_at_block(block.header.number);
         self.state.set_state_clear_flag(state_clear_flag);
-        let concrete_kernel = SeismicKernel::new(self.evm_config.get_eph_rng_keypair()?);
-        let kernel = Kernel::from_boxed(Box::new(concrete_kernel));
+        let kernel = Kernel::new_production(self.evm_config.get_eph_rng_keypair()?);
         let env = self.evm_env_for_block(&block.header, total_difficulty);
         let mut evm = self.evm_config.evm_with_kernel_and_env(&mut self.state, env, kernel);
 
@@ -175,8 +173,7 @@ where
         total_difficulty: U256,
     ) -> Result<ExecuteOutput<Receipt>, Self::Error> {
         let env = self.evm_env_for_block(&block.header, total_difficulty);
-        let concrete_kernel = SeismicKernel::new(self.evm_config.get_eph_rng_keypair()?);
-        let kernel = Kernel::from_boxed(Box::new(concrete_kernel));
+        let kernel = Kernel::new_production(self.evm_config.get_eph_rng_keypair()?);
         let mut evm = self.evm_config.evm_with_kernel_and_env(&mut self.state, env, kernel);
 
         let mut cumulative_gas_used = 0;
@@ -247,8 +244,7 @@ where
         receipts: &[Receipt],
     ) -> Result<Requests, Self::Error> {
         let env = self.evm_env_for_block(&block.header, total_difficulty);
-        let concrete_kernel = SeismicKernel::new(self.evm_config.get_eph_rng_keypair()?);
-        let kernel = Kernel::from_boxed(Box::new(concrete_kernel));
+        let kernel = Kernel::new_production(self.evm_config.get_eph_rng_keypair()?);
         let mut evm = self.evm_config.evm_with_kernel_and_env(&mut self.state, env, kernel);
 
         let requests = if self.chain_spec.is_prague_active_at_timestamp(block.timestamp) {

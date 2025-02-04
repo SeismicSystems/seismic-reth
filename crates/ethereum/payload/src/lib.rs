@@ -23,7 +23,7 @@ use reth_chain_state::ExecutedBlock;
 use reth_chainspec::{ChainSpec, ChainSpecProvider};
 use reth_errors::RethError;
 use reth_evm::{
-    kernel::SeismicKernel, system_calls::SystemCaller, ConfigureEvm, NextBlockEnvAttributes,
+    system_calls::SystemCaller, ConfigureEvm, NextBlockEnvAttributes,
 };
 use reth_evm_ethereum::{eip6110::parse_deposits_from_receipts, EthEvmConfig};
 use reth_execution_types::ExecutionOutcome;
@@ -244,8 +244,7 @@ where
         TxEnv::default(),
     );
 
-    let concrete_kernel = SeismicKernel::new(evm_config.get_eph_rng_keypair()?);
-    let kernel = Kernel::from_boxed(Box::new(concrete_kernel));
+    let kernel = Kernel::new_production(evm_config.get_eph_rng_keypair()?);
     let mut evm = evm_config.evm_with_kernel_and_env(&mut db, env, kernel);
 
     let mut receipts = Vec::new();
