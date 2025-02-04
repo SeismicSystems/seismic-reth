@@ -94,24 +94,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use jsonrpsee::{
-        core::client::{ClientT, SubscriptionClientT},
-        Methods,
-    };
-    use reth_rpc_builder::{RpcServerConfig, RpcServerHandle, TransportRpcModules};
+    use jsonrpsee::core::client::{ClientT, SubscriptionClientT};
+    use reth_provider::test_utils::MockEthProvider;
+
+    use crate::utils::test_utils::{build_test_eth_api, launch_http};
+    use seismic_node::utils::test_utils::UnitTestContext;
 
     use super::*;
-
-    /// Launches a new server with http only with the given modules
-    pub(crate) async fn launch_http(modules: impl Into<Methods>) -> RpcServerHandle {
-        let mut server = TransportRpcModules::default();
-        let _ = server.merge_configured(modules);
-        RpcServerConfig::http(Default::default())
-            .with_http_address(test_address())
-            .start(&server)
-            .await
-            .unwrap()
-    }
 
     async fn test_basic_seismic_calls<C>(client: &C)
     where
@@ -119,6 +108,17 @@ mod tests {
     {
         let pk = SeismicApiClient::get_tee_public_key(client).await.unwrap();
         assert_eq!(pk, get_sample_secp256k1_pk());
+    }
+
+    async fn test_basic_eth_calls<C>(client: &C)
+    where
+        C: ClientT + SubscriptionClientT + Sync,
+    {
+        let typed_data = UnitTestContext::get_seismic_tx().eip712_to_type_data();
+        let _signature =
+            EthApiOverrideClient::sign_typed_data_v4(client, Address::ZERO, typed_data)
+                .await
+                .unwrap_err();
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -129,5 +129,15 @@ mod tests {
         let handle = launch_http(seismic_api.into_rpc()).await;
         let client = handle.http_client().unwrap();
         test_basic_seismic_calls(&client).await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_call_eth_functions_http() {
+        reth_tracing::init_test_tracing();
+
+        let eth_api = build_test_eth_api(MockEthProvider::default());
+        let eth_api = EthApiExt::new(eth_api);
+        let handle = launch_http(eth_api.into_rpc()).await;
+        test_basic_eth_calls(&handle.http_client().unwrap()).await;
     }
 }
