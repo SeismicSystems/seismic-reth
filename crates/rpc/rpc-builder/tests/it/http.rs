@@ -334,7 +334,7 @@ where
         None,
     )
     .await
-    .unwrap();
+    .unwrap_err();
     EthApiClient::<Transaction, Block, Receipt, Header>::gas_price(client).await.unwrap_err();
     EthApiClient::<Transaction, Block, Receipt, Header>::max_priority_fee_per_gas(client)
         .await

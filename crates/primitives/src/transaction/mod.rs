@@ -1014,7 +1014,30 @@ impl TransactionSigned {
     /// Calculate transaction hash, eip2728 transaction does not contain rlp header and start with
     /// tx type.
     pub fn recalculate_hash(&self) -> B256 {
-        keccak256(self.encoded_2718())
+        match &self.transaction {
+            Transaction::Legacy(tx) => {
+                *SignableTransaction::<Signature>::into_signed(tx.clone(), self.signature).hash()
+            }
+            Transaction::Eip2930(tx) => {
+                *SignableTransaction::<Signature>::into_signed(tx.clone(), self.signature).hash()
+            }
+            Transaction::Eip1559(tx) => {
+                *SignableTransaction::<Signature>::into_signed(tx.clone(), self.signature).hash()
+            }
+            Transaction::Eip4844(tx) => {
+                *SignableTransaction::<Signature>::into_signed(tx.clone(), self.signature).hash()
+            }
+            Transaction::Eip7702(tx) => {
+                *SignableTransaction::<Signature>::into_signed(tx.clone(), self.signature).hash()
+            }
+            Transaction::Seismic(tx) => {
+                *SignableTransaction::<Signature>::into_signed(tx.clone(), self.signature).hash()
+            }
+            #[cfg(feature = "optimism")]
+            Transaction::Deposit(tx) => {
+                *SignableTransaction::<Signature>::into_signed(tx.clone(), self.signature).hash()
+            }
+        }
     }
 
     /// Splits the transaction into parts.
@@ -1573,7 +1596,9 @@ impl<'a> arbitrary::Arbitrary<'a> for TransactionSigned {
 
         #[cfg(feature = "optimism")]
         let signature = if transaction.is_deposit() { TxDeposit::signature() } else { signature };
-        Ok(Self::new_unhashed(transaction, signature))
+        let tx_signed = Self::new_unhashed(transaction, signature);
+        let hash = tx_signed.hash();
+        Ok(Self::new(tx_signed.transaction, tx_signed.signature, hash))
     }
 }
 

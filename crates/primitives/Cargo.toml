@@ -28,7 +28,7 @@ alloy-network = { workspace = true, optional = true }
 alloy-primitives = { workspace = true, features = ["rand", "rlp"] }
 alloy-rlp = { workspace = true, features = ["arrayvec"] }
 alloy-rpc-types = { workspace = true, optional = true }
-alloy-rpc-types-eth = { workspace = true}
+alloy-rpc-types-eth = { workspace = true, features = ["serde"] }
 alloy-serde = { workspace = true, optional = true }
 alloy-eips = { workspace = true, features = ["serde"] }
 alloy-trie = { workspace = true, features = ["serde"] }

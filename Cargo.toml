@@ -312,7 +312,7 @@ overflow-checks = true
 seismic-node = { path = "crates/seismic/node" }
 seismic-reth = { path = "crates/seismic/bin" }
 seismic-rpc-api = { path = "crates/seismic/rpc-api" }
-tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "21218a3" }
+tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "4036092" }
 
 # reth
 op-reth = { path = "crates/optimism/bin" }
@@ -472,7 +472,7 @@ alloy-rpc-types-anvil = { version = "0.8.0", default-features = false }
 alloy-rpc-types-beacon = { version = "0.8.0", default-features = false }
 alloy-rpc-types-debug = { version = "0.8.0", default-features = false }
 alloy-rpc-types-engine = { version = "0.8.0", default-features = false }
-alloy-rpc-types-eth = { version = "0.8.0", default-features = false }
+alloy-rpc-types-eth = { version = "0.8.0", default-features = false}
 alloy-rpc-types-mev = { version = "0.8.0", default-features = false }
 alloy-rpc-types-trace = { version = "0.8.0", default-features = false }
 alloy-rpc-types-txpool = { version = "0.8.0", default-features = false }
@@ -487,8 +487,8 @@ alloy-transport-ws = { version = "0.8.0", default-features = false }
 # op
 op-alloy-rpc-types = "0.8.1"
 op-alloy-rpc-types-engine = "0.8.1"
-op-alloy-rpc-jsonrpsee = "0.8.1"
-op-alloy-network = "0.8.1"
+# op-alloy-rpc-jsonrpsee = "0.8.1"
+# op-alloy-network = "0.8.1"
 op-alloy-consensus = "0.8.1"
 op-alloy-genesis = "0.8.1"
 
@@ -627,11 +627,6 @@ tikv-jemallocator = "0.6"
 tracy-client = "0.17.3"
 
 [patch.crates-io]
-# If our dependencies depend on these things,
-# then this will override whatever versions they point to
-# and instead use our local version
-alloy-chains = { git = "https://github.com/alloy-rs/chains", tag = "v0.1.32"}
-
 # seismic-alloy-core
 alloy-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "6e1c0e9" }
 alloy-json-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "6e1c0e9" }
@@ -642,43 +637,36 @@ alloy-sol-type-parser = { git = "ssh://git@github.com/SeismicSystems/seismic-all
 alloy-dyn-abi = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "6e1c0e9" }
 
 # seismic-alloy
-alloy-consensus = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-contract = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-eips = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-genesis = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-json-rpc = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-network = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-network-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-node-bindings = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-provider = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-pubsub = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-rpc-client = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-rpc-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-rpc-types-admin = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-rpc-types-anvil = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-rpc-types-beacon = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-rpc-types-debug = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-rpc-types-engine = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-rpc-types-eth = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-rpc-types-mev = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-rpc-types-trace = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-rpc-types-txpool = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-serde = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-signer = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-signer-local = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-transport = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-transport-http = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-transport-ipc = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
-alloy-transport-ws = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "253c589" }
+alloy-consensus = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-contract = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-eips = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-genesis = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-json-rpc = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-network = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-network-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-node-bindings = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-provider = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-pubsub = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-rpc-client = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-rpc-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-rpc-types-admin = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-rpc-types-anvil = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-rpc-types-beacon = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-rpc-types-debug = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-rpc-types-engine = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-rpc-types-eth = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-rpc-types-mev = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-rpc-types-trace = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-rpc-types-txpool = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-serde = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-signer = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-signer-local = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-transport = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-transport-http = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-transport-ipc = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
+alloy-transport-ws = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy.git", rev = "cbd6fa1" }
 
 revm = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "c7f87df"}
 revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "c7f87df"}
 revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "c7f87df"}
 revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "19828b8"}
-
-op-alloy-rpc-types = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
-op-alloy-rpc-types-engine = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
-op-alloy-rpc-jsonrpsee = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
-op-alloy-network = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
-op-alloy-consensus = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
-op-alloy-genesis = { git = "https://github.com/alloy-rs/op-alloy", tag = "v0.8.1" }
