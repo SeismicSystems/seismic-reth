@@ -6,14 +6,13 @@ use pretty_assertions::Comparison;
 use reth_chainspec::{EthChainSpec, EthereumHardforks};
 use reth_engine_primitives::InvalidBlockHook;
 use reth_evm::{
-    state_change::post_block_balance_increments, system_calls::SystemCaller, ConfigureEvm,
+    kernel::SeismicKernel, state_change::post_block_balance_increments, system_calls::SystemCaller, ConfigureEvm
 };
 use reth_primitives::{NodePrimitives, SealedBlockWithSenders, SealedHeader};
 use reth_primitives_traits::SignedTransaction;
 use reth_provider::{BlockExecutionOutput, ChainSpecProvider, StateProviderFactory};
 use reth_revm::{
-    database::StateProviderDatabase, db::states::bundle_state::BundleRetention,
-    primitives::EnvWithHandlerCfg, DatabaseCommit, StateBuilder,
+    database::StateProviderDatabase, db::states::bundle_state::BundleRetention, primitives::EnvWithHandlerCfg, seismic::Kernel, DatabaseCommit, StateBuilder
 };
 use reth_rpc_api::DebugApiClient;
 use reth_tracing::tracing::warn;
@@ -80,9 +79,16 @@ where
         let (cfg, block_env) = self.evm_config.cfg_and_block_env(block.header(), U256::MAX);
 
         // Setup EVM
-        let mut evm = self.evm_config.evm_with_env(
+        let concrete_kernel = SeismicKernel::new(
+            self.evm_config
+                .get_eph_rng_keypair()
+                .map_err(|e| eyre::eyre!(format!("Failed to get ephemeral rng keypair: {}", e)))?
+        );
+        let kernel= Kernel::from_boxed(Box::new(concrete_kernel));
+        let mut evm = self.evm_config.evm_with_kernel_and_env(
             &mut db,
             EnvWithHandlerCfg::new_with_cfg_env(cfg, block_env, Default::default()),
+            kernel
         );
 
         let mut system_caller =
