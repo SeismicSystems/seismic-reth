@@ -42,6 +42,14 @@ impl PayloadBuilderError {
     }
 }
 
+impl From<EVMError<reth_tee::TeeError>> for PayloadBuilderError {
+    fn from(e: EVMError<reth_tee::TeeError>) -> Self {
+        // We wrap the error in our TeeErrorWrapper and then use the Other variant.
+        let details = format!("TEE Error: {:?}", e);
+        Self::Internal(RethError::msg(details))
+    }
+}
+
 impl From<ProviderError> for PayloadBuilderError {
     fn from(error: ProviderError) -> Self {
         Self::Internal(RethError::Provider(error))

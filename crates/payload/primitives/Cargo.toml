@@ -17,6 +17,7 @@ reth-chainspec.workspace = true
 reth-errors.workspace = true
 reth-primitives.workspace = true
 reth-chain-state.workspace = true
+reth-tee.workspace = true
 
 revm-primitives.workspace = true
 
