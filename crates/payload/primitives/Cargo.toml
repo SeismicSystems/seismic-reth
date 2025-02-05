@@ -32,3 +32,4 @@ thiserror.workspace = true
 tokio = { workspace = true, default-features = false, features = ["sync"] }
 
 [features]
+op = ["dep:op-alloy-rpc-types-engine"]
