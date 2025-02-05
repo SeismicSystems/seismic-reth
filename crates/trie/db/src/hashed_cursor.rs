@@ -100,10 +100,7 @@ where
         &mut self,
         subkey: B256,
     ) -> Result<Option<(B256, Self::Value)>, reth_db::DatabaseError> {
-        Ok(self
-            .cursor
-            .seek_by_key_subkey(self.hashed_address, subkey)?
-            .map(|e| (e.key, e.value.into())))
+        Ok(self.cursor.seek_by_key_subkey(self.hashed_address, subkey)?.map(|e| (e.key, e.into())))
     }
 
     fn next(&mut self) -> Result<Option<(B256, Self::Value)>, reth_db::DatabaseError> {
