@@ -305,7 +305,7 @@ mod tests {
     use reth_chainspec::{Chain, ChainSpec, MAINNET};
     use reth_evm::execute::ProviderError;
     use reth_revm::{
-        db::{CacheDB, EmptyDBTyped}, handler::register::EvmHandler, inspectors::NoOpInspector, precompile::u64_to_address, primitives::{BlockEnv, CfgEnv, SpecId}, seismic::{seismic_handle_register, Kernel}, Evm, Handler, JournaledState
+        db::{CacheDB, EmptyDBTyped}, handler::register::EvmHandler, inspectors::NoOpInspector, precompile::u64_to_address, primitives::{BlockEnv, CfgEnv, SpecId},  Evm, Handler, JournaledState
     };
     use revm_primitives::{EnvWithHandlerCfg, HandlerCfg};
     use std::collections::HashSet;
@@ -648,6 +648,8 @@ mod tests {
         // Check that the spec ID is setup properly
         assert_eq!(evm.handler.spec_id(), SpecId::MERCURY);
         assert!(evm.handler.is_seismic());
+
+        // Check that standard way of generating evm works
         type DB = CacheDB<EmptyDBTyped<Infallible>>;
         type EXT = ();
 
@@ -663,18 +665,30 @@ mod tests {
             u64_to_address(102),
             u64_to_address(103),
             u64_to_address(104),
-            u64_to_address(105),
         ];
 
+        let precompiles = seismic_evm.handler.pre_execution().load_precompiles();
+
         for &addr in &precompile_addresses {
-            let account = seismic_evm.db().accounts.get(&addr).unwrap().info().unwrap();
+            println!("addr: {addr:?}");
+            let is_contained = precompiles.contains(&addr);
             assert!(
-                !account.code.is_some(),
-                "Expected non-empty code at precompile address {addr:?}"
+                is_contained,
+                "Expected Precompile at address for standard evm generation {addr:?}"
             );
         }
-
         assert_eq!(evm.handler.spec_id(), seismic_evm.handler.spec_id());
         assert_eq!(evm.handler.is_seismic(), seismic_evm.handler.is_seismic());
+
+        //Check that RETH way of generating evm works
+        let precompiles = evm.handler.pre_execution().load_precompiles();
+
+        for &addr in &precompile_addresses {
+            let is_contained = precompiles.contains(&addr);
+            assert!(
+                is_contained,
+                "Expected Precompile at address for RETH evm generation {addr:?}"
+            );
+        }
     }
 }
