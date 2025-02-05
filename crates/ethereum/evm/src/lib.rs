@@ -665,7 +665,6 @@ mod tests {
         let precompiles = seismic_evm.handler.pre_execution().load_precompiles();
 
         for &addr in &precompile_addresses {
-            println!("addr: {addr:?}");
             let is_contained = precompiles.contains(&addr);
             assert!(
                 is_contained,
