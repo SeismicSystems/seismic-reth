@@ -48,11 +48,9 @@ where
         let mut builder =
             EvmBuilder::default().with_db(self.db).with_external_context(self.external_context);
 
-
         //hardcoding for now
         if let Some(env) = self.env {
             builder = builder.with_env(env.env);
-
             let handler = EvmHandler::seismic_with_spec(SpecId::MERCURY);
             builder = builder.with_handler(handler);
         }
