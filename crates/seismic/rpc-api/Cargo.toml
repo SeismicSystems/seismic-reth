@@ -25,5 +25,30 @@ secp256k1.workspace = true
 tee_service_api.workspace = true
 tokio = { workspace = true, features = ["full"] }
 
+[dev-dependencies]
+alloy-rpc-types-engine.workspace = true
+
+reth-rpc-builder.workspace = true
+reth-transaction-pool = { workspace = true, features = ["test-utils"] }
+reth-network-api.workspace = true
+reth-tasks.workspace = true
+reth-chain-state.workspace = true
+reth-beacon-consensus.workspace = true
+reth-chainspec.workspace = true
+reth-consensus.workspace = true
+reth-ethereum-engine-primitives.workspace = true
+reth-evm.workspace = true
+reth-evm-ethereum.workspace = true
+reth-payload-builder = { workspace = true, features = ["test-utils"] }
+reth-provider = { workspace = true, features = ["test-utils"] }
+reth-rpc.workspace = true
+reth-rpc-engine-api.workspace = true
+reth-rpc-layer.workspace = true
+reth-rpc-server-types.workspace = true
+reth-primitives.workspace = true
+
+seismic-node.workspace = true
+
+
 [features]
 client = ["jsonrpsee/client", "jsonrpsee/async-client"]

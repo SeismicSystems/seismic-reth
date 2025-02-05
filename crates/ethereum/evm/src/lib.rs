@@ -305,12 +305,7 @@ mod tests {
     use reth_chainspec::{Chain, ChainSpec, MAINNET};
     use reth_evm::execute::ProviderError;
     use reth_revm::{
-        db::{CacheDB, EmptyDBTyped},
-        handler::register::EvmHandler,
-        inspectors::NoOpInspector,
-        primitives::{BlockEnv, CfgEnv, SpecId},
-        seismic::{seismic_handle_register, Kernel},
-        Evm, Handler, JournaledState,
+        db::{CacheDB, EmptyDBTyped}, handler::register::EvmHandler, inspectors::NoOpInspector, precompile::u64_to_address, primitives::{BlockEnv, CfgEnv, SpecId}, seismic::{seismic_handle_register, Kernel}, Evm, Handler, JournaledState
     };
     use revm_primitives::{EnvWithHandlerCfg, HandlerCfg};
     use std::collections::HashSet;
@@ -662,8 +657,23 @@ mod tests {
         let seismic_evm = Evm::builder()
             .with_db(db)
             .with_handler(seismic_handler)
-            .append_handler_register(seismic_handle_register)
             .build();
+
+         let precompile_addresses = [
+            u64_to_address(101),
+            u64_to_address(102),
+            u64_to_address(103),
+            u64_to_address(104),
+            u64_to_address(105),
+        ];
+
+        for &addr in &precompile_addresses {
+            let account = seismic_evm.db().accounts.get(&addr).unwrap().info().unwrap();
+            assert!(
+                !account.code.is_some(),
+                "Expected non-empty code at precompile address {addr:?}"
+            );
+        }
 
         assert_eq!(evm.handler.spec_id(), seismic_evm.handler.spec_id());
         assert_eq!(evm.handler.is_seismic(), seismic_evm.handler.is_seismic());
