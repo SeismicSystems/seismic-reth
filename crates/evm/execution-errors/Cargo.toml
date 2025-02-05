@@ -15,7 +15,6 @@ workspace = true
 reth-consensus.workspace = true
 reth-storage-errors.workspace = true
 reth-prune-types.workspace = true
-reth-tee.workspace = true
 
 alloy-primitives.workspace = true
 alloy-rlp.workspace = true

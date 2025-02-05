@@ -7905,7 +7905,6 @@ dependencies = [
  "reth-consensus",
  "reth-prune-types",
  "reth-storage-errors",
- "reth-tee",
  "revm-primitives",
  "thiserror 2.0.11",
 ]
@@ -8611,7 +8610,6 @@ dependencies = [
  "reth-chainspec",
  "reth-errors",
  "reth-primitives",
- "reth-tee",
  "revm-primitives",
  "serde",
  "thiserror 2.0.11",

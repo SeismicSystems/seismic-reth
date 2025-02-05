@@ -17,7 +17,6 @@ use alloy_primitives::B256;
 use reth_consensus::ConsensusError;
 use reth_prune_types::PruneSegmentError;
 use reth_storage_errors::provider::ProviderError;
-use reth_tee::TeeError;
 use revm_primitives::EVMError;
 use thiserror::Error;
 
@@ -167,16 +166,6 @@ impl BlockExecutionError {
 impl From<ProviderError> for BlockExecutionError {
     fn from(error: ProviderError) -> Self {
         InternalBlockExecutionError::from(error).into()
-    }
-}
-
-impl From<EVMError<TeeError>> for BlockExecutionError {
-    fn from(evm_error: EVMError<TeeError>) -> Self {
-        // Convert EVMError<TeeError> into an InternalBlockExecutionError
-        let details = format!("TEE Error: {:?}", evm_error);
-        let internal_err = InternalBlockExecutionError::msg(details);
-
-        BlockExecutionError::Internal(internal_err)
     }
 }
 

@@ -240,7 +240,6 @@ where
         initialized_block_env.clone(),
         TxEnv::default(),
     );
-
     let mut evm = evm_config.evm_with_env(&mut db, env);
 
     let mut receipts = Vec::new();

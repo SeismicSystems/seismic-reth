@@ -79,6 +79,7 @@ where
         // Setup environment for the execution.
         let (cfg, block_env) = self.evm_config.cfg_and_block_env(block.header(), U256::MAX);
 
+        // Setup EVM
         let mut evm = self.evm_config.evm_with_env(
             &mut db,
             EnvWithHandlerCfg::new_with_cfg_env(cfg, block_env, Default::default()),
