@@ -9374,7 +9374,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=4036092)",
+ "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=39b2865)",
  "tokio",
  "tracing",
  "warp",
@@ -9617,7 +9617,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "18.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=c7f87df#c7f87dfc7aee8f52061c4d4f3747051ea9a03147"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=501192c#501192cb03c1be4d4d4cb54a610eb97794d21b75"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -9657,7 +9657,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "14.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=c7f87df#c7f87dfc7aee8f52061c4d4f3747051ea9a03147"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=501192c#501192cb03c1be4d4d4cb54a610eb97794d21b75"
 dependencies = [
  "paste",
  "phf",
@@ -9668,7 +9668,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "15.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=c7f87df#c7f87dfc7aee8f52061c4d4f3747051ea9a03147"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=501192c#501192cb03c1be4d4d4cb54a610eb97794d21b75"
 dependencies = [
  "aurora-engine-modexp",
  "blst",
@@ -9687,7 +9687,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "14.0.0"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=c7f87df#c7f87dfc7aee8f52061c4d4f3747051ea9a03147"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-revm.git?rev=501192c#501192cb03c1be4d4d4cb54a610eb97794d21b75"
 dependencies = [
  "alloy-eip2930",
  "alloy-eip7702",
@@ -10232,12 +10232,14 @@ dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
  "alloy-eips",
+ "alloy-json-abi",
  "alloy-network",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-types",
  "alloy-rpc-types-eth",
  "alloy-signer-local",
+ "alloy-sol-types",
  "arbitrary",
  "assert_cmd",
  "enr",
@@ -10285,7 +10287,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sysinfo 0.29.11",
- "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=4036092)",
+ "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=39b2865)",
  "tempfile",
  "tokio",
  "tokio-stream",
@@ -10350,7 +10352,7 @@ dependencies = [
  "reth-transaction-pool",
  "secp256k1",
  "seismic-node",
- "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=4036092)",
+ "tee_service_api 0.1.0 (git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=39b2865)",
  "tokio",
 ]
 
@@ -11008,6 +11010,30 @@ dependencies = [
  "kbs-types",
  "once_cell",
  "reqwest",
+ "secp256k1",
+ "serde",
+ "serde_json",
+ "sha2 0.10.8",
+ "strum 0.25.0",
+ "tokio",
+]
+
+[[package]]
+name = "tee_service_api"
+version = "0.1.0"
+source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=39b2865#39b286548069755498c16a4b4f0242945c8b363c"
+dependencies = [
+ "aes-gcm",
+ "anyhow",
+ "bincode",
+ "byteorder",
+ "bytes",
+ "hkdf",
+ "hyper 0.14.32",
+ "kbs-types",
+ "once_cell",
+ "reqwest",
+ "schnorrkel",
  "secp256k1",
  "serde",
  "serde_json",

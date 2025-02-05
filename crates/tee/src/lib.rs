@@ -13,6 +13,7 @@ pub use tee_service_api::{
 
 use derive_more::Display;
 use secp256k1::PublicKey;
+pub use tee_service_api::SchnorrkelKeypair;
 use tee_service_api::{
     nonce::Nonce,
     request_types::tx_io::{
@@ -30,6 +31,8 @@ pub enum TeeError {
     DecryptionError,
     /// recover public key fails
     PublicKeyRecoveryError,
+    /// Ephemereal keypair generation fails
+    EphRngKeypairGenerationError,
     /// encoding or decoding
     CodingError(alloy_rlp::Error),
     /// Custom error.
@@ -83,4 +86,12 @@ pub fn encrypt<T: TeeAPI>(
         block_on_with_runtime(tee_client.tx_io_encrypt(payload))
             .map_err(|_| TeeError::DecryptionError)?;
     Ok(encrypted_data)
+}
+
+/// Blocking call to get the eph_rng_keypair, a SchnorrkelKeypair
+pub fn get_eph_rng_keypair<T: TeeAPI>(tee_client: &T) -> Result<SchnorrkelKeypair, TeeError> {
+    let keypair = block_on_with_runtime(tee_client.get_eph_rng_keypair())
+        .map_err(|_| TeeError::EphRngKeypairGenerationError)?;
+
+    Ok(keypair)
 }

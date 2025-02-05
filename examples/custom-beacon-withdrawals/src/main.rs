@@ -15,7 +15,9 @@ use reth::{
     providers::ProviderError,
     revm::{
         interpreter::Host,
-        primitives::{address, Address, Bytes, Env, EnvWithHandlerCfg, TransactTo, TxEnv, U256},
+        primitives::{
+            address, Address, Bytes, Env, EnvWithHandlerCfg, RngMode, TransactTo, TxEnv, U256,
+        },
         Database, DatabaseCommit, Evm, State,
     },
 };
@@ -273,6 +275,7 @@ fn fill_tx_env_with_system_contract_call(
         tx_hash,
         #[cfg(feature = "optimism")]
         optimism: OptimismFields::default(),
+        rng_mode: RngMode::Execution,
     };
 
     // ensure the block gas limit is >= the tx

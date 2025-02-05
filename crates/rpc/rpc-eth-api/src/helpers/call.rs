@@ -44,6 +44,7 @@ use reth_rpc_eth_types::{
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
 use revm::{Database, DatabaseCommit, GetInspector};
 use revm_inspectors::{access_list::AccessListInspector, transfer::TransferInspector};
+use revm_primitives::RngMode;
 use tracing::{debug, trace};
 
 /// Result type for `eth_simulateV1` RPC method.
@@ -911,6 +912,7 @@ pub trait Call:
             max_fee_per_blob_gas,
             // EIP-7702 fields
             authorization_list: authorization_list.map(Into::into),
+            rng_mode: RngMode::Simulation,
             ..Default::default()
         };
         debug!(target: "rpc::eth::call", ?env, "Created transaction environment");

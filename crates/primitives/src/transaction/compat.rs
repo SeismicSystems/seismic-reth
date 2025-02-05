@@ -31,6 +31,7 @@ impl FillTxEnv for TransactionSigned {
                 tx_env.blob_hashes.clear();
                 tx_env.max_fee_per_blob_gas.take();
                 tx_env.authorization_list = None;
+                tx_env.tx_hash = self.hash();
             }
             Transaction::Eip2930(tx) => {
                 tx_env.gas_limit = tx.gas_limit;
@@ -45,6 +46,7 @@ impl FillTxEnv for TransactionSigned {
                 tx_env.blob_hashes.clear();
                 tx_env.max_fee_per_blob_gas.take();
                 tx_env.authorization_list = None;
+                tx_env.tx_hash = self.hash();
             }
             Transaction::Eip1559(tx) => {
                 tx_env.gas_limit = tx.gas_limit;
@@ -59,6 +61,7 @@ impl FillTxEnv for TransactionSigned {
                 tx_env.blob_hashes.clear();
                 tx_env.max_fee_per_blob_gas.take();
                 tx_env.authorization_list = None;
+                tx_env.tx_hash = self.hash();
             }
             Transaction::Eip4844(tx) => {
                 tx_env.gas_limit = tx.gas_limit;
@@ -73,6 +76,7 @@ impl FillTxEnv for TransactionSigned {
                 tx_env.blob_hashes.clone_from(&tx.blob_versioned_hashes);
                 tx_env.max_fee_per_blob_gas = Some(U256::from(tx.max_fee_per_blob_gas));
                 tx_env.authorization_list = None;
+                tx_env.tx_hash = self.hash();
             }
             Transaction::Eip7702(tx) => {
                 tx_env.gas_limit = tx.gas_limit;
@@ -88,6 +92,7 @@ impl FillTxEnv for TransactionSigned {
                 tx_env.max_fee_per_blob_gas.take();
                 tx_env.authorization_list =
                     Some(AuthorizationList::Signed(tx.authorization_list.clone()));
+                tx_env.tx_hash = self.hash();
             }
             #[cfg(feature = "optimism")]
             Transaction::Deposit(tx) => {

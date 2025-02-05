@@ -21,11 +21,11 @@ use core::convert::Infallible;
 
 use alloc::{sync::Arc, vec::Vec};
 use alloy_consensus::{transaction::EncryptionPublicKey, Header, TxSeismic};
-use alloy_primitives::{Address, Bytes, TxKind, U256};
+use alloy_primitives::{Address, Bytes, TxHash, TxKind, U256};
 use reth_chainspec::{ChainSpec, Head};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};
 use reth_primitives::{transaction::FillTxEnv, Transaction, TransactionSigned};
-use reth_tee::{decrypt, encrypt, TeeError, TeeHttpClient};
+use reth_tee::{decrypt, encrypt, get_eph_rng_keypair, SchnorrkelKeypair, TeeError, TeeHttpClient};
 use reth_tracing::tracing::debug;
 use revm_primitives::{
     AnalysisKind, BlobExcessGasAndPrice, BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, EVMError,
@@ -113,12 +113,19 @@ impl ConfigureEvmEnv for EthEvmConfig {
         Ok(tee_decryption)
     }
 
+    /// Get current eph_rng_keypair
+    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, TeeError> {
+        get_eph_rng_keypair(&self.tee_client)
+            .map_err(|_| EVMError::Database(TeeError::EphRngKeypairGenerationError))
+    }
+
     /// seismic feature decrypt the transaction
     fn fill_seismic_tx_env(
         &self,
         tx_env: &mut TxEnv,
         tx: &TxSeismic,
         sender: Address,
+        tx_hash: TxHash,
     ) -> EVMResultGeneric<(), TeeError> {
         debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
 
@@ -141,6 +148,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
         tx_env.blob_hashes.clear();
         tx_env.max_fee_per_blob_gas.take();
         tx_env.authorization_list = None;
+        tx_env.tx_hash = tx_hash;
 
         debug!(target: "reth::fill_tx_env", ?tx_env, "Filled Seismic transaction");
 
@@ -156,7 +164,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
         debug!(target: "reth::fill_tx_env", ?transaction, "Parsing transaction");
         match &transaction.transaction {
             Transaction::Seismic(tx) => {
-                self.fill_seismic_tx_env(tx_env, tx, sender)?;
+                self.fill_seismic_tx_env(tx_env, tx, sender, transaction.hash())?;
                 Ok(())
             }
             _ => Ok(transaction.fill_tx_env(tx_env, sender)),
@@ -298,9 +306,11 @@ mod tests {
     use reth_evm::execute::ProviderError;
     use reth_revm::{
         db::{CacheDB, EmptyDBTyped},
+        handler::register::EvmHandler,
         inspectors::NoOpInspector,
+        precompile::u64_to_address,
         primitives::{BlockEnv, CfgEnv, SpecId},
-        JournaledState,
+        Evm, Handler, JournaledState,
     };
     use revm_primitives::{EnvWithHandlerCfg, HandlerCfg};
     use std::collections::HashSet;
@@ -622,5 +632,57 @@ mod tests {
             evm.handler.cfg,
             HandlerCfg { spec_id: SpecId::CONSTANTINOPLE, ..Default::default() }
         );
+    }
+
+    #[test]
+    #[allow(clippy::needless_update)]
+    fn test_evm_with_spec_id_seismic() {
+        let evm_config = EthEvmConfig::new(MAINNET.clone());
+
+        let db = CacheDB::<EmptyDBTyped<Infallible>>::default();
+
+        let handler_cfg = HandlerCfg { spec_id: SpecId::MERCURY, ..Default::default() };
+
+        let env_with_handler = EnvWithHandlerCfg { env: Box::new(Env::default()), handler_cfg };
+
+        let evm = evm_config.evm_with_env(db.clone(), env_with_handler);
+
+        // Check that the spec ID is setup properly
+        assert_eq!(evm.handler.spec_id(), SpecId::MERCURY);
+        assert!(evm.handler.is_seismic());
+
+        // Check that standard way of generating evm works
+        type DB = CacheDB<EmptyDBTyped<Infallible>>;
+        type EXT = ();
+
+        let seismic_handler: Handler<'_, reth_revm::Context<EXT, DB>, EXT, DB> =
+            EvmHandler::seismic_with_spec(SpecId::MERCURY);
+        let seismic_evm = Evm::builder().with_db(db).with_handler(seismic_handler).build();
+
+        let precompile_addresses =
+            [u64_to_address(101), u64_to_address(102), u64_to_address(103), u64_to_address(104)];
+
+        let precompiles = seismic_evm.handler.pre_execution().load_precompiles();
+
+        for &addr in &precompile_addresses {
+            let is_contained = precompiles.contains(&addr);
+            assert!(
+                is_contained,
+                "Expected Precompile at address for standard evm generation {addr:?}"
+            );
+        }
+        assert_eq!(evm.handler.spec_id(), seismic_evm.handler.spec_id());
+        assert_eq!(evm.handler.is_seismic(), seismic_evm.handler.is_seismic());
+
+        //Check that RETH way of generating evm works
+        let precompiles = evm.handler.pre_execution().load_precompiles();
+
+        for &addr in &precompile_addresses {
+            let is_contained = precompiles.contains(&addr);
+            assert!(
+                is_contained,
+                "Expected Precompile at address for RETH evm generation {addr:?}"
+            );
+        }
     }
 }
