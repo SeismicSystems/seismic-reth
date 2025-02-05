@@ -26,7 +26,7 @@ use reth_chainspec::{ChainSpec, Head};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};
 use reth_primitives::{transaction::FillTxEnv, Transaction, TransactionSigned};
 use reth_tee::{decrypt, encrypt, get_eph_rng_keypair, SchnorrkelKeypair, TeeError, TeeHttpClient};
-use reth_tracing::tracing::debug;
+use reth_tracing::tracing::{debug, error};
 use revm_primitives::{
     AnalysisKind, BlobExcessGasAndPrice, BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, EVMError,
     EVMResultGeneric, Env, SpecId, TxEnv,
@@ -115,6 +115,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
 
     /// Get current eph_rng_keypair
     fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, TeeError> {
+        error!(target: "EthEvmConfig", "get_eph_rng_keypair");
         get_eph_rng_keypair(&self.tee_client)
             .map_err(|_| EVMError::Database(TeeError::EphRngKeypairGenerationError))
     }

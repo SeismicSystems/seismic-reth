@@ -40,6 +40,7 @@ pub mod system_calls;
 #[cfg(any(test, feature = "test-utils"))]
 /// test helpers for mocking executor
 pub mod test_utils;
+use reth_tracing::tracing::error;
 
 /// Trait for configuring the EVM for executing full blocks.
 #[auto_impl::auto_impl(&, Arc)]
@@ -75,6 +76,7 @@ pub trait ConfigureEvm: ConfigureEvmEnv {
                 panic!("Failed to get ephemeral RNG keypair: {err:?}");
             }
         };
+        error!(target: "evm", "evm_with_env: {:?}", keypair);
         evm.context.evm = evm.context.evm.with_rng_container(RngContainer::new(keypair));
         evm.context.evm.env = env.env;
         evm

@@ -12,9 +12,10 @@ use reth_node_ethereum::{node::EthereumAddOns, EthereumNode};
 use reth_provider::{providers::BlockchainProvider2, CanonStateSubscriptions};
 use reth_rpc_eth_api::helpers::EthTransactions;
 use reth_tasks::TaskManager;
+use reth_tracing::tracing::*;
 use std::sync::Arc;
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn can_run_dev_node() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
     let tasks = TaskManager::current();
@@ -49,17 +50,20 @@ where
     AddOns: RethRpcAddOns<N, EthApi: EthTransactions>,
     N::Types: NodeTypes<Primitives: FullNodePrimitives>,
 {
+    error!("assert_chain_advances");
     let mut notifications = node.provider.canonical_state_stream();
+    error!("notifications: {:?}", notifications);
 
     // submit tx through rpc
     let raw_tx = hex!("02f876820a28808477359400847735940082520894ab0840c0e43688012c1adb0f5e3fc665188f83d28a029d394a5d630544000080c080a0a044076b7e67b5deecc63f61a8d7913fab86ca365b344b5759d1fe3563b4c39ea019eab979dd000da04dfc72bb0377c092d30fd9e1cab5ae487de49586cc8b0090");
+    error!("raw_tx: {:?}", raw_tx);
 
     let eth_api = node.rpc_registry.eth_api();
-
+    error!("eth_api");
     let hash = eth_api.send_raw_transaction(raw_tx.into()).await.unwrap();
-
+    error!("hash: {:?}", hash);
     let expected = b256!("b1c6512f4fc202c04355fbda66755e0e344b152e633010e8fd75ecec09b63398");
-
+    error!("expected: {:?}", expected);
     assert_eq!(hash, expected);
     println!("submitted transaction: {hash}");
 

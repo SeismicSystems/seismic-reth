@@ -29,6 +29,7 @@ reth-storage-api = { workspace = true, optional = true }
 
 revm.workspace = true
 revm-primitives.workspace = true
+reth-tracing.workspace = true
 
 # alloy
 alloy-primitives.workspace = true

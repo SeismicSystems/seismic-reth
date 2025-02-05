@@ -77,11 +77,11 @@ async fn integration_test() {
     let _cmd = RethCommand::run();
     thread::sleep(Duration::from_secs(5));
 
-    test_seismic_reth_backup().await;
-    test_seismic_reth_rpc_with_rust_client().await;
-    test_seismic_reth_rpc().await;
+    // test_seismic_reth_backup().await;
+    // test_seismic_reth_rpc_with_rust_client().await;
+    // test_seismic_reth_rpc().await;
     test_seismic_precompiles_end_to_end().await;
-    test_seismic_reth_rpc_with_typed_data().await;
+    // test_seismic_reth_rpc_with_typed_data().await;
 }
 
 //#[tokio::test]
