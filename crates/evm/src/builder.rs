@@ -2,8 +2,8 @@
 
 use alloc::boxed::Box;
 use revm::{
-    handler::register::EvmHandler, inspector_handle_register, seismic::Kernel, Database, Evm,
-    EvmBuilder, GetInspector,
+    handler::register::EvmHandler, inspector_handle_register, Database, Evm, EvmBuilder,
+    GetInspector,
 };
 use revm_primitives::{EnvWithHandlerCfg, SpecId};
 
@@ -21,7 +21,6 @@ pub struct RethEvmBuilder<DB: Database, EXT = ()> {
     env: Option<Box<EnvWithHandlerCfg>>,
     /// The external context for the EVM.
     external_context: EXT,
-    kernel: Option<Kernel>,
 }
 
 impl<DB, EXT> RethEvmBuilder<DB, EXT>
@@ -30,7 +29,7 @@ where
 {
     /// Create a new EVM builder with the given database.
     pub const fn new(db: DB, external_context: EXT) -> Self {
-        Self { db, env: None, external_context, kernel: None }
+        Self { db, env: None, external_context }
     }
 
     /// Set the environment for the EVM.
@@ -39,29 +38,21 @@ where
         self
     }
 
-    /// Set the kernel for Seismic EVM.
-    pub fn with_kernel(mut self, kernel: Kernel) -> Self {
-        self.kernel = Some(kernel);
-        self
-    }
-
     /// Set the external context for the EVM.
     pub fn with_external_context<EXT1>(self, external_context: EXT1) -> RethEvmBuilder<DB, EXT1> {
-        RethEvmBuilder { db: self.db, env: self.env, external_context, kernel: None }
+        RethEvmBuilder { db: self.db, env: self.env, external_context }
     }
 
     /// Build the EVM with the given database and environment.
     pub fn build<'a>(self) -> Evm<'a, EXT, DB> {
         let mut builder =
             EvmBuilder::default().with_db(self.db).with_external_context(self.external_context);
+
+        //hardcoding for now
         if let Some(env) = self.env {
-            builder = builder.with_spec_id(env.spec_id());
             builder = builder.with_env(env.env);
-        }
-        if let Some(kernel) = self.kernel {
             let handler = EvmHandler::seismic_with_spec(SpecId::MERCURY);
             builder = builder.with_handler(handler);
-            builder = builder.with_kernel(kernel);
         }
 
         builder.build()
@@ -156,22 +147,6 @@ pub trait EvmFactory {
         I: GetInspector<DB>,
     {
         RethEvmBuilder::new(db, self.default_external_context()).build_with_inspector(inspector)
-    }
-
-    /// Returns a new EVM with the given database configured with the given environment settings,
-    /// including the spec id. It also includes the given kernel.
-    ///
-    /// This will preserve any handler modifications
-    fn evm_with_kernel<'a, DB: Database + 'a>(
-        &self,
-        db: DB,
-        env: EnvWithHandlerCfg,
-        kernel: Kernel,
-    ) -> Evm<'a, Self::DefaultExternalContext<'a>, DB> {
-        RethEvmBuilder::new(db, self.default_external_context())
-            .with_env(env.into())
-            .with_kernel(kernel)
-            .build()
     }
 }
 

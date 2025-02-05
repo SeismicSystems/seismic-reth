@@ -22,9 +22,7 @@ use reth_basic_payload_builder::{
 use reth_chain_state::ExecutedBlock;
 use reth_chainspec::{ChainSpec, ChainSpecProvider};
 use reth_errors::RethError;
-use reth_evm::{
-    kernel::SeismicKernel, system_calls::SystemCaller, ConfigureEvm, NextBlockEnvAttributes,
-};
+use reth_evm::{system_calls::SystemCaller, ConfigureEvm, NextBlockEnvAttributes};
 use reth_evm_ethereum::{eip6110::parse_deposits_from_receipts, EthEvmConfig};
 use reth_execution_types::ExecutionOutcome;
 use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
@@ -46,7 +44,6 @@ use revm::{
         calc_excess_blob_gas, BlockEnv, CfgEnvWithHandlerCfg, EVMError, EnvWithHandlerCfg,
         InvalidTransaction, ResultAndState, TxEnv,
     },
-    seismic::Kernel,
     DatabaseCommit,
 };
 use std::sync::Arc;
@@ -244,9 +241,7 @@ where
         TxEnv::default(),
     );
 
-    let concrete_kernel = SeismicKernel::new(evm_config.get_eph_rng_keypair()?);
-    let kernel = Kernel::from_boxed(Box::new(concrete_kernel));
-    let mut evm = evm_config.evm_with_kernel_and_env(&mut db, env, kernel);
+    let mut evm = evm_config.evm_with_env(&mut db, env);
 
     let mut receipts = Vec::new();
     while let Some(pool_tx) = best_txs.next() {

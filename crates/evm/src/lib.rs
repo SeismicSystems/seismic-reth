@@ -22,7 +22,7 @@ use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader as _, TxSeis
 use alloy_primitives::{Address, Bytes, TxHash, B256, U256};
 use reth_primitives_traits::BlockHeader;
 use reth_tee::{SchnorrkelKeypair, TeeError};
-use revm::{Database, Evm, GetInspector};
+use revm::{seismic::RngContainer, Database, Evm, GetInspector};
 use revm_primitives::{
     BlockEnv, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId,
     TxEnv,
@@ -31,7 +31,6 @@ use revm_primitives::{
 pub mod builder;
 pub mod either;
 pub mod execute;
-pub mod kernel;
 #[cfg(feature = "std")]
 pub mod metrics;
 pub mod noop;
@@ -67,25 +66,18 @@ pub trait ConfigureEvm: ConfigureEvmEnv {
         env: EnvWithHandlerCfg,
     ) -> Evm<'_, Self::DefaultExternalContext<'_>, DB> {
         let mut evm = self.evm(db);
-        evm.modify_spec_id(env.spec_id());
+        //hardcoding MERCURY for now
+        evm.modify_spec_id(SpecId::MERCURY);
+        // For now, panicking
+        let keypair = match self.get_eph_rng_keypair() {
+            Ok(kp) => kp,
+            Err(err) => {
+                panic!("Failed to get ephemeral RNG keypair: {err:?}");
+            }
+        };
+        evm.context.evm = evm.context.evm.with_rng_container(RngContainer::new(keypair));
         evm.context.evm.env = env.env;
         evm
-    }
-
-    /// Returns a new EVM with the given database configured with the given environment settings,
-    /// including the spec id and the kernel.
-    ///
-    /// This will preserve any handler modifications
-    fn evm_with_kernel_and_env<DB: Database>(
-        &self,
-        db: DB,
-        env: EnvWithHandlerCfg,
-        kernel: revm::seismic::Kernel,
-    ) -> Evm<'_, Self::DefaultExternalContext<'_>, DB> {
-        RethEvmBuilder::new(db, self.default_external_context())
-            .with_env(Box::new(env))
-            .with_kernel(kernel)
-            .build()
     }
 
     /// Returns a new EVM with the given database configured with the given environment settings,

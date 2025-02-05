@@ -17,13 +17,12 @@ use reth_evm::{
         BlockExecutionStrategy, BlockExecutionStrategyFactory, BlockValidationError, ExecuteOutput,
         ProviderError,
     },
-    kernel::SeismicKernel,
     state_change::post_block_balance_increments,
     system_calls::{OnStateHook, SystemCaller},
     ConfigureEvm, TxEnvOverrides,
 };
 use reth_primitives::{BlockWithSenders, EthPrimitives, Receipt};
-use reth_revm::{db::State, seismic::Kernel};
+use reth_revm::db::State;
 use revm_primitives::{
     db::{Database, DatabaseCommit},
     EnvWithHandlerCfg, ResultAndState, U256,
@@ -159,10 +158,8 @@ where
         let state_clear_flag =
             (*self.chain_spec).is_spurious_dragon_active_at_block(block.header.number);
         self.state.set_state_clear_flag(state_clear_flag);
-        let concrete_kernel = SeismicKernel::new(self.evm_config.get_eph_rng_keypair()?);
-        let kernel = Kernel::from_boxed(Box::new(concrete_kernel));
         let env = self.evm_env_for_block(&block.header, total_difficulty);
-        let mut evm = self.evm_config.evm_with_kernel_and_env(&mut self.state, env, kernel);
+        let mut evm = self.evm_config.evm_with_env(&mut self.state, env);
 
         self.system_caller.apply_pre_execution_changes(&block.block, &mut evm)?;
 
@@ -175,9 +172,7 @@ where
         total_difficulty: U256,
     ) -> Result<ExecuteOutput<Receipt>, Self::Error> {
         let env = self.evm_env_for_block(&block.header, total_difficulty);
-        let concrete_kernel = SeismicKernel::new(self.evm_config.get_eph_rng_keypair()?);
-        let kernel = Kernel::from_boxed(Box::new(concrete_kernel));
-        let mut evm = self.evm_config.evm_with_kernel_and_env(&mut self.state, env, kernel);
+        let mut evm = self.evm_config.evm_with_env(&mut self.state, env);
 
         let mut cumulative_gas_used = 0;
         let mut receipts = Vec::with_capacity(block.body.transactions.len());
@@ -247,9 +242,7 @@ where
         receipts: &[Receipt],
     ) -> Result<Requests, Self::Error> {
         let env = self.evm_env_for_block(&block.header, total_difficulty);
-        let concrete_kernel = SeismicKernel::new(self.evm_config.get_eph_rng_keypair()?);
-        let kernel = Kernel::from_boxed(Box::new(concrete_kernel));
-        let mut evm = self.evm_config.evm_with_kernel_and_env(&mut self.state, env, kernel);
+        let mut evm = self.evm_config.evm_with_env(&mut self.state, env);
 
         let requests = if self.chain_spec.is_prague_active_at_timestamp(block.timestamp) {
             // Collect all EIP-6110 deposits
