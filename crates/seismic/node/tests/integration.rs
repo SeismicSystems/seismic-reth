@@ -488,7 +488,6 @@ async fn test_seismic_reth_backup() {
     assert_eq!(receipt.status(), true);
 
     // send enough transaction to trigger a backup
-    let mut nonce = 1;
     let wallet = Wallet::default().with_chain_id(chain_id.into());
     for _ in 0..DEFAULT_BACKUP_THRESHOLD + 1 {
         let tx_hash =
