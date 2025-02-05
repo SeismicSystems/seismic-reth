@@ -305,7 +305,12 @@ mod tests {
     use reth_chainspec::{Chain, ChainSpec, MAINNET};
     use reth_evm::execute::ProviderError;
     use reth_revm::{
-        db::{CacheDB, EmptyDBTyped}, handler::register::EvmHandler, inspectors::NoOpInspector, precompile::u64_to_address, primitives::{BlockEnv, CfgEnv, SpecId},  Evm, Handler, JournaledState
+        db::{CacheDB, EmptyDBTyped},
+        handler::register::EvmHandler,
+        inspectors::NoOpInspector,
+        precompile::u64_to_address,
+        primitives::{BlockEnv, CfgEnv, SpecId},
+        Evm, Handler, JournaledState,
     };
     use revm_primitives::{EnvWithHandlerCfg, HandlerCfg};
     use std::collections::HashSet;
@@ -640,10 +645,7 @@ mod tests {
 
         let env_with_handler = EnvWithHandlerCfg { env: Box::new(Env::default()), handler_cfg };
 
-        let evm = evm_config.evm_with_env(
-            db.clone(),
-            env_with_handler,
-        );
+        let evm = evm_config.evm_with_env(db.clone(), env_with_handler);
 
         // Check that the spec ID is setup properly
         assert_eq!(evm.handler.spec_id(), SpecId::MERCURY);
@@ -655,17 +657,10 @@ mod tests {
 
         let seismic_handler: Handler<'_, reth_revm::Context<EXT, DB>, EXT, DB> =
             EvmHandler::seismic_with_spec(SpecId::MERCURY);
-        let seismic_evm = Evm::builder()
-            .with_db(db)
-            .with_handler(seismic_handler)
-            .build();
+        let seismic_evm = Evm::builder().with_db(db).with_handler(seismic_handler).build();
 
-         let precompile_addresses = [
-            u64_to_address(101),
-            u64_to_address(102),
-            u64_to_address(103),
-            u64_to_address(104),
-        ];
+        let precompile_addresses =
+            [u64_to_address(101), u64_to_address(102), u64_to_address(103), u64_to_address(104)];
 
         let precompiles = seismic_evm.handler.pre_execution().load_precompiles();
 

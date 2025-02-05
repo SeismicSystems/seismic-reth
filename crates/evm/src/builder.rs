@@ -2,8 +2,8 @@
 
 use alloc::boxed::Box;
 use revm::{
-    handler::register::EvmHandler, inspector_handle_register, Database, Evm,
-    EvmBuilder, GetInspector,
+    handler::register::EvmHandler, inspector_handle_register, Database, Evm, EvmBuilder,
+    GetInspector,
 };
 use revm_primitives::{EnvWithHandlerCfg, SpecId};
 
