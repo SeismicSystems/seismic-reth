@@ -129,4 +129,4 @@ jobs:
       - name: build seismic-reth
         run: cargo build --bin seismic-reth
       - name: seismic-node test
-        run: cargo test --workspace
+        run: make test-seismic-reth
