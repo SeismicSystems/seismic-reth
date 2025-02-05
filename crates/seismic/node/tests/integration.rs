@@ -4,7 +4,7 @@ use alloy_primitives::{
     aliases::{B96, U96},
     hex,
     hex::FromHex,
-     Bytes, IntoLogData, TxKind, B256, U256,
+    Bytes, IntoLogData, TxKind, B256, U256,
 };
 use alloy_provider::{create_seismic_provider, test_utils, Provider, SendableTx};
 use alloy_rpc_types::{
