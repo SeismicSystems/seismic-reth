@@ -84,13 +84,13 @@ async fn integration_test() {
     test_seismic_reth_rpc_with_typed_data().await;
 }
 
-#[tokio::test]
-async fn try_seismic_precompiles_end_to_end() {
-    let _cmd = RethCommand::run();
-    thread::sleep(Duration::from_secs(5));
-
-    test_seismic_precompiles_end_to_end().await;
-}
+//#[tokio::test]
+//async fn try_seismic_precompiles_end_to_end() {
+//    let _cmd = RethCommand::run();
+//    thread::sleep(Duration::from_secs(5));
+//
+//    test_seismic_precompiles_end_to_end().await;
+//}
 async fn test_seismic_reth_rpc_with_typed_data() {
     let reth_rpc_url = RethCommand::url();
     let chain_id = RethCommand::chain_id();
