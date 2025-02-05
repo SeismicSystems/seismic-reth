@@ -1,15 +1,11 @@
 //! This file is used to test the seismic node.
 use alloy_network::{Ethereum, EthereumWallet, NetworkWallet};
-<<<<<<< HEAD
 use alloy_primitives::{
     aliases::{B96, U96},
     hex,
     hex::FromHex,
     Address, Bytes, IntoLogData, TxKind, B256, U256,
 };
-=======
-use alloy_primitives::{TxKind, U256};
->>>>>>> origin/seismic
 use alloy_provider::{create_seismic_provider, test_utils, Provider, SendableTx};
 use alloy_rpc_types::{
     Block, Header, Transaction, TransactionInput, TransactionReceipt, TransactionRequest,
@@ -23,13 +19,9 @@ use seismic_node::utils::test_utils::{
     client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
     get_unsigned_seismic_tx_request,
 };
-<<<<<<< HEAD
 use seismic_rpc_api::rpc::EthApiOverrideClient;
 use serde_json::{json, Value};
 use std::{path::PathBuf, str::FromStr, thread, time::Duration};
-=======
-use std::{path::PathBuf, thread, time::Duration};
->>>>>>> origin/seismic
 use sysinfo::{Pid, PidExt, ProcessExt, System, SystemExt};
 use tee_service_api::aes_decrypt;
 use tokio::process::Child;
