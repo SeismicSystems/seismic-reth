@@ -11,14 +11,13 @@ use alloy_rpc_types::{
     Block, Header, Transaction, TransactionInput, TransactionReceipt, TransactionRequest,
 };
 use assert_cmd::Command;
-use reqwest::Client;
 use reth_chainspec::DEV;
 use reth_e2e_test_utils::wallet::Wallet;
 use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
 use reth_rpc_eth_api::EthApiClient;
 use seismic_node::utils::test_utils::{
     client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
-    get_unsigned_seismic_tx_request, get_unsigned_seismic_tx_typed_data, IntegrationTestContext,
+    get_unsigned_seismic_tx_request,
 };
 use seismic_rpc_api::rpc::EthApiOverrideClient;
 use serde_json::{json, Value};
@@ -168,22 +167,6 @@ async fn test_seismic_reth_rpc_with_typed_data() {
             .await;
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
-
-    // test eth_signTypedData_v4
-    let signature = EthApiOverrideClient::sign_typed_data_v4(
-        &client,
-        wallet.inner.address(),
-        get_unsigned_seismic_tx_typed_data(
-            &wallet.inner,
-            get_nonce(&client, wallet.inner.address()).await,
-            TxKind::Call(contract_addr),
-            chain_id,
-            test_utils::ContractTestContext::get_is_odd_input_plaintext(),
-        )
-        .await,
-    )
-    .await;
-    println!("eth_signTypedData_v4 signature: {:?}", signature);
 }
 
 // this is the same test as basic.rs but with actual RPC calls and standalone reth instance
@@ -467,89 +450,77 @@ async fn test_seismic_reth_rpc() {
 }
 
 async fn test_seismic_reth_backup() {
-    let itx = IntegrationTestContext::load();
-    let chain_id = DEV.chain;
+    let chain_id: u64 = DEV.chain.into();
     const RETH_RPC_URL: &str = "http://127.0.0.1:8545";
+    let wallet = Wallet::default().with_chain_id(chain_id.into());
+    let client = jsonrpsee::http_client::HttpClientBuilder::default().build(RETH_RPC_URL).unwrap();
 
-    // Step 3: Send RPC calls
-    let client = Client::new();
-
-    // Deploy the contract
-    let deploy_tx = json!({
-        "jsonrpc": "2.0",
-        "method": "eth_sendRawTransaction",
-        "params": [itx.deploy_tx],
-        "id": 1
-    });
-
-    let deploy_response = client
-        .post(RETH_RPC_URL)
-        .json(&deploy_tx)
-        .send()
+    let tx_hash =
+        EthApiClient::<Transaction, Block, TransactionReceipt, Header>::send_raw_transaction(
+            &client,
+            get_signed_seismic_tx_bytes(
+                &wallet.inner,
+                get_nonce(&client, wallet.inner.address()).await,
+                TxKind::Create,
+                chain_id,
+                test_utils::ContractTestContext::get_deploy_input_plaintext(),
+            )
+            .await
+            .into(),
+        )
         .await
-        .expect("Failed to send deploy transaction");
-
-    let deploy_result: serde_json::Value = deploy_response.json().await.unwrap();
-    println!("Deploy Result: {:?}", deploy_result);
-    assert!(deploy_result["result"] == itx.tx_hashes[0]);
+        .unwrap();
+    // assert_eq!(tx_hash, itx.tx_hashes[0]);
     thread::sleep(Duration::from_secs(1));
+    println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
 
     // Get the transaction receipt
-    let receipt_tx = json!({
-        "jsonrpc": "2.0",
-        "method": "eth_getTransactionReceipt",
-        "params": [itx.tx_hashes[0]],
-        "id": 1
-    });
-
-    let receipt_response = client
-        .post(RETH_RPC_URL)
-        .json(&receipt_tx)
-        .send()
+    let receipt =
+        EthApiClient::<Transaction, Block, TransactionReceipt, Header>::transaction_receipt(
+            &client, tx_hash,
+        )
         .await
-        .expect("Failed to get transaction receipt");
-    let receipt_result: Value = receipt_response.json().await.unwrap();
-    println!("Transaction Receipt: {:?}", receipt_result);
-    assert!(receipt_result["result"]["status"] == "0x1");
-
-    // getting contract address
-    let contract_addr =
-        Address::from_str(receipt_result["result"]["contractAddress"].as_str().unwrap()).unwrap();
+        .unwrap()
+        .unwrap();
+    let contract_addr = receipt.contract_address.unwrap();
+    println!(
+        "eth_getTransactionReceipt getting contract deployment transaction receipt: {:?}",
+        receipt
+    );
+    assert_eq!(receipt.status(), true);
 
     // send enough transaction to trigger a backup
     let mut nonce = 1;
     let wallet = Wallet::default().with_chain_id(chain_id.into());
     for _ in 0..DEFAULT_BACKUP_THRESHOLD + 1 {
-        let input = Bytes::from_static(&hex!(
-            "24a7f0b70000000000000000000000000000000000000000000000000000000000000003"
-        ));
-        let raw_tx = get_signed_seismic_tx_bytes(
-            &wallet.inner,
-            nonce,
-            alloy_primitives::TxKind::Call(contract_addr),
-            chain_id.id(),
-            input.clone(),
-        )
-        .await;
-        nonce += 1;
-
-        // interact with the contract
-        let tx = json!({
-            "jsonrpc": "2.0",
-            "method": "eth_sendRawTransaction",
-            "params": [raw_tx.to_string()],
-            "id": 1
-        });
-
-        let tx_response = client
-            .post(RETH_RPC_URL)
-            .json(&tx)
-            .send()
+        let tx_hash =
+            EthApiClient::<Transaction, Block, TransactionReceipt, Header>::send_raw_transaction(
+                &client,
+                get_signed_seismic_tx_bytes(
+                    &wallet.inner,
+                    get_nonce(&client, wallet.inner.address()).await,
+                    TxKind::Call(contract_addr),
+                    chain_id,
+                    test_utils::ContractTestContext::get_set_number_input_plaintext(),
+                )
+                .await
+                .into(),
+            )
             .await
-            .expect("Failed to send deploy transaction");
+            .unwrap();
+        println!("eth_sendRawTransaction setting number transaction tx_hash: {:?}", tx_hash);
+        thread::sleep(Duration::from_secs(1));
 
-        let tx_result: serde_json::Value = tx_response.json().await.unwrap();
-        println!("Transaction Result: {:?}", tx_result);
+        // Get the transaction receipt
+        let receipt =
+            EthApiClient::<Transaction, Block, TransactionReceipt, Header>::transaction_receipt(
+                &client, tx_hash,
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        println!("eth_getTransactionReceipt getting set_number transaction receipt: {:?}", receipt);
+        assert_eq!(receipt.status(), true);
     }
 
     thread::sleep(Duration::from_secs(10));
