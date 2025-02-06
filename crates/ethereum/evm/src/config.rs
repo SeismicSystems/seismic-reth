@@ -1,6 +1,5 @@
 use reth_chainspec::{ChainSpec, EthereumHardforks};
 use reth_ethereum_forks::{EthereumHardfork, Head};
-use reth_tracing::tracing::debug;
 /// Returns the revm [`SpecId`](revm_primitives::SpecId) at the given timestamp.
 ///
 /// # Note

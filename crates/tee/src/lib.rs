@@ -21,7 +21,6 @@ use tee_service_api::{
     },
 };
 use tokio::runtime::{Handle, Runtime};
-use tracing::error;
 
 /// Custom error type for reth error handling.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Display)]

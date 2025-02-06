@@ -246,6 +246,7 @@ impl<C: ChainSpecParser<ChainSpec = ChainSpec>> Command<C> {
         );
 
         let payload_builder = reth_ethereum_payload_builder::EthereumPayloadBuilder::new(
+            EthEvmConfig::new(provider_factory.chain_spec()),
             EthereumBuilderConfig::new(Default::default()),
         );
 
