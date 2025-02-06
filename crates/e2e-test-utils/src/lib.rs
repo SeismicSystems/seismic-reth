@@ -161,7 +161,6 @@ where
                     .with_http()
                     .with_http_api(RpcModuleSelection::All),
             )
-            .with_tra
             .set_dev(is_dev);
 
         let span = span!(Level::INFO, "node", idx);
