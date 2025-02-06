@@ -217,8 +217,6 @@ impl<C: ChainSpecParser<ChainSpec = ChainSpec>> Command<C> {
                 .await?;
         }
 
-        debug!(target: " TEST reth::cli execute", "timestamp: {:?}", self.timestamp);
-
         let payload_attrs = PayloadAttributes {
             parent_beacon_block_root: self.parent_beacon_block_root,
             prev_randao: self.prev_randao,
@@ -248,7 +246,6 @@ impl<C: ChainSpecParser<ChainSpec = ChainSpec>> Command<C> {
         );
 
         let payload_builder = reth_ethereum_payload_builder::EthereumPayloadBuilder::new(
-            EthEvmConfig::new(provider_factory.chain_spec()),
             EthereumBuilderConfig::new(Default::default()),
         );
 

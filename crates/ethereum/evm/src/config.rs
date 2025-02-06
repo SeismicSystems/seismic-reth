@@ -11,7 +11,6 @@ pub fn revm_spec_by_timestamp_after_merge(
     chain_spec: &ChainSpec,
     timestamp: u64,
 ) -> revm_primitives::SpecId {
-    debug!(target: "TEST revm_spec_by_timestamp_after_merge", "timestamp: {:?}, chain_spec: {:?}", timestamp, chain_spec);
     if chain_spec.is_seismic() {
         revm_primitives::MERCURY
     } else if chain_spec.is_osaka_active_at_timestamp(timestamp) {

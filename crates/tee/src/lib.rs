@@ -50,17 +50,13 @@ where
         match Handle::try_current() {
             Ok(handle) => {
                 // Runtime exists, use it
-                error!(target: "tee", "block_on_with_runtime: runtime exists");
                 let res = handle.block_on(future);
-                error!(target: "tee", "block_on_with_runtime: finished");
                 res
             }
             Err(_) => {
                 // No runtime, create a new one
                 let runtime = Runtime::new().expect("Failed to create a Tokio runtime");
-                error!(target: "tee", "block_on_with_runtime: runtime does not exist");
                 let res = runtime.block_on(future);
-                error!(target: "tee", "block_on_with_runtime: finished");
                 res
             }
         }
@@ -97,9 +93,7 @@ pub fn encrypt<T: TeeAPI>(
 
 /// Blocking call to get the eph_rng_keypair, a SchnorrkelKeypair
 pub fn get_eph_rng_keypair<T: TeeAPI>(tee_client: &T) -> Result<SchnorrkelKeypair, TeeError> {
-    error!(target: "tee", "get_eph_rng_keypair");
     let keypair = block_on_with_runtime(tee_client.get_eph_rng_keypair())
         .map_err(|_| TeeError::EphRngKeypairGenerationError)?;
-    error!(target: "tee", "get_eph_rng_keypair: {:?}", keypair);
     Ok(keypair)
 }

@@ -112,8 +112,6 @@ where
             .cfg_and_block_env(&args.config, &args.config.parent_header)
             .map_err(PayloadBuilderError::other)?;
 
-        debug!(target: "TEST EthereumPayloadBuilder", "spec id : {:?}", cfg_env.handler_cfg.spec_id);
-
         let pool = args.pool.clone();
         default_ethereum_payload(
             self.evm_config.clone(),
@@ -144,8 +142,6 @@ where
         let (cfg_env, block_env) = self
             .cfg_and_block_env(&args.config, &args.config.parent_header)
             .map_err(PayloadBuilderError::other)?;
-
-        debug!(target: "TEST build_empty_payload", "spec id : {:?}", cfg_env.handler_cfg.spec_id);
 
         let pool = args.pool.clone();
 
@@ -244,7 +240,6 @@ where
         initialized_block_env.clone(),
         TxEnv::default(),
     );
-    debug!(target: "TEST payload_builder", "spec id : {:?}", env.spec_id());
     let mut evm = evm_config.evm_with_env(&mut db, env);
 
     let mut receipts = Vec::new();
