@@ -92,5 +92,6 @@ pub fn encrypt<T: TeeAPI>(
 pub fn get_eph_rng_keypair<T: TeeAPI>(tee_client: &T) -> Result<SchnorrkelKeypair, TeeError> {
     let keypair = block_on_with_runtime(tee_client.get_eph_rng_keypair())
         .map_err(|_| TeeError::EphRngKeypairGenerationError)?;
+
     Ok(keypair)
 }
