@@ -123,7 +123,7 @@ pub static DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 /// Seismic testnet specification
 pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     ChainSpec {
-        chain: Chain::from_id(20250205),
+        chain: Chain::from_id(5124),
         genesis: serde_json::from_str(include_str!("../res/genesis/dev.json"))
             .expect("Can't deserialize Dev testnet genesis json"),
         genesis_hash: once_cell_set(DEV_GENESIS_HASH),
@@ -139,7 +139,7 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 /// Seismic mainnet specification
 pub static SEISMIC_MAINNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     let mut spec = ChainSpec {
-        chain: Chain::from_id(20250205),
+        chain: Chain::from_id(5123),
         genesis: serde_json::from_str(include_str!("../res/genesis/mainnet.json"))
             .expect("Can't deserialize Mainnet genesis json"),
         genesis_hash: once_cell_set(MAINNET_GENESIS_HASH),
