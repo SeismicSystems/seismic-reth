@@ -10,7 +10,7 @@ use reth_node_ethereum::EthereumNode;
 use reth_tasks::TaskManager;
 use std::sync::Arc;
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn can_run_eth_node() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
 
@@ -46,7 +46,7 @@ async fn can_run_eth_node() -> eyre::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 #[cfg(unix)]
 async fn can_run_eth_node_with_auth_engine_api_over_ipc() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
@@ -94,7 +94,7 @@ async fn can_run_eth_node_with_auth_engine_api_over_ipc() -> eyre::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 #[cfg(unix)]
 async fn test_failed_run_eth_node_with_no_auth_engine_api_over_ipc_opts() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
