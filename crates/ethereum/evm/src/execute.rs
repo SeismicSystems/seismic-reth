@@ -202,10 +202,6 @@ where
                 tx_env_overrides.apply(evm.tx_mut());
             }
 
-            if let Some(tx_env_overrides) = &mut self.tx_env_overrides {
-                tx_env_overrides.apply(evm.tx_mut());
-            }
-
             // Execute transaction.
             let result_and_state = evm.transact().map_err(move |err| {
                 let new_err = err.map_db_err(|e| e.into());

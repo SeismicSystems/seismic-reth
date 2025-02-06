@@ -74,7 +74,7 @@ where
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> Result<Bytes> {
         self.eth
-            .call(request, block_id, state_overrides, block_overrides)
+            .call(request, block_number, state_overrides, block_overrides)
             .instrument(engine_span!())
             .await
     }

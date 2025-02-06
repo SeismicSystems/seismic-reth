@@ -334,27 +334,6 @@ where
         None,
     )
     .await
-    .unwrap_err();
-    EthApiClient::<Transaction, Block, Receipt, Header>::syncing(client).await.unwrap();
-    EthApiClient::<Transaction, Block, Receipt, Header>::send_transaction(
-        client,
-        transaction_request.clone(),
-    )
-    .await
-    .unwrap_err();
-    EthApiClient::<Transaction, Block, Receipt, Header>::sign_transaction(
-        client,
-        transaction_request,
-    )
-    .await
-    .unwrap_err();
-    EthApiClient::<Transaction, Block, Receipt, Header>::hashrate(client).await.unwrap();
-    EthApiClient::<Transaction, Block, Receipt, Header>::submit_hashrate(
-        client,
-        U256::default(),
-        B256::default(),
-    )
-    .await
     .unwrap();
     EthApiClient::<Transaction, Block, Receipt, Header>::gas_price(client).await.unwrap_err();
     EthApiClient::<Transaction, Block, Receipt, Header>::max_priority_fee_per_gas(client)

@@ -10,9 +10,6 @@ use revm::primitives::FlaggedStorage;
 /// Implementation of noop hashed state cursor.
 pub mod noop;
 
-/// Implementation of noop hashed state cursor.
-pub mod noop;
-
 /// The factory trait for creating cursors over the hashed state.
 pub trait HashedCursorFactory {
     /// The hashed account cursor type.
