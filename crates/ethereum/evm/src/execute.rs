@@ -359,11 +359,7 @@ mod tests {
         database::StateProviderDatabase, test_utils::StateProviderTest, TransitionState,
     };
     use reth_testing_utils::generators::{self, sign_tx_with_key_pair};
-<<<<<<< HEAD
     use revm_primitives::{address, EvmState, FlaggedStorage, BLOCKHASH_SERVE_WINDOW};
-=======
-    use revm_primitives::{address, EvmState, BLOCKHASH_SERVE_WINDOW};
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     use secp256k1::{Keypair, Secp256k1};
     use std::{collections::HashMap, sync::mpsc};
 
@@ -497,11 +493,7 @@ mod tests {
         let timestamp_storage = executor.with_state_mut(|state| {
             state.storage(BEACON_ROOTS_ADDRESS, U256::from(timestamp_index)).unwrap()
         });
-<<<<<<< HEAD
         assert_eq!(timestamp_storage, FlaggedStorage::new_from_value(header.timestamp));
-=======
-        assert_eq!(timestamp_storage, U256::from(header.timestamp));
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         // get parent beacon block root storage and compare
         let parent_beacon_block_root_storage = executor.with_state_mut(|state| {
@@ -509,11 +501,7 @@ mod tests {
                 .storage(BEACON_ROOTS_ADDRESS, U256::from(parent_beacon_block_root_index))
                 .expect("storage value should exist")
         });
-<<<<<<< HEAD
         assert_eq!(parent_beacon_block_root_storage, FlaggedStorage::new_from_value(0x69));
-=======
-        assert_eq!(parent_beacon_block_root_storage, U256::from(0x69));
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     }
 
     #[test]
@@ -744,21 +732,13 @@ mod tests {
         let timestamp_storage = executor.with_state_mut(|state| {
             state.storage(BEACON_ROOTS_ADDRESS, U256::from(timestamp_index)).unwrap()
         });
-<<<<<<< HEAD
         assert_eq!(timestamp_storage, FlaggedStorage::new_from_value(header.timestamp));
-=======
-        assert_eq!(timestamp_storage, U256::from(header.timestamp));
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         // get parent beacon block root storage and compare
         let parent_beacon_block_root_storage = executor.with_state_mut(|state| {
             state.storage(BEACON_ROOTS_ADDRESS, U256::from(parent_beacon_block_root_index)).unwrap()
         });
-<<<<<<< HEAD
         assert_eq!(parent_beacon_block_root_storage, FlaggedStorage::new_from_value(0x69));
-=======
-        assert_eq!(parent_beacon_block_root_storage, U256::from(0x69));
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     }
 
     /// Create a state provider with blockhashes and the EIP-2935 system contract.
@@ -916,11 +896,7 @@ mod tests {
             executor.with_state_mut(|state| state
                 .storage(HISTORY_STORAGE_ADDRESS, U256::from(fork_activation_block - 1))
                 .unwrap()),
-<<<<<<< HEAD
             FlaggedStorage::ZERO
-=======
-            U256::ZERO
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         );
 
         // the hash of the block itself should not be in storage
@@ -979,11 +955,7 @@ mod tests {
                     U256::from(fork_activation_block % BLOCKHASH_SERVE_WINDOW as u64 - 1)
                 )
                 .unwrap()),
-<<<<<<< HEAD
             FlaggedStorage::ZERO
-=======
-            U256::ZERO
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         );
     }
 
@@ -1063,11 +1035,7 @@ mod tests {
             executor.with_state_mut(|state| state
                 .storage(HISTORY_STORAGE_ADDRESS, U256::ZERO)
                 .unwrap()),
-<<<<<<< HEAD
             FlaggedStorage::ZERO
-=======
-            U256::ZERO
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         );
         assert!(executor.with_state_mut(|state| state
             .storage(HISTORY_STORAGE_ADDRESS, U256::from(1))
@@ -1105,21 +1073,13 @@ mod tests {
             executor.with_state_mut(|state| state
                 .storage(HISTORY_STORAGE_ADDRESS, U256::ZERO)
                 .unwrap()),
-<<<<<<< HEAD
             FlaggedStorage::ZERO
-=======
-            U256::ZERO
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         );
         assert_ne!(
             executor.with_state_mut(|state| state
                 .storage(HISTORY_STORAGE_ADDRESS, U256::from(1))
                 .unwrap()),
-<<<<<<< HEAD
             FlaggedStorage::ZERO
-=======
-            U256::ZERO
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         );
         assert!(executor.with_state_mut(|state| state
             .storage(HISTORY_STORAGE_ADDRESS, U256::from(2))

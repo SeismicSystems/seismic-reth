@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 use crate::primitives::alloy_primitives::{BlockNumber, StorageKey};
-=======
-use crate::primitives::alloy_primitives::{BlockNumber, StorageKey, StorageValue};
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use alloy_primitives::{Address, B256, U256};
 use core::ops::{Deref, DerefMut};
 use reth_primitives::Account;
@@ -124,11 +120,7 @@ impl<DB: EvmStateProvider> Database for StateProviderDatabase<DB> {
     /// Retrieves the storage value at a specific index for a given address.
     ///
     /// Returns `Ok` with the storage value, or the default value if not found.
-<<<<<<< HEAD
     fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
-=======
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         self.storage_ref(address, index)
     }
 

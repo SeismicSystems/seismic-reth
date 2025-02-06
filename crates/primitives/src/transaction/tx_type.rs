@@ -1,11 +1,7 @@
 use alloy_consensus::{
     constants::{
         EIP1559_TX_TYPE_ID, EIP2930_TX_TYPE_ID, EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID,
-<<<<<<< HEAD
         LEGACY_TX_TYPE_ID, SEISMIC_TX_TYPE_ID,
-=======
-        LEGACY_TX_TYPE_ID,
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     },
     Typed2718,
 };
@@ -195,13 +191,10 @@ impl reth_codecs::Compact for TxType {
             }
             Self::Eip7702 => {
                 buf.put_u8(EIP7702_TX_TYPE_ID);
-<<<<<<< HEAD
                 COMPACT_EXTENDED_IDENTIFIER_FLAG
             }
             Self::Seismic => {
                 buf.put_u8(SEISMIC_TX_TYPE_ID);
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 COMPACT_EXTENDED_IDENTIFIER_FLAG
             }
             #[cfg(feature = "optimism")]
@@ -299,10 +292,7 @@ mod tests {
     #[case(TxType::Eip1559, COMPACT_IDENTIFIER_EIP1559, vec![])]
     #[case(TxType::Eip4844, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP4844_TX_TYPE_ID])]
     #[case(TxType::Eip7702, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP7702_TX_TYPE_ID])]
-<<<<<<< HEAD
     #[case(TxType::Seismic, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![SEISMIC_TX_TYPE_ID])]
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     #[cfg_attr(feature = "optimism", case(TxType::Deposit, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![op_alloy_consensus::DEPOSIT_TX_TYPE_ID]))]
     fn test_txtype_to_compact(
         #[case] tx_type: TxType,
@@ -322,10 +312,7 @@ mod tests {
     #[case(TxType::Eip1559, COMPACT_IDENTIFIER_EIP1559, vec![])]
     #[case(TxType::Eip4844, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP4844_TX_TYPE_ID])]
     #[case(TxType::Eip7702, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP7702_TX_TYPE_ID])]
-<<<<<<< HEAD
     #[case(TxType::Seismic, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![SEISMIC_TX_TYPE_ID])]
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     #[cfg_attr(feature = "optimism", case(TxType::Deposit, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![op_alloy_consensus::DEPOSIT_TX_TYPE_ID]))]
     fn test_txtype_from_compact(
         #[case] expected_type: TxType,
@@ -344,10 +331,7 @@ mod tests {
     #[case(&[EIP1559_TX_TYPE_ID], Ok(TxType::Eip1559))]
     #[case(&[EIP4844_TX_TYPE_ID], Ok(TxType::Eip4844))]
     #[case(&[EIP7702_TX_TYPE_ID], Ok(TxType::Eip7702))]
-<<<<<<< HEAD
     #[case(&[SEISMIC_TX_TYPE_ID], Ok(TxType::Seismic))]
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     #[case(&[u8::MAX], Err(alloy_rlp::Error::InputTooShort))]
     #[cfg_attr(feature = "optimism", case(&[op_alloy_consensus::DEPOSIT_TX_TYPE_ID], Ok(TxType::Deposit)))]
     fn decode_tx_type(#[case] input: &[u8], #[case] expected: Result<TxType, alloy_rlp::Error>) {

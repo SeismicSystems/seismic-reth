@@ -18,11 +18,8 @@ reth-ethereum-forks.workspace = true
 reth-static-file-types.workspace = true
 revm-primitives = { workspace = true, features = ["serde"] }
 reth-codecs = { workspace = true, optional = true }
-<<<<<<< HEAD
 # reth-optimism-chainspec = { workspace = true, optional = true }
 reth-tracing.workspace = true
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 reth-zstd-compressors = { workspace = true, optional = true }
 
 # ethereum
@@ -162,21 +159,14 @@ optimism = [
 	"dep:op-alloy-consensus",
 	"reth-codecs?/op",
 	"revm-primitives/optimism",
-<<<<<<< HEAD
 	# Was originally not here, but in alloy-compat
 	"dep:op-alloy-rpc-types",
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 ]
 alloy-compat = [
 	"dep:alloy-rpc-types",
 	"dep:alloy-serde",
-<<<<<<< HEAD
 	# Removed from here for malachite-reth
 	# "dep:op-alloy-rpc-types",
-=======
-	"dep:op-alloy-rpc-types",
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     "dep:alloy-network",
 ]
 test-utils = [

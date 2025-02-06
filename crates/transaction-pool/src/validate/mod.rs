@@ -441,14 +441,11 @@ impl<T: PoolTransaction> ValidPoolTransaction<T> {
         }
 
         false
-<<<<<<< HEAD
     }
 
     /// Returns the encryption pubkey of the transaction (Seismic)
     pub fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey> {
         self.transaction.encryption_pubkey()
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     }
 }
 

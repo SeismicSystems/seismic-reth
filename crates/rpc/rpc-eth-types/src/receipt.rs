@@ -113,10 +113,7 @@ impl EthReceiptBuilder {
                 TxType::Eip1559 => ReceiptEnvelope::Eip1559(receipt_with_bloom),
                 TxType::Eip4844 => ReceiptEnvelope::Eip4844(receipt_with_bloom),
                 TxType::Eip7702 => ReceiptEnvelope::Eip7702(receipt_with_bloom),
-<<<<<<< HEAD
                 TxType::Seismic => ReceiptEnvelope::Seismic(receipt_with_bloom),
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 #[allow(unreachable_patterns)]
                 _ => unreachable!(),
             }

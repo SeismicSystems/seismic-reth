@@ -1131,12 +1131,9 @@ pub trait PoolTransaction:
             Ok(())
         }
     }
-<<<<<<< HEAD
 
     /// Returns the encryption pubkey of the transaction (Seismic)
     fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey>;
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 }
 
 /// Super trait for transactions that can be converted to and from Eth transactions intended for the
@@ -1388,13 +1385,10 @@ impl PoolTransaction for EthPooledTransaction {
     fn chain_id(&self) -> Option<u64> {
         self.transaction.chain_id()
     }
-<<<<<<< HEAD
 
     fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey> {
         self.transaction.encryption_pubkey()
     }
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 }
 
 impl EthPoolTransaction for EthPooledTransaction {

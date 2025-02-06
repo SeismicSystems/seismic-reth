@@ -1,6 +1,5 @@
 //! Compact implementation for [`TxType`]
 
-<<<<<<< HEAD
 use crate::txtype::{
     COMPACT_EXTENDED_IDENTIFIER_FLAG, COMPACT_IDENTIFIER_EIP1559, COMPACT_IDENTIFIER_EIP2930,
     COMPACT_IDENTIFIER_LEGACY,
@@ -10,11 +9,6 @@ use alloy_consensus::{
     TxType,
     transaction::TxSeismic,
 };
-=======
-use crate::txtype::{COMPACT_EXTENDED_IDENTIFIER_FLAG, COMPACT_IDENTIFIER_EIP1559, COMPACT_IDENTIFIER_EIP2930, COMPACT_IDENTIFIER_LEGACY};
-use alloy_consensus::constants::{EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID};
-use alloy_consensus::TxType;
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 impl crate::Compact for TxType {
     fn to_compact<B>(&self, buf: &mut B) -> usize
@@ -35,13 +29,10 @@ impl crate::Compact for TxType {
                 buf.put_u8(EIP7702_TX_TYPE_ID);
                 COMPACT_EXTENDED_IDENTIFIER_FLAG
             }
-<<<<<<< HEAD
             Self::Seismic => {
                 buf.put_u8(TxSeismic::TX_TYPE);
                 COMPACT_EXTENDED_IDENTIFIER_FLAG
             }
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         }
     }
 
@@ -74,16 +65,9 @@ impl crate::Compact for TxType {
 mod tests {
     use super::*;
     use rstest::rstest;
-<<<<<<< HEAD
 
     use crate::Compact;
     use alloy_consensus::constants::{EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID};
-=======
-    
-    use alloy_consensus::constants::{EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID};
-    use crate::Compact;
-
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
     #[rstest]
     #[case(TxType::Legacy, COMPACT_IDENTIFIER_LEGACY, vec![])]
@@ -119,8 +103,4 @@ mod tests {
         assert_eq!(actual_type, expected_type, "Unexpected TxType for identifier {identifier}");
         assert!(remaining_buf.is_empty(), "Buffer not fully consumed for identifier {identifier}");
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2

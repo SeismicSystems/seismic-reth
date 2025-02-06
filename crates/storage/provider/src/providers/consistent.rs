@@ -267,7 +267,6 @@ impl<N: ProviderNodeTypes> ConsistentProvider<N> {
                 hash_map::Entry::Vacant(entry) => {
                     let new_storage_value =
                         state_provider.storage(address, old_storage.key)?.unwrap_or_default();
-<<<<<<< HEAD
                     entry.insert((
                         (old_storage.value, old_storage.is_private),
                         (new_storage_value.value, old_storage.is_private),
@@ -275,12 +274,6 @@ impl<N: ProviderNodeTypes> ConsistentProvider<N> {
                 }
                 hash_map::Entry::Occupied(mut entry) => {
                     entry.get_mut().0 = (old_storage.value, old_storage.is_private);
-=======
-                    entry.insert((old_storage.value, new_storage_value));
-                }
-                hash_map::Entry::Occupied(mut entry) => {
-                    entry.get_mut().0 = old_storage.value;
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 }
             };
 
@@ -1392,15 +1385,11 @@ impl<N: ProviderNodeTypes> StorageChangeSetReader for ConsistentProvider<N> {
                     revert.storage_revert.into_iter().map(move |(key, value)| {
                         (
                             BlockNumberAddress((block_number, revert.address)),
-<<<<<<< HEAD
                             StorageEntry {
                                 key: key.into(),
                                 value: value.to_previous_value().value,
                                 is_private: value.to_previous_value().is_private,
                             },
-=======
-                            StorageEntry { key: key.into(), value: value.to_previous_value() },
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                         )
                     })
                 })

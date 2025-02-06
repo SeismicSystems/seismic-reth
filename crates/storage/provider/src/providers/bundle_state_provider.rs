@@ -9,10 +9,7 @@ use reth_trie::{
     updates::TrieUpdates, AccountProof, HashedPostState, HashedStorage, MultiProof,
     MultiProofTargets, StorageMultiProof, TrieInput,
 };
-<<<<<<< HEAD
 use revm::primitives::FlaggedStorage;
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 /// A state provider that resolves to data from either a wrapped [`crate::ExecutionOutcome`]
 /// or an underlying state provider.
@@ -201,11 +198,7 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateProvider for BundleStat
         &self,
         account: Address,
         storage_key: alloy_primitives::StorageKey,
-<<<<<<< HEAD
     ) -> ProviderResult<Option<FlaggedStorage>> {
-=======
-    ) -> ProviderResult<Option<alloy_primitives::StorageValue>> {
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         let u256_storage_key = storage_key.into();
         if let Some(value) = self
             .block_execution_data_provider

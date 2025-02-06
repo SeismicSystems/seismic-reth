@@ -2,14 +2,10 @@
 
 use crate::{FillTxEnv, InMemorySize, MaybeCompact, MaybeSerde};
 use alloc::{fmt, vec::Vec};
-<<<<<<< HEAD
 use alloy_eips::{
     eip2718::{Decodable2718, Encodable2718},
     eip712::Decodable712,
 };
-=======
-use alloy_eips::eip2718::{Decodable2718, Encodable2718};
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use alloy_primitives::{keccak256, Address, PrimitiveSignature, TxHash, B256};
 use core::hash::Hash;
 
@@ -33,10 +29,7 @@ pub trait SignedTransaction:
     + alloy_rlp::Decodable
     + Encodable2718
     + Decodable2718
-<<<<<<< HEAD
     + Decodable712
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     + alloy_consensus::Transaction
     + MaybeSerde
     + InMemorySize

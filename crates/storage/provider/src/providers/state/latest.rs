@@ -1,12 +1,6 @@
 use crate::{
     providers::state::macros::delegate_provider_impls, AccountReader, BlockHashReader,
     HashedPostStateProvider, StateProvider, StateRootProvider,
-<<<<<<< HEAD
-=======
-};
-use alloy_primitives::{
-    map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, StorageValue, B256,
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 };
 use alloy_primitives::{map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, B256};
 use reth_db::tables;
@@ -22,20 +16,12 @@ use reth_trie::{
     witness::TrieWitness,
     AccountProof, HashedPostState, HashedStorage, MultiProof, MultiProofTargets, StateRoot,
     StorageMultiProof, StorageRoot, TrieInput,
-<<<<<<< HEAD
 };
 use reth_trie_db::{
     DatabaseProof, DatabaseStateRoot, DatabaseStorageProof, DatabaseStorageRoot,
     DatabaseTrieWitness, StateCommitment,
 };
 use revm::primitives::FlaggedStorage;
-=======
-};
-use reth_trie_db::{
-    DatabaseProof, DatabaseStateRoot, DatabaseStorageProof, DatabaseStorageRoot,
-    DatabaseTrieWitness, StateCommitment,
-};
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 /// State provider over latest state that takes tx reference.
 ///
@@ -186,11 +172,7 @@ impl<Provider: DBProvider + BlockHashReader + StateCommitmentProvider> StateProv
         &self,
         account: Address,
         storage_key: StorageKey,
-<<<<<<< HEAD
     ) -> ProviderResult<Option<FlaggedStorage>> {
-=======
-    ) -> ProviderResult<Option<StorageValue>> {
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         let mut cursor = self.tx().cursor_dup_read::<tables::PlainStorageState>()?;
         if let Some(entry) = cursor.seek_by_key_subkey(account, storage_key)? {
             if entry.key == storage_key {

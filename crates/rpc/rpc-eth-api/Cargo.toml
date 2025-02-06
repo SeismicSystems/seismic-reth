@@ -31,12 +31,9 @@ reth-rpc-server-types.workspace = true
 reth-network-api.workspace = true
 reth-node-api.workspace = true
 reth-trie-common = { workspace = true, features = ["eip1186"] }
-<<<<<<< HEAD
 
 reth-tee.workspace = true
 secp256k1.workspace = true
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 # ethereum
 alloy-rlp.workspace = true
@@ -46,16 +43,10 @@ alloy-dyn-abi = { workspace = true, features = ["eip712"] }
 alloy-json-rpc.workspace = true
 alloy-network.workspace = true
 alloy-primitives.workspace = true
-<<<<<<< HEAD
 alloy-rpc-types.workspace = true
 alloy-rpc-types-eth.workspace = true
 alloy-rpc-types-mev.workspace = true
 alloy-consensus = { workspace = true, features = ["k256"] }
-=======
-alloy-rpc-types-eth.workspace = true
-alloy-rpc-types-mev.workspace = true
-alloy-consensus.workspace = true
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 # rpc
 jsonrpsee = { workspace = true, features = ["server", "macros"] }

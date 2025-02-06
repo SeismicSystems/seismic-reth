@@ -4,21 +4,13 @@ use super::{
 };
 use alloy_consensus::constants::KECCAK_EMPTY;
 use alloy_eips::{BlockId, BlockNumberOrTag};
-<<<<<<< HEAD
 use alloy_primitives::{Address, BlockHash, BlockNumber, StorageKey, B256, U256};
-=======
-use alloy_primitives::{Address, BlockHash, BlockNumber, StorageKey, StorageValue, B256, U256};
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use auto_impl::auto_impl;
 use reth_primitives::Bytecode;
 use reth_storage_errors::provider::ProviderResult;
 use reth_trie::HashedPostState;
 use reth_trie_db::StateCommitment;
-<<<<<<< HEAD
 use revm::{db::states::BundleState, primitives::FlaggedStorage};
-=======
-use revm::db::states::BundleState;
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 /// Type alias of boxed [`StateProvider`].
 pub type StateProviderBox = Box<dyn StateProvider>;

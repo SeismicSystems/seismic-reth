@@ -5,10 +5,7 @@ use alloy_primitives::{Address, BlockHash, BlockNumber, TxNumber, B256};
 use derive_more::Display;
 use reth_primitives_traits::GotExpected;
 use reth_static_file_types::StaticFileSegment;
-<<<<<<< HEAD
 use reth_tee::TeeError;
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 /// Provider result type.
 pub type ProviderResult<Ok> = Result<Ok, ProviderError>;
@@ -140,7 +137,6 @@ pub enum ProviderError {
     UnifiedStorageWriterError(UnifiedStorageWriterError),
     /// Received invalid output from configured storage implementation.
     InvalidStorageOutput,
-<<<<<<< HEAD
     /// Tee encryptography error.
     TeeError(TeeError),
 }
@@ -149,8 +145,6 @@ impl From<TeeError> for ProviderError {
     fn from(err: TeeError) -> Self {
         Self::TeeError(err)
     }
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 }
 
 impl From<DatabaseError> for ProviderError {

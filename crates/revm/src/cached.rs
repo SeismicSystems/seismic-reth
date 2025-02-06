@@ -6,11 +6,7 @@ use alloy_primitives::{
 use core::cell::RefCell;
 use revm::primitives::{
     db::{Database, DatabaseRef},
-<<<<<<< HEAD
     AccountInfo, Bytecode, FlaggedStorage,
-=======
-    AccountInfo, Bytecode,
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 };
 
 /// A container type that caches reads from an underlying [`DatabaseRef`].

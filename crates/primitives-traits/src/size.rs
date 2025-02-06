@@ -1,10 +1,6 @@
-<<<<<<< HEAD
 use alloy_consensus::{
     Header, TxEip1559, TxEip2930, TxEip4844, TxEip7702, TxLegacy, TxSeismic, TxType,
 };
-=======
-use alloy_consensus::{Header, TxEip1559, TxEip2930, TxEip4844, TxEip7702, TxLegacy, TxType};
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use alloy_primitives::{PrimitiveSignature as Signature, TxHash};
 use revm_primitives::Log;
 
@@ -51,11 +47,7 @@ macro_rules! impl_in_mem_size {
     };
 }
 
-<<<<<<< HEAD
 impl_in_mem_size!(Header, TxLegacy, TxEip2930, TxEip1559, TxEip7702, TxEip4844, TxSeismic);
-=======
-impl_in_mem_size!(Header, TxLegacy, TxEip2930, TxEip1559, TxEip7702, TxEip4844);
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 #[cfg(feature = "op")]
 impl_in_mem_size_size_of!(op_alloy_consensus::OpTxType);

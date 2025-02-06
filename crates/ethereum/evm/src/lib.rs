@@ -20,7 +20,6 @@ extern crate alloc;
 use core::convert::Infallible;
 
 use alloc::{sync::Arc, vec::Vec};
-<<<<<<< HEAD
 use alloy_consensus::{transaction::EncryptionPublicKey, Header, TxSeismic};
 use alloy_primitives::{Address, Bytes, TxKind, U256};
 use reth_chainspec::{ChainSpec, Head};
@@ -31,25 +30,13 @@ use reth_tracing::tracing::debug;
 use revm_primitives::{
     AnalysisKind, BlobExcessGasAndPrice, BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, EVMError,
     EVMResultGeneric, Env, SpecId, TxEnv,
-=======
-use alloy_consensus::Header;
-use alloy_primitives::{Address, Bytes, TxKind, U256};
-use reth_chainspec::{ChainSpec, Head};
-use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};
-use reth_primitives::{transaction::FillTxEnv, TransactionSigned};
-use revm_primitives::{
-    AnalysisKind, BlobExcessGasAndPrice, BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, Env, SpecId, TxEnv,
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 };
 
 mod config;
 use alloy_eips::eip1559::INITIAL_BASE_FEE;
 pub use config::{revm_spec, revm_spec_by_timestamp_after_merge};
 use reth_ethereum_forks::EthereumHardfork;
-<<<<<<< HEAD
 use secp256k1::PublicKey;
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 pub mod execute;
 
@@ -63,7 +50,6 @@ pub mod eip6110;
 #[derive(Debug, Clone)]
 pub struct EthEvmConfig {
     chain_spec: Arc<ChainSpec>,
-<<<<<<< HEAD
     tee_client: TeeHttpClient,
 }
 
@@ -72,26 +58,6 @@ impl EthEvmConfig {
     pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
         Self { chain_spec, tee_client: TeeHttpClient::default() }
     }
-=======
-}
-
-impl EthEvmConfig {
-    /// Creates a new Ethereum EVM configuration with the given chain spec.
-    pub const fn new(chain_spec: Arc<ChainSpec>) -> Self {
-        Self { chain_spec }
-    }
-
-    /// Returns the chain spec associated with this configuration.
-    pub const fn chain_spec(&self) -> &Arc<ChainSpec> {
-        &self.chain_spec
-    }
-}
-
-impl ConfigureEvmEnv for EthEvmConfig {
-    type Header = Header;
-    type Transaction = TransactionSigned;
-    type Error = Infallible;
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
     /// Creates a new Ethereum EVM configuration with the given chain spec.
     pub fn new_with_tee_client(chain_spec: Arc<ChainSpec>, tee_client: TeeHttpClient) -> Self {

@@ -148,16 +148,12 @@ where
         ctx: &BuilderContext<Node>,
     ) -> eyre::Result<(Self::EVM, Self::Executor)> {
         let chain_spec = ctx.chain_spec();
-<<<<<<< HEAD
         let tee_client = TeeHttpClient::new_from_addr_port(
             ctx.config().tee.tee_server_addr,
             ctx.config().tee.tee_server_port,
         );
         info!(target: "reth::cli", "TEE client initialized url={}", tee_client.base_url);
         let evm_config = EthEvmConfig::new_with_tee_client(ctx.chain_spec(), tee_client);
-=======
-        let evm_config = EthEvmConfig::new(ctx.chain_spec());
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         let strategy_factory = EthExecutionStrategyFactory::new(chain_spec, evm_config.clone());
         let executor = BasicBlockExecutorProvider::new(strategy_factory);
 

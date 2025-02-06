@@ -12,20 +12,11 @@ use alloy_rpc_types_engine::{
     TransitionConfiguration,
 };
 use alloy_rpc_types_eth::{
-<<<<<<< HEAD
     state::StateOverride, BlockOverrides, EIP1186AccountProofResponse, Filter, Log, SyncStatus,
-=======
-    state::StateOverride, transaction::TransactionRequest, BlockOverrides,
-    EIP1186AccountProofResponse, Filter, Log, SyncStatus,
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 };
 use alloy_serde::JsonStorageKey;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use reth_engine_primitives::EngineTypes;
-<<<<<<< HEAD
-
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 // NOTE: We can't use associated types in the `EngineApi` trait because of jsonrpsee, so we use a
 // generic here. It would be nice if the rpc macro would understand which types need to have serde.
 // By default, if the trait has a generic, the rpc macro will add e.g. `Engine: DeserializeOwned` to
@@ -249,13 +240,8 @@ pub trait EngineEthApi<B: RpcObject> {
     #[method(name = "call")]
     async fn call(
         &self,
-<<<<<<< HEAD
         request: alloy_rpc_types::SeismicCallRequest,
         block_number: Option<BlockId>,
-=======
-        request: TransactionRequest,
-        block_id: Option<BlockId>,
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes>;

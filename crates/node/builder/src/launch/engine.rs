@@ -88,10 +88,7 @@ where
         self,
         target: NodeBuilderWithComponents<T, CB, AO>,
     ) -> eyre::Result<Self::Node> {
-<<<<<<< HEAD
         debug!(target: "reth::cli", "Launching engine node");
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         let Self { ctx, engine_tree_config } = self;
         let NodeBuilderWithComponents {
             adapter: NodeTypesAdapter { database },

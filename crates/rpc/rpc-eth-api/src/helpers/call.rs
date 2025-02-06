@@ -6,31 +6,20 @@ use crate::{
     helpers::estimate::EstimateCall, FromEthApiError, FromEvmError, FullEthApiTypes,
     IntoEthApiError, RpcBlock, RpcNodeCore,
 };
-<<<<<<< HEAD
 use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader, Typed2718};
-=======
-use alloy_consensus::BlockHeader;
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use alloy_eips::{eip1559::calc_next_block_base_fee, eip2930::AccessListResult};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_eth::{
     simulate::{SimBlock, SimulatePayload, SimulatedBlock},
     state::{EvmOverrides, StateOverride},
     transaction::TransactionRequest,
-<<<<<<< HEAD
     BlockId, Bundle, EthCallResponse, StateContext, TransactionInfo, TransactionTrait,
-=======
-    BlockId, Bundle, EthCallResponse, StateContext, TransactionInfo,
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 };
 use futures::Future;
 use reth_chainspec::EthChainSpec;
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
 use reth_node_api::BlockBody;
-<<<<<<< HEAD
 use reth_primitives::RecoveredTx;
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use reth_primitives_traits::SignedTransaction;
 use reth_provider::{BlockIdReader, ChainSpecProvider, ProviderHeader};
 use reth_revm::{
@@ -49,7 +38,6 @@ use reth_rpc_eth_types::{
         CallFees,
     },
     simulate::{self, EthSimulateError},
-<<<<<<< HEAD
     utils::{recover_raw_transaction, recover_typed_data_request},
     EthApiError, RevertError, RpcInvalidTransactionError, StateCacheDb,
 };
@@ -57,13 +45,6 @@ use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
 use revm::{Database, DatabaseCommit, GetInspector};
 use revm_inspectors::{access_list::AccessListInspector, transfer::TransferInspector};
 use tracing::{debug, trace};
-=======
-    EthApiError, RevertError, RpcInvalidTransactionError, StateCacheDb,
-};
-use revm::{Database, DatabaseCommit, GetInspector};
-use revm_inspectors::{access_list::AccessListInspector, transfer::TransferInspector};
-use tracing::trace;
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 /// Result type for `eth_simulateV1` RPC method.
 pub type SimulatedBlocksResult<N, E> = Result<Vec<SimulatedBlock<RpcBlock<N>>>, E>;
@@ -455,13 +436,9 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                         let env = EnvWithHandlerCfg::new_with_cfg_env(
                             cfg.clone(),
                             block_env.clone(),
-<<<<<<< HEAD
                             RpcNodeCore::evm_config(&this)
                                 .tx_env(tx, *signer)
                                 .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
-=======
-                            RpcNodeCore::evm_config(&this).tx_env(tx, *signer),
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                         );
                         let (res, _) = this.transact(&mut db, env)?;
                         db.commit(res.state);
@@ -736,11 +713,8 @@ pub trait Call:
                     CacheDB::new(StateProviderDatabase::new(StateProviderTraitObjWrapper(&state)));
 
                 let env = this.prepare_call_env(cfg, block_env, request, &mut db, overrides)?;
-<<<<<<< HEAD
 
                 debug!(target: "rpc::eth::call::spawn_with_call_at", ?env, "Prepared call environment");
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
                 f(StateCacheDbRefMutWrapper(&mut db), env)
             })
@@ -799,13 +773,9 @@ pub trait Call:
                 let env = EnvWithHandlerCfg::new_with_cfg_env(
                     cfg,
                     block_env,
-<<<<<<< HEAD
                     RpcNodeCore::evm_config(&this)
                         .tx_env(tx.as_signed(), tx.signer())
                         .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
-=======
-                    RpcNodeCore::evm_config(&this).tx_env(tx.as_signed(), tx.signer()),
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 );
 
                 let (res, _) = this.transact(&mut db, env)?;
@@ -847,13 +817,9 @@ pub trait Call:
                 break
             }
 
-<<<<<<< HEAD
             self.evm_config()
                 .fill_tx_env(evm.tx_mut(), tx, *sender)
                 .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
-=======
-            self.evm_config().fill_tx_env(evm.tx_mut(), tx, *sender);
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             evm.transact_commit().map_err(Self::Error::from_evm_err)?;
             index += 1;
         }
@@ -891,15 +857,10 @@ pub trait Call:
             blob_versioned_hashes,
             max_fee_per_blob_gas,
             authorization_list,
-<<<<<<< HEAD
             transaction_type,
             encryption_pubkey,
             sidecar: _,
             ..
-=======
-            transaction_type: _,
-            sidecar: _,
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         } = request;
 
         let CallFees { max_priority_fee_per_gas, gas_price, max_fee_per_blob_gas } =
@@ -921,7 +882,6 @@ pub trait Call:
             // https://github.com/ledgerwatch/erigon/blob/eae2d9a79cb70dbe30b3a6b79c436872e4605458/eth/ethconfig/config.go#L94>
             block_env.gas_limit.saturating_to()
         });
-<<<<<<< HEAD
 
         let input =
             input.try_into_unique_input().map_err(Self::Error::from_eth_err)?.unwrap_or_default();
@@ -955,8 +915,6 @@ pub trait Call:
         } else {
             input
         };
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         #[allow(clippy::needless_update)]
         let env = TxEnv {
@@ -1021,10 +979,7 @@ pub trait Call:
         DB: DatabaseRef,
         EthApiError: From<<DB as DatabaseRef>::Error>,
     {
-<<<<<<< HEAD
         Self::seismic_override_call_request(&mut request);
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         if request.gas > Some(self.call_gas_limit()) {
             // configured gas exceeds limit
             return Err(
@@ -1044,12 +999,6 @@ pub trait Call:
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
         cfg.disable_base_fee = true;
 
-<<<<<<< HEAD
-=======
-        // set nonce to None so that the correct nonce is chosen by the EVM
-        request.nonce = None;
-
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         if let Some(block_overrides) = overrides.block {
             apply_block_overrides(*block_overrides, db, &mut block);
         }
@@ -1060,15 +1009,12 @@ pub trait Call:
         let request_gas = request.gas;
         let mut env = self.build_call_evm_env(cfg, block, request)?;
 
-<<<<<<< HEAD
         // set nonce to None so that the correct nonce is chosen by the EVM
         // seismic moved from request.nonce = None;
         env.tx.nonce = None;
 
         debug!(target: "rpc::eth::call", ?env, "Prepared call environment");
 
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         if request_gas.is_none() {
             // No gas limit was provided in the request, so we need to cap the transaction gas limit
             if env.tx.gas_price > U256::ZERO {

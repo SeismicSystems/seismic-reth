@@ -1,26 +1,16 @@
 use alloy_consensus::TxEnvelope;
-<<<<<<< HEAD
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_network::eip2718::Decodable2718;
 use alloy_primitives::{Address, Bytes, B256};
 use alloy_rpc_types_eth::Account;
-=======
-use alloy_network::eip2718::Decodable2718;
-use alloy_primitives::{Bytes, B256};
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use reth_chainspec::EthereumHardforks;
 use reth_node_api::{FullNodeComponents, NodePrimitives};
 use reth_node_builder::{rpc::RpcRegistry, NodeTypes};
 use reth_provider::BlockReader;
 use reth_rpc_api::DebugApiServer;
 use reth_rpc_eth_api::{
-<<<<<<< HEAD
     helpers::{EthApiSpec, EthState, FullEthApi, TraceExt},
     EthApiTypes, RpcReceipt,
-=======
-    helpers::{EthApiSpec, EthTransactions, TraceExt},
-    EthApiTypes,
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 };
 
 #[allow(missing_debug_implementations)]
@@ -39,14 +29,8 @@ where
             >,
         >,
     >,
-<<<<<<< HEAD
     EthApi:
         EthApiSpec<Provider: BlockReader<Block = reth_primitives::Block>> + FullEthApi + TraceExt,
-=======
-    EthApi: EthApiSpec<Provider: BlockReader<Block = reth_primitives::Block>>
-        + EthTransactions
-        + TraceExt,
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 {
     /// Injects a raw transaction into the node tx pool via RPC server
     pub async fn inject_tx(&self, raw_tx: Bytes) -> Result<B256, EthApi::Error> {

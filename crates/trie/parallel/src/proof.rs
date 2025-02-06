@@ -311,17 +311,11 @@ mod tests {
                 .insert_storage_for_hashing(state.iter().map(|(address, (_, storage))| {
                     (
                         *address,
-<<<<<<< HEAD
                         storage.iter().map(|(slot, value)| StorageEntry {
                             key: *slot,
                             value: *value,
                             is_private: false,
                         }),
-=======
-                        storage
-                            .iter()
-                            .map(|(slot, value)| StorageEntry { key: *slot, value: *value }),
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                     )
                 }))
                 .unwrap();

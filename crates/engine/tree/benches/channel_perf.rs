@@ -4,13 +4,8 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use revm_primitives::{
-<<<<<<< HEAD
     Account, AccountInfo, AccountStatus, Address, EvmState, EvmStorage, EvmStorageSlot,
     FlaggedStorage, HashMap, B256, U256,
-=======
-    Account, AccountInfo, AccountStatus, Address, EvmState, EvmStorage, EvmStorageSlot, HashMap,
-    B256, U256,
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 };
 use std::thread;
 
@@ -19,15 +14,10 @@ fn create_bench_state(num_accounts: usize) -> EvmState {
     let mut state_changes = HashMap::default();
 
     for i in 0..num_accounts {
-<<<<<<< HEAD
         let storage = EvmStorage::from_iter([(
             U256::from(i),
             EvmStorageSlot::new(FlaggedStorage::new_from_value(i + 1)),
         )]);
-=======
-        let storage =
-            EvmStorage::from_iter([(U256::from(i), EvmStorageSlot::new(U256::from(i + 1)))]);
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         let account = Account {
             info: AccountInfo {

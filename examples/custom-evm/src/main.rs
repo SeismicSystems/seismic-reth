@@ -15,13 +15,9 @@ use reth::{
         handler::register::EvmHandler,
         inspector_handle_register,
         precompile::{Precompile, PrecompileOutput, PrecompileSpecId},
-<<<<<<< HEAD
         primitives::{
             BlockEnv, CfgEnvWithHandlerCfg, EVMResultGeneric, Env, PrecompileResult, TxEnv,
         },
-=======
-        primitives::{BlockEnv, CfgEnvWithHandlerCfg, Env, PrecompileResult, TxEnv},
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         ContextPrecompiles, Database, Evm, EvmBuilder, GetInspector,
     },
     rpc::types::engine::PayloadAttributes,
@@ -52,11 +48,7 @@ pub struct MyEvmConfig {
 }
 
 impl MyEvmConfig {
-<<<<<<< HEAD
     pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
-=======
-    pub const fn new(chain_spec: Arc<ChainSpec>) -> Self {
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         Self { inner: EthEvmConfig::new(chain_spec) }
     }
 }
@@ -98,7 +90,6 @@ impl ConfigureEvmEnv for MyEvmConfig {
 
     type Error = Infallible;
 
-<<<<<<< HEAD
     fn fill_tx_env(
         &self,
         tx_env: &mut TxEnv,
@@ -106,10 +97,6 @@ impl ConfigureEvmEnv for MyEvmConfig {
         sender: Address,
     ) -> EVMResultGeneric<(), reth_tee::TeeError> {
         self.inner.fill_tx_env(tx_env, transaction, sender)
-=======
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &TransactionSigned, sender: Address) {
-        self.inner.fill_tx_env(tx_env, transaction, sender);
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     }
 
     fn fill_tx_env_system_contract_call(

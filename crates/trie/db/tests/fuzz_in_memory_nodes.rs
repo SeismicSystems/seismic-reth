@@ -105,11 +105,7 @@ proptest! {
                 hashed_storage_cursor
                     .upsert(hashed_address, StorageEntry { key: hashed_slot, value: value, is_private: false })
                     .unwrap();
-<<<<<<< HEAD
                 hashed_storage.storage.insert(hashed_slot, FlaggedStorage::new_from_value(value));
-=======
-                hashed_storage.storage.insert(hashed_slot, value);
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             }
 
             // Compute root with in-memory trie nodes overlay

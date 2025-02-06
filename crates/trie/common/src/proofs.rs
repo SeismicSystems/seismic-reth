@@ -13,15 +13,11 @@ use alloy_trie::{
     proof::{verify_proof, ProofNodes, ProofVerificationError},
     TrieMask, EMPTY_ROOT_HASH,
 };
-<<<<<<< HEAD
 use derive_more::derive::{Deref, DerefMut, From, Into, IntoIterator};
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use itertools::Itertools;
 use reth_primitives_traits::Account;
 
 /// Proof targets map.
-<<<<<<< HEAD
 #[derive(Debug, Default, Clone, Deref, DerefMut, From, Into, IntoIterator)]
 pub struct MultiProofTargets(B256HashMap<B256HashSet>);
 
@@ -40,9 +36,6 @@ impl MultiProofTargets {
         }
     }
 }
-=======
-pub type MultiProofTargets = B256HashMap<B256HashSet>;
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 /// The state multiproof of target accounts and multiproofs of their storage tries.
 /// Multiproof is effectively a state subtrie that only contains the nodes

@@ -18,7 +18,6 @@
 extern crate alloc;
 
 use crate::builder::RethEvmBuilder;
-<<<<<<< HEAD
 use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader as _, TxSeismic};
 use alloy_primitives::{Address, Bytes, B256, U256};
 use reth_primitives_traits::BlockHeader;
@@ -28,13 +27,6 @@ use revm_primitives::{
     BlockEnv, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId,
     TxEnv,
 };
-=======
-use alloy_consensus::BlockHeader as _;
-use alloy_primitives::{Address, Bytes, B256, U256};
-use reth_primitives_traits::BlockHeader;
-use revm::{Database, Evm, GetInspector};
-use revm_primitives::{BlockEnv, CfgEnvWithHandlerCfg, Env, EnvWithHandlerCfg, SpecId, TxEnv};
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 pub mod builder;
 pub mod either;
@@ -133,7 +125,6 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
     /// The error type that is returned by [`Self::next_cfg_and_block_env`].
     type Error: core::error::Error + Send + Sync;
 
-<<<<<<< HEAD
     /// seismic feature encrypt the transaction
     fn encrypt(
         &self,
@@ -182,17 +173,6 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
         transaction: &Self::Transaction,
         sender: Address,
     ) -> EVMResultGeneric<(), TeeError>;
-=======
-    /// Returns a [`TxEnv`] from a transaction and [`Address`].
-    fn tx_env(&self, transaction: &Self::Transaction, signer: Address) -> TxEnv {
-        let mut tx_env = TxEnv::default();
-        self.fill_tx_env(&mut tx_env, transaction, signer);
-        tx_env
-    }
-
-    /// Fill transaction environment from a transaction  and the given sender address.
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &Self::Transaction, sender: Address);
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
     /// Fill transaction environment with a system contract call.
     fn fill_tx_env_system_contract_call(

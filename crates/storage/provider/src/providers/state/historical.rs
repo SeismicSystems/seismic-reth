@@ -1,13 +1,6 @@
 use crate::{
     providers::state::macros::delegate_provider_impls, AccountReader, BlockHashReader,
     HashedPostStateProvider, ProviderError, StateProvider, StateRootProvider,
-<<<<<<< HEAD
-=======
-};
-use alloy_eips::merge::EPOCH_SLOTS;
-use alloy_primitives::{
-    map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, StorageValue, B256,
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 };
 use alloy_eips::merge::EPOCH_SLOTS;
 use alloy_primitives::{map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, B256};
@@ -34,10 +27,7 @@ use reth_trie_db::{
     DatabaseHashedPostState, DatabaseHashedStorage, DatabaseProof, DatabaseStateRoot,
     DatabaseStorageProof, DatabaseStorageRoot, DatabaseTrieWitness, StateCommitment,
 };
-<<<<<<< HEAD
 use revm::primitives::FlaggedStorage;
-=======
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use std::fmt::Debug;
 
 /// State provider for a given block number which takes a tx reference.
@@ -742,7 +732,6 @@ mod tests {
         assert_eq!(HistoricalStateProviderRef::new(&db, 0).storage(ADDRESS, STORAGE), Ok(None));
         assert_eq!(
             HistoricalStateProviderRef::new(&db, 3).storage(ADDRESS, STORAGE),
-<<<<<<< HEAD
             Ok(Some(FlaggedStorage::ZERO))
         );
         assert_eq!(
@@ -768,33 +757,6 @@ mod tests {
         assert_eq!(
             HistoricalStateProviderRef::new(&db, 16).storage(ADDRESS, STORAGE),
             Ok(Some(FlaggedStorage::new_from_value(entry_plain.value)))
-=======
-            Ok(Some(U256::ZERO))
-        );
-        assert_eq!(
-            HistoricalStateProviderRef::new(&db, 4).storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at7.value))
-        );
-        assert_eq!(
-            HistoricalStateProviderRef::new(&db, 7).storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at7.value))
-        );
-        assert_eq!(
-            HistoricalStateProviderRef::new(&db, 9).storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at10.value))
-        );
-        assert_eq!(
-            HistoricalStateProviderRef::new(&db, 10).storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at10.value))
-        );
-        assert_eq!(
-            HistoricalStateProviderRef::new(&db, 11).storage(ADDRESS, STORAGE),
-            Ok(Some(entry_at15.value))
-        );
-        assert_eq!(
-            HistoricalStateProviderRef::new(&db, 16).storage(ADDRESS, STORAGE),
-            Ok(Some(entry_plain.value))
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&db, 1).storage(HIGHER_ADDRESS, STORAGE),
@@ -802,11 +764,7 @@ mod tests {
         );
         assert_eq!(
             HistoricalStateProviderRef::new(&db, 1000).storage(HIGHER_ADDRESS, STORAGE),
-<<<<<<< HEAD
             Ok(Some(FlaggedStorage::new_from_value(higher_entry_plain.value)))
-=======
-            Ok(Some(higher_entry_plain.value))
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         );
     }
 

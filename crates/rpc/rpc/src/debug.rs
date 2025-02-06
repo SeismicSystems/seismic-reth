@@ -116,14 +116,10 @@ where
                         env: Env::boxed(
                             cfg.cfg_env.clone(),
                             block_env.clone(),
-<<<<<<< HEAD
                             this.eth_api()
                                 .evm_config()
                                 .tx_env(tx, *signer)
                                 .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
-=======
-                            this.eth_api().evm_config().tx_env(tx, *signer),
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                         ),
                         handler_cfg: cfg.handler_cfg,
                     };
@@ -271,14 +267,10 @@ where
                     env: Env::boxed(
                         cfg.cfg_env.clone(),
                         block_env,
-<<<<<<< HEAD
                         this.eth_api()
                             .evm_config()
                             .tx_env(tx.as_signed(), tx.signer())
                             .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
-=======
-                        this.eth_api().evm_config().tx_env(tx.as_signed(), tx.signer()),
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                     ),
                     handler_cfg: cfg.handler_cfg,
                 };
@@ -559,14 +551,10 @@ where
                             env: Env::boxed(
                                 cfg.cfg_env.clone(),
                                 block_env.clone(),
-<<<<<<< HEAD
                                 this.eth_api()
                                     .evm_config()
                                     .tx_env(tx, *signer)
                                     .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
-=======
-                                this.eth_api().evm_config().tx_env(tx, *signer),
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                             ),
                             handler_cfg: cfg.handler_cfg,
                         };

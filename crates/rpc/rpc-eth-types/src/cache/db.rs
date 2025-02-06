@@ -151,11 +151,7 @@ impl StateProvider for StateProviderTraitObjWrapper<'_> {
         &self,
         account: revm_primitives::Address,
         storage_key: alloy_primitives::StorageKey,
-<<<<<<< HEAD
     ) -> reth_errors::ProviderResult<Option<FlaggedStorage>> {
-=======
-    ) -> reth_errors::ProviderResult<Option<alloy_primitives::StorageValue>> {
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         self.0.storage(account, storage_key)
     }
 

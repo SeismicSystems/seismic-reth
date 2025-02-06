@@ -91,11 +91,7 @@ where
         let proof =
             Proof::new(self.trie_cursor_factory.clone(), self.hashed_cursor_factory.clone())
                 .with_prefix_sets_mut(self.prefix_sets.as_ref().clone())
-<<<<<<< HEAD
                 .multiproof(targets.into())
-=======
-                .multiproof(targets)
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 .map_err(|error| SparseTrieErrorKind::Other(Box::new(error)))?;
 
         Ok(proof.account_subtree.into_inner().remove(path))

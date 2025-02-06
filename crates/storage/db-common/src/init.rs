@@ -278,7 +278,6 @@ where
     let alloc_storage = alloc.filter_map(|(addr, account)| {
         // only return Some if there is storage
         account.storage.as_ref().map(|storage| {
-<<<<<<< HEAD
             (
                 *addr,
                 storage.clone().into_iter().map(|(key, value)| StorageEntry {
@@ -287,9 +286,6 @@ where
                     is_private: false,
                 }),
             )
-=======
-            (*addr, storage.iter().map(|(&key, &value)| StorageEntry { key, value: value.into() }))
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         })
     });
     provider.insert_storage_for_hashing(alloc_storage)?;

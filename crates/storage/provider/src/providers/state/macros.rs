@@ -38,11 +38,7 @@ macro_rules! delegate_provider_impls {
                 fn canonical_hashes_range(&self, start: alloy_primitives::BlockNumber, end: alloy_primitives::BlockNumber) -> reth_storage_errors::provider::ProviderResult<Vec<alloy_primitives::B256>>;
             }
             StateProvider $(where [$($generics)*])? {
-<<<<<<< HEAD
                 fn storage(&self, account: alloy_primitives::Address, storage_key: alloy_primitives::StorageKey) -> reth_storage_errors::provider::ProviderResult<Option<revm::primitives::FlaggedStorage>>;
-=======
-                fn storage(&self, account: alloy_primitives::Address, storage_key: alloy_primitives::StorageKey) -> reth_storage_errors::provider::ProviderResult<Option<alloy_primitives::StorageValue>>;
->>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 fn bytecode_by_hash(&self, code_hash: alloy_primitives::B256) -> reth_storage_errors::provider::ProviderResult<Option<reth_primitives::Bytecode>>;
             }
             StateRootProvider $(where [$($generics)*])? {
