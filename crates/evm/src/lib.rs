@@ -22,6 +22,7 @@ use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader as _, TxSeis
 use alloy_primitives::{Address, Bytes, TxHash, B256, U256};
 use reth_primitives_traits::BlockHeader;
 use reth_tee::{SchnorrkelKeypair, TeeError};
+use reth_tracing::tracing::debug;
 use revm::{seismic::RngContainer, Database, Evm, GetInspector};
 use revm_primitives::{
     BlockEnv, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId,
@@ -68,7 +69,8 @@ pub trait ConfigureEvm: ConfigureEvmEnv {
     ) -> Evm<'_, Self::DefaultExternalContext<'_>, DB> {
         let mut evm = self.evm(db);
         //hardcoding MERCURY for now
-        evm.modify_spec_id(SpecId::MERCURY);
+        debug!(target: "evm", "Configuring evm with spec_id: {:?}", env.spec_id());
+        evm.modify_spec_id(env.spec_id());
         // For now, panicking
         let keypair = match self.get_eph_rng_keypair() {
             Ok(kp) => kp,

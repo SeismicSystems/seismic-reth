@@ -229,6 +229,8 @@ impl ConfigureEvmEnv for EthEvmConfig {
             },
         );
 
+        debug!(target: "EthEvmConfig", "fill_cfg_env spec_id: {:?}", spec_id);
+
         cfg_env.chain_id = self.chain_spec.chain().id();
         cfg_env.perf_analyse_created_bytecodes = AnalysisKind::Analyse;
 
@@ -245,6 +247,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
 
         // ensure we're not missing any timestamp based hardforks
         let spec_id = revm_spec_by_timestamp_after_merge(&self.chain_spec, attributes.timestamp);
+        debug!(target: "EthEvmConfig", "next_cfg_and_block_env spec_id: {:?}, chain_spec: {:?}", spec_id, self.chain_spec);
 
         // if the parent block did not have excess blob gas (i.e. it was pre-cancun), but it is
         // cancun now, we need to set the excess blob gas to the default value(0)
