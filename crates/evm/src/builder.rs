@@ -1,11 +1,8 @@
 //! Builder for creating an EVM with a database and environment.
 
 use alloc::boxed::Box;
-use revm::{
-    handler::register::EvmHandler, inspector_handle_register, Database, Evm, EvmBuilder,
-    GetInspector,
-};
-use revm_primitives::{EnvWithHandlerCfg, SpecId};
+use revm::{inspector_handle_register, Database, Evm, EvmBuilder, GetInspector};
+use revm_primitives::EnvWithHandlerCfg;
 
 /// Builder for creating an EVM with a database and environment.
 ///
@@ -50,9 +47,8 @@ where
 
         //hardcoding for now
         if let Some(env) = self.env {
+            builder = builder.with_spec_id(env.spec_id());
             builder = builder.with_env(env.env);
-            let handler = EvmHandler::seismic_with_spec(SpecId::MERCURY);
-            builder = builder.with_handler(handler);
         }
 
         builder.build()

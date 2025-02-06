@@ -14,7 +14,7 @@ use reth_rpc_eth_api::helpers::EthTransactions;
 use reth_tasks::TaskManager;
 use std::sync::Arc;
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn can_run_dev_node() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
     let tasks = TaskManager::current();

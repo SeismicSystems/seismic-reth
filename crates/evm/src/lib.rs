@@ -66,16 +66,18 @@ pub trait ConfigureEvm: ConfigureEvmEnv {
         env: EnvWithHandlerCfg,
     ) -> Evm<'_, Self::DefaultExternalContext<'_>, DB> {
         let mut evm = self.evm(db);
-        //hardcoding MERCURY for now
-        evm.modify_spec_id(SpecId::MERCURY);
-        // For now, panicking
-        let keypair = match self.get_eph_rng_keypair() {
-            Ok(kp) => kp,
-            Err(err) => {
-                panic!("Failed to get ephemeral RNG keypair: {err:?}");
-            }
-        };
-        evm.context.evm = evm.context.evm.with_rng_container(RngContainer::new(keypair));
+        evm.modify_spec_id(env.spec_id());
+
+        if SpecId::MERCURY.is_enabled_in(env.spec_id()) {
+            let keypair = match self.get_eph_rng_keypair() {
+                Ok(kp) => kp,
+                Err(err) => {
+                    panic!("Failed to get ephemeral RNG keypair: {err:?}");
+                }
+            };
+            evm.context.evm = evm.context.evm.with_rng_container(RngContainer::new(keypair));
+        }
+
         evm.context.evm.env = env.env;
         evm
     }

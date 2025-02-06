@@ -1,11 +1,11 @@
 #![allow(missing_docs)]
 
-use reth::chainspec::EthereumChainSpecParser;
 use reth_cli_commands::node::NoArgs;
 use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher};
 use reth_provider::providers::BlockchainProvider2;
 use reth_tee::mock::MockTeeServer;
 use reth_tracing::tracing::*;
+use seismic_node::chainspec::SeismicChainSpecParser;
 use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 
 fn main() {
@@ -20,7 +20,7 @@ fn main() {
         std::env::set_var("RUST_BACKTRACE", "1");
     }
 
-    if let Err(err) = Cli::<EthereumChainSpecParser, NoArgs>::parse().run(|builder, _| async move {
+    if let Err(err) = Cli::<SeismicChainSpecParser, NoArgs>::parse().run(|builder, _| async move {
         let engine_tree_config = TreeConfig::default()
             .with_data_dir(builder.config().datadir());
         let node = builder

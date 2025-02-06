@@ -1,6 +1,5 @@
 use reth_chainspec::{ChainSpec, EthereumHardforks};
 use reth_ethereum_forks::{EthereumHardfork, Head};
-
 /// Returns the revm [`SpecId`](revm_primitives::SpecId) at the given timestamp.
 ///
 /// # Note
@@ -11,7 +10,9 @@ pub fn revm_spec_by_timestamp_after_merge(
     chain_spec: &ChainSpec,
     timestamp: u64,
 ) -> revm_primitives::SpecId {
-    if chain_spec.is_osaka_active_at_timestamp(timestamp) {
+    if chain_spec.is_seismic() {
+        revm_primitives::MERCURY
+    } else if chain_spec.is_osaka_active_at_timestamp(timestamp) {
         revm_primitives::OSAKA
     } else if chain_spec.is_prague_active_at_timestamp(timestamp) {
         revm_primitives::PRAGUE
@@ -26,7 +27,9 @@ pub fn revm_spec_by_timestamp_after_merge(
 
 /// Map the latest active hardfork at the given block to a revm [`SpecId`](revm_primitives::SpecId).
 pub fn revm_spec(chain_spec: &ChainSpec, block: &Head) -> revm_primitives::SpecId {
-    if chain_spec.fork(EthereumHardfork::Prague).active_at_head(block) {
+    if chain_spec.is_seismic() {
+        revm_primitives::MERCURY
+    } else if chain_spec.fork(EthereumHardfork::Prague).active_at_head(block) {
         revm_primitives::PRAGUE
     } else if chain_spec.fork(EthereumHardfork::Cancun).active_at_head(block) {
         revm_primitives::CANCUN

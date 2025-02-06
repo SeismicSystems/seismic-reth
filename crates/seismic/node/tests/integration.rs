@@ -11,7 +11,7 @@ use alloy_rpc_types::{
     Block, Header, Transaction, TransactionInput, TransactionReceipt, TransactionRequest,
 };
 use assert_cmd::Command;
-use reth_chainspec::DEV;
+use reth_chainspec::SEISMIC_DEV;
 use reth_e2e_test_utils::wallet::Wallet;
 use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
 use reth_rpc_eth_api::EthApiClient;
@@ -51,7 +51,7 @@ impl RethCommand {
         RethCommand(child)
     }
     fn chain_id() -> u64 {
-        DEV.chain().into()
+        SEISMIC_DEV.chain().into()
     }
     fn url() -> String {
         format!("http://127.0.0.1:8545")
@@ -448,7 +448,7 @@ async fn test_seismic_reth_rpc() {
 }
 
 async fn test_seismic_reth_backup() {
-    let chain_id: u64 = DEV.chain.into();
+    let chain_id: u64 = RethCommand::chain_id();
     const RETH_RPC_URL: &str = "http://127.0.0.1:8545";
     let wallet = Wallet::default().with_chain_id(chain_id.into());
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(RETH_RPC_URL).unwrap();
