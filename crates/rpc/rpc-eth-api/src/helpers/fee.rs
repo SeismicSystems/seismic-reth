@@ -126,6 +126,8 @@ pub trait EthFees: LoadFee {
             // Check if the requested range is within the cache bounds
             let fee_entries = self.fee_history_cache().get_history(start_block, end_block).await;
 
+            println!("EthFees fee_entries: {:?}", fee_entries);
+
             if let Some(fee_entries) = fee_entries {
                 if fee_entries.len() != block_count as usize {
                     return Err(EthApiError::InvalidBlockRange.into())
@@ -162,8 +164,8 @@ pub trait EthFees: LoadFee {
                     return Err(EthApiError::InvalidBlockRange.into())
                 }
 
-
                 for header in &headers {
+                    println!("EthFees adding base_fee_per_gas: {:?}", header.base_fee_per_gas());
                     base_fee_per_gas.push(header.base_fee_per_gas().unwrap_or_default() as u128);
                     gas_used_ratio.push(header.gas_used() as f64 / header.gas_limit() as f64);
                     base_fee_per_blob_gas.push(header.blob_fee().unwrap_or_default());
@@ -198,6 +200,29 @@ pub trait EthFees: LoadFee {
                 //
                 // The unwrap is safe since we checked earlier that we got at least 1 header.
                 let last_header = headers.last().expect("is present");
+                println!(
+                    "EthFees adding next base_fee_per_gas: {:?}",
+                    last_header.next_block_base_fee(
+                        self.provider()
+                            .chain_spec()
+                            .base_fee_params_at_timestamp(last_header.timestamp())
+                    ).unwrap_or_default() as u128
+                );
+
+                println!(
+                    "EthFees adding next base_fee_params_at_timestamp: {:?}",
+                    self.provider()
+                        .chain_spec()
+                        .base_fee_params_at_timestamp(last_header.timestamp())
+                );
+
+                println!(
+                    "EthFees last_header gas_used: {:?}, gas_limit: {:?}",
+                    last_header.gas_used(),
+                    last_header.gas_limit()
+                );
+
+
                 base_fee_per_gas.push(
                     last_header.next_block_base_fee(
                     self.provider()
