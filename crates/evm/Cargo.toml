@@ -24,7 +24,6 @@ reth-primitives-traits.workspace = true
 reth-prune-types.workspace = true
 reth-revm.workspace = true
 reth-storage-errors.workspace = true
-reth-tracing.workspace = true
 reth-storage-api = { workspace = true, optional = true }
 
 revm.workspace = true

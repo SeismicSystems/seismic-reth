@@ -22,7 +22,6 @@ use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader as _, TxSeis
 use alloy_primitives::{Address, Bytes, TxHash, B256, U256};
 use reth_primitives_traits::BlockHeader;
 use reth_tee::{SchnorrkelKeypair, TeeError};
-use reth_tracing::tracing::debug;
 use revm::{seismic::RngContainer, Database, Evm, GetInspector};
 use revm_primitives::{
     BlockEnv, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId,
@@ -41,7 +40,6 @@ pub mod system_calls;
 #[cfg(any(test, feature = "test-utils"))]
 /// test helpers for mocking executor
 pub mod test_utils;
-use reth_tracing::tracing::error;
 
 /// Trait for configuring the EVM for executing full blocks.
 #[auto_impl::auto_impl(&, Arc)]

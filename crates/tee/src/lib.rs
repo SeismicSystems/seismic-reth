@@ -50,14 +50,12 @@ where
         match Handle::try_current() {
             Ok(handle) => {
                 // Runtime exists, use it
-                let res = handle.block_on(future);
-                res
+                handle.block_on(future)
             }
             Err(_) => {
                 // No runtime, create a new one
                 let runtime = Runtime::new().expect("Failed to create a Tokio runtime");
-                let res = runtime.block_on(future);
-                res
+                runtime.block_on(future)
             }
         }
     })

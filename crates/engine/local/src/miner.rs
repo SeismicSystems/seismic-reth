@@ -180,7 +180,6 @@ where
     /// Generates payload attributes for a new block, passes them to FCU and inserts built payload
     /// through newPayload.
     async fn advance(&mut self) -> eyre::Result<()> {
-        error!(target: "engine::local", "Advancing the chain");
         let timestamp = std::cmp::max(
             self.last_timestamp + 1,
             std::time::SystemTime::now()
@@ -190,14 +189,12 @@ where
         );
 
         let (tx, rx) = oneshot::channel();
-        error!(target: "engine::local", "Sending forkchoice updated");
         self.to_engine.send(BeaconEngineMessage::ForkchoiceUpdated {
             state: self.forkchoice_state(),
             payload_attrs: Some(self.payload_attributes_builder.build(timestamp)),
             tx,
             version: EngineApiMessageVersion::default(),
         })?;
-        error!(target: "engine::local", "Sent forkchoice updated");
 
         let res = rx.await??.await?;
         if !res.payload_status.is_valid() {
