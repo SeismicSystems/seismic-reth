@@ -80,7 +80,7 @@ where
             .with_rpc(RpcServerArgs::default().with_unused_ports().with_http())
             .set_dev(is_dev);
 
-        let span = span!(Level::INFO, "node", idx);
+        let span = span!(Level::DEBUG, "node", idx);
         let _enter = span.enter();
         let NodeHandle { node, node_exit_future: _ } = NodeBuilder::new(node_config.clone())
             .testing_node(exec.clone())
@@ -161,6 +161,7 @@ where
                     .with_http()
                     .with_http_api(RpcModuleSelection::All),
             )
+            .with_tra
             .set_dev(is_dev);
 
         let span = span!(Level::INFO, "node", idx);
