@@ -15,8 +15,12 @@ use reth_primitives_traits::Account;
 use reth_tracing::tracing::trace;
 use reth_trie_common::{
     updates::{StorageTrieUpdates, TrieUpdates},
+<<<<<<< HEAD
     MultiProof, MultiProofTargets, Nibbles, TrieAccount, TrieNode, EMPTY_ROOT_HASH,
     TRIE_ACCOUNT_RLP_MAX_SIZE,
+=======
+    MultiProof, Nibbles, TrieAccount, TrieNode, EMPTY_ROOT_HASH, TRIE_ACCOUNT_RLP_MAX_SIZE,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 };
 use std::{fmt, iter::Peekable};
 
@@ -207,7 +211,11 @@ impl<F: BlindedProviderFactory> SparseStateTrie<F> {
     /// NOTE: This method does not extensively validate the proof.
     pub fn reveal_multiproof(
         &mut self,
+<<<<<<< HEAD
         targets: MultiProofTargets,
+=======
+        targets: B256HashMap<B256HashSet>,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         multiproof: MultiProof,
     ) -> SparseStateTrieResult<()> {
         let account_subtree = multiproof.account_subtree.into_nodes_sorted();
@@ -560,8 +568,12 @@ mod tests {
                 HashMap::from_iter([
                     (address_1, HashSet::from_iter([slot_1, slot_2])),
                     (address_2, HashSet::from_iter([slot_1, slot_2])),
+<<<<<<< HEAD
                 ])
                 .into(),
+=======
+                ]),
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 MultiProof {
                     account_subtree: proof_nodes,
                     branch_node_hash_masks: HashMap::from_iter([(

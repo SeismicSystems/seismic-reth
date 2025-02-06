@@ -3,10 +3,14 @@ use alloy_primitives::{keccak256, map::HashMap, Address, B256, U256};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use proptest::{prelude::*, strategy::ValueTree, test_runner::TestRunner};
 use reth_trie::{HashedPostState, HashedStorage, KeccakKeyHasher};
+<<<<<<< HEAD
 use revm::{
     db::{states::BundleBuilder, BundleAccount},
     primitives::FlaggedStorage,
 };
+=======
+use revm::db::{states::BundleBuilder, BundleAccount};
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 pub fn hash_post_state(c: &mut Criterion) {
     let mut group = c.benchmark_group("Hash Post State");

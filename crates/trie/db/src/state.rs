@@ -1,7 +1,11 @@
 use crate::{DatabaseHashedCursorFactory, DatabaseTrieCursorFactory, PrefixSetLoader};
 use alloy_primitives::{
     map::{AddressHashMap, B256HashMap},
+<<<<<<< HEAD
     Address, BlockNumber, B256,
+=======
+    Address, BlockNumber, B256, U256,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 };
 use reth_db::tables;
 use reth_db_api::{
@@ -16,7 +20,10 @@ use reth_trie::{
     updates::TrieUpdates, HashedPostState, HashedStorage, KeccakKeyHasher, KeyHasher, StateRoot,
     StateRootProgress, TrieInput,
 };
+<<<<<<< HEAD
 use revm::primitives::FlaggedStorage;
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use std::{collections::HashMap, ops::RangeInclusive};
 use tracing::debug;
 
@@ -231,14 +238,22 @@ impl<TX: DbTx> DatabaseHashedPostState<TX> for HashedPostState {
         }
 
         // Iterate over storage changesets and record value before first occurring storage change.
+<<<<<<< HEAD
         let mut storages = AddressHashMap::<B256HashMap<FlaggedStorage>>::default();
+=======
+        let mut storages = AddressHashMap::<B256HashMap<U256>>::default();
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         let mut storage_changesets_cursor = tx.cursor_read::<tables::StorageChangeSets>()?;
         for entry in
             storage_changesets_cursor.walk_range(BlockNumberAddress((from, Address::ZERO))..)?
         {
             let (BlockNumberAddress((_, address)), storage) = entry?;
             let account_storage = storages.entry(address).or_default();
+<<<<<<< HEAD
             account_storage.entry(storage.key).or_insert(storage.into());
+=======
+            account_storage.entry(storage.key).or_insert(storage.value);
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         }
 
         let hashed_accounts =
@@ -286,6 +301,7 @@ mod tests {
         let bundle_state = BundleState::builder(2..=2)
             .state_present_account_info(address1, account1)
             .state_present_account_info(address2, account2)
+<<<<<<< HEAD
             .state_storage(
                 address1,
                 HashMap::from_iter([(
@@ -300,6 +316,10 @@ mod tests {
                     (FlaggedStorage::ZERO, FlaggedStorage::new_from_value(20)),
                 )]),
             )
+=======
+            .state_storage(address1, HashMap::from_iter([(slot1, (U256::ZERO, U256::from(10)))]))
+            .state_storage(address2, HashMap::from_iter([(slot2, (U256::ZERO, U256::from(20)))]))
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             .build();
         assert_eq!(bundle_state.reverts.len(), 1);
 

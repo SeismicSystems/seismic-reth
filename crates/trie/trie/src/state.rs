@@ -11,10 +11,14 @@ use itertools::Itertools;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use reth_primitives::Account;
 use reth_trie_common::KeyHasher;
+<<<<<<< HEAD
 use revm::{
     db::{states::CacheAccount, AccountStatus, BundleAccount},
     primitives::FlaggedStorage,
 };
+=======
+use revm::db::{states::CacheAccount, AccountStatus, BundleAccount};
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use std::borrow::Cow;
 
 /// Representation of in-memory hashed state.
@@ -213,7 +217,11 @@ pub struct HashedStorage {
     /// Flag indicating whether the storage was wiped or not.
     pub wiped: bool,
     /// Mapping of hashed storage slot to storage value.
+<<<<<<< HEAD
     pub storage: B256HashMap<FlaggedStorage>,
+=======
+    pub storage: B256HashMap<U256>,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 }
 
 impl HashedStorage {
@@ -461,7 +469,11 @@ mod tests {
         let mut storage = StorageWithOriginalValues::default();
         storage.insert(
             U256::from(1),
+<<<<<<< HEAD
             StorageSlot { present_value: FlaggedStorage::new_from_value(4), ..Default::default() },
+=======
+            StorageSlot { present_value: U256::from(4), ..Default::default() },
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         );
 
         // Create a `BundleAccount` struct to represent the account and its storage.
@@ -503,7 +515,11 @@ mod tests {
         };
 
         let mut storage = PlainStorage::default();
+<<<<<<< HEAD
         storage.insert(U256::from(1), FlaggedStorage::new_from_value(35636));
+=======
+        storage.insert(U256::from(1), U256::from(35636));
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         // Create a `CacheAccount` with the mock account info.
         let account = CacheAccount {

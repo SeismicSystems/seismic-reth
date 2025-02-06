@@ -164,7 +164,10 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
             dev: DevArgs::default(),
             pruning: PruningArgs::default(),
             datadir: DatadirArgs::default(),
+<<<<<<< HEAD
             tee: TeeArgs::default(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         }
     }
 
@@ -453,7 +456,10 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
             db: self.db,
             dev: self.dev,
             pruning: self.pruning,
+<<<<<<< HEAD
             tee: self.tee,
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         }
     }
 }
@@ -480,7 +486,10 @@ impl<ChainSpec> Clone for NodeConfig<ChainSpec> {
             dev: self.dev,
             pruning: self.pruning.clone(),
             datadir: self.datadir.clone(),
+<<<<<<< HEAD
             tee: self.tee.clone(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         }
     }
 }

@@ -1,6 +1,10 @@
 use alloy_primitives::{Address, B256, U256};
 use revm::{
+<<<<<<< HEAD
     primitives::{AccountInfo, Bytecode, FlaggedStorage},
+=======
+    primitives::{AccountInfo, Bytecode},
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     Database,
 };
 
@@ -36,7 +40,11 @@ where
         }
     }
 
+<<<<<<< HEAD
     fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
+=======
+    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         match self {
             Self::Left(db) => db.storage(address, index),
             Self::Right(db) => db.storage(address, index),

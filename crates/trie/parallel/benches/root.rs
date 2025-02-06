@@ -13,7 +13,10 @@ use reth_trie::{
 };
 use reth_trie_db::{DatabaseHashedCursorFactory, DatabaseStateRoot};
 use reth_trie_parallel::root::ParallelStateRoot;
+<<<<<<< HEAD
 use revm_primitives::FlaggedStorage;
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use std::collections::HashMap;
 
 pub fn calculate_state_root(c: &mut Criterion) {

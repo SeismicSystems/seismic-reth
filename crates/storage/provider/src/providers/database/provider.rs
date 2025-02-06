@@ -2107,11 +2107,15 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
 
             // revert storages
             for (storage_key, (old_storage_value, _new_storage_value)) in storage {
+<<<<<<< HEAD
                 let storage_entry = StorageEntry {
                     key: *storage_key,
                     value: old_storage_value.0,
                     is_private: old_storage_value.1,
                 };
+=======
+                let storage_entry = StorageEntry { key: *storage_key, value: *old_storage_value };
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 // delete previous value
                 // TODO: This does not use dupsort features
                 if plain_storage_cursor
@@ -2123,7 +2127,11 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
                 }
 
                 // insert value if needed
+<<<<<<< HEAD
                 if !FlaggedStorage::new(old_storage_value.0, old_storage_value.1).is_zero() {
+=======
+                if !old_storage_value.is_zero() {
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                     plain_storage_cursor.upsert(*address, storage_entry)?;
                 }
             }
@@ -2211,11 +2219,15 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
 
             // revert storages
             for (storage_key, (old_storage_value, _new_storage_value)) in storage {
+<<<<<<< HEAD
                 let storage_entry = StorageEntry {
                     key: *storage_key,
                     value: old_storage_value.0,
                     is_private: old_storage_value.1,
                 };
+=======
+                let storage_entry = StorageEntry { key: *storage_key, value: *old_storage_value };
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 // delete previous value
                 // TODO: This does not use dupsort features
                 if plain_storage_cursor
@@ -2227,7 +2239,11 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
                 }
 
                 // insert value if needed
+<<<<<<< HEAD
                 if !FlaggedStorage::new(old_storage_value.0, old_storage_value.1).is_zero() {
+=======
+                if !old_storage_value.is_zero() {
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                     plain_storage_cursor.upsert(*address, storage_entry)?;
                 }
             }
@@ -2436,6 +2452,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypes> HashingWriter for DatabaseProvi
         let mut hashed_storages = changesets
             .into_iter()
             .map(|(BlockNumberAddress((_, address)), storage_entry)| {
+<<<<<<< HEAD
                 (
                     keccak256(address),
                     keccak256(storage_entry.key),
@@ -2445,6 +2462,12 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypes> HashingWriter for DatabaseProvi
             })
             .collect::<Vec<_>>();
         hashed_storages.sort_by_key(|(ha, hk, _, _)| (*ha, *hk));
+=======
+                (keccak256(address), keccak256(storage_entry.key), storage_entry.value)
+            })
+            .collect::<Vec<_>>();
+        hashed_storages.sort_by_key(|(ha, hk, _)| (*ha, *hk));
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         // Apply values to HashedState, and remove the account if it's None.
         let mut hashed_storage_keys: HashMap<B256, BTreeSet<B256>> =
@@ -2495,10 +2518,10 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypes> HashingWriter for DatabaseProvi
                 map
             });
 
-        let hashed_storage_keys =
-            HashMap::from_iter(hashed_storages.iter().map(|(hashed_address, entries)| {
-                (*hashed_address, BTreeSet::from_iter(entries.keys().copied()))
-            }));
+        let hashed_storage_keys = hashed_storages
+            .iter()
+            .map(|(hashed_address, entries)| (*hashed_address, entries.keys().copied().collect()))
+            .collect();
 
         let mut hashed_storage_cursor = self.tx.cursor_dup_write::<tables::HashedStorages>()?;
         // Hash the address and key and apply them to HashedStorage (if Storage is None

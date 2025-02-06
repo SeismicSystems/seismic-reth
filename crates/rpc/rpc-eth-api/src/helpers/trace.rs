@@ -220,9 +220,13 @@ pub trait Trace:
                 let env = EnvWithHandlerCfg::new_with_cfg_env(
                     cfg,
                     block_env,
+<<<<<<< HEAD
                     RpcNodeCore::evm_config(&this)
                         .tx_env(tx.as_signed(), tx.signer())
                         .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
+=======
+                    RpcNodeCore::evm_config(&this).tx_env(tx.as_signed(), tx.signer()),
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 );
                 let (res, _) =
                     this.inspect(StateCacheDbRefMutWrapper(&mut db), env, &mut inspector)?;
@@ -336,6 +340,39 @@ pub trait Trace:
                     CacheDB::new(StateProviderDatabase::new(StateProviderTraitObjWrapper(&state)));
 
                 this.apply_pre_execution_changes(&block, &mut db, &cfg, &block_env)?;
+<<<<<<< HEAD
+=======
+
+                // prepare transactions, we do everything upfront to reduce time spent with open
+                // state
+                let max_transactions =
+                    highest_index.map_or(block.body.transactions().len(), |highest| {
+                        // we need + 1 because the index is 0-based
+                        highest as usize + 1
+                    });
+                let mut results = Vec::with_capacity(max_transactions);
+
+                let mut transactions = block
+                    .transactions_with_sender()
+                    .take(max_transactions)
+                    .enumerate()
+                    .map(|(idx, (signer, tx))| {
+                        let tx_info = TransactionInfo {
+                            hash: Some(*tx.tx_hash()),
+                            index: Some(idx as u64),
+                            block_hash: Some(block_hash),
+                            block_number: Some(block_number),
+                            base_fee: Some(base_fee),
+                        };
+                        let tx_env = this.evm_config().tx_env(tx, *signer);
+                        (tx_info, tx_env)
+                    })
+                    .peekable();
+
+                while let Some((tx_info, tx)) = transactions.next() {
+                    let env =
+                        EnvWithHandlerCfg::new_with_cfg_env(cfg.clone(), block_env.clone(), tx);
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
                 // prepare transactions, we do everything upfront to reduce time spent with open
                 // state

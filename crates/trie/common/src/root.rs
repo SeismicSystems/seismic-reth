@@ -6,7 +6,10 @@ use alloy_rlp::Encodable;
 use alloy_trie::HashBuilder;
 use itertools::Itertools;
 use nybbles::Nibbles;
+<<<<<<< HEAD
 use revm_primitives::FlaggedStorage;
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 /// Hashes and sorts account keys, then proceeds to calculating the root hash of the state
 /// represented as MPT.
@@ -62,8 +65,13 @@ pub fn storage_root_unhashed(storage: impl IntoIterator<Item = (B256, FlaggedSto
 
 /// Sorts and calculates the root hash of account storage trie.
 /// See [`storage_root`] for more info.
+<<<<<<< HEAD
 pub fn storage_root_unsorted(storage: impl IntoIterator<Item = (B256, FlaggedStorage)>) -> B256 {
     storage_root(storage.into_iter().sorted_by_key(|(key, _)| *key))
+=======
+pub fn storage_root_unsorted(storage: impl IntoIterator<Item = (B256, U256)>) -> B256 {
+    storage_root(storage.into_iter().sorted_unstable_by_key(|(key, _)| *key))
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 }
 
 /// Calculates the root hash of account storage trie.

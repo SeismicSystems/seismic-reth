@@ -154,8 +154,12 @@ mod tests {
     use metrics_util::debugging::{DebugValue, DebuggingRecorder, Snapshotter};
     use revm::db::BundleState;
     use revm_primitives::{
+<<<<<<< HEAD
         Account, AccountInfo, AccountStatus, EvmState, EvmStorage, EvmStorageSlot, FlaggedStorage,
         B256, U256,
+=======
+        Account, AccountInfo, AccountStatus, EvmState, EvmStorage, EvmStorageSlot, B256, U256,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     };
     use std::sync::mpsc;
 
@@ -249,10 +253,15 @@ mod tests {
 
         let state = {
             let mut state = EvmState::default();
+<<<<<<< HEAD
             let storage = EvmStorage::from_iter([(
                 U256::from(1),
                 EvmStorageSlot::new(FlaggedStorage::new_from_value(2)),
             )]);
+=======
+            let storage =
+                EvmStorage::from_iter([(U256::from(1), EvmStorageSlot::new(U256::from(2)))]);
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             state.insert(
                 Default::default(),
                 Account {

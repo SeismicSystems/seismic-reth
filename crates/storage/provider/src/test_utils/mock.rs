@@ -13,7 +13,11 @@ use alloy_eips::{
 use alloy_primitives::{
     keccak256,
     map::{B256HashMap, HashMap},
+<<<<<<< HEAD
     Address, BlockHash, BlockNumber, Bytes, StorageKey, TxHash, TxNumber, B256, U256,
+=======
+    Address, BlockHash, BlockNumber, Bytes, StorageKey, StorageValue, TxHash, TxNumber, B256, U256,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 };
 use parking_lot::Mutex;
 use reth_chainspec::{ChainInfo, ChainSpec};
@@ -38,7 +42,11 @@ use reth_trie::{
     MultiProofTargets, StorageMultiProof, StorageProof, TrieInput,
 };
 use reth_trie_db::MerklePatriciaTrie;
+<<<<<<< HEAD
 use revm::primitives::{BlockEnv, CfgEnvWithHandlerCfg, FlaggedStorage};
+=======
+use revm::primitives::{BlockEnv, CfgEnvWithHandlerCfg};
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use std::{
     collections::BTreeMap,
     ops::{RangeBounds, RangeInclusive},

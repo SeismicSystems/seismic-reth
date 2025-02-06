@@ -53,5 +53,8 @@ rustc-ice-*
 
 # Book sources should be able to build with the latest version
 book/sources/Cargo.lock
+<<<<<<< HEAD
 
 crates/seismic/node/tmp/
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2

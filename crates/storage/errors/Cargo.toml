@@ -15,7 +15,10 @@ workspace = true
 reth-primitives-traits.workspace = true
 reth-fs-util.workspace = true
 reth-static-file-types.workspace = true
+<<<<<<< HEAD
 reth-tee.workspace = true
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 # ethereum
 alloy-eips.workspace = true

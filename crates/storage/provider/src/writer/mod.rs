@@ -226,7 +226,10 @@ mod tests {
         test_utils::create_test_provider_factory, AccountReader, StorageTrieWriter, TrieWriter,
     };
     use alloy_primitives::{keccak256, map::HashMap, Address, B256, U256};
+<<<<<<< HEAD
     use notify::event::Flag;
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     use reth_db::tables;
     use reth_db_api::{
         cursor::{DbCursorRO, DbCursorRW, DbDupCursorRO},
@@ -457,12 +460,16 @@ mod tests {
         state.insert_account_with_storage(
             address_b,
             account_b.clone(),
+<<<<<<< HEAD
             HashMap::from_iter([(U256::from(1), FlaggedStorage::new(1, false))]),
         );
         state.insert_account_with_storage(
             address_c,
             account_c.clone(),
             HashMap::from_iter([(U256::from(3), FlaggedStorage::new(1, false))]),
+=======
+            HashMap::from_iter([(U256::from(1), U256::from(1))]),
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         );
 
         state.commit(HashMap::from_iter([
@@ -768,10 +775,14 @@ mod tests {
         state.insert_account_with_storage(
             address1,
             account_info.clone(),
+<<<<<<< HEAD
             HashMap::from_iter([
                 (U256::ZERO, FlaggedStorage::new_from_value(1)),
                 (U256::from(1), FlaggedStorage::new_from_value(2)),
             ]),
+=======
+            HashMap::from_iter([(U256::ZERO, U256::from(1)), (U256::from(1), U256::from(2))]),
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         );
 
         // Block #1: change storage.
@@ -1129,10 +1140,14 @@ mod tests {
         state.insert_account_with_storage(
             address1,
             account1.clone(),
+<<<<<<< HEAD
             HashMap::from_iter([
                 (U256::ZERO, FlaggedStorage::new_from_value(1)),
                 (U256::from(1), FlaggedStorage::new_from_value(2)),
             ]),
+=======
+            HashMap::from_iter([(U256::ZERO, U256::from(1)), (U256::from(1), U256::from(2))]),
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         );
 
         // Block #1: Destroy, re-create, change storage.
@@ -1316,7 +1331,11 @@ mod tests {
         state.insert_account_with_storage(
             address2,
             account2.0.into(),
+<<<<<<< HEAD
             HashMap::from_iter([(slot2, FlaggedStorage::new_from_value(account2_slot2_old_value))]),
+=======
+            HashMap::from_iter([(slot2, account2_slot2_old_value)]),
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         );
 
         let account2_slot2_new_value = U256::from(100);

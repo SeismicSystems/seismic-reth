@@ -107,9 +107,12 @@ pub fn transaction_to_call_request(tx: RecoveredTx) -> TransactionRequest {
         transaction_type: Some(tx_type.into()),
         sidecar: None,
         authorization_list,
+<<<<<<< HEAD
         // TODO: Peter/Christian?
         // alloy_consensus::transaction::EncryptionPublicKey::new([0u8;33])
         encryption_pubkey: None,
         message_version: None,
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     }
 }

@@ -18,7 +18,11 @@ use reth_primitives::EthPrimitives;
 use reth_provider::{
     BlockReader, BlockReaderIdExt, CanonStateSubscriptions, StageCheckpointReader,
 };
+<<<<<<< HEAD
 use reth_rpc_eth_api::helpers::{EthApiSpec, FullEthApi, TraceExt};
+=======
+use reth_rpc_eth_api::helpers::{EthApiSpec, EthTransactions, TraceExt};
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use reth_stages_types::StageId;
 use std::{marker::PhantomData, pin::Pin};
 use tokio_stream::StreamExt;
@@ -98,7 +102,11 @@ where
         Engine::ExecutionPayloadEnvelopeV3: From<Engine::BuiltPayload> + PayloadEnvelopeExt,
         Engine::ExecutionPayloadEnvelopeV4: From<Engine::BuiltPayload> + PayloadEnvelopeExt,
         AddOns::EthApi: EthApiSpec<Provider: BlockReader<Block = reth_primitives::Block>>
+<<<<<<< HEAD
             + FullEthApi
+=======
+            + EthTransactions
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             + TraceExt,
     {
         let mut chain = Vec::with_capacity(length as usize);

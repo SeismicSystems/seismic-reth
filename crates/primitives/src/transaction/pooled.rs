@@ -8,14 +8,21 @@ use crate::{BlobTransaction, RecoveredTx, Transaction, TransactionSigned};
 use alloc::vec::Vec;
 use alloy_consensus::{
     constants::EIP4844_TX_TYPE_ID,
+<<<<<<< HEAD
     transaction::{TxEip1559, TxEip2930, TxEip4844, TxLegacy, TxSeismic},
+=======
+    transaction::{TxEip1559, TxEip2930, TxEip4844, TxLegacy},
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     SignableTransaction, Signed, TxEip4844WithSidecar, Typed2718,
 };
 use alloy_eips::{
     eip2718::{Decodable2718, Eip2718Result, Encodable2718},
     eip2930::AccessList,
     eip4844::BlobTransactionSidecar,
+<<<<<<< HEAD
     eip712::{Decodable712, Eip712Error, Eip712Result, TypedDataRequest},
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     eip7702::SignedAuthorization,
 };
 use alloy_primitives::{
@@ -79,7 +86,10 @@ impl PooledTransactionsElement {
     pub fn signature_hash(&self) -> B256 {
         match self {
             Self::Legacy(tx) => tx.signature_hash(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.signature_hash(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.signature_hash(),
             Self::Eip1559(tx) => tx.signature_hash(),
             Self::Eip7702(tx) => tx.signature_hash(),
@@ -91,7 +101,10 @@ impl PooledTransactionsElement {
     pub const fn hash(&self) -> &TxHash {
         match self {
             Self::Legacy(tx) => tx.hash(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.hash(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.hash(),
             Self::Eip1559(tx) => tx.hash(),
             Self::Eip7702(tx) => tx.hash(),
@@ -103,7 +116,10 @@ impl PooledTransactionsElement {
     pub const fn signature(&self) -> &Signature {
         match self {
             Self::Legacy(tx) => tx.signature(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.signature(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.signature(),
             Self::Eip1559(tx) => tx.signature(),
             Self::Eip7702(tx) => tx.signature(),
@@ -134,7 +150,10 @@ impl PooledTransactionsElement {
     pub fn encode_for_signing(&self, out: &mut dyn bytes::BufMut) {
         match self {
             Self::Legacy(tx) => tx.tx().encode_for_signing(out),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().encode_for_signing(out),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().encode_for_signing(out),
             Self::Eip1559(tx) => tx.tx().encode_for_signing(out),
             Self::BlobTransaction(tx) => tx.tx().encode_for_signing(out),
@@ -152,7 +171,10 @@ impl PooledTransactionsElement {
     pub fn into_transaction(self) -> TransactionSigned {
         match self {
             Self::Legacy(tx) => tx.into(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.into(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.into(),
             Self::Eip1559(tx) => tx.into(),
             Self::Eip7702(tx) => tx.into(),
@@ -307,7 +329,10 @@ impl Encodable2718 for PooledTransactionsElement {
     fn type_flag(&self) -> Option<u8> {
         match self {
             Self::Legacy(_) => None,
+<<<<<<< HEAD
             Self::Seismic(_) => None,
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(_) => Some(0x01),
             Self::Eip1559(_) => Some(0x02),
             Self::BlobTransaction(_) => Some(0x03),
@@ -318,7 +343,10 @@ impl Encodable2718 for PooledTransactionsElement {
     fn encode_2718_len(&self) -> usize {
         match self {
             Self::Legacy(tx) => tx.eip2718_encoded_length(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.eip2718_encoded_length(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.eip2718_encoded_length(),
             Self::Eip1559(tx) => tx.eip2718_encoded_length(),
             Self::Eip7702(tx) => tx.eip2718_encoded_length(),
@@ -329,7 +357,10 @@ impl Encodable2718 for PooledTransactionsElement {
     fn encode_2718(&self, out: &mut dyn alloy_rlp::BufMut) {
         match self {
             Self::Legacy(tx) => tx.eip2718_encode(out),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.eip2718_encode(out),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.eip2718_encode(out),
             Self::Eip1559(tx) => tx.eip2718_encode(out),
             Self::Eip7702(tx) => tx.eip2718_encode(out),
@@ -377,7 +408,10 @@ impl Decodable2718 for PooledTransactionsElement {
                     )),
                     Transaction::Eip1559(tx) => Ok(Self::Eip1559( Signed::new_unchecked(tx, typed_tx.signature, hash))),
                     Transaction::Eip7702(tx) => Ok(Self::Eip7702( Signed::new_unchecked(tx, typed_tx.signature, hash))),
+<<<<<<< HEAD
                     Transaction::Seismic(tx) => Ok(Self::Seismic( Signed::new_unchecked(tx, typed_tx.signature, hash))),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                     #[cfg(feature = "optimism")]
                     Transaction::Deposit(_) => Err(RlpError::Custom("Optimism deposit transaction cannot be decoded to PooledTransactionsElement").into())
                 }
@@ -398,7 +432,10 @@ impl Typed2718 for PooledTransactionsElement {
     fn ty(&self) -> u8 {
         match self {
             Self::Legacy(tx) => tx.tx().ty(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().ty(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().ty(),
             Self::Eip1559(tx) => tx.tx().ty(),
             Self::BlobTransaction(tx) => tx.tx().ty(),
@@ -407,6 +444,7 @@ impl Typed2718 for PooledTransactionsElement {
     }
 }
 
+<<<<<<< HEAD
 impl Decodable712 for PooledTransactionsElement {
     fn decode_712(typed_data: &TypedDataRequest) -> Eip712Result<Self> {
         let tx_signed = TransactionSigned::decode_712(typed_data)?;
@@ -419,11 +457,16 @@ impl Decodable712 for PooledTransactionsElement {
     }
 }
 
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn chain_id(&self) -> Option<ChainId> {
         match self {
             Self::Legacy(tx) => tx.tx().chain_id(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().chain_id(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().chain_id(),
             Self::Eip1559(tx) => tx.tx().chain_id(),
             Self::Eip7702(tx) => tx.tx().chain_id(),
@@ -434,7 +477,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn nonce(&self) -> u64 {
         match self {
             Self::Legacy(tx) => tx.tx().nonce(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().nonce(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().nonce(),
             Self::Eip1559(tx) => tx.tx().nonce(),
             Self::Eip7702(tx) => tx.tx().nonce(),
@@ -445,7 +491,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn gas_limit(&self) -> u64 {
         match self {
             Self::Legacy(tx) => tx.tx().gas_limit(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().gas_limit(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().gas_limit(),
             Self::Eip1559(tx) => tx.tx().gas_limit(),
             Self::Eip7702(tx) => tx.tx().gas_limit(),
@@ -456,7 +505,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn gas_price(&self) -> Option<u128> {
         match self {
             Self::Legacy(tx) => tx.tx().gas_price(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().gas_price(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().gas_price(),
             Self::Eip1559(tx) => tx.tx().gas_price(),
             Self::Eip7702(tx) => tx.tx().gas_price(),
@@ -467,7 +519,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn max_fee_per_gas(&self) -> u128 {
         match self {
             Self::Legacy(tx) => tx.tx().max_fee_per_gas(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().max_fee_per_gas(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().max_fee_per_gas(),
             Self::Eip1559(tx) => tx.tx().max_fee_per_gas(),
             Self::Eip7702(tx) => tx.tx().max_fee_per_gas(),
@@ -478,7 +533,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn max_priority_fee_per_gas(&self) -> Option<u128> {
         match self {
             Self::Legacy(tx) => tx.tx().max_priority_fee_per_gas(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().max_priority_fee_per_gas(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().max_priority_fee_per_gas(),
             Self::Eip1559(tx) => tx.tx().max_priority_fee_per_gas(),
             Self::Eip7702(tx) => tx.tx().max_priority_fee_per_gas(),
@@ -489,7 +547,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn max_fee_per_blob_gas(&self) -> Option<u128> {
         match self {
             Self::Legacy(tx) => tx.tx().max_fee_per_blob_gas(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().max_fee_per_blob_gas(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().max_fee_per_blob_gas(),
             Self::Eip1559(tx) => tx.tx().max_fee_per_blob_gas(),
             Self::Eip7702(tx) => tx.tx().max_fee_per_blob_gas(),
@@ -500,7 +561,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn priority_fee_or_price(&self) -> u128 {
         match self {
             Self::Legacy(tx) => tx.tx().priority_fee_or_price(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().priority_fee_or_price(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().priority_fee_or_price(),
             Self::Eip1559(tx) => tx.tx().priority_fee_or_price(),
             Self::Eip7702(tx) => tx.tx().priority_fee_or_price(),
@@ -511,7 +575,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn effective_gas_price(&self, base_fee: Option<u64>) -> u128 {
         match self {
             Self::Legacy(tx) => tx.tx().effective_gas_price(base_fee),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().effective_gas_price(base_fee),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().effective_gas_price(base_fee),
             Self::Eip1559(tx) => tx.tx().effective_gas_price(base_fee),
             Self::Eip7702(tx) => tx.tx().effective_gas_price(base_fee),
@@ -522,7 +589,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn is_dynamic_fee(&self) -> bool {
         match self {
             Self::Legacy(tx) => tx.tx().is_dynamic_fee(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().is_dynamic_fee(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().is_dynamic_fee(),
             Self::Eip1559(tx) => tx.tx().is_dynamic_fee(),
             Self::Eip7702(tx) => tx.tx().is_dynamic_fee(),
@@ -533,7 +603,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn kind(&self) -> TxKind {
         match self {
             Self::Legacy(tx) => tx.tx().kind(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().kind(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().kind(),
             Self::Eip1559(tx) => tx.tx().kind(),
             Self::Eip7702(tx) => tx.tx().kind(),
@@ -544,7 +617,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn is_create(&self) -> bool {
         match self {
             Self::Legacy(tx) => tx.tx().is_create(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().is_create(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().is_create(),
             Self::Eip1559(tx) => tx.tx().is_create(),
             Self::Eip7702(tx) => tx.tx().is_create(),
@@ -555,7 +631,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn value(&self) -> U256 {
         match self {
             Self::Legacy(tx) => tx.tx().value(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().value(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().value(),
             Self::Eip1559(tx) => tx.tx().value(),
             Self::Eip7702(tx) => tx.tx().value(),
@@ -566,7 +645,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn input(&self) -> &Bytes {
         match self {
             Self::Legacy(tx) => tx.tx().input(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().input(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().input(),
             Self::Eip1559(tx) => tx.tx().input(),
             Self::Eip7702(tx) => tx.tx().input(),
@@ -577,7 +659,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn access_list(&self) -> Option<&AccessList> {
         match self {
             Self::Legacy(tx) => tx.tx().access_list(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().access_list(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().access_list(),
             Self::Eip1559(tx) => tx.tx().access_list(),
             Self::Eip7702(tx) => tx.tx().access_list(),
@@ -588,7 +673,10 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn blob_versioned_hashes(&self) -> Option<&[B256]> {
         match self {
             Self::Legacy(tx) => tx.tx().blob_versioned_hashes(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().blob_versioned_hashes(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().blob_versioned_hashes(),
             Self::Eip1559(tx) => tx.tx().blob_versioned_hashes(),
             Self::Eip7702(tx) => tx.tx().blob_versioned_hashes(),
@@ -599,13 +687,17 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn authorization_list(&self) -> Option<&[SignedAuthorization]> {
         match self {
             Self::Legacy(tx) => tx.tx().authorization_list(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.tx().authorization_list(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.tx().authorization_list(),
             Self::Eip1559(tx) => tx.tx().authorization_list(),
             Self::Eip7702(tx) => tx.tx().authorization_list(),
             Self::BlobTransaction(tx) => tx.tx().authorization_list(),
         }
     }
+<<<<<<< HEAD
 
     fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey> {
         match self {
@@ -613,13 +705,18 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
             _ => None,
         }
     }
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 }
 
 impl SignedTransaction for PooledTransactionsElement {
     fn tx_hash(&self) -> &TxHash {
         match self {
             Self::Legacy(tx) => tx.hash(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.hash(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.hash(),
             Self::Eip1559(tx) => tx.hash(),
             Self::Eip7702(tx) => tx.hash(),
@@ -630,7 +727,10 @@ impl SignedTransaction for PooledTransactionsElement {
     fn signature(&self) -> &Signature {
         match self {
             Self::Legacy(tx) => tx.signature(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.signature(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.signature(),
             Self::Eip1559(tx) => tx.signature(),
             Self::Eip7702(tx) => tx.signature(),
@@ -654,7 +754,10 @@ impl InMemorySize for PooledTransactionsElement {
     fn size(&self) -> usize {
         match self {
             Self::Legacy(tx) => tx.size(),
+<<<<<<< HEAD
             Self::Seismic(tx) => tx.size(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             Self::Eip2930(tx) => tx.size(),
             Self::Eip1559(tx) => tx.size(),
             Self::Eip7702(tx) => tx.size(),
@@ -681,7 +784,10 @@ impl From<PooledTransactionsElement> for TransactionSigned {
     fn from(element: PooledTransactionsElement) -> Self {
         match element {
             PooledTransactionsElement::Legacy(tx) => tx.into(),
+<<<<<<< HEAD
             PooledTransactionsElement::Seismic(tx) => tx.into(),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             PooledTransactionsElement::Eip2930(tx) => tx.into(),
             PooledTransactionsElement::Eip1559(tx) => tx.into(),
             PooledTransactionsElement::Eip7702(tx) => tx.into(),

@@ -248,7 +248,10 @@ fn fill_tx_env_with_system_contract_call(
     contract: Address,
     data: Bytes,
 ) {
+<<<<<<< HEAD
     let tx_hash = env.tx.tx_hash;
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     env.tx = TxEnv {
         caller,
         transact_to: TransactTo::Call(contract),
@@ -270,7 +273,10 @@ fn fill_tx_env_with_system_contract_call(
         blob_hashes: Vec::new(),
         max_fee_per_blob_gas: None,
         authorization_list: None,
+<<<<<<< HEAD
         tx_hash,
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         #[cfg(feature = "optimism")]
         optimism: OptimismFields::default(),
     };

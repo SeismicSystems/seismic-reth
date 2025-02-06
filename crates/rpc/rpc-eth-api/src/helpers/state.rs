@@ -68,6 +68,7 @@ pub trait EthState: LoadState + SpawnBlocking {
         block_id: Option<BlockId>,
     ) -> impl Future<Output = Result<B256, Self::Error>> + Send {
         self.spawn_blocking_io(move |this| {
+<<<<<<< HEAD
             let storage_value = this
                 .state_at_block_id_or_latest(block_id)?
                 .storage(address, index.as_b256())
@@ -77,6 +78,15 @@ pub trait EthState: LoadState + SpawnBlocking {
                 true => return Ok(B256::new(storage_value.value.to_be_bytes())),
                 false => return Ok(B256::ZERO),
             };
+=======
+            Ok(B256::new(
+                this.state_at_block_id_or_latest(block_id)?
+                    .storage(address, index.as_b256())
+                    .map_err(Self::Error::from_eth_err)?
+                    .unwrap_or_default()
+                    .to_be_bytes(),
+            ))
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         })
     }
 

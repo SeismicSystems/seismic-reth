@@ -107,7 +107,10 @@ where
         &self,
         args: BuildArguments<Pool, Client, EthPayloadBuilderAttributes, EthBuiltPayload>,
     ) -> Result<BuildOutcome<EthBuiltPayload>, PayloadBuilderError> {
+<<<<<<< HEAD
         debug!("try_build called");
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         let (cfg_env, block_env) = self
             .cfg_and_block_env(&args.config, &args.config.parent_header)
             .map_err(PayloadBuilderError::other)?;
@@ -128,7 +131,10 @@ where
         client: &Client,
         config: PayloadConfig<Self::Attributes>,
     ) -> Result<EthBuiltPayload, PayloadBuilderError> {
+<<<<<<< HEAD
         debug!("build_empty_payload called");
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         let args = BuildArguments::new(
             client,
             // we use defaults here because for the empty payload we don't need to execute anything
@@ -286,12 +292,16 @@ where
         }
 
         // Configure the environment for the tx.
+<<<<<<< HEAD
         *evm.tx_mut() = evm_config.tx_env(tx.as_signed(), tx.signer()).map_err(|err| {
             warn!(target: "payload_builder", %err, ?tx, "failed to configure tx environment for payload");
             PayloadBuilderError::EvmExecutionError(err.map_db_err(|err|err.into()))
         })?;
 
         debug!(target: "payload_builder", tx=?evm.tx(), "executing transaction");
+=======
+        *evm.tx_mut() = evm_config.tx_env(tx.as_signed(), tx.signer());
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         let ResultAndState { result, state } = match evm.transact() {
             Ok(res) => res,

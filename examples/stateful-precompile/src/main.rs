@@ -14,8 +14,13 @@ use reth::{
         inspector_handle_register,
         precompile::{Precompile, PrecompileSpecId},
         primitives::{
+<<<<<<< HEAD
             BlockEnv, CfgEnvWithHandlerCfg, EVMResultGeneric, Env, PrecompileResult, SpecId,
             StatefulPrecompileMut, TxEnv,
+=======
+            BlockEnv, CfgEnvWithHandlerCfg, Env, PrecompileResult, SpecId, StatefulPrecompileMut,
+            TxEnv,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         },
         ContextPrecompile, ContextPrecompiles, Database, Evm, EvmBuilder, GetInspector,
     },
@@ -29,7 +34,10 @@ use reth_node_ethereum::{
     EthereumNode,
 };
 use reth_primitives::{EthPrimitives, TransactionSigned};
+<<<<<<< HEAD
 use reth_tee::TeeError;
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use reth_tracing::{RethTracer, Tracer};
 use schnellru::{ByLength, LruMap};
 use std::{collections::HashMap, convert::Infallible, sync::Arc};
@@ -152,12 +160,16 @@ impl ConfigureEvmEnv for MyEvmConfig {
     type Transaction = TransactionSigned;
     type Error = Infallible;
 
+<<<<<<< HEAD
     fn fill_tx_env(
         &self,
         tx_env: &mut TxEnv,
         transaction: &TransactionSigned,
         sender: Address,
     ) -> EVMResultGeneric<(), TeeError> {
+=======
+    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &TransactionSigned, sender: Address) {
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         self.inner.fill_tx_env(tx_env, transaction, sender)
     }
 

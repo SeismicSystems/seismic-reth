@@ -41,7 +41,11 @@ impl Default for PayloadBuilderArgs {
     fn default() -> Self {
         Self {
             extradata: default_extra_data(),
+<<<<<<< HEAD
             gas_limit: ETHEREUM_BLOCK_GAS_LIMIT,
+=======
+            max_gas_limit: ETHEREUM_BLOCK_GAS_LIMIT,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             interval: Duration::from_secs(1),
             deadline: SLOT_DURATION,
             max_payload_tasks: 3,
@@ -129,7 +133,11 @@ mod tests {
     }
 
     #[test]
+<<<<<<< HEAD
     fn test_default_extra_data() {
+=======
+    fn test_default_extradata() {
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         let extradata = default_extra_data();
         let args = CommandParser::<PayloadBuilderArgs>::parse_from([
             "reth",

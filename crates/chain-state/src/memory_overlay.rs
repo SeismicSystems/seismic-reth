@@ -1,7 +1,11 @@
 use super::ExecutedBlock;
 use alloy_consensus::BlockHeader;
 use alloy_primitives::{
+<<<<<<< HEAD
     keccak256, map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, B256,
+=======
+    keccak256, map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, StorageValue, B256,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 };
 use reth_errors::ProviderResult;
 use reth_primitives::{Account, Bytecode, NodePrimitives};
@@ -13,7 +17,11 @@ use reth_trie::{
     updates::TrieUpdates, AccountProof, HashedPostState, HashedStorage, MultiProof,
     MultiProofTargets, StorageMultiProof, TrieInput,
 };
+<<<<<<< HEAD
 use revm::{db::BundleState, primitives::FlaggedStorage};
+=======
+use revm::db::BundleState;
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use std::sync::OnceLock;
 
 /// A state provider that stores references to in-memory blocks along with their state as well as a
@@ -228,7 +236,11 @@ macro_rules! impl_state_provider {
                 &self,
                 address: Address,
                 storage_key: StorageKey,
+<<<<<<< HEAD
             ) -> ProviderResult<Option<FlaggedStorage>> {
+=======
+            ) -> ProviderResult<Option<StorageValue>> {
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 for block in &self.in_memory {
                     if let Some(value) = block.execution_output.storage(&address, storage_key.into()) {
                         return Ok(Some(value))

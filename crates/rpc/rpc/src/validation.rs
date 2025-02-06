@@ -16,9 +16,16 @@ use reth_chainspec::{ChainSpecProvider, EthereumHardforks};
 use reth_consensus::{Consensus, FullConsensus, PostExecutionInput};
 use reth_engine_primitives::PayloadValidator;
 use reth_errors::{BlockExecutionError, ConsensusError, ProviderError};
+<<<<<<< HEAD
 use reth_evm::execute::{BlockExecutorProvider, Executor};
 use reth_primitives::{GotExpected, NodePrimitives, SealedBlockWithSenders, SealedHeader};
 use reth_primitives_traits::{constants::GAS_LIMIT_BOUND_DIVISOR, Block as _, BlockBody};
+=======
+use reth_ethereum_consensus::GAS_LIMIT_BOUND_DIVISOR;
+use reth_evm::execute::{BlockExecutorProvider, Executor};
+use reth_primitives::{GotExpected, NodePrimitives, SealedBlockWithSenders, SealedHeader};
+use reth_primitives_traits::{Block as _, BlockBody};
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use reth_provider::{
     BlockExecutionInput, BlockExecutionOutput, BlockReaderIdExt, StateProviderFactory,
 };

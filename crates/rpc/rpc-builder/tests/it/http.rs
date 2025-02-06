@@ -188,6 +188,7 @@ where
     EthApiClient::<Transaction, Block, Receipt, Header>::get_code(client, address, None)
         .await
         .unwrap();
+<<<<<<< HEAD
     EthApiClient::<Transaction, Block, Receipt, Header>::send_raw_transaction(
         client,
         tx.clone().into(),
@@ -240,6 +241,57 @@ where
     EthApiClient::<Transaction, Block, Receipt, Header>::block_uncles_count_by_hash(client, hash)
         .await
         .unwrap();
+=======
+    EthApiClient::<Transaction, Block, Receipt, Header>::send_raw_transaction(client, tx)
+        .await
+        .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::fee_history(
+        client,
+        U64::from(0),
+        block_number,
+        None,
+    )
+    .await
+    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::balance(client, address, None)
+        .await
+        .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::transaction_count(client, address, None)
+        .await
+        .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::storage_at(
+        client,
+        address,
+        U256::default().into(),
+        None,
+    )
+    .await
+    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::block_by_hash(client, hash, false)
+        .await
+        .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::block_by_number(
+        client,
+        block_number,
+        false,
+    )
+    .await
+    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::block_transaction_count_by_number(
+        client,
+        block_number,
+    )
+    .await
+    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::block_transaction_count_by_hash(
+        client, hash,
+    )
+    .await
+    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::block_uncles_count_by_hash(client, hash)
+        .await
+        .unwrap();
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     EthApiClient::<Transaction, Block, Receipt, Header>::block_uncles_count_by_number(
         client,
         block_number,
@@ -332,6 +384,27 @@ where
         Some(block_number.into()),
         None,
         None,
+    )
+    .await
+    .unwrap_err();
+    EthApiClient::<Transaction, Block, Receipt, Header>::syncing(client).await.unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::send_transaction(
+        client,
+        transaction_request.clone(),
+    )
+    .await
+    .unwrap_err();
+    EthApiClient::<Transaction, Block, Receipt, Header>::sign_transaction(
+        client,
+        transaction_request,
+    )
+    .await
+    .unwrap_err();
+    EthApiClient::<Transaction, Block, Receipt, Header>::hashrate(client).await.unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::submit_hashrate(
+        client,
+        U256::default(),
+        B256::default(),
     )
     .await
     .unwrap();

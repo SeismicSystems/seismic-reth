@@ -37,7 +37,11 @@ pub trait EstimateCall: Call {
         &self,
         mut cfg: CfgEnvWithHandlerCfg,
         block: BlockEnv,
+<<<<<<< HEAD
         request: TransactionRequest,
+=======
+        mut request: TransactionRequest,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         state: S,
         state_override: Option<StateOverride>,
     ) -> Result<U256, Self::Error>
@@ -53,6 +57,12 @@ pub trait EstimateCall: Call {
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
         cfg.disable_base_fee = true;
 
+<<<<<<< HEAD
+=======
+        // set nonce to None so that the correct nonce is chosen by the EVM
+        request.nonce = None;
+
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         // Keep a copy of gas related request values
         let tx_request_gas_limit = request.gas.map(U256::from);
         let tx_request_gas_price = request.gas_price;
@@ -75,10 +85,13 @@ pub trait EstimateCall: Call {
         let mut env = self.build_call_evm_env(cfg, block, request)?;
         let mut db = CacheDB::new(StateProviderDatabase::new(state));
 
+<<<<<<< HEAD
         // set nonce to None so that the correct nonce is chosen by the EVM
         // seismic moved from request.nonce = None;
         env.tx.nonce = None;
 
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         // Apply any state overrides if specified.
         if let Some(state_override) = state_override {
             apply_state_overrides(state_override, &mut db).map_err(Self::Error::from_eth_err)?;
@@ -122,6 +135,11 @@ pub trait EstimateCall: Call {
         // If the provided gas limit is less than computed cap, use that
         env.tx.gas_limit = env.tx.gas_limit.min(highest_gas_limit);
 
+<<<<<<< HEAD
+=======
+        trace!(target: "rpc::eth::estimate", ?env, "Starting gas estimation");
+
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         // Execute the transaction with the highest possible gas limit.
         let (mut res, mut env) = match self.transact(&mut db, env.clone()) {
             // Handle the exceptional case where the transaction initialization uses too much gas.

@@ -19,8 +19,13 @@ use reth_trie::{
 };
 use reth_trie_db::{DatabaseHashedCursorFactory, DatabaseTrieCursorFactory};
 use revm_primitives::{
+<<<<<<< HEAD
     Account as RevmAccount, AccountInfo, AccountStatus, Address, EvmState, EvmStorageSlot,
     FlaggedStorage, HashMap, B256, KECCAK_EMPTY, U256,
+=======
+    Account as RevmAccount, AccountInfo, AccountStatus, Address, EvmState, EvmStorageSlot, HashMap,
+    B256, KECCAK_EMPTY, U256,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 };
 use std::sync::Arc;
 
@@ -48,10 +53,14 @@ fn create_bench_state_updates(params: &BenchParams) -> Vec<EvmState> {
                 let slot = U256::from(rng.gen::<u64>());
                 storage.insert(
                     slot,
+<<<<<<< HEAD
                     EvmStorageSlot::new_changed(
                         FlaggedStorage::ZERO,
                         FlaggedStorage::new_from_value(rng.gen::<u64>()),
                     ),
+=======
+                    EvmStorageSlot::new_changed(U256::ZERO, U256::from(rng.gen::<u64>())),
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 );
             }
 
@@ -102,8 +111,12 @@ fn setup_provider(
         let storage_updates = update.iter().map(|(address, account)| {
             let storage_entries = account.storage.iter().map(|(slot, value)| StorageEntry {
                 key: B256::from(*slot),
+<<<<<<< HEAD
                 value: value.present_value.value,
                 is_private: value.present_value.is_private,
+=======
+                value: value.present_value,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             });
             (*address, storage_entries)
         });

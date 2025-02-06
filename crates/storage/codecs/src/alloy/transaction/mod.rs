@@ -1,6 +1,18 @@
 //! Compact implementation for transaction types
 
+<<<<<<< HEAD
 cond_mod!(eip1559, eip2930, eip4844, eip7702, legacy, seismic, txtype);
+=======
+cond_mod!(
+    eip1559,
+    eip2930,
+    eip4844,
+    eip7702,
+    legacy,
+    txtype
+);
+
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 #[cfg(all(feature = "test-utils", feature = "op"))]
 pub mod optimism;
@@ -16,6 +28,7 @@ mod tests {
     // this check is to ensure we do not inadvertently add too many fields to a struct which would
     // expand the flags field and break backwards compatibility
 
+<<<<<<< HEAD
     use crate::{
         alloy::{
             header::Header,
@@ -27,12 +40,25 @@ mod tests {
         test_utils::test_decode,
     };
     use alloy_primitives::hex;
+=======
+    use alloy_primitives::hex;
+    use crate::{
+        alloy::{header::Header, transaction::{
+            eip1559::TxEip1559, eip2930::TxEip2930, eip4844::TxEip4844, eip7702::TxEip7702,
+            legacy::TxLegacy,
+        }},
+        test_utils::test_decode,
+    };
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
     #[test]
     fn test_ensure_backwards_compatibility() {
         assert_eq!(TxEip4844::bitflag_encoded_bytes(), 5);
         assert_eq!(TxLegacy::bitflag_encoded_bytes(), 3);
+<<<<<<< HEAD
         assert_eq!(TxSeismic::bitflag_encoded_bytes(), 4);
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         assert_eq!(TxEip1559::bitflag_encoded_bytes(), 4);
         assert_eq!(TxEip2930::bitflag_encoded_bytes(), 3);
         assert_eq!(TxEip7702::bitflag_encoded_bytes(), 4);

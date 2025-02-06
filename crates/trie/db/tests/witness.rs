@@ -13,7 +13,10 @@ use reth_primitives::{Account, StorageEntry};
 use reth_provider::{test_utils::create_test_provider_factory, HashingWriter};
 use reth_trie::{proof::Proof, witness::TrieWitness, HashedPostState, HashedStorage, StateRoot};
 use reth_trie_db::{DatabaseProof, DatabaseStateRoot, DatabaseTrieWitness};
+<<<<<<< HEAD
 use revm::primitives::FlaggedStorage;
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 #[test]
 fn includes_empty_node_preimage() {
@@ -40,9 +43,13 @@ fn includes_empty_node_preimage() {
 
     let state_root = StateRoot::from_tx(provider.tx_ref()).root().unwrap();
     let multiproof = Proof::from_tx(provider.tx_ref())
+<<<<<<< HEAD
         .multiproof(
             HashMap::from_iter([(hashed_address, HashSet::from_iter([hashed_slot]))]).into(),
         )
+=======
+        .multiproof(HashMap::from_iter([(hashed_address, HashSet::from_iter([hashed_slot]))]))
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         .unwrap();
 
     let witness = TrieWitness::from_tx(provider.tx_ref())
@@ -50,7 +57,11 @@ fn includes_empty_node_preimage() {
             accounts: HashMap::from_iter([(hashed_address, Some(Account::default()))]),
             storages: HashMap::from_iter([(
                 hashed_address,
+<<<<<<< HEAD
                 HashedStorage::from_iter(false, [(hashed_slot, FlaggedStorage::new_from_value(1))]),
+=======
+                HashedStorage::from_iter(false, [(hashed_slot, U256::from(1))]),
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             )]),
         })
         .unwrap();
@@ -75,17 +86,25 @@ fn includes_nodes_for_destroyed_storage_nodes() {
     // Insert account and slot into database
     provider.insert_account_for_hashing([(address, Some(Account::default()))]).unwrap();
     provider
+<<<<<<< HEAD
         .insert_storage_for_hashing([(
             address,
             [StorageEntry { key: slot, value: U256::from(1), is_private: false }],
         )])
+=======
+        .insert_storage_for_hashing([(address, [StorageEntry { key: slot, value: U256::from(1) }])])
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         .unwrap();
 
     let state_root = StateRoot::from_tx(provider.tx_ref()).root().unwrap();
     let multiproof = Proof::from_tx(provider.tx_ref())
+<<<<<<< HEAD
         .multiproof(
             HashMap::from_iter([(hashed_address, HashSet::from_iter([hashed_slot]))]).into(),
         )
+=======
+        .multiproof(HashMap::from_iter([(hashed_address, HashSet::from_iter([hashed_slot]))]))
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         .unwrap();
 
     let witness =
@@ -122,6 +141,7 @@ fn correctly_decodes_branch_node_values() {
     let mut hashed_storage_cursor =
         provider.tx_ref().cursor_dup_write::<tables::HashedStorages>().unwrap();
     hashed_storage_cursor
+<<<<<<< HEAD
         .upsert(
             hashed_address,
             StorageEntry { key: hashed_slot1, value: U256::from(1), is_private: false },
@@ -132,10 +152,17 @@ fn correctly_decodes_branch_node_values() {
             hashed_address,
             StorageEntry { key: hashed_slot2, value: U256::from(1), is_private: false },
         )
+=======
+        .upsert(hashed_address, StorageEntry { key: hashed_slot1, value: U256::from(1) })
+        .unwrap();
+    hashed_storage_cursor
+        .upsert(hashed_address, StorageEntry { key: hashed_slot2, value: U256::from(1) })
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         .unwrap();
 
     let state_root = StateRoot::from_tx(provider.tx_ref()).root().unwrap();
     let multiproof = Proof::from_tx(provider.tx_ref())
+<<<<<<< HEAD
         .multiproof(
             HashMap::from_iter([(
                 hashed_address,
@@ -143,6 +170,12 @@ fn correctly_decodes_branch_node_values() {
             )])
             .into(),
         )
+=======
+        .multiproof(HashMap::from_iter([(
+            hashed_address,
+            HashSet::from_iter([hashed_slot1, hashed_slot2]),
+        )]))
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         .unwrap();
 
     let witness = TrieWitness::from_tx(provider.tx_ref())
@@ -152,8 +185,12 @@ fn correctly_decodes_branch_node_values() {
                 hashed_address,
                 HashedStorage::from_iter(
                     false,
+<<<<<<< HEAD
                     [hashed_slot1, hashed_slot2]
                         .map(|hashed_slot| (hashed_slot, FlaggedStorage::new_from_value(2))),
+=======
+                    [hashed_slot1, hashed_slot2].map(|hashed_slot| (hashed_slot, U256::from(2))),
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 ),
             )]),
         })

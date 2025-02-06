@@ -1,11 +1,17 @@
 //! Commonly used code snippets
 
 use super::{EthApiError, EthResult};
+<<<<<<< HEAD
 use alloy_eips::eip712::TypedDataRequest;
 use reth_primitives::{transaction::SignedTransactionIntoRecoveredExt, RecoveredTx};
 use reth_primitives_traits::SignedTransaction;
 use std::future::Future;
 use tracing::debug;
+=======
+use reth_primitives::{transaction::SignedTransactionIntoRecoveredExt, RecoveredTx};
+use reth_primitives_traits::SignedTransaction;
+use std::future::Future;
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 /// Recovers a [`SignedTransaction`] from an enveloped encoded byte stream.
 ///
@@ -18,6 +24,7 @@ pub fn recover_raw_transaction<T: SignedTransaction>(mut data: &[u8]) -> EthResu
         return Err(EthApiError::EmptyRawTransactionData)
     }
 
+<<<<<<< HEAD
     debug!(target: "reth::recover_raw_transaction", "{:?}", data);
 
     let transaction =
@@ -43,6 +50,10 @@ pub fn recover_typed_data_request<T: SignedTransaction>(
         T::decode_712(&mut data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
 
     debug!(target: "reth::recover_typed_data_request", "{:?}", transaction);
+=======
+    let transaction =
+        T::decode_2718(&mut data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
     transaction.try_into_ecrecovered().or(Err(EthApiError::InvalidTransactionSignature))
 }

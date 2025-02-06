@@ -1,6 +1,10 @@
 //! State root task related functionality.
 
+<<<<<<< HEAD
 use alloy_primitives::map::HashSet;
+=======
+use alloy_primitives::map::{HashMap, HashSet};
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use reth_evm::system_calls::OnStateHook;
 use reth_execution_errors::StateProofError;
@@ -75,7 +79,18 @@ pub enum StateRootMessage<BPF: BlindedProviderFactory> {
     /// New state update from transaction execution
     StateUpdate(EvmState),
     /// Proof calculation completed for a specific state update
+<<<<<<< HEAD
     ProofCalculated(Box<ProofCalculated>),
+=======
+    ProofCalculated {
+        /// The calculated proof
+        proof: MultiProof,
+        /// The state update that was used to calculate the proof
+        state_update: HashedPostState,
+        /// The index of this proof in the sequence of state updates
+        sequence_number: u64,
+    },
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     /// Error during proof calculation
     ProofCalculationError(StateProofError),
     /// State root calculation completed
@@ -91,6 +106,7 @@ pub enum StateRootMessage<BPF: BlindedProviderFactory> {
     FinishedStateUpdates,
 }
 
+<<<<<<< HEAD
 /// Message about completion of proof calculation for a specific state update
 #[derive(Debug)]
 pub struct ProofCalculated {
@@ -104,6 +120,8 @@ pub struct ProofCalculated {
     sequence_number: u64,
 }
 
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 /// Handle to track proof calculation ordering
 #[derive(Debug, Default)]
 pub(crate) struct ProofSequencer {
@@ -112,7 +130,11 @@ pub(crate) struct ProofSequencer {
     /// The next sequence number expected to be delivered.
     next_to_deliver: u64,
     /// Buffer for out-of-order proofs and corresponding state updates
+<<<<<<< HEAD
     pending_proofs: BTreeMap<u64, (HashedPostState, MultiProofTargets, MultiProof)>,
+=======
+    pending_proofs: BTreeMap<u64, (MultiProof, HashedPostState)>,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 }
 
 impl ProofSequencer {
@@ -133,12 +155,20 @@ impl ProofSequencer {
     pub(crate) fn add_proof(
         &mut self,
         sequence: u64,
+<<<<<<< HEAD
         state_update: HashedPostState,
         targets: MultiProofTargets,
         proof: MultiProof,
     ) -> Vec<(HashedPostState, MultiProofTargets, MultiProof)> {
         if sequence >= self.next_to_deliver {
             self.pending_proofs.insert(sequence, (state_update, targets, proof));
+=======
+        proof: MultiProof,
+        state_update: HashedPostState,
+    ) -> Vec<(MultiProof, HashedPostState)> {
+        if sequence >= self.next_to_deliver {
+            self.pending_proofs.insert(sequence, (proof, state_update));
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         }
 
         // return early if we don't have the next expected proof
@@ -150,8 +180,13 @@ impl ProofSequencer {
         let mut current_sequence = self.next_to_deliver;
 
         // keep collecting proofs and state updates as long as we have consecutive sequence numbers
+<<<<<<< HEAD
         while let Some(pending) = self.pending_proofs.remove(&current_sequence) {
             consecutive_proofs.push(pending);
+=======
+        while let Some((proof, state_update)) = self.pending_proofs.remove(&current_sequence) {
+            consecutive_proofs.push((proof, state_update));
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             current_sequence += 1;
 
             // if we don't have the next number, stop collecting
@@ -326,7 +361,13 @@ where
         let hashed_state_update = evm_state_to_hashed_post_state(update);
 
         let proof_targets = get_proof_targets(&hashed_state_update, fetched_proof_targets);
+<<<<<<< HEAD
         fetched_proof_targets.extend_ref(&proof_targets);
+=======
+        for (address, slots) in &proof_targets {
+            fetched_proof_targets.entry(*address).or_default().extend(slots)
+        }
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         // Dispatch proof gathering for this state update
         scope.spawn(move |_| {
@@ -343,6 +384,7 @@ where
                 provider.tx_ref(),
                 // TODO(alexey): this clone can be expensive, we should avoid it
                 input.as_ref().clone(),
+<<<<<<< HEAD
                 proof_targets.clone(),
             );
             match result {
@@ -355,6 +397,17 @@ where
                             sequence_number: proof_sequence_number,
                         }),
                     ));
+=======
+                proof_targets,
+            );
+            match result {
+                Ok(proof) => {
+                    let _ = state_root_message_sender.send(StateRootMessage::ProofCalculated {
+                        proof,
+                        state_update: hashed_state_update,
+                        sequence_number: proof_sequence_number,
+                    });
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 }
                 Err(e) => {
                     let _ =
@@ -368,21 +421,34 @@ where
     fn on_proof(
         &mut self,
         sequence_number: u64,
+<<<<<<< HEAD
         state_update: HashedPostState,
         targets: MultiProofTargets,
         proof: MultiProof,
     ) -> Option<(HashedPostState, MultiProofTargets, MultiProof)> {
         let ready_proofs =
             self.proof_sequencer.add_proof(sequence_number, state_update, targets, proof);
+=======
+        proof: MultiProof,
+        state_update: HashedPostState,
+    ) -> Option<(MultiProof, HashedPostState)> {
+        let ready_proofs = self.proof_sequencer.add_proof(sequence_number, proof, state_update);
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         if ready_proofs.is_empty() {
             None
         } else {
             // Merge all ready proofs and state updates
+<<<<<<< HEAD
             ready_proofs.into_iter().reduce(|mut acc, (state_update, targets, proof)| {
                 acc.0.extend(state_update);
                 acc.1.extend(targets);
                 acc.2.extend(proof);
+=======
+            ready_proofs.into_iter().reduce(|mut acc, (proof, state_update)| {
+                acc.0.extend(proof);
+                acc.1.extend(state_update);
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 acc
             })
         }
@@ -393,7 +459,10 @@ where
         &mut self,
         scope: &rayon::Scope<'env>,
         state: HashedPostState,
+<<<<<<< HEAD
         targets: MultiProofTargets,
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         multiproof: MultiProof,
     ) {
         let Some(trie) = self.sparse_trie.take() else { return };
@@ -406,7 +475,11 @@ where
         );
 
         // TODO(alexey): store proof targets in `ProofSequecner` to avoid recomputing them
+<<<<<<< HEAD
         let targets = get_proof_targets(&state, &targets);
+=======
+        let targets = get_proof_targets(&state, &HashMap::default());
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         let tx = self.tx.clone();
         scope.spawn(move |_| {
@@ -429,7 +502,10 @@ where
 
     fn run(mut self, scope: &rayon::Scope<'env>) -> StateRootResult {
         let mut current_state_update = HashedPostState::default();
+<<<<<<< HEAD
         let mut current_proof_targets = MultiProofTargets::default();
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         let mut current_multiproof = MultiProof::default();
         let mut updates_received = 0;
         let mut proofs_processed = 0;
@@ -460,15 +536,24 @@ where
                     StateRootMessage::FinishedStateUpdates => {
                         updates_finished = true;
                     }
+<<<<<<< HEAD
                     StateRootMessage::ProofCalculated(proof_calculated) => {
                         proofs_processed += 1;
                         trace!(
                             target: "engine::root",
                             sequence = proof_calculated.sequence_number,
+=======
+                    StateRootMessage::ProofCalculated { proof, state_update, sequence_number } => {
+                        proofs_processed += 1;
+                        trace!(
+                            target: "engine::root",
+                            sequence = sequence_number,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                             total_proofs = proofs_processed,
                             "Processing calculated proof"
                         );
 
+<<<<<<< HEAD
                         trace!(target: "engine::root", proof = ?proof_calculated.proof, "Proof calculated");
 
                         if let Some((
@@ -485,11 +570,24 @@ where
                                 current_state_update.extend(combined_state_update);
                                 current_proof_targets.extend(combined_proof_targets);
                                 current_multiproof.extend(combined_proof);
+=======
+                        trace!(target: "engine::root", ?proof, "Proof calculated");
+
+                        if let Some((combined_proof, combined_state_update)) =
+                            self.on_proof(sequence_number, proof, state_update)
+                        {
+                            if self.sparse_trie.is_none() {
+                                current_multiproof.extend(combined_proof);
+                                current_state_update.extend(combined_state_update);
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                             } else {
                                 self.spawn_root_calculation(
                                     scope,
                                     combined_state_update,
+<<<<<<< HEAD
                                     combined_proof_targets,
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                                     combined_proof,
                                 );
                             }
@@ -531,7 +629,10 @@ where
                             self.spawn_root_calculation(
                                 scope,
                                 std::mem::take(&mut current_state_update),
+<<<<<<< HEAD
                                 std::mem::take(&mut current_proof_targets),
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                                 std::mem::take(&mut current_multiproof),
                             );
                         } else if all_proofs_received && no_pending && updates_finished {
@@ -587,7 +688,11 @@ fn get_proof_targets(
     state_update: &HashedPostState,
     fetched_proof_targets: &MultiProofTargets,
 ) -> MultiProofTargets {
+<<<<<<< HEAD
     let mut targets = MultiProofTargets::default();
+=======
+    let mut targets = HashMap::default();
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
     // first collect all new accounts (not previously fetched)
     for &hashed_address in state_update.accounts.keys() {
@@ -654,7 +759,11 @@ fn update_sparse_trie<
                 } else {
                     trace!(target: "engine::root::sparse", ?address, ?slot, "Updating storage slot");
                     storage_trie
+<<<<<<< HEAD
                         .update_leaf(slot_nibbles, alloy_rlp::encode_fixed_size(&value.value).to_vec())?;
+=======
+                        .update_leaf(slot_nibbles, alloy_rlp::encode_fixed_size(&value).to_vec())?;
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 }
             }
 
@@ -698,7 +807,11 @@ mod tests {
     use reth_trie_db::{DatabaseHashedCursorFactory, DatabaseTrieCursorFactory};
     use revm_primitives::{
         Account as RevmAccount, AccountInfo, AccountStatus, Address, EvmState, EvmStorageSlot,
+<<<<<<< HEAD
         FlaggedStorage, HashMap, B256, KECCAK_EMPTY, U256,
+=======
+        HashMap, B256, KECCAK_EMPTY, U256,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     };
     use std::sync::Arc;
 
@@ -732,10 +845,14 @@ mod tests {
                         let slot = U256::from(rng.gen::<u64>());
                         storage.insert(
                             slot,
+<<<<<<< HEAD
                             EvmStorageSlot::new_changed(
                                 FlaggedStorage::ZERO,
                                 FlaggedStorage::new_from_value(rng.gen::<u64>()),
                             ),
+=======
+                            EvmStorageSlot::new_changed(U256::ZERO, U256::from(rng.gen::<u64>())),
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                         );
                     }
                 }
@@ -783,12 +900,18 @@ mod tests {
                     .expect("failed to insert accounts");
 
                 let storage_updates = update.iter().map(|(address, account)| {
+<<<<<<< HEAD
                     let storage_entries =
                         account.storage.iter().map(|(slot, value)| StorageEntry {
                             key: B256::from(*slot),
                             value: value.present_value.value,
                             is_private: value.present_value.is_private,
                         });
+=======
+                    let storage_entries = account.storage.iter().map(|(slot, value)| {
+                        StorageEntry { key: B256::from(*slot), value: value.present_value }
+                    });
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                     (*address, storage_entries)
                 });
                 provider_rw
@@ -805,7 +928,11 @@ mod tests {
                 let storage: HashMap<B256, U256> = account
                     .storage
                     .iter()
+<<<<<<< HEAD
                     .map(|(k, v)| (B256::from(*k), v.present_value.value))
+=======
+                    .map(|(k, v)| (B256::from(*k), v.present_value))
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                     .collect();
 
                 let entry = accumulated_state.entry(*address).or_default();
@@ -859,6 +986,7 @@ mod tests {
         let proof2 = MultiProof::default();
         sequencer.next_sequence = 2;
 
+<<<<<<< HEAD
         let ready = sequencer.add_proof(
             0,
             HashedPostState::default(),
@@ -874,6 +1002,13 @@ mod tests {
             MultiProofTargets::default(),
             proof2,
         );
+=======
+        let ready = sequencer.add_proof(0, proof1, HashedPostState::default());
+        assert_eq!(ready.len(), 1);
+        assert!(!sequencer.has_pending());
+
+        let ready = sequencer.add_proof(1, proof2, HashedPostState::default());
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         assert_eq!(ready.len(), 1);
         assert!(!sequencer.has_pending());
     }
@@ -886,6 +1021,7 @@ mod tests {
         let proof3 = MultiProof::default();
         sequencer.next_sequence = 3;
 
+<<<<<<< HEAD
         let ready = sequencer.add_proof(
             2,
             HashedPostState::default(),
@@ -910,6 +1046,17 @@ mod tests {
             MultiProofTargets::default(),
             proof2,
         );
+=======
+        let ready = sequencer.add_proof(2, proof3, HashedPostState::default());
+        assert_eq!(ready.len(), 0);
+        assert!(sequencer.has_pending());
+
+        let ready = sequencer.add_proof(0, proof1, HashedPostState::default());
+        assert_eq!(ready.len(), 1);
+        assert!(sequencer.has_pending());
+
+        let ready = sequencer.add_proof(1, proof2, HashedPostState::default());
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         assert_eq!(ready.len(), 2);
         assert!(!sequencer.has_pending());
     }
@@ -921,6 +1068,7 @@ mod tests {
         let proof3 = MultiProof::default();
         sequencer.next_sequence = 3;
 
+<<<<<<< HEAD
         let ready = sequencer.add_proof(
             0,
             HashedPostState::default(),
@@ -935,6 +1083,12 @@ mod tests {
             MultiProofTargets::default(),
             proof3,
         );
+=======
+        let ready = sequencer.add_proof(0, proof1, HashedPostState::default());
+        assert_eq!(ready.len(), 1);
+
+        let ready = sequencer.add_proof(2, proof3, HashedPostState::default());
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         assert_eq!(ready.len(), 0);
         assert!(sequencer.has_pending());
     }
@@ -945,6 +1099,7 @@ mod tests {
         let proof1 = MultiProof::default();
         let proof2 = MultiProof::default();
 
+<<<<<<< HEAD
         let ready = sequencer.add_proof(
             0,
             HashedPostState::default(),
@@ -959,6 +1114,12 @@ mod tests {
             MultiProofTargets::default(),
             proof2,
         );
+=======
+        let ready = sequencer.add_proof(0, proof1, HashedPostState::default());
+        assert_eq!(ready.len(), 1);
+
+        let ready = sequencer.add_proof(0, proof2, HashedPostState::default());
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         assert_eq!(ready.len(), 0);
         assert!(!sequencer.has_pending());
     }
@@ -969,6 +1130,7 @@ mod tests {
         let proofs: Vec<_> = (0..5).map(|_| MultiProof::default()).collect();
         sequencer.next_sequence = 5;
 
+<<<<<<< HEAD
         sequencer.add_proof(
             4,
             HashedPostState::default(),
@@ -1000,6 +1162,14 @@ mod tests {
             MultiProofTargets::default(),
             proofs[0].clone(),
         );
+=======
+        sequencer.add_proof(4, proofs[4].clone(), HashedPostState::default());
+        sequencer.add_proof(2, proofs[2].clone(), HashedPostState::default());
+        sequencer.add_proof(1, proofs[1].clone(), HashedPostState::default());
+        sequencer.add_proof(3, proofs[3].clone(), HashedPostState::default());
+
+        let ready = sequencer.add_proof(0, proofs[0].clone(), HashedPostState::default());
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         assert_eq!(ready.len(), 5);
         assert!(!sequencer.has_pending());
     }
@@ -1015,8 +1185,13 @@ mod tests {
         let mut storage = HashedStorage::default();
         let slot1 = B256::random();
         let slot2 = B256::random();
+<<<<<<< HEAD
         storage.storage.insert(slot1, FlaggedStorage::ZERO);
         storage.storage.insert(slot2, FlaggedStorage::new_from_value(1));
+=======
+        storage.storage.insert(slot1, U256::ZERO);
+        storage.storage.insert(slot2, U256::from(1));
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         state.storages.insert(addr1, storage);
 
         state
@@ -1025,7 +1200,11 @@ mod tests {
     #[test]
     fn test_get_proof_targets_new_account_targets() {
         let state = create_get_proof_targets_state();
+<<<<<<< HEAD
         let fetched = MultiProofTargets::default();
+=======
+        let fetched = HashMap::default();
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         let targets = get_proof_targets(&state, &fetched);
 
@@ -1039,7 +1218,11 @@ mod tests {
     #[test]
     fn test_get_proof_targets_new_storage_targets() {
         let state = create_get_proof_targets_state();
+<<<<<<< HEAD
         let fetched = MultiProofTargets::default();
+=======
+        let fetched = HashMap::default();
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         let targets = get_proof_targets(&state, &fetched);
 
@@ -1057,7 +1240,11 @@ mod tests {
     #[test]
     fn test_get_proof_targets_filter_already_fetched_accounts() {
         let state = create_get_proof_targets_state();
+<<<<<<< HEAD
         let mut fetched = MultiProofTargets::default();
+=======
+        let mut fetched = HashMap::default();
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         // select an account that has no storage updates
         let fetched_addr = state
@@ -1080,7 +1267,11 @@ mod tests {
     #[test]
     fn test_get_proof_targets_filter_already_fetched_storage() {
         let state = create_get_proof_targets_state();
+<<<<<<< HEAD
         let mut fetched = MultiProofTargets::default();
+=======
+        let mut fetched = HashMap::default();
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         // mark one storage slot as already fetched
         let (addr, storage) = state.storages.iter().next().unwrap();
@@ -1100,7 +1291,11 @@ mod tests {
     #[test]
     fn test_get_proof_targets_empty_state() {
         let state = HashedPostState::default();
+<<<<<<< HEAD
         let fetched = MultiProofTargets::default();
+=======
+        let fetched = HashMap::default();
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         let targets = get_proof_targets(&state, &fetched);
 
@@ -1110,7 +1305,11 @@ mod tests {
     #[test]
     fn test_get_proof_targets_mixed_fetched_state() {
         let mut state = HashedPostState::default();
+<<<<<<< HEAD
         let mut fetched = MultiProofTargets::default();
+=======
+        let mut fetched = HashMap::default();
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         let addr1 = B256::random();
         let addr2 = B256::random();
@@ -1121,8 +1320,13 @@ mod tests {
         state.accounts.insert(addr2, Some(Default::default()));
 
         let mut storage = HashedStorage::default();
+<<<<<<< HEAD
         storage.storage.insert(slot1, FlaggedStorage::ZERO);
         storage.storage.insert(slot2, FlaggedStorage::new_from_value(1));
+=======
+        storage.storage.insert(slot1, U256::ZERO);
+        storage.storage.insert(slot2, U256::from(1));
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         state.storages.insert(addr1, storage);
 
         let mut fetched_slots = HashSet::default();
@@ -1139,7 +1343,11 @@ mod tests {
     #[test]
     fn test_get_proof_targets_unmodified_account_with_storage() {
         let mut state = HashedPostState::default();
+<<<<<<< HEAD
         let fetched = MultiProofTargets::default();
+=======
+        let fetched = HashMap::default();
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
         let addr = B256::random();
         let slot1 = B256::random();
@@ -1148,8 +1356,13 @@ mod tests {
         // don't add the account to state.accounts (simulating unmodified account)
         // but add storage updates for this account
         let mut storage = HashedStorage::default();
+<<<<<<< HEAD
         storage.storage.insert(slot1, FlaggedStorage::new_from_value(1));
         storage.storage.insert(slot2, FlaggedStorage::new_from_value(2));
+=======
+        storage.storage.insert(slot1, U256::from(1));
+        storage.storage.insert(slot2, U256::from(2));
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         state.storages.insert(addr, storage);
 
         assert!(!state.accounts.contains_key(&addr));

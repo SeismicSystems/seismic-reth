@@ -1,8 +1,14 @@
 use super::{HashedCursor, HashedCursorFactory, HashedStorageCursor};
+<<<<<<< HEAD
 use alloy_primitives::B256;
 use reth_primitives::Account;
 use reth_storage_errors::db::DatabaseError;
 use revm::primitives::FlaggedStorage;
+=======
+use alloy_primitives::{B256, U256};
+use reth_primitives::Account;
+use reth_storage_errors::db::DatabaseError;
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
 /// Noop hashed cursor factory.
 #[derive(Default, Debug)]
@@ -48,7 +54,11 @@ impl HashedCursor for NoopHashedAccountCursor {
 pub struct NoopHashedStorageCursor;
 
 impl HashedCursor for NoopHashedStorageCursor {
+<<<<<<< HEAD
     type Value = FlaggedStorage;
+=======
+    type Value = U256;
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
     fn seek(&mut self, _key: B256) -> Result<Option<(B256, Self::Value)>, DatabaseError> {
         Ok(None)

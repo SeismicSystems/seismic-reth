@@ -343,9 +343,13 @@ pub trait LoadPendingBlock:
             let env = Env::boxed(
                 cfg.cfg_env.clone(),
                 block_env.clone(),
+<<<<<<< HEAD
                 Self::evm_config(self)
                     .tx_env(tx.as_signed(), tx.signer())
                     .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
+=======
+                Self::evm_config(self).tx_env(tx.as_signed(), tx.signer()),
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             );
 
             let mut evm = revm::Evm::builder().with_env(env).with_db(&mut db).build();

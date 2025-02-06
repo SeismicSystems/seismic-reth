@@ -512,8 +512,11 @@ where
     invalid_block_hook: Box<dyn InvalidBlockHook<N>>,
     /// The engine API variant of this handler
     engine_kind: EngineApiKind,
+<<<<<<< HEAD
     /// The backup handler
     backup: BackupHandle,
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 }
 
 impl<N, P: Debug, E: Debug, T: EngineTypes + Debug, V: Debug> std::fmt::Debug
@@ -577,8 +580,11 @@ where
     ) -> Self {
         let (incoming_tx, incoming) = std::sync::mpsc::channel();
 
+<<<<<<< HEAD
         let backup = BackupHandle::spawn_service(&config);
 
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         Self {
             provider,
             executor_provider,
@@ -597,7 +603,10 @@ where
             incoming_tx,
             invalid_block_hook: Box::new(NoopInvalidBlockHook),
             engine_kind,
+<<<<<<< HEAD
             backup,
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         }
     }
 
@@ -690,10 +699,13 @@ where
 
             if let Err(err) = self.advance_persistence() {
                 error!(target: "engine::tree", %err, "Advancing persistence failed");
+<<<<<<< HEAD
                 return
             }
             if let Err(err) = self.advance_backup() {
                 error!(target: "engine::tree", %err, "Advancing backup failed");
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
                 return
             }
         }
@@ -1140,7 +1152,11 @@ where
     fn try_recv_engine_message(
         &self,
     ) -> Result<Option<FromEngine<EngineApiRequest<T, N>, N::Block>>, RecvError> {
+<<<<<<< HEAD
         if self.persistence_state.in_progress() || self.backup.in_progress() {
+=======
+        if self.persistence_state.in_progress() {
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             // try to receive the next request with a timeout to not block indefinitely
             match self.incoming.recv_timeout(std::time::Duration::from_millis(500)) {
                 Ok(msg) => Ok(Some(msg)),

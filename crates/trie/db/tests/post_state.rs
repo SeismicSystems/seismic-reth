@@ -302,11 +302,18 @@ fn storage_is_empty() {
 #[test]
 fn storage_cursor_correct_order() {
     let address = B256::random();
+<<<<<<< HEAD
     let db_storage = (1..11)
         .map(|key| (B256::with_last_byte(key), FlaggedStorage::new_from_value(key)))
         .collect::<BTreeMap<_, _>>();
     let post_state_storage = (11..21)
         .map(|key| (B256::with_last_byte(key), FlaggedStorage::new_from_value(key)))
+=======
+    let db_storage =
+        (1..11).map(|key| (B256::with_last_byte(key), U256::from(key))).collect::<BTreeMap<_, _>>();
+    let post_state_storage = (11..21)
+        .map(|key| (B256::with_last_byte(key), U256::from(key)))
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         .collect::<BTreeMap<_, _>>();
 
     let db = create_test_rw_db();
@@ -342,6 +349,7 @@ fn storage_cursor_correct_order() {
 #[test]
 fn zero_value_storage_entries_are_discarded() {
     let address = B256::random();
+<<<<<<< HEAD
     let db_storage = (0..10)
         .map(|key| (B256::with_last_byte(key), FlaggedStorage::new_from_value(key)))
         .collect::<BTreeMap<_, _>>(); // every even number is changed to zero value
@@ -355,6 +363,13 @@ fn zero_value_storage_entries_are_discarded() {
                     FlaggedStorage::new_from_value(key)
                 },
             )
+=======
+    let db_storage =
+        (0..10).map(|key| (B256::with_last_byte(key), U256::from(key))).collect::<BTreeMap<_, _>>(); // every even number is changed to zero value
+    let post_state_storage = (0..10)
+        .map(|key| {
+            (B256::with_last_byte(key), if key % 2 == 0 { U256::ZERO } else { U256::from(key) })
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         })
         .collect::<BTreeMap<_, _>>();
 
@@ -393,11 +408,18 @@ fn zero_value_storage_entries_are_discarded() {
 #[test]
 fn wiped_storage_is_discarded() {
     let address = B256::random();
+<<<<<<< HEAD
     let db_storage = (1..11)
         .map(|key| (B256::with_last_byte(key), FlaggedStorage::new_from_value(key)))
         .collect::<BTreeMap<_, _>>();
     let post_state_storage = (11..21)
         .map(|key| (B256::with_last_byte(key), FlaggedStorage::new_from_value(key)))
+=======
+    let db_storage =
+        (1..11).map(|key| (B256::with_last_byte(key), U256::from(key))).collect::<BTreeMap<_, _>>();
+    let post_state_storage = (11..21)
+        .map(|key| (B256::with_last_byte(key), U256::from(key)))
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         .collect::<BTreeMap<_, _>>();
 
     let db = create_test_rw_db();
@@ -432,9 +454,14 @@ fn wiped_storage_is_discarded() {
 #[test]
 fn post_state_storages_take_precedence() {
     let address = B256::random();
+<<<<<<< HEAD
     let storage = (1..10)
         .map(|key| (B256::with_last_byte(key), FlaggedStorage::new_from_value(key)))
         .collect::<BTreeMap<_, _>>();
+=======
+    let storage =
+        (1..10).map(|key| (B256::with_last_byte(key), U256::from(key))).collect::<BTreeMap<_, _>>();
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
     let db = create_test_rw_db();
     db.update(|tx| {

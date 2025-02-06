@@ -14,7 +14,11 @@ use crate::{
 use alloy_consensus::{
     constants::{
         EIP1559_TX_TYPE_ID, EIP2930_TX_TYPE_ID, EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID,
+<<<<<<< HEAD
         LEGACY_TX_TYPE_ID, SEISMIC_TX_TYPE_ID,
+=======
+        LEGACY_TX_TYPE_ID,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
     },
     BlockHeader,
 };

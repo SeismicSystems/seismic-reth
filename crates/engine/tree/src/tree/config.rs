@@ -1,5 +1,6 @@
 //! Engine tree configuration.
 
+<<<<<<< HEAD
 use reth_chainspec::Chain;
 use reth_node_core::dirs::{ChainPath, DataDirPath, PlatformPath};
 
@@ -9,6 +10,11 @@ pub const DEFAULT_PERSISTENCE_THRESHOLD: u64 = 2;
 /// Triggers backup when the number of canonical blocks persisted exceeds this threshold.
 pub const DEFAULT_BACKUP_THRESHOLD: u64 = 10;
 
+=======
+/// Triggers persistence when the number of canonical blocks in memory exceeds this threshold.
+pub const DEFAULT_PERSISTENCE_THRESHOLD: u64 = 2;
+
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 /// How close to the canonical head we persist blocks.
 pub const DEFAULT_MEMORY_BLOCK_BUFFER_TARGET: u64 = 2;
 

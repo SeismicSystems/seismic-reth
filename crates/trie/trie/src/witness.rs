@@ -15,7 +15,11 @@ use reth_execution_errors::{
     SparseStateTrieError, SparseStateTrieErrorKind, SparseTrieError, SparseTrieErrorKind,
     StateProofError, TrieWitnessError,
 };
+<<<<<<< HEAD
 use reth_trie_common::{MultiProofTargets, Nibbles};
+=======
+use reth_trie_common::Nibbles;
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 use reth_trie_sparse::{
     blinded::{BlindedProvider, BlindedProviderFactory},
     SparseStateTrie,
@@ -109,6 +113,7 @@ where
                 entry.insert(storage_node.clone());
             }
         }
+<<<<<<< HEAD
 
         let (tx, rx) = mpsc::channel();
         let proof_provider_factory = ProofBlindedProviderFactory::new(
@@ -160,6 +165,59 @@ where
             while let Ok(node) = rx.try_recv() {
                 self.witness.insert(keccak256(&node), node);
             }
+=======
+
+        let (tx, rx) = mpsc::channel();
+        let proof_provider_factory = ProofBlindedProviderFactory::new(
+            self.trie_cursor_factory,
+            self.hashed_cursor_factory,
+            Arc::new(self.prefix_sets),
+        );
+        let mut sparse_trie =
+            SparseStateTrie::new(WitnessBlindedProviderFactory::new(proof_provider_factory, tx));
+        sparse_trie.reveal_multiproof(proof_targets.clone(), multiproof)?;
+
+        // Attempt to update state trie to gather additional information for the witness.
+        for (hashed_address, hashed_slots) in
+            proof_targets.into_iter().sorted_unstable_by_key(|(ha, _)| *ha)
+        {
+            // Update storage trie first.
+            let storage = state.storages.get(&hashed_address);
+            let storage_trie = sparse_trie
+                .storage_trie_mut(&hashed_address)
+                .ok_or(SparseStateTrieErrorKind::Sparse(SparseTrieErrorKind::Blind))?;
+            for hashed_slot in hashed_slots.into_iter().sorted_unstable() {
+                let storage_nibbles = Nibbles::unpack(hashed_slot);
+                let maybe_leaf_value = storage
+                    .and_then(|s| s.storage.get(&hashed_slot))
+                    .filter(|v| !v.is_zero())
+                    .map(|v| alloy_rlp::encode_fixed_size(v).to_vec());
+
+                if let Some(value) = maybe_leaf_value {
+                    storage_trie
+                        .update_leaf(storage_nibbles, value)
+                        .map_err(SparseStateTrieError::from)?;
+                } else {
+                    storage_trie
+                        .remove_leaf(&storage_nibbles)
+                        .map_err(SparseStateTrieError::from)?;
+                }
+            }
+
+            // Calculate storage root after updates.
+            storage_trie.root();
+
+            let account = state
+                .accounts
+                .get(&hashed_address)
+                .ok_or(TrieWitnessError::MissingAccount(hashed_address))?
+                .unwrap_or_default();
+            sparse_trie.update_account(hashed_address, account)?;
+
+            while let Ok(node) = rx.try_recv() {
+                self.witness.insert(keccak256(&node), node);
+            }
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         }
 
         Ok(self.witness)
@@ -171,8 +229,13 @@ where
     fn get_proof_targets(
         &self,
         state: &HashedPostState,
+<<<<<<< HEAD
     ) -> Result<MultiProofTargets, StateProofError> {
         let mut proof_targets = MultiProofTargets::default();
+=======
+    ) -> Result<B256HashMap<B256HashSet>, StateProofError> {
+        let mut proof_targets = B256HashMap::default();
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         for hashed_address in state.accounts.keys() {
             proof_targets.insert(*hashed_address, B256HashSet::default());
         }

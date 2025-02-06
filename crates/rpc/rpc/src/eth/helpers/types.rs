@@ -62,9 +62,12 @@ where
             reth_primitives::Transaction::Eip7702(tx) => {
                 Signed::new_unchecked(tx, signature, hash).into()
             }
+<<<<<<< HEAD
             reth_primitives::Transaction::Seismic(tx) => {
                 Signed::new_unchecked(tx, signature, hash).into()
             }
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
             #[allow(unreachable_patterns)]
             _ => unreachable!(),
         };

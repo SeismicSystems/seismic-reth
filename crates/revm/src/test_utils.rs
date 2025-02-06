@@ -2,7 +2,11 @@ use alloc::vec::Vec;
 use alloy_primitives::{
     keccak256,
     map::{B256HashMap, HashMap},
+<<<<<<< HEAD
     Address, BlockNumber, Bytes, StorageKey, B256,
+=======
+    Address, BlockNumber, Bytes, StorageKey, B256, U256,
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 };
 use reth_primitives::{Account, Bytecode};
 use reth_storage_api::{
@@ -15,10 +19,13 @@ use reth_trie::{
     MultiProof, MultiProofTargets, StorageMultiProof, StorageProof, TrieInput,
 };
 
+<<<<<<< HEAD
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use revm::primitives::FlaggedStorage;
 
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 /// Mock state for testing
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct StateProviderTest {
@@ -165,7 +172,11 @@ impl StateProvider for StateProviderTest {
         &self,
         account: Address,
         storage_key: StorageKey,
+<<<<<<< HEAD
     ) -> ProviderResult<Option<FlaggedStorage>> {
+=======
+    ) -> ProviderResult<Option<alloy_primitives::StorageValue>> {
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
         Ok(self.accounts.get(&account).and_then(|(storage, _)| storage.get(&storage_key).copied()))
     }
 

@@ -258,7 +258,10 @@ mod tests {
     use reth_primitives::{Account, StorageEntry};
     use reth_provider::{test_utils::create_test_provider_factory, HashingWriter};
     use reth_trie::{test_utils, HashedPostState, HashedStorage};
+<<<<<<< HEAD
     use revm_primitives::FlaggedStorage;
+=======
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
     #[tokio::test]
     async fn random_parallel_root() {

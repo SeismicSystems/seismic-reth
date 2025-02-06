@@ -951,12 +951,20 @@ mod tests {
     use reth_storage_api::{
         AccountReader, BlockHashReader, HashedPostStateProvider, StateProofProvider, StateProvider,
         StateRootProvider, StorageRootProvider,
+<<<<<<< HEAD
     };
     use reth_trie::{
         AccountProof, HashedStorage, MultiProof, MultiProofTargets, StorageMultiProof,
         StorageProof, TrieInput,
     };
     use revm::primitives::FlaggedStorage;
+=======
+    };
+    use reth_trie::{
+        AccountProof, HashedStorage, MultiProof, MultiProofTargets, StorageMultiProof,
+        StorageProof, TrieInput,
+    };
+>>>>>>> 5ef21cdfec9801b12dd740acc00970c5c778a2f2
 
     fn create_mock_state(
         test_block_builder: &mut TestBlockBuilder<EthPrimitives>,
