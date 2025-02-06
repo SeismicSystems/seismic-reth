@@ -26,7 +26,7 @@ use reth_chainspec::{ChainSpec, Head};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};
 use reth_primitives::{transaction::FillTxEnv, Transaction, TransactionSigned};
 use reth_tee::{decrypt, encrypt, get_eph_rng_keypair, SchnorrkelKeypair, TeeError, TeeHttpClient};
-use reth_tracing::tracing::{debug, error};
+use reth_tracing::tracing::debug;
 use revm_primitives::{
     AnalysisKind, BlobExcessGasAndPrice, BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, EVMError,
     EVMResultGeneric, Env, SpecId, TxEnv,
@@ -115,7 +115,6 @@ impl ConfigureEvmEnv for EthEvmConfig {
 
     /// Get current eph_rng_keypair
     fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, TeeError> {
-        error!(target: "EthEvmConfig", "get_eph_rng_keypair");
         get_eph_rng_keypair(&self.tee_client)
             .map_err(|_| EVMError::Database(TeeError::EphRngKeypairGenerationError))
     }
@@ -229,8 +228,6 @@ impl ConfigureEvmEnv for EthEvmConfig {
             },
         );
 
-        debug!(target: "EthEvmConfig", "fill_cfg_env spec_id: {:?}", spec_id);
-
         cfg_env.chain_id = self.chain_spec.chain().id();
         cfg_env.perf_analyse_created_bytecodes = AnalysisKind::Analyse;
 
@@ -247,7 +244,6 @@ impl ConfigureEvmEnv for EthEvmConfig {
 
         // ensure we're not missing any timestamp based hardforks
         let spec_id = revm_spec_by_timestamp_after_merge(&self.chain_spec, attributes.timestamp);
-        debug!(target: "EthEvmConfig", "next_cfg_and_block_env spec_id: {:?}, chain_spec: {:?}", spec_id, self.chain_spec);
 
         // if the parent block did not have excess blob gas (i.e. it was pre-cancun), but it is
         // cancun now, we need to set the excess blob gas to the default value(0)
