@@ -50,9 +50,8 @@ where
 
         //hardcoding for now
         if let Some(env) = self.env {
+            builder = builder.with_spec_id(env.spec_id());
             builder = builder.with_env(env.env);
-            let handler = EvmHandler::seismic_with_spec(SpecId::MERCURY);
-            builder = builder.with_handler(handler);
         }
 
         builder.build()
