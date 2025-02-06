@@ -2,10 +2,10 @@
 
 use alloc::boxed::Box;
 use revm::{
-    handler::register::EvmHandler, inspector_handle_register, Database, Evm, EvmBuilder,
+    inspector_handle_register, Database, Evm, EvmBuilder,
     GetInspector,
 };
-use revm_primitives::{EnvWithHandlerCfg, SpecId};
+use revm_primitives::EnvWithHandlerCfg;
 
 /// Builder for creating an EVM with a database and environment.
 ///
