@@ -127,4 +127,4 @@ jobs:
             ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
             ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
       - name: seismic-node test
-        run: cargo nextest run --workspace -E '!(test(providers::static_file::tests::test_header_truncation) or test(providers::static_file::tests::test_tx_based_truncation))' --no-fail-fast
+        run: cargo nextest run --workspace # see profile.default in .config/nextest.toml for filtered tests

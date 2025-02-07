@@ -14,7 +14,7 @@ use seismic_node::utils::{start_mock_tee_server_with_custom_ports, test_utils::U
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_seismic_transactions() {
-    start_mock_tee_server_with_custom_ports(TEE_DEFAULT_ENDPOINT_PORT + 1).await; // avoid port collision with other tests when running them in parallel
+    UnitTestContext::start_mock_tee_server().await; // avoid port collision with other tests when running them in parallel
     test_fill_tx_env();
     test_fill_tx_env_decryption_error();
     test_encoding_decoding_signed_seismic_tx();

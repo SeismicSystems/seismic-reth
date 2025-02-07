@@ -10,26 +10,24 @@ use alloy_provider::{create_seismic_provider, test_utils, Provider, SendableTx};
 use alloy_rpc_types::{
     Block, Header, Transaction, TransactionInput, TransactionReceipt, TransactionRequest,
 };
-use reth_chainspec::{ChainSpec, SEISMIC_DEV};
+use reth_chainspec::SEISMIC_DEV;
 use reth_e2e_test_utils::wallet::Wallet;
-use reth_node_builder::{engine_tree_config::DEFAULT_BACKUP_THRESHOLD, NodeConfig};
-use reth_node_core::args::{DevArgs, TeeArgs};
+use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
 use reth_rpc_eth_api::EthApiClient;
 use seismic_node::utils::test_utils::{
     client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
     get_unsigned_seismic_tx_request,
 };
 use serde_json::Value;
-use std::{path::PathBuf, process::Stdio, sync::Arc, thread, time::Duration};
-use sysinfo::{Pid, PidExt, ProcessExt, System, SystemExt};
+use std::{path::PathBuf, process::Stdio, thread, time::Duration};
 use tee_service_api::aes_decrypt;
 use tokio::{
-    io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader},
-    process::{Child, Command},
-    sync::{mpsc, oneshot, Barrier},
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    process::Command,
+    sync::mpsc,
 };
 
-struct RethCommand(Child);
+struct RethCommand();
 use alloy_dyn_abi::EventExt;
 use alloy_json_abi::{Event, EventParam};
 use alloy_sol_types::{sol, SolCall, SolValue};

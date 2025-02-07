@@ -221,7 +221,7 @@ pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes
 
 /// Test utils for seismic node
 pub mod test_utils {
-    use std::fs::File;
+    use std::{fs::File, sync::Arc};
 
     use super::*;
     use alloy_consensus::{SignableTransaction, TxSeismic, TypedTransaction};
@@ -234,11 +234,12 @@ pub mod test_utils {
     use enr::EnrKey;
     use jsonrpsee::http_client::HttpClient;
     use k256::ecdsa::SigningKey;
-    use reth_chainspec::MAINNET;
+    use reth_chainspec::{ChainSpec, MAINNET};
     use reth_e2e_test_utils::transaction::TransactionTestContext;
     use reth_node_ethereum::EthEvmConfig;
     use reth_primitives::TransactionSigned;
     use reth_rpc_eth_api::EthApiClient;
+    use reth_tee::{TeeHttpClient, TEE_DEFAULT_ENDPOINT_ADDR, TEE_DEFAULT_ENDPOINT_PORT};
     use secp256k1::ecdh::SharedSecret;
     use serde::{Deserialize, Serialize};
     use tee_service_api::{aes_encrypt, derive_aes_key, get_sample_secp256k1_pk};
@@ -484,9 +485,34 @@ pub mod test_utils {
             encrypted_data
         }
 
+        /// Get the test tee endpoint
+        pub fn get_test_tee_endpoint() -> u16 {
+            TEE_DEFAULT_ENDPOINT_PORT + 1
+        }
+
+        /// Get the test tee client
+        pub fn get_test_tee_client() -> TeeHttpClient {
+            TeeHttpClient::new(format!(
+                "http://{}:{}",
+                TEE_DEFAULT_ENDPOINT_ADDR,
+                Self::get_test_tee_endpoint()
+            ))
+        }
+
+        /// Start the mock tee server
+        pub async fn start_mock_tee_server() {
+            start_mock_tee_server_with_custom_ports(Self::get_test_tee_endpoint()).await;
+        }
+
+        /// Get the chain spec
+        pub fn get_chain_spec() -> Arc<ChainSpec> {
+            MAINNET.clone()
+        }
+
         /// Get the evm config
         pub fn get_evm_config() -> EthEvmConfig {
-            EthEvmConfig::new(MAINNET.clone())
+            let tee_client = Self::get_test_tee_client();
+            EthEvmConfig::new_with_tee_client(Self::get_chain_spec(), tee_client)
         }
 
         /// Get the encryption private key
