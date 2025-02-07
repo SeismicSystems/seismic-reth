@@ -22,6 +22,7 @@ use reth_consensus::FullConsensus;
 use reth_engine_primitives::{BeaconEngineMessage, EngineValidator};
 use reth_engine_service::service::EngineMessageStream;
 use reth_engine_tree::{
+    backup::BackupHandle,
     chain::{ChainEvent, HandlerEvent},
     engine::{
         EngineApiKind, EngineApiRequest, EngineApiRequestHandler, EngineRequestHandler, FromEngine,
@@ -31,6 +32,10 @@ use reth_engine_tree::{
     tree::{EngineApiTreeHandler, InvalidBlockHook, TreeConfig},
 };
 use reth_evm::execute::BlockExecutorProvider;
+use reth_node_core::{
+    dirs::{ChainPath, DataDirPath},
+    node_config::NodeConfig,
+};
 use reth_node_types::BlockTy;
 use reth_payload_builder::PayloadBuilderHandle;
 use reth_payload_primitives::{PayloadAttributesBuilder, PayloadTypes};
@@ -78,6 +83,7 @@ where
         from_engine: EngineMessageStream<N::Engine>,
         mode: MiningMode,
         payload_attributes_builder: B,
+        data_dir: ChainPath<DataDirPath>,
     ) -> Self
     where
         B: PayloadAttributesBuilder<<N::Engine as PayloadTypes>::PayloadAttributes>,
@@ -90,6 +96,7 @@ where
         let persistence_handle =
             PersistenceHandle::<N::Primitives>::spawn_service(provider, pruner, sync_metrics_tx);
         let canonical_in_memory_state = blockchain_db.canonical_in_memory_state();
+        let backup_handle = BackupHandle::spawn_service(data_dir);
 
         let (to_tree_tx, from_tree) = EngineApiTreeHandler::<N::Primitives, _, _, _, _>::spawn_new(
             blockchain_db.clone(),
@@ -102,6 +109,7 @@ where
             tree_config,
             invalid_block_hook,
             engine_kind,
+            backup_handle,
         );
 
         let handler = EngineApiRequestHandler::new(to_tree_tx, from_tree);

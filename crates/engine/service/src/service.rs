@@ -6,6 +6,7 @@ use reth_consensus::FullConsensus;
 use reth_engine_primitives::{BeaconEngineMessage, EngineValidator};
 use reth_engine_tree::{
     backfill::PipelineSync,
+    backup::BackupHandle,
     download::BasicBlockDownloader,
     engine::{EngineApiKind, EngineApiRequest, EngineApiRequestHandler, EngineHandler},
     persistence::PersistenceHandle,
@@ -17,6 +18,7 @@ pub use reth_engine_tree::{
 };
 use reth_evm::execute::BlockExecutorProvider;
 use reth_network_p2p::BlockClient;
+use reth_node_core::dirs::{ChainPath, DataDirPath};
 use reth_node_types::{BlockTy, BodyTy, HeaderTy, NodeTypes, NodeTypesWithEngine};
 use reth_payload_builder::PayloadBuilderHandle;
 use reth_primitives::EthPrimitives;
@@ -84,6 +86,7 @@ where
         tree_config: TreeConfig,
         invalid_block_hook: Box<dyn InvalidBlockHook<N::Primitives>>,
         sync_metrics_tx: MetricEventsSender,
+        data_dir: ChainPath<DataDirPath>,
     ) -> Self
     where
         V: EngineValidator<N::Engine, Block = BlockTy<N>>,
@@ -98,6 +101,8 @@ where
 
         let canonical_in_memory_state = blockchain_db.canonical_in_memory_state();
 
+        let backup_handle = BackupHandle::spawn_service(data_dir);
+
         let (to_tree_tx, from_tree) = EngineApiTreeHandler::<N::Primitives, _, _, _, _>::spawn_new(
             blockchain_db,
             executor_factory,
@@ -109,6 +114,7 @@ where
             tree_config,
             invalid_block_hook,
             engine_kind,
+            backup_handle,
         );
 
         let engine_handler = EngineApiRequestHandler::new(to_tree_tx, from_tree);

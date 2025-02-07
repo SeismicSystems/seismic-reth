@@ -574,10 +574,9 @@ where
         payload_builder: PayloadBuilderHandle<T>,
         config: TreeConfig,
         engine_kind: EngineApiKind,
+        backup: BackupHandle,
     ) -> Self {
         let (incoming_tx, incoming) = std::sync::mpsc::channel();
-
-        let backup = BackupHandle::spawn_service(&config);
 
         Self {
             provider,
@@ -623,6 +622,7 @@ where
         config: TreeConfig,
         invalid_block_hook: Box<dyn InvalidBlockHook<N>>,
         kind: EngineApiKind,
+        backup: BackupHandle,
     ) -> (Sender<FromEngine<EngineApiRequest<T, N>, N::Block>>, UnboundedReceiver<EngineApiEvent<N>>)
     {
         let best_block_number = provider.best_block_number().unwrap_or(0);
@@ -654,6 +654,7 @@ where
             payload_builder,
             config,
             kind,
+            backup,
         );
         task.set_invalid_block_hook(invalid_block_hook);
         let incoming = task.incoming_tx.clone();

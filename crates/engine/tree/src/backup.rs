@@ -2,7 +2,11 @@
 use crate::tree::TreeConfig;
 use alloy_eips::BlockNumHash;
 use reth_errors::ProviderError;
-use reth_node_core::dirs::{ChainPath, DataDirPath};
+use reth_node_core::{
+    args::DatadirArgs,
+    dirs::{ChainPath, DataDirPath},
+    node_config,
+};
 use reth_tracing::tracing::*;
 use std::{
     path::PathBuf,
@@ -37,8 +41,8 @@ pub enum BackupAction {
 }
 impl BackupService {
     /// Create a new backup service
-    pub fn new(incoming: Receiver<BackupAction>, config: &TreeConfig) -> Self {
-        Self { incoming, data_dir: config.data_dir() }
+    pub fn new(incoming: Receiver<BackupAction>, data_dir: ChainPath<DataDirPath>) -> Self {
+        Self { incoming, data_dir }
     }
 
     /// Main loop that processes backup actions
@@ -222,11 +226,13 @@ impl BackupHandle {
     }
 
     /// Spawn a new backup service
-    pub fn spawn_service(config: &TreeConfig) -> BackupHandle {
+    pub fn spawn_service(
+        data_dir: ChainPath<DataDirPath>,
+    ) -> BackupHandle {
         let (tx, rx) = std::sync::mpsc::channel();
         let handle = BackupHandle::new(tx);
 
-        let service = BackupService::new(rx, config);
+        let service = BackupService::new(rx, data_dir);
         std::thread::Builder::new()
             .name("Backup Service".to_string())
             .spawn(move || {
