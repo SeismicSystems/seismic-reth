@@ -2,7 +2,7 @@ use crate::{
     engine_api::EngineApiTestContext, network::NetworkTestContext, payload::PayloadTestContext,
     rpc::RpcTestContext, traits::PayloadEnvelopeExt,
 };
-use alloy_consensus::{BlockHeader, Header};
+use alloy_consensus::BlockHeader;
 use alloy_eips::BlockId;
 use alloy_primitives::{BlockHash, BlockNumber, Bytes, B256};
 use alloy_rpc_types_engine::PayloadStatusEnum;
@@ -14,13 +14,12 @@ use reth_network_api::test_utils::PeersHandleProvider;
 use reth_node_api::{Block, EngineTypes, FullNodeComponents};
 use reth_node_builder::{rpc::RethRpcAddOns, FullNode, NodeTypes, NodeTypesWithEngine};
 use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes};
-use reth_primitives::{BlockBody, EthPrimitives, SealedHeader};
+use reth_primitives::EthPrimitives;
 use reth_provider::{
     BlockReader, BlockReaderIdExt, CanonStateSubscriptions, StageCheckpointReader,
 };
 use reth_rpc_eth_api::helpers::{EthApiSpec, FullEthApi, TraceExt};
 use reth_stages_types::StageId;
-use reth_tracing::tracing::*;
 use std::{marker::PhantomData, pin::Pin};
 use tokio_stream::StreamExt;
 use url::Url;
@@ -278,19 +277,7 @@ where
             .sealed_header_by_id(BlockId::Number(BlockNumberOrTag::Latest))?
             .is_none_or(|h| h.hash() != block)
         {
-            let current_block = self
-                .inner
-                .provider
-                .sealed_header_by_id(BlockId::Number(BlockNumberOrTag::Latest))?
-                .unwrap_or_else(|| {
-                    error!("Latest block not found");
-                    SealedHeader::default()
-                })
-                .hash();
-
-            error!(target: "reth::e2e::sync_to", "current block: {:?}, expected block: {:?}, elapsed: {:?}", current_block, block, start.elapsed());
-
-            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
             assert!(start.elapsed() <= std::time::Duration::from_secs(30), "timed out");
         }
@@ -299,7 +286,6 @@ where
         // Otherwise, this might result in e.g "nonce too low" errors when advancing chain further,
         // making tests flaky.
         tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
-        error!(target: "reth::e2e::sync_to", "total time elapsed: {:?}", start.elapsed());
 
         Ok(())
     }
