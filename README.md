@@ -1,7 +1,8 @@
 # Seismic Reth
 
-[![CI status](https://github.com/paradigmxyz/reth/workflows/unit/badge.svg)][gh-ci]
-[![cargo-deny status](https://github.com/paradigmxyz/reth/workflows/deny/badge.svg)][gh-deny]
+[![book](https://github.com/SeismicSystems/seismic-reth/actions/workflows/book.yml/badge.svg?branch=seismic)](https://github.com/SeismicSystems/seismic-reth/actions/workflows/book.yml)
+[![CI Status](https://github.com/SeismicSystems/seismic-reth/actions/workflows/seismic.yml/badge.svg?branch=seismic)](https://github.com/SeismicSystems/seismic-reth/actions/workflows/seismic.yml)
+
 [![Telegram Chat][tg-badge]][tg-url]
 
 **Modular, contributor-friendly and blazing-fast implementation of the Ethereum protocol**
@@ -13,9 +14,7 @@
 | [Developer Docs](./docs)
 | [Crate Docs](https://reth.rs/docs)
 
-[gh-ci]: https://github.com/paradigmxyz/reth/actions/workflows/unit.yml
-[gh-deny]: https://github.com/paradigmxyz/reth/actions/workflows/deny.yml
-[tg-badge]: https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Fparadigm%5Freth
+<!-- [tg-badge]: https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Fparadigm%5Freth -->
 
 ## What is Reth?
 
