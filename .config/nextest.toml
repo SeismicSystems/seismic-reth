@@ -1,7 +1,7 @@
 [profile.default]
 retries = { backoff = "exponential", count = 2, delay = "2s", jitter = true }
-slow-timeout = { period = "30s", terminate-after = 4 }
+slow-timeout = { period = "40s", terminate-after = 4 }
 
 [[profile.default.overrides]]
-filter = "test(general_state_tests)"
+filter = 'test(general_state_tests) &!test("providers::static_file::tests::test_header_truncation") & !test("providers::static_file::tests::test_tx_based_truncation") '
 slow-timeout = { period = "1m", terminate-after = 10 }

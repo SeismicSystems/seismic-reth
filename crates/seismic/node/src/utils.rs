@@ -190,9 +190,17 @@ pub async fn seismic_reth_dev_init() {
 }
 
 /// Start the mock tee server
-pub async fn start_mock_tee_server() {
+pub async fn start_mock_tee_server_with_default_ports() {
     let _ = task::spawn(async {
         let tee_server = MockTeeServer::new("127.0.0.1:7878");
+        tee_server.run().await.map_err(|_| eyre::Error::msg("tee server failed"))
+    });
+}
+
+/// Start the mock tee server
+pub async fn start_mock_tee_server_with_custom_ports(port: u16) {
+    let _ = task::spawn(async move {
+        let tee_server = MockTeeServer::new(&format!("127.0.0.1:{}", port));
         tee_server.run().await.map_err(|_| eyre::Error::msg("tee server failed"))
     });
 }
