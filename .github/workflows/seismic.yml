@@ -127,4 +127,4 @@ jobs:
             ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
             ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
       - name: seismic-node test
-        run: cargo nextest run --workspace -E 'kind(test)' --no-fail-fast # see profile.default in .config/nextest.toml for filtered tests
+        run: cargo nextest run --workspace -E 'kind(test)' # see profile.default in .config/nextest.toml for filtered tests
