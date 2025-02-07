@@ -127,4 +127,4 @@ jobs:
             ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
             ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
       - name: seismic-node test
-        run: cargo test --package reth-node-ethereum --test e2e --all-features -- p2p::e2e_test_send_transactions --exact --show-output
+        run: RUST_LOG=debug cargo test --package reth-node-ethereum --test e2e --all-features -- p2p::e2e_test_send_transactions --exact --show-output --nocapture
