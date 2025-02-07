@@ -49,7 +49,6 @@ impl BackupService {
                 BackupAction::BackupAtBlock(block_number, sender) => {
                     let result = self.perform_backup(block_number);
                     if let Err(e) = result {
-                        error!(target: "engine::backup", ?e, ?self.data_dir, "Backup failed");
                         let _ = sender.send(None);
                     } else {
                         let _ = sender.send(Some(block_number));

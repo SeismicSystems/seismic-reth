@@ -39,8 +39,6 @@ pub use mdbx::{create_db, init_db, open_db, open_db_read_only, DatabaseEnv, Data
 pub use models::ClientVersion;
 pub use reth_db_api::*;
 
-use reth_tracing::tracing::*;
-
 /// Collection of database test utilities
 #[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils {
@@ -193,7 +191,6 @@ pub mod test_utils {
 
     /// Create read/write database for testing
     pub fn create_test_rw_db_with_path<P: AsRef<Path>>(path: P) -> Arc<TempDatabase<DatabaseEnv>> {
-        error!(target: "reth::create_test_rw_db_with_path", "data_dir: {:?}", path.as_ref());
         let path = path.as_ref().to_path_buf();
         let db = init_db(
             path.as_path(),

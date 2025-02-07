@@ -697,10 +697,6 @@ mod tests {
 
         let fee_history =
             eth_api.fee_history(U64::from(1), newest_block.into(), None).await.unwrap();
-        println!(
-            "test_fee_history_single_block: fee_history.base_fee_per_gas: {:?}\n, base_fees_per_gas: {:?}",
-            fee_history.base_fee_per_gas, base_fees_per_gas
-        );
         assert_eq!(
             fee_history.base_fee_per_gas,
             &base_fees_per_gas[base_fees_per_gas.len() - 2..],

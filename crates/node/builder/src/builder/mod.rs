@@ -41,7 +41,7 @@ use reth_tasks::TaskExecutor;
 use reth_transaction_pool::{PoolConfig, PoolTransaction, TransactionPool};
 use secp256k1::SecretKey;
 use std::sync::Arc;
-use tracing::{error, info, trace, warn};
+use tracing::{info, trace, warn};
 
 pub mod add_ons;
 
@@ -231,13 +231,6 @@ impl<DB, ChainSpec: EthChainSpec> NodeBuilder<DB, ChainSpec> {
             path.unwrap_or_chain_default(self.config.chain.chain(), self.config.datadir.clone());
 
         let db = reth_db::test_utils::create_test_rw_db_with_path(data_dir.db());
-
-        error!(target: "reth::testing_node", "data_dir: {:?} resolved to {:?}", self.config.datadir.clone(), self.config.datadir.clone().resolve_datadir(self.config.chain.chain()));
-
-        let metadata = std::fs::metadata(self.config.datadir.clone().resolve_datadir(self.config.chain.chain())).map_err(|e| {
-            error!(target: "reth::testing_node", "Failed to access source path: {:?} : {:?}", self.config.datadir.clone().resolve_datadir(self.config.chain.chain()), e);
-        });
-        error!(target: "reth::testing_node", "datadir metadata: {:?}", metadata);
 
         WithLaunchContext { builder: self.with_database(db), task_executor }
     }
