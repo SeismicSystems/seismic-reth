@@ -277,7 +277,8 @@ where
             .sealed_header_by_id(BlockId::Number(BlockNumberOrTag::Latest))?
             .is_none_or(|h| h.hash() != block)
         {
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            error!(target: "reth::e2e::sync_to", "current block: {:?}, expected block: {:?}", self.inner.provider.block_by_id(BlockId::Number(BlockNumberOrTag::Latest))?.unwrap().header().number(), block);
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 
             assert!(start.elapsed() <= std::time::Duration::from_secs(10), "timed out");
         }
