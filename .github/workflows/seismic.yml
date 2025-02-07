@@ -104,7 +104,7 @@ jobs:
         run: cargo test
 
   integration-test:
-    runs-on: ubuntu-24.04
+    runs-on: large-github-runner
     timeout-minutes: 30
     env:
       SEISMIC_CI: 1
