@@ -219,6 +219,8 @@ where
         };
         let engine_payload_validator = add_ons.engine_validator(&add_ons_ctx).await?;
 
+        error!(target: "reth::cli", "data_dir: {:?}", ctx.data_dir().clone());
+
         let mut engine_service = if ctx.is_dev() {
             let eth_service = LocalEngineService::new(
                 consensus.clone(),

@@ -232,6 +232,8 @@ impl<DB, ChainSpec: EthChainSpec> NodeBuilder<DB, ChainSpec> {
 
         let db = reth_db::test_utils::create_test_rw_db_with_path(data_dir.db());
 
+        error!(target: "reth::testing_node", "data_dir: {:?}", self.config.datadir);
+
         WithLaunchContext { builder: self.with_database(db), task_executor }
     }
 }

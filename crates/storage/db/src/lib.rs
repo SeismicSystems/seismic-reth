@@ -191,6 +191,7 @@ pub mod test_utils {
 
     /// Create read/write database for testing
     pub fn create_test_rw_db_with_path<P: AsRef<Path>>(path: P) -> Arc<TempDatabase<DatabaseEnv>> {
+        error!(target: "reth::create_test_rw_db_with_path", "data_dir: {:?}", path.as_ref());
         let path = path.as_ref().to_path_buf();
         let db = init_db(
             path.as_path(),
