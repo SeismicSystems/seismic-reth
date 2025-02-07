@@ -456,9 +456,8 @@ rustdocs: ## Runs `cargo docs` to generate the Rust documents in the `target/doc
 	cargo +nightly docs \
 	--document-private-items
 
-test-seismic-reth:
-	cargo test --package seismic-node -- --exact --show-output     
-
+test-seismic-reth :## see profile.default in .config/nextest.toml for filtered tests
+	cargo nextest run --workspace 
 test-reth:
 	cargo test \
 	--workspace \

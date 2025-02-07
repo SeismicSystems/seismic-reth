@@ -1,5 +1,5 @@
 [profile.default]
-default-filter = '!(test(providers::static_file::tests::test_header_truncation) or test(providers::static_file::tests::test_tx_based_truncation))'
+default-filter = '!(test(providers::static_file::tests::test_header_truncation) or test(providers::static_file::tests::test_tx_based_truncation) or test(reth-rpc eth::core::tests))'
 retries = { backoff = "exponential", count = 2, delay = "2s", jitter = true }
 slow-timeout = { period = "40s", terminate-after = 4 }
 
