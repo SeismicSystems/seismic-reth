@@ -293,13 +293,14 @@ where
 
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 
-            assert!(start.elapsed() <= std::time::Duration::from_secs(20), "timed out");
+            assert!(start.elapsed() <= std::time::Duration::from_secs(10), "timed out");
         }
 
         // Hack to make sure that all components have time to process canonical state update.
         // Otherwise, this might result in e.g "nonce too low" errors when advancing chain further,
         // making tests flaky.
         tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+        error!(target: "reth::e2e::sync_to", "total time elapsed: {:?}", start.elapsed());
 
         Ok(())
     }
