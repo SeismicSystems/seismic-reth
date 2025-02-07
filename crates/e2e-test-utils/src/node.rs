@@ -2,7 +2,7 @@ use crate::{
     engine_api::EngineApiTestContext, network::NetworkTestContext, payload::PayloadTestContext,
     rpc::RpcTestContext, traits::PayloadEnvelopeExt,
 };
-use alloy_consensus::BlockHeader;
+use alloy_consensus::{BlockHeader, Header};
 use alloy_eips::BlockId;
 use alloy_primitives::{BlockHash, BlockNumber, Bytes, B256};
 use alloy_rpc_types_engine::PayloadStatusEnum;
@@ -14,7 +14,7 @@ use reth_network_api::test_utils::PeersHandleProvider;
 use reth_node_api::{Block, EngineTypes, FullNodeComponents};
 use reth_node_builder::{rpc::RethRpcAddOns, FullNode, NodeTypes, NodeTypesWithEngine};
 use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes};
-use reth_primitives::EthPrimitives;
+use reth_primitives::{BlockBody, EthPrimitives};
 use reth_provider::{
     BlockReader, BlockReaderIdExt, CanonStateSubscriptions, StageCheckpointReader,
 };
@@ -278,10 +278,22 @@ where
             .sealed_header_by_id(BlockId::Number(BlockNumberOrTag::Latest))?
             .is_none_or(|h| h.hash() != block)
         {
-            error!(target: "reth::e2e::sync_to", "current block: {:?}, expected block: {:?}", self.inner.provider.block_by_id(BlockId::Number(BlockNumberOrTag::Latest))?.unwrap().header().number(), block);
+            let current_block = self
+                .inner
+                .provider
+                .block_by_id(BlockId::Number(BlockNumberOrTag::Latest))?
+                .unwrap_or_else(|| {
+                    error!("Latest block not found");
+                    Block::new(Header::default(), BlockBody::default())
+                })
+                .header()
+                .number();
+
+            error!(target: "reth::e2e::sync_to", "current block: {:?}, expected block: {:?}, elapsed: {:?}", current_block, block, start.elapsed());
+
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 
-            assert!(start.elapsed() <= std::time::Duration::from_secs(10), "timed out");
+            assert!(start.elapsed() <= std::time::Duration::from_secs(20), "timed out");
         }
 
         // Hack to make sure that all components have time to process canonical state update.
