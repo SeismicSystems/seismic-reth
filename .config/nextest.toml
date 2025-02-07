@@ -1,6 +1,5 @@
 [profile.default]
-default-filter = '!(test(providers::static_file::tests::test_header_truncation) or test(providers::static_file::tests::test_tx_based_truncation) or test(eth::core::tests))'
-retries = { backoff = "exponential", count = 2, delay = "2s", jitter = true }
+retries = { backoff = "exponential", count = 3, delay = "2s", jitter = true }
 slow-timeout = { period = "200s", terminate-after = 4 }
 
 [[profile.default.overrides]]
