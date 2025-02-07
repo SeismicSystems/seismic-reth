@@ -126,7 +126,8 @@ jobs:
             ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
             ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
             ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
-      - name: cargo install nextest
-        run: cargo install nextest
+      - name: cargo install cargo-nextest
+        run: cargo install cargo-nextest
       - name: seismic-node test
-        run: cargo nextest run -p reth-provider --filter-expr '!test("providers::static_file::tests::test_header_truncation") & !test("providers::static_file::tests::test_tx_based_truncation")' --no-fail-fast
+        run: |
+          cargo nextest run --workspace -- --skip providers::static_file::tests::test_header_truncation --skip providers::static_file::tests::test_tx_based_truncation

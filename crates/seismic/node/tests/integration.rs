@@ -113,12 +113,7 @@ impl RethCommand {
             }
             println!("✅ Exiting loop.");
 
-            let pid = child.id().unwrap();
-            if let Some(process) = System::new_all().process(Pid::from_u32(pid)) {
-                eprintln!("killing process {}", pid);
-                process.kill();
-            }
-            println!("killing process");
+            child.kill().await.unwrap();
         });
     }
 
@@ -127,15 +122,6 @@ impl RethCommand {
     }
     fn url() -> String {
         format!("http://127.0.0.1:8545")
-    }
-}
-
-fn drop_process(pid: u32) {
-    // kill the process
-    println!("drop called");
-    thread::sleep(Duration::from_secs(2));
-    if let Some(process) = System::new_all().process(Pid::from_u32(pid)) {
-        process.kill();
     }
 }
 
@@ -163,13 +149,6 @@ async fn integration_test() {
     thread::sleep(Duration::from_secs(1));
 }
 
-//#[tokio::test]
-//async fn try_seismic_precompiles_end_to_end() {
-//    let _cmd = RethCommand::run();
-//    thread::sleep(Duration::from_secs(5));
-//
-//    test_seismic_precompiles_end_to_end().await;
-//}
 async fn test_seismic_reth_rpc_with_typed_data() {
     let reth_rpc_url = RethCommand::url();
     let chain_id = RethCommand::chain_id();
