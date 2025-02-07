@@ -104,7 +104,7 @@ jobs:
         run: cargo test
 
   integration-test:
-    runs-on: Reth
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       SEISMIC_CI: 1
@@ -126,5 +126,7 @@ jobs:
             ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
             ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
             ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
+      - name: cargo install cargo-nextest
+        run: cargo install cargo-nextest
       - name: seismic-node test
         run: cargo nextest run --workspace -E "kind(test)"
