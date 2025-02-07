@@ -129,4 +129,5 @@ jobs:
       - name: build seismic-reth
         run: cargo build --bin seismic-reth
       - name: seismic-node test
-        run: cargo test --workspace --no-fail-fast -- --show-output
+        run: cargo nextest run --workspace
+# cargo nextest run --filter-expr '!test("reth-provider::providers::static_file::tests::test_header_truncation") & !test("reth-provider::providers::static_file::tests::test_tx_based_truncation")'
