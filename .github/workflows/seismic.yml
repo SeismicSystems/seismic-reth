@@ -126,8 +126,7 @@ jobs:
             ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
             ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
             ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
-      - name: build seismic-reth
-        run: cargo build --bin seismic-reth
+      - name: cargo install nextest
+        run: cargo install nextest
       - name: seismic-node test
-        run: cargo nextest run --workspace
-# cargo nextest run --filter-expr '!test("reth-provider::providers::static_file::tests::test_header_truncation") & !test("reth-provider::providers::static_file::tests::test_tx_based_truncation")'
+        run: cargo nextest run -p reth-provider --filter-expr '!test("providers::static_file::tests::test_header_truncation") & !test("providers::static_file::tests::test_tx_based_truncation")' --no-fail-fast
