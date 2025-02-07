@@ -104,7 +104,7 @@ jobs:
         run: cargo test
 
   integration-test:
-    runs-on: large-github-runner
+    runs-on: Reth
     timeout-minutes: 30
     env:
       SEISMIC_CI: 1
@@ -129,5 +129,4 @@ jobs:
       - name: cargo install cargo-nextest
         run: cargo install cargo-nextest
       - name: seismic-node test
-        run: |
-          cargo nextest run --workspace -- --skip providers::static_file::tests::test_header_truncation --skip providers::static_file::tests::test_tx_based_truncation
+        run: cargo nextest run --workspace -E "kind(test)"
