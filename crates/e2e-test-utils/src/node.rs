@@ -14,7 +14,7 @@ use reth_network_api::test_utils::PeersHandleProvider;
 use reth_node_api::{Block, EngineTypes, FullNodeComponents};
 use reth_node_builder::{rpc::RethRpcAddOns, FullNode, NodeTypes, NodeTypesWithEngine};
 use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes};
-use reth_primitives::{BlockBody, EthPrimitives};
+use reth_primitives::{BlockBody, EthPrimitives, SealedHeader};
 use reth_provider::{
     BlockReader, BlockReaderIdExt, CanonStateSubscriptions, StageCheckpointReader,
 };
@@ -281,13 +281,12 @@ where
             let current_block = self
                 .inner
                 .provider
-                .block_by_id(BlockId::Number(BlockNumberOrTag::Latest))?
+                .sealed_header_by_id(BlockId::Number(BlockNumberOrTag::Latest))?
                 .unwrap_or_else(|| {
                     error!("Latest block not found");
-                    Block::new(Header::default(), BlockBody::default())
+                    SealedHeader::default()
                 })
-                .header()
-                .number();
+                .hash();
 
             error!(target: "reth::e2e::sync_to", "current block: {:?}, expected block: {:?}, elapsed: {:?}", current_block, block, start.elapsed());
 
