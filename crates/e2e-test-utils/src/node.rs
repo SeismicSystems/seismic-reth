@@ -20,6 +20,7 @@ use reth_provider::{
 };
 use reth_rpc_eth_api::helpers::{EthApiSpec, FullEthApi, TraceExt};
 use reth_stages_types::StageId;
+use reth_tracing::tracing::*;
 use std::{marker::PhantomData, pin::Pin};
 use tokio_stream::StreamExt;
 use url::Url;
