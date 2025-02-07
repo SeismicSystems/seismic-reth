@@ -10,7 +10,6 @@ use alloy_provider::{create_seismic_provider, test_utils, Provider, SendableTx};
 use alloy_rpc_types::{
     Block, Header, Transaction, TransactionInput, TransactionReceipt, TransactionRequest,
 };
-use assert_cmd::Command;
 use reth_chainspec::SEISMIC_DEV;
 use reth_e2e_test_utils::wallet::Wallet;
 use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
@@ -19,11 +18,16 @@ use seismic_node::utils::test_utils::{
     client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
     get_unsigned_seismic_tx_request,
 };
-use std::{path::PathBuf, thread, time::Duration};
-use sysinfo::{Pid, PidExt, ProcessExt, System, SystemExt};
+use serde_json::Value;
+use std::{path::PathBuf, process::Stdio, thread, time::Duration};
 use tee_service_api::aes_decrypt;
-use tokio::process::Child;
-struct RethCommand(Child);
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    process::Command,
+    sync::mpsc,
+};
+
+struct RethCommand();
 use alloy_dyn_abi::EventExt;
 use alloy_json_abi::{Event, EventParam};
 use alloy_sol_types::{sol, SolCall, SolValue};
@@ -34,10 +38,18 @@ impl RethCommand {
             once_cell::sync::Lazy::new(|| tempfile::tempdir().unwrap());
         TEMP_DIR.path().to_path_buf()
     }
-    fn run() -> RethCommand {
-        let cmd = Command::cargo_bin("seismic-reth").unwrap();
-        let cmd_str = cmd.get_program().to_str().unwrap();
-        let child = tokio::process::Command::new(cmd_str)
+    async fn run(tx: mpsc::Sender<()>, mut shutdown_rx: mpsc::Receiver<()>) {
+        let output =
+            Command::new("cargo").arg("metadata").arg("--format-version=1").output().await.unwrap();
+        let metadata: Value = serde_json::from_slice(&output.stdout).unwrap();
+        let workspace_root = metadata.get("workspace_root").unwrap().as_str().unwrap();
+        println!("Workspace root: {}", workspace_root);
+
+        let mut child = Command::new("cargo")
+            .arg("run")
+            .arg("--bin")
+            .arg("seismic-reth") // Specify the binary name
+            .arg("--")
             .arg("node")
             .arg("--datadir")
             .arg(RethCommand::data_dir().to_str().unwrap())
@@ -46,10 +58,63 @@ impl RethCommand {
             .arg("1")
             .arg("--tee.mock-server")
             .arg("-vvvv")
+            .current_dir(workspace_root)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()
             .expect("Failed to start the binary");
-        RethCommand(child)
+
+        tokio::spawn(async move {
+            let stdout = child.stdout.as_mut().expect("Failed to capture stdout");
+            let stderr = child.stderr.as_mut().expect("Failed to capture stderr");
+            let mut stdout_reader = BufReader::new(stdout);
+            let mut stderr_reader = BufReader::new(stderr);
+            let mut stdout_line = String::new();
+            let mut stderr_line = String::new();
+            let mut sent = false;
+            std::panic::set_hook(Box::new(|info| {
+                eprintln!("❌ PANIC DETECTED: {:?}", info);
+            }));
+
+            loop {
+                tokio::select! {
+                    result = stdout_reader.read_line(&mut stdout_line) => {
+                        if result.unwrap() == 0 {
+                            eprintln!("🛑 STDOUT reached EOF! Breaking loop.");
+                            break;
+                        }
+                        eprint!("{}", stdout_line);
+
+                        if stdout_line.contains("starting mock tee server") && !sent {
+                            eprintln!("🚀 Reth server is ready!");
+                            let _ = tx.send(()).await;
+                            sent = true;
+                        }
+                        stdout_line.clear();
+                        tokio::io::stdout().flush().await.unwrap();
+                    }
+
+                    result = stderr_reader.read_line(&mut stderr_line) => {
+                        if result.unwrap() == 0 {
+                            eprintln!("🛑 STDERR reached EOF! Breaking loop.");
+                            break;
+                        }
+                        eprint!("{}", stderr_line);
+                        stderr_line.clear();
+                    }
+
+                    Some(_) = shutdown_rx.recv() => {
+                        eprintln!("🛑 Shutdown signal received! Breaking loop.");
+                        break;
+                    }
+                }
+            }
+            println!("✅ Exiting loop.");
+
+            child.kill().await.unwrap();
+        });
     }
+
     fn chain_id() -> u64 {
         SEISMIC_DEV.chain().into()
     }
@@ -58,39 +123,30 @@ impl RethCommand {
     }
 }
 
-impl Drop for RethCommand {
-    fn drop(&mut self) {
-        // kill the process
-        thread::sleep(Duration::from_secs(2));
-        let pid = self.0.id().unwrap();
-        if let Some(process) = System::new_all().process(Pid::from_u32(pid)) {
-            process.kill();
-        }
-    }
-}
-
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
 const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessage(bytes)
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn integration_test() {
-    let _cmd = RethCommand::run();
-    thread::sleep(Duration::from_secs(5));
+    let (tx, mut rx) = mpsc::channel(1);
+    let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
+
+    // ✅ Spawn `run()` instead of awaiting it
+    RethCommand::run(tx, shutdown_rx).await;
+    // wait for the server to be ready
+    rx.recv().await.unwrap();
 
     test_seismic_reth_backup().await;
     test_seismic_reth_rpc_with_rust_client().await;
     test_seismic_reth_rpc().await;
     test_seismic_precompiles_end_to_end().await;
     test_seismic_reth_rpc_with_typed_data().await;
+
+    let _ = shutdown_tx.try_send(()).unwrap();
+    println!("shutdown signal sent");
+    thread::sleep(Duration::from_secs(1));
 }
 
-//#[tokio::test]
-//async fn try_seismic_precompiles_end_to_end() {
-//    let _cmd = RethCommand::run();
-//    thread::sleep(Duration::from_secs(5));
-//
-//    test_seismic_precompiles_end_to_end().await;
-//}
 async fn test_seismic_reth_rpc_with_typed_data() {
     let reth_rpc_url = RethCommand::url();
     let chain_id = RethCommand::chain_id();

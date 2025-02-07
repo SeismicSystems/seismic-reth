@@ -1,5 +1,4 @@
 //! reth's database backup functionality
-use crate::tree::TreeConfig;
 use alloy_eips::BlockNumHash;
 use reth_errors::ProviderError;
 use reth_node_core::dirs::{ChainPath, DataDirPath};
@@ -37,8 +36,8 @@ pub enum BackupAction {
 }
 impl BackupService {
     /// Create a new backup service
-    pub fn new(incoming: Receiver<BackupAction>, config: &TreeConfig) -> Self {
-        Self { incoming, data_dir: config.data_dir() }
+    pub fn new(incoming: Receiver<BackupAction>, data_dir: ChainPath<DataDirPath>) -> Self {
+        Self { incoming, data_dir }
     }
 
     /// Main loop that processes backup actions
@@ -68,9 +67,6 @@ impl BackupService {
 
         // Perform the actual backup using the provider
         BackupService::backup_dir(&PathBuf::from(self.data_dir.data_dir()), &backup_path)?;
-
-        // Rotate old backups if needed
-        // self.rotate_backups()?;
 
         info!(
             target: "engine::backup",
@@ -102,7 +98,11 @@ impl BackupService {
 
         // Retrieve the metadata of the source path
         let metadata = std::fs::metadata(source_path).map_err(|e| {
-            ProviderError::FsPathError(format!("Failed to access source path: {}", e))
+            ProviderError::FsPathError(format!(
+                "Failed to access source path: {} : {}",
+                source_path.display(),
+                e,
+            ))
         })?;
 
         // If the source is a directory, create the destination directory if it does not exist
@@ -218,11 +218,11 @@ impl BackupHandle {
     }
 
     /// Spawn a new backup service
-    pub fn spawn_service(config: &TreeConfig) -> BackupHandle {
+    pub fn spawn_service(data_dir: ChainPath<DataDirPath>) -> BackupHandle {
         let (tx, rx) = std::sync::mpsc::channel();
         let handle = BackupHandle::new(tx);
 
-        let service = BackupService::new(rx, config);
+        let service = BackupService::new(rx, data_dir);
         std::thread::Builder::new()
             .name("Backup Service".to_string())
             .spawn(move || {

@@ -1220,9 +1220,9 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "aurora-engine-modexp"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0aef7712851e524f35fbbb74fa6599c5cd8692056a1c36f9ca0d2001b670e7e5"
+checksum = "518bc5745a6264b5fd7b09dffb9667e400ee9e2bbe18555fac75e1fe9afa0df9"
 dependencies = [
  "hex",
  "num",
@@ -7496,6 +7496,7 @@ dependencies = [
  "reth-engine-tree",
  "reth-ethereum-engine-primitives",
  "reth-evm",
+ "reth-node-core",
  "reth-node-types",
  "reth-payload-builder",
  "reth-payload-builder-primitives",
@@ -7546,6 +7547,7 @@ dependencies = [
  "reth-evm-ethereum",
  "reth-exex-types",
  "reth-network-p2p",
+ "reth-node-core",
  "reth-node-types",
  "reth-payload-builder",
  "reth-primitives",

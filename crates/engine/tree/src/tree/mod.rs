@@ -574,10 +574,9 @@ where
         payload_builder: PayloadBuilderHandle<T>,
         config: TreeConfig,
         engine_kind: EngineApiKind,
+        backup: BackupHandle,
     ) -> Self {
         let (incoming_tx, incoming) = std::sync::mpsc::channel();
-
-        let backup = BackupHandle::spawn_service(&config);
 
         Self {
             provider,
@@ -623,6 +622,7 @@ where
         config: TreeConfig,
         invalid_block_hook: Box<dyn InvalidBlockHook<N>>,
         kind: EngineApiKind,
+        backup: BackupHandle,
     ) -> (Sender<FromEngine<EngineApiRequest<T, N>, N::Block>>, UnboundedReceiver<EngineApiEvent<N>>)
     {
         let best_block_number = provider.best_block_number().unwrap_or(0);
@@ -654,6 +654,7 @@ where
             payload_builder,
             config,
             kind,
+            backup,
         );
         task.set_invalid_block_hook(invalid_block_hook);
         let incoming = task.incoming_tx.clone();
@@ -2720,6 +2721,7 @@ mod tests {
     use reth_engine_primitives::ForkchoiceStatus;
     use reth_ethereum_engine_primitives::{EthEngineTypes, EthereumEngineValidator};
     use reth_evm::test_utils::MockExecutorProvider;
+    use reth_node_core::dirs::{ChainPath, MaybePlatformPath, PlatformPath};
     use reth_primitives::{Block, BlockExt, EthPrimitives};
     use reth_provider::test_utils::MockEthProvider;
     use reth_rpc_types_compat::engine::{block_to_payload_v1, payload::block_to_payload_v3};
@@ -2820,6 +2822,10 @@ mod tests {
         ) -> Self {
             let persistence_handle = PersistenceHandle::new(action_tx);
 
+            let backup_handle = BackupHandle::spawn_service(MaybePlatformPath::chain_default(
+                chain_spec.chain.clone(),
+            ));
+
             let consensus = Arc::new(EthBeaconConsensus::new(chain_spec.clone()));
 
             let provider = MockEthProvider::default();
@@ -2850,6 +2856,7 @@ mod tests {
                 payload_builder,
                 TreeConfig::default(),
                 EngineApiKind::Ethereum,
+                backup_handle,
             );
 
             let block_builder = TestBlockBuilder::default().with_chain_spec((*chain_spec).clone());

@@ -831,7 +831,7 @@ mod tests {
         }) if total == block.gas_used);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn sanity_execution_of_block() {
         let factory = create_test_provider_factory();
         let provider = factory.provider_rw().unwrap();
@@ -984,7 +984,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn sanity_execute_unwind() {
         let factory = create_test_provider_factory();
         let provider = factory.provider_rw().unwrap();
@@ -1104,7 +1104,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_selfdestruct() {
         let test_db = TestStageDB::default();
         let provider = test_db.factory.database_provider_rw().unwrap();

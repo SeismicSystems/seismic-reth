@@ -255,7 +255,7 @@ mod tests {
     use reth_testing_utils::generators;
     use secp256k1::Keypair;
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_single_blocks() -> eyre::Result<()> {
         reth_tracing::init_test_tracing();
 
@@ -296,7 +296,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_batch() -> eyre::Result<()> {
         reth_tracing::init_test_tracing();
 

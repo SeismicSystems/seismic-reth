@@ -1,8 +1,5 @@
 //! Engine tree configuration.
 
-use reth_chainspec::Chain;
-use reth_node_core::dirs::{ChainPath, DataDirPath, PlatformPath};
-
 /// Triggers persistence when the number of canonical blocks in memory exceeds this threshold.
 pub const DEFAULT_PERSISTENCE_THRESHOLD: u64 = 2;
 
@@ -40,8 +37,6 @@ pub struct TreeConfig {
     max_execute_block_batch_size: usize,
     /// Maximum number of blocks to be persisted without triggering a backup
     backup_threshold: u64,
-    /// The data directory for the engine tree.
-    data_dir: ChainPath<DataDirPath>,
 }
 
 impl Default for TreeConfig {
@@ -53,11 +48,6 @@ impl Default for TreeConfig {
             max_invalid_header_cache_length: DEFAULT_MAX_INVALID_HEADER_CACHE_LENGTH,
             max_execute_block_batch_size: DEFAULT_MAX_EXECUTE_BLOCK_BATCH_SIZE,
             backup_threshold: DEFAULT_BACKUP_THRESHOLD,
-            data_dir: ChainPath::new(
-                PlatformPath::<DataDirPath>::default(),
-                Chain::mainnet(),
-                reth_node_core::args::DatadirArgs::default(),
-            ),
         }
     }
 }
@@ -71,7 +61,6 @@ impl TreeConfig {
         max_invalid_header_cache_length: u32,
         max_execute_block_batch_size: usize,
         backup_threshold: u64,
-        data_dir: ChainPath<DataDirPath>,
     ) -> Self {
         Self {
             persistence_threshold,
@@ -80,7 +69,6 @@ impl TreeConfig {
             max_invalid_header_cache_length,
             max_execute_block_batch_size,
             backup_threshold,
-            data_dir,
         }
     }
 
@@ -112,11 +100,6 @@ impl TreeConfig {
     /// Return the backup threshold.
     pub const fn backup_threshold(&self) -> u64 {
         self.backup_threshold
-    }
-
-    /// Return the data directory.
-    pub fn data_dir(&self) -> ChainPath<DataDirPath> {
-        self.data_dir.clone()
     }
 
     /// Setter for persistence threshold.
@@ -161,12 +144,6 @@ impl TreeConfig {
     /// Setter for backup threshold.
     pub const fn with_backup_threshold(mut self, backup_threshold: u64) -> Self {
         self.backup_threshold = backup_threshold;
-        self
-    }
-
-    /// Setter for data directory.
-    pub fn with_data_dir(mut self, data_dir: ChainPath<DataDirPath>) -> Self {
-        self.data_dir = data_dir;
         self
     }
 }
