@@ -4,9 +4,9 @@ name: book
 
 on:
   push:
-    branches: [main]
+    branches: [seismic]
   pull_request:
-    branches: [main]
+    branches: [seismic]
   merge_group:
 
 jobs:
