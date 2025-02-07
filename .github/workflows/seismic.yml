@@ -77,31 +77,31 @@ jobs:
   #     - name: cargo check warnings
   #       run: RUSTFLAGS="-D warnings" cargo check
 
-  # test:
-  #   runs-on: large-github-runner
-  #   timeout-minutes: 30
-  #   env:
-  #     SEISMIC_CI: 1
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: dtolnay/rust-toolchain@stable
-  #     - uses: Swatinem/rust-cache@v2
-  #       with:
-  #         shared-key: "test-cache"
-  #     - name: Install SSH Keys
-  #       uses: webfactory/ssh-agent@v0.9.0
-  #       with:
-  #         ssh-private-key: |
-  #           ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
-  #           ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
-  #           ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
-  #           ${{ secrets.ACTIONS_SALLOY_SSH_ED25519 }}
-  #           ${{ secrets.ACTIONS_SREVM_SSH_ED25519 }}
-  #           ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
-  #           ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
-  #           ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
-  #     - name: cargo test
-  #       run: cargo test
+  unit-test:
+    runs-on: large-github-runner
+    timeout-minutes: 30
+    env:
+      SEISMIC_CI: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@nextest
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "integration-test-cache"
+      - name: Install SSH Keys
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SALLOY_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SREVM_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
+      - name: seismic-node test
+        run: cargo nextest run --workspace -E '!kind(test)' # see profile.default in .config/nextest.toml for filtered tests
 
   integration-test:
     runs-on: large-github-runner
@@ -127,4 +127,4 @@ jobs:
             ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
             ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
       - name: seismic-node test
-        run: cargo nextest run --workspace # see profile.default in .config/nextest.toml for filtered tests
+        run: cargo nextest run --workspace -E 'kind(test)' --no-fail-fast # see profile.default in .config/nextest.toml for filtered tests
