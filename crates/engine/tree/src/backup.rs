@@ -1,12 +1,7 @@
 //! reth's database backup functionality
-use crate::tree::TreeConfig;
 use alloy_eips::BlockNumHash;
 use reth_errors::ProviderError;
-use reth_node_core::{
-    args::DatadirArgs,
-    dirs::{ChainPath, DataDirPath},
-    node_config,
-};
+use reth_node_core::dirs::{ChainPath, DataDirPath};
 use reth_tracing::tracing::*;
 use std::{
     path::PathBuf,
@@ -226,9 +221,7 @@ impl BackupHandle {
     }
 
     /// Spawn a new backup service
-    pub fn spawn_service(
-        data_dir: ChainPath<DataDirPath>,
-    ) -> BackupHandle {
+    pub fn spawn_service(data_dir: ChainPath<DataDirPath>) -> BackupHandle {
         let (tx, rx) = std::sync::mpsc::channel();
         let handle = BackupHandle::new(tx);
 

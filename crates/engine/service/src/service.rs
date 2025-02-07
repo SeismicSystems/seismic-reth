@@ -164,6 +164,7 @@ mod tests {
     use reth_evm_ethereum::execute::EthExecutorProvider;
     use reth_exex_types::FinishedExExHeight;
     use reth_network_p2p::test_utils::TestFullBlockClient;
+    use reth_node_core::dirs::MaybePlatformPath;
     use reth_primitives::SealedHeader;
     use reth_provider::{
         providers::BlockchainProvider2, test_utils::create_test_provider_factory_with_chain_spec,
@@ -207,7 +208,7 @@ mod tests {
         let _eth_service = EngineService::new(
             consensus,
             executor_factory,
-            chain_spec,
+            chain_spec.clone(),
             client,
             Box::pin(incoming_requests),
             pipeline,
@@ -220,6 +221,7 @@ mod tests {
             TreeConfig::default(),
             Box::new(NoopInvalidBlockHook::default()),
             sync_metrics_tx,
+            MaybePlatformPath::chain_default(chain_spec.chain.clone()),
         );
     }
 }

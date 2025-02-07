@@ -162,6 +162,7 @@ pub trait EthFees: LoadFee {
                     return Err(EthApiError::InvalidBlockRange.into())
                 }
 
+
                 for header in &headers {
                     base_fee_per_gas.push(header.base_fee_per_gas().unwrap_or_default() as u128);
                     gas_used_ratio.push(header.gas_used() as f64 / header.gas_limit() as f64);
@@ -197,7 +198,6 @@ pub trait EthFees: LoadFee {
                 //
                 // The unwrap is safe since we checked earlier that we got at least 1 header.
                 let last_header = headers.last().expect("is present");
-
                 base_fee_per_gas.push(
                     last_header.next_block_base_fee(
                     self.provider()

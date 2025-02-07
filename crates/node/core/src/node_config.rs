@@ -259,12 +259,6 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
         self
     }
 
-    /// Set the tee args for the node
-    pub const fn with_tee(mut self, tee: TeeArgs) -> Self {
-        self.tee = tee;
-        self
-    }
-
     /// Set the pruning args for the node
     pub fn with_pruning(mut self, pruning: PruningArgs) -> Self {
         self.pruning = pruning;

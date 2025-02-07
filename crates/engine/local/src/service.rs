@@ -32,10 +32,7 @@ use reth_engine_tree::{
     tree::{EngineApiTreeHandler, InvalidBlockHook, TreeConfig},
 };
 use reth_evm::execute::BlockExecutorProvider;
-use reth_node_core::{
-    dirs::{ChainPath, DataDirPath},
-    node_config::NodeConfig,
-};
+use reth_node_core::dirs::{ChainPath, DataDirPath};
 use reth_node_types::BlockTy;
 use reth_payload_builder::PayloadBuilderHandle;
 use reth_payload_primitives::{PayloadAttributesBuilder, PayloadTypes};

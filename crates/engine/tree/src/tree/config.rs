@@ -1,8 +1,5 @@
 //! Engine tree configuration.
 
-use reth_chainspec::Chain;
-use reth_node_core::dirs::{ChainPath, DataDirPath, PlatformPath};
-
 /// Triggers persistence when the number of canonical blocks in memory exceeds this threshold.
 pub const DEFAULT_PERSISTENCE_THRESHOLD: u64 = 2;
 
