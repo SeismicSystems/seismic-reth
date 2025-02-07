@@ -39,6 +39,8 @@ pub use mdbx::{create_db, init_db, open_db, open_db_read_only, DatabaseEnv, Data
 pub use models::ClientVersion;
 pub use reth_db_api::*;
 
+use reth_tracing::tracing::*;
+
 /// Collection of database test utilities
 #[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils {
