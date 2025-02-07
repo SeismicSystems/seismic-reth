@@ -102,7 +102,11 @@ impl BackupService {
 
         // Retrieve the metadata of the source path
         let metadata = std::fs::metadata(source_path).map_err(|e| {
-            ProviderError::FsPathError(format!("Failed to access source path: {}", e))
+            ProviderError::FsPathError(format!(
+                "Failed to access source path: {} : {}",
+                source_path.display(),
+                e,
+            ))
         })?;
 
         // If the source is a directory, create the destination directory if it does not exist
