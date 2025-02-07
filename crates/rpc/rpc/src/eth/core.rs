@@ -532,10 +532,6 @@ mod tests {
             // Note: Generates saner values to avoid invalid overflows later
             let gas_limit = rng.gen::<u32>() as u64;
             let base_fee_per_gas: Option<u64> = rng.gen::<bool>().then(|| rng.gen::<u32>() as u64);
-            println!(
-                "prepare_eth_api: generate random values  base_fee_per_gas: {:?}",
-                base_fee_per_gas
-            );
             let gas_used = rng.gen::<u32>() as u64;
 
             let header = Header {
@@ -574,11 +570,6 @@ mod tests {
                     transactions.push(transaction);
                 }
             }
-
-            println!(
-                "prepare_eth_api: mock provider adding base_fee_per_gas: {:?}",
-                header.base_fee_per_gas
-            );
             mock_provider.add_block(
                 hash,
                 Block {
@@ -591,14 +582,9 @@ mod tests {
             oldest_block.get_or_insert(hash);
             gas_used_ratios.push(gas_used as f64 / gas_limit as f64);
             base_fees_per_gas.push(base_fee_per_gas.map(|fee| fee as u128).unwrap_or_default());
-            println!(
-                "prepare_eth_api: add base_fees_per_gas, base_fees_per_gas: {:?}",
-                base_fees_per_gas
-            );
         }
 
         // Add final base fee (for the next block outside of the request)
-        println!("BaseFeeParams::ethereum(): {:?}", BaseFeeParams::ethereum());
         let last_header = last_header.unwrap();
         let base_fee = last_header
             .next_block_base_fee(
@@ -606,11 +592,6 @@ mod tests {
             )
             .unwrap_or_default() as u128;
 
-        println!(
-            "prepare_eth_api: last header gas_used: {:?}, gas_limit: {:?}",
-            last_header.gas_used, last_header.gas_limit
-        );
-        println!("prepare_eth_api: add last block base_fee, base_fees_per_gas: {:?}", base_fee);
         base_fees_per_gas.push(base_fee);
 
         let eth_api = build_test_eth_api(mock_provider);
