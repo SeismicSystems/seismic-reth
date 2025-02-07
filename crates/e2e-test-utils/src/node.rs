@@ -291,7 +291,7 @@ where
 
             error!(target: "reth::e2e::sync_to", "current block: {:?}, expected block: {:?}, elapsed: {:?}", current_block, block, start.elapsed());
 
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
 
             assert!(start.elapsed() <= std::time::Duration::from_secs(10), "timed out");
         }
