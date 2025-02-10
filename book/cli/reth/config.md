@@ -5,8 +5,9 @@ Write config to stdout
 ```bash
 $ reth config --help
 ```
+
 ```txt
-Usage: reth config [OPTIONS]
+Usage: seismic-reth config [OPTIONS]
 
 Options:
       --config <FILE>
