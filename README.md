@@ -18,7 +18,7 @@
 
 ## Goals
 
-As a full Ethereum node, Reth allows users to connect to the Ethereum network and interact with the Ethereum blockchain. This includes sending and receiving transactions/logs/traces, as well as accessing and interacting with smart contracts. Building a successful Ethereum node requires creating a high-quality implementation that is both secure and efficient, as well as being easy to use on consumer hardware. It also requires building a strong community of contributors who can help support and improve the software.
+Seismic-reth allows users to connect to the Seismic network and interact with the Seismic blockchain. This includes sending and receiving encrypted transactions/logs/traces, as well as accessing and interacting with smart contracts.
 
 More concretely, our goals are:
 

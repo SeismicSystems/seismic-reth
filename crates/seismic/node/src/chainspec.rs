@@ -3,7 +3,7 @@ use reth_cli::chainspec::{parse_genesis, ChainSpecParser};
 use std::sync::Arc;
 
 /// Chains supported by reth. First value should be used as the default.
-pub const SUPPORTED_CHAINS: &[&str] = &["mainnet", "dev"];
+pub const SUPPORTED_CHAINS: &[&str] = &["seismic", "dev"];
 
 /// Clap value parser for [`ChainSpec`]s.
 ///
@@ -11,7 +11,7 @@ pub const SUPPORTED_CHAINS: &[&str] = &["mainnet", "dev"];
 /// to a json file, or a json formatted string in-memory. The json needs to be a Genesis struct.
 pub fn chain_value_parser(s: &str) -> eyre::Result<Arc<ChainSpec>, eyre::Error> {
     Ok(match s {
-        "mainnet" => SEISMIC_MAINNET.clone(),
+        "seismic" => SEISMIC_MAINNET.clone(),
         "dev" => SEISMIC_DEV.clone(),
         _ => Arc::new(parse_genesis(s)?.into()),
     })

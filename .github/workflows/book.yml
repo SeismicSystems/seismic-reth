@@ -56,7 +56,7 @@ jobs:
       - name: Run linkcheck
         run: mdbook-linkcheck --standalone
 
-  book:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -133,9 +133,9 @@ jobs:
 
   deploy:
     # Only deploy if a push to seismic
-    if: github.ref_name == 'seismic' && github.event_name == 'push'
+    if: github.base_ref == 'seismic' && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    needs: [test, lint, book]
+    needs: [test, lint, build]
 
     # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
     permissions:

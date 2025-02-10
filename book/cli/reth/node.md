@@ -1,12 +1,13 @@
-# reth node
+# seismic-reth node
 
 Start the node
 
 ```bash
-$ reth node --help
+$ seismic-reth node --help
 ```
+
 ```txt
-Usage: reth node [OPTIONS]
+Usage: seismic-reth node [OPTIONS]
 
 Options:
       --config <FILE>
@@ -17,9 +18,9 @@ Options:
           Possible values are either a built-in chain or the path to a chain specification file.
 
           Built-in chains:
-              mainnet, sepolia, holesky, dev
+              seismic, dev
 
-          [default: mainnet]
+          [default: seismic]
 
       --instance <INSTANCE>
           Add a new instance of a node.
@@ -763,6 +764,23 @@ Logging:
           - always: Colors on
           - auto:   Colors on
           - never:  Colors off
+
+Trusted Execution Environment Server:
+    The TEE Server provides secure encryption/decryption services for TxSeismic transactions in an isolated environment. Required for processing encrypted TxSeismic transaction data.
+
+      --tee.endpoint-addr <ADDR>
+          TEE server address to listen on
+
+          [default: 127.0.0.1]
+
+      --tee.endpoint-port <PORT>
+          TEE server port to listen on
+
+          [default: 8545]
+
+      --tee.mock-server
+          Spin up mock TEE service for testing purpose at [--tee.endpoint-addr]:[--tee.endpoint-port]
+
 
 Display:
   -v, --verbosity...
