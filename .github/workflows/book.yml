@@ -56,7 +56,7 @@ jobs:
       - name: Run linkcheck
         run: mdbook-linkcheck --standalone
 
-  build-book:
+  book:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -97,7 +97,7 @@ jobs:
         run: mdbook build
 
       - name: Build docs
-        run: cargo doc --exclude "example*" --workspace
+        run: cargo doc --exclude "example-*" --workspace
         env:
           # Keep in sync with ./ci.yml:jobs.docs
           RUSTDOCFLAGS:
@@ -135,7 +135,7 @@ jobs:
     # Only deploy if a push to seismic
     if: github.ref_name == 'seismic' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    needs: [test, lint, build-book]
+    needs: [test, lint, book]
 
     # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
     permissions:
