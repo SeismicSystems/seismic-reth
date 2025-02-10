@@ -20,14 +20,10 @@ use tokio::{
 };
 
 /// Seismic reth test command
+#[derive(Debug)]
 pub struct SeismicRethTestCommand();
 impl SeismicRethTestCommand {
-    pub fn data_dir() -> PathBuf {
-        static TEMP_DIR: once_cell::sync::Lazy<tempfile::TempDir> =
-            once_cell::sync::Lazy::new(|| tempfile::tempdir().unwrap());
-        TEMP_DIR.path().to_path_buf()
-    }
-
+    /// Run the seismic reth test command
     pub async fn run(tx: mpsc::Sender<()>, mut shutdown_rx: mpsc::Receiver<()>) {
         let output =
             Command::new("cargo").arg("metadata").arg("--format-version=1").output().await.unwrap();
@@ -105,10 +101,19 @@ impl SeismicRethTestCommand {
         });
     }
 
+    /// Get the data directory for the seismic reth test command
+    pub fn data_dir() -> PathBuf {
+        static TEMP_DIR: once_cell::sync::Lazy<tempfile::TempDir> =
+            once_cell::sync::Lazy::new(|| tempfile::tempdir().unwrap());
+        TEMP_DIR.path().to_path_buf()
+    }
+
+    /// Get the chain id for the seismic reth test command
     pub fn chain_id() -> u64 {
         SEISMIC_DEV.chain().into()
     }
 
+    /// Get the url for the seismic reth test command
     pub fn url() -> String {
         format!("http://127.0.0.1:8545")
     }
@@ -156,7 +161,7 @@ pub mod test_utils {
     use reth_node_ethereum::EthEvmConfig;
     use reth_primitives::TransactionSigned;
     use reth_rpc_eth_api::EthApiClient;
-    use reth_tee::{TeeHttpClient, TEE_DEFAULT_ENDPOINT_ADDR, TEE_DEFAULT_ENDPOINT_PORT};
+    use reth_tee::{TeeHttpClient, TEE_DEFAULT_ENDPOINT_ADDR};
     use secp256k1::ecdh::SharedSecret;
     use serde::{Deserialize, Serialize};
     use tee_service_api::{aes_encrypt, derive_aes_key, get_sample_secp256k1_pk};

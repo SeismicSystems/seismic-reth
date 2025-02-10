@@ -26,7 +26,7 @@ use tee_service_api::get_sample_secp256k1_pk;
 #[cfg_attr(not(feature = "client"), rpc(server, namespace = "seismic"))]
 #[cfg_attr(feature = "client", rpc(server, client, namespace = "seismic"))]
 pub trait SeismicApi {
-    /// Returns the number of transactions in the pool.
+    /// Returns the network public key
     #[method(name = "getTeePublicKey")]
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey>;
 }
