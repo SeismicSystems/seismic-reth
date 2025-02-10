@@ -58,6 +58,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
+      - name: Install SSH Keys
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SALLOY_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SREVM_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SREVMINSPECTORS_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_SRETH_SSH_ED25519 }}
+            ${{ secrets.ACTIONS_TEESERVICE_SSH_ED25519 }}
+
       - name: Install mdbook
         run: |
           mkdir mdbook
@@ -78,7 +90,7 @@ jobs:
         run: mdbook build
 
       - name: Build docs
-        run: cargo docs --exclude "example-*"
+        run: cargo doc --exclude "example*" --exclude optimism --workspace
         env:
           # Keep in sync with ./ci.yml:jobs.docs
           RUSTDOCFLAGS:

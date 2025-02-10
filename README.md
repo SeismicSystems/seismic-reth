@@ -3,22 +3,18 @@
 [![book](https://github.com/SeismicSystems/seismic-reth/actions/workflows/book.yml/badge.svg?branch=seismic)](https://github.com/SeismicSystems/seismic-reth/actions/workflows/book.yml)
 [![CI Status](https://github.com/SeismicSystems/seismic-reth/actions/workflows/seismic.yml/badge.svg?branch=seismic)](https://github.com/SeismicSystems/seismic-reth/actions/workflows/seismic.yml)
 
-[![Telegram Chat][tg-badge]][tg-url]
+**Encrypted Ethereum compatible Blockchain Client**
 
-**Modular, contributor-friendly and blazing-fast implementation of the Ethereum protocol**
+![](./assets/seismic-reth-beta.png)
 
-![](./assets/reth-prod.png)
-
-**[Install](https://paradigmxyz.github.io/reth/installation/installation.html)**
+**[Install](https://seismicsystems.github.io/seismic-reth/installation/installation.html)**
 | [User Book](https://reth.rs)
 | [Developer Docs](./docs)
 | [Crate Docs](https://reth.rs/docs)
 
 <!-- [tg-badge]: https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Fparadigm%5Freth -->
 
-## What is Reth?
-
-Reth (short for Rust Ethereum, [pronunciation](https://twitter.com/kelvinfichter/status/1597653609411268608)) is a new Ethereum full node implementation that is focused on being user-friendly, highly modular, as well as being fast and efficient. Reth is an Execution Layer (EL) and is compatible with all Ethereum Consensus Layer (CL) implementations that support the [Engine API](https://github.com/ethereum/execution-apis/tree/a0d03086564ab1838b462befbc083f873dcf0c0f/src/engine). It is originally built and driven forward by [Paradigm](https://paradigm.xyz/), and is licensed under the Apache and MIT licenses.
+## What is Seismic Reth?
 
 ## Goals
 
