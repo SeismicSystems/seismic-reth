@@ -9,8 +9,8 @@ use reth_evm::ConfigureEvmEnv;
 use reth_primitives::{Transaction, TransactionSigned};
 use reth_revm::primitives::{EVMError, TxEnv};
 use reth_rpc_eth_types::utils::recover_raw_transaction;
-use reth_tee::{TeeError, TEE_DEFAULT_ENDPOINT_PORT};
-use seismic_node::utils::{start_mock_tee_server_with_custom_ports, test_utils::UnitTestContext};
+use reth_tee::TeeError;
+use seismic_node::utils::test_utils::UnitTestContext;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_seismic_transactions() {

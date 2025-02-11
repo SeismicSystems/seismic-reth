@@ -1,4 +1,6 @@
 //! This file is used to test the seismic node.
+use alloy_dyn_abi::EventExt;
+use alloy_json_abi::{Event, EventParam};
 use alloy_network::{Ethereum, EthereumWallet, NetworkWallet};
 use alloy_primitives::{
     aliases::{B96, U96},
@@ -10,118 +12,25 @@ use alloy_provider::{create_seismic_provider, test_utils, Provider, SendableTx};
 use alloy_rpc_types::{
     Block, Header, Transaction, TransactionInput, TransactionReceipt, TransactionRequest,
 };
-use reth_chainspec::SEISMIC_DEV;
+use alloy_sol_types::{sol, SolCall, SolValue};
 use reth_e2e_test_utils::wallet::Wallet;
 use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
 use reth_rpc_eth_api::EthApiClient;
-use seismic_node::utils::test_utils::{
-    client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
-    get_unsigned_seismic_tx_request,
+use seismic_enclave::aes_decrypt;
+use seismic_node::utils::{
+    test_utils::{
+        client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
+        get_unsigned_seismic_tx_request,
+    },
+    SeismicRethTestCommand,
 };
 use serde_json::Value;
 use std::{path::PathBuf, process::Stdio, thread, time::Duration};
-use tee_service_api::aes_decrypt;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::Command,
     sync::mpsc,
 };
-
-struct RethCommand();
-use alloy_dyn_abi::EventExt;
-use alloy_json_abi::{Event, EventParam};
-use alloy_sol_types::{sol, SolCall, SolValue};
-
-impl RethCommand {
-    fn data_dir() -> PathBuf {
-        static TEMP_DIR: once_cell::sync::Lazy<tempfile::TempDir> =
-            once_cell::sync::Lazy::new(|| tempfile::tempdir().unwrap());
-        TEMP_DIR.path().to_path_buf()
-    }
-    async fn run(tx: mpsc::Sender<()>, mut shutdown_rx: mpsc::Receiver<()>) {
-        let output =
-            Command::new("cargo").arg("metadata").arg("--format-version=1").output().await.unwrap();
-        let metadata: Value = serde_json::from_slice(&output.stdout).unwrap();
-        let workspace_root = metadata.get("workspace_root").unwrap().as_str().unwrap();
-        println!("Workspace root: {}", workspace_root);
-
-        let mut child = Command::new("cargo")
-            .arg("run")
-            .arg("--bin")
-            .arg("seismic-reth") // Specify the binary name
-            .arg("--")
-            .arg("node")
-            .arg("--datadir")
-            .arg(RethCommand::data_dir().to_str().unwrap())
-            .arg("--dev")
-            .arg("--dev.block-max-transactions")
-            .arg("1")
-            .arg("--tee.mock-server")
-            .arg("-vvvv")
-            .current_dir(workspace_root)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .expect("Failed to start the binary");
-
-        tokio::spawn(async move {
-            let stdout = child.stdout.as_mut().expect("Failed to capture stdout");
-            let stderr = child.stderr.as_mut().expect("Failed to capture stderr");
-            let mut stdout_reader = BufReader::new(stdout);
-            let mut stderr_reader = BufReader::new(stderr);
-            let mut stdout_line = String::new();
-            let mut stderr_line = String::new();
-            let mut sent = false;
-            std::panic::set_hook(Box::new(|info| {
-                eprintln!("❌ PANIC DETECTED: {:?}", info);
-            }));
-
-            loop {
-                tokio::select! {
-                    result = stdout_reader.read_line(&mut stdout_line) => {
-                        if result.unwrap() == 0 {
-                            eprintln!("🛑 STDOUT reached EOF! Breaking loop.");
-                            break;
-                        }
-                        eprint!("{}", stdout_line);
-
-                        if stdout_line.contains("starting mock tee server") && !sent {
-                            eprintln!("🚀 Reth server is ready!");
-                            let _ = tx.send(()).await;
-                            sent = true;
-                        }
-                        stdout_line.clear();
-                        tokio::io::stdout().flush().await.unwrap();
-                    }
-
-                    result = stderr_reader.read_line(&mut stderr_line) => {
-                        if result.unwrap() == 0 {
-                            eprintln!("🛑 STDERR reached EOF! Breaking loop.");
-                            break;
-                        }
-                        eprint!("{}", stderr_line);
-                        stderr_line.clear();
-                    }
-
-                    Some(_) = shutdown_rx.recv() => {
-                        eprintln!("🛑 Shutdown signal received! Breaking loop.");
-                        break;
-                    }
-                }
-            }
-            println!("✅ Exiting loop.");
-
-            child.kill().await.unwrap();
-        });
-    }
-
-    fn chain_id() -> u64 {
-        SEISMIC_DEV.chain().into()
-    }
-    fn url() -> String {
-        format!("http://127.0.0.1:8545")
-    }
-}
 
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
 const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessage(bytes)
@@ -131,9 +40,7 @@ async fn integration_test() {
     let (tx, mut rx) = mpsc::channel(1);
     let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
 
-    // ✅ Spawn `run()` instead of awaiting it
-    RethCommand::run(tx, shutdown_rx).await;
-    // wait for the server to be ready
+    SeismicRethTestCommand::run(tx, shutdown_rx).await;
     rx.recv().await.unwrap();
 
     test_seismic_reth_backup().await;
@@ -148,8 +55,8 @@ async fn integration_test() {
 }
 
 async fn test_seismic_reth_rpc_with_typed_data() {
-    let reth_rpc_url = RethCommand::url();
-    let chain_id = RethCommand::chain_id();
+    let reth_rpc_url = SeismicRethTestCommand::url();
+    let chain_id = SeismicRethTestCommand::chain_id();
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
     let wallet = Wallet::default().with_chain_id(chain_id);
 
@@ -226,8 +133,8 @@ async fn test_seismic_reth_rpc_with_typed_data() {
 // this is the same test as basic.rs but with actual RPC calls and standalone reth instance
 // with rust client in alloy
 async fn test_seismic_reth_rpc_with_rust_client() {
-    let reth_rpc_url = RethCommand::url();
-    let chain_id = RethCommand::chain_id();
+    let reth_rpc_url = SeismicRethTestCommand::url();
+    let chain_id = SeismicRethTestCommand::chain_id();
     let _wallet = Wallet::default().with_chain_id(chain_id);
     let wallet = EthereumWallet::from(_wallet.inner);
     let address = <EthereumWallet as NetworkWallet<Ethereum>>::default_signer_address(&wallet);
@@ -310,8 +217,8 @@ async fn test_seismic_reth_rpc_with_rust_client() {
 
 // this is the same test as basic.rs but with actual RPC calls and standalone reth instance
 async fn test_seismic_reth_rpc() {
-    let reth_rpc_url = RethCommand::url();
-    let chain_id = RethCommand::chain_id();
+    let reth_rpc_url = SeismicRethTestCommand::url();
+    let chain_id = SeismicRethTestCommand::chain_id();
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
     let wallet = Wallet::default().with_chain_id(chain_id);
 
@@ -504,7 +411,7 @@ async fn test_seismic_reth_rpc() {
 }
 
 async fn test_seismic_reth_backup() {
-    let chain_id: u64 = RethCommand::chain_id();
+    let chain_id: u64 = SeismicRethTestCommand::chain_id();
     const RETH_RPC_URL: &str = "http://127.0.0.1:8545";
     let wallet = Wallet::default().with_chain_id(chain_id.into());
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(RETH_RPC_URL).unwrap();
@@ -578,8 +485,9 @@ async fn test_seismic_reth_backup() {
 
     thread::sleep(Duration::from_secs(10));
 
-    let backup_path = PathBuf::from(format!("{}_backup", RethCommand::data_dir().display(),));
-    let data_dir = RethCommand::data_dir();
+    let backup_path =
+        PathBuf::from(format!("{}_backup", SeismicRethTestCommand::data_dir().display(),));
+    let data_dir = SeismicRethTestCommand::data_dir();
     // Compare contents of backup and data directories
     let mut data_dir_files: Vec<_> =
         std::fs::read_dir(&data_dir).unwrap().map(|entry| entry.unwrap().file_name()).collect();
@@ -597,8 +505,8 @@ async fn test_seismic_reth_backup() {
 }
 
 async fn test_seismic_precompiles_end_to_end() {
-    let reth_rpc_url = RethCommand::url();
-    let chain_id = RethCommand::chain_id();
+    let reth_rpc_url = SeismicRethTestCommand::url();
+    let chain_id = SeismicRethTestCommand::chain_id();
     let _wallet = Wallet::default().with_chain_id(chain_id);
     let wallet = EthereumWallet::from(_wallet.inner);
     let address = <EthereumWallet as NetworkWallet<Ethereum>>::default_signer_address(&wallet);

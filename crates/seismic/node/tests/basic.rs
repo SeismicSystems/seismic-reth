@@ -5,7 +5,7 @@ use alloy_eips::eip2718::Decodable2718;
 use alloy_primitives::{bytes::Buf, hex, Address, Bytes, TxKind, U256};
 use eyre::Ok;
 use reth_chainspec::DEV;
-use reth_e2e_test_utils::setup;
+use reth_e2e_test_utils::setup_engine;
 use reth_tracing::tracing::*;
 use seismic_node::{
     node::SeismicNode,
@@ -28,7 +28,7 @@ async fn contract() -> eyre::Result<()> {
     debug!(target: "e2e:contract", ?DEV, "dev chain");
 
     let (mut nodes, _tasks, wallet) =
-        setup::<SeismicNode>(2, DEV.clone(), false, seismic_payload_attributes).await?;
+        setup_engine::<SeismicNode>(2, DEV.clone(), false, seismic_payload_attributes).await?;
     start_mock_tee_server_with_default_ports().await;
     debug!(target: "e2e:contract", "setup seismic node");
     let mut second_node = nodes.pop().unwrap();

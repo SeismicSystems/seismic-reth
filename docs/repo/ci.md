@@ -9,6 +9,7 @@ The CI runs a couple of workflows:
 - **[bench]**: Runs benchmarks
 - **[sync]**: Runs sync tests
 - **[stage]**: Runs all `stage run` commands
+- **[seismic]**: Runs all Seismic-specific CI
 
 ### Docs
 
@@ -34,20 +35,21 @@ The CI runs a couple of workflows:
 - **[lint-actions]**: Lints GitHub Actions workflows
 - **[label-pr]**: Automatically labels PRs
 
-[unit]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/unit.yml
-[integration]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/integration.yml
-[bench]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/bench.yml
-[sync]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/sync.yml
-[stage]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/stage.yml
-[book]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/book.yml
-[deny]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/deny.yml
-[release]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/release.yml
-[release-dist]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/release-dist.yml
-[dependencies]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/dependencies.yml
-[stale]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/stale.yml
-[docker]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/docker.yml
-[kurtosis]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/kurtosis.yml
-[hive]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/hive.yml
-[lint]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/lint.yml
-[lint-actions]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/lint-actions.yml
-[label-pr]: https://github.com/paradigmxyz/reth/blob/main/.github/workflows/label-pr.yml
+[unit]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/unit.yml
+[integration]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/integration.yml
+[bench]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/bench.yml
+[sync]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/sync.yml
+[stage]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/stage.yml
+[book]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/book.yml
+[deny]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/deny.yml
+[release]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/release.yml
+[release-dist]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/release-dist.yml
+[dependencies]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/dependencies.yml
+[stale]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/stale.yml
+[docker]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/docker.yml
+[kurtosis]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/kurtosis.yml
+[hive]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/hive.yml
+[lint]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/lint.yml
+[lint-actions]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/lint-actions.yml
+[label-pr]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/label-pr.yml
+[seismic]: https://github.com/SeismicSystems/seismic-reth/blob/seismic/.github/workflows/seismic.yml

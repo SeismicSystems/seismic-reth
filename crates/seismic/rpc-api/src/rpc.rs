@@ -17,8 +17,8 @@ use jsonrpsee::{
 use reth_rpc_eth_api::helpers::{EthTransactions, FullEthApi};
 use reth_tracing::tracing::*;
 use secp256k1::PublicKey;
+use seismic_enclave::get_sample_secp256k1_pk;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use tee_service_api::get_sample_secp256k1_pk;
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///
@@ -26,7 +26,7 @@ use tee_service_api::get_sample_secp256k1_pk;
 #[cfg_attr(not(feature = "client"), rpc(server, namespace = "seismic"))]
 #[cfg_attr(feature = "client", rpc(server, client, namespace = "seismic"))]
 pub trait SeismicApi {
-    /// Returns the number of transactions in the pool.
+    /// Returns the network public key
     #[method(name = "getTeePublicKey")]
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey>;
 }

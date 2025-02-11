@@ -32,7 +32,7 @@ sha2 = "0.10"
 futures = "0.3.12"
 
 alloy-rlp = { workspace = true, features = ["arrayvec"] }
-tee_service_api.workspace = true
+seismic-enclave.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full", "macros"] }

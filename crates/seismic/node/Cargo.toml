@@ -12,8 +12,7 @@ workspace = true
 [dependencies]
 # seismic dependencies
 seismic-rpc-api = { workspace = true, features = ["client"] }
-tee_service_api.workspace = true
-
+seismic-enclave.workspace = true
 
 reth-cli.workspace = true
 reth-errors.workspace = true
