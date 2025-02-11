@@ -389,7 +389,7 @@ dependencies = [
  "pin-project",
  "reqwest",
  "schnellru",
- "seismic-enclave 0.1.0 (git+ssh://git@github.com/SeismicSystems/enclave.git?rev=f2c0757)",
+ "seismic-enclave",
  "serde",
  "serde_json",
  "thiserror 2.0.11",
@@ -9405,7 +9405,7 @@ dependencies = [
  "reqwest",
  "routerify",
  "secp256k1",
- "seismic-enclave 0.1.0 (git+ssh://git@github.com/SeismicSystems/enclave.git?rev=f2c0757)",
+ "seismic-enclave",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -9663,7 +9663,7 @@ dependencies = [
  "revm-precompile",
  "schnorrkel",
  "secp256k1",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=f2c0757)",
+ "seismic-enclave",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -10262,31 +10262,6 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+ssh://git@github.com/SeismicSystems/enclave.git?rev=f2c0757#f2c0757cf12208049a758f797f263912b00cf842"
-dependencies = [
- "aes-gcm",
- "anyhow",
- "bincode",
- "byteorder",
- "bytes",
- "hkdf",
- "http-body-util",
- "hyper 0.14.32",
- "kbs-types",
- "once_cell",
- "reqwest",
- "schnorrkel",
- "secp256k1",
- "serde",
- "serde_json",
- "sha2 0.10.8",
- "strum 0.25.0",
- "tokio",
-]
-
-[[package]]
-name = "seismic-enclave"
-version = "0.1.0"
 source = "git+https://github.com/SeismicSystems/enclave.git?rev=f2c0757#f2c0757cf12208049a758f797f263912b00cf842"
 dependencies = [
  "aes-gcm",
@@ -10367,7 +10342,7 @@ dependencies = [
  "reth-trie-common",
  "reth-trie-db",
  "secp256k1",
- "seismic-enclave 0.1.0 (git+ssh://git@github.com/SeismicSystems/enclave.git?rev=f2c0757)",
+ "seismic-enclave",
  "seismic-rpc-api",
  "serde",
  "serde_json",
@@ -10435,7 +10410,7 @@ dependencies = [
  "reth-tracing",
  "reth-transaction-pool",
  "secp256k1",
- "seismic-enclave 0.1.0 (git+ssh://git@github.com/SeismicSystems/enclave.git?rev=f2c0757)",
+ "seismic-enclave",
  "seismic-node",
  "tokio",
 ]
