@@ -17,8 +17,8 @@ use jsonrpsee::{
 use reth_rpc_eth_api::helpers::{EthTransactions, FullEthApi};
 use reth_tracing::tracing::*;
 use secp256k1::PublicKey;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use seismic_enclave::get_sample_secp256k1_pk;
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///

@@ -16,6 +16,7 @@ use alloy_sol_types::{sol, SolCall, SolValue};
 use reth_e2e_test_utils::wallet::Wallet;
 use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
 use reth_rpc_eth_api::EthApiClient;
+use seismic_enclave::aes_decrypt;
 use seismic_node::utils::{
     test_utils::{
         client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
@@ -25,7 +26,6 @@ use seismic_node::utils::{
 };
 use serde_json::Value;
 use std::{path::PathBuf, process::Stdio, thread, time::Duration};
-use seismic_enclave::aes_decrypt;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::Command,
