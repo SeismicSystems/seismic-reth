@@ -31,6 +31,7 @@ EF_TESTS_URL := https://github.com/ethereum/tests/archive/refs/tags/$(EF_TESTS_T
 EF_TESTS_DIR := ./testing/ef-tests/ethereum-tests
 
 # The docker image name
+# TODO: publish one for seismic
 DOCKER_IMAGE_NAME ?= ghcr.io/paradigmxyz/reth
 
 # Features in reth/op-reth binary crate other than "ethereum" and "optimism"
