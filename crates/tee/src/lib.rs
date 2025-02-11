@@ -6,15 +6,15 @@ pub mod mock;
 
 use std::future::Future;
 
-pub use tee_service_api::{
+pub use seismic_enclave::{
     http_client::{TeeHttpClient, TEE_DEFAULT_ENDPOINT_ADDR, TEE_DEFAULT_ENDPOINT_PORT},
     TeeAPI, WalletAPI,
 };
 
 use derive_more::Display;
 use secp256k1::PublicKey;
-pub use tee_service_api::SchnorrkelKeypair;
-use tee_service_api::{
+pub use seismic_enclave::SchnorrkelKeypair;
+use seismic_enclave::{
     nonce::Nonce,
     request_types::tx_io::{
         IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,

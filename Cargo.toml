@@ -312,7 +312,7 @@ overflow-checks = true
 seismic-node = { path = "crates/seismic/node" }
 seismic-reth = { path = "crates/seismic/bin" }
 seismic-rpc-api = { path = "crates/seismic/rpc-api" }
-tee_service_api = "0.1.0"
+tee-service-api = "0.1.0"
 
 # reth
 op-reth = { path = "crates/optimism/bin" }
@@ -671,4 +671,4 @@ revm-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git"
 revm-interpreter = { git = "ssh://git@github.com/SeismicSystems/seismic-revm.git", rev = "ab80749"}
 revm-inspectors = { git = "ssh://git@github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "19828b8"}
 
-tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "39b2865" }
+seismic-enclave = { git = "ssh://git@github.com/SeismicSystems/enclave.git", rev = "f2c0757" }

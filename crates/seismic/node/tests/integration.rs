@@ -25,7 +25,7 @@ use seismic_node::utils::{
 };
 use serde_json::Value;
 use std::{path::PathBuf, process::Stdio, thread, time::Duration};
-use tee_service_api::aes_decrypt;
+use seismic_enclave::aes_decrypt;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::Command,

@@ -391,7 +391,7 @@ dependencies = [
  "schnellru",
  "serde",
  "serde_json",
- "tee_service_api",
+ "seismic_enclave",
  "thiserror 2.0.11",
  "tokio",
  "tracing",
@@ -9408,7 +9408,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "tee_service_api",
+ "seismic_enclave",
  "tokio",
  "tracing",
  "warp",
@@ -9666,7 +9666,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "tee_service_api",
+ "seismic_enclave",
 ]
 
 [[package]]
@@ -10321,7 +10321,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sysinfo 0.29.11",
- "tee_service_api",
+ "seismic_enclave",
  "tempfile",
  "tokio",
  "tokio-stream",
@@ -10386,7 +10386,7 @@ dependencies = [
  "reth-transaction-pool",
  "secp256k1",
  "seismic-node",
- "tee_service_api",
+ "seismic_enclave",
  "tokio",
 ]
 
@@ -11030,7 +11030,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
-name = "tee_service_api"
+name = "seismic_enclave"
 version = "0.1.0"
 source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=39b2865#39b286548069755498c16a4b4f0242945c8b363c"
 dependencies = [
