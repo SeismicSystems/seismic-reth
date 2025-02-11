@@ -7,8 +7,7 @@ homepage = "https://github.com/SeismicSystems/seismic-reth"
 repository = "https://github.com/SeismicSystems/seismic-reth"
 exclude = [".github/"]
 
-    [workspace]
-
+[workspace]
 members = [
     "bin/reth-bench/",
     "bin/reth/",
