@@ -195,7 +195,11 @@ For shielded storage, we've modified:
 
 Because we have a decryption call for `TxSeismic` call, `#[tokio::test(flavor = "multi_thread")]` replaces `#[tokio::test]` to provide runtime async support.
 
-#### 8.2 Ethereum Package Testing
+#### 8.2 Integration Testing
+
+See the `crates/seismic/node/tests/integration.rs` examples of integration testing using seismic transactions.
+
+#### 8.3 Ethereum Package Testing
 
 We added a `TxSeismic` spammer for Ethereum Package testing. For specific instruction see this [PR](https://github.com/SeismicSystems/seismic-reth/pull/49)
 
