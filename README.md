@@ -27,7 +27,7 @@ Seismic-reth extends [Reth](https://github.com/paradigmxyz/reth) with shielded t
 
 Seismic Reth provides shielded storage capabilities by
 
-1. Making each storage slot shielded
+1. Making storage slots shielded for confidential values
 2. Encrypting data using client private keys and network public keys. The encryption/decryption is handled through a Trusted Execution Environment (TEE) server.
 
 #### Shielded Transaction
