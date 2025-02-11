@@ -5,8 +5,9 @@ Download block body
 ```bash
 $ reth p2p body --help
 ```
+
 ```txt
-Usage: reth p2p body [OPTIONS] <ID>
+Usage: seismic-reth p2p body [OPTIONS] <ID>
 
 Arguments:
   <ID>

@@ -52,7 +52,3 @@ min-trace-logs = ["tracing/release_max_level_trace"]
 [[bin]]
 name = "seismic-reth"
 path = "src/main.rs"
-
-[[bin]]
-name = "seismic-reth-dev-init"
-path = "src/dev_init.rs"

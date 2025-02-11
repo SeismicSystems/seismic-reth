@@ -5,8 +5,9 @@ Database debugging utilities
 ```bash
 $ reth db --help
 ```
+
 ```txt
-Usage: reth db [OPTIONS] <COMMAND>
+Usage: seismic-reth db [OPTIONS] <COMMAND>
 
 Commands:
   stats     Lists all the tables, their entry count and their size

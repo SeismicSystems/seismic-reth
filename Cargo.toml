@@ -7,11 +7,12 @@ homepage = "https://github.com/SeismicSystems/seismic-reth"
 repository = "https://github.com/SeismicSystems/seismic-reth"
 exclude = [".github/"]
 
-[workspace]
+    [workspace]
 
 members = [
     "bin/reth-bench/",
     "bin/reth/",
+    "bin/seismic-reth/",
     "crates/blockchain-tree-api/",
     "crates/blockchain-tree/",
     "crates/chain-state/",
@@ -154,11 +155,10 @@ members = [
     "examples/custom-beacon-withdrawals",
     "testing/ef-tests/",
     "testing/testing-utils",
-    "crates/seismic/bin",
     "crates/seismic/node",
     "crates/seismic/rpc-api",
 ]
-default-members = ["crates/seismic/bin", "bin/reth"]
+default-members = ["bin/seismic-reth", "bin/reth"]
 exclude = [
     "book/sources",
 ]
