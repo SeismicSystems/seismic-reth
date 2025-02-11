@@ -182,9 +182,9 @@ cargo nextest run --workspace
 
 **Note**: We ignore certain tests by default in `nextest.toml`:
 
--   `test(providers::static_file::tests::test_header_truncation)`
--   `test(providers::static_file::tests::test_tx_based_truncation)`
--   `test(eth::core::tests)`
+-   `providers::static_file::tests::test_header_truncation`
+-   `providers::static_file::tests::test_tx_based_truncation`
+-   `eth::core::tests`
 
 For shielded transaction,
 

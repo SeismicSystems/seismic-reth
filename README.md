@@ -2,6 +2,7 @@
 
 [![book](https://github.com/SeismicSystems/seismic-reth/actions/workflows/book.yml/badge.svg?branch=seismic)](https://github.com/SeismicSystems/seismic-reth/actions/workflows/book.yml)
 [![CI Status](https://github.com/SeismicSystems/seismic-reth/actions/workflows/seismic.yml/badge.svg?branch=seismic)](https://github.com/SeismicSystems/seismic-reth/actions/workflows/seismic.yml)
+[![Telegram Chat][tg-badge]][tg-url]
 
 **Encrypted Blockchain Client**
 
@@ -22,19 +23,19 @@ Seismic-reth extends [Reth](https://github.com/paradigmxyz/reth) with shielded t
 
 ## Encrypted Computation
 
-#### Private Storage
+#### Shielded Storage
 
-Seismic Reth provides private storage capabilities by
+Seismic Reth provides shielded storage capabilities by
 
 1. Making each storage slot shielded
 2. Encrypting data using client private keys and network public keys. The encryption/decryption is handled through a Trusted Execution Environment (TEE) server.
 
-#### Private Transction
+#### Shielded Transaction
 
-Seismic Reth provides private transaction capabilities by
+Seismic Reth provides shielded transaction capabilities by
 
 1. Providing a new transaction type `TxSeismic` that extends the existing transaction and supports shielded input.
-2. Decrypting input and encrypting output throuhg a TEE server
+2. Decrypting input and encrypting output through a TEE server
 
 ## Seismic features
 
@@ -115,3 +116,5 @@ None of this would have been possible without them, so big shoutout to the teams
 
 [book]: https://seismicsystems.github.io/seismic-reth/
 [tg-url]: https://t.me/+xpzfNO4pmRoyM2Ux
+
+[tg-badge]: [![Telegram](https://img.shields.io/badge/Telegram-Join%20Chat-0088CC?logo=telegram)](https://t.me/+xpzfNO4pmRoyM2Ux)
