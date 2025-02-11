@@ -19,23 +19,7 @@
 
 ## Goals
 
-Seismic-reth extends [Reth](https://github.com/paradigmxyz/reth) with shielded transaction and storage capabilities, allowing users to confidentially interact with smart contracts and transactions on the Seismic network while maintaining compatibility with existing infrastructure.
-
-## Encrypted Computation
-
-#### Shielded Storage
-
-Seismic Reth provides shielded storage capabilities by
-
-1. Making storage slots shielded for confidential values
-2. Encrypting data using client private keys and network public keys. The encryption/decryption is handled through a Trusted Execution Environment (TEE) server.
-
-#### Shielded Transaction
-
-Seismic Reth provides shielded transaction capabilities by
-
-1. Providing a new transaction type `TxSeismic` that extends the existing transaction and supports shielded input.
-2. Decrypting input and encrypting output through a TEE server
+Seismic Reth extends [Reth](https://github.com/paradigmxyz/reth) with shielded transaction and storage capabilities, allowing users to confidentially interact with smart contracts and transactions on the Seismic network while maintaining compatibility with existing infrastructure. Seismic Reth runs in a Trusted Execution Environment (TEE) for secure communication between users and the Seismic network.
 
 ## Seismic features
 
@@ -104,7 +88,7 @@ If the answer is not there:
 
 ### Report a Vulnerability
 
-Contact [p@seismic.systems](mailto:p@seismic.systems).
+Contact [p@seismic.systems](mailto:p@seismic.systems), [l@seismic.systems](mailto:l@seismic.systems)
 
 ## Acknowledgements
 
