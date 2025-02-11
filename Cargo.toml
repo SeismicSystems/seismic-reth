@@ -312,7 +312,7 @@ overflow-checks = true
 seismic-node = { path = "crates/seismic/node" }
 seismic-reth = { path = "crates/seismic/bin" }
 seismic-rpc-api = { path = "crates/seismic/rpc-api" }
-tee-service-api = "0.1.0"
+seismic-enclave = "0.1.0"
 
 # reth
 op-reth = { path = "crates/optimism/bin" }
