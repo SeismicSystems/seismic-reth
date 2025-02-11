@@ -39,7 +39,7 @@ Seismic Reth provides shielded transaction capabilities by
 
 ## Seismic features
 
-See [seismic-features.md](./docs/seismic-features.md) for a detailed overview of Seismic Reth's new features.
+See [seismic-features.md](./seismic-features.md) for a detailed overview of Seismic Reth's new features.
 
 ## For Users
 
