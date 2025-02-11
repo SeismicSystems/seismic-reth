@@ -7,7 +7,7 @@ use std::{convert::Infallible, net::SocketAddr, str::FromStr};
 use tracing::{debug, error, info};
 
 use crate::{TeeAPI, WalletAPI};
-use tee_service_api::{
+use seismic_enclave::{
     crypto::{
         aes_decrypt, aes_encrypt, derive_aes_key, get_sample_secp256k1_pk, get_sample_secp256k1_sk,
     },
@@ -182,7 +182,7 @@ mod tests {
     use super::*;
     use aes_gcm::aead::OsRng;
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
-    use tee_service_api::http_client::TeeHttpClient;
+    use seismic_enclave::http_client::TeeHttpClient;
     use tokio::task;
 
     #[tokio::test]

@@ -22,7 +22,7 @@ alloy-dyn-abi.workspace = true
 
 jsonrpsee = { workspace = true, features = ["server", "macros"] }
 secp256k1.workspace = true
-tee_service_api.workspace = true
+seismic-enclave.workspace = true
 tokio = { workspace = true, features = ["full"] }
 
 [dev-dependencies]

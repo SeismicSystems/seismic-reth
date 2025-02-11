@@ -163,8 +163,8 @@ pub mod test_utils {
     use reth_rpc_eth_api::EthApiClient;
     use reth_tee::{TeeHttpClient, TEE_DEFAULT_ENDPOINT_ADDR};
     use secp256k1::ecdh::SharedSecret;
+    use seismic_enclave::{aes_encrypt, derive_aes_key, get_sample_secp256k1_pk};
     use serde::{Deserialize, Serialize};
-    use tee_service_api::{aes_encrypt, derive_aes_key, get_sample_secp256k1_pk};
 
     /// Get the nonce from the client
     pub async fn get_nonce(client: &HttpClient, address: Address) -> u64 {
