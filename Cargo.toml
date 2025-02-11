@@ -3,8 +3,8 @@ version = "1.1.4"
 edition = "2021"
 rust-version = "1.82"
 license = "MIT OR Apache-2.0"
-homepage = "https://paradigmxyz.github.io/reth"
-repository = "https://github.com/paradigmxyz/reth"
+homepage = "https://github.com/SeismicSystems/seismic-reth"
+repository = "https://github.com/SeismicSystems/seismic-reth"
 exclude = [".github/"]
 
 [workspace]
