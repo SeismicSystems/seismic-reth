@@ -627,13 +627,13 @@ tracy-client = "0.17.3"
 
 [patch.crates-io]
 # seismic-alloy-core
-alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "6e1c0e9" }
-alloy-json-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "6e1c0e9" }
-alloy-sol-macro-expander = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "6e1c0e9" }
-alloy-sol-macro-input = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "6e1c0e9" }
-alloy-sol-types = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "6e1c0e9" }
-alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "6e1c0e9" }
-alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "6e1c0e9" }
+alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "77693d2" }
+alloy-json-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "77693d2" }
+alloy-sol-macro-expander = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "77693d2" }
+alloy-sol-macro-input = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "77693d2" }
+alloy-sol-types = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "77693d2" }
+alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "77693d2" }
+alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "77693d2" }
 
 # seismic-alloy
 alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "15971ef" }
@@ -668,4 +668,4 @@ alloy-transport-ws = { git = "https://github.com/SeismicSystems/seismic-alloy.gi
 revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "77a08e9"}
 revm-primitives = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "77a08e9"}
 revm-interpreter = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "77a08e9"}
-revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "19828b8"}
+revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "9868b93"}
