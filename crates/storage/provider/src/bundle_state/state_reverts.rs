@@ -79,8 +79,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use notify::event::Flag;
-
     use super::*;
 
     #[test]

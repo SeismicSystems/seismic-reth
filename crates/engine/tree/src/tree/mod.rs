@@ -2721,7 +2721,7 @@ mod tests {
     use reth_engine_primitives::ForkchoiceStatus;
     use reth_ethereum_engine_primitives::{EthEngineTypes, EthereumEngineValidator};
     use reth_evm::test_utils::MockExecutorProvider;
-    use reth_node_core::dirs::{ChainPath, MaybePlatformPath, PlatformPath};
+    use reth_node_core::dirs::MaybePlatformPath;
     use reth_primitives::{Block, BlockExt, EthPrimitives};
     use reth_provider::test_utils::MockEthProvider;
     use reth_rpc_types_compat::engine::{block_to_payload_v1, payload::block_to_payload_v3};
