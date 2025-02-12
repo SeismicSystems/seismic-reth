@@ -66,7 +66,8 @@ jobs:
         with:
           shared-key: "integration-test-cache"
       - name: seismic-node test
-        run: cargo nextest run --workspace -E '!kind(test)' # see profile.default in .config/nextest.toml for filtered tests
+        # see profile.default in .config/nextest.toml for filtered tests
+        run: cargo nextest run --workspace -E '!kind(test)'
 
   integration-test:
     runs-on: large-github-runner
@@ -81,4 +82,5 @@ jobs:
         with:
           shared-key: "integration-test-cache"
       - name: seismic-node test
-        run: cargo nextest run --workspace -E 'kind(test)' # see profile.default in .config/nextest.toml for filtered tests
+        # see profile.default in .config/nextest.toml for filtered tests
+        run: cargo nextest run --workspace -E 'kind(test)'
