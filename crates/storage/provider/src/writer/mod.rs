@@ -226,7 +226,6 @@ mod tests {
         test_utils::create_test_provider_factory, AccountReader, StorageTrieWriter, TrieWriter,
     };
     use alloy_primitives::{keccak256, map::HashMap, Address, B256, U256};
-    use notify::event::Flag;
     use reth_db::tables;
     use reth_db_api::{
         cursor::{DbCursorRO, DbCursorRW, DbDupCursorRO},

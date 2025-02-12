@@ -34,10 +34,8 @@ impl Default for TeeArgs {
 
 #[cfg(test)]
 mod tests {
-    use crate::args::tee::TeeArgs;
-    use std::net::Ipv4Addr;
-
     use super::*;
+    use crate::args::tee::TeeArgs;
     use clap::{Args, Parser};
 
     /// A helper type to parse Args more easily

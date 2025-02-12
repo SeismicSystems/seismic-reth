@@ -24,13 +24,8 @@ use seismic_node::utils::{
     },
     SeismicRethTestCommand,
 };
-use serde_json::Value;
-use std::{path::PathBuf, process::Stdio, thread, time::Duration};
-use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    process::Command,
-    sync::mpsc,
-};
+use std::{path::PathBuf, thread, time::Duration};
+use tokio::sync::mpsc;
 
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
 const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessage(bytes)
