@@ -35,18 +35,21 @@ fn main() {
                         );
 
                         let addr = enclave_server.addr();
-                        info!(target: "reth::cli", "mock enclave server started at {}", addr);
 
-                        if let Err(err) = enclave_server.start().await {
-                            let err = eyre::eyre!(
-                                "Failed to start mock enclave server at {}: {}",
-                                addr,
-                                err
-                            );
-                            info!("{:?}", err);
+                        match enclave_server.start().await {
+                            Ok(handle) => {
+                                handle.stopped().await;
+                            }
+                            Err(err) => {
+                                let err = eyre::eyre!(
+                                    "Failed to start mock enclave server at {}: {}",
+                                    addr,
+                                    err
+                                );
+                                error!("{:?}", err);
+                            }
                         }
                     });
-                    info!(target: "reth::cli", "mock enclave server started in dev mode");
                 }
                 Ok(())
             })
