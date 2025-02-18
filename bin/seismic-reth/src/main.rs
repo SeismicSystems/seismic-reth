@@ -1,6 +1,7 @@
 #![allow(missing_docs)]
 
 use reth_cli_commands::node::NoArgs;
+use reth_enclave::{BuildableServer, MockEnclaveServer};
 use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher};
 use reth_provider::providers::BlockchainProvider2;
 use reth_tracing::tracing::*;
@@ -28,24 +29,28 @@ fn main() {
             .on_node_started(move |ctx| {
                 if ctx.config.enclave.mock_server {
                     ctx.task_executor.spawn(async move {
-                    let enclave_server_url = format!(
-                        "{}:{}",
-                        ctx.config.enclave.enclave_server_addr, ctx.config.enclave.enclave_server_port
-                    );
-                    let enclave_server = MockEnclaveServer::new(&enclave_server_url);
-                    info!(target: "reth::cli", "starting mock enclave server at {}", enclave_server_url);
+                        let enclave_server = MockEnclaveServer::new_from_addr_port(
+                            ctx.config.enclave.enclave_server_addr.to_string(),
+                            ctx.config.enclave.enclave_server_port,
+                        );
 
-                    if let Err(err) = enclave_server.run().await {
-                        let err = eyre::eyre!("Failed to start mock enclave server at {}: {}", enclave_server_url, err);
-                        info!("{:?}", err);
-                    }
-                });
+                        let addr = enclave_server.addr();
+                        info!(target: "reth::cli", "mock enclave server started at {}", addr);
+
+                        if let Err(err) = enclave_server.start().await {
+                            let err = eyre::eyre!(
+                                "Failed to start mock enclave server at {}: {}",
+                                addr,
+                                err
+                            );
+                            info!("{:?}", err);
+                        }
+                    });
                     info!(target: "reth::cli", "mock enclave server started in dev mode");
                 }
                 Ok(())
             })
             .extend_rpc_modules(move |ctx| {
-
                 // replace eth_ namespace
                 ctx.modules.replace_configured(
                     EthApiExt::new(ctx.registry.eth_api().clone()).into_rpc(),

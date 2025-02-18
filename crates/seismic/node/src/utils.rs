@@ -4,6 +4,9 @@ use alloy_rpc_types::engine::PayloadAttributes;
 use alloy_rpc_types_eth::TransactionRequest;
 use alloy_signer_local::PrivateKeySigner;
 use reth_chainspec::SEISMIC_DEV;
+use reth_enclave::{
+    BuildableServer, EnclaveClient, MockEnclaveServer, ENCLAVE_DEFAULT_ENDPOINT_ADDR,
+};
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use secp256k1::{PublicKey, SecretKey};
 use serde_json::Value;
@@ -12,7 +15,6 @@ use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::Command,
     sync::mpsc,
-    task,
 };
 
 /// Seismic reth test command
@@ -116,7 +118,9 @@ impl SeismicRethTestCommand {
 }
 
 /// Start the mock enclave server
-pub async fn start_mock_enclave_server_with_default_ports() {}
+pub async fn start_mock_enclave_server_with_default_ports() {
+    MockEnclaveServer::default().start().await.unwrap();
+}
 
 /// Helper function to create a new eth payload attributes
 pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
@@ -149,7 +153,6 @@ pub mod test_utils {
     use k256::ecdsa::SigningKey;
     use reth_chainspec::{ChainSpec, MAINNET};
     use reth_e2e_test_utils::transaction::TransactionTestContext;
-    use reth_enclave::{EnclaveClient, ENCLAVE_DEFAULT_ENDPOINT_ADDR};
     use reth_node_ethereum::EthEvmConfig;
     use reth_primitives::TransactionSigned;
     use reth_rpc_eth_api::EthApiClient;
@@ -421,13 +424,11 @@ pub mod test_utils {
 
         /// Start the mock enclave server
         pub async fn start_mock_enclave_server() {
-            let _ = task::spawn(async move {
-                let enclave_server = MockEnclaveServer::new(&format!(
-                    "127.0.0.1:{}",
-                    Self::get_test_enclave_endpoint()
-                ));
-                enclave_server.run().await.map_err(|_| eyre::Error::msg("enclave server failed"))
-            });
+            let enclave_server = MockEnclaveServer::new_from_addr_port(
+                ENCLAVE_DEFAULT_ENDPOINT_ADDR.to_string(),
+                Self::get_test_enclave_endpoint(),
+            );
+            enclave_server.start().await.unwrap();
         }
 
         /// Get the chain spec

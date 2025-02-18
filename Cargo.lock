@@ -10283,7 +10283,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth#eef903a9f5358abd1d87840b2e3708353bd184a4"
+source = "git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth#e524cf379a70975d1a83e05c1ad49ac35c8be95f"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -10302,6 +10302,7 @@ dependencies = [
  "sha2 0.10.8",
  "strum 0.26.3",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
