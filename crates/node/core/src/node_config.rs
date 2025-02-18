@@ -2,8 +2,8 @@
 
 use crate::{
     args::{
-        DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, NetworkArgs, PayloadBuilderArgs,
-        PruningArgs, RpcServerArgs, TeeArgs, TxPoolArgs,
+        DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, EnclaveArgs, NetworkArgs,
+        PayloadBuilderArgs, PruningArgs, RpcServerArgs, TxPoolArgs,
     },
     dirs::{ChainPath, DataDirPath},
     utils::get_single_header,
@@ -134,8 +134,8 @@ pub struct NodeConfig<ChainSpec> {
     /// All pruning related arguments
     pub pruning: PruningArgs,
 
-    /// All tee related arguments
-    pub tee: TeeArgs,
+    /// All enclave related arguments
+    pub enclave: EnclaveArgs,
 }
 
 impl NodeConfig<ChainSpec> {
@@ -164,7 +164,7 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
             dev: DevArgs::default(),
             pruning: PruningArgs::default(),
             datadir: DatadirArgs::default(),
-            tee: TeeArgs::default(),
+            enclave: EnclaveArgs::default(),
         }
     }
 
@@ -259,9 +259,9 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
         self
     }
 
-    /// Set the tee args for the node
-    pub const fn with_tee(mut self, tee: TeeArgs) -> Self {
-        self.tee = tee;
+    /// Set the enclave args for the node
+    pub const fn with_enclave(mut self, enclave: EnclaveArgs) -> Self {
+        self.enclave = enclave;
         self
     }
 
@@ -459,7 +459,7 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
             db: self.db,
             dev: self.dev,
             pruning: self.pruning,
-            tee: self.tee,
+            enclave: self.enclave,
         }
     }
 }
@@ -486,7 +486,7 @@ impl<ChainSpec> Clone for NodeConfig<ChainSpec> {
             dev: self.dev,
             pruning: self.pruning.clone(),
             datadir: self.datadir.clone(),
-            tee: self.tee.clone(),
+            enclave: self.enclave.clone(),
         }
     }
 }

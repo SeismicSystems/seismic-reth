@@ -10,8 +10,8 @@ use reth_ethereum_cli::chainspec::EthereumChainSpecParser;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
 use reth_node_core::{
     args::{
-        DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, NetworkArgs, PayloadBuilderArgs,
-        PruningArgs, RpcServerArgs, TeeArgs, TxPoolArgs,
+        DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, EnclaveArgs, NetworkArgs,
+        PayloadBuilderArgs, PruningArgs, RpcServerArgs, TxPoolArgs,
     },
     node_config::NodeConfig,
     version,
@@ -111,9 +111,9 @@ pub struct NodeCommand<
     #[command(flatten, next_help_heading = "Extension")]
     pub ext: Ext,
 
-    /// All tee related arguments
+    /// All enclave related arguments
     #[command(flatten)]
-    pub tee: TeeArgs,
+    pub enclave: EnclaveArgs,
 }
 
 impl<C: ChainSpecParser> NodeCommand<C> {
@@ -164,7 +164,7 @@ impl<
             dev,
             pruning,
             ext,
-            tee,
+            enclave,
         } = self;
 
         // set up node config
@@ -182,7 +182,7 @@ impl<
             db,
             dev,
             pruning,
-            tee,
+            enclave,
         };
 
         let data_dir = node_config.datadir();

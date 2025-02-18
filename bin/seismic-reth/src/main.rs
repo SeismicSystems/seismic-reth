@@ -1,9 +1,9 @@
 #![allow(missing_docs)]
 
 use reth_cli_commands::node::NoArgs;
+use reth_enclave::mock::MockTeeServer;
 use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher};
 use reth_provider::providers::BlockchainProvider2;
-use reth_tee::mock::MockTeeServer;
 use reth_tracing::tracing::*;
 use seismic_node::chainspec::SeismicChainSpecParser;
 use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
@@ -27,21 +27,21 @@ fn main() {
             .with_components(EthereumNode::components())
             .with_add_ons(EthereumAddOns::default())
             .on_node_started(move |ctx| {
-                if ctx.config.tee.mock_server {
+                if ctx.config.enclave.mock_server {
                     ctx.task_executor.spawn(async move {
-                    let tee_server_url = format!(
+                    let enclave_server_url = format!(
                         "{}:{}",
-                        ctx.config.tee.tee_server_addr, ctx.config.tee.tee_server_port
+                        ctx.config.enclave.enclave_server_addr, ctx.config.enclave.enclave_server_port
                     );
-                    let tee_server = MockTeeServer::new(&tee_server_url);
-                    info!(target: "reth::cli", "starting mock tee server at {}", tee_server_url);
+                    let enclave_server = MockEnclaveServer::new(&enclave_server_url);
+                    info!(target: "reth::cli", "starting mock enclave server at {}", enclave_server_url);
 
-                    if let Err(err) = tee_server.run().await {
-                        let err = eyre::eyre!("Failed to start mock tee server at {}: {}", tee_server_url, err);
+                    if let Err(err) = enclave_server.run().await {
+                        let err = eyre::eyre!("Failed to start mock enclave server at {}: {}", enclave_server_url, err);
                         info!("{:?}", err);
                     }
                 });
-                    info!(target: "reth::cli", "mock tee server started in dev mode");
+                    info!(target: "reth::cli", "mock enclave server started in dev mode");
                 }
                 Ok(())
             })

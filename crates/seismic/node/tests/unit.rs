@@ -9,7 +9,7 @@ use reth_evm::ConfigureEvmEnv;
 use reth_primitives::{Transaction, TransactionSigned};
 use reth_revm::primitives::{EVMError, TxEnv};
 use reth_rpc_eth_types::utils::recover_raw_transaction;
-use reth_tee::TeeError;
+use reth_enclave::EnclaveError;
 use seismic_node::utils::test_utils::UnitTestContext;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -52,7 +52,7 @@ fn test_fill_tx_env_decryption_error() {
     let mut tx_env = TxEnv::default();
     let sender = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
     let result = evm_config.fill_tx_env(&mut tx_env, &tx_signed, sender);
-    assert!(matches!(result, Err(EVMError::Database(TeeError::DecryptionError))))
+    assert!(matches!(result, Err(EVMError::Database(EnclaveError::DecryptionError))))
 }
 
 fn test_fill_tx_env_seismic_public_key_recovery_error() {
@@ -69,5 +69,5 @@ fn test_fill_tx_env_seismic_public_key_recovery_error() {
 
     let result = evm_config.fill_tx_env(&mut tx_env, &tx_signed, sender);
 
-    assert!(matches!(result, Err(EVMError::Database(TeeError::PublicKeyRecoveryError))));
+    assert!(matches!(result, Err(EVMError::Database(EnclaveError::PublicKeyRecoveryError))));
 }

@@ -29,7 +29,7 @@ use reth_node_ethereum::{
     EthereumNode,
 };
 use reth_primitives::{EthPrimitives, TransactionSigned};
-use reth_tee::TeeError;
+use reth_enclave::EnclaveError;
 use reth_tracing::{RethTracer, Tracer};
 use schnellru::{ByLength, LruMap};
 use std::{collections::HashMap, convert::Infallible, sync::Arc};
@@ -157,7 +157,7 @@ impl ConfigureEvmEnv for MyEvmConfig {
         tx_env: &mut TxEnv,
         transaction: &TransactionSigned,
         sender: Address,
-    ) -> EVMResultGeneric<(), TeeError> {
+    ) -> EVMResultGeneric<(), EnclaveError> {
         self.inner.fill_tx_env(tx_env, transaction, sender)
     }
 

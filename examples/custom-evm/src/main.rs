@@ -95,7 +95,7 @@ impl ConfigureEvmEnv for MyEvmConfig {
         tx_env: &mut TxEnv,
         transaction: &TransactionSigned,
         sender: Address,
-    ) -> EVMResultGeneric<(), reth_tee::TeeError> {
+    ) -> EVMResultGeneric<(), reth_enclave::EnclaveError> {
         self.inner.fill_tx_env(tx_env, transaction, sender)
     }
 

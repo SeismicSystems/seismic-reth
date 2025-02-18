@@ -74,7 +74,7 @@ Previously, storage values were of type `U256`. With the encryption enhancements
 
 ### 3. Shielded Transactions
 
-The inputs of a shielded transaction are encrypted and can only be decrypted with a secret key from TEE. Encryption and decryption logic happens outside of Seismic Reth and inside the [cryptography server](https://github.com/SeismicSystems/teeservice). We added modifications to support the communications with the cryptography server and shielded transaction processing.
+The inputs of a shielded transaction are encrypted and can only be decrypted with a secret key from enclave. Encryption and decryption logic happens outside of Seismic Reth and inside the [cryptography server](https://github.com/SeismicSystems/teeservice). We added modifications to support the communications with the cryptography server and shielded transaction processing.
 
 #### 3.1 Transaction Flow Overview
 

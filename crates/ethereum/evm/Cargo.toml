@@ -11,9 +11,6 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-# seismic
-seismic-enclave.workspace = true
-
 # Reth
 reth-chainspec.workspace = true
 reth-ethereum-forks.workspace = true
@@ -22,7 +19,7 @@ reth-primitives = { workspace = true, features = ["reth-codec"] }
 reth-revm.workspace = true
 reth-ethereum-consensus.workspace = true
 reth-consensus.workspace = true
-reth-tee.workspace = true
+reth-enclave.workspace = true
 reth-tracing.workspace = true
 
 # Ethereum
@@ -36,7 +33,6 @@ alloy-consensus.workspace = true
 
 # misc
 secp256k1.workspace = true
-jsonrpsee.workspace = true
 
 [dev-dependencies]
 reth-testing-utils.workspace = true

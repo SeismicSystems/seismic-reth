@@ -5,10 +5,6 @@ use alloy_rpc_types_eth::TransactionRequest;
 use alloy_signer_local::PrivateKeySigner;
 use reth_chainspec::SEISMIC_DEV;
 use reth_payload_builder::EthPayloadBuilderAttributes;
-use reth_tee::{
-    mock::{MockTeeServer, MockWallet},
-    WalletAPI,
-};
 use secp256k1::{PublicKey, SecretKey};
 use serde_json::Value;
 use std::{net::UdpSocket, path::PathBuf, process::Stdio};
@@ -42,7 +38,7 @@ impl SeismicRethTestCommand {
             .arg("--dev")
             .arg("--dev.block-max-transactions")
             .arg("1")
-            .arg("--tee.mock-server")
+            .arg("--enclave.mock-server")
             .arg("-vvvv")
             .current_dir(workspace_root)
             .stdout(Stdio::piped())
@@ -71,7 +67,7 @@ impl SeismicRethTestCommand {
                         }
                         eprint!("{}", stdout_line);
 
-                        if stdout_line.contains("starting mock tee server") && !sent {
+                        if stdout_line.contains("starting mock enclave server") && !sent {
                             eprintln!("🚀 Reth server is ready!");
                             let _ = tx.send(()).await;
                             sent = true;
@@ -119,11 +115,11 @@ impl SeismicRethTestCommand {
     }
 }
 
-/// Start the mock tee server
+/// Start the mock enclave server
 pub async fn start_mock_tee_server_with_default_ports() {
     let _ = task::spawn(async {
         let tee_server = MockTeeServer::new("127.0.0.1:7878");
-        tee_server.run().await.map_err(|_| eyre::Error::msg("tee server failed"))
+        tee_server.run().await.map_err(|_| eyre::Error::msg("enclave server failed"))
     });
 }
 
@@ -158,12 +154,14 @@ pub mod test_utils {
     use k256::ecdsa::SigningKey;
     use reth_chainspec::{ChainSpec, MAINNET};
     use reth_e2e_test_utils::transaction::TransactionTestContext;
+    use reth_enclave::{EnclaveClient, ENCLAVE_DEFAULT_ENDPOINT_ADDR};
     use reth_node_ethereum::EthEvmConfig;
     use reth_primitives::TransactionSigned;
     use reth_rpc_eth_api::EthApiClient;
-    use reth_tee::{TeeHttpClient, TEE_DEFAULT_ENDPOINT_ADDR};
     use secp256k1::ecdh::SharedSecret;
-    use seismic_enclave::{aes_encrypt, derive_aes_key, ecdh_encrypt, get_sample_secp256k1_pk};
+    use seismic_enclave::{
+        aes_encrypt, derive_aes_key, ecdh_decrypt, ecdh_encrypt, get_sample_secp256k1_pk,
+    };
     use serde::{Deserialize, Serialize};
 
     /// Get the nonce from the client
@@ -186,7 +184,7 @@ pub mod test_utils {
         let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
             .expect("32 bytes, within curve order");
         let pk = get_sample_secp256k1_pk(); // TODO use the enclave public key
-        let decrypted_output = ecdh_decrypt(&pk, &sk, ciphertext.to_vec(), nonce);
+        let decrypted_output = ecdh_decrypt(&pk, &sk, ciphertext.to_vec(), nonce).unwrap();
         Bytes::from(decrypted_output)
     }
 
@@ -199,7 +197,7 @@ pub mod test_utils {
         let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
             .expect("32 bytes, within curve order");
         let pk = get_sample_secp256k1_pk(); // TODO use the enclave public key
-        let encrypted_output = ecdh_encrypt(&pk, &sk, plaintext.to_vec(), nonce);
+        let encrypted_output = ecdh_encrypt(&pk, &sk, plaintext.to_vec(), nonce).unwrap();
 
         Bytes::from(encrypted_output)
     }
@@ -404,7 +402,7 @@ pub mod test_utils {
             encrypted_data
         }
 
-        /// Get the test tee endpoint
+        /// Get the test enclave endpoint
         pub fn get_test_tee_endpoint() -> u16 {
             let mut found_port = 7878;
             for p in 1..65535 {
@@ -418,21 +416,20 @@ pub mod test_utils {
             found_port
         }
 
-        /// Get the test tee client
-        pub fn get_test_tee_client() -> TeeHttpClient {
-            TeeHttpClient::new(format!(
-                "http://{}:{}",
-                TEE_DEFAULT_ENDPOINT_ADDR,
-                Self::get_test_tee_endpoint()
-            ))
+        /// Get the test enclave client
+        pub fn get_test_enclave_client() -> EnclaveClient {
+            EnclaveClient::new_from_addr_port(
+                ENCLAVE_DEFAULT_ENDPOINT_ADDR.to_string(),
+                Self::get_test_tee_endpoint(),
+            )
         }
 
-        /// Start the mock tee server
+        /// Start the mock enclave server
         pub async fn start_mock_tee_server() {
             let _ = task::spawn(async move {
                 let tee_server =
                     MockTeeServer::new(&format!("127.0.0.1:{}", Self::get_test_tee_endpoint()));
-                tee_server.run().await.map_err(|_| eyre::Error::msg("tee server failed"))
+                tee_server.run().await.map_err(|_| eyre::Error::msg("enclave server failed"))
             });
         }
 
@@ -443,8 +440,8 @@ pub mod test_utils {
 
         /// Get the evm config
         pub fn get_evm_config() -> EthEvmConfig {
-            let tee_client = Self::get_test_tee_client();
-            EthEvmConfig::new_with_tee_client(Self::get_chain_spec(), tee_client)
+            let tee_client = Self::get_test_enclave_client();
+            EthEvmConfig::new_with_enclave_client(Self::get_chain_spec(), tee_client)
         }
 
         /// Get the encryption private key

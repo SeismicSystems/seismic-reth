@@ -122,7 +122,7 @@ members = [
     "crates/storage/storage-api/",
     "crates/storage/zstd-compressors/",
     "crates/tasks/",
-    "crates/tee/",
+    "crates/enclave/",
     "crates/tokio-util/",
     "crates/tracing/",
     "crates/transaction-pool/",
@@ -435,7 +435,7 @@ reth-trie = { path = "crates/trie/trie" }
 reth-trie-common = { path = "crates/trie/common" }
 reth-trie-db = { path = "crates/trie/db" }
 reth-trie-parallel = { path = "crates/trie/parallel" }
-reth-tee = { path = "crates/tee" }
+reth-enclave = { path = "crates/enclave" }
 reth-trie-sparse = { path = "crates/trie/sparse" }
 reth-zstd-compressors = { path = "crates/storage/zstd-compressors", default-features = false }
 

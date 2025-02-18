@@ -2995,12 +2995,12 @@ dependencies = [
  "eyre",
  "reth",
  "reth-chainspec",
+ "reth-enclave",
  "reth-evm-ethereum",
  "reth-node-api",
  "reth-node-core",
  "reth-node-ethereum",
  "reth-primitives",
- "reth-tee",
  "reth-tracing",
  "tokio",
 ]
@@ -3185,11 +3185,11 @@ dependencies = [
  "parking_lot",
  "reth",
  "reth-chainspec",
+ "reth-enclave",
  "reth-node-api",
  "reth-node-core",
  "reth-node-ethereum",
  "reth-primitives",
- "reth-tee",
  "reth-tracing",
  "schnellru",
  "tokio",
@@ -7529,6 +7529,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "reth-enclave"
+version = "1.1.4"
+dependencies = [
+ "aes-gcm",
+ "alloy-rlp",
+ "anyhow",
+ "derive_more",
+ "futures",
+ "hkdf",
+ "hyper 0.14.32",
+ "once_cell",
+ "reqwest",
+ "routerify",
+ "secp256k1",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth)",
+ "serde",
+ "serde_json",
+ "sha2 0.10.8",
+ "tokio",
+ "tracing",
+ "warp",
+]
+
+[[package]]
 name = "reth-engine-local"
 version = "1.1.4"
 dependencies = [
@@ -7906,6 +7930,7 @@ dependencies = [
  "reth-chainspec",
  "reth-consensus",
  "reth-consensus-common",
+ "reth-enclave",
  "reth-ethereum-forks",
  "reth-execution-errors",
  "reth-execution-types",
@@ -7916,7 +7941,6 @@ dependencies = [
  "reth-revm",
  "reth-storage-api",
  "reth-storage-errors",
- "reth-tee",
  "revm",
  "revm-primitives",
 ]
@@ -7930,21 +7954,19 @@ dependencies = [
  "alloy-genesis",
  "alloy-primitives",
  "alloy-sol-types",
- "jsonrpsee",
  "reth-chainspec",
  "reth-consensus",
+ "reth-enclave",
  "reth-ethereum-consensus",
  "reth-ethereum-forks",
  "reth-evm",
  "reth-execution-types",
  "reth-primitives",
  "reth-revm",
- "reth-tee",
  "reth-testing-utils",
  "reth-tracing",
  "revm-primitives",
  "secp256k1",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth)",
  "serde_json",
 ]
 
@@ -8456,6 +8478,7 @@ dependencies = [
  "reth-db",
  "reth-discv4",
  "reth-discv5",
+ "reth-enclave",
  "reth-ethereum-forks",
  "reth-net-nat",
  "reth-network",
@@ -8470,7 +8493,6 @@ dependencies = [
  "reth-stages-types",
  "reth-storage-api",
  "reth-storage-errors",
- "reth-tee",
  "reth-tracing",
  "reth-transaction-pool",
  "secp256k1",
@@ -8508,6 +8530,7 @@ dependencies = [
  "reth-consensus",
  "reth-db",
  "reth-e2e-test-utils",
+ "reth-enclave",
  "reth-ethereum-engine-primitives",
  "reth-ethereum-payload-builder",
  "reth-evm",
@@ -8525,7 +8548,6 @@ dependencies = [
  "reth-rpc",
  "reth-rpc-eth-api",
  "reth-tasks",
- "reth-tee",
  "reth-tracing",
  "reth-transaction-pool",
  "reth-trie-db",
@@ -9387,10 +9409,10 @@ dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "derive_more",
+ "reth-enclave",
  "reth-fs-util",
  "reth-primitives-traits",
  "reth-static-file-types",
- "reth-tee",
 ]
 
 [[package]]
@@ -9408,30 +9430,6 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-futures",
-]
-
-[[package]]
-name = "reth-tee"
-version = "1.1.4"
-dependencies = [
- "aes-gcm",
- "alloy-rlp",
- "anyhow",
- "derive_more",
- "futures",
- "hkdf",
- "hyper 0.14.32",
- "once_cell",
- "reqwest",
- "routerify",
- "secp256k1",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth)",
- "serde",
- "serde_json",
- "sha2 0.10.8",
- "tokio",
- "tracing",
- "warp",
 ]
 
 [[package]]
@@ -10285,7 +10283,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth#0fbe4c9a8991f4dfe3c76e44b00c154a0fe2cd86"
+source = "git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth#8384d44fbf78c80814682a5e6166bb27f5716545"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -10361,6 +10359,7 @@ dependencies = [
  "reth-cli",
  "reth-consensus-debug-client",
  "reth-e2e-test-utils",
+ "reth-enclave",
  "reth-engine-tree",
  "reth-engine-util",
  "reth-errors",
@@ -10383,7 +10382,6 @@ dependencies = [
  "reth-rpc-eth-types",
  "reth-storage-api",
  "reth-tasks",
- "reth-tee",
  "reth-tracing",
  "reth-transaction-pool",
  "reth-trie-common",
@@ -10412,13 +10410,13 @@ dependencies = [
  "reth",
  "reth-cli-commands",
  "reth-cli-util",
+ "reth-enclave",
  "reth-node-builder",
  "reth-node-core",
  "reth-node-ethereum",
  "reth-node-metrics",
  "reth-primitives",
  "reth-provider",
- "reth-tee",
  "reth-tracing",
  "seismic-node",
  "seismic-rpc-api",
