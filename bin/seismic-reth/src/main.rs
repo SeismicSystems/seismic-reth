@@ -1,7 +1,6 @@
 #![allow(missing_docs)]
 
 use reth_cli_commands::node::NoArgs;
-use reth_enclave::mock::MockTeeServer;
 use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher};
 use reth_provider::providers::BlockchainProvider2;
 use reth_tracing::tracing::*;
