@@ -11,8 +11,7 @@ use reth_tracing::tracing::*;
 use seismic_node::{
     node::SeismicNode,
     utils::{
-        seismic_payload_attributes,
-        start_mock_enclave_server,
+        seismic_payload_attributes, start_mock_enclave_server,
         test_utils::{client_decrypt, get_signed_seismic_tx_bytes, IntegrationTestContext},
     },
 };
