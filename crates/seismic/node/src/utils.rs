@@ -116,12 +116,7 @@ impl SeismicRethTestCommand {
 }
 
 /// Start the mock enclave server
-pub async fn start_mock_enclave_server_with_default_ports() {
-    let _ = task::spawn(async {
-        let enclave_server = MockEnclaveServer::new("127.0.0.1:7878");
-        enclave_server.run().await.map_err(|_| eyre::Error::msg("enclave server failed"))
-    });
-}
+pub async fn start_mock_enclave_server_with_default_ports() {}
 
 /// Helper function to create a new eth payload attributes
 pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
@@ -403,7 +398,7 @@ pub mod test_utils {
         }
 
         /// Get the test enclave endpoint
-        pub fn get_test_tee_endpoint() -> u16 {
+        pub fn get_test_enclave_endpoint() -> u16 {
             let mut found_port = 7878;
             for p in 1..65535 {
                 let address = format!("127.0.0.1:{}", p);
@@ -420,16 +415,18 @@ pub mod test_utils {
         pub fn get_test_enclave_client() -> EnclaveClient {
             EnclaveClient::new_from_addr_port(
                 ENCLAVE_DEFAULT_ENDPOINT_ADDR.to_string(),
-                Self::get_test_tee_endpoint(),
+                Self::get_test_enclave_endpoint(),
             )
         }
 
         /// Start the mock enclave server
-        pub async fn start_mock_tee_server() {
+        pub async fn start_mock_enclave_server() {
             let _ = task::spawn(async move {
-                let tee_server =
-                    MockTeeServer::new(&format!("127.0.0.1:{}", Self::get_test_tee_endpoint()));
-                tee_server.run().await.map_err(|_| eyre::Error::msg("enclave server failed"))
+                let enclave_server = MockEnclaveServer::new(&format!(
+                    "127.0.0.1:{}",
+                    Self::get_test_enclave_endpoint()
+                ));
+                enclave_server.run().await.map_err(|_| eyre::Error::msg("enclave server failed"))
             });
         }
 
@@ -440,8 +437,8 @@ pub mod test_utils {
 
         /// Get the evm config
         pub fn get_evm_config() -> EthEvmConfig {
-            let tee_client = Self::get_test_enclave_client();
-            EthEvmConfig::new_with_enclave_client(Self::get_chain_spec(), tee_client)
+            let enclave_client = Self::get_test_enclave_client();
+            EthEvmConfig::new_with_enclave_client(Self::get_chain_spec(), enclave_client)
         }
 
         /// Get the encryption private key

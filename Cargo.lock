@@ -10283,7 +10283,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth#8384d44fbf78c80814682a5e6166bb27f5716545"
+source = "git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth#eef903a9f5358abd1d87840b2e3708353bd184a4"
 dependencies = [
  "aes-gcm",
  "anyhow",
