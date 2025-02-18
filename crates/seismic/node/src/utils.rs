@@ -119,7 +119,9 @@ impl SeismicRethTestCommand {
 
 /// Start the mock enclave server
 pub async fn start_mock_enclave_server_with_default_ports() {
-    MockEnclaveServer::default().start().await.unwrap();
+    let enclave_server = MockEnclaveServer::default();
+    let handle = enclave_server.start().await.unwrap();
+    let _ = handle.stopped().await;
 }
 
 /// Helper function to create a new eth payload attributes
@@ -428,7 +430,8 @@ pub mod test_utils {
                 ENCLAVE_DEFAULT_ENDPOINT_ADDR.to_string(),
                 Self::get_test_enclave_endpoint(),
             );
-            enclave_server.start().await.unwrap();
+            let handle = enclave_server.start().await.unwrap();
+            let _ = handle.stopped().await;
         }
 
         /// Get the chain spec

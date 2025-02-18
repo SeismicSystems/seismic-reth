@@ -22,6 +22,7 @@ use reth::{
     tasks::TaskManager,
 };
 use reth_chainspec::{Chain, ChainSpec};
+use reth_enclave::EnclaveError;
 use reth_node_api::{ConfigureEvm, ConfigureEvmEnv, FullNodeTypes, NodeTypes};
 use reth_node_core::{args::RpcServerArgs, node_config::NodeConfig};
 use reth_node_ethereum::{
@@ -29,7 +30,6 @@ use reth_node_ethereum::{
     EthereumNode,
 };
 use reth_primitives::{EthPrimitives, TransactionSigned};
-use reth_enclave::EnclaveError;
 use reth_tracing::{RethTracer, Tracer};
 use schnellru::{ByLength, LruMap};
 use std::{collections::HashMap, convert::Infallible, sync::Arc};
