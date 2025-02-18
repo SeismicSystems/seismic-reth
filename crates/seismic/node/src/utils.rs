@@ -69,7 +69,7 @@ impl SeismicRethTestCommand {
                         }
                         eprint!("{}", stdout_line);
 
-                        if stdout_line.contains("starting mock enclave server") && !sent {
+                        if stdout_line.contains("Starting consensus engine") && !sent {
                             eprintln!("🚀 Reth server is ready!");
                             let _ = tx.send(()).await;
                             sent = true;
