@@ -5,13 +5,13 @@ use std::future::Future;
 
 use derive_more::Display;
 use secp256k1::PublicKey;
-pub use seismic_enclave::client::EnclaveClient;
+pub use seismic_enclave::{client::EnclaveClient, SchnorrkelKeypair};
 use seismic_enclave::{
     nonce::Nonce,
     request_types::tx_io::{
         IoDecryptionRequest, IoDecryptionResponse, IoEncryptionRequest, IoEncryptionResponse,
     },
-    SchnorrkelKeypair,
+    rpc::EnclaveApiClient,
 };
 use tokio::runtime::{Handle, Runtime};
 

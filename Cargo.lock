@@ -389,7 +389,7 @@ dependencies = [
  "pin-project",
  "reqwest",
  "schnellru",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/seismic-enclave.git?branch=peter/fix-reth)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth)",
  "serde",
  "serde_json",
  "thiserror 2.0.11",
@@ -7944,7 +7944,7 @@ dependencies = [
  "reth-tracing",
  "revm-primitives",
  "secp256k1",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/seismic-enclave.git?branch=peter/fix-reth)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth)",
  "serde_json",
 ]
 
@@ -9425,7 +9425,7 @@ dependencies = [
  "reqwest",
  "routerify",
  "secp256k1",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/seismic-enclave.git?branch=peter/fix-reth)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth)",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -10285,7 +10285,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-enclave.git?branch=peter/fix-reth#0fbe4c9a8991f4dfe3c76e44b00c154a0fe2cd86"
+source = "git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth#0fbe4c9a8991f4dfe3c76e44b00c154a0fe2cd86"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -10389,7 +10389,7 @@ dependencies = [
  "reth-trie-common",
  "reth-trie-db",
  "secp256k1",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/seismic-enclave.git?branch=peter/fix-reth)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth)",
  "seismic-rpc-api",
  "serde",
  "serde_json",
@@ -10457,7 +10457,7 @@ dependencies = [
  "reth-tracing",
  "reth-transaction-pool",
  "secp256k1",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/seismic-enclave.git?branch=peter/fix-reth)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?branch=peter/fix-reth)",
  "seismic-node",
  "tokio",
 ]
