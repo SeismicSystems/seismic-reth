@@ -25,7 +25,10 @@ use alloy_primitives::{Address, Bytes, TxHash, TxKind, U256};
 use reth_chainspec::{ChainSpec, Head};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};
 use reth_primitives::{transaction::FillTxEnv, Transaction, TransactionSigned};
-use reth_tee::{decrypt, encrypt, get_eph_rng_keypair, SchnorrkelKeypair, TeeError, TeeHttpClient};
+use reth_tee::{
+    decrypt, encrypt, get_eph_rng_keypair, EnclaveClient, SchnorrkelKeypair, TeeError,
+    TeeHttpClient,
+};
 use reth_tracing::tracing::debug;
 use revm_primitives::{
     AnalysisKind, BlobExcessGasAndPrice, BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, EVMError,
@@ -50,13 +53,13 @@ pub mod eip6110;
 #[derive(Debug, Clone)]
 pub struct EthEvmConfig {
     chain_spec: Arc<ChainSpec>,
-    tee_client: TeeHttpClient,
+    tee_client: EnclaveClient,
 }
 
 impl EthEvmConfig {
     /// Creates a new Ethereum EVM configuration with the given chain spec.
     pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
-        Self { chain_spec, tee_client: TeeHttpClient::default() }
+        Self { chain_spec, tee_client: EnclaveClient::default() }
     }
 
     /// Creates a new Ethereum EVM configuration with the given chain spec.
