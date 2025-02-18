@@ -163,7 +163,7 @@ pub mod test_utils {
     use reth_rpc_eth_api::EthApiClient;
     use reth_tee::{TeeHttpClient, TEE_DEFAULT_ENDPOINT_ADDR};
     use secp256k1::ecdh::SharedSecret;
-    use seismic_enclave::{aes_encrypt, derive_aes_key, get_sample_secp256k1_pk};
+    use seismic_enclave::{aes_encrypt, derive_aes_key, ecdh_encrypt, get_sample_secp256k1_pk};
     use serde::{Deserialize, Serialize};
 
     /// Get the nonce from the client
@@ -185,10 +185,8 @@ pub mod test_utils {
     ) -> Bytes {
         let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
             .expect("32 bytes, within curve order");
-        let tee_wallet = MockWallet {};
-        let decrypted_output =
-            <MockWallet as WalletAPI>::decrypt(&tee_wallet, ciphertext.to_vec(), nonce, &sk)
-                .unwrap();
+        let pk = get_sample_secp256k1_pk(); // TODO use the enclave public key
+        let decrypted_output = ecdh_decrypt(&pk, &sk, ciphertext.to_vec(), nonce);
         Bytes::from(decrypted_output)
     }
 
@@ -200,10 +198,9 @@ pub mod test_utils {
     ) -> Bytes {
         let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
             .expect("32 bytes, within curve order");
-        let tee_wallet = MockWallet {};
-        let encrypted_output =
-            <MockWallet as WalletAPI>::encrypt(&tee_wallet, plaintext.to_vec(), nonce, &sk)
-                .unwrap();
+        let pk = get_sample_secp256k1_pk(); // TODO use the enclave public key
+        let encrypted_output = ecdh_encrypt(&pk, &sk, plaintext.to_vec(), nonce);
+
         Bytes::from(encrypted_output)
     }
 

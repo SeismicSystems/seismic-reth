@@ -1,19 +1,10 @@
 //! This crate provides functionalities related to the Tee service.
 //! It includes modules and API for interacting with wallet operations and HTTP clients.
 
-/// Mock module for testing purposes.
-pub mod mock;
-
 use std::future::Future;
-
-pub use seismic_enclave::{
-    http_client::{TeeHttpClient, TEE_DEFAULT_ENDPOINT_ADDR, TEE_DEFAULT_ENDPOINT_PORT},
-    TeeAPI, WalletAPI,
-};
 
 use derive_more::Display;
 use secp256k1::PublicKey;
-pub use seismic_enclave::SchnorrkelKeypair;
 use seismic_enclave::{
     nonce::Nonce,
     request_types::tx_io::{

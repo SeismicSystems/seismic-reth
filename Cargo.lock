@@ -389,7 +389,7 @@ dependencies = [
  "pin-project",
  "reqwest",
  "schnellru",
- "seismic-enclave 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/seismic-enclave.git?rev=d5989c3)",
  "serde",
  "serde_json",
  "thiserror 2.0.11",
@@ -9405,7 +9405,7 @@ dependencies = [
  "reqwest",
  "routerify",
  "secp256k1",
- "seismic-enclave 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/seismic-enclave.git?rev=d5989c3)",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -10159,10 +10159,12 @@ dependencies = [
  "aead",
  "arrayref",
  "arrayvec",
+ "cfg-if",
  "curve25519-dalek",
  "getrandom_or_panic",
  "merlin",
  "rand_core 0.6.4",
+ "serde",
  "serde_bytes",
  "sha2 0.10.8",
  "subtle",
@@ -10262,8 +10264,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "038ecbb935f63d62ba9590c54f185bb35f1086580566ac4332fc3840c4b585bd"
+source = "git+https://github.com/SeismicSystems/seismic-enclave.git?rev=d5989c3#d5989c35a82eba6a32b407a72ae42edfe68c8e41"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -10271,8 +10272,7 @@ dependencies = [
  "byteorder",
  "bytes",
  "hkdf",
- "http-body-util",
- "hyper 0.14.32",
+ "jsonrpsee",
  "kbs-types",
  "once_cell",
  "reqwest",
@@ -10281,7 +10281,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "strum 0.25.0",
+ "strum 0.26.3",
  "tokio",
 ]
 
@@ -10368,7 +10368,7 @@ dependencies = [
  "reth-trie-common",
  "reth-trie-db",
  "secp256k1",
- "seismic-enclave 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/seismic-enclave.git?rev=d5989c3)",
  "seismic-rpc-api",
  "serde",
  "serde_json",
@@ -10436,7 +10436,7 @@ dependencies = [
  "reth-tracing",
  "reth-transaction-pool",
  "secp256k1",
- "seismic-enclave 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/seismic-enclave.git?rev=d5989c3)",
  "seismic-node",
  "tokio",
 ]
