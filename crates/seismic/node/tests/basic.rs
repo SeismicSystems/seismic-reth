@@ -6,11 +6,13 @@ use alloy_primitives::{bytes::Buf, hex, Address, Bytes, TxKind, U256};
 use eyre::Ok;
 use reth_chainspec::DEV;
 use reth_e2e_test_utils::setup_engine;
+use reth_enclave::{ENCLAVE_DEFAULT_ENDPOINT_ADDR, ENCLAVE_DEFAULT_ENDPOINT_PORT};
 use reth_tracing::tracing::*;
 use seismic_node::{
     node::SeismicNode,
     utils::{
-        seismic_payload_attributes, start_mock_enclave_server_with_default_ports,
+        seismic_payload_attributes,
+        start_mock_enclave_server,
         test_utils::{client_decrypt, get_signed_seismic_tx_bytes, IntegrationTestContext},
     },
 };
@@ -29,7 +31,7 @@ async fn contract() -> eyre::Result<()> {
 
     let (mut nodes, _tasks, wallet) =
         setup_engine::<SeismicNode>(2, DEV.clone(), false, seismic_payload_attributes).await?;
-    start_mock_enclave_server_with_default_ports().await;
+    start_mock_enclave_server(ENCLAVE_DEFAULT_ENDPOINT_ADDR, ENCLAVE_DEFAULT_ENDPOINT_PORT).await;
     debug!(target: "e2e:contract", "setup seismic node");
     let mut second_node = nodes.pop().unwrap();
     let mut first_node = nodes.pop().unwrap();

@@ -1,11 +1,10 @@
 #![allow(missing_docs)]
 
 use reth_cli_commands::node::NoArgs;
-use reth_enclave::{BuildableServer, MockEnclaveServer};
 use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher};
 use reth_provider::providers::BlockchainProvider2;
 use reth_tracing::tracing::*;
-use seismic_node::chainspec::SeismicChainSpecParser;
+use seismic_node::{chainspec::SeismicChainSpecParser, utils::start_mock_enclave_server};
 use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 
 fn main() {
@@ -29,26 +28,11 @@ fn main() {
             .on_node_started(move |ctx| {
                 if ctx.config.enclave.mock_server {
                     ctx.task_executor.spawn(async move {
-                        let enclave_server = MockEnclaveServer::new_from_addr_port(
-                            ctx.config.enclave.enclave_server_addr.to_string(),
+                        start_mock_enclave_server(
+                            ctx.config.enclave.enclave_server_addr,
                             ctx.config.enclave.enclave_server_port,
-                        );
-
-                        let addr = enclave_server.addr();
-
-                        match enclave_server.start().await {
-                            Ok(handle) => {
-                                handle.stopped().await;
-                            }
-                            Err(err) => {
-                                let err = eyre::eyre!(
-                                    "Failed to start mock enclave server at {}: {}",
-                                    addr,
-                                    err
-                                );
-                                error!("{:?}", err);
-                            }
-                        }
+                        )
+                        .await;
                     });
                 }
                 Ok(())

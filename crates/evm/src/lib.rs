@@ -68,7 +68,7 @@ pub trait ConfigureEvm: ConfigureEvmEnv {
         let mut evm = self.evm(db);
         evm.modify_spec_id(env.spec_id());
 
-        if SpecId::MERCURY.is_enabled_in(env.spec_id()) {
+        if env.spec_id().is_enabled_in(SpecId::MERCURY) {
             let keypair = match self.get_eph_rng_keypair() {
                 Ok(kp) => kp,
                 Err(err) => {

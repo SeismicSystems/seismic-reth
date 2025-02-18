@@ -10,12 +10,17 @@ use reth_enclave::{
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use secp256k1::{PublicKey, SecretKey};
 use serde_json::Value;
-use std::{net::UdpSocket, path::PathBuf, process::Stdio};
+use std::{
+    net::{IpAddr, UdpSocket},
+    path::PathBuf,
+    process::Stdio,
+};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::Command,
     sync::mpsc,
 };
+use tracing::error;
 
 /// Seismic reth test command
 #[derive(Debug)]
@@ -118,10 +123,20 @@ impl SeismicRethTestCommand {
 }
 
 /// Start the mock enclave server
-pub async fn start_mock_enclave_server_with_default_ports() {
-    let enclave_server = MockEnclaveServer::default();
-    let handle = enclave_server.start().await.unwrap();
-    let _ = handle.stopped().await;
+pub async fn start_mock_enclave_server(addr: IpAddr, port: u16) {
+    let enclave_server = MockEnclaveServer::new((addr, port));
+
+    let addr = enclave_server.addr();
+
+    match enclave_server.start().await {
+        Ok(handle) => {
+            handle.stopped().await;
+        }
+        Err(err) => {
+            let err = eyre::eyre!("Failed to start mock enclave server at {}: {}", addr, err);
+            error!("{:?}", err);
+        }
+    }
 }
 
 /// Helper function to create a new eth payload attributes
@@ -426,12 +441,11 @@ pub mod test_utils {
 
         /// Start the mock enclave server
         pub async fn start_mock_enclave_server() {
-            let enclave_server = MockEnclaveServer::new_from_addr_port(
-                ENCLAVE_DEFAULT_ENDPOINT_ADDR.to_string(),
+            start_mock_enclave_server(
+                ENCLAVE_DEFAULT_ENDPOINT_ADDR,
                 Self::get_test_enclave_endpoint(),
-            );
-            let handle = enclave_server.start().await.unwrap();
-            let _ = handle.stopped().await;
+            )
+            .await;
         }
 
         /// Get the chain spec
