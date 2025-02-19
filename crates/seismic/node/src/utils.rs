@@ -39,7 +39,7 @@ impl SeismicRethTestCommand {
             .arg("--dev.block-max-transactions")
             .arg("1")
             .arg("--enclave.mock-server")
-            .arg("-vvvvv")
+            .arg("-vvvv")
             .current_dir(workspace_root)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
