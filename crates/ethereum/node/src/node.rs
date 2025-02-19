@@ -5,7 +5,6 @@ use std::sync::Arc;
 use reth_basic_payload_builder::{BasicPayloadJobGenerator, BasicPayloadJobGeneratorConfig};
 use reth_beacon_consensus::EthBeaconConsensus;
 use reth_chainspec::ChainSpec;
-use reth_enclave::EnclaveClient;
 use reth_ethereum_engine_primitives::{
     EthBuiltPayload, EthPayloadAttributes, EthPayloadBuilderAttributes,
 };
@@ -148,12 +147,11 @@ where
         ctx: &BuilderContext<Node>,
     ) -> eyre::Result<(Self::EVM, Self::Executor)> {
         let chain_spec = ctx.chain_spec();
-        let enclave_client = EnclaveClient::new_from_addr_port(
-            ctx.config().enclave.enclave_server_addr.to_string(),
+        let evm_config = EthEvmConfig::new_with_enclave_addr_port(
+            ctx.chain_spec(),
+            ctx.config().enclave.enclave_server_addr,
             ctx.config().enclave.enclave_server_port,
         );
-        info!(target: "reth::cli", "Enclave client initialized {:?}", &enclave_client);
-        let evm_config = EthEvmConfig::new_with_enclave_client(ctx.chain_spec(), enclave_client);
         let strategy_factory = EthExecutionStrategyFactory::new(chain_spec, evm_config.clone());
         let executor = BasicBlockExecutorProvider::new(strategy_factory);
 
@@ -320,7 +318,15 @@ where
         ctx: &BuilderContext<Node>,
         pool: Pool,
     ) -> eyre::Result<PayloadBuilderHandle<Types::Engine>> {
-        self.spawn(EthEvmConfig::new(ctx.chain_spec()), ctx, pool)
+        self.spawn(
+            EthEvmConfig::new_with_enclave_addr_port(
+                ctx.chain_spec(),
+                ctx.config().enclave.enclave_server_addr,
+                ctx.config().enclave.enclave_server_port,
+            ),
+            ctx,
+            pool,
+        )
     }
 }
 

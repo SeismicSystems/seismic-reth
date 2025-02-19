@@ -607,7 +607,7 @@ impl<Node: FullNodeTypes> BuilderContext<Node> {
         &self.config_container.config
     }
 
-    /// Returns the loaded reh.toml config.
+    /// Returns the loaded reth.toml config.
     pub const fn reth_config(&self) -> &reth_config::Config {
         &self.config_container.toml_config
     }

@@ -38,8 +38,9 @@ impl SeismicRethTestCommand {
             .arg("--dev")
             .arg("--dev.block-max-transactions")
             .arg("1")
-            .arg("--enclave.mock-server")
-            .arg("-vvvv")
+            .arg("--enclave.endpoint-addr")
+            .arg("68.154.120.196")
+            .arg("-vvvvv")
             .current_dir(workspace_root)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -94,6 +95,7 @@ impl SeismicRethTestCommand {
             println!("✅ Exiting loop.");
 
             child.kill().await.unwrap();
+            println!("✅ Killed child process.");
         });
     }
 

@@ -8532,7 +8532,6 @@ dependencies = [
  "reth-consensus",
  "reth-db",
  "reth-e2e-test-utils",
- "reth-enclave",
  "reth-ethereum-engine-primitives",
  "reth-ethereum-payload-builder",
  "reth-evm",
