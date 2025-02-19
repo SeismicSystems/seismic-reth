@@ -10439,10 +10439,12 @@ dependencies = [
  "reth-chain-state",
  "reth-chainspec",
  "reth-consensus",
+ "reth-enclave",
  "reth-ethereum-engine-primitives",
  "reth-evm",
  "reth-evm-ethereum",
  "reth-network-api",
+ "reth-node-core",
  "reth-payload-builder",
  "reth-primitives",
  "reth-provider",
@@ -10459,6 +10461,7 @@ dependencies = [
  "secp256k1",
  "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=0600d0a)",
  "seismic-node",
+ "thiserror 2.0.11",
  "tokio",
 ]
 

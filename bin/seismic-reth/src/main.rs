@@ -22,6 +22,10 @@ fn main() {
 
     if let Err(err) = Cli::<SeismicChainSpecParser, NoArgs>::parse().run(|builder, _| async move {
         let engine_tree_config = TreeConfig::default();
+
+        // building seismic api
+        let seismic_api = SeismicApi::new(builder.config());
+
         let node = builder
             .with_types_and_provider::<EthereumNode, BlockchainProvider2<_>>()
             .with_components(EthereumNode::components())
@@ -45,7 +49,6 @@ fn main() {
                 )?;
 
                 // add seismic_ namespace
-                let seismic_api = SeismicApi::new();
                 ctx.modules.merge_configured(seismic_api.into_rpc())?;
                 info!(target: "reth::cli", "seismic api configured");
                 Ok(())
