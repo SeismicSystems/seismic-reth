@@ -6,8 +6,8 @@ use clap::Args;
 use reth_enclave::{ENCLAVE_DEFAULT_ENDPOINT_ADDR, ENCLAVE_DEFAULT_ENDPOINT_PORT};
 
 /// Parameters for configuring the enclave more granularity via CLI
-#[derive(Debug, Clone, Args, PartialEq, Eq)]
-#[command(next_help_heading = "TEE")]
+#[derive(Debug, Clone, Args, PartialEq, Eq, Copy)]
+#[command(next_help_heading = "Enclave")]
 pub struct EnclaveArgs {
     /// Auth server address to listen on
     #[arg(long = "enclave.endpoint-addr", default_value_t = ENCLAVE_DEFAULT_ENDPOINT_ADDR)]

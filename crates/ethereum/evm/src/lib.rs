@@ -17,7 +17,7 @@
 
 extern crate alloc;
 
-use core::convert::Infallible;
+use core::{convert::Infallible, net::IpAddr};
 
 use alloc::{sync::Arc, vec::Vec};
 use alloy_consensus::{transaction::EncryptionPublicKey, Header, TxSeismic};
@@ -64,6 +64,19 @@ impl EthEvmConfig {
     /// Creates a new Ethereum EVM configuration with the given chain spec.
     pub fn new_with_enclave_client(chain_spec: Arc<ChainSpec>, tee_client: EnclaveClient) -> Self {
         Self { chain_spec, enclave_client: tee_client }
+    }
+
+    /// Creates a new Ethereum EVM configuration with the given chain spec and enclave address and
+    /// port.
+    pub fn new_with_enclave_addr_port(
+        chain_spec: Arc<ChainSpec>,
+        enclave_addr: IpAddr,
+        enclave_port: u16,
+    ) -> Self {
+        debug!(target: "reth::evm", ?enclave_addr, ?enclave_port, "Creating new enclave client");
+
+        let tee_client = EnclaveClient::new_from_addr_port(enclave_addr.to_string(), enclave_port);
+        Self::new_with_enclave_client(chain_spec, tee_client)
     }
 
     /// Returns the chain spec associated with this configuration.

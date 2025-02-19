@@ -94,6 +94,7 @@ impl SeismicRethTestCommand {
             println!("✅ Exiting loop.");
 
             child.kill().await.unwrap();
+            println!("✅ Killed child process.");
         });
     }
 
@@ -152,7 +153,7 @@ pub mod test_utils {
     use reth_rpc_eth_api::EthApiClient;
     use secp256k1::ecdh::SharedSecret;
     use seismic_enclave::{
-        aes_encrypt, derive_aes_key, ecdh_decrypt, ecdh_encrypt, get_sample_secp256k1_pk,
+        aes_encrypt, derive_aes_key, ecdh_decrypt, ecdh_encrypt, get_unsecure_sample_secp256k1_pk,
     };
     use serde::{Deserialize, Serialize};
 
@@ -175,7 +176,7 @@ pub mod test_utils {
     ) -> Bytes {
         let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
             .expect("32 bytes, within curve order");
-        let pk = get_sample_secp256k1_pk(); // TODO use the enclave public key
+        let pk = get_unsecure_sample_secp256k1_pk(); // TODO use the enclave public key
         let decrypted_output = ecdh_decrypt(&pk, &sk, ciphertext.to_vec(), nonce).unwrap();
         Bytes::from(decrypted_output)
     }
@@ -188,7 +189,7 @@ pub mod test_utils {
     ) -> Bytes {
         let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
             .expect("32 bytes, within curve order");
-        let pk = get_sample_secp256k1_pk(); // TODO use the enclave public key
+        let pk = get_unsecure_sample_secp256k1_pk(); // TODO use the enclave public key
         let encrypted_output = ecdh_encrypt(&pk, &sk, plaintext.to_vec(), nonce).unwrap();
 
         Bytes::from(encrypted_output)
@@ -399,7 +400,7 @@ pub mod test_utils {
 
         /// Encrypt plaintext using network public key and client private key
         pub fn get_client_side_encryption() -> Vec<u8> {
-            let ecdh_sk = get_sample_secp256k1_pk();
+            let ecdh_sk = get_unsecure_sample_secp256k1_pk();
             let signing_key_bytes = Self::get_encryption_private_key().to_bytes();
             let signing_key_secp256k1 =
                 secp256k1::SecretKey::from_slice(&signing_key_bytes).expect("Invalid secret key");
