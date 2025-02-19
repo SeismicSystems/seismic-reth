@@ -17,6 +17,7 @@ impl From<SeismicApiError> for jsonrpsee::types::error::ErrorObject<'static> {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use crate::error::SeismicApiError;
 
