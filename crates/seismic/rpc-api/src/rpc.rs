@@ -17,7 +17,7 @@ use jsonrpsee::{
 use reth_rpc_eth_api::helpers::{EthTransactions, FullEthApi};
 use reth_tracing::tracing::*;
 use secp256k1::PublicKey;
-use seismic_enclave::get_sample_secp256k1_pk;
+use seismic_enclave::get_unsecure_sample_secp256k1_pk;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
 /// trait interface for a custom rpc namespace: `seismic`
@@ -45,7 +45,7 @@ impl SeismicApi {
 impl SeismicApiServer for SeismicApi {
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey> {
         trace!(target: "rpc::seismic", "Serving seismic_getTeePublicKey");
-        Ok(get_sample_secp256k1_pk())
+        Ok(get_unsecure_sample_secp256k1_pk())
     }
 }
 
@@ -107,7 +107,7 @@ mod tests {
         C: ClientT + SubscriptionClientT + Sync,
     {
         let pk = SeismicApiClient::get_tee_public_key(client).await.unwrap();
-        assert_eq!(pk, get_sample_secp256k1_pk());
+        assert_eq!(pk, get_unsecure_sample_secp256k1_pk());
     }
 
     async fn test_basic_eth_calls<C>(client: &C)
