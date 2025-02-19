@@ -23,9 +23,11 @@ use alloc::{sync::Arc, vec::Vec};
 use alloy_consensus::{transaction::EncryptionPublicKey, Header, TxSeismic};
 use alloy_primitives::{Address, Bytes, TxHash, TxKind, U256};
 use reth_chainspec::{ChainSpec, Head};
+use reth_enclave::{
+    decrypt, encrypt, get_eph_rng_keypair, EnclaveClient, EnclaveError, SchnorrkelKeypair,
+};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};
 use reth_primitives::{transaction::FillTxEnv, Transaction, TransactionSigned};
-use reth_tee::{decrypt, encrypt, get_eph_rng_keypair, SchnorrkelKeypair, TeeError, TeeHttpClient};
 use reth_tracing::tracing::debug;
 use revm_primitives::{
     AnalysisKind, BlobExcessGasAndPrice, BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, EVMError,
@@ -50,18 +52,18 @@ pub mod eip6110;
 #[derive(Debug, Clone)]
 pub struct EthEvmConfig {
     chain_spec: Arc<ChainSpec>,
-    tee_client: TeeHttpClient,
+    enclave_client: EnclaveClient,
 }
 
 impl EthEvmConfig {
     /// Creates a new Ethereum EVM configuration with the given chain spec.
     pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
-        Self { chain_spec, tee_client: TeeHttpClient::default() }
+        Self { chain_spec, enclave_client: EnclaveClient::default() }
     }
 
     /// Creates a new Ethereum EVM configuration with the given chain spec.
-    pub fn new_with_tee_client(chain_spec: Arc<ChainSpec>, tee_client: TeeHttpClient) -> Self {
-        Self { chain_spec, tee_client }
+    pub fn new_with_enclave_client(chain_spec: Arc<ChainSpec>, tee_client: EnclaveClient) -> Self {
+        Self { chain_spec, enclave_client: tee_client }
     }
 
     /// Returns the chain spec associated with this configuration.
@@ -90,12 +92,12 @@ impl ConfigureEvmEnv for EthEvmConfig {
         data: Vec<u8>,
         pubkey: EncryptionPublicKey,
         encryption_nonce: u64,
-    ) -> EVMResultGeneric<Vec<u8>, TeeError> {
+    ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
         let encryption_pubkey = secp256k1::PublicKey::from_slice(pubkey.as_slice())
-            .map_err(|_| EVMError::Database(TeeError::PublicKeyRecoveryError))?;
+            .map_err(|_| EVMError::Database(EnclaveError::PublicKeyRecoveryError))?;
         let tee_encryption: Vec<u8> =
-            encrypt(&self.tee_client, encryption_pubkey, data, encryption_nonce)
-                .map_err(|_| EVMError::Database(TeeError::EncryptionError))?;
+            encrypt(&self.enclave_client, encryption_pubkey, data, encryption_nonce)
+                .map_err(|_| EVMError::Database(EnclaveError::EncryptionError))?;
         Ok(tee_encryption)
     }
     fn decrypt(
@@ -103,20 +105,20 @@ impl ConfigureEvmEnv for EthEvmConfig {
         data: Vec<u8>,
         pubkey: EncryptionPublicKey,
         encryption_nonce: u64,
-    ) -> EVMResultGeneric<Vec<u8>, TeeError> {
+    ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
         let encryption_pubkey = secp256k1::PublicKey::from_slice(pubkey.as_slice())
-            .map_err(|_| EVMError::Database(TeeError::PublicKeyRecoveryError))?;
+            .map_err(|_| EVMError::Database(EnclaveError::PublicKeyRecoveryError))?;
 
         let tee_decryption: Vec<u8> =
-            decrypt(&self.tee_client, encryption_pubkey, data, encryption_nonce)
-                .map_err(|_| EVMError::Database(TeeError::DecryptionError))?;
+            decrypt(&self.enclave_client, encryption_pubkey, data, encryption_nonce)
+                .map_err(|_| EVMError::Database(EnclaveError::DecryptionError))?;
         Ok(tee_decryption)
     }
 
     /// Get current eph_rng_keypair
-    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, TeeError> {
-        get_eph_rng_keypair(&self.tee_client)
-            .map_err(|_| EVMError::Database(TeeError::EphRngKeypairGenerationError))
+    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, EnclaveError> {
+        get_eph_rng_keypair(&self.enclave_client)
+            .map_err(|_| EVMError::Database(EnclaveError::EphRngKeypairGenerationError))
     }
 
     /// seismic feature decrypt the transaction
@@ -126,7 +128,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
         tx: &TxSeismic,
         sender: Address,
         tx_hash: TxHash,
-    ) -> EVMResultGeneric<(), TeeError> {
+    ) -> EVMResultGeneric<(), EnclaveError> {
         debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
 
         let tee_decryption = self.decrypt(tx.input.to_vec(), tx.encryption_pubkey, tx.nonce)?;
@@ -160,7 +162,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
         tx_env: &mut TxEnv,
         transaction: &TransactionSigned,
         sender: Address,
-    ) -> EVMResultGeneric<(), TeeError> {
+    ) -> EVMResultGeneric<(), EnclaveError> {
         debug!(target: "reth::fill_tx_env", ?transaction, "Parsing transaction");
         match &transaction.transaction {
             Transaction::Seismic(tx) => {
@@ -303,6 +305,7 @@ mod tests {
     use alloy_genesis::Genesis;
     use alloy_primitives::{B256, U256};
     use reth_chainspec::{Chain, ChainSpec, MAINNET};
+    use reth_enclave::start_mock_enclave_server_random_port;
     use reth_evm::execute::ProviderError;
     use reth_revm::{
         db::{CacheDB, EmptyDBTyped},
@@ -437,6 +440,8 @@ mod tests {
     #[test]
     #[allow(clippy::needless_update)]
     fn test_evm_with_env_custom_block_and_tx() {
+        // start server
+
         let evm_config = EthEvmConfig::new(MAINNET.clone());
 
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
@@ -634,10 +639,13 @@ mod tests {
         );
     }
 
-    #[test]
+    #[tokio::test(flavor = "multi_thread")]
     #[allow(clippy::needless_update)]
-    fn test_evm_with_spec_id_seismic() {
-        let evm_config = EthEvmConfig::new(MAINNET.clone());
+    async fn test_evm_with_spec_id_seismic() {
+        // expect a call to hit the mock enclave server
+        let enclave_client = start_mock_enclave_server_random_port().await;
+
+        let evm_config = EthEvmConfig::new_with_enclave_client(MAINNET.clone(), enclave_client);
 
         let db = CacheDB::<EmptyDBTyped<Infallible>>::default();
 

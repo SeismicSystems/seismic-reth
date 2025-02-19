@@ -5,6 +5,7 @@ use std::sync::Arc;
 use reth_basic_payload_builder::{BasicPayloadJobGenerator, BasicPayloadJobGeneratorConfig};
 use reth_beacon_consensus::EthBeaconConsensus;
 use reth_chainspec::ChainSpec;
+use reth_enclave::EnclaveClient;
 use reth_ethereum_engine_primitives::{
     EthBuiltPayload, EthPayloadAttributes, EthPayloadBuilderAttributes,
 };
@@ -29,7 +30,6 @@ use reth_payload_builder::{PayloadBuilderHandle, PayloadBuilderService};
 use reth_primitives::{EthPrimitives, PooledTransactionsElement};
 use reth_provider::{CanonStateSubscriptions, EthStorage};
 use reth_rpc::EthApi;
-use reth_tee::TeeHttpClient;
 use reth_tracing::tracing::{debug, info};
 use reth_transaction_pool::{
     blobstore::DiskFileBlobStore, EthTransactionPool, PoolTransaction, TransactionPool,
@@ -148,12 +148,12 @@ where
         ctx: &BuilderContext<Node>,
     ) -> eyre::Result<(Self::EVM, Self::Executor)> {
         let chain_spec = ctx.chain_spec();
-        let tee_client = TeeHttpClient::new_from_addr_port(
-            ctx.config().tee.tee_server_addr,
-            ctx.config().tee.tee_server_port,
+        let enclave_client = EnclaveClient::new_from_addr_port(
+            ctx.config().enclave.enclave_server_addr.to_string(),
+            ctx.config().enclave.enclave_server_port,
         );
-        info!(target: "reth::cli", "TEE client initialized url={}", tee_client.base_url);
-        let evm_config = EthEvmConfig::new_with_tee_client(ctx.chain_spec(), tee_client);
+        info!(target: "reth::cli", "Enclave client initialized {:?}", &enclave_client);
+        let evm_config = EthEvmConfig::new_with_enclave_client(ctx.chain_spec(), enclave_client);
         let strategy_factory = EthExecutionStrategyFactory::new(chain_spec, evm_config.clone());
         let executor = BasicBlockExecutorProvider::new(strategy_factory);
 

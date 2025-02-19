@@ -768,18 +768,18 @@ Logging:
 Trusted Execution Environment Server:
     The TEE Server provides secure encryption/decryption services for TxSeismic transactions in an isolated environment. Required for processing encrypted TxSeismic transaction data.
 
-      --tee.endpoint-addr <ADDR>
+      --enclave.endpoint-addr <ADDR>
           TEE server address to listen on
 
           [default: 127.0.0.1]
 
-      --tee.endpoint-port <PORT>
+      --enclave.endpoint-port <PORT>
           TEE server port to listen on
 
           [default: 8545]
 
-      --tee.mock-server
-          Spin up mock TEE service for testing purpose at [--tee.endpoint-addr]:[--tee.endpoint-port]
+      --enclave.mock-server
+          Spin up mock TEE service for testing purpose at [--enclave.endpoint-addr]:[--enclave.endpoint-port]
 
 
 Display:

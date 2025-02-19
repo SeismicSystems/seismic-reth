@@ -2,11 +2,11 @@
 //!
 //! `seismic_` namespace overrides:
 //!
-//! - `seismic_getTeePublicKey` will return the public key of the Seismic tee.
+//! - `seismic_getTeePublicKey` will return the public key of the Seismic enclave.
 //!
 //! `eth_` namespace overrides:
 //!
-//! - `eth_signTypedData_v4` will sign a typed data request using the Seismic tee.
+//! - `eth_signTypedData_v4` will sign a typed data request using the Seismic enclave.
 
 use alloy_dyn_abi::TypedData;
 use alloy_primitives::Address;

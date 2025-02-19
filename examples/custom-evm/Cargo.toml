@@ -14,7 +14,7 @@ reth-node-core.workspace = true
 reth-primitives.workspace = true
 reth-node-ethereum = { workspace = true, features = ["test-utils"] }
 reth-tracing.workspace = true
-reth-tee.workspace = true
+reth-enclave.workspace = true
 alloy-genesis.workspace = true
 alloy-primitives.workspace = true
 alloy-consensus.workspace = true

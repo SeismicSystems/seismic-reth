@@ -13,7 +13,7 @@ use reth_node_builder::{
     NodeConfig, NodeHandle, NodeTypesWithDBAdapter, NodeTypesWithEngine, PayloadAttributesBuilder,
     PayloadTypes,
 };
-use reth_node_core::args::{DiscoveryArgs, NetworkArgs, RpcServerArgs, TeeArgs};
+use reth_node_core::args::{DiscoveryArgs, NetworkArgs, RpcServerArgs};
 use reth_primitives::EthPrimitives;
 use reth_provider::providers::{
     BlockchainProvider, BlockchainProvider2, NodeTypesForProvider, NodeTypesForTree,
@@ -161,8 +161,7 @@ where
                     .with_http()
                     .with_http_api(RpcModuleSelection::All),
             )
-            .set_dev(is_dev)
-            .with_tee(TeeArgs { mock_server: true, ..TeeArgs::default() });
+            .set_dev(is_dev);
 
         let span = span!(Level::INFO, "node", idx);
         let _enter = span.enter();

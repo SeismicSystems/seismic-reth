@@ -20,8 +20,8 @@ extern crate alloc;
 use crate::builder::RethEvmBuilder;
 use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader as _, TxSeismic};
 use alloy_primitives::{Address, Bytes, TxHash, B256, U256};
+use reth_enclave::{EnclaveError, SchnorrkelKeypair};
 use reth_primitives_traits::BlockHeader;
-use reth_tee::{SchnorrkelKeypair, TeeError};
 use revm::{seismic::RngContainer, Database, Evm, GetInspector};
 use revm_primitives::{
     BlockEnv, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId,
@@ -68,7 +68,17 @@ pub trait ConfigureEvm: ConfigureEvmEnv {
         let mut evm = self.evm(db);
         evm.modify_spec_id(env.spec_id());
 
-        if SpecId::MERCURY.is_enabled_in(env.spec_id()) {
+        // Check if the spec ID is enabled in MERCURY
+        println!(
+            "Checking spec ID for MERCURY: {:?} is enabled: {:?} env spec id: {} mercurry spec id: {}",
+            env.spec_id(),
+            env.spec_id().is_enabled_in(SpecId::MERCURY),
+            env.spec_id() as u8,
+            SpecId::MERCURY as u8
+        );
+
+        // This will change if we use our own spec id
+        if env.spec_id() == SpecId::MERCURY {
             let keypair = match self.get_eph_rng_keypair() {
                 Ok(kp) => kp,
                 Err(err) => {
@@ -142,8 +152,8 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
         _data: Vec<u8>,
         _pubkey: EncryptionPublicKey,
         _encryption_nonce: u64,
-    ) -> EVMResultGeneric<Vec<u8>, TeeError> {
-        Err(EVMError::Database(TeeError::EncryptionError))
+    ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
+        Err(EVMError::Database(EnclaveError::EncryptionError))
     }
 
     /// seismic feature decrypt the transaction
@@ -152,13 +162,13 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
         _data: Vec<u8>,
         _pubkey: EncryptionPublicKey,
         _encryption_nonce: u64,
-    ) -> EVMResultGeneric<Vec<u8>, TeeError> {
-        Err(EVMError::Database(TeeError::DecryptionError))
+    ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
+        Err(EVMError::Database(EnclaveError::DecryptionError))
     }
 
     /// Get current eph_rng_keypair
-    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, TeeError> {
-        Err(EVMError::Database(TeeError::EphRngKeypairGenerationError))
+    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, EnclaveError> {
+        Err(EVMError::Database(EnclaveError::EphRngKeypairGenerationError))
     }
 
     /// seismic feature decrypt the transaction
@@ -168,8 +178,8 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
         _tx: &TxSeismic,
         _sender: Address,
         _tx_hash: TxHash,
-    ) -> EVMResultGeneric<(), TeeError> {
-        Err(EVMError::Database(TeeError::DecryptionError))
+    ) -> EVMResultGeneric<(), EnclaveError> {
+        Err(EVMError::Database(EnclaveError::DecryptionError))
     }
 
     /// Returns a [`TxEnv`] from a transaction and [`Address`].
@@ -177,7 +187,7 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
         &self,
         transaction: &Self::Transaction,
         signer: Address,
-    ) -> EVMResultGeneric<TxEnv, TeeError> {
+    ) -> EVMResultGeneric<TxEnv, EnclaveError> {
         let mut tx_env = TxEnv::default();
         self.fill_tx_env(&mut tx_env, transaction, signer)?;
         Ok(tx_env)
@@ -189,7 +199,7 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
         tx_env: &mut TxEnv,
         transaction: &Self::Transaction,
         sender: Address,
-    ) -> EVMResultGeneric<(), TeeError>;
+    ) -> EVMResultGeneric<(), EnclaveError>;
 
     /// Fill transaction environment with a system contract call.
     fn fill_tx_env_system_contract_call(

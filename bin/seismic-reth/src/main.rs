@@ -1,9 +1,9 @@
 #![allow(missing_docs)]
 
 use reth_cli_commands::node::NoArgs;
+use reth_enclave::start_blocking_mock_enclave_server;
 use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher};
 use reth_provider::providers::BlockchainProvider2;
-use reth_tee::mock::MockTeeServer;
 use reth_tracing::tracing::*;
 use seismic_node::chainspec::SeismicChainSpecParser;
 use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
@@ -27,26 +27,18 @@ fn main() {
             .with_components(EthereumNode::components())
             .with_add_ons(EthereumAddOns::default())
             .on_node_started(move |ctx| {
-                if ctx.config.tee.mock_server {
+                if ctx.config.enclave.mock_server {
                     ctx.task_executor.spawn(async move {
-                    let tee_server_url = format!(
-                        "{}:{}",
-                        ctx.config.tee.tee_server_addr, ctx.config.tee.tee_server_port
-                    );
-                    let tee_server = MockTeeServer::new(&tee_server_url);
-                    info!(target: "reth::cli", "starting mock tee server at {}", tee_server_url);
-
-                    if let Err(err) = tee_server.run().await {
-                        let err = eyre::eyre!("Failed to start mock tee server at {}: {}", tee_server_url, err);
-                        info!("{:?}", err);
-                    }
-                });
-                    info!(target: "reth::cli", "mock tee server started in dev mode");
+                        start_blocking_mock_enclave_server(
+                            ctx.config.enclave.enclave_server_addr,
+                            ctx.config.enclave.enclave_server_port,
+                        )
+                        .await;
+                    });
                 }
                 Ok(())
             })
             .extend_rpc_modules(move |ctx| {
-
                 // replace eth_ namespace
                 ctx.modules.replace_configured(
                     EthApiExt::new(ctx.registry.eth_api().clone()).into_rpc(),

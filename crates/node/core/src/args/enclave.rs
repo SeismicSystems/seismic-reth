@@ -11,11 +11,11 @@ use reth_enclave::{ENCLAVE_DEFAULT_ENDPOINT_ADDR, ENCLAVE_DEFAULT_ENDPOINT_PORT}
 pub struct EnclaveArgs {
     /// Auth server address to listen on
     #[arg(long = "enclave.endpoint-addr", default_value_t = ENCLAVE_DEFAULT_ENDPOINT_ADDR)]
-    pub tee_server_addr: IpAddr,
+    pub enclave_server_addr: IpAddr,
 
     /// Auth server port to listen on
     #[arg(long = "enclave.endpoint-port", default_value_t = ENCLAVE_DEFAULT_ENDPOINT_PORT)]
-    pub tee_server_port: u16,
+    pub enclave_server_port: u16,
 
     /// Spin up mock server for testing purpose
     #[arg(long = "enclave.mock-server", action = clap::ArgAction::SetTrue)]
@@ -25,8 +25,8 @@ pub struct EnclaveArgs {
 impl Default for EnclaveArgs {
     fn default() -> Self {
         Self {
-            tee_server_addr: ENCLAVE_DEFAULT_ENDPOINT_ADDR,
-            tee_server_port: ENCLAVE_DEFAULT_ENDPOINT_PORT,
+            enclave_server_addr: ENCLAVE_DEFAULT_ENDPOINT_ADDR,
+            enclave_server_port: ENCLAVE_DEFAULT_ENDPOINT_PORT,
             mock_server: false,
         }
     }
@@ -35,6 +35,7 @@ impl Default for EnclaveArgs {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::args::enclave::EnclaveArgs;
     use clap::{Args, Parser};
 
     /// A helper type to parse Args more easily
@@ -48,12 +49,12 @@ mod tests {
     fn test_tee_args_parser() {
         let args = CommandParser::<EnclaveArgs>::parse_from(["reth node"]).args;
 
-        let addr = args.tee_server_addr;
-        let port = args.tee_server_port;
+        let addr = args.enclave_server_addr;
+        let port = args.enclave_server_port;
         let mock = args.mock_server;
 
         assert_eq!(port, ENCLAVE_DEFAULT_ENDPOINT_PORT);
-        assert_eq!(addr, IpAddr::V4(Ipv4Addr::LOCALHOST));
+        assert_eq!(addr, ENCLAVE_DEFAULT_ENDPOINT_ADDR);
         assert_eq!(mock, false);
     }
 }

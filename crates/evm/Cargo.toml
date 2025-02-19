@@ -17,7 +17,7 @@ reth-consensus.workspace = true
 reth-consensus-common.workspace = true
 reth-execution-errors.workspace = true
 reth-execution-types.workspace = true
-reth-tee.workspace = true
+reth-enclave.workspace = true
 reth-metrics = { workspace = true, optional = true }
 reth-primitives.workspace = true
 reth-primitives-traits.workspace = true
