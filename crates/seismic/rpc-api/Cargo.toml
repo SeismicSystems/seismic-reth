@@ -15,6 +15,11 @@ workspace = true
 reth-tracing.workspace = true
 reth-rpc-eth-types.workspace = true
 reth-rpc-eth-api.workspace = true
+reth-node-core.workspace = true
+reth-rpc-server-types.workspace = true
+reth-enclave.workspace = true
+
+seismic-enclave.workspace = true
 
 alloy-primitives.workspace = true
 alloy-rpc-types.workspace = true
@@ -22,8 +27,8 @@ alloy-dyn-abi.workspace = true
 
 jsonrpsee = { workspace = true, features = ["server", "macros"] }
 secp256k1.workspace = true
-seismic-enclave.workspace = true
 tokio = { workspace = true, features = ["full"] }
+thiserror.workspace = true
 
 [dev-dependencies]
 alloy-rpc-types-engine.workspace = true
@@ -44,7 +49,6 @@ reth-provider = { workspace = true, features = ["test-utils"] }
 reth-rpc.workspace = true
 reth-rpc-engine-api.workspace = true
 reth-rpc-layer.workspace = true
-reth-rpc-server-types.workspace = true
 reth-primitives.workspace = true
 
 seismic-node.workspace = true

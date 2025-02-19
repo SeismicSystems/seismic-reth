@@ -14,11 +14,14 @@ use jsonrpsee::{
     core::{async_trait, RpcResult},
     proc_macros::rpc,
 };
+use reth_node_core::node_config::NodeConfig;
 use reth_rpc_eth_api::helpers::{EthTransactions, FullEthApi};
 use reth_tracing::tracing::*;
 use secp256k1::PublicKey;
-use seismic_enclave::get_unsecure_sample_secp256k1_pk;
+use seismic_enclave::{rpc::EnclaveApiClient, EnclaveClient};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+
+use crate::error::SeismicApiError;
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///
@@ -32,12 +35,26 @@ pub trait SeismicApi {
 }
 
 /// Implementation of the seismic rpc api
-#[derive(Debug)]
-pub struct SeismicApi {}
+#[derive(Debug, Default)]
+pub struct SeismicApi {
+    enclave_client: EnclaveClient,
+}
+
 impl SeismicApi {
     /// Creates a new seismic api instance
-    pub fn new() -> Self {
-        Self {}
+    pub fn new<ChainSpec>(config: &NodeConfig<ChainSpec>) -> Self {
+        Self {
+            enclave_client: EnclaveClient::new_from_addr_port(
+                config.enclave.enclave_server_addr.to_string(),
+                config.enclave.enclave_server_port,
+            ),
+        }
+    }
+
+    /// Creates a new seismic api instance with an enclave client
+    pub fn with_enclave_client(mut self, enclave_client: EnclaveClient) -> Self {
+        self.enclave_client = enclave_client;
+        self
     }
 }
 
@@ -45,7 +62,10 @@ impl SeismicApi {
 impl SeismicApiServer for SeismicApi {
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey> {
         trace!(target: "rpc::seismic", "Serving seismic_getTeePublicKey");
-        Ok(get_unsecure_sample_secp256k1_pk())
+        self.enclave_client
+            .get_public_key()
+            .await
+            .map_err(|e| SeismicApiError::EnclaveError(e.to_string()).into())
     }
 }
 
@@ -94,10 +114,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use jsonrpsee::core::client::{ClientT, SubscriptionClientT};
-    use reth_provider::test_utils::MockEthProvider;
-
     use crate::utils::test_utils::{build_test_eth_api, launch_http};
+    use jsonrpsee::core::client::{ClientT, SubscriptionClientT};
+    use reth_enclave::start_mock_enclave_server_random_port;
+    use reth_provider::test_utils::MockEthProvider;
     use seismic_node::utils::test_utils::UnitTestContext;
 
     use super::*;
@@ -106,8 +126,7 @@ mod tests {
     where
         C: ClientT + SubscriptionClientT + Sync,
     {
-        let pk = SeismicApiClient::get_tee_public_key(client).await.unwrap();
-        assert_eq!(pk, get_unsecure_sample_secp256k1_pk());
+        let _pk = SeismicApiClient::get_tee_public_key(client).await.unwrap();
     }
 
     async fn test_basic_eth_calls<C>(client: &C)
@@ -124,8 +143,10 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_call_seismic_functions_http() {
         reth_tracing::init_test_tracing();
+        let enclave_client = start_mock_enclave_server_random_port().await;
 
-        let seismic_api = SeismicApi::new();
+        let seismic_api = SeismicApi::default().with_enclave_client(enclave_client);
+
         let handle = launch_http(seismic_api.into_rpc()).await;
         let client = handle.http_client().unwrap();
         test_basic_seismic_calls(&client).await;

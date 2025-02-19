@@ -45,7 +45,7 @@ fn main() {
                 )?;
 
                 // add seismic_ namespace
-                let seismic_api = SeismicApi::new();
+                let seismic_api = SeismicApi::new(&ctx.config);
                 ctx.modules.merge_configured(seismic_api.into_rpc())?;
                 info!(target: "reth::cli", "seismic api configured");
                 Ok(())
