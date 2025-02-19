@@ -4,7 +4,7 @@ use reth_cli_commands::node::NoArgs;
 use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher};
 use reth_provider::providers::BlockchainProvider2;
 use reth_tracing::tracing::*;
-use seismic_node::{chainspec::SeismicChainSpecParser, utils::start_mock_enclave_server};
+use seismic_node::{chainspec::SeismicChainSpecParser, utils::start_blocking_mock_enclave_server};
 use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 
 fn main() {
@@ -28,7 +28,7 @@ fn main() {
             .on_node_started(move |ctx| {
                 if ctx.config.enclave.mock_server {
                     ctx.task_executor.spawn(async move {
-                        start_mock_enclave_server(
+                        start_blocking_mock_enclave_server(
                             ctx.config.enclave.enclave_server_addr,
                             ctx.config.enclave.enclave_server_port,
                         )

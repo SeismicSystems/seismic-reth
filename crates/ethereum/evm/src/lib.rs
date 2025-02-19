@@ -52,7 +52,7 @@ pub mod eip6110;
 #[derive(Debug, Clone)]
 pub struct EthEvmConfig {
     chain_spec: Arc<ChainSpec>,
-    enclave_client: EnclaveClient,
+    enclave_client: EnclaveClient, // mock
 }
 
 impl EthEvmConfig {
@@ -439,6 +439,8 @@ mod tests {
     #[test]
     #[allow(clippy::needless_update)]
     fn test_evm_with_env_custom_block_and_tx() {
+        // start server
+
         let evm_config = EthEvmConfig::new(MAINNET.clone());
 
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();

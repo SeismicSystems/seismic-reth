@@ -10,7 +10,7 @@ pub fn revm_spec_by_timestamp_after_merge(
     chain_spec: &ChainSpec,
     timestamp: u64,
 ) -> revm_primitives::SpecId {
-    if chain_spec.is_seismic() {
+    let spec_id = if chain_spec.is_seismic() {
         revm_primitives::MERCURY
     } else if chain_spec.is_osaka_active_at_timestamp(timestamp) {
         revm_primitives::OSAKA
@@ -22,12 +22,14 @@ pub fn revm_spec_by_timestamp_after_merge(
         revm_primitives::SHANGHAI
     } else {
         revm_primitives::MERGE
-    }
+    };
+    println!("revm_spec_by_timestamp_after_merge: {:?} spec_id: {:?}", chain_spec, spec_id);
+    spec_id
 }
 
 /// Map the latest active hardfork at the given block to a revm [`SpecId`](revm_primitives::SpecId).
 pub fn revm_spec(chain_spec: &ChainSpec, block: &Head) -> revm_primitives::SpecId {
-    if chain_spec.is_seismic() {
+    let spec_id = if chain_spec.is_seismic() {
         revm_primitives::MERCURY
     } else if chain_spec.fork(EthereumHardfork::Prague).active_at_head(block) {
         revm_primitives::PRAGUE
@@ -60,7 +62,9 @@ pub fn revm_spec(chain_spec: &ChainSpec, block: &Head) -> revm_primitives::SpecI
             "invalid hardfork chainspec: expected at least one hardfork, got {:?}",
             chain_spec.hardforks
         )
-    }
+    };
+    println!("revm_spec: {:?} spec_id: {:?}", chain_spec, spec_id);
+    spec_id
 }
 
 #[cfg(test)]

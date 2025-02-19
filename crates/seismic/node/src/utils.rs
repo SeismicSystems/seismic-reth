@@ -123,7 +123,7 @@ impl SeismicRethTestCommand {
 }
 
 /// Start the mock enclave server
-pub async fn start_mock_enclave_server(addr: IpAddr, port: u16) {
+pub async fn start_blocking_mock_enclave_server(addr: IpAddr, port: u16) {
     let enclave_server = MockEnclaveServer::new((addr, port));
 
     let addr = enclave_server.addr();
@@ -170,6 +170,7 @@ pub mod test_utils {
     use k256::ecdsa::SigningKey;
     use reth_chainspec::{ChainSpec, MAINNET};
     use reth_e2e_test_utils::transaction::TransactionTestContext;
+    use reth_enclave::ENCLAVE_DEFAULT_ENDPOINT_PORT;
     use reth_node_ethereum::EthEvmConfig;
     use reth_primitives::TransactionSigned;
     use reth_rpc_eth_api::EthApiClient;
@@ -322,6 +323,52 @@ pub mod test_utils {
         pub encrypted_outputs: Vec<String>,
     }
 
+    /// Start the mock enclave server
+    pub async fn start_default_mock_enclave_server() {
+        tokio::spawn(async move {
+            start_blocking_mock_enclave_server(
+                ENCLAVE_DEFAULT_ENDPOINT_ADDR,
+                ENCLAVE_DEFAULT_ENDPOINT_PORT,
+            )
+            .await;
+        });
+    }
+
+    /// Get the test enclave endpoint
+    pub fn get_random_open_port() -> u16 {
+        static mut FOUND_PORT: Option<u16> = None;
+
+        unsafe {
+            if let Some(port) = FOUND_PORT {
+                return port;
+            }
+
+            let mut port = 7878;
+            for p in 1..65535 {
+                let address = format!("127.0.0.1:{}", p);
+                if let Ok(_socket) = UdpSocket::bind(&address) {
+                    port = p;
+                    println!("✅ Port {} is available for TEE server", p);
+                    break;
+                }
+            }
+
+            FOUND_PORT = Some(port);
+            port
+        }
+    }
+
+    /// Start the mock enclave server
+    pub async fn start_mock_enclave_server_random_port() {
+        tokio::spawn(async move {
+            start_blocking_mock_enclave_server(
+                ENCLAVE_DEFAULT_ENDPOINT_ADDR,
+                get_random_open_port(),
+            )
+            .await;
+        });
+    }
+
     impl IntegrationTestContext {
         const IT_TX_FILEPATH: &'static str = "tests/seismic-data/it-tx.json";
 
@@ -417,35 +464,12 @@ pub mod test_utils {
             encrypted_data
         }
 
-        /// Get the test enclave endpoint
-        pub fn get_test_enclave_endpoint() -> u16 {
-            let mut found_port = 7878;
-            for p in 1..65535 {
-                let address = format!("127.0.0.1:{}", p);
-                if let Ok(_socket) = UdpSocket::bind(&address) {
-                    found_port = p;
-                    println!("✅ Port {} is available for TEE server", p);
-                    break;
-                }
-            }
-            found_port
-        }
-
         /// Get the test enclave client
         pub fn get_test_enclave_client() -> EnclaveClient {
             EnclaveClient::new_from_addr_port(
                 ENCLAVE_DEFAULT_ENDPOINT_ADDR.to_string(),
-                Self::get_test_enclave_endpoint(),
+                get_random_open_port(),
             )
-        }
-
-        /// Start the mock enclave server
-        pub async fn start_mock_enclave_server() {
-            start_mock_enclave_server(
-                ENCLAVE_DEFAULT_ENDPOINT_ADDR,
-                Self::get_test_enclave_endpoint(),
-            )
-            .await;
         }
 
         /// Get the chain spec
@@ -456,6 +480,7 @@ pub mod test_utils {
         /// Get the evm config
         pub fn get_evm_config() -> EthEvmConfig {
             let enclave_client = Self::get_test_enclave_client();
+            println!("getting enclave_client: {:?}", enclave_client);
             EthEvmConfig::new_with_enclave_client(Self::get_chain_spec(), enclave_client)
         }
 
