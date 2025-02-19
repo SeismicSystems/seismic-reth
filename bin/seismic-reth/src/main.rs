@@ -6,7 +6,7 @@ use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher};
 use reth_provider::providers::BlockchainProvider2;
 use reth_tracing::tracing::*;
 use seismic_node::chainspec::SeismicChainSpecParser;
-use seismic_rpc_api::rpc::{EthApiExt, SeismicApi};
+use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 
 fn main() {
     use clap::Parser;

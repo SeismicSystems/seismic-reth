@@ -52,7 +52,7 @@ pub mod eip6110;
 #[derive(Debug, Clone)]
 pub struct EthEvmConfig {
     chain_spec: Arc<ChainSpec>,
-    enclave_client: EnclaveClient, // mock
+    enclave_client: EnclaveClient,
 }
 
 impl EthEvmConfig {
@@ -639,13 +639,13 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     #[allow(clippy::needless_update)]
     async fn test_evm_with_spec_id_seismic() {
         // expect a call to hit the mock enclave server
-        start_mock_enclave_server_random_port().await;
+        let enclave_client = start_mock_enclave_server_random_port().await;
 
-        let evm_config = EthEvmConfig::new(MAINNET.clone());
+        let evm_config = EthEvmConfig::new_with_enclave_client(MAINNET.clone(), enclave_client);
 
         let db = CacheDB::<EmptyDBTyped<Infallible>>::default();
 

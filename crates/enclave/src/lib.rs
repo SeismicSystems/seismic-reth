@@ -117,14 +117,20 @@ fn get_random_port() -> u16 {
 }
 
 /// Start the mock enclave server
-pub async fn start_mock_enclave_server_random_port() {
+pub async fn start_mock_enclave_server_random_port() -> EnclaveClient {
+    let port = get_random_port();
     tokio::spawn(async move {
-        start_blocking_mock_enclave_server(ENCLAVE_DEFAULT_ENDPOINT_ADDR, get_random_port()).await;
+        start_blocking_mock_enclave_server(ENCLAVE_DEFAULT_ENDPOINT_ADDR, port).await;
     });
+    EnclaveClient::new_from_addr_port(ENCLAVE_DEFAULT_ENDPOINT_ADDR.to_string(), port)
 }
 
 /// Start the mock enclave server
-pub async fn start_default_mock_enclave_server() {
+pub async fn start_default_mock_enclave_server() -> EnclaveClient {
+    let client = EnclaveClient::new_from_addr_port(
+        ENCLAVE_DEFAULT_ENDPOINT_ADDR.to_string(),
+        ENCLAVE_DEFAULT_ENDPOINT_PORT,
+    );
     tokio::spawn(async move {
         start_blocking_mock_enclave_server(
             ENCLAVE_DEFAULT_ENDPOINT_ADDR,
@@ -132,6 +138,7 @@ pub async fn start_default_mock_enclave_server() {
         )
         .await;
     });
+    client
 }
 
 /// Start the mock enclave server

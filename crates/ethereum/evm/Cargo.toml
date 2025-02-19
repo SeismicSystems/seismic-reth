@@ -40,8 +40,11 @@ reth-evm = { workspace = true, features = ["test-utils"] }
 reth-revm = { workspace = true, features = ["test-utils"] }
 reth-primitives = { workspace = true, features = ["secp256k1"] }
 reth-execution-types.workspace = true
-serde_json.workspace = true
+
 alloy-genesis.workspace = true
+
+serde_json.workspace = true
+tokio.workspace = true
 
 [features]
 default = ["std"]

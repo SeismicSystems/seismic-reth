@@ -4,23 +4,16 @@ use alloy_rpc_types::engine::PayloadAttributes;
 use alloy_rpc_types_eth::TransactionRequest;
 use alloy_signer_local::PrivateKeySigner;
 use reth_chainspec::SEISMIC_DEV;
-use reth_enclave::{
-    BuildableServer, EnclaveClient, MockEnclaveServer, ENCLAVE_DEFAULT_ENDPOINT_ADDR,
-};
+use reth_enclave::EnclaveClient;
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use secp256k1::{PublicKey, SecretKey};
 use serde_json::Value;
-use std::{
-    net::{IpAddr, UdpSocket},
-    path::PathBuf,
-    process::Stdio,
-};
+use std::{path::PathBuf, process::Stdio};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::Command,
     sync::mpsc,
 };
-use tracing::error;
 
 /// Seismic reth test command
 #[derive(Debug)]
@@ -153,7 +146,7 @@ pub mod test_utils {
     use k256::ecdsa::SigningKey;
     use reth_chainspec::{ChainSpec, MAINNET};
     use reth_e2e_test_utils::transaction::TransactionTestContext;
-    use reth_enclave::ENCLAVE_DEFAULT_ENDPOINT_PORT;
+    use reth_enclave::start_mock_enclave_server_random_port;
     use reth_node_ethereum::EthEvmConfig;
     use reth_primitives::TransactionSigned;
     use reth_rpc_eth_api::EthApiClient;
@@ -385,8 +378,25 @@ pub mod test_utils {
 
     #[derive(Debug)]
     /// Artificats for unit tests
-    pub struct UnitTestContext;
+    pub struct UnitTestContext {
+        /// The enclave client
+        pub enclave_client: EnclaveClient,
+        /// The evm config
+        pub evm_config: EthEvmConfig,
+        /// The chain spec
+        pub chain_spec: Arc<ChainSpec>,
+    }
     impl UnitTestContext {
+        /// Create a new unit test context
+        pub async fn new() -> Self {
+            let enclave_client = start_mock_enclave_server_random_port().await;
+            let chain_spec = MAINNET.clone();
+            let evm_config =
+                EthEvmConfig::new_with_enclave_client(chain_spec.clone(), enclave_client.clone());
+
+            Self { enclave_client, evm_config, chain_spec }
+        }
+
         /// Encrypt plaintext using network public key and client private key
         pub fn get_client_side_encryption() -> Vec<u8> {
             let ecdh_sk = get_sample_secp256k1_pk();
@@ -399,26 +409,6 @@ pub mod test_utils {
             let encrypted_data =
                 aes_encrypt(&aes_key, Self::get_plaintext().as_slice(), 1).unwrap();
             encrypted_data
-        }
-
-        /// Get the test enclave client
-        pub fn get_test_enclave_client() -> EnclaveClient {
-            EnclaveClient::new_from_addr_port(
-                ENCLAVE_DEFAULT_ENDPOINT_ADDR.to_string(),
-                get_random_open_port(),
-            )
-        }
-
-        /// Get the chain spec
-        pub fn get_chain_spec() -> Arc<ChainSpec> {
-            MAINNET.clone()
-        }
-
-        /// Get the evm config
-        pub fn get_evm_config() -> EthEvmConfig {
-            let enclave_client = Self::get_test_enclave_client();
-            println!("getting enclave_client: {:?}", enclave_client);
-            EthEvmConfig::new_with_enclave_client(Self::get_chain_spec(), enclave_client)
         }
 
         /// Get the encryption private key
