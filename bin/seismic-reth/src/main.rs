@@ -1,11 +1,12 @@
 #![allow(missing_docs)]
 
 use reth_cli_commands::node::NoArgs;
+use reth_enclave::start_blocking_mock_enclave_server;
 use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher};
 use reth_provider::providers::BlockchainProvider2;
 use reth_tracing::tracing::*;
-use seismic_node::{chainspec::SeismicChainSpecParser, utils::start_blocking_mock_enclave_server};
-use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
+use seismic_node::chainspec::SeismicChainSpecParser;
+use seismic_rpc_api::rpc::{EthApiExt, SeismicApi};
 
 fn main() {
     use clap::Parser;

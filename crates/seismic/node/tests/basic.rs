@@ -6,15 +6,13 @@ use alloy_primitives::{bytes::Buf, hex, Address, Bytes, TxKind, U256};
 use eyre::Ok;
 use reth_chainspec::DEV;
 use reth_e2e_test_utils::setup_engine;
+use reth_enclave::start_default_mock_enclave_server;
 use reth_tracing::tracing::*;
 use seismic_node::{
     node::SeismicNode,
     utils::{
         seismic_payload_attributes,
-        test_utils::{
-            client_decrypt, get_signed_seismic_tx_bytes, start_default_mock_enclave_server,
-            IntegrationTestContext,
-        },
+        test_utils::{client_decrypt, get_signed_seismic_tx_bytes, IntegrationTestContext},
     },
 };
 use std::str::FromStr;

@@ -1,7 +1,10 @@
 //! This crate provides functionalities related to the Enclave service.
 //! It includes modules and API for interacting with wallet operations and HTTP clients.
 
-use std::future::Future;
+use std::{
+    future::Future,
+    net::{IpAddr, TcpListener},
+};
 
 use derive_more::Display;
 use secp256k1::PublicKey;
@@ -20,6 +23,7 @@ use seismic_enclave::{
     rpc::EnclaveApiClient,
 };
 use tokio::runtime::{Handle, Runtime};
+use tracing::error;
 
 /// Custom error type for reth error handling.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Display)]
@@ -101,4 +105,48 @@ pub fn get_eph_rng_keypair(
         .map_err(|_| EnclaveError::EphRngKeypairGenerationError)?;
 
     Ok(keypair)
+}
+
+/// Get the test enclave endpoint
+fn get_random_port() -> u16 {
+    TcpListener::bind("127.0.0.1:0") // 0 means OS assigns a free port
+        .expect("Failed to bind to a port")
+        .local_addr()
+        .unwrap()
+        .port()
+}
+
+/// Start the mock enclave server
+pub async fn start_mock_enclave_server_random_port() {
+    tokio::spawn(async move {
+        start_blocking_mock_enclave_server(ENCLAVE_DEFAULT_ENDPOINT_ADDR, get_random_port()).await;
+    });
+}
+
+/// Start the mock enclave server
+pub async fn start_default_mock_enclave_server() {
+    tokio::spawn(async move {
+        start_blocking_mock_enclave_server(
+            ENCLAVE_DEFAULT_ENDPOINT_ADDR,
+            ENCLAVE_DEFAULT_ENDPOINT_PORT,
+        )
+        .await;
+    });
+}
+
+/// Start the mock enclave server
+pub async fn start_blocking_mock_enclave_server(addr: IpAddr, port: u16) {
+    let enclave_server = MockEnclaveServer::new((addr, port));
+
+    let addr = enclave_server.addr();
+
+    match enclave_server.start().await {
+        Ok(handle) => {
+            handle.stopped().await;
+        }
+        Err(err) => {
+            let err = eyre::eyre!("Failed to start mock enclave server at {}: {}", addr, err);
+            error!("{:?}", err);
+        }
+    }
 }

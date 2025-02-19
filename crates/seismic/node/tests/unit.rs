@@ -5,12 +5,12 @@ use alloy_primitives::{keccak256, Address, FixedBytes, PrimitiveSignature};
 use arbitrary::Arbitrary;
 use core::str::FromStr;
 use enr::EnrKey;
-use reth_enclave::EnclaveError;
+use reth_enclave::{start_mock_enclave_server_random_port, EnclaveError};
 use reth_evm::ConfigureEvmEnv;
 use reth_primitives::{Transaction, TransactionSigned};
 use reth_revm::primitives::{EVMError, TxEnv};
 use reth_rpc_eth_types::utils::recover_raw_transaction;
-use seismic_node::utils::test_utils::{start_mock_enclave_server_random_port, UnitTestContext};
+use seismic_node::utils::test_utils::UnitTestContext;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_seismic_transactions() {

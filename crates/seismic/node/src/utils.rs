@@ -122,23 +122,6 @@ impl SeismicRethTestCommand {
     }
 }
 
-/// Start the mock enclave server
-pub async fn start_blocking_mock_enclave_server(addr: IpAddr, port: u16) {
-    let enclave_server = MockEnclaveServer::new((addr, port));
-
-    let addr = enclave_server.addr();
-
-    match enclave_server.start().await {
-        Ok(handle) => {
-            handle.stopped().await;
-        }
-        Err(err) => {
-            let err = eyre::eyre!("Failed to start mock enclave server at {}: {}", addr, err);
-            error!("{:?}", err);
-        }
-    }
-}
-
 /// Helper function to create a new eth payload attributes
 pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
     let attributes = PayloadAttributes {
@@ -321,52 +304,6 @@ pub mod test_utils {
         pub raw_txs: Vec<String>,
         /// The encrypted outputs
         pub encrypted_outputs: Vec<String>,
-    }
-
-    /// Start the mock enclave server
-    pub async fn start_default_mock_enclave_server() {
-        tokio::spawn(async move {
-            start_blocking_mock_enclave_server(
-                ENCLAVE_DEFAULT_ENDPOINT_ADDR,
-                ENCLAVE_DEFAULT_ENDPOINT_PORT,
-            )
-            .await;
-        });
-    }
-
-    /// Get the test enclave endpoint
-    pub fn get_random_open_port() -> u16 {
-        static mut FOUND_PORT: Option<u16> = None;
-
-        unsafe {
-            if let Some(port) = FOUND_PORT {
-                return port;
-            }
-
-            let mut port = 7878;
-            for p in 1..65535 {
-                let address = format!("127.0.0.1:{}", p);
-                if let Ok(_socket) = UdpSocket::bind(&address) {
-                    port = p;
-                    println!("✅ Port {} is available for TEE server", p);
-                    break;
-                }
-            }
-
-            FOUND_PORT = Some(port);
-            port
-        }
-    }
-
-    /// Start the mock enclave server
-    pub async fn start_mock_enclave_server_random_port() {
-        tokio::spawn(async move {
-            start_blocking_mock_enclave_server(
-                ENCLAVE_DEFAULT_ENDPOINT_ADDR,
-                get_random_open_port(),
-            )
-            .await;
-        });
     }
 
     impl IntegrationTestContext {

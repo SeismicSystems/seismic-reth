@@ -305,6 +305,7 @@ mod tests {
     use alloy_genesis::Genesis;
     use alloy_primitives::{B256, U256};
     use reth_chainspec::{Chain, ChainSpec, MAINNET};
+    use reth_enclave::start_mock_enclave_server_random_port;
     use reth_evm::execute::ProviderError;
     use reth_revm::{
         db::{CacheDB, EmptyDBTyped},
@@ -638,9 +639,12 @@ mod tests {
         );
     }
 
-    #[test]
+    #[tokio::test]
     #[allow(clippy::needless_update)]
-    fn test_evm_with_spec_id_seismic() {
+    async fn test_evm_with_spec_id_seismic() {
+        // expect a call to hit the mock enclave server
+        start_mock_enclave_server_random_port().await;
+
         let evm_config = EthEvmConfig::new(MAINNET.clone());
 
         let db = CacheDB::<EmptyDBTyped<Infallible>>::default();
