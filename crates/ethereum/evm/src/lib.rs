@@ -66,7 +66,8 @@ impl EthEvmConfig {
         Self { chain_spec, enclave_client: tee_client }
     }
 
-    /// Creates a new Ethereum EVM configuration with the given chain spec and enclave address and port.
+    /// Creates a new Ethereum EVM configuration with the given chain spec and enclave address and
+    /// port.
     pub fn new_with_enclave_addr_port(
         chain_spec: Arc<ChainSpec>,
         enclave_addr: IpAddr,
