@@ -165,7 +165,7 @@ async fn test_seismic_reth_rpc_with_rust_client() {
 
     // eth_call to check the parity. Should be 0
     let output = provider
-        .seismic_call(SendableTx::Builder(test_utils::get_seismic_tx_builder(
+        .seismic_call(SendableTx::Builder(build_seismic_tx(
             test_utils::ContractTestContext::get_is_odd_input_plaintext(),
             TxKind::Call(contract_addr),
             address,
@@ -177,7 +177,7 @@ async fn test_seismic_reth_rpc_with_rust_client() {
 
     // Send transaction to set suint
     let pending_transaction = provider
-        .send_transaction(test_utils::get_seismic_tx_builder(
+        .send_transaction(build_seismic_tx(
             test_utils::ContractTestContext::get_set_number_input_plaintext(),
             TxKind::Call(contract_addr),
             address,
@@ -195,7 +195,7 @@ async fn test_seismic_reth_rpc_with_rust_client() {
 
     // Final eth_call to check the parity. Should be 1
     let output = provider
-        .seismic_call(SendableTx::Builder(test_utils::get_seismic_tx_builder(
+        .seismic_call(SendableTx::Builder(build_seismic_tx(
             test_utils::ContractTestContext::get_is_odd_input_plaintext(),
             TxKind::Call(contract_addr),
             address,
@@ -536,7 +536,7 @@ async fn test_seismic_precompiles_end_to_end() {
     //
     let unencrypted_aes_key = get_input_data(PRECOMPILES_TEST_SET_AES_KEY_SELECTOR, private_key);
     let pending_transaction = provider
-        .send_transaction(test_utils::get_seismic_tx_builder(
+        .send_transaction(build_seismic_tx(
             unencrypted_aes_key,
             TxKind::Call(contract_addr),
             address,
@@ -562,11 +562,7 @@ async fn test_seismic_precompiles_end_to_end() {
         concat_input_data(PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR, encoded_message.into());
 
     let pending_transaction = provider
-        .send_transaction(test_utils::get_seismic_tx_builder(
-            unencrypted_input,
-            TxKind::Call(contract_addr),
-            address,
-        ))
+        .send_transaction(build_seismic_tx(unencrypted_input, TxKind::Call(contract_addr), address))
         .await
         .unwrap();
     let tx_hash = pending_transaction.tx_hash();
@@ -615,7 +611,7 @@ async fn test_seismic_precompiles_end_to_end() {
     let unencrypted_decrypt_call = call.abi_encode();
 
     let decrypted_output = provider
-        .seismic_call(SendableTx::Builder(test_utils::get_seismic_tx_builder(
+        .seismic_call(SendableTx::Builder(build_seismic_tx(
             unencrypted_decrypt_call.into(),
             TxKind::Call(contract_addr),
             address,
