@@ -1,30 +1,22 @@
 //! Spam benchmark for reth
 use alloy_network::{EthereumWallet, TransactionBuilder};
-use alloy_primitives::{hex, Address, Bytes, U256};
+use alloy_primitives::{Address, Bytes, U256};
 use alloy_rpc_types::TransactionRequest;
 use alloy_signer_local::LocalSigner;
-use criterion::{criterion_group, criterion_main, Criterion};
 use futures::TryFutureExt;
 use k256::ecdsa::SigningKey;
-use reth_e2e_test_utils::wallet::Wallet;
-use secp256k1::{rand::thread_rng, Keypair, Secp256k1};
 use seismic_node::utils::SeismicRethTestCommand;
 use tokio::{sync::mpsc, time::Instant}; // If using the Reth Rust client
 
-use alloy_provider::{
-    create_seismic_provider, test_utils, Provider, SeismicSignedProvider, SendableTx,
-};
+use alloy_provider::{build_seismic_tx, test_utils, Provider, SeismicSignedProvider, SendableTx};
 
 use std::{
-    ops::Add,
     result::Result,
     str::FromStr,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
     },
-    thread::sleep,
-    time::Duration,
 };
 
 // 86400 seconds = 24 hours = 1 day
@@ -41,10 +33,22 @@ use std::{
 // There are 43200 rounds in a day
 // 12622.459331201813 * 43200 = 543,288,242 calls per day
 
+// How much eth do we need to do this?
+// gas price is 1342878663 wei
+// 237,757 * 1342878663 = 318,999,999,999,999 wei
+// 318,999,999,999,999 wei / 10^18 = 0.0003189999999999999 eth
+// 0.0003189999999999999 eth * 126 = 0.03999999999999999 eth
+// 0.03999999999999999 eth * 43200 = 1727.9999999999998 eth
+
+// each wallet needs 1727.9999999999998 eth
+// 1727.9999999999998 eth / 126 = 13.714333333333333 eth
+
 // testing params
-const WALLET_COUNT: usize = 5; //126;
+const WALLET_COUNT: usize = 126; // 126;
 const CALL_TX_RATIO: usize = 100;
-const ROUND_COUNT: usize = 10;
+const ROUND_COUNT: usize = 43200;
+
+const ETH_PER_WALLET: usize = 14;
 
 // network params
 const RPC_URL: &str = "http://localhost:8545";
@@ -56,12 +60,6 @@ fn get_faucet_signer() -> LocalSigner<SigningKey> {
     LocalSigner::from_signing_key(SigningKey::from_slice(&private_key).unwrap())
 }
 
-// account params
-fn get_init_eth_amount() -> U256 {
-    let total_eth = U256::from_str_radix("D3C21BCECCEDA1000000", 16).unwrap();
-    total_eth / U256::from(WALLET_COUNT) / U256::from(10)
-}
-
 #[derive(Clone)]
 struct BenchWalletContext {
     provider: SeismicSignedProvider,
@@ -70,15 +68,18 @@ struct BenchWalletContext {
 
 impl BenchWalletContext {
     /// Create a new benchmark wallet context
-    async fn new_from_faucet_context(faucet_context: BenchWalletContext) -> Self {
+    async fn new_from_faucet_context(
+        faucet_context: BenchWalletContext,
+        initial_eth: usize,
+    ) -> Self {
         let signer = LocalSigner::<SigningKey>::random();
         let from = signer.address();
-        let provider = create_seismic_provider(
+        let provider = SeismicSignedProvider::new(
             EthereumWallet::new(signer),
             reqwest::Url::parse(RPC_URL).unwrap(),
         );
 
-        let transfer_result = faucet_context.transfer_eth(from, get_init_eth_amount()).await;
+        let transfer_result = faucet_context.transfer_eth(from, U256::from(initial_eth)).await;
 
         if let Err(e) = &transfer_result {
             println!("BENCH transfer_eth error: {}", e);
@@ -106,13 +107,15 @@ impl BenchWalletContext {
 
     /// Deploy and initialize a new contract
     async fn deploy_set_number(&self) -> Result<Address, String> {
+        let tx = build_seismic_tx(
+            test_utils::ContractTestContext::get_deploy_input_plaintext(),
+            alloy_primitives::TxKind::Create,
+            self.from,
+        );
+
         let contract_addr = self
             .provider
-            .send_transaction(test_utils::get_seismic_tx_builder(
-                test_utils::ContractTestContext::get_deploy_input_plaintext(),
-                alloy_primitives::TxKind::Create,
-                self.from,
-            ))
+            .send_transaction(tx)
             .await
             .map_err(|e| e.to_string())?
             .get_receipt()
@@ -121,13 +124,15 @@ impl BenchWalletContext {
             .contract_address
             .ok_or_else(|| "BENCH deploy_set_number error: deploy failed".to_string())?;
 
+        let tx = build_seismic_tx(
+            test_utils::ContractTestContext::get_set_number_input_plaintext(),
+            alloy_primitives::TxKind::Call(contract_addr),
+            self.from,
+        );
+
         let receipt = self
             .provider
-            .send_transaction(test_utils::get_seismic_tx_builder(
-                test_utils::ContractTestContext::get_set_number_input_plaintext(),
-                alloy_primitives::TxKind::Call(contract_addr),
-                self.from,
-            ))
+            .send_transaction(tx)
             .await
             .map_err(|e| e.to_string())?
             .get_receipt()
@@ -141,7 +146,7 @@ impl BenchWalletContext {
     async fn call(&self, contract_addr: Address) -> Result<(), String> {
         let _ = self
             .provider
-            .seismic_call(SendableTx::Builder(test_utils::get_seismic_tx_builder(
+            .seismic_call(SendableTx::Builder(build_seismic_tx(
                 test_utils::ContractTestContext::get_is_odd_input_plaintext(),
                 alloy_primitives::TxKind::Call(contract_addr),
                 self.from,
@@ -185,7 +190,7 @@ impl BenchContext {
         let total_call_time = Arc::new(AtomicUsize::new(0));
 
         let futures = self.wallets.iter().map(|wallet_ctx| {
-            let transaction_fail_countc- ei Arc::clone(&transaction_fail_count);
+            let transaction_fail_count = Arc::clone(&transaction_fail_count);
             let total_transaction_time = Arc::clone(&total_transaction_time);
             let call_fail_count = Arc::clone(&call_fail_count);
             let total_call_time = Arc::clone(&total_call_time);
@@ -194,7 +199,6 @@ impl BenchContext {
                 let start_time = Instant::now();
                 let contract_addr = wallet_ctx.deploy_set_number().await.unwrap_or_else(|e| {
                     println!("BENCH deploy_set_number error: {:?}", e);
-                    panic!("fail to deploy");
                     transaction_fail_count.fetch_add(1, Ordering::SeqCst);
                     self.fallback_contract_addr
                 });
@@ -235,19 +239,26 @@ impl BenchContext {
 
 /// Benchmark reth node performance by executing multiple rounds of transactions and calls
 async fn benchmark_reth() {
+    // Setup phase - run once before benchmarking
+    let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
+    let (tx, mut rx) = mpsc::channel(1);
+    SeismicRethTestCommand::run(tx, shutdown_rx).await;
 
+    rx.recv().await.unwrap();
     // Setup code that runs before each iteration
     let faucet_signer = get_faucet_signer();
     let wallet = EthereumWallet::from(faucet_signer.clone());
-    let provider =
-        create_seismic_provider(wallet.clone(), reqwest::Url::parse(RPC_URL).unwrap());
+    let provider = SeismicSignedProvider::new(wallet, reqwest::Url::parse(RPC_URL).unwrap());
     let faucet_context = BenchWalletContext { provider, from: faucet_signer.address() };
 
     let contract_addr = faucet_context.deploy_set_number().await.unwrap();
 
     let mut wallets = Vec::with_capacity(WALLET_COUNT);
+
     for _ in 0..WALLET_COUNT {
-        let wallet = BenchWalletContext::new_from_faucet_context(faucet_context.clone()).await;
+        let wallet =
+            BenchWalletContext::new_from_faucet_context(faucet_context.clone(), ETH_PER_WALLET)
+                .await;
         wallets.push(wallet);
     }
 
@@ -258,6 +269,7 @@ async fn benchmark_reth() {
         println!("round {} result: {:?}", i, result);
     }
 
+    shutdown_tx.send(()).await.unwrap();
 }
 
 #[tokio::main]

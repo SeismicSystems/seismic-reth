@@ -8,7 +8,7 @@ use alloy_primitives::{
     hex::FromHex,
     Bytes, IntoLogData, TxKind, B256, U256,
 };
-use alloy_provider::{create_seismic_provider, test_utils, Provider, SendableTx};
+use alloy_provider::{build_seismic_tx, test_utils, Provider, SeismicSignedProvider, SendableTx};
 use alloy_rpc_types::{
     Block, Header, Transaction, TransactionInput, TransactionReceipt, TransactionRequest,
 };
@@ -135,9 +135,9 @@ async fn test_seismic_reth_rpc_with_rust_client() {
     let address = <EthereumWallet as NetworkWallet<Ethereum>>::default_signer_address(&wallet);
 
     let provider =
-        create_seismic_provider(wallet.clone(), reqwest::Url::parse(&reth_rpc_url).unwrap());
+        SeismicSignedProvider::new(wallet.clone(), reqwest::Url::parse(&reth_rpc_url).unwrap());
     let pending_transaction = provider
-        .send_transaction(test_utils::get_seismic_tx_builder(
+        .send_transaction(build_seismic_tx(
             test_utils::ContractTestContext::get_deploy_input_plaintext(),
             TxKind::Create,
             address,
@@ -507,9 +507,9 @@ async fn test_seismic_precompiles_end_to_end() {
     let address = <EthereumWallet as NetworkWallet<Ethereum>>::default_signer_address(&wallet);
 
     let provider =
-        create_seismic_provider(wallet.clone(), reqwest::Url::parse(&reth_rpc_url).unwrap());
+        SeismicSignedProvider::new(wallet.clone(), reqwest::Url::parse(&reth_rpc_url).unwrap());
     let pending_transaction = provider
-        .send_transaction(test_utils::get_seismic_tx_builder(
+        .send_transaction(build_seismic_tx(
             get_encryption_precompiles_contracts(),
             TxKind::Create,
             address,
