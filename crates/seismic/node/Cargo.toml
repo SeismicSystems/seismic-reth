@@ -80,13 +80,20 @@ enr.workspace = true
 
 [dev-dependencies]
 reth-e2e-test-utils.workspace = true
-assert_cmd.workspace = true
-reqwest.workspace = true
-arbitrary.workspace = true
-tempfile.workspace = true
-once_cell.workspace = true
+
 alloy-provider.workspace = true
 alloy-sol-types.workspace = true
 alloy-dyn-abi.workspace = true
 alloy-json-abi = { version = "0.8.15" }
 alloy-eips.workspace = true
+
+assert_cmd.workspace = true
+reqwest.workspace = true
+arbitrary.workspace = true
+tempfile.workspace = true
+once_cell.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "spam"
+harness = false
