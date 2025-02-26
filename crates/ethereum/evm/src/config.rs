@@ -23,7 +23,7 @@ pub fn revm_spec_by_timestamp_after_merge(
     } else {
         revm_primitives::MERGE
     };
-    println!("revm_spec_by_timestamp_after_merge: {:?} spec_id: {:?}", chain_spec, spec_id);
+    // println!("revm_spec_by_timestamp_after_merge: {:?} spec_id: {:?}", chain_spec, spec_id);
     spec_id
 }
 
@@ -63,7 +63,7 @@ pub fn revm_spec(chain_spec: &ChainSpec, block: &Head) -> revm_primitives::SpecI
             chain_spec.hardforks
         )
     };
-    println!("revm_spec: {:?} spec_id: {:?}", chain_spec, spec_id);
+    // println!("revm_spec: {:?} spec_id: {:?}", chain_spec, spec_id);
     spec_id
 }
 
