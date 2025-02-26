@@ -70,8 +70,8 @@ pub trait ConfigureEvm: ConfigureEvmEnv {
 
         // Check if the spec ID is enabled in MERCURY
         // println!(
-        //     "Checking spec ID for MERCURY: {:?} is enabled: {:?} env spec id: {} mercurry spec id: {}",
-        //     env.spec_id(),
+        //     "Checking spec ID for MERCURY: {:?} is enabled: {:?} env spec id: {} mercurry spec
+        // id: {}",     env.spec_id(),
         //     env.spec_id().is_enabled_in(SpecId::MERCURY),
         //     env.spec_id() as u8,
         //     SpecId::MERCURY as u8
