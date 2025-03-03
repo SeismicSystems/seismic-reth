@@ -121,6 +121,7 @@ mod impl_k256 {
 #[cfg(test)]
 mod tests {
     use alloy_primitives::{keccak256, B256};
+    use k256::ecdsa::SigningKey;
 
     #[cfg(feature = "secp256k1")]
     #[test]

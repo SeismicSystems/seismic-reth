@@ -865,9 +865,7 @@ pub trait Call:
         let input =
             input.try_into_unique_input().map_err(Self::Error::from_eth_err)?.unwrap_or_default();
 
-        let input = if transaction_type == Some(alloy_consensus::TxSeismic::TX_TYPE) &&
-            input.len() > 0
-        {
+        let input = if request.is_seismic() && input.len() > 0 {
             let decrypted_input = self
                 .evm_config()
                 .decrypt(

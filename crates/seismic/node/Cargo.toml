@@ -77,6 +77,7 @@ sysinfo = "0.29"
 # dependencies for test_utils
 k256.workspace = true
 enr.workspace = true
+rand.workspace = true
 
 [dev-dependencies]
 reth-e2e-test-utils.workspace = true

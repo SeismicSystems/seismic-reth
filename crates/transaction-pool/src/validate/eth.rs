@@ -35,6 +35,7 @@ use std::{
     },
 };
 use tokio::sync::Mutex;
+use tracing::debug;
 
 /// Validator for Ethereum transactions.
 #[derive(Debug, Clone)]
@@ -829,6 +830,8 @@ pub fn ensure_intrinsic_gas<T: EthPoolTransaction>(
         SpecId::MERGE
     };
 
+    debug!("ensuring intrinsic gas for transaction: {:?}", transaction);
+
     let gas_after_merge = revm_interpreter::gas::validate_initial_tx_gas(
         spec_id,
         transaction.input(),
@@ -836,6 +839,7 @@ pub fn ensure_intrinsic_gas<T: EthPoolTransaction>(
         transaction.access_list().map(|list| list.0.as_slice()).unwrap_or(&[]),
         transaction.authorization_count() as u64,
     );
+    debug!("ensuring intrinsic gas for gas after merge: {:?}", gas_after_merge);
 
     if transaction.gas_limit() < gas_after_merge {
         Err(InvalidPoolTransactionError::IntrinsicGasTooLow)

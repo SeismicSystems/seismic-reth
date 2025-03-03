@@ -1,12 +1,11 @@
 //! This file is used to test the seismic node.
+use alloy_consensus::TxSeismic;
 use alloy_dyn_abi::EventExt;
 use alloy_json_abi::{Event, EventParam};
-use alloy_network::{Ethereum, EthereumWallet, NetworkWallet};
+use alloy_network::{Ethereum, EthereumWallet, NetworkWallet, TransactionBuilder};
 use alloy_primitives::{
     aliases::{B96, U96},
-    hex,
-    hex::FromHex,
-    Bytes, IntoLogData, TxKind, B256, U256,
+    hex, Address, Bytes, IntoLogData, TxKind, B256, U256,
 };
 use alloy_provider::{build_seismic_tx, test_utils, Provider, SeismicSignedProvider, SendableTx};
 use alloy_rpc_types::{
@@ -136,27 +135,28 @@ async fn test_seismic_reth_rpc_with_rust_client() {
 
     let provider =
         SeismicSignedProvider::new(wallet.clone(), reqwest::Url::parse(&reth_rpc_url).unwrap());
-    let pending_transaction = provider
+
+    let to_address = Address::random();
+    let tx = TransactionRequest::default()
+        .with_kind(TxKind::Call(to_address))
+        .with_from(address)
+        .with_value(U256::from(1_000_000_000_000u64));
+    let receipt = provider.send_transaction(tx).await.unwrap().get_receipt().await.unwrap();
+    println!("eth_sendRawTransaction sending eth to {:?} receipt: {:?}", to_address, receipt);
+
+    let receipt = provider
         .send_transaction(build_seismic_tx(
             test_utils::ContractTestContext::get_deploy_input_plaintext(),
             TxKind::Create,
             address,
         ))
         .await
+        .unwrap()
+        .get_receipt()
+        .await
         .unwrap();
-    let tx_hash = pending_transaction.tx_hash();
-    // assert_eq!(tx_hash, itx.tx_hashes[0]);
-    thread::sleep(Duration::from_secs(1));
-    println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
-
-    // Get the transaction receipt
-    let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
-    let contract_addr = receipt.contract_address.unwrap();
-    println!(
-        "eth_getTransactionReceipt getting contract deployment transaction receipt: {:?}",
-        receipt
-    );
     assert_eq!(receipt.status(), true);
+    let contract_addr = receipt.contract_address.unwrap();
 
     // Make sure the code of the contract is deployed
     let code = provider.get_code_at(contract_addr).await.unwrap();
@@ -176,21 +176,17 @@ async fn test_seismic_reth_rpc_with_rust_client() {
     assert_eq!(U256::from_be_slice(&output), U256::ZERO);
 
     // Send transaction to set suint
-    let pending_transaction = provider
+    let receipt = provider
         .send_transaction(build_seismic_tx(
             test_utils::ContractTestContext::get_set_number_input_plaintext(),
             TxKind::Call(contract_addr),
             address,
         ))
         .await
+        .unwrap()
+        .get_receipt()
+        .await
         .unwrap();
-    let tx_hash = pending_transaction.tx_hash();
-    println!("eth_sendRawTransaction setting number transaction tx_hash: {:?}", tx_hash);
-    thread::sleep(Duration::from_secs(1));
-
-    // Get the transaction receipt
-    let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
-    println!("eth_getTransactionReceipt getting set_number transaction receipt: {:?}", receipt);
     assert_eq!(receipt.status(), true);
 
     // Final eth_call to check the parity. Should be 1
@@ -529,7 +525,7 @@ async fn test_seismic_precompiles_end_to_end() {
 
     // Prepare addresses & keys
     let private_key =
-        B256::from_hex("7e34abdcd62eade2e803e0a8123a0015ce542b380537eff288d6da420bcc2d3b").unwrap();
+        B256::from(hex!("7e34abdcd62eade2e803e0a8123a0015ce542b380537eff288d6da420bcc2d3b"));
 
     //
     // 2. Tx #1: Set AES key in the contract
