@@ -785,6 +785,7 @@ where
                     ))
                 })?;
 
+            debug!(target: "execute_sequencer_transactions", "Filled tx env {:?}", evm.tx_mut());
             *evm.tx_mut() = self
                 .evm_config
                 .tx_env(sequencer_tx.as_signed(), sequencer_tx.signer())
@@ -805,6 +806,8 @@ where
                     }
                 }
             };
+
+            debug!(target: "execute_sequencer_transactions", "Executed transaction {:?}", sequencer_tx);
 
             // commit changes
             evm.db_mut().commit(state);
@@ -882,6 +885,8 @@ where
             *evm.tx_mut() =
                 self.evm_config.tx_env(tx.as_signed(), tx.signer()).expect("failed to fill tx env");
 
+            debug!(target: "execute_best_transactions", "Filled tx env {:?}", evm.tx_mut());
+
             let ResultAndState { result, state } = match evm.transact() {
                 Ok(res) => res,
                 Err(err) => {
@@ -906,6 +911,8 @@ where
                     }
                 }
             };
+
+            debug!(target: "execute_best_transactions", "Executed transaction {:?}", tx);
 
             // commit changes
             evm.db_mut().commit(state);

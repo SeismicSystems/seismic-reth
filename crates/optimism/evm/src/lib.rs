@@ -14,6 +14,7 @@ extern crate alloc;
 
 use alloc::{sync::Arc, vec::Vec};
 use alloy_consensus::{transaction::EncryptionPublicKey, Header, TxSeismic};
+use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{Address, TxHash, U256};
 use reth_enclave::{
     decrypt, encrypt, get_eph_rng_keypair, EnclaveClient, EnclaveError, SchnorrkelKeypair,
@@ -58,6 +59,54 @@ impl OpEvmConfig {
     /// Returns the chain spec associated with this configuration.
     pub const fn chain_spec(&self) -> &Arc<OpChainSpec> {
         &self.chain_spec
+    }
+
+    /// seismic feature decrypt the transaction
+    fn fill_seismic_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        transaction: &TransactionSigned,
+        sender: Address,
+        tx_hash: TxHash,
+    ) -> EVMResultGeneric<(), EnclaveError> {
+        debug!(target: "op-reth::fill_tx_env", ?transaction, "Parsing Seismic transaction");
+
+        let Transaction::Seismic(tx) = &transaction.transaction else {
+            panic!("Transaction is not a seismic transaction");
+        };
+
+        let tee_decryption = self.decrypt(tx.input.to_vec(), tx.encryption_pubkey, tx.nonce)?;
+
+        let data = Bytes::from(tee_decryption.clone());
+
+        debug!(target: "op-reth::fill_tx_env", ?data, ?tee_decryption, ?tx.input, "Decrypted input data");
+
+        tx_env.caller = sender;
+        tx_env.gas_limit = tx.gas_limit;
+        tx_env.gas_price = U256::from(tx.gas_price);
+        tx_env.gas_priority_fee = None;
+        tx_env.transact_to = tx.to;
+        tx_env.value = tx.value;
+        tx_env.data = data;
+        tx_env.chain_id = Some(tx.chain_id);
+        tx_env.nonce = Some(tx.nonce);
+        tx_env.access_list.clear();
+        tx_env.blob_hashes.clear();
+        tx_env.max_fee_per_blob_gas.take();
+        tx_env.authorization_list = None;
+        tx_env.tx_hash = tx_hash;
+
+        let envelope = transaction.encoded_2718();
+        tx_env.optimism = revm_primitives::OptimismFields {
+            source_hash: None,
+            mint: None,
+            is_system_transaction: Some(false),
+            enveloped_tx: Some(envelope.into()),
+        };
+
+        debug!(target: "op-reth::fill_tx_env", ?tx_env, "Filled Seismic transaction");
+
+        Ok(())
     }
 }
 
@@ -108,32 +157,7 @@ impl ConfigureEvmEnv for OpEvmConfig {
         sender: Address,
         tx_hash: TxHash,
     ) -> EVMResultGeneric<(), EnclaveError> {
-        debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
-
-        let tee_decryption = self.decrypt(tx.input.to_vec(), tx.encryption_pubkey, tx.nonce)?;
-
-        let data = Bytes::from(tee_decryption.clone());
-
-        debug!(target: "reth::fill_tx_env", ?data, ?tee_decryption, ?tx.input, "Decrypted input data");
-
-        tx_env.caller = sender;
-        tx_env.gas_limit = tx.gas_limit;
-        tx_env.gas_price = U256::from(tx.gas_price);
-        tx_env.gas_priority_fee = None;
-        tx_env.transact_to = tx.to;
-        tx_env.value = tx.value;
-        tx_env.data = data;
-        tx_env.chain_id = Some(tx.chain_id);
-        tx_env.nonce = Some(tx.nonce);
-        tx_env.access_list.clear();
-        tx_env.blob_hashes.clear();
-        tx_env.max_fee_per_blob_gas.take();
-        tx_env.authorization_list = None;
-        tx_env.tx_hash = tx_hash;
-
-        debug!(target: "reth::fill_tx_env", ?tx_env, "Filled Seismic transaction");
-
-        Ok(())
+        panic!("Seismic transaction not supported");
     }
 
     fn fill_tx_env(
@@ -142,10 +166,10 @@ impl ConfigureEvmEnv for OpEvmConfig {
         transaction: &TransactionSigned,
         sender: Address,
     ) -> EVMResultGeneric<(), EnclaveError> {
-        debug!(target: "reth::fill_tx_env", ?transaction, "Parsing transaction");
+        debug!(target: "op-reth::fill_tx_env", ?transaction, "Parsing transaction");
         match &transaction.transaction {
             Transaction::Seismic(tx) => {
-                self.fill_seismic_tx_env(tx_env, tx, sender, transaction.hash())?;
+                self.fill_seismic_tx_env(tx_env, transaction, sender, transaction.hash())?;
                 Ok(())
             }
             _ => Ok(transaction.fill_tx_env(tx_env, sender)),

@@ -25,7 +25,7 @@ use reth_optimism_primitives::OpPrimitives;
 use reth_primitives::{BlockWithSenders, Receipt, TransactionSigned, TxType};
 use reth_revm::{Database, State};
 use revm_primitives::{db::DatabaseCommit, EnvWithHandlerCfg, ResultAndState, U256};
-use tracing::trace;
+use tracing::*;
 
 /// Factory for [`OpExecutionStrategy`].
 #[derive(Debug, Clone)]
@@ -209,9 +209,13 @@ where
                 .fill_tx_env(evm.tx_mut(), transaction, *sender)
                 .expect("failed to fill tx env");
 
+            debug!(target: "evm", "Filled tx env {:?}", evm.tx_mut());
+
             if let Some(tx_env_overrides) = &mut self.tx_env_overrides {
                 tx_env_overrides.apply(evm.tx_mut());
             }
+
+            debug!(target: "evm", "Applied tx env overrides ");
 
             // Execute transaction.
             let result_and_state = evm.transact().map_err(move |err| {

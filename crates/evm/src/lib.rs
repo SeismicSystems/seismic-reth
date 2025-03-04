@@ -22,6 +22,7 @@ use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader as _, TxSeis
 use alloy_primitives::{Address, Bytes, TxHash, B256, U256};
 use reth_enclave::{EnclaveError, SchnorrkelKeypair};
 use reth_primitives_traits::BlockHeader;
+use reth_tracing::tracing::*;
 use revm::{seismic::RngContainer, Database, Evm, GetInspector};
 use revm_primitives::{
     BlockEnv, CfgEnvWithHandlerCfg, EVMError, EVMResultGeneric, Env, EnvWithHandlerCfg, SpecId,
@@ -189,6 +190,7 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
         signer: Address,
     ) -> EVMResultGeneric<TxEnv, EnclaveError> {
         let mut tx_env = TxEnv::default();
+        debug!(target: "evm", "Filled tx env {:?}", tx_env);
         self.fill_tx_env(&mut tx_env, transaction, signer)?;
         Ok(tx_env)
     }
