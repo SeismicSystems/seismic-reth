@@ -4,11 +4,12 @@ use crate::OpTxType;
 use alloc::vec::Vec;
 use alloy_consensus::{
     transaction::RlpEcdsaTx, SignableTransaction, Transaction, TxEip1559, TxEip2930, TxEip7702,
-    Typed2718,
+    TxSeismic, Typed2718,
 };
 use alloy_eips::{
     eip2718::{Decodable2718, Eip2718Error, Eip2718Result, Encodable2718},
     eip2930::AccessList,
+    eip712::{Decodable712, Eip712Result, TypedDataRequest},
     eip7702::SignedAuthorization,
 };
 use alloy_primitives::{
@@ -16,6 +17,7 @@ use alloy_primitives::{
 };
 use alloy_rlp::Header;
 use core::{
+    error,
     hash::{Hash, Hasher},
     mem,
 };
@@ -30,6 +32,7 @@ use reth_primitives::{
     TransactionSigned,
 };
 use reth_primitives_traits::{FillTxEnv, InMemorySize, SignedTransaction};
+use reth_tracing::tracing::*;
 use revm_primitives::{AuthorizationList, OptimismFields, TxEnv};
 #[cfg(feature = "std")]
 use std::sync::OnceLock;
@@ -48,6 +51,15 @@ pub struct OpTransactionSigned {
     #[deref]
     #[as_ref]
     pub transaction: OpTypedTransaction,
+}
+
+impl Decodable712 for OpTransactionSigned {
+    fn decode_712(typed_data: &TypedDataRequest) -> Eip712Result<Self> {
+        let (tx, signature, hash) = TxSeismic::eip712_decode(&typed_data.data)?
+            .into_signed(typed_data.signature)
+            .into_parts();
+        Ok(Self { transaction: OpTypedTransaction::Seismic(tx), signature, hash: hash.into() })
+    }
 }
 
 impl OpTransactionSigned {
@@ -111,6 +123,7 @@ impl SignedTransaction for OpTransactionSigned {
             OpTypedTransaction::Eip2930(tx) => tx.encode_for_signing(buf),
             OpTypedTransaction::Eip1559(tx) => tx.encode_for_signing(buf),
             OpTypedTransaction::Eip7702(tx) => tx.encode_for_signing(buf),
+            OpTypedTransaction::Seismic(tx) => tx.encode_for_signing(buf),
         };
         recover_signer_unchecked(&self.signature, keccak256(buf))
     }
@@ -201,6 +214,11 @@ impl FillTxEnv for OpTransactionSigned {
                     is_system_transaction: Some(tx.is_system_transaction),
                     enveloped_tx: Some(envelope.into()),
                 };
+                return;
+            }
+            OpTypedTransaction::Seismic(tx) => {
+                // implementation is in EthEvmConfig to avoid changing FillTxEnv trait
+                error!(target: "reth::fill_tx_env", "Seismic transaction not filled");
                 return
             }
         }
@@ -267,6 +285,9 @@ impl Encodable2718 for OpTransactionSigned {
             OpTypedTransaction::Eip7702(set_code_tx) => {
                 set_code_tx.eip2718_encoded_length(&self.signature)
             }
+            OpTypedTransaction::Seismic(seismic_tx) => {
+                seismic_tx.eip2718_encoded_length(&self.signature)
+            }
             OpTypedTransaction::Deposit(deposit_tx) => deposit_tx.eip2718_encoded_length(),
         }
     }
@@ -286,6 +307,7 @@ impl Encodable2718 for OpTransactionSigned {
                 dynamic_fee_tx.eip2718_encode(signature, out)
             }
             OpTypedTransaction::Eip7702(set_code_tx) => set_code_tx.eip2718_encode(signature, out),
+            OpTypedTransaction::Seismic(seismic_tx) => seismic_tx.eip2718_encode(signature, out),
             OpTypedTransaction::Deposit(deposit_tx) => deposit_tx.encode_2718(out),
         }
     }
@@ -310,6 +332,12 @@ impl Decodable2718 for OpTransactionSigned {
             op_alloy_consensus::OpTxType::Eip7702 => {
                 let (tx, signature, hash) = TxEip7702::rlp_decode_signed(buf)?.into_parts();
                 let signed_tx = Self::new_unhashed(OpTypedTransaction::Eip7702(tx), signature);
+                signed_tx.hash.get_or_init(|| hash);
+                Ok(signed_tx)
+            }
+            op_alloy_consensus::OpTxType::Seismic => {
+                let (tx, signature, hash) = TxSeismic::rlp_decode_signed(buf)?.into_parts();
+                let signed_tx = Self::new_unhashed(OpTypedTransaction::Seismic(tx), signature);
                 signed_tx.hash.get_or_init(|| hash);
                 Ok(signed_tx)
             }
@@ -461,6 +489,7 @@ fn signature_hash(tx: &OpTypedTransaction) -> B256 {
         OpTypedTransaction::Eip2930(tx) => tx.signature_hash(),
         OpTypedTransaction::Eip1559(tx) => tx.signature_hash(),
         OpTypedTransaction::Eip7702(tx) => tx.signature_hash(),
+        OpTypedTransaction::Seismic(tx) => tx.signature_hash(),
         OpTypedTransaction::Deposit(_) => B256::ZERO,
     }
 }

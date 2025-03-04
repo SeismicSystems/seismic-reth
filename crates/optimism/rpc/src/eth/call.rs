@@ -103,6 +103,7 @@ where
             max_fee_per_blob_gas,
             authorization_list: authorization_list.map(Into::into),
             optimism: OptimismFields { enveloped_tx: Some(Bytes::new()), ..Default::default() },
+            ..Default::default()
         };
 
         Ok(env)

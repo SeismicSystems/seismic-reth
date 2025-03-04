@@ -17,10 +17,14 @@ use reth_provider::{
     BlockNumReader, BlockReaderIdExt, ProviderBlock, ProviderReceipt, ProviderTx, ReceiptProvider,
     TransactionsProvider,
 };
-use reth_rpc_eth_types::{utils::binary_search, EthApiError, SignError, TransactionSource};
+use reth_rpc_eth_types::{
+    utils::{binary_search, recover_typed_data_request},
+    EthApiError, SignError, TransactionSource,
+};
 use reth_rpc_types_compat::transaction::{from_recovered, from_recovered_with_block_context};
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
 use std::sync::Arc;
+use tracing::debug;
 
 use super::{EthApiSpec, EthSigner, LoadBlock, LoadReceipt, LoadState, SpawnBlocking};
 use crate::{

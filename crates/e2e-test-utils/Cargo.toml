@@ -35,7 +35,7 @@ reth-engine-local.workspace = true
 reth-tasks.workspace = true
 
 # currently need to enable this for workspace level
-reth-optimism-primitives  = { workspace = true, features = ["arbitrary"], optional = true }
+reth-optimism-primitives  = { workspace = true, features = ["arbitrary"]}
 
 # rpc
 jsonrpsee.workspace = true
@@ -45,7 +45,7 @@ url.workspace = true
 alloy-primitives.workspace = true
 alloy-eips.workspace = true
 alloy-rlp.workspace = true
-op-alloy-rpc-types-engine = { workspace = true, optional = true }
+op-alloy-rpc-types-engine = { workspace = true }
 
 futures-util.workspace = true
 eyre.workspace = true
@@ -60,6 +60,3 @@ alloy-network.workspace = true
 alloy-consensus = { workspace = true, features = ["kzg"] }
 tracing.workspace = true
 derive_more.workspace = true
-
-[features]
-optimism = ["dep:op-alloy-rpc-types-engine", "dep:reth-optimism-primitives"]

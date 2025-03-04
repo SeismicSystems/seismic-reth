@@ -69,18 +69,17 @@ members = [
     "crates/node/events/",
     "crates/node/metrics",
     "crates/node/types",
-    # disable optimism because seismic-alloy breaks op-alloy
-    # "crates/optimism/bin",
-    # "crates/optimism/chainspec",
-    # "crates/optimism/cli",
-    # "crates/optimism/consensus",
-    # "crates/optimism/evm/",
-    # "crates/optimism/hardforks/",
-    # "crates/optimism/node/",
-    # "crates/optimism/payload/",
-    # "crates/optimism/primitives/",
-    # "crates/optimism/rpc/",
-    # "crates/optimism/storage",
+    "crates/optimism/bin",
+    "crates/optimism/chainspec",
+    "crates/optimism/cli",
+    "crates/optimism/consensus",
+    "crates/optimism/evm/",
+    "crates/optimism/hardforks/",
+    "crates/optimism/node/",
+    "crates/optimism/payload/",
+    "crates/optimism/primitives/",
+    "crates/optimism/rpc/",
+    "crates/optimism/storage",
     "crates/payload/basic/",
     "crates/payload/builder/",
     "crates/payload/builder-primitives/",
@@ -486,8 +485,8 @@ alloy-transport-ws = { version = "0.8.0", default-features = false }
 # op
 op-alloy-rpc-types = "0.8.1"
 op-alloy-rpc-types-engine = "0.8.1"
-# op-alloy-rpc-jsonrpsee = "0.8.1"
-# op-alloy-network = "0.8.1"
+op-alloy-rpc-jsonrpsee = "0.8.1"
+op-alloy-network = "0.8.1"
 op-alloy-consensus = "0.8.1"
 op-alloy-genesis = "0.8.1"
 
@@ -672,3 +671,10 @@ revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspec
 
 seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "0600d0a"}
 
+# op-alloy
+op-alloy-rpc-types = { git = "https://github.com/SeismicSystems/op-alloy.git", branch = "peter/l2-poc" }
+op-alloy-rpc-types-engine = { git = "https://github.com/SeismicSystems/op-alloy.git", branch = "peter/l2-poc" }
+op-alloy-rpc-jsonrpsee = { git = "https://github.com/SeismicSystems/op-alloy.git", branch = "peter/l2-poc" }
+op-alloy-network = { git = "https://github.com/SeismicSystems/op-alloy.git", branch = "peter/l2-poc" }
+op-alloy-consensus = { git = "https://github.com/SeismicSystems/op-alloy.git", branch = "peter/l2-poc" }
+op-alloy-genesis = { git = "https://github.com/SeismicSystems/op-alloy.git", branch = "peter/l2-poc" }

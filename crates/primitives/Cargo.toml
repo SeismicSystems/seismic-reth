@@ -18,7 +18,7 @@ reth-ethereum-forks.workspace = true
 reth-static-file-types.workspace = true
 revm-primitives = { workspace = true, features = ["serde"] }
 reth-codecs = { workspace = true, optional = true }
-# reth-optimism-chainspec = { workspace = true, optional = true }
+reth-optimism-chainspec = { workspace = true, optional = true }
 reth-tracing.workspace = true
 reth-zstd-compressors = { workspace = true, optional = true }
 

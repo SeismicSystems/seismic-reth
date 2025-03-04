@@ -785,7 +785,10 @@ where
                     ))
                 })?;
 
-            *evm.tx_mut() = self.evm_config.tx_env(sequencer_tx.as_signed(), sequencer_tx.signer());
+            *evm.tx_mut() = self
+                .evm_config
+                .tx_env(sequencer_tx.as_signed(), sequencer_tx.signer())
+                .expect("failed to fill tx env");
 
             let ResultAndState { result, state } = match evm.transact() {
                 Ok(res) => res,
@@ -876,7 +879,8 @@ where
             }
 
             // Configure the environment for the tx.
-            *evm.tx_mut() = self.evm_config.tx_env(tx.as_signed(), tx.signer());
+            *evm.tx_mut() =
+                self.evm_config.tx_env(tx.as_signed(), tx.signer()).expect("failed to fill tx env");
 
             let ResultAndState { result, state } = match evm.transact() {
                 Ok(res) => res,

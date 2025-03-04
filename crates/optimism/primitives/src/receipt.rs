@@ -23,6 +23,8 @@ pub enum OpReceipt {
     Eip7702(Receipt),
     /// Deposit receipt
     Deposit(OpDepositReceipt),
+    /// Seismic receipt
+    Seismic(Receipt),
 }
 
 impl OpReceipt {
@@ -34,6 +36,7 @@ impl OpReceipt {
             Self::Eip1559(_) => OpTxType::Eip1559,
             Self::Eip7702(_) => OpTxType::Eip7702,
             Self::Deposit(_) => OpTxType::Deposit,
+            Self::Seismic(_) => OpTxType::Seismic,
         }
     }
 
@@ -43,7 +46,8 @@ impl OpReceipt {
             Self::Legacy(receipt) |
             Self::Eip2930(receipt) |
             Self::Eip1559(receipt) |
-            Self::Eip7702(receipt) => receipt,
+            Self::Eip7702(receipt) |
+            Self::Seismic(receipt) => receipt,
             Self::Deposit(receipt) => &receipt.inner,
         }
     }
@@ -54,7 +58,8 @@ impl OpReceipt {
             Self::Legacy(receipt) |
             Self::Eip2930(receipt) |
             Self::Eip1559(receipt) |
-            Self::Eip7702(receipt) => receipt.rlp_encoded_fields_length_with_bloom(bloom),
+            Self::Eip7702(receipt) |
+            Self::Seismic(receipt) => receipt.rlp_encoded_fields_length_with_bloom(bloom),
             Self::Deposit(receipt) => receipt.rlp_encoded_fields_length_with_bloom(bloom),
         }
     }
@@ -65,7 +70,8 @@ impl OpReceipt {
             Self::Legacy(receipt) |
             Self::Eip2930(receipt) |
             Self::Eip1559(receipt) |
-            Self::Eip7702(receipt) => receipt.rlp_encode_fields_with_bloom(bloom, out),
+            Self::Eip7702(receipt) |
+            Self::Seismic(receipt) => receipt.rlp_encode_fields_with_bloom(bloom, out),
             Self::Deposit(receipt) => receipt.rlp_encode_fields_with_bloom(bloom, out),
         }
     }
@@ -106,6 +112,11 @@ impl OpReceipt {
                 let ReceiptWithBloom { receipt, logs_bloom } =
                     RlpDecodableReceipt::rlp_decode_with_bloom(buf)?;
                 Ok(ReceiptWithBloom { receipt: Self::Deposit(receipt), logs_bloom })
+            }
+            OpTxType::Seismic => {
+                let ReceiptWithBloom { receipt, logs_bloom } =
+                    RlpDecodableReceipt::rlp_decode_with_bloom(buf)?;
+                Ok(ReceiptWithBloom { receipt: Self::Seismic(receipt), logs_bloom })
             }
         }
     }
@@ -279,6 +290,7 @@ mod compact {
                     deposit_nonce,
                     deposit_receipt_version,
                 }),
+                OpTxType::Seismic => Self::Seismic(inner),
             }
         }
     }

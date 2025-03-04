@@ -205,7 +205,9 @@ where
                 .transpose()
                 .map_err(|_| OpBlockExecutionError::AccountLoadFailed(*sender))?;
 
-            self.evm_config.fill_tx_env(evm.tx_mut(), transaction, *sender);
+            self.evm_config
+                .fill_tx_env(evm.tx_mut(), transaction, *sender)
+                .expect("failed to fill tx env");
 
             if let Some(tx_env_overrides) = &mut self.tx_env_overrides {
                 tx_env_overrides.apply(evm.tx_mut());

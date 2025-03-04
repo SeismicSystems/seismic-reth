@@ -214,6 +214,7 @@ impl OpReceiptBuilder {
                         OpReceiptEnvelope::<Log>::Eip1559(receipt_with_bloom)
                     }
                     TxType::Eip7702 => OpReceiptEnvelope::<Log>::Eip7702(receipt_with_bloom),
+                    TxType::Seismic => OpReceiptEnvelope::<Log>::Seismic(receipt_with_bloom),
                     TxType::Deposit => {
                         OpReceiptEnvelope::<Log>::Deposit(OpDepositReceiptWithBloom::<Log> {
                             receipt: OpDepositReceipt::<Log> {

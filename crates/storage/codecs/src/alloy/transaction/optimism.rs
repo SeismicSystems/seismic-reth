@@ -1,11 +1,18 @@
 //! Compact implementation for [`AlloyTxDeposit`]
 
-use alloy_consensus::constants::EIP7702_TX_TYPE_ID;
-use crate::Compact;
+use crate::{
+    txtype::{
+        COMPACT_EXTENDED_IDENTIFIER_FLAG, COMPACT_IDENTIFIER_EIP1559, COMPACT_IDENTIFIER_EIP2930,
+        COMPACT_IDENTIFIER_LEGACY,
+    },
+    Compact,
+};
+use alloy_consensus::constants::{EIP7702_TX_TYPE_ID, SEISMIC_TX_TYPE_ID};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
-use op_alloy_consensus::{OpTxType, OpTypedTransaction, TxDeposit as AlloyTxDeposit, DEPOSIT_TX_TYPE_ID};
+use op_alloy_consensus::{
+    OpTxType, OpTypedTransaction, TxDeposit as AlloyTxDeposit, DEPOSIT_TX_TYPE_ID,
+};
 use reth_codecs_derive::add_arbitrary_tests;
-use crate::txtype::{COMPACT_EXTENDED_IDENTIFIER_FLAG, COMPACT_IDENTIFIER_EIP1559, COMPACT_IDENTIFIER_EIP2930, COMPACT_IDENTIFIER_LEGACY};
 
 /// Deposit transactions, also known as deposits are initiated on L1, and executed on L2.
 ///
@@ -68,7 +75,6 @@ impl Compact for AlloyTxDeposit {
     }
 }
 
-
 impl crate::Compact for OpTxType {
     fn to_compact<B>(&self, buf: &mut B) -> usize
     where
@@ -86,6 +92,10 @@ impl crate::Compact for OpTxType {
             }
             Self::Deposit => {
                 buf.put_u8(op_alloy_consensus::DEPOSIT_TX_TYPE_ID);
+                COMPACT_EXTENDED_IDENTIFIER_FLAG
+            }
+            Self::Seismic => {
+                buf.put_u8(SEISMIC_TX_TYPE_ID);
                 COMPACT_EXTENDED_IDENTIFIER_FLAG
             }
         }
@@ -106,6 +116,7 @@ impl crate::Compact for OpTxType {
                     match extended_identifier {
                         EIP7702_TX_TYPE_ID => Self::Eip7702,
                         op_alloy_consensus::DEPOSIT_TX_TYPE_ID => Self::Deposit,
+                        SEISMIC_TX_TYPE_ID => Self::Seismic,
                         _ => panic!("Unsupported TxType identifier: {extended_identifier}"),
                     }
                 }
@@ -127,6 +138,7 @@ impl Compact for OpTypedTransaction {
             Self::Eip1559(tx) => tx.to_compact(out),
             Self::Eip7702(tx) => tx.to_compact(out),
             Self::Deposit(tx) => tx.to_compact(out),
+            Self::Seismic(tx) => tx.to_compact(out),
         }
     }
 
@@ -161,6 +173,10 @@ impl Compact for OpTypedTransaction {
                     DEPOSIT_TX_TYPE_ID => {
                         let (tx, buf) = Compact::from_compact(buf, buf.len());
                         (Self::Deposit(tx), buf)
+                    }
+                    SEISMIC_TX_TYPE_ID => {
+                        let (tx, buf) = Compact::from_compact(buf, buf.len());
+                        (Self::Seismic(tx), buf)
                     }
                     _ => unreachable!(
                         "Junk data in database: unknown Transaction variant: {identifier}"

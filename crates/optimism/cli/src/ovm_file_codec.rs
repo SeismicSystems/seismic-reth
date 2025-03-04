@@ -1,6 +1,6 @@
 use alloy_consensus::{
     transaction::{from_eip155_value, RlpEcdsaTx},
-    Header, TxEip1559, TxEip2930, TxEip4844, TxEip7702, TxLegacy,
+    Header, TxEip1559, TxEip2930, TxEip4844, TxEip7702, TxLegacy, TxSeismic,
 };
 use alloy_eips::{
     eip2718::{Decodable2718, Eip2718Error, Eip2718Result, Encodable2718},
@@ -247,6 +247,7 @@ impl Encodable2718 for TransactionSigned {
             Transaction::Eip7702(set_code_tx) => {
                 set_code_tx.eip2718_encoded_length(&self.signature)
             }
+            Transaction::Seismic(seismic_tx) => seismic_tx.eip2718_encoded_length(&self.signature),
             Transaction::Deposit(deposit_tx) => deposit_tx.eip2718_encoded_length(),
         }
     }
@@ -275,6 +276,10 @@ impl Decodable2718 for TransactionSigned {
             TxType::Eip4844 => {
                 let (tx, signature, hash) = TxEip4844::rlp_decode_signed(buf)?.into_parts();
                 Ok(Self { transaction: Transaction::Eip4844(tx), signature, hash })
+            }
+            TxType::Seismic => {
+                let (tx, signature, hash) = TxSeismic::rlp_decode_signed(buf)?.into_parts();
+                Ok(Self { transaction: Transaction::Seismic(tx), signature, hash })
             }
             TxType::Deposit => Ok(Self::from_transaction_and_signature(
                 Transaction::Deposit(TxDeposit::rlp_decode(buf)?),

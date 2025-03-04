@@ -13,11 +13,14 @@
 extern crate alloc;
 
 use alloc::{sync::Arc, vec::Vec};
-use alloy_consensus::Header;
-use alloy_primitives::{Address, U256};
+use alloy_consensus::{transaction::EncryptionPublicKey, Header, TxSeismic};
+use alloy_primitives::{Address, TxHash, U256};
+use reth_enclave::{
+    decrypt, encrypt, get_eph_rng_keypair, EnclaveClient, EnclaveError, SchnorrkelKeypair,
+};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};
 use reth_optimism_chainspec::{DecodeError, OpChainSpec};
-use reth_primitives::{transaction::FillTxEnv, Head, TransactionSigned};
+use reth_primitives::{transaction::FillTxEnv, Head, Transaction, TransactionSigned};
 use reth_revm::{
     inspector_handle_register,
     primitives::{AnalysisKind, CfgEnvWithHandlerCfg, TxEnv},
@@ -34,19 +37,22 @@ pub use l1::*;
 mod error;
 pub use error::OpBlockExecutionError;
 use revm_primitives::{
-    BlobExcessGasAndPrice, BlockEnv, Bytes, CfgEnv, Env, HandlerCfg, OptimismFields, SpecId, TxKind,
+    BlobExcessGasAndPrice, BlockEnv, Bytes, CfgEnv, EVMError, EVMResultGeneric, Env, HandlerCfg,
+    OptimismFields, SpecId, TxKind,
 };
+use tracing::debug;
 
 /// Optimism-related EVM configuration.
 #[derive(Debug, Clone)]
 pub struct OpEvmConfig {
     chain_spec: Arc<OpChainSpec>,
+    enclave_client: EnclaveClient,
 }
 
 impl OpEvmConfig {
     /// Creates a new [`OpEvmConfig`] with the given chain spec.
-    pub const fn new(chain_spec: Arc<OpChainSpec>) -> Self {
-        Self { chain_spec }
+    pub fn new(chain_spec: Arc<OpChainSpec>) -> Self {
+        Self { chain_spec, enclave_client: EnclaveClient::default() }
     }
 
     /// Returns the chain spec associated with this configuration.
@@ -60,8 +66,90 @@ impl ConfigureEvmEnv for OpEvmConfig {
     type Transaction = TransactionSigned;
     type Error = DecodeError;
 
-    fn fill_tx_env(&self, tx_env: &mut TxEnv, transaction: &TransactionSigned, sender: Address) {
-        transaction.fill_tx_env(tx_env, sender);
+    fn encrypt(
+        &self,
+        data: Vec<u8>,
+        pubkey: EncryptionPublicKey,
+        encryption_nonce: u64,
+    ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
+        let encryption_pubkey = secp256k1::PublicKey::from_slice(pubkey.as_slice())
+            .map_err(|_| EVMError::Database(EnclaveError::PublicKeyRecoveryError))?;
+        let tee_encryption: Vec<u8> =
+            encrypt(&self.enclave_client, encryption_pubkey, data, encryption_nonce)
+                .map_err(|_| EVMError::Database(EnclaveError::EncryptionError))?;
+        Ok(tee_encryption)
+    }
+    fn decrypt(
+        &self,
+        data: Vec<u8>,
+        pubkey: EncryptionPublicKey,
+        encryption_nonce: u64,
+    ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
+        let encryption_pubkey = secp256k1::PublicKey::from_slice(pubkey.as_slice())
+            .map_err(|_| EVMError::Database(EnclaveError::PublicKeyRecoveryError))?;
+
+        let tee_decryption: Vec<u8> =
+            decrypt(&self.enclave_client, encryption_pubkey, data, encryption_nonce)
+                .map_err(|_| EVMError::Database(EnclaveError::DecryptionError))?;
+        Ok(tee_decryption)
+    }
+
+    /// Get current eph_rng_keypair
+    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, EnclaveError> {
+        get_eph_rng_keypair(&self.enclave_client)
+            .map_err(|_| EVMError::Database(EnclaveError::EphRngKeypairGenerationError))
+    }
+
+    /// seismic feature decrypt the transaction
+    fn fill_seismic_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        tx: &TxSeismic,
+        sender: Address,
+        tx_hash: TxHash,
+    ) -> EVMResultGeneric<(), EnclaveError> {
+        debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
+
+        let tee_decryption = self.decrypt(tx.input.to_vec(), tx.encryption_pubkey, tx.nonce)?;
+
+        let data = Bytes::from(tee_decryption.clone());
+
+        debug!(target: "reth::fill_tx_env", ?data, ?tee_decryption, ?tx.input, "Decrypted input data");
+
+        tx_env.caller = sender;
+        tx_env.gas_limit = tx.gas_limit;
+        tx_env.gas_price = U256::from(tx.gas_price);
+        tx_env.gas_priority_fee = None;
+        tx_env.transact_to = tx.to;
+        tx_env.value = tx.value;
+        tx_env.data = data;
+        tx_env.chain_id = Some(tx.chain_id);
+        tx_env.nonce = Some(tx.nonce);
+        tx_env.access_list.clear();
+        tx_env.blob_hashes.clear();
+        tx_env.max_fee_per_blob_gas.take();
+        tx_env.authorization_list = None;
+        tx_env.tx_hash = tx_hash;
+
+        debug!(target: "reth::fill_tx_env", ?tx_env, "Filled Seismic transaction");
+
+        Ok(())
+    }
+
+    fn fill_tx_env(
+        &self,
+        tx_env: &mut TxEnv,
+        transaction: &TransactionSigned,
+        sender: Address,
+    ) -> EVMResultGeneric<(), EnclaveError> {
+        debug!(target: "reth::fill_tx_env", ?transaction, "Parsing transaction");
+        match &transaction.transaction {
+            Transaction::Seismic(tx) => {
+                self.fill_seismic_tx_env(tx_env, tx, sender, transaction.hash())?;
+                Ok(())
+            }
+            _ => Ok(transaction.fill_tx_env(tx_env, sender)),
+        }
     }
 
     fn fill_tx_env_system_contract_call(
@@ -100,6 +188,7 @@ impl ConfigureEvmEnv for OpEvmConfig {
                 // enveloped tx size.
                 enveloped_tx: Some(Bytes::default()),
             },
+            ..Default::default()
         };
 
         // ensure the block gas limit is >= the tx

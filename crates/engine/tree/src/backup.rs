@@ -2,7 +2,6 @@
 use alloy_eips::BlockNumHash;
 use reth_errors::ProviderError;
 use reth_node_core::dirs::{ChainPath, DataDirPath};
-use reth_tracing::tracing::*;
 use std::{
     path::PathBuf,
     sync::mpsc::{Receiver, Sender},
@@ -10,6 +9,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::sync::oneshot;
+use tracing::*;
 
 /// Configuration for the backup service
 #[derive(Debug, Clone)]

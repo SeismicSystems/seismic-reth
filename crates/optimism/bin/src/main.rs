@@ -3,12 +3,14 @@
 #![cfg(feature = "optimism")]
 
 use clap::Parser;
+use reth_enclave::start_blocking_mock_enclave_server;
 use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher, Node};
 use reth_optimism_cli::{chainspec::OpChainSpecParser, Cli};
 use reth_optimism_node::{args::RollupArgs, OpNode};
 use reth_provider::providers::BlockchainProvider2;
+use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 
-use tracing as _;
+use tracing::{self as _, info};
 
 #[global_allocator]
 static ALLOC: reth_cli_util::allocator::Allocator = reth_cli_util::allocator::new_allocator();
@@ -27,6 +29,7 @@ fn main() {
                 tracing::warn!(target: "reth::cli", "Experimental engine is default now, and the --engine.experimental flag is deprecated. To enable the legacy functionality, use --engine.legacy.");
             }
             let use_legacy_engine = rollup_args.legacy;
+            let seismic_api = SeismicApi::new(builder.config());
             match use_legacy_engine {
                 false => {
                     let engine_tree_config = TreeConfig::default()
@@ -36,6 +39,29 @@ fn main() {
                         .with_types_and_provider::<OpNode, BlockchainProvider2<_>>()
                         .with_components(OpNode::components(rollup_args.clone()))
                         .with_add_ons(OpNode::new(rollup_args).add_ons())
+                        .on_node_started(move |ctx| {
+                            if ctx.config.enclave.mock_server {
+                                ctx.task_executor.spawn(async move {
+                                    start_blocking_mock_enclave_server(
+                                        ctx.config.enclave.enclave_server_addr,
+                                        ctx.config.enclave.enclave_server_port,
+                                    )
+                                    .await;
+                                });
+                            }
+                            Ok(())
+                        })
+                        .extend_rpc_modules(move |ctx| {
+                            // replace eth_ namespace
+                            ctx.modules.replace_configured(
+                                EthApiExt::new(ctx.registry.eth_api().clone()).into_rpc(),
+                            )?;
+
+                            // add seismic_ namespace
+                            ctx.modules.merge_configured(seismic_api.into_rpc())?;
+                            info!(target: "reth::cli", "seismic api configured");
+                            Ok(())
+                        })
                         .launch_with_fn(|builder| {
                             let launcher = EngineNodeLauncher::new(
                                 builder.task_executor().clone(),

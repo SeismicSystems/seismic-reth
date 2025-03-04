@@ -3,7 +3,7 @@ use alloy_primitives::{Address, TxKind, B256};
 use alloy_rpc_types::engine::PayloadAttributes;
 use alloy_rpc_types_eth::TransactionRequest;
 use alloy_signer_local::PrivateKeySigner;
-use reth_chainspec::SEISMIC_DEV;
+use reth_chainspec::DEV;
 use reth_enclave::EnclaveClient;
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use secp256k1::{PublicKey, SecretKey};
@@ -36,10 +36,12 @@ impl SeismicRethTestCommand {
             .arg("--datadir")
             .arg(SeismicRethTestCommand::data_dir().to_str().unwrap())
             .arg("--dev")
-            .arg("--dev.block-max-transactions")
-            .arg("1")
+            .arg("--dev.block-time")
+            .arg("2s")
             .arg("--enclave.mock-server")
             .arg("-vvvv")
+            .arg("--metrics")
+            .arg("127.0.0.1:9001")
             .current_dir(workspace_root)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -107,7 +109,7 @@ impl SeismicRethTestCommand {
 
     /// Get the chain id for the seismic reth test command
     pub fn chain_id() -> u64 {
-        SEISMIC_DEV.chain().into()
+        DEV.chain().into()
     }
 
     /// Get the url for the seismic reth test command

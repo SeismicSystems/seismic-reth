@@ -80,6 +80,7 @@ impl InMemorySize for op_alloy_consensus::OpTypedTransaction {
             Self::Eip1559(tx) => tx.size(),
             Self::Eip7702(tx) => tx.size(),
             Self::Deposit(tx) => tx.size(),
+            Self::Seismic(tx) => tx.size(),
         }
     }
 }
