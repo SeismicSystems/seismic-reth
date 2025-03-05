@@ -109,12 +109,12 @@ impl SeismicRethTestCommand {
 
     /// Get the chain id for the seismic reth test command
     pub fn chain_id() -> u64 {
-        DEV.chain().into()
+        0x20d5e4
     }
 
     /// Get the url for the seismic reth test command
     pub fn url() -> String {
-        format!("http://127.0.0.1:8545")
+        format!("http://127.0.0.1:51775 ")
     }
 }
 
@@ -222,7 +222,7 @@ pub mod test_utils {
             value: Some(U256::from(0)),
             to: Some(to),
             gas: Some(6000000),
-            gas_price: Some(20e9 as u128),
+            gas_price: Some(40e9 as u128),
             chain_id: Some(chain_id),
             input: TransactionInput { input: Some(Bytes::from(encrypted_input)), data: None },
             transaction_type: Some(TxSeismic::TX_TYPE),

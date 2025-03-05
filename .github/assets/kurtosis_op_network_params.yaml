@@ -8,5 +8,6 @@ optimism_package:
   chains:
     - participants:
         - el_type: op-reth
-          el_image: op-reth
+          el_image: op-reth:local
+          el_log_level: trace
           cl_type: op-node

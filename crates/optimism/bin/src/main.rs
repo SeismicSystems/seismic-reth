@@ -40,7 +40,6 @@ fn main() {
                         .with_components(OpNode::components(rollup_args.clone()))
                         .with_add_ons(OpNode::new(rollup_args).add_ons())
                         .on_node_started(move |ctx| {
-                            if ctx.config.enclave.mock_server {
                                 ctx.task_executor.spawn(async move {
                                     start_blocking_mock_enclave_server(
                                         ctx.config.enclave.enclave_server_addr,
@@ -48,7 +47,6 @@ fn main() {
                                     )
                                     .await;
                                 });
-                            }
                             Ok(())
                         })
                         .extend_rpc_modules(move |ctx| {
