@@ -2,7 +2,7 @@
 
 [![book](https://github.com/SeismicSystems/seismic-reth/actions/workflows/book.yml/badge.svg?branch=seismic)](https://github.com/SeismicSystems/seismic-reth/actions/workflows/book.yml)
 [![CI Status](https://github.com/SeismicSystems/seismic-reth/actions/workflows/seismic.yml/badge.svg?branch=seismic)](https://github.com/SeismicSystems/seismic-reth/actions/workflows/seismic.yml)
-[![Chat on Telegram](https://img.shields.io/badge/chat-Join%20Us-blue?logo=telegram)](https://t.me/+xpzfNO4pmRoyM2Ux)
+[![Chat on Telegram](https://img.shields.io/badge/chat-Join%20Us-blue?logo=telegram)](https://t.me/+jZ6MDPl3tmI1ODE5)
 
 **Encrypted Blockchain Client**
 
@@ -99,4 +99,4 @@ None of this would have been possible without them, so big shoutout to the teams
 -   [Reth](https://github.com/paradigmxyz/reth): We would like to thank the Rust Ethereum community for their pioneering work in building Ethereum clients in Rust. Their dedication to pushing forward Rust implementations has helped pave the way for projects like Reth.
 
 [book]: https://seismicsystems.github.io/seismic-reth/
-[tg-url]: https://t.me/+xpzfNO4pmRoyM2Ux
+[tg-url]: https://t.me/+jZ6MDPl3tmI1ODE5
