@@ -102,6 +102,7 @@ impl FaucetService {
                         for _ in 0..10 {
                             // Try up to 10 times with 1 second delay
                             thread::sleep(Duration::from_secs(1));
+                            println!("retry with transaction hash: {:?}", tx_hash);
 
                             match EthApiClient::<Transaction, Block, TransactionReceipt, Header>::transaction_receipt(
                                 &client, tx_hash,
@@ -139,8 +140,6 @@ impl FaucetService {
                     pending_txs.push((tx_hash, request));
                 }
                 Err((request, error)) => {
-                    // Transaction failed to send, put it back in the queue
-                    requests.push_front(request);
                     return Err(error);
                 }
             }

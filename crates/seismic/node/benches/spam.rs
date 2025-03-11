@@ -45,15 +45,15 @@ use std::{
 
 // testing params
 const WALLET_COUNT: usize = 126; // 126;
-const CALL_TX_RATIO: usize = 100;
+const CALL_TX_RATIO: usize = 1;
 const ROUND_COUNT: usize = 43200;
 
 const MIN_WEI_PER_WALLET: usize = 6000000000000000;
 const MIN_WEI_PER_FAUCET_WALLET: usize = MIN_WEI_PER_WALLET * (WALLET_COUNT + 1);
 
 // network params
-const RPC_URL: &str = "https://node-1.seismicdev.net/rpc";
-const FAUCET_URL: &str = "https://faucet-1.seismicdev.net/api/claim";
+const RPC_URL: &str = "https://node-3.seismicdev.net/rpc";
+const FAUCET_URL: &str = "https://faucet-3.seismicdev.net/api/claim";
 const BLOCK_TIME: u64 = 2;
 
 #[derive(Clone)]
