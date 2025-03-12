@@ -606,13 +606,6 @@ impl alloy_consensus::Transaction for PooledTransactionsElement {
             Self::BlobTransaction(tx) => tx.tx().authorization_list(),
         }
     }
-
-    fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey> {
-        match self {
-            Self::Seismic(tx) => tx.tx().encryption_pubkey(),
-            _ => None,
-        }
-    }
 }
 
 impl SignedTransaction for PooledTransactionsElement {
