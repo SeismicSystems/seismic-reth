@@ -238,6 +238,8 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
             let (res, _env) =
                 self.transact_call_at(request, block_number.unwrap_or_default(), overrides).await?;
 
+            debug!(target: "rpc::eth::call", ?res, "Transacted");
+
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
 
             self.encrypt_output(tx_type, seismic_elements.as_ref(), nonce, output)
@@ -280,7 +282,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
             let (cfg, block, at) = self.evm_env_at(block_number.unwrap_or_default()).await?;
-            andlerCfg::new_with_cfg_env(
+            let env = EnvWithHandlerCfg::new_with_cfg_env(
                 cfg,
                 block,
                 self.evm_config()
