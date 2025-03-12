@@ -274,7 +274,7 @@ pub mod test_utils {
         chain_id: u64,
         decrypted_input: Bytes,
     ) -> TypedDataRequest {
-        let mut tx =
+        let tx =
             get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, decrypted_input).await;
         tx.seismic_elements.unwrap().message_version = 2;
         let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
