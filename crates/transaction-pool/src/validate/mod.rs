@@ -6,6 +6,7 @@ use crate::{
     traits::{PoolTransaction, TransactionOrigin},
     PriceBumpConfig,
 };
+use alloy_consensus::transaction::TxSeismicElements;
 use alloy_eips::eip4844::BlobTransactionSidecar;
 use alloy_primitives::{Address, TxHash, B256, U256};
 use futures_util::future::Either;
@@ -150,8 +151,8 @@ impl<T: PoolTransaction> ValidTransaction<T> {
     }
 
     /// Returns the encryption pubkey of the transaction (Seismic)
-    pub fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey> {
-        self.transaction().encryption_pubkey()
+    pub fn seismic_elements(&self) -> Option<&TxSeismicElements> {
+        self.transaction().seismic_elements()
     }
 }
 
@@ -443,9 +444,9 @@ impl<T: PoolTransaction> ValidPoolTransaction<T> {
         false
     }
 
-    /// Returns the encryption pubkey of the transaction (Seismic)
-    pub fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey> {
-        self.transaction.encryption_pubkey()
+    /// Returns the seismic elements of the transaction (Seismic)
+    pub fn seismic_elements(&self) -> Option<&TxSeismicElements> {
+        self.transaction.seismic_elements()
     }
 }
 

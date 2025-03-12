@@ -18,7 +18,7 @@
 extern crate alloc;
 
 use crate::builder::RethEvmBuilder;
-use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader as _, TxSeismic};
+use alloy_consensus::{transaction::TxSeismicElements, BlockHeader as _, TxSeismic};
 use alloy_primitives::{Address, Bytes, TxHash, B256, U256};
 use reth_enclave::{EnclaveError, SchnorrkelKeypair};
 use reth_primitives_traits::BlockHeader;
@@ -150,7 +150,7 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
     fn encrypt(
         &self,
         _data: Vec<u8>,
-        _pubkey: EncryptionPublicKey,
+        _seismic_elements: TxSeismicElements,
         _encryption_nonce: u64,
     ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
         Err(EVMError::Database(EnclaveError::EncryptionError))
@@ -160,7 +160,7 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
     fn decrypt(
         &self,
         _data: Vec<u8>,
-        _pubkey: EncryptionPublicKey,
+        _seismic_elements: TxSeismicElements,
         _encryption_nonce: u64,
     ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
         Err(EVMError::Database(EnclaveError::DecryptionError))

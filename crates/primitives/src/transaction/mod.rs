@@ -805,13 +805,6 @@ impl alloy_consensus::Transaction for Transaction {
             Self::Deposit(tx) => tx.authorization_list(),
         }
     }
-
-    fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey> {
-        match self {
-            Self::Seismic(tx) => tx.encryption_pubkey(),
-            _ => None,
-        }
-    }
 }
 
 impl From<TxEip4844Variant> for Transaction {
@@ -1303,10 +1296,6 @@ impl alloy_consensus::Transaction for TransactionSigned {
 
     fn authorization_list(&self) -> Option<&[SignedAuthorization]> {
         self.deref().authorization_list()
-    }
-
-    fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey> {
-        self.deref().encryption_pubkey()
     }
 }
 

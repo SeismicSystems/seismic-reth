@@ -20,7 +20,7 @@ extern crate alloc;
 use core::{convert::Infallible, net::IpAddr};
 
 use alloc::{sync::Arc, vec::Vec};
-use alloy_consensus::{transaction::EncryptionPublicKey, Header, TxSeismic};
+use alloy_consensus::{transaction::TxSeismicElements, Header, TxSeismic};
 use alloy_primitives::{Address, Bytes, TxHash, TxKind, U256};
 use reth_chainspec::{ChainSpec, Head};
 use reth_enclave::{
@@ -103,11 +103,12 @@ impl ConfigureEvmEnv for EthEvmConfig {
     fn encrypt(
         &self,
         data: Vec<u8>,
-        pubkey: EncryptionPublicKey,
+        seismic_elements: TxSeismicElements,
         encryption_nonce: u64,
     ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
-        let encryption_pubkey = secp256k1::PublicKey::from_slice(pubkey.as_slice())
-            .map_err(|_| EVMError::Database(EnclaveError::PublicKeyRecoveryError))?;
+        let encryption_pubkey =
+            secp256k1::PublicKey::from_slice(seismic_elements.encryption_pubkey.as_slice())
+                .map_err(|_| EVMError::Database(EnclaveError::PublicKeyRecoveryError))?;
         let tee_encryption: Vec<u8> =
             encrypt(&self.enclave_client, encryption_pubkey, data, encryption_nonce)
                 .map_err(|_| EVMError::Database(EnclaveError::EncryptionError))?;
@@ -116,11 +117,12 @@ impl ConfigureEvmEnv for EthEvmConfig {
     fn decrypt(
         &self,
         data: Vec<u8>,
-        pubkey: EncryptionPublicKey,
+        seismic_elements: TxSeismicElements,
         encryption_nonce: u64,
     ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
-        let encryption_pubkey = secp256k1::PublicKey::from_slice(pubkey.as_slice())
-            .map_err(|_| EVMError::Database(EnclaveError::PublicKeyRecoveryError))?;
+        let encryption_pubkey =
+            secp256k1::PublicKey::from_slice(seismic_elements.encryption_pubkey.as_slice())
+                .map_err(|_| EVMError::Database(EnclaveError::PublicKeyRecoveryError))?;
 
         let tee_decryption: Vec<u8> =
             decrypt(&self.enclave_client, encryption_pubkey, data, encryption_nonce)
@@ -144,7 +146,8 @@ impl ConfigureEvmEnv for EthEvmConfig {
     ) -> EVMResultGeneric<(), EnclaveError> {
         debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
 
-        let tee_decryption = self.decrypt(tx.input.to_vec(), tx.encryption_pubkey, tx.nonce)?;
+        let tee_decryption =
+            self.decrypt(tx.input.to_vec(), tx.seismic_elements.clone(), tx.nonce)?;
 
         let data = Bytes::from(tee_decryption.clone());
 

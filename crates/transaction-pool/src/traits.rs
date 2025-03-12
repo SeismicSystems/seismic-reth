@@ -7,6 +7,7 @@ use crate::{
 };
 use alloy_consensus::{
     constants::{EIP1559_TX_TYPE_ID, EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID},
+    transaction::TxSeismicElements,
     Transaction as _, Typed2718,
 };
 use alloy_eips::{
@@ -1132,8 +1133,8 @@ pub trait PoolTransaction:
         }
     }
 
-    /// Returns the encryption pubkey of the transaction (Seismic)
-    fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey>;
+    /// Returns the seismic elements of the transaction (Seismic)
+    fn seismic_elements(&self) -> Option<&TxSeismicElements>;
 }
 
 /// Super trait for transactions that can be converted to and from Eth transactions intended for the
@@ -1386,8 +1387,9 @@ impl PoolTransaction for EthPooledTransaction {
         self.transaction.chain_id()
     }
 
-    fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey> {
-        self.transaction.encryption_pubkey()
+    /// Returns the seismic elements of the transaction (Seismic)
+    fn seismic_elements(&self) -> Option<&TxSeismicElements> {
+        self.transaction.seismic_elements()
     }
 }
 

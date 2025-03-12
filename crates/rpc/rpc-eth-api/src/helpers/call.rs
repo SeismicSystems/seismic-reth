@@ -6,7 +6,7 @@ use crate::{
     helpers::estimate::EstimateCall, FromEthApiError, FromEvmError, FullEthApiTypes,
     IntoEthApiError, RpcBlock, RpcNodeCore,
 };
-use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader, Typed2718};
+use alloy_consensus::{transaction::TxSeismicElements, BlockHeader, Typed2718};
 use alloy_eips::{eip1559::calc_next_block_base_fee, eip2930::AccessListResult};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_eth::{
@@ -232,8 +232,8 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
             let tx_type = request.transaction_type;
-            let encryption_pubkey = request.encryption_pubkey;
             let nonce = request.nonce;
+            let seismic_elements = request.seismic_elements;
 
             let (res, _env) =
                 self.transact_call_at(request, block_number.unwrap_or_default(), overrides).await?;
@@ -242,7 +242,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
 
-            self.encrypt_output(tx_type, encryption_pubkey.as_ref(), nonce, output)
+            self.encrypt_output(tx_type, seismic_elements.as_ref(), nonce, output)
         }
     }
 
@@ -250,17 +250,17 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
     fn encrypt_output(
         &self,
         tx_type: Option<u8>,
-        encryption_pubkey: Option<&EncryptionPublicKey>,
+        seismic_elements: Option<&TxSeismicElements>,
         nonce: Option<u64>,
         output: Bytes,
     ) -> Result<Bytes, Self::Error> {
-        debug!(target: "rpc::eth::call::encrypt", ?tx_type, ?encryption_pubkey, ?nonce, ?output, "Encrypting output");
+        debug!(target: "rpc::eth::call::encrypt", ?tx_type, ?seismic_elements, ?nonce, ?output, "Encrypting output");
 
         if tx_type.map_or(true, |t| t != alloy_consensus::TxSeismic::TX_TYPE) {
             return Ok(output);
         }
 
-        let encryption_pubkey = encryption_pubkey
+        let seismic_elements = seismic_elements
             .ok_or(EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
 
         let nonce =
@@ -268,7 +268,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
         let encrypted_output = self
             .evm_config()
-            .encrypt(output.to_vec(), encryption_pubkey.clone(), nonce)
+            .encrypt(output.to_vec(), seismic_elements.clone(), nonce)
             .map(|encrypted_output| Bytes::from(encrypted_output))
             .map_err(|_| EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
 
@@ -309,7 +309,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
             let tx_signed = tx.as_signed();
             self.encrypt_output(
                 Some(tx_signed.ty()),
-                tx_signed.encryption_pubkey(),
+                tx_signed.seismic_elements(),
                 Some(tx_signed.nonce()),
                 output,
             )
@@ -837,7 +837,7 @@ pub trait Call:
             max_fee_per_blob_gas,
             authorization_list,
             transaction_type,
-            encryption_pubkey,
+            seismic_elements,
             sidecar: _,
             ..
         } = request;
@@ -872,9 +872,9 @@ pub trait Call:
                 .evm_config()
                 .decrypt(
                     input.to_vec(),
-                    encryption_pubkey.ok_or(
+                    seismic_elements.ok_or(
                         EthApiError::InvalidParams(
-                            "encryption_pubkey is required for decrypting seismic transactions"
+                            "seismic_elements is required for decrypting seismic transactions"
                                 .to_string(),
                         )
                         .into(),
