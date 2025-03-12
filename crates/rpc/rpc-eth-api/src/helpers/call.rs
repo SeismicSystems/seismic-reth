@@ -836,7 +836,6 @@ pub trait Call:
             blob_versioned_hashes,
             max_fee_per_blob_gas,
             authorization_list,
-            transaction_type,
             seismic_elements,
             sidecar: _,
             ..

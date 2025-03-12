@@ -14,7 +14,6 @@ use alloy_rpc_types::{
 };
 use alloy_sol_types::{sol, SolCall, SolValue};
 use reth_e2e_test_utils::wallet::Wallet;
-use reth_node_builder::engine_tree_config::DEFAULT_BACKUP_THRESHOLD;
 use reth_rpc_eth_api::EthApiClient;
 use seismic_enclave::aes_decrypt;
 use seismic_node::utils::{
@@ -24,7 +23,7 @@ use seismic_node::utils::{
     },
     SeismicRethTestCommand,
 };
-use std::{path::PathBuf, thread, time::Duration};
+use std::{thread, time::Duration};
 use tokio::sync::mpsc;
 
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
