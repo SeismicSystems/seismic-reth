@@ -234,12 +234,9 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
             let tx_type = request.transaction_type;
             let nonce = request.nonce;
             let seismic_elements = request.seismic_elements;
-            debug!(target: "rpc::eth::call", ?tx_type, ?nonce, ?seismic_elements, "Transacting call");
 
             let (res, _env) =
                 self.transact_call_at(request, block_number.unwrap_or_default(), overrides).await?;
-
-            debug!(target: "rpc::eth::call", ?res, "Transacted");
 
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
 
@@ -255,8 +252,6 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         nonce: Option<u64>,
         output: Bytes,
     ) -> Result<Bytes, Self::Error> {
-        debug!(target: "rpc::eth::call::encrypt", ?tx_type, ?seismic_elements, ?nonce, ?output, "Encrypting output");
-
         if tx_type.map_or(true, |t| t != alloy_consensus::TxSeismic::TX_TYPE) {
             return Ok(output);
         }
@@ -285,8 +280,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
             let (cfg, block, at) = self.evm_env_at(block_number.unwrap_or_default()).await?;
-
-            let env = EnvWithHandlerCfg::new_with_cfg_env(
+            andlerCfg::new_with_cfg_env(
                 cfg,
                 block,
                 self.evm_config()
@@ -305,10 +299,8 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                 })
                 .await?;
 
-            debug!(target: "rpc::eth::common_signed_call", ?tx, "Transacted call");
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
             let tx_signed = tx.as_signed();
-            debug!(target: "rpc::eth::common_signed_call", ?tx_signed, "Transacted call");
             self.encrypt_output(
                 Some(tx_signed.ty()),
                 tx_signed.seismic_elements(),
@@ -328,7 +320,6 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
             let tx = recover_raw_transaction::<PoolPooledTx<Self::Pool>>(&tx)?.map_transaction(
                 <Self::Pool as TransactionPool>::Transaction::pooled_into_consensus,
             );
-            debug!(target: "rpc::eth::call", ?tx, "Recovered transaction");
             self.common_signed_call(tx, block_number).await
         }
     }
@@ -347,7 +338,6 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
             self.common_signed_call(tx, _block_number).await
         }
     }
-
     /// Simulate arbitrary number of transactions at an arbitrary blockchain index, with the
     /// optionality of state overrides
     fn call_many(
