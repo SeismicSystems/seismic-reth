@@ -40,7 +40,7 @@ fn test_fill_tx_env(unit_test_context: &UnitTestContext) {
 // Decryption error is expected when the encryption public key in transaction is invalid
 fn test_fill_tx_env_decryption_error(unit_test_context: &UnitTestContext) {
     let mut tx_seismic = UnitTestContext::get_seismic_tx();
-    tx_seismic.encryption_pubkey =
+    tx_seismic.seismic_elements.encryption_pubkey =
         FixedBytes::from_slice(&UnitTestContext::get_wrong_private_key().public().to_sec1_bytes());
 
     let signature = UnitTestContext::sign_seismic_tx(&tx_seismic);

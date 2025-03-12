@@ -109,10 +109,10 @@ impl ConfigureEvmEnv for EthEvmConfig {
         let encryption_pubkey =
             secp256k1::PublicKey::from_slice(seismic_elements.encryption_pubkey.as_slice())
                 .map_err(|_| EVMError::Database(EnclaveError::PublicKeyRecoveryError))?;
-        let tee_encryption: Vec<u8> =
+        let enclave_encryption: Vec<u8> =
             encrypt(&self.enclave_client, encryption_pubkey, data, encryption_nonce)
                 .map_err(|_| EVMError::Database(EnclaveError::EncryptionError))?;
-        Ok(tee_encryption)
+        Ok(enclave_encryption)
     }
     fn decrypt(
         &self,
@@ -124,10 +124,10 @@ impl ConfigureEvmEnv for EthEvmConfig {
             secp256k1::PublicKey::from_slice(seismic_elements.encryption_pubkey.as_slice())
                 .map_err(|_| EVMError::Database(EnclaveError::PublicKeyRecoveryError))?;
 
-        let tee_decryption: Vec<u8> =
+        let enclave_decryption: Vec<u8> =
             decrypt(&self.enclave_client, encryption_pubkey, data, encryption_nonce)
                 .map_err(|_| EVMError::Database(EnclaveError::DecryptionError))?;
-        Ok(tee_decryption)
+        Ok(enclave_decryption)
     }
 
     /// Get current eph_rng_keypair

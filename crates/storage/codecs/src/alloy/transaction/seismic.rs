@@ -65,10 +65,12 @@ impl Compact for TxSeismicElements {
     }
 
     fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
-        let (encryption_pubkey, buf) = EncryptionPublicKey::from_compact(buf, len);
-        let (message_version, buf) = u8::from_compact(buf, len);
-        let alloy_tx = Self { encryption_pubkey, message_version };
-        (alloy_tx, buf)
+        let (encryption_pubkey, buf) = EncryptionPublicKey::from_compact(buf, 33);
+        if len > 33 {
+            let (message_version, buf) = u8::from_compact(buf, core::mem::size_of::<u8>());
+            return (Self { encryption_pubkey, message_version }, buf);
+        }
+        (Self { encryption_pubkey, message_version: 0 }, buf)
     }
 }
 

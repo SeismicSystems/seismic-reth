@@ -2,8 +2,9 @@
 
 use alloc::vec::Vec;
 use alloy_consensus::{
-    transaction::RlpEcdsaTx, SignableTransaction, Signed, Transaction as _, TxEip1559, TxEip2930,
-    TxEip4844, TxEip4844Variant, TxEip7702, TxLegacy, TxSeismic, Typed2718, TypedTransaction,
+    transaction::{RlpEcdsaTx, TxSeismicElements},
+    SignableTransaction, Signed, Transaction as _, TxEip1559, TxEip2930, TxEip4844,
+    TxEip4844Variant, TxEip7702, TxLegacy, TxSeismic, Typed2718, TypedTransaction,
 };
 use alloy_eips::{
     eip2718::{Decodable2718, Eip2718Error, Eip2718Result, Encodable2718},
@@ -805,6 +806,13 @@ impl alloy_consensus::Transaction for Transaction {
             Self::Deposit(tx) => tx.authorization_list(),
         }
     }
+
+    fn seismic_elements(&self) -> Option<&TxSeismicElements> {
+        match self {
+            Self::Seismic(tx) => tx.seismic_elements(),
+            _ => None,
+        }
+    }
 }
 
 impl From<TxEip4844Variant> for Transaction {
@@ -1296,6 +1304,13 @@ impl alloy_consensus::Transaction for TransactionSigned {
 
     fn authorization_list(&self) -> Option<&[SignedAuthorization]> {
         self.deref().authorization_list()
+    }
+
+    fn seismic_elements(&self) -> Option<&TxSeismicElements> {
+        match &self.transaction {
+            Transaction::Seismic(tx) => tx.seismic_elements(),
+            _ => None,
+        }
     }
 }
 

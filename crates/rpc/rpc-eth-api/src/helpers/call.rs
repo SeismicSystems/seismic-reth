@@ -234,6 +234,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
             let tx_type = request.transaction_type;
             let nonce = request.nonce;
             let seismic_elements = request.seismic_elements;
+            debug!(target: "rpc::eth::call", ?tx_type, ?nonce, ?seismic_elements, "Transacting call");
 
             let (res, _env) =
                 self.transact_call_at(request, block_number.unwrap_or_default(), overrides).await?;
@@ -261,10 +262,9 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         }
 
         let seismic_elements = seismic_elements
-            .ok_or(EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
+            .ok_or(EthApiError::InvalidParams("seismic elements are not provided".to_string()))?;
 
-        let nonce =
-            nonce.ok_or(EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
+        let nonce = nonce.ok_or(EthApiError::InvalidParams("nonce is not provided".to_string()))?;
 
         let encrypted_output = self
             .evm_config()
@@ -305,8 +305,10 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                 })
                 .await?;
 
+            debug!(target: "rpc::eth::common_signed_call", ?tx, "Transacted call");
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
             let tx_signed = tx.as_signed();
+            debug!(target: "rpc::eth::common_signed_call", ?tx_signed, "Transacted call");
             self.encrypt_output(
                 Some(tx_signed.ty()),
                 tx_signed.seismic_elements(),
@@ -326,6 +328,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
             let tx = recover_raw_transaction::<PoolPooledTx<Self::Pool>>(&tx)?.map_transaction(
                 <Self::Pool as TransactionPool>::Transaction::pooled_into_consensus,
             );
+            debug!(target: "rpc::eth::call", ?tx, "Recovered transaction");
             self.common_signed_call(tx, block_number).await
         }
     }
