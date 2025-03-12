@@ -1,8 +1,11 @@
 //! Compact implementation for [`AlloyTxSeismic`]
 
 use crate::Compact;
-use alloy_consensus::TxSeismic as AlloyTxSeismic;
-use alloy_primitives::{Bytes, ChainId, FixedBytes, TxKind, U256};
+use alloy_consensus::{
+    transaction::{EncryptionPublicKey, TxSeismicElements},
+    TxSeismic as AlloyTxSeismic,
+};
+use alloy_primitives::{Bytes, ChainId, TxKind, U256};
 
 /// Seismic transaction.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Compact)]
@@ -40,16 +43,35 @@ pub(crate) struct TxSeismic {
     /// in the case of contract creation, as an endowment
     /// to the newly created account; formally Tv.
     value: U256,
-    /// The public key to which we should encrypt the output
-    encryption_pubkey: FixedBytes<33>,
-    /// The version of the message
-    message_version: u8,
+    /// seismic elements
+    seismic_elements: TxSeismicElements,
     /// Input has two uses depending if transaction is Create or Call (if `to` field is None or
     /// Some). pub init: An unlimited size byte array specifying the
     /// EVM-code for the account initialisation procedure CREATE,
     /// data: An unlimited size byte array specifying the
     /// input data of the message call, formally Td.
     input: Bytes,
+}
+
+impl Compact for TxSeismicElements {
+    fn to_compact<B>(&self, buf: &mut B) -> usize
+    where
+        B: bytes::BufMut + AsMut<[u8]>,
+    {
+        let mut len = 0;
+        len += self.encryption_pubkey.to_compact(buf);
+        len += self.message_version.to_compact(buf);
+        len
+    }
+
+    fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
+        let (encryption_pubkey, buf) = EncryptionPublicKey::from_compact(buf, 33);
+        if len > 33 {
+            let (message_version, buf) = u8::from_compact(buf, core::mem::size_of::<u8>());
+            return (Self { encryption_pubkey, message_version }, buf);
+        }
+        (Self { encryption_pubkey, message_version: 0 }, buf)
+    }
 }
 
 impl Compact for AlloyTxSeismic {
@@ -64,8 +86,7 @@ impl Compact for AlloyTxSeismic {
             gas_limit: self.gas_limit,
             to: self.to,
             value: self.value,
-            encryption_pubkey: self.encryption_pubkey.clone(),
-            message_version: self.message_version,
+            seismic_elements: self.seismic_elements,
             input: self.input.clone(),
         };
 
@@ -82,8 +103,7 @@ impl Compact for AlloyTxSeismic {
             gas_limit: tx.gas_limit,
             to: tx.to,
             value: tx.value,
-            encryption_pubkey: tx.encryption_pubkey,
-            message_version: tx.message_version,
+            seismic_elements: tx.seismic_elements,
             input: tx.input,
         };
 

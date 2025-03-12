@@ -135,10 +135,11 @@ pub mod test_utils {
     use std::{fs::File, sync::Arc};
 
     use super::*;
-    use alloy_consensus::{SignableTransaction, TxSeismic, TypedTransaction};
+    use alloy_consensus::{
+        transaction::TxSeismicElements, SignableTransaction, TxSeismic, TypedTransaction,
+    };
     use alloy_dyn_abi::TypedData;
     use alloy_eips::{eip2718::Encodable2718, eip712::TypedDataRequest};
-    use alloy_network::TransactionBuilder;
     use alloy_primitives::{hex_literal, Address, Bytes, FixedBytes, PrimitiveSignature, U256};
     use alloy_rpc_types::{Block, Header, Transaction, TransactionInput, TransactionReceipt};
     use core::str::FromStr;
@@ -177,7 +178,7 @@ pub mod test_utils {
         let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
             .expect("32 bytes, within curve order");
         let pk = get_unsecure_sample_secp256k1_pk(); // TODO use the enclave public key
-        let decrypted_output = ecdh_decrypt(&pk, &sk, ciphertext.to_vec(), nonce).unwrap();
+        let decrypted_output = ecdh_decrypt(&pk, &sk, &ciphertext, nonce).unwrap();
         Bytes::from(decrypted_output)
     }
 
@@ -190,7 +191,7 @@ pub mod test_utils {
         let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
             .expect("32 bytes, within curve order");
         let pk = get_unsecure_sample_secp256k1_pk(); // TODO use the enclave public key
-        let encrypted_output = ecdh_encrypt(&pk, &sk, plaintext.to_vec(), nonce).unwrap();
+        let encrypted_output = ecdh_encrypt(&pk, &sk, &plaintext, nonce).unwrap();
 
         Bytes::from(encrypted_output)
     }
@@ -224,9 +225,12 @@ pub mod test_utils {
             chain_id: Some(chain_id),
             input: TransactionInput { input: Some(Bytes::from(encrypted_input)), data: None },
             transaction_type: Some(TxSeismic::TX_TYPE),
-            encryption_pubkey: Some(alloy_consensus::transaction::EncryptionPublicKey::from(
-                encryption_pubkey.serialize(),
-            )),
+            seismic_elements: Some(TxSeismicElements {
+                encryption_pubkey: alloy_consensus::transaction::EncryptionPublicKey::from(
+                    encryption_pubkey.serialize(),
+                ),
+                message_version: 0,
+            }),
             ..Default::default()
         }
     }
@@ -270,9 +274,9 @@ pub mod test_utils {
         chain_id: u64,
         decrypted_input: Bytes,
     ) -> TypedDataRequest {
-        let tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, decrypted_input)
-            .await
-            .with_message_version(2); //message version makes it a typed data
+        let tx =
+            get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, decrypted_input).await;
+        tx.seismic_elements.unwrap().message_version = 2;
         let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
 
         match signed {
@@ -459,10 +463,12 @@ pub mod test_utils {
                 ),
                 value: U256::ZERO,
                 input: Bytes::copy_from_slice(&ciphertext),
-                encryption_pubkey: FixedBytes::from_slice(
-                    &Self::get_encryption_private_key().public().to_sec1_bytes(),
-                ),
-                message_version: 0,
+                seismic_elements: TxSeismicElements {
+                    encryption_pubkey: FixedBytes::from_slice(
+                        &Self::get_encryption_private_key().public().to_sec1_bytes(),
+                    ),
+                    message_version: 0,
+                },
             }
         }
 

@@ -1,6 +1,6 @@
 //! Compact implementation for transaction types
 
-cond_mod!(eip1559, eip2930, eip4844, eip7702, legacy, seismic, txtype);
+cond_mod!(eip1559, eip2930, eip4844, eip7702, legacy, txtype, seismic);
 
 #[cfg(all(feature = "test-utils", feature = "op"))]
 pub mod optimism;
@@ -21,7 +21,7 @@ mod tests {
             header::Header,
             transaction::{
                 eip1559::TxEip1559, eip2930::TxEip2930, eip4844::TxEip4844, eip7702::TxEip7702,
-                legacy::TxLegacy, seismic::TxSeismic,
+                legacy::TxLegacy,
             },
         },
         test_utils::test_decode,
@@ -32,7 +32,6 @@ mod tests {
     fn test_ensure_backwards_compatibility() {
         assert_eq!(TxEip4844::bitflag_encoded_bytes(), 5);
         assert_eq!(TxLegacy::bitflag_encoded_bytes(), 3);
-        assert_eq!(TxSeismic::bitflag_encoded_bytes(), 4);
         assert_eq!(TxEip1559::bitflag_encoded_bytes(), 4);
         assert_eq!(TxEip2930::bitflag_encoded_bytes(), 3);
         assert_eq!(TxEip7702::bitflag_encoded_bytes(), 4);
