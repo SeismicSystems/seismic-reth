@@ -6,7 +6,7 @@ use crate::{
     helpers::estimate::EstimateCall, FromEthApiError, FromEvmError, FullEthApiTypes,
     IntoEthApiError, RpcBlock, RpcNodeCore,
 };
-use alloy_consensus::{transaction::TxSeismicElements, BlockHeader, Typed2718};
+use alloy_consensus::{transaction::TxSeismicElements, BlockHeader};
 use alloy_eips::{eip1559::calc_next_block_base_fee, eip2930::AccessListResult};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_eth::{
@@ -231,8 +231,6 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         overrides: EvmOverrides,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
-            let tx_type = request.transaction_type;
-            let nonce = request.nonce;
             let seismic_elements = request.seismic_elements;
 
             let (res, _env) =
@@ -242,25 +240,20 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
 
-            self.encrypt_output(tx_type, seismic_elements.as_ref(), nonce, output)
+            if let Some(seismic_elements) = seismic_elements {
+                self.encrypt_output(&seismic_elements, output)
+            } else {
+                Ok(output)
+            }
         }
     }
 
     /// Encrypts the output of a call using the encryption pubkey of the transaction
     fn encrypt_output(
         &self,
-        tx_type: Option<u8>,
-        seismic_elements: Option<&TxSeismicElements>,
-        nonce: Option<u64>,
+        seismic_elements: &TxSeismicElements,
         output: Bytes,
     ) -> Result<Bytes, Self::Error> {
-        if tx_type.map_or(true, |t| t != alloy_consensus::TxSeismic::TX_TYPE) {
-            return Ok(output);
-        }
-
-        let seismic_elements = seismic_elements
-            .ok_or(EthApiError::InvalidParams("seismic elements are not provided".to_string()))?;
-
         let encrypted_output = self
             .evm_config()
             .encrypt(&output, &seismic_elements)
@@ -301,12 +294,12 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
             let tx_signed = tx.as_signed();
-            self.encrypt_output(
-                Some(tx_signed.ty()),
-                tx_signed.seismic_elements(),
-                Some(tx_signed.nonce()),
-                output,
-            )
+
+            if let Some(seismic_elements) = tx_signed.seismic_elements() {
+                self.encrypt_output(seismic_elements, output)
+            } else {
+                Ok(output)
+            }
         }
     }
 
