@@ -3,6 +3,7 @@
 use alloy_consensus::SignableTransaction;
 use alloy_primitives::Address;
 use core::str::FromStr;
+use enr::EnrKey;
 use reth_enclave::EnclaveError;
 use reth_evm::ConfigureEvmEnv;
 use reth_primitives::TransactionSigned;

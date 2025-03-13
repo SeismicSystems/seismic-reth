@@ -23,8 +23,6 @@ pub enum EnclaveError {
     DecryptionError,
     /// Ephemereal keypair generation fails
     EphRngKeypairGenerationError,
-    /// encoding or decoding
-    CodingError(alloy_rlp::Error),
     /// Custom error.
     Custom(&'static str),
 }
