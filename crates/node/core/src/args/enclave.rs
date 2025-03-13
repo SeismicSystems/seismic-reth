@@ -46,7 +46,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tee_args_parser() {
+    fn test_enclave_args_parser() {
         let args = CommandParser::<EnclaveArgs>::parse_from(["reth node"]).args;
 
         let addr = args.enclave_server_addr;

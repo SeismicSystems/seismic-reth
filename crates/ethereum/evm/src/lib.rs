@@ -60,8 +60,11 @@ impl EthEvmConfig {
     }
 
     /// Creates a new Ethereum EVM configuration with the given chain spec.
-    pub fn new_with_enclave_client(chain_spec: Arc<ChainSpec>, tee_client: EnclaveClient) -> Self {
-        Self { chain_spec, enclave_client: tee_client }
+    pub fn new_with_enclave_client(
+        chain_spec: Arc<ChainSpec>,
+        enclave_client: EnclaveClient,
+    ) -> Self {
+        Self { chain_spec, enclave_client }
     }
 
     /// Creates a new Ethereum EVM configuration with the given chain spec and enclave address and
@@ -73,8 +76,9 @@ impl EthEvmConfig {
     ) -> Self {
         debug!(target: "reth::evm", ?enclave_addr, ?enclave_port, "Creating new enclave client");
 
-        let tee_client = EnclaveClient::new_from_addr_port(enclave_addr.to_string(), enclave_port);
-        Self::new_with_enclave_client(chain_spec, tee_client)
+        let enclave_client =
+            EnclaveClient::new_from_addr_port(enclave_addr.to_string(), enclave_port);
+        Self::new_with_enclave_client(chain_spec, enclave_client)
     }
 
     /// Returns the chain spec associated with this configuration.
@@ -135,11 +139,11 @@ impl ConfigureEvmEnv for EthEvmConfig {
     ) -> EVMResultGeneric<(), EnclaveError> {
         debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
 
-        let tee_decryption = self.decrypt(&tx.input, &tx.seismic_elements)?;
+        let enclave_decryption = self.decrypt(&tx.input, &tx.seismic_elements)?;
 
-        let data = Bytes::from(tee_decryption.clone());
+        let data = Bytes::from(enclave_decryption.clone());
 
-        debug!(target: "reth::fill_tx_env", ?data, ?tee_decryption, ?tx.input, "Decrypted input data");
+        debug!(target: "reth::fill_tx_env", ?data, ?enclave_decryption, ?tx.input, "Decrypted input data");
 
         tx_env.caller = sender;
         tx_env.gas_limit = tx.gas_limit;

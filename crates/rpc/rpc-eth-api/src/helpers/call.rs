@@ -823,7 +823,6 @@ pub trait Call:
             max_fee_per_blob_gas,
             authorization_list,
             seismic_elements,
-            sidecar: _,
             ..
         } = request;
 
@@ -849,25 +848,11 @@ pub trait Call:
 
         let input =
             input.try_into_unique_input().map_err(Self::Error::from_eth_err)?.unwrap_or_default();
-
-        let input = if seismic_elements.is_some() && input.len() > 0 {
-            let decrypted_input = self
-                .evm_config()
-                .decrypt(
-                    &input,
-                    &seismic_elements.ok_or(
-                        EthApiError::InvalidParams(
-                            "seismic_elements is required for decrypting seismic transactions"
-                                .to_string(),
-                        )
-                        .into(),
-                    )?,
-                )
-                .map_err(|_| {
-                    EthApiError::InvalidParams("failed to decrypt seismic transaction".to_string())
-                        .into()
-                })?;
-            Bytes::from(decrypted_input)
+        let input = if let Some(elements) = seismic_elements {
+            self.evm_config().decrypt(&input, &elements).map_err(|_| {
+                EthApiError::InvalidParams("failed to decrypt seismic transaction".to_string())
+                    .into()
+            })?
         } else {
             input
         };
@@ -956,6 +941,8 @@ pub trait Call:
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
         cfg.disable_base_fee = true;
 
+        request.nonce = None;
+
         if let Some(block_overrides) = overrides.block {
             apply_block_overrides(*block_overrides, db, &mut block);
         }
@@ -965,12 +952,6 @@ pub trait Call:
 
         let request_gas = request.gas;
         let mut env = self.build_call_evm_env(cfg, block, request)?;
-
-        // set nonce to None so that the correct nonce is chosen by the EVM
-        // seismic moved from request.nonce = None;
-        env.tx.nonce = None;
-
-        debug!(target: "rpc::eth::call", ?env, "Prepared call environment");
 
         if request_gas.is_none() {
             // No gas limit was provided in the request, so we need to cap the transaction gas limit

@@ -37,7 +37,7 @@ pub trait EstimateCall: Call {
         &self,
         mut cfg: CfgEnvWithHandlerCfg,
         block: BlockEnv,
-        request: TransactionRequest,
+        mut request: TransactionRequest,
         state: S,
         state_override: Option<StateOverride>,
     ) -> Result<U256, Self::Error>
@@ -52,6 +52,9 @@ pub trait EstimateCall: Call {
         // See:
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
         cfg.disable_base_fee = true;
+
+        // set nonce to None so that the correct nonce is chosen by the EVM
+        request.nonce = None;
 
         // Keep a copy of gas related request values
         let tx_request_gas_limit = request.gas.map(U256::from);
@@ -74,10 +77,6 @@ pub trait EstimateCall: Call {
         // Configure the evm env
         let mut env = self.build_call_evm_env(cfg, block, request)?;
         let mut db = CacheDB::new(StateProviderDatabase::new(state));
-
-        // set nonce to None so that the correct nonce is chosen by the EVM
-        // seismic moved from request.nonce = None;
-        env.tx.nonce = None;
 
         // Apply any state overrides if specified.
         if let Some(state_override) = state_override {
