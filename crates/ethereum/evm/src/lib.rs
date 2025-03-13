@@ -106,9 +106,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
         seismic_elements: TxSeismicElements,
         encryption_nonce: u64,
     ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
-        let encryption_pubkey =
-            secp256k1::PublicKey::from_slice(seismic_elements.encryption_pubkey.as_slice())
-                .map_err(|_| EVMError::Database(EnclaveError::PublicKeyRecoveryError))?;
+        let encryption_pubkey = seismic_elements.encryption_pubkey;
         let enclave_encryption: Vec<u8> =
             encrypt(&self.enclave_client, encryption_pubkey, data, encryption_nonce)
                 .map_err(|_| EVMError::Database(EnclaveError::EncryptionError))?;
@@ -120,9 +118,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
         seismic_elements: TxSeismicElements,
         encryption_nonce: u64,
     ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
-        let encryption_pubkey =
-            secp256k1::PublicKey::from_slice(seismic_elements.encryption_pubkey.as_slice())
-                .map_err(|_| EVMError::Database(EnclaveError::PublicKeyRecoveryError))?;
+        let encryption_pubkey = seismic_elements.encryption_pubkey;
 
         let enclave_decryption: Vec<u8> =
             decrypt(&self.enclave_client, encryption_pubkey, data, encryption_nonce)

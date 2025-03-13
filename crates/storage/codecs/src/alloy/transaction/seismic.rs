@@ -1,11 +1,9 @@
 //! Compact implementation for [`AlloyTxSeismic`]
 
 use crate::Compact;
-use alloy_consensus::{
-    transaction::{EncryptionPublicKey, TxSeismicElements},
-    TxSeismic as AlloyTxSeismic,
-};
+use alloy_consensus::{transaction::TxSeismicElements, TxSeismic as AlloyTxSeismic};
 use alloy_primitives::{Bytes, ChainId, TxKind, U256};
+use bytes::Buf;
 
 /// Seismic transaction.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Compact)]
@@ -59,18 +57,26 @@ impl Compact for TxSeismicElements {
         B: bytes::BufMut + AsMut<[u8]>,
     {
         let mut len = 0;
-        len += self.encryption_pubkey.to_compact(buf);
-        len += self.message_version.to_compact(buf);
+        len += self.encryption_pubkey.serialize().to_compact(buf);
+        buf.put_u8(self.message_version);
+        len += core::mem::size_of::<u8>();
+        len += self.encryption_nonce.to_compact(buf);
         len
     }
 
-    fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
-        let (encryption_pubkey, buf) = EncryptionPublicKey::from_compact(buf, 33);
-        if len > 33 {
-            let (message_version, buf) = u8::from_compact(buf, core::mem::size_of::<u8>());
-            return (Self { encryption_pubkey, message_version }, buf);
-        }
-        (Self { encryption_pubkey, message_version: 0 }, buf)
+    fn from_compact(mut buf: &[u8], len: usize) -> (Self, &[u8]) {
+        let encryption_pubkey_compressed_bytes =
+            &buf[..seismic_enclave::constants::PUBLIC_KEY_SIZE];
+        let encryption_pubkey =
+            seismic_enclave::PublicKey::from_slice(encryption_pubkey_compressed_bytes).unwrap();
+        buf.advance(seismic_enclave::constants::PUBLIC_KEY_SIZE);
+        let mut len = len - seismic_enclave::constants::PUBLIC_KEY_SIZE;
+
+        let (message_version, buf) = (buf[0], &buf[1..]);
+        len -= 1;
+
+        let (encryption_nonce, buf) = u64::from_compact(buf, len);
+        (Self { encryption_pubkey, encryption_nonce, message_version }, buf)
     }
 }
 

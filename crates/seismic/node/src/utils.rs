@@ -226,9 +226,8 @@ pub mod test_utils {
             input: TransactionInput { input: Some(Bytes::from(encrypted_input)), data: None },
             transaction_type: Some(TxSeismic::TX_TYPE),
             seismic_elements: Some(TxSeismicElements {
-                encryption_pubkey: alloy_consensus::transaction::EncryptionPublicKey::from(
-                    encryption_pubkey.serialize(),
-                ),
+                encryption_pubkey,
+                encryption_nonce: nonce,
                 message_version: 0,
             }),
             ..Default::default()
@@ -405,9 +404,7 @@ pub mod test_utils {
         /// Encrypt plaintext using network public key and client private key
         pub fn get_client_side_encryption() -> Vec<u8> {
             let ecdh_sk = get_unsecure_sample_secp256k1_pk();
-            let signing_key_bytes = Self::get_encryption_private_key().to_bytes();
-            let signing_key_secp256k1 =
-                secp256k1::SecretKey::from_slice(&signing_key_bytes).expect("Invalid secret key");
+            let signing_key_secp256k1 = Self::get_encryption_private_key();
             let shared_secret = SharedSecret::new(&ecdh_sk, &signing_key_secp256k1);
 
             let aes_key = derive_aes_key(&shared_secret).unwrap();
@@ -417,19 +414,19 @@ pub mod test_utils {
         }
 
         /// Get the encryption private key
-        pub fn get_encryption_private_key() -> SigningKey {
+        pub fn get_encryption_private_key() -> SecretKey {
             let private_key_bytes = hex_literal::hex!(
                 "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
             );
-            SigningKey::from_bytes(&private_key_bytes.into()).expect("Invalid private key")
+            SecretKey::from_slice(&private_key_bytes).expect("Invalid private key")
         }
 
         /// Get a wrong private key
-        pub fn get_wrong_private_key() -> SigningKey {
+        pub fn get_wrong_private_key() -> SecretKey {
             let private_key_bytes = hex_literal::hex!(
                 "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1e"
             );
-            SigningKey::from_bytes(&private_key_bytes.into()).expect("Invalid private key")
+            SecretKey::from_slice(&private_key_bytes).expect("Invalid private key")
         }
 
         /// Get the signing private key
@@ -464,9 +461,8 @@ pub mod test_utils {
                 value: U256::ZERO,
                 input: Bytes::copy_from_slice(&ciphertext),
                 seismic_elements: TxSeismicElements {
-                    encryption_pubkey: FixedBytes::from_slice(
-                        &Self::get_encryption_private_key().public().to_sec1_bytes(),
-                    ),
+                    encryption_pubkey: Self::get_encryption_private_key().public(),
+                    encryption_nonce: 1,
                     message_version: 0,
                 },
             }

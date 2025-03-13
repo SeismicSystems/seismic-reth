@@ -1,7 +1,7 @@
 //! The motivation of this file is to include unit tests for seismic features that are currently
 // scattered across the codebase
 use alloy_consensus::{SignableTransaction, TxSeismic};
-use alloy_primitives::{keccak256, Address, FixedBytes, PrimitiveSignature};
+use alloy_primitives::{keccak256, Address, PrimitiveSignature};
 use arbitrary::Arbitrary;
 use core::str::FromStr;
 use enr::EnrKey;
@@ -41,7 +41,7 @@ fn test_fill_tx_env(unit_test_context: &UnitTestContext) {
 fn test_fill_tx_env_decryption_error(unit_test_context: &UnitTestContext) {
     let mut tx_seismic = UnitTestContext::get_seismic_tx();
     tx_seismic.seismic_elements.encryption_pubkey =
-        FixedBytes::from_slice(&UnitTestContext::get_wrong_private_key().public().to_sec1_bytes());
+        UnitTestContext::get_wrong_private_key().public();
 
     let signature = UnitTestContext::sign_seismic_tx(&tx_seismic);
     let tx_signed: TransactionSigned =
