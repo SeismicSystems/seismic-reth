@@ -261,11 +261,9 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         let seismic_elements = seismic_elements
             .ok_or(EthApiError::InvalidParams("seismic elements are not provided".to_string()))?;
 
-        let nonce = nonce.ok_or(EthApiError::InvalidParams("nonce is not provided".to_string()))?;
-
         let encrypted_output = self
             .evm_config()
-            .encrypt(output.to_vec(), seismic_elements.clone(), nonce)
+            .encrypt(&output, &seismic_elements)
             .map(|encrypted_output| Bytes::from(encrypted_output))
             .map_err(|_| EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
 
@@ -863,17 +861,11 @@ pub trait Call:
             let decrypted_input = self
                 .evm_config()
                 .decrypt(
-                    input.to_vec(),
-                    seismic_elements.ok_or(
+                    &input,
+                    &seismic_elements.ok_or(
                         EthApiError::InvalidParams(
                             "seismic_elements is required for decrypting seismic transactions"
                                 .to_string(),
-                        )
-                        .into(),
-                    )?,
-                    nonce.ok_or(
-                        EthApiError::InvalidParams(
-                            "nonce is required for decrypting seismic transactions".to_string(),
                         )
                         .into(),
                     )?,

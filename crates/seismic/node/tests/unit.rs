@@ -1,13 +1,11 @@
 //! The motivation of this file is to include unit tests for seismic features that are currently
 // scattered across the codebase
-use alloy_consensus::{SignableTransaction, TxSeismic};
-use alloy_primitives::{keccak256, Address, PrimitiveSignature};
-use arbitrary::Arbitrary;
+use alloy_consensus::SignableTransaction;
+use alloy_primitives::Address;
 use core::str::FromStr;
-use enr::EnrKey;
 use reth_enclave::EnclaveError;
 use reth_evm::ConfigureEvmEnv;
-use reth_primitives::{Transaction, TransactionSigned};
+use reth_primitives::TransactionSigned;
 use reth_revm::primitives::{EVMError, TxEnv};
 use reth_rpc_eth_types::utils::recover_raw_transaction;
 use seismic_node::utils::test_utils::UnitTestContext;
