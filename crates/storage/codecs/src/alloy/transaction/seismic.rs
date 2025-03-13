@@ -1,11 +1,9 @@
 //! Compact implementation for [`AlloyTxSeismic`]
 
 use crate::Compact;
-use alloy_consensus::{
-    transaction::{EncryptionPublicKey, TxSeismicElements},
-    TxSeismic as AlloyTxSeismic,
-};
+use alloy_consensus::{transaction::TxSeismicElements, TxSeismic as AlloyTxSeismic};
 use alloy_primitives::{Bytes, ChainId, TxKind, U256};
+use bytes::{Buf, BytesMut};
 
 /// Seismic transaction.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Compact)]
@@ -59,18 +57,32 @@ impl Compact for TxSeismicElements {
         B: bytes::BufMut + AsMut<[u8]>,
     {
         let mut len = 0;
-        len += self.encryption_pubkey.to_compact(buf);
-        len += self.message_version.to_compact(buf);
+        len += self.encryption_pubkey.serialize().to_compact(buf);
+
+        buf.put_u8(self.message_version);
+        len += core::mem::size_of::<u8>();
+
+        let mut cache = BytesMut::new();
+        let nonce_len = self.encryption_nonce.to_compact(&mut cache);
+        buf.put_u8(nonce_len as u8);
+        buf.put_slice(&cache);
+        len += nonce_len + 1;
+
         len
     }
 
-    fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
-        let (encryption_pubkey, buf) = EncryptionPublicKey::from_compact(buf, 33);
-        if len > 33 {
-            let (message_version, buf) = u8::from_compact(buf, core::mem::size_of::<u8>());
-            return (Self { encryption_pubkey, message_version }, buf);
-        }
-        (Self { encryption_pubkey, message_version: 0 }, buf)
+    fn from_compact(mut buf: &[u8], _len: usize) -> (Self, &[u8]) {
+        let encryption_pubkey_compressed_bytes =
+            &buf[..seismic_enclave::constants::PUBLIC_KEY_SIZE];
+        let encryption_pubkey =
+            seismic_enclave::PublicKey::from_slice(encryption_pubkey_compressed_bytes).unwrap();
+        buf.advance(seismic_enclave::constants::PUBLIC_KEY_SIZE);
+
+        let (message_version, buf) = (buf[0], &buf[1..]);
+
+        let (nonce_len, buf) = (buf[0], &buf[1..]);
+        let (encryption_nonce, buf) = u64::from_compact(buf, nonce_len as usize);
+        (Self { encryption_pubkey, encryption_nonce, message_version }, buf)
     }
 }
 
@@ -108,5 +120,72 @@ impl Compact for AlloyTxSeismic {
         };
 
         (alloy_tx, buf)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_primitives::{hex, Bytes, TxKind};
+    use bytes::BytesMut;
+    use seismic_enclave::PublicKey;
+
+    #[test]
+    fn test_seismic_tx_compact_roundtrip() {
+        // Create a test transaction based on the example in file_context_0
+        let tx = AlloyTxSeismic {
+            chain_id: 1166721750861005481,
+            nonce: 13985005159674441909,
+            gas_price: 296133358425745351516777806240018869443,
+            gas_limit: 6091425913586946366,
+            to: TxKind::Create,
+            value: U256::from_str_radix(
+                "30997721070913355446596643088712595347117842472993214294164452566768407578853",
+                10,
+            )
+            .unwrap(),
+            seismic_elements: TxSeismicElements {
+                encryption_pubkey: PublicKey::from_slice(
+                    &hex::decode(
+                        "02d211b6b0a191b9469bb3674e9c609f453d3801c3e3fd7e0bb00c6cc1e1d941df",
+                    )
+                    .unwrap(),
+                )
+                .unwrap(),
+                encryption_nonce: 11856476099097235301,
+                message_version: 85,
+            },
+            input: Bytes::from_static(&[0x24]),
+        };
+
+        // Encode to compact format
+        let mut buf = BytesMut::new();
+        let encoded_size = tx.to_compact(&mut buf);
+
+        // Decode from compact format
+        let (decoded_tx, _) = AlloyTxSeismic::from_compact(&buf, encoded_size);
+
+        // Verify the roundtrip
+        assert_eq!(tx.chain_id, decoded_tx.chain_id);
+        assert_eq!(tx.nonce, decoded_tx.nonce);
+        assert_eq!(tx.gas_price, decoded_tx.gas_price);
+        assert_eq!(tx.gas_limit, decoded_tx.gas_limit);
+        assert_eq!(tx.to, decoded_tx.to);
+        assert_eq!(tx.value, decoded_tx.value);
+        assert_eq!(tx.input, decoded_tx.input);
+
+        // Check seismic elements
+        assert_eq!(
+            tx.seismic_elements.encryption_pubkey.serialize(),
+            decoded_tx.seismic_elements.encryption_pubkey.serialize()
+        );
+        assert_eq!(
+            tx.seismic_elements.encryption_nonce,
+            decoded_tx.seismic_elements.encryption_nonce
+        );
+        assert_eq!(
+            tx.seismic_elements.message_version,
+            decoded_tx.seismic_elements.message_version
+        );
     }
 }

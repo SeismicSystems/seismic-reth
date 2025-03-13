@@ -11,6 +11,9 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+# enclave
+seismic-enclave.workspace = true
+
 # reth
 reth-codecs-derive = { path = "./derive", default-features = false }
 

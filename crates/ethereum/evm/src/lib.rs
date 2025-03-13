@@ -23,9 +23,7 @@ use alloc::{sync::Arc, vec::Vec};
 use alloy_consensus::{transaction::TxSeismicElements, Header, TxSeismic};
 use alloy_primitives::{Address, Bytes, TxHash, TxKind, U256};
 use reth_chainspec::{ChainSpec, Head};
-use reth_enclave::{
-    decrypt, encrypt, get_eph_rng_keypair, EnclaveClient, EnclaveError, SchnorrkelKeypair,
-};
+use reth_enclave::{EnclaveClient, EnclaveError, SchnorrkelKeypair, SyncEnclaveApiClient};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};
 use reth_primitives::{transaction::FillTxEnv, Transaction, TransactionSigned};
 use reth_tracing::tracing::debug;
@@ -62,8 +60,11 @@ impl EthEvmConfig {
     }
 
     /// Creates a new Ethereum EVM configuration with the given chain spec.
-    pub fn new_with_enclave_client(chain_spec: Arc<ChainSpec>, tee_client: EnclaveClient) -> Self {
-        Self { chain_spec, enclave_client: tee_client }
+    pub fn new_with_enclave_client(
+        chain_spec: Arc<ChainSpec>,
+        enclave_client: EnclaveClient,
+    ) -> Self {
+        Self { chain_spec, enclave_client }
     }
 
     /// Creates a new Ethereum EVM configuration with the given chain spec and enclave address and
@@ -75,8 +76,9 @@ impl EthEvmConfig {
     ) -> Self {
         debug!(target: "reth::evm", ?enclave_addr, ?enclave_port, "Creating new enclave client");
 
-        let tee_client = EnclaveClient::new_from_addr_port(enclave_addr.to_string(), enclave_port);
-        Self::new_with_enclave_client(chain_spec, tee_client)
+        let enclave_client =
+            EnclaveClient::new_from_addr_port(enclave_addr.to_string(), enclave_port);
+        Self::new_with_enclave_client(chain_spec, enclave_client)
     }
 
     /// Returns the chain spec associated with this configuration.
@@ -102,38 +104,29 @@ impl ConfigureEvmEnv for EthEvmConfig {
 
     fn encrypt(
         &self,
-        data: Vec<u8>,
-        seismic_elements: TxSeismicElements,
-        encryption_nonce: u64,
-    ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
-        let encryption_pubkey =
-            secp256k1::PublicKey::from_slice(seismic_elements.encryption_pubkey.as_slice())
-                .map_err(|_| EVMError::Database(EnclaveError::PublicKeyRecoveryError))?;
-        let enclave_encryption: Vec<u8> =
-            encrypt(&self.enclave_client, encryption_pubkey, data, encryption_nonce)
-                .map_err(|_| EVMError::Database(EnclaveError::EncryptionError))?;
-        Ok(enclave_encryption)
+        data: &Bytes,
+        seismic_elements: &TxSeismicElements,
+    ) -> EVMResultGeneric<Bytes, EnclaveError> {
+        Ok(seismic_elements
+            .server_encrypt(&self.enclave_client, &data)
+            .map_err(|_| EVMError::Database(EnclaveError::EncryptionError))?)
     }
     fn decrypt(
         &self,
-        data: Vec<u8>,
-        seismic_elements: TxSeismicElements,
-        encryption_nonce: u64,
-    ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
-        let encryption_pubkey =
-            secp256k1::PublicKey::from_slice(seismic_elements.encryption_pubkey.as_slice())
-                .map_err(|_| EVMError::Database(EnclaveError::PublicKeyRecoveryError))?;
-
-        let enclave_decryption: Vec<u8> =
-            decrypt(&self.enclave_client, encryption_pubkey, data, encryption_nonce)
-                .map_err(|_| EVMError::Database(EnclaveError::DecryptionError))?;
-        Ok(enclave_decryption)
+        data: &Bytes,
+        seismic_elements: &TxSeismicElements,
+    ) -> EVMResultGeneric<Bytes, EnclaveError> {
+        Ok(seismic_elements
+            .server_decrypt(&self.enclave_client, &data)
+            .map_err(|_| EVMError::Database(EnclaveError::DecryptionError))?)
     }
 
     /// Get current eph_rng_keypair
     fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, EnclaveError> {
-        get_eph_rng_keypair(&self.enclave_client)
-            .map_err(|_| EVMError::Database(EnclaveError::EphRngKeypairGenerationError))
+        Ok(self
+            .enclave_client
+            .get_eph_rng_keypair()
+            .map_err(|_| EVMError::Database(EnclaveError::EphRngKeypairGenerationError))?)
     }
 
     /// seismic feature decrypt the transaction
@@ -146,12 +139,11 @@ impl ConfigureEvmEnv for EthEvmConfig {
     ) -> EVMResultGeneric<(), EnclaveError> {
         debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
 
-        let tee_decryption =
-            self.decrypt(tx.input.to_vec(), tx.seismic_elements.clone(), tx.nonce)?;
+        let enclave_decryption = self.decrypt(&tx.input, &tx.seismic_elements)?;
 
-        let data = Bytes::from(tee_decryption.clone());
+        let data = Bytes::from(enclave_decryption.clone());
 
-        debug!(target: "reth::fill_tx_env", ?data, ?tee_decryption, ?tx.input, "Decrypted input data");
+        debug!(target: "reth::fill_tx_env", ?data, ?enclave_decryption, ?tx.input, "Decrypted input data");
 
         tx_env.caller = sender;
         tx_env.gas_limit = tx.gas_limit;

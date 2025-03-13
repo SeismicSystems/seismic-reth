@@ -6,7 +6,7 @@ use crate::{
     helpers::estimate::EstimateCall, FromEthApiError, FromEvmError, FullEthApiTypes,
     IntoEthApiError, RpcBlock, RpcNodeCore,
 };
-use alloy_consensus::{transaction::TxSeismicElements, BlockHeader, Typed2718};
+use alloy_consensus::{transaction::TxSeismicElements, BlockHeader};
 use alloy_eips::{eip1559::calc_next_block_base_fee, eip2930::AccessListResult};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_eth::{
@@ -231,8 +231,6 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         overrides: EvmOverrides,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
-            let tx_type = request.transaction_type;
-            let nonce = request.nonce;
             let seismic_elements = request.seismic_elements;
 
             let (res, _env) =
@@ -242,30 +240,23 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
 
-            self.encrypt_output(tx_type, seismic_elements.as_ref(), nonce, output)
+            if let Some(seismic_elements) = seismic_elements {
+                self.encrypt_output(&seismic_elements, output)
+            } else {
+                Ok(output)
+            }
         }
     }
 
     /// Encrypts the output of a call using the encryption pubkey of the transaction
     fn encrypt_output(
         &self,
-        tx_type: Option<u8>,
-        seismic_elements: Option<&TxSeismicElements>,
-        nonce: Option<u64>,
+        seismic_elements: &TxSeismicElements,
         output: Bytes,
     ) -> Result<Bytes, Self::Error> {
-        if tx_type.map_or(true, |t| t != alloy_consensus::TxSeismic::TX_TYPE) {
-            return Ok(output);
-        }
-
-        let seismic_elements = seismic_elements
-            .ok_or(EthApiError::InvalidParams("seismic elements are not provided".to_string()))?;
-
-        let nonce = nonce.ok_or(EthApiError::InvalidParams("nonce is not provided".to_string()))?;
-
         let encrypted_output = self
             .evm_config()
-            .encrypt(output.to_vec(), seismic_elements.clone(), nonce)
+            .encrypt(&output, &seismic_elements)
             .map(|encrypted_output| Bytes::from(encrypted_output))
             .map_err(|_| EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
 
@@ -303,12 +294,12 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
             let tx_signed = tx.as_signed();
-            self.encrypt_output(
-                Some(tx_signed.ty()),
-                tx_signed.seismic_elements(),
-                Some(tx_signed.nonce()),
-                output,
-            )
+
+            if let Some(seismic_elements) = tx_signed.seismic_elements() {
+                self.encrypt_output(seismic_elements, output)
+            } else {
+                Ok(output)
+            }
         }
     }
 
@@ -832,7 +823,6 @@ pub trait Call:
             max_fee_per_blob_gas,
             authorization_list,
             seismic_elements,
-            sidecar: _,
             ..
         } = request;
 
@@ -858,31 +848,11 @@ pub trait Call:
 
         let input =
             input.try_into_unique_input().map_err(Self::Error::from_eth_err)?.unwrap_or_default();
-
-        let input = if seismic_elements.is_some() && input.len() > 0 {
-            let decrypted_input = self
-                .evm_config()
-                .decrypt(
-                    input.to_vec(),
-                    seismic_elements.ok_or(
-                        EthApiError::InvalidParams(
-                            "seismic_elements is required for decrypting seismic transactions"
-                                .to_string(),
-                        )
-                        .into(),
-                    )?,
-                    nonce.ok_or(
-                        EthApiError::InvalidParams(
-                            "nonce is required for decrypting seismic transactions".to_string(),
-                        )
-                        .into(),
-                    )?,
-                )
-                .map_err(|_| {
-                    EthApiError::InvalidParams("failed to decrypt seismic transaction".to_string())
-                        .into()
-                })?;
-            Bytes::from(decrypted_input)
+        let input = if let Some(elements) = seismic_elements {
+            self.evm_config().decrypt(&input, &elements).map_err(|_| {
+                EthApiError::InvalidParams("failed to decrypt seismic transaction".to_string())
+                    .into()
+            })?
         } else {
             input
         };
@@ -971,6 +941,8 @@ pub trait Call:
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
         cfg.disable_base_fee = true;
 
+        request.nonce = None;
+
         if let Some(block_overrides) = overrides.block {
             apply_block_overrides(*block_overrides, db, &mut block);
         }
@@ -980,12 +952,6 @@ pub trait Call:
 
         let request_gas = request.gas;
         let mut env = self.build_call_evm_env(cfg, block, request)?;
-
-        // set nonce to None so that the correct nonce is chosen by the EVM
-        // seismic moved from request.nonce = None;
-        env.tx.nonce = None;
-
-        debug!(target: "rpc::eth::call", ?env, "Prepared call environment");
 
         if request_gas.is_none() {
             // No gas limit was provided in the request, so we need to cap the transaction gas limit

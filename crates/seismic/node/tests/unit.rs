@@ -1,13 +1,12 @@
 //! The motivation of this file is to include unit tests for seismic features that are currently
 // scattered across the codebase
-use alloy_consensus::{SignableTransaction, TxSeismic};
-use alloy_primitives::{keccak256, Address, FixedBytes, PrimitiveSignature};
-use arbitrary::Arbitrary;
+use alloy_consensus::SignableTransaction;
+use alloy_primitives::Address;
 use core::str::FromStr;
 use enr::EnrKey;
 use reth_enclave::EnclaveError;
 use reth_evm::ConfigureEvmEnv;
-use reth_primitives::{Transaction, TransactionSigned};
+use reth_primitives::TransactionSigned;
 use reth_revm::primitives::{EVMError, TxEnv};
 use reth_rpc_eth_types::utils::recover_raw_transaction;
 use seismic_node::utils::test_utils::UnitTestContext;
@@ -18,7 +17,6 @@ async fn test_seismic_transactions() {
     test_fill_tx_env(&unit_test_context);
     test_fill_tx_env_decryption_error(&unit_test_context);
     test_encoding_decoding_signed_seismic_tx();
-    test_fill_tx_env_seismic_public_key_recovery_error(&unit_test_context);
 }
 
 // This route is used to test the encoding and decoding of the signed seismic tx
@@ -41,7 +39,7 @@ fn test_fill_tx_env(unit_test_context: &UnitTestContext) {
 fn test_fill_tx_env_decryption_error(unit_test_context: &UnitTestContext) {
     let mut tx_seismic = UnitTestContext::get_seismic_tx();
     tx_seismic.seismic_elements.encryption_pubkey =
-        FixedBytes::from_slice(&UnitTestContext::get_wrong_private_key().public().to_sec1_bytes());
+        UnitTestContext::get_wrong_private_key().public();
 
     let signature = UnitTestContext::sign_seismic_tx(&tx_seismic);
     let tx_signed: TransactionSigned =
@@ -50,21 +48,5 @@ fn test_fill_tx_env_decryption_error(unit_test_context: &UnitTestContext) {
     let mut tx_env = TxEnv::default();
     let sender = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
     let result = unit_test_context.evm_config.fill_tx_env(&mut tx_env, &tx_signed, sender);
-    assert!(matches!(result, Err(EVMError::Database(EnclaveError::DecryptionError))))
-}
-
-fn test_fill_tx_env_seismic_public_key_recovery_error(unit_test_context: &UnitTestContext) {
-    let mut unstructured = arbitrary::Unstructured::new(&[0u8; 32]);
-    let tx = Transaction::Seismic(TxSeismic::arbitrary(&mut unstructured).unwrap());
-    let signature = PrimitiveSignature::arbitrary(&mut unstructured).unwrap();
-    let hash = &mut Vec::new();
-    tx.eip2718_encode(&signature, hash);
-    let hash = keccak256(hash);
-    let tx_signed = TransactionSigned::new(tx, signature, hash);
-    let sender = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
-    let mut tx_env = TxEnv::default();
-
-    let result = unit_test_context.evm_config.fill_tx_env(&mut tx_env, &tx_signed, sender);
-
-    assert!(matches!(result, Err(EVMError::Database(EnclaveError::PublicKeyRecoveryError))));
+    assert!(matches!(result, Err(EVMError::Database(EnclaveError::DecryptionError))));
 }

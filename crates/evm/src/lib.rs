@@ -149,20 +149,18 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
     /// seismic feature encrypt the transaction
     fn encrypt(
         &self,
-        _data: Vec<u8>,
-        _seismic_elements: TxSeismicElements,
-        _encryption_nonce: u64,
-    ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
+        _data: &Bytes,
+        _seismic_elements: &TxSeismicElements,
+    ) -> EVMResultGeneric<Bytes, EnclaveError> {
         Err(EVMError::Database(EnclaveError::EncryptionError))
     }
 
     /// seismic feature decrypt the transaction
     fn decrypt(
         &self,
-        _data: Vec<u8>,
-        _seismic_elements: TxSeismicElements,
-        _encryption_nonce: u64,
-    ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
+        _data: &Bytes,
+        _seismic_elements: &TxSeismicElements,
+    ) -> EVMResultGeneric<Bytes, EnclaveError> {
         Err(EVMError::Database(EnclaveError::DecryptionError))
     }
 
