@@ -32,8 +32,6 @@ pub enum EnclaveError {
     EncryptionError,
     /// enclave decryption fails
     DecryptionError,
-    /// recover public key fails
-    PublicKeyRecoveryError,
     /// Ephemereal keypair generation fails
     EphRngKeypairGenerationError,
     /// encoding or decoding
