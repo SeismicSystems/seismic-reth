@@ -2,7 +2,7 @@
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 
-use alloy_consensus::Header;
+use alloy_consensus::{transaction::TxSeismicElements, Header};
 use alloy_genesis::Genesis;
 use alloy_primitives::{address, Address, Bytes, U256};
 use reth::{
@@ -25,6 +25,7 @@ use reth::{
     transaction_pool::{PoolTransaction, TransactionPool},
 };
 use reth_chainspec::{Chain, ChainSpec};
+use reth_enclave::{EnclaveError, SchnorrkelKeypair};
 use reth_evm_ethereum::EthEvmConfig;
 use reth_node_api::{
     ConfigureEvm, ConfigureEvmEnv, FullNodeTypes, NextBlockEnvAttributes, NodeTypes,
@@ -89,6 +90,29 @@ impl ConfigureEvmEnv for MyEvmConfig {
     type Transaction = TransactionSigned;
 
     type Error = Infallible;
+
+    /// seismic feature encrypt the transaction
+    fn encrypt(
+        &self,
+        _data: &Bytes,
+        _seismic_elements: &TxSeismicElements,
+    ) -> EVMResultGeneric<Bytes, EnclaveError> {
+        unimplemented!()
+    }
+
+    /// seismic feature decrypt the transaction
+    fn decrypt(
+        &self,
+        _data: &Bytes,
+        _seismic_elements: &TxSeismicElements,
+    ) -> EVMResultGeneric<Bytes, EnclaveError> {
+        unimplemented!()
+    }
+
+    /// Get current eph_rng_keypair
+    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, EnclaveError> {
+        unimplemented!()
+    }
 
     fn fill_tx_env(
         &self,

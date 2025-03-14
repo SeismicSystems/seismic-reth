@@ -15,14 +15,14 @@ pub use seismic_enclave::{
 use tracing::error;
 
 /// Custom error type for reth error handling.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Display)]
+#[derive(Clone, Debug, Eq, PartialEq, Display)]
 pub enum EnclaveError {
     /// enclave encryption fails
     EncryptionError,
     /// enclave decryption fails
     DecryptionError,
     /// Ephemereal keypair generation fails
-    EphRngKeypairGenerationError,
+    EphRngKeypairGenerationError(String),
     /// Custom error.
     Custom(&'static str),
 }
