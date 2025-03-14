@@ -2,7 +2,7 @@
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 
-use alloy_consensus::Header;
+use alloy_consensus::{transaction::TxSeismicElements, Header};
 use alloy_genesis::Genesis;
 use alloy_primitives::{address, Address, Bytes, U256};
 use reth::{
@@ -25,6 +25,7 @@ use reth::{
     transaction_pool::{PoolTransaction, TransactionPool},
 };
 use reth_chainspec::{Chain, ChainSpec};
+use reth_enclave::{EnclaveError, SchnorrkelKeypair};
 use reth_evm_ethereum::EthEvmConfig;
 use reth_node_api::{
     ConfigureEvm, ConfigureEvmEnv, FullNodeTypes, NextBlockEnvAttributes, NodeTypes,
