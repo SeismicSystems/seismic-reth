@@ -151,23 +151,17 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
         &self,
         _data: &Bytes,
         _seismic_elements: &TxSeismicElements,
-    ) -> EVMResultGeneric<Bytes, EnclaveError> {
-        Err(EVMError::Database(EnclaveError::EncryptionError))
-    }
+    ) -> EVMResultGeneric<Bytes, EnclaveError>;
 
     /// seismic feature decrypt the transaction
     fn decrypt(
         &self,
         _data: &Bytes,
         _seismic_elements: &TxSeismicElements,
-    ) -> EVMResultGeneric<Bytes, EnclaveError> {
-        Err(EVMError::Database(EnclaveError::DecryptionError))
-    }
+    ) -> EVMResultGeneric<Bytes, EnclaveError>;
 
     /// Get current eph_rng_keypair
-    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, EnclaveError> {
-        Err(EVMError::Database(EnclaveError::EphRngKeypairGenerationError))
-    }
+    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, EnclaveError>;
 
     /// seismic feature decrypt the transaction
     fn fill_seismic_tx_env(

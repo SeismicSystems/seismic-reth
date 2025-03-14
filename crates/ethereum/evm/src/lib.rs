@@ -126,7 +126,10 @@ impl ConfigureEvmEnv for EthEvmConfig {
         Ok(self
             .enclave_client
             .get_eph_rng_keypair()
-            .map_err(|_| EVMError::Database(EnclaveError::EphRngKeypairGenerationError))?)
+            .map_err(|e| {
+                reth_tracing::tracing::error!(target: "reth::evm", ?e, "Error getting eph_rng_keypair");
+                EVMError::Database(EnclaveError::EphRngKeypairGenerationError)
+            })?)
     }
 
     /// seismic feature decrypt the transaction
