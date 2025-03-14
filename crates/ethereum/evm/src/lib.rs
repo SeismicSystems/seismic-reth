@@ -123,10 +123,9 @@ impl ConfigureEvmEnv for EthEvmConfig {
 
     /// Get current eph_rng_keypair
     fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, EnclaveError> {
-        Ok(self
-            .enclave_client
-            .get_eph_rng_keypair()
-            .map_err(|e| EVMError::Database(EnclaveError::EphRngKeypairGenerationError(e.to_string())))?)
+        Ok(self.enclave_client.get_eph_rng_keypair().map_err(|e| {
+            EVMError::Database(EnclaveError::EphRngKeypairGenerationError(e.to_string()))
+        })?)
     }
 
     /// seismic feature decrypt the transaction
