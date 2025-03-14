@@ -15,7 +15,7 @@ pub use seismic_enclave::{
 use tracing::error;
 
 /// Custom error type for reth error handling.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Display)]
+#[derive(Debug, Display)]
 pub enum EnclaveError {
     /// enclave encryption fails
     EncryptionError,
