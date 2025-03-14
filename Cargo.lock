@@ -7554,6 +7554,7 @@ dependencies = [
  "futures",
  "hkdf",
  "hyper 0.14.32",
+ "jsonrpsee-core",
  "once_cell",
  "reqwest",
  "routerify",

@@ -127,8 +127,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
             .enclave_client
             .get_eph_rng_keypair()
             .map_err(|e| {
-                reth_tracing::tracing::error!(target: "reth::evm", ?e, "Error getting eph_rng_keypair");
-                EVMError::Database(EnclaveError::EphRngKeypairGenerationError)
+                EVMError::Database(EnclaveError::EphRngKeypairGenerationError(e))
             })?)
     }
 

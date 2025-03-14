@@ -22,7 +22,7 @@ pub enum EnclaveError {
     /// enclave decryption fails
     DecryptionError,
     /// Ephemereal keypair generation fails
-    EphRngKeypairGenerationError,
+    EphRngKeypairGenerationError(jsonrpsee_core::client::error::Error),
     /// Custom error.
     Custom(&'static str),
 }
