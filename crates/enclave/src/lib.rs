@@ -15,14 +15,14 @@ pub use seismic_enclave::{
 use tracing::error;
 
 /// Custom error type for reth error handling.
-#[derive(Debug, Display)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Display)]
 pub enum EnclaveError {
     /// enclave encryption fails
     EncryptionError,
     /// enclave decryption fails
     DecryptionError,
     /// Ephemereal keypair generation fails
-    EphRngKeypairGenerationError(jsonrpsee_core::client::error::Error),
+    EphRngKeypairGenerationError(String),
     /// Custom error.
     Custom(&'static str),
 }
