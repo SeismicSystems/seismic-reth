@@ -90,6 +90,29 @@ impl ConfigureEvmEnv for MyEvmConfig {
 
     type Error = Infallible;
 
+    /// seismic feature encrypt the transaction
+    fn encrypt(
+        &self,
+        _data: &Bytes,
+        _seismic_elements: &TxSeismicElements,
+    ) -> EVMResultGeneric<Bytes, EnclaveError> {
+        unimplemented!()
+    }
+
+    /// seismic feature decrypt the transaction
+    fn decrypt(
+        &self,
+        _data: &Bytes,
+        _seismic_elements: &TxSeismicElements,
+    ) -> EVMResultGeneric<Bytes, EnclaveError> {
+        unimplemented!()
+    }
+
+    /// Get current eph_rng_keypair
+    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, EnclaveError> {
+        unimplemented!()
+    }
+
     fn fill_tx_env(
         &self,
         tx_env: &mut TxEnv,
