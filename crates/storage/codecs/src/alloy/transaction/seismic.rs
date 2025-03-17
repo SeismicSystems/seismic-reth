@@ -152,7 +152,7 @@ mod tests {
                     .unwrap(),
                 )
                 .unwrap(),
-                encryption_nonce: 11856476099097235301,
+                encryption_nonce: U96::from_str_radix("11856476099097235301", 10).unwrap(),
                 message_version: 85,
             },
             input: Bytes::from_static(&[0x24]),
