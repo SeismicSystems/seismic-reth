@@ -2,7 +2,7 @@
 
 use crate::Compact;
 use alloy_consensus::{transaction::TxSeismicElements, TxSeismic as AlloyTxSeismic};
-use alloy_primitives::{Bytes, ChainId, TxKind, U256};
+use alloy_primitives::{aliases::U96, Bytes, ChainId, TxKind, U256};
 use bytes::{Buf, BytesMut};
 
 /// Seismic transaction.
@@ -81,7 +81,7 @@ impl Compact for TxSeismicElements {
         let (message_version, buf) = (buf[0], &buf[1..]);
 
         let (nonce_len, buf) = (buf[0], &buf[1..]);
-        let (encryption_nonce, buf) = u64::from_compact(buf, nonce_len as usize);
+        let (encryption_nonce, buf) = U96::from_compact(buf, nonce_len as usize);
         (Self { encryption_pubkey, encryption_nonce, message_version }, buf)
     }
 }

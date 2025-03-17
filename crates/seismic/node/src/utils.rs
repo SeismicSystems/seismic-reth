@@ -140,7 +140,9 @@ pub mod test_utils {
     };
     use alloy_dyn_abi::TypedData;
     use alloy_eips::{eip2718::Encodable2718, eip712::TypedDataRequest};
-    use alloy_primitives::{hex_literal, Address, Bytes, FixedBytes, PrimitiveSignature, U256};
+    use alloy_primitives::{
+        aliases::U96, hex_literal, Address, Bytes, FixedBytes, PrimitiveSignature, U256,
+    };
     use alloy_rpc_types::{Block, Header, Transaction, TransactionInput, TransactionReceipt};
     use core::str::FromStr;
     use enr::EnrKey;
@@ -227,7 +229,7 @@ pub mod test_utils {
             transaction_type: Some(TxSeismic::TX_TYPE),
             seismic_elements: Some(TxSeismicElements {
                 encryption_pubkey,
-                encryption_nonce: nonce,
+                encryption_nonce: U96::from(nonce),
                 message_version: 0,
             }),
             ..Default::default()
@@ -462,7 +464,7 @@ pub mod test_utils {
                 input: Bytes::copy_from_slice(&ciphertext),
                 seismic_elements: TxSeismicElements {
                     encryption_pubkey: Self::get_encryption_private_key().public(),
-                    encryption_nonce: 1,
+                    encryption_nonce: U96::from(1),
                     message_version: 0,
                 },
             }
