@@ -8,7 +8,7 @@ use alloy_primitives::{
     hex::FromHex,
     Bytes, IntoLogData, TxKind, B256, U256,
 };
-use alloy_provider::{test_utils, Provider, SeismicSignedProvider, SendableTx};
+use alloy_provider::{layers::seismic::test_utils, Provider, SeismicSignedProvider, SendableTx};
 use alloy_rpc_types::{
     Block, Header, Transaction, TransactionInput, TransactionReceipt, TransactionRequest,
 };
