@@ -21,7 +21,7 @@ pub enum EnclaveError {
     EncryptionError,
     /// enclave decryption fails
     DecryptionError,
-    /// Ephemereal keypair generation fails
+    /// Ephemeral keypair generation fails
     EphRngKeypairGenerationError(String),
     /// Custom error.
     Custom(&'static str),
