@@ -1,8 +1,7 @@
 //! The motivation of this file is to include unit tests for seismic features that are currently
 // scattered across the codebase
-use alloy_consensus::{SignableTransaction, TxSeismic};
-use alloy_primitives::{hex, Address, Bytes, U256};
-use alloy_rlp::{Decodable, Encodable};
+use alloy_consensus::SignableTransaction;
+use alloy_primitives::Address;
 use core::str::FromStr;
 use enr::EnrKey;
 use reth_enclave::EnclaveError;
