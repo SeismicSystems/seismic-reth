@@ -20,14 +20,6 @@ async fn test_seismic_transactions() {
     test_encoding_decoding_signed_seismic_tx();
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn test_seismic_tx_encoding_decoding() {
-    let encoding = hex::decode("4af89c827a6902843b9aca00830186a094d3e8763675e4c425df46cc3b5c0f6cbdac39604687038d7ea4c68000a1028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a08cbe038ada26fea4ebcb4a610780b840fc3c2cf4943c327f19af0efaf3b07201f608dd5c8e3954399a919b72588d3872b6819ac3d13d3656cbb38833a39ffd1e73963196a1ddfa9e4a5d595fdbebb875").unwrap();
-    let tx_seismic =
-        recover_raw_transaction::<TransactionSigned>(&encoding).unwrap().as_signed().clone();
-    println!("tx_seismic: {:?}", tx_seismic);
-}
-
 // This route is used to test the encoding and decoding of the signed seismic tx
 fn test_encoding_decoding_signed_seismic_tx() {
     let encoding = UnitTestContext::get_signed_seismic_tx_encoding();
