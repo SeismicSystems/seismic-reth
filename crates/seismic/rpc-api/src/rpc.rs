@@ -11,7 +11,9 @@
 use alloy_dyn_abi::TypedData;
 use alloy_primitives::Address;
 use jsonrpsee::{
-    core::{async_trait, RpcResult}, http_client::HttpClientBuilder, proc_macros::rpc
+    core::{async_trait, RpcResult},
+    http_client::HttpClientBuilder,
+    proc_macros::rpc,
 };
 use reth_node_core::node_config::NodeConfig;
 use reth_rpc_eth_api::helpers::{EthTransactions, FullEthApi};
@@ -46,7 +48,11 @@ impl SeismicApi {
             enclave_client: EnclaveClient::new_from_client(
                 HttpClientBuilder::default()
                     .request_timeout(std::time::Duration::from_secs(config.enclave.enclave_timeout))
-                    .build(format!("http://{}:{}", config.enclave.enclave_server_addr.to_string(), config.enclave.enclave_server_port))
+                    .build(format!(
+                        "http://{}:{}",
+                        config.enclave.enclave_server_addr.to_string(),
+                        config.enclave.enclave_server_port
+                    ))
                     .unwrap(),
             ),
         }
