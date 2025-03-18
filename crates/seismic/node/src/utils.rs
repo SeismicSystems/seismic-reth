@@ -4,7 +4,6 @@ use alloy_rpc_types::engine::PayloadAttributes;
 use alloy_rpc_types_eth::TransactionRequest;
 use alloy_signer_local::PrivateKeySigner;
 use reth_chainspec::SEISMIC_DEV;
-use reth_enclave::EnclaveClient;
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use secp256k1::{PublicKey, SecretKey};
 use serde_json::Value;
@@ -132,31 +131,22 @@ pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes
 
 /// Test utils for seismic node
 pub mod test_utils {
-    use std::{fs::File, sync::Arc};
-
     use super::*;
     use alloy_consensus::{
         transaction::TxSeismicElements, SignableTransaction, TxSeismic, TypedTransaction,
     };
     use alloy_dyn_abi::TypedData;
     use alloy_eips::{eip2718::Encodable2718, eip712::TypedDataRequest};
-    use alloy_primitives::{hex_literal, Address, Bytes, FixedBytes, PrimitiveSignature, U256};
+    use alloy_primitives::{aliases::U96, hex_literal, Address, Bytes, PrimitiveSignature, U256};
     use alloy_rpc_types::{Block, Header, Transaction, TransactionInput, TransactionReceipt};
     use core::str::FromStr;
     use enr::EnrKey;
     use jsonrpsee::http_client::HttpClient;
     use k256::ecdsa::SigningKey;
-    use reth_chainspec::{ChainSpec, MAINNET};
     use reth_e2e_test_utils::transaction::TransactionTestContext;
-    use reth_enclave::start_mock_enclave_server_random_port;
-    use reth_node_ethereum::EthEvmConfig;
+    use reth_enclave::MockEnclaveServer;
     use reth_primitives::TransactionSigned;
     use reth_rpc_eth_api::EthApiClient;
-    use secp256k1::ecdh::SharedSecret;
-    use seismic_enclave::{
-        aes_encrypt, derive_aes_key, ecdh_decrypt, ecdh_encrypt, get_unsecure_sample_secp256k1_pk,
-    };
-    use serde::{Deserialize, Serialize};
 
     /// Get the nonce from the client
     pub async fn get_nonce(client: &HttpClient, address: Address) -> u64 {
@@ -169,52 +159,14 @@ pub mod test_utils {
         nonce.wrapping_to::<u64>()
     }
 
-    /// Decrypt ciphertext using network public key and client private key
-    pub async fn client_decrypt(
-        sk_wallet: &PrivateKeySigner,
-        nonce: u64,
-        ciphertext: &Bytes,
-    ) -> Bytes {
-        let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
-            .expect("32 bytes, within curve order");
-        let pk = get_unsecure_sample_secp256k1_pk(); // TODO use the enclave public key
-        let decrypted_output = ecdh_decrypt(&pk, &sk, &ciphertext, nonce).unwrap();
-        Bytes::from(decrypted_output)
-    }
-
-    /// Encrypt plaintext using network public key and client private key
-    pub async fn client_encrypt(
-        sk_wallet: &PrivateKeySigner,
-        nonce: u64,
-        plaintext: &Bytes,
-    ) -> Bytes {
-        let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
-            .expect("32 bytes, within curve order");
-        let pk = get_unsecure_sample_secp256k1_pk(); // TODO use the enclave public key
-        let encrypted_output = ecdh_encrypt(&pk, &sk, &plaintext, nonce).unwrap();
-
-        Bytes::from(encrypted_output)
-    }
-
-    /// Get the encryption public key
-    pub fn get_encryption_pubkey(sk_wallet: &PrivateKeySigner) -> PublicKey {
-        let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
-            .expect("32 bytes, within curve order");
-        PublicKey::from_secret_key_global(&sk)
-    }
-
     /// Get an unsigned seismic transaction request
     pub async fn get_unsigned_seismic_tx_request(
         sk_wallet: &PrivateKeySigner,
         nonce: u64,
         to: TxKind,
         chain_id: u64,
-        decrypted_input: Bytes,
+        plaintext: Bytes,
     ) -> TransactionRequest {
-        let encrypted_input = client_encrypt(sk_wallet, nonce, &decrypted_input).await;
-        println!("nonce: {}", nonce);
-
-        let encryption_pubkey = get_encryption_pubkey(sk_wallet);
         TransactionRequest {
             from: Some(sk_wallet.address()),
             nonce: Some(nonce),
@@ -223,13 +175,9 @@ pub mod test_utils {
             gas: Some(6000000),
             gas_price: Some(20e9 as u128),
             chain_id: Some(chain_id),
-            input: TransactionInput { input: Some(Bytes::from(encrypted_input)), data: None },
+            input: TransactionInput { input: Some(client_encrypt(&plaintext)), data: None },
             transaction_type: Some(TxSeismic::TX_TYPE),
-            seismic_elements: Some(TxSeismicElements {
-                encryption_pubkey,
-                encryption_nonce: nonce,
-                message_version: 0,
-            }),
+            seismic_elements: Some(get_seismic_elements()),
             ..Default::default()
         }
     }
@@ -240,10 +188,9 @@ pub mod test_utils {
         nonce: u64,
         to: TxKind,
         chain_id: u64,
-        decrypted_input: Bytes,
+        plaintext: Bytes,
     ) -> Bytes {
-        let tx =
-            get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, decrypted_input).await;
+        let tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, plaintext).await;
         let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
         <TxEnvelope as Encodable2718>::encoded_2718(&signed).into()
     }
@@ -271,10 +218,9 @@ pub mod test_utils {
         nonce: u64,
         to: TxKind,
         chain_id: u64,
-        decrypted_input: Bytes,
+        plaintext: Bytes,
     ) -> TypedDataRequest {
-        let tx =
-            get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, decrypted_input).await;
+        let tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, plaintext).await;
         tx.seismic_elements.unwrap().message_version = 2;
         let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
 
@@ -284,223 +230,123 @@ pub mod test_utils {
         }
     }
 
-    #[derive(Serialize, Deserialize, Debug)]
-    /// Integration test context
-    pub struct IntegrationTestContext {
-        /// The deploy transaction
-        pub deploy_tx: String,
-        /// The contract address
-        pub contract: String,
-        /// The contract code
-        pub code: String,
-        /// The tx hashes
-        pub tx_hashes: Vec<String>,
-        /// The signed calls
-        pub signed_calls: Vec<String>,
-        /// The raw transactions
-        pub raw_txs: Vec<String>,
-        /// The encrypted outputs
-        pub encrypted_outputs: Vec<String>,
+    /// Get the network public key
+    pub fn get_network_public_key() -> PublicKey {
+        MockEnclaveServer::get_public_key()
     }
 
-    impl IntegrationTestContext {
-        const IT_TX_FILEPATH: &'static str = "tests/seismic-data/it-tx.json";
+    /// Encrypt plaintext using network public key and client private key
+    pub fn get_ciphertext() -> Bytes {
+        let encrypted_data = client_encrypt(&get_plaintext());
+        encrypted_data
+    }
 
-        /// Create a new integration test context
-        pub fn new(deploy_tx: &Bytes) -> IntegrationTestContext {
-            IntegrationTestContext {
-                deploy_tx: Self::fmt(deploy_tx),
-                contract: "".into(),
-                code: "".into(),
-                tx_hashes: vec![],
-                signed_calls: vec![],
-                raw_txs: vec![],
-                encrypted_outputs: vec![],
-            }
-        }
+    /// Encrypt plaintext using network public key and client private key
+    pub fn client_encrypt(plaintext: &Bytes) -> Bytes {
+        get_seismic_elements()
+            .client_encrypt(plaintext, &get_network_public_key(), &get_encryption_private_key())
+            .unwrap()
+    }
 
-        /// Format a bytes array as a hex string
-        fn fmt(bytes: &Bytes) -> String {
-            format!("{:0x}", bytes)
-        }
+    /// Decrypt ciphertext using network public key and client private key
+    pub fn client_decrypt(ciphertext: &Bytes) -> Bytes {
+        get_seismic_elements()
+            .client_decrypt(ciphertext, &get_network_public_key(), &get_encryption_private_key())
+            .unwrap()
+    }
 
-        /// Add a contract address to the integration test context
-        pub fn contract(&mut self, addr: &Address) {
-            self.contract = format!("{:0x}", addr);
-        }
+    /// Get the encryption private key
+    pub fn get_encryption_private_key() -> SecretKey {
+        let private_key_bytes =
+            hex_literal::hex!("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f");
+        SecretKey::from_slice(&private_key_bytes).expect("Invalid private key")
+    }
 
-        /// Add a contract code to the integration test context
-        pub fn code(&mut self, code: &Bytes) {
-            self.code = Self::fmt(code);
-        }
+    /// Get the encryption nonce
+    pub fn get_encryption_nonce() -> U96 {
+        U96::MAX
+    }
 
-        /// Add a tx hash to the integration test context
-        pub fn tx_hash(&mut self, bytes: &FixedBytes<32>) {
-            self.tx_hashes.push(format!("0x{:0x}", bytes))
-        }
-
-        /// Add a signed call to the integration test context
-        pub fn signed_call(&mut self, bytes: &Bytes) {
-            self.signed_calls.push(Self::fmt(bytes));
-        }
-
-        /// Add a raw transaction to the integration test context
-        pub fn raw_tx(&mut self, bytes: &Bytes) {
-            self.raw_txs.push(Self::fmt(bytes));
-        }
-
-        /// Add an encrypted output to the integration test context
-        pub fn encrypted_output(&mut self, bytes: &Bytes) {
-            self.encrypted_outputs.push(Self::fmt(bytes));
-        }
-
-        /// Load the integration test context from a file
-        pub fn load() -> IntegrationTestContext {
-            let file = File::open(Self::IT_TX_FILEPATH).unwrap();
-            serde_json::from_reader(file).unwrap()
-        }
-
-        /// Write the integration test context to a file
-        pub fn write(&self) {
-            let file = File::create(Self::IT_TX_FILEPATH).unwrap();
-            serde_json::to_writer_pretty(file, &self).unwrap();
-        }
-
-        /// This is here to prevent us from mistakenly re-writing
-        /// the expected test values while the basic integration test runs
-        /// If we are careful about setting `REWRITE_IT_TX`,
-        /// this would be unneccessary, but it will definitely happen lol
-        pub fn should_rewrite_it() -> bool {
-            // Check if SEISMIC_CI is present in the environment
-            if std::env::var("SEISMIC_CI").is_ok() {
-                false
-            } else {
-                true
-            }
+    /// Get the seismic elements
+    pub fn get_seismic_elements() -> TxSeismicElements {
+        TxSeismicElements {
+            encryption_pubkey: get_encryption_private_key().public(),
+            encryption_nonce: get_encryption_nonce(),
+            message_version: 0,
         }
     }
 
-    #[derive(Debug)]
-    /// Artificats for unit tests
-    pub struct UnitTestContext {
-        /// The enclave client
-        pub enclave_client: EnclaveClient,
-        /// The evm config
-        pub evm_config: EthEvmConfig,
-        /// The chain spec
-        pub chain_spec: Arc<ChainSpec>,
+    /// Get a wrong private key
+    pub fn get_wrong_private_key() -> SecretKey {
+        let private_key_bytes =
+            hex_literal::hex!("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1e");
+        SecretKey::from_slice(&private_key_bytes).expect("Invalid private key")
     }
-    impl UnitTestContext {
-        /// Create a new unit test context
-        pub async fn new() -> Self {
-            let enclave_client = start_mock_enclave_server_random_port().await;
-            let chain_spec = MAINNET.clone();
-            let evm_config =
-                EthEvmConfig::new_with_enclave_client(chain_spec.clone(), enclave_client.clone());
 
-            Self { enclave_client, evm_config, chain_spec }
+    /// Get the signing private key
+    pub fn get_signing_private_key() -> SigningKey {
+        let private_key_bytes =
+            hex_literal::hex!("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
+        let signing_key =
+            SigningKey::from_bytes(&private_key_bytes.into()).expect("Invalid private key");
+        signing_key
+    }
+
+    /// Get the plaintext for a seismic transaction
+    pub fn get_plaintext() -> Bytes {
+        Bytes::from_str("24a7f0b7000000000000000000000000000000000000000000000000000000000000000b")
+            .unwrap()
+    }
+
+    /// Get a seismic transaction
+    pub fn get_seismic_tx() -> TxSeismic {
+        let ciphertext = get_ciphertext();
+        TxSeismic {
+            chain_id: 1337,
+            nonce: 1,
+            gas_price: 20000000000,
+            gas_limit: 210000,
+            to: alloy_primitives::TxKind::Call(
+                Address::from_str("0x5fbdb2315678afecb367f032d93f642f64180aa3").unwrap(),
+            ),
+            value: U256::ZERO,
+            input: Bytes::copy_from_slice(&ciphertext),
+            seismic_elements: get_seismic_elements(),
         }
+    }
 
-        /// Encrypt plaintext using network public key and client private key
-        pub fn get_client_side_encryption() -> Vec<u8> {
-            let ecdh_sk = get_unsecure_sample_secp256k1_pk();
-            let signing_key_secp256k1 = Self::get_encryption_private_key();
-            let shared_secret = SharedSecret::new(&ecdh_sk, &signing_key_secp256k1);
+    /// Get the encoding of a signed seismic transaction
+    pub fn get_signed_seismic_tx_encoding() -> Vec<u8> {
+        let signed_tx = get_signed_seismic_tx();
+        let mut encoding = Vec::new();
 
-            let aes_key = derive_aes_key(&shared_secret).unwrap();
-            let encrypted_data =
-                aes_encrypt(&aes_key, Self::get_plaintext().as_slice(), 1).unwrap();
-            encrypted_data
-        }
+        signed_tx.encode_2718(&mut encoding);
+        encoding
+    }
 
-        /// Get the encryption private key
-        pub fn get_encryption_private_key() -> SecretKey {
-            let private_key_bytes = hex_literal::hex!(
-                "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
-            );
-            SecretKey::from_slice(&private_key_bytes).expect("Invalid private key")
-        }
+    /// Sign a seismic transaction
+    pub fn sign_seismic_tx(tx: &TxSeismic) -> PrimitiveSignature {
+        let _signature = get_signing_private_key()
+            .clone()
+            .sign_prehash_recoverable(tx.signature_hash().as_slice())
+            .expect("Failed to sign");
 
-        /// Get a wrong private key
-        pub fn get_wrong_private_key() -> SecretKey {
-            let private_key_bytes = hex_literal::hex!(
-                "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1e"
-            );
-            SecretKey::from_slice(&private_key_bytes).expect("Invalid private key")
-        }
+        let recoverid = _signature.1;
+        let _signature = _signature.0;
 
-        /// Get the signing private key
-        pub fn get_signing_private_key() -> SigningKey {
-            let private_key_bytes = hex_literal::hex!(
-                "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-            );
-            let signing_key =
-                SigningKey::from_bytes(&private_key_bytes.into()).expect("Invalid private key");
-            signing_key
-        }
+        let signature = PrimitiveSignature::new(
+            U256::from_be_slice(_signature.r().to_bytes().as_slice()),
+            U256::from_be_slice(_signature.s().to_bytes().as_slice()),
+            recoverid.is_y_odd(),
+        );
 
-        /// Get the plaintext for a seismic transaction
-        pub fn get_plaintext() -> Vec<u8> {
-            hex_literal::hex!(
-                "24a7f0b7000000000000000000000000000000000000000000000000000000000000000b"
-            )
-            .to_vec()
-        }
+        signature
+    }
 
-        /// Get a seismic transaction
-        pub fn get_seismic_tx() -> TxSeismic {
-            let ciphertext = Self::get_client_side_encryption();
-            TxSeismic {
-                chain_id: 1337,
-                nonce: 1,
-                gas_price: 20000000000,
-                gas_limit: 210000,
-                to: alloy_primitives::TxKind::Call(
-                    Address::from_str("0x5fbdb2315678afecb367f032d93f642f64180aa3").unwrap(),
-                ),
-                value: U256::ZERO,
-                input: Bytes::copy_from_slice(&ciphertext),
-                seismic_elements: TxSeismicElements {
-                    encryption_pubkey: Self::get_encryption_private_key().public(),
-                    encryption_nonce: 1,
-                    message_version: 0,
-                },
-            }
-        }
-
-        /// Get the encoding of a signed seismic transaction
-        pub fn get_signed_seismic_tx_encoding() -> Vec<u8> {
-            let signed_tx = Self::get_signed_seismic_tx();
-            let mut encoding = Vec::new();
-
-            signed_tx.encode_2718(&mut encoding);
-            encoding
-        }
-
-        /// Sign a seismic transaction
-        pub fn sign_seismic_tx(tx: &TxSeismic) -> PrimitiveSignature {
-            let _signature = Self::get_signing_private_key()
-                .clone()
-                .sign_prehash_recoverable(tx.signature_hash().as_slice())
-                .expect("Failed to sign");
-
-            let recoverid = _signature.1;
-            let _signature = _signature.0;
-
-            let signature = PrimitiveSignature::new(
-                U256::from_be_slice(_signature.r().to_bytes().as_slice()),
-                U256::from_be_slice(_signature.s().to_bytes().as_slice()),
-                recoverid.is_y_odd(),
-            );
-
-            signature
-        }
-
-        /// Get a signed seismic transaction
-        pub fn get_signed_seismic_tx() -> TransactionSigned {
-            let tx = Self::get_seismic_tx();
-            let signature = Self::sign_seismic_tx(&tx);
-            SignableTransaction::into_signed(tx, signature).into()
-        }
+    /// Get a signed seismic transaction
+    pub fn get_signed_seismic_tx() -> TransactionSigned {
+        let tx = get_seismic_tx();
+        let signature = sign_seismic_tx(&tx);
+        SignableTransaction::into_signed(tx, signature).into()
     }
 }

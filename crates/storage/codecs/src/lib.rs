@@ -22,7 +22,7 @@ extern crate alloc;
 pub use reth_codecs_derive::*;
 use serde as _;
 
-use alloy_primitives::{Address, Bloom, Bytes, FixedBytes, U256};
+use alloy_primitives::{aliases::U96, Address, Bloom, Bytes, FixedBytes, U256};
 use bytes::{Buf, BufMut};
 
 use alloc::{
@@ -392,6 +392,31 @@ impl Compact for U256 {
 
         let mut arr = [0; 32];
         arr[(32 - len)..].copy_from_slice(&buf[..len]);
+        buf.advance(len);
+        (Self::from_be_bytes(arr), buf)
+    }
+}
+
+impl Compact for U96 {
+    #[inline]
+    fn to_compact<B>(&self, buf: &mut B) -> usize
+    where
+        B: bytes::BufMut + AsMut<[u8]>,
+    {
+        let inner = self.to_be_bytes::<12>();
+        let size = 12 - (self.leading_zeros() / 8);
+        buf.put_slice(&inner[12 - size..]);
+        size
+    }
+
+    #[inline]
+    fn from_compact(mut buf: &[u8], len: usize) -> (Self, &[u8]) {
+        if len == 0 {
+            return (Self::ZERO, buf)
+        }
+
+        let mut arr = [0; 12];
+        arr[(12 - len)..].copy_from_slice(&buf[..len]);
         buf.advance(len);
         (Self::from_be_bytes(arr), buf)
     }

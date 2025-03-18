@@ -8,7 +8,7 @@ use alloy_primitives::{
     hex::FromHex,
     Bytes, IntoLogData, TxKind, B256, U256,
 };
-use alloy_provider::{test_utils, Provider, SeismicSignedProvider, SendableTx};
+use alloy_provider::{layers::seismic::test_utils, Provider, SeismicSignedProvider, SendableTx};
 use alloy_rpc_types::{
     Block, Header, Transaction, TransactionInput, TransactionReceipt, TransactionRequest,
 };
@@ -116,9 +116,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
     )
     .await
     .unwrap();
-    let decrypted_output =
-        client_decrypt(&wallet.inner, get_nonce(&client, wallet.inner.address()).await, &output)
-            .await;
+    let decrypted_output = client_decrypt(&output);
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 }
@@ -282,9 +280,7 @@ async fn test_seismic_reth_rpc() {
     )
     .await
     .unwrap();
-    let decrypted_output =
-        client_decrypt(&wallet.inner, get_nonce(&client, wallet.inner.address()).await, &output)
-            .await;
+    let decrypted_output = client_decrypt(&output);
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 
@@ -336,9 +332,7 @@ async fn test_seismic_reth_rpc() {
     )
     .await
     .unwrap();
-    let decrypted_output =
-        client_decrypt(&wallet.inner, get_nonce(&client, wallet.inner.address()).await, &output)
-            .await;
+    let decrypted_output = client_decrypt(&output);
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::from(1));
 
@@ -543,9 +537,9 @@ async fn test_seismic_precompiles_end_to_end() {
     // Local Decrypt
     let secp_private = secp256k1::SecretKey::from_slice(private_key.as_ref()).unwrap();
     let aes_key: &[u8; 32] = &secp_private.secret_bytes()[0..32].try_into().unwrap();
+    let nonce: [u8; 12] = decoded.indexed[0].abi_encode_packed().try_into().unwrap();
     let decrypted_locally =
-        aes_decrypt(aes_key.into(), &ciphertext, decoded.indexed[0].abi_encode_packed())
-            .expect("AES decryption failed");
+        aes_decrypt(aes_key.into(), &ciphertext, nonce).expect("AES decryption failed");
     assert_eq!(decrypted_locally, message);
 }
 
