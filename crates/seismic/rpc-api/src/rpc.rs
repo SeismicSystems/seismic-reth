@@ -118,7 +118,7 @@ mod tests {
     use jsonrpsee::core::client::{ClientT, SubscriptionClientT};
     use reth_enclave::start_mock_enclave_server_random_port;
     use reth_provider::test_utils::MockEthProvider;
-    use seismic_node::utils::test_utils::UnitTestContext;
+    use seismic_node::utils::test_utils::get_seismic_tx;
 
     use super::*;
 
@@ -133,7 +133,7 @@ mod tests {
     where
         C: ClientT + SubscriptionClientT + Sync,
     {
-        let typed_data = UnitTestContext::get_seismic_tx().eip712_to_type_data();
+        let typed_data = get_seismic_tx().eip712_to_type_data();
         let _signature =
             EthApiOverrideClient::sign_typed_data_v4(client, Address::ZERO, typed_data)
                 .await
