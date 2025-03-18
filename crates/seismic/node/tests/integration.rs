@@ -18,8 +18,8 @@ use reth_rpc_eth_api::EthApiClient;
 use seismic_enclave::aes_decrypt;
 use seismic_node::utils::{
     test_utils::{
-        get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
-        get_unsigned_seismic_tx_request, UnitTestContext,
+        client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
+        get_unsigned_seismic_tx_request,
     },
     SeismicRethTestCommand,
 };
@@ -116,7 +116,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
     )
     .await
     .unwrap();
-    let decrypted_output = UnitTestContext::client_decrypt(&output);
+    let decrypted_output = client_decrypt(&output);
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 }
@@ -280,7 +280,7 @@ async fn test_seismic_reth_rpc() {
     )
     .await
     .unwrap();
-    let decrypted_output = UnitTestContext::client_decrypt(&output);
+    let decrypted_output = client_decrypt(&output);
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 
@@ -332,7 +332,7 @@ async fn test_seismic_reth_rpc() {
     )
     .await
     .unwrap();
-    let decrypted_output = UnitTestContext::client_decrypt(&output);
+    let decrypted_output = client_decrypt(&output);
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::from(1));
 

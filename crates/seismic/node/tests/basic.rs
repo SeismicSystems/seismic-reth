@@ -10,7 +10,7 @@ use seismic_node::{
     node::SeismicNode,
     utils::{
         seismic_payload_attributes,
-        test_utils::{get_signed_seismic_tx_bytes, UnitTestContext},
+        test_utils::{client_decrypt, get_signed_seismic_tx_bytes, UnitTestContext},
     },
 };
 
@@ -86,7 +86,7 @@ async fn contract() -> eyre::Result<()> {
     .await;
 
     let encrypted_output: Bytes = first_node.rpc.signed_call(raw_tx.clone(), block_number).await?;
-    let decrypted_output = UnitTestContext::client_decrypt(&encrypted_output);
+    let decrypted_output = client_decrypt(&encrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 
     debug!(
@@ -128,7 +128,7 @@ async fn contract() -> eyre::Result<()> {
     .await;
 
     let encrypted_output: Bytes = first_node.rpc.signed_call(raw_tx.clone(), block_number).await?;
-    let decrypted_output = UnitTestContext::client_decrypt(&encrypted_output);
+    let decrypted_output = client_decrypt(&encrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::from(1));
 
     Ok(())
