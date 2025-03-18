@@ -20,6 +20,10 @@ pub struct EnclaveArgs {
     /// Spin up mock server for testing purpose
     #[arg(long = "enclave.mock-server", action = clap::ArgAction::SetTrue)]
     pub mock_server: bool,
+
+    /// Enclave client timeout
+    #[arg(long = "enclave.timeout", default_value_t = 5)]
+    pub enclave_timeout: u64,
 }
 
 impl Default for EnclaveArgs {
@@ -28,6 +32,7 @@ impl Default for EnclaveArgs {
             enclave_server_addr: ENCLAVE_DEFAULT_ENDPOINT_ADDR,
             enclave_server_port: ENCLAVE_DEFAULT_ENDPOINT_PORT,
             mock_server: false,
+            enclave_timeout: 5,
         }
     }
 }

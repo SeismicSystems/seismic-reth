@@ -44,10 +44,11 @@ impl SeismicApi {
     /// Creates a new seismic api instance
     pub fn new<ChainSpec>(config: &NodeConfig<ChainSpec>) -> Self {
         Self {
-            enclave_client: EnclaveClient::new_from_addr_port(
-                config.enclave.enclave_server_addr.to_string(),
-                config.enclave.enclave_server_port,
-            ),
+            enclave_client: EnclaveClient::builder()
+                .addr(config.enclave.enclave_server_addr.to_string())
+                .port(config.enclave.enclave_server_port)
+                .timeout(std::time::Duration::from_secs(config.enclave.enclave_timeout))
+                .build(),
         }
     }
 

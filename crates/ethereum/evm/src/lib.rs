@@ -73,11 +73,15 @@ impl EthEvmConfig {
         chain_spec: Arc<ChainSpec>,
         enclave_addr: IpAddr,
         enclave_port: u16,
+        enclave_server_timeout: u64,
     ) -> Self {
         debug!(target: "reth::evm", ?enclave_addr, ?enclave_port, "Creating new enclave client");
 
-        let enclave_client =
-            EnclaveClient::new_from_addr_port(enclave_addr.to_string(), enclave_port);
+        let enclave_client = EnclaveClient::builder()
+            .addr(enclave_addr.to_string())
+            .port(enclave_port)
+            .timeout(std::time::Duration::from_secs(enclave_server_timeout))
+            .build();
         Self::new_with_enclave_client(chain_spec, enclave_client)
     }
 
