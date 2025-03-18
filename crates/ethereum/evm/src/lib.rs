@@ -22,7 +22,6 @@ use core::{convert::Infallible, net::IpAddr};
 use alloc::{sync::Arc, vec::Vec};
 use alloy_consensus::{transaction::TxSeismicElements, Header, TxSeismic};
 use alloy_primitives::{Address, Bytes, TxHash, TxKind, U256};
-use jsonrpsee::http_client::HttpClientBuilder;
 use reth_chainspec::{ChainSpec, Head};
 use reth_enclave::{EnclaveClient, EnclaveError, SchnorrkelKeypair, SyncEnclaveApiClient};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};

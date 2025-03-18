@@ -138,7 +138,7 @@ dependencies = [
  "jsonrpsee",
  "k256",
  "rand 0.8.5",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=1caf353)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=74f6e3e)",
  "serde",
  "serde_json",
  "serde_with",
@@ -392,7 +392,7 @@ dependencies = [
  "pin-project",
  "reqwest",
  "schnellru",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=1caf353)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=74f6e3e)",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -618,7 +618,7 @@ source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=d5ffa1f#d5
 dependencies = [
  "alloy-primitives",
  "arbitrary",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=1caf353)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=74f6e3e)",
  "serde",
  "serde_json",
 ]
@@ -7146,7 +7146,7 @@ dependencies = [
  "proptest-arbitrary-interop",
  "reth-codecs-derive",
  "rstest",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=1caf353)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=74f6e3e)",
  "serde",
  "serde_json",
  "test-fuzz",
@@ -7561,7 +7561,7 @@ dependencies = [
  "reqwest",
  "routerify",
  "secp256k1",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=1caf353)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=74f6e3e)",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -7972,7 +7972,6 @@ dependencies = [
  "alloy-genesis",
  "alloy-primitives",
  "alloy-sol-types",
- "jsonrpsee",
  "reth-chainspec",
  "reth-consensus",
  "reth-enclave",
@@ -10288,7 +10287,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=1caf353#1caf353d6505159bd75e220f443ffbb761b12c16"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=74f6e3e#74f6e3e17f6b3a0ffafbac9fd38e91cfa5e3fcb6"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -10340,7 +10339,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave-derive"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=1caf353#1caf353d6505159bd75e220f443ffbb761b12c16"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=74f6e3e#74f6e3e17f6b3a0ffafbac9fd38e91cfa5e3fcb6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -10406,7 +10405,7 @@ dependencies = [
  "reth-trie-common",
  "reth-trie-db",
  "secp256k1",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=1caf353)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=74f6e3e)",
  "seismic-rpc-api",
  "serde",
  "serde_json",
@@ -10476,7 +10475,7 @@ dependencies = [
  "reth-tracing",
  "reth-transaction-pool",
  "secp256k1",
- "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=1caf353)",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=74f6e3e)",
  "seismic-node",
  "thiserror 2.0.12",
  "tokio",
