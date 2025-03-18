@@ -150,14 +150,13 @@ pub mod test_utils {
     use k256::ecdsa::SigningKey;
     use reth_chainspec::{ChainSpec, MAINNET};
     use reth_e2e_test_utils::transaction::TransactionTestContext;
-    use reth_enclave::start_mock_enclave_server_random_port;
+    use reth_enclave::{
+        start_mock_enclave_server_random_port, MockEnclaveServer, SyncEnclaveApiClient,
+    };
     use reth_node_ethereum::EthEvmConfig;
     use reth_primitives::TransactionSigned;
     use reth_rpc_eth_api::EthApiClient;
-    use secp256k1::ecdh::SharedSecret;
-    use seismic_enclave::{
-        aes_encrypt, derive_aes_key, ecdh_decrypt, ecdh_encrypt, get_unsecure_sample_secp256k1_pk,
-    };
+    use seismic_enclave::{ecdh_decrypt, ecdh_encrypt, get_unsecure_sample_secp256k1_pk};
     use serde::{Deserialize, Serialize};
 
     /// Get the nonce from the client
@@ -403,15 +402,20 @@ pub mod test_utils {
             Self { enclave_client, evm_config, chain_spec }
         }
 
-        /// Encrypt plaintext using network public key and client private key
-        pub fn get_client_side_encryption() -> Vec<u8> {
-            let ecdh_sk = get_unsecure_sample_secp256k1_pk();
-            let signing_key_secp256k1 = Self::get_encryption_private_key();
-            let shared_secret = SharedSecret::new(&ecdh_sk, &signing_key_secp256k1);
+        /// Get the network public key
+        pub fn get_network_public_key() -> PublicKey {
+            MockEnclaveServer::get_public_key()
+        }
 
-            let aes_key = derive_aes_key(&shared_secret).unwrap();
-            let encrypted_data =
-                aes_encrypt(&aes_key, Self::get_plaintext().as_slice(), 1).unwrap();
+        /// Encrypt plaintext using network public key and client private key
+        pub fn get_ciphertext() -> Bytes {
+            let encrypted_data = Self::get_seismic_elements()
+                .client_encrypt(
+                    &Self::get_plaintext(),
+                    &Self::get_network_public_key(),
+                    &Self::get_encryption_private_key(),
+                )
+                .unwrap();
             encrypted_data
         }
 
@@ -421,6 +425,20 @@ pub mod test_utils {
                 "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
             );
             SecretKey::from_slice(&private_key_bytes).expect("Invalid private key")
+        }
+
+        /// Get the encryption nonce
+        pub fn get_encryption_nonce() -> U96 {
+            U96::MAX
+        }
+
+        /// Get the seismic elements
+        pub fn get_seismic_elements() -> TxSeismicElements {
+            TxSeismicElements {
+                encryption_pubkey: Self::get_encryption_private_key().public(),
+                encryption_nonce: Self::get_encryption_nonce(),
+                message_version: 0,
+            }
         }
 
         /// Get a wrong private key
@@ -442,16 +460,16 @@ pub mod test_utils {
         }
 
         /// Get the plaintext for a seismic transaction
-        pub fn get_plaintext() -> Vec<u8> {
-            hex_literal::hex!(
-                "24a7f0b7000000000000000000000000000000000000000000000000000000000000000b"
+        pub fn get_plaintext() -> Bytes {
+            Bytes::from_str(
+                "24a7f0b7000000000000000000000000000000000000000000000000000000000000000b",
             )
-            .to_vec()
+            .unwrap()
         }
 
         /// Get a seismic transaction
         pub fn get_seismic_tx() -> TxSeismic {
-            let ciphertext = Self::get_client_side_encryption();
+            let ciphertext = Self::get_ciphertext();
             TxSeismic {
                 chain_id: 1337,
                 nonce: 1,
@@ -462,11 +480,7 @@ pub mod test_utils {
                 ),
                 value: U256::ZERO,
                 input: Bytes::copy_from_slice(&ciphertext),
-                seismic_elements: TxSeismicElements {
-                    encryption_pubkey: Self::get_encryption_private_key().public(),
-                    encryption_nonce: U96::from(1),
-                    message_version: 0,
-                },
+                seismic_elements: Self::get_seismic_elements(),
             }
         }
 
