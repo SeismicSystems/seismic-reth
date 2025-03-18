@@ -78,12 +78,11 @@ impl EthEvmConfig {
     ) -> Self {
         debug!(target: "reth::evm", ?enclave_addr, ?enclave_port, "Creating new enclave client");
 
-        let url = format!("http://{}:{}", enclave_addr.to_string(), enclave_port);
-        let async_client = HttpClientBuilder::default()
-            .request_timeout(std::time::Duration::from_secs(enclave_server_timeout))
-            .build(url)
-            .unwrap();
-        let enclave_client = EnclaveClient::new_from_client(async_client);
+        let enclave_client = EnclaveClient::builder()
+            .addr(enclave_addr.to_string())
+            .port(enclave_port)
+            .timeout(std::time::Duration::from_secs(enclave_server_timeout))
+            .build();
         Self::new_with_enclave_client(chain_spec, enclave_client)
     }
 

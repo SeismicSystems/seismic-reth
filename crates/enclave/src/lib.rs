@@ -47,10 +47,10 @@ pub async fn start_mock_enclave_server_random_port() -> EnclaveClient {
 
 /// Start the mock enclave server
 pub async fn start_default_mock_enclave_server() -> EnclaveClient {
-    let client = EnclaveClient::new_from_addr_port(
-        ENCLAVE_DEFAULT_ENDPOINT_ADDR.to_string(),
-        ENCLAVE_DEFAULT_ENDPOINT_PORT,
-    );
+    let client = EnclaveClient::builder()
+        .addr(ENCLAVE_DEFAULT_ENDPOINT_ADDR.to_string())
+        .port(ENCLAVE_DEFAULT_ENDPOINT_PORT)
+        .build();
     tokio::spawn(async move {
         start_blocking_mock_enclave_server(
             ENCLAVE_DEFAULT_ENDPOINT_ADDR,
