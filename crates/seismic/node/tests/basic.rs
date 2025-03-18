@@ -10,7 +10,7 @@ use seismic_node::{
     node::SeismicNode,
     utils::{
         seismic_payload_attributes,
-        test_utils::{client_decrypt, get_signed_seismic_tx_bytes, UnitTestContext},
+        test_utils::{client_decrypt, get_signed_seismic_tx_bytes},
     },
 };
 
