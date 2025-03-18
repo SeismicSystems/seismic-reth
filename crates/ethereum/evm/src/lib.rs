@@ -22,6 +22,7 @@ use core::{convert::Infallible, net::IpAddr};
 use alloc::{sync::Arc, vec::Vec};
 use alloy_consensus::{transaction::TxSeismicElements, Header, TxSeismic};
 use alloy_primitives::{Address, Bytes, TxHash, TxKind, U256};
+use jsonrpsee::http_client::HttpClientBuilder;
 use reth_chainspec::{ChainSpec, Head};
 use reth_enclave::{EnclaveClient, EnclaveError, SchnorrkelKeypair, SyncEnclaveApiClient};
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};
@@ -31,7 +32,6 @@ use revm_primitives::{
     AnalysisKind, BlobExcessGasAndPrice, BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, EVMError,
     EVMResultGeneric, Env, SpecId, TxEnv,
 };
-use jsonrpsee::http_client::HttpClient;
 
 mod config;
 use alloy_eips::eip1559::INITIAL_BASE_FEE;
@@ -78,7 +78,10 @@ impl EthEvmConfig {
         debug!(target: "reth::evm", ?enclave_addr, ?enclave_port, "Creating new enclave client");
 
         let url = format!("http://{}:{}", enclave_addr.to_string(), enclave_port);
-        let async_client = HttpClient::default().request_timeout(Duration::from_secs(5)).build(url).unwrap();
+        let async_client = HttpClientBuilder::default()
+            .request_timeout(std::time::Duration::from_secs(5))
+            .build(url)
+            .unwrap();
         let enclave_client = EnclaveClient::new_from_client(async_client);
         Self::new_with_enclave_client(chain_spec, enclave_client)
     }

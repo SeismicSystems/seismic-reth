@@ -33,6 +33,7 @@ alloy-consensus.workspace = true
 
 # misc
 secp256k1.workspace = true
+jsonrpsee.workspace = true
 
 [dev-dependencies]
 reth-testing-utils.workspace = true
