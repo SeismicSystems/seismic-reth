@@ -150,9 +150,7 @@ pub mod test_utils {
     use k256::ecdsa::SigningKey;
     use reth_chainspec::{ChainSpec, MAINNET};
     use reth_e2e_test_utils::transaction::TransactionTestContext;
-    use reth_enclave::{
-        start_mock_enclave_server_random_port, MockEnclaveServer, SyncEnclaveApiClient,
-    };
+    use reth_enclave::{start_mock_enclave_server_random_port, MockEnclaveServer};
     use reth_node_ethereum::EthEvmConfig;
     use reth_primitives::TransactionSigned;
     use reth_rpc_eth_api::EthApiClient;
