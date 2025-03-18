@@ -218,6 +218,7 @@ async fn test_seismic_reth_rpc() {
     let chain_id = SeismicRethTestCommand::chain_id();
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
     let wallet = Wallet::default().with_chain_id(chain_id);
+    let encryption_nonce = MockEnclaveServer::get_encryption_nonce();
 
     let tx_hash =
         EthApiClient::<Transaction, Block, TransactionReceipt, Header>::send_raw_transaction(

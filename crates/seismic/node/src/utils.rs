@@ -178,7 +178,7 @@ pub mod test_utils {
     ) -> Bytes {
         let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
             .expect("32 bytes, within curve order");
-        let pk = get_unsecure_sample_secp256k1_pk(); // TODO use the enclave public key
+        let pk = MockEnclaveServer::get_public_key();
         let decrypted_output = ecdh_decrypt(&pk, &sk, &ciphertext, nonce).unwrap();
         Bytes::from(decrypted_output)
     }
@@ -191,7 +191,7 @@ pub mod test_utils {
     ) -> Bytes {
         let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
             .expect("32 bytes, within curve order");
-        let pk = get_unsecure_sample_secp256k1_pk(); // TODO use the enclave public key
+        let pk = MockEnclaveServer::get_public_key();
         let encrypted_output = ecdh_encrypt(&pk, &sk, &plaintext, nonce).unwrap();
 
         Bytes::from(encrypted_output)

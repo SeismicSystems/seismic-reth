@@ -670,5 +670,5 @@ revm-primitives = { git = "https://github.com/SeismicSystems/seismic-revm.git", 
 revm-interpreter = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "77a08e9"}
 revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "9868b93"}
 
-seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "788ae84" }
+seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "8e18a1e" }
 
