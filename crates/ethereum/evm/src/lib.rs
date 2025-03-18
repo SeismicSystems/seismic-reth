@@ -31,6 +31,7 @@ use revm_primitives::{
     AnalysisKind, BlobExcessGasAndPrice, BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, EVMError,
     EVMResultGeneric, Env, SpecId, TxEnv,
 };
+use jsonrpsee::http_client::HttpClient;
 
 mod config;
 use alloy_eips::eip1559::INITIAL_BASE_FEE;
@@ -76,8 +77,9 @@ impl EthEvmConfig {
     ) -> Self {
         debug!(target: "reth::evm", ?enclave_addr, ?enclave_port, "Creating new enclave client");
 
-        let enclave_client =
-            EnclaveClient::new_from_addr_port(enclave_addr.to_string(), enclave_port);
+        let url = format!("http://{}:{}", enclave_addr.to_string(), enclave_port);
+        let async_client = HttpClient::default().request_timeout(Duration::from_secs(5)).build(url).unwrap();
+        let enclave_client = EnclaveClient::new_from_client(async_client);
         Self::new_with_enclave_client(chain_spec, enclave_client)
     }
 
