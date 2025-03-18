@@ -67,7 +67,6 @@ async fn contract() -> eyre::Result<()> {
     second_node.assert_new_block(tx_hash, block_hash, block_number).await?;
 
     let tx_receipt = second_node.rpc.transaction_receipt(tx_hash).await?.unwrap();
-    println!("tx_receipt: {:?}", tx_receipt);
     assert_eq!(tx_receipt.status(), true);
     let contract_addr = tx_receipt.contract_address.unwrap();
 
