@@ -156,7 +156,6 @@ pub mod test_utils {
     use reth_node_ethereum::EthEvmConfig;
     use reth_primitives::TransactionSigned;
     use reth_rpc_eth_api::EthApiClient;
-    use seismic_enclave::{ecdh_decrypt, ecdh_encrypt, get_unsecure_sample_secp256k1_pk};
     use serde::{Deserialize, Serialize};
 
     /// Get the nonce from the client
@@ -170,52 +169,14 @@ pub mod test_utils {
         nonce.wrapping_to::<u64>()
     }
 
-    /// Decrypt ciphertext using network public key and client private key
-    pub async fn client_decrypt(
-        sk_wallet: &PrivateKeySigner,
-        nonce: u64,
-        ciphertext: &Bytes,
-    ) -> Bytes {
-        let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
-            .expect("32 bytes, within curve order");
-        let pk = MockEnclaveServer::get_public_key();
-        let decrypted_output = ecdh_decrypt(&pk, &sk, &ciphertext, nonce).unwrap();
-        Bytes::from(decrypted_output)
-    }
-
-    /// Encrypt plaintext using network public key and client private key
-    pub async fn client_encrypt(
-        sk_wallet: &PrivateKeySigner,
-        nonce: u64,
-        plaintext: &Bytes,
-    ) -> Bytes {
-        let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
-            .expect("32 bytes, within curve order");
-        let pk = MockEnclaveServer::get_public_key();
-        let encrypted_output = ecdh_encrypt(&pk, &sk, &plaintext, nonce).unwrap();
-
-        Bytes::from(encrypted_output)
-    }
-
-    /// Get the encryption public key
-    pub fn get_encryption_pubkey(sk_wallet: &PrivateKeySigner) -> PublicKey {
-        let sk = SecretKey::from_slice(&sk_wallet.credential().to_bytes())
-            .expect("32 bytes, within curve order");
-        PublicKey::from_secret_key_global(&sk)
-    }
-
     /// Get an unsigned seismic transaction request
     pub async fn get_unsigned_seismic_tx_request(
         sk_wallet: &PrivateKeySigner,
         nonce: u64,
         to: TxKind,
         chain_id: u64,
-        decrypted_input: Bytes,
+        plaintext: Bytes,
     ) -> TransactionRequest {
-        let encrypted_input = client_encrypt(sk_wallet, nonce, &decrypted_input).await;
-        println!("nonce: {}", nonce);
-
-        let encryption_pubkey = get_encryption_pubkey(sk_wallet);
         TransactionRequest {
             from: Some(sk_wallet.address()),
             nonce: Some(nonce),
@@ -224,13 +185,12 @@ pub mod test_utils {
             gas: Some(6000000),
             gas_price: Some(20e9 as u128),
             chain_id: Some(chain_id),
-            input: TransactionInput { input: Some(Bytes::from(encrypted_input)), data: None },
+            input: TransactionInput {
+                input: Some(UnitTestContext::client_encrypt(&plaintext)),
+                data: None,
+            },
             transaction_type: Some(TxSeismic::TX_TYPE),
-            seismic_elements: Some(TxSeismicElements {
-                encryption_pubkey,
-                encryption_nonce: U96::from(nonce),
-                message_version: 0,
-            }),
+            seismic_elements: Some(UnitTestContext::get_seismic_elements()),
             ..Default::default()
         }
     }
@@ -241,10 +201,9 @@ pub mod test_utils {
         nonce: u64,
         to: TxKind,
         chain_id: u64,
-        decrypted_input: Bytes,
+        plaintext: Bytes,
     ) -> Bytes {
-        let tx =
-            get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, decrypted_input).await;
+        let tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, plaintext).await;
         let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
         <TxEnvelope as Encodable2718>::encoded_2718(&signed).into()
     }
@@ -272,10 +231,9 @@ pub mod test_utils {
         nonce: u64,
         to: TxKind,
         chain_id: u64,
-        decrypted_input: Bytes,
+        plaintext: Bytes,
     ) -> TypedDataRequest {
-        let tx =
-            get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, decrypted_input).await;
+        let tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, plaintext).await;
         tx.seismic_elements.unwrap().message_version = 2;
         let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
 
@@ -409,14 +367,30 @@ pub mod test_utils {
 
         /// Encrypt plaintext using network public key and client private key
         pub fn get_ciphertext() -> Bytes {
-            let encrypted_data = Self::get_seismic_elements()
+            let encrypted_data = Self::client_encrypt(&Self::get_plaintext());
+            encrypted_data
+        }
+
+        /// Encrypt plaintext using network public key and client private key
+        pub fn client_encrypt(plaintext: &Bytes) -> Bytes {
+            Self::get_seismic_elements()
                 .client_encrypt(
-                    &Self::get_plaintext(),
+                    plaintext,
                     &Self::get_network_public_key(),
                     &Self::get_encryption_private_key(),
                 )
-                .unwrap();
-            encrypted_data
+                .unwrap()
+        }
+
+        /// Decrypt ciphertext using network public key and client private key
+        pub fn client_decrypt(ciphertext: &Bytes) -> Bytes {
+            Self::get_seismic_elements()
+                .client_decrypt(
+                    ciphertext,
+                    &Self::get_network_public_key(),
+                    &Self::get_encryption_private_key(),
+                )
+                .unwrap()
         }
 
         /// Get the encryption private key

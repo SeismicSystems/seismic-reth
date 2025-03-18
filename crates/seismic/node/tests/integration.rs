@@ -18,8 +18,8 @@ use reth_rpc_eth_api::EthApiClient;
 use seismic_enclave::aes_decrypt;
 use seismic_node::utils::{
     test_utils::{
-        client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
-        get_unsigned_seismic_tx_request,
+        get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
+        get_unsigned_seismic_tx_request, UnitTestContext,
     },
     SeismicRethTestCommand,
 };
@@ -116,9 +116,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
     )
     .await
     .unwrap();
-    let decrypted_output =
-        client_decrypt(&wallet.inner, get_nonce(&client, wallet.inner.address()).await, &output)
-            .await;
+    let decrypted_output = UnitTestContext::client_decrypt(&output);
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 }
@@ -218,7 +216,6 @@ async fn test_seismic_reth_rpc() {
     let chain_id = SeismicRethTestCommand::chain_id();
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
     let wallet = Wallet::default().with_chain_id(chain_id);
-    let encryption_nonce = MockEnclaveServer::get_encryption_nonce();
 
     let tx_hash =
         EthApiClient::<Transaction, Block, TransactionReceipt, Header>::send_raw_transaction(
@@ -283,9 +280,7 @@ async fn test_seismic_reth_rpc() {
     )
     .await
     .unwrap();
-    let decrypted_output =
-        client_decrypt(&wallet.inner, get_nonce(&client, wallet.inner.address()).await, &output)
-            .await;
+    let decrypted_output = UnitTestContext::client_decrypt(&output);
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 
@@ -337,9 +332,7 @@ async fn test_seismic_reth_rpc() {
     )
     .await
     .unwrap();
-    let decrypted_output =
-        client_decrypt(&wallet.inner, get_nonce(&client, wallet.inner.address()).await, &output)
-            .await;
+    let decrypted_output = UnitTestContext::client_decrypt(&output);
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::from(1));
 
@@ -544,9 +537,9 @@ async fn test_seismic_precompiles_end_to_end() {
     // Local Decrypt
     let secp_private = secp256k1::SecretKey::from_slice(private_key.as_ref()).unwrap();
     let aes_key: &[u8; 32] = &secp_private.secret_bytes()[0..32].try_into().unwrap();
+    let nonce: [u8; 12] = decoded.indexed[0].abi_encode_packed().try_into().unwrap();
     let decrypted_locally =
-        aes_decrypt(aes_key.into(), &ciphertext, decoded.indexed[0].abi_encode_packed())
-            .expect("AES decryption failed");
+        aes_decrypt(aes_key.into(), &ciphertext, nonce).expect("AES decryption failed");
     assert_eq!(decrypted_locally, message);
 }
 
