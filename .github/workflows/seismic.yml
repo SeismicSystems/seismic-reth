@@ -84,3 +84,31 @@ jobs:
       - name: seismic-node test
         # see profile.default in .config/nextest.toml for filtered tests
         run: cargo nextest run --workspace -E 'kind(test)'
+  
+  viem:
+    runs-on: large-github-runner
+    timeout-minutes: 30
+    env:
+      SRETH_ROOT: /home/runner/work/seismic-reth/seismic-reth
+      RETH_DATA_DIR: /home/runner/work/.seismic-reth/data
+      RETH_STATIC_FILES: /home/runner/work/.seismic-reth/static_files
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.5
+      - name: Clear reth files
+        run: rm -rf "$RETH_DATA_DIR" && rm -rf "$RETH_STATIC_FILES"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "viem-cache"
+      - name: seismic-reth build
+        run: cargo build --bin seismic-reth
+      - name: Install dependencies
+        run: bun install
+      - name: Run viem tests vs. reth
+        run: bun test
+      - name: Remove reth files
+        run: rm -rf "$RETH_DATA_DIR" && rm -rf "$RETH_STATIC_FILES"
+      

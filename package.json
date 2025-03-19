@@ -1,0 +1,10 @@
+{
+    "workspaces": [
+      "packages/**"
+    ],
+    "private": true,
+    "scripts": {
+      "test": "bun run --cwd packages/client-test test"
+    }
+  }
+  

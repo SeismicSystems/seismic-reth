@@ -55,3 +55,8 @@ rustc-ice-*
 book/sources/Cargo.lock
 
 crates/seismic/node/tmp/
+
+
+# seismic-viem tests
+node_modules
+bun.lock
