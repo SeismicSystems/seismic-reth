@@ -5,6 +5,6 @@
   ],
   "private": true,
   "scripts": {
-    "viem:test": "bun run --cwd packages/client-tests test"
+    "viem:test": "bun run --cwd testing/viem-tests test"
   }
 }
