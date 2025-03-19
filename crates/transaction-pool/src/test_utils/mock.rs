@@ -9,6 +9,7 @@ use crate::{
 };
 use alloy_consensus::{
     constants::{EIP1559_TX_TYPE_ID, EIP2930_TX_TYPE_ID, EIP4844_TX_TYPE_ID, LEGACY_TX_TYPE_ID},
+    transaction::TxSeismicElements,
     TxEip1559, TxEip2930, TxEip4844, TxLegacy,
 };
 use alloy_eips::{
@@ -774,7 +775,7 @@ impl PoolTransaction for MockTransaction {
         }
     }
 
-    fn encryption_pubkey(&self) -> Option<&alloy_consensus::transaction::EncryptionPublicKey> {
+    fn seismic_elements(&self) -> Option<&TxSeismicElements> {
         None
     }
 }

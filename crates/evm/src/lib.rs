@@ -18,7 +18,7 @@
 extern crate alloc;
 
 use crate::builder::RethEvmBuilder;
-use alloy_consensus::{transaction::EncryptionPublicKey, BlockHeader as _, TxSeismic};
+use alloy_consensus::{transaction::TxSeismicElements, BlockHeader as _, TxSeismic};
 use alloy_primitives::{Address, Bytes, TxHash, B256, U256};
 use reth_enclave::{EnclaveError, SchnorrkelKeypair};
 use reth_primitives_traits::BlockHeader;
@@ -149,27 +149,19 @@ pub trait ConfigureEvmEnv: Send + Sync + Unpin + Clone + 'static {
     /// seismic feature encrypt the transaction
     fn encrypt(
         &self,
-        _data: Vec<u8>,
-        _pubkey: EncryptionPublicKey,
-        _encryption_nonce: u64,
-    ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
-        Err(EVMError::Database(EnclaveError::EncryptionError))
-    }
+        _data: &Bytes,
+        _seismic_elements: &TxSeismicElements,
+    ) -> EVMResultGeneric<Bytes, EnclaveError>;
 
     /// seismic feature decrypt the transaction
     fn decrypt(
         &self,
-        _data: Vec<u8>,
-        _pubkey: EncryptionPublicKey,
-        _encryption_nonce: u64,
-    ) -> EVMResultGeneric<Vec<u8>, EnclaveError> {
-        Err(EVMError::Database(EnclaveError::DecryptionError))
-    }
+        _data: &Bytes,
+        _seismic_elements: &TxSeismicElements,
+    ) -> EVMResultGeneric<Bytes, EnclaveError>;
 
     /// Get current eph_rng_keypair
-    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, EnclaveError> {
-        Err(EVMError::Database(EnclaveError::EphRngKeypairGenerationError))
-    }
+    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, EnclaveError>;
 
     /// seismic feature decrypt the transaction
     fn fill_seismic_tx_env(

@@ -44,10 +44,11 @@ impl SeismicApi {
     /// Creates a new seismic api instance
     pub fn new<ChainSpec>(config: &NodeConfig<ChainSpec>) -> Self {
         Self {
-            enclave_client: EnclaveClient::new_from_addr_port(
-                config.enclave.enclave_server_addr.to_string(),
-                config.enclave.enclave_server_port,
-            ),
+            enclave_client: EnclaveClient::builder()
+                .addr(config.enclave.enclave_server_addr.to_string())
+                .port(config.enclave.enclave_server_port)
+                .timeout(std::time::Duration::from_secs(config.enclave.enclave_timeout))
+                .build(),
         }
     }
 
@@ -118,7 +119,7 @@ mod tests {
     use jsonrpsee::core::client::{ClientT, SubscriptionClientT};
     use reth_enclave::start_mock_enclave_server_random_port;
     use reth_provider::test_utils::MockEthProvider;
-    use seismic_node::utils::test_utils::UnitTestContext;
+    use seismic_node::utils::test_utils::get_seismic_tx;
 
     use super::*;
 
@@ -133,7 +134,7 @@ mod tests {
     where
         C: ClientT + SubscriptionClientT + Sync,
     {
-        let typed_data = UnitTestContext::get_seismic_tx().eip712_to_type_data();
+        let typed_data = get_seismic_tx().eip712_to_type_data();
         let _signature =
             EthApiOverrideClient::sign_typed_data_v4(client, Address::ZERO, typed_data)
                 .await

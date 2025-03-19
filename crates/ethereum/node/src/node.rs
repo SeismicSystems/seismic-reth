@@ -147,10 +147,12 @@ where
         ctx: &BuilderContext<Node>,
     ) -> eyre::Result<(Self::EVM, Self::Executor)> {
         let chain_spec = ctx.chain_spec();
+        let enclave_args = ctx.config().enclave;
         let evm_config = EthEvmConfig::new_with_enclave_addr_port(
             ctx.chain_spec(),
-            ctx.config().enclave.enclave_server_addr,
-            ctx.config().enclave.enclave_server_port,
+            enclave_args.enclave_server_addr,
+            enclave_args.enclave_server_port,
+            enclave_args.enclave_timeout,
         );
         let strategy_factory = EthExecutionStrategyFactory::new(chain_spec, evm_config.clone());
         let executor = BasicBlockExecutorProvider::new(strategy_factory);
@@ -318,11 +320,13 @@ where
         ctx: &BuilderContext<Node>,
         pool: Pool,
     ) -> eyre::Result<PayloadBuilderHandle<Types::Engine>> {
+        let enclave_args = ctx.config().enclave;
         self.spawn(
             EthEvmConfig::new_with_enclave_addr_port(
                 ctx.chain_spec(),
-                ctx.config().enclave.enclave_server_addr,
-                ctx.config().enclave.enclave_server_port,
+                enclave_args.enclave_server_addr,
+                enclave_args.enclave_server_port,
+                enclave_args.enclave_timeout,
             ),
             ctx,
             pool,
