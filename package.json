@@ -1,10 +1,9 @@
 {
-    "workspaces": [
-      "packages/**"
-    ],
-    "private": true,
-    "scripts": {
-      "test": "bun run --cwd packages/client-test test"
-    }
+  "workspaces": [
+    "packages/**"
+  ],
+  "private": true,
+  "scripts": {
+    "test": "bun run --cwd packages/client-tests test"
   }
-  
+}
