@@ -18,12 +18,8 @@ pub fn recover_raw_transaction<T: SignedTransaction>(mut data: &[u8]) -> EthResu
         return Err(EthApiError::EmptyRawTransactionData)
     }
 
-    debug!(target: "reth::recover_raw_transaction", "{:?}", data);
-
     let transaction =
         T::decode_2718(&mut data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
-
-    debug!(target: "reth::recover_raw_transaction", "{:?}", transaction);
 
     transaction.try_into_ecrecovered().or(Err(EthApiError::InvalidTransactionSignature))
 }
@@ -37,12 +33,8 @@ pub fn recover_raw_transaction<T: SignedTransaction>(mut data: &[u8]) -> EthResu
 pub fn recover_typed_data_request<T: SignedTransaction>(
     mut data: &TypedDataRequest,
 ) -> EthResult<RecoveredTx<T>> {
-    debug!(target: "reth::recover_typed_data_request", "{:?}", data);
-
     let transaction =
         T::decode_712(&mut data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
-
-    debug!(target: "reth::recover_typed_data_request", "{:?}", transaction);
 
     transaction.try_into_ecrecovered().or(Err(EthApiError::InvalidTransactionSignature))
 }

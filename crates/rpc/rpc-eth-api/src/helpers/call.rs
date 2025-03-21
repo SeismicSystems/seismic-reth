@@ -236,8 +236,6 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
             let (res, _env) =
                 self.transact_call_at(request, block_number.unwrap_or_default(), overrides).await?;
 
-            debug!(target: "rpc::eth::call", ?res, "Transacted");
-
             let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
 
             if let Some(seismic_elements) = seismic_elements {
@@ -679,8 +677,6 @@ pub trait Call:
 
                 let env = this.prepare_call_env(cfg, block_env, request, &mut db, overrides)?;
 
-                debug!(target: "rpc::eth::call::spawn_with_call_at", ?env, "Prepared call environment");
-
                 f(StateCacheDbRefMutWrapper(&mut db), env)
             })
             .await
@@ -805,8 +801,6 @@ pub trait Call:
             return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err())
         }
 
-        debug!(target: "rpc::eth::call", ?request, "Creating transaction environment");
-
         let TransactionRequest {
             from,
             to,
@@ -877,7 +871,6 @@ pub trait Call:
             rng_mode: RngMode::Simulation,
             ..Default::default()
         };
-        debug!(target: "rpc::eth::call", ?env, "Created transaction environment");
 
         Ok(env)
     }

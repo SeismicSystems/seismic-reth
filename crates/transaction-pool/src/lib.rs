@@ -355,7 +355,6 @@ where
     ) -> PoolResult<TxHash> {
         let (_, tx) = self.validate(origin, transaction).await;
         let mut results = self.pool.add_transactions(origin, std::iter::once(tx));
-        debug!(target: "txpool", "add_transaction result: {:?}", results);
         results.pop().expect("result length is the same as the input")
     }
 

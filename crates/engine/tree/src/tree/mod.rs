@@ -1218,7 +1218,6 @@ where
     fn advance_backup(&mut self) -> Result<(), AdvancePersistenceError> {
         debug!(target: "engine::tree", "advance_backup called");
         if !self.backup.in_progress() {
-            debug!(target: "engine::tree", "checking if we should backup");
             if self.should_backup() {
                 debug!(target: "engine::tree", "sending backup action");
                 let (tx, rx) = oneshot::channel();
@@ -1559,7 +1558,6 @@ where
         let min_block = self.backup.latest_backup_block.number;
         let last_persisted_block = self.persistence_state.last_persisted_block.number;
         let diff = last_persisted_block.saturating_sub(min_block);
-        debug!(target: "engine::tree", min_block=?min_block, last_persisted_block=?last_persisted_block, diff=?diff, threshold=?self.config.backup_threshold(), "min block");
 
         self.persistence_state.last_persisted_block.number.saturating_sub(min_block) >=
             self.config.backup_threshold()

@@ -922,7 +922,6 @@ impl<T: TransactionOrdering> TxPool<T> {
         // We trace here instead of in structs directly, because the `ParkedPool` type is
         // generic and it would not be possible to distinguish whether a transaction is being
         // added to the `BaseFee` pool, or the `Queued` pool.
-        debug!(target: "txpool", hash=%tx.transaction.hash(), ?pool, "Adding transaction to a subpool");
         match pool {
             SubPool::Queued => self.queued_pool.add_transaction(tx),
             SubPool::Pending => {
