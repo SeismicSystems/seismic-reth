@@ -158,7 +158,6 @@ use reth_eth_wire_types::HandleMempoolData;
 use reth_execution_types::ChangedAccount;
 use reth_primitives::RecoveredTx;
 use reth_storage_api::StateProviderFactory;
-use reth_tracing::tracing::debug;
 use std::{collections::HashSet, sync::Arc};
 use tokio::sync::mpsc::Receiver;
 use tracing::{instrument, trace};
