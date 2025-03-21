@@ -68,15 +68,6 @@ pub trait ConfigureEvm: ConfigureEvmEnv {
         let mut evm = self.evm(db);
         evm.modify_spec_id(env.spec_id());
 
-        // Check if the spec ID is enabled in MERCURY
-        // println!(
-        //     "Checking spec ID for MERCURY: {:?} is enabled: {:?} env spec id: {} mercurry spec
-        // id: {}",     env.spec_id(),
-        //     env.spec_id().is_enabled_in(SpecId::MERCURY),
-        //     env.spec_id() as u8,
-        //     SpecId::MERCURY as u8
-        // );
-
         // This will change if we use our own spec id
         if env.spec_id() == SpecId::MERCURY {
             let keypair = match self.get_eph_rng_keypair() {
