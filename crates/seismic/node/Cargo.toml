@@ -91,6 +91,7 @@ alloy-sol-types.workspace = true
 alloy-dyn-abi.workspace = true
 alloy-json-abi = { version = "0.8.15" }
 alloy-eips.workspace = true
+alloy-transport-http.workspace = true
 
 [[bench]]
 name = "spam"

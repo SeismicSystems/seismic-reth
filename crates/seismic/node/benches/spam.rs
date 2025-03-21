@@ -1,16 +1,23 @@
 //! Spam benchmark for reth
-use alloy_network::EthereumWallet;
+use alloy_network::{Ethereum, EthereumWallet, TransactionBuilder};
 use alloy_primitives::{Address, U256};
+use alloy_rpc_types::TransactionRequest;
 use alloy_signer_local::{LocalSigner, PrivateKeySigner};
 mod faucet_service;
 use faucet_service::FaucetService;
 use futures::TryFutureExt;
 use k256::ecdsa::SigningKey;
-use seismic_node::utils::SeismicRethTestCommand;
 use std::{ops::Deref, sync::Arc};
-use tokio::{sync::mpsc, time::Instant};
+use tokio::time::Instant;
 
-use alloy_provider::{build_seismic_tx, test_utils, Provider, SeismicSignedProvider, SendableTx};
+use alloy_provider::{
+    fillers::{
+        BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, LatestNonceManager,
+        NonceFiller, WalletFiller,
+    },
+    layers::seismic::test_utils,
+    Provider, ProviderBuilder, RootProvider, SeismicSignedProvider, SendableTx,
+};
 
 use std::{
     result::Result,
@@ -45,7 +52,7 @@ use std::{
 
 // testing params
 const WALLET_COUNT: usize = 126; // 126;
-const CALL_TX_RATIO: usize = 1;
+const CALL_TX_RATIO: usize = 50;
 const ROUND_COUNT: usize = 43200;
 
 const MIN_WEI_PER_WALLET: usize = 6000000000000000;
@@ -56,9 +63,23 @@ const RPC_URL: &str = "https://node-3.seismicdev.net/rpc";
 const FAUCET_URL: &str = "https://faucet-3.seismicdev.net/api/claim";
 const BLOCK_TIME: u64 = 2;
 
+pub type UnencryptedProvider = FillProvider<
+    JoinFill<
+        JoinFill<
+            GasFiller,
+            JoinFill<BlobGasFiller, JoinFill<NonceFiller<LatestNonceManager>, ChainIdFiller>>,
+        >,
+        WalletFiller<EthereumWallet>,
+    >,
+    RootProvider<alloy_transport_http::Http<alloy_transport_http::Client>, Ethereum>,
+    alloy_transport_http::Http<alloy_transport_http::Client>,
+    Ethereum,
+>;
+
+/// Context for running benchmark tests
 #[derive(Clone)]
 pub struct BenchWalletContext {
-    provider: SeismicSignedProvider,
+    provider: UnencryptedProvider,
     from: Address,
 }
 
@@ -91,13 +112,55 @@ impl BenchWalletContext {
         Ok(())
     }
 
+    async fn universal_basic_income(
+        &self,
+        wallets: &Vec<BenchWalletContext>,
+    ) -> Result<(), String> {
+        let nonce =
+            self.provider.get_transaction_count(self.from).await.map_err(|e| e.to_string())?;
+
+        let futures = wallets.iter().enumerate().map(async |(i, wallet)| {
+            let tx = TransactionRequest::default()
+                .with_from(self.from)
+                .with_value(U256::from(MIN_WEI_PER_WALLET))
+                .with_nonce(nonce + i as u64)
+                .with_gas_price(u128::from_str("0x3b9aca07").unwrap())
+                .with_kind(alloy_primitives::TxKind::Call(wallet.from));
+
+            self.provider
+                .send_transaction(tx)
+                .await
+                .map_err(|e| e.to_string())
+                .unwrap()
+                .get_receipt()
+                .await
+                .map_err(|e| e.to_string())
+        });
+
+        futures::future::join_all(futures).await;
+
+        Ok(())
+    }
+
     async fn new_with_pk(pk: &str) -> Self {
         let signer = LocalSigner::<SigningKey>::from_str(pk).unwrap();
         let from = signer.address();
-        let provider = SeismicSignedProvider::new(
-            EthereumWallet::new(signer),
-            reqwest::Url::parse(RPC_URL).unwrap(),
+        let tx_filler_layer = JoinFill::new(
+            JoinFill::new(
+                GasFiller,
+                JoinFill::new(
+                    BlobGasFiller,
+                    JoinFill::new(
+                        NonceFiller::<LatestNonceManager>::default(),
+                        ChainIdFiller::default(),
+                    ),
+                ),
+            ),
+            WalletFiller::new(EthereumWallet::new(signer)),
         );
+        let provider = ProviderBuilder::new()
+            .layer(tx_filler_layer)
+            .on_http(reqwest::Url::parse(RPC_URL).unwrap());
 
         Self { provider, from }
     }
@@ -106,42 +169,50 @@ impl BenchWalletContext {
     async fn new() -> Self {
         let signer = LocalSigner::<SigningKey>::random();
         let from = signer.address();
-        let provider = SeismicSignedProvider::new(
-            EthereumWallet::new(signer),
-            reqwest::Url::parse(RPC_URL).unwrap(),
+        let tx_filler_layer = JoinFill::new(
+            JoinFill::new(
+                GasFiller,
+                JoinFill::new(
+                    BlobGasFiller,
+                    JoinFill::new(
+                        NonceFiller::<LatestNonceManager>::default(),
+                        ChainIdFiller::default(),
+                    ),
+                ),
+            ),
+            WalletFiller::new(EthereumWallet::new(signer)),
         );
+        let provider = ProviderBuilder::new()
+            .layer(tx_filler_layer)
+            .on_http(reqwest::Url::parse(RPC_URL).unwrap());
 
         Self { provider, from }
     }
 
     async fn deploy_set_number(&self) -> Result<Address, String> {
         println!("BENCH deploy_set_number: from={:?}", self.from);
-        let tx = build_seismic_tx(
-            test_utils::ContractTestContext::get_deploy_input_plaintext(),
-            alloy_primitives::TxKind::Create,
-            self.from,
-        );
+        let tx = TransactionRequest::default()
+            .with_input(test_utils::ContractTestContext::get_deploy_input_plaintext())
+            .with_from(self.from)
+            .with_kind(alloy_primitives::TxKind::Create);
 
         let contract_addr = self
             .provider
             .send_transaction(tx)
             .await
-            .map_err(|e| e.to_string())?
+            .map_err(|e| format!("Error: {}, from={:?}", e.to_string(), self.from))?
             .get_receipt()
             .await
-            .map_err(|e| e.to_string())?
+            .map_err(|e| format!("Error: {}, from={:?}", e.to_string(), self.from))?
             .contract_address
-            .ok_or_else(|| "BENCH deploy_set_number error: deploy failed".to_string())?;
+            .ok_or_else(|| {
+                format!("BENCH deploy_set_number error: deploy failed, from={:?}", self.from)
+            })?;
 
-        println!("BENCH deploy_set_number: contract_addr={:?}", contract_addr);
-
-        let tx = build_seismic_tx(
-            test_utils::ContractTestContext::get_set_number_input_plaintext(),
-            alloy_primitives::TxKind::Call(contract_addr),
-            self.from,
-        );
-
-        println!("BENCH deploy_set_number: set_number_tx={:?}", tx);
+        let tx = TransactionRequest::default()
+            .with_from(self.from)
+            .with_input(test_utils::ContractTestContext::get_set_number_input_plaintext())
+            .with_kind(alloy_primitives::TxKind::Call(contract_addr));
 
         let receipt = self
             .provider
@@ -152,8 +223,6 @@ impl BenchWalletContext {
             .await
             .map_err(|e| e.to_string())?;
 
-        println!("BENCH deploy_set_number: receipt={:?}", receipt);
-
         Ok(contract_addr)
     }
 
@@ -161,11 +230,12 @@ impl BenchWalletContext {
     async fn call(&self, contract_addr: Address) -> Result<(), String> {
         let _ = self
             .provider
-            .seismic_call(SendableTx::Builder(build_seismic_tx(
-                test_utils::ContractTestContext::get_is_odd_input_plaintext(),
-                alloy_primitives::TxKind::Call(contract_addr),
-                self.from,
-            )))
+            .seismic_call(SendableTx::Builder(
+                TransactionRequest::default()
+                    .with_input(test_utils::ContractTestContext::get_is_odd_input_plaintext())
+                    .with_from(self.from)
+                    .with_kind(alloy_primitives::TxKind::Call(contract_addr)),
+            ))
             .await
             .map_err(|e| e.to_string())?;
         Ok(())
@@ -173,7 +243,7 @@ impl BenchWalletContext {
 }
 
 impl Deref for BenchWalletContext {
-    type Target = SeismicSignedProvider;
+    type Target = UnencryptedProvider;
 
     fn deref(&self) -> &Self::Target {
         &self.provider
@@ -184,7 +254,7 @@ impl Deref for BenchWalletContext {
 struct BenchContext {
     wallets: Vec<BenchWalletContext>,
     fallback_contract_addr: Address,
-    faucet_service: FaucetService,
+    faucet_wallet: BenchWalletContext,
 }
 
 /// Results from a single benchmark round
@@ -205,9 +275,9 @@ impl BenchContext {
     async fn new(
         wallets: Vec<BenchWalletContext>,
         fallback_contract_addr: Address,
-        faucet_service: FaucetService,
+        faucet_wallet: BenchWalletContext,
     ) -> Self {
-        Self { wallets, fallback_contract_addr, faucet_service }
+        Self { wallets, fallback_contract_addr, faucet_wallet }
     }
 
     /// Execute a single round of benchmarks
@@ -217,16 +287,9 @@ impl BenchContext {
         let total_transaction_time = Arc::new(AtomicUsize::new(0));
         let total_call_time = Arc::new(AtomicUsize::new(0));
 
-        // First, check which wallets need ETH and add them to the faucet service
-        for wallet_ctx in &self.wallets {
-            println!("BENCH adding wallet to faucet service: {:?}", wallet_ctx.from);
-            self.faucet_service.add_request(wallet_ctx.from, U256::from(MIN_WEI_PER_WALLET)).await;
-        }
+        self.faucet_wallet.universal_basic_income(&self.wallets).await.unwrap();
 
-        // Process all requests at once
-        if let Err(e) = self.faucet_service.process_requests().await {
-            println!("Error processing faucet requests: {}", e);
-        }
+        println!("BENCH finished basic income");
 
         let futures = self.wallets.iter().map(|wallet_ctx| {
             let transaction_fail_count = Arc::clone(&transaction_fail_count);
@@ -288,8 +351,8 @@ async fn benchmark_reth() {
     let faucet_wallet = BenchWalletContext::new_with_pk(pk).await;
 
     let faucet_signer = PrivateKeySigner::from_str(pk).unwrap();
+    println!("credential: {:?}", faucet_signer.credential());
     let chain_id = faucet_wallet.get_chain_id().await.unwrap();
-    faucet_wallet.get_eth_from_faucet().await.unwrap();
     let faucet_service =
         FaucetService::new(Arc::new(faucet_signer), RPC_URL, chain_id, faucet_wallet.from).await;
 
@@ -302,10 +365,9 @@ async fn benchmark_reth() {
         wallets.push(wallet);
     }
 
-    let ctx = BenchContext::new(wallets, contract_addr, faucet_service).await;
+    let ctx = BenchContext::new(wallets, contract_addr, faucet_wallet).await;
 
     for i in 0..ROUND_COUNT {
-        faucet_wallet.get_eth_from_faucet().await.unwrap();
         let result = ctx.execute_round().await;
         // Sleep for 3 seconds between rounds to allow the network to process transactions
         tokio::time::sleep(Duration::from_secs(3)).await;
