@@ -45,7 +45,7 @@ use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
 use revm::{Database, DatabaseCommit, GetInspector};
 use revm_inspectors::{access_list::AccessListInspector, transfer::TransferInspector};
 use revm_primitives::RngMode;
-use tracing::{debug, trace};
+use tracing::trace;
 
 /// Result type for `eth_simulateV1` RPC method.
 pub type SimulatedBlocksResult<N, E> = Result<Vec<SimulatedBlock<RpcBlock<N>>>, E>;

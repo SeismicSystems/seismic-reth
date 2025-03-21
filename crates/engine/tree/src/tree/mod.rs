@@ -1555,11 +1555,10 @@ where
             return false
         }
 
-        let min_block = self.backup.latest_backup_block.number;
-        let last_persisted_block = self.persistence_state.last_persisted_block.number;
-        let diff = last_persisted_block.saturating_sub(min_block);
-
-        self.persistence_state.last_persisted_block.number.saturating_sub(min_block) >=
+        self.persistence_state
+            .last_persisted_block
+            .number
+            .saturating_sub(self.backup.latest_backup_block.number) >=
             self.config.backup_threshold()
     }
 

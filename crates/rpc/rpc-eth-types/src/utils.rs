@@ -5,7 +5,6 @@ use alloy_eips::eip712::TypedDataRequest;
 use reth_primitives::{transaction::SignedTransactionIntoRecoveredExt, RecoveredTx};
 use reth_primitives_traits::SignedTransaction;
 use std::future::Future;
-use tracing::debug;
 
 /// Recovers a [`SignedTransaction`] from an enveloped encoded byte stream.
 ///

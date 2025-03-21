@@ -9,7 +9,6 @@ use reth_rpc_eth_api::{
 };
 use reth_rpc_eth_types::utils::{recover_raw_transaction, recover_typed_data_request};
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
-use tracing::debug;
 
 impl<Provider, Pool, Network, EvmConfig> EthTransactions
     for EthApi<Provider, Pool, Network, EvmConfig>
