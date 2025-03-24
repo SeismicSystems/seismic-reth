@@ -1412,7 +1412,6 @@ impl Encodable2718 for TransactionSigned {
 
 impl Decodable2718 for TransactionSigned {
     fn typed_decode(ty: u8, buf: &mut &[u8]) -> Eip2718Result<Self> {
-        debug!("Decoding transaction with type: {}", ty);
         match ty.try_into().map_err(|_| Eip2718Error::UnexpectedType(ty))? {
             TxType::Legacy => Err(Eip2718Error::UnexpectedType(0)),
             TxType::Eip2930 => {

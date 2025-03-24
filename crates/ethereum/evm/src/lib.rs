@@ -140,13 +140,9 @@ impl ConfigureEvmEnv for EthEvmConfig {
         sender: Address,
         tx_hash: TxHash,
     ) -> EVMResultGeneric<(), EnclaveError> {
-        debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
-
         let enclave_decryption = self.decrypt(&tx.input, &tx.seismic_elements)?;
 
         let data = Bytes::from(enclave_decryption.clone());
-
-        debug!(target: "reth::fill_tx_env", ?data, ?enclave_decryption, ?tx.input, "Decrypted input data");
 
         tx_env.caller = sender;
         tx_env.gas_limit = tx.gas_limit;
@@ -163,8 +159,6 @@ impl ConfigureEvmEnv for EthEvmConfig {
         tx_env.authorization_list = None;
         tx_env.tx_hash = tx_hash;
 
-        debug!(target: "reth::fill_tx_env", ?tx_env, "Filled Seismic transaction");
-
         Ok(())
     }
 
@@ -174,7 +168,6 @@ impl ConfigureEvmEnv for EthEvmConfig {
         transaction: &TransactionSigned,
         sender: Address,
     ) -> EVMResultGeneric<(), EnclaveError> {
-        debug!(target: "reth::fill_tx_env", ?transaction, "Parsing transaction");
         match &transaction.transaction {
             Transaction::Seismic(tx) => {
                 self.fill_seismic_tx_env(tx_env, tx, sender, transaction.hash())?;

@@ -277,7 +277,6 @@ where
 
     /// Returns the best payload for the given identifier that has been built so far.
     fn best_payload(&self, id: PayloadId) -> Option<Result<T::BuiltPayload, PayloadBuilderError>> {
-        debug!(%id, "getting best payload, payload jobs count: {}", self.payload_jobs.len());
         let res = self
             .payload_jobs
             .iter()

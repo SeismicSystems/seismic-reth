@@ -165,8 +165,7 @@ async fn test_seismic_reth_rpc_with_rust_client() {
         .seismic_call(SendableTx::Builder(
             TransactionRequest::default()
                 .with_input(test_utils::ContractTestContext::get_is_odd_input_plaintext())
-                .with_to(contract_addr)
-                .with_from(address),
+                .with_to(contract_addr),
         ))
         .await
         .unwrap();

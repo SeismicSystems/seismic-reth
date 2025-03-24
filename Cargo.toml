@@ -636,38 +636,38 @@ alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy
 alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "5dc07cc" }
 
 # seismic-alloy
-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-contract = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-eips = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-genesis = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-json-rpc = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-network = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-network-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-node-bindings = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-pubsub = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-rpc-client = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-rpc-types-admin = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-rpc-types-anvil = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-rpc-types-beacon = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-rpc-types-debug = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-rpc-types-engine = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-rpc-types-eth = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-rpc-types-mev = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-rpc-types-trace = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-rpc-types-txpool = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-serde = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-signer = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-signer-local = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-transport = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-transport-http = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-transport-ipc = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
-alloy-transport-ws = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "23845ba" }
+alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-contract = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-eips = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-genesis = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-json-rpc = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-network = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-network-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-node-bindings = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-provider = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-pubsub = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-rpc-client = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-rpc-types-admin = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-rpc-types-anvil = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-rpc-types-beacon = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-rpc-types-debug = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-rpc-types-engine = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-rpc-types-eth = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-rpc-types-mev = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-rpc-types-trace = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-rpc-types-txpool = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-serde = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-signer = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-signer-local = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-transport = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-transport-http = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-transport-ipc = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
+alloy-transport-ws = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "e8c8de5" }
 
 revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "77a08e9"}
 revm-primitives = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "77a08e9"}
 revm-interpreter = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "77a08e9"}
 revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "9868b93"}
 
-seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "352164b" }
+seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "3f47bf1" }
