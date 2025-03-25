@@ -506,7 +506,7 @@ where
         hash: B256,
     ) -> RpcResult<Option<RpcTransaction<T::NetworkTypes>>> {
         trace!(target: "rpc::eth", ?hash, "Serving eth_getTransactionByHash");
-        let tx_opt = EthTransactions::transaction_by_hash(self, hash)
+        let mut tx_opt = EthTransactions::transaction_by_hash(self, hash)
             .await?
             .map(|tx| {
                 tx.into_transaction(self.tx_resp_builder())
@@ -515,7 +515,7 @@ where
         
         match tx_opt {
             None => Ok(None),
-            Some(mut tx) => {
+            Some(tx) => {
                 tx.shield_input();
                 Ok(Some(tx))
             }
