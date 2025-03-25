@@ -10,6 +10,8 @@
 
 use alloy_dyn_abi::TypedData;
 use alloy_primitives::Address;
+use alloy_rpc_types::SeismicCallRequest;
+use alloy_rpc_types_eth::simulate::{SimulatePayload, SimulatedBlock};
 use jsonrpsee::{
     core::{async_trait, RpcResult},
     proc_macros::rpc,
@@ -22,7 +24,6 @@ use seismic_enclave::{rpc::EnclaveApiClient, EnclaveClient};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
 use crate::error::SeismicApiError;
-
 /// trait interface for a custom rpc namespace: `seismic`
 ///
 /// This defines an additional namespace where all methods are configured as trait functions.
@@ -83,6 +84,15 @@ pub trait EthApiOverride {
     /// This call can be used to verify that the data you are pulling from is not tampered with.
     #[method(name = "signTypedData_v4")]
     async fn sign_typed_data_v4(&self, address: Address, data: TypedData) -> RpcResult<String>;
+
+    /// `eth_simulateV1` executes an arbitrary number of transactions on top of the requested state.
+    /// The transactions are packed into individual blocks. Overrides can be provided.
+    #[method(name = "simulateV1")]
+    async fn simulate_v1(
+        &self,
+        opts: SimulatePayload<SeismicCallRequest>,
+        block_number: Option<BlockId>,
+    ) -> RpcResult<Vec<SimulatedBlock<B>>>;
 }
 
 /// Implementation of the `eth_` namespace override
