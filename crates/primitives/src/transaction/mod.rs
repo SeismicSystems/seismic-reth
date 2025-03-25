@@ -1679,9 +1679,12 @@ impl<T> RecoveredTx<T> {
     pub fn map_transaction<Tx>(self, f: impl FnOnce(T) -> Tx) -> RecoveredTx<Tx> {
         RecoveredTx::from_signed_transaction(f(self.signed_transaction), self.signer)
     }
+}
 
+impl RecoveredTx<TransactionSigned> {
+    /// Shields the input of the transaction.
     pub fn shield_input(mut self) -> Self {
-        self.signed_transaction.shield_input();
+        self.signed_transaction = self.signed_transaction.shield_input();
         self
     }
 }

@@ -1,6 +1,7 @@
 //! Implementation of the [`jsonrpsee`] generated [`EthApiServer`] trait. Handles RPC requests for
 //! the `eth_` namespace.
 use alloy_consensus::Transaction;
+use reth_rpc_types_compat::TransactionCompat;
 use alloy_dyn_abi::TypedData;
 use alloy_eips::{eip2930::AccessListResult, BlockId, BlockNumberOrTag};
 use alloy_json_rpc::RpcObject;
@@ -18,8 +19,7 @@ use reth_rpc_server_types::{result::internal_rpc_err, ToRpcResult};
 use tracing::trace;
 
 use crate::{
-    helpers::{EthApiSpec, EthBlocks, EthCall, EthFees, EthState, EthTransactions, FullEthApi},
-    RpcBlock, RpcHeader, RpcReceipt, RpcTransaction,
+    helpers::{EthApiSpec, EthBlocks, EthCall, EthFees, EthState, EthTransactions, FullEthApi}, EthApiTypes, RpcBlock, RpcHeader, RpcReceipt, RpcTransaction
 };
 
 /// Helper trait, unifies functionality that must be supported to implement all RPC methods for
@@ -506,17 +506,12 @@ where
         hash: B256,
     ) -> RpcResult<Option<RpcTransaction<T::NetworkTypes>>> {
         trace!(target: "rpc::eth", ?hash, "Serving eth_getTransactionByHash");
-        let tx_opt = EthTransactions::transaction_by_hash(self, hash)
+        Ok(EthTransactions::transaction_by_hash(self, hash)
             .await?
-            .map(|tx| tx.into_transaction(self.tx_resp_builder()))
-            .transpose()?;
-        match tx_opt {
-            None => Ok(None),
-            Some(tx) => {
-                tx.shield_input();
-                Ok(Some(tx))
-            }
-        }
+            .map(|tx| {
+                tx.into_transaction(self.tx_resp_builder()).map(|tx| <T as EthApiTypes>::TransactionCompat::shield_input(tx))
+            })
+            .transpose()?)
     }
 
     /// Handler for: `eth_getRawTransactionByBlockHashAndIndex`
