@@ -10,14 +10,15 @@
 
 use alloy_dyn_abi::TypedData;
 use alloy_primitives::Address;
-use alloy_rpc_types::SeismicCallRequest;
+use alloy_rpc_types::{simulate::SimBlock, BlockId, SeismicCallRequest};
 use alloy_rpc_types_eth::simulate::{SimulatePayload, SimulatedBlock};
 use jsonrpsee::{
     core::{async_trait, RpcResult},
     proc_macros::rpc,
 };
 use reth_node_core::node_config::NodeConfig;
-use reth_rpc_eth_api::helpers::{EthTransactions, FullEthApi};
+use reth_rpc_eth_api::helpers::{EthCall, EthTransactions, FullEthApi};
+use reth_rpc_eth_types::utils::recover_typed_data_request;
 use reth_tracing::tracing::*;
 use secp256k1::PublicKey;
 use seismic_enclave::{rpc::EnclaveApiClient, EnclaveClient};
@@ -92,7 +93,7 @@ pub trait EthApiOverride {
         &self,
         opts: SimulatePayload<SeismicCallRequest>,
         block_number: Option<BlockId>,
-    ) -> RpcResult<Vec<SimulatedBlock<B>>>;
+    ) -> RpcResult<Vec<SimulatedBlock>>;
 }
 
 /// Implementation of the `eth_` namespace override
@@ -120,6 +121,42 @@ where
             .map_err(|err| err.into())?;
         let signature = alloy_primitives::hex::encode(signature);
         Ok(format!("0x{signature}"))
+    }
+
+    async fn simulate_v1(
+        &self,
+        payload: SimulatePayload<SeismicCallRequest>,
+        block_number: Option<BlockId>,
+    ) -> RpcResult<Vec<SimulatedBlock>> {
+        trace!(target: "rpc::eth", "Serving eth_simulateV1");
+        // Ok(EthCall::simulate_v1(&self.eth_api, payload, block_number).await?)
+
+        let mut simulated_blocks = Vec::with_capacity(payload.blocks.len());
+
+        for block in payload.block_state_calls {
+            let SimBlock { block_overrides, state_overrides, calls } = block;
+
+            for call in calls {
+                match call {
+                    alloy_rpc_types::SeismicCallRequest::TransactionRequest(tx_request) => {}
+
+                    alloy_rpc_types::SeismicCallRequest::TypedData(typed_request) => {
+                        let tx = recover_typed_data_request::<PoolPooledTx<Self::Pool>>(
+                            &typed_request,
+                        )?
+                        .map_transaction(
+                            <Self::Pool as TransactionPool>::Transaction::pooled_into_consensus,
+                        );
+                    }
+
+                    alloy_rpc_types::SeismicCallRequest::Bytes(bytes) => {}
+                }
+            }
+
+            simulated_blocks.push(simulated_block);
+        }
+
+        Ok(vec![])
     }
 }
 
