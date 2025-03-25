@@ -1,9 +1,7 @@
 //! Loads a pending block from database. Helper trait for `eth_` call and trace RPC methods.
 
-use std::{fmt::Display, sync::Arc};
-use alloy_consensus::Typed2718;
 use crate::{FromEvmError, RpcNodeCore};
-use alloy_consensus::BlockHeader;
+use alloy_consensus::{BlockHeader, Typed2718};
 use alloy_primitives::B256;
 use alloy_rpc_types_eth::{BlockId, TransactionInfo};
 use futures::Future;
@@ -22,6 +20,7 @@ use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
 use revm_primitives::{
     BlockEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg, EvmState, ExecutionResult, ResultAndState,
 };
+use std::{fmt::Display, sync::Arc};
 
 use super::{Call, LoadBlock, LoadPendingBlock, LoadState, LoadTransaction};
 
