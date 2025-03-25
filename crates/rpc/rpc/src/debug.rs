@@ -358,6 +358,7 @@ where
                                 let (res, env) = this.eth_api().inspect(db, env, &mut inspector)?;
                                 let frame = inspector
                                     .with_transaction_gas_limit(env.tx.gas_limit)
+                                    .with_transaction_type(env.tx.tx_type)
                                     .into_geth_builder()
                                     .geth_call_traces(call_config, res.result.gas_used());
                                 Ok(frame.into())
@@ -450,6 +451,7 @@ where
                                 let tx_info = TransactionInfo::default();
                                 let frame: FlatCallFrame = inspector
                                     .with_transaction_gas_limit(env.tx.gas_limit)
+                                    .with_transaction_type(env.tx.tx_type)
                                     .into_parity_builder()
                                     .into_localized_transaction_traces(tx_info);
                                 Ok(frame)
