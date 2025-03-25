@@ -100,7 +100,8 @@ where
     ) -> Result<Vec<TraceResult>, Eth::Error> {
         // replay all transactions of the block
         let this = self.clone();
-        let traces = self.eth_api()
+        let traces = self
+            .eth_api()
             .spawn_with_state_at_block(block.parent_hash().into(), move |state| {
                 let mut results = Vec::with_capacity(block.body.transactions().len());
                 let mut db = CacheDB::new(StateProviderDatabase::new(state));
@@ -194,13 +195,14 @@ where
                     .collect::<Result<Vec<_>, Eth::Error>>()?
             };
 
-        let traces = self.trace_block(
-            Arc::new(block.with_senders_unchecked(senders).seal_slow()),
-            cfg,
-            block_env,
-            opts,
-        )
-        .await?;
+        let traces = self
+            .trace_block(
+                Arc::new(block.with_senders_unchecked(senders).seal_slow()),
+                cfg,
+                block_env,
+                opts,
+            )
+            .await?;
 
         Ok(traces.into_iter().map(|trace| trace.shield_inputs()).collect())
     }
@@ -248,7 +250,8 @@ where
         let block_hash = block.hash();
 
         let this = self.clone();
-        let trace = self.eth_api()
+        let trace = self
+            .eth_api()
             .spawn_with_state_at_block(state_at, move |state| {
                 let block_txs = block.transactions_with_sender();
 
@@ -312,7 +315,7 @@ where
         let trace = self.debug_trace_call_inner(call, block_id, opts).await?;
         Ok(trace.shield_inputs())
     }
-    
+
     async fn debug_trace_call_inner(
         &self,
         call: TransactionRequest,
@@ -518,7 +521,10 @@ where
         opts: Option<GethDebugTracingCallOptions>,
     ) -> Result<Vec<Vec<GethTrace>>, Eth::Error> {
         let traces = self.debug_trace_call_many_inner(bundles, state_context, opts).await?;
-        Ok(traces.into_iter().map(|trace| trace.into_iter().map(|trace| trace.shield_inputs()).collect()).collect())
+        Ok(traces
+            .into_iter()
+            .map(|trace| trace.into_iter().map(|trace| trace.shield_inputs()).collect())
+            .collect())
     }
 
     async fn debug_trace_call_many_inner(

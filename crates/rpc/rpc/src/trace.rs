@@ -130,7 +130,8 @@ where
 
         let config = TracingInspectorConfig::from_parity_config(&trace_types);
 
-        let trace = self.eth_api()
+        let trace = self
+            .eth_api()
             .spawn_trace_at_with_state(env, config, at, move |inspector, res, db| {
                 inspector
                     .into_parity_builder()
@@ -202,7 +203,8 @@ where
         trace_types: HashSet<TraceType>,
     ) -> Result<TraceResults, Eth::Error> {
         let config = TracingInspectorConfig::from_parity_config(&trace_types);
-        let trace = self.eth_api()
+        let trace = self
+            .eth_api()
             .spawn_trace_transaction_in_block(hash, config, move |_, inspector, res, db| {
                 let trace_res = inspector
                     .into_parity_builder()
