@@ -100,7 +100,8 @@ where
     ) -> Result<Vec<TraceResult>, Eth::Error> {
         // replay all transactions of the block
         let this = self.clone();
-        self.eth_api()
+        let traces = self
+            .eth_api()
             .spawn_with_state_at_block(block.parent_hash().into(), move |state| {
                 let mut results = Vec::with_capacity(block.body.transactions().len());
                 let mut db = CacheDB::new(StateProviderDatabase::new(state));
@@ -147,7 +148,9 @@ where
 
                 Ok(results)
             })
-            .await
+            .await?;
+
+        Ok(traces.into_iter().map(|trace| trace.shield_inputs()).collect())
     }
 
     /// Replays the given block and returns the trace of each transaction.
@@ -192,13 +195,16 @@ where
                     .collect::<Result<Vec<_>, Eth::Error>>()?
             };
 
-        self.trace_block(
-            Arc::new(block.with_senders_unchecked(senders).seal_slow()),
-            cfg,
-            block_env,
-            opts,
-        )
-        .await
+        let traces = self
+            .trace_block(
+                Arc::new(block.with_senders_unchecked(senders).seal_slow()),
+                cfg,
+                block_env,
+                opts,
+            )
+            .await?;
+
+        Ok(traces.into_iter().map(|trace| trace.shield_inputs()).collect())
     }
 
     /// Replays a block and returns the trace of each transaction.
@@ -220,7 +226,8 @@ where
 
         let block = block.ok_or(EthApiError::HeaderNotFound(block_id))?;
 
-        self.trace_block(block, cfg, block_env, opts).await
+        let traces = self.trace_block(block, cfg, block_env, opts).await?;
+        Ok(traces.into_iter().map(|trace| trace.shield_inputs()).collect())
     }
 
     /// Trace the transaction according to the provided options.
@@ -243,7 +250,8 @@ where
         let block_hash = block.hash();
 
         let this = self.clone();
-        self.eth_api()
+        let trace = self
+            .eth_api()
             .spawn_with_state_at_block(state_at, move |state| {
                 let block_txs = block.transactions_with_sender();
 
@@ -288,7 +296,9 @@ where
                 )
                 .map(|(trace, _)| trace)
             })
-            .await
+            .await?;
+
+        Ok(trace.shield_inputs())
     }
 
     /// The `debug_traceCall` method lets you run an `eth_call` within the context of the given
@@ -297,6 +307,16 @@ where
     /// Differences compare to `eth_call`:
     ///  - `debug_traceCall` executes with __enabled__ basefee check, `eth_call` does not: <https://github.com/paradigmxyz/reth/issues/6240>
     pub async fn debug_trace_call(
+        &self,
+        call: TransactionRequest,
+        block_id: Option<BlockId>,
+        opts: GethDebugTracingCallOptions,
+    ) -> Result<GethTrace, Eth::Error> {
+        let trace = self.debug_trace_call_inner(call, block_id, opts).await?;
+        Ok(trace.shield_inputs())
+    }
+
+    async fn debug_trace_call_inner(
         &self,
         call: TransactionRequest,
         block_id: Option<BlockId>,
@@ -399,6 +419,7 @@ where
                                     hash: None,
                                     block_hash: None,
                                     index: None,
+                                    tx_type: env.tx.tx_type,
                                 };
 
                                 let (res, _) =
@@ -495,6 +516,19 @@ where
     /// given block execution using the first n transactions in the given block as base.
     /// Each following bundle increments block number by 1 and block timestamp by 12 seconds
     pub async fn debug_trace_call_many(
+        &self,
+        bundles: Vec<Bundle>,
+        state_context: Option<StateContext>,
+        opts: Option<GethDebugTracingCallOptions>,
+    ) -> Result<Vec<Vec<GethTrace>>, Eth::Error> {
+        let traces = self.debug_trace_call_many_inner(bundles, state_context, opts).await?;
+        Ok(traces
+            .into_iter()
+            .map(|trace| trace.into_iter().map(|trace| trace.shield_inputs()).collect())
+            .collect())
+    }
+
+    async fn debug_trace_call_many_inner(
         &self,
         bundles: Vec<Bundle>,
         state_context: Option<StateContext>,
@@ -618,6 +652,7 @@ where
     /// generating an execution witness. The witness comprises of a map of all hashed trie nodes
     /// to their preimages that were required during the execution of the block, including during
     /// state root recomputation.
+    /// TODO: do we need to shield any inputs here?
     pub async fn debug_execution_witness(
         &self,
         block_id: BlockNumberOrTag,
@@ -687,6 +722,7 @@ where
             block_hash: transaction_context.as_ref().map(|c| c.block_hash).unwrap_or_default(),
             block_number: Some(env.block.number.try_into().unwrap_or_default()),
             base_fee: Some(env.block.basefee.try_into().unwrap_or_default()),
+            tx_type: env.tx.tx_type,
         };
 
         if let Some(tracer) = tracer {
@@ -712,6 +748,7 @@ where
                         let (res, env) = self.eth_api().inspect(db, env, &mut inspector)?;
 
                         inspector.set_transaction_gas_limit(env.tx.gas_limit);
+                        inspector.set_transaction_type(env.tx.tx_type);
 
                         let frame = inspector
                             .geth_builder()
@@ -771,6 +808,7 @@ where
                         let (res, env) = self.eth_api().inspect(db, env, &mut inspector)?;
                         let frame: FlatCallFrame = inspector
                             .with_transaction_gas_limit(env.tx.gas_limit)
+                            .with_transaction_type(env.tx.tx_type)
                             .into_parity_builder()
                             .into_localized_transaction_traces(tx_info);
 

@@ -1,6 +1,6 @@
-import type { Chain, Hex } from "viem"
-import { localSeismicDevnet, sanvil } from "seismic-viem"
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts"
+import type { Chain, } from "viem"
+import { localSeismicDevnet } from "seismic-viem"
+import { privateKeyToAccount } from "viem/accounts"
 import { beforeAll, afterAll, describe, test } from "bun:test"
 import {
   setupNode,
@@ -16,8 +16,10 @@ import {
   testSeismicTx,
   testSeismicTxEncoding,
   testSeismicTxTypedData,
+  testSeismicTxTrace,
   testWsConnection,
   buildNode,
+  testLegacyTxTrace,
 } from "seismic-viem-tests"
 
 const TIMEOUT_MS = 20_000
@@ -153,6 +155,27 @@ describe("Seismic Precompiles", async () => {
     timeout: TIMEOUT_MS,
   })
 })
+
+describe('Transaction Trace', async () => {
+  test(
+    'Seismic Tx removes input from trace',
+    async () => {
+        // TODO: do this in foundry too
+        await testSeismicTxTrace({ chain, url, account })
+    },
+    {
+      timeout: TIMEOUT_MS,
+    }
+  )
+  test(
+    'Legacy Tx keeps input in trace',
+    async () => {
+      await testLegacyTxTrace({ chain, url, account })
+    },
+    { timeout: TIMEOUT_MS }
+  )
+})
+
 
 afterAll(async () => {
   await exitProcess()

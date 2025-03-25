@@ -44,7 +44,8 @@ pub trait TransactionCompat<T = TransactionSigned>:
         + Sync
         + Unpin
         + Clone
-        + fmt::Debug;
+        + fmt::Debug
+        + alloy_consensus::transaction::ShieldableTransaction;
 
     /// RPC transaction error type.
     type Error: error::Error + Into<jsonrpsee_types::ErrorObject<'static>>;
