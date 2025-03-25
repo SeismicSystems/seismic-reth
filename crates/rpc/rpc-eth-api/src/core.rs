@@ -5,6 +5,7 @@ use alloy_dyn_abi::TypedData;
 use alloy_eips::{eip2930::AccessListResult, BlockId, BlockNumberOrTag};
 use alloy_json_rpc::RpcObject;
 use alloy_primitives::{Address, Bytes, B256, B64, U256, U64};
+use alloy_rpc_types::BlockTransactions;
 use alloy_rpc_types_eth::{
     simulate::{SimulatePayload, SimulatedBlock},
     state::{EvmOverrides, StateOverride},
@@ -366,6 +367,24 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
     ) -> RpcResult<EIP1186AccountProofResponse>;
 }
 
+/// Shield the inputs of all shielded transactions in a block.
+fn shield_block_txs<T: FullEthApi>(block_opt: Option<RpcBlock<T::NetworkTypes>>) -> Option<RpcBlock<T::NetworkTypes>> {
+    match block_opt {
+        None => None,
+        Some(mut block) => {
+            match &mut block.transactions {
+                BlockTransactions::Full(txs) => {
+                    for tx in txs.iter_mut() {
+                        tx.shield_input();
+                    }
+                }
+                _ => {},
+            }
+            Some(block)
+        }
+    }
+}
+
 #[async_trait::async_trait]
 impl<T>
     EthApiServer<
@@ -422,7 +441,8 @@ where
         full: bool,
     ) -> RpcResult<Option<RpcBlock<T::NetworkTypes>>> {
         trace!(target: "rpc::eth", ?hash, ?full, "Serving eth_getBlockByHash");
-        Ok(EthBlocks::rpc_block(self, hash.into(), full).await?)
+        let block = EthBlocks::rpc_block(self, hash.into(), full).await?;
+        Ok(shield_block_txs::<T>(block))
     }
 
     /// Handler for: `eth_getBlockByNumber`
@@ -432,7 +452,8 @@ where
         full: bool,
     ) -> RpcResult<Option<RpcBlock<T::NetworkTypes>>> {
         trace!(target: "rpc::eth", ?number, ?full, "Serving eth_getBlockByNumber");
-        Ok(EthBlocks::rpc_block(self, number.into(), full).await?)
+        let block = EthBlocks::rpc_block(self, number.into(), full).await?;
+        Ok(shield_block_txs::<T>(block))
     }
 
     /// Handler for: `eth_getBlockTransactionCountByHash`
