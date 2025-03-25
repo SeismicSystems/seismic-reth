@@ -419,6 +419,7 @@ where
                                     hash: None,
                                     block_hash: None,
                                     index: None,
+                                    tx_type: env.tx.tx_type,
                                 };
 
                                 let (res, _) =
@@ -721,6 +722,7 @@ where
             block_hash: transaction_context.as_ref().map(|c| c.block_hash).unwrap_or_default(),
             block_number: Some(env.block.number.try_into().unwrap_or_default()),
             base_fee: Some(env.block.basefee.try_into().unwrap_or_default()),
+            tx_type: env.tx.tx_type,
         };
 
         if let Some(tracer) = tracer {
@@ -746,6 +748,7 @@ where
                         let (res, env) = self.eth_api().inspect(db, env, &mut inspector)?;
 
                         inspector.set_transaction_gas_limit(env.tx.gas_limit);
+                        inspector.set_transaction_type(env.tx.tx_type);
 
                         let frame = inspector
                             .geth_builder()
@@ -805,6 +808,7 @@ where
                         let (res, env) = self.eth_api().inspect(db, env, &mut inspector)?;
                         let frame: FlatCallFrame = inspector
                             .with_transaction_gas_limit(env.tx.gas_limit)
+                            .with_transaction_type(env.tx.tx_type)
                             .into_parity_builder()
                             .into_localized_transaction_traces(tx_info);
 

@@ -1,7 +1,7 @@
 //! Loads a pending block from database. Helper trait for `eth_` call and trace RPC methods.
 
 use std::{fmt::Display, sync::Arc};
-
+use alloy_consensus::Typed2718;
 use crate::{FromEvmError, RpcNodeCore};
 use alloy_consensus::BlockHeader;
 use alloy_primitives::B256;
@@ -357,6 +357,7 @@ pub trait Trace:
                             block_hash: Some(block_hash),
                             block_number: Some(block_number),
                             base_fee: Some(base_fee),
+                            tx_type: Some(tx.ty() as isize),
                         };
                         let tx_env = this
                             .evm_config()

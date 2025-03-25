@@ -55,6 +55,7 @@ impl<T: SignedTransaction> TransactionSource<T> {
                     block_hash: Some(block_hash),
                     block_number: Some(block_number),
                     base_fee: base_fee.map(u128::from),
+                    tx_type: Some(transaction.ty() as isize),
                 };
 
                 from_recovered_with_block_context(transaction, tx_info, resp_builder)
@@ -70,6 +71,7 @@ impl<T: SignedTransaction> TransactionSource<T> {
                 (tx, TransactionInfo { hash: Some(hash), ..Default::default() })
             }
             Self::Block { transaction, index, block_hash, block_number, base_fee } => {
+                let tx_type = Some(transaction.ty() as isize);
                 let hash = transaction.trie_hash();
                 (
                     transaction,
@@ -79,6 +81,7 @@ impl<T: SignedTransaction> TransactionSource<T> {
                         block_hash: Some(block_hash),
                         block_number: Some(block_number),
                         base_fee: base_fee.map(u128::from),
+                        tx_type,
                     },
                 )
             }
