@@ -1,6 +1,6 @@
-import type { Chain, Hex } from "viem"
-import { localSeismicDevnet, sanvil } from "seismic-viem"
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts"
+import type { Chain, } from "viem"
+import { localSeismicDevnet } from "seismic-viem"
+import { privateKeyToAccount } from "viem/accounts"
 import { beforeAll, afterAll, describe, test } from "bun:test"
 import {
   setupNode,
