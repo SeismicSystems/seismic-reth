@@ -130,14 +130,15 @@ where
 
         let config = TracingInspectorConfig::from_parity_config(&trace_types);
 
-        self.eth_api()
+        let trace = self.eth_api()
             .spawn_trace_at_with_state(env, config, at, move |inspector, res, db| {
                 inspector
                     .into_parity_builder()
                     .into_trace_results_with_state(&res, &trace_types, &db)
                     .map_err(Eth::Error::from_eth_err)
             })
-            .await
+            .await?;
+        Ok(trace.shield_inputs())
     }
 
     /// Performs multiple call traces on top of the same block. i.e. transaction n will be executed
@@ -201,7 +202,7 @@ where
         trace_types: HashSet<TraceType>,
     ) -> Result<TraceResults, Eth::Error> {
         let config = TracingInspectorConfig::from_parity_config(&trace_types);
-        self.eth_api()
+        let trace = self.eth_api()
             .spawn_trace_transaction_in_block(hash, config, move |_, inspector, res, db| {
                 let trace_res = inspector
                     .into_parity_builder()
@@ -211,7 +212,8 @@ where
             })
             .await
             .transpose()
-            .ok_or(EthApiError::TransactionNotFound)?
+            .ok_or(EthApiError::TransactionNotFound)?;
+        Ok(trace.shield_inputs())
     }
 
     /// Returns transaction trace objects at the given index
@@ -229,7 +231,8 @@ where
             // The OG impl failed if it gets more than a single index
             return Ok(None)
         }
-        self.trace_get_index(hash, indices[0]).await
+        let trace = self.trace_get_index(hash, indices[0]).await?;
+        Ok(trace.map(|trace| trace.shield_inputs()))
     }
 
     /// Returns transaction trace object at the given index.
@@ -352,7 +355,7 @@ where
             }
         };
 
-        Ok(all_traces)
+        Ok(all_traces.into_iter().map(|trace| trace.shield_inputs()).collect())
     }
 
     /// Returns all traces for the given transaction hash

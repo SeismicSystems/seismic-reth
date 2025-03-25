@@ -62,6 +62,13 @@ impl<T: SignedTransaction> TransactionSource<T> {
         }
     }
 
+    pub fn shield_input(mut self) -> Self {
+        match self {
+            Self::Pool(tx) => Self::Pool(tx.shield_input()),
+            Self::Block { transaction, index, block_hash, block_number, base_fee } => Self::Block { transaction: transaction.shield_input(), index, block_hash, block_number, base_fee },
+        }
+    }
+
     /// Returns the transaction and block related info, if not pending
     pub fn split(self) -> (RecoveredTx<T>, TransactionInfo) {
         match self {

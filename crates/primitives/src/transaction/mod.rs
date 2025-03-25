@@ -1108,6 +1108,12 @@ impl TransactionSigned {
             Self { transaction: Transaction::Legacy(transaction), hash: hash.into(), signature };
         Ok(signed)
     }
+
+    /// Shields the input of the transaction.
+    pub fn shield_input(mut self) -> Self {
+        self.transaction.set_input(Bytes::new());
+        self
+    }
 }
 
 impl SignedTransaction for TransactionSigned {
@@ -1672,6 +1678,11 @@ impl<T> RecoveredTx<T> {
     /// Applies the given closure to the inner transactions.
     pub fn map_transaction<Tx>(self, f: impl FnOnce(T) -> Tx) -> RecoveredTx<Tx> {
         RecoveredTx::from_signed_transaction(f(self.signed_transaction), self.signer)
+    }
+
+    pub fn shield_input(mut self) -> Self {
+        self.signed_transaction.shield_input();
+        self
     }
 }
 
