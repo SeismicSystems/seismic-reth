@@ -92,15 +92,6 @@ pub trait EthApiOverride<Eth: FullEthApi> {
     /// This call can be used to verify that the data you are pulling from is not tampered with.
     #[method(name = "signTypedData_v4")]
     async fn sign_typed_data_v4(&self, address: Address, data: TypedData) -> RpcResult<String>;
-
-    /// `eth_simulateV1` executes an arbitrary number of transactions on top of the requested state.
-    /// The transactions are packed into individual blocks. Overrides can be provided.
-    // #[method(name = "simulateV1")]
-    // async fn simulate_v1(
-    //     &self,
-    //     payload: SimulatePayload<SeismicCallRequest>,
-    //     block_number: Option<BlockId>,
-    // ) -> RpcResult<Vec<SimulatedBlock<RpcBlock<Eth::NetworkTypes>>>>;
 }
 
 /// Implementation of the `eth_` namespace override
@@ -128,73 +119,6 @@ where
             .map_err(|err| err.into())?;
         let signature = alloy_primitives::hex::encode(signature);
         Ok(format!("0x{signature}"))
-    }
-
-    async fn simulate_v1(
-        &self,
-        payload: SimulatePayload<SeismicCallRequest>,
-        block_number: Option<BlockId>,
-    ) -> RpcResult<Vec<SimulatedBlock<RpcBlock<Eth::NetworkTypes>>>> {
-        trace!(target: "rpc::eth", "Serving eth_simulateV1");
-
-        let mut simulated_blocks = Vec::with_capacity(payload.block_state_calls.len());
-
-        for block in payload.block_state_calls {
-            let SimBlock { block_overrides, state_overrides, calls } = block;
-            let mut prepared_calls: Vec<TransactionRequest> = Vec::with_capacity(calls.len());
-
-            for call in calls {
-                let tx_request = match call {
-                    alloy_rpc_types::SeismicCallRequest::TransactionRequest(tx_request) => {
-                        tx_request.inner
-                    }
-
-                    alloy_rpc_types::SeismicCallRequest::TypedData(typed_request) => {
-                        let tx =
-                            recover_typed_data_request::<PoolPooledTx<Eth::Pool>>(&typed_request)?
-                                .map_transaction(
-                                <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
-                            );
-
-                        TransactionRequest::from_transaction_with_sender(
-                            tx.as_signed().clone(),
-                            tx.signer(),
-                        )
-                    }
-
-                    alloy_rpc_types::SeismicCallRequest::Bytes(bytes) => {
-                        let tx = recover_raw_transaction::<PoolPooledTx<Eth::Pool>>(&bytes)?
-                            .map_transaction(
-                                <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
-                            );
-
-                        TransactionRequest::from_transaction_with_sender(
-                            tx.as_signed().clone(),
-                            tx.signer(),
-                        )
-                    }
-                };
-                prepared_calls.push(tx_request);
-            }
-
-            let prepared_block =
-                SimBlock { block_overrides, state_overrides, calls: prepared_calls };
-
-            simulated_blocks.push(prepared_block);
-        }
-
-        EthCall::simulate_v1(
-            &self.eth_api,
-            SimulatePayload {
-                block_state_calls: simulated_blocks,
-                trace_transfers: payload.trace_transfers,
-                validation: payload.validation,
-                return_full_transactions: payload.return_full_transactions,
-            },
-            block_number,
-        )
-        .await
-        .map_err(|e| e.into())
     }
 }
 
