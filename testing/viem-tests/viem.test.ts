@@ -32,7 +32,7 @@ const encryptionPubkey = '0x028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b3
 
 let url: string
 let wsUrl: string
-let exitProcess: () => void
+let exitProcess: () => Promise<void>
 let pcParams: { chain: Chain, url: string }
 
 beforeAll(async () => {
@@ -47,7 +47,9 @@ beforeAll(async () => {
 describe("Seismic Contract", async () => {
   test(
     "deploy & call contracts with seismic tx",
-    () => testSeismicTx({ chain, url, account }),
+    async () => {
+      await testSeismicTx({ chain, url, account })
+    },
     {
       timeout: TIMEOUT_MS,
     }
@@ -57,14 +59,15 @@ describe("Seismic Contract", async () => {
 describe("Seismic Transaction Encoding", async () => {
   test(
     "node detects and parses seismic transaction",
-    () =>
-      testSeismicTxEncoding({
+    async () => {
+      await testSeismicTxEncoding({
         chain,
         account,
         url,
         encryptionSk,
         encryptionPubkey,
-      }),
+      })
+    },
     {
       timeout: TIMEOUT_MS,
     }
@@ -74,27 +77,29 @@ describe("Seismic Transaction Encoding", async () => {
 describe("Typed Data", async () => {
   test(
     "client can sign a seismic typed message",
-    () =>
-      testSeismicCallTypedData({
+    async () => {
+      await testSeismicCallTypedData({
         chain,
         account,
         url,
         encryptionSk,
         encryptionPubkey,
-      }),
+      })
+    },
     { timeout: TIMEOUT_MS }
   )
 
   test(
     "client can sign via eth_signTypedData",
-    () =>
-      testSeismicTxTypedData({
+    async () => {
+      await testSeismicTxTypedData({
         account,
         chain,
         url,
         encryptionSk,
         encryptionPubkey,
-      }),
+      })
+    },
     { timeout: TIMEOUT_MS }
   )
 })
@@ -117,24 +122,38 @@ describe("Websocket Connection", () => {
 })
 
 describe("Seismic Precompiles", async () => {
-  test("RNG(1)", () => testRng({ chain, url }, 1), { timeout: TIMEOUT_MS })
-  test("RNG(8)", () => testRng({ chain, url }, 8), { timeout: TIMEOUT_MS })
-  test("RNG(16)", () => testRng({ chain, url }, 16), { timeout: TIMEOUT_MS })
-  test("RNG(32)", () => testRng({ chain, url }, 32), { timeout: TIMEOUT_MS })
-  test("RNG(32, pers)", () => testRngWithPers({ chain, url }, 32), {
+  test("RNG(1)", async () => await testRng({ chain, url }, 1), {
     timeout: TIMEOUT_MS,
   })
-  test("ECDH", () => testEcdh({ chain, url }), { timeout: TIMEOUT_MS })
-  test("HKDF(string)", () => testHkdfString({ chain, url }), {
+  test("RNG(8)", async () => await testRng({ chain, url }, 8), {
     timeout: TIMEOUT_MS,
   })
-  test("HKDF(hex)", () => testHkdfHex({ chain, url }), { timeout: TIMEOUT_MS })
-  test("AES-GCM", () => testAesGcm({ chain, url }), { timeout: TIMEOUT_MS })
-  test("secp256k1", () => testSecp256k1({ chain, url }), {
+  test("RNG(16)", async () => await testRng({ chain, url }, 16), {
+    timeout: TIMEOUT_MS,
+  })
+  test("RNG(32)", async () => await testRng({ chain, url }, 32), {
+    timeout: TIMEOUT_MS,
+  })
+  test("RNG(32, pers)", async () => await testRngWithPers({ chain, url }, 32), {
+    timeout: TIMEOUT_MS,
+  })
+  test("ECDH", async () => await testEcdh({ chain, url }), {
+    timeout: TIMEOUT_MS,
+  })
+  test("HKDF(string)", async () => await testHkdfString({ chain, url }), {
+    timeout: TIMEOUT_MS,
+  })
+  test("HKDF(hex)", async () => await testHkdfHex({ chain, url }), {
+    timeout: TIMEOUT_MS,
+  })
+  test("AES-GCM", async () => await testAesGcm({ chain, url }), {
+    timeout: TIMEOUT_MS,
+  })
+  test("secp256k1", async () => await testSecp256k1({ chain, url }), {
     timeout: TIMEOUT_MS,
   })
 })
 
-afterAll(() => {
-  exitProcess()
+afterAll(async () => {
+  await exitProcess()
 })
