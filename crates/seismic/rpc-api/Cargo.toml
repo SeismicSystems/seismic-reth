@@ -20,6 +20,7 @@ reth-rpc-eth-api.workspace = true
 reth-node-core.workspace = true
 reth-rpc-server-types.workspace = true
 reth-enclave.workspace = true
+reth-transaction-pool.workspace = true
 
 alloy-rpc-types-eth.workspace = true
 alloy-primitives.workspace = true
