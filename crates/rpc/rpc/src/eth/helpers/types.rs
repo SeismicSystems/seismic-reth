@@ -1,6 +1,6 @@
 //! L1 `eth` API types.
 
-use alloy_consensus::{Signed, Transaction as _, TxEip4844Variant, TxEnvelope};
+use alloy_consensus::{Signed, Transaction, TxEip4844Variant, TxEnvelope};
 use alloy_network::{Ethereum, Network};
 use alloy_primitives::PrimitiveSignature as Signature;
 use alloy_rpc_types::TransactionRequest;

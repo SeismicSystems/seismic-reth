@@ -589,6 +589,16 @@ impl Default for Transaction {
     }
 }
 
+impl alloy_consensus::transaction::ShieldableTransaction for Transaction {
+    fn shield_input(&mut self) {
+        match self {
+            Self::Seismic(tx) => {
+                tx.shield_input();
+            }
+            _ => {}
+        }
+    }
+}
 impl alloy_consensus::Transaction for Transaction {
     fn chain_id(&self) -> Option<ChainId> {
         match self {
@@ -1240,6 +1250,17 @@ impl InMemorySize for TransactionSigned {
     #[inline]
     fn size(&self) -> usize {
         self.hash().size() + self.transaction.size() + self.signature().size()
+    }
+}
+
+impl alloy_consensus::transaction::ShieldableTransaction for TransactionSigned {
+    fn shield_input(&mut self) {
+        match &mut self.transaction {
+            Transaction::Seismic(tx) => {
+                tx.shield_input();
+            }
+            _ => {}
+        }
     }
 }
 

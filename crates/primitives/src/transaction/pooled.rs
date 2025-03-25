@@ -419,6 +419,14 @@ impl Decodable712 for PooledTransactionsElement {
     }
 }
 
+impl alloy_consensus::transaction::ShieldableTransaction for PooledTransactionsElement {
+    fn shield_input(&mut self) {
+        match self {
+            Self::Seismic(tx) => tx.shield_input(),
+            _ => {}
+        }
+    }
+}
 impl alloy_consensus::Transaction for PooledTransactionsElement {
     fn chain_id(&self) -> Option<ChainId> {
         match self {

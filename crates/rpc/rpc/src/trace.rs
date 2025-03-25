@@ -213,8 +213,7 @@ where
             .await
             .transpose()
             .ok_or(EthApiError::TransactionNotFound)?;
-        // Ok(trace.shield_inputs())
-        Ok(trace)
+        Ok(trace?.shield_inputs())
     }
 
     /// Returns transaction trace objects at the given index

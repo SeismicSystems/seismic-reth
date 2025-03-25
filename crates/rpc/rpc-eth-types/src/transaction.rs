@@ -62,11 +62,6 @@ impl<T: SignedTransaction> TransactionSource<T> {
         }
     }
 
-    /// Shields the input of a transaction.
-    pub fn shield_input<Builder: TransactionCompat<T>>(builder_tx: Builder::Transaction) -> Builder::Transaction {
-        <Builder as TransactionCompat<T>>::shield_input(builder_tx)
-    }
-
     /// Returns the transaction and block related info, if not pending
     pub fn split(self) -> (RecoveredTx<T>, TransactionInfo) {
         match self {

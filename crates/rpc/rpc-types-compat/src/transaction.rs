@@ -44,7 +44,8 @@ pub trait TransactionCompat<T = TransactionSigned>:
         + Sync
         + Unpin
         + Clone
-        + fmt::Debug;
+        + fmt::Debug
+        + alloy_consensus::transaction::ShieldableTransaction;
 
     /// RPC transaction error type.
     type Error: error::Error + Into<jsonrpsee_types::ErrorObject<'static>>;
@@ -65,9 +66,6 @@ pub trait TransactionCompat<T = TransactionSigned>:
     // todo: remove in favour of using constructor on `TransactionResponse` or similar
     // <https://github.com/alloy-rs/alloy/issues/1315>.
     fn otterscan_api_truncate_input(tx: &mut Self::Transaction);
-
-    /// Shields the input of a transaction.
-    fn shield_input(tx: Self::Transaction) -> Self::Transaction;
 }
 
 /// Convert [`RecoveredTx`] to [`TransactionRequest`]
