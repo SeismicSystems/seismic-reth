@@ -131,7 +131,5 @@ impl FillTxEnv for TransactionSigned {
                 enveloped_tx: Some(envelope.into()),
             }
         }
-        debug!(target: "reth::fill_tx_env", "{} {}", (self.transaction.tx_type()), "Tranasction type");
-        debug!(target: "reth::fill_tx_env", ?tx_env, "Filled transaction environment");
     }
 }

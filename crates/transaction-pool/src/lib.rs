@@ -158,7 +158,6 @@ use reth_eth_wire_types::HandleMempoolData;
 use reth_execution_types::ChangedAccount;
 use reth_primitives::RecoveredTx;
 use reth_storage_api::StateProviderFactory;
-use reth_tracing::tracing::debug;
 use std::{collections::HashSet, sync::Arc};
 use tokio::sync::mpsc::Receiver;
 use tracing::{instrument, trace};
@@ -355,7 +354,6 @@ where
     ) -> PoolResult<TxHash> {
         let (_, tx) = self.validate(origin, transaction).await;
         let mut results = self.pool.add_transactions(origin, std::iter::once(tx));
-        debug!(target: "txpool", "add_transaction result: {:?}", results);
         results.pop().expect("result length is the same as the input")
     }
 

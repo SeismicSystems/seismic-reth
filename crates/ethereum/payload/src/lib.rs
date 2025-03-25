@@ -127,7 +127,6 @@ where
         client: &Client,
         config: PayloadConfig<Self::Attributes>,
     ) -> Result<EthBuiltPayload, PayloadBuilderError> {
-        debug!("build_empty_payload called");
         let args = BuildArguments::new(
             client,
             // we use defaults here because for the empty payload we don't need to execute anything
@@ -290,12 +289,9 @@ where
             PayloadBuilderError::EvmExecutionError(err.map_db_err(|err|err.into()))
         })?;
 
-        debug!(target: "payload_builder", tx=?evm.tx(), "executing transaction");
-
         let ResultAndState { result, state } = match evm.transact() {
             Ok(res) => res,
             Err(err) => {
-                debug!(target: "payload_builder", %err, ?tx, "failed to execute transaction");
                 match err {
                     EVMError::Transaction(err) => {
                         if matches!(err, InvalidTransaction::NonceTooLow { .. }) {

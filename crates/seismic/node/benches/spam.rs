@@ -12,8 +12,7 @@ use tokio::time::Instant;
 
 use alloy_provider::{
     fillers::{
-        BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, LatestNonceManager,
-        NonceFiller, WalletFiller,
+        BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
     },
     layers::seismic::test_utils,
     Provider, ProviderBuilder, RootProvider, SeismicSignedProvider, SendableTx,
@@ -65,10 +64,7 @@ const BLOCK_TIME: u64 = 2;
 
 pub type UnencryptedProvider = FillProvider<
     JoinFill<
-        JoinFill<
-            GasFiller,
-            JoinFill<BlobGasFiller, JoinFill<NonceFiller<LatestNonceManager>, ChainIdFiller>>,
-        >,
+        JoinFill<GasFiller, JoinFill<BlobGasFiller, JoinFill<NonceFiller, ChainIdFiller>>>,
         WalletFiller<EthereumWallet>,
     >,
     RootProvider<alloy_transport_http::Http<alloy_transport_http::Client>, Ethereum>,
@@ -124,7 +120,7 @@ impl BenchWalletContext {
                 .with_from(self.from)
                 .with_value(U256::from(MIN_WEI_PER_WALLET))
                 .with_nonce(nonce + i as u64)
-                .with_gas_price(u128::from_str("0x3b9aca07").unwrap())
+                .with_gas_price(u128::from_str("1000000").unwrap())
                 .with_kind(alloy_primitives::TxKind::Call(wallet.from));
 
             self.provider
@@ -150,10 +146,7 @@ impl BenchWalletContext {
                 GasFiller,
                 JoinFill::new(
                     BlobGasFiller,
-                    JoinFill::new(
-                        NonceFiller::<LatestNonceManager>::default(),
-                        ChainIdFiller::default(),
-                    ),
+                    JoinFill::new(NonceFiller::default(), ChainIdFiller::default()),
                 ),
             ),
             WalletFiller::new(EthereumWallet::new(signer)),
@@ -174,10 +167,7 @@ impl BenchWalletContext {
                 GasFiller,
                 JoinFill::new(
                     BlobGasFiller,
-                    JoinFill::new(
-                        NonceFiller::<LatestNonceManager>::default(),
-                        ChainIdFiller::default(),
-                    ),
+                    JoinFill::new(NonceFiller::default(), ChainIdFiller::default()),
                 ),
             ),
             WalletFiller::new(EthereumWallet::new(signer)),
