@@ -368,7 +368,9 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
 }
 
 /// Shield the inputs of all shielded transactions in a block.
-fn shield_block_txs<T: FullEthApi>(block_opt: Option<RpcBlock<T::NetworkTypes>>) -> Option<RpcBlock<T::NetworkTypes>> {
+fn shield_block_txs<T: FullEthApi>(
+    block_opt: Option<RpcBlock<T::NetworkTypes>>,
+) -> Option<RpcBlock<T::NetworkTypes>> {
     match block_opt {
         None => None,
         Some(mut block) => {
@@ -378,7 +380,7 @@ fn shield_block_txs<T: FullEthApi>(block_opt: Option<RpcBlock<T::NetworkTypes>>)
                         tx.shield_input();
                     }
                 }
-                _ => {},
+                _ => {}
             }
             Some(block)
         }
