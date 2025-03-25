@@ -276,6 +276,7 @@ fn fill_tx_env_with_system_contract_call(
         #[cfg(feature = "optimism")]
         optimism: OptimismFields::default(),
         rng_mode: RngMode::Execution,
+        tx_type: Some(0),
     };
 
     // ensure the block gas limit is >= the tx
