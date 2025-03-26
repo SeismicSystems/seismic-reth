@@ -20,7 +20,7 @@ extern crate alloc;
 use core::{convert::Infallible, net::IpAddr};
 
 use alloc::{sync::Arc, vec::Vec};
-use alloy_consensus::{transaction::TxSeismicElements, Header, TxSeismic};
+use alloy_consensus::{transaction::TxSeismicElements, Header, TxSeismic, Typed2718};
 use alloy_primitives::{Address, Bytes, TxHash, TxKind, U256};
 use reth_chainspec::{ChainSpec, Head};
 use reth_enclave::{EnclaveClient, EnclaveError, SchnorrkelKeypair, SyncEnclaveApiClient};
@@ -158,7 +158,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
         tx_env.max_fee_per_blob_gas.take();
         tx_env.authorization_list = None;
         tx_env.tx_hash = tx_hash;
-
+        tx_env.tx_type = Some(tx.ty() as isize);
         Ok(())
     }
 
