@@ -1550,16 +1550,7 @@ where
     /// backfill is not running.
     fn should_backup(&self) -> bool {
         debug!(target: "engine::tree", "checking if we should backup");
-        if !self.backfill_sync_state.is_idle() {
-            // can't backup if backfill is running
-            return false
-        }
-
-        self.persistence_state
-            .last_persisted_block
-            .number
-            .saturating_sub(self.backup.latest_backup_block.number) >=
-            self.config.backup_threshold()
+        return false;
     }
 
     /// Returns a batch of consecutive canonical blocks to persist in the range
