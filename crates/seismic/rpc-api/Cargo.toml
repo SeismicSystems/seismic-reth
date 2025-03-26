@@ -21,6 +21,7 @@ reth-node-core.workspace = true
 reth-rpc-server-types.workspace = true
 reth-enclave.workspace = true
 reth-transaction-pool.workspace = true
+reth-evm.workspace = true
 
 alloy-rpc-types-eth = { workspace = true, features = ["serde"] }
 alloy-primitives.workspace = true

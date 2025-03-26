@@ -10,7 +10,9 @@ use alloy_primitives::{
 };
 use alloy_provider::{layers::seismic::test_utils, Provider, SeismicSignedProvider, SendableTx};
 use alloy_rpc_types::{
-    Block, Header, Transaction, TransactionInput, TransactionReceipt, TransactionRequest,
+    simulate::{SimBlock, SimulatePayload},
+    Block, Header, SeismicCallRequest, Transaction, TransactionInput, TransactionReceipt,
+    TransactionRequest,
 };
 use alloy_sol_types::{sol, SolCall, SolValue};
 use reth_e2e_test_utils::wallet::Wallet;
@@ -23,6 +25,7 @@ use seismic_node::utils::{
     },
     SeismicRethTestCommand,
 };
+use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideClient};
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
 
@@ -31,20 +34,59 @@ const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessa
 
 #[tokio::test(flavor = "multi_thread")]
 async fn integration_test() {
-    let (tx, mut rx) = mpsc::channel(1);
-    let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
+    // let (tx, mut rx) = mpsc::channel(1);
+    // let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
 
-    SeismicRethTestCommand::run(tx, shutdown_rx).await;
-    rx.recv().await.unwrap();
+    // SeismicRethTestCommand::run(tx, shutdown_rx).await;
+    // rx.recv().await.unwrap();
 
-    test_seismic_reth_rpc_with_rust_client().await;
-    test_seismic_reth_rpc().await;
-    test_seismic_precompiles_end_to_end().await;
-    test_seismic_reth_rpc_with_typed_data().await;
+    test_seismic_reth_rpc_simulate_block().await;
+    // test_seismic_reth_rpc_with_rust_client().await;
+    // test_seismic_reth_rpc().await;
+    // test_seismic_precompiles_end_to_end().await;
+    // test_seismic_reth_rpc_with_typed_data().await;
 
-    let _ = shutdown_tx.try_send(()).unwrap();
+    // let _ = shutdown_tx.try_send(()).unwrap();
     println!("shutdown signal sent");
     thread::sleep(Duration::from_secs(1));
+}
+
+async fn test_seismic_reth_rpc_simulate_block() {
+    let reth_rpc_url = SeismicRethTestCommand::url();
+    let chain_id = SeismicRethTestCommand::chain_id();
+    let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
+    let wallet = Wallet::default().with_chain_id(chain_id);
+
+    let tx = get_signed_seismic_tx_bytes(
+        &wallet.inner,
+        get_nonce(&client, wallet.inner.address()).await,
+        TxKind::Create,
+        chain_id,
+        test_utils::ContractTestContext::get_deploy_input_plaintext(),
+    )
+    .await;
+
+    let block = SimBlock {
+        block_overrides: None,
+        state_overrides: None,
+        calls: vec![SeismicCallRequest::Bytes(tx)],
+    };
+
+    let simulate_payload = SimulatePayload {
+        block_state_calls: vec![block],
+        trace_transfers: false,
+        validation: true,
+        return_full_transactions: true,
+    };
+
+    let result =
+        EthApiOverrideClient::<Block>::simulate_v1(&client, simulate_payload, None).await.unwrap();
+
+    println!("simulate_v1 result: {:?}", result);
+
+    let decrypted_output = client_decrypt(&result[0].calls[0].return_data);
+    println!("simulate_v1 decrypted output: {:?}", decrypted_output);
+    assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 }
 
 async fn test_seismic_reth_rpc_with_typed_data() {

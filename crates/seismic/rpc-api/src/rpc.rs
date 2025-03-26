@@ -8,9 +8,9 @@
 //!
 //! - `eth_signTypedData_v4` will sign a typed data request using the Seismic enclave.
 
-use alloy_dyn_abi::{Eip712Domain, TypedData};
+use alloy_dyn_abi::TypedData;
 use alloy_json_rpc::RpcObject;
-use alloy_primitives::Address;
+use alloy_primitives::{Address, Bytes};
 use alloy_rpc_types::{simulate::SimBlock, BlockId, SeismicCallRequest};
 use alloy_rpc_types_eth::{
     simulate::{SimulatePayload, SimulatedBlock},
@@ -20,9 +20,10 @@ use jsonrpsee::{
     core::{async_trait, RpcResult},
     proc_macros::rpc,
 };
+use reth_evm::ConfigureEvmEnv;
 use reth_node_core::node_config::NodeConfig;
 use reth_rpc_eth_api::{
-    helpers::{call::SimulatedBlocksResult, EthCall, EthTransactions, FullEthApi},
+    helpers::{EthCall, EthTransactions, FullEthApi},
     RpcBlock,
 };
 use reth_rpc_eth_types::utils::{recover_raw_transaction, recover_typed_data_request};
@@ -134,7 +135,7 @@ where
 
     async fn simulate_v1(
         &self,
-        mut payload: SimulatePayload<SeismicCallRequest>,
+        payload: SimulatePayload<SeismicCallRequest>,
         block_number: Option<BlockId>,
     ) -> RpcResult<Vec<SimulatedBlock<RpcBlock<Eth::NetworkTypes>>>> {
         trace!(target: "rpc::eth", "Serving eth_simulateV1");
@@ -185,19 +186,36 @@ where
             simulated_blocks.push(prepared_block);
         }
 
-        // Ok(vec![])
-
-        Ok(EthCall::simulate_v1(
+        let mut result = EthCall::simulate_v1(
             &self.eth_api,
             SimulatePayload {
-                block_state_calls: simulated_blocks,
+                block_state_calls: simulated_blocks.clone(),
                 trace_transfers: payload.trace_transfers,
                 validation: payload.validation,
                 return_full_transactions: payload.return_full_transactions,
             },
             block_number,
         )
-        .await?)
+        .await?;
+
+        for (block, result) in simulated_blocks.iter().zip(result.iter_mut()) {
+            let SimBlock { calls, .. } = block;
+            let SimulatedBlock { calls: call_results, .. } = result;
+
+            for (call_result, call) in call_results.iter_mut().zip(calls.iter()) {
+                call.seismic_elements.map(|seismic_elements| {
+                    let encrypted_output = self
+                        .eth_api
+                        .evm_config()
+                        .encrypt(&call_result.return_data, &seismic_elements)
+                        .map(|encrypted_output| Bytes::from(encrypted_output))
+                        .unwrap();
+                    call_result.return_data = encrypted_output;
+                });
+            }
+        }
+
+        Ok(result)
     }
 }
 
