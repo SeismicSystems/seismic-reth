@@ -9,6 +9,7 @@
 //! - `eth_signTypedData_v4` will sign a typed data request using the Seismic enclave.
 
 use alloy_dyn_abi::{Eip712Domain, TypedData};
+use alloy_json_rpc::RpcObject;
 use alloy_primitives::Address;
 use alloy_rpc_types::{simulate::SimBlock, BlockId, SeismicCallRequest};
 use alloy_rpc_types_eth::{
@@ -87,7 +88,7 @@ pub const fn test_address() -> SocketAddr {
 /// Seismic `eth_` RPC namespace overrides.
 #[cfg_attr(not(feature = "client"), rpc(server, namespace = "eth"))]
 #[cfg_attr(feature = "client", rpc(server, client, namespace = "eth"))]
-pub trait EthApiOverride<Eth: FullEthApi> {
+pub trait EthApiOverride<B: RpcObject> {
     /// Returns the account and storage values of the specified account including the Merkle-proof.
     /// This call can be used to verify that the data you are pulling from is not tampered with.
     #[method(name = "signTypedData_v4")]
@@ -100,7 +101,7 @@ pub trait EthApiOverride<Eth: FullEthApi> {
         &self,
         opts: SimulatePayload<SeismicCallRequest>,
         block_number: Option<BlockId>,
-    ) -> RpcResult<Vec<SimulatedBlock<RpcBlock<Eth::NetworkTypes>>>>;
+    ) -> RpcResult<Vec<SimulatedBlock<B>>>;
 }
 
 /// Implementation of the `eth_` namespace override
@@ -117,9 +118,10 @@ impl<Eth> EthApiExt<Eth> {
 }
 
 #[async_trait]
-impl<Eth> EthApiOverrideServer<Eth> for EthApiExt<Eth>
+impl<Eth> EthApiOverrideServer<RpcBlock<Eth::NetworkTypes>> for EthApiExt<Eth>
 where
-    Eth: FullEthApi + Send + Sync + 'static,
+    Eth: FullEthApi,
+    jsonrpsee_types::error::ErrorObject<'static>: From<Eth::Error>,
 {
     /// Handler for: `eth_signTypedData_v4`
     async fn sign_typed_data_v4(&self, from: Address, data: TypedData) -> RpcResult<String> {
@@ -134,7 +136,7 @@ where
         &self,
         mut payload: SimulatePayload<SeismicCallRequest>,
         block_number: Option<BlockId>,
-    ) -> SimulatedBlocksResult<Eth::NetworkTypes, Eth::Error> {
+    ) -> RpcResult<Vec<SimulatedBlock<RpcBlock<Eth::NetworkTypes>>>> {
         trace!(target: "rpc::eth", "Serving eth_simulateV1");
 
         let mut simulated_blocks = Vec::with_capacity(payload.block_state_calls.len());
@@ -157,7 +159,7 @@ where
                             );
 
                         TransactionRequest::from_transaction_with_sender(
-                            tx.as_signed(),
+                            tx.as_signed().clone(),
                             tx.signer(),
                         )
                     }
@@ -183,7 +185,9 @@ where
             simulated_blocks.push(prepared_block);
         }
 
-        EthCall::simulate_v1(
+        // Ok(vec![])
+
+        Ok(EthCall::simulate_v1(
             &self.eth_api,
             SimulatePayload {
                 block_state_calls: simulated_blocks,
@@ -193,7 +197,7 @@ where
             },
             block_number,
         )
-        .await
+        .await?)
     }
 }
 
