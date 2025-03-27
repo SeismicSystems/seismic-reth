@@ -171,12 +171,16 @@ where
                                 <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
                             );
 
+                        debug!("Bytes recovered tx: {:?}", tx);
+
                         TransactionRequest::from_transaction_with_sender(
                             tx.as_signed().clone(),
                             tx.signer(),
                         )
                     }
                 };
+
+                debug!("converted tx_request: {:?}", tx_request);
                 prepared_calls.push(tx_request);
             }
 

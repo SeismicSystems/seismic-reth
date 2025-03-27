@@ -6,7 +6,7 @@ use alloy_primitives::{
     aliases::{B96, U96},
     hex,
     hex::FromHex,
-    Bytes, IntoLogData, TxKind, B256, U256,
+    Address, Bytes, IntoLogData, TxKind, B256, U256,
 };
 use alloy_provider::{layers::seismic::test_utils, Provider, SeismicSignedProvider, SendableTx};
 use alloy_rpc_types::{
@@ -16,7 +16,9 @@ use alloy_rpc_types::{
 };
 use alloy_sol_types::{sol, SolCall, SolValue};
 use reth_e2e_test_utils::wallet::Wallet;
+use reth_primitives::TransactionSigned;
 use reth_rpc_eth_api::EthApiClient;
+use reth_rpc_eth_types::utils::recover_raw_transaction;
 use seismic_enclave::aes_decrypt;
 use seismic_node::utils::{
     test_utils::{
@@ -49,6 +51,33 @@ async fn integration_test() {
     // let _ = shutdown_tx.try_send(()).unwrap();
     println!("shutdown signal sent");
     thread::sleep(Duration::from_secs(1));
+}
+
+#[tokio::test]
+async fn test_transaction_requets() {
+    let reth_rpc_url = SeismicRethTestCommand::url();
+    let chain_id = SeismicRethTestCommand::chain_id();
+    let wallet = Wallet::default().with_chain_id(chain_id);
+
+    let tx = get_signed_seismic_tx_bytes(
+        &wallet.inner,
+        0,
+        TxKind::Create,
+        chain_id,
+        test_utils::ContractTestContext::get_deploy_input_plaintext(),
+    )
+    .await;
+
+    let recovered_tx = recover_raw_transaction::<TransactionSigned>(&tx).unwrap();
+
+    println!("DEBUG: recovered_tx: {:?}", recovered_tx);
+
+    let request = TransactionRequest::from_transaction_with_sender(
+        recovered_tx.as_signed().clone(),
+        Address::ZERO,
+    );
+
+    println!("DEBUG: request: {:?}", request);
 }
 
 async fn test_seismic_reth_rpc_simulate_block() {
@@ -86,7 +115,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
 
     let decrypted_output = client_decrypt(&result[0].calls[0].return_data);
     println!("simulate_v1 decrypted output: {:?}", decrypted_output);
-    assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
+    assert_eq!(decrypted_output, test_utils::ContractTestContext::get_code());
 }
 
 async fn test_seismic_reth_rpc_with_typed_data() {
