@@ -192,8 +192,6 @@ where
             simulated_blocks.push(prepared_block);
         }
 
-        println!("DEBUG: simulated_blocks: {:?}", simulated_blocks);
-
         let mut result = EthCall::simulate_v1(
             &self.eth_api,
             SimulatePayload {

@@ -13,7 +13,6 @@ use reth_rpc_server_types::result::rpc_err;
 use reth_rpc_types_compat::{block::from_block, TransactionCompat};
 use revm::Database;
 use revm_primitives::{Address, Bytes, ExecutionResult, TxKind};
-use tracing::debug;
 
 use crate::{
     error::{api::FromEthApiError, ToRpcError},
@@ -80,10 +79,6 @@ where
     };
 
     for tx in txs {
-        debug!("DEBUG: buildable type {:?}", tx.buildable_type());
-        debug!("DEBUG: preferred type {:?}", tx.preferred_type());
-        debug!("DEBUG: missing {:?}", tx.complete_seismic());
-
         if tx.buildable_type().is_none() && validation {
             return Err(EthApiError::TransactionConversionError);
         }

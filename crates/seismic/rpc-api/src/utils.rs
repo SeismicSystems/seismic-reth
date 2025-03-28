@@ -1,8 +1,5 @@
 //! Utils for testing the seismic rpc api
 
-use alloy_primitives::{Address, TxKind, U256};
-use alloy_rpc_types::TransactionRequest;
-
 /// Test utils for the seismic rpc api
 /// copied from reth-rpc-api-builder
 #[cfg(test)]

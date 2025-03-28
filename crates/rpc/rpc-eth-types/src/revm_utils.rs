@@ -13,7 +13,6 @@ use revm::{
 };
 use revm_primitives::BlockEnv;
 use std::cmp::min;
-use tracing::debug;
 
 use super::{EthApiError, EthResult, RpcInvalidTransactionError};
 
@@ -103,16 +102,6 @@ impl CallFees {
         max_fee_per_blob_gas: Option<U256>,
         block_blob_fee: Option<U256>,
     ) -> EthResult<Self> {
-        debug!(
-            "DEBUG: ensure_fees: call_gas_price={:?}, call_max_fee={:?}, call_priority_fee={:?}, block_base_fee={:?}, blob_versioned_hashes={:?}, max_fee_per_blob_gas={:?}, block_blob_fee={:?}",
-            call_gas_price,
-            call_max_fee,
-            call_priority_fee,
-            block_base_fee,
-            blob_versioned_hashes,
-            max_fee_per_blob_gas,
-            block_blob_fee
-        );
         /// Get the effective gas price of a transaction as specfified in EIP-1559 with relevant
         /// checks.
         fn get_effective_gas_price(
@@ -156,7 +145,6 @@ impl CallFees {
 
         match (call_gas_price, call_max_fee, call_priority_fee, max_fee_per_blob_gas) {
             (gas_price, None, None, None) => {
-                println!("DEBUG: matched 1st branch");
                 // either legacy transaction or no fee fields are specified
                 // when no fields are specified, set gas price to zero
                 let gas_price = gas_price.unwrap_or(U256::ZERO);
@@ -167,7 +155,6 @@ impl CallFees {
                 })
             }
             (None, max_fee_per_gas, max_priority_fee_per_gas, None) => {
-                println!("DEBUG: matched 2nd branch");
                 // request for eip-1559 transaction
                 let effective_gas_price = get_effective_gas_price(
                     max_fee_per_gas,
@@ -183,7 +170,6 @@ impl CallFees {
                 })
             }
             (None, max_fee_per_gas, max_priority_fee_per_gas, Some(max_fee_per_blob_gas)) => {
-                println!("DEBUG: matched 3rd branch");
                 // request for eip-4844 transaction
                 let effective_gas_price = get_effective_gas_price(
                     max_fee_per_gas,
@@ -203,7 +189,6 @@ impl CallFees {
                 })
             }
             _ => {
-                debug!("DEBUG: Conflicting fee fields in request");
                 // this fallback covers incompatible combinations of fields
                 Err(EthApiError::ConflictingFeeFieldsInRequest)
             }
@@ -335,11 +320,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_consensus::{constants::GWEI_TO_WEI, TxLegacy, TxSeismic};
-    use alloy_primitives::PrimitiveSignature;
-    use alloy_rpc_types_eth::TransactionRequest;
-    use reth_primitives::TransactionSigned;
-    use revm_primitives::Signature;
+    use alloy_consensus::constants::GWEI_TO_WEI;
 
     #[test]
     fn test_ensure_0_fallback() {
@@ -449,50 +430,5 @@ mod tests {
             Some(U256::ZERO),
         );
         assert!(call_fees.is_err());
-    }
-
-    #[test]
-    fn test_legacy_transaction() {
-        let tx = TxSeismic::default();
-        let tx_signed = TransactionSigned::new(
-            reth_primitives::Transaction::Seismic(tx),
-            PrimitiveSignature::new(B256::ZERO.into(), B256::ZERO.into(), true),
-            B256::ZERO,
-        );
-        println!("DEBUG: txlegacy: {:?}", tx_signed.clone());
-        let signer = Address::ZERO;
-        let request = TransactionRequest::from_transaction_with_sender(tx_signed.clone(), signer);
-        println!("DEBUG: transactionrequest: {:?}", request);
-
-        let TransactionRequest {
-            from,
-            to,
-            gas_price,
-            max_fee_per_gas,
-            max_priority_fee_per_gas,
-            gas,
-            value,
-            input,
-            nonce,
-            access_list,
-            chain_id,
-            blob_versioned_hashes,
-            max_fee_per_blob_gas,
-            authorization_list,
-            seismic_elements,
-            ..
-        } = request;
-
-        let CallFees { gas_price, .. } = CallFees::ensure_fees(
-            gas_price.map(U256::from),
-            max_fee_per_gas.map(U256::from),
-            max_priority_fee_per_gas.map(U256::from),
-            U256::from(15 * GWEI_TO_WEI),
-            blob_versioned_hashes.as_deref(),
-            max_fee_per_blob_gas.map(U256::from),
-            Some(U256::ZERO),
-        )
-        .unwrap();
-        println!("DEBUG: gas_price: {:?}", gas_price);
     }
 }

@@ -170,7 +170,6 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
                     while let Some(tx) = calls.next() {
                         let env = this.build_call_evm_env(cfg.clone(), block_env.clone(), tx)?;
-                        println!("DEBUG: env: {:?}", env);
 
                         let (res, env) = {
                             if trace_transfers {
@@ -184,20 +183,15 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                             }
                         };
 
-                        println!("DEBUG: res: {:?}", res);
-
                         if calls.peek().is_some() {
                             // need to apply the state changes of this call before executing the
                             // next call
                             db.commit(res.state);
                         }
 
-                        println!("DEBUG: committed");
-
                         senders.push(env.tx.caller);
                         results.push(res.result);
                     }
-                    println!("DEBUG: building block");
 
                     let (block, _) = this.assemble_block_and_receipts(
                         &block_env,
@@ -208,8 +202,6 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                         results.clone(),
                     );
 
-                    println!("DEBUG: assemble block and receipts: {:?}", block);
-
                     let block: SimulatedBlock<RpcBlock<Self::NetworkTypes>> =
                         simulate::build_simulated_block(
                             senders,
@@ -219,15 +211,11 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                             block,
                         )?;
 
-                    println!("DEBUG: build simulated block: {:?}", block);
-
                     parent_hash = block.inner.header.hash;
                     gas_used += block.inner.header.gas_used();
 
                     blocks.push(block);
                 }
-
-                println!("DEBUG: blocks: {:?}", blocks);
 
                 Ok(blocks)
             })
@@ -688,7 +676,6 @@ pub trait Call:
                     CacheDB::new(StateProviderDatabase::new(StateProviderTraitObjWrapper(&state)));
 
                 let env = this.prepare_call_env(cfg, block_env, request, &mut db, overrides)?;
-                println!("DEBUG: env: {:?}", env);
 
                 f(StateCacheDbRefMutWrapper(&mut db), env)
             })
@@ -814,8 +801,6 @@ pub trait Call:
             return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err())
         }
 
-        debug!("DEBUG: create_txn_env: {:?}", request.clone());
-
         let TransactionRequest {
             from,
             to,
@@ -845,11 +830,6 @@ pub trait Call:
                 max_fee_per_blob_gas.map(U256::from),
                 block_env.get_blob_gasprice().map(U256::from),
             )?;
-
-        println!("DEBUG: max_priority_fee_per_gas: {:?}", max_priority_fee_per_gas);
-        println!("DEBUG: max_fee_per_gas: {:?}", max_fee_per_gas);
-        println!("DEBUG: gas_price: {:?}", gas_price);
-        println!("DEBUG: max_fee_per_blob_gas: {:?}", max_fee_per_blob_gas);
 
         let gas_limit = gas.unwrap_or_else(|| {
             // Use maximum allowed gas limit. The reason for this
