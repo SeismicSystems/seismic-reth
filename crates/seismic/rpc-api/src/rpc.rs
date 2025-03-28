@@ -229,6 +229,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::utils::test_utils::{build_test_eth_api, launch_http};
+    use alloy_rpc_types::Block;
     use jsonrpsee::core::client::{ClientT, SubscriptionClientT};
     use reth_enclave::start_mock_enclave_server_random_port;
     use reth_provider::test_utils::MockEthProvider;
@@ -249,7 +250,7 @@ mod tests {
     {
         let typed_data = get_seismic_tx().eip712_to_type_data();
         let _signature =
-            EthApiOverrideClient::sign_typed_data_v4(client, Address::ZERO, typed_data)
+            EthApiOverrideClient::<Block>::sign_typed_data_v4(client, Address::ZERO, typed_data)
                 .await
                 .unwrap_err();
     }

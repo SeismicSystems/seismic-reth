@@ -85,7 +85,7 @@ pub mod test_utils {
             Box::new(EthApi::with_spawner),
             Arc::new(EthereumEngineValidator::new(MAINNET.clone())),
         );
-        server.merge_configured(modules).unwrap();
+        server.replace_configured(modules).unwrap();
         RpcServerConfig::http(Default::default())
             .with_http_address(test_address())
             .start(&server)
