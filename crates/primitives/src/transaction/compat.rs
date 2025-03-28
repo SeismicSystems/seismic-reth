@@ -1,4 +1,5 @@
 use crate::{Transaction, TransactionSigned};
+use alloy_consensus::Typed2718;
 use alloy_primitives::{Address, TxKind, U256};
 #[cfg(feature = "optimism")]
 use op_alloy_consensus::DepositTransaction;
@@ -32,6 +33,7 @@ impl FillTxEnv for TransactionSigned {
                 tx_env.max_fee_per_blob_gas.take();
                 tx_env.authorization_list = None;
                 tx_env.tx_hash = self.hash();
+                tx_env.tx_type = Some(tx.ty() as isize);
             }
             Transaction::Eip2930(tx) => {
                 tx_env.gas_limit = tx.gas_limit;
@@ -47,6 +49,7 @@ impl FillTxEnv for TransactionSigned {
                 tx_env.max_fee_per_blob_gas.take();
                 tx_env.authorization_list = None;
                 tx_env.tx_hash = self.hash();
+                tx_env.tx_type = Some(tx.ty() as isize);
             }
             Transaction::Eip1559(tx) => {
                 tx_env.gas_limit = tx.gas_limit;
@@ -62,6 +65,7 @@ impl FillTxEnv for TransactionSigned {
                 tx_env.max_fee_per_blob_gas.take();
                 tx_env.authorization_list = None;
                 tx_env.tx_hash = self.hash();
+                tx_env.tx_type = Some(tx.ty() as isize);
             }
             Transaction::Eip4844(tx) => {
                 tx_env.gas_limit = tx.gas_limit;
@@ -77,6 +81,7 @@ impl FillTxEnv for TransactionSigned {
                 tx_env.max_fee_per_blob_gas = Some(U256::from(tx.max_fee_per_blob_gas));
                 tx_env.authorization_list = None;
                 tx_env.tx_hash = self.hash();
+                tx_env.tx_type = Some(tx.ty() as isize);
             }
             Transaction::Eip7702(tx) => {
                 tx_env.gas_limit = tx.gas_limit;
@@ -93,6 +98,7 @@ impl FillTxEnv for TransactionSigned {
                 tx_env.authorization_list =
                     Some(AuthorizationList::Signed(tx.authorization_list.clone()));
                 tx_env.tx_hash = self.hash();
+                tx_env.tx_type = Some(tx.ty() as isize);
             }
             #[cfg(feature = "optimism")]
             Transaction::Deposit(tx) => {
@@ -113,6 +119,7 @@ impl FillTxEnv for TransactionSigned {
                     is_system_transaction: Some(tx.is_system_transaction),
                     enveloped_tx: Some(envelope.into()),
                 };
+                tx_env.tx_type = Some(tx.ty() as isize);
                 return;
             }
             Transaction::Seismic(_tx) => {
@@ -131,7 +138,5 @@ impl FillTxEnv for TransactionSigned {
                 enveloped_tx: Some(envelope.into()),
             }
         }
-        debug!(target: "reth::fill_tx_env", "{} {}", (self.transaction.tx_type()), "Tranasction type");
-        debug!(target: "reth::fill_tx_env", ?tx_env, "Filled transaction environment");
     }
 }

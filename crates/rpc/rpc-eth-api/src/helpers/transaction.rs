@@ -1,7 +1,7 @@
 //! Database access for `eth_` transaction RPC methods. Loads transaction and receipt data w.r.t.
 //! network.
 
-use alloy_consensus::{BlockHeader, Transaction};
+use alloy_consensus::{BlockHeader, Transaction, Typed2718};
 use alloy_dyn_abi::TypedData;
 use alloy_eips::{eip2718::Encodable2718, BlockId};
 use alloy_network::TransactionBuilder;
@@ -224,12 +224,14 @@ pub trait EthTransactions: LoadTransaction<Provider: BlockReaderIdExt> {
                 let block_number = block.number();
                 let base_fee_per_gas = block.base_fee_per_gas();
                 if let Some((signer, tx)) = block.transactions_with_sender().nth(index) {
+                    let tx_type = Some(tx.ty() as isize);
                     let tx_info = TransactionInfo {
                         hash: Some(*tx.tx_hash()),
                         block_hash: Some(block_hash),
                         block_number: Some(block_number),
                         base_fee: base_fee_per_gas.map(u128::from),
                         index: Some(index as u64),
+                        tx_type,
                     };
 
                     return Ok(Some(from_recovered_with_block_context(
@@ -311,6 +313,7 @@ pub trait EthTransactions: LoadTransaction<Provider: BlockReaderIdExt> {
                                 block_number: Some(block_number),
                                 base_fee: base_fee_per_gas.map(u128::from),
                                 index: Some(index as u64),
+                                tx_type: Some(tx.ty() as isize),
                             };
                             from_recovered_with_block_context(
                                 tx.clone().with_signer(*signer),

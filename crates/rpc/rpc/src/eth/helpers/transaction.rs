@@ -9,7 +9,6 @@ use reth_rpc_eth_api::{
 };
 use reth_rpc_eth_types::utils::{recover_raw_transaction, recover_typed_data_request};
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
-use tracing::debug;
 
 impl<Provider, Pool, Network, EvmConfig> EthTransactions
     for EthApi<Provider, Pool, Network, EvmConfig>
@@ -31,11 +30,7 @@ where
         // broadcast raw transaction to subscribers if there is any.
         self.broadcast_raw_transaction(tx);
 
-        debug!(target: "reth::send_raw_transaction", "tx recovered");
-
         let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
-
-        debug!(target: "reth::send_raw_transaction", "tx convereted to pool tx");
 
         // submit the transaction to the pool with a `Local` origin
         let hash = self
@@ -62,11 +57,7 @@ where
         // type
         // self.broadcast_raw_transaction(recovered.to);
 
-        debug!(target: "reth::send_raw_transaction", "tx recovered");
-
         let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
-
-        debug!(target: "reth::send_raw_transaction", "tx convereted to pool tx");
 
         // submit the transaction to the pool with a `Local` origin
         let hash = self

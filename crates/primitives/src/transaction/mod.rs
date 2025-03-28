@@ -589,6 +589,16 @@ impl Default for Transaction {
     }
 }
 
+impl alloy_consensus::transaction::ShieldableTransaction for Transaction {
+    fn shield_input(&mut self) {
+        match self {
+            Self::Seismic(tx) => {
+                tx.shield_input();
+            }
+            _ => {}
+        }
+    }
+}
 impl alloy_consensus::Transaction for Transaction {
     fn chain_id(&self) -> Option<ChainId> {
         match self {
@@ -1108,6 +1118,12 @@ impl TransactionSigned {
             Self { transaction: Transaction::Legacy(transaction), hash: hash.into(), signature };
         Ok(signed)
     }
+
+    /// Shields the input of the transaction.
+    pub fn shield_input(mut self) -> Self {
+        self.transaction.set_input(Bytes::new());
+        self
+    }
 }
 
 impl SignedTransaction for TransactionSigned {
@@ -1234,6 +1250,17 @@ impl InMemorySize for TransactionSigned {
     #[inline]
     fn size(&self) -> usize {
         self.hash().size() + self.transaction.size() + self.signature().size()
+    }
+}
+
+impl alloy_consensus::transaction::ShieldableTransaction for TransactionSigned {
+    fn shield_input(&mut self) {
+        match &mut self.transaction {
+            Transaction::Seismic(tx) => {
+                tx.shield_input();
+            }
+            _ => {}
+        }
     }
 }
 
@@ -1412,7 +1439,6 @@ impl Encodable2718 for TransactionSigned {
 
 impl Decodable2718 for TransactionSigned {
     fn typed_decode(ty: u8, buf: &mut &[u8]) -> Eip2718Result<Self> {
-        debug!("Decoding transaction with type: {}", ty);
         match ty.try_into().map_err(|_| Eip2718Error::UnexpectedType(ty))? {
             TxType::Legacy => Err(Eip2718Error::UnexpectedType(0)),
             TxType::Eip2930 => {
@@ -1673,6 +1699,14 @@ impl<T> RecoveredTx<T> {
     /// Applies the given closure to the inner transactions.
     pub fn map_transaction<Tx>(self, f: impl FnOnce(T) -> Tx) -> RecoveredTx<Tx> {
         RecoveredTx::from_signed_transaction(f(self.signed_transaction), self.signer)
+    }
+}
+
+impl RecoveredTx<TransactionSigned> {
+    /// Shields the input of the transaction.
+    pub fn shield_input(mut self) -> Self {
+        self.signed_transaction = self.signed_transaction.shield_input();
+        self
     }
 }
 

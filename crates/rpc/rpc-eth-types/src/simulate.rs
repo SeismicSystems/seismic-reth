@@ -110,7 +110,7 @@ where
         }
 
         match tx_type {
-            TxType::Legacy | TxType::Eip2930 => {
+            TxType::Legacy | TxType::Eip2930 | TxType::Seismic => {
                 if tx.gas_price.is_none() {
                     tx.gas_price = Some(0);
                 }

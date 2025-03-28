@@ -18,14 +18,19 @@ reth-rpc-eth-api.workspace = true
 reth-node-core.workspace = true
 reth-rpc-server-types.workspace = true
 reth-enclave.workspace = true
+reth-transaction-pool.workspace = true
+reth-evm.workspace = true
 
 seismic-enclave.workspace = true
 
 alloy-primitives.workspace = true
 alloy-rpc-types.workspace = true
 alloy-dyn-abi.workspace = true
+alloy-json-rpc.workspace = true
+alloy-rpc-types-eth.workspace = true
 
 jsonrpsee = { workspace = true, features = ["server", "macros"] }
+jsonrpsee-types.workspace = true
 secp256k1.workspace = true
 tokio = { workspace = true, features = ["full"] }
 thiserror.workspace = true
@@ -56,3 +61,4 @@ seismic-node.workspace = true
 
 [features]
 client = ["jsonrpsee/client", "jsonrpsee/async-client"]
+

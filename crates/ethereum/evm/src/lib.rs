@@ -20,7 +20,7 @@ extern crate alloc;
 use core::{convert::Infallible, net::IpAddr};
 
 use alloc::{sync::Arc, vec::Vec};
-use alloy_consensus::{transaction::TxSeismicElements, Header, TxSeismic};
+use alloy_consensus::{transaction::TxSeismicElements, Header, TxSeismic, Typed2718};
 use alloy_primitives::{Address, Bytes, TxHash, TxKind, U256};
 use reth_chainspec::{ChainSpec, Head};
 use reth_enclave::{EnclaveClient, EnclaveError, SchnorrkelKeypair, SyncEnclaveApiClient};
@@ -73,11 +73,15 @@ impl EthEvmConfig {
         chain_spec: Arc<ChainSpec>,
         enclave_addr: IpAddr,
         enclave_port: u16,
+        enclave_server_timeout: u64,
     ) -> Self {
         debug!(target: "reth::evm", ?enclave_addr, ?enclave_port, "Creating new enclave client");
 
-        let enclave_client =
-            EnclaveClient::new_from_addr_port(enclave_addr.to_string(), enclave_port);
+        let enclave_client = EnclaveClient::builder()
+            .addr(enclave_addr.to_string())
+            .port(enclave_port)
+            .timeout(std::time::Duration::from_secs(enclave_server_timeout))
+            .build();
         Self::new_with_enclave_client(chain_spec, enclave_client)
     }
 
@@ -136,13 +140,9 @@ impl ConfigureEvmEnv for EthEvmConfig {
         sender: Address,
         tx_hash: TxHash,
     ) -> EVMResultGeneric<(), EnclaveError> {
-        debug!(target: "reth::fill_tx_env", ?tx, "Parsing Seismic transaction");
-
         let enclave_decryption = self.decrypt(&tx.input, &tx.seismic_elements)?;
 
         let data = Bytes::from(enclave_decryption.clone());
-
-        debug!(target: "reth::fill_tx_env", ?data, ?enclave_decryption, ?tx.input, "Decrypted input data");
 
         tx_env.caller = sender;
         tx_env.gas_limit = tx.gas_limit;
@@ -158,9 +158,7 @@ impl ConfigureEvmEnv for EthEvmConfig {
         tx_env.max_fee_per_blob_gas.take();
         tx_env.authorization_list = None;
         tx_env.tx_hash = tx_hash;
-
-        debug!(target: "reth::fill_tx_env", ?tx_env, "Filled Seismic transaction");
-
+        tx_env.tx_type = Some(tx.ty() as isize);
         Ok(())
     }
 
@@ -170,7 +168,6 @@ impl ConfigureEvmEnv for EthEvmConfig {
         transaction: &TransactionSigned,
         sender: Address,
     ) -> EVMResultGeneric<(), EnclaveError> {
-        debug!(target: "reth::fill_tx_env", ?transaction, "Parsing transaction");
         match &transaction.transaction {
             Transaction::Seismic(tx) => {
                 self.fill_seismic_tx_env(tx_env, tx, sender, transaction.hash())?;
