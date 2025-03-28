@@ -2,6 +2,7 @@
 
 /// Test utils for the seismic rpc api
 /// copied from reth-rpc-api-builder
+#[cfg(test)]
 pub mod test_utils {
     use std::{
         net::{Ipv4Addr, SocketAddr, SocketAddrV4},
@@ -84,7 +85,7 @@ pub mod test_utils {
             Box::new(EthApi::with_spawner),
             Arc::new(EthereumEngineValidator::new(MAINNET.clone())),
         );
-        server.merge_configured(modules).unwrap();
+        server.replace_configured(modules).unwrap();
         RpcServerConfig::http(Default::default())
             .with_http_address(test_address())
             .start(&server)

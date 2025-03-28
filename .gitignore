@@ -60,3 +60,5 @@ crates/seismic/node/tmp/
 # seismic-viem tests
 node_modules
 bun.lock
+
+.cursor
