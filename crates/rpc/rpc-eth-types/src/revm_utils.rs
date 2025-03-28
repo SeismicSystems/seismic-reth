@@ -156,6 +156,7 @@ impl CallFees {
 
         match (call_gas_price, call_max_fee, call_priority_fee, max_fee_per_blob_gas) {
             (gas_price, None, None, None) => {
+                println!("DEBUG: matched 1st branch");
                 // either legacy transaction or no fee fields are specified
                 // when no fields are specified, set gas price to zero
                 let gas_price = gas_price.unwrap_or(U256::ZERO);
@@ -166,6 +167,7 @@ impl CallFees {
                 })
             }
             (None, max_fee_per_gas, max_priority_fee_per_gas, None) => {
+                println!("DEBUG: matched 2nd branch");
                 // request for eip-1559 transaction
                 let effective_gas_price = get_effective_gas_price(
                     max_fee_per_gas,
@@ -181,6 +183,7 @@ impl CallFees {
                 })
             }
             (None, max_fee_per_gas, max_priority_fee_per_gas, Some(max_fee_per_blob_gas)) => {
+                println!("DEBUG: matched 3rd branch");
                 // request for eip-4844 transaction
                 let effective_gas_price = get_effective_gas_price(
                     max_fee_per_gas,

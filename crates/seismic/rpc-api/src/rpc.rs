@@ -26,7 +26,10 @@ use reth_rpc_eth_api::{
     helpers::{EthCall, EthTransactions, FullEthApi},
     RpcBlock,
 };
-use reth_rpc_eth_types::utils::{recover_raw_transaction, recover_typed_data_request};
+use reth_rpc_eth_types::{
+    utils::{recover_raw_transaction, recover_typed_data_request},
+    EthApiError,
+};
 use reth_tracing::tracing::*;
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
 use secp256k1::PublicKey;
@@ -135,7 +138,7 @@ where
 
     async fn simulate_v1(
         &self,
-        payload: SimulatePayload<SeismicCallRequest>,
+        mut payload: SimulatePayload<SeismicCallRequest>,
         block_number: Option<BlockId>,
     ) -> RpcResult<Vec<SimulatedBlock<RpcBlock<Eth::NetworkTypes>>>> {
         trace!(target: "rpc::eth", "Serving eth_simulateV1");
@@ -148,8 +151,11 @@ where
 
             for call in calls {
                 let tx_request = match call {
-                    alloy_rpc_types::SeismicCallRequest::TransactionRequest(tx_request) => {
-                        tx_request.inner
+                    alloy_rpc_types::SeismicCallRequest::TransactionRequest(mut tx_request) => {
+                        return Err(EthApiError::InvalidParams(
+                            "Invalid Transaction Request".to_string(),
+                        )
+                        .into())
                     }
 
                     alloy_rpc_types::SeismicCallRequest::TypedData(typed_request) => {
@@ -171,16 +177,12 @@ where
                                 <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
                             );
 
-                        debug!("Bytes recovered tx: {:?}", tx);
-
                         TransactionRequest::from_transaction_with_sender(
                             tx.as_signed().clone(),
                             tx.signer(),
                         )
                     }
                 };
-
-                debug!("converted tx_request: {:?}", tx_request);
                 prepared_calls.push(tx_request);
             }
 
@@ -189,6 +191,8 @@ where
 
             simulated_blocks.push(prepared_block);
         }
+
+        println!("DEBUG: simulated_blocks: {:?}", simulated_blocks);
 
         let mut result = EthCall::simulate_v1(
             &self.eth_api,
@@ -200,7 +204,8 @@ where
             },
             block_number,
         )
-        .await?;
+        .await;
+        let mut result = result.unwrap();
 
         for (block, result) in simulated_blocks.iter().zip(result.iter_mut()) {
             let SimBlock { calls, .. } = block;
