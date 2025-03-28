@@ -138,7 +138,7 @@ where
 
     async fn simulate_v1(
         &self,
-        mut payload: SimulatePayload<SeismicCallRequest>,
+        payload: SimulatePayload<SeismicCallRequest>,
         block_number: Option<BlockId>,
     ) -> RpcResult<Vec<SimulatedBlock<RpcBlock<Eth::NetworkTypes>>>> {
         trace!(target: "rpc::eth", "Serving eth_simulateV1");
@@ -151,7 +151,7 @@ where
 
             for call in calls {
                 let tx_request = match call {
-                    alloy_rpc_types::SeismicCallRequest::TransactionRequest(mut tx_request) => {
+                    alloy_rpc_types::SeismicCallRequest::TransactionRequest(_tx_request) => {
                         return Err(EthApiError::InvalidParams(
                             "Invalid Transaction Request".to_string(),
                         )
@@ -192,7 +192,7 @@ where
             simulated_blocks.push(prepared_block);
         }
 
-        let mut result = EthCall::simulate_v1(
+        let result = EthCall::simulate_v1(
             &self.eth_api,
             SimulatePayload {
                 block_state_calls: simulated_blocks.clone(),
