@@ -1,6 +1,6 @@
 //! Compatibility functions for rpc `Block` type.
 
-use alloy_consensus::{BlockHeader, Sealable, Sealed};
+use alloy_consensus::{BlockHeader, Sealable, Sealed, Typed2718};
 use alloy_eips::eip4895::Withdrawals;
 use alloy_primitives::{B256, U256};
 use alloy_rpc_types_eth::{
@@ -84,6 +84,7 @@ where
     let transactions = transactions_with_senders
         .enumerate()
         .map(|(idx, (tx, sender))| {
+            let tx_type = Some(tx.ty() as isize);
             let tx_hash = *tx.tx_hash();
             let signed_tx_ec_recovered = tx.with_signer(sender);
             let tx_info = TransactionInfo {
@@ -92,6 +93,7 @@ where
                 block_number: Some(block_number),
                 base_fee: base_fee_per_gas.map(u128::from),
                 index: Some(idx as u64),
+                tx_type,
             };
 
             from_recovered_with_block_context::<_, T>(

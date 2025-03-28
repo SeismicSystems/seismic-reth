@@ -27,8 +27,10 @@ alloy-primitives.workspace = true
 alloy-rpc-types.workspace = true
 alloy-dyn-abi.workspace = true
 alloy-json-rpc.workspace = true
+alloy-rpc-types-eth.workspace = true
 
 jsonrpsee = { workspace = true, features = ["server", "macros"] }
+jsonrpsee-types.workspace = true
 secp256k1.workspace = true
 tokio = { workspace = true, features = ["full"] }
 thiserror.workspace = true
