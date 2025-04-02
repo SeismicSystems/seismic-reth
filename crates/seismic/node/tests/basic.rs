@@ -1,6 +1,6 @@
 //! This file is used to test the features of the seismic node without rpc interactions.
 //! See integration.rs for rpc interactions.
-use alloy_primitives::{Bytes, TxKind, U256};
+use alloy_primitives::TxKind;
 use alloy_provider::layers::seismic::test_utils;
 use reth_chainspec::SEISMIC_DEV;
 use reth_e2e_test_utils::setup_engine;

@@ -250,7 +250,7 @@ where
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
-        debug!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving overridden eth_call");
+        trace!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving overridden eth_call");
         let tx_request = match request {
             alloy_rpc_types::SeismicCallRequest::TransactionRequest(tx_request) => {
                 let mut request = tx_request.inner;
@@ -283,8 +283,6 @@ where
             }
         };
 
-        debug!(target: "rpc::eth", ?tx_request, "Converted to TransactionRequest");
-
         let seismic_elements = tx_request.seismic_elements;
 
         let result = EthCall::call(
@@ -310,7 +308,7 @@ where
 
     /// Handler for: `eth_sendRawTransaction`
     async fn send_raw_transaction(&self, tx: SeismicRawTxRequest) -> RpcResult<B256> {
-        debug!(target: "rpc::eth", ?tx, "Serving overridden eth_sendRawTransaction");
+        trace!(target: "rpc::eth", ?tx, "Serving overridden eth_sendRawTransaction");
         match tx {
             SeismicRawTxRequest::Bytes(bytes) => {
                 Ok(EthTransactions::send_raw_transaction(&self.eth_api, bytes).await?)
@@ -325,6 +323,8 @@ where
 #[cfg(test)]
 mod tests {
     use crate::utils::test_utils::{build_test_eth_api, launch_http};
+    use alloy_eips::eip712::TypedDataRequest;
+    use alloy_primitives::{b256, hex, PrimitiveSignature};
     use alloy_rpc_types::Block;
     use jsonrpsee::core::client::{ClientT, SubscriptionClientT};
     use reth_enclave::start_mock_enclave_server_random_port;
@@ -345,10 +345,50 @@ mod tests {
         C: ClientT + SubscriptionClientT + Sync,
     {
         let typed_data = get_seismic_tx().eip712_to_type_data();
-        let _signature =
-            EthApiOverrideClient::<Block>::sign_typed_data_v4(client, Address::ZERO, typed_data)
+        let typed_data_request = TypedDataRequest {
+            data: typed_data.clone(),
+            signature: PrimitiveSignature::new(
+                b256!("1fd474b1f9404c0c5df43b7620119ffbc3a1c3f942c73b6e14e9f55255ed9b1d").into(),
+                b256!("29aca24813279a901ec13b5f7bb53385fa1fc627b946592221417ff74a49600d").into(),
+                false,
+            ),
+        };
+        let tx = Bytes::from(hex!("02f871018303579880850555633d1b82520894eee27662c2b8eba3cd936a23f039f3189633e4c887ad591c62bdaeb180c080a07ea72c68abfb8fca1bd964f0f99132ed9280261bdca3e549546c0205e800f7d0a05b4ef3039e9c9b9babc179a1878fb825b5aaf5aed2fa8744854150157b08d6f3"));
+        let call_request = TransactionRequest::default();
+
+        let _signature = EthApiOverrideClient::<Block>::sign_typed_data_v4(
+            client,
+            Address::ZERO,
+            typed_data.clone(),
+        )
+        .await
+        .unwrap_err();
+        let _result = EthApiOverrideClient::<Block>::call(
+            client,
+            call_request.clone().into(),
+            None,
+            None,
+            None,
+        )
+        .await
+        .unwrap_err();
+        let _result =
+            EthApiOverrideClient::<Block>::call(client, tx.clone().into(), None, None, None)
                 .await
                 .unwrap_err();
+        let _result = EthApiOverrideClient::<Block>::call(
+            client,
+            typed_data_request.clone().into(),
+            None,
+            None,
+            None,
+        )
+        .await
+        .unwrap_err();
+        let _result =
+            EthApiOverrideClient::<Block>::send_raw_transaction(client, tx.clone().into())
+                .await
+                .unwrap();
     }
 
     #[tokio::test(flavor = "multi_thread")]

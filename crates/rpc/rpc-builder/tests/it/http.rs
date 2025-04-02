@@ -328,7 +328,7 @@ where
     .unwrap();
     EthApiClient::<Transaction, Block, Receipt, Header>::call(
         client,
-        tx.clone().into(),
+        call_request.clone(),
         Some(block_number.into()),
         None,
         None,

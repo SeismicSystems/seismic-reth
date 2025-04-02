@@ -6,20 +6,17 @@ use alloy_primitives::{
     aliases::{B96, U96},
     hex,
     hex::FromHex,
-    Address, Bytes, IntoLogData, TxKind, B256, U256,
+    Bytes, IntoLogData, TxKind, B256, U256,
 };
 use alloy_provider::{layers::seismic::test_utils, Provider, SeismicSignedProvider, SendableTx};
 use alloy_rpc_types::{
-    serde_helpers::WithOtherFields,
     simulate::{SimBlock, SimulatePayload},
     Block, Header, SeismicCallRequest, Transaction, TransactionInput, TransactionReceipt,
     TransactionRequest,
 };
 use alloy_sol_types::{sol, SolCall, SolValue};
 use reth_e2e_test_utils::wallet::Wallet;
-use reth_primitives::TransactionSigned;
 use reth_rpc_eth_api::EthApiClient;
-use reth_rpc_eth_types::utils::recover_raw_transaction;
 use seismic_enclave::aes_decrypt;
 use seismic_node::utils::{
     test_utils::{
@@ -28,7 +25,7 @@ use seismic_node::utils::{
     },
     SeismicRethTestCommand,
 };
-use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideClient};
+use seismic_rpc_api::rpc::EthApiOverrideClient;
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
 
