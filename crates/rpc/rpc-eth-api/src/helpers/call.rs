@@ -6,20 +6,19 @@ use crate::{
     helpers::estimate::EstimateCall, FromEthApiError, FromEvmError, FullEthApiTypes,
     IntoEthApiError, RpcBlock, RpcNodeCore,
 };
-use alloy_consensus::{transaction::TxSeismicElements, BlockHeader};
+use alloy_consensus::BlockHeader;
 use alloy_eips::{eip1559::calc_next_block_base_fee, eip2930::AccessListResult};
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_eth::{
     simulate::{SimBlock, SimulatePayload, SimulatedBlock},
     state::{EvmOverrides, StateOverride},
     transaction::TransactionRequest,
-    BlockId, Bundle, EthCallResponse, StateContext, TransactionInfo, TransactionTrait,
+    BlockId, Bundle, EthCallResponse, StateContext, TransactionInfo,
 };
 use futures::Future;
 use reth_chainspec::EthChainSpec;
 use reth_evm::{ConfigureEvm, ConfigureEvmEnv};
 use reth_node_api::BlockBody;
-use reth_primitives::RecoveredTx;
 use reth_primitives_traits::SignedTransaction;
 use reth_provider::{BlockIdReader, ChainSpecProvider, ProviderHeader};
 use reth_revm::{
@@ -38,10 +37,8 @@ use reth_rpc_eth_types::{
         CallFees,
     },
     simulate::{self, EthSimulateError},
-    utils::{recover_raw_transaction, recover_typed_data_request},
     EthApiError, RevertError, RpcInvalidTransactionError, StateCacheDb,
 };
-use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
 use revm::{Database, DatabaseCommit, GetInspector};
 use revm_inspectors::{access_list::AccessListInspector, transfer::TransferInspector};
 use revm_primitives::RngMode;
@@ -231,104 +228,13 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         overrides: EvmOverrides,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
         async move {
-            let seismic_elements = request.seismic_elements;
-
             let (res, _env) =
                 self.transact_call_at(request, block_number.unwrap_or_default(), overrides).await?;
 
-            let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
-
-            if let Some(seismic_elements) = seismic_elements {
-                self.encrypt_output(&seismic_elements, output)
-            } else {
-                Ok(output)
-            }
+            ensure_success(res.result).map_err(Self::Error::from_eth_err)
         }
     }
 
-    /// Encrypts the output of a call using the encryption pubkey of the transaction
-    fn encrypt_output(
-        &self,
-        seismic_elements: &TxSeismicElements,
-        output: Bytes,
-    ) -> Result<Bytes, Self::Error> {
-        let encrypted_output = self
-            .evm_config()
-            .encrypt(&output, &seismic_elements)
-            .map(|encrypted_output| Bytes::from(encrypted_output))
-            .map_err(|_| EthApiError::InvalidParams("Failed to encrypt output".to_string()))?;
-
-        Ok(encrypted_output)
-    }
-
-    /// Executes a signed call via eth_call
-    fn common_signed_call(
-        &self,
-        tx: RecoveredTx<
-            <<Self as RpcNodeCore>::Provider as reth_provider::TransactionsProvider>::Transaction,
-        >,
-        block_number: Option<BlockId>,
-    ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
-        async move {
-            let (cfg, block, at) = self.evm_env_at(block_number.unwrap_or_default()).await?;
-            let env = EnvWithHandlerCfg::new_with_cfg_env(
-                cfg,
-                block,
-                self.evm_config()
-                    .tx_env(tx.as_signed(), tx.signer())
-                    .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?,
-            );
-
-            let this = self.clone();
-
-            let (res, _) = self
-                .spawn_with_state_at_block(at, move |state| {
-                    let db = CacheDB::new(StateProviderDatabase::new(
-                        StateProviderTraitObjWrapper(&state),
-                    ));
-                    this.transact(db, env)
-                })
-                .await?;
-
-            let output = ensure_success(res.result).map_err(Self::Error::from_eth_err)?;
-            let tx_signed = tx.as_signed();
-
-            if let Some(seismic_elements) = tx_signed.seismic_elements() {
-                self.encrypt_output(seismic_elements, output)
-            } else {
-                Ok(output)
-            }
-        }
-    }
-
-    /// Executes the call request (`eth_call`) and returns the output
-    fn signed_call(
-        &self,
-        tx: Bytes,
-        block_number: Option<BlockId>,
-    ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
-        async move {
-            let tx = recover_raw_transaction::<PoolPooledTx<Self::Pool>>(&tx)?.map_transaction(
-                <Self::Pool as TransactionPool>::Transaction::pooled_into_consensus,
-            );
-            self.common_signed_call(tx, block_number).await
-        }
-    }
-
-    /// Executes a signed call via eth_signTypedData_v4
-    fn signed_call_typed_data(
-        &self,
-        _typed_data: alloy_eips::eip712::TypedDataRequest,
-        _block_number: Option<BlockId>,
-    ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
-        async move {
-            let tx = recover_typed_data_request::<PoolPooledTx<Self::Pool>>(&_typed_data)?
-                .map_transaction(
-                    <Self::Pool as TransactionPool>::Transaction::pooled_into_consensus,
-                );
-            self.common_signed_call(tx, _block_number).await
-        }
-    }
     /// Simulate arbitrary number of transactions at an arbitrary blockchain index, with the
     /// optionality of state overrides
     fn call_many(
@@ -914,7 +820,6 @@ pub trait Call:
         DB: DatabaseRef,
         EthApiError: From<<DB as DatabaseRef>::Error>,
     {
-        Self::seismic_override_call_request(&mut request);
         if request.gas > Some(self.call_gas_limit()) {
             // configured gas exceeds limit
             return Err(
@@ -958,19 +863,5 @@ pub trait Call:
         }
 
         Ok(env)
-    }
-
-    /// Override the request for seismic calls
-    fn seismic_override_call_request(request: &mut TransactionRequest) {
-        // If user calls with the standard (unsigned) eth_call,
-        // then disregard whatever they put in the from field
-        // They will still be able to read public contract functions,
-        // but they will not be able to spoof msg.sender in these calls
-        request.from = None;
-        request.gas_price = None; // preventing InsufficientFunds error
-        request.max_fee_per_gas = None; // preventing InsufficientFunds error
-        request.max_priority_fee_per_gas = None; // preventing InsufficientFunds error
-        request.max_fee_per_blob_gas = None; // preventing InsufficientFunds error
-        request.value = None; // preventing InsufficientFunds error
     }
 }

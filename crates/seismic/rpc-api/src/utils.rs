@@ -1,5 +1,20 @@
 //! Utils for testing the seismic rpc api
 
+use alloy_rpc_types::TransactionRequest;
+
+/// Override the request for seismic calls
+pub fn seismic_override_call_request(request: &mut TransactionRequest) {
+    // If user calls with the standard (unsigned) eth_call,
+    // then disregard whatever they put in the from field
+    // They will still be able to read public contract functions,
+    // but they will not be able to spoof msg.sender in these calls
+    request.from = None;
+    request.gas_price = None; // preventing InsufficientFunds error
+    request.max_fee_per_gas = None; // preventing InsufficientFunds error
+    request.max_priority_fee_per_gas = None; // preventing InsufficientFunds error
+    request.max_fee_per_blob_gas = None; // preventing InsufficientFunds error
+    request.value = None; // preventing InsufficientFunds error
+}
 /// Test utils for the seismic rpc api
 /// copied from reth-rpc-api-builder
 #[cfg(test)]

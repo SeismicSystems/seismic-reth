@@ -10,8 +10,12 @@
 
 use alloy_dyn_abi::TypedData;
 use alloy_json_rpc::RpcObject;
-use alloy_primitives::{Address, Bytes};
-use alloy_rpc_types::{simulate::SimBlock, BlockId, SeismicCallRequest};
+use alloy_primitives::{Address, Bytes, B256};
+use alloy_rpc_types::{
+    simulate::SimBlock,
+    state::{EvmOverrides, StateOverride},
+    BlockId, BlockOverrides, SeismicCallRequest, SeismicRawTxRequest,
+};
 use alloy_rpc_types_eth::{
     simulate::{SimulatePayload, SimulatedBlock},
     transaction::TransactionRequest,
@@ -36,7 +40,7 @@ use secp256k1::PublicKey;
 use seismic_enclave::{rpc::EnclaveApiClient, EnclaveClient};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
-use crate::error::SeismicApiError;
+use crate::{error::SeismicApiError, utils::seismic_override_call_request};
 /// trait interface for a custom rpc namespace: `seismic`
 ///
 /// This defines an additional namespace where all methods are configured as trait functions.
@@ -106,6 +110,20 @@ pub trait EthApiOverride<B: RpcObject> {
         opts: SimulatePayload<SeismicCallRequest>,
         block_number: Option<BlockId>,
     ) -> RpcResult<Vec<SimulatedBlock<B>>>;
+
+    /// Executes a new message call immediately without creating a transaction on the block chain.
+    #[method(name = "call")]
+    async fn call(
+        &self,
+        request: alloy_rpc_types::SeismicCallRequest,
+        block_number: Option<BlockId>,
+        state_overrides: Option<StateOverride>,
+        block_overrides: Option<Box<BlockOverrides>>,
+    ) -> RpcResult<Bytes>;
+
+    /// Sends signed transaction, returning its hash.
+    #[method(name = "sendRawTransaction")]
+    async fn send_raw_transaction(&self, bytes: SeismicRawTxRequest) -> RpcResult<B256>;
 }
 
 /// Implementation of the `eth_` namespace override
@@ -223,6 +241,84 @@ where
         }
 
         Ok(result)
+    }
+
+    async fn call(
+        &self,
+        request: alloy_rpc_types::SeismicCallRequest,
+        block_number: Option<BlockId>,
+        state_overrides: Option<StateOverride>,
+        block_overrides: Option<Box<BlockOverrides>>,
+    ) -> RpcResult<Bytes> {
+        debug!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving overridden eth_call");
+        let tx_request = match request {
+            alloy_rpc_types::SeismicCallRequest::TransactionRequest(tx_request) => {
+                let mut request = tx_request.inner;
+                seismic_override_call_request(&mut request);
+                request
+            }
+
+            alloy_rpc_types::SeismicCallRequest::TypedData(typed_request) => {
+                let tx = recover_typed_data_request::<PoolPooledTx<Eth::Pool>>(&typed_request)?
+                    .map_transaction(
+                        <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
+                    );
+
+                TransactionRequest::from_transaction_with_sender(
+                    tx.as_signed().clone(),
+                    tx.signer(),
+                )
+            }
+
+            alloy_rpc_types::SeismicCallRequest::Bytes(bytes) => {
+                let tx = recover_raw_transaction::<PoolPooledTx<Eth::Pool>>(&bytes)?
+                    .map_transaction(
+                        <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
+                    );
+
+                TransactionRequest::from_transaction_with_sender(
+                    tx.as_signed().clone(),
+                    tx.signer(),
+                )
+            }
+        };
+
+        debug!(target: "rpc::eth", ?tx_request, "Converted to TransactionRequest");
+
+        let seismic_elements = tx_request.seismic_elements;
+
+        let result = EthCall::call(
+            &self.eth_api,
+            tx_request,
+            block_number,
+            EvmOverrides::new(state_overrides, block_overrides),
+        )
+        .await?;
+
+        if let Some(seismic_elements) = seismic_elements {
+            let encrypted_output = self
+                .eth_api
+                .evm_config()
+                .encrypt(&result, &seismic_elements)
+                .map(|encrypted_output| Bytes::from(encrypted_output))
+                .unwrap();
+            Ok(encrypted_output)
+        } else {
+            Ok(result)
+        }
+    }
+
+    /// Handler for: `eth_sendRawTransaction`
+    async fn send_raw_transaction(&self, tx: SeismicRawTxRequest) -> RpcResult<B256> {
+        debug!(target: "rpc::eth", ?tx, "Serving overridden eth_sendRawTransaction");
+        match tx {
+            SeismicRawTxRequest::Bytes(bytes) => {
+                Ok(EthTransactions::send_raw_transaction(&self.eth_api, bytes).await?)
+            }
+            SeismicRawTxRequest::TypedData(typed_data) => {
+                Ok(EthTransactions::send_typed_data_transaction(&self.eth_api, typed_data).await?)
+            }
+        }
     }
 }
 
