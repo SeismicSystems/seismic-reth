@@ -82,15 +82,4 @@ where
         )
         .await
     }
-
-    /// call a raw transaction RPC server
-    pub async fn signed_call(
-        &self,
-        raw_tx: Bytes,
-        block_number: u64,
-    ) -> Result<Bytes, EthApi::Error> {
-        let eth_api = self.inner.eth_api();
-        let block_id = Some(BlockId::Number(BlockNumberOrTag::Number(block_number.into())));
-        eth_api.signed_call(raw_tx, block_id).await
-    }
 }

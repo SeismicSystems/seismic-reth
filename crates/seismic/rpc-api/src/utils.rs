@@ -1,5 +1,42 @@
 //! Utils for testing the seismic rpc api
 
+use alloy_consensus::transaction::ShieldableTransaction;
+use alloy_rpc_types::{BlockTransactions, TransactionRequest};
+use reth_rpc_eth_api::{helpers::FullEthApi, RpcBlock};
+
+/// Override the request for seismic calls
+pub fn seismic_override_call_request(request: &mut TransactionRequest) {
+    // If user calls with the standard (unsigned) eth_call,
+    // then disregard whatever they put in the from field
+    // They will still be able to read public contract functions,
+    // but they will not be able to spoof msg.sender in these calls
+    request.from = None;
+    request.gas_price = None; // preventing InsufficientFunds error
+    request.max_fee_per_gas = None; // preventing InsufficientFunds error
+    request.max_priority_fee_per_gas = None; // preventing InsufficientFunds error
+    request.max_fee_per_blob_gas = None; // preventing InsufficientFunds error
+    request.value = None; // preventing InsufficientFunds error
+}
+
+/// Shield the inputs of all shielded transactions in a block.
+pub fn shield_block_txs<T: FullEthApi>(
+    block_opt: Option<RpcBlock<T::NetworkTypes>>,
+) -> Option<RpcBlock<T::NetworkTypes>> {
+    match block_opt {
+        None => None,
+        Some(mut block) => {
+            match &mut block.transactions {
+                BlockTransactions::Full(txs) => {
+                    for tx in txs.iter_mut() {
+                        tx.shield_input();
+                    }
+                }
+                _ => {}
+            }
+            Some(block)
+        }
+    }
+}
 /// Test utils for the seismic rpc api
 /// copied from reth-rpc-api-builder
 #[cfg(test)]

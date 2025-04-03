@@ -1,20 +1,20 @@
 {
-  "name": "client-tests",
-  "private": true,
-  "scripts": {
-    "test": "bun test"
-  },
-  "module": "index.ts",
-  "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "dependencies": {
-    "seismic-viem": "latest",
-    "seismic-viem-tests": "^0.0.9",
-    "viem": "2.x"
-  }
+    "name": "client-tests",
+    "private": true,
+    "scripts": {
+        "test": "bun test"
+    },
+    "module": "index.ts",
+    "type": "module",
+    "devDependencies": {
+        "@types/bun": "latest"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    },
+    "dependencies": {
+        "seismic-viem": "latest",
+        "seismic-viem-tests": "latest",
+        "viem": "2.x"
+    }
 }

@@ -1,11 +1,9 @@
 //! Implementation of the [`jsonrpsee`] generated [`EthApiServer`] trait. Handles RPC requests for
 //! the `eth_` namespace.
-use alloy_consensus::transaction::ShieldableTransaction;
 use alloy_dyn_abi::TypedData;
 use alloy_eips::{eip2930::AccessListResult, BlockId, BlockNumberOrTag};
 use alloy_json_rpc::RpcObject;
 use alloy_primitives::{Address, Bytes, B256, B64, U256, U64};
-use alloy_rpc_types::BlockTransactions;
 use alloy_rpc_types_eth::{
     simulate::{SimulatePayload, SimulatedBlock},
     state::{EvmOverrides, StateOverride},
@@ -223,7 +221,7 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
     #[method(name = "call")]
     async fn call(
         &self,
-        request: alloy_rpc_types::SeismicCallRequest,
+        request: TransactionRequest,
         block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
@@ -314,7 +312,7 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
     async fn hashrate(&self) -> RpcResult<U256>;
 
     /// Returns the hash of the current block, the seedHash, and the boundary condition to be met
-    /// ("target")
+    /// (`target`)
     #[method(name = "getWork")]
     async fn get_work(&self) -> RpcResult<Work>;
 
@@ -337,10 +335,7 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
 
     /// Sends signed transaction, returning its hash.
     #[method(name = "sendRawTransaction")]
-    async fn send_raw_transaction(
-        &self,
-        bytes: alloy_rpc_types::SeismicRawTxRequest,
-    ) -> RpcResult<B256>;
+    async fn send_raw_transaction(&self, bytes: Bytes) -> RpcResult<B256>;
 
     /// Returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed Message:\n"
     /// + len(message) + message))).
@@ -365,26 +360,6 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
         keys: Vec<JsonStorageKey>,
         block_number: Option<BlockId>,
     ) -> RpcResult<EIP1186AccountProofResponse>;
-}
-
-/// Shield the inputs of all shielded transactions in a block.
-fn shield_block_txs<T: FullEthApi>(
-    block_opt: Option<RpcBlock<T::NetworkTypes>>,
-) -> Option<RpcBlock<T::NetworkTypes>> {
-    match block_opt {
-        None => None,
-        Some(mut block) => {
-            match &mut block.transactions {
-                BlockTransactions::Full(txs) => {
-                    for tx in txs.iter_mut() {
-                        tx.shield_input();
-                    }
-                }
-                _ => {}
-            }
-            Some(block)
-        }
-    }
 }
 
 #[async_trait::async_trait]
@@ -443,8 +418,7 @@ where
         full: bool,
     ) -> RpcResult<Option<RpcBlock<T::NetworkTypes>>> {
         trace!(target: "rpc::eth", ?hash, ?full, "Serving eth_getBlockByHash");
-        let block = EthBlocks::rpc_block(self, hash.into(), full).await?;
-        Ok(shield_block_txs::<T>(block))
+        Ok(EthBlocks::rpc_block(self, hash.into(), full).await?)
     }
 
     /// Handler for: `eth_getBlockByNumber`
@@ -454,8 +428,7 @@ where
         full: bool,
     ) -> RpcResult<Option<RpcBlock<T::NetworkTypes>>> {
         trace!(target: "rpc::eth", ?number, ?full, "Serving eth_getBlockByNumber");
-        let block = EthBlocks::rpc_block(self, number.into(), full).await?;
-        Ok(shield_block_txs::<T>(block))
+        Ok(EthBlocks::rpc_block(self, number.into(), full).await?)
     }
 
     /// Handler for: `eth_getBlockTransactionCountByHash`
@@ -529,18 +502,10 @@ where
         hash: B256,
     ) -> RpcResult<Option<RpcTransaction<T::NetworkTypes>>> {
         trace!(target: "rpc::eth", ?hash, "Serving eth_getTransactionByHash");
-        let tx_opt = EthTransactions::transaction_by_hash(self, hash)
+        Ok(EthTransactions::transaction_by_hash(self, hash)
             .await?
             .map(|tx| tx.into_transaction(self.tx_resp_builder()))
-            .transpose()?;
-
-        match tx_opt {
-            None => Ok(None),
-            Some(mut tx) => {
-                tx.shield_input();
-                Ok(Some(tx))
-            }
-        }
+            .transpose()?)
     }
 
     /// Handler for: `eth_getRawTransactionByBlockHashAndIndex`
@@ -673,31 +638,19 @@ where
     /// Handler for: `eth_call`
     async fn call(
         &self,
-        request: alloy_rpc_types::SeismicCallRequest,
+        request: TransactionRequest,
         block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
-        trace!(target: "rpc::eth", ?request, "Serving seismic_call");
-        match request {
-            alloy_rpc_types::SeismicCallRequest::TransactionRequest(tx_request) => {
-                Ok(EthCall::call(
-                    self,
-                    tx_request.inner,
-                    block_number,
-                    EvmOverrides::new(state_overrides, block_overrides),
-                )
-                .await?)
-            }
-
-            alloy_rpc_types::SeismicCallRequest::TypedData(typed_request) => {
-                Ok(EthCall::signed_call_typed_data(self, typed_request, block_number).await?)
-            }
-
-            alloy_rpc_types::SeismicCallRequest::Bytes(bytes) => {
-                Ok(EthCall::signed_call(self, bytes, block_number).await?)
-            }
-        }
+        trace!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving eth_call");
+        Ok(EthCall::call(
+            self,
+            request,
+            block_number,
+            EvmOverrides::new(state_overrides, block_overrides),
+        )
+        .await?)
     }
 
     /// Handler for: `eth_callMany`
@@ -822,19 +775,9 @@ where
     }
 
     /// Handler for: `eth_sendRawTransaction`
-    async fn send_raw_transaction(
-        &self,
-        tx: alloy_rpc_types::SeismicRawTxRequest,
-    ) -> RpcResult<B256> {
+    async fn send_raw_transaction(&self, tx: Bytes) -> RpcResult<B256> {
         trace!(target: "rpc::eth", ?tx, "Serving eth_sendRawTransaction");
-        match tx {
-            alloy_rpc_types::SeismicRawTxRequest::Bytes(bytes) => {
-                Ok(EthTransactions::send_raw_transaction(self, bytes).await?)
-            }
-            alloy_rpc_types::SeismicRawTxRequest::TypedData(typed_data) => {
-                Ok(EthTransactions::send_typed_data_transaction(self, typed_data).await?)
-            }
-        }
+        Ok(EthTransactions::send_raw_transaction(self, tx).await?)
     }
 
     /// Handler for: `eth_sign`

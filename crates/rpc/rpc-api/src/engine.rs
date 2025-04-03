@@ -6,6 +6,7 @@
 use alloy_eips::{eip4844::BlobAndProofV1, eip7685::Requests, BlockId, BlockNumberOrTag};
 use alloy_json_rpc::RpcObject;
 use alloy_primitives::{Address, BlockHash, Bytes, B256, U256, U64};
+use alloy_rpc_types::TransactionRequest;
 use alloy_rpc_types_engine::{
     ClientVersionV1, ExecutionPayloadBodiesV1, ExecutionPayloadInputV2, ExecutionPayloadV1,
     ExecutionPayloadV3, ForkchoiceState, ForkchoiceUpdated, PayloadId, PayloadStatus,
@@ -241,7 +242,7 @@ pub trait EngineEthApi<B: RpcObject> {
     #[method(name = "call")]
     async fn call(
         &self,
-        request: alloy_rpc_types::SeismicCallRequest,
+        request: TransactionRequest,
         block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
@@ -261,10 +262,7 @@ pub trait EngineEthApi<B: RpcObject> {
 
     /// Sends signed transaction, returning its hash.
     #[method(name = "sendRawTransaction")]
-    async fn send_raw_transaction(
-        &self,
-        tx: alloy_rpc_types::SeismicRawTxRequest,
-    ) -> RpcResult<B256>;
+    async fn send_raw_transaction(&self, bytes: Bytes) -> RpcResult<B256>;
 
     /// Returns logs matching given filter object.
     #[method(name = "getLogs")]

@@ -9141,7 +9141,6 @@ dependencies = [
  "alloy-network",
  "alloy-primitives",
  "alloy-rlp",
- "alloy-rpc-types",
  "alloy-rpc-types-eth",
  "alloy-rpc-types-mev",
  "alloy-serde",
@@ -10450,7 +10449,9 @@ dependencies = [
 name = "seismic-rpc-api"
 version = "1.1.4"
 dependencies = [
+ "alloy-consensus",
  "alloy-dyn-abi",
+ "alloy-eips",
  "alloy-json-rpc",
  "alloy-primitives",
  "alloy-rpc-types",

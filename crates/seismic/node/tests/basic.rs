@@ -1,6 +1,6 @@
 //! This file is used to test the features of the seismic node without rpc interactions.
 //! See integration.rs for rpc interactions.
-use alloy_primitives::{Bytes, TxKind, U256};
+use alloy_primitives::TxKind;
 use alloy_provider::layers::seismic::test_utils;
 use reth_chainspec::SEISMIC_DEV;
 use reth_e2e_test_utils::setup_engine;
@@ -8,10 +8,7 @@ use reth_enclave::start_default_mock_enclave_server;
 use reth_tracing::tracing::*;
 use seismic_node::{
     node::SeismicNode,
-    utils::{
-        seismic_payload_attributes,
-        test_utils::{client_decrypt, get_signed_seismic_tx_bytes},
-    },
+    utils::{seismic_payload_attributes, test_utils::get_signed_seismic_tx_bytes},
 };
 
 #[tokio::test(flavor = "multi_thread")]
@@ -76,27 +73,6 @@ async fn contract() -> eyre::Result<()> {
     // call contract function to verify
     nonce += 1;
 
-    let raw_tx = get_signed_seismic_tx_bytes(
-        &wallet.inner,
-        nonce,
-        TxKind::Call(contract_addr),
-        chain_id.id(),
-        test_utils::ContractTestContext::get_is_odd_input_plaintext(),
-    )
-    .await;
-
-    let encrypted_output: Bytes = first_node.rpc.signed_call(raw_tx.clone(), block_number).await?;
-    let decrypted_output = client_decrypt(&encrypted_output);
-    assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
-
-    debug!(
-        target: "e2e:contract",
-        ?raw_tx,
-        ?encrypted_output,
-        ?decrypted_output,
-        "transaction call isOdd() before change",
-    );
-
     // ==================== second block for changing the state of the contract account
     let raw_tx = get_signed_seismic_tx_bytes(
         &wallet.inner,
@@ -115,21 +91,6 @@ async fn contract() -> eyre::Result<()> {
     first_node.assert_new_block(tx_hash, block_hash, block_number).await?;
     second_node.engine_api.update_forkchoice(block_hash, block_hash).await?;
     second_node.assert_new_block(tx_hash, block_hash, 2).await?;
-
-    // call contract function to verify
-    nonce += 1;
-    let raw_tx = get_signed_seismic_tx_bytes(
-        &wallet.inner,
-        nonce,
-        TxKind::Call(contract_addr),
-        chain_id.id(),
-        test_utils::ContractTestContext::get_is_odd_input_plaintext(),
-    )
-    .await;
-
-    let encrypted_output: Bytes = first_node.rpc.signed_call(raw_tx.clone(), block_number).await?;
-    let decrypted_output = client_decrypt(&encrypted_output);
-    assert_eq!(U256::from_be_slice(&decrypted_output), U256::from(1));
 
     Ok(())
 }

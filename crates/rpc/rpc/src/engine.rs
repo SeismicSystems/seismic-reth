@@ -1,5 +1,6 @@
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{Address, Bytes, B256, U256, U64};
+use alloy_rpc_types::TransactionRequest;
 use alloy_rpc_types_eth::{
     state::StateOverride, BlockOverrides, EIP1186AccountProofResponse, Filter, Log, SyncStatus,
 };
@@ -68,7 +69,7 @@ where
     /// Handler for: `eth_call`
     async fn call(
         &self,
-        request: alloy_rpc_types::SeismicCallRequest,
+        request: TransactionRequest,
         block_number: Option<BlockId>,
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
@@ -103,7 +104,7 @@ where
     }
 
     /// Handler for: `eth_sendRawTransaction`
-    async fn send_raw_transaction(&self, tx: alloy_rpc_types::SeismicRawTxRequest) -> Result<B256> {
+    async fn send_raw_transaction(&self, tx: Bytes) -> Result<B256> {
         self.eth.send_raw_transaction(tx).instrument(engine_span!()).await
     }
 
