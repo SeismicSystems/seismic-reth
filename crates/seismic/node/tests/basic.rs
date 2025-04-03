@@ -8,10 +8,7 @@ use reth_enclave::start_default_mock_enclave_server;
 use reth_tracing::tracing::*;
 use seismic_node::{
     node::SeismicNode,
-    utils::{
-        seismic_payload_attributes,
-        test_utils::{client_decrypt, get_signed_seismic_tx_bytes},
-    },
+    utils::{seismic_payload_attributes, test_utils::get_signed_seismic_tx_bytes},
 };
 
 #[tokio::test(flavor = "multi_thread")]
