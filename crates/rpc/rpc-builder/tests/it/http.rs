@@ -188,12 +188,9 @@ where
     EthApiClient::<Transaction, Block, Receipt, Header>::get_code(client, address, None)
         .await
         .unwrap();
-    EthApiClient::<Transaction, Block, Receipt, Header>::send_raw_transaction(
-        client,
-        tx.clone().into(),
-    )
-    .await
-    .unwrap();
+    EthApiClient::<Transaction, Block, Receipt, Header>::send_raw_transaction(client, tx)
+        .await
+        .unwrap();
     EthApiClient::<Transaction, Block, Receipt, Header>::fee_history(
         client,
         U64::from(0),
@@ -298,7 +295,7 @@ where
     .unwrap_err();
     EthApiClient::<Transaction, Block, Receipt, Header>::call(
         client,
-        call_request.clone().into(),
+        call_request.clone(),
         Some(block_number.into()),
         None,
         None,
@@ -326,15 +323,6 @@ where
     )
     .await
     .unwrap();
-    EthApiClient::<Transaction, Block, Receipt, Header>::call(
-        client,
-        call_request.clone(),
-        Some(block_number.into()),
-        None,
-        None,
-    )
-    .await
-    .unwrap_err();
     EthApiClient::<Transaction, Block, Receipt, Header>::gas_price(client).await.unwrap_err();
     EthApiClient::<Transaction, Block, Receipt, Header>::max_priority_fee_per_gas(client)
         .await

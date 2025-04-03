@@ -74,9 +74,9 @@ pub trait EthState: LoadState + SpawnBlocking {
                 .map_err(Self::Error::from_eth_err)?
                 .unwrap_or_default();
             match storage_value.is_public() {
-                true => return Ok(B256::new(storage_value.value.to_be_bytes())),
-                false => return Ok(B256::ZERO),
-            };
+                true => Ok(B256::new(storage_value.value.to_be_bytes())),
+                false => Ok(B256::ZERO),
+            }
         })
     }
 

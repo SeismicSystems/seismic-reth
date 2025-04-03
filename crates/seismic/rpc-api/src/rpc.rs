@@ -154,6 +154,7 @@ where
         Ok(format!("0x{signature}"))
     }
 
+    /// Handler for: `eth_simulateV1`
     async fn simulate_v1(
         &self,
         payload: SimulatePayload<SeismicCallRequest>,
@@ -243,6 +244,7 @@ where
         Ok(result)
     }
 
+    /// Handler for: `eth_call`
     async fn call(
         &self,
         request: alloy_rpc_types::SeismicCallRequest,

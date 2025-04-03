@@ -839,6 +839,7 @@ pub trait Call:
         // <https://github.com/ethereum/go-ethereum/blob/ee8e83fa5f6cb261dad2ed0a7bbcde4930c41e6c/internal/ethapi/api.go#L985>
         cfg.disable_base_fee = true;
 
+        // set nonce to None so that the correct nonce is chosen by the EVM
         request.nonce = None;
 
         if let Some(block_overrides) = overrides.block {
