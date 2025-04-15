@@ -1,7 +1,7 @@
 //! Run with
 //!
-//! ```not_rust
-//! cargo run -p beacon-api-beacon-sidecar-fetcher --node -- full
+//! ```sh
+//! cargo run -p beacon-api-beacon-sidecar-fetcher --node --full
 //! ```
 //!
 //! This launches a regular reth instance and subscribes to payload attributes event stream.
@@ -11,7 +11,7 @@
 //!
 //! See beacon Node API: <https://ethereum.github.io/beacon-APIs/>
 
-#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+#![warn(unused_crate_dependencies)]
 
 use std::{
     collections::VecDeque,

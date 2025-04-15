@@ -3,7 +3,7 @@ use crate::{
     segments::{PruneInput, Segment},
     PrunerError,
 };
-use reth_db::{table::Value, tables, transaction::DbTxMut};
+use reth_db_api::{table::Value, tables, transaction::DbTxMut};
 use reth_primitives_traits::NodePrimitives;
 use reth_provider::{
     providers::StaticFileProvider, BlockReader, DBProvider, StaticFileProviderFactory,
@@ -98,7 +98,7 @@ mod tests {
         FoldWhile::{Continue, Done},
         Itertools,
     };
-    use reth_db::tables;
+    use reth_db_api::tables;
     use reth_provider::{
         DatabaseProviderFactory, PruneCheckpointReader, PruneCheckpointWriter,
         StaticFileProviderFactory,
@@ -124,7 +124,7 @@ mod tests {
         db.insert_blocks(blocks.iter(), StorageKind::Database(None)).expect("insert blocks");
 
         let transactions =
-            blocks.iter().flat_map(|block| &block.body.transactions).collect::<Vec<_>>();
+            blocks.iter().flat_map(|block| &block.body().transactions).collect::<Vec<_>>();
 
         assert_eq!(db.table::<tables::Transactions>().unwrap().len(), transactions.len());
 
@@ -174,7 +174,7 @@ mod tests {
             let last_pruned_tx_number = blocks
                 .iter()
                 .take(to_block as usize)
-                .map(|block| block.body.transactions.len())
+                .map(|block| block.transaction_count())
                 .sum::<usize>()
                 .min(
                     next_tx_number_to_prune as usize +
@@ -185,7 +185,7 @@ mod tests {
             let last_pruned_block_number = blocks
                 .iter()
                 .fold_while((0, 0), |(_, mut tx_count), block| {
-                    tx_count += block.body.transactions.len();
+                    tx_count += block.transaction_count();
 
                     if tx_count > last_pruned_tx_number {
                         Done((block.number, tx_count))

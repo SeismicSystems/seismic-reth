@@ -1,15 +1,15 @@
 use crate::{
     AccountReader, BlockHashReader, ExecutionDataProvider, StateProvider, StateRootProvider,
 };
-use alloy_primitives::{map::B256HashMap, Address, BlockNumber, Bytes, B256};
-use reth_primitives::{Account, Bytecode};
+use alloy_primitives::{Address, BlockNumber, Bytes, B256};
+use reth_primitives_traits::{Account, Bytecode};
 use reth_storage_api::{HashedPostStateProvider, StateProofProvider, StorageRootProvider};
 use reth_storage_errors::provider::ProviderResult;
 use reth_trie::{
     updates::TrieUpdates, AccountProof, HashedPostState, HashedStorage, MultiProof,
     MultiProofTargets, StorageMultiProof, TrieInput,
 };
-use revm::primitives::FlaggedStorage;
+use revm_state::FlaggedStorage;
 
 /// A state provider that resolves to data from either a wrapped [`crate::ExecutionOutcome`]
 /// or an underlying state provider.
@@ -69,9 +69,9 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> BlockHashReader
 }
 
 impl<SP: StateProvider, EDP: ExecutionDataProvider> AccountReader for BundleStateProvider<SP, EDP> {
-    fn basic_account(&self, address: Address) -> ProviderResult<Option<Account>> {
+    fn basic_account(&self, address: &Address) -> ProviderResult<Option<Account>> {
         if let Some(account) =
-            self.block_execution_data_provider.execution_outcome().account(&address)
+            self.block_execution_data_provider.execution_outcome().account(address)
         {
             Ok(account)
         } else {
@@ -174,11 +174,7 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateProofProvider
         self.state_provider.multiproof(input, targets)
     }
 
-    fn witness(
-        &self,
-        mut input: TrieInput,
-        target: HashedPostState,
-    ) -> ProviderResult<B256HashMap<Bytes>> {
+    fn witness(&self, mut input: TrieInput, target: HashedPostState) -> ProviderResult<Vec<Bytes>> {
         let bundle_state = self.block_execution_data_provider.execution_outcome().state();
         input.prepend(self.hashed_post_state(bundle_state));
         self.state_provider.witness(input, target)
@@ -188,7 +184,7 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateProofProvider
 impl<SP: StateProvider, EDP: ExecutionDataProvider> HashedPostStateProvider
     for BundleStateProvider<SP, EDP>
 {
-    fn hashed_post_state(&self, bundle_state: &revm::db::BundleState) -> HashedPostState {
+    fn hashed_post_state(&self, bundle_state: &revm_database::BundleState) -> HashedPostState {
         self.state_provider.hashed_post_state(bundle_state)
     }
 }
@@ -211,9 +207,9 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateProvider for BundleStat
         self.state_provider.storage(account, storage_key)
     }
 
-    fn bytecode_by_hash(&self, code_hash: B256) -> ProviderResult<Option<Bytecode>> {
+    fn bytecode_by_hash(&self, code_hash: &B256) -> ProviderResult<Option<Bytecode>> {
         if let Some(bytecode) =
-            self.block_execution_data_provider.execution_outcome().bytecode(&code_hash)
+            self.block_execution_data_provider.execution_outcome().bytecode(code_hash)
         {
             return Ok(Some(bytecode))
         }

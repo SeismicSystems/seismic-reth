@@ -27,7 +27,9 @@ reth.workspace = true
 
 # seismic
 seismic-node.workspace = true
-seismic-rpc-api = { workspace = true, features = ["client"] }
+seismic-rpc.workspace = true
+seismic-alloy-rpc-types.workspace = true
+seismic-alloy-consensus.workspace = true
 
 # misc
 clap = { workspace = true, features = ["derive"] }

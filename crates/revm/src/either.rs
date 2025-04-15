@@ -1,6 +1,7 @@
 use alloy_primitives::{Address, B256, U256};
 use revm::{
-    primitives::{AccountInfo, Bytecode, FlaggedStorage},
+    bytecode::Bytecode,
+    state::{AccountInfo, FlaggedStorage},
     Database,
 };
 

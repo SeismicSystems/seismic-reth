@@ -9,8 +9,8 @@ use reth_db::{
     DatabaseEnv,
 };
 use reth_errors::ProviderResult;
-use reth_node_types::NodeTypesWithDBAdapter;
-use reth_primitives::{Account, StorageEntry};
+use reth_node_types::{NodeTypes, NodeTypesWithDBAdapter};
+use reth_primitives_traits::{Account, StorageEntry};
 use reth_trie::StateRoot;
 use reth_trie_db::DatabaseStateRoot;
 use std::sync::Arc;
@@ -25,7 +25,7 @@ pub use reth_chain_state::test_utils::TestCanonStateSubscriptions;
 
 /// Mock [`reth_node_types::NodeTypes`] for testing.
 pub type MockNodeTypes = reth_node_types::AnyNodeTypesWithEngine<
-    reth_primitives::EthPrimitives,
+    reth_ethereum_primitives::EthPrimitives,
     reth_ethereum_engine_primitives::EthEngineTypes,
     reth_chainspec::ChainSpec,
     reth_trie_db::MerklePatriciaTrie,
@@ -45,6 +45,13 @@ pub fn create_test_provider_factory() -> ProviderFactory<MockNodeTypesWithDB> {
 pub fn create_test_provider_factory_with_chain_spec(
     chain_spec: Arc<ChainSpec>,
 ) -> ProviderFactory<MockNodeTypesWithDB> {
+    create_test_provider_factory_with_node_types::<MockNodeTypes>(chain_spec)
+}
+
+/// Creates test provider factory with provided chain spec.
+pub fn create_test_provider_factory_with_node_types<N: NodeTypes>(
+    chain_spec: Arc<N::ChainSpec>,
+) -> ProviderFactory<NodeTypesWithDBAdapter<N, Arc<TempDatabase<DatabaseEnv>>>> {
     let (static_dir, _) = create_test_static_files_dir();
     let db = create_test_rw_db();
     ProviderFactory::new(

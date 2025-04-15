@@ -3,7 +3,7 @@ use crate::{
     segments::{PruneInput, Segment},
     PrunerError,
 };
-use reth_db::{tables, transaction::DbTxMut};
+use reth_db_api::{tables, transaction::DbTxMut};
 use reth_provider::{BlockReader, DBProvider, TransactionsProvider};
 use reth_prune_types::{
     PruneMode, PrunePurpose, PruneSegment, SegmentOutput, SegmentOutputCheckpoint,
@@ -89,7 +89,7 @@ mod tests {
         FoldWhile::{Continue, Done},
         Itertools,
     };
-    use reth_db::tables;
+    use reth_db_api::tables;
     use reth_primitives_traits::SignedTransaction;
     use reth_provider::{DatabaseProviderFactory, PruneCheckpointReader};
     use reth_prune_types::{PruneCheckpoint, PruneMode, PruneProgress, PruneSegment};
@@ -111,8 +111,8 @@ mod tests {
 
         let mut transaction_senders = Vec::new();
         for block in &blocks {
-            transaction_senders.reserve_exact(block.body.transactions.len());
-            for transaction in &block.body.transactions {
+            transaction_senders.reserve_exact(block.transaction_count());
+            for transaction in &block.body().transactions {
                 transaction_senders.push((
                     transaction_senders.len() as u64,
                     transaction.recover_signer().expect("recover signer"),
@@ -124,7 +124,7 @@ mod tests {
 
         assert_eq!(
             db.table::<tables::Transactions>().unwrap().len(),
-            blocks.iter().map(|block| block.body.transactions.len()).sum::<usize>()
+            blocks.iter().map(|block| block.transaction_count()).sum::<usize>()
         );
         assert_eq!(
             db.table::<tables::Transactions>().unwrap().len(),
@@ -159,7 +159,7 @@ mod tests {
             let last_pruned_tx_number = blocks
                 .iter()
                 .take(to_block as usize)
-                .map(|block| block.body.transactions.len())
+                .map(|block| block.transaction_count())
                 .sum::<usize>()
                 .min(
                     next_tx_number_to_prune as usize +
@@ -170,7 +170,7 @@ mod tests {
             let last_pruned_block_number = blocks
                 .iter()
                 .fold_while((0, 0), |(_, mut tx_count), block| {
-                    tx_count += block.body.transactions.len();
+                    tx_count += block.transaction_count();
 
                     if tx_count > last_pruned_tx_number {
                         Done((block.number, tx_count))

@@ -4,7 +4,7 @@
 //!
 //! ## Feature Flags
 //!
-//! - `arbitrary`: Adds `proptest` and `arbitrary` support for primitive types.
+//! - `arbitrary`: Adds `arbitrary` support for primitive types.
 
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
@@ -17,21 +17,15 @@
 
 extern crate alloc;
 
-mod display;
-mod forkcondition;
-mod forkid;
-mod hardfork;
-mod hardforks;
-mod head;
+/// Re-exported EIP-2124 forkid types.
+pub use alloy_eip2124::*;
 
-pub use forkid::{
-    EnrForkIdEntry, ForkFilter, ForkFilterKey, ForkHash, ForkId, ForkTransition, ValidationError,
-};
-pub use hardfork::{EthereumHardfork, Hardfork, DEV_HARDFORKS};
-pub use head::Head;
+mod display;
+mod hardforks;
+
+pub use alloy_hardforks::*;
 
 pub use display::DisplayHardforks;
-pub use forkcondition::ForkCondition;
 pub use hardforks::*;
 
 #[cfg(any(test, feature = "arbitrary"))]

@@ -11,12 +11,12 @@ use alloy_primitives::{
 use alloy_provider::{layers::seismic::test_utils, Provider, SeismicSignedProvider, SendableTx};
 use alloy_rpc_types::{
     simulate::{SimBlock, SimulatePayload},
-    Block, Header, SeismicCallRequest, Transaction, TransactionInput, TransactionReceipt,
-    TransactionRequest,
+    Block, Header, Transaction, TransactionInput, TransactionReceipt, TransactionRequest,
 };
 use alloy_sol_types::{sol, SolCall, SolValue};
 use reth_e2e_test_utils::wallet::Wallet;
 use reth_rpc_eth_api::EthApiClient;
+use seismic_alloy_rpc_types::SeismicCallRequest;
 use seismic_enclave::aes_decrypt;
 use seismic_node::utils::{
     test_utils::{

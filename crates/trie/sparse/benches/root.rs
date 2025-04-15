@@ -1,6 +1,6 @@
-#![allow(missing_docs, unreachable_pub)]
+#![allow(missing_docs)]
 
-use alloy_primitives::{map::B256HashMap, B256, U256};
+use alloy_primitives::{map::B256Map, B256, U256};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use itertools::Itertools;
 use proptest::{prelude::*, strategy::ValueTree, test_runner::TestRunner};
@@ -14,13 +14,19 @@ use reth_trie::{
 };
 use reth_trie_common::{HashBuilder, Nibbles};
 use reth_trie_sparse::SparseTrie;
-use revm_primitives::FlaggedStorage;
+use revm::state::FlaggedStorage;
 
-pub fn calculate_root_from_leaves(c: &mut Criterion) {
+fn calculate_root_from_leaves(c: &mut Criterion) {
     let mut group = c.benchmark_group("calculate root from leaves");
     group.sample_size(20);
 
     for size in [1_000, 5_000, 10_000, 100_000] {
+        // Too slow.
+        #[expect(unexpected_cfgs)]
+        if cfg!(codspeed) && size > 5_000 {
+            continue;
+        }
+
         let state = generate_test_data(size);
 
         // hash builder
@@ -30,6 +36,7 @@ pub fn calculate_root_from_leaves(c: &mut Criterion) {
                     hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value.value));
                 }
                 hb.root();
+                hb
             })
         });
 
@@ -45,19 +52,32 @@ pub fn calculate_root_from_leaves(c: &mut Criterion) {
                         .unwrap();
                 }
                 sparse.root().unwrap();
+                sparse
             })
         });
     }
 }
 
-pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
+fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
     let mut group = c.benchmark_group("calculate root from leaves repeated");
     group.sample_size(20);
 
     for init_size in [1_000, 10_000, 100_000] {
+        // Too slow.
+        #[expect(unexpected_cfgs)]
+        if cfg!(codspeed) && init_size > 10_000 {
+            continue;
+        }
+
         let init_state = generate_test_data(init_size);
 
         for update_size in [100, 1_000, 5_000, 10_000] {
+            // Too slow.
+            #[expect(unexpected_cfgs)]
+            if cfg!(codspeed) && update_size > 1_000 {
+                continue;
+            }
+
             for num_updates in [1, 3, 5, 10] {
                 let updates =
                     (0..num_updates).map(|_| generate_test_data(update_size)).collect::<Vec<_>>();
@@ -150,6 +170,7 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                     trie_updates.finalize(hb, node_iter.walker.take_removed_keys());
                                 }
                             }
+                            (storage, storage_updates, trie_updates)
                         },
                     )
                 });
@@ -186,6 +207,7 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                 }
                                 sparse.root().unwrap();
                             }
+                            sparse
                         },
                     )
                 });
@@ -194,9 +216,9 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
     }
 }
 
-fn generate_test_data(size: usize) -> B256HashMap<FlaggedStorage> {
-    let mut runner = TestRunner::new(ProptestConfig::default());
-    proptest::collection::hash_map(any::<B256>(), any::<FlaggedStorage>(), size)
+fn generate_test_data(size: usize) -> B256Map<U256> {
+    let mut runner = TestRunner::deterministic();
+    proptest::collection::hash_map(any::<B256>(), any::<U256>(), size)
         .new_tree(&mut runner)
         .unwrap()
         .current()

@@ -13,19 +13,54 @@ pub const SECP256K1N_HALF: U256 = U256::from_be_bytes([
 ]);
 
 /// Secp256k1 utility functions.
-#[cfg(feature = "secp256k1")]
 pub mod secp256k1 {
-    pub use super::impl_secp256k1::*;
+    use super::*;
+    use revm_primitives::{Address, B256};
+
+    #[cfg(not(feature = "secp256k1"))]
+    use super::impl_k256 as imp;
+    #[cfg(feature = "secp256k1")]
+    use super::impl_secp256k1 as imp;
+
+    use crate::transaction::signed::RecoveryError;
+    pub use imp::{public_key_to_address, sign_message};
+
+    /// Recover signer from message hash, _without ensuring that the signature has a low `s`
+    /// value_.
+    ///
+    /// Using this for signature validation will succeed, even if the signature is malleable or not
+    /// compliant with EIP-2. This is provided for compatibility with old signatures which have
+    /// large `s` values.
+    pub fn recover_signer_unchecked(
+        signature: &Signature,
+        hash: B256,
+    ) -> Result<Address, RecoveryError> {
+        let mut sig: [u8; 65] = [0; 65];
+
+        sig[0..32].copy_from_slice(&signature.r().to_be_bytes::<32>());
+        sig[32..64].copy_from_slice(&signature.s().to_be_bytes::<32>());
+        sig[64] = signature.v() as u8;
+
+        // NOTE: we are removing error from underlying crypto library as it will restrain primitive
+        // errors and we care only if recovery is passing or not.
+        imp::recover_signer_unchecked(&sig, &hash.0).map_err(|_| RecoveryError)
+    }
+
+    /// Recover signer address from message hash. This ensures that the signature S value is
+    /// greater than `secp256k1n / 2`, as specified in
+    /// [EIP-2](https://eips.ethereum.org/EIPS/eip-2).
+    ///
+    /// If the S value is too large, then this will return `None`
+    pub fn recover_signer(signature: &Signature, hash: B256) -> Result<Address, RecoveryError> {
+        if signature.s() > SECP256K1N_HALF {
+            return Err(RecoveryError)
+        }
+        recover_signer_unchecked(signature, hash)
+    }
 }
 
-/// Secp256k1 utility functions.
-#[cfg(not(feature = "secp256k1"))]
-pub mod secp256k1 {
-    pub use super::impl_k256::*;
-}
-
-#[cfg(feature = "secp256k1")]
-#[allow(unused)]
+#[cfg(any(test, feature = "secp256k1"))]
+#[allow(unused, unreachable_pub)]
 mod impl_secp256k1 {
     use super::*;
     pub(crate) use ::secp256k1::Error;
@@ -41,9 +76,12 @@ mod impl_secp256k1 {
     ///
     /// This does not ensure that the `s` value in the signature is low, and _just_ wraps the
     /// underlying secp256k1 library.
-    pub fn recover_signer_unchecked(sig: &[u8; 65], msg: &[u8; 32]) -> Result<Address, Error> {
+    pub(crate) fn recover_signer_unchecked(
+        sig: &[u8; 65],
+        msg: &[u8; 32],
+    ) -> Result<Address, Error> {
         let sig =
-            RecoverableSignature::from_compact(&sig[0..64], RecoveryId::from_i32(sig[64] as i32)?)?;
+            RecoverableSignature::from_compact(&sig[0..64], RecoveryId::try_from(sig[64] as i32)?)?;
 
         let public = SECP256K1.recover_ecdsa(&Message::from_digest(*msg), &sig)?;
         Ok(public_key_to_address(public))
@@ -59,7 +97,7 @@ mod impl_secp256k1 {
         let signature = Signature::new(
             U256::try_from_be_slice(&data[..32]).expect("The slice has at most 32 bytes"),
             U256::try_from_be_slice(&data[32..64]).expect("The slice has at most 32 bytes"),
-            rec_id.to_i32() != 0,
+            i32::from(rec_id) != 0,
         );
         Ok(signature)
     }
@@ -87,7 +125,10 @@ mod impl_k256 {
     ///
     /// This does not ensure that the `s` value in the signature is low, and _just_ wraps the
     /// underlying secp256k1 library.
-    pub fn recover_signer_unchecked(sig: &[u8; 65], msg: &[u8; 32]) -> Result<Address, Error> {
+    pub(crate) fn recover_signer_unchecked(
+        sig: &[u8; 65],
+        msg: &[u8; 32],
+    ) -> Result<Address, Error> {
         let mut signature = k256::ecdsa::Signature::from_slice(&sig[0..64])?;
         let mut recid = sig[64];
 
@@ -158,9 +199,9 @@ mod tests {
             sign_message(B256::from_slice(&secret.to_bytes()[..]), hash).expect("sign message");
 
         let mut sig: [u8; 65] = [0; 65];
-        sig[0..32].copy_from_slice(&signature.r.to_be_bytes::<32>());
-        sig[32..64].copy_from_slice(&signature.s.to_be_bytes::<32>());
-        sig[64] = signature.odd_y_parity as u8;
+        sig[0..32].copy_from_slice(&signature.r().to_be_bytes::<32>());
+        sig[32..64].copy_from_slice(&signature.s().to_be_bytes::<32>());
+        sig[64] = signature.v() as u8;
 
         assert_eq!(recover_signer_unchecked(&sig, &hash).ok(), Some(signer));
     }

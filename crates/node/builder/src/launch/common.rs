@@ -1,12 +1,11 @@
 //! Helper types that can be used by launchers.
 
-use std::{sync::Arc, thread::available_parallelism};
-
 use crate::{
     components::{NodeComponents, NodeComponentsBuilder},
     hooks::OnComponentInitializedHook,
     BuilderContext, NodeAdapter,
 };
+use alloy_eips::eip2124::Head;
 use alloy_primitives::{BlockNumber, B256};
 use eyre::{Context, OptionExt};
 use rayon::ThreadPoolBuilder;
@@ -22,9 +21,7 @@ use reth_evm::noop::NoopBlockExecutorProvider;
 use reth_fs_util as fs;
 use reth_invalid_block_hooks::InvalidBlockWitnessHook;
 use reth_network_p2p::headers::client::HeadersClient;
-use reth_node_api::{
-    FullNodePrimitives, FullNodeTypes, NodePrimitives, NodeTypes, NodeTypesWithDB,
-};
+use reth_node_api::{FullNodeTypes, NodeTypes, NodeTypesWithDB, NodeTypesWithDBAdapter};
 use reth_node_core::{
     args::InvalidBlockHookType,
     dirs::{ChainPath, DataDirPath},
@@ -42,9 +39,8 @@ use reth_node_metrics::{
     server::{MetricServer, MetricServerConfig},
     version::VersionInfo,
 };
-use reth_primitives::{Head, TransactionSigned};
 use reth_provider::{
-    providers::{ProviderNodeTypes, StaticFileProvider},
+    providers::{NodeTypesForProvider, ProviderNodeTypes, StaticFileProvider},
     BlockHashReader, BlockNumReader, ChainSpecProvider, ProviderError, ProviderFactory,
     ProviderResult, StageCheckpointReader, StateProviderFactory, StaticFileProviderFactory,
 };
@@ -57,6 +53,7 @@ use reth_static_file::StaticFileProducer;
 use reth_tasks::TaskExecutor;
 use reth_tracing::tracing::{debug, error, info, warn};
 use reth_transaction_pool::TransactionPool;
+use std::{sync::Arc, thread::available_parallelism};
 use tokio::sync::{
     mpsc::{unbounded_channel, UnboundedSender},
     oneshot, watch,
@@ -79,9 +76,9 @@ impl LaunchContext {
         Self { task_executor, data_dir }
     }
 
-    /// Attaches a database to the launch context.
-    pub const fn with<DB>(self, database: DB) -> LaunchContextWith<DB> {
-        LaunchContextWith { inner: self, attachment: database }
+    /// Create launch context with attachment.
+    pub const fn with<T>(self, attachment: T) -> LaunchContextWith<T> {
+        LaunchContextWith { inner: self, attachment }
     }
 
     /// Loads the reth config with the configured `data_dir` and overrides settings according to the
@@ -225,7 +222,7 @@ impl<T> LaunchContextWith<T> {
 
 impl<ChainSpec> LaunchContextWith<WithConfigs<ChainSpec>> {
     /// Resolves the trusted peers and adds them to the toml config.
-    pub async fn with_resolved_peers(mut self) -> eyre::Result<Self> {
+    pub fn with_resolved_peers(mut self) -> eyre::Result<Self> {
         if !self.attachment.config.network.trusted_peers.is_empty() {
             info!(target: "reth::cli", "Adding trusted nodes");
 
@@ -384,7 +381,6 @@ where
     pub async fn create_provider_factory<N>(&self) -> eyre::Result<ProviderFactory<N>>
     where
         N: ProviderNodeTypes<DB = DB, ChainSpec = ChainSpec>,
-        N::Primitives: FullNodePrimitives<BlockHeader = reth_primitives::Header>,
     {
         let factory = ProviderFactory::new(
             self.right().clone(),
@@ -451,7 +447,6 @@ where
     ) -> eyre::Result<LaunchContextWith<Attached<WithConfigs<ChainSpec>, ProviderFactory<N>>>>
     where
         N: ProviderNodeTypes<DB = DB, ChainSpec = ChainSpec>,
-        N::Primitives: FullNodePrimitives<BlockHeader = reth_primitives::Header>,
     {
         let factory = self.create_provider_factory().await?;
         let ctx = LaunchContextWith {
@@ -567,12 +562,16 @@ where
     }
 }
 
-impl<N> LaunchContextWith<Attached<WithConfigs<N::ChainSpec>, WithMeteredProvider<N>>>
+impl<N, DB>
+    LaunchContextWith<
+        Attached<WithConfigs<N::ChainSpec>, WithMeteredProvider<NodeTypesWithDBAdapter<N, DB>>>,
+    >
 where
-    N: NodeTypesWithDB,
+    N: NodeTypes,
+    DB: Database + DatabaseMetrics + Clone + Unpin + 'static,
 {
     /// Returns the configured `ProviderFactory`.
-    const fn provider_factory(&self) -> &ProviderFactory<N> {
+    const fn provider_factory(&self) -> &ProviderFactory<NodeTypesWithDBAdapter<N, DB>> {
         &self.right().provider_factory
     }
 
@@ -582,14 +581,14 @@ where
     }
 
     /// Creates a `BlockchainProvider` and attaches it to the launch context.
-    #[allow(clippy::complexity)]
+    #[expect(clippy::complexity)]
     pub fn with_blockchain_db<T, F>(
         self,
         create_blockchain_provider: F,
     ) -> eyre::Result<LaunchContextWith<Attached<WithConfigs<N::ChainSpec>, WithMeteredProviders<T>>>>
     where
-        T: FullNodeTypes<Types = N>,
-        F: FnOnce(ProviderFactory<N>) -> eyre::Result<T::Provider>,
+        T: FullNodeTypes<Types = N, DB = DB>,
+        F: FnOnce(ProviderFactory<NodeTypesWithDBAdapter<N, DB>>) -> eyre::Result<T::Provider>,
     {
         let blockchain_db = create_blockchain_provider(self.provider_factory().clone())?;
 
@@ -615,15 +614,17 @@ impl<T>
         Attached<WithConfigs<<T::Types as NodeTypes>::ChainSpec>, WithMeteredProviders<T>>,
     >
 where
-    T: FullNodeTypes<Types: ProviderNodeTypes>,
+    T: FullNodeTypes<Types: NodeTypesForProvider>,
 {
     /// Returns access to the underlying database.
-    pub const fn database(&self) -> &<T::Types as NodeTypesWithDB>::DB {
+    pub const fn database(&self) -> &T::DB {
         self.provider_factory().db_ref()
     }
 
     /// Returns the configured `ProviderFactory`.
-    pub const fn provider_factory(&self) -> &ProviderFactory<T::Types> {
+    pub const fn provider_factory(
+        &self,
+    ) -> &ProviderFactory<NodeTypesWithDBAdapter<T::Types, T::DB>> {
         &self.right().db_provider_container.provider_factory
     }
 
@@ -708,11 +709,13 @@ impl<T, CB>
         Attached<WithConfigs<<T::Types as NodeTypes>::ChainSpec>, WithComponents<T, CB>>,
     >
 where
-    T: FullNodeTypes<Types: ProviderNodeTypes>,
+    T: FullNodeTypes<Types: NodeTypesForProvider>,
     CB: NodeComponentsBuilder<T>,
 {
     /// Returns the configured `ProviderFactory`.
-    pub const fn provider_factory(&self) -> &ProviderFactory<T::Types> {
+    pub const fn provider_factory(
+        &self,
+    ) -> &ProviderFactory<NodeTypesWithDBAdapter<T::Types, T::DB>> {
         &self.right().db_provider_container.provider_factory
     }
 
@@ -731,7 +734,9 @@ where
     }
 
     /// Creates a new [`StaticFileProducer`] with the attached database.
-    pub fn static_file_producer(&self) -> StaticFileProducer<ProviderFactory<T::Types>> {
+    pub fn static_file_producer(
+        &self,
+    ) -> StaticFileProducer<ProviderFactory<NodeTypesWithDBAdapter<T::Types, T::DB>>> {
         StaticFileProducer::new(self.provider_factory().clone(), self.prune_modes())
     }
 
@@ -865,7 +870,7 @@ impl<T, CB>
 where
     T: FullNodeTypes<
         Provider: StateProviderFactory + ChainSpecProvider,
-        Types: ProviderNodeTypes<Primitives: NodePrimitives<SignedTx = TransactionSigned>>,
+        Types: NodeTypesForProvider,
     >,
     CB: NodeComponentsBuilder<T>,
 {
@@ -889,7 +894,7 @@ where
                 Ok(match hook {
                     InvalidBlockHookType::Witness => Box::new(InvalidBlockWitnessHook::new(
                         self.blockchain_db().clone(),
-                        self.components().evm_config().clone(),
+                        self.components().block_executor().clone(),
                         output_directory,
                         healthy_node_rpc_client.clone(),
                     )),
@@ -985,12 +990,18 @@ impl<L, R> Attached<L, R> {
 
 /// Helper container type to bundle the initial [`NodeConfig`] and the loaded settings from the
 /// reth.toml config
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct WithConfigs<ChainSpec> {
     /// The configured, usually derived from the CLI.
     pub config: NodeConfig<ChainSpec>,
     /// The loaded reth.toml config.
     pub toml_config: reth_config::Config,
+}
+
+impl<ChainSpec> Clone for WithConfigs<ChainSpec> {
+    fn clone(&self) -> Self {
+        Self { config: self.config.clone(), toml_config: self.toml_config.clone() }
+    }
 }
 
 /// Helper container type to bundle the [`ProviderFactory`] and the metrics
@@ -1003,23 +1014,23 @@ pub struct WithMeteredProvider<N: NodeTypesWithDB> {
 
 /// Helper container to bundle the [`ProviderFactory`], [`FullNodeTypes::Provider`]
 /// and a metrics sender.
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct WithMeteredProviders<T>
 where
     T: FullNodeTypes,
 {
-    db_provider_container: WithMeteredProvider<T::Types>,
+    db_provider_container: WithMeteredProvider<NodeTypesWithDBAdapter<T::Types, T::DB>>,
     blockchain_db: T::Provider,
 }
 
 /// Helper container to bundle the metered providers container and [`NodeAdapter`].
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct WithComponents<T, CB>
 where
     T: FullNodeTypes,
     CB: NodeComponentsBuilder<T>,
 {
-    db_provider_container: WithMeteredProvider<T::Types>,
+    db_provider_container: WithMeteredProvider<NodeTypesWithDBAdapter<T::Types, T::DB>>,
     node_adapter: NodeAdapter<T, CB::Components>,
     head: Head,
 }

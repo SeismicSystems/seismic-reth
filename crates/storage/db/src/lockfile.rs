@@ -3,7 +3,6 @@
 #![cfg_attr(feature = "disable-lock", allow(dead_code))]
 
 use reth_storage_errors::lockfile::StorageLockError;
-use reth_tracing::tracing::error;
 use std::{
     path::{Path, PathBuf},
     process,
@@ -47,7 +46,7 @@ impl StorageLock {
         let file_path = path.join(LOCKFILE_NAME);
         if let Some(process_lock) = ProcessUID::parse(&file_path)? {
             if process_lock.pid != (process::id() as usize) && process_lock.is_active() {
-                error!(
+                reth_tracing::tracing::error!(
                     target: "reth::db::lockfile",
                     path = ?file_path,
                     pid = process_lock.pid,
@@ -64,12 +63,14 @@ impl StorageLock {
 
 impl Drop for StorageLock {
     fn drop(&mut self) {
+        // The lockfile is not created in disable-lock mode, so we don't need to delete it.
+        #[cfg(any(test, not(feature = "disable-lock")))]
         if Arc::strong_count(&self.0) == 1 && self.0.file_path.exists() {
             // TODO: should only happen during tests that the file does not exist: tempdir is
             // getting dropped first. However, tempdir shouldn't be dropped
             // before any of the storage providers.
             if let Err(err) = reth_fs_util::remove_file(&self.0.file_path) {
-                error!(%err, "Failed to delete lock file");
+                reth_tracing::tracing::error!(%err, "Failed to delete lock file");
             }
         }
     }
@@ -85,7 +86,7 @@ impl StorageLockInner {
     fn new(file_path: PathBuf) -> Result<Self, StorageLockError> {
         // Create the directory if it doesn't exist
         if let Some(parent) = file_path.parent() {
-            reth_fs_util::create_dir_all(parent)?;
+            reth_fs_util::create_dir_all(parent).map_err(StorageLockError::other)?;
         }
 
         // Write this process unique identifier (pid & start_time) to file
@@ -111,7 +112,7 @@ impl ProcessUID {
         system.refresh_processes_specifics(
             sysinfo::ProcessesToUpdate::Some(&[pid2]),
             true,
-            ProcessRefreshKind::new(),
+            ProcessRefreshKind::nothing(),
         );
         system.process(pid2).map(|process| Self { pid, start_time: process.start_time() })
     }
@@ -140,14 +141,17 @@ impl ProcessUID {
 
     /// Whether a process with this `pid` and `start_time` exists.
     fn is_active(&self) -> bool {
-        System::new_with_specifics(RefreshKind::new().with_processes(ProcessRefreshKind::new()))
-            .process(self.pid.into())
-            .is_some_and(|p| p.start_time() == self.start_time)
+        System::new_with_specifics(
+            RefreshKind::nothing().with_processes(ProcessRefreshKind::nothing()),
+        )
+        .process(self.pid.into())
+        .is_some_and(|p| p.start_time() == self.start_time)
     }
 
     /// Writes `pid` and `start_time` to a file.
     fn write(&self, path: &Path) -> Result<(), StorageLockError> {
-        Ok(reth_fs_util::write(path, format!("{}\n{}", self.pid, self.start_time))?)
+        reth_fs_util::write(path, format!("{}\n{}", self.pid, self.start_time))
+            .map_err(StorageLockError::other)
     }
 }
 

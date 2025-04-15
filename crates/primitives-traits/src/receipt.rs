@@ -1,6 +1,6 @@
 //! Receipt abstraction
 
-use crate::{InMemorySize, MaybeCompact, MaybeSerde};
+use crate::{InMemorySize, MaybeCompact, MaybeSerde, MaybeSerdeBincodeCompat};
 use alloc::vec::Vec;
 use alloy_consensus::{
     Eip2718EncodableReceipt, RlpDecodableReceipt, RlpEncodableReceipt, TxReceipt, Typed2718,
@@ -27,6 +27,7 @@ pub trait Receipt:
     + Typed2718
     + MaybeSerde
     + InMemorySize
+    + MaybeSerdeBincodeCompat
 {
 }
 
@@ -39,6 +40,6 @@ where
     receipts
         .into_iter()
         .enumerate()
-        .map(|(id, receipt)| (id as u64, receipt.cumulative_gas_used() as u64))
+        .map(|(id, receipt)| (id as u64, receipt.cumulative_gas_used()))
         .collect()
 }

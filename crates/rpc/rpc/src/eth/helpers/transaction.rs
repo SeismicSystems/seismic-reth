@@ -2,12 +2,12 @@
 
 use crate::EthApi;
 use alloy_primitives::{Bytes, B256};
-use reth_provider::{BlockReader, BlockReaderIdExt, ProviderTx, TransactionsProvider};
 use reth_rpc_eth_api::{
     helpers::{EthSigner, EthTransactions, LoadTransaction, SpawnBlocking},
     FromEthApiError, FullEthApiTypes, RpcNodeCore, RpcNodeCoreExt,
 };
-use reth_rpc_eth_types::utils::{recover_raw_transaction, recover_typed_data_request};
+use reth_rpc_eth_types::utils::recover_raw_transaction;
+use reth_storage_api::{BlockReader, BlockReaderIdExt, ProviderTx, TransactionsProvider};
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
 
 impl<Provider, Pool, Network, EvmConfig> EthTransactions
@@ -41,33 +41,6 @@ where
 
         Ok(hash)
     }
-
-    /// Decodes and recovers the transaction and submits it to the pool.
-    ///
-    /// Returns the hash of the transaction.
-    async fn send_typed_data_transaction(
-        &self,
-        tx: alloy_eips::eip712::TypedDataRequest,
-    ) -> Result<B256, Self::Error> {
-        let recovered = recover_typed_data_request(&tx)?;
-
-        // broadcast raw transaction to subscribers if there is any.
-        // TODO: maybe we need to broadcast the encoded tx instead of the recovered tx
-        // when other nodes receive the raw bytes the hash they recover needs to be
-        // type
-        // self.broadcast_raw_transaction(recovered.to);
-
-        let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
-
-        // submit the transaction to the pool with a `Local` origin
-        let hash = self
-            .pool()
-            .add_transaction(TransactionOrigin::Local, pool_transaction)
-            .await
-            .map_err(Self::Error::from_eth_err)?;
-
-        Ok(hash)
-    }
 }
 
 impl<Provider, Pool, Network, EvmConfig> LoadTransaction
@@ -83,7 +56,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_eips::eip1559::ETHEREUM_BLOCK_GAS_LIMIT;
+    use alloy_eips::eip1559::ETHEREUM_BLOCK_GAS_LIMIT_30M;
     use alloy_primitives::{hex_literal::hex, Bytes};
     use reth_chainspec::ChainSpecProvider;
     use reth_evm_ethereum::EthEvmConfig;
@@ -115,7 +88,7 @@ mod tests {
             noop_network_provider,
             cache.clone(),
             GasPriceOracle::new(noop_provider, Default::default(), cache.clone()),
-            ETHEREUM_BLOCK_GAS_LIMIT,
+            ETHEREUM_BLOCK_GAS_LIMIT_30M,
             DEFAULT_MAX_SIMULATE_BLOCKS,
             DEFAULT_ETH_PROOF_WINDOW,
             BlockingTaskPool::build().expect("failed to build tracing pool"),

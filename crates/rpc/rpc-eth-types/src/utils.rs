@@ -1,9 +1,7 @@
 //! Commonly used code snippets
 
 use super::{EthApiError, EthResult};
-use alloy_eips::eip712::TypedDataRequest;
-use reth_primitives::{transaction::SignedTransactionIntoRecoveredExt, RecoveredTx};
-use reth_primitives_traits::SignedTransaction;
+use reth_primitives_traits::{Recovered, SignedTransaction};
 use std::future::Future;
 
 /// Recovers a [`SignedTransaction`] from an enveloped encoded byte stream.
@@ -12,7 +10,7 @@ use std::future::Future;
 /// malformed.
 ///
 /// See [`alloy_eips::eip2718::Decodable2718::decode_2718`]
-pub fn recover_raw_transaction<T: SignedTransaction>(mut data: &[u8]) -> EthResult<RecoveredTx<T>> {
+pub fn recover_raw_transaction<T: SignedTransaction>(mut data: &[u8]) -> EthResult<Recovered<T>> {
     if data.is_empty() {
         return Err(EthApiError::EmptyRawTransactionData)
     }
@@ -20,22 +18,7 @@ pub fn recover_raw_transaction<T: SignedTransaction>(mut data: &[u8]) -> EthResu
     let transaction =
         T::decode_2718(&mut data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
 
-    transaction.try_into_ecrecovered().or(Err(EthApiError::InvalidTransactionSignature))
-}
-
-/// Recovers a [`SignedTransaction`] from a typed data request.
-///
-/// This is a helper function that returns the appropriate RPC-specific error if the input data is
-/// malformed.
-///
-/// See [`alloy_eips::eip2718::Decodable2718::decode_2718`]
-pub fn recover_typed_data_request<T: SignedTransaction>(
-    mut data: &TypedDataRequest,
-) -> EthResult<RecoveredTx<T>> {
-    let transaction =
-        T::decode_712(&mut data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
-
-    transaction.try_into_ecrecovered().or(Err(EthApiError::InvalidTransactionSignature))
+    transaction.try_into_recovered().or(Err(EthApiError::InvalidTransactionSignature))
 }
 
 /// Performs a binary search within a given block range to find the desired block number.

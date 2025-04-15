@@ -2,10 +2,9 @@ use crate::{
     providers::state::macros::delegate_provider_impls, AccountReader, BlockHashReader,
     HashedPostStateProvider, StateProvider, StateRootProvider,
 };
-use alloy_primitives::{map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, B256};
-use reth_db::tables;
-use reth_db_api::{cursor::DbDupCursorRO, transaction::DbTx};
-use reth_primitives::{Account, Bytecode};
+use alloy_primitives::{Address, BlockNumber, Bytes, StorageKey, StorageValue, B256};
+use reth_db_api::{cursor::DbDupCursorRO, tables, transaction::DbTx};
+use reth_primitives_traits::{Account, Bytecode};
 use reth_storage_api::{
     DBProvider, StateCommitmentProvider, StateProofProvider, StorageRootProvider,
 };
@@ -21,7 +20,7 @@ use reth_trie_db::{
     DatabaseProof, DatabaseStateRoot, DatabaseStorageProof, DatabaseStorageRoot,
     DatabaseTrieWitness, StateCommitment,
 };
-use revm::primitives::FlaggedStorage;
+use revm_state::FlaggedStorage;
 
 /// State provider over latest state that takes tx reference.
 ///
@@ -42,8 +41,8 @@ impl<'b, Provider: DBProvider> LatestStateProviderRef<'b, Provider> {
 
 impl<Provider: DBProvider> AccountReader for LatestStateProviderRef<'_, Provider> {
     /// Get basic account information.
-    fn basic_account(&self, address: Address) -> ProviderResult<Option<Account>> {
-        self.tx().get::<tables::PlainAccountState>(address).map_err(Into::into)
+    fn basic_account(&self, address: &Address) -> ProviderResult<Option<Account>> {
+        self.tx().get_by_encoded_key::<tables::PlainAccountState>(address).map_err(Into::into)
     }
 }
 
@@ -145,19 +144,17 @@ impl<Provider: DBProvider + StateCommitmentProvider> StateProofProvider
         Proof::overlay_multiproof(self.tx(), input, targets).map_err(ProviderError::from)
     }
 
-    fn witness(
-        &self,
-        input: TrieInput,
-        target: HashedPostState,
-    ) -> ProviderResult<B256HashMap<Bytes>> {
-        TrieWitness::overlay_witness(self.tx(), input, target).map_err(ProviderError::from)
+    fn witness(&self, input: TrieInput, target: HashedPostState) -> ProviderResult<Vec<Bytes>> {
+        TrieWitness::overlay_witness(self.tx(), input, target)
+            .map_err(ProviderError::from)
+            .map(|hm| hm.into_values().collect())
     }
 }
 
 impl<Provider: DBProvider + StateCommitmentProvider> HashedPostStateProvider
     for LatestStateProviderRef<'_, Provider>
 {
-    fn hashed_post_state(&self, bundle_state: &revm::db::BundleState) -> HashedPostState {
+    fn hashed_post_state(&self, bundle_state: &revm_database::BundleState) -> HashedPostState {
         HashedPostState::from_bundle_state::<
             <Provider::StateCommitment as StateCommitment>::KeyHasher,
         >(bundle_state.state())
@@ -183,8 +180,8 @@ impl<Provider: DBProvider + BlockHashReader + StateCommitmentProvider> StateProv
     }
 
     /// Get account code by its hash
-    fn bytecode_by_hash(&self, code_hash: B256) -> ProviderResult<Option<Bytecode>> {
-        self.tx().get::<tables::Bytecodes>(code_hash).map_err(Into::into)
+    fn bytecode_by_hash(&self, code_hash: &B256) -> ProviderResult<Option<Bytecode>> {
+        self.tx().get_by_encoded_key::<tables::Bytecodes>(code_hash).map_err(Into::into)
     }
 }
 
@@ -223,7 +220,7 @@ mod tests {
     use super::*;
 
     const fn assert_state_provider<T: StateProvider>() {}
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     const fn assert_latest_state_provider<
         T: DBProvider + BlockHashReader + StateCommitmentProvider,
     >() {

@@ -2,16 +2,13 @@
 
 use alloy_consensus::BlockHeader;
 use alloy_genesis::GenesisAccount;
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{map::HashMap, Address, B256, U256};
 use reth_chainspec::EthChainSpec;
 use reth_codecs::Compact;
 use reth_config::config::EtlConfig;
-use reth_db::tables;
-use reth_db_api::{transaction::DbTxMut, DatabaseError};
+use reth_db_api::{tables, transaction::DbTxMut, DatabaseError};
 use reth_etl::Collector;
-use reth_primitives::{
-    Account, Bytecode, GotExpected, NodePrimitives, Receipts, StaticFileSegment, StorageEntry,
-};
+use reth_primitives_traits::{Account, Bytecode, GotExpected, NodePrimitives, StorageEntry};
 use reth_provider::{
     errors::provider::ProviderResult, providers::StaticFileWriter, writer::UnifiedStorageWriter,
     BlockHashReader, BlockNumReader, BundleStateInit, ChainSpecProvider, DBProvider,
@@ -20,10 +17,11 @@ use reth_provider::{
     StateWriter, StaticFileProviderFactory, StorageLocation, TrieWriter,
 };
 use reth_stages_types::{StageCheckpoint, StageId};
+use reth_static_file_types::StaticFileSegment;
 use reth_trie::{IntermediateStateRootState, StateRoot as StateRootComputer, StateRootProgress};
 use reth_trie_db::DatabaseStateRoot;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, io::BufRead};
+use std::io::BufRead;
 use tracing::{debug, error, info, trace};
 
 /// Default soft limit for number of bytes to read from state dump file, before inserting into
@@ -44,7 +42,7 @@ pub const AVERAGE_COUNT_ACCOUNTS_PER_GB_STATE_DUMP: usize = 285_228;
 const SOFT_LIMIT_COUNT_FLUSHED_UPDATES: usize = 1_000_000;
 
 /// Storage initialization error type.
-#[derive(Debug, thiserror::Error, PartialEq, Eq, Clone)]
+#[derive(Debug, thiserror::Error, Clone)]
 pub enum InitStorageError {
     /// Genesis header found on static files but the database is empty.
     #[error("static files found, but the database is uninitialized. If attempting to re-syncing, delete both.")]
@@ -85,7 +83,6 @@ where
         + HistoryWriter
         + HeaderProvider
         + HashingWriter
-        + StateWriter
         + StateWriter
         + AsRef<PF::ProviderRW>,
     PF::ChainSpec: EthChainSpec<Header = <PF::Primitives as NodePrimitives>::BlockHeader>,
@@ -186,9 +183,11 @@ where
         + AsRef<Provider>,
 {
     let capacity = alloc.size_hint().1.unwrap_or(0);
-    let mut state_init: BundleStateInit = HashMap::with_capacity(capacity);
-    let mut reverts_init = HashMap::with_capacity(capacity);
-    let mut contracts: HashMap<B256, Bytecode> = HashMap::with_capacity(capacity);
+    let mut state_init: BundleStateInit =
+        HashMap::with_capacity_and_hasher(capacity, Default::default());
+    let mut reverts_init = HashMap::with_capacity_and_hasher(capacity, Default::default());
+    let mut contracts: HashMap<B256, Bytecode> =
+        HashMap::with_capacity_and_hasher(capacity, Default::default());
 
     for (address, account) in alloc {
         let bytecode_hash = if let Some(code) = &account.code {
@@ -243,18 +242,22 @@ where
             ),
         );
     }
-    let all_reverts_init: RevertsInit = HashMap::from([(block, reverts_init)]);
+    let all_reverts_init: RevertsInit = HashMap::from_iter([(block, reverts_init)]);
 
     let execution_outcome = ExecutionOutcome::new_init(
         state_init,
         all_reverts_init,
         contracts,
-        Receipts::default(),
+        Vec::default(),
         block,
         Vec::new(),
     );
 
-    provider.write_state(execution_outcome, OriginalValuesKnown::Yes, StorageLocation::Database)?;
+    provider.write_state(
+        &execution_outcome,
+        OriginalValuesKnown::Yes,
+        StorageLocation::Database,
+    )?;
 
     trace!(target: "reth::cli", "Inserted state");
 
@@ -384,6 +387,10 @@ where
         + StateWriter
         + AsRef<Provider>,
 {
+    if etl_config.file_size == 0 {
+        return Err(eyre::eyre!("ETL file size cannot be zero"))
+    }
+
     let block = provider_rw.last_block_number()?;
     let hash = provider_rw.block_hash(block)?.unwrap();
     let expected_state_root = provider_rw
@@ -693,13 +700,13 @@ mod tests {
             static_file_provider,
         ));
 
-        assert_eq!(
+        assert!(matches!(
             genesis_hash.unwrap_err(),
             InitStorageError::GenesisHashMismatch {
                 chainspec_hash: MAINNET_GENESIS_HASH,
                 storage_hash: SEPOLIA_GENESIS_HASH
             }
-        )
+        ))
     }
 
     #[test]
@@ -726,7 +733,6 @@ mod tests {
                 ..Default::default()
             },
             hardforks: Default::default(),
-            genesis_hash: Default::default(),
             paris_block_and_final_difficulty: None,
             deposit_contract: None,
             ..Default::default()

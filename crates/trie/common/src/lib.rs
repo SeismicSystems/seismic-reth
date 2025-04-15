@@ -7,6 +7,17 @@
 )]
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
+/// In-memory hashed state.
+mod hashed_state;
+pub use hashed_state::*;
+
+/// Input for trie computation.
+mod input;
+pub use input::TrieInput;
 
 /// The implementation of hash builder.
 pub mod hash_builder;

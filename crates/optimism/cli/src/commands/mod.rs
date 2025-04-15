@@ -10,8 +10,6 @@ use reth_cli_commands::{
 };
 use std::fmt;
 
-/// Helper function to build an import pipeline.
-mod build_pipeline;
 pub mod import;
 pub mod import_receipts;
 pub mod init_state;
@@ -21,6 +19,7 @@ pub mod test_vectors;
 
 /// Commands to be executed
 #[derive(Debug, Subcommand)]
+#[expect(clippy::large_enum_variant)]
 pub enum Commands<Spec: ChainSpecParser = OpChainSpecParser, Ext: clap::Args + fmt::Debug = NoArgs>
 {
     /// Start the node

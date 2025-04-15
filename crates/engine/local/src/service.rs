@@ -16,10 +16,9 @@ use std::{
 
 use crate::miner::{LocalMiner, MiningMode};
 use futures_util::{Stream, StreamExt};
-use reth_beacon_consensus::{BeaconConsensusEngineEvent, EngineNodeTypes};
 use reth_chainspec::EthChainSpec;
-use reth_consensus::FullConsensus;
-use reth_engine_primitives::{BeaconEngineMessage, EngineValidator};
+use reth_consensus::{ConsensusError, FullConsensus};
+use reth_engine_primitives::{BeaconConsensusEngineEvent, BeaconEngineMessage, EngineValidator};
 use reth_engine_service::service::EngineMessageStream;
 use reth_engine_tree::{
     backup::BackupHandle,
@@ -31,12 +30,15 @@ use reth_engine_tree::{
     persistence::PersistenceHandle,
     tree::{EngineApiTreeHandler, InvalidBlockHook, TreeConfig},
 };
-use reth_evm::execute::BlockExecutorProvider;
+use reth_evm::{execute::BlockExecutorProvider, ConfigureEvm};
 use reth_node_core::dirs::{ChainPath, DataDirPath};
 use reth_node_types::BlockTy;
 use reth_payload_builder::PayloadBuilderHandle;
 use reth_payload_primitives::{PayloadAttributesBuilder, PayloadTypes};
-use reth_provider::{providers::BlockchainProvider2, ChainSpecProvider, ProviderFactory};
+use reth_provider::{
+    providers::{BlockchainProvider, EngineNodeTypes},
+    ChainSpecProvider, ProviderFactory,
+};
 use reth_prune::PrunerWithFactory;
 use reth_stages_api::MetricEventsSender;
 use tokio::sync::mpsc::UnboundedSender;
@@ -54,9 +56,9 @@ where
     /// Processes requests.
     ///
     /// This type is responsible for processing incoming requests.
-    handler: EngineApiRequestHandler<EngineApiRequest<N::Engine, N::Primitives>, N::Primitives>,
+    handler: EngineApiRequestHandler<EngineApiRequest<N::Payload, N::Primitives>, N::Primitives>,
     /// Receiver for incoming requests (from the engine API endpoint) that need to be processed.
-    incoming_requests: EngineMessageStream<N::Engine>,
+    incoming_requests: EngineMessageStream<N::Payload>,
 }
 
 impl<N> LocalEngineService<N>
@@ -64,27 +66,29 @@ where
     N: EngineNodeTypes,
 {
     /// Constructor for [`LocalEngineService`].
-    #[allow(clippy::too_many_arguments)]
-    pub fn new<B, V>(
-        consensus: Arc<dyn FullConsensus<N::Primitives>>,
+    #[expect(clippy::too_many_arguments)]
+    pub fn new<B, V, C>(
+        consensus: Arc<dyn FullConsensus<N::Primitives, Error = ConsensusError>>,
         executor_factory: impl BlockExecutorProvider<Primitives = N::Primitives>,
         provider: ProviderFactory<N>,
-        blockchain_db: BlockchainProvider2<N>,
+        blockchain_db: BlockchainProvider<N>,
         pruner: PrunerWithFactory<ProviderFactory<N>>,
-        payload_builder: PayloadBuilderHandle<N::Engine>,
+        payload_builder: PayloadBuilderHandle<N::Payload>,
         payload_validator: V,
         tree_config: TreeConfig,
         invalid_block_hook: Box<dyn InvalidBlockHook<N::Primitives>>,
         sync_metrics_tx: MetricEventsSender,
-        to_engine: UnboundedSender<BeaconEngineMessage<N::Engine>>,
-        from_engine: EngineMessageStream<N::Engine>,
+        to_engine: UnboundedSender<BeaconEngineMessage<N::Payload>>,
+        from_engine: EngineMessageStream<N::Payload>,
         mode: MiningMode,
         payload_attributes_builder: B,
+        evm_config: C,
         data_dir: ChainPath<DataDirPath>,
     ) -> Self
     where
-        B: PayloadAttributesBuilder<<N::Engine as PayloadTypes>::PayloadAttributes>,
-        V: EngineValidator<N::Engine, Block = BlockTy<N>>,
+        B: PayloadAttributesBuilder<<N::Payload as PayloadTypes>::PayloadAttributes>,
+        V: EngineValidator<N::Payload, Block = BlockTy<N>>,
+        C: ConfigureEvm<Primitives = N::Primitives> + 'static,
     {
         let chain_spec = provider.chain_spec();
         let engine_kind =
@@ -95,19 +99,21 @@ where
         let canonical_in_memory_state = blockchain_db.canonical_in_memory_state();
         let backup_handle = BackupHandle::spawn_service(data_dir);
 
-        let (to_tree_tx, from_tree) = EngineApiTreeHandler::<N::Primitives, _, _, _, _>::spawn_new(
-            blockchain_db.clone(),
-            executor_factory,
-            consensus,
-            payload_validator,
-            persistence_handle,
-            payload_builder.clone(),
-            canonical_in_memory_state,
-            tree_config,
-            invalid_block_hook,
-            engine_kind,
-            backup_handle,
-        );
+        let (to_tree_tx, from_tree) =
+            EngineApiTreeHandler::<N::Primitives, _, _, _, _, _>::spawn_new(
+                blockchain_db.clone(),
+                executor_factory,
+                consensus,
+                payload_validator,
+                persistence_handle,
+                payload_builder.clone(),
+                canonical_in_memory_state,
+                tree_config,
+                invalid_block_hook,
+                engine_kind,
+                evm_config,
+                backup_handle,
+            );
 
         let handler = EngineApiRequestHandler::new(to_tree_tx, from_tree);
 

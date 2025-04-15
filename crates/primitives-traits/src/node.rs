@@ -1,6 +1,6 @@
 use crate::{
-    Block, BlockBody, BlockHeader, FullBlock, FullBlockBody, FullBlockHeader, FullReceipt,
-    FullSignedTx, Receipt, SignedTransaction,
+    Block, FullBlock, FullBlockBody, FullBlockHeader, FullReceipt, FullSignedTx,
+    MaybeSerdeBincodeCompat, Receipt,
 };
 use core::fmt;
 
@@ -9,13 +9,13 @@ pub trait NodePrimitives:
     Send + Sync + Unpin + Clone + Default + fmt::Debug + PartialEq + Eq + 'static
 {
     /// Block primitive.
-    type Block: Block<Header = Self::BlockHeader, Body = Self::BlockBody>;
+    type Block: Block<Header = Self::BlockHeader, Body = Self::BlockBody> + MaybeSerdeBincodeCompat;
     /// Block header primitive.
-    type BlockHeader: BlockHeader;
+    type BlockHeader: FullBlockHeader;
     /// Block body primitive.
-    type BlockBody: BlockBody<Transaction = Self::SignedTx, OmmerHeader = Self::BlockHeader>;
+    type BlockBody: FullBlockBody<Transaction = Self::SignedTx, OmmerHeader = Self::BlockHeader>;
     /// Signed version of the transaction type.
-    type SignedTx: SignedTransaction + 'static;
+    type SignedTx: FullSignedTx;
     /// A receipt.
     type Receipt: Receipt;
 }
@@ -65,5 +65,11 @@ pub type HeaderTy<N> = <N as NodePrimitives>::BlockHeader;
 /// Helper adapter type for accessing [`NodePrimitives`] block body types.
 pub type BodyTy<N> = <N as NodePrimitives>::BlockBody;
 
+/// Helper adapter type for accessing [`NodePrimitives`] block types.
+pub type BlockTy<N> = <N as NodePrimitives>::Block;
+
 /// Helper adapter type for accessing [`NodePrimitives`] receipt types.
 pub type ReceiptTy<N> = <N as NodePrimitives>::Receipt;
+
+/// Helper adapter type for accessing [`NodePrimitives`] signed transaction types.
+pub type TxTy<N> = <N as NodePrimitives>::SignedTx;

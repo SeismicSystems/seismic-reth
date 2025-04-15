@@ -1,5 +1,5 @@
-use reth_db::{table::Value, transaction::DbTxMut};
-use reth_primitives::NodePrimitives;
+use reth_db_api::{table::Value, transaction::DbTxMut};
+use reth_primitives_traits::NodePrimitives;
 use reth_provider::{
     BlockReader, DBProvider, PruneCheckpointReader, PruneCheckpointWriter,
     StaticFileProviderFactory,
@@ -171,8 +171,8 @@ mod tests {
         TestRunnerError, TestStageDB, UnwindStageTestRunner,
     };
     use alloy_primitives::B256;
-    use reth_primitives::SealedBlock;
-    use reth_primitives_traits::SignedTransaction;
+    use reth_ethereum_primitives::Block;
+    use reth_primitives_traits::{SealedBlock, SignedTransaction};
     use reth_provider::{
         providers::StaticFileWriter, TransactionsProvider, TransactionsProviderExt,
     };
@@ -205,7 +205,7 @@ mod tests {
     }
 
     impl ExecuteStageTestRunner for PruneTestRunner {
-        type Seed = Vec<SealedBlock>;
+        type Seed = Vec<SealedBlock<Block>>;
 
         fn seed_execution(&mut self, input: ExecInput) -> Result<Self::Seed, TestRunnerError> {
             let mut rng = generators::rng();
@@ -216,7 +216,7 @@ mod tests {
             );
             self.db.insert_blocks(blocks.iter(), StorageKind::Static)?;
             self.db.insert_transaction_senders(
-                blocks.iter().flat_map(|block| block.body.transactions.iter()).enumerate().map(
+                blocks.iter().flat_map(|block| block.body().transactions.iter()).enumerate().map(
                     |(i, tx)| (i as u64, tx.recover_signer().expect("failed to recover signer")),
                 ),
             )?;

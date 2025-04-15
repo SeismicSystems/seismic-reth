@@ -1,9 +1,10 @@
-use alloy_consensus::{TxEnvelope, TxEnvelope::Seismic};
+use alloy_consensus::TxEnvelope;
 use alloy_primitives::{Address, TxKind, B256};
 use alloy_rpc_types::engine::PayloadAttributes;
 use alloy_rpc_types_eth::TransactionRequest;
 use alloy_signer_local::PrivateKeySigner;
 use reth_chainspec::SEISMIC_DEV;
+use reth_node_ethereum::EthEvmConfig;
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use secp256k1::{PublicKey, SecretKey};
 use serde_json::Value;
@@ -123,8 +124,6 @@ pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes
         suggested_fee_recipient: Address::ZERO,
         withdrawals: Some(vec![]),
         parent_beacon_block_root: Some(B256::ZERO),
-        target_blobs_per_block: None,
-        max_blobs_per_block: None,
     };
     EthPayloadBuilderAttributes::new(B256::ZERO, attributes)
 }
@@ -132,11 +131,9 @@ pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes
 /// Test utils for seismic node
 pub mod test_utils {
     use super::*;
-    use alloy_consensus::{
-        transaction::TxSeismicElements, SignableTransaction, TxSeismic, TypedTransaction,
-    };
+    use alloy_consensus::{SignableTransaction, TypedTransaction};
     use alloy_dyn_abi::TypedData;
-    use alloy_eips::{eip2718::Encodable2718, eip712::TypedDataRequest};
+    use alloy_eips::eip2718::Encodable2718;
     use alloy_primitives::{aliases::U96, hex_literal, Address, Bytes, PrimitiveSignature, U256};
     use alloy_rpc_types::{Block, Header, Transaction, TransactionInput, TransactionReceipt};
     use core::str::FromStr;
@@ -147,6 +144,8 @@ pub mod test_utils {
     use reth_enclave::MockEnclaveServer;
     use reth_primitives::TransactionSigned;
     use reth_rpc_eth_api::EthApiClient;
+    use secp256k1::SECP256K1;
+    use seismic_alloy_consensus::{TxSeismic, TxSeismicElements, TypedDataRequest};
 
     /// Get the nonce from the client
     pub async fn get_nonce(client: &HttpClient, address: Address) -> u64 {
@@ -177,7 +176,7 @@ pub mod test_utils {
             chain_id: Some(chain_id),
             input: TransactionInput { input: Some(client_encrypt(&plaintext)), data: None },
             transaction_type: Some(TxSeismic::TX_TYPE),
-            seismic_elements: Some(get_seismic_elements()),
+            // seismic_elements: Some(get_seismic_elements()), TODO:fix
             ..Default::default()
         }
     }
@@ -207,7 +206,7 @@ pub mod test_utils {
             get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, decrypted_input).await;
         let typed_tx = tx_request.build_consensus_tx().unwrap();
         match typed_tx {
-            TypedTransaction::Seismic(seismic) => seismic.eip712_to_type_data(),
+            // TypedTransaction::Seismic(seismic) => seismic.eip712_to_type_data(),// TODO:fix
             _ => panic!("Typed transaction is not a seismic transaction"),
         }
     }
@@ -221,11 +220,11 @@ pub mod test_utils {
         plaintext: Bytes,
     ) -> TypedDataRequest {
         let tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, plaintext).await;
-        tx.seismic_elements.unwrap().message_version = 2;
+        // tx.seismic_elements.unwrap().message_version = 2; TODO:fix
         let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
 
         match signed {
-            Seismic(tx) => tx.into(),
+            // Seismic(tx) => tx.into(), TODO:fix
             _ => panic!("Signed transaction is not a seismic transaction"),
         }
     }
@@ -270,7 +269,7 @@ pub mod test_utils {
     /// Get the seismic elements
     pub fn get_seismic_elements() -> TxSeismicElements {
         TxSeismicElements {
-            encryption_pubkey: get_encryption_private_key().public(),
+            encryption_pubkey: get_encryption_private_key().public_key(SECP256K1),
             encryption_nonce: get_encryption_nonce(),
             message_version: 0,
         }
@@ -347,6 +346,7 @@ pub mod test_utils {
     pub fn get_signed_seismic_tx() -> TransactionSigned {
         let tx = get_seismic_tx();
         let signature = sign_seismic_tx(&tx);
-        SignableTransaction::into_signed(tx, signature).into()
+        // SignableTransaction::into_signed(tx, signature).into()
+        todo!()
     }
 }

@@ -20,7 +20,6 @@ pub mod lockfile;
 #[cfg(feature = "mdbx")]
 mod metrics;
 pub mod static_file;
-pub mod tables;
 #[cfg(feature = "mdbx")]
 mod utils;
 pub mod version;
@@ -29,7 +28,6 @@ pub mod version;
 pub mod mdbx;
 
 pub use reth_storage_errors::db::{DatabaseError, DatabaseWriteOperation};
-pub use tables::*;
 #[cfg(feature = "mdbx")]
 pub use utils::is_database_empty;
 
@@ -46,9 +44,7 @@ pub mod test_utils {
     use crate::mdbx::DatabaseArguments;
     use parking_lot::RwLock;
     use reth_db_api::{
-        database::Database,
-        database_metrics::{DatabaseMetadata, DatabaseMetadataValue, DatabaseMetrics},
-        models::ClientVersion,
+        database::Database, database_metrics::DatabaseMetrics, models::ClientVersion,
     };
     use reth_fs_util;
     use reth_libmdbx::MaxReadTransactionDuration;
@@ -60,15 +56,15 @@ pub mod test_utils {
     use tempfile::TempDir;
 
     /// Error during database open
-    pub const ERROR_DB_OPEN: &str = "Not able to open the database file.";
+    pub const ERROR_DB_OPEN: &str = "could not open the database file";
     /// Error during database creation
-    pub const ERROR_DB_CREATION: &str = "Not able to create the database file.";
+    pub const ERROR_DB_CREATION: &str = "could not create the database file";
     /// Error during database creation
-    pub const ERROR_STATIC_FILES_CREATION: &str = "Not able to create the static file path.";
+    pub const ERROR_STATIC_FILES_CREATION: &str = "could not create the static file path";
     /// Error during table creation
-    pub const ERROR_TABLE_CREATION: &str = "Not able to create tables in the database.";
+    pub const ERROR_TABLE_CREATION: &str = "could not create tables in the database";
     /// Error during tempdir creation
-    pub const ERROR_TEMPDIR: &str = "Not able to create a temporary directory.";
+    pub const ERROR_TEMPDIR: &str = "could not create a temporary directory";
 
     /// A database will delete the db dir when dropped.
     pub struct TempDatabase<DB> {
@@ -155,13 +151,8 @@ pub mod test_utils {
         }
     }
 
-    impl<DB: DatabaseMetadata> DatabaseMetadata for TempDatabase<DB> {
-        fn metadata(&self) -> DatabaseMetadataValue {
-            self.db().metadata()
-        }
-    }
-
     /// Create `static_files` path for testing
+    #[track_caller]
     pub fn create_test_static_files_dir() -> (TempDir, PathBuf) {
         let temp_dir = TempDir::with_prefix("reth-test-static-").expect(ERROR_TEMPDIR);
         let path = temp_dir.path().to_path_buf();
@@ -175,6 +166,7 @@ pub mod test_utils {
     }
 
     /// Create read/write database for testing
+    #[track_caller]
     pub fn create_test_rw_db() -> Arc<TempDatabase<DatabaseEnv>> {
         let path = tempdir_path();
         let emsg = format!("{ERROR_DB_CREATION}: {path:?}");
@@ -190,6 +182,7 @@ pub mod test_utils {
     }
 
     /// Create read/write database for testing
+    #[track_caller]
     pub fn create_test_rw_db_with_path<P: AsRef<Path>>(path: P) -> Arc<TempDatabase<DatabaseEnv>> {
         let path = path.as_ref().to_path_buf();
         let db = init_db(
@@ -202,6 +195,7 @@ pub mod test_utils {
     }
 
     /// Create read only database for testing
+    #[track_caller]
     pub fn create_test_ro_db() -> Arc<TempDatabase<DatabaseEnv>> {
         let args = DatabaseArguments::new(ClientVersion::default())
             .with_max_read_transaction_duration(Some(MaxReadTransactionDuration::Unbounded));

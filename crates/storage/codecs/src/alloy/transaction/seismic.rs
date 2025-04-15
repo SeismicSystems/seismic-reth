@@ -1,9 +1,9 @@
 //! Compact implementation for [`AlloyTxSeismic`]
 
 use crate::Compact;
-use alloy_consensus::{transaction::TxSeismicElements, TxSeismic as AlloyTxSeismic};
 use alloy_primitives::{aliases::U96, Bytes, ChainId, TxKind, U256};
 use bytes::{Buf, BytesMut};
+use seismic_alloy_consensus::{transaction::TxSeismicElements, TxSeismic as AlloyTxSeismic};
 
 /// Seismic transaction.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Compact)]

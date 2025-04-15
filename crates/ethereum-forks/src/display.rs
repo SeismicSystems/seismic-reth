@@ -1,9 +1,10 @@
-use crate::{hardforks::Hardforks, ForkCondition};
+use crate::ForkCondition;
 use alloc::{
     format,
     string::{String, ToString},
     vec::Vec,
 };
+use alloy_hardforks::Hardfork;
 
 /// A container to pretty-print a hardfork.
 ///
@@ -38,17 +39,12 @@ impl core::fmt::Display for DisplayFork {
             ForkCondition::Block(at) | ForkCondition::Timestamp(at) => {
                 write!(f, "{name_with_eip:32} @{at}")?;
             }
-            ForkCondition::TTD { fork_block, total_difficulty } => {
+            ForkCondition::TTD { total_difficulty, .. } => {
+                // All networks that have merged are finalized.
                 write!(
                     f,
-                    "{:32} @{} ({})",
-                    name_with_eip,
-                    total_difficulty,
-                    if fork_block.is_some() {
-                        "network is known to be merged"
-                    } else {
-                        "network is not known to be merged"
-                    }
+                    "{:32} @{} (network is known to be merged)",
+                    name_with_eip, total_difficulty,
                 )?;
             }
             ForkCondition::Never => unreachable!(),
@@ -141,12 +137,15 @@ impl core::fmt::Display for DisplayHardforks {
 
 impl DisplayHardforks {
     /// Creates a new [`DisplayHardforks`] from an iterator of hardforks.
-    pub fn new<H: Hardforks>(hardforks: &H, known_paris_block: Option<u64>) -> Self {
+    pub fn new<'a, I>(hardforks: I) -> Self
+    where
+        I: IntoIterator<Item = (&'a dyn Hardfork, ForkCondition)>,
+    {
         let mut pre_merge = Vec::new();
         let mut with_merge = Vec::new();
         let mut post_merge = Vec::new();
 
-        for (fork, condition) in hardforks.forks_iter() {
+        for (fork, condition) in hardforks {
             let mut display_fork =
                 DisplayFork { name: fork.name().to_string(), activated_at: condition, eip: None };
 
@@ -154,15 +153,18 @@ impl DisplayHardforks {
                 ForkCondition::Block(_) => {
                     pre_merge.push(display_fork);
                 }
-                ForkCondition::TTD { total_difficulty, .. } => {
-                    display_fork.activated_at =
-                        ForkCondition::TTD { fork_block: known_paris_block, total_difficulty };
+                ForkCondition::TTD { activation_block_number, total_difficulty, fork_block } => {
+                    display_fork.activated_at = ForkCondition::TTD {
+                        activation_block_number,
+                        fork_block,
+                        total_difficulty,
+                    };
                     with_merge.push(display_fork);
                 }
                 ForkCondition::Timestamp(_) => {
                     post_merge.push(display_fork);
                 }
-                ForkCondition::Never => continue,
+                ForkCondition::Never => {}
             }
         }
 

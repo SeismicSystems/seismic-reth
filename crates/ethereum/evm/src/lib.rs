@@ -17,310 +17,235 @@
 
 extern crate alloc;
 
-use core::{convert::Infallible, net::IpAddr};
-
-use alloc::{sync::Arc, vec::Vec};
-use alloy_consensus::{transaction::TxSeismicElements, Header, TxSeismic, Typed2718};
-use alloy_primitives::{Address, Bytes, TxHash, TxKind, U256};
-use reth_chainspec::{ChainSpec, Head};
-use reth_enclave::{EnclaveClient, EnclaveError, SchnorrkelKeypair, SyncEnclaveApiClient};
-use reth_evm::{ConfigureEvm, ConfigureEvmEnv, NextBlockEnvAttributes};
-use reth_primitives::{transaction::FillTxEnv, Transaction, TransactionSigned};
-use reth_tracing::tracing::debug;
-use revm_primitives::{
-    AnalysisKind, BlobExcessGasAndPrice, BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, EVMError,
-    EVMResultGeneric, Env, SpecId, TxEnv,
+use alloc::{borrow::Cow, sync::Arc};
+use alloy_consensus::{BlockHeader, Header};
+pub use alloy_evm::EthEvm;
+use alloy_evm::{
+    eth::{EthBlockExecutionCtx, EthBlockExecutorFactory},
+    EthEvmFactory, FromRecoveredTx,
+};
+use alloy_primitives::{Bytes, U256};
+use core::{convert::Infallible, fmt::Debug};
+use reth_chainspec::{ChainSpec, EthChainSpec, MAINNET};
+use reth_ethereum_primitives::{Block, EthPrimitives, TransactionSigned};
+use reth_evm::{ConfigureEvm, EvmEnv, EvmFactory, NextBlockEnvAttributes, TransactionEnv};
+use reth_primitives_traits::{SealedBlock, SealedHeader};
+use revm::{
+    context::{BlockEnv, CfgEnv},
+    context_interface::block::BlobExcessGasAndPrice,
+    primitives::hardfork::SpecId,
 };
 
 mod config;
 use alloy_eips::eip1559::INITIAL_BASE_FEE;
-pub use config::{revm_spec, revm_spec_by_timestamp_after_merge};
+pub use config::{revm_spec, revm_spec_by_timestamp_and_block_number};
 use reth_ethereum_forks::EthereumHardfork;
 use secp256k1::PublicKey;
 
 pub mod execute;
 
-/// Ethereum DAO hardfork state change data.
-pub mod dao_fork;
+mod build;
+pub use build::EthBlockAssembler;
 
-/// [EIP-6110](https://eips.ethereum.org/EIPS/eip-6110) handling.
-pub mod eip6110;
+mod receipt;
+pub use receipt::RethReceiptBuilder;
 
 /// Ethereum-related EVM configuration.
 #[derive(Debug, Clone)]
-pub struct EthEvmConfig {
-    chain_spec: Arc<ChainSpec>,
-    enclave_client: EnclaveClient,
+pub struct EthEvmConfig<EvmFactory = EthEvmFactory> {
+    /// Inner [`EthBlockExecutorFactory`].
+    pub executor_factory: EthBlockExecutorFactory<RethReceiptBuilder, Arc<ChainSpec>, EvmFactory>,
+    /// Ethereum block assembler.
+    pub block_assembler: EthBlockAssembler<ChainSpec>,
 }
 
 impl EthEvmConfig {
     /// Creates a new Ethereum EVM configuration with the given chain spec.
     pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
-        Self { chain_spec, enclave_client: EnclaveClient::default() }
+        Self::ethereum(chain_spec)
     }
 
-    /// Creates a new Ethereum EVM configuration with the given chain spec.
-    pub fn new_with_enclave_client(
-        chain_spec: Arc<ChainSpec>,
-        enclave_client: EnclaveClient,
-    ) -> Self {
-        Self { chain_spec, enclave_client }
+    /// Creates a new Ethereum EVM configuration.
+    pub fn ethereum(chain_spec: Arc<ChainSpec>) -> Self {
+        Self::new_with_evm_factory(chain_spec, EthEvmFactory::default())
     }
 
-    /// Creates a new Ethereum EVM configuration with the given chain spec and enclave address and
-    /// port.
-    pub fn new_with_enclave_addr_port(
-        chain_spec: Arc<ChainSpec>,
-        enclave_addr: IpAddr,
-        enclave_port: u16,
-        enclave_server_timeout: u64,
-    ) -> Self {
-        debug!(target: "reth::evm", ?enclave_addr, ?enclave_port, "Creating new enclave client");
+    /// Creates a new Ethereum EVM configuration for the ethereum mainnet.
+    pub fn mainnet() -> Self {
+        Self::ethereum(MAINNET.clone())
+    }
+}
 
-        let enclave_client = EnclaveClient::builder()
-            .addr(enclave_addr.to_string())
-            .port(enclave_port)
-            .timeout(std::time::Duration::from_secs(enclave_server_timeout))
-            .build();
-        Self::new_with_enclave_client(chain_spec, enclave_client)
+impl<EvmFactory> EthEvmConfig<EvmFactory> {
+    /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
+    pub fn new_with_evm_factory(chain_spec: Arc<ChainSpec>, evm_factory: EvmFactory) -> Self {
+        Self {
+            block_assembler: EthBlockAssembler::new(chain_spec.clone()),
+            executor_factory: EthBlockExecutorFactory::new(
+                RethReceiptBuilder::default(),
+                chain_spec,
+                evm_factory,
+            ),
+        }
     }
 
     /// Returns the chain spec associated with this configuration.
     pub const fn chain_spec(&self) -> &Arc<ChainSpec> {
-        &self.chain_spec
+        self.executor_factory.spec()
     }
 
-    /// Returns the public key from the signature.
-    pub fn recover_pubkey(&self, tx: &TransactionSigned) -> Option<PublicKey> {
-        let signature_hash = tx.signature_hash();
-
-        tx.signature.recover_from_prehash(&signature_hash).ok().and_then(|verifying_key| {
-            let pbk_bytes = verifying_key.to_encoded_point(false);
-            PublicKey::from_slice(pbk_bytes.as_bytes()).ok()
-        })
+    /// Sets the extra data for the block assembler.
+    pub fn with_extra_data(mut self, extra_data: Bytes) -> Self {
+        self.block_assembler.extra_data = extra_data;
+        self
     }
 }
 
-impl ConfigureEvmEnv for EthEvmConfig {
-    type Header = Header;
-    type Transaction = TransactionSigned;
+impl<EvmF> ConfigureEvm for EthEvmConfig<EvmF>
+where
+    EvmF: EvmFactory<Tx: TransactionEnv + FromRecoveredTx<TransactionSigned>, Spec = SpecId>
+        + Clone
+        + Debug
+        + Send
+        + Sync
+        + Unpin
+        + 'static,
+{
+    type Primitives = EthPrimitives;
     type Error = Infallible;
+    type NextBlockEnvCtx = NextBlockEnvAttributes;
+    type BlockExecutorFactory = EthBlockExecutorFactory<RethReceiptBuilder, Arc<ChainSpec>, EvmF>;
+    type BlockAssembler = EthBlockAssembler<ChainSpec>;
 
-    fn encrypt(
-        &self,
-        data: &Bytes,
-        seismic_elements: &TxSeismicElements,
-    ) -> EVMResultGeneric<Bytes, EnclaveError> {
-        Ok(seismic_elements
-            .server_encrypt(&self.enclave_client, &data)
-            .map_err(|_| EVMError::Database(EnclaveError::EncryptionError))?)
-    }
-    fn decrypt(
-        &self,
-        data: &Bytes,
-        seismic_elements: &TxSeismicElements,
-    ) -> EVMResultGeneric<Bytes, EnclaveError> {
-        Ok(seismic_elements
-            .server_decrypt(&self.enclave_client, &data)
-            .map_err(|_| EVMError::Database(EnclaveError::DecryptionError))?)
+    fn block_executor_factory(&self) -> &Self::BlockExecutorFactory {
+        &self.executor_factory
     }
 
-    /// Get current eph_rng_keypair
-    fn get_eph_rng_keypair(&self) -> EVMResultGeneric<SchnorrkelKeypair, EnclaveError> {
-        Ok(self.enclave_client.get_eph_rng_keypair().map_err(|e| {
-            EVMError::Database(EnclaveError::EphRngKeypairGenerationError(e.to_string()))
-        })?)
+    fn block_assembler(&self) -> &Self::BlockAssembler {
+        &self.block_assembler
     }
 
-    /// seismic feature decrypt the transaction
-    fn fill_seismic_tx_env(
-        &self,
-        tx_env: &mut TxEnv,
-        tx: &TxSeismic,
-        sender: Address,
-        tx_hash: TxHash,
-    ) -> EVMResultGeneric<(), EnclaveError> {
-        let enclave_decryption = self.decrypt(&tx.input, &tx.seismic_elements)?;
+    fn evm_env(&self, header: &Header) -> EvmEnv {
+        let spec = config::revm_spec(self.chain_spec(), header);
 
-        let data = Bytes::from(enclave_decryption.clone());
+        // configure evm env based on parent block
+        let cfg_env = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
 
-        tx_env.caller = sender;
-        tx_env.gas_limit = tx.gas_limit;
-        tx_env.gas_price = U256::from(tx.gas_price);
-        tx_env.gas_priority_fee = None;
-        tx_env.transact_to = tx.to;
-        tx_env.value = tx.value;
-        tx_env.data = data;
-        tx_env.chain_id = Some(tx.chain_id);
-        tx_env.nonce = Some(tx.nonce);
-        tx_env.access_list.clear();
-        tx_env.blob_hashes.clear();
-        tx_env.max_fee_per_blob_gas.take();
-        tx_env.authorization_list = None;
-        tx_env.tx_hash = tx_hash;
-        tx_env.tx_type = Some(tx.ty() as isize);
-        Ok(())
-    }
-
-    fn fill_tx_env(
-        &self,
-        tx_env: &mut TxEnv,
-        transaction: &TransactionSigned,
-        sender: Address,
-    ) -> EVMResultGeneric<(), EnclaveError> {
-        match &transaction.transaction {
-            Transaction::Seismic(tx) => {
-                self.fill_seismic_tx_env(tx_env, tx, sender, transaction.hash())?;
-                Ok(())
-            }
-            _ => Ok(transaction.fill_tx_env(tx_env, sender)),
-        }
-    }
-
-    fn fill_tx_env_system_contract_call(
-        &self,
-        env: &mut Env,
-        caller: Address,
-        contract: Address,
-        data: Bytes,
-    ) {
-        #[allow(clippy::needless_update)] // side-effect of optimism fields
-        let tx = TxEnv {
-            caller,
-            transact_to: TxKind::Call(contract),
-            // Explicitly set nonce to None so revm does not do any nonce checks
-            nonce: None,
-            gas_limit: 30_000_000,
-            value: U256::ZERO,
-            data,
-            // Setting the gas price to zero enforces that no value is transferred as part of the
-            // call, and that the call will not count against the block's gas limit
-            gas_price: U256::ZERO,
-            // The chain ID check is not relevant here and is disabled if set to None
-            chain_id: None,
-            // Setting the gas priority fee to None ensures the effective gas price is derived from
-            // the `gas_price` field, which we need to be zero
-            gas_priority_fee: None,
-            access_list: Vec::new(),
-            // blob fields can be None for this tx
-            blob_hashes: Vec::new(),
-            max_fee_per_blob_gas: None,
-            // TODO remove this once this crate is no longer built with optimism
-            ..Default::default()
+        let block_env = BlockEnv {
+            number: header.number(),
+            beneficiary: header.beneficiary(),
+            timestamp: header.timestamp(),
+            difficulty: if spec >= SpecId::MERGE { U256::ZERO } else { header.difficulty() },
+            prevrandao: if spec >= SpecId::MERGE { header.mix_hash() } else { None },
+            gas_limit: header.gas_limit(),
+            basefee: header.base_fee_per_gas().unwrap_or_default(),
+            // EIP-4844 excess blob gas of this block, introduced in Cancun
+            blob_excess_gas_and_price: header.excess_blob_gas.map(|excess_blob_gas| {
+                BlobExcessGasAndPrice::new(excess_blob_gas, spec >= SpecId::PRAGUE)
+            }),
         };
-        env.tx = tx;
 
-        // ensure the block gas limit is >= the tx
-        env.block.gas_limit = U256::from(env.tx.gas_limit);
-
-        // disable the base fee check for this call by setting the base fee to zero
-        env.block.basefee = U256::ZERO;
+        EvmEnv { cfg_env, block_env }
     }
 
-    fn fill_cfg_env(
+    fn next_evm_env(
         &self,
-        cfg_env: &mut CfgEnvWithHandlerCfg,
-        header: &Header,
-        total_difficulty: U256,
-    ) {
-        let spec_id = config::revm_spec(
+        parent: &Header,
+        attributes: &NextBlockEnvAttributes,
+    ) -> Result<EvmEnv, Self::Error> {
+        // ensure we're not missing any timestamp based hardforks
+        let spec_id = revm_spec_by_timestamp_and_block_number(
             self.chain_spec(),
-            &Head {
-                number: header.number,
-                timestamp: header.timestamp,
-                difficulty: header.difficulty,
-                total_difficulty,
-                hash: Default::default(),
-            },
+            attributes.timestamp,
+            parent.number() + 1,
         );
 
-        cfg_env.chain_id = self.chain_spec.chain().id();
-        cfg_env.perf_analyse_created_bytecodes = AnalysisKind::Analyse;
-
-        cfg_env.handler_cfg.spec_id = spec_id;
-    }
-
-    fn next_cfg_and_block_env(
-        &self,
-        parent: &Self::Header,
-        attributes: NextBlockEnvAttributes,
-    ) -> Result<(CfgEnvWithHandlerCfg, BlockEnv), Self::Error> {
         // configure evm env based on parent block
-        let cfg = CfgEnv::default().with_chain_id(self.chain_spec.chain().id());
-
-        // ensure we're not missing any timestamp based hardforks
-        let spec_id = revm_spec_by_timestamp_after_merge(&self.chain_spec, attributes.timestamp);
+        let cfg = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
 
         // if the parent block did not have excess blob gas (i.e. it was pre-cancun), but it is
         // cancun now, we need to set the excess blob gas to the default value(0)
         let blob_excess_gas_and_price = parent
-            .next_block_excess_blob_gas()
+            .maybe_next_block_excess_blob_gas(
+                self.chain_spec().blob_params_at_timestamp(attributes.timestamp),
+            )
             .or_else(|| (spec_id == SpecId::CANCUN).then_some(0))
-            .map(BlobExcessGasAndPrice::new);
+            .map(|gas| BlobExcessGasAndPrice::new(gas, spec_id >= SpecId::PRAGUE));
 
         let mut basefee = parent.next_block_base_fee(
-            self.chain_spec.base_fee_params_at_timestamp(attributes.timestamp),
+            self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp),
         );
 
-        let mut gas_limit = U256::from(parent.gas_limit);
+        let mut gas_limit = attributes.gas_limit;
 
         // If we are on the London fork boundary, we need to multiply the parent's gas limit by the
         // elasticity multiplier to get the new gas limit.
-        if self.chain_spec.fork(EthereumHardfork::London).transitions_at_block(parent.number + 1) {
+        if self.chain_spec().fork(EthereumHardfork::London).transitions_at_block(parent.number + 1)
+        {
             let elasticity_multiplier = self
-                .chain_spec
+                .chain_spec()
                 .base_fee_params_at_timestamp(attributes.timestamp)
                 .elasticity_multiplier;
 
             // multiply the gas limit by the elasticity multiplier
-            gas_limit *= U256::from(elasticity_multiplier);
+            gas_limit *= elasticity_multiplier as u64;
 
             // set the base fee to the initial base fee from the EIP-1559 spec
             basefee = Some(INITIAL_BASE_FEE)
         }
 
         let block_env = BlockEnv {
-            number: U256::from(parent.number + 1),
-            coinbase: attributes.suggested_fee_recipient,
-            timestamp: U256::from(attributes.timestamp),
+            number: parent.number + 1,
+            beneficiary: attributes.suggested_fee_recipient,
+            timestamp: attributes.timestamp,
             difficulty: U256::ZERO,
             prevrandao: Some(attributes.prev_randao),
             gas_limit,
             // calculate basefee based on parent block's gas usage
-            basefee: basefee.map(U256::from).unwrap_or_default(),
+            basefee: basefee.unwrap_or_default(),
             // calculate excess gas based on parent block's blob gas usage
             blob_excess_gas_and_price,
         };
 
-        Ok((CfgEnvWithHandlerCfg::new_with_spec_id(cfg, spec_id), block_env))
+        Ok((cfg, block_env).into())
     }
-}
 
-impl ConfigureEvm for EthEvmConfig {
-    type DefaultExternalContext<'a> = ();
+    fn context_for_block<'a>(&self, block: &'a SealedBlock<Block>) -> EthBlockExecutionCtx<'a> {
+        EthBlockExecutionCtx {
+            parent_hash: block.header().parent_hash,
+            parent_beacon_block_root: block.header().parent_beacon_block_root,
+            ommers: &block.body().ommers,
+            withdrawals: block.body().withdrawals.as_ref().map(Cow::Borrowed),
+        }
+    }
 
-    fn default_external_context<'a>(&self) -> Self::DefaultExternalContext<'a> {}
+    fn context_for_next_block(
+        &self,
+        parent: &SealedHeader,
+        attributes: Self::NextBlockEnvCtx,
+    ) -> EthBlockExecutionCtx<'_> {
+        EthBlockExecutionCtx {
+            parent_hash: parent.hash(),
+            parent_beacon_block_root: attributes.parent_beacon_block_root,
+            ommers: &[],
+            withdrawals: attributes.withdrawals.map(Cow::Owned),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_consensus::{constants::KECCAK_EMPTY, Header};
+    use alloy_consensus::Header;
     use alloy_genesis::Genesis;
-    use alloy_primitives::{B256, U256};
-    use reth_chainspec::{Chain, ChainSpec, MAINNET};
-    use reth_enclave::start_mock_enclave_server_random_port;
-    use reth_evm::execute::ProviderError;
-    use reth_revm::{
-        db::{CacheDB, EmptyDBTyped},
-        handler::register::EvmHandler,
-        inspectors::NoOpInspector,
-        precompile::u64_to_address,
-        primitives::{BlockEnv, CfgEnv, SpecId},
-        Evm, Handler, JournaledState,
+    use reth_chainspec::{Chain, ChainSpec};
+    use reth_evm::{execute::ProviderError, EvmEnv};
+    use revm::{
+        context::{BlockEnv, CfgEnv},
+        database::CacheDB,
+        database_interface::EmptyDBTyped,
+        inspector::NoOpInspector,
     };
-    use revm_primitives::{EnvWithHandlerCfg, HandlerCfg};
-    use std::collections::HashSet;
 
     #[test]
     fn test_fill_cfg_and_block_env() {
@@ -337,13 +262,10 @@ mod tests {
             .shanghai_activated()
             .build();
 
-        // Define the total difficulty as zero (default)
-        let total_difficulty = U256::ZERO;
-
         // Use the `EthEvmConfig` to fill the `cfg_env` and `block_env` based on the ChainSpec,
         // Header, and total difficulty
-        let (cfg_env, _) = EthEvmConfig::new(Arc::new(chain_spec.clone()))
-            .cfg_and_block_env(&header, total_difficulty);
+        let EvmEnv { cfg_env, .. } =
+            EthEvmConfig::new(Arc::new(chain_spec.clone())).evm_env(&header);
 
         // Assert that the chain ID in the `cfg_env` is correctly set to the chain ID of the
         // ChainSpec
@@ -351,350 +273,137 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::needless_update)]
-    fn test_evm_configure() {
-        // Create a default `EthEvmConfig`
-        let evm_config = EthEvmConfig::new(MAINNET.clone());
-
-        // Initialize an empty database wrapped in CacheDB
-        let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
-
-        // Create an EVM instance using the configuration and the database
-        let evm = evm_config.evm(db);
-
-        // Check that the EVM environment is initialized with default values
-        assert_eq!(evm.context.evm.inner.env, Box::default());
-
-        // Latest spec ID and no warm preloaded addresses
-        assert_eq!(
-            evm.context.evm.inner.journaled_state,
-            JournaledState::new(SpecId::LATEST, HashSet::default())
-        );
-
-        // Ensure that the accounts database is empty
-        assert!(evm.context.evm.inner.db.accounts.is_empty());
-
-        // Ensure that the block hashes database is empty
-        assert!(evm.context.evm.inner.db.block_hashes.is_empty());
-
-        // Verify that there are two default contracts in the contracts database
-        assert_eq!(evm.context.evm.inner.db.contracts.len(), 2);
-        assert!(evm.context.evm.inner.db.contracts.contains_key(&KECCAK_EMPTY));
-        assert!(evm.context.evm.inner.db.contracts.contains_key(&B256::ZERO));
-
-        // Ensure that the logs database is empty
-        assert!(evm.context.evm.inner.db.logs.is_empty());
-
-        // No Optimism
-        assert_eq!(evm.handler.cfg, HandlerCfg { spec_id: SpecId::LATEST, ..Default::default() });
-    }
-
-    #[test]
-    #[allow(clippy::needless_update)]
     fn test_evm_with_env_default_spec() {
-        let evm_config = EthEvmConfig::new(MAINNET.clone());
+        let evm_config = EthEvmConfig::mainnet();
 
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
 
-        let env_with_handler = EnvWithHandlerCfg::default();
+        let evm_env = EvmEnv::default();
 
-        let evm = evm_config.evm_with_env(db, env_with_handler.clone());
+        let evm = evm_config.evm_with_env(db, evm_env.clone());
 
         // Check that the EVM environment
-        assert_eq!(evm.context.evm.env, env_with_handler.env);
-
-        // Default spec ID
-        assert_eq!(evm.handler.spec_id(), SpecId::LATEST);
-
-        // No Optimism
-        assert_eq!(evm.handler.cfg, HandlerCfg { spec_id: SpecId::LATEST, ..Default::default() });
+        assert_eq!(evm.block, evm_env.block_env);
+        assert_eq!(evm.cfg, evm_env.cfg_env);
     }
 
     #[test]
-    #[allow(clippy::needless_update)]
     fn test_evm_with_env_custom_cfg() {
-        let evm_config = EthEvmConfig::new(MAINNET.clone());
+        let evm_config = EthEvmConfig::mainnet();
 
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
 
         // Create a custom configuration environment with a chain ID of 111
         let cfg = CfgEnv::default().with_chain_id(111);
 
-        let env_with_handler = EnvWithHandlerCfg {
-            env: Box::new(Env {
-                cfg: cfg.clone(),
-                block: BlockEnv::default(),
-                tx: TxEnv::default(),
-            }),
-            handler_cfg: Default::default(),
-        };
+        let evm_env = EvmEnv { cfg_env: cfg.clone(), ..Default::default() };
 
-        let evm = evm_config.evm_with_env(db, env_with_handler);
+        let evm = evm_config.evm_with_env(db, evm_env);
 
         // Check that the EVM environment is initialized with the custom environment
-        assert_eq!(evm.context.evm.inner.env.cfg, cfg);
-
-        // Default spec ID
-        assert_eq!(evm.handler.spec_id(), SpecId::LATEST);
-
-        // No Optimism
-        assert_eq!(evm.handler.cfg, HandlerCfg { spec_id: SpecId::LATEST, ..Default::default() });
+        assert_eq!(evm.cfg, cfg);
     }
 
     #[test]
-    #[allow(clippy::needless_update)]
     fn test_evm_with_env_custom_block_and_tx() {
-        // start server
-
-        let evm_config = EthEvmConfig::new(MAINNET.clone());
+        let evm_config = EthEvmConfig::mainnet();
 
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
 
         // Create customs block and tx env
-        let block = BlockEnv {
-            basefee: U256::from(1000),
-            gas_limit: U256::from(10_000_000),
-            number: U256::from(42),
-            ..Default::default()
-        };
-        let tx = TxEnv { gas_limit: 5_000_000, gas_price: U256::from(50), ..Default::default() };
+        let block =
+            BlockEnv { basefee: 1000, gas_limit: 10_000_000, number: 42, ..Default::default() };
 
-        let env_with_handler = EnvWithHandlerCfg {
-            env: Box::new(Env { cfg: CfgEnv::default(), block, tx }),
-            handler_cfg: Default::default(),
-        };
+        let evm_env = EvmEnv { block_env: block, ..Default::default() };
 
-        let evm = evm_config.evm_with_env(db, env_with_handler.clone());
+        let evm = evm_config.evm_with_env(db, evm_env.clone());
 
         // Verify that the block and transaction environments are set correctly
-        assert_eq!(evm.context.evm.env.block, env_with_handler.env.block);
-        assert_eq!(evm.context.evm.env.tx, env_with_handler.env.tx);
+        assert_eq!(evm.block, evm_env.block_env);
 
         // Default spec ID
-        assert_eq!(evm.handler.spec_id(), SpecId::LATEST);
-
-        // No Optimism
-        assert_eq!(evm.handler.cfg, HandlerCfg { spec_id: SpecId::LATEST, ..Default::default() });
+        assert_eq!(evm.cfg.spec, SpecId::LATEST);
     }
 
     #[test]
-    #[allow(clippy::needless_update)]
     fn test_evm_with_spec_id() {
-        let evm_config = EthEvmConfig::new(MAINNET.clone());
+        let evm_config = EthEvmConfig::mainnet();
 
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
 
-        let handler_cfg = HandlerCfg { spec_id: SpecId::CONSTANTINOPLE, ..Default::default() };
-
-        let env_with_handler = EnvWithHandlerCfg { env: Box::new(Env::default()), handler_cfg };
-
-        let evm = evm_config.evm_with_env(db, env_with_handler);
-
-        // Check that the spec ID is setup properly
-        assert_eq!(evm.handler.spec_id(), SpecId::CONSTANTINOPLE);
-
-        // No Optimism
-        assert_eq!(
-            evm.handler.cfg,
-            HandlerCfg { spec_id: SpecId::CONSTANTINOPLE, ..Default::default() }
-        );
-    }
-
-    #[test]
-    #[allow(clippy::needless_update)]
-    fn test_evm_with_inspector() {
-        let evm_config = EthEvmConfig::new(MAINNET.clone());
-
-        let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
-
-        // No operation inspector
-        let noop = NoOpInspector;
-
-        let evm = evm_config.evm_with_inspector(db, noop);
-
-        // Check that the inspector is set correctly
-        assert_eq!(evm.context.external, noop);
-
-        // Check that the EVM environment is initialized with default values
-        assert_eq!(evm.context.evm.inner.env, Box::default());
-
-        // Latest spec ID and no warm preloaded addresses
-        assert_eq!(
-            evm.context.evm.inner.journaled_state,
-            JournaledState::new(SpecId::LATEST, HashSet::default())
-        );
-
-        // Ensure that the accounts database is empty
-        assert!(evm.context.evm.inner.db.accounts.is_empty());
-
-        // Ensure that the block hashes database is empty
-        assert!(evm.context.evm.inner.db.block_hashes.is_empty());
-
-        // Verify that there are two default contracts in the contracts database
-        assert_eq!(evm.context.evm.inner.db.contracts.len(), 2);
-        assert!(evm.context.evm.inner.db.contracts.contains_key(&KECCAK_EMPTY));
-        assert!(evm.context.evm.inner.db.contracts.contains_key(&B256::ZERO));
-
-        // Ensure that the logs database is empty
-        assert!(evm.context.evm.inner.db.logs.is_empty());
-
-        // No Optimism
-        assert_eq!(evm.handler.cfg, HandlerCfg { spec_id: SpecId::LATEST, ..Default::default() });
-    }
-
-    #[test]
-    #[allow(clippy::needless_update)]
-    fn test_evm_with_env_and_default_inspector() {
-        let evm_config = EthEvmConfig::new(MAINNET.clone());
-        let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
-
-        let env_with_handler = EnvWithHandlerCfg::default();
-
-        let evm =
-            evm_config.evm_with_env_and_inspector(db, env_with_handler.clone(), NoOpInspector);
-
-        // Check that the EVM environment is set to default values
-        assert_eq!(evm.context.evm.env, env_with_handler.env);
-        assert_eq!(evm.context.external, NoOpInspector);
-        assert_eq!(evm.handler.spec_id(), SpecId::LATEST);
-
-        // No Optimism
-        assert_eq!(evm.handler.cfg, HandlerCfg { spec_id: SpecId::LATEST, ..Default::default() });
-    }
-
-    #[test]
-    #[allow(clippy::needless_update)]
-    fn test_evm_with_env_inspector_and_custom_cfg() {
-        let evm_config = EthEvmConfig::new(MAINNET.clone());
-        let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
-
-        let cfg = CfgEnv::default().with_chain_id(111);
-        let block = BlockEnv::default();
-        let tx = TxEnv::default();
-        let env_with_handler = EnvWithHandlerCfg {
-            env: Box::new(Env { cfg: cfg.clone(), block, tx }),
-            handler_cfg: Default::default(),
+        let evm_env = EvmEnv {
+            cfg_env: CfgEnv::new().with_spec(SpecId::CONSTANTINOPLE),
+            ..Default::default()
         };
 
-        let evm = evm_config.evm_with_env_and_inspector(db, env_with_handler, NoOpInspector);
+        let evm = evm_config.evm_with_env(db, evm_env);
 
-        // Check that the EVM environment is set with custom configuration
-        assert_eq!(evm.context.evm.env.cfg, cfg);
-        assert_eq!(evm.context.external, NoOpInspector);
-        assert_eq!(evm.handler.spec_id(), SpecId::LATEST);
-
-        // No Optimism
-        assert_eq!(evm.handler.cfg, HandlerCfg { spec_id: SpecId::LATEST, ..Default::default() });
+        // Check that the spec ID is setup properly
+        assert_eq!(evm.cfg.spec, SpecId::CONSTANTINOPLE);
     }
 
     #[test]
-    #[allow(clippy::needless_update)]
+    fn test_evm_with_env_and_default_inspector() {
+        let evm_config = EthEvmConfig::mainnet();
+        let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
+
+        let evm_env = EvmEnv::default();
+
+        let evm = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});
+
+        // Check that the EVM environment is set to default values
+        assert_eq!(evm.block, evm_env.block_env);
+        assert_eq!(evm.cfg, evm_env.cfg_env);
+    }
+
+    #[test]
+    fn test_evm_with_env_inspector_and_custom_cfg() {
+        let evm_config = EthEvmConfig::mainnet();
+        let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
+
+        let cfg_env = CfgEnv::default().with_chain_id(111);
+        let block = BlockEnv::default();
+        let evm_env = EvmEnv { cfg_env: cfg_env.clone(), block_env: block };
+
+        let evm = evm_config.evm_with_env_and_inspector(db, evm_env, NoOpInspector {});
+
+        // Check that the EVM environment is set with custom configuration
+        assert_eq!(evm.cfg, cfg_env);
+        assert_eq!(evm.cfg.spec, SpecId::LATEST);
+    }
+
+    #[test]
     fn test_evm_with_env_inspector_and_custom_block_tx() {
-        let evm_config = EthEvmConfig::new(MAINNET.clone());
+        let evm_config = EthEvmConfig::mainnet();
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
 
         // Create custom block and tx environment
-        let block = BlockEnv {
-            basefee: U256::from(1000),
-            gas_limit: U256::from(10_000_000),
-            number: U256::from(42),
-            ..Default::default()
-        };
-        let tx = TxEnv { gas_limit: 5_000_000, gas_price: U256::from(50), ..Default::default() };
-        let env_with_handler = EnvWithHandlerCfg {
-            env: Box::new(Env { cfg: CfgEnv::default(), block, tx }),
-            handler_cfg: Default::default(),
-        };
+        let block =
+            BlockEnv { basefee: 1000, gas_limit: 10_000_000, number: 42, ..Default::default() };
+        let evm_env = EvmEnv { block_env: block, ..Default::default() };
 
-        let evm =
-            evm_config.evm_with_env_and_inspector(db, env_with_handler.clone(), NoOpInspector);
+        let evm = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});
 
         // Verify that the block and transaction environments are set correctly
-        assert_eq!(evm.context.evm.env.block, env_with_handler.env.block);
-        assert_eq!(evm.context.evm.env.tx, env_with_handler.env.tx);
-        assert_eq!(evm.context.external, NoOpInspector);
-        assert_eq!(evm.handler.spec_id(), SpecId::LATEST);
-
-        // No Optimism
-        assert_eq!(evm.handler.cfg, HandlerCfg { spec_id: SpecId::LATEST, ..Default::default() });
+        assert_eq!(evm.block, evm_env.block_env);
+        assert_eq!(evm.cfg.spec, SpecId::LATEST);
     }
 
     #[test]
-    #[allow(clippy::needless_update)]
     fn test_evm_with_env_inspector_and_spec_id() {
-        let evm_config = EthEvmConfig::new(MAINNET.clone());
+        let evm_config = EthEvmConfig::mainnet();
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
 
-        let handler_cfg = HandlerCfg { spec_id: SpecId::CONSTANTINOPLE, ..Default::default() };
-        let env_with_handler = EnvWithHandlerCfg { env: Box::new(Env::default()), handler_cfg };
+        let evm_env = EvmEnv {
+            cfg_env: CfgEnv::new().with_spec(SpecId::CONSTANTINOPLE),
+            ..Default::default()
+        };
 
-        let evm =
-            evm_config.evm_with_env_and_inspector(db, env_with_handler.clone(), NoOpInspector);
+        let evm = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});
 
         // Check that the spec ID is set properly
-        assert_eq!(evm.handler.spec_id(), SpecId::CONSTANTINOPLE);
-        assert_eq!(evm.context.evm.env, env_with_handler.env);
-        assert_eq!(evm.context.external, NoOpInspector);
-
-        // No Optimism
-        assert_eq!(
-            evm.handler.cfg,
-            HandlerCfg { spec_id: SpecId::CONSTANTINOPLE, ..Default::default() }
-        );
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    #[allow(clippy::needless_update)]
-    async fn test_evm_with_spec_id_seismic() {
-        // expect a call to hit the mock enclave server
-        let enclave_client = start_mock_enclave_server_random_port().await;
-
-        let evm_config = EthEvmConfig::new_with_enclave_client(MAINNET.clone(), enclave_client);
-
-        let db = CacheDB::<EmptyDBTyped<Infallible>>::default();
-
-        let handler_cfg = HandlerCfg { spec_id: SpecId::MERCURY, ..Default::default() };
-
-        let env_with_handler = EnvWithHandlerCfg { env: Box::new(Env::default()), handler_cfg };
-
-        let evm = evm_config.evm_with_env(db.clone(), env_with_handler);
-
-        // Check that the spec ID is setup properly
-        assert_eq!(evm.handler.spec_id(), SpecId::MERCURY);
-        assert!(evm.handler.is_seismic());
-
-        // Check that standard way of generating evm works
-        type DB = CacheDB<EmptyDBTyped<Infallible>>;
-        type EXT = ();
-
-        let seismic_handler: Handler<'_, reth_revm::Context<EXT, DB>, EXT, DB> =
-            EvmHandler::seismic_with_spec(SpecId::MERCURY);
-        let seismic_evm = Evm::builder().with_db(db).with_handler(seismic_handler).build();
-
-        let precompile_addresses =
-            [u64_to_address(101), u64_to_address(102), u64_to_address(103), u64_to_address(104)];
-
-        let precompiles = seismic_evm.handler.pre_execution().load_precompiles();
-
-        for &addr in &precompile_addresses {
-            let is_contained = precompiles.contains(&addr);
-            assert!(
-                is_contained,
-                "Expected Precompile at address for standard evm generation {addr:?}"
-            );
-        }
-        assert_eq!(evm.handler.spec_id(), seismic_evm.handler.spec_id());
-        assert_eq!(evm.handler.is_seismic(), seismic_evm.handler.is_seismic());
-
-        //Check that RETH way of generating evm works
-        let precompiles = evm.handler.pre_execution().load_precompiles();
-
-        for &addr in &precompile_addresses {
-            let is_contained = precompiles.contains(&addr);
-            assert!(
-                is_contained,
-                "Expected Precompile at address for RETH evm generation {addr:?}"
-            );
-        }
+        assert_eq!(evm.block, evm_env.block_env);
+        assert_eq!(evm.cfg, evm_env.cfg_env);
+        assert_eq!(evm.tx, Default::default());
     }
 }

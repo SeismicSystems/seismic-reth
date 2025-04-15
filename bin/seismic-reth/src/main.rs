@@ -2,11 +2,10 @@
 
 use reth_cli_commands::node::NoArgs;
 use reth_enclave::start_blocking_mock_enclave_server;
-use reth_node_builder::{engine_tree_config::TreeConfig, EngineNodeLauncher};
-use reth_provider::providers::BlockchainProvider2;
+use reth_node_builder::{EngineNodeLauncher, TreeConfig};
 use reth_tracing::tracing::*;
 use seismic_node::chainspec::SeismicChainSpecParser;
-use seismic_rpc_api::rpc::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
+use seismic_rpc::rpc::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 
 fn main() {
     use clap::Parser;
@@ -27,7 +26,7 @@ fn main() {
         let seismic_api = SeismicApi::new(builder.config());
 
         let node = builder
-            .with_types_and_provider::<EthereumNode, BlockchainProvider2<_>>()
+            .with_types::<EthereumNode>()
             .with_components(EthereumNode::components())
             .with_add_ons(EthereumAddOns::default())
             .on_node_started(move |ctx| {

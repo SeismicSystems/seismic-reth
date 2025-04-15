@@ -7,7 +7,7 @@ use reth_db::{
     tables,
     transaction::DbTxMut,
 };
-use reth_primitives::{Account, StorageEntry};
+use reth_primitives_traits::{Account, StorageEntry};
 use reth_provider::test_utils::create_test_provider_factory;
 use reth_trie::{
     test_utils::{state_root_prehashed, storage_root_prehashed},
@@ -16,7 +16,7 @@ use reth_trie::{
     HashedPostState, HashedStorage, StateRoot, StorageRoot,
 };
 use reth_trie_db::{DatabaseStateRoot, DatabaseStorageRoot, DatabaseTrieCursorFactory};
-use revm_primitives::FlaggedStorage;
+use revm::state::FlaggedStorage;
 use std::collections::BTreeMap;
 
 proptest! {
@@ -32,7 +32,7 @@ proptest! {
 
         // Insert init state into database
         for (hashed_address, balance) in init_state.clone() {
-            hashed_account_cursor.upsert(hashed_address, Account { balance, ..Default::default() }).unwrap();
+            hashed_account_cursor.upsert(hashed_address, &Account { balance, ..Default::default() }).unwrap();
         }
 
         // Compute initial root and updates
@@ -47,7 +47,7 @@ proptest! {
             for (hashed_address, balance) in state_update {
                 if let Some(balance) = balance {
                     let account = Account { balance, ..Default::default() };
-                    hashed_account_cursor.upsert(hashed_address, account).unwrap();
+                    hashed_account_cursor.upsert(hashed_address, &account).unwrap();
                     hashed_state.accounts.insert(hashed_address, Some(account));
                     state.insert(hashed_address, balance);
                 } else {
@@ -86,7 +86,7 @@ proptest! {
         // Insert init state into database
         for (hashed_slot, value) in init_storage.clone() {
             hashed_storage_cursor
-                .upsert(hashed_address, StorageEntry { key: hashed_slot, value, is_private: false })
+                .upsert(hashed_address, &StorageEntry { key: hashed_slot, value, is_private: false })
                 .unwrap();
         }
 
@@ -103,7 +103,7 @@ proptest! {
             let mut hashed_storage = HashedStorage::new(is_deleted);
             for (hashed_slot, value) in storage_update.clone() {
                 hashed_storage_cursor
-                    .upsert(hashed_address, StorageEntry { key: hashed_slot, value: value, is_private: false })
+                    .upsert(hashed_address, &StorageEntry { key: hashed_slot, value: value, is_private: false })
                     .unwrap();
                 hashed_storage.storage.insert(hashed_slot, FlaggedStorage::new_from_value(value));
             }

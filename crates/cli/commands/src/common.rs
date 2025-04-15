@@ -5,17 +5,16 @@ use clap::Parser;
 use reth_chainspec::EthChainSpec;
 use reth_cli::chainspec::ChainSpecParser;
 use reth_config::{config::EtlConfig, Config};
-use reth_consensus::noop::NoopConsensus;
+use reth_consensus::{noop::NoopConsensus, ConsensusError, FullConsensus};
 use reth_db::{init_db, open_db_read_only, DatabaseEnv};
 use reth_db_common::init::init_genesis;
 use reth_downloaders::{bodies::noop::NoopBodiesDownloader, headers::noop::NoopHeaderDownloader};
-use reth_evm::noop::NoopBlockExecutorProvider;
+use reth_evm::{execute::BlockExecutorProvider, noop::NoopBlockExecutorProvider};
 use reth_node_builder::{NodeTypesWithDBAdapter, NodeTypesWithEngine};
 use reth_node_core::{
     args::{DatabaseArgs, DatadirArgs},
     dirs::{ChainPath, DataDirPath},
 };
-use reth_primitives::EthPrimitives;
 use reth_provider::{
     providers::{NodeTypesForProvider, StaticFileProvider},
     ProviderFactory, StaticFileProviderFactory,
@@ -107,7 +106,7 @@ impl<C: ChainSpecParser> EnvironmentArgs<C> {
     /// Returns a [`ProviderFactory`] after executing consistency checks.
     ///
     /// If it's a read-write environment and an issue is found, it will attempt to heal (including a
-    /// pipeline unwind). Otherwise, it will print out an warning, advising the user to restart the
+    /// pipeline unwind). Otherwise, it will print out a warning, advising the user to restart the
     /// node to heal.
     fn create_provider_factory<N: CliNodeTypes>(
         &self,
@@ -198,11 +197,35 @@ impl AccessRights {
 
 /// Helper trait with a common set of requirements for the
 /// [`NodeTypes`](reth_node_builder::NodeTypes) in CLI.
-pub trait CliNodeTypes:
-    NodeTypesWithEngine + NodeTypesForProvider<Primitives = EthPrimitives>
-{
+pub trait CliNodeTypes: NodeTypesWithEngine + NodeTypesForProvider {}
+impl<N> CliNodeTypes for N where N: NodeTypesWithEngine + NodeTypesForProvider {}
+
+/// Helper trait aggregating components required for the CLI.
+pub trait CliNodeComponents<N: CliNodeTypes> {
+    /// Block executor.
+    type Executor: BlockExecutorProvider<Primitives = N::Primitives>;
+    /// Consensus implementation.
+    type Consensus: FullConsensus<N::Primitives, Error = ConsensusError> + Clone + 'static;
+
+    /// Returns the block executor.
+    fn executor(&self) -> &Self::Executor;
+    /// Returns the consensus implementation.
+    fn consensus(&self) -> &Self::Consensus;
 }
-impl<N> CliNodeTypes for N where
-    N: NodeTypesWithEngine + NodeTypesForProvider<Primitives = EthPrimitives>
+
+impl<N: CliNodeTypes, E, C> CliNodeComponents<N> for (E, C)
+where
+    E: BlockExecutorProvider<Primitives = N::Primitives>,
+    C: FullConsensus<N::Primitives, Error = ConsensusError> + Clone + 'static,
 {
+    type Executor = E;
+    type Consensus = C;
+
+    fn executor(&self) -> &Self::Executor {
+        &self.0
+    }
+
+    fn consensus(&self) -> &Self::Consensus {
+        &self.1
+    }
 }

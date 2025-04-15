@@ -1,10 +1,10 @@
 use metrics::Histogram;
 use reth_eth_wire::DisconnectReason;
+use reth_ethereum_primitives::TxType;
 use reth_metrics::{
     metrics::{Counter, Gauge},
     Metrics,
 };
-use reth_primitives::TxType;
 
 /// Scope for monitoring transactions sent from the manager to the tx manager
 pub(crate) const NETWORK_POOL_TRANSACTIONS_SCOPE: &str = "network.pool.transactions";
@@ -381,7 +381,7 @@ pub struct TxTypesCounter {
 
 impl TxTypesCounter {
     pub(crate) fn increase_by_tx_type(&mut self, tx_type: TxType) {
-        #[allow(unreachable_patterns)]
+        #[expect(unreachable_patterns)]
         match tx_type {
             TxType::Legacy => {
                 self.legacy += 1;
@@ -397,9 +397,6 @@ impl TxTypesCounter {
             }
             TxType::Eip7702 => {
                 self.eip7702 += 1;
-            }
-            TxType::Seismic => {
-                self.seismic += 1;
             }
             _ => {}
         }

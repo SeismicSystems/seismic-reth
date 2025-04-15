@@ -1,7 +1,7 @@
 //! Contains RPC handler implementations specific to state.
 
-use reth_chainspec::EthereumHardforks;
-use reth_provider::{BlockReader, ChainSpecProvider, StateProviderFactory};
+use reth_chainspec::{ChainSpecProvider, EthereumHardforks};
+use reth_storage_api::{BlockReader, StateProviderFactory};
 use reth_transaction_pool::TransactionPool;
 
 use reth_rpc_eth_api::{
@@ -36,9 +36,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_eips::eip1559::ETHEREUM_BLOCK_GAS_LIMIT;
-    use alloy_primitives::{Address, StorageKey, U256};
-    use reth_chainspec::MAINNET;
+    use alloy_eips::eip1559::ETHEREUM_BLOCK_GAS_LIMIT_30M;
+    use alloy_primitives::{Address, StorageKey, StorageValue, U256};
     use reth_evm_ethereum::EthEvmConfig;
     use reth_network_api::noop::NoopNetwork;
     use reth_provider::test_utils::{ExtendedAccount, MockEthProvider, NoopProvider};
@@ -51,12 +50,12 @@ mod tests {
     };
     use reth_tasks::pool::BlockingTaskPool;
     use reth_transaction_pool::test_utils::{testing_pool, TestPool};
-    use revm_primitives::FlaggedStorage;
+    use revm::state::FlaggedStorage;
     use std::collections::HashMap;
 
     fn noop_eth_api() -> EthApi<NoopProvider, TestPool, NoopNetwork, EthEvmConfig> {
         let pool = testing_pool();
-        let evm_config = EthEvmConfig::new(MAINNET.clone());
+        let evm_config = EthEvmConfig::mainnet();
 
         let cache = EthStateCache::spawn(NoopProvider::default(), Default::default());
         EthApi::new(
@@ -65,7 +64,7 @@ mod tests {
             NoopNetwork::default(),
             cache.clone(),
             GasPriceOracle::new(NoopProvider::default(), Default::default(), cache),
-            ETHEREUM_BLOCK_GAS_LIMIT,
+            ETHEREUM_BLOCK_GAS_LIMIT_30M,
             DEFAULT_MAX_SIMULATE_BLOCKS,
             DEFAULT_ETH_PROOF_WINDOW,
             BlockingTaskPool::build().expect("failed to build tracing pool"),
@@ -91,7 +90,7 @@ mod tests {
             (),
             cache.clone(),
             GasPriceOracle::new(mock_provider, Default::default(), cache),
-            ETHEREUM_BLOCK_GAS_LIMIT,
+            ETHEREUM_BLOCK_GAS_LIMIT_30M,
             DEFAULT_MAX_SIMULATE_BLOCKS,
             DEFAULT_ETH_PROOF_WINDOW + 1,
             BlockingTaskPool::build().expect("failed to build tracing pool"),

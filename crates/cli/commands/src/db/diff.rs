@@ -1,6 +1,8 @@
 use clap::Parser;
-use reth_db::{open_db_read_only, tables_to_generic, DatabaseEnv, Tables};
-use reth_db_api::{cursor::DbCursorRO, database::Database, table::Table, transaction::DbTx};
+use reth_db::{open_db_read_only, tables_to_generic, DatabaseEnv};
+use reth_db_api::{
+    cursor::DbCursorRO, database::Database, table::Table, transaction::DbTx, Tables,
+};
 use reth_db_common::DbTool;
 use reth_node_builder::{NodeTypesWithDBAdapter, NodeTypesWithEngine};
 use reth_node_core::{
@@ -240,11 +242,11 @@ struct TableDiffElement<T: Table> {
     key: T::Key,
 
     /// The element from the first table
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     first: T::Value,
 
     /// The element from the second table
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     second: T::Value,
 }
 
@@ -331,11 +333,11 @@ where
 #[derive(Debug)]
 enum ExtraTableElement<T: Table> {
     /// The extra element that is in the first table
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     First { key: T::Key, value: T::Value },
 
     /// The extra element that is in the second table
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     Second { key: T::Key, value: T::Value },
 }
 

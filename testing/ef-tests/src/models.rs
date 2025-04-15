@@ -5,9 +5,9 @@ use alloy_consensus::Header as RethHeader;
 use alloy_eips::eip4895::Withdrawals;
 use alloy_primitives::{keccak256, Address, Bloom, Bytes, B256, B64, U256};
 use reth_chainspec::{ChainSpec, ChainSpecBuilder};
-use reth_db::tables;
 use reth_db_api::{
     cursor::DbDupCursorRO,
+    tables,
     transaction::{DbTx, DbTxMut},
 };
 use reth_primitives::{Account as RethAccount, Bytecode, SealedHeader, StorageEntry};
@@ -116,7 +116,6 @@ impl From<Header> for SealedHeader {
             excess_blob_gas: value.excess_blob_gas.map(|v| v.to::<u64>()),
             parent_beacon_block_root: value.parent_beacon_block_root,
             requests_hash: value.requests_hash,
-            target_blobs_per_block: value.target_blobs_per_block.map(|v| v.to::<u64>()),
         };
         Self::new(header, value.hash)
     }

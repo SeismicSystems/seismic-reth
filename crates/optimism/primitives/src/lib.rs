@@ -6,35 +6,48 @@
     issue_tracker_base_url = "https://github.com/SeismicSystems/seismic-reth/issues/"
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
-// The `optimism` feature must be enabled to use this crate.
-#![cfg(feature = "optimism")]
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
-pub mod bedrock;
-pub mod transaction;
+#[cfg(feature = "alloy-compat")]
+mod alloy_compat;
 
+pub mod bedrock;
+
+pub mod predeploys;
+pub use predeploys::ADDRESS_L2_TO_L1_MESSAGE_PASSER;
+
+pub mod transaction;
 pub use transaction::{signed::OpTransactionSigned, tx_type::OpTxType};
 
 mod receipt;
-pub use receipt::OpReceipt;
+pub use receipt::{DepositReceipt, OpReceipt};
 
-/// Optimism primitive types.
-pub type OpPrimitives = reth_primitives::EthPrimitives;
+/// Optimism-specific block type.
+pub type OpBlock = alloy_consensus::Block<OpTransactionSigned>;
 
-// TODO: once we are ready for separating primitive types, introduce a separate `NodePrimitives`
-// implementation used exclusively by legacy engine.
-//
-// #[derive(Debug, Default, Clone, PartialEq, Eq)]
-// pub struct OpPrimitives;
-//
-// impl NodePrimitives for OpPrimitives {
-//     type Block = Block;
-//     type BlockHeader = Header;
-//     type BlockBody = BlockBody;
-//     type SignedTx = TransactionSigned;
-//     type TxType = OpTxType;
-//     type Receipt = Receipt;
-// }
+/// Optimism-specific block body type.
+pub type OpBlockBody = <OpBlock as reth_primitives_traits::Block>::Body;
+
+/// Primitive types for Optimism Node.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct OpPrimitives;
+
+impl reth_primitives_traits::NodePrimitives for OpPrimitives {
+    type Block = OpBlock;
+    type BlockHeader = alloy_consensus::Header;
+    type BlockBody = OpBlockBody;
+    type SignedTx = OpTransactionSigned;
+    type Receipt = OpReceipt;
+}
+
+/// Bincode-compatible serde implementations.
+#[cfg(feature = "serde-bincode-compat")]
+pub mod serde_bincode_compat {
+    pub use super::{
+        receipt::serde_bincode_compat::*, transaction::signed::serde_bincode_compat::*,
+    };
+}

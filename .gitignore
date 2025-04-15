@@ -19,7 +19,7 @@ target/
 testdata/micro/db
 
 # Generated data for stage benchmarks
-crates/stages/testdata
+crates/stages/stages/testdata
 
 # Prometheus data dir
 data/
@@ -54,7 +54,8 @@ rustc-ice-*
 # Book sources should be able to build with the latest version
 book/sources/Cargo.lock
 
-crates/seismic/node/tmp/
+# Cargo chef recipe file
+recipe.json
 
 
 # seismic-viem tests

@@ -6,27 +6,25 @@ use crate::{
     traits::{PoolTransaction, TransactionOrigin},
     PriceBumpConfig,
 };
-use alloy_consensus::transaction::TxSeismicElements;
 use alloy_eips::eip4844::BlobTransactionSidecar;
 use alloy_primitives::{Address, TxHash, B256, U256};
 use futures_util::future::Either;
-use reth_primitives::{RecoveredTx, SealedBlock};
-use std::{fmt, future::Future, time::Instant};
+use reth_primitives_traits::{Recovered, SealedBlock};
+use std::{fmt, fmt::Debug, future::Future, time::Instant};
 
 mod constants;
 mod eth;
 mod task;
 
-/// A `TransactionValidator` implementation that validates ethereum transaction.
 pub use eth::*;
 
-/// A spawnable task that performs transaction validation.
 pub use task::{TransactionValidationTaskExecutor, ValidationTask};
 
 /// Validation constants.
 pub use constants::{
     DEFAULT_MAX_TX_INPUT_BYTES, MAX_CODE_BYTE_SIZE, MAX_INIT_CODE_BYTE_SIZE, TX_SLOT_BYTE_SIZE,
 };
+use reth_primitives_traits::Block;
 
 /// A Result type returned after checking a transaction's validity.
 #[derive(Debug)]
@@ -149,15 +147,10 @@ impl<T: PoolTransaction> ValidTransaction<T> {
     pub fn nonce(&self) -> u64 {
         self.transaction().nonce()
     }
-
-    /// Returns the encryption pubkey of the transaction (Seismic)
-    pub fn seismic_elements(&self) -> Option<&TxSeismicElements> {
-        self.transaction().seismic_elements()
-    }
 }
 
 /// Provides support for validating transaction at any given state of the chain
-pub trait TransactionValidator: Send + Sync {
+pub trait TransactionValidator: Debug + Send + Sync {
     /// The transaction type to validate.
     type Transaction: PoolTransaction;
 
@@ -176,8 +169,8 @@ pub trait TransactionValidator: Send + Sync {
     ///    * nonce >= next nonce of the sender
     ///    * ...
     ///
-    /// See [`InvalidTransactionError`](reth_primitives::InvalidTransactionError) for common errors
-    /// variants.
+    /// See [`InvalidTransactionError`](reth_primitives_traits::transaction::error::InvalidTransactionError) for common
+    /// errors variants.
     ///
     /// The transaction pool makes no additional assumptions about the validity of the transaction
     /// at the time of this call before it inserts it into the pool. However, the validity of
@@ -212,7 +205,11 @@ pub trait TransactionValidator: Send + Sync {
     /// Invoked when the head block changes.
     ///
     /// This can be used to update fork specific values (timestamp).
-    fn on_new_head_block(&self, _new_tip_block: &SealedBlock) {}
+    fn on_new_head_block<B>(&self, _new_tip_block: &SealedBlock<B>)
+    where
+        B: Block,
+    {
+    }
 }
 
 impl<A, B> TransactionValidator for Either<A, B>
@@ -243,7 +240,10 @@ where
         }
     }
 
-    fn on_new_head_block(&self, new_tip_block: &SealedBlock) {
+    fn on_new_head_block<Bl>(&self, new_tip_block: &SealedBlock<Bl>)
+    where
+        Bl: Block,
+    {
         match self {
             Self::Left(v) => v.on_new_head_block(new_tip_block),
             Self::Right(v) => v.on_new_head_block(new_tip_block),
@@ -280,7 +280,7 @@ impl<T: PoolTransaction> ValidPoolTransaction<T> {
 
     /// Returns the type identifier of the transaction
     pub fn tx_type(&self) -> u8 {
-        self.transaction.tx_type()
+        self.transaction.ty()
     }
 
     /// Returns the address of the sender
@@ -389,7 +389,7 @@ impl<T: PoolTransaction> ValidPoolTransaction<T> {
     /// Converts to this type into the consensus transaction of the pooled transaction.
     ///
     /// Note: this takes `&self` since indented usage is via `Arc<Self>`.
-    pub fn to_consensus(&self) -> RecoveredTx<T::Consensus> {
+    pub fn to_consensus(&self) -> Recovered<T::Consensus> {
         self.transaction.clone_into_consensus()
     }
 
@@ -442,11 +442,6 @@ impl<T: PoolTransaction> ValidPoolTransaction<T> {
         }
 
         false
-    }
-
-    /// Returns the seismic elements of the transaction (Seismic)
-    pub fn seismic_elements(&self) -> Option<&TxSeismicElements> {
-        self.transaction.seismic_elements()
     }
 }
 
