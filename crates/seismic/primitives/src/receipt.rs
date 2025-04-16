@@ -222,21 +222,6 @@ impl InMemorySize for SeismicReceipt {
 
 impl reth_primitives_traits::Receipt for SeismicReceipt {}
 
-/// Trait for deposit receipt.
-pub trait DepositReceipt: reth_primitives_traits::Receipt {
-    /// Returns deposit receipt if it is a deposit transaction.
-    fn as_deposit_receipt_mut(&mut self) -> Option<&mut Receipt>;
-}
-
-impl DepositReceipt for SeismicReceipt {
-    fn as_deposit_receipt_mut(&mut self) -> Option<&mut Receipt> {
-        match self {
-            Self::Seismic(receipt) => Some(receipt),
-            _ => None,
-        }
-    }
-}
-
 #[cfg(feature = "reth-codec")]
 mod compact {
     use super::*;
@@ -339,7 +324,7 @@ pub(super) mod serde_bincode_compat {
         /// EIP-7702 receipt
         Eip7702(alloy_consensus::serde_bincode_compat::Receipt<'a, alloy_primitives::Log>),
         /// Seismic receipt
-        Seismic(op_alloy_consensus::serde_bincode_compat::Receipt<'a, alloy_primitives::Log>),
+        Seismic(alloy_consensus::serde_bincode_compat::Receipt<'a, alloy_primitives::Log>),
     }
 
     impl<'a> From<&'a super::SeismicReceipt> for SeismicReceipt<'a> {

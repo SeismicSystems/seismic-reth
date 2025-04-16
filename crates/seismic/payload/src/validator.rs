@@ -9,12 +9,12 @@ use std::sync::Arc;
 
 /// Execution payload validator.
 #[derive(Clone, Debug)]
-pub struct SeismicExecutionPayloadValidator<ChainSpec> {
+pub struct EthereumExecutionPayloadValidator<ChainSpec> {
     /// Chain spec to validate against.
     chain_spec: Arc<ChainSpec>,
 }
 
-impl<ChainSpec> SeismicExecutionPayloadValidator<ChainSpec> {
+impl<ChainSpec> EthereumExecutionPayloadValidator<ChainSpec> {
     /// Create a new validator.
     pub const fn new(chain_spec: Arc<ChainSpec>) -> Self {
         Self { chain_spec }
@@ -27,7 +27,7 @@ impl<ChainSpec> SeismicExecutionPayloadValidator<ChainSpec> {
     }
 }
 
-impl<ChainSpec: EthereumHardforks> SeismicExecutionPayloadValidator<ChainSpec> {
+impl<ChainSpec: EthereumHardforks> EthereumExecutionPayloadValidator<ChainSpec> {
     /// Returns true if the Cancun hardfork is active at the given timestamp.
     #[inline]
     fn is_cancun_active_at_timestamp(&self, timestamp: u64) -> bool {

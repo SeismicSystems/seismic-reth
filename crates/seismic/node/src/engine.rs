@@ -19,11 +19,11 @@ use std::sync::Arc;
 
 /// Validator for the ethereum engine API.
 #[derive(Debug, Clone)]
-pub struct EthereumEngineValidator {
+pub struct SeismicEngineValidator {
     inner: SeismicExecutionPayloadValidator<ChainSpec>,
 }
 
-impl EthereumEngineValidator {
+impl SeismicEngineValidator {
     /// Instantiates a new validator.
     pub const fn new(chain_spec: Arc<ChainSpec>) -> Self {
         Self { inner: SeismicExecutionPayloadValidator::new(chain_spec) }
@@ -36,7 +36,7 @@ impl EthereumEngineValidator {
     }
 }
 
-impl PayloadValidator for EthereumEngineValidator {
+impl PayloadValidator for SeismicEngineValidator {
     type Block = Block;
     type ExecutionData = ExecutionData;
 
@@ -49,7 +49,7 @@ impl PayloadValidator for EthereumEngineValidator {
     }
 }
 
-impl<Types> EngineValidator<Types> for EthereumEngineValidator
+impl<Types> EngineValidator<Types> for SeismicEngineValidator
 where
     Types: PayloadTypes<PayloadAttributes = EthPayloadAttributes, ExecutionData = ExecutionData>,
 {

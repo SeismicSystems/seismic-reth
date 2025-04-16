@@ -10,7 +10,7 @@
 #![allow(clippy::useless_let_if_seq)]
 
 pub mod validator;
-pub use validator::SeismicExecutionPayloadValidator;
+pub use validator::EthereumExecutionPayloadValidator;
 
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::U256;
@@ -20,7 +20,7 @@ use reth_basic_payload_builder::{
 };
 use reth_chainspec::{ChainSpec, ChainSpecProvider, EthChainSpec, EthereumHardforks};
 use reth_errors::{BlockExecutionError, BlockValidationError};
-use reth_ethereum_primitives::{EthPrimitives, TransactionSigned};
+use reth_ethereum_primitives::{SeismicPrimitives, TransactionSigned};
 use reth_evm::{
     execute::{BlockBuilder, BlockBuilderOutcome},
     ConfigureEvm, Evm, NextBlockEnvAttributes,
@@ -77,7 +77,8 @@ impl<Pool, Client, EvmConfig> EthereumPayloadBuilder<Pool, Client, EvmConfig> {
 // Default implementation of [PayloadBuilder] for unit type
 impl<Pool, Client, EvmConfig> PayloadBuilder for EthereumPayloadBuilder<Pool, Client, EvmConfig>
 where
-    EvmConfig: ConfigureEvm<Primitives = EthPrimitives, NextBlockEnvCtx = NextBlockEnvAttributes>,
+    EvmConfig:
+        ConfigureEvm<Primitives = SeismicPrimitives, NextBlockEnvCtx = NextBlockEnvAttributes>,
     Client: StateProviderFactory + ChainSpecProvider<ChainSpec = ChainSpec> + Clone,
     Pool: TransactionPool<Transaction: PoolTransaction<Consensus = TransactionSigned>>,
 {
@@ -143,7 +144,8 @@ pub fn default_ethereum_payload<EvmConfig, Client, Pool, F>(
     best_txs: F,
 ) -> Result<BuildOutcome<EthBuiltPayload>, PayloadBuilderError>
 where
-    EvmConfig: ConfigureEvm<Primitives = EthPrimitives, NextBlockEnvCtx = NextBlockEnvAttributes>,
+    EvmConfig:
+        ConfigureEvm<Primitives = SeismicPrimitives, NextBlockEnvCtx = NextBlockEnvAttributes>,
     Client: StateProviderFactory + ChainSpecProvider<ChainSpec = ChainSpec>,
     Pool: TransactionPool<Transaction: PoolTransaction<Consensus = TransactionSigned>>,
     F: FnOnce(BestTransactionsAttributes) -> BestTransactionsIter<Pool>,

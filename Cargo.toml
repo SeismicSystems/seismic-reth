@@ -729,5 +729,5 @@ revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspec
 
 seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "b50a9ae" }
 
-seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "2ac0431" }
-seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "2ac0431" }
+seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "709d04" }
+seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "709d04" }

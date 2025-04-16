@@ -7,13 +7,13 @@
 extern crate alloc;
 
 pub mod transaction;
-use seismic_alloy_consensus::SeismicTxEnvelope;
+pub use transaction::SeismicTransactionSigned;
 
 mod receipt;
 pub use receipt::SeismicReceipt;
 
 /// Seismic-specific block type.
-pub type SeismicBlock = alloy_consensus::Block<SeismicTxEnvelope>;
+pub type SeismicBlock = alloy_consensus::Block<SeismicTransactionSigned>;
 
 /// Seismic-specific block body type.
 pub type SeismicBlockBody = <SeismicBlock as reth_primitives_traits::Block>::Body;
@@ -27,14 +27,12 @@ impl reth_primitives_traits::NodePrimitives for SeismicPrimitives {
     type Block = SeismicBlock;
     type BlockHeader = alloy_consensus::Header;
     type BlockBody = SeismicBlockBody;
-    type SignedTx = SeismicTxEnvelope;
+    type SignedTx = SeismicTransactionSigned;
     type Receipt = SeismicReceipt;
 }
 
 /// Bincode-compatible serde implementations.
 #[cfg(feature = "serde-bincode-compat")]
 pub mod serde_bincode_compat {
-    pub use super::{
-        receipt::serde_bincode_compat::*, transaction::signed::serde_bincode_compat::*,
-    };
+    pub use super::{receipt::serde_bincode_compat::*, transaction::serde_bincode_compat::*};
 }
