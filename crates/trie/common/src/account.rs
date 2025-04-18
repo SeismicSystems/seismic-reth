@@ -8,6 +8,7 @@ mod tests {
     use alloy_consensus::constants::KECCAK_EMPTY;
     use alloy_genesis::GenesisAccount;
     use alloy_primitives::{keccak256, Bytes, B256, U256};
+    use revm_state::FlaggedStorage;
     use std::collections::BTreeMap;
 
     use alloy_trie::EMPTY_ROOT_HASH;
