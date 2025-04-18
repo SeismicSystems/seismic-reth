@@ -38,7 +38,7 @@ Some newer versions of ARM architecture offer support for Large Virtual Address 
 ### Additional Resources
 
 - [ARM developer documentation](https://developer.arm.com/documentation/ddi0406/cb/Appendixes/ARMv4-and-ARMv5-Differences/System-level-memory-model/Virtual-memory-support)
-- [ARM Community Forums](https://community.arm.com)
+- [ARM Community Forums](https://developer.arm.com/community)
 
 ## Build Reth
 
