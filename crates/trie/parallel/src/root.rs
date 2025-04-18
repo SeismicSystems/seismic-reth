@@ -194,7 +194,8 @@ where
                     account_rlp.clear();
                     let account = account.into_trie_account(storage_root);
                     account.encode(&mut account_rlp as &mut dyn BufMut);
-                    hash_builder.add_leaf(Nibbles::unpack(hashed_address), &account_rlp);
+                    let is_private = false; // account leaves are always public. Their storage leaves can be private.
+                    hash_builder.add_leaf(Nibbles::unpack(hashed_address), &account_rlp, is_private);
                 }
             }
         }

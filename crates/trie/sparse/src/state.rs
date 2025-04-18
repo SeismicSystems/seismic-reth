@@ -637,8 +637,9 @@ impl<F: BlindedProviderFactory> SparseStateTrie<F> {
         if !self.revealed_account_paths.contains(&path) {
             self.revealed_account_paths.insert(path.clone());
         }
+        let is_private = false; // account leaves are always public. Their storage leaves can be private.
 
-        self.state.update_leaf(path, value)?;
+        self.state.update_leaf(path, value, is_private)?;
         Ok(())
     }
 
@@ -648,13 +649,14 @@ impl<F: BlindedProviderFactory> SparseStateTrie<F> {
         address: B256,
         slot: Nibbles,
         value: Vec<u8>,
+        is_private: bool,
     ) -> SparseStateTrieResult<()> {
         if !self.revealed_storage_paths.get(&address).is_some_and(|slots| slots.contains(&slot)) {
             self.revealed_storage_paths.entry(address).or_default().insert(slot.clone());
         }
 
         let storage_trie = self.storages.get_mut(&address).ok_or(SparseTrieErrorKind::Blind)?;
-        storage_trie.update_leaf(slot, value)?;
+        storage_trie.update_leaf(slot, value, is_private)?;
         Ok(())
     }
 
@@ -839,16 +841,19 @@ mod tests {
 
     #[test]
     fn reveal_account_path_twice() {
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
         let mut sparse = SparseStateTrie::default();
 
         let leaf_value = alloy_rlp::encode(TrieAccount::default());
         let leaf_1 = alloy_rlp::encode(TrieNode::Leaf(LeafNode::new(
             Nibbles::default(),
             leaf_value.clone(),
+            is_private,
         )));
         let leaf_2 = alloy_rlp::encode(TrieNode::Leaf(LeafNode::new(
             Nibbles::default(),
             leaf_value.clone(),
+            is_private,
         )));
 
         let multiproof = MultiProof {
@@ -910,16 +915,19 @@ mod tests {
 
     #[test]
     fn reveal_storage_path_twice() {
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
         let mut sparse = SparseStateTrie::default();
 
         let leaf_value = alloy_rlp::encode(TrieAccount::default());
         let leaf_1 = alloy_rlp::encode(TrieNode::Leaf(LeafNode::new(
             Nibbles::default(),
             leaf_value.clone(),
+            is_private,
         )));
         let leaf_2 = alloy_rlp::encode(TrieNode::Leaf(LeafNode::new(
             Nibbles::default(),
             leaf_value.clone(),
+            is_private,
         )));
 
         let multiproof = MultiProof {
@@ -1015,8 +1023,9 @@ mod tests {
                 slot_path_1.clone(),
                 slot_path_2.clone(),
             ]));
-        storage_hash_builder.add_leaf(slot_path_1, &alloy_rlp::encode_fixed_size(&value_1));
-        storage_hash_builder.add_leaf(slot_path_2, &alloy_rlp::encode_fixed_size(&value_2));
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        storage_hash_builder.add_leaf(slot_path_1, &alloy_rlp::encode_fixed_size(&value_1), is_private);
+        storage_hash_builder.add_leaf(slot_path_2, &alloy_rlp::encode_fixed_size(&value_2), is_private);
 
         let storage_root = storage_hash_builder.root();
         let storage_proof_nodes = storage_hash_builder.take_proof_nodes();
@@ -1039,8 +1048,9 @@ mod tests {
                 address_path_1.clone(),
                 address_path_2.clone(),
             ]));
-        hash_builder.add_leaf(address_path_1.clone(), &alloy_rlp::encode(trie_account_1));
-        hash_builder.add_leaf(address_path_2.clone(), &alloy_rlp::encode(trie_account_2));
+        let is_private = false; // account leaves are always public. Their storage leaves can be private.
+        hash_builder.add_leaf(address_path_1.clone(), &alloy_rlp::encode(trie_account_1), is_private);
+        hash_builder.add_leaf(address_path_2.clone(), &alloy_rlp::encode(trie_account_2), is_private);
 
         let root = hash_builder.root();
         let proof_nodes = hash_builder.take_proof_nodes();
@@ -1086,7 +1096,8 @@ mod tests {
 
         sparse.update_account_leaf(address_path_3, alloy_rlp::encode(trie_account_3)).unwrap();
 
-        sparse.update_storage_leaf(address_1, slot_path_3, alloy_rlp::encode(value_3)).unwrap();
+        let is_private = false; // legacy test does not use private storage
+        sparse.update_storage_leaf(address_1, slot_path_3, alloy_rlp::encode(value_3), is_private).unwrap();
         trie_account_1.storage_root = sparse.storage_root(address_1).unwrap();
         sparse.update_account_leaf(address_path_1, alloy_rlp::encode(trie_account_1)).unwrap();
 
