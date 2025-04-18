@@ -239,6 +239,6 @@ _Adapted from the [Foundry contributing guide][foundry-contributing]_.
 
 [mcve]: https://stackoverflow.com/help/mcve
 
-[hiding-a-comment]: https://help.github.com/articles/managing-disruptive-comments/#hiding-a-comment
+[hiding-a-comment]: https://docs.github.com/articles/managing-disruptive-comments/#hiding-a-comment
 
 [foundry-contributing]: https://github.com/foundry-rs/foundry/blob/master/CONTRIBUTING.md
