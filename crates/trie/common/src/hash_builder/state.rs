@@ -37,6 +37,7 @@ impl From<HashBuilderState> for HashBuilder {
             key: Nibbles::from_nibbles_unchecked(state.key),
             stack: state.stack,
             value: state.value,
+            is_private: Some(false), // TODO: fix
             groups: state.groups,
             tree_masks: state.tree_masks,
             hash_masks: state.hash_masks,
