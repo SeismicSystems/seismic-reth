@@ -4,7 +4,7 @@ use alloy_rpc_types::engine::PayloadAttributes;
 use alloy_rpc_types_eth::TransactionRequest;
 use alloy_signer_local::PrivateKeySigner;
 use reth_chainspec::SEISMIC_DEV;
-use reth_node_ethereum::EthEvmConfig;
+use reth_node_ethereum::SeismicEvmConfig;
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use secp256k1::{PublicKey, SecretKey};
 use serde_json::Value;

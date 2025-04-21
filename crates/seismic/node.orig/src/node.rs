@@ -12,7 +12,7 @@ use reth_evm::{
     execute::BasicBlockExecutorProvider, ConfigureEvm, EvmFactory, EvmFactoryFor,
     NextBlockEnvAttributes,
 };
-use reth_evm_ethereum::EthEvmConfig;
+use reth_evm_ethereum::SeismicEvmConfig;
 use reth_network::{EthNetworkPrimitives, NetworkHandle, PeersInfo};
 use reth_node_api::{AddOnsContext, FullNodeComponents, NodeAddOns, TxTy};
 use reth_node_builder::{
@@ -306,14 +306,14 @@ where
     Types: NodeTypesWithEngine<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>,
     Node: FullNodeTypes<Types = Types>,
 {
-    type EVM = EthEvmConfig;
-    type Executor = BasicBlockExecutorProvider<EthEvmConfig>;
+    type EVM = SeismicEvmConfig;
+    type Executor = BasicBlockExecutorProvider<SeismicEvmConfig>;
 
     async fn build_evm(
         self,
         ctx: &BuilderContext<Node>,
     ) -> eyre::Result<(Self::EVM, Self::Executor)> {
-        let evm_config = EthEvmConfig::new(ctx.chain_spec())
+        let evm_config = SeismicEvmConfig::new(ctx.chain_spec())
             .with_extra_data(ctx.payload_builder_config().extra_data_bytes());
         let executor = BasicBlockExecutorProvider::new(evm_config.clone());
 

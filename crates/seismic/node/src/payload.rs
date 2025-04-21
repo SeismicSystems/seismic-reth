@@ -7,7 +7,7 @@ use reth_ethereum_engine_primitives::{
 use reth_ethereum_payload_builder::EthereumBuilderConfig;
 use reth_ethereum_primitives::SeismicPrimitives;
 use reth_evm::ConfigureEvm;
-use reth_evm_ethereum::EthEvmConfig;
+use reth_evm_ethereum::SeismicEvmConfig;
 use reth_node_api::{FullNodeTypes, NodeTypesWithEngine, PrimitivesTy, TxTy};
 use reth_node_builder::{
     components::PayloadBuilderBuilder, BuilderContext, PayloadBuilderConfig, PayloadTypes,
@@ -67,13 +67,13 @@ where
     >,
 {
     type PayloadBuilder =
-        reth_ethereum_payload_builder::EthereumPayloadBuilder<Pool, Node::Provider, EthEvmConfig>;
+        reth_ethereum_payload_builder::EthereumPayloadBuilder<Pool, Node::Provider, SeismicEvmConfig>;
 
     async fn build_payload_builder(
         self,
         ctx: &BuilderContext<Node>,
         pool: Pool,
     ) -> eyre::Result<Self::PayloadBuilder> {
-        self.build(EthEvmConfig::new(ctx.chain_spec()), ctx, pool)
+        self.build(SeismicEvmConfig::new(ctx.chain_spec()), ctx, pool)
     }
 }

@@ -1,57 +1,99 @@
-//! Ethereum Node types config.
+//! Optimism Node types config.
 
-pub use crate::{payload::SeismicPayloadBuilder, SeismicEngineValidator};
-use crate::{EthEngineTypes, EthEvmConfig};
-use alloy_eips::merge::EPOCH_SLOTS;
-use reth_chainspec::{ChainSpec, EthChainSpec};
-use reth_consensus::{ConsensusError, FullConsensus};
-use reth_ethereum_consensus::EthBeaconConsensus;
-use reth_ethereum_engine_primitives::{
-    EthBuiltPayload, EthPayloadAttributes, EthPayloadBuilderAttributes,
+use crate::{
+    args::RollupArgs,
+    engine::SeismicEngineValidator,
+    txpool::{EthTransactionValidator, SeismicTransactionPool},
+    SeismicEngineApiBuilder, SeismicEngineTypes,
 };
-use reth_ethereum_primitives::{PooledTransaction, SeismicPrimitives};
-use reth_evm::{
-    execute::BasicBlockExecutorProvider, ConfigureEvm, EvmFactory, EvmFactoryFor,
-    NextBlockEnvAttributes,
+use reth_chainspec::{ChainSpec, EthChainSpec, Hardforks};
+use reth_evm::{execute::BasicBlockExecutorProvider, ConfigureEvm, EvmFactory, EvmFactoryFor};
+use reth_network::{NetworkConfig, NetworkHandle, NetworkManager, NetworkPrimitives, PeersInfo};
+use reth_node_api::{
+    AddOnsContext, FullNodeComponents, KeyHasherTy, NodeAddOns, NodePrimitives, PrimitivesTy, TxTy,
 };
-use reth_network::{EthNetworkPrimitives, NetworkHandle, PeersInfo};
-use reth_node_api::{AddOnsContext, FullNodeComponents, NodeAddOns, TxTy};
 use reth_node_builder::{
     components::{
         BasicPayloadServiceBuilder, ComponentsBuilder, ConsensusBuilder, ExecutorBuilder,
-        NetworkBuilder, PoolBuilder,
+        NetworkBuilder, PayloadBuilderBuilder, PoolBuilder, PoolBuilderConfigOverrides,
     },
     node::{FullNodeTypes, NodeTypes, NodeTypesWithEngine},
     rpc::{
-        EngineValidatorAddOn, EngineValidatorBuilder, EthApiBuilder, EthApiCtx, RethRpcAddOns,
-        RpcAddOns, RpcHandle,
+        EngineValidatorAddOn, EngineValidatorBuilder, EthApiBuilder, RethRpcAddOns, RpcAddOns,
+        RpcHandle,
     },
-    BuilderContext, DebugNode, Node, NodeAdapter, NodeComponentsBuilder, PayloadBuilderConfig,
-    PayloadTypes,
+    BuilderContext, DebugNode, Node, NodeAdapter, NodeComponentsBuilder,
 };
 use reth_provider::{providers::ProviderFactoryBuilder, CanonStateSubscriptions, EthStorage};
-use reth_rpc::{eth::core::EthApiFor, ValidationApi};
-use reth_rpc_api::{eth::FullEthApiServer, servers::BlockSubmissionValidationApiServer};
-use reth_rpc_builder::config::RethRpcServerConfig;
-use reth_rpc_eth_types::{error::FromEvmError, EthApiError};
+use reth_rpc_api::DebugApiServer;
+use reth_rpc_eth_api::ext::L2EthApiExtServer;
+use reth_rpc_eth_types::error::FromEvmError;
 use reth_rpc_server_types::RethRpcModule;
+use reth_seismic_consensus::EthBeaconConsensus;
+use reth_seismic_evm::{SeismicEvmConfig, EthNextBlockEnvAttributes};
+use reth_seismic_hardforks::OpHardforks;
+use reth_seismic_payload_builder::{
+    builder::SeismicPayloadTransactions,
+    config::{SeismicBuilderConfig, SeismicDAConfig},
+};
+use reth_seismic_primitives::{
+    DepositReceipt, SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned,
+};
+use reth_seismic_rpc::{
+    eth::{ext::SeismicEthExtApi, SeismicEthApiBuilder},
+    witness::{DebugExecutionWitnessApiServer, SeismicDebugWitnessApi},
+    OpEthApiError, SeismicEthApi, SequencerClient,
+};
+use reth_seismic_txpool::{
+    conditional::MaybeConditionalTransaction,
+    interop::MaybeInteropTransaction,
+    supervisor::{SupervisorClient, DEFAULT_SUPERVISOR_URL},
+    SeismicPooledTx,
+};
 use reth_tracing::tracing::{debug, info};
 use reth_transaction_pool::{
-    blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},
-    EthTransactionPool, PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
+    blobstore::DiskFileBlobStore, CoinbaseTipOrdering, EthPoolTransaction, PoolTransaction,
+    TransactionPool, TransactionValidationTaskExecutor,
 };
 use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
-use std::{default::Default, sync::Arc, time::SystemTime};
+use seismic_alloy_consensus::interop::SafetyLevel;
+use std::sync::Arc;
 
-/// Type configuration for a regular Ethereum node.
-#[derive(Debug, Default, Clone, Copy)]
+/// Storage implementation for Optimism.
+pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
+
+/// Type configuration for a regular Optimism node.
+#[derive(Debug, Default, Clone)]
 #[non_exhaustive]
-pub struct SeismicNode;
+pub struct SeismicNode {
+    /// Additional Optimism args
+    pub args: RollupArgs,
+    /// Data availability configuration for the OP builder.
+    ///
+    /// Used to throttle the size of the data availability payloads (configured by the batcher via
+    /// the `miner_` api).
+    ///
+    /// By default no throttling is applied.
+    pub da_config: SeismicDAConfig,
+}
 
 impl SeismicNode {
-    /// Returns a [`ComponentsBuilder`] configured for a regular Ethereum node.
-    pub fn components<Node>() -> ComponentsBuilder<
+    /// Creates a new instance of the Optimism node type.
+    pub fn new(args: RollupArgs) -> Self {
+        Self { args, da_config: SeismicDAConfig::default() }
+    }
+
+    /// Configure the data availability configuration for the OP builder.
+    pub fn with_da_config(mut self, da_config: SeismicDAConfig) -> Self {
+        self.da_config = da_config;
+        self
+    }
+
+    /// Returns the components for the given [`RollupArgs`].
+    pub fn components<Node>(
+        &self,
+    ) -> ComponentsBuilder<
         Node,
         SeismicPoolBuilder,
         BasicPayloadServiceBuilder<SeismicPayloadBuilder>,
@@ -60,24 +102,39 @@ impl SeismicNode {
         SeismicConsensusBuilder,
     >
     where
-        Node:
-            FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
-        <Node::Types as NodeTypesWithEngine>::Payload: PayloadTypes<
-            BuiltPayload = EthBuiltPayload,
-            PayloadAttributes = EthPayloadAttributes,
-            PayloadBuilderAttributes = EthPayloadBuilderAttributes,
+        Node: FullNodeTypes<
+            Types: NodeTypesWithEngine<
+                Payload = SeismicEngineTypes,
+                ChainSpec = ChainSpec,
+                Primitives = SeismicPrimitives,
+            >,
         >,
     {
+        let RollupArgs { disable_txpool_gossip, compute_pending_block, discovery_v4, .. } =
+            self.args;
         ComponentsBuilder::default()
             .node_types::<Node>()
-            .pool(SeismicPoolBuilder::default())
-            .payload(BasicPayloadServiceBuilder::default())
-            .network(SeismicNetworkBuilder::default())
+            .pool(
+                SeismicPoolBuilder::default()
+                    .with_enable_tx_conditional(self.args.enable_tx_conditional)
+                    .with_supervisor(
+                        self.args.supervisor_http.clone(),
+                        self.args.supervisor_safety_level,
+                    ),
+            )
+            .payload(BasicPayloadServiceBuilder::new(
+                SeismicPayloadBuilder::new(compute_pending_block)
+                    .with_da_config(self.da_config.clone()),
+            ))
+            .network(SeismicNetworkBuilder {
+                disable_txpool_gossip,
+                disable_discovery_v4: !discovery_v4,
+            })
             .executor(SeismicExecutorBuilder::default())
             .consensus(SeismicConsensusBuilder::default())
     }
 
-    /// Instantiates the [`ProviderFactoryBuilder`] for an ethereum node.
+    /// Instantiates the [`ProviderFactoryBuilder`] for an opstack node.
     ///
     /// # Open a Providerfactory in read-only mode from a datadir
     ///
@@ -85,11 +142,11 @@ impl SeismicNode {
     /// [`ReadOnlyConfig`](reth_provider::providers::ReadOnlyConfig).
     ///
     /// ```no_run
-    /// use reth_chainspec::MAINNET;
-    /// use reth_node_ethereum::EthereumNode;
+    /// use reth_chainspec::BASE_MAINNET;
+    /// use reth_seismic_node::SeismicNode;
     ///
-    /// let factory = EthereumNode::provider_factory_builder()
-    ///     .open_read_only(MAINNET.clone(), "datadir")
+    /// let factory = SeismicNode::provider_factory_builder()
+    ///     .open_read_only(BASE_MAINNET.clone(), "datadir")
     ///     .unwrap();
     /// ```
     ///
@@ -98,13 +155,13 @@ impl SeismicNode {
     /// ```no_run
     /// use reth_chainspec::ChainSpecBuilder;
     /// use reth_db::open_db_read_only;
-    /// use reth_node_ethereum::EthereumNode;
     /// use reth_provider::providers::StaticFileProvider;
+    /// use reth_seismic_node::SeismicNode;
     /// use std::sync::Arc;
     ///
-    /// let factory = EthereumNode::provider_factory_builder()
+    /// let factory = SeismicNode::provider_factory_builder()
     ///     .db(Arc::new(open_db_read_only("db", Default::default()).unwrap()))
-    ///     .chainspec(ChainSpecBuilder::mainnet().build().into())
+    ///     .chainspec(ChainSpecBuilder::base_mainnet().build().into())
     ///     .static_file(StaticFileProvider::read_only("db/static_files", false).unwrap())
     ///     .build_provider_factory();
     /// ```
@@ -113,146 +170,16 @@ impl SeismicNode {
     }
 }
 
-impl NodeTypes for SeismicNode {
-    type Primitives = SeismicPrimitives;
-    type ChainSpec = ChainSpec;
-    type StateCommitment = MerklePatriciaTrie;
-    type Storage = EthStorage;
-}
-
-impl NodeTypesWithEngine for SeismicNode {
-    type Payload = EthEngineTypes;
-}
-
-/// Builds [`EthApi`](reth_rpc::EthApi) for Ethereum.
-#[derive(Debug, Default)]
-pub struct SeismicEthApiBuilder;
-
-impl<N> EthApiBuilder<N> for SeismicEthApiBuilder
-where
-    N: FullNodeComponents,
-    EthApiFor<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
-{
-    type EthApi = EthApiFor<N>;
-
-    fn build_eth_api(self, ctx: EthApiCtx<'_, N>) -> Self::EthApi {
-        reth_rpc::EthApiBuilder::new(
-            ctx.components.provider().clone(),
-            ctx.components.pool().clone(),
-            ctx.components.network().clone(),
-            ctx.components.evm_config().clone(),
-        )
-        .eth_cache(ctx.cache)
-        .task_spawner(ctx.components.task_executor().clone())
-        .gas_cap(ctx.config.rpc_gas_cap.into())
-        .max_simulate_blocks(ctx.config.rpc_max_simulate_blocks)
-        .eth_proof_window(ctx.config.eth_proof_window)
-        .fee_history_cache_config(ctx.config.fee_history_cache)
-        .proof_permits(ctx.config.proof_permits)
-        .build()
-    }
-}
-
-/// Add-ons w.r.t. l1 ethereum.
-#[derive(Debug)]
-pub struct SeismicAddOns<N: FullNodeComponents>
-where
-    EthApiFor<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
-{
-    inner: RpcAddOns<N, SeismicEthApiBuilder, SeismicEngineValidatorBuilder>,
-}
-
-impl<N: FullNodeComponents> Default for SeismicAddOns<N>
-where
-    EthApiFor<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
-{
-    fn default() -> Self {
-        Self { inner: Default::default() }
-    }
-}
-
-impl<N> NodeAddOns<N> for SeismicAddOns<N>
-where
-    N: FullNodeComponents<
-        Types: NodeTypesWithEngine<
-            ChainSpec = ChainSpec,
-            Primitives = SeismicPrimitives,
-            Payload = EthEngineTypes,
-        >,
-        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
-    >,
-    EthApiError: FromEvmError<N::Evm>,
-    EvmFactoryFor<N::Evm>: EvmFactory<Tx = TxEnv>,
-{
-    type Handle = RpcHandle<N, EthApiFor<N>>;
-
-    async fn launch_add_ons(
-        self,
-        ctx: reth_node_api::AddOnsContext<'_, N>,
-    ) -> eyre::Result<Self::Handle> {
-        let validation_api = ValidationApi::new(
-            ctx.node.provider().clone(),
-            Arc::new(ctx.node.consensus().clone()),
-            ctx.node.block_executor().clone(),
-            ctx.config.rpc.flashbots_config(),
-            Box::new(ctx.node.task_executor().clone()),
-            Arc::new(SeismicEngineValidator::new(ctx.config.chain.clone())),
-        );
-
-        self.inner
-            .launch_add_ons_with(ctx, move |modules, _, _| {
-                modules.merge_if_module_configured(
-                    RethRpcModule::Flashbots,
-                    validation_api.into_rpc(),
-                )?;
-
-                Ok(())
-            })
-            .await
-    }
-}
-
-impl<N> RethRpcAddOns<N> for SeismicAddOns<N>
-where
-    N: FullNodeComponents<
-        Types: NodeTypesWithEngine<
-            ChainSpec = ChainSpec,
-            Primitives = SeismicPrimitives,
-            Payload = EthEngineTypes,
-        >,
-        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
-    >,
-    EthApiError: FromEvmError<N::Evm>,
-    EvmFactoryFor<N::Evm>: EvmFactory<Tx = TxEnv>,
-{
-    type EthApi = EthApiFor<N>;
-
-    fn hooks_mut(&mut self) -> &mut reth_node_builder::rpc::RpcHooks<N, Self::EthApi> {
-        self.inner.hooks_mut()
-    }
-}
-
-impl<N> EngineValidatorAddOn<N> for SeismicAddOns<N>
-where
-    N: FullNodeComponents<
-        Types: NodeTypesWithEngine<
-            ChainSpec = ChainSpec,
-            Primitives = SeismicPrimitives,
-            Payload = EthEngineTypes,
-        >,
-    >,
-    EthApiFor<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
-{
-    type Validator = SeismicEngineValidator;
-
-    async fn engine_validator(&self, ctx: &AddOnsContext<'_, N>) -> eyre::Result<Self::Validator> {
-        SeismicEngineValidatorBuilder::default().build(ctx).await
-    }
-}
-
 impl<N> Node<N> for SeismicNode
 where
-    N: FullNodeTypes<Types = Self>,
+    N: FullNodeTypes<
+        Types: NodeTypesWithEngine<
+            Payload = SeismicEngineTypes,
+            ChainSpec = ChainSpec,
+            Primitives = SeismicPrimitives,
+            Storage = SeismicStorage,
+        >,
+    >,
 {
     type ComponentsBuilder = ComponentsBuilder<
         N,
@@ -268,52 +195,271 @@ where
     >;
 
     fn components_builder(&self) -> Self::ComponentsBuilder {
-        Self::components()
+        Self::components(self)
     }
 
     fn add_ons(&self) -> Self::AddOns {
-        SeismicAddOns::default()
+        Self::AddOns::builder()
+            .with_sequencer(self.args.sequencer_http.clone())
+            .with_da_config(self.da_config.clone())
+            .with_enable_tx_conditional(self.args.enable_tx_conditional)
+            .build()
     }
 }
 
-impl<N: FullNodeComponents<Types = Self>> DebugNode<N> for SeismicNode {
-    type RpcBlock = alloy_rpc_types_eth::Block;
+impl<N> DebugNode<N> for SeismicNode
+where
+    N: FullNodeComponents<Types = Self>,
+{
+    type RpcBlock = alloy_rpc_types_eth::Block<seismic_alloy_consensus::SeismicTxEnvelope>;
 
-    fn rpc_to_primitive_block(rpc_block: Self::RpcBlock) -> reth_ethereum_primitives::Block {
-        let alloy_rpc_types_eth::Block { header, transactions, withdrawals, .. } = rpc_block;
-        reth_ethereum_primitives::Block {
+    fn rpc_to_primitive_block(rpc_block: Self::RpcBlock) -> reth_node_api::BlockTy<Self> {
+        let alloy_rpc_types_eth::Block { header, transactions, .. } = rpc_block;
+        reth_seismic_primitives::SeismicBlock {
             header: header.inner,
-            body: reth_ethereum_primitives::BlockBody {
-                transactions: transactions
-                    .into_transactions()
-                    .map(|tx| tx.inner.into_inner().into())
-                    .collect(),
-                ommers: Default::default(),
-                withdrawals,
+            body: reth_seismic_primitives::SeismicBlockBody {
+                transactions: transactions.into_transactions().map(Into::into).collect(),
+                ..Default::default()
             },
         }
     }
 }
 
-/// A regular ethereum evm and executor builder.
+impl NodeTypes for SeismicNode {
+    type Primitives = SeismicPrimitives;
+    type ChainSpec = ChainSpec;
+    type StateCommitment = MerklePatriciaTrie;
+    type Storage = SeismicStorage;
+}
+
+impl NodeTypesWithEngine for SeismicNode {
+    type Payload = SeismicEngineTypes;
+}
+
+/// Add-ons w.r.t. optimism.
+#[derive(Debug)]
+pub struct SeismicAddOns<N>
+where
+    N: FullNodeComponents,
+    SeismicEthApiBuilder: EthApiBuilder<N>,
+{
+    /// Rpc add-ons responsible for launching the RPC servers and instantiating the RPC handlers
+    /// and eth-api.
+    pub rpc_add_ons: RpcAddOns<
+        N,
+        SeismicEthApiBuilder,
+        SeismicEngineValidatorBuilder,
+        SeismicEngineApiBuilder<SeismicEngineValidatorBuilder>,
+    >,
+    /// Data availability configuration for the OP builder.
+    pub da_config: SeismicDAConfig,
+    /// Sequencer client, configured to forward submitted transactions to sequencer of given OP
+    /// network.
+    pub sequencer_client: Option<SequencerClient>,
+    /// Enable transaction conditionals.
+    enable_tx_conditional: bool,
+}
+
+impl<N> Default for SeismicAddOns<N>
+where
+    N: FullNodeComponents<Types: NodeTypes<Primitives = SeismicPrimitives>>,
+    SeismicEthApiBuilder: EthApiBuilder<N>,
+{
+    fn default() -> Self {
+        Self::builder().build()
+    }
+}
+
+impl<N> SeismicAddOns<N>
+where
+    N: FullNodeComponents<Types: NodeTypes<Primitives = SeismicPrimitives>>,
+    SeismicEthApiBuilder: EthApiBuilder<N>,
+{
+    /// Build a [`SeismicAddOns`] using [`SeismicAddOnsBuilder`].
+    pub fn builder() -> SeismicAddOnsBuilder {
+        SeismicAddOnsBuilder::default()
+    }
+}
+
+impl<N> NodeAddOns<N> for SeismicAddOns<N>
+where
+    N: FullNodeComponents<
+        Types: NodeTypesWithEngine<
+            ChainSpec = ChainSpec,
+            Primitives = SeismicPrimitives,
+            Storage = SeismicStorage,
+            Payload = SeismicEngineTypes,
+        >,
+        Evm: ConfigureEvm<NextBlockEnvCtx = EthNextBlockEnvAttributes>,
+    >,
+    OpEthApiError: FromEvmError<N::Evm>,
+    <N::Pool as TransactionPool>::Transaction: SeismicPooledTx,
+    EvmFactoryFor<N::Evm>: EvmFactory<Tx = op_revm::OpTransaction<TxEnv>>,
+{
+    type Handle = RpcHandle<N, SeismicEthApi<N>>;
+
+    async fn launch_add_ons(
+        self,
+        ctx: reth_node_api::AddOnsContext<'_, N>,
+    ) -> eyre::Result<Self::Handle> {
+        let Self { rpc_add_ons, da_config, sequencer_client, enable_tx_conditional } = self;
+
+        let builder = reth_seismic_payload_builder::SeismicPayloadBuilder::new(
+            ctx.node.pool().clone(),
+            ctx.node.provider().clone(),
+            ctx.node.evm_config().clone(),
+        );
+        // install additional OP specific rpc methods
+        let debug_ext = SeismicDebugWitnessApi::new(
+            ctx.node.provider().clone(),
+            Box::new(ctx.node.task_executor().clone()),
+            builder,
+        );
+
+        let tx_conditional_ext: SeismicEthExtApi<N::Pool, N::Provider> = SeismicEthExtApi::new(
+            sequencer_client,
+            ctx.node.pool().clone(),
+            ctx.node.provider().clone(),
+        );
+
+        rpc_add_ons
+            .launch_add_ons_with(ctx, move |modules, auth_modules, registry| {
+                debug!(target: "reth::cli", "Installing debug payload witness rpc endpoint");
+                modules.merge_if_module_configured(RethRpcModule::Debug, debug_ext.into_rpc())?;
+
+                // install the debug namespace in the authenticated if configured
+                if modules.module_config().contains_any(&RethRpcModule::Debug) {
+                    debug!(target: "reth::cli", "Installing debug rpc endpoint");
+                    auth_modules.merge_auth_methods(registry.debug_api().into_rpc())?;
+                }
+
+                if enable_tx_conditional {
+                    // extend the eth namespace if configured in the regular http server
+                    modules.merge_if_module_configured(
+                        RethRpcModule::Eth,
+                        tx_conditional_ext.into_rpc(),
+                    )?;
+                }
+
+                Ok(())
+            })
+            .await
+    }
+}
+
+impl<N> RethRpcAddOns<N> for SeismicAddOns<N>
+where
+    N: FullNodeComponents<
+        Types: NodeTypesWithEngine<
+            ChainSpec = ChainSpec,
+            Primitives = SeismicPrimitives,
+            Storage = SeismicStorage,
+            Payload = SeismicEngineTypes,
+        >,
+        Evm: ConfigureEvm<NextBlockEnvCtx = EthNextBlockEnvAttributes>,
+    >,
+    OpEthApiError: FromEvmError<N::Evm>,
+    <<N as FullNodeComponents>::Pool as TransactionPool>::Transaction: SeismicPooledTx,
+    EvmFactoryFor<N::Evm>: EvmFactory<Tx = op_revm::OpTransaction<TxEnv>>,
+{
+    type EthApi = SeismicEthApi<N>;
+
+    fn hooks_mut(&mut self) -> &mut reth_node_builder::rpc::RpcHooks<N, Self::EthApi> {
+        self.rpc_add_ons.hooks_mut()
+    }
+}
+
+impl<N> EngineValidatorAddOn<N> for SeismicAddOns<N>
+where
+    N: FullNodeComponents<
+        Types: NodeTypesWithEngine<
+            ChainSpec = ChainSpec,
+            Primitives = SeismicPrimitives,
+            Payload = SeismicEngineTypes,
+        >,
+    >,
+    SeismicEthApiBuilder: EthApiBuilder<N>,
+{
+    type Validator = SeismicEngineValidator<N::Provider>;
+
+    async fn engine_validator(&self, ctx: &AddOnsContext<'_, N>) -> eyre::Result<Self::Validator> {
+        SeismicEngineValidatorBuilder::default().build(ctx).await
+    }
+}
+
+/// A regular optimism evm and executor builder.
+#[derive(Debug, Default, Clone)]
+#[non_exhaustive]
+pub struct SeismicAddOnsBuilder {
+    /// Sequencer client, configured to forward submitted transactions to sequencer of given OP
+    /// network.
+    sequencer_client: Option<SequencerClient>,
+    /// Data availability configuration for the OP builder.
+    da_config: Option<SeismicDAConfig>,
+    /// Enable transaction conditionals.
+    enable_tx_conditional: bool,
+}
+
+impl SeismicAddOnsBuilder {
+    /// With a [`SequencerClient`].
+    pub fn with_sequencer(mut self, sequencer_client: Option<String>) -> Self {
+        self.sequencer_client = sequencer_client.map(SequencerClient::new);
+        self
+    }
+
+    /// Configure the data availability configuration for the OP builder.
+    pub fn with_da_config(mut self, da_config: SeismicDAConfig) -> Self {
+        self.da_config = Some(da_config);
+        self
+    }
+
+    /// Configure if transaction conditional should be enabled.
+    pub fn with_enable_tx_conditional(mut self, enable_tx_conditional: bool) -> Self {
+        self.enable_tx_conditional = enable_tx_conditional;
+        self
+    }
+}
+
+impl SeismicAddOnsBuilder {
+    /// Builds an instance of [`SeismicAddOns`].
+    pub fn build<N>(self) -> SeismicAddOns<N>
+    where
+        N: FullNodeComponents<Types: NodeTypes<Primitives = SeismicPrimitives>>,
+        SeismicEthApiBuilder: EthApiBuilder<N>,
+    {
+        let Self { sequencer_client, da_config, enable_tx_conditional } = self;
+
+        let sequencer_client_clone = sequencer_client.clone();
+        SeismicAddOns {
+            rpc_add_ons: RpcAddOns::new(
+                SeismicEthApiBuilder::default().with_sequencer(sequencer_client_clone),
+                Default::default(),
+                Default::default(),
+            ),
+            da_config: da_config.unwrap_or_default(),
+            sequencer_client,
+            enable_tx_conditional,
+        }
+    }
+}
+
+/// A regular optimism evm and executor builder.
 #[derive(Debug, Default, Clone, Copy)]
 #[non_exhaustive]
 pub struct SeismicExecutorBuilder;
 
-impl<Types, Node> ExecutorBuilder<Node> for SeismicExecutorBuilder
+impl<Node> ExecutorBuilder<Node> for SeismicExecutorBuilder
 where
-    Types: NodeTypesWithEngine<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>,
-    Node: FullNodeTypes<Types = Types>,
+    Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
 {
-    type EVM = EthEvmConfig;
-    type Executor = BasicBlockExecutorProvider<EthEvmConfig>;
+    type EVM = SeismicEvmConfig;
+    type Executor = BasicBlockExecutorProvider<Self::EVM>;
 
     async fn build_evm(
         self,
         ctx: &BuilderContext<Node>,
     ) -> eyre::Result<(Self::EVM, Self::Executor)> {
-        let evm_config = EthEvmConfig::new(ctx.chain_spec())
-            .with_extra_data(ctx.payload_builder_config().extra_data_bytes());
+        let evm_config = SeismicEvmConfig::optimism(ctx.chain_spec());
         let executor = BasicBlockExecutorProvider::new(evm_config.clone());
 
         Ok((evm_config, executor))
@@ -413,52 +559,222 @@ where
     }
 }
 
-/// A basic ethereum payload service.
-#[derive(Debug, Default, Clone, Copy)]
+/// A basic optimism payload service builder
+#[derive(Debug, Default, Clone)]
+pub struct SeismicPayloadBuilder<Txs = ()> {
+    /// By default the pending block equals the latest block
+    /// to save resources and not leak txs from the tx-pool,
+    /// this flag enables computing of the pending block
+    /// from the tx-pool instead.
+    ///
+    /// If `compute_pending_block` is not enabled, the payload builder
+    /// will use the payload attributes from the latest block. Note
+    /// that this flag is not yet functional.
+    pub compute_pending_block: bool,
+    /// The type responsible for yielding the best transactions for the payload if mempool
+    /// transactions are allowed.
+    pub best_transactions: Txs,
+    /// This data availability configuration specifies constraints for the payload builder
+    /// when assembling payloads
+    pub da_config: SeismicDAConfig,
+}
+
+impl SeismicPayloadBuilder {
+    /// Create a new instance with the given `compute_pending_block` flag and data availability
+    /// config.
+    pub fn new(compute_pending_block: bool) -> Self {
+        Self { compute_pending_block, best_transactions: (), da_config: SeismicDAConfig::default() }
+    }
+
+    /// Configure the data availability configuration for the OP payload builder.
+    pub fn with_da_config(mut self, da_config: SeismicDAConfig) -> Self {
+        self.da_config = da_config;
+        self
+    }
+}
+
+impl<Txs> SeismicPayloadBuilder<Txs> {
+    /// Configures the type responsible for yielding the transactions that should be included in the
+    /// payload.
+    pub fn with_transactions<T>(self, best_transactions: T) -> SeismicPayloadBuilder<T> {
+        let Self { compute_pending_block, da_config, .. } = self;
+        SeismicPayloadBuilder { compute_pending_block, best_transactions, da_config }
+    }
+
+    /// A helper method to initialize [`reth_seismic_payload_builder::SeismicPayloadBuilder`] with
+    /// the given EVM config.
+    pub fn build<Node, Evm, Pool>(
+        self,
+        evm_config: Evm,
+        ctx: &BuilderContext<Node>,
+        pool: Pool,
+    ) -> eyre::Result<
+        reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider, Evm, Txs>,
+    >
+    where
+        Node: FullNodeTypes<
+            Types: NodeTypesWithEngine<
+                Payload = SeismicEngineTypes,
+                ChainSpec = ChainSpec,
+                Primitives = SeismicPrimitives,
+            >,
+        >,
+        Pool: TransactionPool<Transaction: PoolTransaction<Consensus = TxTy<Node::Types>>>
+            + Unpin
+            + 'static,
+        Evm: ConfigureEvm<Primitives = PrimitivesTy<Node::Types>>,
+        Txs: SeismicPayloadTransactions<Pool::Transaction>,
+    {
+        let payload_builder =
+            reth_seismic_payload_builder::SeismicPayloadBuilder::with_builder_config(
+                pool,
+                ctx.provider().clone(),
+                evm_config,
+                SeismicBuilderConfig { da_config: self.da_config.clone() },
+            )
+            .with_transactions(self.best_transactions.clone())
+            .set_compute_pending_block(self.compute_pending_block);
+        Ok(payload_builder)
+    }
+}
+
+impl<Node, Pool, Txs> PayloadBuilderBuilder<Node, Pool> for SeismicPayloadBuilder<Txs>
+where
+    Node: FullNodeTypes<
+        Types: NodeTypesWithEngine<
+            Payload = SeismicEngineTypes,
+            ChainSpec = ChainSpec,
+            Primitives = SeismicPrimitives,
+        >,
+    >,
+    Pool: TransactionPool<Transaction: PoolTransaction<Consensus = TxTy<Node::Types>>>
+        + Unpin
+        + 'static,
+    Txs: SeismicPayloadTransactions<Pool::Transaction>,
+    <Pool as TransactionPool>::Transaction: SeismicPooledTx,
+{
+    type PayloadBuilder = reth_seismic_payload_builder::SeismicPayloadBuilder<
+        Pool,
+        Node::Provider,
+        SeismicEvmConfig,
+        Txs,
+    >;
+
+    async fn build_payload_builder(
+        self,
+        ctx: &BuilderContext<Node>,
+        pool: Pool,
+    ) -> eyre::Result<Self::PayloadBuilder> {
+        self.build(SeismicEvmConfig::optimism(ctx.chain_spec()), ctx, pool)
+    }
+}
+
+/// A basic optimism network builder.
+#[derive(Debug, Default, Clone)]
 pub struct SeismicNetworkBuilder {
-    // TODO add closure to modify network
+    /// Disable transaction pool gossip
+    pub disable_txpool_gossip: bool,
+    /// Disable discovery v4
+    pub disable_discovery_v4: bool,
+}
+
+impl SeismicNetworkBuilder {
+    /// Returns the [`NetworkConfig`] that contains the settings to launch the p2p network.
+    ///
+    /// This applies the configured [`SeismicNetworkBuilder`] settings.
+    pub fn network_config<Node>(
+        &self,
+        ctx: &BuilderContext<Node>,
+    ) -> eyre::Result<NetworkConfig<<Node as FullNodeTypes>::Provider, SeismicNetworkPrimitives>>
+    where
+        Node: FullNodeTypes<Types: NodeTypes<ChainSpec: Hardforks>>,
+    {
+        let Self { disable_txpool_gossip, disable_discovery_v4 } = self.clone();
+        let args = &ctx.config().network;
+        let network_builder = ctx
+            .network_config_builder()?
+            // apply discovery settings
+            .apply(|mut builder| {
+                let rlpx_socket = (args.addr, args.port).into();
+                if disable_discovery_v4 || args.discovery.disable_discovery {
+                    builder = builder.disable_discv4_discovery();
+                }
+                if !args.discovery.disable_discovery {
+                    builder = builder.discovery_v5(
+                        args.discovery.discovery_v5_builder(
+                            rlpx_socket,
+                            ctx.config()
+                                .network
+                                .resolved_bootnodes()
+                                .or_else(|| ctx.chain_spec().bootnodes())
+                                .unwrap_or_default(),
+                        ),
+                    );
+                }
+
+                builder
+            });
+
+        let mut network_config = ctx.build_network_config(network_builder);
+
+        // When `sequencer_endpoint` is configured, the node will forward all transactions to a
+        // Sequencer node for execution and inclusion on L1, and disable its own txpool
+        // gossip to prevent other parties in the network from learning about them.
+        network_config.tx_gossip_disabled = disable_txpool_gossip;
+
+        Ok(network_config)
+    }
 }
 
 impl<Node, Pool> NetworkBuilder<Node, Pool> for SeismicNetworkBuilder
 where
     Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
     Pool: TransactionPool<
-            Transaction: PoolTransaction<Consensus = TxTy<Node::Types>, Pooled = PooledTransaction>,
+            Transaction: PoolTransaction<
+                Consensus = TxTy<Node::Types>,
+                Pooled = EthPooledTransaction<SeismicTransactionSigned>,
+            >,
         > + Unpin
         + 'static,
 {
-    type Primitives = EthNetworkPrimitives;
+    type Primitives = SeismicNetworkPrimitives;
 
     async fn build_network(
         self,
         ctx: &BuilderContext<Node>,
         pool: Pool,
-    ) -> eyre::Result<NetworkHandle> {
-        let network = ctx.network_builder().await?;
+    ) -> eyre::Result<NetworkHandle<Self::Primitives>> {
+        let network_config = self.network_config(ctx)?;
+        let network = NetworkManager::builder(network_config).await?;
         let handle = ctx.start_network(network, pool);
         info!(target: "reth::cli", enode=%handle.local_node_record(), "P2P networking initialized");
+
         Ok(handle)
     }
 }
 
-/// A basic ethereum consensus builder.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct SeismicConsensusBuilder {
-    // TODO add closure to modify consensus
-}
+/// A basic optimism consensus builder.
+#[derive(Debug, Default, Clone)]
+#[non_exhaustive]
+pub struct SeismicConsensusBuilder;
 
 impl<Node> ConsensusBuilder<Node> for SeismicConsensusBuilder
 where
-    Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
+    Node: FullNodeTypes<
+        Types: NodeTypes<
+            ChainSpec: OpHardforks,
+            Primitives: NodePrimitives<Receipt: DepositReceipt>,
+        >,
+    >,
 {
-    type Consensus = Arc<dyn FullConsensus<SeismicPrimitives, Error = ConsensusError>>;
+    type Consensus = Arc<EthBeaconConsensus<<Node::Types as NodeTypes>::ChainSpec>>;
 
     async fn build_consensus(self, ctx: &BuilderContext<Node>) -> eyre::Result<Self::Consensus> {
         Ok(Arc::new(EthBeaconConsensus::new(ctx.chain_spec())))
     }
 }
 
-/// Builder for [`EthereumEngineValidator`].
+/// Builder for [`SeismicEngineValidator`].
 #[derive(Debug, Default, Clone)]
 #[non_exhaustive]
 pub struct SeismicEngineValidatorBuilder;
@@ -467,14 +783,31 @@ impl<Node, Types> EngineValidatorBuilder<Node> for SeismicEngineValidatorBuilder
 where
     Types: NodeTypesWithEngine<
         ChainSpec = ChainSpec,
-        Payload = EthEngineTypes,
         Primitives = SeismicPrimitives,
+        Payload = SeismicEngineTypes,
     >,
     Node: FullNodeComponents<Types = Types>,
 {
-    type Validator = SeismicEngineValidator;
+    type Validator = SeismicEngineValidator<Node::Provider>;
 
     async fn build(self, ctx: &AddOnsContext<'_, Node>) -> eyre::Result<Self::Validator> {
-        Ok(SeismicEngineValidator::new(ctx.config.chain.clone()))
+        Ok(SeismicEngineValidator::new::<KeyHasherTy<Types>>(
+            ctx.config.chain.clone(),
+            ctx.node.provider().clone(),
+        ))
     }
+}
+
+/// Network primitive types used by Optimism networks.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub struct SeismicNetworkPrimitives;
+
+impl NetworkPrimitives for SeismicNetworkPrimitives {
+    type BlockHeader = alloy_consensus::Header;
+    type BlockBody = alloy_consensus::BlockBody<SeismicTransactionSigned>;
+    type Block = alloy_consensus::Block<SeismicTransactionSigned>;
+    type BroadcastedTransaction = SeismicTransactionSigned;
+    type PooledTransaction = EthPooledTransaction<SeismicTransactionSigned>;
+    type Receipt = SeismicReceipt;
 }

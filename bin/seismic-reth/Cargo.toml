@@ -26,8 +26,9 @@ reth-primitives.workspace = true
 reth.workspace = true
 
 # seismic
-seismic-node.workspace = true
-seismic-rpc.workspace = true
+reth-seismic-node.workspace = true
+reth-seismic-rpc.workspace = true
+
 seismic-alloy-rpc-types.workspace = true
 seismic-alloy-consensus.workspace = true
 

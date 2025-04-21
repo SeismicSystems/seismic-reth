@@ -44,7 +44,7 @@ use secp256k1::PublicKey;
 
 pub mod execute;
 
-mod build;
+pub mod build;
 pub use build::EthBlockAssembler;
 
 mod receipt;

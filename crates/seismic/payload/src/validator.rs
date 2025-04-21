@@ -1,49 +1,29 @@
-//! Validates execution payload wrt Ethereum consensus rules
+//! Validates execution payload wrt Optimism consensus rules
 
+use alloc::sync::Arc;
 use alloy_consensus::Block;
-use alloy_rpc_types_engine::{ExecutionData, PayloadError};
-use reth_chainspec::EthereumHardforks;
+use alloy_rpc_types_engine::PayloadError;
+use derive_more::{Constructor, Deref};
+use alloy_rpc_types_engine::{ExecutionData, OpPayloadError};
+use reth_seismic_hardforks::OpHardforks;
 use reth_payload_validator::{cancun, prague, shanghai};
 use reth_primitives_traits::{Block as _, SealedBlock, SignedTransaction};
-use std::sync::Arc;
 
 /// Execution payload validator.
-#[derive(Clone, Debug)]
-pub struct EthereumExecutionPayloadValidator<ChainSpec> {
+#[derive(Clone, Debug, Deref, Constructor)]
+pub struct OpExecutionPayloadValidator<ChainSpec> {
     /// Chain spec to validate against.
-    chain_spec: Arc<ChainSpec>,
+    #[deref]
+    inner: Arc<ChainSpec>,
 }
 
-impl<ChainSpec> EthereumExecutionPayloadValidator<ChainSpec> {
-    /// Create a new validator.
-    pub const fn new(chain_spec: Arc<ChainSpec>) -> Self {
-        Self { chain_spec }
-    }
-
-    /// Returns the chain spec used by the validator.
-    #[inline]
-    pub const fn chain_spec(&self) -> &Arc<ChainSpec> {
-        &self.chain_spec
-    }
-}
-
-impl<ChainSpec: EthereumHardforks> EthereumExecutionPayloadValidator<ChainSpec> {
-    /// Returns true if the Cancun hardfork is active at the given timestamp.
-    #[inline]
-    fn is_cancun_active_at_timestamp(&self, timestamp: u64) -> bool {
-        self.chain_spec().is_cancun_active_at_timestamp(timestamp)
-    }
-
-    /// Returns true if the Shanghai hardfork is active at the given timestamp.
-    #[inline]
-    fn is_shanghai_active_at_timestamp(&self, timestamp: u64) -> bool {
-        self.chain_spec().is_shanghai_active_at_timestamp(timestamp)
-    }
-
-    /// Returns true if the Prague hardfork is active at the given timestamp.
-    #[inline]
-    fn is_prague_active_at_timestamp(&self, timestamp: u64) -> bool {
-        self.chain_spec().is_prague_active_at_timestamp(timestamp)
+impl<ChainSpec> OpExecutionPayloadValidator<ChainSpec>
+where
+    ChainSpec: OpHardforks,
+{
+    /// Returns reference to chain spec.
+    pub fn chain_spec(&self) -> &ChainSpec {
+        &self.inner
     }
 
     /// Ensures that the given payload does not violate any consensus rules that concern the block's
@@ -52,27 +32,22 @@ impl<ChainSpec: EthereumHardforks> EthereumExecutionPayloadValidator<ChainSpec> 
     ///    - invalid extra data
     ///    - invalid transactions
     ///    - incorrect hash
-    ///    - the versioned hashes passed with the payload do not exactly match transaction versioned
-    ///      hashes
-    ///    - the block does not contain blob transactions if it is pre-cancun
+    ///    - block contains blob transactions or blob versioned hashes
+    ///    - block contains l1 withdrawals
     ///
     /// The checks are done in the order that conforms with the engine-API specification.
     ///
     /// This is intended to be invoked after receiving the payload from the CLI.
-    /// The additional [`MaybeCancunPayloadFields`](alloy_rpc_types_engine::MaybeCancunPayloadFields) are not part of the payload, but are additional fields in the `engine_newPayloadV3` RPC call, See also <https://github.com/ethereum/execution-apis/blob/fe8e13c288c592ec154ce25c534e26cb7ce0530d/src/engine/cancun.md#engine_newpayloadv3>
+    /// The additional fields, starting with [`MaybeCancunPayloadFields`](alloy_rpc_types_engine::MaybeCancunPayloadFields), are not part of the payload, but are additional fields starting in the `engine_newPayloadV3` RPC call, See also <https://specs.optimism.io/protocol/exec-engine.html#engine_newpayloadv3>
     ///
     /// If the cancun fields are provided this also validates that the versioned hashes in the block
-    /// match the versioned hashes passed in the
-    /// [`CancunPayloadFields`](alloy_rpc_types_engine::CancunPayloadFields), if the cancun payload
-    /// fields are provided. If the payload fields are not provided, but versioned hashes exist
-    /// in the block, this is considered an error: [`PayloadError::InvalidVersionedHashes`].
+    /// are empty as well as those passed in the sidecar. If the payload fields are not provided.
     ///
-    /// This validates versioned hashes according to the Engine API Cancun spec:
-    /// <https://github.com/ethereum/execution-apis/blob/fe8e13c288c592ec154ce25c534e26cb7ce0530d/src/engine/cancun.md#specification>
+    /// Validation according to specs <https://specs.optimism.io/protocol/exec-engine.html#engine-api>.
     pub fn ensure_well_formed_payload<T: SignedTransaction>(
         &self,
         payload: ExecutionData,
-    ) -> Result<SealedBlock<Block<T>>, PayloadError> {
+    ) -> Result<SealedBlock<Block<T>>, OpPayloadError> {
         let ExecutionData { payload, sidecar } = payload;
 
         let expected_hash = payload.block_hash();
@@ -85,7 +60,7 @@ impl<ChainSpec: EthereumHardforks> EthereumExecutionPayloadValidator<ChainSpec> 
             return Err(PayloadError::BlockHash {
                 execution: sealed_block.hash(),
                 consensus: expected_hash,
-            })
+            })?
         }
 
         shanghai::ensure_well_formed_fields(
@@ -93,15 +68,15 @@ impl<ChainSpec: EthereumHardforks> EthereumExecutionPayloadValidator<ChainSpec> 
             self.is_shanghai_active_at_timestamp(sealed_block.timestamp),
         )?;
 
-        cancun::ensure_well_formed_fields(
+        cancun::ensure_well_formed_header_and_sidecar_fields(
             &sealed_block,
-            sidecar.cancun(),
+            sidecar.canyon(),
             self.is_cancun_active_at_timestamp(sealed_block.timestamp),
         )?;
 
         prague::ensure_well_formed_fields(
             sealed_block.body(),
-            sidecar.prague(),
+            sidecar.isthmus(),
             self.is_prague_active_at_timestamp(sealed_block.timestamp),
         )?;
 

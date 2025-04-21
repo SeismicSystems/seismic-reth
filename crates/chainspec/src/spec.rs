@@ -227,59 +227,6 @@ pub static DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     .into()
 });
 
-/// Seismic testnet specification
-pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
-    let genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
-        .expect("Can't deserialize Dev testnet genesis json");
-    let hardforks = DEV_HARDFORKS.clone();
-    ChainSpec {
-        chain: Chain::from_id(5124),
-        genesis_header: SealedHeader::new(
-            make_genesis_header(&genesis, &hardforks),
-            DEV_GENESIS_HASH,
-        ),
-        genesis,
-        paris_block_and_final_difficulty: Some((0, U256::from(0))),
-        hardforks: DEV_HARDFORKS.clone(),
-        base_fee_params: BaseFeeParamsKind::Constant(BaseFeeParams::ethereum()),
-        deposit_contract: None, // TODO: do we even have?
-        ..Default::default()
-    }
-    .into()
-});
-
-/// Seismic mainnet specification
-pub static SEISMIC_MAINNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
-    let genesis = serde_json::from_str(include_str!("../res/genesis/mainnet.json"))
-        .expect("Can't deserialize Mainnet genesis json");
-    let hardforks = EthereumHardfork::mainnet().into();
-    let mut spec = ChainSpec {
-        chain: Chain::from_id(5123),
-        genesis_header: SealedHeader::new(
-            make_genesis_header(&genesis, &hardforks),
-            MAINNET_GENESIS_HASH,
-        ),
-        genesis,
-        // <https://etherscan.io/block/15537394>
-        paris_block_and_final_difficulty: Some((
-            15537394,
-            U256::from(58_750_003_716_598_352_816_469u128),
-        )),
-        hardforks: EthereumHardfork::mainnet().into(),
-        // https://etherscan.io/tx/0xe75fb554e433e03763a1560646ee22dcb74e5274b34c5ad644e7c0f619a7e1d0
-        deposit_contract: Some(DepositContract::new(
-            MAINNET_DEPOSIT_CONTRACT_ADDRESS,
-            11052984,
-            b256!("649bbc62d0e31342afea4e5cd82d4049e7e1ee912fc0889aa790803be39038c5"),
-        )),
-        base_fee_params: BaseFeeParamsKind::Constant(BaseFeeParams::ethereum()),
-        prune_delete_limit: 20000,
-        blob_params: HardforkBlobParams::default(),
-    };
-    spec.genesis.config.dao_fork_support = true;
-    spec.into()
-});
-
 /// A wrapper around [`BaseFeeParams`] that allows for specifying constant or dynamic EIP-1559
 /// parameters based on the active [Hardfork].
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -727,11 +674,6 @@ impl ChainSpec {
             chain if chain.is_optimism() => Some(op_nodes()),
             _ => None,
         }
-    }
-
-    /// Returns true if the chain spec is a seismic chain.
-    pub fn is_seismic(&self) -> bool {
-        self.chain == SEISMIC_DEV.chain || self.chain == SEISMIC_MAINNET.chain
     }
 }
 

@@ -1,179 +1,76 @@
-use crate::utils::{advance_with_random_transactions, eth_payload_attributes};
-use alloy_provider::{Provider, ProviderBuilder};
-use rand::{rngs::StdRng, Rng, SeedableRng};
-use reth_chainspec::{ChainSpecBuilder, MAINNET};
-use reth_e2e_test_utils::{setup, setup_engine, transaction::TransactionTestContext};
-use reth_node_ethereum::EthereumNode;
+use futures::StreamExt;
+use reth_seismic_node::utils::{advance_chain, setup};
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test]
 async fn can_sync() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
 
-    let (mut nodes, _tasks, wallet) = setup::<EthereumNode>(
-        2,
-        Arc::new(
-            ChainSpecBuilder::default()
-                .chain(MAINNET.chain)
-                .genesis(serde_json::from_str(include_str!("../assets/genesis.json")).unwrap())
-                .cancun_activated()
-                .build(),
-        ),
-        false,
-        eth_payload_attributes,
-    )
-    .await?;
+    let (mut nodes, _tasks, wallet) = setup(3).await?;
+    let wallet = Arc::new(Mutex::new(wallet));
 
-    let raw_tx = TransactionTestContext::transfer_tx_bytes(1, wallet.inner).await;
+    let third_node = nodes.pop().unwrap();
     let mut second_node = nodes.pop().unwrap();
     let mut first_node = nodes.pop().unwrap();
 
-    // Make the first node advance
-    let tx_hash = first_node.rpc.inject_tx(raw_tx).await?;
+    let tip: usize = 90;
+    let tip_index: usize = tip - 1;
+    let reorg_depth = 2;
 
-    // make the node advance
-    let payload = first_node.advance_block().await?;
+    // On first node, create a chain up to block number 90a
+    let canonical_payload_chain = advance_chain(tip, &mut first_node, wallet.clone()).await?;
+    let canonical_chain =
+        canonical_payload_chain.iter().map(|p| p.block().hash()).collect::<Vec<_>>();
 
-    let block_hash = payload.block().hash();
-    let block_number = payload.block().number;
+    // On second node, sync optimistically up to block number 88a
+    second_node.update_optimistic_forkchoice(canonical_chain[tip_index - reorg_depth - 1]).await?;
+    second_node
+        .wait_block(
+            (tip - reorg_depth - 1) as u64,
+            canonical_chain[tip_index - reorg_depth - 1],
+            true,
+        )
+        .await?;
+    // We send FCU twice to ensure that pool receives canonical chain update on the second FCU
+    // This is required because notifications are not sent during backfill sync
+    second_node.update_optimistic_forkchoice(canonical_chain[tip_index - reorg_depth]).await?;
+    second_node
+        .wait_block((tip - reorg_depth) as u64, canonical_chain[tip_index - reorg_depth], false)
+        .await?;
+    second_node.canonical_stream.next().await.unwrap();
 
-    // assert the block has been committed to the blockchain
-    first_node.assert_new_block(tx_hash, block_hash, block_number).await?;
+    // Trigger backfill sync until block 80
+    third_node
+        .update_forkchoice(canonical_chain[tip_index - 10], canonical_chain[tip_index - 10])
+        .await?;
+    third_node.wait_block((tip - 10) as u64, canonical_chain[tip_index - 10], true).await?;
+    // Trigger live sync to block 90
+    third_node.update_optimistic_forkchoice(canonical_chain[tip_index]).await?;
+    third_node.wait_block(tip as u64, canonical_chain[tip_index], false).await?;
 
-    // only send forkchoice update to second node
-    second_node.update_forkchoice(block_hash, block_hash).await?;
+    //  On second node, create a side chain: 88a -> 89b -> 90b
+    wallet.lock().await.inner_nonce -= reorg_depth as u64;
+    second_node.payload.timestamp = first_node.payload.timestamp - reorg_depth as u64; // TODO: probably want to make it node agnostic
+    let side_payload_chain = advance_chain(reorg_depth, &mut second_node, wallet.clone()).await?;
+    let side_chain = side_payload_chain.iter().map(|p| p.block().hash()).collect::<Vec<_>>();
 
-    // expect second node advanced via p2p gossip
-    second_node.assert_new_block(tx_hash, block_hash, 1).await?;
+    // Creates fork chain by submitting 89b payload.
+    // By returning Valid here, op-node will finally return a finalized hash
+    let _ = third_node.submit_payload(side_payload_chain[0].clone()).await;
 
-    Ok(())
-}
+    // It will issue a pipeline reorg to 88a, and then make 89b canonical AND finalized.
+    third_node.update_forkchoice(side_chain[0], side_chain[0]).await?;
 
-#[tokio::test(flavor = "multi_thread")]
-async fn e2e_test_send_transactions() -> eyre::Result<()> {
-    reth_tracing::init_test_tracing();
-
-    let seed: [u8; 32] = rand::thread_rng().gen();
-    let mut rng = StdRng::from_seed(seed);
-    println!("Seed: {:?}", seed);
-
-    let chain_spec = Arc::new(
-        ChainSpecBuilder::default()
-            .chain(MAINNET.chain)
-            .genesis(serde_json::from_str(include_str!("../assets/genesis.json")).unwrap())
-            .cancun_activated()
-            .prague_activated()
-            .build(),
-    );
-
-    let (mut nodes, _tasks, _) =
-        setup_engine::<EthereumNode>(2, chain_spec.clone(), false, eth_payload_attributes).await?;
-    let mut node = nodes.pop().unwrap();
-    let provider = ProviderBuilder::new().on_http(node.rpc_url());
-
-    advance_with_random_transactions(&mut node, 100, &mut rng, true).await?;
-
-    let second_node = nodes.pop().unwrap();
-    let second_provider = ProviderBuilder::new().on_http(second_node.rpc_url());
-
-    assert_eq!(second_provider.get_block_number().await?, 0);
-
-    let head = provider.get_block_by_number(Default::default()).await?.unwrap().header.hash;
-
-    second_node.sync_to(head).await?;
-
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_long_reorg() -> eyre::Result<()> {
-    reth_tracing::init_test_tracing();
-
-    let seed: [u8; 32] = rand::thread_rng().gen();
-    let mut rng = StdRng::from_seed(seed);
-    println!("Seed: {:?}", seed);
-
-    let chain_spec = Arc::new(
-        ChainSpecBuilder::default()
-            .chain(MAINNET.chain)
-            .genesis(serde_json::from_str(include_str!("../assets/genesis.json")).unwrap())
-            .cancun_activated()
-            .prague_activated()
-            .build(),
-    );
-
-    let (mut nodes, _tasks, _) =
-        setup_engine::<EthereumNode>(2, chain_spec.clone(), false, eth_payload_attributes).await?;
-
-    let mut first_node = nodes.pop().unwrap();
-    let mut second_node = nodes.pop().unwrap();
-
-    let first_provider = ProviderBuilder::new().on_http(first_node.rpc_url());
-
-    // Advance first node 100 blocks.
-    advance_with_random_transactions(&mut first_node, 100, &mut rng, false).await?;
-
-    // Sync second node to 20th block.
-    let head = first_provider.get_block_by_number(20.into()).await?.unwrap();
-    second_node.sync_to(head.header.hash).await?;
-
-    // Produce a fork chain with blocks 21..60
-    second_node.payload.timestamp = head.header.timestamp;
-    advance_with_random_transactions(&mut second_node, 40, &mut rng, true).await?;
-
-    // Reorg first node from 100th block to new 60th block.
-    first_node.sync_to(second_node.block_hash(60)).await?;
-
-    // Advance second node 20 blocks and ensure that first node is able to follow it.
-    advance_with_random_transactions(&mut second_node, 20, &mut rng, true).await?;
-    first_node.sync_to(second_node.block_hash(80)).await?;
-
-    // Ensure that it works the other way around too.
-    advance_with_random_transactions(&mut first_node, 20, &mut rng, true).await?;
-    second_node.sync_to(first_node.block_hash(100)).await?;
-
-    Ok(())
-}
-
-#[tokio::test]
-async fn test_reorg_through_backfill() -> eyre::Result<()> {
-    reth_tracing::init_test_tracing();
-
-    let seed: [u8; 32] = rand::thread_rng().gen();
-    let mut rng = StdRng::from_seed(seed);
-    println!("Seed: {:?}", seed);
-
-    let chain_spec = Arc::new(
-        ChainSpecBuilder::default()
-            .chain(MAINNET.chain)
-            .genesis(serde_json::from_str(include_str!("../assets/genesis.json")).unwrap())
-            .cancun_activated()
-            .prague_activated()
-            .build(),
-    );
-
-    let (mut nodes, _tasks, _) =
-        setup_engine::<EthereumNode>(2, chain_spec.clone(), false, eth_payload_attributes).await?;
-
-    let mut first_node = nodes.pop().unwrap();
-    let mut second_node = nodes.pop().unwrap();
-
-    let first_provider = ProviderBuilder::new().on_http(first_node.rpc_url());
-
-    // Advance first node 100 blocks and finalize the chain.
-    advance_with_random_transactions(&mut first_node, 100, &mut rng, true).await?;
-
-    // Sync second node to 20th block.
-    let head = first_provider.get_block_by_number(20.into()).await?.unwrap();
-    second_node.sync_to(head.header.hash).await?;
-
-    // Produce an unfinalized fork chain with 5 blocks
-    second_node.payload.timestamp = head.header.timestamp;
-    advance_with_random_transactions(&mut second_node, 5, &mut rng, false).await?;
-
-    // Now reorg second node to the finalized canonical head
-    let head = first_provider.get_block_by_number(100.into()).await?.unwrap();
-    second_node.sync_to(head.header.hash).await?;
+    // Make sure we have the updated block
+    third_node.wait_unwind((tip - reorg_depth) as u64).await?;
+    third_node
+        .wait_block(
+            side_payload_chain[0].block().number,
+            side_payload_chain[0].block().hash(),
+            false,
+        )
+        .await?;
 
     Ok(())
 }

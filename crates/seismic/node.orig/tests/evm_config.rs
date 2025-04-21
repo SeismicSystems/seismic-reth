@@ -7,7 +7,7 @@ use enr::EnrKey;
 use reth_chainspec::{ChainSpec, SEISMIC_DEV};
 use reth_enclave::{start_mock_enclave_server_random_port, EnclaveClient, EnclaveError};
 use reth_evm::ConfigureEvmEnv;
-use reth_node_ethereum::EthEvmConfig;
+use reth_node_ethereum::SeismicEvmConfig;
 use reth_primitives::TransactionSigned;
 use reth_revm::primitives::{EVMError, TxEnv};
 use reth_rpc_eth_types::utils::recover_raw_transaction;
@@ -23,7 +23,7 @@ pub struct EvmConfigTest {
     /// The enclave client
     pub enclave_client: EnclaveClient,
     /// The evm config
-    pub evm_config: EthEvmConfig,
+    pub evm_config: SeismicEvmConfig,
     /// The chain spec
     pub chain_spec: Arc<ChainSpec>,
 }
@@ -33,7 +33,7 @@ impl EvmConfigTest {
         let enclave_client = start_mock_enclave_server_random_port().await;
         let chain_spec = SEISMIC_DEV.clone();
         let evm_config =
-            EthEvmConfig::new_with_enclave_client(chain_spec.clone(), enclave_client.clone());
+            SeismicEvmConfig::new_with_enclave_client(chain_spec.clone(), enclave_client.clone());
 
         Self { enclave_client, evm_config, chain_spec }
     }

@@ -228,7 +228,7 @@ where
             // validate header extra data for all networks post merge
             validate_header_extra_data(header)?;
 
-            // mixHash is used instead of difficulty inside EVM
+            // mixHash is used instead of difficulty inde EVM
             // https://eips.ethereum.org/EIPS/eip-4399#using-mixhash-field-instead-of-difficulty
         } else {
             // Note: This does not perform any pre merge checks for difficulty, mix_hash & nonce

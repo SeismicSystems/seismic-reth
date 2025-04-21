@@ -32,7 +32,7 @@ pub use spec::test_fork_ids;
 pub use spec::{
     make_genesis_header, BaseFeeParams, BaseFeeParamsKind, ChainSpec, ChainSpecBuilder,
     ChainSpecProvider, DepositContract, ForkBaseFeeParams, HardforkBlobParams, DEV, HOLESKY, HOODI,
-    MAINNET, SEISMIC_DEV, SEISMIC_MAINNET, SEPOLIA,
+    MAINNET, SEPOLIA,
 };
 
 use reth_primitives_traits::sync::OnceLock;

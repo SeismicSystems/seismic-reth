@@ -1,55 +1,125 @@
-use alloy_eips::eip1559::ETHEREUM_BLOCK_GAS_LIMIT_30M;
-use reth_primitives_traits::constants::GAS_LIMIT_BOUND_DIVISOR;
+//! Additional configuration for the OP builder
 
-/// Settings for the Ethereum builder.
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub struct EthereumBuilderConfig {
-    /// Desired gas limit.
-    pub desired_gas_limit: u64,
-    /// Waits for the first payload to be built if there is no payload built when the payload is
-    /// being resolved.
-    pub await_payload_on_missing: bool,
+use std::sync::{atomic::AtomicU64, Arc};
+
+/// Settings for the OP builder.
+#[derive(Debug, Clone, Default)]
+pub struct SeismicBuilderConfig {
+    /// Data availability configuration for the OP builder.
+    pub da_config: SeismicDAConfig,
 }
 
-impl Default for EthereumBuilderConfig {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl EthereumBuilderConfig {
-    /// Create new payload builder config.
-    pub const fn new() -> Self {
-        Self { desired_gas_limit: ETHEREUM_BLOCK_GAS_LIMIT_30M, await_payload_on_missing: true }
+impl SeismicBuilderConfig {
+    /// Creates a new OP builder configuration with the given data availability configuration.
+    pub const fn new(da_config: SeismicDAConfig) -> Self {
+        Self { da_config }
     }
 
-    /// Set desired gas limit.
-    pub const fn with_gas_limit(mut self, desired_gas_limit: u64) -> Self {
-        self.desired_gas_limit = desired_gas_limit;
-        self
-    }
-
-    /// Configures whether the initial payload should be awaited when the payload job is being
-    /// resolved and no payload has been built yet.
-    pub const fn with_await_payload_on_missing(mut self, await_payload_on_missing: bool) -> Self {
-        self.await_payload_on_missing = await_payload_on_missing;
-        self
+    /// Returns the Data Availability configuration for the OP builder, if it has configured
+    /// constraints.
+    pub fn constrained_da_config(&self) -> Option<&SeismicDAConfig> {
+        if self.da_config.is_empty() {
+            None
+        } else {
+            Some(&self.da_config)
+        }
     }
 }
 
-impl EthereumBuilderConfig {
-    /// Returns the gas limit for the next block based
-    /// on parent and desired gas limits.
-    pub fn gas_limit(&self, parent_gas_limit: u64) -> u64 {
-        calculate_block_gas_limit(parent_gas_limit, self.desired_gas_limit)
+/// Contains the Data Availability configuration for the OP builder.
+///
+/// This type is shareable and can be used to update the DA configuration for the OP payload
+/// builder.
+#[derive(Debug, Clone, Default)]
+pub struct SeismicDAConfig {
+    inner: Arc<OpDAConfigInner>,
+}
+
+impl SeismicDAConfig {
+    /// Creates a new Data Availability configuration with the given maximum sizes.
+    pub fn new(max_da_tx_size: u64, max_da_block_size: u64) -> Self {
+        let this = Self::default();
+        this.set_max_da_size(max_da_tx_size, max_da_block_size);
+        this
+    }
+
+    /// Returns whether the configuration is empty.
+    pub fn is_empty(&self) -> bool {
+        self.max_da_tx_size().is_none() && self.max_da_block_size().is_none()
+    }
+
+    /// Returns the max allowed data availability size per transactions, if any.
+    pub fn max_da_tx_size(&self) -> Option<u64> {
+        let val = self.inner.max_da_tx_size.load(std::sync::atomic::Ordering::Relaxed);
+        if val == 0 {
+            None
+        } else {
+            Some(val)
+        }
+    }
+
+    /// Returns the max allowed data availability size per block, if any.
+    pub fn max_da_block_size(&self) -> Option<u64> {
+        let val = self.inner.max_da_block_size.load(std::sync::atomic::Ordering::Relaxed);
+        if val == 0 {
+            None
+        } else {
+            Some(val)
+        }
+    }
+
+    /// Sets the maximum data availability size currently allowed for inclusion. 0 means no maximum.
+    pub fn set_max_da_size(&self, max_da_tx_size: u64, max_da_block_size: u64) {
+        self.set_max_tx_size(max_da_tx_size);
+        self.set_max_block_size(max_da_block_size);
+    }
+
+    /// Sets the maximum data availability size per transaction currently allowed for inclusion. 0
+    /// means no maximum.
+    pub fn set_max_tx_size(&self, max_da_tx_size: u64) {
+        self.inner.max_da_tx_size.store(max_da_tx_size, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Sets the maximum data availability size per block currently allowed for inclusion. 0 means
+    /// no maximum.
+    pub fn set_max_block_size(&self, max_da_block_size: u64) {
+        self.inner.max_da_block_size.store(max_da_block_size, std::sync::atomic::Ordering::Relaxed);
     }
 }
 
-/// Calculate the gas limit for the next block based on parent and desired gas limits.
-/// Ref: <https://github.com/ethereum/go-ethereum/blob/88cbfab332c96edfbe99d161d9df6a40721bd786/core/block_validator.go#L166>
-pub fn calculate_block_gas_limit(parent_gas_limit: u64, desired_gas_limit: u64) -> u64 {
-    let delta = (parent_gas_limit / GAS_LIMIT_BOUND_DIVISOR).saturating_sub(1);
-    let min_gas_limit = parent_gas_limit - delta;
-    let max_gas_limit = parent_gas_limit + delta;
-    desired_gas_limit.clamp(min_gas_limit, max_gas_limit)
+#[derive(Debug, Default)]
+struct OpDAConfigInner {
+    /// Don't include any transactions with data availability size larger than this in any built
+    /// block
+    ///
+    /// 0 means no limit.
+    max_da_tx_size: AtomicU64,
+    /// Maximum total data availability size for a block
+    ///
+    /// 0 means no limit.
+    max_da_block_size: AtomicU64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_da() {
+        let da = SeismicDAConfig::default();
+        assert_eq!(da.max_da_tx_size(), None);
+        assert_eq!(da.max_da_block_size(), None);
+        da.set_max_da_size(100, 200);
+        assert_eq!(da.max_da_tx_size(), Some(100));
+        assert_eq!(da.max_da_block_size(), Some(200));
+        da.set_max_da_size(0, 0);
+        assert_eq!(da.max_da_tx_size(), None);
+        assert_eq!(da.max_da_block_size(), None);
+    }
+
+    #[test]
+    fn test_da_constrained() {
+        let config = SeismicBuilderConfig::default();
+        assert!(config.constrained_da_config().is_none());
+    }
 }

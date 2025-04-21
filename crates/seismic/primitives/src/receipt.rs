@@ -64,9 +64,9 @@ impl SeismicReceipt {
         match self {
             Self::Legacy(receipt) |
             Self::Eip2930(receipt) |
-            Self::Seismic(receipt) |
             Self::Eip1559(receipt) |
-            Self::Eip7702(receipt) => receipt.rlp_encoded_fields_length_with_bloom(bloom),
+            Self::Eip7702(receipt) |
+            Self::Seismic(receipt) => receipt.rlp_encoded_fields_length_with_bloom(bloom),
         }
     }
 
@@ -76,8 +76,8 @@ impl SeismicReceipt {
             Self::Legacy(receipt) |
             Self::Eip2930(receipt) |
             Self::Eip1559(receipt) |
-            Self::Seismic(receipt) |
-            Self::Eip7702(receipt) => receipt.rlp_encode_fields_with_bloom(bloom, out),
+            Self::Eip7702(receipt) |
+            Self::Seismic(receipt) => receipt.rlp_encode_fields_with_bloom(bloom, out),
         }
     }
 
@@ -282,15 +282,6 @@ mod compact {
             (receipt.into(), buf)
         }
     }
-
-    #[cfg(test)]
-    #[test]
-    fn test_ensure_backwards_compatibility() {
-        use reth_codecs::{test_utils::UnusedBits, validate_bitflag_backwards_compat};
-
-        assert_eq!(CompactSeismicReceipt::bitflag_encoded_bytes(), 2);
-        validate_bitflag_backwards_compat!(CompactSeismicReceipt<'_>, UnusedBits::NotZero);
-    }
 }
 
 #[cfg(all(feature = "serde", feature = "serde-bincode-compat"))]
@@ -302,7 +293,7 @@ pub(super) mod serde_bincode_compat {
     ///
     /// Intended to use with the [`serde_with::serde_as`] macro in the following way:
     /// ```rust
-    /// use reth_optimism_primitives::{serde_bincode_compat, SeismicReceipt};
+    /// use reth_seismic_primitives::{serde_bincode_compat, SeismicReceipt};
     /// use serde::{de::DeserializeOwned, Deserialize, Serialize};
     /// use serde_with::serde_as;
     ///
@@ -418,7 +409,6 @@ pub(super) mod serde_bincode_compat {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_consensus::serde_bincode_compat::Receipt;
     use alloy_eips::eip2718::Encodable2718;
     use alloy_primitives::{address, b256, bytes, hex_literal::hex, Bytes};
     use alloy_rlp::Encodable;
@@ -490,12 +480,16 @@ mod tests {
     fn decode_deposit_receipt_regolith_roundtrip() {
         let data = hex!("b901107ef9010c0182b741b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0833d3bbf");
 
-        // Seismic Receipt (post-regolith)
+        // Deposit Receipt (post-regolith)
         let expected = ReceiptWithBloom {
-            receipt: SeismicReceipt::Seismic(Receipt {
-                status: Eip658Value::Eip658(true),
-                cumulative_gas_used: 46913,
-                logs: vec![],
+            receipt: SeismicReceipt::Deposit(OpDepositReceipt {
+                inner: Receipt {
+                    status: Eip658Value::Eip658(true),
+                    cumulative_gas_used: 46913,
+                    logs: vec![],
+                },
+                deposit_nonce: Some(4012991),
+                deposit_receipt_version: None,
             }),
             logs_bloom: [0; 256].into(),
         };
@@ -512,12 +506,16 @@ mod tests {
     fn decode_deposit_receipt_canyon_roundtrip() {
         let data = hex!("b901117ef9010d0182b741b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0833d3bbf01");
 
-        // Seismic Receipt (post-regolith)
+        // Deposit Receipt (post-regolith)
         let expected = ReceiptWithBloom {
-            receipt: SeismicReceipt::Seismic(Receipt {
-                status: Eip658Value::Eip658(true),
-                cumulative_gas_used: 46913,
-                logs: vec![],
+            receipt: SeismicReceipt::Deposit(OpDepositReceipt {
+                inner: Receipt {
+                    status: Eip658Value::Eip658(true),
+                    cumulative_gas_used: 46913,
+                    logs: vec![],
+                },
+                deposit_nonce: Some(4012991),
+                deposit_receipt_version: Some(1),
             }),
             logs_bloom: [0; 256].into(),
         };

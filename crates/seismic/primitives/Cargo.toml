@@ -1,25 +1,22 @@
-
 [package]
-name = "seismic-primitives"
+name = "reth-seismic-primitives"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 homepage.workspace = true
 repository.workspace = true
-description = "Seismic primitive types"
+description = "OP primitive types"
 
 [lints]
 workspace = true
 
 [dependencies]
-# seismic
-seismic-alloy-consensus.workspace = true
-
 # reth
 reth-primitives-traits = { workspace = true}
-reth-codecs = { workspace = true, optional = true}
+reth-codecs = { workspace = true, optional = true }
 reth-zstd-compressors = { workspace = true, optional = true }
+reth-transaction-pool = { workspace = true}
 
 # ethereum
 alloy-evm.workspace = true
@@ -30,6 +27,8 @@ alloy-eips = { workspace = true, features = ["k256"] }
 revm-context.workspace = true
 secp256k1 = { workspace = true, optional = true }
 
+# op
+seismic-alloy-consensus.workspace = true
 alloy-rpc-types-eth = { workspace = true, optional = true }
 alloy-network = { workspace = true, optional = true }
 alloy-serde = { workspace = true, optional = true }
@@ -53,7 +52,7 @@ arbitrary.workspace = true
 proptest-arbitrary-interop.workspace = true
 proptest.workspace = true
 rand.workspace = true
-reth-codecs = { workspace = true, features = ["test-utils", "op"] }
+reth-codecs = { workspace = true, features = ["test-utils"] }
 rstest.workspace = true
 secp256k1 = { workspace = true, features = ["rand"] }
 serde_json.workspace = true
@@ -69,6 +68,7 @@ std = [
     "alloy-primitives/std",
     "serde?/std",
     "bytes?/std",
+    "derive_more/std",
     "secp256k1?/std",
     "alloy-rlp/std",
     "reth-zstd-compressors?/std",

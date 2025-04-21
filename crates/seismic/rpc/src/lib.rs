@@ -1,8 +1,23 @@
-//! This crate provides the seismic rpc api implementation.
+//! OP-Reth RPC support.
 
-/// Error types for the seismic rpc api
+#![doc(
+    html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
+    html_favicon_url = "https://avatars0.githubusercontent.com/u/97369466?s=256",
+    issue_tracker_base_url = "https://github.com/SeismicSystems/seismic-reth/issues/"
+)]
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
+pub mod engine;
 pub mod error;
-/// The seismic rpc api implementation
-pub mod rpc;
-/// Utils for testing the seismic rpc api
-pub mod utils;
+pub mod eth;
+pub mod miner;
+pub mod sequencer;
+pub mod witness;
+
+#[cfg(feature = "client")]
+pub use engine::OpEngineApiClient;
+pub use engine::{OpEngineApi, OpEngineApiServer, OP_ENGINE_CAPABILITIES};
+pub use error::{OpEthApiError, OpInvalidTransactionError, SequencerClientError};
+pub use eth::{SeismicEthApi, ReceiptBuilder};
+pub use sequencer::SequencerClient;

@@ -33,7 +33,7 @@ pub mod test_utils {
     use reth_consensus::noop::NoopConsensus;
     use reth_ethereum_engine_primitives::{EthEngineTypes, EthereumEngineValidator};
     use reth_evm::execute::BasicBlockExecutorProvider;
-    use reth_evm_ethereum::{execute::EthExecutionStrategyFactory, EthEvmConfig};
+    use reth_evm_ethereum::{execute::EthExecutionStrategyFactory, SeismicEvmConfig};
     use reth_network_api::noop::NoopNetwork;
     use reth_payload_builder::test_utils::spawn_test_payload_service;
     use reth_provider::{
@@ -117,7 +117,7 @@ pub mod test_utils {
         NoopNetwork,
         TokioTaskExecutor,
         TestCanonStateSubscriptions,
-        EthEvmConfig,
+        SeismicEvmConfig,
         BasicBlockExecutorProvider<EthExecutionStrategyFactory>,
         NoopConsensus,
     > {
@@ -127,7 +127,7 @@ pub mod test_utils {
             .with_network(NoopNetwork::default())
             .with_executor(TokioTaskExecutor::default())
             .with_events(TestCanonStateSubscriptions::default())
-            .with_evm_config(EthEvmConfig::new(MAINNET.clone()))
+            .with_evm_config(SeismicEvmConfig::new(MAINNET.clone()))
             .with_block_executor(BasicBlockExecutorProvider::new(
                 EthExecutionStrategyFactory::mainnet(),
             ))
@@ -149,8 +149,8 @@ pub mod test_utils {
             + 'static,
     >(
         provider: P,
-    ) -> EthApi<P, TestPool, NoopNetwork, EthEvmConfig> {
-        let evm_config = EthEvmConfig::new(provider.chain_spec());
+    ) -> EthApi<P, TestPool, NoopNetwork, SeismicEvmConfig> {
+        let evm_config = SeismicEvmConfig::new(provider.chain_spec());
         let cache = EthStateCache::spawn(provider.clone(), Default::default());
         let fee_history_cache = FeeHistoryCache::new(FeeHistoryCacheConfig::default());
 
