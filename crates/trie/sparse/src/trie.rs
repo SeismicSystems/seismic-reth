@@ -1744,12 +1744,12 @@ mod tests {
                 (
                     TrieNode::Extension(ExtensionNode { key: proof_key, .. }),
                     SparseNode::Extension { key: sparse_key, .. },
-                ) |
+                ) => proof_key == sparse_key, 
                 // Both nodes are leaves and have the same key
                 (
-                    TrieNode::Leaf(LeafNode { key: proof_key, .. }),
-                    SparseNode::Leaf { key: sparse_key, .. },
-                ) => proof_key == sparse_key,
+                    TrieNode::Leaf(LeafNode { key: proof_key, is_private: proof_is_private, .. }),
+                    SparseNode::Leaf { key: sparse_key, is_private: sparse_is_private, .. },
+                ) => proof_key == sparse_key && proof_is_private == sparse_is_private,
                 // Empty and hash nodes are specific to the sparse trie, skip them
                 (_, SparseNode::Empty | SparseNode::Hash(_)) => continue,
                 _ => false,
@@ -1960,7 +1960,7 @@ mod tests {
 
     #[test]
     fn sparse_trie_remove_leaf() {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcoded to false all nodes except first
 
         reth_tracing::init_test_tracing();
 
@@ -1972,7 +1972,7 @@ mod tests {
             .update_leaf(
                 Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x1]),
                 value.clone(),
-                is_private,
+                true,
             )
             .unwrap();
         sparse
@@ -2034,7 +2034,7 @@ mod tests {
                 ),
                 (
                     Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x1]),
-                    SparseNode::new_leaf(Nibbles::default(), is_private)
+                    SparseNode::new_leaf(Nibbles::default(), true)
                 ),
                 (
                     Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x3]),
@@ -2089,7 +2089,7 @@ mod tests {
                 ),
                 (
                     Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x1]),
-                    SparseNode::new_leaf(Nibbles::default(), is_private)
+                    SparseNode::new_leaf(Nibbles::default(), true)
                 ),
                 (
                     Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x3]),
@@ -2225,7 +2225,10 @@ mod tests {
 
     #[test]
     fn sparse_trie_remove_leaf_blinded() {
-        let is_private = false; // legacy test does not use private storage
+        // legacy test does not use private storage
+        // not relevant to removing a blinded leaf
+        let is_private = false; 
+
         let leaf = LeafNode::new(
             Nibbles::default(),
             alloy_rlp::encode_fixed_size(&U256::from(1)).to_vec(),
@@ -2271,7 +2274,10 @@ mod tests {
 
     #[test]
     fn sparse_trie_remove_leaf_non_existent() {
-        let is_private = false; // legacy test does not use private storage
+        // legacy test does not use private storage
+        // not relevant to removing a non-existent leaf
+        let is_private = false; 
+
         let leaf = LeafNode::new(
             Nibbles::default(),
             alloy_rlp::encode_fixed_size(&U256::from(1)).to_vec(),
@@ -2750,7 +2756,7 @@ mod tests {
 
     #[test]
     fn sparse_trie_get_changed_nodes_at_depth() {
-        let is_private = false; // legacy test does not use private storage
+        let is_private = false; // hardcoded to false all nodes except first
         let mut sparse = RevealedSparseTrie::default();
 
         let value = alloy_rlp::encode_fixed_size(&U256::ZERO).to_vec();
@@ -2771,7 +2777,7 @@ mod tests {
             .update_leaf(
                 Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x1]),
                 value.clone(),
-                is_private,
+                true,
             )
             .unwrap();
         sparse
@@ -2897,7 +2903,7 @@ mod tests {
 
     #[test]
     fn sparse_trie_wipe() {
-        let is_private = false; // legacy test does not use private storage
+        let is_private = false; // hardcoded to false all nodes except first
         let mut sparse = RevealedSparseTrie::default().with_updates(true);
 
         let value = alloy_rlp::encode_fixed_size(&U256::ZERO).to_vec();
@@ -2918,7 +2924,7 @@ mod tests {
             .update_leaf(
                 Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x1]),
                 value.clone(),
-                is_private,
+                true,
             )
             .unwrap();
         sparse
