@@ -10333,7 +10333,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "20.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=810a39c#810a39c2498f92f055620c703e5b0a6584d669cb"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=34a6b1d4#34a6b1d490b5f1f5d11338c78da605d79849a7e5"
 dependencies = [
  "revm-bytecode",
  "revm-context",
@@ -10351,7 +10351,7 @@ dependencies = [
 [[package]]
 name = "revm-bytecode"
 version = "1.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=810a39c#810a39c2498f92f055620c703e5b0a6584d669cb"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=34a6b1d4#34a6b1d490b5f1f5d11338c78da605d79849a7e5"
 dependencies = [
  "bitvec",
  "phf",
@@ -10362,7 +10362,7 @@ dependencies = [
 [[package]]
 name = "revm-context"
 version = "1.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=810a39c#810a39c2498f92f055620c703e5b0a6584d669cb"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=34a6b1d4#34a6b1d490b5f1f5d11338c78da605d79849a7e5"
 dependencies = [
  "cfg-if",
  "derive-where",
@@ -10377,7 +10377,7 @@ dependencies = [
 [[package]]
 name = "revm-context-interface"
 version = "1.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=810a39c#810a39c2498f92f055620c703e5b0a6584d669cb"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=34a6b1d4#34a6b1d490b5f1f5d11338c78da605d79849a7e5"
 dependencies = [
  "alloy-eip2930",
  "alloy-eip7702",
@@ -10391,7 +10391,7 @@ dependencies = [
 [[package]]
 name = "revm-database"
 version = "1.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=810a39c#810a39c2498f92f055620c703e5b0a6584d669cb"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=34a6b1d4#34a6b1d490b5f1f5d11338c78da605d79849a7e5"
 dependencies = [
  "alloy-eips",
  "auto_impl",
@@ -10405,7 +10405,7 @@ dependencies = [
 [[package]]
 name = "revm-database-interface"
 version = "1.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=810a39c#810a39c2498f92f055620c703e5b0a6584d669cb"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=34a6b1d4#34a6b1d490b5f1f5d11338c78da605d79849a7e5"
 dependencies = [
  "auto_impl",
  "revm-primitives",
@@ -10416,7 +10416,7 @@ dependencies = [
 [[package]]
 name = "revm-handler"
 version = "1.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=810a39c#810a39c2498f92f055620c703e5b0a6584d669cb"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=34a6b1d4#34a6b1d490b5f1f5d11338c78da605d79849a7e5"
 dependencies = [
  "auto_impl",
  "revm-bytecode",
@@ -10433,7 +10433,7 @@ dependencies = [
 [[package]]
 name = "revm-inspector"
 version = "1.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=810a39c#810a39c2498f92f055620c703e5b0a6584d669cb"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=34a6b1d4#34a6b1d490b5f1f5d11338c78da605d79849a7e5"
 dependencies = [
  "auto_impl",
  "revm-context",
@@ -10468,7 +10468,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "16.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=810a39c#810a39c2498f92f055620c703e5b0a6584d669cb"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=34a6b1d4#34a6b1d490b5f1f5d11338c78da605d79849a7e5"
 dependencies = [
  "revm-bytecode",
  "revm-context-interface",
@@ -10479,7 +10479,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "17.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=810a39c#810a39c2498f92f055620c703e5b0a6584d669cb"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=34a6b1d4#34a6b1d490b5f1f5d11338c78da605d79849a7e5"
 dependencies = [
  "aurora-engine-modexp",
  "blst",
@@ -10499,7 +10499,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "16.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=810a39c#810a39c2498f92f055620c703e5b0a6584d669cb"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=34a6b1d4#34a6b1d490b5f1f5d11338c78da605d79849a7e5"
 dependencies = [
  "alloy-primitives",
  "enumn",
@@ -10509,9 +10509,11 @@ dependencies = [
 [[package]]
 name = "revm-state"
 version = "1.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=810a39c#810a39c2498f92f055620c703e5b0a6584d669cb"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=34a6b1d4#34a6b1d490b5f1f5d11338c78da605d79849a7e5"
 dependencies = [
  "bitflags 2.9.0",
+ "proptest",
+ "proptest-derive",
  "revm-bytecode",
  "revm-primitives",
  "serde",

@@ -470,9 +470,10 @@ fn fuzz_hashed_storage_cursor() {
     proptest!(ProptestConfig::with_cases(10),
         |(
             db_storages: BTreeMap<B256, BTreeMap<B256, FlaggedStorage>>,
-            post_state_storages: BTreeMap<B256, (bool, BTreeMap<B256, FlaggedStorage>)>
+            post_state_storages: BTreeMap<B256, (bool, BTreeMap<B256, FlaggedStorage>)>,
         )|
     {
+
         let db = create_test_rw_db();
         db.update(|tx| {
             for (address, storage) in &db_storages {
