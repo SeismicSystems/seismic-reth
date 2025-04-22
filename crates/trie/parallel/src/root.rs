@@ -259,7 +259,7 @@ mod tests {
     use reth_primitives_traits::{Account, StorageEntry};
     use reth_provider::{test_utils::create_test_provider_factory, HashingWriter};
     use reth_trie::{test_utils, HashedPostState, HashedStorage};
-    use revm::state::FlaggedStorage;
+    use revm_state::FlaggedStorage;
 
     #[test]
     fn random_parallel_root() {

@@ -10288,6 +10288,7 @@ dependencies = [
  "reth-trie-db",
  "reth-trie-sparse",
  "revm-primitives",
+ "revm-state",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
