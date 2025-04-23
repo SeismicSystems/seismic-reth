@@ -3030,19 +3030,19 @@ Root -> Extension { key: Nibbles(0x05), hash: None, store_in_db_trie: None }
 
                 let alternate_printed = format!("{sparse:#}");
                 let expected = "\
-        Root -> Extension { key: Nibbles(0x05), hash: None, store_in_db_trie: None }
-            5 -> Branch { state_mask: TrieMask(0000000000001101), hash: None, store_in_db_trie: None }
-                50 -> Extension { key: Nibbles(0x0203), hash: None, store_in_db_trie: None }
-                    5023 -> Branch { state_mask: TrieMask(0000000000001010), hash: None, store_in_db_trie: None }
-                           50231 -> Leaf { key: Nibbles(0x), hash: None, is_private: true }
-                        50233 -> Leaf { key: Nibbles(0x), hash: None, is_private: false }
-                52013 -> Leaf { key: Nibbles(0x000103), hash: None, is_private: false }
-                53 -> Branch { state_mask: TrieMask(0000000000001010), hash: None, store_in_db_trie: None }
-                    53102 -> Leaf { key: Nibbles(0x0002), hash: None, is_private: false }
-                    533 -> Branch { state_mask: TrieMask(0000000000000101), hash: None, store_in_db_trie: None }
-                        53302 -> Leaf { key: Nibbles(0x02), hash: None, is_private: false }
-                        53320 -> Leaf { key: Nibbles(0x00), hash: None, is_private: false }
-        ";
+Root -> Extension { key: Nibbles(0x05), hash: None, store_in_db_trie: None }
+    5 -> Branch { state_mask: TrieMask(0000000000001101), hash: None, store_in_db_trie: None }
+        50 -> Extension { key: Nibbles(0x0203), hash: None, store_in_db_trie: None }
+            5023 -> Branch { state_mask: TrieMask(0000000000001010), hash: None, store_in_db_trie: None }
+                50231 -> Leaf { key: Nibbles(0x), hash: None, is_private: true }
+                50233 -> Leaf { key: Nibbles(0x), hash: None, is_private: false }
+        52013 -> Leaf { key: Nibbles(0x000103), hash: None, is_private: false }
+        53 -> Branch { state_mask: TrieMask(0000000000001010), hash: None, store_in_db_trie: None }
+            53102 -> Leaf { key: Nibbles(0x0002), hash: None, is_private: false }
+            533 -> Branch { state_mask: TrieMask(0000000000000101), hash: None, store_in_db_trie: None }
+                53302 -> Leaf { key: Nibbles(0x02), hash: None, is_private: false }
+                53320 -> Leaf { key: Nibbles(0x00), hash: None, is_private: false }
+";
 
                 assert_eq!(alternate_printed, expected);
     }
