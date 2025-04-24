@@ -11,6 +11,18 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+seismic-enclave.workspace = true
+
+# seismic-reth
+reth-seismic-payload-builder.workspace = true
+reth-seismic-evm.workspace = true
+reth-seismic-rpc.workspace = true
+reth-seismic-txpool.workspace = true
+reth-seismic-chainspec.workspace = true
+reth-seismic-consensus = { workspace = true, features = ["std"] }
+reth-seismic-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
+
+
 # reth
 reth-chainspec.workspace = true
 reth-db = { workspace = true}
@@ -37,15 +49,13 @@ reth-trie-common.workspace = true
 reth-node-core.workspace = true
 reth-rpc-engine-api.workspace = true
 reth-rpc-api.workspace = true
-
-# seismic-reth
-reth-seismic-payload-builder.workspace = true
-reth-seismic-evm.workspace = true
-reth-seismic-rpc.workspace = true
-reth-seismic-txpool.workspace = true
-reth-seismic-chainspec.workspace = true
-reth-seismic-consensus = { workspace = true, features = ["std"] }
-reth-seismic-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
+reth-node-ethereum.workspace = true
+reth-ethereum-engine-primitives.workspace = true
+reth-ethereum-primitives.workspace = true
+reth-payload-primitives.workspace = true
+reth-engine-primitives.workspace = true
+reth-ethereum-payload-builder.workspace = true
+reth-rpc.workspace = true
 
 # revm with required optimism features
 revm = { workspace = true, features = ["secp256k1", "blst", "c-kzg"] }

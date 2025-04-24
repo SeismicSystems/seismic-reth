@@ -11,26 +11,26 @@
 extern crate alloc;
 
 use alloc::{borrow::Cow, sync::Arc};
-use alloy_consensus::{Block, BlockHeader, Header};
+use alloy_consensus::{BlockHeader, Header};
 use alloy_eips::eip1559::INITIAL_BASE_FEE;
-use alloy_evm::{eth::EthBlockExecutionCtx, EvmFactory, FromRecoveredTx};
-use alloy_primitives::U256;
+use alloy_evm::{eth::EthBlockExecutionCtx, EthEvmFactory, EvmFactory, FromRecoveredTx};
+use alloy_primitives::{Bytes, U256};
+use build::SeismicBlockAssembler;
 use core::fmt::Debug;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_ethereum_forks::EthereumHardfork;
 use reth_evm::{
     eth::EthBlockExecutorFactory, ConfigureEvm, EvmEnv, NextBlockEnvAttributes, TransactionEnv,
 };
-use reth_evm_ethereum::{
-    revm_spec_by_timestamp_and_block_number, EthBlockAssembler, SeismicEvmConfig,
-};
+use reth_evm_ethereum::revm_spec_by_timestamp_and_block_number;
 use reth_primitives_traits::{NodePrimitives, SealedBlock, SealedHeader, SignedTransaction};
-use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
+use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicTransactionSigned};
 use revm::{
     context::{BlockEnv, CfgEnv, TxEnv},
     context_interface::block::BlobExcessGasAndPrice,
     primitives::hardfork::SpecId,
 };
+use seismic_revm::SeismicSpecId;
 use std::convert::Infallible;
 
 mod execute;
@@ -38,24 +38,31 @@ pub use execute::*;
 mod receipts;
 pub use receipts::*;
 mod build;
-pub use build::EthBlockAssembler;
 
 /// Ethereum-related EVM configuration.
 #[derive(Debug, Clone)]
-pub struct SeismicEvmConfig<EvmFactory> {
+pub struct SeismicEvmConfig<EvmFactory = EthEvmFactory> {
     /// Inner [`EthBlockExecutorFactory`].
-    pub executor_factory: EthBlockExecutorFactory<RethReceiptBuilder, Arc<ChainSpec>, EvmFactory>,
+    pub executor_factory:
+        EthBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, EvmFactory>,
     /// Ethereum block assembler.
-    pub block_assembler: EthBlockAssembler<ChainSpec>,
+    pub block_assembler: SeismicBlockAssembler<ChainSpec>,
+}
+
+impl SeismicEvmConfig {
+    /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
+    pub fn seismic(chain_spec: Arc<ChainSpec>) -> Self {
+        SeismicEvmConfig::new_with_evm_factory(chain_spec, EthEvmFactory::default())
+    }
 }
 
 impl<EvmFactory> SeismicEvmConfig<EvmFactory> {
     /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
     pub fn new_with_evm_factory(chain_spec: Arc<ChainSpec>, evm_factory: EvmFactory) -> Self {
         Self {
-            block_assembler: EthBlockAssembler::new(chain_spec.clone()),
+            block_assembler: SeismicBlockAssembler::new(chain_spec.clone()),
             executor_factory: EthBlockExecutorFactory::new(
-                RethReceiptBuilder::default(),
+                SeismicRethReceiptBuilder::default(),
                 chain_spec,
                 evm_factory,
             ),
@@ -88,8 +95,8 @@ where
     type Error = Infallible;
     type NextBlockEnvCtx = NextBlockEnvAttributes;
     type BlockExecutorFactory =
-        EthBlockExecutorFactory<SeismicReceiptBuilder, Arc<ChainSpec>, EvmF>;
-    type BlockAssembler = EthBlockAssembler<ChainSpec>;
+        EthBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, EvmF>;
+    type BlockAssembler = SeismicBlockAssembler<ChainSpec>;
 
     fn block_executor_factory(&self) -> &Self::BlockExecutorFactory {
         &self.executor_factory
@@ -99,8 +106,9 @@ where
         &self.block_assembler
     }
 
-    fn evm_env(&self, header: &Header) -> EvmEnv {
-        let spec = SeismicSpecId::MERCURY;
+    fn evm_env(&self, header: &Header) -> EvmEnv<SpecId> {
+        // TODO: use the correct spec id
+        let spec = SpecId::LATEST;
 
         // configure evm env based on parent block
         let cfg_env = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
@@ -109,14 +117,14 @@ where
             number: header.number(),
             beneficiary: header.beneficiary(),
             timestamp: header.timestamp(),
-            difficulty: if spec >= SpecId::MERGE { U256::ZERO } else { header.difficulty() },
-            prevrandao: if spec >= SpecId::MERGE { header.mix_hash() } else { None },
+            difficulty: U256::ZERO,
+            prevrandao: header.mix_hash(),
             gas_limit: header.gas_limit(),
             basefee: header.base_fee_per_gas().unwrap_or_default(),
             // EIP-4844 excess blob gas of this block, introduced in Cancun
-            blob_excess_gas_and_price: header.excess_blob_gas.map(|excess_blob_gas| {
-                BlobExcessGasAndPrice::new(excess_blob_gas, spec >= SpecId::PRAGUE)
-            }),
+            blob_excess_gas_and_price: header
+                .excess_blob_gas
+                .map(|excess_blob_gas| BlobExcessGasAndPrice::new(excess_blob_gas, true)),
         };
 
         EvmEnv { cfg_env, block_env }
@@ -184,7 +192,10 @@ where
         Ok((cfg, block_env).into())
     }
 
-    fn context_for_block<'a>(&self, block: &'a SealedBlock<Block>) -> EthBlockExecutionCtx<'a> {
+    fn context_for_block<'a>(
+        &self,
+        block: &'a SealedBlock<SeismicBlock>,
+    ) -> EthBlockExecutionCtx<'a> {
         EthBlockExecutionCtx {
             parent_hash: block.header().parent_hash,
             parent_beacon_block_root: block.header().parent_beacon_block_root,

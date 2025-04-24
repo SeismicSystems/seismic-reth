@@ -5,7 +5,7 @@ use alloy_rpc_types_eth::TransactionRequest;
 use alloy_signer_local::PrivateKeySigner;
 use reth_chainspec::SEISMIC_DEV;
 use reth_node_ethereum::SeismicEvmConfig;
-use reth_payload_builder::EthPayloadBuilderAttributes;
+use reth_payload_builder::PayloadBuilderAttributes;
 use secp256k1::{PublicKey, SecretKey};
 use serde_json::Value;
 use std::{path::PathBuf, process::Stdio};
@@ -117,7 +117,7 @@ impl SeismicRethTestCommand {
 }
 
 /// Helper function to create a new eth payload attributes
-pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
+pub fn seismic_payload_attributes(timestamp: u64) -> PayloadBuilderAttributes {
     let attributes = PayloadAttributes {
         timestamp,
         prev_randao: B256::ZERO,
@@ -125,7 +125,7 @@ pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes
         withdrawals: Some(vec![]),
         parent_beacon_block_root: Some(B256::ZERO),
     };
-    EthPayloadBuilderAttributes::new(B256::ZERO, attributes)
+    PayloadBuilderAttributes::new(B256::ZERO, attributes)
 }
 
 /// Test utils for seismic node

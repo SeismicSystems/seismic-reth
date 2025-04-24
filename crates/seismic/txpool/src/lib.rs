@@ -8,19 +8,16 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-pub mod conditional;
-mod error;
-pub mod interop;
-pub mod maintain;
-pub mod supervisor;
-pub use error::InvalidCrossTx;
+use reth_seismic_primitives::SeismicTransactionSigned;
+use reth_transaction_pool::{
+    CoinbaseTipOrdering, EthPooledTransaction, EthTransactionValidator, Pool,
+    TransactionValidationTaskExecutor,
+};
+use seismic_alloy_consensus::SeismicTxEnvelope;
 
-use reth_transaction_pool::{CoinbaseTipOrdering, Pool, TransactionValidationTaskExecutor};
-
-/// Type alias for default optimism transaction pool
-pub type SeismicTransactionPool<Client, S, T = EthPooledTransaction<SeismicTransactionSigned>> =
-    Pool<
-        TransactionValidationTaskExecutor<EthTransactionValidator<Client, T>>,
-        CoinbaseTipOrdering<T>,
-        S,
-    >;
+/// Type alias for default seismic transaction pool
+pub type SeismicTransactionPool<Client, S, T = SeismicTxEnvelope> = Pool<
+    TransactionValidationTaskExecutor<EthTransactionValidator<Client, T>>,
+    CoinbaseTipOrdering<T>,
+    S,
+>;

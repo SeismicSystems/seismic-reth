@@ -4,7 +4,7 @@ use reth_db::test_utils::create_test_rw_db;
 use reth_node_api::{FullNodeComponents, NodeTypesWithDBAdapter};
 use reth_node_builder::{Node, NodeBuilder, NodeConfig};
 use reth_chainspec::BASE_MAINNET;
-use reth_seismic_node::{args::RollupArgs, SeismicNode};
+use reth_seismic_node::{args::EnclaveArgs, SeismicNode};
 use reth_provider::providers::BlockchainProvider;
 
 #[test]
@@ -12,7 +12,7 @@ fn test_basic_setup() {
     // parse CLI -> config
     let config = NodeConfig::new(BASE_MAINNET.clone());
     let db = create_test_rw_db();
-    let args = RollupArgs::default();
+    let args = EnclaveArgs::default();
     let op_node = SeismicNode::new(args);
     let _builder = NodeBuilder::new(config)
         .with_database(db)

@@ -12,6 +12,7 @@ description = "Ethereum RPC implementation for optimism."
 workspace = true
 
 [dependencies]
+seismic-alloy-network.workspace = true
 # reth
 reth-evm.workspace = true
 reth-primitives-traits.workspace = true
@@ -29,6 +30,7 @@ reth-network-api.workspace = true
 reth-node-builder.workspace = true
 reth-chainspec.workspace = true
 reth-rpc-engine-api.workspace = true
+reth-node-ethereum.workspace = true
 
 # seismic-reth
 reth-seismic-chainspec.workspace = true

@@ -5,13 +5,13 @@ use reth_ethereum_engine_primitives::{
     EthBuiltPayload, EthPayloadAttributes, EthPayloadBuilderAttributes,
 };
 use reth_ethereum_payload_builder::EthereumBuilderConfig;
-use reth_ethereum_primitives::SeismicPrimitives;
 use reth_evm::ConfigureEvm;
-use reth_evm_ethereum::SeismicEvmConfig;
 use reth_node_api::{FullNodeTypes, NodeTypesWithEngine, PrimitivesTy, TxTy};
 use reth_node_builder::{
     components::PayloadBuilderBuilder, BuilderContext, PayloadBuilderConfig, PayloadTypes,
 };
+use reth_seismic_evm::SeismicEvmConfig;
+use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
 use reth_transaction_pool::{PoolTransaction, TransactionPool};
 
 /// A basic ethereum payload service.
@@ -27,9 +27,7 @@ impl SeismicPayloadBuilder {
         evm_config: Evm,
         ctx: &BuilderContext<Node>,
         pool: Pool,
-    ) -> eyre::Result<
-        reth_ethereum_payload_builder::EthereumPayloadBuilder<Pool, Node::Provider, Evm>,
-    >
+    ) -> eyre::Result<reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider, Evm>>
     where
         Types: NodeTypesWithEngine<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>,
         Node: FullNodeTypes<Types = Types>,
@@ -38,13 +36,13 @@ impl SeismicPayloadBuilder {
             + Unpin
             + 'static,
         Types::Payload: PayloadTypes<
-            BuiltPayload = EthBuiltPayload,
+            BuiltPayload = EthBuiltPayload<SeismicBlock>,
             PayloadAttributes = EthPayloadAttributes,
             PayloadBuilderAttributes = EthPayloadBuilderAttributes,
         >,
     {
         let conf = ctx.payload_builder_config();
-        Ok(reth_ethereum_payload_builder::EthereumPayloadBuilder::new(
+        Ok(reth_seismic_payload_builder::SeismicPayloadBuilder::new(
             ctx.provider().clone(),
             pool,
             evm_config,
@@ -61,13 +59,13 @@ where
         + Unpin
         + 'static,
     Types::Payload: PayloadTypes<
-        BuiltPayload = EthBuiltPayload,
+        BuiltPayload = EthBuiltPayload<SeismicBlock>,
         PayloadAttributes = EthPayloadAttributes,
         PayloadBuilderAttributes = EthPayloadBuilderAttributes,
     >,
 {
     type PayloadBuilder =
-        reth_ethereum_payload_builder::EthereumPayloadBuilder<Pool, Node::Provider, SeismicEvmConfig>;
+        reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider, SeismicEvmConfig>;
 
     async fn build_payload_builder(
         self,

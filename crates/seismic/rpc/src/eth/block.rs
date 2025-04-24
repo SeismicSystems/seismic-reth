@@ -2,29 +2,36 @@
 
 use alloy_consensus::{transaction::TransactionMeta, BlockHeader};
 use alloy_rpc_types_eth::BlockId;
-use seismic_alloy_rpc_types::OpTransactionReceipt;
-use reth_chainspec::ChainSpecProvider;
+use reth_chainspec::{ChainSpec, ChainSpecProvider, EthChainSpec};
 use reth_node_api::BlockBody;
-use reth_chainspec::ChainSpec;
-use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
 use reth_primitives_traits::SignedTransaction;
+use reth_rpc::EthApi;
 use reth_rpc_eth_api::{
     helpers::{EthBlocks, LoadBlock, LoadPendingBlock, LoadReceipt, SpawnBlocking},
     types::RpcTypes,
     RpcReceipt,
 };
+use reth_rpc_eth_types::EthApiError;
+use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
 use reth_storage_api::{BlockReader, HeaderProvider};
+use seismic_alloy_rpc_types::SeismicTransactionReceipt;
 
-use crate::{eth::OpNodeCore, SeismicEthApi, OpEthApiError, ReceiptBuilder};
+use crate::{eth::SeismicNodeCore, SeismicEthApi};
+
+use super::receipt::SeismicReceiptBuilder;
 
 impl<N> EthBlocks for SeismicEthApi<N>
 where
     Self: LoadBlock<
-        Error = OpEthApiError,
-        NetworkTypes: RpcTypes<Receipt = OpTransactionReceipt>,
+        Error = EthApiError,
+        NetworkTypes: RpcTypes<Receipt = SeismicTransactionReceipt>,
         Provider: BlockReader<Receipt = SeismicReceipt, Transaction = SeismicTransactionSigned>,
     >,
-    N: OpNodeCore<Provider: ChainSpecProvider<ChainSpec = ChainSpec> + HeaderProvider>,
+    N: SeismicNodeCore<
+        Provider: BlockReader + ChainSpecProvider<ChainSpec = ChainSpec> + HeaderProvider,
+    >,
+    EthApi<N::Provider, N::Pool, N::Network, N::Evm>: EthBlocks,
+    N::Provider: ChainSpecProvider<ChainSpec = ChainSpec> + HeaderProvider,
 {
     async fn block_receipts(
         &self,
@@ -39,8 +46,7 @@ where
             let block_hash = block.hash();
             let excess_blob_gas = block.excess_blob_gas();
             let timestamp = block.timestamp();
-
-            let mut l1_block_info = reth_seismic_evm::extract_l1_info(block.body())?;
+            let blob_params = self.provider().chain_spec().blob_params_at_timestamp(timestamp);
 
             return block
                 .body()
@@ -48,7 +54,7 @@ where
                 .iter()
                 .zip(receipts.iter())
                 .enumerate()
-                .map(|(idx, (tx, receipt))| -> Result<_, _> {
+                .map(|(idx, (tx, receipt))| {
                     let meta = TransactionMeta {
                         tx_hash: *tx.tx_hash(),
                         index: idx as u64,
@@ -58,21 +64,8 @@ where
                         excess_blob_gas,
                         timestamp,
                     };
-
-                    // We must clear this cache as different L2 transactions can have different
-                    // L1 costs. A potential improvement here is to only clear the cache if the
-                    // new transaction input has changed, since otherwise the L1 cost wouldn't.
-                    l1_block_info.clear_tx_l1_cost();
-
-                    Ok(ReceiptBuilder::new(
-                        &self.inner.eth_api.provider().chain_spec(),
-                        tx,
-                        meta,
-                        receipt,
-                        &receipts,
-                        &mut l1_block_info,
-                    )?
-                    .build())
+                    SeismicReceiptBuilder::new(tx, meta, receipt, &receipts, blob_params)
+                        .map(|builder| builder.build())
                 })
                 .collect::<Result<Vec<_>, Self::Error>>()
                 .map(Some)
@@ -85,6 +78,6 @@ where
 impl<N> LoadBlock for SeismicEthApi<N>
 where
     Self: LoadPendingBlock + SpawnBlocking,
-    N: OpNodeCore,
+    N: SeismicNodeCore,
 {
 }

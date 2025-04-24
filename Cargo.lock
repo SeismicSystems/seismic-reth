@@ -8076,6 +8076,7 @@ dependencies = [
  "reth-ethereum-primitives",
  "reth-payload-primitives",
  "reth-primitives-traits",
+ "reth-seismic-primitives",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -9612,6 +9613,8 @@ dependencies = [
  "reth-rpc-eth-types",
  "reth-rpc-server-types",
  "reth-rpc-types-compat",
+ "reth-seismic-evm",
+ "reth-seismic-primitives",
  "reth-storage-api",
  "reth-tasks",
  "reth-testing-utils",
@@ -9620,6 +9623,7 @@ dependencies = [
  "revm-inspectors",
  "revm-primitives",
  "seismic-alloy-consensus",
+ "seismic-alloy-network",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -10085,17 +10089,24 @@ dependencies = [
  "reth-db",
  "reth-e2e-test-utils",
  "reth-engine-local",
+ "reth-engine-primitives",
+ "reth-ethereum-engine-primitives",
+ "reth-ethereum-payload-builder",
+ "reth-ethereum-primitives",
  "reth-evm",
  "reth-network",
  "reth-node-api",
  "reth-node-builder",
  "reth-node-core",
+ "reth-node-ethereum",
  "reth-payload-builder",
+ "reth-payload-primitives",
  "reth-payload-util",
  "reth-payload-validator",
  "reth-primitives-traits",
  "reth-provider",
  "reth-revm",
+ "reth-rpc",
  "reth-rpc-api",
  "reth-rpc-engine-api",
  "reth-rpc-eth-api",
@@ -10116,6 +10127,7 @@ dependencies = [
  "reth-trie-db",
  "revm",
  "seismic-alloy-consensus",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=b50a9ae)",
  "serde",
  "serde_json",
  "tokio",
@@ -10135,6 +10147,8 @@ dependencies = [
  "reth-basic-payload-builder",
  "reth-chain-state",
  "reth-chainspec",
+ "reth-errors",
+ "reth-ethereum-payload-builder",
  "reth-evm",
  "reth-execution-types",
  "reth-payload-builder",
@@ -10212,6 +10226,7 @@ dependencies = [
  "reth-network-api",
  "reth-node-api",
  "reth-node-builder",
+ "reth-node-ethereum",
  "reth-primitives-traits",
  "reth-rpc",
  "reth-rpc-api",
@@ -10229,6 +10244,7 @@ dependencies = [
  "reth-transaction-pool",
  "revm",
  "seismic-alloy-consensus",
+ "seismic-alloy-network",
  "seismic-alloy-rpc-types",
  "serde_json",
  "thiserror 2.0.12",
@@ -11444,7 +11460,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-consensus"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=f9227aa0#f9227aa09b7adf58ce03dc0cc9486f09bd707e8c"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=92eb088#92eb088b59ddd1426fb117f3fd1a2960ce34529c"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -11467,9 +11483,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "seismic-alloy-network"
+version = "0.0.1"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=92eb088#92eb088b59ddd1426fb117f3fd1a2960ce34529c"
+dependencies = [
+ "alloy-consensus",
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-rpc-types-eth",
+ "alloy-signer",
+ "seismic-alloy-consensus",
+ "seismic-alloy-rpc-types",
+]
+
+[[package]]
 name = "seismic-alloy-rpc-types"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=f9227aa0#f9227aa09b7adf58ce03dc0cc9486f09bd707e8c"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=92eb088#92eb088b59ddd1426fb117f3fd1a2960ce34529c"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",

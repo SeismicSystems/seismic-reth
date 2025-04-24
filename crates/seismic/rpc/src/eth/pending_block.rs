@@ -7,9 +7,9 @@ use alloy_primitives::B256;
 use reth_chainspec::{ChainSpecProvider, EthChainSpec};
 use reth_evm::ConfigureEvm;
 use reth_node_api::NodePrimitives;
-use reth_seismic_evm::EthNextBlockEnvAttributes;
-use reth_seismic_hardforks::OpHardforks;
-use reth_seismic_primitives::{SeismicBlock, SeismicReceipt, SeismicTransactionSigned};
+use reth_optimism_evm::OpNextBlockEnvAttributes;
+use reth_optimism_forks::OpHardforks;
+use reth_seismic_primitives::{OpBlock, SeismicReceipt, SeismicTransactionSigned};
 use reth_primitives_traits::{RecoveredBlock, SealedHeader};
 use reth_rpc_eth_api::{
     helpers::{LoadPendingBlock, SpawnBlocking},
@@ -35,7 +35,7 @@ where
     N: RpcNodeCore<
         Provider: BlockReaderIdExt<
             Transaction = SeismicTransactionSigned,
-            Block = SeismicBlock,
+            Block = OpBlock,
             Receipt = SeismicReceipt,
             Header = alloy_consensus::Header,
         > + ChainSpecProvider<ChainSpec: EthChainSpec + OpHardforks>
@@ -48,7 +48,7 @@ where
                 Receipt = ProviderReceipt<Self::Provider>,
                 Block = ProviderBlock<Self::Provider>,
             >,
-            NextBlockEnvCtx = EthNextBlockEnvAttributes,
+            NextBlockEnvCtx = OpNextBlockEnvAttributes,
         >,
     >,
 {
@@ -65,7 +65,7 @@ where
         &self,
         parent: &SealedHeader<ProviderHeader<Self::Provider>>,
     ) -> Result<<Self::Evm as reth_evm::ConfigureEvm>::NextBlockEnvCtx, Self::Error> {
-        Ok(EthNextBlockEnvAttributes {
+        Ok(OpNextBlockEnvAttributes {
             timestamp: parent.timestamp().saturating_add(12),
             suggested_fee_recipient: parent.beneficiary(),
             prev_randao: B256::random(),

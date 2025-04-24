@@ -1,26 +1,26 @@
 //! Loads and formats OP receipt RPC response.
 
 use alloy_consensus::transaction::TransactionMeta;
-use alloy_eips::eip2718::Encodable2718;
+use alloy_eips::{eip2718::Encodable2718, eip7840::BlobParams};
 use alloy_rpc_types_eth::{Log, TransactionReceipt};
-use reth_chainspec::{ChainSpec, ChainSpecProvider};
+use reth_chainspec::{ChainSpec, ChainSpecProvider, EthChainSpec};
 use reth_node_api::{FullNodeComponents, NodeTypes};
 use reth_rpc_eth_api::{helpers::LoadReceipt, FromEthApiError, RpcReceipt};
 use reth_rpc_eth_types::{receipt::build_receipt, EthApiError};
-use reth_seismic_evm::RethL1BlockInfo;
-use reth_seismic_hardforks::OpHardforks;
 use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
 use reth_storage_api::{ReceiptProvider, TransactionsProvider};
-use seismic_alloy_consensus::{OpDepositReceiptWithBloom, OpReceiptEnvelope};
+use seismic_alloy_consensus::{SeismicReceiptEnvelope, SeismicTxType};
+use seismic_alloy_rpc_types::SeismicTransactionReceipt;
 
-use crate::{OpEthApiError, SeismicEthApi};
+use crate::SeismicEthApi;
 
 impl<N> LoadReceipt for SeismicEthApi<N>
 where
     Self: Send + Sync,
     N: FullNodeComponents<Types: NodeTypes<ChainSpec = ChainSpec>>,
     Self::Provider: TransactionsProvider<Transaction = SeismicTransactionSigned>
-        + ReceiptProvider<Receipt = SeismicReceipt>,
+        + ReceiptProvider<Receipt = SeismicReceipt>
+        + ChainSpecProvider<ChainSpec = ChainSpec>,
 {
     async fn build_transaction_receipt(
         &self,
@@ -28,96 +28,60 @@ where
         meta: TransactionMeta,
         receipt: SeismicReceipt,
     ) -> Result<RpcReceipt<Self::NetworkTypes>, Self::Error> {
-        let (block, receipts) = self
-            .inner
-            .eth_api
+        let hash = meta.block_hash;
+        // get all receipts for the block
+        let all_receipts = self
             .cache()
-            .get_block_and_receipts(meta.block_hash)
+            .get_receipts(hash)
             .await
             .map_err(Self::Error::from_eth_err)?
-            .ok_or(Self::Error::from_eth_err(EthApiError::HeaderNotFound(
-                meta.block_hash.into(),
-            )))?;
+            .ok_or(EthApiError::HeaderNotFound(hash.into()))?;
+        let blob_params = self.provider().chain_spec().blob_params_at_timestamp(meta.timestamp);
 
-        let mut l1_block_info =
-            reth_seismic_evm::extract_l1_info(block.body()).map_err(OpEthApiError::from)?;
-
-        Ok(ReceiptBuilder::new(
-            &self.inner.eth_api.provider().chain_spec(),
-            &tx,
-            meta,
-            &receipt,
-            &receipts,
-            &mut l1_block_info,
-        )?
-        .build())
+        Ok(SeismicReceiptBuilder::new(&tx, meta, &receipt, &all_receipts, blob_params)?.build())
     }
 }
 
-/// Builds an [`OpTransactionReceipt`].
+/// Builds an [`SeismicTransactionReceipt`].
 #[derive(Debug)]
-pub struct ReceiptBuilder {
-    /// Core receipt, has all the fields of an L1 receipt and is the basis for the OP receipt.
-    pub core_receipt: TransactionReceipt<OpReceiptEnvelope<Log>>,
-    /// Additional OP receipt fields.
-    pub op_receipt_fields: OpTransactionReceiptFields,
+pub struct SeismicReceiptBuilder {
+    /// The base response body, contains L1 fields.
+    pub base: SeismicTransactionReceipt,
 }
 
-impl ReceiptBuilder {
+impl SeismicReceiptBuilder {
     /// Returns a new builder.
     pub fn new(
-        chain_spec: &ChainSpec,
         transaction: &SeismicTransactionSigned,
         meta: TransactionMeta,
         receipt: &SeismicReceipt,
         all_receipts: &[SeismicReceipt],
-        l1_block_info: &mut op_revm::L1BlockInfo,
-    ) -> Result<Self, OpEthApiError> {
-        let timestamp = meta.timestamp;
-        let block_number = meta.block_number;
-        let core_receipt =
-            build_receipt(transaction, meta, receipt, all_receipts, None, |receipt_with_bloom| {
-                match receipt {
-                    SeismicReceipt::Legacy(_) => {
-                        OpReceiptEnvelope::<Log>::Legacy(receipt_with_bloom)
-                    }
-                    SeismicReceipt::Eip2930(_) => {
-                        OpReceiptEnvelope::<Log>::Eip2930(receipt_with_bloom)
-                    }
-                    SeismicReceipt::Eip1559(_) => {
-                        OpReceiptEnvelope::<Log>::Eip1559(receipt_with_bloom)
-                    }
-                    SeismicReceipt::Eip7702(_) => {
-                        OpReceiptEnvelope::<Log>::Eip7702(receipt_with_bloom)
-                    }
-                    SeismicReceipt::Deposit(receipt) => {
-                        OpReceiptEnvelope::<Log>::Deposit(OpDepositReceiptWithBloom::<Log> {
-                            receipt: OpDepositReceipt::<Log> {
-                                inner: receipt_with_bloom.receipt,
-                                deposit_nonce: receipt.deposit_nonce,
-                                deposit_receipt_version: receipt.deposit_receipt_version,
-                            },
-                            logs_bloom: receipt_with_bloom.logs_bloom,
-                        })
-                    }
-                }
-            })?;
+        blob_params: Option<BlobParams>,
+    ) -> Result<Self, EthApiError> {
+        let base = build_receipt(
+            transaction,
+            meta,
+            receipt,
+            all_receipts,
+            blob_params,
+            |receipt_with_bloom| match receipt.tx_type() {
+                SeismicTxType::Legacy => SeismicReceiptEnvelope::Legacy(receipt_with_bloom),
+                SeismicTxType::Eip2930 => SeismicReceiptEnvelope::Eip2930(receipt_with_bloom),
+                SeismicTxType::Eip1559 => SeismicReceiptEnvelope::Eip1559(receipt_with_bloom),
+                SeismicTxType::Eip7702 => SeismicReceiptEnvelope::Eip7702(receipt_with_bloom),
+                SeismicTxType::Seismic => SeismicReceiptEnvelope::Seismic(receipt_with_bloom),
+                #[allow(unreachable_patterns)]
+                _ => unreachable!(),
+            },
+        )?;
 
-        let op_receipt_fields = OpReceiptFieldsBuilder::new(timestamp, block_number)
-            .l1_block_info(chain_spec, transaction, l1_block_info)?
-            .build();
-
-        Ok(Self { core_receipt, op_receipt_fields })
+        Ok(Self { base })
     }
 
-    /// Builds [`OpTransactionReceipt`] by combing core (l1) receipt fields and additional OP
+    /// Builds [`SeismicTransactionReceipt`] by combing core (l1) receipt fields and additional OP
     /// receipt fields.
-    pub fn build(self) -> OpTransactionReceipt {
-        let Self { core_receipt: inner, op_receipt_fields } = self;
-
-        let OpTransactionReceiptFields { l1_block_info, .. } = op_receipt_fields;
-
-        OpTransactionReceipt { inner, l1_block_info }
+    pub fn build(self) -> SeismicTransactionReceipt {
+        self.base
     }
 }
 
@@ -126,8 +90,8 @@ mod test {
     use super::*;
     use alloy_consensus::{Block, BlockBody};
     use alloy_primitives::{hex, U256};
-    use reth_chainspec::{BASE_MAINNET, SEISMIC_MAINNET};
-    use seismic_alloy_network::eip2718::Decodable2718;
+    use op_alloy_network::eip2718::Decodable2718;
+    use reth_optimism_chainspec::{BASE_MAINNET, OP_MAINNET};
 
     /// OP Mainnet transaction at index 0 in block 124665056.
     ///
@@ -182,13 +146,13 @@ mod test {
         };
 
         let mut l1_block_info =
-            reth_seismic_evm::extract_l1_info(&block.body).expect("should extract l1 info");
+            reth_optimism_evm::extract_l1_info(&block.body).expect("should extract l1 info");
 
         // test
-        assert!(SEISMIC_MAINNET.is_fjord_active_at_timestamp(BLOCK_124665056_TIMESTAMP));
+        assert!(OP_MAINNET.is_fjord_active_at_timestamp(BLOCK_124665056_TIMESTAMP));
 
         let receipt_meta = OpReceiptFieldsBuilder::new(BLOCK_124665056_TIMESTAMP, 124665056)
-            .l1_block_info(&SEISMIC_MAINNET, &tx_1, &mut l1_block_info)
+            .l1_block_info(&OP_MAINNET, &tx_1, &mut l1_block_info)
             .expect("should parse revm l1 info")
             .build();
 
@@ -259,7 +223,7 @@ mod test {
         l1_block_info.operator_fee_constant = Some(U256::from(2));
 
         let receipt_meta = OpReceiptFieldsBuilder::new(BLOCK_124665056_TIMESTAMP, 124665056)
-            .l1_block_info(&SEISMIC_MAINNET, &tx_1, &mut l1_block_info)
+            .l1_block_info(&OP_MAINNET, &tx_1, &mut l1_block_info)
             .expect("should parse revm l1 info")
             .build();
 
@@ -282,7 +246,7 @@ mod test {
         l1_block_info.operator_fee_constant = Some(U256::ZERO);
 
         let receipt_meta = OpReceiptFieldsBuilder::new(BLOCK_124665056_TIMESTAMP, 124665056)
-            .l1_block_info(&SEISMIC_MAINNET, &tx_1, &mut l1_block_info)
+            .l1_block_info(&OP_MAINNET, &tx_1, &mut l1_block_info)
             .expect("should parse revm l1 info")
             .build();
 
@@ -305,7 +269,7 @@ mod test {
             ..Default::default()
         };
         let mut l1_block_info =
-            reth_seismic_evm::extract_l1_info(&block.body).expect("should extract l1 info");
+            reth_optimism_evm::extract_l1_info(&block.body).expect("should extract l1 info");
 
         // https://basescan.org/tx/0xf9420cbaf66a2dda75a015488d37262cbfd4abd0aad7bb2be8a63e14b1fa7a94
         let tx = hex!("02f86c8221058034839a4ae283021528942f16386bb37709016023232523ff6d9daf444be380841249c58bc080a001b927eda2af9b00b52a57be0885e0303c39dd2831732e14051c2336470fd468a0681bf120baf562915841a48601c2b54a6742511e535cf8f71c95115af7ff63bd");

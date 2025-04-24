@@ -20,7 +20,7 @@ use std::sync::Arc;
 /// Therefore, the empty-block here is always available and full-block will be set/updated
 /// afterward.
 #[derive(Debug, Clone)]
-pub struct SeismicBuiltPayload {
+pub struct EthBuiltPayload<SeismicBlock><SeismicBlock> {
     /// Identifier of the payload
     pub(crate) id: PayloadId,
     /// The built block
@@ -36,7 +36,7 @@ pub struct SeismicBuiltPayload {
 
 // === impl BuiltPayload ===
 
-impl SeismicBuiltPayload {
+impl EthBuiltPayload<SeismicBlock><SeismicBlock> {
     /// Initializes the payload with the given initial block
     ///
     /// Caution: This does not set any [`BlobTransactionSidecar`].
@@ -84,7 +84,7 @@ impl SeismicBuiltPayload {
     }
 }
 
-impl BuiltPayload for SeismicBuiltPayload {
+impl BuiltPayload for EthBuiltPayload<SeismicBlock><SeismicBlock> {
     type Primitives = SeismicPrimitives;
 
     fn block(&self) -> &SealedBlock<SeismicBlock> {
@@ -101,8 +101,8 @@ impl BuiltPayload for SeismicBuiltPayload {
 }
 
 // V1 engine_getPayloadV1 response
-impl From<SeismicBuiltPayload> for ExecutionPayloadV1 {
-    fn from(value: SeismicBuiltPayload) -> Self {
+impl From<EthBuiltPayload<SeismicBlock><SeismicBlock>> for ExecutionPayloadV1 {
+    fn from(value: EthBuiltPayload<SeismicBlock><SeismicBlock>) -> Self {
         Self::from_block_unchecked(
             value.block().hash(),
             &Arc::unwrap_or_clone(value.block).into_block(),
@@ -111,9 +111,9 @@ impl From<SeismicBuiltPayload> for ExecutionPayloadV1 {
 }
 
 // V2 engine_getPayloadV2 response
-impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV2 {
-    fn from(value: SeismicBuiltPayload) -> Self {
-        let SeismicBuiltPayload { block, fees, .. } = value;
+impl From<EthBuiltPayload<SeismicBlock><SeismicBlock>> for ExecutionPayloadEnvelopeV2 {
+    fn from(value: EthBuiltPayload<SeismicBlock><SeismicBlock>) -> Self {
+        let EthBuiltPayload<SeismicBlock><SeismicBlock> { block, fees, .. } = value;
 
         Self {
             block_value: fees,
@@ -125,9 +125,9 @@ impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV2 {
     }
 }
 
-impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV3 {
-    fn from(value: SeismicBuiltPayload) -> Self {
-        let SeismicBuiltPayload { block, fees, sidecars, .. } = value;
+impl From<EthBuiltPayload<SeismicBlock><SeismicBlock>> for ExecutionPayloadEnvelopeV3 {
+    fn from(value: EthBuiltPayload<SeismicBlock><SeismicBlock>) -> Self {
+        let EthBuiltPayload<SeismicBlock><SeismicBlock> { block, fees, sidecars, .. } = value;
 
         Self {
             execution_payload: ExecutionPayloadV3::from_block_unchecked(
@@ -149,8 +149,8 @@ impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV3 {
     }
 }
 
-impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV4 {
-    fn from(value: SeismicBuiltPayload) -> Self {
+impl From<EthBuiltPayload<SeismicBlock><SeismicBlock>> for ExecutionPayloadEnvelopeV4 {
+    fn from(value: EthBuiltPayload<SeismicBlock><SeismicBlock>) -> Self {
         Self {
             execution_requests: value.requests.clone().unwrap_or_default(),
             envelope_inner: value.into(),

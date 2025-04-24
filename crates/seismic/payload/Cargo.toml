@@ -27,11 +27,13 @@ reth-payload-primitives = { workspace = true}
 reth-basic-payload-builder.workspace = true
 reth-chain-state.workspace = true
 reth-payload-validator.workspace = true
+reth-ethereum-payload-builder.workspace = true
 
 # seismic-reth
 reth-seismic-evm.workspace = true
 reth-seismic-primitives.workspace = true
 reth-seismic-txpool.workspace = true
+reth-errors.workspace = true
 
 # ethereum
 revm.workspace = true

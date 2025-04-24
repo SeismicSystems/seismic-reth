@@ -9,6 +9,7 @@ use alloy_eips::BlockNumberOrTag;
 use alloy_network::Ethereum;
 use alloy_primitives::{Bytes, U256};
 use derive_more::Deref;
+use reth_evm::ConfigureEvm;
 use reth_node_api::{FullNodeComponents, FullNodeTypes};
 use reth_rpc_eth_api::{
     helpers::{EthSigner, SpawnBlocking},
@@ -18,6 +19,7 @@ use reth_rpc_eth_api::{
 use reth_rpc_eth_types::{
     EthApiError, EthStateCache, FeeHistoryCache, GasCap, GasPriceOracle, PendingBlock,
 };
+use reth_seismic_primitives::SeismicPrimitives;
 use reth_storage_api::{
     BlockReader, BlockReaderIdExt, NodePrimitivesProvider, ProviderBlock, ProviderReceipt,
 };

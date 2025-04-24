@@ -1,22 +1,25 @@
 //! OP-Reth `eth_` endpoint implementation.
 
-pub mod ext;
+// pub mod ext;
 pub mod receipt;
 pub mod transaction;
 
 mod block;
-mod call;
-mod pending_block;
+// mod call;
+// mod pending_block;
 
 use alloy_primitives::U256;
-pub use receipt::ReceiptBuilder;
 use reth_chain_state::CanonStateSubscriptions;
-use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks};
-use reth_evm::ConfigureEvm;
+use reth_chainspec::{ChainSpec, ChainSpecProvider, EthChainSpec, EthereumHardforks};
+use reth_evm::{ConfigureEvm, NextBlockEnvAttributes};
 use reth_network_api::NetworkInfo;
-use reth_node_api::{FullNodeComponents, NodePrimitives};
+use reth_node_api::{FullNodeComponents, NodePrimitives, NodeTypesWithEngine};
 use reth_node_builder::rpc::{EthApiBuilder, EthApiCtx};
-use reth_rpc::eth::{core::EthApiInner, DevSigner};
+use reth_node_ethereum::EthereumEthApiBuilder;
+use reth_rpc::{
+    eth::{core::EthApiInner, DevSigner},
+    EthApi,
+};
 use reth_rpc_eth_api::{
     helpers::{
         AddDevSigners, EthApiSpec, EthFees, EthSigner, EthState, LoadBlock, LoadFee, LoadState,
@@ -24,8 +27,10 @@ use reth_rpc_eth_api::{
     },
     EthApiTypes, FromEvmError, FullEthApiServer, RpcNodeCore, RpcNodeCoreExt,
 };
-use reth_rpc_eth_types::{EthStateCache, FeeHistoryCache, GasPriceOracle};
+use reth_rpc_eth_types::{EthApiError, EthStateCache, FeeHistoryCache, GasPriceOracle};
+use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_primitives::SeismicPrimitives;
+use reth_seismic_txpool::SeismicTransactionPool;
 use reth_storage_api::{
     BlockNumReader, BlockReader, BlockReaderIdExt, ProviderBlock, ProviderHeader, ProviderReceipt,
     ProviderTx, StageCheckpointReader, StateProviderFactory,
@@ -35,72 +40,24 @@ use reth_tasks::{
     TaskSpawner,
 };
 use reth_transaction_pool::TransactionPool;
-use seismic_alloy_network::Optimism;
-use std::{fmt, sync::Arc};
-
-use crate::{OpEthApiError, SequencerClient};
-
-/// Adapter for [`EthApiInner`], which holds all the data required to serve core `eth_` API.
-pub type EthApiNodeBackend<N> = EthApiInner<
-    <N as RpcNodeCore>::Provider,
-    <N as RpcNodeCore>::Pool,
-    <N as RpcNodeCore>::Network,
-    <N as RpcNodeCore>::Evm,
->;
+use seismic_alloy_network::Seismic;
+use std::{fmt, ops::Deref, sync::Arc};
 
 /// A helper trait with requirements for [`RpcNodeCore`] to be used in [`SeismicEthApi`].
-pub trait OpNodeCore: RpcNodeCore<Provider: BlockReader> {}
-impl<T> OpNodeCore for T where T: RpcNodeCore<Provider: BlockReader> {}
+pub trait SeismicNodeCore: RpcNodeCore<Provider: BlockReader> {}
+impl<T> SeismicNodeCore for T where T: RpcNodeCore<Provider: BlockReader> {}
 
-/// OP-Reth `Eth` API implementation.
-///
-/// This type provides the functionality for handling `eth_` related requests.
-///
-/// This wraps a default `Eth` implementation, and provides additional functionality where the
-/// optimism spec deviates from the default (ethereum) spec, e.g. transaction forwarding to the
-/// sequencer, receipts, additional RPC fields for transaction receipts.
-///
-/// This type implements the [`FullEthApi`](reth_rpc_eth_api::helpers::FullEthApi) by implemented
-/// all the `Eth` helper traits and prerequisite traits.
+/// seismic-reth `Eth` API implementation.
 #[derive(Clone)]
-pub struct SeismicEthApi<N: OpNodeCore> {
-    /// Gateway to node's core components.
-    inner: Arc<OpEthApiInner<N>>,
-}
-
-impl<N> SeismicEthApi<N>
-where
-    N: OpNodeCore<
-        Provider: BlockReaderIdExt
-                      + ChainSpecProvider
-                      + CanonStateSubscriptions<Primitives = SeismicPrimitives>
-                      + Clone
-                      + 'static,
-    >,
-{
-    /// Returns a reference to the [`EthApiNodeBackend`].
-    pub fn eth_api(&self) -> &EthApiNodeBackend<N> {
-        self.inner.eth_api()
-    }
-
-    /// Returns the configured sequencer client, if any.
-    pub fn sequencer_client(&self) -> Option<&SequencerClient> {
-        self.inner.sequencer_client()
-    }
-
-    /// Build a [`SeismicEthApi`] using [`SeismicEthApiBuilder`].
-    pub const fn builder() -> SeismicEthApiBuilder {
-        SeismicEthApiBuilder::new()
-    }
-}
+pub struct SeismicEthApi<N: SeismicNodeCore>(pub EthApi<N::Provider, N::Pool, N::Network, N::Evm>);
 
 impl<N> EthApiTypes for SeismicEthApi<N>
 where
     Self: Send + Sync,
-    N: OpNodeCore,
+    N: SeismicNodeCore,
 {
-    type Error = OpEthApiError;
-    type NetworkTypes = Optimism;
+    type Error = EthApiError;
+    type NetworkTypes = Seismic;
     type TransactionCompat = Self;
 
     fn tx_resp_builder(&self) -> &Self::TransactionCompat {
@@ -108,9 +65,20 @@ where
     }
 }
 
+impl<N> Deref for SeismicEthApi<N>
+where
+    N: SeismicNodeCore,
+{
+    type Target = EthApi<N::Provider, N::Pool, N::Network, N::Evm>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl<N> RpcNodeCore for SeismicEthApi<N>
 where
-    N: OpNodeCore,
+    N: SeismicNodeCore,
 {
     type Primitives = SeismicPrimitives;
     type Provider = N::Provider;
@@ -121,17 +89,17 @@ where
 
     #[inline]
     fn pool(&self) -> &Self::Pool {
-        self.inner.eth_api.pool()
+        self.0.pool()
     }
 
     #[inline]
     fn evm_config(&self) -> &Self::Evm {
-        self.inner.eth_api.evm_config()
+        self.0.evm_config()
     }
 
     #[inline]
     fn network(&self) -> &Self::Network {
-        self.inner.eth_api.network()
+        self.0.network()
     }
 
     #[inline]
@@ -141,23 +109,23 @@ where
 
     #[inline]
     fn provider(&self) -> &Self::Provider {
-        self.inner.eth_api.provider()
+        self.0.provider()
     }
 }
 
 impl<N> RpcNodeCoreExt for SeismicEthApi<N>
 where
-    N: OpNodeCore,
+    N: SeismicNodeCore,
 {
     #[inline]
     fn cache(&self) -> &EthStateCache<ProviderBlock<N::Provider>, ProviderReceipt<N::Provider>> {
-        self.inner.eth_api.cache()
+        self.0.cache()
     }
 }
 
 impl<N> EthApiSpec for SeismicEthApi<N>
 where
-    N: OpNodeCore<
+    N: SeismicNodeCore<
         Provider: ChainSpecProvider<ChainSpec: EthereumHardforks>
                       + BlockNumReader
                       + StageCheckpointReader,
@@ -168,40 +136,40 @@ where
 
     #[inline]
     fn starting_block(&self) -> U256 {
-        self.inner.eth_api.starting_block()
+        self.0.starting_block()
     }
 
     #[inline]
     fn signers(&self) -> &parking_lot::RwLock<Vec<Box<dyn EthSigner<ProviderTx<Self::Provider>>>>> {
-        self.inner.eth_api.signers()
+        self.0.signers()
     }
 }
 
 impl<N> SpawnBlocking for SeismicEthApi<N>
 where
     Self: Send + Sync + Clone + 'static,
-    N: OpNodeCore,
+    N: RpcNodeCore<Provider: BlockReader>,
 {
     #[inline]
     fn io_task_spawner(&self) -> impl TaskSpawner {
-        self.inner.eth_api.task_spawner()
+        self.0.task_spawner()
     }
 
     #[inline]
     fn tracing_task_pool(&self) -> &BlockingTaskPool {
-        self.inner.eth_api.blocking_task_pool()
+        self.0.blocking_task_pool()
     }
 
     #[inline]
     fn tracing_task_guard(&self) -> &BlockingTaskGuard {
-        self.inner.eth_api.blocking_task_guard()
+        self.0.blocking_task_guard()
     }
 }
 
 impl<N> LoadFee for SeismicEthApi<N>
 where
     Self: LoadBlock<Provider = N::Provider>,
-    N: OpNodeCore<
+    N: SeismicNodeCore<
         Provider: BlockReaderIdExt
                       + ChainSpecProvider<ChainSpec: EthChainSpec + EthereumHardforks>
                       + StateProviderFactory,
@@ -209,17 +177,17 @@ where
 {
     #[inline]
     fn gas_oracle(&self) -> &GasPriceOracle<Self::Provider> {
-        self.inner.eth_api.gas_oracle()
+        self.0.gas_oracle()
     }
 
     #[inline]
     fn fee_history_cache(&self) -> &FeeHistoryCache {
-        self.inner.eth_api.fee_history_cache()
+        self.0.fee_history_cache()
     }
 }
 
 impl<N> LoadState for SeismicEthApi<N> where
-    N: OpNodeCore<
+    N: SeismicNodeCore<
         Provider: StateProviderFactory + ChainSpecProvider<ChainSpec: EthereumHardforks>,
         Pool: TransactionPool,
     >
@@ -229,18 +197,19 @@ impl<N> LoadState for SeismicEthApi<N> where
 impl<N> EthState for SeismicEthApi<N>
 where
     Self: LoadState + SpawnBlocking,
-    N: OpNodeCore,
+    N: SeismicNodeCore,
+    EthApi<N::Provider, N::Pool, N::Network, N::Evm>: EthState,
 {
     #[inline]
     fn max_proof_window(&self) -> u64 {
-        self.inner.eth_api.eth_proof_window()
+        self.0.max_proof_window()
     }
 }
 
 impl<N> EthFees for SeismicEthApi<N>
 where
     Self: LoadFee,
-    N: OpNodeCore,
+    N: SeismicNodeCore,
 {
 }
 
@@ -256,67 +225,28 @@ where
             >,
             Error: FromEvmError<Self::Evm>,
         >,
-    N: OpNodeCore,
+    N: SeismicNodeCore,
 {
 }
 
 impl<N> AddDevSigners for SeismicEthApi<N>
 where
-    N: OpNodeCore,
+    N: SeismicNodeCore,
 {
     fn with_dev_accounts(&self) {
-        *self.inner.eth_api.signers().write() = DevSigner::random_signers(20)
+        self.0.with_dev_accounts()
     }
 }
 
-impl<N: OpNodeCore> fmt::Debug for SeismicEthApi<N> {
+impl<N: SeismicNodeCore> fmt::Debug for SeismicEthApi<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SeismicEthApi").finish_non_exhaustive()
     }
 }
 
-/// Container type `SeismicEthApi`
-#[allow(missing_debug_implementations)]
-struct OpEthApiInner<N: OpNodeCore> {
-    /// Gateway to node's core components.
-    eth_api: EthApiNodeBackend<N>,
-    /// Sequencer client, configured to forward submitted transactions to sequencer of given OP
-    /// network.
-    sequencer_client: Option<SequencerClient>,
-}
-
-impl<N: OpNodeCore> OpEthApiInner<N> {
-    /// Returns a reference to the [`EthApiNodeBackend`].
-    const fn eth_api(&self) -> &EthApiNodeBackend<N> {
-        &self.eth_api
-    }
-
-    /// Returns the configured sequencer client, if any.
-    const fn sequencer_client(&self) -> Option<&SequencerClient> {
-        self.sequencer_client.as_ref()
-    }
-}
-
-/// Builds [`SeismicEthApi`] for Optimism.
+/// Builds [`EthApi`](reth_rpc::EthApi) for Seismic.
 #[derive(Debug, Default)]
-pub struct SeismicEthApiBuilder {
-    /// Sequencer client, configured to forward submitted transactions to sequencer of given OP
-    /// network.
-    sequencer_client: Option<SequencerClient>,
-}
-
-impl SeismicEthApiBuilder {
-    /// Creates a [`SeismicEthApiBuilder`] instance from core components.
-    pub const fn new() -> Self {
-        Self { sequencer_client: None }
-    }
-
-    /// With a [`SequencerClient`].
-    pub fn with_sequencer(mut self, sequencer_client: Option<SequencerClient>) -> Self {
-        self.sequencer_client = sequencer_client;
-        self
-    }
-}
+pub struct SeismicEthApiBuilder;
 
 impl<N> EthApiBuilder<N> for SeismicEthApiBuilder
 where
@@ -326,7 +256,6 @@ where
     type EthApi = SeismicEthApi<N>;
 
     fn build_eth_api(self, ctx: EthApiCtx<'_, N>) -> Self::EthApi {
-        let Self { sequencer_client } = self;
         let eth_api = reth_rpc::EthApiBuilder::new(
             ctx.components.provider().clone(),
             ctx.components.pool().clone(),
@@ -340,8 +269,8 @@ where
         .eth_proof_window(ctx.config.eth_proof_window)
         .fee_history_cache_config(ctx.config.fee_history_cache)
         .proof_permits(ctx.config.proof_permits)
-        .build_inner();
+        .build();
 
-        SeismicEthApi { inner: Arc::new(OpEthApiInner { eth_api, sequencer_client }) }
+        SeismicEthApi(eth_api)
     }
 }

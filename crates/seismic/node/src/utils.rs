@@ -1,4 +1,4 @@
-use crate::{OpBuiltPayload, SeismicNode as OtherOpNode, OpPayloadBuilderAttributes};
+use crate::{EthBuiltPayload<SeismicBlock><SeismicBlock>, SeismicNode as OtherOpNode, PayloadBuilderAttributes};
 use alloy_genesis::Genesis;
 use alloy_primitives::{Address, B256};
 use alloy_rpc_types_engine::PayloadAttributes;
@@ -7,7 +7,7 @@ use reth_e2e_test_utils::{
 };
 use reth_node_api::NodeTypesWithDBAdapter;
 use reth_chainspec::ChainSpecBuilder;
-use reth_payload_builder::EthPayloadBuilderAttributes;
+use reth_payload_builder::PayloadBuilderAttributes;
 use reth_provider::providers::BlockchainProvider;
 use reth_tasks::TaskManager;
 use std::sync::Arc;
@@ -35,7 +35,7 @@ pub async fn advance_chain(
     length: usize,
     node: &mut SeismicNode,
     wallet: Arc<Mutex<Wallet>>,
-) -> eyre::Result<Vec<OpBuiltPayload>> {
+) -> eyre::Result<Vec<EthBuiltPayload<SeismicBlock><SeismicBlock>>> {
     node.advance(length as u64, |_| {
         let wallet = wallet.clone();
         Box::pin(async move {
@@ -53,7 +53,7 @@ pub async fn advance_chain(
 }
 
 /// Helper function to create a new eth payload attributes
-pub fn optimism_payload_attributes<T>(timestamp: u64) -> OpPayloadBuilderAttributes<T> {
+pub fn optimism_payload_attributes<T>(timestamp: u64) -> PayloadBuilderAttributes<T> {
     let attributes = PayloadAttributes {
         timestamp,
         prev_randao: B256::ZERO,
@@ -62,8 +62,8 @@ pub fn optimism_payload_attributes<T>(timestamp: u64) -> OpPayloadBuilderAttribu
         parent_beacon_block_root: Some(B256::ZERO),
     };
 
-    OpPayloadBuilderAttributes {
-        payload_attributes: EthPayloadBuilderAttributes::new(B256::ZERO, attributes),
+    PayloadBuilderAttributes {
+        payload_attributes: PayloadBuilderAttributes::new(B256::ZERO, attributes),
         transactions: vec![],
         no_tx_pool: false,
         gas_limit: Some(30_000_000),

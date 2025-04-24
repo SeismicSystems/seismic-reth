@@ -10,34 +10,13 @@
 
 /// Optimism chain specification parser.
 pub mod chainspec;
-/// Optimism CLI commands.
-pub mod commands;
-/// Module with a codec for reading and encoding receipts in files.
-///
-/// Enables decoding and encoding `OpGethReceipt` type. See <https://github.com/testinprod-io/op-geth/pull/1>.
-///
-/// Currently configured to use codec [`OpGethReceipt`](receipt_file_codec::OpGethReceipt) based on
-/// export of below Bedrock data using <https://github.com/testinprod-io/op-geth/pull/1>. Codec can
-/// be replaced with regular encoding of receipts for export.
-///
-/// NOTE: receipts can be exported using regular op-geth encoding for `Receipt` type, to fit
-/// reth's needs for importing. However, this would require patching the diff in <https://github.com/testinprod-io/op-geth/pull/1> to export the `Receipt` and not `OpGethReceipt` type (originally
-/// made for op-erigon's import needs).
-pub mod receipt_file_codec;
 
-/// OVM block, same as EVM block at bedrock, except for signature of deposit transaction
-/// not having a signature back then.
-/// Enables decoding and encoding `Block` types within file contexts.
-pub mod ovm_file_codec;
-
-pub use commands::{import::ImportOpCommand, import_receipts::ImportReceiptsOpCommand};
 use reth_chainspec::ChainSpec;
 
 use std::{ffi::OsString, fmt, sync::Arc};
 
-use chainspec::OpChainSpecParser;
+use chainspec::SeismicChainSpecParser;
 use clap::{command, value_parser, Parser};
-use commands::Commands;
 use futures_util::Future;
 use reth_chainspec::EthChainSpec;
 use reth_cli::chainspec::ChainSpecParser;
@@ -50,7 +29,7 @@ use reth_node_core::{
 };
 use reth_seismic_consensus::EthBeaconConsensus;
 use reth_seismic_evm::SeismicExecutorProvider;
-use reth_seismic_node::{args::RollupArgs, SeismicNetworkPrimitives, SeismicNode};
+use reth_seismic_node::{SeismicNetworkPrimitives, SeismicNode};
 use reth_tracing::FileWorkerGuard;
 use tracing::info;
 
@@ -64,7 +43,7 @@ use reth_node_metrics::recorder::install_prometheus_recorder;
 /// This is the entrypoint to the executable.
 #[derive(Debug, Parser)]
 #[command(author, version = SHORT_VERSION, long_version = LONG_VERSION, about = "Reth", long_about = None)]
-pub struct Cli<Spec: ChainSpecParser = OpChainSpecParser, Ext: clap::Args + fmt::Debug = RollupArgs>
+pub struct Cli<Spec: ChainSpecParser = SeismicChainSpecParser, Ext: clap::Args + fmt::Debug = EnclaveArgs>
 {
     /// The command to run
     #[command(subcommand)]
@@ -170,7 +149,9 @@ where
                 runner.run_blocking_until_ctrl_c(command.execute::<SeismicNode>())
             }
             Commands::DumpGenesis(command) => runner.run_blocking_until_ctrl_c(command.execute()),
-            Commands::Db(command) => runner.run_blocking_until_ctrl_c(command.execute::<SeismicNode>()),
+            Commands::Db(command) => {
+                runner.run_blocking_until_ctrl_c(command.execute::<SeismicNode>())
+            }
             Commands::Stage(command) => runner.run_command_until_exit(|ctx| {
                 command.execute::<SeismicNode, _, _, SeismicNetworkPrimitives>(ctx, |spec| {
                     (SeismicExecutorProvider::optimism(spec.clone()), EthBeaconConsensus::new(spec))
@@ -201,14 +182,14 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::chainspec::OpChainSpecParser;
+    use crate::chainspec::SeismicChainSpecParser;
     use clap::Parser;
-    use reth_cli_commands::{node::NoArgs, NodeCommand};
     use reth_chainspec::SEISMIC_DEV;
+    use reth_cli_commands::{node::NoArgs, NodeCommand};
 
     #[test]
     fn parse_dev() {
-        let cmd = NodeCommand::<OpChainSpecParser, NoArgs>::parse_from(["seismic-reth", "--dev"]);
+        let cmd = NodeCommand::<SeismicChainSpecParser, NoArgs>::parse_from(["seismic-reth", "--dev"]);
         let chain = SEISMIC_DEV.clone();
         assert_eq!(cmd.chain.chain, chain.chain);
         assert_eq!(cmd.chain.genesis_hash(), chain.genesis_hash());

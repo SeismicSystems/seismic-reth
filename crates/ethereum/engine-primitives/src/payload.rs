@@ -19,7 +19,7 @@ use reth_primitives_traits::SealedBlock;
 /// Therefore, the empty-block here is always available and full-block will be set/updated
 /// afterward.
 #[derive(Debug, Clone)]
-pub struct EthBuiltPayload {
+pub struct EthBuiltPayload<Block: reth_primitives_traits::Block = reth_ethereum_primitives::Block> {
     /// Identifier of the payload
     pub(crate) id: PayloadId,
     /// The built block
@@ -87,6 +87,34 @@ impl BuiltPayload for EthBuiltPayload {
     type Primitives = EthPrimitives;
 
     fn block(&self) -> &SealedBlock<Block> {
+        &self.block
+    }
+
+    fn fees(&self) -> U256 {
+        self.fees
+    }
+
+    fn requests(&self) -> Option<Requests> {
+        self.requests.clone()
+    }
+}
+
+impl EthBuiltPayload<reth_seismic_primitives::SeismicBlock> {
+    pub fn new_seismic_payload(
+        id: PayloadId,
+        block: Arc<SealedBlock<reth_seismic_primitives::SeismicBlock>>,
+        fees: U256,
+        sidecars: Vec<BlobTransactionSidecar>,
+        requests: Option<Requests>,
+    ) -> Self {
+        Self { id, block, fees, sidecars, requests }
+    }
+}
+
+impl BuiltPayload for EthBuiltPayload<reth_seismic_primitives::SeismicBlock> {
+    type Primitives = reth_seismic_primitives::SeismicPrimitives;
+
+    fn block(&self) -> &SealedBlock<reth_seismic_primitives::SeismicBlock> {
         &self.block
     }
 

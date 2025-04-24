@@ -1,12 +1,12 @@
 //! Eth API extension.
 
-use crate::{error::TxConditionalErr, OpEthApiError, SequencerClient};
+use crate::{error::TxConditionalErr, EthApiError, SequencerClient};
 use alloy_consensus::BlockHeader;
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Bytes, StorageKey, B256, U256};
 use alloy_rpc_types_eth::erc4337::{AccountStorage, TransactionConditional};
 use jsonrpsee_core::RpcResult;
-use reth_seismic_txpool::conditional::MaybeConditionalTransaction;
+use reth_optimism_txpool::conditional::MaybeConditionalTransaction;
 use reth_rpc_eth_api::L2EthApiExtServer;
 use reth_rpc_eth_types::utils::recover_raw_transaction;
 use reth_storage_api::{BlockReaderIdExt, StateProviderFactory};
@@ -24,18 +24,18 @@ const MAX_CONCURRENT_CONDITIONAL_VALIDATIONS: usize = 3;
 /// Separate from [`super::SeismicEthApi`] to allow to enable it conditionally,
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
-pub struct SeismicEthExtApi<Pool, Provider> {
+pub struct OpEthExtApi<Pool, Provider> {
     /// Sequencer client, configured to forward submitted transactions to sequencer of given OP
     /// network.
     sequencer_client: Option<SequencerClient>,
     inner: Arc<OpEthExtApiInner<Pool, Provider>>,
 }
 
-impl<Pool, Provider> SeismicEthExtApi<Pool, Provider>
+impl<Pool, Provider> OpEthExtApi<Pool, Provider>
 where
     Provider: BlockReaderIdExt + StateProviderFactory + Clone + 'static,
 {
-    /// Creates a new [`SeismicEthExtApi`].
+    /// Creates a new [`OpEthExtApi`].
     pub fn new(sequencer_client: Option<SequencerClient>, pool: Pool, provider: Provider) -> Self {
         let inner = Arc::new(OpEthExtApiInner::new(pool, provider));
         Self { sequencer_client, inner }
@@ -104,7 +104,7 @@ where
 }
 
 #[async_trait::async_trait]
-impl<Pool, Provider> L2EthApiExtServer for SeismicEthExtApi<Pool, Provider>
+impl<Pool, Provider> L2EthApiExtServer for OpEthExtApi<Pool, Provider>
 where
     Provider: BlockReaderIdExt + StateProviderFactory + Clone + 'static,
     Pool: TransactionPool<Transaction: MaybeConditionalTransaction> + 'static,
@@ -121,14 +121,14 @@ where
         }
 
         let recovered_tx = recover_raw_transaction(&bytes).map_err(|_| {
-            OpEthApiError::Eth(reth_rpc_eth_types::EthApiError::FailedToDecodeSignedTransaction)
+            EthApiError::Eth(reth_rpc_eth_types::EthApiError::FailedToDecodeSignedTransaction)
         })?;
 
         let mut tx = <Pool as TransactionPool>::Transaction::from_pooled(recovered_tx);
 
         // get current header
         let header_not_found = || {
-            OpEthApiError::Eth(reth_rpc_eth_types::EthApiError::HeaderNotFound(
+            EthApiError::Eth(reth_rpc_eth_types::EthApiError::HeaderNotFound(
                 alloy_eips::BlockId::Number(BlockNumberOrTag::Latest),
             ))
         };
@@ -153,14 +153,14 @@ where
             let _ = sequencer
                 .forward_raw_transaction_conditional(bytes.as_ref(), condition)
                 .await
-                .map_err(OpEthApiError::Sequencer)?;
+                .map_err(EthApiError::Sequencer)?;
             Ok(*tx.hash())
         } else {
             // otherwise, add to pool with the appended conditional
             tx.set_conditional(condition);
             let hash =
                 self.pool().add_transaction(TransactionOrigin::Private, tx).await.map_err(|e| {
-                    OpEthApiError::Eth(reth_rpc_eth_types::EthApiError::PoolError(e.into()))
+                    EthApiError::Eth(reth_rpc_eth_types::EthApiError::PoolError(e.into()))
                 })?;
 
             Ok(hash)

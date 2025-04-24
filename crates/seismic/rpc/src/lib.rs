@@ -8,16 +8,8 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-pub mod engine;
-pub mod error;
-pub mod eth;
-pub mod miner;
-pub mod sequencer;
-pub mod witness;
+// pub mod rpc;
+// pub mod utils;
+mod eth;
 
-#[cfg(feature = "client")]
-pub use engine::OpEngineApiClient;
-pub use engine::{OpEngineApi, OpEngineApiServer, OP_ENGINE_CAPABILITIES};
-pub use error::{OpEthApiError, OpInvalidTransactionError, SequencerClientError};
-pub use eth::{SeismicEthApi, ReceiptBuilder};
-pub use sequencer::SequencerClient;
+pub use eth::*;

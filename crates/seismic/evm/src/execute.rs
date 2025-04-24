@@ -1,9 +1,9 @@
 //! Optimism block execution strategy.
 
-use crate::{SeismicEvmConfig, SeismicReceiptBuilder};
+use crate::{SeismicEvmConfig, SeismicRethReceiptBuilder};
 use alloc::sync::Arc;
 use reth_chainspec::ChainSpec;
-use reth_evm::execute::BasicBlockExecutorProvider;
+use reth_evm::{eth::EthBlockExecutorFactory, execute::BasicBlockExecutorProvider};
 
 /// Helper type with backwards compatible methods to obtain executor providers.
 #[derive(Debug)]
@@ -12,13 +12,7 @@ pub struct SeismicExecutorProvider;
 impl SeismicExecutorProvider {
     /// Creates a new default seismic executor strategy factory.
     pub fn seismic(chain_spec: Arc<ChainSpec>) -> BasicBlockExecutorProvider<SeismicEvmConfig> {
-        BasicBlockExecutorProvider::new(SeismicEvmConfig {
-            executor_factory: EthBlockExecutorFactory::new(
-                chain_spec,
-                SeismicReceiptBuilder::default(),
-            ),
-            block_assembler: EthBlockAssembler::new(chain_spec),
-        })
+        BasicBlockExecutorProvider::new(SeismicEvmConfig::seismic(chain_spec))
     }
 }
 
@@ -71,10 +65,12 @@ mod tests {
         db
     }
 
-    fn executor_provider(chain_spec: Arc<ChainSpec>) -> BasicBlockExecutorProvider<SeismicEvmConfig> {
+    fn executor_provider(
+        chain_spec: Arc<ChainSpec>,
+    ) -> BasicBlockExecutorProvider<SeismicEvmConfig> {
         BasicBlockExecutorProvider::new(SeismicEvmConfig::new(
             chain_spec,
-            SeismicReceiptBuilder::default(),
+            SeismicRethReceiptBuilder::default(),
         ))
     }
 

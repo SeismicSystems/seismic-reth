@@ -6,7 +6,7 @@ use alloy_rpc_types_engine::PayloadAttributes;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_consensus::{ConsensusError, FullConsensus};
 use reth_ethereum_consensus::EthBeaconConsensus;
-use reth_ethereum_engine_primitives::EthPayloadBuilderAttributes;
+use reth_ethereum_engine_primitives::PayloadBuilderAttributes;
 use reth_ethereum_primitives::PooledTransaction;
 use reth_evm::{
     execute::BasicBlockExecutorProvider, ConfigureEvm, EvmFactory, EvmFactoryFor,
@@ -29,7 +29,7 @@ use reth_node_builder::{
     PayloadTypes,
 };
 use reth_node_ethereum::EthereumEngineValidator;
-use reth_payload_builder::EthPayloadBuilderAttributes;
+use reth_payload_builder::PayloadBuilderAttributes;
 use reth_provider::{providers::ProviderFactoryBuilder, CanonStateSubscriptions, EthStorage};
 use reth_rpc::{eth::core::EthApiFor, ValidationApi};
 use reth_rpc_api::{eth::FullEthApiServer, servers::BlockSubmissionValidationApiServer};
@@ -55,7 +55,7 @@ impl SeismicNode {
     /// Returns a [`ComponentsBuilder`] configured for a regular Ethereum node.
     pub fn components<Node>() -> ComponentsBuilder<
         Node,
-        SeismicPoolBuilder,
+        EthereumPoolBuilder,
         BasicPayloadServiceBuilder<SeismicPayloadBuilder>,
         SeismicNetworkBuilder,
         SeismicExecutorBuilder,
@@ -65,14 +65,14 @@ impl SeismicNode {
         Node:
             FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
         <Node::Types as NodeTypesWithEngine>::Payload: PayloadTypes<
-            BuiltPayload = SeismicBuiltPayload,
+            BuiltPayload = EthBuiltPayload<SeismicBlock><SeismicBlock>,
             PayloadAttributes = PayloadAttributes,
-            PayloadBuilderAttributes = EthPayloadBuilderAttributes,
+            PayloadBuilderAttributes = PayloadBuilderAttributes,
         >,
     {
         ComponentsBuilder::default()
             .node_types::<Node>()
-            .pool(SeismicPoolBuilder::default())
+            .pool(EthereumPoolBuilder::default())
             .payload(BasicPayloadServiceBuilder::default())
             .network(SeismicNetworkBuilder::default())
             .executor(SeismicExecutorBuilder::default())
@@ -160,7 +160,7 @@ pub struct SeismicAddOns<N: FullNodeComponents>
 where
     EthApiFor<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
 {
-    inner: RpcAddOns<N, SeismicEthApiBuilder, EthereumEngineValidatorBuilder>,
+    inner: RpcAddOns<N, SeismicEthApiBuilder, SeismicEngineValidatorBuilder>,
 }
 
 impl<N: FullNodeComponents> Default for SeismicAddOns<N>
@@ -247,7 +247,7 @@ where
     type Validator = EthereumEngineValidator;
 
     async fn engine_validator(&self, ctx: &AddOnsContext<'_, N>) -> eyre::Result<Self::Validator> {
-        EthereumEngineValidatorBuilder::default().build(ctx).await
+        SeismicEngineValidatorBuilder::default().build(ctx).await
     }
 }
 
@@ -257,8 +257,8 @@ where
 {
     type ComponentsBuilder = ComponentsBuilder<
         N,
-        SeismicPoolBuilder,
-        BasicPayloadServiceBuilder<reth_ethereum_payload_builder::EthereumPayloadBuilder>,
+        EthereumPoolBuilder,
+        BasicPayloadServiceBuilder<reth_ethereum_payload_builder::SeismicPayloadBuilder>,
         SeismicNetworkBuilder,
         SeismicExecutorBuilder,
         SeismicConsensusBuilder,
@@ -327,11 +327,11 @@ where
 /// config.
 #[derive(Debug, Default, Clone, Copy)]
 #[non_exhaustive]
-pub struct SeismicPoolBuilder {
+pub struct EthereumPoolBuilder {
     // TODO add options for txpool args
 }
 
-impl<Types, Node> PoolBuilder<Node> for SeismicPoolBuilder
+impl<Types, Node> PoolBuilder<Node> for EthereumPoolBuilder
 where
     Types: NodeTypesWithEngine<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>,
     Node: FullNodeTypes<Types = Types>,
@@ -462,9 +462,9 @@ where
 /// Builder for [`EthereumEngineValidator`].
 #[derive(Debug, Default, Clone)]
 #[non_exhaustive]
-pub struct EthereumEngineValidatorBuilder;
+pub struct SeismicEngineValidatorBuilder;
 
-impl<Node, Types> EngineValidatorBuilder<Node> for EthereumEngineValidatorBuilder
+impl<Node, Types> EngineValidatorBuilder<Node> for SeismicEngineValidatorBuilder
 where
     Types: NodeTypesWithEngine<
         ChainSpec = ChainSpec,
@@ -473,7 +473,7 @@ where
     >,
     Node: FullNodeComponents<Types = Types>,
 {
-    type Validator = SeismicEngineValidator;
+    type Validator = EthereumEngineValidator;
 
     async fn build(self, ctx: &AddOnsContext<'_, Node>) -> eyre::Result<Self::Validator> {
         Ok(EthereumEngineValidator::new(ctx.config.chain.clone()))

@@ -1,5 +1,5 @@
-use super::OpNodeCore;
-use crate::{SeismicEthApi, OpEthApiError};
+use super::SeismicNodeCore;
+use crate::{SeismicEthApi, EthApiError};
 use alloy_consensus::TxType;
 use alloy_primitives::{Bytes, TxKind, U256};
 use alloy_rpc_types_eth::transaction::TransactionRequest;
@@ -17,15 +17,15 @@ use revm::{context::TxEnv, context_interface::Block, Database};
 impl<N> EthCall for SeismicEthApi<N>
 where
     Self: EstimateCall + LoadBlock + FullEthApiTypes,
-    N: OpNodeCore,
+    N: SeismicNodeCore,
 {
 }
 
 impl<N> EstimateCall for SeismicEthApi<N>
 where
     Self: Call,
-    Self::Error: From<OpEthApiError>,
-    N: OpNodeCore,
+    Self::Error: From<EthApiError>,
+    N: SeismicNodeCore,
 {
 }
 
@@ -43,8 +43,8 @@ where
             >,
             Error: FromEvmError<Self::Evm>,
         > + SpawnBlocking,
-    Self::Error: From<OpEthApiError>,
-    N: OpNodeCore,
+    Self::Error: From<EthApiError>,
+    N: SeismicNodeCore,
 {
     #[inline]
     fn call_gas_limit(&self) -> u64 {

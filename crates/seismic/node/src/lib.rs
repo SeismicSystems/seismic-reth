@@ -10,22 +10,13 @@
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-/// CLI argument parsing for the optimism node.
 pub mod args;
-
-/// Exports optimism-specific implementations of the [`EngineTypes`](reth_node_api::EngineTypes)
-/// trait.
 pub mod engine;
-pub use engine::SeismicEngineTypes;
 
 pub mod node;
 pub use node::{SeismicNetworkPrimitives, SeismicNode};
 
-pub mod rpc;
-pub use rpc::SeismicEngineApiBuilder;
-
-pub mod version;
-pub use version::OP_NAME_CLIENT;
+pub mod payload;
 
 pub use reth_seismic_txpool as txpool;
 
@@ -33,8 +24,6 @@ pub use reth_seismic_txpool as txpool;
 #[cfg(feature = "test-utils")]
 pub mod utils;
 
-pub use reth_seismic_payload_builder::{
-    OpBuiltPayload, PayloadAttributes, SeismicPayloadBuilder, OpPayloadBuilderAttributes,
-};
+pub use reth_seismic_payload_builder::SeismicPayloadBuilder;
 
 pub use reth_seismic_evm::*;

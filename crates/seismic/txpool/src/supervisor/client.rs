@@ -4,7 +4,6 @@ use crate::supervisor::{ExecutingDescriptor, InteropTxValidatorError};
 use alloy_primitives::B256;
 use alloy_rpc_client::ReqwestClient;
 use futures_util::future::BoxFuture;
-use seismic_alloy_consensus::interop::SafetyLevel;
 use std::{borrow::Cow, future::IntoFuture, time::Duration};
 
 /// Supervisor hosted by op-labs

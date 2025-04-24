@@ -5,25 +5,40 @@ use alloy_consensus::{
 };
 use alloy_eips::merge::BEACON_NONCE;
 use alloy_evm::block::BlockExecutorFactory;
-use alloy_primitives::logs_bloom;
+use alloy_primitives::{logs_bloom, Bytes};
 use reth_chainspec::{EthChainSpec, EthereumHardforks};
 use reth_ethereum_primitives::Receipt;
 use reth_evm::{
     eth::EthBlockExecutionCtx,
     execute::{BlockAssembler, BlockAssemblerInput},
 };
-use reth_evm_ethereum::EthBlockAssembler;
 use reth_execution_errors::BlockExecutionError;
 use reth_execution_types::BlockExecutionResult;
 use reth_primitives_traits::SignedTransaction;
-use reth_seismic_primitives::SeismicTransactionSigned;
+use reth_seismic_primitives::{SeismicBlock, SeismicReceipt, SeismicTransactionSigned};
 
-impl<F, ChainSpec> BlockAssembler<F> for EthBlockAssembler<ChainSpec>
+/// Block builder for Seismic.
+#[derive(Debug, Clone)]
+pub struct SeismicBlockAssembler<ChainSpec> {
+    /// The chainspec.
+    pub chain_spec: Arc<ChainSpec>,
+    /// Extra data to use for the blocks.
+    pub extra_data: Bytes,
+}
+
+impl<ChainSpec> SeismicBlockAssembler<ChainSpec> {
+    /// Creates a new [`SeismicBlockAssembler`].
+    pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
+        Self { chain_spec, extra_data: Default::default() }
+    }
+}
+
+impl<F, ChainSpec> BlockAssembler<F> for SeismicBlockAssembler<ChainSpec>
 where
     F: for<'a> BlockExecutorFactory<
         ExecutionCtx<'a> = EthBlockExecutionCtx<'a>,
         Transaction = SeismicTransactionSigned,
-        Receipt = Receipt,
+        Receipt = SeismicReceipt,
     >,
     ChainSpec: EthChainSpec + EthereumHardforks,
 {
@@ -46,7 +61,7 @@ where
         let timestamp = evm_env.block_env.timestamp;
 
         let transactions_root = proofs::calculate_transaction_root(&transactions);
-        let receipts_root = Receipt::calculate_receipt_root_no_memo(receipts);
+        let receipts_root = SeismicReceipt::calculate_receipt_root_no_memo(receipts);
         let logs_bloom = logs_bloom(receipts.iter().flat_map(|r| r.logs()));
 
         let withdrawals = self

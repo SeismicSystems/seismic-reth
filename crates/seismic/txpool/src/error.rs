@@ -1,5 +1,4 @@
 use crate::supervisor::{InteropTxValidatorError, InvalidInboxEntry};
-use seismic_alloy_consensus::interop::SafetyLevel;
 use reth_transaction_pool::error::PoolTransactionError;
 use std::any::Any;
 

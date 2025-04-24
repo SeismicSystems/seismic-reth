@@ -10,7 +10,7 @@
 #![allow(clippy::useless_let_if_seq)]
 
 pub mod validator;
-pub use validator::SeismicExecutionPayloadValidator;
+pub use validator::EthereumExecutionPayloadValidator;
 
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::U256;

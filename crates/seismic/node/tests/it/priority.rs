@@ -18,12 +18,11 @@ use reth_node_builder::{
 use reth_node_core::args::DatadirArgs;
 use reth_chainspec::{ChainSpec, ChainSpecBuilder};
 use reth_seismic_node::{
-    args::RollupArgs,
+    args::EnclaveArgs,
     node::{
         SeismicAddOns, SeismicConsensusBuilder, SeismicExecutorBuilder, SeismicNetworkBuilder, SeismicPayloadBuilder,
         SeismicPoolBuilder,
     },
-    txpool::EthPooledTransaction<SeismicTransactionSigned>,
     utils::optimism_payload_attributes,
     SeismicEngineTypes, SeismicNode,
 };
@@ -107,11 +106,11 @@ where
         >,
     >,
 {
-    let RollupArgs { disable_txpool_gossip, compute_pending_block, discovery_v4, .. } =
-        RollupArgs::default();
+    let EnclaveArgs { disable_txpool_gossip, compute_pending_block, discovery_v4, .. } =
+        EnclaveArgs::default();
     ComponentsBuilder::default()
         .node_types::<Node>()
-        .pool(SeismicPoolBuilder::default())
+        .pool(EthereumPoolBuilder::default())
         .payload(BasicPayloadServiceBuilder::new(
             SeismicPayloadBuilder::new(compute_pending_block)
                 .with_transactions(CustomTxPriority { chain_id }),

@@ -7,7 +7,7 @@ pub use alloy_rpc_types_engine::{
 };
 use reth_chainspec::ChainSpec;
 use reth_engine_primitives::{EngineValidator, PayloadValidator};
-use reth_ethereum_payload_builder::SeismicExecutionPayloadValidator;
+use reth_ethereum_payload_builder::EthereumExecutionPayloadValidator;
 use reth_ethereum_primitives::Block;
 use reth_node_api::PayloadTypes;
 use reth_payload_primitives::{
@@ -20,13 +20,13 @@ use std::sync::Arc;
 /// Validator for the ethereum engine API.
 #[derive(Debug, Clone)]
 pub struct EthereumEngineValidator {
-    inner: SeismicExecutionPayloadValidator<ChainSpec>,
+    inner: EthereumExecutionPayloadValidator<ChainSpec>,
 }
 
 impl EthereumEngineValidator {
     /// Instantiates a new validator.
     pub const fn new(chain_spec: Arc<ChainSpec>) -> Self {
-        Self { inner: SeismicExecutionPayloadValidator::new(chain_spec) }
+        Self { inner: EthereumExecutionPayloadValidator::new(chain_spec) }
     }
 
     /// Returns the chain spec used by the validator.

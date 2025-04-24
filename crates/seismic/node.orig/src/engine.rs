@@ -7,12 +7,12 @@ pub use alloy_rpc_types_engine::{
 };
 use reth_engine_primitives::EngineTypes;
 use reth_ethereum_payload_builder::EthereumExecutionPayloadValidator;
-use reth_payload_builder::EthPayloadBuilderAttributes;
+use reth_payload_builder::PayloadBuilderAttributes;
 use reth_payload_primitives::{BuiltPayload, PayloadTypes};
 use reth_primitives_traits::{NodePrimitives, SealedBlock};
 use seismic_primitives::SeismicBlock;
 
-use crate::payload::SeismicBuiltPayload;
+use crate::payload::EthBuiltPayload<SeismicBlock><SeismicBlock>;
 
 /// The types used in the default mainnet ethereum beacon consensus engine.
 #[derive(Debug, Default, Clone, serde::Deserialize, serde::Serialize)]
@@ -64,9 +64,9 @@ where
 pub struct SeismicPayloadTypes;
 
 impl PayloadTypes for SeismicPayloadTypes {
-    type BuiltPayload = SeismicBuiltPayload;
+    type BuiltPayload = EthBuiltPayload<SeismicBlock><SeismicBlock>;
     type PayloadAttributes = PayloadAttributes;
-    type PayloadBuilderAttributes = EthPayloadBuilderAttributes;
+    type PayloadBuilderAttributes = PayloadBuilderAttributes;
     type ExecutionData = ExecutionData;
 
     fn block_to_payload(
@@ -82,11 +82,11 @@ impl PayloadTypes for SeismicPayloadTypes {
 
 /// Validator for the ethereum engine API.
 #[derive(Debug, Clone)]
-pub struct SeismicEngineValidator {
+pub struct EthereumEngineValidator {
     inner: EthereumExecutionPayloadValidator<ChainSpec>,
 }
 
-impl SeismicEngineValidator {
+impl EthereumEngineValidator {
     /// Instantiates a new validator.
     pub const fn new(chain_spec: Arc<ChainSpec>) -> Self {
         Self { inner: EthereumExecutionPayloadValidator::new(chain_spec) }
@@ -99,7 +99,7 @@ impl SeismicEngineValidator {
     }
 }
 
-impl PayloadValidator for SeismicEngineValidator {
+impl PayloadValidator for EthereumEngineValidator {
     type Block = Block;
     type ExecutionData = ExecutionData;
 
@@ -112,7 +112,7 @@ impl PayloadValidator for SeismicEngineValidator {
     }
 }
 
-impl<Types> EngineValidator<Types> for SeismicEngineValidator
+impl<Types> EngineValidator<Types> for EthereumEngineValidator
 where
     Types: PayloadTypes<PayloadAttributes = PayloadAttributes, ExecutionData = ExecutionData>,
 {

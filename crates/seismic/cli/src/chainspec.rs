@@ -8,9 +8,9 @@ use std::sync::Arc;
 /// Optimism chain specification parser.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
-pub struct OpChainSpecParser;
+pub struct SeismicChainSpecParser;
 
-impl ChainSpecParser for OpChainSpecParser {
+impl ChainSpecParser for SeismicChainSpecParser {
     type ChainSpec = ChainSpec;
 
     const SUPPORTED_CHAINS: &'static [&'static str] = &["dev", "mainnet"];
@@ -38,8 +38,8 @@ mod tests {
 
     #[test]
     fn parse_known_chain_spec() {
-        for &chain in OpChainSpecParser::SUPPORTED_CHAINS {
-            assert!(<OpChainSpecParser as ChainSpecParser>::parse(chain).is_ok());
+        for &chain in SeismicChainSpecParser::SUPPORTED_CHAINS {
+            assert!(<SeismicChainSpecParser as ChainSpecParser>::parse(chain).is_ok());
         }
     }
 }

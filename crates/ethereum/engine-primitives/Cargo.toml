@@ -11,6 +11,9 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+# seismic
+reth-seismic-primitives.workspace = true
+
 # reth
 reth-ethereum-primitives.workspace = true
 reth-primitives-traits.workspace = true
