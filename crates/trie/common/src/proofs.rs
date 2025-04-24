@@ -179,10 +179,10 @@ pub struct MultiProof {
 impl MultiProof {
     /// Returns true if the multiproof is empty.
     pub fn is_empty(&self) -> bool {
-        self.account_subtree.is_empty() &&
-            self.branch_node_hash_masks.is_empty() &&
-            self.branch_node_tree_masks.is_empty() &&
-            self.storages.is_empty()
+        self.account_subtree.is_empty()
+            && self.branch_node_hash_masks.is_empty()
+            && self.branch_node_tree_masks.is_empty()
+            && self.storages.is_empty()
     }
 
     /// Return the account proof nodes for the given account path.
@@ -238,7 +238,7 @@ impl MultiProof {
                             nonce: account.nonce,
                             bytecode_hash: (account.code_hash != KECCAK_EMPTY)
                                 .then_some(account.code_hash),
-                        })
+                        });
                     }
                 }
             }
@@ -352,7 +352,7 @@ impl DecodedMultiProof {
                         nonce: account.nonce,
                         bytecode_hash: (account.code_hash != KECCAK_EMPTY)
                             .then_some(account.code_hash),
-                    })
+                    });
                 }
             }
             None
@@ -439,18 +439,20 @@ impl StorageMultiProof {
 
         // Inspect the last node in the proof. If it's a leaf node with matching suffix,
         // then the node contains the encoded slot value.
+        let mut is_private = false;
         let value = 'value: {
             if let Some(last) = proof.last() {
                 if let TrieNode::Leaf(leaf) = TrieNode::decode(&mut &last[..])? {
                     if nibbles.ends_with(&leaf.key) {
-                        break 'value U256::decode(&mut &leaf.value[..])?
+                        is_private = leaf.is_private;
+                        break 'value U256::decode(&mut &leaf.value[..])?;
                     }
                 }
             }
             U256::ZERO
         };
 
-        Ok(StorageProof { key: slot, nibbles, value, proof })
+        Ok(StorageProof { key: slot, nibbles, value, is_private, proof })
     }
 }
 
@@ -495,7 +497,7 @@ impl DecodedStorageMultiProof {
         let value = 'value: {
             if let Some(TrieNode::Leaf(leaf)) = proof.last() {
                 if nibbles.ends_with(&leaf.key) {
-                    break 'value U256::decode(&mut &leaf.value[..])?
+                    break 'value U256::decode(&mut &leaf.value[..])?;
                 }
             }
             U256::ZERO
@@ -567,10 +569,10 @@ impl AccountProof {
         } = proof;
         let storage_proofs = storage_proof.into_iter().map(Into::into).collect();
 
-        let (storage_root, info) = if nonce == 0 &&
-            balance.is_zero() &&
-            storage_hash.is_zero() &&
-            code_hash == KECCAK_EMPTY
+        let (storage_root, info) = if nonce == 0
+            && balance.is_zero()
+            && storage_hash.is_zero()
+            && code_hash == KECCAK_EMPTY
         {
             // Account does not exist in state. Return `None` here to prevent proof
             // verification.
@@ -624,7 +626,8 @@ impl AccountProof {
             ))
         };
         let nibbles = Nibbles::unpack(keccak256(self.address));
-        verify_proof(root, nibbles, expected, &self.proof)
+        let account_node_is_private = false; // account nodes are always public
+        verify_proof(root, nibbles, expected, account_node_is_private, &self.proof)
     }
 }
 
@@ -673,6 +676,8 @@ pub struct StorageProof {
     pub nibbles: Nibbles,
     /// The storage value.
     pub value: U256,
+    /// Whether the storge node is private.
+    pub is_private: bool,
     /// Array of rlp-serialized merkle trie nodes which starting from the storage root node and
     /// following the path of the hashed storage slot as key.
     pub proof: Vec<Bytes>,
@@ -705,7 +710,7 @@ impl StorageProof {
     pub fn verify(&self, root: B256) -> Result<(), ProofVerificationError> {
         let expected =
             if self.value.is_zero() { None } else { Some(encode_fixed_size(&self.value).to_vec()) };
-        verify_proof(root, self.nibbles.clone(), expected, &self.proof)
+        verify_proof(root, self.nibbles.clone(), expected, self.is_private, &self.proof)
     }
 }
 
