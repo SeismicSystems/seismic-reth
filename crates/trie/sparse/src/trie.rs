@@ -431,8 +431,8 @@ impl<P> RevealedSparseTrie<P> {
                                 // node.
                                 hash: Some(*hash),
                                 store_in_db_trie: Some(
-                                    masks.hash_mask.is_some_and(|mask| !mask.is_empty())
-                                        || masks.tree_mask.is_some_and(|mask| !mask.is_empty()),
+                                    masks.hash_mask.is_some_and(|mask| !mask.is_empty()) ||
+                                        masks.tree_mask.is_some_and(|mask| !mask.is_empty()),
                                 ),
                             });
                         }
@@ -503,9 +503,9 @@ impl<P> RevealedSparseTrie<P> {
                     // Left node already exists.
                     SparseNode::Leaf { .. } => {}
                     // All other node types can't be handled.
-                    node @ (SparseNode::Empty
-                    | SparseNode::Extension { .. }
-                    | SparseNode::Branch { .. }) => {
+                    node @ (SparseNode::Empty |
+                    SparseNode::Extension { .. } |
+                    SparseNode::Branch { .. }) => {
                         return Err(SparseTrieErrorKind::Reveal {
                             path: entry.key().clone(),
                             node: Box::new(node.clone()),
@@ -918,11 +918,10 @@ impl<P> RevealedSparseTrie<P> {
                                     store_in_db_trie
                                 } else {
                                     // A blinded node has the tree mask bit set
-                                    child_node_type.is_hash()
-                                        && self
-                                            .branch_node_tree_masks
-                                            .get(&path)
-                                            .is_some_and(|mask| mask.is_bit_set(last_child_nibble))
+                                    child_node_type.is_hash() &&
+                                        self.branch_node_tree_masks.get(&path).is_some_and(
+                                            |mask| mask.is_bit_set(last_child_nibble),
+                                        )
                                 };
                                 if should_set_tree_mask_bit {
                                     tree_mask.set_bit(last_child_nibble);
@@ -932,11 +931,13 @@ impl<P> RevealedSparseTrie<P> {
                                 // is a blinded node that has its hash mask bit set according to the
                                 // database, set the hash mask bit and save the hash.
                                 let hash = child.as_hash().filter(|_| {
-                                    child_node_type.is_branch()
-                                        || (child_node_type.is_hash()
-                                            && self.branch_node_hash_masks.get(&path).is_some_and(
-                                                |mask| mask.is_bit_set(last_child_nibble),
-                                            ))
+                                    child_node_type.is_branch() ||
+                                        (child_node_type.is_hash() &&
+                                            self.branch_node_hash_masks
+                                                .get(&path)
+                                                .is_some_and(|mask| {
+                                                    mask.is_bit_set(last_child_nibble)
+                                                }))
                                 });
                                 if let Some(hash) = hash {
                                     hash_mask.set_bit(last_child_nibble);
@@ -1003,9 +1004,8 @@ impl<P> RevealedSparseTrie<P> {
                         } else if self
                             .branch_node_tree_masks
                             .get(&path)
-                            .is_some_and(|mask| !mask.is_empty())
-                            || self
-                                .branch_node_hash_masks
+                            .is_some_and(|mask| !mask.is_empty()) ||
+                            self.branch_node_hash_masks
                                 .get(&path)
                                 .is_some_and(|mask| !mask.is_empty())
                         {
@@ -1017,9 +1017,8 @@ impl<P> RevealedSparseTrie<P> {
                         } else if self
                             .branch_node_hash_masks
                             .get(&path)
-                            .is_none_or(|mask| mask.is_empty())
-                            && self
-                                .branch_node_hash_masks
+                            .is_none_or(|mask| mask.is_empty()) &&
+                            self.branch_node_hash_masks
                                 .get(&path)
                                 .is_none_or(|mask| mask.is_empty())
                         {

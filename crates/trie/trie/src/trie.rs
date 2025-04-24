@@ -234,9 +234,9 @@ where
                     );
 
                     // Decide if we need to return intermediate progress.
-                    let total_updates_len = updated_storage_nodes
-                        + account_node_iter.walker.removed_keys_len()
-                        + hash_builder.updates_len();
+                    let total_updates_len = updated_storage_nodes +
+                        account_node_iter.walker.removed_keys_len() +
+                        hash_builder.updates_len();
                     if retain_updates && total_updates_len as u64 >= self.threshold {
                         let (walker_stack, walker_deleted_keys) = account_node_iter.walker.split();
                         trie_updates.removed_nodes.extend(walker_deleted_keys);

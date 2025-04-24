@@ -1369,7 +1369,6 @@ where
         Ok(())
     }
 
-
     fn advance_backup(&mut self) -> Result<(), AdvancePersistenceError> {
         debug!(target: "engine::tree", "advance_backup called");
         if !self.backup.in_progress() {
@@ -3133,8 +3132,8 @@ mod tests {
     use reth_ethereum_primitives::{Block, EthPrimitives};
     use reth_evm::test_utils::MockExecutorProvider;
     use reth_evm_ethereum::EthEvmConfig;
-    use reth_node_ethereum::EthereumEngineValidator;
     use reth_node_core::dirs::MaybePlatformPath;
+    use reth_node_ethereum::EthereumEngineValidator;
     use reth_primitives_traits::Block as _;
     use reth_provider::test_utils::MockEthProvider;
     use reth_trie::{updates::TrieUpdates, HashedPostState};

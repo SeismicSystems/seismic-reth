@@ -179,10 +179,10 @@ pub struct MultiProof {
 impl MultiProof {
     /// Returns true if the multiproof is empty.
     pub fn is_empty(&self) -> bool {
-        self.account_subtree.is_empty()
-            && self.branch_node_hash_masks.is_empty()
-            && self.branch_node_tree_masks.is_empty()
-            && self.storages.is_empty()
+        self.account_subtree.is_empty() &&
+            self.branch_node_hash_masks.is_empty() &&
+            self.branch_node_tree_masks.is_empty() &&
+            self.storages.is_empty()
     }
 
     /// Return the account proof nodes for the given account path.
@@ -569,10 +569,10 @@ impl AccountProof {
         } = proof;
         let storage_proofs = storage_proof.into_iter().map(Into::into).collect();
 
-        let (storage_root, info) = if nonce == 0
-            && balance.is_zero()
-            && storage_hash.is_zero()
-            && code_hash == KECCAK_EMPTY
+        let (storage_root, info) = if nonce == 0 &&
+            balance.is_zero() &&
+            storage_hash.is_zero() &&
+            code_hash == KECCAK_EMPTY
         {
             // Account does not exist in state. Return `None` here to prevent proof
             // verification.
