@@ -1,12 +1,12 @@
 //! OP-Reth `eth_` endpoint implementation.
 
-// pub mod ext;
+pub mod ext;
 pub mod receipt;
 pub mod transaction;
 
 mod block;
-// mod call;
-// mod pending_block;
+mod call;
+mod pending_block;
 
 use alloy_primitives::U256;
 use reth_chain_state::CanonStateSubscriptions;

@@ -1,11 +1,11 @@
 use super::SeismicNodeCore;
-use crate::{SeismicEthApi, EthApiError};
+use crate::SeismicEthApi;
 use alloy_consensus::TxType;
 use alloy_primitives::{Bytes, TxKind, U256};
 use alloy_rpc_types_eth::transaction::TransactionRequest;
-use op_revm::OpTransaction;
 use reth_evm::{execute::BlockExecutorFactory, ConfigureEvm, EvmEnv, EvmFactory, SpecFor};
 use reth_node_api::NodePrimitives;
+use reth_rpc::EthApi;
 use reth_rpc_eth_api::{
     helpers::{estimate::EstimateCall, Call, EthCall, LoadBlock, LoadState, SpawnBlocking},
     FromEthApiError, FromEvmError, FullEthApiTypes, IntoEthApiError,
@@ -37,23 +37,22 @@ where
                     BlockHeader = ProviderHeader<Self::Provider>,
                     SignedTx = ProviderTx<Self::Provider>,
                 >,
-                BlockExecutorFactory: BlockExecutorFactory<
-                    EvmFactory: EvmFactory<Tx = OpTransaction<TxEnv>>,
-                >,
+                BlockExecutorFactory: BlockExecutorFactory<EvmFactory: EvmFactory<Tx = TxEnv>>,
             >,
             Error: FromEvmError<Self::Evm>,
         > + SpawnBlocking,
     Self::Error: From<EthApiError>,
     N: SeismicNodeCore,
+    EthApi<N::Provider, N::Pool, N::Network, N::Evm>: Call,
 {
     #[inline]
     fn call_gas_limit(&self) -> u64 {
-        self.inner.eth_api.gas_cap()
+        self.0.call_gas_limit()
     }
 
     #[inline]
     fn max_simulate_blocks(&self) -> u64 {
-        self.inner.eth_api.max_simulate_blocks()
+        self.0.max_simulate_blocks()
     }
 
     fn create_txn_env(
@@ -61,7 +60,7 @@ where
         evm_env: &EvmEnv<SpecFor<Self::Evm>>,
         request: TransactionRequest,
         mut db: impl Database<Error: Into<EthApiError>>,
-    ) -> Result<OpTransaction<TxEnv>, Self::Error> {
+    ) -> Result<TxEnv, Self::Error> {
         // Ensure that if versioned hashes are set, they're not empty
         if request.blob_versioned_hashes.as_ref().is_some_and(|hashes| hashes.is_empty()) {
             return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err())
@@ -128,7 +127,7 @@ where
             db.basic(caller).map_err(Into::into)?.map(|acc| acc.nonce).unwrap_or_default()
         };
 
-        let base = TxEnv {
+        let env = TxEnv {
             tx_type,
             gas_limit,
             nonce,
@@ -152,6 +151,6 @@ where
             authorization_list: authorization_list.unwrap_or_default(),
         };
 
-        Ok(OpTransaction { base, enveloped_tx: Some(Bytes::new()), deposit: Default::default() })
+        Ok(env)
     }
 }
