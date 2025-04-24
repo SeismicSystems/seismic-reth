@@ -1,7 +1,7 @@
 use alloy_primitives::B256;
-use revm_state::FlaggedStorage;
 use reth_primitives_traits::Account;
 use reth_storage_errors::db::DatabaseError;
+use revm_state::FlaggedStorage;
 
 /// Implementation of hashed state cursor traits for the post state.
 mod post_state;

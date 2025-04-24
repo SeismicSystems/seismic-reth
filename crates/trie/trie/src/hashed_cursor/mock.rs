@@ -4,10 +4,10 @@ use crate::mock::{KeyVisit, KeyVisitType};
 
 use super::{HashedCursor, HashedCursorFactory, HashedStorageCursor};
 use alloy_primitives::{map::B256Map, B256};
-use revm_state::FlaggedStorage;
 use parking_lot::{Mutex, MutexGuard};
 use reth_primitives_traits::Account;
 use reth_storage_errors::db::DatabaseError;
+use revm_state::FlaggedStorage;
 use tracing::instrument;
 
 /// Mock hashed cursor factory.

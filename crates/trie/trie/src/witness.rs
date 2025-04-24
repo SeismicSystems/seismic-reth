@@ -87,7 +87,7 @@ where
     /// `state` - state transition containing both modified and touched accounts and storage slots.
     pub fn compute(mut self, state: HashedPostState) -> Result<B256Map<Bytes>, TrieWitnessError> {
         if state.is_empty() {
-            return Ok(self.witness)
+            return Ok(self.witness);
         }
 
         let proof_targets = self.get_proof_targets(&state)?;
@@ -135,16 +135,20 @@ where
             for hashed_slot in hashed_slots.into_iter().sorted_unstable() {
                 let storage_nibbles = Nibbles::unpack(hashed_slot);
 
-                let maybe_flagged_storage = storage
-                    .and_then(|s| s.storage.get(&hashed_slot))
-                    .filter(|v| !v.is_zero());
+                let maybe_flagged_storage =
+                    storage.and_then(|s| s.storage.get(&hashed_slot)).filter(|v| !v.is_zero());
 
                 if let Some(value) = maybe_flagged_storage {
                     let is_private = value.is_private;
                     let value = alloy_rlp::encode_fixed_size(&value.value).to_vec();
-                    storage_trie.update_leaf(storage_nibbles, value, is_private).map_err(|err| {
-                        SparseStateTrieErrorKind::SparseStorageTrie(hashed_address, err.into_kind())
-                    })?;
+                    storage_trie.update_leaf(storage_nibbles, value, is_private).map_err(
+                        |err| {
+                            SparseStateTrieErrorKind::SparseStorageTrie(
+                                hashed_address,
+                                err.into_kind(),
+                            )
+                        },
+                    )?;
                 } else {
                     storage_trie.remove_leaf(&storage_nibbles).map_err(|err| {
                         SparseStateTrieErrorKind::SparseStorageTrie(hashed_address, err.into_kind())

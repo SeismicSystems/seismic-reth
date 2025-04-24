@@ -3028,8 +3028,8 @@ Root -> Extension { key: Nibbles(0x05), hash: None, store_in_db_trie: None }
 ";
         assert_eq!(normal_printed, expected);
 
-                let alternate_printed = format!("{sparse:#}");
-                let expected = "\
+        let alternate_printed = format!("{sparse:#}");
+        let expected = "\
 Root -> Extension { key: Nibbles(0x05), hash: None, store_in_db_trie: None }
     5 -> Branch { state_mask: TrieMask(0000000000001101), hash: None, store_in_db_trie: None }
         50 -> Extension { key: Nibbles(0x0203), hash: None, store_in_db_trie: None }
@@ -3044,6 +3044,6 @@ Root -> Extension { key: Nibbles(0x05), hash: None, store_in_db_trie: None }
                 53320 -> Leaf { key: Nibbles(0x00), hash: None, is_private: false }
 ";
 
-                assert_eq!(alternate_printed, expected);
+        assert_eq!(alternate_printed, expected);
     }
 }

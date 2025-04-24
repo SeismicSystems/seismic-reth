@@ -190,7 +190,7 @@ impl<F: BlindedProviderFactory> SparseStateTrie<F> {
         // Reveal the remaining proof nodes.
         for (path, bytes) in proof {
             if self.revealed_account_paths.contains(&path) {
-                continue
+                continue;
             }
             let node = TrieNode::decode(&mut &bytes[..])?;
             trie.reveal_node(path.clone(), node, TrieMasks::none())?;
@@ -237,7 +237,7 @@ impl<F: BlindedProviderFactory> SparseStateTrie<F> {
         for (path, bytes) in proof {
             // If the node is already revealed, skip it.
             if revealed_nodes.contains(&path) {
-                continue
+                continue;
             }
             let node = TrieNode::decode(&mut &bytes[..])?;
             trie.reveal_node(path.clone(), node, TrieMasks::none())?;
@@ -302,7 +302,7 @@ impl<F: BlindedProviderFactory> SparseStateTrie<F> {
                 // If the node is already revealed, skip it.
                 if self.revealed_account_paths.contains(&path) {
                     self.metrics.increment_skipped_account_nodes();
-                    continue
+                    continue;
                 }
                 let node = TrieNode::decode(&mut &bytes[..])?;
                 let (hash_mask, tree_mask) = if let TrieNode::Branch(_) = node {
@@ -359,7 +359,7 @@ impl<F: BlindedProviderFactory> SparseStateTrie<F> {
                 // If the node is already revealed, skip it.
                 if revealed_nodes.contains(&path) {
                     self.metrics.increment_skipped_storage_nodes();
-                    continue
+                    continue;
                 }
                 let node = TrieNode::decode(&mut &bytes[..])?;
                 let (hash_mask, tree_mask) = if let TrieNode::Branch(_) = node {
@@ -501,13 +501,13 @@ impl<F: BlindedProviderFactory> SparseStateTrie<F> {
         // Validate root node.
         let Some((path, node)) = proof.next() else { return Ok(None) };
         if !path.is_empty() {
-            return Err(SparseStateTrieErrorKind::InvalidRootNode { path, node }.into())
+            return Err(SparseStateTrieErrorKind::InvalidRootNode { path, node }.into());
         }
 
         // Decode root node and perform sanity check.
         let root_node = TrieNode::decode(&mut &node[..])?;
         if matches!(root_node, TrieNode::EmptyRoot) && proof.peek().is_some() {
-            return Err(SparseStateTrieErrorKind::InvalidRootNode { path, node }.into())
+            return Err(SparseStateTrieErrorKind::InvalidRootNode { path, node }.into());
         }
 
         Ok(Some(root_node))
@@ -681,7 +681,7 @@ impl<F: BlindedProviderFactory> SparseStateTrie<F> {
                 EMPTY_ROOT_HASH
             }
         } else {
-            return Err(SparseTrieErrorKind::Blind.into())
+            return Err(SparseTrieErrorKind::Blind.into());
         };
 
         if account.is_empty() && storage_root == EMPTY_ROOT_HASH {
@@ -703,7 +703,7 @@ impl<F: BlindedProviderFactory> SparseStateTrie<F> {
     /// will be removed.
     pub fn update_account_storage_root(&mut self, address: B256) -> SparseStateTrieResult<()> {
         if !self.is_account_revealed(address) {
-            return Err(SparseTrieErrorKind::Blind.into())
+            return Err(SparseTrieErrorKind::Blind.into());
         }
 
         // Nothing to update if the account doesn't exist in the trie.
@@ -713,7 +713,7 @@ impl<F: BlindedProviderFactory> SparseStateTrie<F> {
             .transpose()?
         else {
             trace!(target: "trie::sparse", ?address, "Account not found in trie, skipping storage root update");
-            return Ok(())
+            return Ok(());
         };
 
         // Calculate the new storage root. If the storage trie doesn't exist, the storage root will
@@ -1024,8 +1024,16 @@ mod tests {
                 slot_path_2.clone(),
             ]));
         let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
-        storage_hash_builder.add_leaf(slot_path_1, &alloy_rlp::encode_fixed_size(&value_1), is_private);
-        storage_hash_builder.add_leaf(slot_path_2, &alloy_rlp::encode_fixed_size(&value_2), is_private);
+        storage_hash_builder.add_leaf(
+            slot_path_1,
+            &alloy_rlp::encode_fixed_size(&value_1),
+            is_private,
+        );
+        storage_hash_builder.add_leaf(
+            slot_path_2,
+            &alloy_rlp::encode_fixed_size(&value_2),
+            is_private,
+        );
 
         let storage_root = storage_hash_builder.root();
         let storage_proof_nodes = storage_hash_builder.take_proof_nodes();
@@ -1049,8 +1057,16 @@ mod tests {
                 address_path_2.clone(),
             ]));
         let is_private = false; // account leaves are always public. Their storage leaves can be private.
-        hash_builder.add_leaf(address_path_1.clone(), &alloy_rlp::encode(trie_account_1), is_private);
-        hash_builder.add_leaf(address_path_2.clone(), &alloy_rlp::encode(trie_account_2), is_private);
+        hash_builder.add_leaf(
+            address_path_1.clone(),
+            &alloy_rlp::encode(trie_account_1),
+            is_private,
+        );
+        hash_builder.add_leaf(
+            address_path_2.clone(),
+            &alloy_rlp::encode(trie_account_2),
+            is_private,
+        );
 
         let root = hash_builder.root();
         let proof_nodes = hash_builder.take_proof_nodes();
@@ -1097,7 +1113,9 @@ mod tests {
         sparse.update_account_leaf(address_path_3, alloy_rlp::encode(trie_account_3)).unwrap();
 
         let is_private = false; // legacy test does not use private storage
-        sparse.update_storage_leaf(address_1, slot_path_3, alloy_rlp::encode(value_3), is_private).unwrap();
+        sparse
+            .update_storage_leaf(address_1, slot_path_3, alloy_rlp::encode(value_3), is_private)
+            .unwrap();
         trie_account_1.storage_root = sparse.storage_root(address_1).unwrap();
         sparse.update_account_leaf(address_path_1, alloy_rlp::encode(trie_account_1)).unwrap();
 
