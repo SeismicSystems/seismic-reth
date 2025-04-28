@@ -1312,6 +1312,7 @@ impl EthPoolTransaction for EthPooledTransaction {
             _ => Err(BlobTransactionValidationError::NotBlobTransaction(self.ty())),
         }
     }
+
 }
 
 /// Represents the blob sidecar of the [`EthPooledTransaction`].

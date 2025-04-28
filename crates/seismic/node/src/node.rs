@@ -1,6 +1,10 @@
 //! Optimism Node types config.
 
-use crate::{args::EnclaveArgs, engine::SeismicEngineTypes, txpool::SeismicTransactionPool};
+use crate::{
+    args::EnclaveArgs,
+    engine::{SeismicEngineTypes, SeismicEngineValidator},
+    txpool::SeismicTransactionPool,
+};
 use alloy_consensus::transaction::PooledTransaction;
 use alloy_eips::merge::EPOCH_SLOTS;
 use alloy_rpc_types_engine::PayloadAttributes;
@@ -518,7 +522,7 @@ where
     >,
     Node: FullNodeComponents<Types = Types>,
 {
-    type Validator = EthereumEngineValidator<Node::Provider>;
+    type Validator = SeismicEngineValidator;
 
     async fn build(self, ctx: &AddOnsContext<'_, Node>) -> eyre::Result<Self::Validator> {
         Ok(EthereumEngineValidator::new(ctx.config.chain.clone()))
