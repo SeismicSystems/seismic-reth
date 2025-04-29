@@ -185,8 +185,7 @@ fn bundle_state_root(execution_outcome: &ExecutionOutcome) -> B256 {
                             .map(|(slot, value)| {
                                 (
                                     (*slot).into(),
-                                    value.present_value.value,
-                                    value.present_value.is_private,
+                                    (value.present_value.value, value.present_value.is_private),
                                 )
                             }),
                     )),

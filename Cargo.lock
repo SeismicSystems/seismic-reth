@@ -925,7 +925,7 @@ dependencies = [
 [[package]]
 name = "alloy-trie"
 version = "0.7.9"
-source = "git+https://github.com/SeismicSystems/seismic-trie.git?rev=d29c797#d29c79782ce4d3394516d056fdb89dbb25b89bed"
+source = "git+https://github.com/SeismicSystems/seismic-trie.git?rev=d53b661#d53b6610237b314b728e364bbeb91375880b1a31"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
