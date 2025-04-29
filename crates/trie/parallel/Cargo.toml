@@ -46,6 +46,7 @@ reth-primitives-traits.workspace = true
 reth-provider = { workspace = true, features = ["test-utils"] }
 reth-trie = { workspace = true, features = ["test-utils"] }
 revm-primitives.workspace = true
+revm-state.workspace = true
 
 # misc
 rand.workspace = true

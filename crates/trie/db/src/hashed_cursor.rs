@@ -1,4 +1,4 @@
-use alloy_primitives::{B256, U256};
+use alloy_primitives::B256;
 use reth_db_api::{
     cursor::{DbCursorRO, DbDupCursorRO},
     tables,

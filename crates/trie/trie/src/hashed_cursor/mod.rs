@@ -1,11 +1,11 @@
-use alloy_primitives::{B256, U256};
+use alloy_primitives::B256;
 use reth_primitives_traits::Account;
 use reth_storage_errors::db::DatabaseError;
+use revm_state::FlaggedStorage;
 
 /// Implementation of hashed state cursor traits for the post state.
 mod post_state;
 pub use post_state::*;
-use revm_state::FlaggedStorage;
 
 /// Implementation of noop hashed state cursor.
 pub mod noop;
