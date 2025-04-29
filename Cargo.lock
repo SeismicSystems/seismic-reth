@@ -800,7 +800,7 @@ source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=fac24
 dependencies = [
  "alloy-sol-macro-input",
  "const-hex",
- "heck",
+ "heck 0.5.0",
  "indexmap 2.9.0",
  "proc-macro-error2",
  "proc-macro2",
@@ -818,7 +818,7 @@ dependencies = [
  "alloy-json-abi",
  "const-hex",
  "dunce",
- "heck",
+ "heck 0.5.0",
  "macro-string",
  "proc-macro2",
  "quote",
@@ -2006,7 +2006,7 @@ version = "4.5.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09176aae279615badda0765c0c0b3f6ed53f4709118af73cf4655d85d1530cd7"
 dependencies = [
- "heck",
+ "heck 0.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.101",
@@ -3027,7 +3027,7 @@ dependencies = [
  "k256",
  "log",
  "rand 0.8.5",
- "secp256k1",
+ "secp256k1 0.30.0",
  "serde",
  "sha3",
  "zeroize",
@@ -3039,7 +3039,7 @@ version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1e6a265c649f3f5979b601d26f1d05ada116434c87741c9493cb56218f76cbc"
 dependencies = [
- "heck",
+ "heck 0.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.101",
@@ -3216,7 +3216,7 @@ dependencies = [
  "reth-primitives-traits",
  "reth-provider",
  "reth-tracing",
- "secp256k1",
+ "secp256k1 0.30.0",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -3429,7 +3429,7 @@ dependencies = [
  "reth-network",
  "reth-network-peers",
  "reth-primitives",
- "secp256k1",
+ "secp256k1 0.30.0",
  "tokio",
 ]
 
@@ -3499,7 +3499,7 @@ dependencies = [
  "reth-network-api",
  "reth-primitives",
  "reth-tracing",
- "secp256k1",
+ "secp256k1 0.30.0",
  "serde_json",
  "tokio",
  "tokio-stream",
@@ -4128,6 +4128,12 @@ checksum = "e7f66481bfee273957b1f20485a4ff3362987f85b2c236580d81b4eb7a326429"
 dependencies = [
  "http 0.2.12",
 ]
+
+[[package]]
+name = "heck"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "heck"
@@ -5040,7 +5046,7 @@ version = "0.24.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e65763c942dfc9358146571911b0cd1c361c2d63e2d2305622d40d36376ca80"
 dependencies = [
- "heck",
+ "heck 0.5.0",
  "proc-macro-crate",
  "proc-macro2",
  "quote",
@@ -7281,7 +7287,7 @@ dependencies = [
  "reth-trie",
  "reth-trie-common",
  "reth-trie-db",
- "secp256k1",
+ "secp256k1 0.30.0",
  "serde",
  "serde_json",
  "tokio",
@@ -7309,7 +7315,7 @@ dependencies = [
  "libc",
  "rand 0.8.5",
  "reth-fs-util",
- "secp256k1",
+ "secp256k1 0.30.0",
  "serde",
  "snmalloc-rs",
  "thiserror 2.0.12",
@@ -7336,7 +7342,7 @@ dependencies = [
  "reth-zstd-compressors",
  "rstest",
  "seismic-alloy-consensus",
- "seismic-enclave",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=3a56cce)",
  "serde",
  "serde_json",
  "test-fuzz",
@@ -7547,7 +7553,7 @@ dependencies = [
  "reth-network-peers",
  "reth-tracing",
  "schnellru",
- "secp256k1",
+ "secp256k1 0.30.0",
  "serde",
  "thiserror 2.0.12",
  "tokio",
@@ -7573,7 +7579,7 @@ dependencies = [
  "reth-metrics",
  "reth-network-peers",
  "reth-tracing",
- "secp256k1",
+ "secp256k1 0.30.0",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
@@ -7598,7 +7604,7 @@ dependencies = [
  "reth-tokio-util",
  "reth-tracing",
  "schnellru",
- "secp256k1",
+ "secp256k1 0.30.0",
  "serde",
  "serde_with",
  "thiserror 2.0.12",
@@ -7717,7 +7723,7 @@ dependencies = [
  "pin-project",
  "rand 0.8.5",
  "reth-network-peers",
- "secp256k1",
+ "secp256k1 0.30.0",
  "sha2 0.10.8",
  "sha3",
  "thiserror 2.0.12",
@@ -7743,8 +7749,8 @@ dependencies = [
  "once_cell",
  "reqwest",
  "routerify",
- "secp256k1",
- "seismic-enclave",
+ "secp256k1 0.30.0",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=3a56cce)",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -7966,7 +7972,7 @@ dependencies = [
  "reth-network-peers",
  "reth-primitives-traits",
  "reth-tracing",
- "secp256k1",
+ "secp256k1 0.30.0",
  "serde",
  "snap",
  "test-fuzz",
@@ -8139,7 +8145,7 @@ dependencies = [
  "reth-testing-utils",
  "reth-zstd-compressors",
  "revm-context",
- "secp256k1",
+ "secp256k1 0.30.0",
  "serde",
  "serde_with",
  "test-fuzz",
@@ -8207,7 +8213,7 @@ dependencies = [
  "reth-tracing",
  "revm",
  "revm-primitives",
- "secp256k1",
+ "secp256k1 0.30.0",
  "serde_json",
  "tokio",
 ]
@@ -8280,7 +8286,7 @@ dependencies = [
  "reth-testing-utils",
  "reth-tracing",
  "rmp-serde",
- "secp256k1",
+ "secp256k1 0.30.0",
  "tempfile",
  "thiserror 2.0.12",
  "tokio",
@@ -8504,7 +8510,7 @@ dependencies = [
  "reth-transaction-pool",
  "rustc-hash 2.1.1",
  "schnellru",
- "secp256k1",
+ "secp256k1 0.30.0",
  "serde",
  "serial_test",
  "smallvec",
@@ -8569,7 +8575,7 @@ dependencies = [
  "alloy-rlp",
  "enr",
  "rand 0.8.5",
- "secp256k1",
+ "secp256k1 0.30.0",
  "serde_json",
  "serde_with",
  "thiserror 2.0.12",
@@ -8687,7 +8693,7 @@ dependencies = [
  "reth-tokio-util",
  "reth-tracing",
  "reth-transaction-pool",
- "secp256k1",
+ "secp256k1 0.30.0",
  "tempfile",
  "tokio",
  "tokio-stream",
@@ -8734,7 +8740,7 @@ dependencies = [
  "reth-storage-errors",
  "reth-tracing",
  "reth-transaction-pool",
- "secp256k1",
+ "secp256k1 0.30.0",
  "serde",
  "shellexpand",
  "strum 0.27.1",
@@ -9152,7 +9158,7 @@ dependencies = [
  "reth-zstd-compressors",
  "revm-context",
  "rstest",
- "secp256k1",
+ "secp256k1 0.30.0",
  "serde",
  "serde_json",
  "serde_with",
@@ -9367,7 +9373,7 @@ dependencies = [
  "revm-bytecode",
  "revm-primitives",
  "revm-state",
- "secp256k1",
+ "secp256k1 0.30.0",
  "seismic-alloy-consensus",
  "serde",
  "serde_json",
@@ -10058,6 +10064,7 @@ dependencies = [
  "reth-seismic-primitives",
  "revm",
  "seismic-alloy-consensus",
+ "seismic-revm",
  "thiserror 2.0.12",
  "tracing",
 ]
@@ -10119,7 +10126,7 @@ dependencies = [
  "reth-trie-db",
  "revm",
  "seismic-alloy-consensus",
- "seismic-enclave",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=3a56cce)",
  "serde",
  "serde_json",
  "tokio",
@@ -10188,7 +10195,7 @@ dependencies = [
  "reth-zstd-compressors",
  "revm-context",
  "rstest",
- "secp256k1",
+ "secp256k1 0.30.0",
  "seismic-alloy-consensus",
  "serde",
  "serde_json",
@@ -10503,7 +10510,7 @@ dependencies = [
  "rand 0.8.5",
  "reth-primitives",
  "reth-primitives-traits",
- "secp256k1",
+ "secp256k1 0.30.0",
 ]
 
 [[package]]
@@ -10902,7 +10909,7 @@ dependencies = [
  "p256",
  "revm-primitives",
  "ripemd",
- "secp256k1",
+ "secp256k1 0.30.0",
  "sha2 0.10.8",
  "substrate-bn",
 ]
@@ -11399,6 +11406,17 @@ dependencies = [
 
 [[package]]
 name = "secp256k1"
+version = "0.29.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9465315bc9d4566e1724f0fffcbcc446268cb522e60f9a27bcded6b19c108113"
+dependencies = [
+ "rand 0.8.5",
+ "secp256k1-sys",
+ "serde",
+]
+
+[[package]]
+name = "secp256k1"
 version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b50c5943d326858130af85e049f2661ba3c78b26589b8ab98e65e80ae44a1252"
@@ -11459,7 +11477,7 @@ dependencies = [
  "derive_more 1.0.0",
  "jsonrpsee",
  "k256",
- "seismic-enclave",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=3a56cce)",
  "serde",
  "serde_json",
  "serde_with",
@@ -11515,7 +11533,7 @@ dependencies = [
  "rand 0.9.1",
  "reqwest",
  "schnorrkel",
- "secp256k1",
+ "secp256k1 0.30.0",
  "seismic-enclave-derive",
  "serde",
  "serde_json",
@@ -11524,6 +11542,31 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "seismic-enclave"
+version = "0.1.0"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=f2c0757#f2c0757cf12208049a758f797f263912b00cf842"
+dependencies = [
+ "aes-gcm",
+ "anyhow",
+ "bincode 1.3.3",
+ "byteorder",
+ "bytes",
+ "hkdf",
+ "http-body-util",
+ "hyper 0.14.32",
+ "kbs-types",
+ "once_cell",
+ "reqwest",
+ "schnorrkel",
+ "secp256k1 0.29.1",
+ "serde",
+ "serde_json",
+ "sha2 0.10.8",
+ "strum 0.25.0",
+ "tokio",
 ]
 
 [[package]]
@@ -11562,6 +11605,24 @@ dependencies = [
  "seismic-alloy-rpc-types",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "seismic-revm"
+version = "1.0.0"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=6bd6b5f#6bd6b5f62969243c1ca1e02f81307f26d49c68d3"
+dependencies = [
+ "auto_impl",
+ "hkdf",
+ "merlin",
+ "once_cell",
+ "rand_core 0.6.4",
+ "revm",
+ "schnorrkel",
+ "secp256k1 0.30.0",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=f2c0757)",
+ "serde",
+ "sha2 0.10.8",
 ]
 
 [[package]]
@@ -12046,6 +12107,15 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "strum"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
+dependencies = [
+ "strum_macros 0.25.3",
+]
+
+[[package]]
+name = "strum"
 version = "0.26.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
@@ -12064,11 +12134,24 @@ dependencies = [
 
 [[package]]
 name = "strum_macros"
+version = "0.25.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23dc1fa9ac9c169a78ba62f0b841814b7abae11bdd047b9c58f893439e309ea0"
+dependencies = [
+ "heck 0.4.1",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.101",
+]
+
+[[package]]
+name = "strum_macros"
 version = "0.26.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
 dependencies = [
- "heck",
+ "heck 0.5.0",
  "proc-macro2",
  "quote",
  "rustversion",
@@ -12081,7 +12164,7 @@ version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c77a8c5abcaf0f9ce05d62342b7d298c346515365c36b673df4ebe3ced01fde8"
 dependencies = [
- "heck",
+ "heck 0.5.0",
  "proc-macro2",
  "quote",
  "rustversion",
@@ -12252,7 +12335,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "190423aabaca6cec8392cf45e471777e036d424a14d979db8033f25cc417f1ad"
 dependencies = [
  "darling",
- "heck",
+ "heck 0.5.0",
  "itertools 0.14.0",
  "prettyplease",
  "proc-macro2",

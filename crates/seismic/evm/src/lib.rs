@@ -29,8 +29,8 @@ use revm::{
     context::{BlockEnv, CfgEnv, TxEnv},
     context_interface::block::BlobExcessGasAndPrice,
     primitives::hardfork::SpecId,
-    SeismicSpecId,
 };
+use seismic_revm::SeismicSpecId;
 use std::convert::Infallible;
 
 mod execute;

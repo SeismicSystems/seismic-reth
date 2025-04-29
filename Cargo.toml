@@ -742,6 +742,8 @@ alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy
 alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fac24f18" }
 
 # seismic-revm
+seismic-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "6bd6b5f"}
+
 revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "6bd6b5f"}
 revm-bytecode = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "6bd6b5f"}
 revm-database = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "6bd6b5f"}
