@@ -53,7 +53,6 @@ use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
 use std::{sync::Arc, time::SystemTime};
-use tracing::info;
 
 /// Storage implementation for Optimism.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
@@ -306,7 +305,7 @@ where
         self,
         ctx: &BuilderContext<Node>,
     ) -> eyre::Result<(Self::EVM, Self::Executor)> {
-        let evm_config = SeismicEvmConfig::optimism(ctx.chain_spec());
+        let evm_config = SeismicEvmConfig::seismic(ctx.chain_spec());
         let executor = BasicBlockExecutorProvider::new(evm_config.clone());
 
         Ok((evm_config, executor))
@@ -359,9 +358,13 @@ where
             .with_additional_tasks(ctx.config().txpool.additional_validation_tasks)
             .build_with_tasks(ctx.task_executor().clone(), blob_store.clone());
 
-        let transaction_pool =
-            reth_transaction_pool::Pool::eth_pool(validator, blob_store, pool_config);
-        info!(target: "reth::cli", "Transaction pool initialized");
+        let transaction_pool = reth_transaction_pool::Pool::new(
+            validator,
+            CoinbaseTipOrdering::default(),
+            blob_store,
+            pool_config,
+        );
+        // info!(target: "reth::cli", "Transaction pool initialized");
         let transactions_path = data_dir.txpool_transactions();
 
         // spawn txpool maintenance task
@@ -397,7 +400,7 @@ where
                     },
                 ),
             );
-            debug!(target: "reth::cli", "Spawned txpool maintenance task");
+            // debug!(target: "reth::cli", "Spawned txpool maintenance task");
         }
 
         Ok(transaction_pool)
@@ -488,7 +491,8 @@ where
     ) -> eyre::Result<NetworkHandle<SeismicNetworkPrimitives>> {
         let network = ctx.network_builder().await?;
         let handle = ctx.start_network(network, pool);
-        info!(target: "reth::cli", enode=%handle.local_node_record(), "P2P networking initialized");
+        // info!(target: "reth::cli", enode=%handle.local_node_record(), "P2P networking
+        // initialized");
         Ok(handle)
     }
 }
@@ -526,7 +530,7 @@ where
     type Validator = SeismicEngineValidator;
 
     async fn build(self, ctx: &AddOnsContext<'_, Node>) -> eyre::Result<Self::Validator> {
-        Ok(EthereumEngineValidator::new(ctx.config.chain.clone()))
+        Ok(SeismicEngineValidator::new(ctx.config.chain.clone()))
     }
 }
 
