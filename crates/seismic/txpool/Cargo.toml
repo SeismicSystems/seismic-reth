@@ -31,7 +31,10 @@ reth-transaction-pool.workspace = true
 # optimism
 seismic-alloy-consensus.workspace = true
 reth-seismic-evm.workspace = true
-reth-seismic-primitives.workspace = true
+reth-seismic-primitives = { workspace = true, features = [
+    "reth-codec",
+    "serde-bincode-compat",
+] }
 
 # metrics
 reth-metrics.workspace = true

@@ -17,7 +17,7 @@ seismic-revm.workspace = true
 # Reth
 reth-chainspec.workspace = true
 reth-ethereum-forks.workspace = true
-reth-evm = { workspace = true}
+reth-evm = { workspace = true }
 reth-evm-ethereum.workspace = true
 reth-primitives-traits.workspace = true
 reth-execution-errors.workspace = true
@@ -36,7 +36,10 @@ alloy-consensus.workspace = true
 # Optimism
 reth-seismic-consensus.workspace = true
 reth-seismic-chainspec.workspace = true
-reth-seismic-primitives.workspace = true
+reth-seismic-primitives = { workspace = true, features = [
+    "reth-codec",
+    "serde-bincode-compat",
+] }
 
 # revm
 revm.workspace = true

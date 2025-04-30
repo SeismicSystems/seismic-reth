@@ -3,9 +3,9 @@ use alloy_consensus::Header;
 use alloy_primitives::BlockNumber;
 use core::marker::PhantomData;
 use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks};
+use reth_primitives_traits::{Block, FullBlockHeader, SignedTransaction};
 use reth_seismic_hardforks::OpHardforks;
 use reth_seismic_primitives::SeismicTransactionSigned;
-use reth_primitives_traits::{Block, FullBlockHeader, SignedTransaction};
 use reth_storage_api::{
     errors::ProviderResult, BlockBodyReader, BlockBodyWriter, DBProvider, ReadBodyInput,
     StorageLocation,
