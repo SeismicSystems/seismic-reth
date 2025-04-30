@@ -24,9 +24,10 @@ pub use reth_seismic_txpool as txpool;
 #[cfg(feature = "test-utils")]
 pub mod utils;
 
-pub use reth_seismic_payload_builder::{
-    SeismicBuiltPayload, SeismicPayloadAttributes, SeismicPayloadBuilder,
-    SeismicPayloadBuilderAttributes,
-};
+pub use reth_seismic_payload_builder::SeismicPayloadBuilder;
+// pub use reth_seismic_payload_builder::{
+//     SeismicBuiltPayload, SeismicPayloadAttributes,
+//     SeismicPayloadBuilderAttributes,
+// };
 
 pub use reth_seismic_evm::*;

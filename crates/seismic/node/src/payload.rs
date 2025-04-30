@@ -72,6 +72,6 @@ where
         ctx: &BuilderContext<Node>,
         pool: Pool,
     ) -> eyre::Result<Self::PayloadBuilder> {
-        self.build(SeismicEvmConfig::new(ctx.chain_spec()), ctx, pool)
+        self.build(SeismicEvmConfig::seismic(ctx.chain_spec()), ctx, pool)
     }
 }
