@@ -1,4 +1,4 @@
-//! Standalone crate for Optimism-specific Reth primitive types.
+//! Standalone crate for Seismic-specific Reth primitive types.
 
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
@@ -25,13 +25,13 @@ pub use transaction::{signed::SeismicTransactionSigned, tx_type::SeismicTxType};
 mod receipt;
 pub use receipt::SeismicReceipt;
 
-/// Optimism-specific block type.
+/// Seismic-specific block type.
 pub type SeismicBlock = alloy_consensus::Block<SeismicTransactionSigned>;
 
-/// Optimism-specific block body type.
+/// Seismic-specific block body type.
 pub type SeismicBlockBody = <SeismicBlock as reth_primitives_traits::Block>::Body;
 
-/// Primitive types for Optimism Node.
+/// Primitive types for Seismic Node.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SeismicPrimitives;
