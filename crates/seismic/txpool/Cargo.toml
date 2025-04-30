@@ -35,6 +35,7 @@ reth-seismic-primitives = { workspace = true, features = [
     "reth-codec",
     "serde-bincode-compat",
 ] }
+op-alloy-flz.workspace = true
 
 # metrics
 reth-metrics.workspace = true

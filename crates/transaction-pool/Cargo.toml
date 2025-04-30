@@ -30,6 +30,7 @@ alloy-eips = { workspace = true, features = ["kzg"] }
 alloy-primitives.workspace = true
 alloy-rlp.workspace = true
 alloy-consensus = { workspace = true, features = ["kzg"] }
+seismic-alloy-consensus.workspace = true
 
 # async/futures
 futures-util.workspace = true
