@@ -1,4 +1,4 @@
-use crate::{EthBuiltPayload<SeismicBlock><SeismicBlock>, SeismicNode as OtherOpNode, PayloadBuilderAttributes};
+use crate::{EthBuiltPayload::SeismicBlock, SeismicNode as OtherOpNode, PayloadBuilderAttributes};
 use alloy_genesis::Genesis;
 use alloy_primitives::{Address, B256};
 use alloy_rpc_types_engine::PayloadAttributes;

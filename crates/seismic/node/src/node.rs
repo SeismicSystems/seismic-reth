@@ -57,7 +57,7 @@ use std::{sync::Arc, time::SystemTime};
 /// Storage implementation for Optimism.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
 
-/// Type configuration for a regular Optimism node.
+/// Type configuration for a regular Seismic node.
 #[derive(Debug, Default, Clone)]
 #[non_exhaustive]
 pub struct SeismicNode;
