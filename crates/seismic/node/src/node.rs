@@ -1,4 +1,4 @@
-//! Optimism Node types config.
+//! Seismic Node types config.
 
 use crate::{
     args::EnclaveArgs,
@@ -215,6 +215,15 @@ where
 
 impl<N: FullNodeComponents> Default for SeismicAddOns<N>
 where
+    N: FullNodeComponents<
+        Types: NodeTypesWithEngine<
+            ChainSpec = ChainSpec,
+            Primitives = SeismicPrimitives,
+            Storage = SeismicStorage,
+            Payload = SeismicEngineTypes,
+        >,
+        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
+    >,
     SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
 {
     fn default() -> Self {
@@ -278,6 +287,7 @@ where
     >,
     EthApiError: FromEvmError<N::Evm>,
     EvmFactoryFor<N::Evm>: EvmFactory<Tx = TxEnv>,
+    SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
 {
     type EthApi = SeismicEthApi<N>;
 
@@ -292,12 +302,14 @@ where
         Types: NodeTypesWithEngine<
             ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
+            Storage = SeismicStorage,
             Payload = SeismicEngineTypes,
         >,
+        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
     >,
     SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
 {
-    type Validator = EthereumEngineValidator<N::Provider>;
+    type Validator = SeismicEngineValidator;
 
     async fn engine_validator(&self, ctx: &AddOnsContext<'_, N>) -> eyre::Result<Self::Validator>
 {         SeismicEngineValidatorBuilder::default().build(ctx).await
@@ -430,7 +442,7 @@ pub struct SeismicPayloadBuilder;
 
 impl SeismicPayloadBuilder {
     /// A helper method initializing [`reth_ethereum_payload_builder::EthereumPayloadBuilder`]
-with     /// the given EVM config.
+    /// with the given EVM config.
     pub fn build<Types, Node, Evm, Pool>(
         self,
         evm_config: Evm,
