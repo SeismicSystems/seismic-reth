@@ -99,7 +99,10 @@ impl BuiltPayload for EthBuiltPayload {
     }
 }
 
-impl EthBuiltPayload<reth_seismic_primitives::SeismicBlock> {
+
+type SeismicBuiltPayload = EthBuiltPayload<reth_seismic_primitives::SeismicBlock>;
+
+impl SeismicBuiltPayload {
     pub fn new_seismic_payload(
         id: PayloadId,
         block: Arc<SealedBlock<reth_seismic_primitives::SeismicBlock>>,
@@ -111,7 +114,7 @@ impl EthBuiltPayload<reth_seismic_primitives::SeismicBlock> {
     }
 }
 
-impl BuiltPayload for EthBuiltPayload<reth_seismic_primitives::SeismicBlock> {
+impl BuiltPayload for SeismicBuiltPayload {
     type Primitives = reth_seismic_primitives::SeismicPrimitives;
 
     fn block(&self) -> &SealedBlock<reth_seismic_primitives::SeismicBlock> {
@@ -178,6 +181,63 @@ impl From<EthBuiltPayload> for ExecutionPayloadEnvelopeV3 {
 
 impl From<EthBuiltPayload> for ExecutionPayloadEnvelopeV4 {
     fn from(value: EthBuiltPayload) -> Self {
+        Self {
+            execution_requests: value.requests.clone().unwrap_or_default(),
+            envelope_inner: value.into(),
+        }
+    }
+}
+
+impl From<SeismicBuiltPayload> for ExecutionPayloadV1 {
+    fn from(value: SeismicBuiltPayload) -> Self {
+        Self::from_block_unchecked(
+            value.block().hash(),
+            &Arc::unwrap_or_clone(value.block).into_block(),
+        )
+    }
+}
+
+// V2 engine_getPayloadV2 response
+impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV2 {
+    fn from(value: SeismicBuiltPayload) -> Self {
+        let SeismicBuiltPayload { block, fees, .. } = value;
+
+        Self {
+            block_value: fees,
+            execution_payload: ExecutionPayloadFieldV2::from_block_unchecked(
+                block.hash(),
+                &Arc::unwrap_or_clone(block).into_block(),
+            ),
+        }
+    }
+}
+
+impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV3 {
+    fn from(value: SeismicBuiltPayload) -> Self {
+        let SeismicBuiltPayload { block, fees, sidecars, .. } = value;
+
+        Self {
+            execution_payload: ExecutionPayloadV3::from_block_unchecked(
+                block.hash(),
+                &Arc::unwrap_or_clone(block).into_block(),
+            ),
+            block_value: fees,
+            // From the engine API spec:
+            //
+            // > Client software **MAY** use any heuristics to decide whether to set
+            // `shouldOverrideBuilder` flag or not. If client software does not implement any
+            // heuristic this flag **SHOULD** be set to `false`.
+            //
+            // Spec:
+            // <https://github.com/ethereum/execution-apis/blob/fe8e13c288c592ec154ce25c534e26cb7ce0530d/src/engine/cancun.md#specification-2>
+            should_override_builder: false,
+            blobs_bundle: sidecars.into(),
+        }
+    }
+}
+
+impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV4 {
+    fn from(value: SeismicBuiltPayload) -> Self {
         Self {
             execution_requests: value.requests.clone().unwrap_or_default(),
             envelope_inner: value.into(),
