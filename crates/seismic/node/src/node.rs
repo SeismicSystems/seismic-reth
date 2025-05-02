@@ -131,14 +131,16 @@ impl SeismicNode {
 
 impl<N> Node<N> for SeismicNode
 where
-    N: FullNodeTypes<
+    N: FullNodeComponents<
         Types: NodeTypesWithEngine<
-            Payload = SeismicEngineTypes,
             ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
             Storage = SeismicStorage,
+            Payload = SeismicEngineTypes,
         >,
+        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
     >,
+    SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
 {
     type ComponentsBuilder = ComponentsBuilder<
         N,
@@ -158,7 +160,7 @@ where
     }
 
     fn add_ons(&self) -> Self::AddOns {
-        SeismicAddOns::<N>::default()
+        Self::AddOns::builder().build()
     }
 }
 
@@ -213,6 +215,53 @@ where
     >,
 }
 
+impl<N> SeismicAddOns<N>
+where
+    N: FullNodeComponents<
+        Types: NodeTypesWithEngine<
+            ChainSpec = ChainSpec,
+            Primitives = SeismicPrimitives,
+            Storage = SeismicStorage,
+            Payload = SeismicEngineTypes,
+        >,
+        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
+    >,
+    SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
+{
+    /// Build a [`SeismicAddOns`] using [`SeismicAddOnsBuilder`].
+    pub fn builder() -> SeismicAddOnsBuilder {
+        SeismicAddOnsBuilder::default()
+    }
+}
+
+
+/// A regular optimism evm and executor builder.
+#[derive(Debug, Default, Clone)]
+pub struct SeismicAddOnsBuilder {
+}
+
+impl SeismicAddOnsBuilder {
+    /// Builds an instance of [`OpAddOns`].
+    pub fn build<N>(self) -> SeismicAddOns<N>
+    where
+        N: FullNodeComponents<
+        Types: NodeTypesWithEngine<
+            ChainSpec = ChainSpec,
+            Primitives = SeismicPrimitives,
+            Storage = SeismicStorage,
+            Payload = SeismicEngineTypes,
+        >,
+        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
+    >,
+    SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
+    {
+        SeismicAddOns {
+            inner: Default::default(),
+        }
+    }
+}
+
+
 impl<N: FullNodeComponents> Default for SeismicAddOns<N>
 where
     N: FullNodeComponents<
@@ -227,7 +276,7 @@ where
     SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
 {
     fn default() -> Self {
-        Self { inner: Default::default() }
+        Self::builder().build()
     }
 }
 
