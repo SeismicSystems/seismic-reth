@@ -69,13 +69,20 @@ where
     ) -> &tokio::sync::Mutex<
         Option<PendingBlock<ProviderBlock<Self::Provider>, ProviderReceipt<Self::Provider>>>,
     > {
-        self.0.pending_block()
+        self.inner.eth_api.pending_block()
     }
 
     fn next_env_attributes(
         &self,
         parent: &SealedHeader<ProviderHeader<Self::Provider>>,
     ) -> Result<<Self::Evm as reth_evm::ConfigureEvm>::NextBlockEnvCtx, Self::Error> {
-        self.0.next_env_attributes(parent)
+        Ok(NextBlockEnvAttributes {
+            timestamp: parent.timestamp().saturating_add(12),
+            suggested_fee_recipient: parent.beneficiary(),
+            prev_randao: B256::random(),
+            gas_limit: parent.gas_limit(),
+            parent_beacon_block_root: parent.parent_beacon_block_root(),
+            withdrawals: None,
+        })
     }
 }

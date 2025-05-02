@@ -31,14 +31,14 @@ where
         + RpcNodeCore<Provider: TransactionsProvider<Transaction = ProviderTx<Self::Provider>>>,
 {
     fn signers(&self) -> &parking_lot::RwLock<Vec<Box<dyn EthSigner<ProviderTx<Self::Provider>>>>> {
-        self.0.signers()
+        self.inner.eth_api.signers()
     }
 
     /// Decodes and recovers the transaction and submits it to the pool.
     ///
     /// Returns the hash of the transaction.
     async fn send_raw_transaction(&self, tx: Bytes) -> Result<B256, Self::Error> {
-        self.0.send_raw_transaction(tx).await
+        todo!() // seimsic specific stuff here?
     }
 }
 

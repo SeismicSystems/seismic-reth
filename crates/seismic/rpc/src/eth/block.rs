@@ -46,7 +46,7 @@ where
             let block_hash = block.hash();
             let excess_blob_gas = block.excess_blob_gas();
             let timestamp = block.timestamp();
-            let blob_params = self.provider().chain_spec().blob_params_at_timestamp(timestamp);
+            let blob_params = self.inner.eth_api().provider().chain_spec().blob_params_at_timestamp(timestamp);
 
             return block
                 .body()
