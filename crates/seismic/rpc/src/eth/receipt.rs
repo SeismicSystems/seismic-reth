@@ -11,6 +11,7 @@ use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
 use reth_storage_api::{ReceiptProvider, TransactionsProvider};
 use seismic_alloy_consensus::{SeismicReceiptEnvelope, SeismicTxType};
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
+use reth_rpc_eth_api::RpcNodeCore;
 
 use crate::SeismicEthApi;
 
@@ -37,7 +38,7 @@ where
             .await
             .map_err(Self::Error::from_eth_err)?
             .ok_or(EthApiError::HeaderNotFound(hash.into()))?;
-        let blob_params = self.inner.eth_api.provider().chain_spec().blob_params_at_timestamp(meta.timestamp);
+        let blob_params = self.provider().chain_spec().blob_params_at_timestamp(meta.timestamp);
 
         Ok(SeismicReceiptBuilder::new(&tx, meta, &receipt, &all_receipts, blob_params)?.build())
     }

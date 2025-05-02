@@ -37,12 +37,14 @@ use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_provider::{providers::ProviderFactoryBuilder, CanonStateSubscriptions, EthStorage};
 use reth_rpc::{eth::core::EthApiFor, ValidationApi};
 use reth_rpc_api::{BlockSubmissionValidationApiServer, DebugApiServer};
+use reth_rpc_builder::config::RethRpcServerConfig;
 use reth_rpc_eth_api::{ext::L2EthApiExtServer, FullEthApiServer};
 use reth_rpc_eth_types::{error::FromEvmError, EthApiError};
 use reth_rpc_server_types::RethRpcModule;
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
 use reth_seismic_rpc::{SeismicEthApi, SeismicEthApiBuilder};
+use reth_seismic_txpool::SeismicPooledTransaction;
 use reth_tracing::tracing::{debug, info};
 use reth_transaction_pool::{
     blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},
@@ -53,7 +55,6 @@ use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
 use std::{sync::Arc, time::SystemTime};
-use reth_rpc_builder::config::RethRpcServerConfig;
 
 /// Storage implementation for Optimism.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
@@ -197,7 +198,7 @@ pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
 #[derive(Debug)]
 pub struct SeismicAddOns<N: FullNodeComponents>
 where
-     N: FullNodeComponents<
+    N: FullNodeComponents<
         Types: NodeTypesWithEngine<
             ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
@@ -209,9 +210,9 @@ where
     SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
 {
     inner: RpcAddOns<
-        N, // Node: ,
-        SeismicEthApiBuilder, // EthB: 
-        SeismicEngineValidatorBuilder,  // EV: 
+        N,                             // Node: ,
+        SeismicEthApiBuilder,          // EthB:
+        SeismicEngineValidatorBuilder, // EV:
     >,
 }
 
@@ -234,33 +235,28 @@ where
     }
 }
 
-
 /// A regular optimism evm and executor builder.
 #[derive(Debug, Default, Clone)]
-pub struct SeismicAddOnsBuilder {
-}
+pub struct SeismicAddOnsBuilder {}
 
 impl SeismicAddOnsBuilder {
     /// Builds an instance of [`OpAddOns`].
     pub fn build<N>(self) -> SeismicAddOns<N>
     where
         N: FullNodeComponents<
-        Types: NodeTypesWithEngine<
-            ChainSpec = ChainSpec,
-            Primitives = SeismicPrimitives,
-            Storage = SeismicStorage,
-            Payload = SeismicEngineTypes,
+            Types: NodeTypesWithEngine<
+                ChainSpec = ChainSpec,
+                Primitives = SeismicPrimitives,
+                Storage = SeismicStorage,
+                Payload = SeismicEngineTypes,
+            >,
+            Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
         >,
-        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
-    >,
-    SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
+        SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
     {
-        SeismicAddOns {
-            inner: Default::default(),
-        }
+        SeismicAddOns { inner: Default::default() }
     }
 }
-
 
 impl<N: FullNodeComponents> Default for SeismicAddOns<N>
 where
@@ -360,8 +356,8 @@ where
 {
     type Validator = SeismicEngineValidator;
 
-    async fn engine_validator(&self, ctx: &AddOnsContext<'_, N>) -> eyre::Result<Self::Validator>
-{         SeismicEngineValidatorBuilder::default().build(ctx).await
+    async fn engine_validator(&self, ctx: &AddOnsContext<'_, N>) -> eyre::Result<Self::Validator> {
+        SeismicEngineValidatorBuilder::default().build(ctx).await
     }
 }
 
@@ -452,7 +448,6 @@ where
 
 reth_transaction_pool::maintain::LocalTransactionBackupConfig::with_local_txs_backup(transactions_path);
 
-
             ctx.task_executor().spawn_critical_with_graceful_shutdown_signal(
                 "local transactions backup task",
                 |shutdown| {
@@ -497,8 +492,8 @@ impl SeismicPayloadBuilder {
         evm_config: Evm,
         ctx: &BuilderContext<Node>,
         pool: Pool,
-    ) -> eyre::Result<reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider,
-Evm>>     where
+    ) -> eyre::Result<reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider, Evm>>
+    where
         Types: NodeTypesWithEngine<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>,
         Node: FullNodeTypes<Types = Types>,
         Evm: ConfigureEvm<Primitives = PrimitivesTy<Types>>,
@@ -535,8 +530,7 @@ where
     >,
 {
     type PayloadBuilder =
-        reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider,
-SeismicEvmConfig>;
+        reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider, SeismicEvmConfig>;
 
     async fn build_payload_builder(
         self,
@@ -557,8 +551,9 @@ impl<Node, Pool> NetworkBuilder<Node, Pool> for SeismicNetworkBuilder
 where
     Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
     Pool: TransactionPool<
-            Transaction: PoolTransaction<Consensus = TxTy<Node::Types>, Pooled =
-SeismicTxEnvelope>,
+            Transaction: PoolTransaction<
+            Consensus = TxTy<Node::Types>, 
+            Pooled = SeismicTxEnvelope>, // equiv to op_alloy_consensus::OpPooledTransaction>,
         > + Unpin
         + 'static,
 {
@@ -623,6 +618,6 @@ impl NetworkPrimitives for SeismicNetworkPrimitives {
     type BlockBody = alloy_consensus::BlockBody<SeismicTransactionSigned>;
     type Block = alloy_consensus::Block<SeismicTransactionSigned>;
     type BroadcastedTransaction = SeismicTransactionSigned;
-    type PooledTransaction = SeismicTxEnvelope;
+    type PooledTransaction = SeismicTxEnvelope; // before was op_alloy_consensus::OpPoooledTransaction, not reth_optimism_txpool::OpPooledTransaction;
     type Receipt = SeismicReceipt;
 }
