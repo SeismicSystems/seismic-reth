@@ -32,7 +32,7 @@ use reth_node_builder::{
     },
     BuilderContext, DebugNode, Node, NodeAdapter, NodeComponentsBuilder, PayloadBuilderConfig,
 };
-use reth_node_ethereum::{consensus::EthBeaconConsensus, EthereumEngineValidator};
+use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_provider::{providers::ProviderFactoryBuilder, CanonStateSubscriptions, EthStorage};
 use reth_rpc::{eth::core::EthApiFor, ValidationApi};
