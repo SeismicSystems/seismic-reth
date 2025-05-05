@@ -55,6 +55,7 @@ use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
 use std::{sync::Arc, time::SystemTime};
+use reth_seismic_payload_builder::SeismicBuilderConfig;
 
 /// Storage implementation for Optimism.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
@@ -517,7 +518,7 @@ impl SeismicPayloadBuilder {
             ctx.provider().clone(),
             pool,
             evm_config,
-            EthereumBuilderConfig::new().with_gas_limit(conf.gas_limit()),
+            SeismicBuilderConfig::new().with_gas_limit(conf.gas_limit()),
         ))
     }
 }

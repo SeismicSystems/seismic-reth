@@ -13,6 +13,7 @@ use reth_node_builder::{
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
 use reth_transaction_pool::{PoolTransaction, TransactionPool};
+use reth_seismic_payload_builder::SeismicBuilderConfig;
 
 /// A basic ethereum payload service.
 #[derive(Clone, Default, Debug)]
@@ -46,7 +47,7 @@ impl SeismicPayloadBuilder {
             ctx.provider().clone(),
             pool,
             evm_config,
-            EthereumBuilderConfig::new().with_gas_limit(conf.gas_limit()),
+            SeismicBuilderConfig::new().with_gas_limit(conf.gas_limit()),
         ))
     }
 }
