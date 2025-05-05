@@ -24,7 +24,7 @@ use crate::{eth::SeismicNodeCore, SeismicEthApi};
 
 impl<N> EthTransactions for SeismicEthApi<N>
 where
-    Self: LoadTransaction<Provider: BlockReaderIdExt> + FullEthApiTypes<Error = EthApiError>,
+    Self: LoadTransaction<Provider: BlockReaderIdExt>,
     N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
 {
     fn signers(&self) -> &parking_lot::RwLock<Vec<Box<dyn EthSigner<ProviderTx<Self::Provider>>>>> {

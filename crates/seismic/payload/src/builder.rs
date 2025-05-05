@@ -1,10 +1,10 @@
-//! A basic Ethereum payload builder implementation.
+//! A basic Seismic payload builder implementation.
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 #![allow(clippy::useless_let_if_seq)]
 
-use reth_ethereum_payload_builder::{EthereumBuilderConfig, EthereumExecutionPayloadValidator};
+use reth_basic_payload_builder::*;
 
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::U256;
@@ -41,7 +41,9 @@ type BestTransactionsIter<Pool> = Box<
     dyn BestTransactions<Item = Arc<ValidPoolTransaction<<Pool as TransactionPool>::Transaction>>>,
 >;
 
-/// Ethereum payload builder
+use super::SeismicBuilderConfig;
+
+/// Seismic payload builder
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeismicPayloadBuilder<Pool, Client, EvmConfig = SeismicEvmConfig> {
     /// Client providing access to node state.
@@ -51,7 +53,7 @@ pub struct SeismicPayloadBuilder<Pool, Client, EvmConfig = SeismicEvmConfig> {
     /// The type responsible for creating the evm.
     evm_config: EvmConfig,
     /// Payload builder configuration.
-    builder_config: EthereumBuilderConfig,
+    builder_config: SeismicBuilderConfig,
 }
 
 impl<Pool, Client, EvmConfig> SeismicPayloadBuilder<Pool, Client, EvmConfig> {
@@ -60,7 +62,7 @@ impl<Pool, Client, EvmConfig> SeismicPayloadBuilder<Pool, Client, EvmConfig> {
         client: Client,
         pool: Pool,
         evm_config: EvmConfig,
-        builder_config: EthereumBuilderConfig,
+        builder_config: SeismicBuilderConfig,
     ) -> Self {
         Self { client, pool, evm_config, builder_config }
     }
@@ -121,9 +123,9 @@ where
     }
 }
 
-/// Constructs an Ethereum transaction payload using the best transactions from the pool.
+/// Constructs an Seismic transaction payload using the best transactions from the pool.
 ///
-/// Given build arguments including an Ethereum client, transaction pool,
+/// Given build arguments including an Seismic client, transaction pool,
 /// and configuration, this function creates a transaction payload. Returns
 /// a result indicating success with the payload or an error in case of failure.
 #[inline]
@@ -131,7 +133,7 @@ pub fn default_seismic_payload<EvmConfig, Client, Pool, F>(
     evm_config: EvmConfig,
     client: Client,
     pool: Pool,
-    builder_config: EthereumBuilderConfig,
+    builder_config: SeismicBuilderConfig,
     args: BuildArguments<EthPayloadBuilderAttributes, EthBuiltPayload<SeismicBlock>>,
     best_txs: F,
 ) -> Result<BuildOutcome<EthBuiltPayload<SeismicBlock>>, PayloadBuilderError>
