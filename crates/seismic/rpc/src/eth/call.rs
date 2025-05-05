@@ -43,7 +43,6 @@ where
         > + SpawnBlocking,
     Self::Error: From<EthApiError>,
     N: SeismicNodeCore,
-    EthApi<N::Provider, N::Pool, N::Network, N::Evm>: Call,
 {
     #[inline]
     fn call_gas_limit(&self) -> u64 {

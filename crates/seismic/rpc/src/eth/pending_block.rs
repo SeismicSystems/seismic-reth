@@ -50,17 +50,6 @@ where
             NextBlockEnvCtx = NextBlockEnvAttributes,
         >,
     >,
-    EthApi<N::Provider, N::Pool, N::Network, N::Evm>: LoadPendingBlock
-        + FullEthApiTypes<Error = EthApiError>
-        + RpcNodeCore<
-            Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
-            Provider: BlockReaderIdExt<
-                Transaction = ProviderTx<Self::Provider>,
-                Block = ProviderBlock<Self::Provider>,
-                Receipt = ProviderReceipt<Self::Provider>,
-                Header = alloy_consensus::Header,
-            >,
-        >,
     EthApiError: FromEvmError<Self::Evm>,
 {
     #[inline]

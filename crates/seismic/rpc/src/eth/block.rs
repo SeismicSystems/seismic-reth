@@ -30,8 +30,6 @@ where
     N: SeismicNodeCore<
         Provider: BlockReader + ChainSpecProvider<ChainSpec = ChainSpec> + HeaderProvider,
     >,
-    EthApi<N::Provider, N::Pool, N::Network, N::Evm>: EthBlocks,
-    N::Provider: ChainSpecProvider<ChainSpec = ChainSpec> + HeaderProvider,
 {
     async fn block_receipts(
         &self,
@@ -46,7 +44,8 @@ where
             let block_hash = block.hash();
             let excess_blob_gas = block.excess_blob_gas();
             let timestamp = block.timestamp();
-            let blob_params = self.inner.eth_api().provider().chain_spec().blob_params_at_timestamp(timestamp);
+            let blob_params =
+                self.inner.eth_api().provider().chain_spec().blob_params_at_timestamp(timestamp);
 
             return block
                 .body()

@@ -26,9 +26,6 @@ impl<N> EthTransactions for SeismicEthApi<N>
 where
     Self: LoadTransaction<Provider: BlockReaderIdExt> + FullEthApiTypes<Error = EthApiError>,
     N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
-    EthApi<N::Provider, N::Pool, N::Network, N::Evm>: EthTransactions
-        + FullEthApiTypes<Error = EthApiError>
-        + RpcNodeCore<Provider: TransactionsProvider<Transaction = ProviderTx<Self::Provider>>>,
 {
     fn signers(&self) -> &parking_lot::RwLock<Vec<Box<dyn EthSigner<ProviderTx<Self::Provider>>>>> {
         self.inner.eth_api.signers()

@@ -76,7 +76,7 @@ where
         self.inner.eth_api()
     }
 
-     /// Build a [`OpEthApi`] using [`OpEthApiBuilder`].
+    /// Build a [`OpEthApi`] using [`OpEthApiBuilder`].
     pub const fn builder() -> SeismicEthApiBuilder {
         SeismicEthApiBuilder::new()
     }
@@ -218,7 +218,6 @@ impl<N> EthState for SeismicEthApi<N>
 where
     Self: LoadState + SpawnBlocking,
     N: SeismicNodeCore,
-    EthApi<N::Provider, N::Pool, N::Network, N::Evm>: EthState,
 {
     #[inline]
     fn max_proof_window(&self) -> u64 {
@@ -254,7 +253,7 @@ where
     N: SeismicNodeCore,
 {
     fn with_dev_accounts(&self) {
-         *self.inner.eth_api.signers().write() = DevSigner::random_signers(20)
+        *self.inner.eth_api.signers().write() = DevSigner::random_signers(20)
     }
 }
 
@@ -280,8 +279,7 @@ impl<N: SeismicNodeCore> SeismicEthApiInner<N> {
 
 /// Builds [`OpEthApi`] for Optimism.
 #[derive(Debug, Default)]
-pub struct SeismicEthApiBuilder {
-}
+pub struct SeismicEthApiBuilder {}
 
 impl SeismicEthApiBuilder {
     /// Creates a [`OpEthApiBuilder`] instance from core components.
