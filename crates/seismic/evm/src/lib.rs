@@ -37,6 +37,8 @@ pub use execute::*;
 mod receipts;
 pub use receipts::*;
 mod build;
+mod evm;
+pub use evm::*;
 
 /// Ethereum-related EVM configuration.
 #[derive(Debug, Clone)]
