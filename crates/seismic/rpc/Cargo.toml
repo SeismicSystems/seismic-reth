@@ -30,7 +30,6 @@ reth-network-api.workspace = true
 reth-node-builder.workspace = true
 reth-chainspec.workspace = true
 reth-rpc-engine-api.workspace = true
-reth-node-ethereum.workspace = true
 
 # seismic-reth
 reth-seismic-chainspec.workspace = true

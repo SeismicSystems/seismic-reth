@@ -10226,7 +10226,6 @@ dependencies = [
  "reth-network-api",
  "reth-node-api",
  "reth-node-builder",
- "reth-node-ethereum",
  "reth-primitives-traits",
  "reth-rpc",
  "reth-rpc-api",

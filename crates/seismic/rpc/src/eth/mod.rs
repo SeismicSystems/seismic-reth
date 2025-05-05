@@ -15,7 +15,6 @@ use reth_evm::{ConfigureEvm, NextBlockEnvAttributes};
 use reth_network_api::NetworkInfo;
 use reth_node_api::{FullNodeComponents, NodePrimitives, NodeTypesWithEngine};
 use reth_node_builder::rpc::{EthApiBuilder, EthApiCtx};
-use reth_node_ethereum::EthereumEthApiBuilder;
 use reth_rpc::{
     eth::{core::EthApiInner, DevSigner},
     EthApi,
