@@ -1,4 +1,4 @@
-//! OP-Reth Transaction pool.
+//! Seismic-Reth Transaction pool.
 
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
@@ -16,8 +16,14 @@ use reth_transaction_pool::{
 use seismic_alloy_consensus::SeismicTxEnvelope;
 
 /// Type alias for default seismic transaction pool
-pub type SeismicTransactionPool<Client, S, T = SeismicTxEnvelope> = Pool<
+pub type SeismicTransactionPool<Client, S, T = SeismicPooledTransaction> = Pool<
     TransactionValidationTaskExecutor<EthTransactionValidator<Client, T>>,
     CoinbaseTipOrdering<T>,
     S,
 >;
+
+mod transaction;
+pub use transaction::{SeismicPooledTransaction, SeismicPooledTx};
+pub mod conditional;
+pub mod interop;
+// pub mod supervisor;

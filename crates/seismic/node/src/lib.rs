@@ -1,4 +1,4 @@
-//! Standalone crate for Optimism-specific Reth configuration and builder types.
+//! Standalone crate for Seismic-specific Reth configuration and builder types.
 //!
 //! # features
 //! - `js-tracer`: Enable the `JavaScript` tracer for the `debug_trace` endpoints
@@ -14,7 +14,7 @@ pub mod args;
 pub mod engine;
 
 pub mod node;
-pub use node::{SeismicNetworkPrimitives, SeismicNode};
+// pub use node::{SeismicNetworkPrimitives, SeismicNode};
 
 pub mod payload;
 
@@ -25,5 +25,9 @@ pub use reth_seismic_txpool as txpool;
 pub mod utils;
 
 pub use reth_seismic_payload_builder::SeismicPayloadBuilder;
+// pub use reth_seismic_payload_builder::{
+//     SeismicBuiltPayload, SeismicPayloadAttributes,
+//     SeismicPayloadBuilderAttributes,
+// };
 
 pub use reth_seismic_evm::*;

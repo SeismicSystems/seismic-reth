@@ -1,4 +1,4 @@
-//! OP-Reth chain specs.
+//! Seismic-Reth chain specs.
 
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",

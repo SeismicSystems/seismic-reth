@@ -11,6 +11,7 @@ use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
 use reth_storage_api::{ReceiptProvider, TransactionsProvider};
 use seismic_alloy_consensus::{SeismicReceiptEnvelope, SeismicTxType};
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
+use reth_rpc_eth_api::RpcNodeCore;
 
 use crate::SeismicEthApi;
 
@@ -31,6 +32,7 @@ where
         let hash = meta.block_hash;
         // get all receipts for the block
         let all_receipts = self
+            .inner.eth_api
             .cache()
             .get_receipts(hash)
             .await

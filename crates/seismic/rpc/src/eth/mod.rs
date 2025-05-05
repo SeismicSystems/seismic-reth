@@ -43,13 +43,44 @@ use reth_transaction_pool::TransactionPool;
 use seismic_alloy_network::Seismic;
 use std::{fmt, ops::Deref, sync::Arc};
 
+/// Adapter for [`EthApiInner`], which holds all the data required to serve core `eth_` API.
+pub type EthApiNodeBackend<N> = EthApiInner<
+    <N as RpcNodeCore>::Provider,
+    <N as RpcNodeCore>::Pool,
+    <N as RpcNodeCore>::Network,
+    <N as RpcNodeCore>::Evm,
+>;
+
 /// A helper trait with requirements for [`RpcNodeCore`] to be used in [`SeismicEthApi`].
 pub trait SeismicNodeCore: RpcNodeCore<Provider: BlockReader> {}
 impl<T> SeismicNodeCore for T where T: RpcNodeCore<Provider: BlockReader> {}
 
 /// seismic-reth `Eth` API implementation.
 #[derive(Clone)]
-pub struct SeismicEthApi<N: SeismicNodeCore>(pub EthApi<N::Provider, N::Pool, N::Network, N::Evm>);
+pub struct SeismicEthApi<N: SeismicNodeCore> {
+    inner: Arc<SeismicEthApiInner<N>>,
+}
+
+impl<N> SeismicEthApi<N>
+where
+    N: SeismicNodeCore<
+        Provider: BlockReaderIdExt
+                      + ChainSpecProvider
+                      + CanonStateSubscriptions<Primitives = SeismicPrimitives>
+                      + Clone
+                      + 'static,
+    >,
+{
+    /// Returns a reference to the [`EthApiNodeBackend`].
+    pub fn eth_api(&self) -> &EthApiNodeBackend<N> {
+        self.inner.eth_api()
+    }
+
+     /// Build a [`OpEthApi`] using [`OpEthApiBuilder`].
+    pub const fn builder() -> SeismicEthApiBuilder {
+        SeismicEthApiBuilder::new()
+    }
+}
 
 impl<N> EthApiTypes for SeismicEthApi<N>
 where
@@ -62,17 +93,6 @@ where
 
     fn tx_resp_builder(&self) -> &Self::TransactionCompat {
         self
-    }
-}
-
-impl<N> Deref for SeismicEthApi<N>
-where
-    N: SeismicNodeCore,
-{
-    type Target = EthApi<N::Provider, N::Pool, N::Network, N::Evm>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -89,17 +109,17 @@ where
 
     #[inline]
     fn pool(&self) -> &Self::Pool {
-        self.0.pool()
+        self.inner.eth_api.pool()
     }
 
     #[inline]
     fn evm_config(&self) -> &Self::Evm {
-        self.0.evm_config()
+        self.inner.eth_api.evm_config()
     }
 
     #[inline]
     fn network(&self) -> &Self::Network {
-        self.0.network()
+        self.inner.eth_api.network()
     }
 
     #[inline]
@@ -109,7 +129,7 @@ where
 
     #[inline]
     fn provider(&self) -> &Self::Provider {
-        self.0.provider()
+        self.inner.eth_api.provider()
     }
 }
 
@@ -119,7 +139,7 @@ where
 {
     #[inline]
     fn cache(&self) -> &EthStateCache<ProviderBlock<N::Provider>, ProviderReceipt<N::Provider>> {
-        self.0.cache()
+        self.inner.eth_api.cache()
     }
 }
 
@@ -136,12 +156,12 @@ where
 
     #[inline]
     fn starting_block(&self) -> U256 {
-        self.0.starting_block()
+        self.inner.eth_api.starting_block()
     }
 
     #[inline]
     fn signers(&self) -> &parking_lot::RwLock<Vec<Box<dyn EthSigner<ProviderTx<Self::Provider>>>>> {
-        self.0.signers()
+        self.inner.eth_api.signers()
     }
 }
 
@@ -152,17 +172,17 @@ where
 {
     #[inline]
     fn io_task_spawner(&self) -> impl TaskSpawner {
-        self.0.task_spawner()
+        self.inner.eth_api.task_spawner()
     }
 
     #[inline]
     fn tracing_task_pool(&self) -> &BlockingTaskPool {
-        self.0.blocking_task_pool()
+        self.inner.eth_api.blocking_task_pool()
     }
 
     #[inline]
     fn tracing_task_guard(&self) -> &BlockingTaskGuard {
-        self.0.blocking_task_guard()
+        self.inner.eth_api.blocking_task_guard()
     }
 }
 
@@ -177,12 +197,12 @@ where
 {
     #[inline]
     fn gas_oracle(&self) -> &GasPriceOracle<Self::Provider> {
-        self.0.gas_oracle()
+        self.inner.eth_api.gas_oracle()
     }
 
     #[inline]
     fn fee_history_cache(&self) -> &FeeHistoryCache {
-        self.0.fee_history_cache()
+        self.inner.eth_api.fee_history_cache()
     }
 }
 
@@ -202,7 +222,7 @@ where
 {
     #[inline]
     fn max_proof_window(&self) -> u64 {
-        self.0.max_proof_window()
+        self.inner.eth_api.eth_proof_window()
     }
 }
 
@@ -234,7 +254,7 @@ where
     N: SeismicNodeCore,
 {
     fn with_dev_accounts(&self) {
-        self.0.with_dev_accounts()
+         *self.inner.eth_api.signers().write() = DevSigner::random_signers(20)
     }
 }
 
@@ -244,9 +264,31 @@ impl<N: SeismicNodeCore> fmt::Debug for SeismicEthApi<N> {
     }
 }
 
-/// Builds [`EthApi`](reth_rpc::EthApi) for Seismic.
+/// Container type `OpEthApi`
+#[allow(missing_debug_implementations)]
+struct SeismicEthApiInner<N: SeismicNodeCore> {
+    /// Gateway to node's core components.
+    eth_api: EthApiNodeBackend<N>,
+}
+
+impl<N: SeismicNodeCore> SeismicEthApiInner<N> {
+    /// Returns a reference to the [`EthApiNodeBackend`].
+    const fn eth_api(&self) -> &EthApiNodeBackend<N> {
+        &self.eth_api
+    }
+}
+
+/// Builds [`OpEthApi`] for Optimism.
 #[derive(Debug, Default)]
-pub struct SeismicEthApiBuilder;
+pub struct SeismicEthApiBuilder {
+}
+
+impl SeismicEthApiBuilder {
+    /// Creates a [`OpEthApiBuilder`] instance from core components.
+    pub const fn new() -> Self {
+        SeismicEthApiBuilder {}
+    }
+}
 
 impl<N> EthApiBuilder<N> for SeismicEthApiBuilder
 where
@@ -269,8 +311,8 @@ where
         .eth_proof_window(ctx.config.eth_proof_window)
         .fee_history_cache_config(ctx.config.fee_history_cache)
         .proof_permits(ctx.config.proof_permits)
-        .build();
+        .build_inner();
 
-        SeismicEthApi(eth_api)
+        SeismicEthApi { inner: Arc::new(SeismicEthApiInner { eth_api }) }
     }
 }
