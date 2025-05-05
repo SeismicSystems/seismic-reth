@@ -30,7 +30,6 @@ where
     N: SeismicNodeCore<
         Provider: BlockReader + ChainSpecProvider<ChainSpec = ChainSpec> + HeaderProvider,
     >,
-    EthApi<N::Provider, N::Pool, N::Network, N::Evm>: EthBlocks,
     N::Provider: ChainSpecProvider<ChainSpec = ChainSpec> + HeaderProvider,
 {
     async fn block_receipts(
