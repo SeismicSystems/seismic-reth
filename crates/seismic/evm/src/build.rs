@@ -7,7 +7,6 @@ use alloy_eips::merge::BEACON_NONCE;
 use alloy_evm::block::BlockExecutorFactory;
 use alloy_primitives::{logs_bloom, Bytes};
 use reth_chainspec::{EthChainSpec, EthereumHardforks};
-use reth_ethereum_primitives::Receipt;
 use reth_evm::{
     eth::EthBlockExecutionCtx,
     execute::{BlockAssembler, BlockAssemblerInput},
