@@ -10,7 +10,7 @@ use alloy_eips::merge::EPOCH_SLOTS;
 use alloy_rpc_types_engine::PayloadAttributes;
 use reth_chainspec::{ChainSpec, EthChainSpec, EthereumHardforks, Hardforks};
 use reth_consensus::{ConsensusError, FullConsensus};
-use reth_ethereum_payload_builder::EthereumBuilderConfig;
+use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_evm::{
     execute::BasicBlockExecutorProvider, ConfigureEvm, EvmFactory, EvmFactoryFor,
     NextBlockEnvAttributes,
@@ -55,7 +55,6 @@ use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
 use std::{sync::Arc, time::SystemTime};
-use reth_seismic_payload_builder::SeismicBuilderConfig;
 
 /// Storage implementation for Optimism.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;

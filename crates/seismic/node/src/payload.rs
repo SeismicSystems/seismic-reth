@@ -4,7 +4,7 @@ use reth_chainspec::ChainSpec;
 use reth_ethereum_engine_primitives::{
     EthBuiltPayload, EthPayloadAttributes, EthPayloadBuilderAttributes,
 };
-use reth_ethereum_payload_builder::EthereumBuilderConfig;
+use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_evm::ConfigureEvm;
 use reth_node_api::{FullNodeTypes, NodeTypesWithEngine, PrimitivesTy, TxTy};
 use reth_node_builder::{
@@ -13,7 +13,6 @@ use reth_node_builder::{
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
 use reth_transaction_pool::{PoolTransaction, TransactionPool};
-use reth_seismic_payload_builder::SeismicBuilderConfig;
 
 /// A basic ethereum payload service.
 #[derive(Clone, Default, Debug)]

@@ -54,7 +54,6 @@ reth-ethereum-engine-primitives.workspace = true
 reth-ethereum-primitives.workspace = true
 reth-payload-primitives.workspace = true
 reth-engine-primitives.workspace = true
-reth-ethereum-payload-builder.workspace = true
 reth-rpc.workspace = true
 reth-rpc-builder.workspace = true
 
