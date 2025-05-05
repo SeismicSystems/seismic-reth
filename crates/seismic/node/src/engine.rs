@@ -13,7 +13,6 @@ pub use alloy_rpc_types_engine::{
 };
 use reth_chainspec::ChainSpec;
 use reth_engine_primitives::EngineTypes;
-use reth_ethereum_payload_builder::EthereumExecutionPayloadValidator;
 use reth_node_api::{
     validate_execution_requests, validate_version_specific_fields, EngineApiMessageVersion,
     EngineObjectValidationError, EngineValidator, NewPayloadError, PayloadOrAttributes,
@@ -22,6 +21,7 @@ use reth_node_api::{
 use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_payload_primitives::{BuiltPayload, PayloadTypes};
 use reth_primitives_traits::{NodePrimitives, RecoveredBlock, SealedBlock};
+use reth_seismic_payload_builder::SeismicExecutionPayloadValidator;
 
 /// The types used in the default mainnet ethereum beacon consensus engine.
 #[derive(Debug, Default, Clone, serde::Deserialize, serde::Serialize)]
@@ -95,13 +95,13 @@ impl PayloadTypes for SeismicPayloadTypes {
 /// Validator for the ethereum engine API.
 #[derive(Debug, Clone)]
 pub struct SeismicEngineValidator {
-    inner: EthereumExecutionPayloadValidator<ChainSpec>,
+    inner: SeismicExecutionPayloadValidator<ChainSpec>,
 }
 
 impl SeismicEngineValidator {
     /// Instantiates a new validator.
     pub const fn new(chain_spec: Arc<ChainSpec>) -> Self {
-        Self { inner: EthereumExecutionPayloadValidator::new(chain_spec) }
+        Self { inner: SeismicExecutionPayloadValidator::new(chain_spec) }
     }
 
     /// Returns the chain spec used by the validator.

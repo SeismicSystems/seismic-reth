@@ -10,7 +10,7 @@ use alloy_eips::merge::EPOCH_SLOTS;
 use alloy_rpc_types_engine::PayloadAttributes;
 use reth_chainspec::{ChainSpec, EthChainSpec, EthereumHardforks, Hardforks};
 use reth_consensus::{ConsensusError, FullConsensus};
-use reth_ethereum_payload_builder::EthereumBuilderConfig;
+use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_evm::{
     execute::BasicBlockExecutorProvider, ConfigureEvm, EvmFactory, EvmFactoryFor,
     NextBlockEnvAttributes,
@@ -32,7 +32,7 @@ use reth_node_builder::{
     },
     BuilderContext, DebugNode, Node, NodeAdapter, NodeComponentsBuilder, PayloadBuilderConfig,
 };
-use reth_node_ethereum::{consensus::EthBeaconConsensus, EthereumEngineValidator};
+use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_provider::{providers::ProviderFactoryBuilder, CanonStateSubscriptions, EthStorage};
 use reth_rpc::{eth::core::EthApiFor, ValidationApi};
@@ -59,122 +59,122 @@ use std::{sync::Arc, time::SystemTime};
 /// Storage implementation for Optimism.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
 
-// /// Type configuration for a regular Seismic node.
-// #[derive(Debug, Default, Clone)]
-// #[non_exhaustive]
-// pub struct SeismicNode;
+/// Type configuration for a regular Seismic node.
+#[derive(Debug, Default, Clone)]
+#[non_exhaustive]
+pub struct SeismicNode;
 
-// impl SeismicNode {
-//     /// Returns the components for the given [`EnclaveArgs`].
-//     pub fn components<Node>(
-//         &self,
-//     ) -> ComponentsBuilder<
-//         Node,
-//         SeismicPoolBuilder,
-//         BasicPayloadServiceBuilder<SeismicPayloadBuilder>,
-//         SeismicNetworkBuilder,
-//         SeismicExecutorBuilder,
-//         SeismicConsensusBuilder,
-//     >
-//     where
-//         Node: FullNodeTypes<
-//             Types: NodeTypesWithEngine<
-//                 Payload = SeismicEngineTypes,
-//                 ChainSpec = ChainSpec,
-//                 Primitives = SeismicPrimitives,
-//             >,
-//         >,
-//     {
-//         ComponentsBuilder::default()
-//             .node_types::<Node>()
-//             .pool(SeismicPoolBuilder::default())
-//             .payload(BasicPayloadServiceBuilder::<SeismicPayloadBuilder>::default())
-//             .network(SeismicNetworkBuilder::default())
-//             .executor(SeismicExecutorBuilder::default())
-//             .consensus(SeismicConsensusBuilder::default())
-//     }
+impl SeismicNode {
+    /// Returns the components for the given [`EnclaveArgs`].
+    pub fn components<Node>(
+        &self,
+    ) -> ComponentsBuilder<
+        Node,
+        SeismicPoolBuilder,
+        BasicPayloadServiceBuilder<SeismicPayloadBuilder>,
+        SeismicNetworkBuilder,
+        SeismicExecutorBuilder,
+        SeismicConsensusBuilder,
+    >
+    where
+        Node: FullNodeTypes<
+            Types: NodeTypesWithEngine<
+                Payload = SeismicEngineTypes,
+                ChainSpec = ChainSpec,
+                Primitives = SeismicPrimitives,
+            >,
+        >,
+    {
+        ComponentsBuilder::default()
+            .node_types::<Node>()
+            .pool(SeismicPoolBuilder::default())
+            .payload(BasicPayloadServiceBuilder::<SeismicPayloadBuilder>::default())
+            .network(SeismicNetworkBuilder::default())
+            .executor(SeismicExecutorBuilder::default())
+            .consensus(SeismicConsensusBuilder::default())
+    }
 
-//     /// Instantiates the [`ProviderFactoryBuilder`] for an opstack node.
-//     ///
-//     /// # Open a Providerfactory in read-only mode from a datadir
-//     ///
-//     /// See also: [`ProviderFactoryBuilder`] and
-//     /// [`ReadOnlyConfig`](reth_provider::providers::ReadOnlyConfig).
-//     ///
-//     /// ```no_run
-//     /// use reth_chainspec::BASE_MAINNET;
-//     /// use reth_seismic_node::SeismicNode;
-//     ///
-//     /// let factory = SeismicNode::provider_factory_builder()
-//     ///     .open_read_only(BASE_MAINNET.clone(), "datadir")
-//     ///     .unwrap();
-//     /// ```
-//     ///
-//     /// # Open a Providerfactory manually with with all required components
-//     ///
-//     /// ```no_run
-//     /// use reth_chainspec::ChainSpecBuilder;
-//     /// use reth_db::open_db_read_only;
-//     /// use reth_provider::providers::StaticFileProvider;
-//     /// use reth_seismic_node::SeismicNode;
-//     /// use std::sync::Arc;
-//     ///
-//     /// let factory = SeismicNode::provider_factory_builder()
-//     ///     .db(Arc::new(open_db_read_only("db", Default::default()).unwrap()))
-//     ///     .chainspec(ChainSpecBuilder::base_mainnet().build().into())
-//     ///     .static_file(StaticFileProvider::read_only("db/static_files", false).unwrap())
-//     ///     .build_provider_factory();
-//     /// ```
-//     pub fn provider_factory_builder() -> ProviderFactoryBuilder<Self> {
-//         ProviderFactoryBuilder::default()
-//     }
-// }
+    /// Instantiates the [`ProviderFactoryBuilder`] for an opstack node.
+    ///
+    /// # Open a Providerfactory in read-only mode from a datadir
+    ///
+    /// See also: [`ProviderFactoryBuilder`] and
+    /// [`ReadOnlyConfig`](reth_provider::providers::ReadOnlyConfig).
+    ///
+    /// ```no_run
+    /// use reth_chainspec::BASE_MAINNET;
+    /// use reth_seismic_node::SeismicNode;
+    ///
+    /// let factory = SeismicNode::provider_factory_builder()
+    ///     .open_read_only(BASE_MAINNET.clone(), "datadir")
+    ///     .unwrap();
+    /// ```
+    ///
+    /// # Open a Providerfactory manually with with all required components
+    ///
+    /// ```no_run
+    /// use reth_chainspec::ChainSpecBuilder;
+    /// use reth_db::open_db_read_only;
+    /// use reth_provider::providers::StaticFileProvider;
+    /// use reth_seismic_node::SeismicNode;
+    /// use std::sync::Arc;
+    ///
+    /// let factory = SeismicNode::provider_factory_builder()
+    ///     .db(Arc::new(open_db_read_only("db", Default::default()).unwrap()))
+    ///     .chainspec(ChainSpecBuilder::base_mainnet().build().into())
+    ///     .static_file(StaticFileProvider::read_only("db/static_files", false).unwrap())
+    ///     .build_provider_factory();
+    /// ```
+    pub fn provider_factory_builder() -> ProviderFactoryBuilder<Self> {
+        ProviderFactoryBuilder::default()
+    }
+}
 
-// impl<N> Node<N> for SeismicNode
-// where
-//     N: FullNodeComponents<
-//         Types: NodeTypesWithEngine<
-//             ChainSpec = ChainSpec,
-//             Primitives = SeismicPrimitives,
-//             Storage = SeismicStorage,
-//             Payload = SeismicEngineTypes,
-//         >,
-//         Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
-//     >,
-//     SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
-// {
-//     type ComponentsBuilder = ComponentsBuilder<
-//         N,
-//         SeismicPoolBuilder,
-//         BasicPayloadServiceBuilder<SeismicPayloadBuilder>,
-//         SeismicNetworkBuilder,
-//         SeismicExecutorBuilder,
-//         SeismicConsensusBuilder,
-//     >;
+impl<N> Node<N> for SeismicNode
+where
+    N: FullNodeComponents<
+        Types: NodeTypesWithEngine<
+            ChainSpec = ChainSpec,
+            Primitives = SeismicPrimitives,
+            Storage = SeismicStorage,
+            Payload = SeismicEngineTypes,
+        >,
+        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
+    >,
+    SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
+{
+    type ComponentsBuilder = ComponentsBuilder<
+        N,
+        SeismicPoolBuilder,
+        BasicPayloadServiceBuilder<SeismicPayloadBuilder>,
+        SeismicNetworkBuilder,
+        SeismicExecutorBuilder,
+        SeismicConsensusBuilder,
+    >;
 
-//     type AddOns = SeismicAddOns<
-//         NodeAdapter<N, <Self::ComponentsBuilder as NodeComponentsBuilder<N>>::Components>,
-//     >;
+    type AddOns = SeismicAddOns<
+        NodeAdapter<N, <Self::ComponentsBuilder as NodeComponentsBuilder<N>>::Components>,
+    >;
 
-//     fn components_builder(&self) -> Self::ComponentsBuilder {
-//         Self::components(self)
-//     }
+    fn components_builder(&self) -> Self::ComponentsBuilder {
+        Self::components(self)
+    }
 
-//     fn add_ons(&self) -> Self::AddOns {
-//         Self::AddOns::builder().build()
-//     }
-// }
+    fn add_ons(&self) -> Self::AddOns {
+        Self::AddOns::builder().build()
+    }
+}
 
-// impl NodeTypes for SeismicNode {
-//     type Primitives = SeismicPrimitives;
-//     type ChainSpec = ChainSpec;
-//     type StateCommitment = MerklePatriciaTrie;
-//     type Storage = SeismicStorage;
-// }
+impl NodeTypes for SeismicNode {
+    type Primitives = SeismicPrimitives;
+    type ChainSpec = ChainSpec;
+    type StateCommitment = MerklePatriciaTrie;
+    type Storage = SeismicStorage;
+}
 
-// impl NodeTypesWithEngine for SeismicNode {
-//     type Payload = SeismicEngineTypes;
-// }
+impl NodeTypesWithEngine for SeismicNode {
+    type Payload = SeismicEngineTypes;
+}
 
 // impl<N> DebugNode<N> for SeismicNode
 // where
@@ -517,7 +517,7 @@ impl SeismicPayloadBuilder {
             ctx.provider().clone(),
             pool,
             evm_config,
-            EthereumBuilderConfig::new().with_gas_limit(conf.gas_limit()),
+            SeismicBuilderConfig::new().with_gas_limit(conf.gas_limit()),
         ))
     }
 }
