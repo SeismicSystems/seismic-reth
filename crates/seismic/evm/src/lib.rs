@@ -13,7 +13,7 @@ extern crate alloc;
 use alloc::{borrow::Cow, sync::Arc};
 use alloy_consensus::{BlockHeader, Header};
 use alloy_eips::eip1559::INITIAL_BASE_FEE;
-use alloy_evm::{eth::EthBlockExecutionCtx, EthEvmFactory, EvmFactory, FromRecoveredTx};
+use alloy_evm::{eth::EthBlockExecutionCtx, EvmFactory, FromRecoveredTx};
 use alloy_primitives::{Bytes, U256};
 use build::SeismicBlockAssembler;
 use core::fmt::Debug;
@@ -42,7 +42,7 @@ pub use alloy_seismic_evm::{SeismicEvmFactory, SeismicEvm};
 
 /// Ethereum-related EVM configuration.
 #[derive(Debug, Clone)]
-pub struct SeismicEvmConfig<EvmFactory = EthEvmFactory> {
+pub struct SeismicEvmConfig<EvmFactory = SeismicEvmFactory> {
     /// Inner [`EthBlockExecutorFactory`].
     pub executor_factory:
         EthBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, EvmFactory>,
@@ -53,7 +53,7 @@ pub struct SeismicEvmConfig<EvmFactory = EthEvmFactory> {
 impl SeismicEvmConfig {
     /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
     pub fn seismic(chain_spec: Arc<ChainSpec>) -> Self {
-        SeismicEvmConfig::new_with_evm_factory(chain_spec, EthEvmFactory::default())
+        SeismicEvmConfig::new_with_evm_factory(chain_spec, SeismicEvmFactory::default())
     }
 }
 
@@ -347,8 +347,7 @@ mod tests {
         // Use the `SeismicEvmConfig` to create the `cfg_env` and `block_env` based on the
         // ChainSpec, Header, and total difficulty
         let EvmEnv { cfg_env, .. } =
-            SeismicEvmConfig::optimism(Arc::new(ChainSpec { inner: chain_spec.clone() }))
-                .evm_env(&header);
+            SeismicEvmConfig::seismic(Arc::new(chain_spec.clone())).evm_env(&header);
 
         // Assert that the chain ID in the `cfg_env` is correctly set to the chain ID of the
         // ChainSpec
