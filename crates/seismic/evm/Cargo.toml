@@ -57,6 +57,9 @@ reth-seismic-chainspec.workspace = true
 alloy-genesis.workspace = true
 alloy-consensus.workspace = true
 reth-seismic-primitives = { workspace = true, features = ["arbitrary"] }
+reth-testing-utils.workspace = true
+secp256k1.workspace = true
+revm-state.workspace = true
 
 [features]
 default = ["std"]

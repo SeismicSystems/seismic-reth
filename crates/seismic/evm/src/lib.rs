@@ -308,7 +308,6 @@ mod tests {
     use alloy_eips::eip7685::Requests;
     use alloy_genesis::Genesis;
     use alloy_primitives::{bytes, map::HashMap, Address, LogData, B256};
-    use op_revm::OpSpecId;
     use reth_chainspec::{ChainSpec, BASE_MAINNET};
     use reth_evm::execute::ProviderError;
     use reth_execution_types::{
