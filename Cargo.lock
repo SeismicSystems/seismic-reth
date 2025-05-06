@@ -6047,8 +6047,7 @@ dependencies = [
 [[package]]
 name = "op-revm"
 version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6eadb8205294a61224897e4c69f486a9461da45e4c6caffc921ff9b1b1a89282"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=6bd6b5f#6bd6b5f62969243c1ca1e02f81307f26d49c68d3"
 dependencies = [
  "auto_impl",
  "once_cell",
