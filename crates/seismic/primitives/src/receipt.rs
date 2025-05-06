@@ -26,6 +26,12 @@ pub enum SeismicReceipt {
     Seismic(Receipt),
 }
 
+impl Default for SeismicReceipt {
+    fn default() -> Self {
+        Self::Legacy(Default::default())
+    }
+}
+
 impl SeismicReceipt {
     /// Returns [`SeismicTxType`] of the receipt.
     pub const fn tx_type(&self) -> SeismicTxType {
@@ -423,6 +429,7 @@ mod tests {
     use reth_codecs::Compact;
 
     #[test]
+    #[cfg(feature = "reth-codec")]
     fn test_decode_receipt() {
         reth_codecs::test_utils::test_decode::<SeismicReceipt>(&hex!(
             "c30328b52ffd23fc426961a00105007eb0042307705a97e503562eacf2b95060cce9de6de68386b6c155b73a9650021a49e2f8baad17f30faff5899d785c4c0873e45bc268bcf07560106424570d11f9a59e8f3db1efa4ceec680123712275f10d92c3411e1caaa11c7c5d591bc11487168e09934a9986848136da1b583babf3a7188e3aed007a1520f1cf4c1ca7d3482c6c28d37c298613c70a76940008816c4c95644579fd08471dc34732fd0f24"
