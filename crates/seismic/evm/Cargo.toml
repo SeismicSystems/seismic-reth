@@ -39,6 +39,9 @@ reth-seismic-primitives = { workspace = true, features = [
     "serde-bincode-compat",
 ] }
 
+# Seismic
+alloy-seismic-evm.workspace = true
+
 # revm
 revm.workspace = true
 
