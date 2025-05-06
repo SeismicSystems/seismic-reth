@@ -57,9 +57,15 @@ impl SeismicEvmConfig {
     }
 }
 
-impl<EvmFactory> SeismicEvmConfig<EvmFactory> {
+impl SeismicEvmConfig {
+
+    /// Creates a new Seismic EVM configuration with the given chain spec.
+    pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
+        Self::seismic(chain_spec)
+    }
+
     /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
-    pub fn new_with_evm_factory(chain_spec: Arc<ChainSpec>, evm_factory: EvmFactory) -> Self {
+    pub fn new_with_evm_factory(chain_spec: Arc<ChainSpec>, evm_factory: SeismicEvmFactory) -> Self {
         Self {
             block_assembler: SeismicBlockAssembler::new(chain_spec.clone()),
             executor_factory: EthBlockExecutorFactory::new(
@@ -82,21 +88,13 @@ impl<EvmFactory> SeismicEvmConfig<EvmFactory> {
     }
 }
 
-impl<EvmF> ConfigureEvm for SeismicEvmConfig<EvmF>
-where
-    EvmF: EvmFactory<Tx: TransactionEnv + FromRecoveredTx<SeismicTransactionSigned>, Spec = SpecId>
-        + Clone
-        + Debug
-        + Send
-        + Sync
-        + Unpin
-        + 'static,
+impl ConfigureEvm for SeismicEvmConfig
 {
     type Primitives = SeismicPrimitives;
     type Error = Infallible;
     type NextBlockEnvCtx = NextBlockEnvAttributes;
     type BlockExecutorFactory =
-        EthBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, EvmF>;
+        EthBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, SeismicEvmFactory>;
     type BlockAssembler = SeismicBlockAssembler<ChainSpec>;
 
     fn block_executor_factory(&self) -> &Self::BlockExecutorFactory {
