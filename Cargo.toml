@@ -346,8 +346,8 @@ reth-seismic-txpool = { path = "crates/seismic/txpool" }
 
 seismic-enclave = "0.1.0"
 seismic-revm = "1.0.0"
-
-alloy-seismic-evm = {version = "0.0.1", default-features = false}
+alloy-seismic-evm = {version = "0.1.0-alpha.3", default-features = false}
+# alloy-seismic-evm = {version = "0.0.1", default-features = false}
 
 seismic-alloy-rpc-types = {version = "0.0.1", default-features = false}
 seismic-alloy-consensus = {version = "0.0.1", default-features = false}
@@ -743,6 +743,7 @@ alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.gi
 
 # seismic-revm
 seismic-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "6bd6b5f"}
+alloy-seismic-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "20f7df0"}
 
 revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "6bd6b5f"}
 revm-bytecode = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "6bd6b5f"}
