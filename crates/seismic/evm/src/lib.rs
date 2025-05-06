@@ -37,8 +37,8 @@ pub use execute::*;
 mod receipts;
 pub use receipts::*;
 mod build;
-mod evm;
-pub use evm::*;
+
+pub use alloy_seismic_evm::{SeismicEvmFactory, SeismicEvm};
 
 /// Ethereum-related EVM configuration.
 #[derive(Debug, Clone)]
