@@ -8143,6 +8143,7 @@ dependencies = [
  "reth-storage-errors",
  "reth-trie-common",
  "revm",
+ "seismic-revm",
 ]
 
 [[package]]
@@ -10151,6 +10152,7 @@ dependencies = [
  "rstest",
  "secp256k1 0.30.0",
  "seismic-alloy-consensus",
+ "seismic-revm",
  "serde",
  "serde_json",
  "serde_with",

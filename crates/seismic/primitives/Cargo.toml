@@ -31,6 +31,7 @@ seismic-alloy-consensus.workspace = true
 alloy-rpc-types-eth = { workspace = true, optional = true }
 alloy-network = { workspace = true, optional = true }
 alloy-serde = { workspace = true, optional = true }
+seismic-revm.workspace = true
 
 # codec
 bytes = { workspace = true, optional = true }

@@ -105,12 +105,12 @@ impl ConfigureEvm for SeismicEvmConfig
         &self.block_assembler
     }
 
-    fn evm_env(&self, header: &Header) -> EvmEnv<SpecId> {
+    fn evm_env(&self, header: &Header) -> EvmEnv<SeismicSpecId> {
         // TODO: use the correct spec id
         let spec = SpecId::LATEST;
 
         // configure evm env based on parent block
-        let cfg_env = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
+        let cfg_env = CfgEnv::<SeismicSpecId>::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
 
         let block_env = BlockEnv {
             number: header.number(),
@@ -133,7 +133,7 @@ impl ConfigureEvm for SeismicEvmConfig
         &self,
         parent: &Header,
         attributes: &NextBlockEnvAttributes,
-    ) -> Result<EvmEnv, Self::Error> {
+    ) -> Result<EvmEnv<SeismicSpecId>, Self::Error> {
         // ensure we're not missing any timestamp based hardforks
         let spec_id = revm_spec_by_timestamp_and_block_number(
             self.chain_spec(),
