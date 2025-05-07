@@ -22,6 +22,7 @@ reth-storage-api = { workspace = true, features = ["db-api"] }
 alloy-eips.workspace = true
 alloy-primitives.workspace = true
 alloy-consensus.workspace = true
+reth-ethereum-forks.workspace = true
 revm.workspace = true
 
 [dev-dependencies]
