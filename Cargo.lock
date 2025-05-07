@@ -266,7 +266,7 @@ dependencies = [
 [[package]]
 name = "alloy-evm"
 version = "0.1.0-alpha.3"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=20f7df0#20f7df0f7da43fac3e8aa288057e5296c101db25"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=6ba3948#6ba3948fa99a4a5bb60c2f84d6180048b5908352"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -277,6 +277,7 @@ dependencies = [
  "derive_more 2.0.1",
  "op-revm",
  "revm",
+ "seismic-revm",
  "thiserror 2.0.12",
 ]
 
@@ -395,8 +396,7 @@ dependencies = [
 [[package]]
 name = "alloy-op-evm"
 version = "0.1.0-alpha.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ed217773009445cba32f02418828a282c7bcb7721909cf4f6aaa9a263618817"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=6ba3948#6ba3948fa99a4a5bb60c2f84d6180048b5908352"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -723,7 +723,7 @@ dependencies = [
 [[package]]
 name = "alloy-seismic-evm"
 version = "0.1.0-alpha.3"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=20f7df0#20f7df0f7da43fac3e8aa288057e5296c101db25"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=6ba3948#6ba3948fa99a4a5bb60c2f84d6180048b5908352"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -734,6 +734,7 @@ dependencies = [
  "op-alloy-consensus",
  "op-revm",
  "revm",
+ "seismic-revm",
 ]
 
 [[package]]

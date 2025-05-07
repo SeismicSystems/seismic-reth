@@ -744,9 +744,11 @@ alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.gi
 # seismic-revm
 seismic-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "6bd6b5f"}
 
-# evm
-alloy-seismic-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "20f7df0"}
-alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "20f7df0" }
+# alloy-evm
+alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "6ba3948" }
+alloy-op-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "6ba3948"}
+alloy-seismic-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "6ba3948"}
+
 
 revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "6bd6b5f"}
 revm-bytecode = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "6bd6b5f"}
