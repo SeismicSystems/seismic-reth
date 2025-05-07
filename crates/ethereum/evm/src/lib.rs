@@ -382,14 +382,14 @@ mod tests {
             BlockEnv { basefee: 1000, gas_limit: 10_000_000, number: 42, ..Default::default() };
         let evm_env = EvmEnv { block_env: block, ..Default::default() };
 
-        let evm = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});
+        let evm  = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});
 
         // Verify that the block and transaction environments are set correctly
         assert_eq!(evm.block, evm_env.block_env);
         assert_eq!(evm.cfg.spec, SpecId::LATEST);
     }
 
-    #[test]
+    # [test]
     fn test_evm_with_env_inspector_and_spec_id() {
         let evm_config = EthEvmConfig::mainnet();
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();

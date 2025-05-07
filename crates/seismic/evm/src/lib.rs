@@ -321,9 +321,10 @@ mod tests {
         state::AccountInfo,
     };
     use std::sync::Arc;
+    use alloy_evm::Evm;
 
     fn test_evm_config() -> SeismicEvmConfig {
-        SeismicEvmConfig::optimism(BASE_MAINNET.clone())
+        SeismicEvmConfig::seismic(BASE_MAINNET.clone())
     }
 
     #[test]
@@ -372,7 +373,7 @@ mod tests {
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
 
         // Create a custom configuration environment with a chain ID of 111
-        let cfg = CfgEnv::new().with_chain_id(111).with_spec(OpSpecId::default());
+        let cfg = CfgEnv::new().with_chain_id(111).with_spec(SeismicSpecId::default());
 
         let evm_env = EvmEnv { cfg_env: cfg.clone(), ..Default::default() };
 
@@ -407,7 +408,7 @@ mod tests {
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
 
         let evm_env =
-            EvmEnv { cfg_env: CfgEnv::new().with_spec(OpSpecId::ECOTONE), ..Default::default() };
+            EvmEnv { cfg_env: CfgEnv::new().with_spec(SeismicSpecId::MERCURY), ..Default::default() };
 
         let evm = evm_config.evm_with_env(db, evm_env.clone());
 
@@ -424,7 +425,7 @@ mod tests {
         let evm = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});
 
         // Check that the EVM environment is set to default values
-        assert_eq!(evm.block, evm_env.block_env);
+        assert_eq!(*evm.block(), evm_env.block_env);
         assert_eq!(evm.cfg, evm_env.cfg_env);
     }
 
@@ -433,7 +434,7 @@ mod tests {
         let evm_config = test_evm_config();
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
 
-        let cfg = CfgEnv::new().with_chain_id(111).with_spec(OpSpecId::default());
+        let cfg = CfgEnv::new().with_chain_id(111).with_spec(SeismicSpecId::MERCURY);
         let block = BlockEnv::default();
         let evm_env = EvmEnv { block_env: block, cfg_env: cfg.clone() };
 
@@ -466,9 +467,9 @@ mod tests {
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
 
         let evm_env =
-            EvmEnv { cfg_env: CfgEnv::new().with_spec(OpSpecId::ECOTONE), ..Default::default() };
+            EvmEnv { cfg_env: CfgEnv::new().with_spec(SeismicSpecId::MERCURY), ..Default::default() };
 
-        let evm = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});
+        let evm  = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});
 
         // Check that the spec ID is set properly
         assert_eq!(evm.cfg, evm_env.cfg_env);
