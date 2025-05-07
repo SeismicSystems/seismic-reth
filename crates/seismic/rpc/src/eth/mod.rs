@@ -1,8 +1,11 @@
 //! OP-Reth `eth_` endpoint implementation.
 
+pub mod error;
+/// seismic api extension from eth api
 pub mod ext;
 pub mod receipt;
 pub mod transaction;
+pub mod utils;
 
 mod block;
 mod call;

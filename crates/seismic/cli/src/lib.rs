@@ -8,15 +8,20 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-/// Optimism chain specification parser.
+/// Seismic chain specification parser.
 pub mod chainspec;
 
 use reth_chainspec::ChainSpec;
+use reth_cli_commands::node;
+use reth_seismic_node::{
+    args::EnclaveArgs,
+    node::{SeismicNetworkPrimitives, SeismicNode},
+};
 
 use std::{ffi::OsString, fmt, sync::Arc};
 
 use chainspec::SeismicChainSpecParser;
-use clap::{command, value_parser, Parser};
+use clap::{command, value_parser, Parser, Subcommand};
 use futures_util::Future;
 use reth_chainspec::EthChainSpec;
 use reth_cli::chainspec::ChainSpecParser;
@@ -27,9 +32,7 @@ use reth_node_core::{
     args::LogArgs,
     version::{LONG_VERSION, SHORT_VERSION},
 };
-use reth_seismic_consensus::EthBeaconConsensus;
 use reth_seismic_evm::SeismicExecutorProvider;
-use reth_seismic_node::{SeismicNetworkPrimitives, SeismicNode};
 use reth_tracing::FileWorkerGuard;
 use tracing::info;
 
@@ -43,8 +46,10 @@ use reth_node_metrics::recorder::install_prometheus_recorder;
 /// This is the entrypoint to the executable.
 #[derive(Debug, Parser)]
 #[command(author, version = SHORT_VERSION, long_version = LONG_VERSION, about = "Reth", long_about = None)]
-pub struct Cli<Spec: ChainSpecParser = SeismicChainSpecParser, Ext: clap::Args + fmt::Debug = EnclaveArgs>
-{
+pub struct Cli<
+    Spec: ChainSpecParser = SeismicChainSpecParser,
+    Ext: clap::Args + fmt::Debug = EnclaveArgs,
+> {
     /// The command to run
     #[command(subcommand)]
     pub command: Commands<Spec, Ext>,
@@ -136,37 +141,6 @@ where
             Commands::Node(command) => {
                 runner.run_command_until_exit(|ctx| command.execute(ctx, launcher))
             }
-            Commands::Init(command) => {
-                runner.run_blocking_until_ctrl_c(command.execute::<SeismicNode>())
-            }
-            Commands::InitState(command) => {
-                runner.run_blocking_until_ctrl_c(command.execute::<SeismicNode>())
-            }
-            Commands::ImportOp(command) => {
-                runner.run_blocking_until_ctrl_c(command.execute::<SeismicNode>())
-            }
-            Commands::ImportReceiptsOp(command) => {
-                runner.run_blocking_until_ctrl_c(command.execute::<SeismicNode>())
-            }
-            Commands::DumpGenesis(command) => runner.run_blocking_until_ctrl_c(command.execute()),
-            Commands::Db(command) => {
-                runner.run_blocking_until_ctrl_c(command.execute::<SeismicNode>())
-            }
-            Commands::Stage(command) => runner.run_command_until_exit(|ctx| {
-                command.execute::<SeismicNode, _, _, SeismicNetworkPrimitives>(ctx, |spec| {
-                    (SeismicExecutorProvider::optimism(spec.clone()), EthBeaconConsensus::new(spec))
-                })
-            }),
-            Commands::P2P(command) => {
-                runner.run_until_ctrl_c(command.execute::<SeismicNetworkPrimitives>())
-            }
-            Commands::Config(command) => runner.run_until_ctrl_c(command.execute()),
-            Commands::Recover(command) => {
-                runner.run_command_until_exit(|ctx| command.execute::<SeismicNode>(ctx))
-            }
-            Commands::Prune(command) => runner.run_until_ctrl_c(command.execute::<SeismicNode>()),
-            #[cfg(feature = "dev")]
-            Commands::TestVectors(command) => runner.run_until_ctrl_c(command.execute()),
         }
     }
 
@@ -180,6 +154,15 @@ where
     }
 }
 
+/// Commands to be executed
+#[derive(Debug, Subcommand)]
+#[expect(clippy::large_enum_variant)]
+pub enum Commands<C: ChainSpecParser, Ext: clap::Args + fmt::Debug> {
+    /// Start the node
+    #[command(name = "node")]
+    Node(Box<node::NodeCommand<C, Ext>>),
+}
+
 #[cfg(test)]
 mod test {
     use crate::chainspec::SeismicChainSpecParser;
@@ -189,7 +172,8 @@ mod test {
 
     #[test]
     fn parse_dev() {
-        let cmd = NodeCommand::<SeismicChainSpecParser, NoArgs>::parse_from(["seismic-reth", "--dev"]);
+        let cmd =
+            NodeCommand::<SeismicChainSpecParser, NoArgs>::parse_from(["seismic-reth", "--dev"]);
         let chain = SEISMIC_DEV.clone();
         assert_eq!(cmd.chain.chain, chain.chain);
         assert_eq!(cmd.chain.genesis_hash(), chain.genesis_hash());

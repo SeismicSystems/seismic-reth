@@ -30,23 +30,32 @@ reth-network-api.workspace = true
 reth-node-builder.workspace = true
 reth-chainspec.workspace = true
 reth-rpc-engine-api.workspace = true
+reth-tracing.workspace = true
+reth-node-core.workspace = true
 
 # seismic-reth
 reth-seismic-chainspec.workspace = true
 reth-seismic-evm.workspace = true
 reth-seismic-payload-builder.workspace = true
 reth-seismic-txpool.workspace = true
+
+seismic-enclave.workspace = true
+
 # TODO remove node-builder import
 reth-seismic-primitives = { workspace = true, features = ["reth-codec", "serde-bincode-compat"] }
 
 # ethereum
 alloy-eips.workspace = true
 alloy-primitives.workspace = true
+alloy-rpc-types.workspace = true
 alloy-rpc-types-eth.workspace = true
 alloy-rpc-types-debug.workspace = true
 alloy-consensus.workspace = true
 alloy-rpc-types-engine.workspace = true
-seismic-alloy-rpc-types.workspace = true
+alloy-json-rpc.workspace = true
+alloy-dyn-abi.workspace = true
+
+seismic-alloy-rpc-types = { workspace = true, features = ["serde"] }
 seismic-alloy-consensus.workspace = true
 revm.workspace = true
 
