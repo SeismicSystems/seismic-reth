@@ -1,6 +1,4 @@
-use reth_chainspec::{
-    ChainSpec, BASE_MAINNET, BASE_SEPOLIA, OP_SEPOLIA, SEISMIC_DEV, SEISMIC_MAINNET,
-};
+use reth_chainspec::ChainSpec;
 use reth_cli::chainspec::{parse_genesis, ChainSpecParser};
 use reth_seismic_chainspec::{SEISMIC_DEV, SEISMIC_MAINNET};
 use std::sync::Arc;

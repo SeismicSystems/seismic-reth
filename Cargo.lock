@@ -7434,6 +7434,7 @@ dependencies = [
  "reth-optimism-primitives",
  "reth-primitives-traits",
  "reth-prune-types",
+ "reth-seismic-primitives",
  "reth-stages-types",
  "reth-storage-errors",
  "reth-trie-common",
@@ -10144,7 +10145,6 @@ dependencies = [
  "rand 0.8.5",
  "reth-codecs",
  "reth-primitives-traits",
- "reth-transaction-pool",
  "reth-zstd-compressors",
  "revm-context",
  "rstest",
@@ -10160,8 +10160,11 @@ name = "reth-seismic-rpc"
 version = "1.3.4"
 dependencies = [
  "alloy-consensus",
+ "alloy-dyn-abi",
  "alloy-eips",
+ "alloy-json-rpc",
  "alloy-primitives",
+ "alloy-rpc-types",
  "alloy-rpc-types-debug",
  "alloy-rpc-types-engine",
  "alloy-rpc-types-eth",
@@ -10178,6 +10181,7 @@ dependencies = [
  "reth-network-api",
  "reth-node-api",
  "reth-node-builder",
+ "reth-node-core",
  "reth-primitives-traits",
  "reth-rpc",
  "reth-rpc-api",
@@ -10192,11 +10196,13 @@ dependencies = [
  "reth-seismic-txpool",
  "reth-storage-api",
  "reth-tasks",
+ "reth-tracing",
  "reth-transaction-pool",
  "revm",
  "seismic-alloy-consensus",
  "seismic-alloy-network",
  "seismic-alloy-rpc-types",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=3a56cce)",
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
@@ -11416,7 +11422,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-consensus"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=c167d9d9#c167d9d9b4bd25623c9e1c35dd480ca4c88ff71a"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=c05ff8e#c05ff8ea336226af548f9931c36800cd7510bcf5"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -11441,7 +11447,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-network"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=c167d9d9#c167d9d9b4bd25623c9e1c35dd480ca4c88ff71a"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=c05ff8e#c05ff8ea336226af548f9931c36800cd7510bcf5"
 dependencies = [
  "alloy-consensus",
  "alloy-network",
@@ -11455,7 +11461,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-rpc-types"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=c167d9d9#c167d9d9b4bd25623c9e1c35dd480ca4c88ff71a"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=c05ff8e#c05ff8ea336226af548f9931c36800cd7510bcf5"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11552,6 +11558,7 @@ dependencies = [
  "reth-node-metrics",
  "reth-primitives",
  "reth-provider",
+ "reth-seismic-cli",
  "reth-seismic-node",
  "reth-seismic-rpc",
  "reth-tracing",

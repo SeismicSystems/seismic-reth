@@ -55,6 +55,7 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     .into()
 });
 
+/// Seismic Mainnet
 pub static SEISMIC_MAINNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     let genesis = serde_json::from_str(include_str!("../res/genesis/mainnet.json"))
         .expect("Can't deserialize Mainnet genesis json");

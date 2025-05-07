@@ -16,7 +16,6 @@ workspace = true
 reth-primitives-traits = { workspace = true }
 reth-codecs = { workspace = true, optional = true }
 reth-zstd-compressors = { workspace = true, optional = true }
-reth-transaction-pool = { workspace = true }
 
 # ethereum
 alloy-evm.workspace = true
@@ -100,7 +99,6 @@ reth-codec = [
     "dep:bytes",
     "dep:modular-bitfield",
     "dep:reth-zstd-compressors",
-    "reth-transaction-pool/reth-codec",
 ]
 serde = [
     "dep:serde",
@@ -115,7 +113,6 @@ serde = [
     "secp256k1?/serde",
     "alloy-rpc-types-eth?/serde",
     "revm-context/serde",
-    "reth-transaction-pool/serde",
 ]
 serde-bincode-compat = [
     "serde",
@@ -124,7 +121,6 @@ serde-bincode-compat = [
     "alloy-eips/serde-bincode-compat",
     "seismic-alloy-consensus/serde-bincode-compat",
     "reth-primitives-traits/serde-bincode-compat",
-    "reth-transaction-pool/serde-bincode-compat",
 ]
 arbitrary = [
     "std",
