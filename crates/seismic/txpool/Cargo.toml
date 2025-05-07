@@ -27,8 +27,7 @@ reth-chain-state.workspace = true
 reth-storage-api.workspace = true
 reth-transaction-pool.workspace = true
 
-
-# optimism
+# seismic
 seismic-alloy-consensus.workspace = true
 reth-seismic-evm.workspace = true
 reth-seismic-primitives = { workspace = true, features = [

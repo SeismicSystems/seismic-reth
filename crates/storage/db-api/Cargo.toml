@@ -27,6 +27,9 @@ alloy-primitives.workspace = true
 alloy-genesis.workspace = true
 alloy-consensus.workspace = true
 
+# seismic
+reth-seismic-primitives = { workspace = true, features = ["serde", "reth-codec"] }
+
 # optimism
 reth-optimism-primitives = { workspace = true, optional = true }
 

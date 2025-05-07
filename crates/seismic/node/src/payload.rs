@@ -1,17 +1,17 @@
 //! Payload component configuration for the Ethereum node.
 
+use crate::engine::SeismicEngineTypes;
 use reth_chainspec::ChainSpec;
-use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_evm::ConfigureEvm;
 use reth_node_api::{FullNodeTypes, NodeTypesWithEngine, PrimitivesTy, TxTy};
 use reth_node_builder::{
     components::PayloadBuilderBuilder, BuilderContext, PayloadBuilderConfig, PayloadTypes,
 };
 use reth_seismic_evm::SeismicEvmConfig;
+use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
-use reth_transaction_pool::{PoolTransaction, TransactionPool};
-use crate::engine::SeismicEngineTypes;
 use reth_seismic_txpool::SeismicPooledTx;
+use reth_transaction_pool::{PoolTransaction, TransactionPool};
 
 /// A basic ethereum payload service.
 #[derive(Clone, Default, Debug)]
@@ -53,18 +53,16 @@ impl SeismicPayloadBuilder {
 
 impl<Node, Pool> PayloadBuilderBuilder<Node, Pool> for SeismicPayloadBuilder
 where
-        Node: FullNodeTypes<
-            Types: NodeTypesWithEngine<
-                Payload = SeismicEngineTypes,
-                ChainSpec = ChainSpec,
-                Primitives = SeismicPrimitives,
-            >,
+    Node: FullNodeTypes<
+        Types: NodeTypesWithEngine<
+            Payload = SeismicEngineTypes,
+            ChainSpec = ChainSpec,
+            Primitives = SeismicPrimitives,
         >,
-        Pool: TransactionPool<Transaction: PoolTransaction<Consensus = TxTy<Node::Types>>>
-            + Unpin
-            + 'static,
-        // Txs: SeismicPayloadTransactions<Pool::Transaction>,
-        <Pool as TransactionPool>::Transaction: SeismicPooledTx,
+    >,
+    Pool: TransactionPool<Transaction: PoolTransaction<Consensus = TxTy<Node::Types>>>
+        + Unpin
+        + 'static,
 {
     type PayloadBuilder =
         reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider, SeismicEvmConfig>;
