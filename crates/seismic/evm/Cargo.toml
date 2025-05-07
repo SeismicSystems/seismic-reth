@@ -34,10 +34,7 @@ alloy-consensus.workspace = true
 # Optimism
 reth-seismic-consensus.workspace = true
 reth-seismic-chainspec.workspace = true
-reth-seismic-primitives = { workspace = true, features = [
-    "reth-codec",
-    "serde-bincode-compat",
-] }
+reth-seismic-primitives = { workspace = true }
 
 # Seismic
 alloy-seismic-evm.workspace = true
