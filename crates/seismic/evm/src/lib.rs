@@ -107,10 +107,10 @@ impl ConfigureEvm for SeismicEvmConfig
 
     fn evm_env(&self, header: &Header) -> EvmEnv<SeismicSpecId> {
         // TODO: use the correct spec id
-        let spec = SpecId::LATEST;
+        let spec = SeismicSpecId::MERCURY;
 
         // configure evm env based on parent block
-        let cfg_env = CfgEnv::<SeismicSpecId>::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
+        let cfg_env = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
 
         let block_env = BlockEnv {
             number: header.number(),
@@ -135,11 +135,8 @@ impl ConfigureEvm for SeismicEvmConfig
         attributes: &NextBlockEnvAttributes,
     ) -> Result<EvmEnv<SeismicSpecId>, Self::Error> {
         // ensure we're not missing any timestamp based hardforks
-        let spec_id = revm_spec_by_timestamp_and_block_number(
-            self.chain_spec(),
-            attributes.timestamp,
-            parent.number() + 1,
-        );
+        // let spec_id = revm_spec_by_timestamp_after_bedrock(self.chain_spec(), attributes.timestamp);
+        let spec_id = SeismicSpecId::MERCURY; // this is the only SeismicSpecId for now
 
         // configure evm env based on parent block
         let cfg = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
@@ -150,8 +147,7 @@ impl ConfigureEvm for SeismicEvmConfig
             .maybe_next_block_excess_blob_gas(
                 self.chain_spec().blob_params_at_timestamp(attributes.timestamp),
             )
-            .or_else(|| (spec_id == SpecId::CANCUN).then_some(0))
-            .map(|gas| BlobExcessGasAndPrice::new(gas, spec_id >= SpecId::PRAGUE));
+            .map(|gas| BlobExcessGasAndPrice::new(gas, spec_id >= SeismicSpecId::MERCURY));
 
         let mut basefee = parent.next_block_base_fee(
             self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp),
@@ -306,7 +302,8 @@ mod tests {
     use alloy_eips::eip7685::Requests;
     use alloy_genesis::Genesis;
     use alloy_primitives::{bytes, map::HashMap, Address, LogData, B256};
-    use reth_chainspec::{ChainSpec, BASE_MAINNET};
+    use reth_chainspec::{ChainSpec};
+    use reth_seismic_chainspec::SEISMIC_MAINNET;
     use reth_evm::execute::ProviderError;
     use reth_execution_types::{
         AccountRevertInit, BundleStateInit, Chain, ExecutionOutcome, RevertsInit,
@@ -324,7 +321,7 @@ mod tests {
     use alloy_evm::Evm;
 
     fn test_evm_config() -> SeismicEvmConfig {
-        SeismicEvmConfig::seismic(BASE_MAINNET.clone())
+        SeismicEvmConfig::seismic(SEISMIC_MAINNET.clone())
     }
 
     #[test]
