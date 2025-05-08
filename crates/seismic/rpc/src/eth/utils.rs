@@ -3,6 +3,10 @@
 use alloy_rpc_types::{BlockTransactions, TransactionRequest};
 use reth_rpc_eth_api::{helpers::FullEthApi, RpcBlock};
 use seismic_alloy_consensus::Decodable712;
+use seismic_alloy_consensus::TypedDataRequest;
+use reth_rpc_eth_types::EthResult;
+use reth_rpc_eth_types::EthApiError;
+use reth_primitives::RecoveredTx;
 
 /// Override the request for seismic calls
 pub fn seismic_override_call_request(request: &mut TransactionRequest) {

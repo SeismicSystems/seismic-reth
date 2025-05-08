@@ -10188,6 +10188,7 @@ dependencies = [
  "reth-node-api",
  "reth-node-builder",
  "reth-node-core",
+ "reth-primitives",
  "reth-primitives-traits",
  "reth-rpc",
  "reth-rpc-api",
