@@ -13,7 +13,7 @@ use alloy_eips::eip2718::{Decodable2718, Encodable2718};
 use alloy_primitives::{keccak256, Address, PrimitiveSignature as Signature, TxHash, B256};
 use alloy_rlp::{Decodable, Encodable};
 use core::hash::Hash;
-use seismic_alloy_consensus::SeismicTxEnvelope;
+use seismic_alloy_consensus::Decodable712;
 
 /// Helper trait that unifies all behaviour required by block to support full node operations.
 pub trait FullSignedTx: SignedTransaction + MaybeCompact + MaybeSerdeBincodeCompat {}
@@ -34,6 +34,7 @@ pub trait SignedTransaction:
     + Decodable
     + Encodable2718
     + Decodable2718
+    + Decodable712 // Seismic adds support for 712 transactions for metamask integration
     + alloy_consensus::Transaction
     + MaybeSerde
     + InMemorySize
