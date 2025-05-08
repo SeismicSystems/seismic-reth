@@ -15,6 +15,7 @@ use reth_storage_api::{ProviderHeader, ProviderTx};
 use revm::{context::TxEnv, context_interface::Block, Database};
 use seismic_alloy_network::Seismic;
 use seismic_revm::SeismicTransaction;
+use seismic_alloy_consensus::SeismicTxType;
 
 impl<N> EthCall for SeismicEthApi<N>
 where
@@ -68,15 +69,15 @@ where
         // }
 
         // let tx_type = if request.authorization_list.is_some() {
-        //     TxType::Eip7702
+        //     SeismicTxType::Eip7702
         // } else if request.sidecar.is_some() || request.max_fee_per_blob_gas.is_some() {
-        //     TxType::Eip4844
+        //     SeismicTxType::Eip4844
         // } else if request.max_fee_per_gas.is_some() || request.max_priority_fee_per_gas.is_some() {
-        //     TxType::Eip1559
+        //     SeismicTxType::Eip1559
         // } else if request.access_list.is_some() {
-        //     TxType::Eip2930
+        //     SeismicTxType::Eip2930
         // } else {
-        //     TxType::Legacy
+        //     SeismicTxType::Legacy
         // } as u8;
 
         // let TransactionRequest {
