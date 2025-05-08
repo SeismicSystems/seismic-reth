@@ -33,8 +33,10 @@ use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
 use reth_tracing::tracing::*;
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
 use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicRawTxRequest};
-use seismic_enclave::{rpc::EnclaveApiClient, EnclaveClient, PublicKey};
+use seismic_enclave::{rpc::EnclaveApiClient, serde::de, EnclaveClient, PublicKey};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use alloy_rpc_types_eth::transaction::{TransactionInput};
+use seismic_alloy_consensus::TypedDataRequest;
 
 use crate::{
     error::SeismicApiError,
@@ -129,12 +131,13 @@ pub trait EthApiOverride<B: RpcObject> {
 #[derive(Debug)]
 pub struct EthApiExt<Eth> {
     eth_api: Eth,
+    client: EnclaveClient,
 }
 
 impl<Eth> EthApiExt<Eth> {
     /// Create a new `EthApiExt` module.
-    pub const fn new(eth_api: Eth) -> Self {
-        Self { eth_api }
+    pub const fn new(eth_api: Eth, client: EnclaveClient) -> Self {
+        Self { eth_api, client }
     }
 }
 
@@ -252,7 +255,7 @@ where
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
         trace!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving overridden eth_call");
-        let tx_request: SeismicTransactionRequest = match request {
+        let tx_request: TransactionRequest = match request {
             SeismicCallRequest::TransactionRequest(tx_request) => tx_request,
 
             SeismicCallRequest::TypedData(typed_request) => {
@@ -261,12 +264,10 @@ where
                         <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
                     );
 
-                let inner = TransactionRequest::from_transaction_with_sender(
-                    tx.as_signed().clone(),
+                TransactionRequest::from_transaction_with_sender(
+                    tx.clone(),
                     tx.signer(),
-                );
-
-                SeismicTransactionRequest::TransactionRequest(inner)
+                )
             }
 
             SeismicCallRequest::Bytes(bytes) => {
@@ -276,16 +277,28 @@ where
                     );
 
                 TransactionRequest::from_transaction_with_sender(
-                    tx.as_signed().clone(),
+                    tx.inner().clone(),
                     tx.signer(),
                 )
             }
         };
 
         let seismic_elements = tx_request.seismic_elements;
+        let decrypted_data: Option<Vec<u8>> = None;
         if let Some(seismic_elements) = seismic_elements {
             // decrypt here
-            tx_request.input = seismic_elements.server_decrypt();
+            let decrypt_resp: seismic_enclave::tx_io::IoDecryptionResponse = self.client.decrypt(seismic_elements)
+                .await
+                .map_err(|e| EthApiError::Other(Box::new(
+                    jsonrpsee_types::ErrorObject::owned(
+                        -32000, // TODO: pick a better error code?
+                        "DecryptionError",
+                        Some(e.to_string()),
+                    )
+                )))?;
+
+            let decrypted_data = Some(decrypt_resp.decrypted_data);
+            tx_request.input(TransactionInput::new(Bytes::from(decrypted_data.unwrap())));
         }
 
         let result = EthCall::call(
@@ -297,13 +310,14 @@ where
         .await?;
 
         if let Some(seismic_elements) = seismic_elements {
-            let encrypted_output = self
-                .eth_api
-                .evm_config()
-                .encrypt(&result, &seismic_elements)
-                .map(|encrypted_output| Bytes::from(encrypted_output))
-                .unwrap();
-            Ok(encrypted_output)
+            // let encrypted_output = self
+            //     .eth_api
+            //     .evm_config()
+            //     .encrypt(&result, &seismic_elements)
+            //     .map(|encrypted_output| Bytes::from(encrypted_output))
+            //     .unwrap();
+            // Ok(encrypted_output)
+            todo!()
         } else {
             Ok(result)
         }
