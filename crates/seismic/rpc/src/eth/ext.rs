@@ -37,6 +37,7 @@ use seismic_enclave::{rpc::EnclaveApiClient, serde::de, EnclaveClient, PublicKey
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use alloy_rpc_types_eth::transaction::{TransactionInput};
 use seismic_alloy_consensus::TypedDataRequest;
+use seismic_enclave::{tx_io::IoDecryptionRequest};
 
 use crate::{
     error::SeismicApiError,
@@ -271,23 +272,27 @@ where
             }
 
             SeismicCallRequest::Bytes(bytes) => {
-                let tx = recover_raw_transaction::<PoolPooledTx<Eth::Pool>>(&bytes)?
-                    .map_transaction(
-                        <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
-                    );
+                // let tx = recover_raw_transaction::<PoolPooledTx<Eth::Pool>>(&bytes)?
+                //     .map_transaction(
+                //         <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
+                //     );
 
-                TransactionRequest::from_transaction_with_sender(
-                    tx.inner().clone(),
-                    tx.signer(),
-                )
+                // TransactionRequest::from_transaction_with_sender(
+                //     tx.inner().clone(),
+                //     tx.signer(),
+                // )
+                todo!()
             }
         };
 
+        // decrypt seismic elements
         let seismic_elements = tx_request.seismic_elements;
         let decrypted_data: Option<Vec<u8>> = None;
         if let Some(seismic_elements) = seismic_elements {
-            // decrypt here
-            let decrypt_resp: seismic_enclave::tx_io::IoDecryptionResponse = self.client.decrypt(seismic_elements)
+            let ciphertext = tx_request.inner.input.into_input().unwrap(); // Todo: figure out if this is correct
+            let decrypt_resp: seismic_enclave::tx_io::IoDecryptionResponse = self.client.decrypt(
+                seismic_elements.to_enclave_decrypt_request(&ciphertext),
+            )
                 .await
                 .map_err(|e| EthApiError::Other(Box::new(
                     jsonrpsee_types::ErrorObject::owned(
@@ -303,7 +308,7 @@ where
 
         let result = EthCall::call(
             &self.eth_api,
-            tx_request,
+            tx_request.inner.clone(),
             block_number,
             EvmOverrides::new(state_overrides, block_overrides),
         )
