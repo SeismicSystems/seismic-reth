@@ -36,6 +36,7 @@ pub trait SignedTransaction:
     + Decodable2718
     + Decodable712 // Seismic adds support for 712 transactions for metamask integration
     + alloy_consensus::Transaction
+    + alloy_rpc_types_eth::TransactionTrait
     + MaybeSerde
     + InMemorySize
 {

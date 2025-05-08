@@ -27,6 +27,10 @@ use std::pin::Pin;
 use tokio_stream::StreamExt;
 use url::Url;
 
+
+use alloy_rpc_types_eth::TransactionTrait;
+use alloy_consensus::Transaction;
+
 /// An helper struct to handle node actions
 #[expect(missing_debug_implementations)]
 pub struct NodeTestContext<Node, AddOns>
