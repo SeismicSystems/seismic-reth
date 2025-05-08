@@ -11575,6 +11575,7 @@ dependencies = [
  "reth-tracing",
  "seismic-alloy-consensus",
  "seismic-alloy-rpc-types",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=3a56cce)",
  "tokio",
  "tracing",
 ]

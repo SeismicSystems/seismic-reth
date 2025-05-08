@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 
 use reth_cli_commands::node::NoArgs;
-use reth_enclave::start_blocking_mock_enclave_server;
+use reth_enclave::{start_blocking_mock_enclave_server, EnclaveClient};
 use reth_node_builder::{EngineNodeLauncher, TreeConfig};
 use reth_provider::providers::BlockchainProvider;
 use reth_seismic_cli::chainspec::SeismicChainSpecParser;
@@ -47,7 +47,8 @@ fn main() {
             .extend_rpc_modules(move |ctx| {
                 // replace eth_ namespace
                 ctx.modules.replace_configured(
-                    EthApiExt::new(ctx.registry.eth_api().clone()).into_rpc(),
+                    EthApiExt::new(ctx.registry.eth_api().clone(), EnclaveClient::default())
+                        .into_rpc(),
                 )?;
 
                 // add seismic_ namespace

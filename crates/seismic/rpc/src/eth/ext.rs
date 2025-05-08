@@ -18,7 +18,7 @@ use alloy_rpc_types::{
 };
 use alloy_rpc_types_eth::{
     simulate::{SimulatePayload, SimulatedBlock},
-    transaction::TransactionRequest,
+    transaction::{TransactionInput, TransactionRequest},
 };
 use jsonrpsee::{
     core::{async_trait, RpcResult},
@@ -32,12 +32,12 @@ use reth_rpc_eth_api::{
 use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
 use reth_tracing::tracing::*;
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
-use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest, SeismicRawTxRequest};
-use seismic_enclave::{rpc::EnclaveApiClient, serde::de, EnclaveClient, PublicKey};
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use alloy_rpc_types_eth::transaction::{TransactionInput};
 use seismic_alloy_consensus::TypedDataRequest;
-use seismic_enclave::{tx_io::IoDecryptionRequest};
+use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest};
+use seismic_enclave::{
+    rpc::EnclaveApiClient, serde::de, tx_io::IoDecryptionRequest, EnclaveClient, PublicKey,
+};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
 use crate::{
     error::SeismicApiError,
@@ -182,10 +182,10 @@ where
 
     //                 alloy_rpc_types::SeismicCallRequest::TypedData(typed_request) => {
     //                     let tx =
-    //                         recover_typed_data_request::<PoolPooledTx<Eth::Pool>>(&typed_request)?
-    //                             .map_transaction(
-    //                             <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
-    //                         );
+    //
+    // recover_typed_data_request::<PoolPooledTx<Eth::Pool>>(&typed_request)?
+    // .map_transaction(                             <Eth::Pool as
+    // TransactionPool>::Transaction::pooled_into_consensus,                         );
 
     //                     TransactionRequest::from_transaction_with_sender(
     //                         tx.as_signed().clone(),
@@ -196,8 +196,8 @@ where
     //                 alloy_rpc_types::SeismicCallRequest::Bytes(bytes) => {
     //                     let tx = recover_raw_transaction::<PoolPooledTx<Eth::Pool>>(&bytes)?
     //                         .map_transaction(
-    //                             <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
-    //                         );
+    //                             <Eth::Pool as
+    // TransactionPool>::Transaction::pooled_into_consensus,                         );
 
     //                     TransactionRequest::from_transaction_with_sender(
     //                         tx.as_signed().clone(),
@@ -260,13 +260,9 @@ where
             SeismicCallRequest::TransactionRequest(tx_request) => tx_request,
 
             SeismicCallRequest::TypedData(typed_request) => {
-                let tx = recover_typed_data_request::<PoolPooledTx<Eth::Pool>>(&typed_request)?
-                    .map_transaction(
-                        <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
-                    );
-
+                let tx = recover_typed_data_request::<PoolPooledTx<Eth::Pool>>(&typed_request)?;
                 SeismicTransactionRequest::from_transaction_with_sender(
-                    tx.clone(),
+                    tx.inner().clone(),
                     tx.signer(),
                 )
             }
@@ -289,30 +285,19 @@ where
         let seismic_elements = tx_request.seismic_elements;
         let decrypted_data: Option<Vec<u8>> = None;
         if let Some(seismic_elements) = seismic_elements {
-            let ciphertext = tx_request.inner.input.into_input().unwrap(); // Todo: figure out if this is correct
-            let decrypt_resp: seismic_enclave::tx_io::IoDecryptionResponse = self.client.decrypt(
-                seismic_elements.to_enclave_decrypt_request(&ciphertext),
-            )
-                .await
-                .map_err(|e| EthApiError::Other(Box::new(
-                    jsonrpsee_types::ErrorObject::owned(
+            let ciphertext = tx_request.inner.input.into_input().unwrap(); // Todo: figure out if
+
+            let decrypted_data =
+                seismic_elements.server_decrypt(&self.client, &ciphertext).map_err(|e| {
+                    EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
                         -32000, // TODO: pick a better error code?
                         "DecryptionError",
                         Some(e.to_string()),
-                    )
-                )))?;
-
-            let decrypted_data = Some(decrypt_resp.decrypted_data);
-            tx_request.input(TransactionInput::new(Bytes::from(decrypted_data.unwrap())));
+                    )))
+                })?;
         }
 
-        let result = EthCall::call(
-            &self.eth_api,
-            tx_request.inner.clone(),
-            block_number,
-            EvmOverrides::new(state_overrides, block_overrides),
-        )
-        .await?;
+        let result = Bytes::new();
 
         if let Some(seismic_elements) = seismic_elements {
             // let encrypted_output = self
