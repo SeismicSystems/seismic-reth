@@ -38,6 +38,7 @@ reth-seismic-chainspec.workspace = true
 reth-seismic-evm.workspace = true
 reth-seismic-payload-builder.workspace = true
 reth-seismic-txpool.workspace = true
+reth-primitives.workspace = true
 
 seismic-enclave.workspace = true
 

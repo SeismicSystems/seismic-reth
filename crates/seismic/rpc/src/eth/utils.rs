@@ -1,8 +1,11 @@
 //! Utils for testing the seismic rpc api
 
 use alloy_rpc_types::{BlockTransactions, TransactionRequest};
+use reth_primitives::RecoveredTx;
+use reth_primitives_traits::SignedTransaction;
 use reth_rpc_eth_api::{helpers::FullEthApi, RpcBlock};
-use seismic_alloy_consensus::Decodable712;
+use reth_rpc_eth_types::{EthApiError, EthResult};
+use seismic_alloy_consensus::{Decodable712, TypedDataRequest};
 
 /// Override the request for seismic calls
 pub fn seismic_override_call_request(request: &mut TransactionRequest) {
@@ -24,13 +27,13 @@ pub fn seismic_override_call_request(request: &mut TransactionRequest) {
 /// malformed.
 ///
 /// See [`alloy_eips::eip2718::Decodable2718::decode_2718`]
-pub fn recover_typed_data_request<T: Decodable712>(
+pub fn recover_typed_data_request<T: SignedTransaction>(
     mut data: &TypedDataRequest,
 ) -> EthResult<RecoveredTx<T>> {
     let transaction =
         T::decode_712(&mut data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
 
-    transaction.try_into_ecrecovered().or(Err(EthApiError::InvalidTransactionSignature))
+    transaction.try_into_recovered().or(Err(EthApiError::InvalidTransactionSignature))
 }
 
 /// Test utils for the seismic rpc api

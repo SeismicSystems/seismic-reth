@@ -31,7 +31,7 @@ use reth_primitives_traits::{
     InMemorySize, SignedTransaction,
 };
 use revm_context::TxEnv;
-use seismic_alloy_consensus::{SeismicTxEnvelope, SeismicTypedTransaction, TxSeismic};
+use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, SeismicTypedTransaction, TxSeismic};
 use seismic_revm::SeismicTransaction;
 
 /// Signed transaction.
@@ -84,6 +84,12 @@ impl SeismicTransactionSigned {
     pub fn into_parts(self) -> (SeismicTypedTransaction, Signature, B256) {
         let hash = *self.hash.get_or_init(|| self.recalculate_hash());
         (self.transaction, self.signature, hash)
+    }
+}
+
+impl Decodable712 for SeismicTransactionSigned {
+    fn decode_712(buf: &seismic_alloy_consensus::TypedDataRequest) -> seismic_alloy_consensus::Eip712Result<Self> {
+        todo!("todo: Decodable712 for SeismicTransactionSigned")
     }
 }
 
