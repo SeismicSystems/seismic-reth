@@ -2,6 +2,7 @@
 
 use alloy_rpc_types::{BlockTransactions, TransactionRequest};
 use reth_rpc_eth_api::{helpers::FullEthApi, RpcBlock};
+use seismic_alloy_consensus::Decodable712;
 
 /// Override the request for seismic calls
 pub fn seismic_override_call_request(request: &mut TransactionRequest) {
@@ -15,6 +16,21 @@ pub fn seismic_override_call_request(request: &mut TransactionRequest) {
     request.max_priority_fee_per_gas = None; // preventing InsufficientFunds error
     request.max_fee_per_blob_gas = None; // preventing InsufficientFunds error
     request.value = None; // preventing InsufficientFunds error
+}
+
+/// Recovers a [`SignedTransaction`] from a typed data request.
+///
+/// This is a helper function that returns the appropriate RPC-specific error if the input data is
+/// malformed.
+///
+/// See [`alloy_eips::eip2718::Decodable2718::decode_2718`]
+pub fn recover_typed_data_request<T: Decodable712>(
+    mut data: &TypedDataRequest,
+) -> EthResult<RecoveredTx<T>> {
+    let transaction =
+        T::decode_712(&mut data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
+
+    transaction.try_into_ecrecovered().or(Err(EthApiError::InvalidTransactionSignature))
 }
 
 /// Test utils for the seismic rpc api
