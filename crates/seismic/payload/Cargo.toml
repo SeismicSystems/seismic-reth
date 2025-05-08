@@ -30,7 +30,8 @@ reth-payload-validator.workspace = true
 
 # seismic-reth
 reth-seismic-evm.workspace = true
-reth-seismic-primitives.workspace = true
+reth-seismic-primitives = {workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
+reth-ethereum-primitives = {workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
 reth-seismic-txpool.workspace = true
 reth-errors.workspace = true
 
