@@ -175,10 +175,10 @@ where
 
     //                 alloy_rpc_types::SeismicCallRequest::TypedData(typed_request) => {
     //                     let tx =
-    //
-    // recover_typed_data_request::<PoolPooledTx<Eth::Pool>>(&typed_request)?
-    // .map_transaction(                             <Eth::Pool as
-    // TransactionPool>::Transaction::pooled_into_consensus,                         );
+    //                         recover_typed_data_request::<PoolPooledTx<Eth::Pool>>(&typed_request)?
+    //                             .map_transaction(
+    //                             <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
+    //                         );
 
     //                     TransactionRequest::from_transaction_with_sender(
     //                         tx.as_signed().clone(),
@@ -189,8 +189,8 @@ where
     //                 alloy_rpc_types::SeismicCallRequest::Bytes(bytes) => {
     //                     let tx = recover_raw_transaction::<PoolPooledTx<Eth::Pool>>(&bytes)?
     //                         .map_transaction(
-    //                             <Eth::Pool as
-    // TransactionPool>::Transaction::pooled_into_consensus,                         );
+    //                             <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
+    //                         );
 
     //                     TransactionRequest::from_transaction_with_sender(
     //                         tx.as_signed().clone(),
