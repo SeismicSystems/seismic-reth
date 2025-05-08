@@ -1,24 +1,20 @@
-
 [package]
-name = "seismic-primitives"
+name = "reth-seismic-primitives"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 homepage.workspace = true
 repository.workspace = true
-description = "Seismic primitive types"
+description = "OP primitive types"
 
 [lints]
 workspace = true
 
 [dependencies]
-# seismic
-seismic-alloy-consensus.workspace = true
-
 # reth
-reth-primitives-traits = { workspace = true, features = ["op"] }
-reth-codecs = { workspace = true, optional = true, features = ["op"] }
+reth-primitives-traits = { workspace = true }
+reth-codecs = { workspace = true, optional = true }
 reth-zstd-compressors = { workspace = true, optional = true }
 
 # ethereum
@@ -30,9 +26,12 @@ alloy-eips = { workspace = true, features = ["k256"] }
 revm-context.workspace = true
 secp256k1 = { workspace = true, optional = true }
 
+# op
+seismic-alloy-consensus.workspace = true
 alloy-rpc-types-eth = { workspace = true, optional = true }
 alloy-network = { workspace = true, optional = true }
 alloy-serde = { workspace = true, optional = true }
+seismic-revm.workspace = true
 
 # codec
 bytes = { workspace = true, optional = true }
@@ -41,7 +40,12 @@ serde = { workspace = true, optional = true }
 serde_with = { workspace = true, optional = true }
 
 # misc
-derive_more = { workspace = true, features = ["deref", "from", "into", "constructor"] }
+derive_more = { workspace = true, features = [
+    "deref",
+    "from",
+    "into",
+    "constructor",
+] }
 rand = { workspace = true, optional = true }
 
 # test
@@ -53,7 +57,7 @@ arbitrary.workspace = true
 proptest-arbitrary-interop.workspace = true
 proptest.workspace = true
 rand.workspace = true
-reth-codecs = { workspace = true, features = ["test-utils", "op"] }
+reth-codecs = { workspace = true, features = ["test-utils"] }
 rstest.workspace = true
 secp256k1 = { workspace = true, features = ["rand"] }
 serde_json.workspace = true
@@ -81,7 +85,12 @@ std = [
     "alloy-evm/std",
     "serde_with?/std",
 ]
-alloy-compat = ["dep:alloy-network", "dep:alloy-serde", "dep:alloy-rpc-types-eth", "seismic-alloy-consensus/alloy-compat"]
+alloy-compat = [
+    "dep:alloy-network",
+    "dep:alloy-serde",
+    "dep:alloy-rpc-types-eth",
+    "seismic-alloy-consensus/alloy-compat",
+]
 reth-codec = [
     "dep:reth-codecs",
     "std",

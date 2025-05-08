@@ -12,6 +12,7 @@ description = "A basic ethereum payload builder for reth that uses the txpool AP
 workspace = true
 
 [dependencies]
+reth-seismic-primitives.workspace = true
 # reth
 reth-ethereum-primitives.workspace = true
 reth-primitives-traits.workspace = true

@@ -3,9 +3,11 @@
 use reth_cli_commands::node::NoArgs;
 use reth_enclave::start_blocking_mock_enclave_server;
 use reth_node_builder::{EngineNodeLauncher, TreeConfig};
+use reth_provider::providers::BlockchainProvider;
+use reth_seismic_cli::chainspec::SeismicChainSpecParser;
+use reth_seismic_node::node::{SeismicAddOns, SeismicNode};
+use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
-use seismic_node::chainspec::SeismicChainSpecParser;
-use seismic_rpc::rpc::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 
 fn main() {
     use clap::Parser;
@@ -22,13 +24,14 @@ fn main() {
     if let Err(err) = Cli::<SeismicChainSpecParser, NoArgs>::parse().run(|builder, _| async move {
         let engine_tree_config = TreeConfig::default();
 
-        // building seismic api
+        // building additional endpoints seismic api
         let seismic_api = SeismicApi::new(builder.config());
 
         let node = builder
-            .with_types::<EthereumNode>()
-            .with_components(EthereumNode::components())
-            .with_add_ons(EthereumAddOns::default())
+            .node(SeismicNode::default())
+            // .with_types_and_provider::<SeismicNode, BlockchainProvider<>>()
+            // .with_components(SeismicNode::components())
+            // .with_add_ons(SeismicAddOns::default())
             .on_node_started(move |ctx| {
                 if ctx.config.enclave.mock_server {
                     ctx.task_executor.spawn(async move {

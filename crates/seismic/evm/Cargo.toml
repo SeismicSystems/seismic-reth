@@ -1,0 +1,87 @@
+[package]
+name = "reth-seismic-evm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# seismic
+seismic-revm.workspace = true
+
+# Reth
+reth-chainspec.workspace = true
+reth-ethereum-forks.workspace = true
+reth-evm = { workspace = true }
+reth-primitives-traits.workspace = true
+reth-execution-errors.workspace = true
+reth-execution-types.workspace = true
+reth-consensus.workspace = true
+reth-consensus-common.workspace = true
+
+# ethereum
+alloy-eips.workspace = true
+alloy-evm.workspace = true
+alloy-primitives.workspace = true
+seismic-alloy-consensus.workspace = true
+alloy-consensus.workspace = true
+
+# Optimism
+reth-seismic-consensus.workspace = true
+reth-seismic-chainspec.workspace = true
+reth-seismic-primitives = { workspace = true }
+
+# Seismic
+alloy-seismic-evm.workspace = true
+
+# revm
+revm.workspace = true
+
+# misc
+derive_more.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+reth-evm = { workspace = true, features = ["test-utils"] }
+reth-revm = { workspace = true, features = ["test-utils"] }
+reth-seismic-chainspec.workspace = true
+alloy-genesis.workspace = true
+alloy-consensus.workspace = true
+reth-seismic-primitives = { workspace = true, features = ["arbitrary"] }
+reth-testing-utils.workspace = true
+secp256k1.workspace = true
+revm-state.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "reth-consensus/std",
+    "reth-revm/std",
+    "alloy-consensus/std",
+    "alloy-eips/std",
+    "alloy-genesis/std",
+    "alloy-primitives/std",
+    "reth-primitives-traits/std",
+    "revm/std",
+    "reth-seismic-primitives/std",
+    "reth-ethereum-forks/std",
+    "derive_more/std",
+    "thiserror/std",
+    "seismic-alloy-consensus/std",
+    "reth-chainspec/std",
+    "reth-seismic-consensus/std",
+    "reth-consensus-common/std",
+    "reth-seismic-chainspec/std",
+    "reth-execution-errors/std",
+    "reth-execution-types/std",
+    "alloy-evm/std",
+    "reth-evm/std",
+    "tracing/std",
+]
+portable = ["reth-revm/portable"]

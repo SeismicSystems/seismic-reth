@@ -1,8 +1,9 @@
 use alloy_consensus::{
-    Eip2718EncodableReceipt, Eip658Value, Receipt, ReceiptWithBloom, RlpDecodableReceipt,
-    RlpEncodableReceipt, TxReceipt, Typed2718,
+    proofs::ordered_trie_root_with_encoder, Eip2718EncodableReceipt, Eip658Value, Receipt,
+    ReceiptWithBloom, RlpDecodableReceipt, RlpEncodableReceipt, TxReceipt, Typed2718,
 };
-use alloy_primitives::{Bloom, Log};
+use alloy_eips::Encodable2718;
+use alloy_primitives::{Bloom, Log, B256};
 use alloy_rlp::{BufMut, Decodable, Header};
 use reth_primitives_traits::InMemorySize;
 use seismic_alloy_consensus::SeismicTxType;
@@ -23,6 +24,12 @@ pub enum SeismicReceipt {
     Eip7702(Receipt),
     /// Seismic receipt
     Seismic(Receipt),
+}
+
+impl Default for SeismicReceipt {
+    fn default() -> Self {
+        Self::Legacy(Default::default())
+    }
 }
 
 impl SeismicReceipt {
@@ -64,9 +71,9 @@ impl SeismicReceipt {
         match self {
             Self::Legacy(receipt) |
             Self::Eip2930(receipt) |
-            Self::Seismic(receipt) |
             Self::Eip1559(receipt) |
-            Self::Eip7702(receipt) => receipt.rlp_encoded_fields_length_with_bloom(bloom),
+            Self::Eip7702(receipt) |
+            Self::Seismic(receipt) => receipt.rlp_encoded_fields_length_with_bloom(bloom),
         }
     }
 
@@ -76,8 +83,8 @@ impl SeismicReceipt {
             Self::Legacy(receipt) |
             Self::Eip2930(receipt) |
             Self::Eip1559(receipt) |
-            Self::Seismic(receipt) |
-            Self::Eip7702(receipt) => receipt.rlp_encode_fields_with_bloom(bloom, out),
+            Self::Eip7702(receipt) |
+            Self::Seismic(receipt) => receipt.rlp_encode_fields_with_bloom(bloom, out),
         }
     }
 
@@ -119,6 +126,13 @@ impl SeismicReceipt {
                 Ok(ReceiptWithBloom { receipt: Self::Seismic(receipt), logs_bloom })
             }
         }
+    }
+
+    /// Calculates the receipt root for a header for the reference type of [Receipt].
+    ///
+    /// NOTE: Prefer `proofs::calculate_receipt_root` if you have log blooms memoized.
+    pub fn calculate_receipt_root_no_memo(receipts: &[Self]) -> B256 {
+        ordered_trie_root_with_encoder(receipts, |r, buf| r.with_bloom_ref().encode_2718(buf))
     }
 }
 
@@ -222,21 +236,6 @@ impl InMemorySize for SeismicReceipt {
 
 impl reth_primitives_traits::Receipt for SeismicReceipt {}
 
-/// Trait for deposit receipt.
-pub trait DepositReceipt: reth_primitives_traits::Receipt {
-    /// Returns deposit receipt if it is a deposit transaction.
-    fn as_deposit_receipt_mut(&mut self) -> Option<&mut Receipt>;
-}
-
-impl DepositReceipt for SeismicReceipt {
-    fn as_deposit_receipt_mut(&mut self) -> Option<&mut Receipt> {
-        match self {
-            Self::Seismic(receipt) => Some(receipt),
-            _ => None,
-        }
-    }
-}
-
 #[cfg(feature = "reth-codec")]
 mod compact {
     use super::*;
@@ -297,15 +296,6 @@ mod compact {
             (receipt.into(), buf)
         }
     }
-
-    #[cfg(test)]
-    #[test]
-    fn test_ensure_backwards_compatibility() {
-        use reth_codecs::{test_utils::UnusedBits, validate_bitflag_backwards_compat};
-
-        assert_eq!(CompactSeismicReceipt::bitflag_encoded_bytes(), 2);
-        validate_bitflag_backwards_compat!(CompactSeismicReceipt<'_>, UnusedBits::NotZero);
-    }
 }
 
 #[cfg(all(feature = "serde", feature = "serde-bincode-compat"))]
@@ -317,7 +307,7 @@ pub(super) mod serde_bincode_compat {
     ///
     /// Intended to use with the [`serde_with::serde_as`] macro in the following way:
     /// ```rust
-    /// use reth_optimism_primitives::{serde_bincode_compat, SeismicReceipt};
+    /// use reth_seismic_primitives::{serde_bincode_compat, SeismicReceipt};
     /// use serde::{de::DeserializeOwned, Deserialize, Serialize};
     /// use serde_with::serde_as;
     ///
@@ -339,7 +329,7 @@ pub(super) mod serde_bincode_compat {
         /// EIP-7702 receipt
         Eip7702(alloy_consensus::serde_bincode_compat::Receipt<'a, alloy_primitives::Log>),
         /// Seismic receipt
-        Seismic(op_alloy_consensus::serde_bincode_compat::Receipt<'a, alloy_primitives::Log>),
+        Seismic(alloy_consensus::serde_bincode_compat::Receipt<'a, alloy_primitives::Log>),
     }
 
     impl<'a> From<&'a super::SeismicReceipt> for SeismicReceipt<'a> {
@@ -433,13 +423,13 @@ pub(super) mod serde_bincode_compat {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_consensus::serde_bincode_compat::Receipt;
     use alloy_eips::eip2718::Encodable2718;
     use alloy_primitives::{address, b256, bytes, hex_literal::hex, Bytes};
     use alloy_rlp::Encodable;
     use reth_codecs::Compact;
 
     #[test]
+    #[cfg(feature = "reth-codec")]
     fn test_decode_receipt() {
         reth_codecs::test_utils::test_decode::<SeismicReceipt>(&hex!(
             "c30328b52ffd23fc426961a00105007eb0042307705a97e503562eacf2b95060cce9de6de68386b6c155b73a9650021a49e2f8baad17f30faff5899d785c4c0873e45bc268bcf07560106424570d11f9a59e8f3db1efa4ceec680123712275f10d92c3411e1caaa11c7c5d591bc11487168e09934a9986848136da1b583babf3a7188e3aed007a1520f1cf4c1ca7d3482c6c28d37c298613c70a76940008816c4c95644579fd08471dc34732fd0f24"
@@ -499,79 +489,6 @@ mod tests {
 
         let receipt = ReceiptWithBloom::decode(&mut &data[..]).unwrap();
         assert_eq!(receipt, expected);
-    }
-
-    #[test]
-    fn decode_deposit_receipt_regolith_roundtrip() {
-        let data = hex!("b901107ef9010c0182b741b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0833d3bbf");
-
-        // Seismic Receipt (post-regolith)
-        let expected = ReceiptWithBloom {
-            receipt: SeismicReceipt::Seismic(Receipt {
-                status: Eip658Value::Eip658(true),
-                cumulative_gas_used: 46913,
-                logs: vec![],
-            }),
-            logs_bloom: [0; 256].into(),
-        };
-
-        let receipt = ReceiptWithBloom::decode(&mut &data[..]).unwrap();
-        assert_eq!(receipt, expected);
-
-        let mut buf = Vec::with_capacity(data.len());
-        receipt.encode(&mut buf);
-        assert_eq!(buf, &data[..]);
-    }
-
-    #[test]
-    fn decode_deposit_receipt_canyon_roundtrip() {
-        let data = hex!("b901117ef9010d0182b741b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0833d3bbf01");
-
-        // Seismic Receipt (post-regolith)
-        let expected = ReceiptWithBloom {
-            receipt: SeismicReceipt::Seismic(Receipt {
-                status: Eip658Value::Eip658(true),
-                cumulative_gas_used: 46913,
-                logs: vec![],
-            }),
-            logs_bloom: [0; 256].into(),
-        };
-
-        let receipt = ReceiptWithBloom::decode(&mut &data[..]).unwrap();
-        assert_eq!(receipt, expected);
-
-        let mut buf = Vec::with_capacity(data.len());
-        expected.encode(&mut buf);
-        assert_eq!(buf, &data[..]);
-    }
-
-    #[test]
-    fn gigantic_receipt() {
-        let receipt = SeismicReceipt::Legacy(Receipt {
-            status: Eip658Value::Eip658(true),
-            cumulative_gas_used: 16747627,
-            logs: vec![
-                Log::new_unchecked(
-                    address!("0x4bf56695415f725e43c3e04354b604bcfb6dfb6e"),
-                    vec![b256!(
-                        "0xc69dc3d7ebff79e41f525be431d5cd3cc08f80eaf0f7819054a726eeb7086eb9"
-                    )],
-                    Bytes::from(vec![1; 0xffffff]),
-                ),
-                Log::new_unchecked(
-                    address!("0xfaca325c86bf9c2d5b413cd7b90b209be92229c2"),
-                    vec![b256!(
-                        "0x8cca58667b1e9ffa004720ac99a3d61a138181963b294d270d91c53d36402ae2"
-                    )],
-                    Bytes::from(vec![1; 0xffffff]),
-                ),
-            ],
-        });
-
-        let mut data = vec![];
-        receipt.to_compact(&mut data);
-        let (decoded, _) = SeismicReceipt::from_compact(&data[..], data.len());
-        assert_eq!(decoded, receipt);
     }
 
     #[test]

@@ -1,67 +1,88 @@
 [package]
-name = "seismic-rpc"
+name = "reth-seismic-rpc"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 homepage.workspace = true
 repository.workspace = true
-description = "Seismic RPC"
+description = "Ethereum RPC implementation for optimism."
 
 [lints]
 workspace = true
 
 [dependencies]
-seismic-enclave.workspace = true
-seismic-alloy-consensus.workspace = true
-seismic-alloy-rpc-types = { workspace = true, features = ["serde"] }
-
-reth-tracing.workspace = true
-reth-rpc-eth-types.workspace = true
-reth-rpc-eth-api.workspace = true
-reth-node-core.workspace = true
-reth-rpc-server-types.workspace = true
-reth-enclave.workspace = true
-reth-transaction-pool.workspace = true
+seismic-alloy-network.workspace = true
+# reth
 reth-evm.workspace = true
+reth-primitives-traits.workspace = true
+reth-storage-api.workspace = true
+reth-chain-state.workspace = true
+reth-rpc-eth-api.workspace = true
+reth-rpc-eth-types.workspace = true
+reth-rpc-server-types.workspace = true
+reth-tasks = { workspace = true, features = ["rayon"] }
+reth-transaction-pool.workspace = true
+reth-rpc.workspace = true
+reth-rpc-api.workspace = true
+reth-node-api.workspace = true
+reth-network-api.workspace = true
+reth-node-builder.workspace = true
+reth-chainspec.workspace = true
+reth-rpc-engine-api.workspace = true
+reth-tracing.workspace = true
+reth-node-core.workspace = true
 
+# seismic-reth
+reth-seismic-chainspec.workspace = true
+reth-seismic-evm.workspace = true
+reth-seismic-payload-builder.workspace = true
+reth-seismic-txpool.workspace = true
+
+seismic-enclave.workspace = true
+
+# TODO remove node-builder import
+reth-seismic-primitives = { workspace = true, features = ["reth-codec", "serde-bincode-compat"] }
+
+# ethereum
+alloy-eips.workspace = true
 alloy-primitives.workspace = true
 alloy-rpc-types.workspace = true
-alloy-dyn-abi.workspace = true
-alloy-json-rpc.workspace = true
 alloy-rpc-types-eth.workspace = true
+alloy-rpc-types-debug.workspace = true
 alloy-consensus.workspace = true
-alloy-eips.workspace = true
+alloy-rpc-types-engine.workspace = true
+alloy-json-rpc.workspace = true
+alloy-dyn-abi.workspace = true
 
-jsonrpsee = { workspace = true, features = ["server", "macros"] }
+seismic-alloy-rpc-types = { workspace = true, features = ["serde"] }
+seismic-alloy-consensus.workspace = true
+revm.workspace = true
+seismic-revm.workspace = true
+
+# async
+parking_lot.workspace = true
+tokio.workspace = true
+reqwest = { workspace = true, features = ["rustls-tls-native-roots"] }
+async-trait.workspace = true
+
+# rpc
+jsonrpsee-core.workspace = true
 jsonrpsee-types.workspace = true
-secp256k1.workspace = true
-tokio = { workspace = true, features = ["full"] }
+jsonrpsee.workspace = true
+serde_json.workspace = true
+
+# misc
 thiserror.workspace = true
+tracing.workspace = true
+derive_more = { workspace = true, features = ["constructor"] }
 
 [dev-dependencies]
-alloy-rpc-types-engine.workspace = true
-
-reth-rpc-builder.workspace = true
-reth-transaction-pool = { workspace = true, features = ["test-utils"] }
-reth-network-api.workspace = true
-reth-tasks.workspace = true
-reth-chain-state.workspace = true
-reth-chainspec.workspace = true
-reth-consensus.workspace = true
-reth-ethereum-engine-primitives.workspace = true
-reth-evm.workspace = true
-reth-evm-ethereum.workspace = true
-reth-payload-builder = { workspace = true, features = ["test-utils"] }
-reth-provider = { workspace = true, features = ["test-utils"] }
-reth-rpc.workspace = true
-reth-rpc-engine-api.workspace = true
-reth-rpc-layer.workspace = true
-reth-primitives.workspace = true
-
-seismic-node.workspace = true
-seismic-alloy-consensus.workspace = true
+reth-seismic-chainspec.workspace = true
 
 [features]
-client = ["jsonrpsee/client", "jsonrpsee/async-client"]
-
+client = [
+    "jsonrpsee/client",
+    "jsonrpsee/async-client",
+    "reth-rpc-eth-api/client",
+]

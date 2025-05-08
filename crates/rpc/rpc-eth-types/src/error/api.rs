@@ -5,6 +5,7 @@ use crate::EthApiError;
 use reth_errors::ProviderError;
 use reth_evm::{ConfigureEvm, EvmErrorFor, HaltReasonFor};
 use revm::context_interface::result::HaltReason;
+use seismic_revm::SeismicHaltReason;
 
 use super::RpcInvalidTransactionError;
 
@@ -107,5 +108,31 @@ pub trait FromEvmHalt<Halt> {
 impl FromEvmHalt<HaltReason> for EthApiError {
     fn from_evm_halt(halt: HaltReason, gas_limit: u64) -> Self {
         RpcInvalidTransactionError::halt(halt, gas_limit).into()
+    }
+}
+
+impl FromEvmHalt<SeismicHaltReason> for EthApiError {
+    fn from_evm_halt(halt: SeismicHaltReason, gas_limit: u64) -> Self {
+        match halt {
+            SeismicHaltReason::Base(reason) => {
+                EthApiError::from_evm_halt(reason, gas_limit)
+            }
+            SeismicHaltReason::InvalidPrivateStorageAccess => {
+                let err_obj = jsonrpsee_types::ErrorObject::owned(
+                    -32000, // TODO: pick a better error code?
+                    "InvalidPrivateStorageAccess",
+                    Some("Invalid private storage access".to_string()),
+                );
+                EthApiError::Other(Box::new(err_obj))
+            }
+            SeismicHaltReason::InvalidPublicStorageAccess => {
+                let err_obj = jsonrpsee_types::ErrorObject::owned(
+                    -32000, // TODO: pick a better error code?
+                    "InvalidPublicStorageAccess",
+                    Some("Invalid public storage access".to_string()),
+                );
+                EthApiError::Other(Box::new(err_obj))
+            }
+        }
     }
 }

@@ -6,13 +6,14 @@ use crate::{
 };
 use alloc::{fmt, vec::Vec};
 use alloy_consensus::{
-    transaction::{Recovered, RlpEcdsaEncodableTx},
+    transaction::{PooledTransaction, Recovered, RlpEcdsaEncodableTx},
     EthereumTxEnvelope, SignableTransaction,
 };
 use alloy_eips::eip2718::{Decodable2718, Encodable2718};
 use alloy_primitives::{keccak256, Address, PrimitiveSignature as Signature, TxHash, B256};
 use alloy_rlp::{Decodable, Encodable};
 use core::hash::Hash;
+use seismic_alloy_consensus::SeismicTxEnvelope;
 
 /// Helper trait that unifies all behaviour required by block to support full node operations.
 pub trait FullSignedTx: SignedTransaction + MaybeCompact + MaybeSerdeBincodeCompat {}
@@ -177,6 +178,48 @@ where
             Self::Eip1559(tx) => tx.tx().encode_for_signing(buf),
             Self::Eip7702(tx) => tx.tx().encode_for_signing(buf),
             Self::Eip4844(tx) => tx.tx().encode_for_signing(buf),
+        }
+        let signature_hash = keccak256(buf);
+        recover_signer_unchecked(self.signature(), signature_hash)
+    }
+}
+
+impl SignedTransaction for seismic_alloy_consensus::SeismicTxEnvelope {
+    fn tx_hash(&self) -> &TxHash {
+        match self {
+            Self::Legacy(tx) => tx.hash(),
+            Self::Eip2930(tx) => tx.hash(),
+            Self::Eip1559(tx) => tx.hash(),
+            Self::Eip7702(tx) => tx.hash(),
+            Self::Seismic(tx) => tx.hash(),
+        }
+    }
+
+    fn signature(&self) -> &Signature {
+        match self {
+            Self::Legacy(tx) => tx.signature(),
+            Self::Eip2930(tx) => tx.signature(),
+            Self::Eip1559(tx) => tx.signature(),
+            Self::Eip7702(tx) => tx.signature(),
+            Self::Seismic(tx) => tx.signature(),
+        }
+    }
+
+    fn recover_signer(&self) -> Result<Address, RecoveryError> {
+        let signature_hash = self.signature_hash();
+        recover_signer(self.signature(), signature_hash)
+    }
+
+    fn recover_signer_unchecked_with_buf(
+        &self,
+        buf: &mut Vec<u8>,
+    ) -> Result<Address, RecoveryError> {
+        match self {
+            Self::Legacy(tx) => tx.tx().encode_for_signing(buf),
+            Self::Eip2930(tx) => tx.tx().encode_for_signing(buf),
+            Self::Eip1559(tx) => tx.tx().encode_for_signing(buf),
+            Self::Eip7702(tx) => tx.tx().encode_for_signing(buf),
+            Self::Seismic(tx) => tx.tx().encode_for_signing(buf),
         }
         let signature_hash = keccak256(buf);
         recover_signer_unchecked(self.signature(), signature_hash)

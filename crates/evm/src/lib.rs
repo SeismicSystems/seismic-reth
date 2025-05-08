@@ -359,3 +359,21 @@ impl<T: TransactionEnv> TransactionEnv for op_revm::OpTransaction<T> {
         self.base.set_access_list(access_list);
     }
 }
+
+impl<T: TransactionEnv> TransactionEnv for seismic_revm::SeismicTransaction<T> {
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.base.set_gas_limit(gas_limit);
+    }
+
+    fn nonce(&self) -> u64 {
+        TransactionEnv::nonce(&self.base)
+    }
+
+    fn set_nonce(&mut self, nonce: u64) {
+        self.base.set_nonce(nonce);
+    }
+
+    fn set_access_list(&mut self, access_list: AccessList) {
+        self.base.set_access_list(access_list);
+    }
+}
