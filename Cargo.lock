@@ -8102,6 +8102,7 @@ dependencies = [
  "reth-zstd-compressors",
  "revm-context",
  "secp256k1 0.30.0",
+ "seismic-alloy-consensus",
  "serde",
  "serde_with",
  "test-fuzz",
@@ -11431,7 +11432,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-consensus"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=7de5ebac#7de5ebace2d6bd97faa80fbd9df80e5c56086c7d"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=e68a4d1#e68a4d138d6f99d9b7cf78b8334a8e8c747f0626"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -11456,7 +11457,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-network"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=7de5ebac#7de5ebace2d6bd97faa80fbd9df80e5c56086c7d"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=e68a4d1#e68a4d138d6f99d9b7cf78b8334a8e8c747f0626"
 dependencies = [
  "alloy-consensus",
  "alloy-network",
@@ -11470,7 +11471,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-rpc-types"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=7de5ebac#7de5ebace2d6bd97faa80fbd9df80e5c56086c7d"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=e68a4d1#e68a4d138d6f99d9b7cf78b8334a8e8c747f0626"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",

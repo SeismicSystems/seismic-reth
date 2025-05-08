@@ -32,7 +32,7 @@ use reth_rpc_eth_api::{
 use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
 use reth_tracing::tracing::*;
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
-use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicRawTxRequest};
+use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest, SeismicRawTxRequest};
 use seismic_enclave::{rpc::EnclaveApiClient, serde::de, EnclaveClient, PublicKey};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use alloy_rpc_types_eth::transaction::{TransactionInput};
@@ -255,7 +255,7 @@ where
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
         trace!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving overridden eth_call");
-        let tx_request: TransactionRequest = match request {
+        let tx_request: SeismicTransactionRequest = match request {
             SeismicCallRequest::TransactionRequest(tx_request) => tx_request,
 
             SeismicCallRequest::TypedData(typed_request) => {
@@ -264,7 +264,7 @@ where
                         <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
                     );
 
-                TransactionRequest::from_transaction_with_sender(
+                SeismicTransactionRequest::from_transaction_with_sender(
                     tx.clone(),
                     tx.signer(),
                 )
