@@ -58,6 +58,7 @@ alloy-dyn-abi.workspace = true
 seismic-alloy-rpc-types = { workspace = true, features = ["serde"] }
 seismic-alloy-consensus.workspace = true
 revm.workspace = true
+seismic-revm.workspace = true
 
 # async
 parking_lot.workspace = true

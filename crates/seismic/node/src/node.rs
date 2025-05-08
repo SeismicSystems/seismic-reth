@@ -281,7 +281,7 @@ where
         // Pool: TransactionPool<Transaction = SeismicTxEnvelope> + Unpin + 'static,
     >,
     EthApiError: FromEvmError<N::Evm>,
-    EvmFactoryFor<N::Evm>: EvmFactory<Tx = TxEnv>,
+    EvmFactoryFor<N::Evm>: EvmFactory<Tx = seismic_revm::SeismicTransaction<TxEnv>>,
     // SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>, /* Needed to
     // compile, but why? */
 {
@@ -325,7 +325,7 @@ where
         Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
     >,
     EthApiError: FromEvmError<N::Evm>,
-    EvmFactoryFor<N::Evm>: EvmFactory<Tx = TxEnv>,
+    EvmFactoryFor<N::Evm>: EvmFactory<Tx = seismic_revm::SeismicTransaction<TxEnv>>,
     SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>, /* Needed to
                                                                                 compile, but why? */
 {

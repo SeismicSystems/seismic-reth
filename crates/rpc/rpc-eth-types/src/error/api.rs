@@ -5,6 +5,7 @@ use crate::EthApiError;
 use reth_errors::ProviderError;
 use reth_evm::{ConfigureEvm, EvmErrorFor, HaltReasonFor};
 use revm::context_interface::result::HaltReason;
+use seismic_revm::SeismicHaltReason;
 
 use super::RpcInvalidTransactionError;
 
@@ -107,5 +108,11 @@ pub trait FromEvmHalt<Halt> {
 impl FromEvmHalt<HaltReason> for EthApiError {
     fn from_evm_halt(halt: HaltReason, gas_limit: u64) -> Self {
         RpcInvalidTransactionError::halt(halt, gas_limit).into()
+    }
+}
+
+impl FromEvmHalt<SeismicHaltReason> for EthApiError {
+    fn from_evm_halt(halt: SeismicHaltReason, gas_limit: u64) -> Self {
+        todo!()
     }
 }

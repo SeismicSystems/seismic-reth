@@ -57,6 +57,7 @@ reth-rpc-builder.workspace = true
 
 # revm with required optimism features
 revm = { workspace = true, features = ["secp256k1", "blst", "c-kzg"] }
+seismic-revm = { workspace = true }
 
 # ethereum
 alloy-eips.workspace = true

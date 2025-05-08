@@ -1,4 +1,6 @@
 use reth_rpc_server_types::result::internal_rpc_err;
+use reth_rpc_eth_types::error::api::FromEvmHalt;
+use seismic_revm::{SeismicHaltReason};
 
 #[derive(Debug, thiserror::Error)]
 
