@@ -32,7 +32,7 @@ use reth_rpc_eth_api::{
 use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
 use reth_tracing::tracing::*;
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
-use seismic_alloy_consensus::TypedDataRequest;
+use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
 use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest};
 use seismic_enclave::{
     rpc::EnclaveApiClient, serde::de, tx_io::IoDecryptionRequest, EnclaveClient, PublicKey,
@@ -132,13 +132,13 @@ pub trait EthApiOverride<B: RpcObject> {
 #[derive(Debug)]
 pub struct EthApiExt<Eth> {
     eth_api: Eth,
-    client: EnclaveClient,
+    enclave_client: EnclaveClient,
 }
 
 impl<Eth> EthApiExt<Eth> {
     /// Create a new `EthApiExt` module.
-    pub const fn new(eth_api: Eth, client: EnclaveClient) -> Self {
-        Self { eth_api, client }
+    pub const fn new(eth_api: Eth, enclave_client: EnclaveClient) -> Self {
+        Self { eth_api, enclave_client }
     }
 }
 
@@ -255,59 +255,54 @@ where
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
-        trace!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving overridden eth_call");
-        let tx_request: SeismicTransactionRequest = match request {
-            SeismicCallRequest::TransactionRequest(tx_request) => tx_request,
+        debug!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving overridden eth_call");
+        let seismic_tx_request: SeismicTransactionRequest = match request {
+            SeismicCallRequest::TransactionRequest(mut tx_request) => {
+                seismic_override_call_request(&mut tx_request.inner);
+                tx_request
+            }
 
             SeismicCallRequest::TypedData(typed_request) => {
-                let tx = recover_typed_data_request::<PoolPooledTx<Eth::Pool>>(&typed_request)?;
-                SeismicTransactionRequest::from_transaction_with_sender(
-                    tx.inner().clone(),
-                    tx.signer(),
-                )
+                SeismicTransactionRequest::decode_712(&typed_request).unwrap()
             }
 
             SeismicCallRequest::Bytes(bytes) => {
-                // let tx = recover_raw_transaction::<PoolPooledTx<Eth::Pool>>(&bytes)?
-                //     .map_transaction(
-                //         <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
-                //     );
-
-                // TransactionRequest::from_transaction_with_sender(
-                //     tx.inner().clone(),
-                //     tx.signer(),
-                // )
-                todo!()
+                let tx = recover_raw_transaction::<SeismicTxEnvelope>(&bytes)?;
+                tx.inner().clone().into()
             }
         };
 
         // decrypt seismic elements
-        let seismic_elements = tx_request.seismic_elements;
-        let decrypted_data: Option<Vec<u8>> = None;
-        if let Some(seismic_elements) = seismic_elements {
-            let ciphertext = tx_request.inner.input.into_input().unwrap(); // Todo: figure out if
+        let seismic_elements = seismic_tx_request.seismic_elements;
+        let tx_request = if let Some(seismic_elements) = seismic_elements {
+            let ciphertext = seismic_tx_request.inner.input.clone().into_input().unwrap();
 
-            let decrypted_data =
-                seismic_elements.server_decrypt(&self.client, &ciphertext).map_err(|e| {
+            let decrypted_data = seismic_elements
+                .server_decrypt(&self.enclave_client, &ciphertext)
+                .map_err(|e| {
                     EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
                         -32000, // TODO: pick a better error code?
                         "DecryptionError",
                         Some(e.to_string()),
                     )))
                 })?;
-        }
 
-        let result = Bytes::new();
+            let decrypted_data = Bytes::from(decrypted_data);
+            seismic_tx_request.inner.input(decrypted_data.into())
+        } else {
+            seismic_tx_request.inner
+        };
+
+        let result = EthCall::call(
+            &self.eth_api,
+            tx_request,
+            block_number,
+            EvmOverrides::new(state_overrides, block_overrides),
+        )
+        .await?;
 
         if let Some(seismic_elements) = seismic_elements {
-            // let encrypted_output = self
-            //     .eth_api
-            //     .evm_config()
-            //     .encrypt(&result, &seismic_elements)
-            //     .map(|encrypted_output| Bytes::from(encrypted_output))
-            //     .unwrap();
-            // Ok(encrypted_output)
-            todo!()
+            return Ok(seismic_elements.server_encrypt(&self.enclave_client, &result).unwrap());
         } else {
             Ok(result)
         }

@@ -29,9 +29,6 @@ fn main() {
 
         let node = builder
             .node(SeismicNode::default())
-            // .with_types_and_provider::<SeismicNode, BlockchainProvider<>>()
-            // .with_components(SeismicNode::components())
-            // .with_add_ons(SeismicAddOns::default())
             .on_node_started(move |ctx| {
                 if ctx.config.enclave.mock_server {
                     ctx.task_executor.spawn(async move {

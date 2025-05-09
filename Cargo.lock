@@ -11433,7 +11433,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-consensus"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=59c2bcd#59c2bcd210174cf272bfca240b6a5f0093523c5a"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=f37c15d13#f37c15d1334c7966a6774b2913130763ac60935c"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -11458,7 +11458,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-network"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=59c2bcd#59c2bcd210174cf272bfca240b6a5f0093523c5a"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=f37c15d13#f37c15d1334c7966a6774b2913130763ac60935c"
 dependencies = [
  "alloy-consensus",
  "alloy-network",
@@ -11472,7 +11472,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-rpc-types"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=59c2bcd#59c2bcd210174cf272bfca240b6a5f0093523c5a"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=f37c15d13#f37c15d1334c7966a6774b2913130763ac60935c"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
