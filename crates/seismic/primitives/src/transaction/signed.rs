@@ -31,7 +31,9 @@ use reth_primitives_traits::{
     InMemorySize, SignedTransaction,
 };
 use revm_context::TxEnv;
-use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, SeismicTypedTransaction, TxSeismic};
+use seismic_alloy_consensus::{
+    Decodable712, SeismicTxEnvelope, SeismicTypedTransaction, TxSeismic,
+};
 use seismic_revm::SeismicTransaction;
 
 /// Signed transaction.
@@ -88,7 +90,9 @@ impl SeismicTransactionSigned {
 }
 
 impl Decodable712 for SeismicTransactionSigned {
-    fn decode_712(buf: &seismic_alloy_consensus::TypedDataRequest) -> seismic_alloy_consensus::Eip712Result<Self> {
+    fn decode_712(
+        buf: &seismic_alloy_consensus::TypedDataRequest,
+    ) -> seismic_alloy_consensus::Eip712Result<Self> {
         todo!("todo: Decodable712 for SeismicTransactionSigned")
     }
 }
@@ -205,6 +209,9 @@ impl OpTransaction for SeismicTransactionSigned {
 
 use seismic_revm::transaction::abstraction::RngMode;
 impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
+    // Converts a Recovered<SeismicTransactionSigned> (i.e. tx recovered from the txpool's bytes)
+    // into a SeismicTransaction<TxEnv> (i.e. a Seismic transaction ready for consumption by the EVM
+    // / revm)
     fn from_recovered_tx(tx: &SeismicTransactionSigned, sender: Address) -> Self {
         let tx_hash = tx.hash.get().unwrap().clone();
         let rng_mode = RngMode::Execution; // TODO WARNING: chose a default value
@@ -289,26 +296,34 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                 tx_hash,
                 rng_mode,
             },
-            SeismicTypedTransaction::Seismic(tx) => SeismicTransaction::<TxEnv> {
-                base: TxEnv {
-                    gas_limit: tx.gas_limit,
-                    gas_price: tx.gas_price,
-                    gas_priority_fee: None,
-                    kind: tx.to,
-                    value: tx.value,
-                    data: tx.input.clone(),
-                    chain_id: Some(tx.chain_id),
-                    nonce: tx.nonce,
-                    access_list: Default::default(),
-                    blob_hashes: Default::default(),
-                    max_fee_per_blob_gas: Default::default(),
-                    authorization_list: Default::default(),
-                    tx_type: TxSeismic::TX_TYPE,
-                    caller: sender,
-                },
-                tx_hash,
-                rng_mode,
-            },
+            SeismicTypedTransaction::Seismic(tx) => {
+                // decrypt the seismic elements
+                let client = EnclaveClient::default();
+                let seismic_elements = tx.seismic_elements.clone();
+                let ciphertext = tx.input.into_input().unwrap();
+                let input_plaintext = seismic_elements.server_decrypt(&client, &ciphertext)?;
+
+                SeismicTransaction::<TxEnv> {
+                    base: TxEnv {
+                        gas_limit: tx.gas_limit,
+                        gas_price: tx.gas_price,
+                        gas_priority_fee: None,
+                        kind: tx.to,
+                        value: tx.value,
+                        data: tx.input_plaintext,
+                        chain_id: Some(tx.chain_id),
+                        nonce: tx.nonce,
+                        access_list: Default::default(),
+                        blob_hashes: Default::default(),
+                        max_fee_per_blob_gas: Default::default(),
+                        authorization_list: Default::default(),
+                        tx_type: TxSeismic::TX_TYPE,
+                        caller: sender,
+                    },
+                    tx_hash,
+                    rng_mode,
+                }
+            }
         }
     }
 }

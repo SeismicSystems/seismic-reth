@@ -209,6 +209,9 @@ where
         }
 
         // convert tx to a signed transaction
+        // converts SeismicPooledTransaction to Consensus TransactionProvider's SeismicTransactionSigned, 
+        // which impls FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv>
+        // which is called to convert SeimsictransactionSigned to SeismicTransaction<TxEnv> in the SeismicEvm
         let tx = pool_tx.to_consensus();
 
         let gas_used = match builder.execute_transaction(tx.clone()) {
