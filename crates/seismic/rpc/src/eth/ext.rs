@@ -318,10 +318,12 @@ where
         trace!(target: "rpc::eth", ?tx, "Serving overridden eth_sendRawTransaction");
         match tx {
             SeismicRawTxRequest::Bytes(bytes) => {
+                // submits transaction to the tx pool
                 Ok(EthTransactions::send_raw_transaction(&self.eth_api, bytes).await?)
             }
             SeismicRawTxRequest::TypedData(typed_data) => {
                 todo!()
+                // submits transaction to the tx pool
                 // Ok(EthTransactions::send_typed_data_transaction(&self.eth_api,
                 // typed_data).await?)
             }
