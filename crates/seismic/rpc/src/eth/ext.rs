@@ -130,7 +130,7 @@ pub trait EthApiOverride<B: RpcObject> {
 
 /// Implementation of the `eth_` namespace override
 #[derive(Debug)]
-pub struct EthApiExt<Eth> {
+pub struct EthApiExt<Eth: FullEthApi> {
     eth_api: Eth,
     client: EnclaveClient,
 }
@@ -319,6 +319,7 @@ where
         match tx {
             SeismicRawTxRequest::Bytes(bytes) => {
                 // submits transaction to the tx pool
+                // see impl<N> EthTransactions for SeismicEthApi<N>
                 Ok(EthTransactions::send_raw_transaction(&self.eth_api, bytes).await?)
             }
             SeismicRawTxRequest::TypedData(typed_data) => {
