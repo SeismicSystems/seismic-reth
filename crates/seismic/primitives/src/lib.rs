@@ -14,11 +14,6 @@ extern crate alloc;
 #[cfg(feature = "alloy-compat")]
 mod alloy_compat;
 
-pub mod bedrock;
-
-pub mod predeploys;
-pub use predeploys::ADDRESS_L2_TO_L1_MESSAGE_PASSER;
-
 pub mod transaction;
 pub use transaction::{signed::SeismicTransactionSigned, tx_type::SeismicTxType};
 
