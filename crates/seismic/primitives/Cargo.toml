@@ -33,6 +33,8 @@ alloy-network = { workspace = true, optional = true }
 alloy-serde = { workspace = true, optional = true }
 seismic-revm.workspace = true
 
+seismic-enclave.workspace = true
+
 # codec
 bytes = { workspace = true, optional = true }
 modular-bitfield = { workspace = true, optional = true }

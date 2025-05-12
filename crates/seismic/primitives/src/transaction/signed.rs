@@ -16,12 +16,15 @@ use alloy_primitives::{
     keccak256, Address, Bytes, PrimitiveSignature as Signature, TxHash, TxKind, Uint, B256,
 };
 use alloy_rlp::Header;
+use seismic_enclave::{get_unsecure_sample_aesgcm_key, get_unsecure_sample_schnorrkel_keypair, nonce::Nonce, SchnorrkelKeypair};
 use core::{
     hash::{Hash, Hasher},
     mem,
     ops::Deref,
 };
+use std::sync::Arc;
 use derive_more::{AsRef, Deref};
+
 #[cfg(any(test, feature = "reth-codec"))]
 use proptest as _;
 use reth_primitives_traits::{
@@ -34,7 +37,33 @@ use revm_context::TxEnv;
 use seismic_alloy_consensus::{
     Decodable712, SeismicTxEnvelope, SeismicTypedTransaction, TxSeismic,
 };
-use seismic_revm::SeismicTransaction;
+pub use seismic_enclave::crypto::aes_decrypt;
+
+#[derive(Debug, Clone)]
+pub struct SeismicContext {
+    pub rng_mode: RngMode,
+    pub rng_key:  SchnorrkelKeypair,
+    pub aes_key: [u8; 32],
+}
+
+impl Default for SeismicContext {
+    fn default() -> Self {
+        Self {
+            rng_mode: RngMode::Execution,
+            rng_key:  get_unsecure_sample_schnorrkel_keypair(),
+            aes_key: [0u8; 32],
+        }
+    }
+}
+
+impl Eq for SeismicContext {}
+impl PartialEq for SeismicContext {
+    fn eq(&self, other: &Self) -> bool {
+        self.rng_mode == other.rng_mode &&
+            self.rng_key.public == other.rng_key.public &&
+            self.rng_key.secret == other.rng_key.secret
+    }
+}
 
 /// Signed transaction.
 #[cfg_attr(any(test, feature = "reth-codec"), reth_codecs::add_arbitrary_tests(rlp))]
@@ -50,12 +79,27 @@ pub struct SeismicTransactionSigned {
     #[deref]
     #[as_ref]
     transaction: SeismicTypedTransaction,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    context: SeismicContext,
 }
 
 impl SeismicTransactionSigned {
     /// Creates a new signed transaction from the given transaction, signature and hash.
     pub fn new(transaction: SeismicTypedTransaction, signature: Signature, hash: B256) -> Self {
-        Self { hash: hash.into(), signature, transaction }
+        Self { hash: hash.into(), signature, transaction, context: Default::default() }
+    }
+
+    pub fn with_context(mut self, ctx: SeismicContext) -> Self {
+        self.context = ctx;
+        self
+    }
+
+    pub fn context(&self) -> &SeismicContext {
+        &self.context
+    }
+
+    pub fn context_into_parts(&self) -> (&RngMode, &SchnorrkelKeypair, &[u8; 32]) {
+        (&self.context.rng_mode, &self.context.rng_key, &self.context.aes_key)
     }
 
     /// Consumes the type and returns the transaction.
@@ -79,7 +123,7 @@ impl SeismicTransactionSigned {
     ///
     /// Note: this only calculates the hash on the first [`SeismicTransactionSigned::hash`] call.
     pub fn new_unhashed(transaction: SeismicTypedTransaction, signature: Signature) -> Self {
-        Self { hash: Default::default(), signature, transaction }
+        Self { hash: Default::default(), signature, transaction, context: Default::default() }
     }
 
     /// Splits the transaction into parts.
@@ -87,6 +131,12 @@ impl SeismicTransactionSigned {
         let hash = *self.hash.get_or_init(|| self.recalculate_hash());
         (self.transaction, self.signature, hash)
     }
+
+    /// Returns whether this transaction is a seismic type, i.e. with encrypted calldata..
+    pub const fn is_encrypted(&self) -> bool {
+        matches!(self.transaction, SeismicTypedTransaction::Seismic(_))
+    }
+
 }
 
 impl Decodable712 for SeismicTransactionSigned {
@@ -194,136 +244,112 @@ impl From<SeismicTransactionSigned> for Signed<SeismicTypedTransaction> {
     }
 }
 
-/// A trait that represents an optimism transaction, mainly used to indicate whether or not the
-/// transaction is a deposit transaction.
-pub trait OpTransaction {
-    /// Whether or not the transaction is a dpeosit transaction.
-    fn is_deposit(&self) -> bool;
-}
 
-impl OpTransaction for SeismicTransactionSigned {
-    fn is_deposit(&self) -> bool {
-        self.is_deposit()
-    }
-}
-
-use seismic_revm::transaction::abstraction::RngMode;
+use seismic_revm::transaction::abstraction::{RngMode, SeismicTransaction};
 impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
-    // Converts a Recovered<SeismicTransactionSigned> (i.e. tx recovered from the txpool's bytes)
-    // into a SeismicTransaction<TxEnv> (i.e. a Seismic transaction ready for consumption by the EVM
-    // / revm)
     fn from_recovered_tx(tx: &SeismicTransactionSigned, sender: Address) -> Self {
         let tx_hash = tx.hash.get().unwrap().clone();
-        let rng_mode = RngMode::Execution; // TODO WARNING: chose a default value
-        match &tx.transaction {
-            SeismicTypedTransaction::Legacy(tx) => SeismicTransaction::<TxEnv> {
-                base: TxEnv {
-                    gas_limit: tx.gas_limit,
-                    gas_price: tx.gas_price,
-                    gas_priority_fee: None,
-                    kind: tx.to,
-                    value: tx.value,
-                    data: tx.input.clone(),
-                    chain_id: tx.chain_id,
-                    nonce: tx.nonce,
-                    access_list: Default::default(),
-                    blob_hashes: Default::default(),
-                    max_fee_per_blob_gas: Default::default(),
-                    authorization_list: Default::default(),
-                    tx_type: 0,
-                    caller: sender,
-                },
-                tx_hash,
-                rng_mode,
-            },
-            SeismicTypedTransaction::Eip2930(tx) => SeismicTransaction::<TxEnv> {
-                base: TxEnv {
-                    gas_limit: tx.gas_limit,
-                    gas_price: tx.gas_price,
-                    gas_priority_fee: None,
-                    kind: tx.to,
-                    value: tx.value,
-                    data: tx.input.clone(),
-                    chain_id: Some(tx.chain_id),
-                    nonce: tx.nonce,
-                    access_list: tx.access_list.clone(),
-                    blob_hashes: Default::default(),
-                    max_fee_per_blob_gas: Default::default(),
-                    authorization_list: Default::default(),
-                    tx_type: 1,
-                    caller: sender,
-                },
-                tx_hash,
-                rng_mode,
-            },
-            SeismicTypedTransaction::Eip1559(tx) => SeismicTransaction::<TxEnv> {
-                base: TxEnv {
-                    gas_limit: tx.gas_limit,
-                    gas_price: tx.max_fee_per_gas,
-                    gas_priority_fee: Some(tx.max_priority_fee_per_gas),
-                    kind: tx.to,
-                    value: tx.value,
-                    data: tx.input.clone(),
-                    chain_id: Some(tx.chain_id),
-                    nonce: tx.nonce,
-                    access_list: tx.access_list.clone(),
-                    blob_hashes: Default::default(),
-                    max_fee_per_blob_gas: Default::default(),
-                    authorization_list: Default::default(),
-                    tx_type: 2,
-                    caller: sender,
-                },
-                tx_hash,
-                rng_mode,
-            },
-            SeismicTypedTransaction::Eip7702(tx) => SeismicTransaction::<TxEnv> {
-                base: TxEnv {
-                    gas_limit: tx.gas_limit,
-                    gas_price: tx.max_fee_per_gas,
-                    gas_priority_fee: Some(tx.max_priority_fee_per_gas),
-                    kind: TxKind::Call(tx.to),
-                    value: tx.value,
-                    data: tx.input.clone(),
-                    chain_id: Some(tx.chain_id),
-                    nonce: tx.nonce,
-                    access_list: tx.access_list.clone(),
-                    blob_hashes: Default::default(),
-                    max_fee_per_blob_gas: Default::default(),
-                    authorization_list: tx.authorization_list.clone(),
-                    tx_type: 4,
-                    caller: sender,
-                },
-                tx_hash,
-                rng_mode,
-            },
-            SeismicTypedTransaction::Seismic(tx) => {
-                // decrypt the seismic elements
-                let client = EnclaveClient::default();
-                let seismic_elements = tx.seismic_elements.clone();
-                let ciphertext = tx.input.into_input().unwrap();
-                let input_plaintext = seismic_elements.server_decrypt(&client, &ciphertext)?;
+        let (rng_mode, rng_key, aes_key) = tx.context_into_parts();
 
-                SeismicTransaction::<TxEnv> {
-                    base: TxEnv {
-                        gas_limit: tx.gas_limit,
-                        gas_price: tx.gas_price,
-                        gas_priority_fee: None,
-                        kind: tx.to,
-                        value: tx.value,
-                        data: tx.input_plaintext,
-                        chain_id: Some(tx.chain_id),
-                        nonce: tx.nonce,
-                        access_list: Default::default(),
-                        blob_hashes: Default::default(),
-                        max_fee_per_blob_gas: Default::default(),
-                        authorization_list: Default::default(),
-                        tx_type: TxSeismic::TX_TYPE,
-                        caller: sender,
-                    },
-                    tx_hash,
-                    rng_mode,
+        let base = match &tx.transaction {
+            SeismicTypedTransaction::Legacy(tx) => TxEnv {
+                gas_limit: tx.gas_limit,
+                gas_price: tx.gas_price,
+                gas_priority_fee: None,
+                kind: tx.to,
+                value: tx.value,
+                data: tx.input.clone(),
+                chain_id: tx.chain_id,
+                nonce: tx.nonce,
+                access_list: Default::default(),
+                blob_hashes: Default::default(),
+                max_fee_per_blob_gas: Default::default(),
+                authorization_list: Default::default(),
+                tx_type: 0,
+                caller: sender,
+            },
+            SeismicTypedTransaction::Eip2930(tx) => TxEnv {
+                gas_limit: tx.gas_limit,
+                gas_price: tx.gas_price,
+                gas_priority_fee: None,
+                kind: tx.to,
+                value: tx.value,
+                data: tx.input.clone(),
+                chain_id: Some(tx.chain_id),
+                nonce: tx.nonce,
+                access_list: tx.access_list.clone(),
+                blob_hashes: Default::default(),
+                max_fee_per_blob_gas: Default::default(),
+                authorization_list: Default::default(),
+                tx_type: 1,
+                caller: sender,
+            },
+            SeismicTypedTransaction::Eip1559(tx) => TxEnv {
+                gas_limit: tx.gas_limit,
+                gas_price: tx.max_fee_per_gas,
+                gas_priority_fee: Some(tx.max_priority_fee_per_gas),
+                kind: tx.to,
+                value: tx.value,
+                data: tx.input.clone(),
+                chain_id: Some(tx.chain_id),
+                nonce: tx.nonce,
+                access_list: tx.access_list.clone(),
+                blob_hashes: Default::default(),
+                max_fee_per_blob_gas: Default::default(),
+                authorization_list: Default::default(),
+                tx_type: 2,
+                caller: sender,
+            },
+            SeismicTypedTransaction::Eip7702(tx) => TxEnv {
+                gas_limit: tx.gas_limit,
+                gas_price: tx.max_fee_per_gas,
+                gas_priority_fee: Some(tx.max_priority_fee_per_gas),
+                kind: TxKind::Call(tx.to),
+                value: tx.value,
+                data: tx.input.clone(),
+                chain_id: Some(tx.chain_id),
+                nonce: tx.nonce,
+                access_list: tx.access_list.clone(),
+                blob_hashes: Default::default(),
+                max_fee_per_blob_gas: Default::default(),
+                authorization_list: tx.authorization_list.clone(),
+                tx_type: 4,
+                caller: sender,
+            },
+            SeismicTypedTransaction::Seismic(tx) =>
+            {
+                //the below doesn't take into account EIP712 msg version
+                let seismic_elements = tx.seismic_elements.clone();
+                let nonce: Nonce = seismic_elements.encryption_nonce.to_be_bytes().into();
+                let input_plaintext = if tx.input.is_empty() {
+                    tx.input.clone()
+                } else {
+                    aes_decrypt(aes_key.into(), tx.input.as_ref(), nonce).unwrap().into()
+                };
+
+                TxEnv {
+                gas_limit: tx.gas_limit,
+                gas_price: 0,
+                kind: tx.to,
+                value: tx.value,
+                data: input_plaintext.into(),
+                chain_id: None,
+                nonce: 0,
+                access_list: Default::default(),
+                blob_hashes: Default::default(),
+                max_fee_per_blob_gas: Default::default(),
+                authorization_list: Default::default(),
+                gas_priority_fee: Default::default(),
+                tx_type: 74,
+                caller: sender,
                 }
-            }
+            },
+        };
+
+        Self {
+            base,
+            tx_hash: tx.tx_hash().clone(),
+            rng_mode: tx.context.rng_mode
         }
     }
 }
@@ -622,7 +648,7 @@ impl reth_codecs::Compact for SeismicTransactionSigned {
             SeismicTypedTransaction::from_compact(buf, transaction_type)
         };
 
-        (Self { signature, transaction, hash: Default::default() }, buf)
+        (Self { signature, transaction, context: Default::default(), hash: Default::default() }, buf)
     }
 }
 
