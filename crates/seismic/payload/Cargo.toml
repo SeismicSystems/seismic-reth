@@ -31,7 +31,7 @@ reth-enclave.workspace = true
 
 # seismic-reth
 reth-seismic-evm.workspace = true
-reth-seismic-primitives = {workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
+reth-seismic-primitives = {workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec", "arbitrary"] }
 reth-ethereum-primitives = {workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
 reth-seismic-txpool.workspace = true
 reth-errors.workspace = true
@@ -58,3 +58,5 @@ reth-trie-common.workspace = true
 alloy-evm.workspace = true
 reth-storage-errors.workspace = true
 reth-execution-errors.workspace = true
+proptest.workspace = true
+proptest-arbitrary-interop.workspace = true

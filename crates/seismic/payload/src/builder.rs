@@ -455,19 +455,14 @@ mod tests {
                 &ExecutionResult<<<Self::Executor as BlockExecutor>::Evm as Evm>::HaltReason>,
             ),
         ) -> Result<u64, BlockExecutionError> {
-            panic!("made it to the mock block builder");
+            panic!("made it to the mock block builder execute");
         }
 
         fn finish(
             self,
             _state: impl StateProvider,
         ) -> Result<BlockBuilderOutcome<Self::Primitives>, BlockExecutionError> {
-            Ok(BlockBuilderOutcome {
-                execution_result: BlockExecutionResult::default(),
-                hashed_state: HashedPostState::default(),
-                trie_updates: TrieUpdates::default(),
-                block: RecoveredBlock::default(),
-            })
+            unimplemented!("Mock block builder not implemented")
         }
 
         fn executor_mut(&mut self) -> &mut Self::Executor {
@@ -479,9 +474,18 @@ mod tests {
         }
     }
 
-    #[test]
-    pub fn test_decryption_occurs() {
-        let mock = MockBlockBuilder::new();
-        let seismic_builder = SeismicBlockBuilder::new(mock, seismic_enclave::MockEnclaveClient);
+    use proptest::{arbitrary::Arbitrary, prelude::*};
+    use proptest_arbitrary_interop::arb;
+    use seismic_alloy_consensus::SeismicTxEnvelope;
+
+    proptest! {
+        #[test]
+        fn test_tx_decryption(reth_tx in arb::<SeismicTransactionSigned>()) {
+            let mock = MockBlockBuilder::new();
+            let mut seismic_builder = SeismicBlockBuilder::new(mock, seismic_enclave::MockEnclaveClient);
+
+            let r_tx = Recovered::new_unchecked(reth_tx.clone().into(), reth_tx.recover_signer().unwrap());
+            let _ = seismic_builder.execute_transaction(r_tx);
+        }
     }
 }
