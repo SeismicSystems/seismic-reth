@@ -300,21 +300,22 @@ where
 /// A Seismic Block Builder
 ///
 /// Wraps a [`BlockBuilder`], and applies decryotion to the transactions before executing them.
-pub struct SeismicBlockBuilder<B> {
+pub struct SeismicBlockBuilder<B, C> {
     inner: B,
-    decryption_helper: EnclaveClient,
+    decryption_helper: C,
 }
 
-impl<B> SeismicBlockBuilder<B> {
+impl<B, C> SeismicBlockBuilder<B, C> {
     /// Creates a new [`SeismicBlockBuilder`].
-    pub fn new(inner: B, decryption_helper: EnclaveClient) -> Self {
+    pub fn new(inner: B, decryption_helper: C) -> Self {
         Self { inner, decryption_helper }
     }
 }
 
-impl<B> BlockBuilder for SeismicBlockBuilder<B>
+impl<B, C> BlockBuilder for SeismicBlockBuilder<B, C>
 where
     B: BlockBuilder<Primitives = SeismicPrimitives>,
+    C: reth_enclave::SyncEnclaveApiClient,
 {
     type Primitives = SeismicPrimitives;
     type Executor = B::Executor;
@@ -454,7 +455,7 @@ mod tests {
                 &ExecutionResult<<<Self::Executor as BlockExecutor>::Evm as Evm>::HaltReason>,
             ),
         ) -> Result<u64, BlockExecutionError> {
-            Ok(0)
+            panic!("made it to the mock block builder");
         }
 
         fn finish(
@@ -481,5 +482,6 @@ mod tests {
     #[test]
     pub fn test_decryption_occurs() {
         let mock = MockBlockBuilder::new();
+        let seismic_builder = SeismicBlockBuilder::new(mock, seismic_enclave::MockEnclaveClient);
     }
 }
