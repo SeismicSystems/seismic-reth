@@ -10107,6 +10107,7 @@ dependencies = [
  "reth-basic-payload-builder",
  "reth-chain-state",
  "reth-chainspec",
+ "reth-enclave",
  "reth-errors",
  "reth-ethereum-primitives",
  "reth-evm",
