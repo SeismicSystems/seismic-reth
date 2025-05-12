@@ -323,32 +323,36 @@ where
         self.inner.apply_pre_execution_changes()
     }
 
+    // First decrypts the transaction input
+    // Then calls the inner execute_transaction_with_result_closure
     fn execute_transaction_with_result_closure(
         &mut self,
         tx: Recovered<TxTy<Self::Primitives>>,
         f: impl FnOnce(&ExecutionResult<<<Self::Executor as BlockExecutor>::Evm as Evm>::HaltReason>),
     ) -> Result<u64, BlockExecutionError> {
-        let typed_tx: SeismicTypedTransaction = tx.inner().transaction().clone();
+        let mut decrypted_tx = tx.clone();
+        let mut inner_tx = decrypted_tx.inner_mut();
+        let mut typed_tx: SeismicTypedTransaction = tx.inner().transaction().clone();
 
         // If there is encrypted calldata decrypt the transaction
-        // and replace the call data with the plaintext
-        let decrypted_input = if let SeismicTypedTransaction::Seismic(tx) = typed_tx {
-            let ciphertext = tx.input().clone();
-            let seismic_elements = tx.seismic_elements.clone();
+        // and replace the call data with the plaintext for inner_tx
+        match typed_tx {
+            SeismicTypedTransaction::Seismic(mut tx_seismic) => {
+                let ciphertext = tx_seismic.input().clone();
+                let seismic_elements = tx_seismic.seismic_elements.clone();
 
-            let decrypted_data = seismic_elements
-                .server_decrypt(&self.decryption_helper, &ciphertext)
-                .map_err(|e| InternalBlockExecutionError::Other(Box::new(e)))?;
+                let decrypted_data = seismic_elements
+                    .server_decrypt(&self.decryption_helper, &ciphertext)
+                    .map_err(|e| InternalBlockExecutionError::Other(Box::new(e)))?;
 
-            decrypted_data
-        } else {
-            typed_tx.input().clone()
+
+                inner_tx = &mut SeismicTransactionSigned::new(SeismicTypedTransaction::Seismic(tx_seismic), *inner_tx.signature(), *inner_tx.tx_hash());
+            }
+            _ => (),
         };
 
         // call the inner execute_transaction
-        let decrypted_tx = tx.clone();
-        decrypted_tx.set_input(decrypted_input);
-        self.inner.execute_transaction_with_result_closure(decrypted_tx, f)
+        self.inner.execute_transaction_with_result_closure(tx, f)
     }
 
     fn finish(
