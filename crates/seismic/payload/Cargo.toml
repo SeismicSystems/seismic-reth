@@ -51,3 +51,10 @@ derive_more.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
 sha2.workspace = true
+
+[dev-dependencies]
+seismic-enclave.workspace = true
+reth-trie-common.workspace = true
+alloy-evm.workspace = true
+reth-storage-errors.workspace = true
+reth-execution-errors.workspace = true

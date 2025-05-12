@@ -345,8 +345,11 @@ where
                     .server_decrypt(&self.decryption_helper, &ciphertext)
                     .map_err(|e| InternalBlockExecutionError::Other(Box::new(e)))?;
 
-
-                inner_tx = &mut SeismicTransactionSigned::new(SeismicTypedTransaction::Seismic(tx_seismic), *inner_tx.signature(), *inner_tx.tx_hash());
+                inner_tx = &mut SeismicTransactionSigned::new(
+                    SeismicTypedTransaction::Seismic(tx_seismic),
+                    *inner_tx.signature(),
+                    *inner_tx.tx_hash(),
+                );
             }
             _ => (),
         };
@@ -368,5 +371,115 @@ where
 
     fn into_executor(self) -> Self::Executor {
         self.inner.into_executor()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    pub use alloy_evm::block::{BlockExecutor, BlockExecutorFactory};
+    use reth_evm::{
+        execute::{BlockBuilder, BlockBuilderOutcome, Executor},
+        ConfigureEvm, Database, OnStateHook,
+    };
+    pub use reth_execution_errors::{
+        BlockExecutionError, BlockValidationError, InternalBlockExecutionError,
+    };
+    use reth_execution_types::BlockExecutionResult;
+    use reth_primitives_traits::{
+        Block, HeaderTy, NodePrimitives, ReceiptTy, Recovered, RecoveredBlock, SealedHeader, TxTy,
+    };
+    use reth_seismic_evm::SeismicEvm;
+    use reth_trie_common::{updates::TrieUpdates, HashedPostState};
+    use revm::{
+        database::{CacheDB, EmptyDB},
+        state::AccountInfo,
+    };
+
+    pub struct MockExecutor {}
+    impl BlockExecutor for MockExecutor {
+        type Transaction = <reth_seismic_primitives::SeismicPrimitives as NodePrimitives>::SignedTx;
+        type Receipt = <reth_seismic_primitives::SeismicPrimitives as NodePrimitives>::Receipt;
+        type Evm = SeismicEvm<EmptyDB, revm::inspector::NoOpInspector>;
+
+        fn apply_pre_execution_changes(&mut self) -> Result<(), BlockExecutionError> {
+            unimplemented!()
+        }
+
+        fn execute_transaction_with_result_closure(
+            &mut self,
+            tx: Recovered<&Self::Transaction>,
+            f: impl FnOnce(&ExecutionResult<<Self::Evm as Evm>::HaltReason>),
+        ) -> Result<u64, BlockExecutionError> {
+            unimplemented!()
+        }
+
+        fn finish(
+            self,
+        ) -> Result<(Self::Evm, BlockExecutionResult<Self::Receipt>), BlockExecutionError> {
+            unimplemented!()
+        }
+
+        fn set_state_hook(&mut self, hook: Option<Box<dyn OnStateHook>>) {
+            unimplemented!()
+        }
+
+        fn evm_mut(&mut self) -> &mut Self::Evm {
+            unimplemented!()
+        }
+    }
+
+    /// A mock implementation of BlockBuilder for testing purposes
+    #[derive(Debug, Default)]
+    pub struct MockBlockBuilder {}
+
+    impl MockBlockBuilder {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
+
+    impl BlockBuilder for MockBlockBuilder {
+        type Primitives = SeismicPrimitives;
+        type Executor = MockExecutor;
+
+        fn apply_pre_execution_changes(&mut self) -> Result<(), BlockExecutionError> {
+            Ok(())
+        }
+
+        fn execute_transaction_with_result_closure(
+            &mut self,
+            _tx: Recovered<TxTy<Self::Primitives>>,
+            _f: impl FnOnce(
+                &ExecutionResult<<<Self::Executor as BlockExecutor>::Evm as Evm>::HaltReason>,
+            ),
+        ) -> Result<u64, BlockExecutionError> {
+            Ok(0)
+        }
+
+        fn finish(
+            self,
+            _state: impl StateProvider,
+        ) -> Result<BlockBuilderOutcome<Self::Primitives>, BlockExecutionError> {
+            Ok(BlockBuilderOutcome {
+                execution_result: BlockExecutionResult::default(),
+                hashed_state: HashedPostState::default(),
+                trie_updates: TrieUpdates::default(),
+                block: RecoveredBlock::default(),
+            })
+        }
+
+        fn executor_mut(&mut self) -> &mut Self::Executor {
+            unimplemented!("Mock executor not implemented")
+        }
+
+        fn into_executor(self) -> Self::Executor {
+            unimplemented!("Mock executor not implemented")
+        }
+    }
+
+    #[test]
+    pub fn test_decryption_occurs() {
+        let mock = MockBlockBuilder::new();
     }
 }
