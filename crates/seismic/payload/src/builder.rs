@@ -15,22 +15,23 @@ use reth_basic_payload_builder::{
 use reth_chainspec::{ChainSpec, ChainSpecProvider, EthChainSpec, EthereumHardforks};
 use reth_errors::{BlockExecutionError, BlockValidationError};
 use reth_evm::{
-    execute::{BlockBuilder, BlockBuilderOutcome},
-    ConfigureEvm, Evm, NextBlockEnvAttributes,
+    block::BlockExecutor,
+    execute::{BasicBlockBuilder, BasicBlockExecutorProvider, BlockBuilder, BlockBuilderOutcome},
+    ConfigureEvm, Evm, EvmFactory, NextBlockEnvAttributes,
 };
 use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_payload_builder_primitives::PayloadBuilderError;
 use reth_payload_primitives::PayloadBuilderAttributes;
-use reth_primitives_traits::SignedTransaction;
+use reth_primitives_traits::{Recovered, SignedTransaction, TxTy};
 use reth_revm::{database::StateProviderDatabase, db::State};
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicTransactionSigned};
-use reth_storage_api::StateProviderFactory;
+use reth_storage_api::{StateProvider, StateProviderFactory};
 use reth_transaction_pool::{
     error::InvalidPoolTransactionError, BestTransactions, BestTransactionsAttributes,
     PoolTransaction, TransactionPool, ValidPoolTransaction,
 };
-use revm::context_interface::Block as _;
+use revm::{context::result::ExecutionResult, context_interface::Block as _};
 use std::sync::Arc;
 use tracing::{debug, trace, warn};
 
@@ -167,6 +168,10 @@ where
         )
         .map_err(PayloadBuilderError::other)?;
 
+    // wrap the builder with a seismic block builder, which should apply decryption to the
+    // transactions
+    let mut builder = SeismicBlockBuilder::new(builder);
+
     let chain_spec = client.chain_spec();
 
     debug!(target: "payload_builder", id=%attributes.id, parent_header = ?parent_header.hash(), parent_number = parent_header.number, "building new payload");
@@ -287,4 +292,53 @@ where
     );
 
     Ok(BuildOutcome::Better { payload, cached_reads })
+}
+
+/// A Seismic Block Builder
+///
+/// Wraps a [`BlockBuilder`], and applies decryotion to the transactions before executing them.
+pub struct SeismicBlockBuilder<B> {
+    inner: B,
+}
+
+impl<B> SeismicBlockBuilder<B> {
+    /// Creates a new [`SeismicBlockBuilder`].
+    pub fn new(inner: B) -> Self {
+        Self { inner }
+    }
+}
+
+impl<B> BlockBuilder for SeismicBlockBuilder<B>
+where
+    B: BlockBuilder,
+{
+    type Primitives = B::Primitives;
+    type Executor = B::Executor;
+
+    fn apply_pre_execution_changes(&mut self) -> Result<(), BlockExecutionError> {
+        self.inner.apply_pre_execution_changes()
+    }
+
+    fn execute_transaction_with_result_closure(
+        &mut self,
+        tx: Recovered<TxTy<Self::Primitives>>,
+        f: impl FnOnce(&ExecutionResult<<<Self::Executor as BlockExecutor>::Evm as Evm>::HaltReason>),
+    ) -> Result<u64, BlockExecutionError> {
+        self.inner.execute_transaction_with_result_closure(tx, f)
+    }
+
+    fn finish(
+        self,
+        state: impl StateProvider,
+    ) -> Result<BlockBuilderOutcome<Self::Primitives>, BlockExecutionError> {
+        self.inner.finish(state)
+    }
+
+    fn executor_mut(&mut self) -> &mut Self::Executor {
+        self.inner.executor_mut()
+    }
+
+    fn into_executor(self) -> Self::Executor {
+        self.inner.into_executor()
+    }
 }

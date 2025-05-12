@@ -271,15 +271,15 @@ pub trait BlockBuilder {
     fn into_executor(self) -> Self::Executor;
 }
 
-pub(crate) struct BasicBlockBuilder<'a, F, Executor, Builder, N: NodePrimitives>
+pub struct BasicBlockBuilder<'a, F, Executor, Builder, N: NodePrimitives>
 where
     F: BlockExecutorFactory,
 {
-    pub(crate) executor: Executor,
-    pub(crate) transactions: Vec<Recovered<TxTy<N>>>,
-    pub(crate) ctx: F::ExecutionCtx<'a>,
-    pub(crate) parent: &'a SealedHeader<HeaderTy<N>>,
-    pub(crate) assembler: Builder,
+    pub executor: Executor,
+    pub transactions: Vec<Recovered<TxTy<N>>>,
+    pub ctx: F::ExecutionCtx<'a>,
+    pub parent: &'a SealedHeader<HeaderTy<N>>,
+    pub assembler: Builder,
 }
 
 impl<'a, F, DB, Executor, Builder, N> BlockBuilder
