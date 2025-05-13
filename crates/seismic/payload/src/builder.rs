@@ -34,6 +34,7 @@ use reth_transaction_pool::{
 };
 use revm::{context::result::ExecutionResult, context_interface::Block as _};
 use seismic_alloy_consensus::{seismic, typed, SeismicTypedTransaction};
+use seismic_enclave::serde::de;
 use std::sync::Arc;
 use tracing::{debug, trace, warn};
 
@@ -359,7 +360,7 @@ where
         };
 
         // call the inner execute_transaction
-        self.inner.execute_transaction_with_result_closure(tx, f)
+        self.inner.execute_transaction_with_result_closure(decrypted_tx, f)
     }
 
     fn finish(
@@ -401,6 +402,17 @@ mod tests {
         state::AccountInfo,
     };
     use seismic_enclave::MockEnclaveClient;
+
+    // test util, not a meaningful conversion
+    fn bytes_to_u64_consistent(input: &[u8]) -> u64 {
+        let mut buf = [0u8; 8];
+
+        // Copy the first up-to-8 bytes into the buffer
+        let len = input.len().min(8);
+        buf[..len].copy_from_slice(&input[..len]);
+
+        u64::from_le_bytes(buf)
+    }
 
     pub struct MockExecutor {}
     impl BlockExecutor for MockExecutor {
@@ -460,8 +472,9 @@ mod tests {
                 &ExecutionResult<<<Self::Executor as BlockExecutor>::Evm as Evm>::HaltReason>,
             ),
         ) -> Result<u64, BlockExecutionError> {
-            let ciphertext = tx.input().clone();
-            Ok(ciphertext.len().try_into().unwrap())
+            let plaintext = tx.input().clone(); // expected to be decrypted when this is reached
+            let exec_res = bytes_to_u64_consistent(plaintext.as_ref());
+            Ok(exec_res)
         }
 
         fn finish(
@@ -480,6 +493,7 @@ mod tests {
         }
     }
 
+    use alloy_primitives::Bytes;
     use proptest::{arbitrary::Arbitrary, prelude::*};
     use proptest_arbitrary_interop::arb;
     use seismic_alloy_consensus::SeismicTxEnvelope;
@@ -494,11 +508,15 @@ mod tests {
             let mock = MockBlockBuilder::new();
             let mut seismic_builder = SeismicBlockBuilder::new(mock, MockEnclaveClient);
 
+            let mut plaintext: Bytes = Bytes::new();
+
+
             match typed_tx {
                 SeismicTypedTransaction::Seismic(mut tx_seismic) => {
-                    let plaintext = tx_seismic.input().clone();
+                    plaintext = tx_seismic.input().clone();
                     let seismic_elements = tx_seismic.seismic_elements.clone();
 
+                    // encrypt the arbitrary data so its a real ciphertext to be decrypted
                     let encrypted_data = seismic_elements.server_encrypt(&MockEnclaveClient, &plaintext).unwrap();
 
                     let mut new_tx = tx_seismic.clone();
@@ -509,10 +527,12 @@ mod tests {
                         *inner_tx.signature(),
                         *inner_tx.tx_hash(),
                     );
+
+                    let exex_res = seismic_builder.execute_transaction(r_tx)?;
+                    assert_eq!(exex_res, bytes_to_u64_consistent(plaintext.as_ref()));
                 }
                 _ => (),
             }
-            let input_len = seismic_builder.execute_transaction(r_tx)?;
 
         }
     }
