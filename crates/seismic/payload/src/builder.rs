@@ -34,7 +34,6 @@ use reth_transaction_pool::{
 };
 use revm::{context::result::ExecutionResult, context_interface::Block as _};
 use seismic_alloy_consensus::{seismic, typed, SeismicTypedTransaction};
-use seismic_enclave::serde::de;
 use std::sync::Arc;
 use tracing::{debug, trace, warn};
 
