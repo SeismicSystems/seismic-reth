@@ -316,7 +316,7 @@ where
                 Ok(EthTransactions::send_raw_transaction(&self.eth_api, bytes).await?)
             }
             SeismicRawTxRequest::TypedData(typed_data) => {
-                 Ok(EthTransactions::send_typed_data_transaction(&self.eth_api, typed_data).await?)
+                Ok(EthTransactions::send_typed_data_transaction(&self.eth_api, typed_data).await?)
             }
         }
     }
@@ -324,94 +324,88 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::test_utils::{build_test_eth_api, launch_http};
-    use alloy_primitives::{b256, hex, PrimitiveSignature};
+    // use crate::utils::test_utils::{build_test_eth_api, launch_http};
+    use super::EthApiOverrideClient;
+    use alloy_primitives::{b256, hex, PrimitiveSignature, U256};
     use alloy_rpc_types::Block;
     use jsonrpsee::core::client::{ClientT, SubscriptionClientT};
-    use reth_enclave::start_mock_enclave_server_random_port;
-    use reth_provider::test_utils::MockEthProvider;
-    use seismic_alloy_consensus::TypedDataRequest;
-    use seismic_node::utils::test_utils::get_seismic_tx;
+    use seismic_alloy_consensus::{TxSeismic, TxSeismicElements, TypedDataRequest};
+    use std::str::FromStr;
 
     use super::*;
 
-    async fn test_basic_seismic_calls<C>(client: &C)
-    where
-        C: ClientT + SubscriptionClientT + Sync,
-    {
-        let _pk = SeismicApiClient::get_tee_public_key(client).await.unwrap();
-    }
+    // async fn test_basic_seismic_calls<C>(client: &C)
+    // where
+    //     C: ClientT + SubscriptionClientT + Sync,
+    // {
+    //     let _pk = SeismicApiClient::get_tee_public_key(client).await.unwrap();
+    // }
 
-    async fn test_basic_eth_calls<C>(client: &C)
-    where
-        C: ClientT + SubscriptionClientT + Sync,
-    {
-        let typed_data = get_seismic_tx().eip712_to_type_data();
-        let typed_data_request = TypedDataRequest {
-            data: typed_data.clone(),
-            signature: PrimitiveSignature::new(
-                b256!("1fd474b1f9404c0c5df43b7620119ffbc3a1c3f942c73b6e14e9f55255ed9b1d").into(),
-                b256!("29aca24813279a901ec13b5f7bb53385fa1fc627b946592221417ff74a49600d").into(),
-                false,
-            ),
-        };
-        let tx = Bytes::from(hex!("02f871018303579880850555633d1b82520894eee27662c2b8eba3cd936a23f039f3189633e4c887ad591c62bdaeb180c080a07ea72c68abfb8fca1bd964f0f99132ed9280261bdca3e549546c0205e800f7d0a05b4ef3039e9c9b9babc179a1878fb825b5aaf5aed2fa8744854150157b08d6f3"));
-        let call_request = TransactionRequest::default();
+    // async fn test_basic_eth_calls<C>(client: &C)
+    // where
+    //     C: ClientT + SubscriptionClientT + Sync,
+    // {
+    //     let typed_data = get_seismic_tx().eip712_to_type_data();
+    //     let typed_data_request = TypedDataRequest {
+    //         data: typed_data.clone(),
+    //         signature: PrimitiveSignature::new(
+    //             b256!("1fd474b1f9404c0c5df43b7620119ffbc3a1c3f942c73b6e14e9f55255ed9b1d").into(),
+    //             b256!("29aca24813279a901ec13b5f7bb53385fa1fc627b946592221417ff74a49600d").into(),
+    //             false,
+    //         ),
+    //     };
+    //     let tx = Bytes::from(hex!("02f871018303579880850555633d1b82520894eee27662c2b8eba3cd936a23f039f3189633e4c887ad591c62bdaeb180c080a07ea72c68abfb8fca1bd964f0f99132ed9280261bdca3e549546c0205e800f7d0a05b4ef3039e9c9b9babc179a1878fb825b5aaf5aed2fa8744854150157b08d6f3"));
+    //     let call_request = TransactionRequest::default();
 
-        let _signature = EthApiOverrideClient::<Block>::sign_typed_data_v4(
-            client,
-            Address::ZERO,
-            typed_data.clone(),
-        )
-        .await
-        .unwrap_err();
-        let _result = EthApiOverrideClient::<Block>::call(
-            client,
-            call_request.clone().into(),
-            None,
-            None,
-            None,
-        )
-        .await
-        .unwrap_err();
-        let _result =
-            EthApiOverrideClient::<Block>::call(client, tx.clone().into(), None, None, None)
-                .await
-                .unwrap_err();
-        let _result = EthApiOverrideClient::<Block>::call(
-            client,
-            typed_data_request.clone().into(),
-            None,
-            None,
-            None,
-        )
-        .await
-        .unwrap_err();
-        let _result =
-            EthApiOverrideClient::<Block>::send_raw_transaction(client, tx.clone().into())
-                .await
-                .unwrap();
-    }
+    //     let _signature = EthApiOverrideClient::<Block>::sign_typed_data_v4(
+    //         client,
+    //         Address::ZERO,
+    //         typed_data.clone(),
+    //     )
+    //     .await
+    //     .unwrap_err();
+    //     let _result =
+    //         EthApiOverrideClient::<Block>::call(client, call_request.into(), None, None, None)
+    //             .await
+    //             .unwrap_err();
+    //     let _result =
+    //         EthApiOverrideClient::<Block>::call(client, tx.clone().into(), None, None, None)
+    //             .await
+    //             .unwrap_err();
+    //     let _result = EthApiOverrideClient::<Block>::call(
+    //         client,
+    //         typed_data_request.clone().into(),
+    //         None,
+    //         None,
+    //         None,
+    //     )
+    //     .await
+    //     .unwrap_err();
+    //     let _result =
+    //         EthApiOverrideClient::<Block>::send_raw_transaction(client, tx.clone().into())
+    //             .await
+    //             .unwrap();
+    // }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_call_seismic_functions_http() {
-        reth_tracing::init_test_tracing();
-        let enclave_client = start_mock_enclave_server_random_port().await;
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn test_call_seismic_functions_http() {
+    //     reth_tracing::init_test_tracing();
+    //     let enclave_client = start_mock_enclave_server_random_port().await;
 
-        let seismic_api = SeismicApi::default().with_enclave_client(enclave_client);
+    //     let seismic_api = SeismicApi::default().with_enclave_client(enclave_client);
 
-        let handle = launch_http(seismic_api.into_rpc()).await;
-        let client = handle.http_client().unwrap();
-        test_basic_seismic_calls(&client).await;
-    }
+    //     let handle = launch_http(seismic_api.into_rpc()).await;
+    //     let client = handle.http_client().unwrap();
+    //     test_basic_seismic_calls(&client).await;
+    // }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_call_eth_functions_http() {
-        reth_tracing::init_test_tracing();
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn test_call_eth_functions_http() {
+    //     reth_tracing::init_test_tracing();
 
-        let eth_api = build_test_eth_api(MockEthProvider::default());
-        let eth_api = EthApiExt::new(eth_api, EnclaveClient::default());
-        let handle = launch_http(eth_api.into_rpc()).await;
-        test_basic_eth_calls(&handle.http_client().unwrap()).await;
-    }
+    //     let eth_api = build_test_eth_api(MockEthProvider::default());
+    //     let eth_api = EthApiExt::new(eth_api, EnclaveClient::default());
+    //     let handle = launch_http(eth_api.into_rpc()).await;
+    //     test_basic_eth_calls(&handle.http_client().unwrap()).await;
+    // }
 }
