@@ -17,7 +17,7 @@ use reth_enclave::EnclaveClient;
 use reth_errors::{BlockExecutionError, BlockValidationError};
 use reth_evm::{
     block::{BlockExecutor, InternalBlockExecutionError},
-    execute::{BasicBlockBuilder, BasicBlockExecutorProvider, BlockBuilder, BlockBuilderOutcome},
+    execute::{BasicBlockExecutorProvider, BlockBuilder, BlockBuilderOutcome},
     ConfigureEvm, Evm, EvmFactory, NextBlockEnvAttributes,
 };
 use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
