@@ -316,9 +316,7 @@ where
                 Ok(EthTransactions::send_raw_transaction(&self.eth_api, bytes).await?)
             }
             SeismicRawTxRequest::TypedData(typed_data) => {
-                todo!()
-                // Ok(EthTransactions::send_typed_data_transaction(&self.eth_api,
-                // typed_data).await?)
+                 Ok(EthTransactions::send_typed_data_transaction(&self.eth_api, typed_data).await?)
             }
         }
     }
@@ -412,7 +410,7 @@ mod tests {
         reth_tracing::init_test_tracing();
 
         let eth_api = build_test_eth_api(MockEthProvider::default());
-        let eth_api = EthApiExt::new(eth_api);
+        let eth_api = EthApiExt::new(eth_api, EnclaveClient::default());
         let handle = launch_http(eth_api.into_rpc()).await;
         test_basic_eth_calls(&handle.http_client().unwrap()).await;
     }

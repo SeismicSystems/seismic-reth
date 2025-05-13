@@ -24,6 +24,8 @@ use reth_rpc_types_compat::transaction::TransactionCompat;
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
 use std::sync::Arc;
 
+use seismic_alloy_consensus::TypedDataRequest;
+
 /// Transaction related functions for the [`EthApiServer`](crate::EthApiServer) trait in
 /// the `eth_` namespace.
 ///
@@ -60,6 +62,19 @@ pub trait EthTransactions: LoadTransaction<Provider: BlockReaderIdExt> {
         &self,
         tx: Bytes,
     ) -> impl Future<Output = Result<B256, Self::Error>> + Send;
+
+    /// Decodes and recovers the transaction and submits it to the pool.
+    ///
+    /// Returns the hash of the transaction.
+    fn send_typed_data_transaction(
+        &self,
+        tx: TypedDataRequest,
+    ) -> impl Future<Output = Result<B256, Self::Error>> + Send {
+        // Only used by SeismicEthApi, optional for other chains
+        async move {
+            unimplemented!("this function is unimplemented ny defualt. Override it in your chain to use it")
+        }
+    }
 
     /// Returns the transaction by hash.
     ///
