@@ -310,21 +310,24 @@ mod tests {
     use reth_execution_types::{
         AccountRevertInit, BundleStateInit, Chain, ExecutionOutcome, RevertsInit,
     };
-    use revm::precompile::u64_to_address;
     use reth_primitives_traits::{Account, RecoveredBlock};
     use reth_seismic_chainspec::SEISMIC_MAINNET;
     use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicReceipt};
     use revm::{
         database::{BundleState, CacheDB},
         database_interface::EmptyDBTyped,
+        handler::PrecompileProvider,
         inspector::NoOpInspector,
+        precompile::u64_to_address,
         primitives::Log,
         state::AccountInfo,
     };
     use secp256k1::serde::de::Expected;
-    use seismic_revm::{precompiles::{self, SeismicPrecompiles}, SeismicContext};
+    use seismic_revm::{
+        precompiles::{self, SeismicPrecompiles},
+        SeismicContext,
+    };
     use std::sync::Arc;
-    use revm::handler::PrecompileProvider;
 
     fn test_evm_config() -> SeismicEvmConfig {
         SeismicEvmConfig::seismic(SEISMIC_MAINNET.clone())
