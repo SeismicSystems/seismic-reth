@@ -80,8 +80,15 @@ derive_more = { workspace = true, features = ["constructor"] }
 
 [dev-dependencies]
 reth-seismic-chainspec.workspace = true
+reth-consensus.workspace = true
+reth-evm-ethereum.workspace = true
+reth-ethereum-engine-primitives.workspace = true
+reth-provider.workspace = true
+reth-rpc-builder.workspace = true
+reth-rpc-layer.workspace = true
 
 [features]
+default = ["client"]
 client = [
     "jsonrpsee/client",
     "jsonrpsee/async-client",
