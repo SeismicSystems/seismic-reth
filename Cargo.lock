@@ -266,7 +266,7 @@ dependencies = [
 [[package]]
 name = "alloy-evm"
 version = "0.1.0-alpha.3"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=413cfe2#413cfe287e67c39e5dbce6f34a056cc6ae3a5944"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=9f7fe9f#9f7fe9ff6fe2205bfd7feeb112ea1159aa6bfb62"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -396,7 +396,7 @@ dependencies = [
 [[package]]
 name = "alloy-op-evm"
 version = "0.1.0-alpha.3"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=413cfe2#413cfe287e67c39e5dbce6f34a056cc6ae3a5944"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=9f7fe9f#9f7fe9ff6fe2205bfd7feeb112ea1159aa6bfb62"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -723,7 +723,7 @@ dependencies = [
 [[package]]
 name = "alloy-seismic-evm"
 version = "0.1.0-alpha.3"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=413cfe2#413cfe287e67c39e5dbce6f34a056cc6ae3a5944"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=9f7fe9f#9f7fe9ff6fe2205bfd7feeb112ea1159aa6bfb62"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -734,6 +734,7 @@ dependencies = [
  "op-alloy-consensus",
  "op-revm",
  "revm",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=3a56cce)",
  "seismic-revm",
 ]
 

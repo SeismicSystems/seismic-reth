@@ -320,6 +320,7 @@ mod tests {
         primitives::Log,
         state::AccountInfo,
     };
+    use seismic_revm::{precompiles::SeismicPrecompiles, SeismicContext};
     use std::sync::Arc;
 
     fn test_evm_config() -> SeismicEvmConfig {
@@ -368,7 +369,8 @@ mod tests {
         // ---- Compile-time type equality assertion ----
 
         // Alias for expected full type with default P
-        type ExpectedEvmType = SeismicEvm<CacheDB<EmptyDBTyped<ProviderError>>, NoOpInspector>;
+        type ExpectedDbType = CacheDB<EmptyDBTyped<ProviderError>>;
+        type ExpectedEvmType = SeismicEvm<ExpectedDbType, NoOpInspector, SeismicPrecompiles<SeismicContext<ExpectedDbType>>>;
 
         // Utility trait to assert type equality at compile time
         trait AssertSameType<A> {
