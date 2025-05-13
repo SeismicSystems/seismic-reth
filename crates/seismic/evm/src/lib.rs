@@ -310,6 +310,7 @@ mod tests {
     use reth_execution_types::{
         AccountRevertInit, BundleStateInit, Chain, ExecutionOutcome, RevertsInit,
     };
+    use revm::precompile::u64_to_address;
     use reth_primitives_traits::{Account, RecoveredBlock};
     use reth_seismic_chainspec::SEISMIC_MAINNET;
     use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicReceipt};
@@ -320,8 +321,10 @@ mod tests {
         primitives::Log,
         state::AccountInfo,
     };
-    use seismic_revm::{precompiles::SeismicPrecompiles, SeismicContext};
+    use secp256k1::serde::de::Expected;
+    use seismic_revm::{precompiles::{self, SeismicPrecompiles}, SeismicContext};
     use std::sync::Arc;
+    use revm::handler::PrecompileProvider;
 
     fn test_evm_config() -> SeismicEvmConfig {
         SeismicEvmConfig::seismic(SEISMIC_MAINNET.clone())
@@ -358,19 +361,17 @@ mod tests {
         let evm_config = test_evm_config(); // Provides SeismicEvm config with Seismic mainnet spec
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
         let evm_env = EvmEnv::default();
-
-        // Create the EVM instance with inferred default `P`
         let evm: SeismicEvm<_, NoOpInspector> = evm_config.evm_with_env(db, evm_env.clone());
+        let precompiles = evm.precompiles().clone();
 
         // Check that the EVM environment is correctly set
         assert_eq!(evm.cfg, evm_env.cfg_env);
         assert_eq!(evm.cfg.spec, SeismicSpecId::MERCURY);
 
-        // ---- Compile-time type equality assertion ----
-
-        // Alias for expected full type with default P
+        // Check that the Evm type is correctly set
         type ExpectedDbType = CacheDB<EmptyDBTyped<ProviderError>>;
-        type ExpectedEvmType = SeismicEvm<ExpectedDbType, NoOpInspector, SeismicPrecompiles<SeismicContext<ExpectedDbType>>>;
+        type ExpectedPrecompilesType = SeismicPrecompiles<SeismicContext<ExpectedDbType>>;
+        type ExpectedEvmType = SeismicEvm<ExpectedDbType, NoOpInspector, ExpectedPrecompilesType>;
 
         // Utility trait to assert type equality at compile time
         trait AssertSameType<A> {
@@ -386,9 +387,18 @@ mod tests {
         {
             let _ = evm;
         }
-
-        // Call the compile-time type check with the EVM instance
         assert_type(evm);
+
+        // Check that the expected number of precompiles is set
+        let precompile_addresses =
+            [u64_to_address(101), u64_to_address(102), u64_to_address(103), u64_to_address(104)];
+        for &addr in &precompile_addresses {
+            let is_contained = precompiles.contains(&addr);
+            assert!(
+                is_contained,
+                "Expected Precompile at address for RETH evm generation {addr:?}"
+            );
+        }
     }
 
     #[test]
