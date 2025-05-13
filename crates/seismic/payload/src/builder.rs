@@ -346,8 +346,11 @@ where
                     .server_decrypt(&self.decryption_helper, &ciphertext)
                     .map_err(|e| InternalBlockExecutionError::Other(Box::new(e)))?;
 
-                inner_tx = &mut SeismicTransactionSigned::new(
-                    SeismicTypedTransaction::Seismic(tx_seismic),
+                let mut new_tx = tx_seismic.clone();
+                new_tx.input = decrypted_data;
+
+                *inner_tx = SeismicTransactionSigned::new(
+                    SeismicTypedTransaction::Seismic(new_tx),
                     *inner_tx.signature(),
                     *inner_tx.tx_hash(),
                 );
@@ -457,11 +460,7 @@ mod tests {
                 &ExecutionResult<<<Self::Executor as BlockExecutor>::Evm as Evm>::HaltReason>,
             ),
         ) -> Result<u64, BlockExecutionError> {
-            // check that the input is decryptable
             let ciphertext = tx.input().clone();
-            // let mock_client = MockEnclaveClient::new();
-            // mock_client.decrypt(ciphertext);
-            // Ok(0)
             Ok(ciphertext.len().try_into().unwrap())
         }
 
@@ -494,31 +493,25 @@ mod tests {
             let typed_tx: SeismicTypedTransaction = reth_tx.transaction().clone();
             let mock = MockBlockBuilder::new();
             let mut seismic_builder = SeismicBlockBuilder::new(mock, MockEnclaveClient);
-            
-
-            let ciphertext = seismic_enclave::crypto::aes_encrypt((&[0u8; 32]).into(), reth_tx.input(), seismic_enclave::nonce::Nonce::from([0u8; 12])).unwrap();
 
             match typed_tx {
                 SeismicTypedTransaction::Seismic(mut tx_seismic) => {
-                    let ciphertext = tx_seismic.input().clone();
+                    let plaintext = tx_seismic.input().clone();
                     let seismic_elements = tx_seismic.seismic_elements.clone();
 
-                    let decrypted_data = seismic_elements
-                        .server_decrypt(&MockEnclaveClient, &ciphertext)
-                        .map_err(|e| InternalBlockExecutionError::Other(Box::new(e)))?;
+                    let encrypted_data = seismic_elements.server_encrypt(&MockEnclaveClient, &plaintext).unwrap();
 
-                    inner_tx = &mut SeismicTransactionSigned::new(
-                        SeismicTypedTransaction::Seismic(tx_seismic),
+                    let mut new_tx = tx_seismic.clone();
+                    new_tx.input = encrypted_data.clone();
+
+                    *inner_tx = SeismicTransactionSigned::new(
+                        SeismicTypedTransaction::Seismic(new_tx),
                         *inner_tx.signature(),
                         *inner_tx.tx_hash(),
                     );
                 }
                 _ => (),
             }
-
-
-                    // println!("{}", r_tx.input().clone());
-            // println!("{}", r_tx.input().clone().length());
             let input_len = seismic_builder.execute_transaction(r_tx)?;
 
         }
