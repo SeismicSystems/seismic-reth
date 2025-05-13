@@ -1,4 +1,4 @@
-//! A signed Optimism transaction.
+//! A signed Seismic transaction.
 
 use alloc::vec::Vec;
 use alloy_consensus::{
@@ -751,6 +751,7 @@ pub mod serde_bincode_compat {
                 hash: value.hash.into(),
                 signature: value.signature,
                 transaction: value.transaction.into(),
+                context: Default::default(),
             }
         }
     }
