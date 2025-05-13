@@ -38,7 +38,7 @@ mod receipts;
 pub use receipts::*;
 mod build;
 
-pub use alloy_seismic_evm::{SeismicEvmFactory, SeismicEvm};
+pub use alloy_seismic_evm::{SeismicEvm, SeismicEvmFactory};
 
 /// Ethereum-related EVM configuration.
 #[derive(Debug, Clone)]
@@ -58,14 +58,16 @@ impl SeismicEvmConfig {
 }
 
 impl SeismicEvmConfig {
-
     /// Creates a new Seismic EVM configuration with the given chain spec.
     pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
         Self::seismic(chain_spec)
     }
 
     /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
-    pub fn new_with_evm_factory(chain_spec: Arc<ChainSpec>, evm_factory: SeismicEvmFactory) -> Self {
+    pub fn new_with_evm_factory(
+        chain_spec: Arc<ChainSpec>,
+        evm_factory: SeismicEvmFactory,
+    ) -> Self {
         Self {
             block_assembler: SeismicBlockAssembler::new(chain_spec.clone()),
             executor_factory: EthBlockExecutorFactory::new(
@@ -88,8 +90,7 @@ impl SeismicEvmConfig {
     }
 }
 
-impl ConfigureEvm for SeismicEvmConfig
-{
+impl ConfigureEvm for SeismicEvmConfig {
     type Primitives = SeismicPrimitives;
     type Error = Infallible;
     type NextBlockEnvCtx = NextBlockEnvAttributes;
@@ -135,7 +136,8 @@ impl ConfigureEvm for SeismicEvmConfig
         attributes: &NextBlockEnvAttributes,
     ) -> Result<EvmEnv<SeismicSpecId>, Self::Error> {
         // ensure we're not missing any timestamp based hardforks
-        // let spec_id = revm_spec_by_timestamp_after_bedrock(self.chain_spec(), attributes.timestamp);
+        // let spec_id = revm_spec_by_timestamp_after_bedrock(self.chain_spec(),
+        // attributes.timestamp);
         let spec_id = SeismicSpecId::MERCURY; // this is the only SeismicSpecId for now
 
         // configure evm env based on parent block
@@ -300,15 +302,16 @@ mod tests {
     use super::*;
     use alloy_consensus::{Header, Receipt};
     use alloy_eips::eip7685::Requests;
+    use alloy_evm::Evm;
     use alloy_genesis::Genesis;
     use alloy_primitives::{bytes, map::HashMap, Address, LogData, B256};
-    use reth_chainspec::{ChainSpec};
-    use reth_seismic_chainspec::SEISMIC_MAINNET;
-    use reth_evm::execute::ProviderError;
+    use reth_chainspec::ChainSpec;
+    use reth_evm::{execute::ProviderError, Database};
     use reth_execution_types::{
         AccountRevertInit, BundleStateInit, Chain, ExecutionOutcome, RevertsInit,
     };
     use reth_primitives_traits::{Account, RecoveredBlock};
+    use reth_seismic_chainspec::SEISMIC_MAINNET;
     use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicReceipt};
     use revm::{
         database::{BundleState, CacheDB},
@@ -318,7 +321,6 @@ mod tests {
         state::AccountInfo,
     };
     use std::sync::Arc;
-    use alloy_evm::Evm;
 
     fn test_evm_config() -> SeismicEvmConfig {
         SeismicEvmConfig::seismic(SEISMIC_MAINNET.clone())
@@ -350,17 +352,41 @@ mod tests {
     }
 
     #[test]
-    fn test_evm_with_env_default_spec() {
-        let evm_config = test_evm_config();
-
+    fn test_seismic_evm_with_env_default_spec() {
+        // Setup the EVM with test config and environment
+        let evm_config = test_evm_config(); // Provides SeismicEvm config with Seismic mainnet spec
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
-
         let evm_env = EvmEnv::default();
 
-        let evm = evm_config.evm_with_env(db, evm_env.clone());
+        // Create the EVM instance with inferred default `P`
+        let evm: SeismicEvm<_, NoOpInspector> = evm_config.evm_with_env(db, evm_env.clone());
 
-        // Check that the EVM environment
+        // Check that the EVM environment is correctly set
         assert_eq!(evm.cfg, evm_env.cfg_env);
+        assert_eq!(evm.cfg.spec, SeismicSpecId::MERCURY);
+
+        // ---- Compile-time type equality assertion ----
+
+        // Alias for expected full type with default P
+        type ExpectedEvmType = SeismicEvm<CacheDB<EmptyDBTyped<ProviderError>>, NoOpInspector>;
+
+        // Utility trait to assert type equality at compile time
+        trait AssertSameType<A> {
+            fn same_type(_: A) {}
+        }
+        impl<T> AssertSameType<T> for () {}
+
+        // If the types mismatch, this line will not compile
+        fn assert_type<DB, I>(evm: SeismicEvm<DB, I>)
+        where
+            (): AssertSameType<SeismicEvm<DB, I>>,
+            DB: Database,
+        {
+            let _ = evm;
+        }
+
+        // Call the compile-time type check with the EVM instance
+        assert_type(evm);
     }
 
     #[test]
@@ -404,8 +430,10 @@ mod tests {
 
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
 
-        let evm_env =
-            EvmEnv { cfg_env: CfgEnv::new().with_spec(SeismicSpecId::MERCURY), ..Default::default() };
+        let evm_env = EvmEnv {
+            cfg_env: CfgEnv::new().with_spec(SeismicSpecId::MERCURY),
+            ..Default::default()
+        };
 
         let evm = evm_config.evm_with_env(db, evm_env.clone());
 
@@ -463,10 +491,12 @@ mod tests {
         let evm_config = test_evm_config();
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
 
-        let evm_env =
-            EvmEnv { cfg_env: CfgEnv::new().with_spec(SeismicSpecId::MERCURY), ..Default::default() };
+        let evm_env = EvmEnv {
+            cfg_env: CfgEnv::new().with_spec(SeismicSpecId::MERCURY),
+            ..Default::default()
+        };
 
-        let evm  = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});
+        let evm = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});
 
         // Check that the spec ID is set properly
         assert_eq!(evm.cfg, evm_env.cfg_env);
