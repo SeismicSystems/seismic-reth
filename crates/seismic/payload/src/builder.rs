@@ -379,6 +379,7 @@ where
 mod tests {
     use super::*;
     pub use alloy_evm::block::{BlockExecutor, BlockExecutorFactory};
+    use reth_enclave::SyncEnclaveApiClient;
     use reth_evm::{
         execute::{BlockBuilder, BlockBuilderOutcome, Executor},
         ConfigureEvm, Database, OnStateHook,
@@ -396,6 +397,7 @@ mod tests {
         database::{CacheDB, EmptyDB},
         state::AccountInfo,
     };
+    use seismic_enclave::MockEnclaveClient;
 
     pub struct MockExecutor {}
     impl BlockExecutor for MockExecutor {
@@ -450,12 +452,17 @@ mod tests {
 
         fn execute_transaction_with_result_closure(
             &mut self,
-            _tx: Recovered<TxTy<Self::Primitives>>,
+            tx: Recovered<TxTy<Self::Primitives>>,
             _f: impl FnOnce(
                 &ExecutionResult<<<Self::Executor as BlockExecutor>::Evm as Evm>::HaltReason>,
             ),
         ) -> Result<u64, BlockExecutionError> {
-            panic!("made it to the mock block builder execute");
+            // check that the input is decryptable
+            let ciphertext = tx.input().clone();
+            // let mock_client = MockEnclaveClient::new();
+            // mock_client.decrypt(ciphertext);
+            // Ok(0)
+            Ok(ciphertext.len().try_into().unwrap())
         }
 
         fn finish(
@@ -477,15 +484,43 @@ mod tests {
     use proptest::{arbitrary::Arbitrary, prelude::*};
     use proptest_arbitrary_interop::arb;
     use seismic_alloy_consensus::SeismicTxEnvelope;
+    use seismic_enclave::mock;
 
     proptest! {
         #[test]
         fn test_tx_decryption(reth_tx in arb::<SeismicTransactionSigned>()) {
+            let mut r_tx: Recovered<SeismicTransactionSigned> = Recovered::new_unchecked(reth_tx.clone().into(), reth_tx.recover_signer().unwrap());
+            let mut inner_tx = r_tx.inner_mut();
+            let typed_tx: SeismicTypedTransaction = reth_tx.transaction().clone();
             let mock = MockBlockBuilder::new();
-            let mut seismic_builder = SeismicBlockBuilder::new(mock, seismic_enclave::MockEnclaveClient);
+            let mut seismic_builder = SeismicBlockBuilder::new(mock, MockEnclaveClient);
+            
 
-            let r_tx = Recovered::new_unchecked(reth_tx.clone().into(), reth_tx.recover_signer().unwrap());
-            let _ = seismic_builder.execute_transaction(r_tx);
+            let ciphertext = seismic_enclave::crypto::aes_encrypt((&[0u8; 32]).into(), reth_tx.input(), seismic_enclave::nonce::Nonce::from([0u8; 12])).unwrap();
+
+            match typed_tx {
+                SeismicTypedTransaction::Seismic(mut tx_seismic) => {
+                    let ciphertext = tx_seismic.input().clone();
+                    let seismic_elements = tx_seismic.seismic_elements.clone();
+
+                    let decrypted_data = seismic_elements
+                        .server_decrypt(&MockEnclaveClient, &ciphertext)
+                        .map_err(|e| InternalBlockExecutionError::Other(Box::new(e)))?;
+
+                    inner_tx = &mut SeismicTransactionSigned::new(
+                        SeismicTypedTransaction::Seismic(tx_seismic),
+                        *inner_tx.signature(),
+                        *inner_tx.tx_hash(),
+                    );
+                }
+                _ => (),
+            }
+
+
+                    // println!("{}", r_tx.input().clone());
+            // println!("{}", r_tx.input().clone().length());
+            let input_len = seismic_builder.execute_transaction(r_tx)?;
+
         }
     }
 }
