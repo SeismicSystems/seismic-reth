@@ -20,8 +20,6 @@ pub mod payload;
 
 pub use reth_seismic_txpool as txpool;
 
-/// Helpers for running test node instances.
-#[cfg(feature = "test-utils")]
 pub mod utils;
 
 pub use reth_seismic_payload_builder::SeismicPayloadBuilder;
