@@ -96,7 +96,6 @@ std = [
     "serde_with?/std",
 ]
 alloy-compat = [
-    "dep:alloy-network",
     "dep:alloy-serde",
     "dep:alloy-rpc-types-eth",
     "seismic-alloy-consensus/alloy-compat",

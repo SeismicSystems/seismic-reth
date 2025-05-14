@@ -15,10 +15,11 @@ use k256::ecdsa::SigningKey;
 use reth_enclave::MockEnclaveServer;
 use secp256k1::{PublicKey, SecretKey};
 use seismic_alloy_consensus::{
-    SeismicTxEnvelope::Seismic, SeismicTypedTransaction, TxSeismic, TxSeismicElements,
-    TypedDataRequest,
+    typed, SeismicTxEnvelope::Seismic, SeismicTypedTransaction, TxSeismic, TxSeismicElements, TypedDataRequest
 };
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
+// use reth_e2e_test_utils::transaction::TransactionTestContext;
+use alloy_network::{Ethereum, EthereumWallet, NetworkWallet, TransactionBuilder};
 
 // /// Get the nonce from the client
 // pub async fn get_nonce(client: &HttpClient, address: Address) -> u64 {
@@ -75,20 +76,27 @@ pub fn get_unsigned_seismic_tx_typed_data() -> TypedData {
     get_seismic_tx().eip712_to_type_data()
 }
 
-// /// Create a seismic transaction with typed data
-// pub async fn get_signed_seismic_tx_typed_data() -> TypedDataRequest {
-//     let typed_tx = get_unsigned_seismic_tx_typed_data();
-//     let signature = sign_seismic_tx(&tx);
-//     TypedDataRequest { data: tx, signature }
+/// Create a seismic transaction with typed data
+pub async fn get_signed_seismic_tx_typed_data(sk_wallet: &PrivateKeySigner) -> TypedDataRequest {
+    // let typed_tx = get_unsigned_seismic_tx_typed_data();
+    // let typed_req = TypedDataRequest { data: typed_tx, signature: Default::default() };
+    // let signer = EthereumWallet::from(sk_wallet);
+    // <TypedDataRequest as TransactionBuilder<Ethereum>>::build(typed_req, &signer).await.unwrap()
+    
 
-//     // tx.seismic_elements.unwrap().message_version = 2;
-//     // let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
+    // tx.seismic_elements.unwrap().message_version = 2;
+    // let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
 
-//     //  match signed {
-//     //     Seismic(tx) => tx.into(),
-//     //     _ => panic!("Signed transaction is not a seismic transaction"),
-//     // }
-// }
+    //  match signed {
+    //     Seismic(tx) => tx.into(),
+    //     _ => panic!("Signed transaction is not a seismic transaction"),
+    // }
+
+    let seismic_tx_req = get_unsigned_seismic_tx_request().await;
+    let signer = EthereumWallet::from(sk_wallet);
+    <SeismicTransactionRequest as TransactionBuilder<Ethereum>>::build(typed_req, &signer).await.unwrap()
+    let thing: SeismicTypedTransaction = seismic_tx_req.build_typed_tx().unwrap(); // Not TypedDataRequest?
+}
 
 /// Get the network public key
 pub fn get_network_public_key() -> PublicKey {
