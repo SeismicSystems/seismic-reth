@@ -35,6 +35,9 @@ use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, SeismicTypedTrans
 use seismic_revm::SeismicTransaction;
 
 /// Signed transaction.
+/// 
+/// [`SeismicTransactionSigned`] is a wrapper around a [`SeismicTypedTransaction`] enum,
+/// which can be Seismic(TxSeismic) with additional fields, or Ethereum compatible transactions.
 #[cfg_attr(any(test, feature = "reth-codec"), reth_codecs::add_arbitrary_tests(rlp))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Eq, AsRef, Deref)]

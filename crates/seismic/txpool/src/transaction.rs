@@ -3,10 +3,8 @@ use alloy_consensus::{
 };
 use alloy_eips::{eip2930::AccessList, eip7702::SignedAuthorization};
 use alloy_primitives::{Address, Bytes, TxHash, TxKind, B256, U256};
-use alloy_rpc_types_eth::erc4337::TransactionConditional;
 use c_kzg::KzgSettings;
 use core::fmt::Debug;
-use parking_lot::RwLock;
 use reth_primitives_traits::{InMemorySize, SignedTransaction};
 use reth_seismic_primitives::SeismicTransactionSigned;
 use reth_transaction_pool::{
@@ -14,7 +12,7 @@ use reth_transaction_pool::{
 };
 use std::sync::{Arc, OnceLock};
 
-/// Pool transaction for OP.
+/// Pool transaction for Seismic.
 ///
 /// This type wraps the actual transaction and caches values that are frequently used by the pool.
 /// For payload building this lazily tracks values that are required during payload building:
@@ -60,7 +58,6 @@ impl<Cons: SignedTransaction, Pooled> SeismicPooledTransaction<Cons, Pooled> {
     pub fn encoded_2718(&self) -> &Bytes {
         self.encoded_2718.get_or_init(|| self.inner.transaction().encoded_2718().into())
     }
-
 }
 
 impl<Cons, Pooled> PoolTransaction for SeismicPooledTransaction<Cons, Pooled>
@@ -227,41 +224,36 @@ where
 
 /// Helper trait to provide payload builder with access to conditionals and encoded bytes of
 /// transaction.
-pub trait SeismicPooledTx:
-    PoolTransaction
-{
-}
-impl<T> SeismicPooledTx for T where
-    T: PoolTransaction
-{
-}
+pub trait SeismicPooledTx: PoolTransaction {}
+impl<T> SeismicPooledTx for T where T: PoolTransaction {}
 
 // #[cfg(test)]
 // mod tests {
-//     use crate::{SeismicPooledTransaction, OpTransactionValidator};
+//     use crate::{SeismicPooledTransaction};
 //     use alloy_consensus::transaction::Recovered;
 //     use alloy_eips::eip2718::Encodable2718;
 //     use alloy_primitives::{PrimitiveSignature as Signature, TxKind, U256};
-//     use op_alloy_consensus::{OpTypedTransaction, TxDeposit};
-//     use reth_optimism_chainspec::OP_MAINNET;
-//     use reth_optimism_primitives::OpTransactionSigned;
 //     use reth_provider::test_utils::MockEthProvider;
 //     use reth_transaction_pool::{
-//         blobstore::InMemoryBlobStore, validate::EthTransactionValidatorBuilder,
-// TransactionOrigin,         TransactionValidationOutcome,
+//         blobstore::InMemoryBlobStore, validate::EthTransactionValidatorBuilder, TransactionOrigin,
+//         TransactionValidationOutcome,
 //     };
+//     // use reth_chainspec::{ChainSpec as SeismicChainSpec};
+//     use reth_seismic_chainspec::SEISMIC_MAINNET;
+
 //     #[tokio::test]
-//     async fn validate_optimism_transaction() {
-//         let client = MockEthProvider::default().with_chain_spec(OP_MAINNET.clone());
+//     async fn validate_seismic_transaction() {
+//         // setup validator
+//         let client = MockEthProvider::default().with_chain_spec(SEISMIC_MAINNET);
 //         let validator = EthTransactionValidatorBuilder::new(client)
 //             .no_shanghai()
 //             .no_cancun()
 //             .build(InMemoryBlobStore::default());
-//         let validator = OpTransactionValidator::new(validator);
 
+//         // check that a SeismicTypedTransaction::Seismic is valid
 //         let origin = TransactionOrigin::External;
 //         let signer = Default::default();
-//         let deposit_tx = OpTypedTransaction::Deposit(TxDeposit {
+//         let deposit_tx = SeismicTypedTransaction::Deposit(TxDeposit {
 //             source_hash: Default::default(),
 //             from: signer,
 //             to: TxKind::Create,
@@ -275,8 +267,9 @@ impl<T> SeismicPooledTx for T where
 //         let signed_tx = OpTransactionSigned::new_unhashed(deposit_tx, signature);
 //         let signed_recovered = Recovered::new_unchecked(signed_tx, signer);
 //         let len = signed_recovered.encode_2718_len();
-//         let pooled_tx: SeismicPooledTransaction = SeismicPooledTransaction::new(signed_recovered,
-// len);         let outcome = validator.validate_one(origin, pooled_tx).await;
+//         let pooled_tx: SeismicPooledTransaction =
+//             SeismicPooledTransaction::new(signed_recovered, len);
+//         let outcome = validator.validate_one(origin, pooled_tx).await;
 
 //         let err = match outcome {
 //             TransactionValidationOutcome::Invalid(_, err) => err,
