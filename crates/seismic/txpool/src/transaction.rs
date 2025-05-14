@@ -227,54 +227,48 @@ where
 pub trait SeismicPooledTx: PoolTransaction {}
 impl<T> SeismicPooledTx for T where T: PoolTransaction {}
 
-// #[cfg(test)]
-// mod tests {
-//     use crate::{SeismicPooledTransaction};
-//     use alloy_consensus::transaction::Recovered;
-//     use alloy_eips::eip2718::Encodable2718;
-//     use alloy_primitives::{PrimitiveSignature as Signature, TxKind, U256};
-//     use reth_provider::test_utils::MockEthProvider;
-//     use reth_transaction_pool::{
-//         blobstore::InMemoryBlobStore, validate::EthTransactionValidatorBuilder, TransactionOrigin,
-//         TransactionValidationOutcome,
-//     };
-//     // use reth_chainspec::{ChainSpec as SeismicChainSpec};
-//     use reth_seismic_chainspec::SEISMIC_MAINNET;
+#[cfg(test)]
+mod tests {
+    use crate::{SeismicPooledTransaction};
+    use alloy_consensus::transaction::Recovered;
+    use alloy_eips::eip2718::Encodable2718;
+    use alloy_primitives::{PrimitiveSignature as Signature, TxKind, U256};
+    use reth_provider::test_utils::MockEthProvider;
+    use reth_seismic_evm::SeismicEvmConfig;
+    use reth_transaction_pool::{
+        blobstore::InMemoryBlobStore, validate::EthTransactionValidatorBuilder, TransactionOrigin,
+        TransactionValidationOutcome, error::InvalidPoolTransactionError,
+    };
+    use reth_seismic_chainspec::SEISMIC_MAINNET;
+    use reth_seismic_primitives::test_utils::get_signed_seismic_tx;
+    use reth_primitives_traits::transaction::error::InvalidTransactionError;
 
-//     #[tokio::test]
-//     async fn validate_seismic_transaction() {
-//         // setup validator
-//         let client = MockEthProvider::default().with_chain_spec(SEISMIC_MAINNET);
-//         let validator = EthTransactionValidatorBuilder::new(client)
-//             .no_shanghai()
-//             .no_cancun()
-//             .build(InMemoryBlobStore::default());
+    #[tokio::test]
+    async fn validate_seismic_transaction() {
+        // setup validator
+        let client = MockEthProvider::default().with_chain_spec(SEISMIC_MAINNET.clone());
+        let validator = EthTransactionValidatorBuilder::new(client)
+            .no_shanghai()
+            .no_cancun()
+            .build(InMemoryBlobStore::default());
 
-//         // check that a SeismicTypedTransaction::Seismic is valid
-//         let origin = TransactionOrigin::External;
-//         let signer = Default::default();
-//         let seismic_tx = SeismicTypedTransaction::Deposit(TxDeposit {
-//             source_hash: Default::default(),
-//             from: signer,
-//             to: TxKind::Create,
-//             mint: None,
-//             value: U256::ZERO,
-//             gas_limit: 0,
-//             is_system_transaction: false,
-//             input: Default::default(),
-//         });
-//         let signature = Signature::test_signature();
-//         let signed_tx = OpTransactionSigned::new_unhashed(deposit_tx, signature);
-//         let signed_recovered = Recovered::new_unchecked(signed_tx, signer);
-//         let len = signed_recovered.encode_2718_len();
-//         let pooled_tx: SeismicPooledTransaction =
-//             SeismicPooledTransaction::new(signed_recovered, len);
-//         let outcome = validator.validate_one(origin, pooled_tx).await;
+        // check that a SeismicTypedTransaction::Seismic is valid
+        let origin = TransactionOrigin::External;
+        let signer = Default::default();
+        let signed_seismic_tx = get_signed_seismic_tx();
+        let signed_recovered = Recovered::new_unchecked(signed_seismic_tx, signer);
+        let len = signed_recovered.encode_2718_len();
+        let pooled_tx: SeismicPooledTransaction =
+            SeismicPooledTransaction::new(signed_recovered, len);
 
-//         let err = match outcome {
-//             TransactionValidationOutcome::Invalid(_, err) => err,
-//             _ => panic!("Expected invalid transaction"),
-//         };
-//         assert_eq!(err.to_string(), "transaction type not supported");
-//     }
-// }
+        let outcome = validator.validate_one(origin, pooled_tx);
+
+        match outcome {
+            TransactionValidationOutcome::Invalid(_, InvalidPoolTransactionError::Consensus(InvalidTransactionError::InsufficientFunds(_))) => {
+                // expected since the default account has no funds
+                
+            },
+            _ => panic!("Did not get expected outcome, got: {:?}", outcome),
+        }
+    }
+}

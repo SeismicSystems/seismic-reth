@@ -183,7 +183,7 @@ pub fn get_plaintext() -> Bytes {
 pub fn get_seismic_tx() -> TxSeismic {
     let ciphertext = get_ciphertext();
     TxSeismic {
-        chain_id: 1337,
+        chain_id: 5123, // seismic chain id
         nonce: 1,
         gas_price: 20000000000,
         gas_limit: 210000,
