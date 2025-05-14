@@ -19,8 +19,12 @@ use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool}
 use seismic_alloy_consensus::SeismicTxEnvelope;
 use seismic_alloy_network::{Network, Seismic};
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
+use seismic_alloy_consensus::TypedDataRequest;
+use crate::utils::recover_typed_data_request;
 
 use crate::{eth::SeismicNodeCore, SeismicEthApi};
+
+use super::ext::SeismicTransaction;
 
 impl<N> EthTransactions for SeismicEthApi<N>
 where
@@ -28,7 +32,7 @@ where
     N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
 {
     fn signers(&self) -> &parking_lot::RwLock<Vec<Box<dyn EthSigner<ProviderTx<Self::Provider>>>>> {
-        self.inner.eth_api.signers()
+        self.inner.signers()
     }
 
     /// Decodes and recovers the transaction and submits it to the pool.
@@ -47,6 +51,36 @@ where
             .map_err(Self::Error::from_eth_err)?;
 
         Ok(hash)
+    }
+}
+
+impl<N> SeismicTransaction for SeismicEthApi<N>
+where
+    Self: LoadTransaction<Provider: BlockReaderIdExt>,
+    N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
+{
+    async fn send_typed_data_transaction(
+            &self,
+            tx: TypedDataRequest,
+        ) -> Result<B256, Self::Error> {
+            let recovered = recover_typed_data_request(&tx)?;
+
+            // broadcast raw transaction to subscribers if there is any.
+            // TODO: maybe we need to broadcast the encoded tx instead of the recovered tx
+            // when other nodes receive the raw bytes the hash they recover needs to be
+            // type
+            // self.broadcast_raw_transaction(recovered.to);
+
+            let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
+
+            // submit the transaction to the pool with a `Local` origin
+            let hash = self
+                .pool()
+                .add_transaction(TransactionOrigin::Local, pool_transaction)
+                .await
+                .map_err(Self::Error::from_eth_err)?;
+
+            Ok(hash)
     }
 }
 

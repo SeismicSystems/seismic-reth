@@ -72,6 +72,7 @@ jsonrpsee-core.workspace = true
 jsonrpsee-types.workspace = true
 jsonrpsee.workspace = true
 serde_json.workspace = true
+futures.workspace = true
 
 # misc
 thiserror.workspace = true
@@ -80,8 +81,26 @@ derive_more = { workspace = true, features = ["constructor"] }
 
 [dev-dependencies]
 reth-seismic-chainspec.workspace = true
+reth-consensus.workspace = true
+reth-evm-ethereum.workspace = true
+reth-ethereum-engine-primitives.workspace = true
+reth-provider.workspace = true
+reth-rpc-builder.workspace = true
+reth-rpc-layer.workspace = true
+seismic-enclave.workspace = true
+reth-enclave.workspace = true
+reth-payload-builder.workspace = true
+secp256k1.workspace = true
+enr.workspace = true
+k256.workspace = true
+alloy-signer-local.workspace = true
+reth-e2e-test-utils.workspace = true
+reth-engine-primitives.workspace = true
+reth-node-ethereum.workspace = true
+reth-seismic-evm.workspace = true
 
 [features]
+default = ["client"]
 client = [
     "jsonrpsee/client",
     "jsonrpsee/async-client",
