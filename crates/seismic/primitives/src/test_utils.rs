@@ -1,11 +1,13 @@
 use crate::{SeismicPrimitives, SeismicTransactionSigned};
 use alloy_consensus::{SignableTransaction, TxEnvelope, TypedTransaction};
+use alloy_dyn_abi::TypedData;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{
     aliases::U96, hex_literal, Address, Bytes, PrimitiveSignature, TxKind, U256,
 };
-use alloy_rpc_types::{Block, Header, Transaction, TransactionInput, TransactionReceipt};
-use alloy_rpc_types::TransactionRequest;
+use alloy_rpc_types::{
+    Block, Header, Transaction, TransactionInput, TransactionReceipt, TransactionRequest,
+};
 use alloy_signer_local::PrivateKeySigner;
 use core::str::FromStr;
 use enr::EnrKey;
@@ -16,7 +18,6 @@ use seismic_alloy_consensus::{
     SeismicTxEnvelope::Seismic, SeismicTypedTransaction, TxSeismic, TxSeismicElements,
     TypedDataRequest,
 };
-
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
 
 // /// Get the nonce from the client
@@ -69,43 +70,21 @@ pub async fn get_unsigned_seismic_tx_request(
 // signed_inner.into();     <TxEnvelope as Encodable2718>::encoded_2718(&tx).into()
 // }
 
-// /// Get an unsigned seismic transaction typed data
-// pub async fn get_unsigned_seismic_tx_typed_data(
-//     sk_wallet: &PrivateKeySigner,
-//     nonce: u64,
-//     to: TxKind,
-//     chain_id: u64,
-//     decrypted_input: Bytes,
-// ) -> TypedData {
-//     let tx_request =
-//         get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id,
-// decrypted_input).await;     let typed_tx =
-// tx_request.inner.build_consensus_tx().unwrap();     match typed_tx {
-//         SeismicTypedTransaction::Seismic(seismic) => seismic.eip712_to_type_data(),
-//         _ => panic!("Typed transaction is not a seismic transaction"),
-//     }
-// }
+/// Get an unsigned seismic transaction typed data
+pub fn get_unsigned_seismic_tx_typed_data() -> TypedData {
+    get_seismic_tx().eip712_to_type_data()
+}
 
 // /// Create a seismic transaction with typed data
-// pub async fn get_signed_seismic_tx_typed_data(
-//     sk_wallet: &PrivateKeySigner,
-//     nonce: u64,
-//     to: TxKind,
-//     chain_id: u64,
-//     plaintext: Bytes,
-// ) -> TypedDataRequest {
-//     let mut tx: SeismicTransactionRequest = get_unsigned_seismic_tx_request(sk_wallet, nonce,
-// to, chain_id, plaintext).await;     tx.seismic_elements.unwrap().message_version = 2;
-//     let signed_inner = TransactionTestContext::sign_tx(sk_wallet.clone(), tx.inner).await;
+// pub async fn get_signed_seismic_tx_typed_data() -> TypedDataRequest {
+//     let typed_tx = get_unsigned_seismic_tx_typed_data();
+//     let signature = sign_seismic_tx(&tx);
+//     TypedDataRequest { data: tx, signature }
 
-//     tx.inner = signed_inner.into();
-//     tx
-
-//     // let tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id,
-// plaintext).await;     // tx.seismic_elements.unwrap().message_version = 2;
+//     // tx.seismic_elements.unwrap().message_version = 2;
 //     // let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
 
-//     // match signed {
+//     //  match signed {
 //     //     Seismic(tx) => tx.into(),
 //     //     _ => panic!("Signed transaction is not a seismic transaction"),
 //     // }
