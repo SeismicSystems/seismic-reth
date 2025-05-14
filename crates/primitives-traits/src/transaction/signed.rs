@@ -6,7 +6,7 @@ use crate::{
 };
 use alloc::{fmt, vec::Vec};
 use alloy_consensus::{
-    transaction::{PooledTransaction, Recovered, RlpEcdsaEncodableTx},
+    transaction::{Recovered, RlpEcdsaEncodableTx},
     EthereumTxEnvelope, SignableTransaction,
 };
 use alloy_eips::eip2718::{Decodable2718, Encodable2718};

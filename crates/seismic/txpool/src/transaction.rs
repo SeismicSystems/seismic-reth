@@ -1,16 +1,10 @@
-use crate::{
-    conditional::MaybeConditionalTransaction,
-    interop::{MaybeInteropTransaction, TransactionInterop},
-};
 use alloy_consensus::{
     transaction::Recovered, BlobTransactionSidecar, BlobTransactionValidationError, Typed2718,
 };
 use alloy_eips::{eip2930::AccessList, eip7702::SignedAuthorization};
 use alloy_primitives::{Address, Bytes, TxHash, TxKind, B256, U256};
-use alloy_rpc_types_eth::erc4337::TransactionConditional;
 use c_kzg::KzgSettings;
 use core::fmt::Debug;
-use parking_lot::RwLock;
 use reth_primitives_traits::{InMemorySize, SignedTransaction};
 use reth_seismic_primitives::SeismicTransactionSigned;
 use reth_transaction_pool::{
@@ -18,7 +12,7 @@ use reth_transaction_pool::{
 };
 use std::sync::{Arc, OnceLock};
 
-/// Pool transaction for OP.
+/// Pool transaction for Seismic.
 ///
 /// This type wraps the actual transaction and caches values that are frequently used by the pool.
 /// For payload building this lazily tracks values that are required during payload building:
@@ -35,12 +29,6 @@ pub struct SeismicPooledTransaction<
     /// The pooled transaction type.
     _pd: core::marker::PhantomData<Pooled>,
 
-    /// Optional conditional attached to this transaction.
-    conditional: Option<Box<TransactionConditional>>,
-
-    /// Optional interop validation attached to this transaction.
-    interop: Arc<RwLock<Option<TransactionInterop>>>,
-
     /// Cached EIP-2718 encoded bytes of the transaction, lazily computed.
     encoded_2718: OnceLock<Bytes>,
 }
@@ -51,8 +39,6 @@ impl<Cons: SignedTransaction, Pooled> SeismicPooledTransaction<Cons, Pooled> {
         Self {
             inner: EthPooledTransaction::new(transaction, encoded_length),
             estimated_tx_compressed_size: Default::default(),
-            conditional: None,
-            interop: Arc::new(RwLock::new(None)),
             _pd: core::marker::PhantomData,
             encoded_2718: Default::default(),
         }
@@ -71,32 +57,6 @@ impl<Cons: SignedTransaction, Pooled> SeismicPooledTransaction<Cons, Pooled> {
     /// Returns lazily computed EIP-2718 encoded bytes of the transaction.
     pub fn encoded_2718(&self) -> &Bytes {
         self.encoded_2718.get_or_init(|| self.inner.transaction().encoded_2718().into())
-    }
-
-    /// Conditional setter.
-    pub fn with_conditional(mut self, conditional: TransactionConditional) -> Self {
-        self.conditional = Some(Box::new(conditional));
-        self
-    }
-}
-
-impl<Cons, Pooled> MaybeConditionalTransaction for SeismicPooledTransaction<Cons, Pooled> {
-    fn set_conditional(&mut self, conditional: TransactionConditional) {
-        self.conditional = Some(Box::new(conditional))
-    }
-
-    fn conditional(&self) -> Option<&TransactionConditional> {
-        self.conditional.as_deref()
-    }
-}
-
-impl<Cons, Pooled> MaybeInteropTransaction for SeismicPooledTransaction<Cons, Pooled> {
-    fn set_interop(&self, interop: TransactionInterop) {
-        *self.interop.write() = Some(interop);
-    }
-
-    fn interop(&self) -> Option<TransactionInterop> {
-        self.interop.read().clone()
     }
 }
 
@@ -264,61 +224,57 @@ where
 
 /// Helper trait to provide payload builder with access to conditionals and encoded bytes of
 /// transaction.
-pub trait SeismicPooledTx:
-    MaybeConditionalTransaction + MaybeInteropTransaction + PoolTransaction
-{
+pub trait SeismicPooledTx: PoolTransaction {}
+impl<T> SeismicPooledTx for T where T: PoolTransaction {}
+
+#[cfg(test)]
+mod tests {
+    use crate::SeismicPooledTransaction;
+    use alloy_consensus::transaction::Recovered;
+    use alloy_eips::eip2718::Encodable2718;
+    use alloy_primitives::{PrimitiveSignature as Signature, TxKind, U256};
+    use reth_primitives_traits::transaction::error::InvalidTransactionError;
+    use reth_provider::test_utils::MockEthProvider;
+    use reth_seismic_chainspec::SEISMIC_MAINNET;
+    use reth_seismic_evm::SeismicEvmConfig;
+    use reth_seismic_primitives::test_utils::get_signed_seismic_tx;
+    use reth_transaction_pool::{
+        blobstore::InMemoryBlobStore, error::InvalidPoolTransactionError,
+        validate::EthTransactionValidatorBuilder, TransactionOrigin, TransactionValidationOutcome,
+    };
+
+    #[tokio::test]
+    async fn validate_seismic_transaction() {
+        // setup validator
+        let client = MockEthProvider::default().with_chain_spec(SEISMIC_MAINNET.clone());
+        let validator = EthTransactionValidatorBuilder::new(client)
+            .no_shanghai()
+            .no_cancun()
+            .build(InMemoryBlobStore::default());
+
+        // check that a SeismicTypedTransaction::Seismic is valid
+        let origin = TransactionOrigin::External;
+        let signer = Default::default();
+        let signed_seismic_tx = get_signed_seismic_tx();
+        let signed_recovered = Recovered::new_unchecked(signed_seismic_tx, signer);
+        let len = signed_recovered.encode_2718_len();
+        let pooled_tx: SeismicPooledTransaction =
+            SeismicPooledTransaction::new(signed_recovered, len);
+
+        let outcome = validator.validate_one(origin, pooled_tx);
+
+        match outcome {
+            TransactionValidationOutcome::Invalid(
+                _,
+                InvalidPoolTransactionError::Consensus(InvalidTransactionError::InsufficientFunds(
+                    _,
+                )),
+            ) => {
+                // expected since the client (MockEthProvider) state does not have funds for any
+                // accounts account balance is one of the last things checked in
+                // validate_one, so getting that far good news
+            }
+            _ => panic!("Did not get expected outcome, got: {:?}", outcome),
+        }
+    }
 }
-impl<T> SeismicPooledTx for T where
-    T: MaybeConditionalTransaction + MaybeInteropTransaction + PoolTransaction
-{
-}
-
-// #[cfg(test)]
-// mod tests {
-//     use crate::{SeismicPooledTransaction, OpTransactionValidator};
-//     use alloy_consensus::transaction::Recovered;
-//     use alloy_eips::eip2718::Encodable2718;
-//     use alloy_primitives::{PrimitiveSignature as Signature, TxKind, U256};
-//     use op_alloy_consensus::{OpTypedTransaction, TxDeposit};
-//     use reth_optimism_chainspec::OP_MAINNET;
-//     use reth_optimism_primitives::OpTransactionSigned;
-//     use reth_provider::test_utils::MockEthProvider;
-//     use reth_transaction_pool::{
-//         blobstore::InMemoryBlobStore, validate::EthTransactionValidatorBuilder,
-// TransactionOrigin,         TransactionValidationOutcome,
-//     };
-//     #[tokio::test]
-//     async fn validate_optimism_transaction() {
-//         let client = MockEthProvider::default().with_chain_spec(OP_MAINNET.clone());
-//         let validator = EthTransactionValidatorBuilder::new(client)
-//             .no_shanghai()
-//             .no_cancun()
-//             .build(InMemoryBlobStore::default());
-//         let validator = OpTransactionValidator::new(validator);
-
-//         let origin = TransactionOrigin::External;
-//         let signer = Default::default();
-//         let deposit_tx = OpTypedTransaction::Deposit(TxDeposit {
-//             source_hash: Default::default(),
-//             from: signer,
-//             to: TxKind::Create,
-//             mint: None,
-//             value: U256::ZERO,
-//             gas_limit: 0,
-//             is_system_transaction: false,
-//             input: Default::default(),
-//         });
-//         let signature = Signature::test_signature();
-//         let signed_tx = OpTransactionSigned::new_unhashed(deposit_tx, signature);
-//         let signed_recovered = Recovered::new_unchecked(signed_tx, signer);
-//         let len = signed_recovered.encode_2718_len();
-//         let pooled_tx: SeismicPooledTransaction = SeismicPooledTransaction::new(signed_recovered,
-// len);         let outcome = validator.validate_one(origin, pooled_tx).await;
-
-//         let err = match outcome {
-//             TransactionValidationOutcome::Invalid(_, err) => err,
-//             _ => panic!("Expected invalid transaction"),
-//         };
-//         assert_eq!(err.to_string(), "transaction type not supported");
-//     }
-// }

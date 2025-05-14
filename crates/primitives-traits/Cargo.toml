@@ -28,7 +28,7 @@ alloy-trie.workspace = true
 revm-primitives.workspace = true
 revm-bytecode.workspace = true
 revm-state.workspace = true
-alloy-rpc-types-eth.workspace = true
+# alloy-rpc-types-eth.workspace = true
 
 # op
 op-alloy-consensus = { workspace = true, optional = true }
