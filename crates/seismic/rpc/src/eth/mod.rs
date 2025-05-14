@@ -1,6 +1,5 @@
 //! OP-Reth `eth_` endpoint implementation.
 
-pub mod error;
 /// seismic api extension from eth api
 pub mod ext;
 pub mod receipt;
@@ -78,7 +77,7 @@ where
         self.inner.eth_api()
     }
 
-    /// Build a [`OpEthApi`] using [`OpEthApiBuilder`].
+    /// Build a [`SeismicEthApi`] using [`SeismicEthApiBuilder`].
     pub const fn builder() -> SeismicEthApiBuilder {
         SeismicEthApiBuilder::new()
     }
@@ -265,7 +264,7 @@ impl<N: SeismicNodeCore> fmt::Debug for SeismicEthApi<N> {
     }
 }
 
-/// Container type `OpEthApi`
+/// Container type `SeismicEthApi`
 #[allow(missing_debug_implementations)]
 struct SeismicEthApiInner<N: SeismicNodeCore> {
     /// Gateway to node's core components.
@@ -279,12 +278,12 @@ impl<N: SeismicNodeCore> SeismicEthApiInner<N> {
     }
 }
 
-/// Builds [`OpEthApi`] for Optimism.
+/// Builds [`SeismicEthApi`] for Optimism.
 #[derive(Debug, Default)]
 pub struct SeismicEthApiBuilder {}
 
 impl SeismicEthApiBuilder {
-    /// Creates a [`OpEthApiBuilder`] instance from core components.
+    /// Creates a [`SeismicEthApiBuilder`] instance from core components.
     pub const fn new() -> Self {
         SeismicEthApiBuilder {}
     }
