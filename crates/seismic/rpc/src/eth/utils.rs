@@ -37,6 +37,7 @@ pub fn recover_typed_data_request<T: SignedTransaction>(
 }
 
 /// Test utils for the seismic rpc api
+#[cfg(test)]
 pub mod test_utils {
     use super::*;
     use alloy_consensus::{SignableTransaction, TxEnvelope, TypedTransaction};
