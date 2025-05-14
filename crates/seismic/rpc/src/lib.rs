@@ -10,3 +10,6 @@
 
 mod eth;
 pub use eth::*;
+
+mod error;
+pub use error::*;
