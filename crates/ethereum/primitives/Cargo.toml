@@ -23,7 +23,7 @@ alloy-eips = { workspace = true, features = ["k256"] }
 alloy-primitives.workspace = true
 alloy-network = { workspace = true, optional = true }
 alloy-consensus = { workspace = true, features = ["serde"] }
-seismic-alloy-consensus.workspace = true
+seismic-alloy-consensus = { workspace = true, features = ["serde"] }
 alloy-serde = { workspace = true, optional = true }
 alloy-rlp.workspace = true
 alloy-rpc-types-eth = { workspace = true, optional = true }

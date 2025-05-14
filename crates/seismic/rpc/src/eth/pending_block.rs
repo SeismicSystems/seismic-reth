@@ -58,7 +58,7 @@ where
     ) -> &tokio::sync::Mutex<
         Option<PendingBlock<ProviderBlock<Self::Provider>, ProviderReceipt<Self::Provider>>>,
     > {
-        self.inner.eth_api.pending_block()
+        self.inner.pending_block()
     }
 
     fn next_env_attributes(

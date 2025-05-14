@@ -15,6 +15,7 @@ use reth_rpc_eth_types::EthApiError;
 use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
 use reth_storage_api::{BlockReader, HeaderProvider};
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
+use reth_rpc_eth_api::RpcNodeCore;
 
 use crate::{eth::SeismicNodeCore, SeismicEthApi};
 
@@ -45,7 +46,7 @@ where
             let excess_blob_gas = block.excess_blob_gas();
             let timestamp = block.timestamp();
             let blob_params =
-                self.inner.eth_api().provider().chain_spec().blob_params_at_timestamp(timestamp);
+                self.provider().chain_spec().blob_params_at_timestamp(timestamp);
 
             return block
                 .body()
