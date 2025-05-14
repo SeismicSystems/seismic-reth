@@ -24,6 +24,8 @@ use crate::utils::recover_typed_data_request;
 
 use crate::{eth::SeismicNodeCore, SeismicEthApi};
 
+use super::ext::SeismicTransaction;
+
 impl<N> EthTransactions for SeismicEthApi<N>
 where
     Self: LoadTransaction<Provider: BlockReaderIdExt>,
@@ -50,7 +52,13 @@ where
 
         Ok(hash)
     }
+}
 
+impl<N> SeismicTransaction for SeismicEthApi<N>
+where
+    Self: LoadTransaction<Provider: BlockReaderIdExt>,
+    N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
+{
     async fn send_typed_data_transaction(
             &self,
             tx: TypedDataRequest,
@@ -62,16 +70,16 @@ where
             // when other nodes receive the raw bytes the hash they recover needs to be
             // type
             // self.broadcast_raw_transaction(recovered.to);
-    
+
             let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
-    
+
             // submit the transaction to the pool with a `Local` origin
             let hash = self
                 .pool()
                 .add_transaction(TransactionOrigin::Local, pool_transaction)
                 .await
                 .map_err(Self::Error::from_eth_err)?;
-    
+
             Ok(hash)
     }
 }

@@ -63,19 +63,6 @@ pub trait EthTransactions: LoadTransaction<Provider: BlockReaderIdExt> {
         tx: Bytes,
     ) -> impl Future<Output = Result<B256, Self::Error>> + Send;
 
-    /// Decodes and recovers the transaction and submits it to the pool.
-    ///
-    /// Returns the hash of the transaction.
-    fn send_typed_data_transaction(
-        &self,
-        tx: TypedDataRequest,
-    ) -> impl Future<Output = Result<B256, Self::Error>> + Send {
-        // Only used by SeismicEthApi, optional for other chains
-        async move {
-            unimplemented!("this function is unimplemented ny defualt. Override it in your chain to use it")
-        }
-    }
-
     /// Returns the transaction by hash.
     ///
     /// Checks the pool and state.
