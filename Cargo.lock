@@ -10189,6 +10189,7 @@ dependencies = [
  "async-trait",
  "derive_more 2.0.1",
  "enr",
+ "futures",
  "jsonrpsee",
  "jsonrpsee-core",
  "jsonrpsee-types",

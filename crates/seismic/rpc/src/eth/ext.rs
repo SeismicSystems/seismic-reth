@@ -20,13 +20,14 @@ use alloy_rpc_types_eth::{
     simulate::{SimulatePayload, SimulatedBlock},
     transaction::{TransactionInput, TransactionRequest},
 };
+use futures::Future;
 use jsonrpsee::{
     core::{async_trait, RpcResult},
     proc_macros::rpc,
 };
 use reth_node_core::node_config::NodeConfig;
 use reth_rpc_eth_api::{
-    helpers::{EthCall, EthTransactions, FullEthApi},
+    helpers::{EthCall, EthTransactions},
     RpcBlock,
 };
 use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
@@ -43,6 +44,9 @@ use crate::{
     error::SeismicApiError,
     utils::{recover_typed_data_request, seismic_override_call_request},
 };
+
+use super::api::FullSeismicApi;
+
 /// trait interface for a custom rpc namespace: `seismic`
 ///
 /// This defines an additional namespace where all methods are configured as trait functions.
@@ -95,6 +99,17 @@ pub const fn test_address() -> SocketAddr {
     SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))
 }
 
+/// Extension trait for `EthTransactions` to add custom transaction sending functionalities.
+pub trait SeismicTransaction: EthTransactions {
+    /// Decodes, signs (if necessary via an internal signer or enclave),
+    /// and submits a typed data transaction to the pool.
+    /// Returns the hash of the transaction.
+    fn send_typed_data_transaction(
+        &self,
+        tx_request: TypedDataRequest,
+    ) -> impl Future<Output = Result<B256, Self::Error>> + Send;
+}
+
 /// Seismic `eth_` RPC namespace overrides.
 #[cfg_attr(not(feature = "client"), rpc(server, namespace = "eth"))]
 #[cfg_attr(feature = "client", rpc(server, client, namespace = "eth"))]
@@ -145,7 +160,7 @@ impl<Eth> EthApiExt<Eth> {
 #[async_trait]
 impl<Eth> EthApiOverrideServer<RpcBlock<Eth::NetworkTypes>> for EthApiExt<Eth>
 where
-    Eth: FullEthApi,
+    Eth: FullSeismicApi,
     jsonrpsee_types::error::ErrorObject<'static>: From<Eth::Error>,
 {
     /// Handler for: `eth_signTypedData_v4`
@@ -316,7 +331,7 @@ where
                 Ok(EthTransactions::send_raw_transaction(&self.eth_api, bytes).await?)
             }
             SeismicRawTxRequest::TypedData(typed_data) => {
-                Ok(EthTransactions::send_typed_data_transaction(&self.eth_api, typed_data).await?)
+                Ok(SeismicTransaction::send_typed_data_transaction(&self.eth_api, typed_data).await?)
             }
         }
     }
