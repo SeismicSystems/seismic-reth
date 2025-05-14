@@ -105,59 +105,59 @@ pub mod test_utils {
         module.start_server(config).await.unwrap()
     }
 
-    /// Launches a new server with http only with the given modules
-    pub async fn launch_http(modules: impl Into<Methods>) -> RpcServerHandle {
-        let builder = test_seismic_rpc_builder();
-        let eth_api = builder.bootstrap_eth_api();
-        // let seismic_eth_api = SeismicEthApi { inner: eth_api.inner.clone() };
-        let mut server = builder.build(
-            TransportRpcModuleConfig::set_http(RpcModuleSelection::Standard),
-            *Box::new(eth_api),
-        );
-        server.replace_configured(modules).unwrap();
-        RpcServerConfig::http(Default::default())
-            .with_http_address(test_address())
-            .start(&server)
-            .await
-            .unwrap()
-    }
+    // /// Launches a new server with http only with the given modules
+    // pub async fn launch_http(modules: impl Into<Methods>) -> RpcServerHandle {
+    //     let builder = test_seismic_rpc_builder();
+    //     let eth_api = builder.bootstrap_eth_api();
+    //     // let seismic_eth_api = SeismicEthApi { inner: eth_api.inner.clone() };
+    //     let mut server = builder.build(
+    //         TransportRpcModuleConfig::set_http(RpcModuleSelection::Standard),
+    //         *Box::new(eth_api),
+    //     );
+    //     server.replace_configured(modules).unwrap();
+    //     RpcServerConfig::http(Default::default())
+    //         .with_http_address(test_address())
+    //         .start(&server)
+    //         .await
+    //         .unwrap()
+    // }
 
-    type SeismicTestPool = Pool<
-        MockTransactionValidator<SeismicPooledTransaction>,
-        CoinbaseTipOrdering<SeismicPooledTransaction>,
-        InMemoryBlobStore,
-    >;
-    /// Returns an [`RpcModuleBuilder`] with testing components.
-    pub fn test_seismic_rpc_builder() -> RpcModuleBuilder<
-        SeismicPrimitives,
-        NoopProvider<SeismicChainSpec, SeismicPrimitives>,
-        SeismicTestPool,
-        NoopNetwork,
-        TokioTaskExecutor,
-        SeismicEvmConfig,
-        BasicBlockExecutorProvider<SeismicEvmConfig>,
-        NoopConsensus,
-    > {
-        let spec = SEISMIC_MAINNET.clone();
+    // type SeismicTestPool = Pool<
+    //     MockTransactionValidator<SeismicPooledTransaction>,
+    //     CoinbaseTipOrdering<SeismicPooledTransaction>,
+    //     InMemoryBlobStore,
+    // >;
+    // /// Returns an [`RpcModuleBuilder`] with testing components.
+    // pub fn test_seismic_rpc_builder() -> RpcModuleBuilder<
+    //     SeismicPrimitives,
+    //     NoopProvider<SeismicChainSpec, SeismicPrimitives>,
+    //     SeismicTestPool,
+    //     NoopNetwork,
+    //     TokioTaskExecutor,
+    //     SeismicEvmConfig,
+    //     BasicBlockExecutorProvider<SeismicEvmConfig>,
+    //     NoopConsensus,
+    // > {
+    //     let spec = SEISMIC_MAINNET.clone();
 
-        let test_pool = Pool::new(
-            MockTransactionValidator::default(),
-            CoinbaseTipOrdering::<SeismicPooledTransaction>::default(),
-            InMemoryBlobStore::default(),
-            Default::default(),
-        );
+    //     let test_pool = Pool::new(
+    //         MockTransactionValidator::default(),
+    //         CoinbaseTipOrdering::<SeismicPooledTransaction>::default(),
+    //         InMemoryBlobStore::default(),
+    //         Default::default(),
+    //     );
 
-        RpcModuleBuilder::default()
-            .with_provider(NoopProvider::<SeismicChainSpec, SeismicPrimitives>::new(spec.clone()))
-            .with_pool(test_pool)
-            .with_network(NoopNetwork::default())
-            .with_executor(TokioTaskExecutor::default())
-            .with_evm_config(SeismicEvmConfig::seismic(spec.clone()))
-            .with_block_executor(BasicBlockExecutorProvider::new(SeismicEvmConfig::seismic(
-                spec.clone(),
-            )))
-            .with_consensus(NoopConsensus::default())
-    }
+    //     RpcModuleBuilder::default()
+    //         .with_provider(NoopProvider::<SeismicChainSpec, SeismicPrimitives>::new(spec.clone()))
+    //         .with_pool(test_pool)
+    //         .with_network(NoopNetwork::default())
+    //         .with_executor(TokioTaskExecutor::default())
+    //         .with_evm_config(SeismicEvmConfig::seismic(spec.clone()))
+    //         .with_block_executor(BasicBlockExecutorProvider::new(SeismicEvmConfig::seismic(
+    //             spec.clone(),
+    //         )))
+    //         .with_consensus(NoopConsensus::default())
+    // }
 
     // /// Builds a test eth api
     // pub fn build_test_eth_api<

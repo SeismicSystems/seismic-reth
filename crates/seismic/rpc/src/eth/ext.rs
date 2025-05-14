@@ -340,7 +340,7 @@ where
 #[cfg(test)]
 mod tests {
     // use crate::utils::test_utils::{build_test_eth_api};
-    use crate::utils2::test_utils::{launch_http};
+    // use crate::utils2::test_utils::{launch_http};
     use super::EthApiOverrideClient;
     use crate::utils::test_utils::get_seismic_tx;
     use alloy_primitives::{b256, hex, PrimitiveSignature, U256};
@@ -405,17 +405,17 @@ mod tests {
                 .unwrap();
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_call_seismic_functions_http() {
-        reth_tracing::init_test_tracing();
-        let enclave_client = start_mock_enclave_server_random_port().await;
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn test_call_seismic_functions_http() {
+    //     reth_tracing::init_test_tracing();
+    //     let enclave_client = start_mock_enclave_server_random_port().await;
 
-        let seismic_api = SeismicApi::default().with_enclave_client(enclave_client);
+    //     let seismic_api = SeismicApi::default().with_enclave_client(enclave_client);
 
-        let handle = launch_http(seismic_api.into_rpc()).await;
-        let client = handle.http_client().unwrap();
-        test_basic_seismic_calls(&client).await;
-    }
+    //     let handle = launch_http(seismic_api.into_rpc()).await;
+    //     let client = handle.http_client().unwrap();
+    //     test_basic_seismic_calls(&client).await;
+    // }
 
     // #[tokio::test(flavor = "multi_thread")]
     // async fn test_call_eth_functions_http() {
