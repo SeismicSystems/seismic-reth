@@ -156,6 +156,6 @@ where
 
         debug!("DEBUG: create_txn_env {:?}", env);
 
-        Ok(SeismicTransaction { base: env, tx_hash: B256::ZERO, rng_mode: RngMode::Simulation })
+        Ok(SeismicTransaction { base: env, tx_hash: Default::default(), rng_mode: RngMode::Simulation })
     }
 }
