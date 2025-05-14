@@ -274,21 +274,12 @@ impl<N: SeismicNodeCore> fmt::Debug for SeismicEthApi<N> {
     }
 }
 
-<<<<<<< HEAD
-/// Container type `SeismicEthApi`
-#[allow(missing_debug_implementations)]
-struct SeismicEthApiInner<N: SeismicNodeCore> {
-    /// Gateway to node's core components.
-    eth_api: EthApiNodeBackend<N>,
-}
-=======
 // /// Container type `OpEthApi`
 // #[allow(missing_debug_implementations)]
 // struct SeismicEthApiInner<N: SeismicNodeCore> {
 //     /// Gateway to node's core components.
 //     pub eth_api: EthApiNodeBackend<N>,
 // }
->>>>>>> origin/upstream-merge
 
 // impl<N: SeismicNodeCore> SeismicEthApiInner<N> {
 //     /// Returns a reference to the [`EthApiNodeBackend`].
