@@ -19,6 +19,7 @@ pub use transaction::{signed::SeismicTransactionSigned, tx_type::SeismicTxType};
 
 mod receipt;
 pub use receipt::SeismicReceipt;
+pub mod test_utils;
 
 /// Seismic-specific block type.
 pub type SeismicBlock = alloy_consensus::Block<SeismicTransactionSigned>;

@@ -342,7 +342,7 @@ mod tests {
     // use crate::utils::test_utils::{build_test_eth_api};
     // use crate::utils2::test_utils::{launch_http};
     use super::EthApiOverrideClient;
-    use crate::utils::test_utils::get_seismic_tx;
+    use reth_seismic_primitives::test_utils::get_seismic_tx;
     use alloy_primitives::{b256, hex, PrimitiveSignature, U256};
     use alloy_rpc_types::Block;
     use jsonrpsee::core::client::{ClientT, SubscriptionClientT};

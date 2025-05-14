@@ -253,7 +253,7 @@ impl<T> SeismicPooledTx for T where T: PoolTransaction {}
 //         // check that a SeismicTypedTransaction::Seismic is valid
 //         let origin = TransactionOrigin::External;
 //         let signer = Default::default();
-//         let deposit_tx = SeismicTypedTransaction::Deposit(TxDeposit {
+//         let seismic_tx = SeismicTypedTransaction::Deposit(TxDeposit {
 //             source_hash: Default::default(),
 //             from: signer,
 //             to: TxKind::Create,

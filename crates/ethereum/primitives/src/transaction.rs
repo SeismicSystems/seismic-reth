@@ -572,7 +572,7 @@ impl From<Signed<TxEip4844Variant>> for TransactionSigned {
 }
 
 impl Decodable712 for TransactionSigned {
-    fn decode_712(buf: &seismic_alloy_consensus::TypedDataRequest) -> seismic_alloy_consensus::Eip712Result<Self> {
+    fn decode_712(_buf: &seismic_alloy_consensus::TypedDataRequest) -> seismic_alloy_consensus::Eip712Result<Self> {
         todo!()
     }
 }

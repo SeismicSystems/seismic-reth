@@ -3,7 +3,7 @@
 use alloc::vec::Vec;
 use alloy_consensus::{
     transaction::{RlpEcdsaDecodableTx, RlpEcdsaEncodableTx},
-    Sealed, SignableTransaction, Signed, Transaction, TxEip1559, TxEip2930, TxEip7702, TxLegacy,
+    SignableTransaction, Signed, Transaction, TxEip1559, TxEip2930, TxEip7702, TxLegacy,
     Typed2718,
 };
 use alloy_eips::{
@@ -27,7 +27,7 @@ use proptest as _;
 use reth_primitives_traits::{
     crypto::secp256k1::{recover_signer, recover_signer_unchecked},
     sync::OnceLock,
-    transaction::{error::TransactionConversionError, signed::RecoveryError},
+    transaction::{signed::RecoveryError},
     InMemorySize, SignedTransaction,
 };
 use revm_context::TxEnv;
@@ -91,7 +91,7 @@ impl SeismicTransactionSigned {
 }
 
 impl Decodable712 for SeismicTransactionSigned {
-    fn decode_712(buf: &seismic_alloy_consensus::TypedDataRequest) -> seismic_alloy_consensus::Eip712Result<Self> {
+    fn decode_712(_buf: &seismic_alloy_consensus::TypedDataRequest) -> seismic_alloy_consensus::Eip712Result<Self> {
         todo!("todo: Decodable712 for SeismicTransactionSigned")
     }
 }
@@ -202,7 +202,7 @@ pub trait OpTransaction {
 
 impl OpTransaction for SeismicTransactionSigned {
     fn is_deposit(&self) -> bool {
-        self.is_deposit()
+        false // Seismic doesn't have deposit enum for [`SeismicTypedTransaction`]
     }
 }
 
