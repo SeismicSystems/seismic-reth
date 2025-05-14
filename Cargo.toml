@@ -351,6 +351,7 @@ alloy-seismic-evm = {version = "0.1.0-alpha.3"}
 
 seismic-alloy-rpc-types = {version = "0.0.1", default-features = false}
 seismic-alloy-consensus = {version = "0.0.1", default-features = false}
+seismic-alloy-provider = {version = "0.0.1", default-features = false}
 
 seismic-alloy-rpc-types-engine = {version = "0.0.1", default-features = false}
 seismic-alloy-network = {version = "0.0.1", default-features = false}
@@ -506,6 +507,7 @@ alloy-primitives = { version = "0.8.25", default-features = false, features = ["
 alloy-rlp = { version = "0.3.10", default-features = false, features = ["core-net"] }
 alloy-sol-types = { version = "0.8.25", default-features = false }
 alloy-trie = { version = "0.7.9", default-features = false }
+alloy-json-abi = { version = "0.8.25", default-features = false }
 
 alloy-hardforks = "0.1.2"
 
@@ -766,6 +768,7 @@ seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev =
 
 alloy-trie = { git = "https://github.com/SeismicSystems/seismic-trie.git", rev = "d53b661" }
 
-seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "f37c15d13" }
-seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "f37c15d13" }
-seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "f37c15d13" }
+seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "d4570a85" }
+seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "d4570a85" }
+seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "d4570a85" }
+seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "d4570a85" }
