@@ -70,6 +70,7 @@ pub mod test_utils {
         sync::Arc,
     };
     use tokio::sync::mpsc::unbounded_channel;
+    use crate::{SeismicEthApi};
 
     /// Localhost with port 0 so a free port is used.
     pub const fn test_address() -> SocketAddr {
@@ -108,6 +109,7 @@ pub mod test_utils {
     pub async fn launch_http(modules: impl Into<Methods>) -> RpcServerHandle {
         let builder = test_seismic_rpc_builder();
         let eth_api = builder.bootstrap_eth_api();
+        // let seismic_eth_api = SeismicEthApi { inner: eth_api.inner.clone() };
         let mut server = builder.build(
             TransportRpcModuleConfig::set_http(RpcModuleSelection::Standard),
             *Box::new(eth_api),

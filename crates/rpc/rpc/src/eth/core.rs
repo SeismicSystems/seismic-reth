@@ -65,7 +65,7 @@ pub type EthApiBuilderFor<N> = EthApiBuilder<
 pub struct EthApi<Provider: BlockReader, Pool, Network, EvmConfig> {
     /// All nested fields bundled together.
     #[deref]
-    pub(super) inner: Arc<EthApiInner<Provider, Pool, Network, EvmConfig>>,
+    pub inner: Arc<EthApiInner<Provider, Pool, Network, EvmConfig>>,
     /// Transaction RPC response builder.
     pub tx_resp_builder: EthTxBuilder,
 }

@@ -32,7 +32,7 @@ where
     N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
 {
     fn signers(&self) -> &parking_lot::RwLock<Vec<Box<dyn EthSigner<ProviderTx<Self::Provider>>>>> {
-        self.inner.eth_api.signers()
+        self.inner.signers()
     }
 
     /// Decodes and recovers the transaction and submits it to the pool.

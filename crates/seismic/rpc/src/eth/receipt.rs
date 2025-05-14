@@ -32,7 +32,7 @@ where
         let hash = meta.block_hash;
         // get all receipts for the block
         let all_receipts = self
-            .inner.eth_api
+            .inner
             .cache()
             .get_receipts(hash)
             .await
