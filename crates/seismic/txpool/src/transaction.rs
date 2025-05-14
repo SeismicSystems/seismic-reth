@@ -1,7 +1,3 @@
-use crate::{
-    conditional::MaybeConditionalTransaction,
-    interop::{MaybeInteropTransaction, TransactionInterop},
-};
 use alloy_consensus::{
     transaction::Recovered, BlobTransactionSidecar, BlobTransactionValidationError, Typed2718,
 };
@@ -35,12 +31,6 @@ pub struct SeismicPooledTransaction<
     /// The pooled transaction type.
     _pd: core::marker::PhantomData<Pooled>,
 
-    /// Optional conditional attached to this transaction.
-    conditional: Option<Box<TransactionConditional>>,
-
-    /// Optional interop validation attached to this transaction.
-    interop: Arc<RwLock<Option<TransactionInterop>>>,
-
     /// Cached EIP-2718 encoded bytes of the transaction, lazily computed.
     encoded_2718: OnceLock<Bytes>,
 }
@@ -51,8 +41,6 @@ impl<Cons: SignedTransaction, Pooled> SeismicPooledTransaction<Cons, Pooled> {
         Self {
             inner: EthPooledTransaction::new(transaction, encoded_length),
             estimated_tx_compressed_size: Default::default(),
-            conditional: None,
-            interop: Arc::new(RwLock::new(None)),
             _pd: core::marker::PhantomData,
             encoded_2718: Default::default(),
         }
@@ -73,31 +61,6 @@ impl<Cons: SignedTransaction, Pooled> SeismicPooledTransaction<Cons, Pooled> {
         self.encoded_2718.get_or_init(|| self.inner.transaction().encoded_2718().into())
     }
 
-    /// Conditional setter.
-    pub fn with_conditional(mut self, conditional: TransactionConditional) -> Self {
-        self.conditional = Some(Box::new(conditional));
-        self
-    }
-}
-
-impl<Cons, Pooled> MaybeConditionalTransaction for SeismicPooledTransaction<Cons, Pooled> {
-    fn set_conditional(&mut self, conditional: TransactionConditional) {
-        self.conditional = Some(Box::new(conditional))
-    }
-
-    fn conditional(&self) -> Option<&TransactionConditional> {
-        self.conditional.as_deref()
-    }
-}
-
-impl<Cons, Pooled> MaybeInteropTransaction for SeismicPooledTransaction<Cons, Pooled> {
-    fn set_interop(&self, interop: TransactionInterop) {
-        *self.interop.write() = Some(interop);
-    }
-
-    fn interop(&self) -> Option<TransactionInterop> {
-        self.interop.read().clone()
-    }
 }
 
 impl<Cons, Pooled> PoolTransaction for SeismicPooledTransaction<Cons, Pooled>
@@ -265,11 +228,11 @@ where
 /// Helper trait to provide payload builder with access to conditionals and encoded bytes of
 /// transaction.
 pub trait SeismicPooledTx:
-    MaybeConditionalTransaction + MaybeInteropTransaction + PoolTransaction
+    PoolTransaction
 {
 }
 impl<T> SeismicPooledTx for T where
-    T: MaybeConditionalTransaction + MaybeInteropTransaction + PoolTransaction
+    T: PoolTransaction
 {
 }
 
