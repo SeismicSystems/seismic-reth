@@ -54,14 +54,21 @@ pub mod test_utils {
     use enr::EnrKey;
     use jsonrpsee::http_client::HttpClient;
     use k256::ecdsa::SigningKey;
+    use reth_e2e_test_utils::transaction::TransactionTestContext;
     use reth_enclave::MockEnclaveServer;
+    use reth_network_api::noop::NoopNetwork;
     use reth_payload_builder::EthPayloadBuilderAttributes;
     use reth_primitives::TransactionSigned;
+    use reth_provider::StateProviderFactory;
+    use reth_rpc::EthApi;
     use reth_rpc_eth_api::EthApiClient;
     use reth_seismic_chainspec::SEISMIC_DEV;
+    use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
+    use reth_transaction_pool::test_utils::TestPool;
     use secp256k1::{PublicKey, SecretKey};
     use seismic_alloy_consensus::{
-        SeismicTxEnvelope::Seismic, TxSeismic, TxSeismicElements, TypedDataRequest,
+        SeismicTxEnvelope::Seismic, SeismicTypedTransaction, TxSeismic, TxSeismicElements,
+        TypedDataRequest,
     };
     use seismic_alloy_rpc_types::SeismicTransactionRequest;
     use serde_json::Value;
@@ -71,9 +78,15 @@ pub mod test_utils {
         process::Command,
         sync::mpsc,
     };
-    use reth_e2e_test_utils::transaction::TransactionTestContext;
-    use seismic_alloy_consensus::SeismicTypedTransaction;
-    use reth_seismic_primitives::SeismicTransactionSigned;
+    use jsonrpsee_core::server::Methods;
+    use reth_rpc_builder::RpcServerHandle;
+    use reth_rpc_builder::TransportRpcModuleConfig;
+    use reth_rpc_builder::RpcModuleSelection;
+    use std::sync::Arc;
+    use reth_chainspec::MAINNET;
+    use reth_rpc_builder::RpcServerConfig;
+    use crate::ext::test_address;
+    // use reth_seismic_evm::engine::SeismicEngineValidator;
 
     /// Get the nonce from the client
     pub async fn get_nonce(client: &HttpClient, address: Address) -> u64 {
@@ -119,10 +132,10 @@ pub mod test_utils {
     //     chain_id: u64,
     //     plaintext: Bytes,
     // ) -> Bytes {
-    //     let mut tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, plaintext).await;
-    //     let signed_inner = TransactionTestContext::sign_tx(sk_wallet.clone(), tx.inner).await;
-    //     tx.inner = signed_inner.into();
-    //     <TxEnvelope as Encodable2718>::encoded_2718(&tx).into()
+    //     let mut tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id,
+    // plaintext).await;     let signed_inner =
+    // TransactionTestContext::sign_tx(sk_wallet.clone(), tx.inner).await;     tx.inner =
+    // signed_inner.into();     <TxEnvelope as Encodable2718>::encoded_2718(&tx).into()
     // }
 
     // /// Get an unsigned seismic transaction typed data
@@ -134,9 +147,9 @@ pub mod test_utils {
     //     decrypted_input: Bytes,
     // ) -> TypedData {
     //     let tx_request =
-    //         get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, decrypted_input).await;
-    //     let typed_tx = tx_request.inner.build_consensus_tx().unwrap();
-    //     match typed_tx {
+    //         get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id,
+    // decrypted_input).await;     let typed_tx =
+    // tx_request.inner.build_consensus_tx().unwrap();     match typed_tx {
     //         SeismicTypedTransaction::Seismic(seismic) => seismic.eip712_to_type_data(),
     //         _ => panic!("Typed transaction is not a seismic transaction"),
     //     }
@@ -150,16 +163,15 @@ pub mod test_utils {
     //     chain_id: u64,
     //     plaintext: Bytes,
     // ) -> TypedDataRequest {
-    //     let mut tx: SeismicTransactionRequest = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, plaintext).await;
-    //     tx.seismic_elements.unwrap().message_version = 2;
+    //     let mut tx: SeismicTransactionRequest = get_unsigned_seismic_tx_request(sk_wallet, nonce,
+    // to, chain_id, plaintext).await;     tx.seismic_elements.unwrap().message_version = 2;
     //     let signed_inner = TransactionTestContext::sign_tx(sk_wallet.clone(), tx.inner).await;
 
     //     tx.inner = signed_inner.into();
     //     tx
 
-
-    //     // let tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, plaintext).await;
-    //     // tx.seismic_elements.unwrap().message_version = 2;
+    //     // let tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id,
+    // plaintext).await;     // tx.seismic_elements.unwrap().message_version = 2;
     //     // let signed = TransactionTestContext::sign_tx(sk_wallet.clone(), tx).await;
 
     //     // match signed {
@@ -287,4 +299,57 @@ pub mod test_utils {
         let signature = sign_seismic_tx(&tx);
         SignableTransaction::into_signed(tx, signature).into()
     }
+
+    // /// Launches a new server with http only with the given modules
+    // pub async fn launch_http(modules: impl Into<Methods>) -> RpcServerHandle {
+    //     let builder = test_rpc_builder();
+    //     let mut server = builder.build(
+    //         TransportRpcModuleConfig::set_http(RpcModuleSelection::Standard),
+    //         Box::new(EthApi::with_spawner),
+    //         Arc::new(SeismicEngineValidator::new(MAINNET.clone())),
+    //     );
+    //     server.replace_configured(modules).unwrap();
+    //     RpcServerConfig::http(Default::default())
+    //         .with_http_address(test_address())
+    //         .start(&server)
+    //         .await
+    //         .unwrap()
+    // }
+
+    // /// Builds a test eth api
+    // pub fn build_test_seismic_eth_api<
+    //     P: BlockReaderIdExt<
+    //             Block = SeismicPrimitives::Block,
+    //             Receipt = SeismicPrimitives::Receipt,
+    //             Header = SeismicPrimitives::Header,
+    //         > + BlockReader
+    //         + ChainSpecProvider<ChainSpec = ChainSpec>
+    //         + EvmEnvProvider
+    //         + StateProviderFactory
+    //         + Unpin
+    //         + Clone
+    //         + 'static,
+    // >(
+    //     provider: P,
+    // ) -> EthApi<P, TestPool, NoopNetwork, EthEvmConfig> {
+    // let evm_config = EthEvmConfig::new(provider.chain_spec());
+    // let cache = EthStateCache::spawn(provider.clone(), Default::default());
+    // let fee_history_cache = FeeHistoryCache::new(FeeHistoryCacheConfig::default());
+
+    // EthApi::new(
+    //     provider.clone(),
+    //     testing_pool(),
+    //     NoopNetwork::default(),
+    //     cache.clone(),
+    //     GasPriceOracle::new(provider, Default::default(), cache),
+    //     GasCap::default(),
+    //     DEFAULT_MAX_SIMULATE_BLOCKS,
+    //     DEFAULT_ETH_PROOF_WINDOW,
+    //     BlockingTaskPool::build().expect("failed to build tracing pool"),
+    //     fee_history_cache,
+    //     evm_config,
+    //     DEFAULT_PROOF_PERMITS,
+    // )
+    //     todo!()
+    // }
 }

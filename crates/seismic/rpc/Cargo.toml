@@ -94,6 +94,9 @@ enr.workspace = true
 k256.workspace = true
 alloy-signer-local.workspace = true
 reth-e2e-test-utils.workspace = true
+reth-engine-primitives.workspace = true
+reth-node-ethereum.workspace = true
+reth-seismic-evm.workspace = true
 
 [features]
 default = ["client"]

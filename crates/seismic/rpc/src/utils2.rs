@@ -21,26 +21,23 @@ pub fn seismic_override_call_request(request: &mut TransactionRequest) {
 /// copied from reth-rpc-api-builder
 #[cfg(test)]
 pub mod test_utils {
-    use std::{
-        net::{Ipv4Addr, SocketAddr, SocketAddrV4},
-        sync::Arc,
-    };
-
+    use crate::SeismicEthApiBuilder;
     use alloy_rpc_types_engine::{ClientCode, ClientVersionV1};
     use jsonrpsee::Methods;
-    use reth_beacon_consensus::BeaconConsensusEngineHandle;
-    use reth_chainspec::{ChainSpec, MAINNET};
+    use reth_chainspec::{ChainSpec, ChainSpec as SeismicChainSpec, MAINNET};
     use reth_consensus::noop::NoopConsensus;
-    use reth_ethereum_engine_primitives::{EthEngineTypes, EthereumEngineValidator};
+    use reth_engine_primitives::BeaconConsensusEngineHandle;
+    use reth_ethereum_engine_primitives::EthEngineTypes;
     use reth_evm::execute::BasicBlockExecutorProvider;
-    use reth_evm_ethereum::{execute::EthExecutionStrategyFactory, SeismicEvmConfig};
     use reth_network_api::noop::NoopNetwork;
+    use reth_node_builder::rpc::EthApiBuilder;
+    use reth_node_ethereum::EthereumEngineValidator;
     use reth_payload_builder::test_utils::spawn_test_payload_service;
     use reth_provider::{
         test_utils::{NoopProvider, TestCanonStateSubscriptions},
-        BlockReader, BlockReaderIdExt, ChainSpecProvider, EvmEnvProvider, StateProviderFactory,
+        BlockReader, BlockReaderIdExt, ChainSpecProvider, StateProviderFactory,
     };
-    use reth_rpc::EthApi;
+    use reth_rpc::{eth, EthApi};
     use reth_rpc_builder::{
         auth::{AuthRpcModule, AuthServerConfig, AuthServerHandle},
         RpcModuleBuilder, RpcServerConfig, RpcServerHandle, TransportRpcModuleConfig,
@@ -54,10 +51,23 @@ pub mod test_utils {
         constants::{DEFAULT_ETH_PROOF_WINDOW, DEFAULT_MAX_SIMULATE_BLOCKS, DEFAULT_PROOF_PERMITS},
         RpcModuleSelection,
     };
+    use reth_seismic_chainspec::SEISMIC_MAINNET;
+    use reth_seismic_evm::SeismicEvmConfig;
+    use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
+    use reth_seismic_txpool::SeismicPooledTransaction;
     use reth_tasks::{pool::BlockingTaskPool, TokioTaskExecutor};
     use reth_transaction_pool::{
-        noop::NoopTransactionPool,
-        test_utils::{testing_pool, TestPool, TestPoolBuilder},
+        blobstore::InMemoryBlobStore,
+        noop::{MockTransactionValidator, NoopTransactionPool},
+        test_utils::{testing_pool, MockOrdering, TestPool, TestPoolBuilder},
+        CoinbaseTipOrdering, Pool,
+    };
+    use seismic_alloy_network::Seismic;
+    use seismic_revm::SeismicTransaction;
+    use std::{
+        default,
+        net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+        sync::Arc,
     };
     use tokio::sync::mpsc::unbounded_channel;
 
@@ -70,8 +80,7 @@ pub mod test_utils {
     pub async fn launch_auth(secret: JwtSecret) -> AuthServerHandle {
         let config = AuthServerConfig::builder(secret).socket_addr(test_address()).build();
         let (tx, _rx) = unbounded_channel();
-        let beacon_engine_handle =
-            BeaconConsensusEngineHandle::<EthEngineTypes>::new(tx, Default::default());
+        let beacon_engine_handle = BeaconConsensusEngineHandle::<EthEngineTypes>::new(tx);
         let client = ClientVersionV1 {
             code: ClientCode::RH,
             name: "Reth".to_string(),
@@ -89,6 +98,7 @@ pub mod test_utils {
             client,
             EngineCapabilities::default(),
             EthereumEngineValidator::new(MAINNET.clone()),
+            true, // idk if this is correct
         );
         let module = AuthRpcModule::new(engine_api);
         module.start_server(config).await.unwrap()
@@ -96,11 +106,11 @@ pub mod test_utils {
 
     /// Launches a new server with http only with the given modules
     pub async fn launch_http(modules: impl Into<Methods>) -> RpcServerHandle {
-        let builder = test_rpc_builder();
+        let builder = test_seismic_rpc_builder();
+        let eth_api = builder.bootstrap_eth_api();
         let mut server = builder.build(
             TransportRpcModuleConfig::set_http(RpcModuleSelection::Standard),
-            Box::new(EthApi::with_spawner),
-            Arc::new(EthereumEngineValidator::new(MAINNET.clone())),
+            *Box::new(eth_api),
         );
         server.replace_configured(modules).unwrap();
         RpcServerConfig::http(Default::default())
@@ -110,63 +120,75 @@ pub mod test_utils {
             .unwrap()
     }
 
+    type SeismicTestPool = Pool<
+        MockTransactionValidator<SeismicPooledTransaction>,
+        CoinbaseTipOrdering<SeismicPooledTransaction>,
+        InMemoryBlobStore,
+    >;
     /// Returns an [`RpcModuleBuilder`] with testing components.
-    pub fn test_rpc_builder() -> RpcModuleBuilder<
-        NoopProvider,
-        TestPool,
+    pub fn test_seismic_rpc_builder() -> RpcModuleBuilder<
+        SeismicPrimitives,
+        NoopProvider<SeismicChainSpec, SeismicPrimitives>,
+        SeismicTestPool,
         NoopNetwork,
         TokioTaskExecutor,
-        TestCanonStateSubscriptions,
         SeismicEvmConfig,
-        BasicBlockExecutorProvider<EthExecutionStrategyFactory>,
+        BasicBlockExecutorProvider<SeismicEvmConfig>,
         NoopConsensus,
     > {
+        let spec = SEISMIC_MAINNET.clone();
+
+        let test_pool = Pool::new(
+            MockTransactionValidator::default(),
+            CoinbaseTipOrdering::<SeismicPooledTransaction>::default(),
+            InMemoryBlobStore::default(),
+            Default::default(),
+        );
+
         RpcModuleBuilder::default()
-            .with_provider(NoopProvider::default())
-            .with_pool(TestPoolBuilder::default().into())
+            .with_provider(NoopProvider::<SeismicChainSpec, SeismicPrimitives>::new(spec.clone()))
+            .with_pool(test_pool)
             .with_network(NoopNetwork::default())
             .with_executor(TokioTaskExecutor::default())
-            .with_events(TestCanonStateSubscriptions::default())
-            .with_evm_config(SeismicEvmConfig::new(MAINNET.clone()))
-            .with_block_executor(BasicBlockExecutorProvider::new(
-                EthExecutionStrategyFactory::mainnet(),
-            ))
+            .with_evm_config(SeismicEvmConfig::seismic(spec.clone()))
+            .with_block_executor(BasicBlockExecutorProvider::new(SeismicEvmConfig::seismic(
+                spec.clone(),
+            )))
             .with_consensus(NoopConsensus::default())
     }
 
-    /// Builds a test eth api
-    pub fn build_test_eth_api<
-        P: BlockReaderIdExt<
-                Block = reth_primitives::Block,
-                Receipt = reth_primitives::Receipt,
-                Header = reth_primitives::Header,
-            > + BlockReader
-            + ChainSpecProvider<ChainSpec = ChainSpec>
-            + EvmEnvProvider
-            + StateProviderFactory
-            + Unpin
-            + Clone
-            + 'static,
-    >(
-        provider: P,
-    ) -> EthApi<P, TestPool, NoopNetwork, SeismicEvmConfig> {
-        let evm_config = SeismicEvmConfig::new(provider.chain_spec());
-        let cache = EthStateCache::spawn(provider.clone(), Default::default());
-        let fee_history_cache = FeeHistoryCache::new(FeeHistoryCacheConfig::default());
+    // /// Builds a test eth api
+    // pub fn build_test_eth_api<
+    //     P: BlockReaderIdExt<
+    //             Block = reth_primitives::Block,
+    //             Receipt = reth_primitives::Receipt,
+    //             Header = reth_primitives::Header,
+    //         > + BlockReader
+    //         + ChainSpecProvider<ChainSpec = ChainSpec>
+    //         + StateProviderFactory
+    //         + Unpin
+    //         + Clone
+    //         + 'static,
+    // >(
+    //     provider: P,
+    // ) -> EthApi<P, TestPool, NoopNetwork, SeismicEvmConfig> {
+    //     let evm_config = SeismicEvmConfig::new(provider.chain_spec());
+    //     let cache = EthStateCache::spawn(provider.clone(), Default::default());
+    //     let fee_history_cache = FeeHistoryCache::new(FeeHistoryCacheConfig::default());
 
-        EthApi::new(
-            provider.clone(),
-            testing_pool(),
-            NoopNetwork::default(),
-            cache.clone(),
-            GasPriceOracle::new(provider, Default::default(), cache),
-            GasCap::default(),
-            DEFAULT_MAX_SIMULATE_BLOCKS,
-            DEFAULT_ETH_PROOF_WINDOW,
-            BlockingTaskPool::build().expect("failed to build tracing pool"),
-            fee_history_cache,
-            evm_config,
-            DEFAULT_PROOF_PERMITS,
-        )
-    }
+    //     EthApi::new(
+    //         provider.clone(),
+    //         testing_pool(),
+    //         NoopNetwork::default(),
+    //         cache.clone(),
+    //         GasPriceOracle::new(provider, Default::default(), cache),
+    //         GasCap::default(),
+    //         DEFAULT_MAX_SIMULATE_BLOCKS,
+    //         DEFAULT_ETH_PROOF_WINDOW,
+    //         BlockingTaskPool::build().expect("failed to build tracing pool"),
+    //         fee_history_cache,
+    //         evm_config,
+    //         DEFAULT_PROOF_PERMITS,
+    //     )
+    // }
 }
