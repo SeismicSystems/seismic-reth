@@ -229,19 +229,19 @@ impl<T> SeismicPooledTx for T where T: PoolTransaction {}
 
 #[cfg(test)]
 mod tests {
-    use crate::{SeismicPooledTransaction};
+    use crate::SeismicPooledTransaction;
     use alloy_consensus::transaction::Recovered;
     use alloy_eips::eip2718::Encodable2718;
     use alloy_primitives::{PrimitiveSignature as Signature, TxKind, U256};
-    use reth_provider::test_utils::MockEthProvider;
-    use reth_seismic_evm::SeismicEvmConfig;
-    use reth_transaction_pool::{
-        blobstore::InMemoryBlobStore, validate::EthTransactionValidatorBuilder, TransactionOrigin,
-        TransactionValidationOutcome, error::InvalidPoolTransactionError,
-    };
-    use reth_seismic_chainspec::SEISMIC_MAINNET;
-    use reth_seismic_primitives::test_utils::get_signed_seismic_tx;
     use reth_primitives_traits::transaction::error::InvalidTransactionError;
+    use reth_provider::test_utils::MockEthProvider;
+    use reth_seismic_chainspec::SEISMIC_MAINNET;
+    use reth_seismic_evm::SeismicEvmConfig;
+    use reth_seismic_primitives::test_utils::get_signed_seismic_tx;
+    use reth_transaction_pool::{
+        blobstore::InMemoryBlobStore, error::InvalidPoolTransactionError,
+        validate::EthTransactionValidatorBuilder, TransactionOrigin, TransactionValidationOutcome,
+    };
 
     #[tokio::test]
     async fn validate_seismic_transaction() {
@@ -264,10 +264,16 @@ mod tests {
         let outcome = validator.validate_one(origin, pooled_tx);
 
         match outcome {
-            TransactionValidationOutcome::Invalid(_, InvalidPoolTransactionError::Consensus(InvalidTransactionError::InsufficientFunds(_))) => {
-                // expected since the default account has no funds
-                
-            },
+            TransactionValidationOutcome::Invalid(
+                _,
+                InvalidPoolTransactionError::Consensus(InvalidTransactionError::InsufficientFunds(
+                    _,
+                )),
+            ) => {
+                // expected since the client (MockEthProvider) state does not have funds for any
+                // accounts account balance is one of the last things checked in
+                // validate_one, so getting that far good news
+            }
             _ => panic!("Did not get expected outcome, got: {:?}", outcome),
         }
     }
