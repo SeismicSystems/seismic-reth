@@ -23,7 +23,7 @@ pub async fn setup(num_nodes: usize) -> eyre::Result<(Vec<SeismicNode>, TaskMana
         serde_json::from_str(include_str!("../tests/assets/genesis.json")).unwrap();
     reth_e2e_test_utils::setup_engine(
         num_nodes,
-        Arc::new(ChainSpecBuilder::base_mainnet().genesis(genesis).ecotone_activated().build()),
+        Arc::new(ChainSpecBuilder::mainnet().genesis(genesis).ecotone_activated().build()),
         false,
         optimism_payload_attributes,
     )
@@ -35,7 +35,7 @@ pub async fn advance_chain(
     length: usize,
     node: &mut SeismicNode,
     wallet: Arc<Mutex<Wallet>>,
-) -> eyre::Result<Vec<EthBuiltPayload<SeismicBlock><SeismicBlock>>> {
+) -> eyre::Result<Vec<EthBuiltPayload<SeismicBlock>>> {
     node.advance(length as u64, |_| {
         let wallet = wallet.clone();
         Box::pin(async move {
