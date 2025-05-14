@@ -16,6 +16,7 @@ workspace = true
 reth-primitives-traits = { workspace = true, features = ["serde"] }
 reth-codecs = { workspace = true, optional = true }
 reth-zstd-compressors = { workspace = true, optional = true }
+revm-context.workspace = true
 
 # ethereum
 alloy-evm.workspace = true
@@ -23,8 +24,6 @@ alloy-primitives = { workspace = true, features = ["serde"] }
 alloy-consensus.workspace = true
 alloy-rlp.workspace = true
 alloy-eips = { workspace = true, features = ["k256"] }
-revm-context.workspace = true
-secp256k1 = { workspace = true, optional = true }
 
 # op
 seismic-alloy-consensus.workspace = true
@@ -47,6 +46,7 @@ derive_more = { workspace = true, features = [
     "constructor",
 ] }
 rand = { workspace = true, optional = true }
+secp256k1 = { workspace = true, optional = true }
 
 # test
 arbitrary = { workspace = true, features = ["derive"], optional = true }
