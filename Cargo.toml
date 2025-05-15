@@ -173,6 +173,7 @@ members = [
     "crates/seismic/rpc/",
     "crates/seismic/storage",
     "crates/seismic/txpool/",
+    "crates/seismic/hardforks",
 ]
 default-members = ["bin/seismic-reth", "bin/reth"]
 exclude = [
