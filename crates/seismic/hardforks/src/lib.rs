@@ -1,8 +1,10 @@
+//! Seismic-Reth hard forks.
 extern crate alloc;
 
 use alloc::vec;
 use once_cell::sync::Lazy as LazyLock;
 use reth_ethereum_forks::{ChainHardforks, EthereumHardfork, ForkCondition, Hardfork};
+use alloy_primitives::uint;
 
 /// Dev hardforks
 /// Based off EthereumHardfork::mainnet(), 
@@ -26,7 +28,7 @@ pub static DEV_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
         (
             EthereumHardfork::Paris.boxed(),
             ForkCondition::TTD {
-                activation_block_number: 15537394,
+                activation_block_number: 0,
                 fork_block: None,
                 total_difficulty: uint!(58_750_000_000_000_000_000_000_U256),
             },
