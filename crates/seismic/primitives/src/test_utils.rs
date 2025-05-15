@@ -2,6 +2,7 @@ use crate::SeismicTransactionSigned;
 use alloy_consensus::{SignableTransaction, TxEnvelope, TypedTransaction};
 use alloy_dyn_abi::TypedData;
 use alloy_eips::eip2718::Encodable2718;
+use alloy_network::{EthereumWallet, TransactionBuilder};
 use alloy_primitives::{
     aliases::U96, hex_literal, Address, Bytes, PrimitiveSignature, TxKind, U256,
 };
@@ -19,7 +20,6 @@ use seismic_alloy_consensus::{
     TxSeismicElements, TypedDataRequest,
 };
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
-use alloy_network::{TransactionBuilder, EthereumWallet};
 
 /// Get the network public key
 pub fn get_network_public_key() -> PublicKey {
@@ -166,6 +166,45 @@ pub async fn get_unsigned_seismic_tx_request(
     }
 }
 
+/// Get an unsigned seismic transaction typed data
+pub async fn get_unsigned_seismic_tx_typed_data(
+    sk_wallet: &PrivateKeySigner,
+    nonce: u64,
+    to: TxKind,
+    chain_id: u64,
+    decrypted_input: Bytes,
+) -> TypedData {
+    let tx_request =
+        get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, decrypted_input).await;
+    let typed_tx = tx_request.build_typed_tx().unwrap();
+    match typed_tx {
+        SeismicTypedTransaction::Seismic(seismic) => seismic.eip712_to_type_data(),
+        _ => panic!("Typed transaction is not a seismic transaction"),
+    }
+}
+
+/// Signs an arbitrary [`TransactionRequest`] using the provided wallet
+pub async fn sign_tx(wallet: PrivateKeySigner, tx: SeismicTransactionRequest) -> SeismicTxEnvelope {
+    let signer = EthereumWallet::from(wallet);
+    <SeismicTransactionRequest as TransactionBuilder<seismic_alloy_network::Seismic>>::build(
+        tx, &signer,
+    )
+    .await
+    .unwrap()
+}
+
+/// Create a seismic transaction
+pub async fn get_signed_seismic_tx_bytes(
+    sk_wallet: &PrivateKeySigner,
+    nonce: u64,
+    to: TxKind,
+    chain_id: u64,
+    plaintext: Bytes,
+) -> Bytes {
+    let mut tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, plaintext).await;
+    let signed_inner = sign_tx(sk_wallet.clone(), tx).await;
+    <SeismicTxEnvelope as Encodable2718>::encoded_2718(&signed_inner).into()
+}
 
 /// Get an unsigned seismic transaction typed data
 pub async fn get_unsigned_seismic_tx_typed_data(
@@ -184,38 +223,8 @@ pub async fn get_unsigned_seismic_tx_typed_data(
     }
 }
 
-    /// Signs an arbitrary [`TransactionRequest`] using the provided wallet
-    pub async fn sign_tx(
-        wallet: PrivateKeySigner,
-        tx: SeismicTransactionRequest,
-    ) -> SeismicTxEnvelope {
-        let signer = EthereumWallet::from(wallet);
-        <SeismicTransactionRequest as TransactionBuilder<seismic_alloy_network::Seismic>>::build(tx, &signer)
-            .await
-            .unwrap()
-    }
-
-/// Create a seismic transaction
-pub async fn get_signed_seismic_tx_bytes(
-    sk_wallet: &PrivateKeySigner,
-    nonce: u64,
-    to: TxKind,
-    chain_id: u64,
-    plaintext: Bytes,
-) -> Bytes {
-    let mut tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, plaintext).await;
-    let signed_inner = sign_tx(sk_wallet.clone(), tx).await;
-    <SeismicTxEnvelope as Encodable2718>::encoded_2718(&signed_inner).into()
-}
-
-
-// /// Get an unsigned seismic transaction typed data
-// pub fn get_unsigned_seismic_tx_typed_data() -> TypedData {
-//     get_seismic_tx().eip712_to_type_data()
-// }
-
- /// Create a seismic transaction with typed data
- pub async fn get_signed_seismic_tx_typed_data(
+/// Create a seismic transaction with typed data
+pub async fn get_signed_seismic_tx_typed_data(
     sk_wallet: &PrivateKeySigner,
     nonce: u64,
     to: TxKind,
