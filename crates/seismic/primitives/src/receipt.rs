@@ -413,8 +413,8 @@ pub(super) mod serde_bincode_compat {
             // // ensure we don't have an invalid poststate variant
             data.reseipt.as_receipt_mut().status = success.into();
 
-            let encoded = serde::serialize(&data).unwrap();
-            let decoded: Data = serde::deserialize(&encoded).unwrap();
+            let encoded = bincode::serialize(&data).unwrap();
+            let decoded: Data = bincode::deserialize(&encoded).unwrap();
             assert_eq!(decoded, data);
         }
     }
