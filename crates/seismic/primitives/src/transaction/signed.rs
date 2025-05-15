@@ -735,19 +735,11 @@ pub mod serde_bincode_compat {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Read;
-
-    use crate::test_utils::{
-        get_signed_seismic_tx, get_signed_seismic_tx_bytes, get_signing_private_key,
-    };
-
     use super::*;
-    use enr::{EnrKey, EnrPublicKey};
-    use k256::ecdsa::signature::Keypair;
+    use crate::test_utils::{get_signed_seismic_tx, get_signing_private_key};
     use proptest::proptest;
     use proptest_arbitrary_interop::arb;
     use reth_codecs::Compact;
-    use secp256k1::SecretKey;
 
     #[test]
     fn recover_signer_test() {
