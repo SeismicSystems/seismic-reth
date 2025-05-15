@@ -58,10 +58,8 @@ alloy-rpc-types.workspace = true
 k256.workspace = true
 enr = {workspace = true, features = ["rust-secp256k1"]}
 alloy-dyn-abi.workspace = true
-jsonrpsee.workspace = true
 reth-enclave.workspace = true
 seismic-alloy-rpc-types.workspace = true
-reth-chainspec.workspace = true
 
 [dev-dependencies]
 arbitrary.workspace = true
