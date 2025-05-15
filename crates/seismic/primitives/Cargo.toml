@@ -48,6 +48,7 @@ derive_more = { workspace = true, features = [
 ] }
 rand = { workspace = true, optional = true }
 secp256k1 = { workspace = true, features = ["rand", "std", "global-context", "recovery"]}
+num-traits = { workspace = true, optional = true }
 
 # test
 arbitrary = { workspace = true, features = ["derive"], optional = true }
@@ -97,6 +98,7 @@ std = [
 alloy-compat = [
     "dep:alloy-serde",
     "dep:alloy-rpc-types-eth",
+    "dep:num-traits",
     "seismic-alloy-consensus/alloy-compat",
 ]
 reth-codec = [

@@ -10179,6 +10179,7 @@ dependencies = [
  "enr",
  "k256",
  "modular-bitfield",
+ "num-traits",
  "proptest",
  "proptest-arbitrary-interop",
  "rand 0.8.5",
