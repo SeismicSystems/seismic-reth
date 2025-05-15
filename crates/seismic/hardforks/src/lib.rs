@@ -37,6 +37,7 @@ pub static MAINNET_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
         (EthereumHardfork::Shanghai.boxed(), ForkCondition::Timestamp(0)),
         (EthereumHardfork::Cancun.boxed(), ForkCondition::Timestamp(0)),
         (EthereumHardfork::Prague.boxed(), ForkCondition::Timestamp(0)),
+        // TODO: add mercury fork
     ])
 });
 
@@ -68,5 +69,6 @@ pub static DEV_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
         (EthereumHardfork::Shanghai.boxed(), ForkCondition::Timestamp(0)),
         (EthereumHardfork::Cancun.boxed(), ForkCondition::Timestamp(0)),
         (EthereumHardfork::Prague.boxed(), ForkCondition::Timestamp(0)),
+        // TODO: add mercury fork
     ])
 });
