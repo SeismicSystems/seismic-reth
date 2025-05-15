@@ -424,9 +424,8 @@ pub(super) mod serde_bincode_compat {
 mod tests {
     use super::*;
     use alloy_eips::eip2718::Encodable2718;
-    use alloy_primitives::{address, b256, bytes, hex_literal::hex, Bytes};
+    use alloy_primitives::{address, b256, bytes, hex_literal::hex};
     use alloy_rlp::Encodable;
-    use reth_codecs::Compact;
 
     #[test]
     #[cfg(feature = "reth-codec")]
