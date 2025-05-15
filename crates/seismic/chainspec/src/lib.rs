@@ -8,25 +8,21 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
-
 use std::sync::Arc;
 
-use alloc::{boxed::Box, vec, vec::Vec};
 use alloy_chains::Chain;
 use alloy_consensus::{
     constants::{DEV_GENESIS_HASH, MAINNET_GENESIS_HASH},
-    proofs::storage_root_unhashed,
-    Header,
 };
-use alloy_eips::{eip6110::MAINNET_DEPOSIT_CONTRACT_ADDRESS, eip7840::BlobParams};
-use alloy_primitives::{b256, B256, U256};
+use alloy_eips::{eip6110::MAINNET_DEPOSIT_CONTRACT_ADDRESS};
+use alloy_primitives::{b256, U256};
 use reth_chainspec::{
     make_genesis_header, BaseFeeParams, BaseFeeParamsKind, ChainSpec, ChainSpecBuilder,
-    DepositContract, DisplayHardforks, EthChainSpec, EthereumHardforks, ForkFilter, ForkId,
-    HardforkBlobParams, Hardforks, Head, DEV_HARDFORKS, MAINNET_PRUNE_DELETE_LIMIT,
+    DepositContract, 
+    // DisplayHardforks, EthereumHardforks, ForkFilter, ForkId, Hardforks, Head,
+    HardforkBlobParams, DEV_HARDFORKS, MAINNET_PRUNE_DELETE_LIMIT,
 };
-use reth_ethereum_forks::{ChainHardforks, EthereumHardfork, ForkCondition};
+use reth_ethereum_forks::{EthereumHardfork};
 use reth_primitives_traits::{sync::LazyLock, SealedHeader};
 
 /// Seismic testnet specification
@@ -89,17 +85,13 @@ pub fn is_chain_seismic(chain: &Chain) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use alloy_genesis::{ChainConfig, Genesis};
     use alloy_primitives::b256;
-    use reth_chainspec::{test_fork_ids, BaseFeeParams, BaseFeeParamsKind};
-    use reth_ethereum_forks::{EthereumHardfork, ForkCondition, ForkHash, ForkId, Head};
-    // use reth_ethereum_forks::{ChainHardforks, EthereumHardfork, ForkCondition};
-
+    use reth_chainspec::{test_fork_ids};
+    use reth_ethereum_forks::{EthereumHardfork, ForkHash, ForkId, Head};
     use crate::*;
 
     #[test]
     fn base_mainnet_forkids() {
-        let seismic_mainnet = &SEISMIC_MAINNET;
         test_fork_ids(
             &SEISMIC_MAINNET,
             &[
