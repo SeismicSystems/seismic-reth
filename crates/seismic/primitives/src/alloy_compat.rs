@@ -6,15 +6,14 @@ use alloy_network::{AnyRpcTransaction, AnyTxEnvelope};
 use alloy_primitives::PrimitiveSignature;
 use alloy_rpc_types_eth::{ConversionError, Transaction as AlloyRpcTransaction};
 use alloy_serde::WithOtherFields;
-use seismic_alloy_consensus::{transaction::TxSeismicElements, SeismicTypedTransaction, TxSeismic};
 use num_traits::Num;
+use seismic_alloy_consensus::{transaction::TxSeismicElements, SeismicTypedTransaction, TxSeismic};
 
 macro_rules! get_field {
     ($fields:expr, $key:expr) => {
-        $fields
-            .get_deserialized($key)
-            .and_then(Result::ok)
-            .ok_or(ConversionError::Custom(format!("missing field or type conversion error: {}", $key)))?
+        $fields.get_deserialized($key).and_then(Result::ok).ok_or(ConversionError::Custom(
+            format!("missing field or type conversion error: {}", $key),
+        ))?
     };
 }
 
@@ -52,7 +51,7 @@ impl TryFrom<AnyRpcTransaction> for SeismicTransactionSigned {
                 let inner = tx.inner.clone();
                 let hash = tx.hash;
                 let fields = inner.fields;
-                
+
                 let y_parity: String = get_field!(fields, "yParity");
                 let signature = PrimitiveSignature::new(
                     get_field!(fields, "r"),
@@ -61,7 +60,12 @@ impl TryFrom<AnyRpcTransaction> for SeismicTransactionSigned {
                 );
 
                 let message_version: String = get_field!(fields, "messageVersion");
-                let message_version: u8 = parse_hex::<u8>(&message_version).map_err(|_| ConversionError::Custom(format!("failed to parse message version: {}", message_version)))?;
+                let message_version: u8 = parse_hex::<u8>(&message_version).map_err(|_| {
+                    ConversionError::Custom(format!(
+                        "failed to parse message version: {}",
+                        message_version
+                    ))
+                })?;
                 let seismic_elements = TxSeismicElements {
                     encryption_pubkey: get_field!(fields, "encryptionPubkey"),
                     encryption_nonce: get_field!(fields, "encryptionNonce"),
@@ -73,10 +77,18 @@ impl TryFrom<AnyRpcTransaction> for SeismicTransactionSigned {
                 let gas_price: String = get_field!(fields, "gasPrice");
                 let gas_limit: String = get_field!(fields, "gas");
                 let tx_seismic = TxSeismic {
-                    chain_id: parse_hex::<u64>(&chain_id).map_err(|_| ConversionError::Custom(format!("failed to parse chain id: {}", chain_id)))?,
-                    nonce: parse_hex::<u64>(&nonce).map_err(|_| ConversionError::Custom(format!("failed to parse nonce: {}", nonce)))?,
-                    gas_price: parse_hex::<u128>(&gas_price).map_err(|_| ConversionError::Custom(format!("failed to parse gas price: {}", gas_price)))?,
-                    gas_limit: parse_hex::<u64>(&gas_limit).map_err(|_| ConversionError::Custom(format!("failed to parse gas limit: {}", gas_limit)))?,
+                    chain_id: parse_hex::<u64>(&chain_id).map_err(|_| {
+                        ConversionError::Custom(format!("failed to parse chain id: {}", chain_id))
+                    })?,
+                    nonce: parse_hex::<u64>(&nonce).map_err(|_| {
+                        ConversionError::Custom(format!("failed to parse nonce: {}", nonce))
+                    })?,
+                    gas_price: parse_hex::<u128>(&gas_price).map_err(|_| {
+                        ConversionError::Custom(format!("failed to parse gas price: {}", gas_price))
+                    })?,
+                    gas_limit: parse_hex::<u64>(&gas_limit).map_err(|_| {
+                        ConversionError::Custom(format!("failed to parse gas limit: {}", gas_limit))
+                    })?,
                     to: get_field!(fields, "to"),
                     value: get_field!(fields, "value"),
                     input: get_field!(fields, "input"),
@@ -103,8 +115,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use alloy_network::AnyRpcTransaction;
     use crate::SeismicTransactionSigned;
+    use alloy_network::AnyRpcTransaction;
 
     #[test]
     fn test_tx_with_seismic_elements() -> Result<(), Box<dyn std::error::Error>> {
