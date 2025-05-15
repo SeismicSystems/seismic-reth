@@ -1,16 +1,14 @@
 //! Test utils for seismic primitives, e.g. SeismicTransactionSigned
 
 use crate::SeismicTransactionSigned;
-use alloy_consensus::{SignableTransaction};
+use alloy_consensus::SignableTransaction;
 use alloy_dyn_abi::TypedData;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_network::{EthereumWallet, TransactionBuilder};
 use alloy_primitives::{
     aliases::U96, hex_literal, Address, Bytes, PrimitiveSignature, TxKind, U256,
 };
-use alloy_rpc_types::{
-     TransactionInput,TransactionRequest,
-};
+use alloy_rpc_types::{TransactionInput, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
 use core::str::FromStr;
 use enr::EnrKey;
@@ -18,8 +16,7 @@ use k256::ecdsa::SigningKey;
 use reth_enclave::MockEnclaveServer;
 use secp256k1::{PublicKey, SecretKey};
 use seismic_alloy_consensus::{
-    SeismicTxEnvelope, SeismicTypedTransaction, TxSeismic,
-    TxSeismicElements, TypedDataRequest,
+    SeismicTxEnvelope, SeismicTypedTransaction, TxSeismic, TxSeismicElements, TypedDataRequest,
 };
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
 
