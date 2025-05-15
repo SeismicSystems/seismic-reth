@@ -10190,6 +10190,7 @@ dependencies = [
  "rstest",
  "secp256k1 0.30.0",
  "seismic-alloy-consensus",
+ "seismic-alloy-network",
  "seismic-alloy-rpc-types",
  "seismic-revm",
  "serde",

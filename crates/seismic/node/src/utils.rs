@@ -61,6 +61,9 @@ pub mod test_utils {
         get_signed_seismic_tx, get_signing_private_key, get_unsigned_seismic_tx_request,
         get_wrong_private_key, sign_seismic_tx, get_signed_seismic_tx_encoding, get_unsigned_seismic_tx_typed_data,
     };
+    pub use reth_seismic_primitives::test_utils::{
+        sign_tx, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
+    };
 
     // use reth_seismic_evm::engine::SeismicEngineValidator;
     /// Seismic reth test command
@@ -179,48 +182,9 @@ pub mod test_utils {
         nonce.wrapping_to::<u64>()
     }
 
-    /// Signs an arbitrary [`TransactionRequest`] using the provided wallet
-    pub async fn sign_tx(
-        wallet: PrivateKeySigner,
-        tx: SeismicTransactionRequest,
-    ) -> SeismicTxEnvelope {
-        let signer = EthereumWallet::from(wallet);
-        <SeismicTransactionRequest as TransactionBuilder<Seismic>>::build(tx, &signer)
-            .await
-            .unwrap()
-    }
 
-    /// Create a seismic transaction
-    pub async fn get_signed_seismic_tx_bytes(
-        sk_wallet: &PrivateKeySigner,
-        nonce: u64,
-        to: TxKind,
-        chain_id: u64,
-        plaintext: Bytes,
-    ) -> Bytes {
-        let mut tx =
-            get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, plaintext).await;
-        let signed_inner = sign_tx(sk_wallet.clone(), tx).await;
-        <SeismicTxEnvelope as Encodable2718>::encoded_2718(&signed_inner).into()
-    }
 
-    /// Create a seismic transaction with typed data
-    pub async fn get_signed_seismic_tx_typed_data(
-        sk_wallet: &PrivateKeySigner,
-        nonce: u64,
-        to: TxKind,
-        chain_id: u64,
-        plaintext: Bytes,
-    ) -> TypedDataRequest {
-        let tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, plaintext).await;
-        tx.seismic_elements.unwrap().message_version = 2;
-        let signed = sign_tx(sk_wallet.clone(), tx).await;
-
-        match signed {
-            SeismicTxEnvelope::Seismic(tx) => tx.into(),
-            _ => panic!("Signed transaction is not a seismic transaction"),
-        }
-    }
+   
 
     
 }
