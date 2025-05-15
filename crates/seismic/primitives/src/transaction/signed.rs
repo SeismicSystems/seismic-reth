@@ -750,19 +750,27 @@ mod tests {
     use secp256k1::SecretKey;
 
     #[test]
-    async fn recover_signer_test() {
+    fn recover_signer_test() {
         let signed_tx = get_signed_seismic_tx();
         let recovered_signer = signed_tx.recover_signer().expect("Failed to recover signer");
 
         let expected_signer = Address::from_private_key(&get_signing_private_key());
 
         assert_eq!(recovered_signer, expected_signer);
-
-        let encoded_signed_tx =
-            get_signed_seismic_tx_bytes(sk_wallet, nonce, to, chain_id, plaintext).await;
     }
 
     proptest! {
+        #[test]
+        fn test_roundtrip_2718(signed_tx in arb::<SeismicTransactionSigned>()) {
+
+            let mut signed_tx_bytes = Vec::<u8>::new();
+            signed_tx.encode_2718(&mut signed_tx_bytes);
+            let recovered_tx = SeismicTransactionSigned::decode_2718(&mut &signed_tx_bytes[..])
+                .expect("Failed to decode transaction");
+            assert_eq!(recovered_tx, signed_tx);
+
+        }
+
         #[test]
         fn test_roundtrip_compact_encode_envelope(reth_tx in arb::<SeismicTransactionSigned>()) {
             let mut expected_buf = Vec::<u8>::new();
