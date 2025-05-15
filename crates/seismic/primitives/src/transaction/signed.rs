@@ -3,8 +3,7 @@
 use alloc::vec::Vec;
 use alloy_consensus::{
     transaction::{RlpEcdsaDecodableTx, RlpEcdsaEncodableTx},
-    SignableTransaction, Signed, Transaction, TxEip1559, TxEip2930, TxEip7702, TxLegacy,
-    Typed2718,
+    SignableTransaction, Signed, Transaction, TxEip1559, TxEip2930, TxEip7702, TxLegacy, Typed2718,
 };
 use alloy_eips::{
     eip2718::{Decodable2718, Eip2718Error, Eip2718Result, Encodable2718},
@@ -27,15 +26,17 @@ use proptest as _;
 use reth_primitives_traits::{
     crypto::secp256k1::{recover_signer, recover_signer_unchecked},
     sync::OnceLock,
-    transaction::{signed::RecoveryError},
+    transaction::signed::RecoveryError,
     InMemorySize, SignedTransaction,
 };
 use revm_context::TxEnv;
-use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, SeismicTypedTransaction, TxSeismic};
+use seismic_alloy_consensus::{
+    Decodable712, SeismicTxEnvelope, SeismicTypedTransaction, TxSeismic,
+};
 use seismic_revm::SeismicTransaction;
 
 /// Signed transaction.
-/// 
+///
 /// [`SeismicTransactionSigned`] is a wrapper around a [`SeismicTypedTransaction`] enum,
 /// which can be Seismic(TxSeismic) with additional fields, or Ethereum compatible transactions.
 #[cfg_attr(any(test, feature = "reth-codec"), reth_codecs::add_arbitrary_tests(rlp))]
@@ -91,7 +92,9 @@ impl SeismicTransactionSigned {
 }
 
 impl Decodable712 for SeismicTransactionSigned {
-    fn decode_712(_buf: &seismic_alloy_consensus::TypedDataRequest) -> seismic_alloy_consensus::Eip712Result<Self> {
+    fn decode_712(
+        _buf: &seismic_alloy_consensus::TypedDataRequest,
+    ) -> seismic_alloy_consensus::Eip712Result<Self> {
         todo!("todo: Decodable712 for SeismicTransactionSigned")
     }
 }
@@ -732,10 +735,32 @@ pub mod serde_bincode_compat {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Read;
+
+    use crate::test_utils::{
+        get_signed_seismic_tx, get_signed_seismic_tx_bytes, get_signing_private_key,
+    };
+
     use super::*;
+    use enr::{EnrKey, EnrPublicKey};
+    use k256::ecdsa::signature::Keypair;
     use proptest::proptest;
     use proptest_arbitrary_interop::arb;
     use reth_codecs::Compact;
+    use secp256k1::SecretKey;
+
+    #[test]
+    async fn recover_signer_test() {
+        let signed_tx = get_signed_seismic_tx();
+        let recovered_signer = signed_tx.recover_signer().expect("Failed to recover signer");
+
+        let expected_signer = Address::from_private_key(&get_signing_private_key());
+
+        assert_eq!(recovered_signer, expected_signer);
+
+        let encoded_signed_tx =
+            get_signed_seismic_tx_bytes(sk_wallet, nonce, to, chain_id, plaintext).await;
+    }
 
     proptest! {
         #[test]
