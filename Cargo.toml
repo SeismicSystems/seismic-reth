@@ -167,7 +167,6 @@ members = [
     "crates/seismic/consensus",
     "crates/seismic/evm/",
     "crates/seismic/node/",
-    "crates/seismic/chain-registry/",
     "crates/seismic/payload/",
     "crates/seismic/primitives/",
     "crates/seismic/reth/",

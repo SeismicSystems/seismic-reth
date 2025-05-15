@@ -9885,19 +9885,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "reth-seismic-chain-registry"
-version = "1.3.4"
-dependencies = [
- "eyre",
- "reqwest",
- "reth-fs-util",
- "serde_json",
- "tempfile",
- "tracing",
- "zstd",
-]
-
-[[package]]
 name = "reth-seismic-chainspec"
 version = "1.3.4"
 dependencies = [
