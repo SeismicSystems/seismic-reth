@@ -10032,6 +10032,7 @@ dependencies = [
  "reth-enclave",
  "reth-engine-local",
  "reth-engine-primitives",
+ "reth-ethereum-payload-builder",
  "reth-evm",
  "reth-network",
  "reth-network-api",
