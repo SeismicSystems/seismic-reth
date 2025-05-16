@@ -135,10 +135,7 @@ impl ConfigureEvm for SeismicEvmConfig {
         parent: &Header,
         attributes: &NextBlockEnvAttributes,
     ) -> Result<EvmEnv<SeismicSpecId>, Self::Error> {
-        let spec_id = revm_spec(
-            self.chain_spec(),
-            parent,
-        );
+        let spec_id = revm_spec(self.chain_spec(), parent);
 
         // configure evm env based on parent block
         let cfg = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
@@ -224,7 +221,7 @@ mod tests {
     use alloy_genesis::Genesis;
     use alloy_primitives::{bytes, map::HashMap, Address, LogData, B256};
     use reth_chainspec::ChainSpec;
-    use reth_evm::{execute::ProviderError};
+    use reth_evm::execute::ProviderError;
     use reth_execution_types::{
         AccountRevertInit, BundleStateInit, Chain, ExecutionOutcome, RevertsInit,
     };
