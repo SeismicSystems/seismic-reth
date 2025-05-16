@@ -1,4 +1,4 @@
-//! Optimism's payload builder implementation.
+//! Seismic's payload builder implementation.
 
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
