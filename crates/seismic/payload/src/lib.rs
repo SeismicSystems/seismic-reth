@@ -11,8 +11,8 @@
 
 pub mod builder;
 pub use builder::SeismicPayloadBuilder;
-pub mod config;
 pub mod error;
-pub use config::SeismicBuilderConfig;
 pub mod validator;
 pub use validator::SeismicExecutionPayloadValidator;
+
+pub use reth_ethereum_payload_builder::EthereumBuilderConfig as SeismicBuilderConfig;

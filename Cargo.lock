@@ -10099,6 +10099,7 @@ dependencies = [
  "reth-chainspec",
  "reth-enclave",
  "reth-errors",
+ "reth-ethereum-payload-builder",
  "reth-ethereum-primitives",
  "reth-evm",
  "reth-execution-errors",
