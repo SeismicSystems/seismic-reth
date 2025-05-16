@@ -11,18 +11,13 @@
 use std::sync::Arc;
 
 use alloy_chains::Chain;
-use alloy_consensus::{
-    constants::{DEV_GENESIS_HASH, MAINNET_GENESIS_HASH},
-};
-use alloy_eips::{eip6110::MAINNET_DEPOSIT_CONTRACT_ADDRESS};
+use alloy_consensus::constants::{DEV_GENESIS_HASH, MAINNET_GENESIS_HASH};
+use alloy_eips::eip6110::MAINNET_DEPOSIT_CONTRACT_ADDRESS;
 use alloy_primitives::{b256, U256};
 use reth_chainspec::{
-    make_genesis_header, BaseFeeParams, BaseFeeParamsKind, ChainSpec, ChainSpecBuilder,
-    DepositContract, 
-    // DisplayHardforks, EthereumHardforks, ForkFilter, ForkId, Hardforks, Head,
+    make_genesis_header, BaseFeeParams, BaseFeeParamsKind, ChainSpec, DepositContract,
     HardforkBlobParams, DEV_HARDFORKS, MAINNET_PRUNE_DELETE_LIMIT,
 };
-// use reth_ethereum_forks::{EthereumHardfork};
 use reth_primitives_traits::{sync::LazyLock, SealedHeader};
 use reth_seismic_forks::{SEISMIC_DEV_HARDFORKS, SEISMIC_MAINNET_HARDFORKS};
 
@@ -86,87 +81,34 @@ pub fn is_chain_seismic(chain: &Chain) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use alloy_primitives::b256;
-    use reth_chainspec::{test_fork_ids};
-    use reth_ethereum_forks::{EthereumHardfork, ForkHash, ForkId, Head};
     use crate::*;
+    use alloy_primitives::b256;
+    use reth_chainspec::MAINNET;
+    use reth_ethereum_forks::EthereumHardfork;
+    use reth_seismic_forks::SeismicHardfork;
 
-    // #[test]
-    // fn base_mainnet_forkids() {
-    //     test_fork_ids(
-    //         &SEISMIC_MAINNET,
-    //         &[
-    //             (
-    //                 Head { number: 0, ..Default::default() },
-    //                 ForkId { hash: ForkHash([0x67, 0xda, 0x02, 0x60]), next: 1704992401 },
-    //             ),
-    //             (
-    //                 Head { number: 0, timestamp: 1704992400, ..Default::default() },
-    //                 ForkId { hash: ForkHash([0x67, 0xda, 0x02, 0x60]), next: 1704992401 },
-    //             ),
-    //             (
-    //                 Head { number: 0, timestamp: 1704992401, ..Default::default() },
-    //                 ForkId { hash: ForkHash([0x3c, 0x28, 0x3c, 0xb3]), next: 1710374401 },
-    //             ),
-    //             (
-    //                 Head { number: 0, timestamp: 1710374400, ..Default::default() },
-    //                 ForkId { hash: ForkHash([0x3c, 0x28, 0x3c, 0xb3]), next: 1710374401 },
-    //             ),
-    //             (
-    //                 Head { number: 0, timestamp: 1710374401, ..Default::default() },
-    //                 ForkId { hash: ForkHash([0x51, 0xcc, 0x98, 0xb3]), next: 1720627201 },
-    //             ),
-    //             (
-    //                 Head { number: 0, timestamp: 1720627200, ..Default::default() },
-    //                 ForkId { hash: ForkHash([0x51, 0xcc, 0x98, 0xb3]), next: 1720627201 },
-    //             ),
-    //             (
-    //                 Head { number: 0, timestamp: 1720627201, ..Default::default() },
-    //                 ForkId { hash: ForkHash([0xe4, 0x01, 0x0e, 0xb9]), next: 1726070401 },
-    //             ),
-    //             (
-    //                 Head { number: 0, timestamp: 1726070401, ..Default::default() },
-    //                 ForkId { hash: ForkHash([0xbc, 0x38, 0xf9, 0xca]), next: 1736445601 },
-    //             ),
-    //             (
-    //                 Head { number: 0, timestamp: 1736445601, ..Default::default() },
-    //                 ForkId { hash: ForkHash([0x3a, 0x2a, 0xf1, 0x83]), next: 0 },
-    //             ),
-    //         ],
-    //     );
-    // }
+    #[test]
+    fn seismic_mainnet_genesis() {
+        let genesis = SEISMIC_MAINNET.genesis_header();
+        let eth_genesis = MAINNET.genesis_header();
+        assert_ne!(genesis.hash_slow(), eth_genesis.hash_slow(), "Seismic spec has eth genesis");
+        assert_eq!(
+            genesis.hash_slow(),
+            b256!("0xee01857dd54ff6d7de6a90b2a76b42a86b7ea8f3a6d2ae27bd45ee6b3698b7b2")
+        );
+    }
 
-    // #[test]
-    // fn base_mainnet_genesis() {
-    //     let genesis = SEISMIC_MAINNET.genesis_header();
-    //     assert_eq!(
-    //         genesis.hash_slow(),
-    //         b256!("0xf712aa9241cc24369b143cf6dce85f0902a9731e70d66818a3a5845b296c73dd")
-    //     );
-    //     let base_fee = genesis
-    //         .next_block_base_fee(SEISMIC_MAINNET.base_fee_params_at_timestamp(genesis.timestamp))
-    //         .unwrap();
-    //     // <https://base.blockscout.com/block/1>
-    //     assert_eq!(base_fee, 980000000);
-    // }
+    // Test that the latest fork id is the latest seismic fork (mercury)
+    #[test]
+    fn latest_seismic_mainnet_fork_id_with_builder() {
+        let seismic_mainnet = &SEISMIC_MAINNET;
+        assert_eq!(
+            seismic_mainnet.hardfork_fork_id(SeismicHardfork::MERCURY).unwrap(),
+            seismic_mainnet.latest_fork_id()
+        )
+    }
 
-    // #[test]
-    // fn latest_base_mainnet_fork_id() {
-    //     assert_eq!(
-    //         ForkId { hash: ForkHash([0x3a, 0x2a, 0xf1, 0x83]), next: 0 },
-    //         SEISMIC_MAINNET.latest_fork_id()
-    //     )
-    // }
-
-    // #[test]
-    // fn latest_base_mainnet_fork_id_with_builder() {
-    //     let base_mainnet = &SEISMIC_MAINNET;
-    //     assert_eq!(
-    //         ForkId { hash: ForkHash([0x3a, 0x2a, 0xf1, 0x83]), next: 0 },
-    //         base_mainnet.latest_fork_id()
-    //     )
-    // }
-
+    // Check display contains all eth mainnet hardforks and the seismic mercury fork
     #[test]
     fn display_hardforks() {
         let content = SEISMIC_MAINNET.display_hardforks().to_string();
