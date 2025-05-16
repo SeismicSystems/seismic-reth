@@ -23,4 +23,4 @@ pub type SeismicTransactionPool<Client, S, T = SeismicPooledTransaction> = Pool<
 >;
 
 mod transaction;
-pub use transaction::{SeismicPooledTransaction, SeismicPooledTx};
+pub use transaction::SeismicPooledTransaction;
