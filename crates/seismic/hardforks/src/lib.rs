@@ -17,7 +17,7 @@ pub enum SeismicHardfork {
 impl Hardfork for SeismicHardfork {
     fn name(&self) -> &'static str {
         match self {
-            Self::MERCURY => "MERCURY",
+            Self::MERCURY => "Mercury",
         }
     }
 }
