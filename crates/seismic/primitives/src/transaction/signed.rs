@@ -214,7 +214,7 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
     fn from_recovered_tx(tx: &SeismicTransactionSigned, sender: Address) -> Self {
         let tx_hash = tx.hash.get().unwrap().clone();
         let rng_mode = RngMode::Execution; // TODO WARNING: chose a default value
-        match &tx.transaction {
+        let tx = match &tx.transaction {
             SeismicTypedTransaction::Legacy(tx) => SeismicTransaction::<TxEnv> {
                 base: TxEnv {
                     gas_limit: tx.gas_limit,
@@ -315,7 +315,9 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                 tx_hash,
                 rng_mode,
             },
-        }
+        };
+        println!("from_recovered_tx: tx: {:?}", tx);
+        tx
     }
 }
 
@@ -735,6 +737,7 @@ pub mod serde_bincode_compat {
 
 #[cfg(test)]
 mod tests {
+    use core::str::FromStr;
     use std::io::Read;
 
     use crate::test_utils::{
@@ -742,21 +745,32 @@ mod tests {
     };
 
     use super::*;
+    use alloy_primitives::{aliases::U96, hex, hex::FromHex, PrimitiveSignature, U256};
     use enr::{EnrKey, EnrPublicKey};
     use k256::ecdsa::signature::Keypair;
     use proptest::proptest;
     use proptest_arbitrary_interop::arb;
     use reth_codecs::Compact;
-    use secp256k1::SecretKey;
+    use secp256k1::{PublicKey, SecretKey};
+    use seismic_alloy_consensus::TxSeismicElements;
 
     #[test]
     fn recover_signer_test() {
-        let signed_tx = get_signed_seismic_tx();
-        let recovered_signer = signed_tx.recover_signer().expect("Failed to recover signer");
+        let binding = hex!("0x4af90322821404808504a817c800835b8d808080a1036d6caac248af96f6afa7f904f550253a0f3ef3f5aa2fe6838a95b216691468e28cffffffffffffffffffffffff80b9029c60806040525f5f8190b150610285806100175f395ff3fe608060405234801561000f575f5ffd5b506004361061003f575f3560e01c806324a7f0b71461004357806343bd0d701461005f578063d09de08a1461007d575b5f5ffd5b61005d600480360381019061005891906100f6565b610087565b005b610067610090565b604051610074919061013b565b60405180910390f35b6100856100a7565b005b805f8190b15050565b5f600160025fb06100a19190610181565b14905090565b5f5f81b0809291906100b8906101de565b919050b150565b5f5ffd5b5f819050919050565b6100d5816100c3565b81146100df575f5ffd5b50565b5f813590506100f0816100cc565b92915050565b5f6020828403121561010b5761010a6100bf565b5b5f610118848285016100e2565b91505092915050565b5f8115159050919050565b61013581610121565b82525050565b5f60208201905061014e5f83018461012c565b92915050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52601260045260245ffd5b5f61018b826100c3565b9150610196836100c3565b9250826101a6576101a5610154565b5b828206905092915050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52601160045260245ffd5b5f6101e8826100c3565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff820361021a576102196101b1565b5b60018201905091905056fea2646970667358221220ea421d58b6748a9089335034d76eb2f01bceafe3dfac2e57d9d2e766852904df64736f6c63782c302e382e32382d646576656c6f702e323032342e31322e392b636f6d6d69742e39383863313261662e6d6f64005d01a060f71ab574a435b8ab4b34dc70dd823e5ea485ce753054b9688c2fdf63068dbea069d9aac52705455e360ee0e1662737a30ca1c84c3f1a2ddd39d8f84b287d8196").to_vec();
+        let mut buf = binding.as_slice();
+        let signed_tx = SeismicTransactionSigned::decode_2718(&mut buf).unwrap();
 
-        let expected_signer = Address::from_private_key(&get_signing_private_key());
+        let encoded_tx = SeismicTransactionSigned::encoded_2718(&signed_tx);
+        println!("encoded_tx: {:?}", encoded_tx);
+        println!("signed_tx: {:?}", signed_tx);
+        println!("orig_tx: {:?}", get_signed_seismic_tx());
+        // assert_eq!(encoded_tx, binding);
+        assert!(false);
 
-        assert_eq!(recovered_signer, expected_signer);
+        // let recovered_signer = signed_tx.recover_signer().expect("Failed to recover signer");
+        // let expected_signer = Address::from_private_key(&get_signing_private_key());
+
+        // assert_eq!(recovered_signer, expected_signer);
     }
 
     proptest! {
