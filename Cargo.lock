@@ -8134,7 +8134,6 @@ dependencies = [
  "metrics-util",
  "op-revm",
  "parking_lot",
- "reth-enclave",
  "reth-ethereum-forks",
  "reth-ethereum-primitives",
  "reth-execution-errors",
@@ -9299,7 +9298,6 @@ dependencies = [
  "reth-ethereum-primitives",
  "reth-primitives-traits",
  "reth-static-file-types",
- "reth-tracing",
  "serde_json",
 ]
 
@@ -9965,6 +9963,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-seismic-evm",
  "derive_more 2.0.1",
+ "k256",
  "reth-chainspec",
  "reth-consensus",
  "reth-consensus-common",

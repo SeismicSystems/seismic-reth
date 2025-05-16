@@ -13,19 +13,17 @@ extern crate alloc;
 use alloc::{borrow::Cow, sync::Arc};
 use alloy_consensus::{BlockHeader, Header};
 use alloy_eips::eip1559::INITIAL_BASE_FEE;
-use alloy_evm::{eth::EthBlockExecutionCtx, EvmFactory, FromRecoveredTx};
+use alloy_evm::eth::EthBlockExecutionCtx;
 use alloy_primitives::{Bytes, U256};
 use build::SeismicBlockAssembler;
 use core::fmt::Debug;
 use reth_chainspec::{ChainSpec, EthChainSpec, EthereumHardforks};
 use reth_ethereum_forks::EthereumHardfork;
-use reth_evm::{
-    eth::EthBlockExecutorFactory, ConfigureEvm, EvmEnv, NextBlockEnvAttributes, TransactionEnv,
-};
-use reth_primitives_traits::{NodePrimitives, SealedBlock, SealedHeader, SignedTransaction};
-use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicTransactionSigned};
+use reth_evm::{eth::EthBlockExecutorFactory, ConfigureEvm, EvmEnv, NextBlockEnvAttributes};
+use reth_primitives_traits::{SealedBlock, SealedHeader};
+use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
 use revm::{
-    context::{BlockEnv, CfgEnv, TxEnv},
+    context::{BlockEnv, CfgEnv},
     context_interface::block::BlobExcessGasAndPrice,
     primitives::hardfork::SpecId,
 };
@@ -322,11 +320,6 @@ mod tests {
         primitives::Log,
         state::AccountInfo,
     };
-    use secp256k1::serde::de::Expected;
-    use seismic_revm::{
-        precompiles::{self, SeismicPrecompiles},
-        SeismicContext,
-    };
     use std::sync::Arc;
 
     fn test_evm_config() -> SeismicEvmConfig {
@@ -370,27 +363,6 @@ mod tests {
         // Check that the EVM environment is correctly set
         assert_eq!(evm.cfg, evm_env.cfg_env);
         assert_eq!(evm.cfg.spec, SeismicSpecId::MERCURY);
-
-        // Check that the Evm type is correctly set
-        type ExpectedDbType = CacheDB<EmptyDBTyped<ProviderError>>;
-        type ExpectedPrecompilesType = SeismicPrecompiles<SeismicContext<ExpectedDbType>>;
-        type ExpectedEvmType = SeismicEvm<ExpectedDbType, NoOpInspector, ExpectedPrecompilesType>;
-
-        // Utility trait to assert type equality at compile time
-        trait AssertSameType<A> {
-            fn same_type(_: A) {}
-        }
-        impl<T> AssertSameType<T> for () {}
-
-        // If the types mismatch, this line will not compile
-        fn assert_type<DB, I>(evm: SeismicEvm<DB, I>)
-        where
-            (): AssertSameType<SeismicEvm<DB, I>>,
-            DB: Database,
-        {
-            let _ = evm;
-        }
-        assert_type(evm);
 
         // Check that the expected number of precompiles is set
         let precompile_addresses =
