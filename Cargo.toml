@@ -173,6 +173,7 @@ members = [
     "crates/seismic/rpc/",
     "crates/seismic/storage",
     "crates/seismic/txpool/",
+    "crates/seismic/hardforks",
 ]
 default-members = ["bin/seismic-reth", "bin/reth"]
 exclude = [
@@ -342,6 +343,7 @@ reth-seismic-reth = { path = "crates/seismic/reth" }
 reth-seismic-rpc = { path = "crates/seismic/rpc" }
 reth-seismic-storage = { path = "crates/seismic/storage" }
 reth-seismic-txpool = { path = "crates/seismic/txpool" }
+reth-seismic-forks = { path = "crates/seismic/hardforks", default-features = false }
 
 seismic-enclave = "0.1.0"
 seismic-revm = "1.0.0"
