@@ -1,7 +1,6 @@
 use alloc::sync::Arc;
 use alloy_consensus::{
-    proofs, Block, BlockBody, BlockHeader, Header, Transaction,
-    TxReceipt, EMPTY_OMMER_ROOT_HASH,
+    proofs, Block, BlockBody, BlockHeader, Header, Transaction, TxReceipt, EMPTY_OMMER_ROOT_HASH,
 };
 use alloy_eips::merge::BEACON_NONCE;
 use alloy_evm::block::BlockExecutorFactory;

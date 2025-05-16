@@ -19,9 +19,7 @@ use build::SeismicBlockAssembler;
 use core::fmt::Debug;
 use reth_chainspec::{ChainSpec, EthChainSpec, EthereumHardforks};
 use reth_ethereum_forks::EthereumHardfork;
-use reth_evm::{
-    eth::EthBlockExecutorFactory, ConfigureEvm, EvmEnv, NextBlockEnvAttributes,
-};
+use reth_evm::{eth::EthBlockExecutorFactory, ConfigureEvm, EvmEnv, NextBlockEnvAttributes};
 use reth_primitives_traits::{SealedBlock, SealedHeader};
 use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
 use revm::{
@@ -322,10 +320,6 @@ mod tests {
         primitives::Log,
         state::AccountInfo,
     };
-    use seismic_revm::{
-        precompiles::SeismicPrecompiles,
-        SeismicContext,
-    };
     use std::sync::Arc;
 
     fn test_evm_config() -> SeismicEvmConfig {
@@ -369,27 +363,6 @@ mod tests {
         // Check that the EVM environment is correctly set
         assert_eq!(evm.cfg, evm_env.cfg_env);
         assert_eq!(evm.cfg.spec, SeismicSpecId::MERCURY);
-
-        // Check that the Evm type is correctly set
-        type ExpectedDbType = CacheDB<EmptyDBTyped<ProviderError>>;
-        type ExpectedPrecompilesType = SeismicPrecompiles<SeismicContext<ExpectedDbType>>;
-        type ExpectedEvmType = SeismicEvm<ExpectedDbType, NoOpInspector, ExpectedPrecompilesType>;
-
-        // Utility trait to assert type equality at compile time
-        trait AssertSameType<A> {
-            fn same_type(_: A) {}
-        }
-        impl<T> AssertSameType<T> for () {}
-
-        // If the types mismatch, this line will not compile
-        fn assert_type<DB, I>(evm: SeismicEvm<DB, I>)
-        where
-            (): AssertSameType<SeismicEvm<DB, I>>,
-            DB: Database,
-        {
-            let _ = evm;
-        }
-        assert_type(evm);
 
         // Check that the expected number of precompiles is set
         let precompile_addresses =

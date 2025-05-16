@@ -801,9 +801,12 @@ mod tests {
 
         // Execute the block and capture the result
         let exec_result = executor.execute_one(
-            &Block { header, body: BlockBody { transactions: vec![signed_tx], ..Default::default() } }
-                .try_into_recovered()
-                .unwrap(),
+            &Block {
+                header,
+                body: BlockBody { transactions: vec![signed_tx], ..Default::default() },
+            }
+            .try_into_recovered()
+            .unwrap(),
         );
 
         // Check if the execution result is an error and assert the specific error type

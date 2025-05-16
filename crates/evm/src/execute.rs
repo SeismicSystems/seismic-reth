@@ -254,9 +254,12 @@ pub trait BlockBuilder {
     }
 
     /// Add transaction
+    /// 
+    /// Seismic team added this function to the trait for our stuff,
+    /// default unimplemented for backward compatibility
     fn add_transaction(
         &mut self,
-        tx: Recovered<TxTy<Self::Primitives>>,
+        _tx: Recovered<TxTy<Self::Primitives>>,
     ) -> Result<u64, BlockExecutionError> {
         unimplemented!()
     }
