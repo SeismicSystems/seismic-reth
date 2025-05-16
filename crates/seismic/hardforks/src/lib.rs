@@ -7,10 +7,25 @@ use reth_ethereum_forks::{ChainHardforks, EthereumHardfork, ForkCondition, Hardf
 use alloy_primitives::uint;
 
 
+/// Seismic hardfork enum
+#[derive(Clone, Debug)]
+#[allow(missing_docs)]
+pub enum SeismicHardfork {
+    MERCURY,
+}
+
+impl Hardfork for SeismicHardfork {
+    fn name(&self) -> &'static str {
+        match self {
+            Self::MERCURY => "MERCURY",
+        }
+    }
+}
+
 /// Mainnet hardforks
 /// Based off EthereumHardfork::mainnet(), 
 /// with existing eth hardforks activated at block 0
-pub static MAINNET_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
+pub static SEISMIC_MAINNET_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
     ChainHardforks::new(vec![
         (EthereumHardfork::Frontier.boxed(), ForkCondition::Block(0)),
         (EthereumHardfork::Homestead.boxed(), ForkCondition::Block(0)),
@@ -37,12 +52,12 @@ pub static MAINNET_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
         (EthereumHardfork::Shanghai.boxed(), ForkCondition::Timestamp(0)),
         (EthereumHardfork::Cancun.boxed(), ForkCondition::Timestamp(0)),
         (EthereumHardfork::Prague.boxed(), ForkCondition::Timestamp(0)),
-        // TODO: add mercury fork
+        (SeismicHardfork::MERCURY.boxed(), ForkCondition::Timestamp(0)),
     ])
 });
 
 /// Dev hardforks
-pub static DEV_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
+pub static SEISMIC_DEV_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
     ChainHardforks::new(vec![
         (EthereumHardfork::Frontier.boxed(), ForkCondition::Block(0)),
         (EthereumHardfork::Homestead.boxed(), ForkCondition::Block(0)),
@@ -69,6 +84,38 @@ pub static DEV_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
         (EthereumHardfork::Shanghai.boxed(), ForkCondition::Timestamp(0)),
         (EthereumHardfork::Cancun.boxed(), ForkCondition::Timestamp(0)),
         (EthereumHardfork::Prague.boxed(), ForkCondition::Timestamp(0)),
-        // TODO: add mercury fork
+        (SeismicHardfork::MERCURY.boxed(), ForkCondition::Timestamp(0)),
     ])
 });
+
+#[cfg(test)]
+mod tests {
+    use core::panic;
+    use super::*;
+
+    #[test]
+    fn check_ethereum_hardforks_at_zero() {
+        let eth_mainnet_forks = EthereumHardfork::mainnet();
+        let seismic_hardforks = SEISMIC_MAINNET_HARDFORKS.clone();
+        for eth_hf in eth_mainnet_forks {
+            let (fork, _) = eth_hf;
+            let lookup = seismic_hardforks.get(fork);
+            match lookup {
+                Some(condition) => {
+                    if fork <= EthereumHardfork::Prague {
+                        assert!(condition.active_at_timestamp(0) || condition.active_at_block(0), "Hardfork {} not active at timestamp 1", fork);
+                    }
+                }
+                None => {
+                    panic!("Hardfork {} not found in hardforks", fork);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn check_seismic_hardforks_at_zero() {
+        let seismic_hardforks = SEISMIC_MAINNET_HARDFORKS.clone();
+        assert!(seismic_hardforks.get(SeismicHardfork::MERCURY).is_some(), "Missing hardfork mercury");
+    }
+}
