@@ -11,7 +11,6 @@
 
 pub mod builder;
 pub use builder::SeismicPayloadBuilder;
-pub mod error;
 pub mod validator;
 pub use validator::SeismicExecutionPayloadValidator;
 
