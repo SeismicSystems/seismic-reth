@@ -9875,7 +9875,6 @@ dependencies = [
  "reth-rpc-eth-types",
  "reth-seismic-chainspec",
  "reth-seismic-cli",
- "reth-seismic-consensus",
  "reth-seismic-evm",
  "reth-seismic-node",
  "reth-seismic-primitives",
@@ -9940,7 +9939,6 @@ dependencies = [
  "reth-provider",
  "reth-prune",
  "reth-seismic-chainspec",
- "reth-seismic-consensus",
  "reth-seismic-evm",
  "reth-seismic-node",
  "reth-seismic-primitives",
@@ -9953,36 +9951,6 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-util",
- "tracing",
-]
-
-[[package]]
-name = "reth-seismic-consensus"
-version = "1.3.4"
-dependencies = [
- "alloy-chains",
- "alloy-consensus",
- "alloy-eips",
- "alloy-primitives",
- "alloy-trie",
- "reth-chainspec",
- "reth-consensus",
- "reth-consensus-common",
- "reth-db-common",
- "reth-execution-types",
- "reth-primitives-traits",
- "reth-provider",
- "reth-revm",
- "reth-seismic-chainspec",
- "reth-seismic-node",
- "reth-seismic-primitives",
- "reth-storage-api",
- "reth-storage-errors",
- "reth-trie",
- "reth-trie-common",
- "revm",
- "seismic-alloy-consensus",
- "thiserror 2.0.12",
  "tracing",
 ]
 
@@ -10007,7 +9975,6 @@ dependencies = [
  "reth-primitives-traits",
  "reth-revm",
  "reth-seismic-chainspec",
- "reth-seismic-consensus",
  "reth-seismic-primitives",
  "reth-testing-utils",
  "revm",
@@ -10087,7 +10054,6 @@ dependencies = [
  "reth-rpc-eth-types",
  "reth-rpc-server-types",
  "reth-seismic-chainspec",
- "reth-seismic-consensus",
  "reth-seismic-evm",
  "reth-seismic-node",
  "reth-seismic-payload-builder",
@@ -10270,26 +10236,6 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "reth-seismic-storage"
-version = "1.3.4"
-dependencies = [
- "alloy-consensus",
- "alloy-eips",
- "alloy-primitives",
- "reth-chainspec",
- "reth-codecs",
- "reth-db-api",
- "reth-ethereum-forks",
- "reth-primitives-traits",
- "reth-prune-types",
- "reth-seismic-primitives",
- "reth-stages-types",
- "reth-storage-api",
- "reth-trie-common",
- "revm",
 ]
 
 [[package]]

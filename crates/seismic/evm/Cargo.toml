@@ -32,7 +32,6 @@ seismic-alloy-consensus.workspace = true
 alloy-consensus.workspace = true
 
 # Optimism
-reth-seismic-consensus.workspace = true
 reth-seismic-chainspec.workspace = true
 reth-seismic-primitives = { workspace = true }
 
@@ -75,7 +74,6 @@ std = [
     "thiserror/std",
     "seismic-alloy-consensus/std",
     "reth-chainspec/std",
-    "reth-seismic-consensus/std",
     "reth-consensus-common/std",
     "reth-seismic-chainspec/std",
     "reth-execution-errors/std",
