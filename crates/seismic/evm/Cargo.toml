@@ -33,6 +33,7 @@ alloy-consensus.workspace = true
 
 # Seismic
 reth-seismic-chainspec.workspace = true
+reth-seismic-forks.workspace = true
 reth-seismic-primitives = { workspace = true }
 reth-ethereum-primitives = { workspace = true, features = ["serde", "reth-codec"]}
 

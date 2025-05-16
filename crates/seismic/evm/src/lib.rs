@@ -17,7 +17,7 @@ use alloy_evm::eth::EthBlockExecutionCtx;
 use alloy_primitives::{Bytes, U256};
 use build::SeismicBlockAssembler;
 use core::fmt::Debug;
-use reth_chainspec::{ChainSpec, EthChainSpec, EthereumHardforks};
+use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_ethereum_forks::EthereumHardfork;
 use reth_evm::{eth::EthBlockExecutorFactory, ConfigureEvm, EvmEnv, NextBlockEnvAttributes};
 use reth_primitives_traits::{SealedBlock, SealedHeader};
@@ -25,7 +25,6 @@ use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
 use revm::{
     context::{BlockEnv, CfgEnv},
     context_interface::block::BlobExcessGasAndPrice,
-    primitives::hardfork::SpecId,
 };
 use seismic_revm::SeismicSpecId;
 use std::convert::Infallible;
@@ -36,7 +35,7 @@ mod receipts;
 pub use receipts::*;
 mod build;
 
-mod config;
+pub mod config;
 use config::revm_spec;
 
 pub use alloy_seismic_evm::{SeismicEvm, SeismicEvmFactory};
@@ -138,7 +137,7 @@ impl ConfigureEvm for SeismicEvmConfig {
     ) -> Result<EvmEnv<SeismicSpecId>, Self::Error> {
         let spec_id = revm_spec(
             self.chain_spec(),
-            attributes.timestamp,
+            parent,
         );
 
         // configure evm env based on parent block
