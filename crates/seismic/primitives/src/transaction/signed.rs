@@ -212,7 +212,7 @@ impl OpTransaction for SeismicTransactionSigned {
 use seismic_revm::transaction::abstraction::RngMode;
 impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
     fn from_recovered_tx(tx: &SeismicTransactionSigned, sender: Address) -> Self {
-        let tx_hash = tx.hash.get().unwrap().clone();
+        let tx_hash = tx.tx_hash().clone();
         let rng_mode = RngMode::Execution; // TODO WARNING: chose a default value
         let tx = match &tx.transaction {
             SeismicTypedTransaction::Legacy(tx) => SeismicTransaction::<TxEnv> {

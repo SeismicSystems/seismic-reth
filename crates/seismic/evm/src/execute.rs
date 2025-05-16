@@ -19,7 +19,7 @@ impl SeismicExecutorProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_consensus::{constants::ETH_TO_WEI, Header, TxLegacy};
+    use alloy_consensus::{constants::ETH_TO_WEI, Header, TxLegacy, TxReceipt};
     use alloy_eips::{
         eip2935::{HISTORY_SERVE_WINDOW, HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_CODE},
         eip4788::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_CODE, SYSTEM_ADDRESS},
@@ -29,23 +29,30 @@ mod tests {
     };
     use alloy_evm::block::BlockValidationError;
     use alloy_primitives::{b256, fixed_bytes, keccak256, Bytes, TxKind, B256, U256};
+    use k256::ecdsa::SigningKey;
     use reth_chainspec::{ChainSpecBuilder, EthereumHardfork, ForkCondition, MAINNET};
-    use reth_evm::execute::{BasicBlockExecutorProvider, BlockExecutorProvider, Executor};
+    use reth_evm::{
+        block::BlockExecutionResult,
+        execute::{BasicBlockExecutorProvider, BlockExecutorProvider, Executor},
+    };
     use reth_primitives_traits::{
         crypto::secp256k1::public_key_to_address, Block as _, RecoveredBlock,
     };
-    use reth_testing_utils::generators::{self, sign_tx_with_key_pair};
+    use reth_seismic_chainspec::SEISMIC_MAINNET;
+    use reth_seismic_primitives::{
+        SeismicBlock as Block, SeismicBlockBody as BlockBody, SeismicTransactionSigned,
+    };
+    use reth_testing_utils::generators;
     use revm::{
         database::{CacheDB, EmptyDB, TransitionState},
         primitives::address,
         state::{AccountInfo, Bytecode, EvmState},
         Database,
     };
-    use secp256k1::{Keypair, Secp256k1};
-    use std::sync::mpsc;
     use revm_state::FlaggedStorage;
-    use reth_seismic_primitives::{SeismicBlock as Block, SeismicBlockBody as BlockBody};
-    use reth_seismic_primitives::SeismicTransactionSigned as Transaction;
+    use secp256k1::{Keypair, Secp256k1};
+    use seismic_alloy_consensus::SeismicTypedTransaction;
+    use std::sync::mpsc;
 
     fn create_database_with_beacon_root_contract() -> CacheDB<EmptyDB> {
         let mut db = CacheDB::new(Default::default());
@@ -80,7 +87,9 @@ mod tests {
         db
     }
 
-    fn executor_provider(chain_spec: Arc<ChainSpec>) -> BasicBlockExecutorProvider<SeismicEvmConfig> {
+    fn executor_provider(
+        chain_spec: Arc<ChainSpec>,
+    ) -> BasicBlockExecutorProvider<SeismicEvmConfig> {
         BasicBlockExecutorProvider::new(SeismicEvmConfig::new(chain_spec))
     }
 
@@ -662,73 +671,71 @@ mod tests {
             .is_zero()));
     }
 
-    // #[test]
-    // fn eip_7002() {
-    //     let chain_spec = Arc::new(
-    //         ChainSpecBuilder::from(&*MAINNET)
-    //             .shanghai_activated()
-    //             .cancun_activated()
-    //             .prague_activated()
-    //             .build(),
-    //     );
+    #[test]
+    fn eip_7002() {
+        let chain_spec = Arc::new(ChainSpecBuilder::from(&*SEISMIC_MAINNET).build());
 
-    //     let mut db = create_database_with_withdrawal_requests_contract();
+        let mut db = create_database_with_withdrawal_requests_contract();
 
-    //     let secp = Secp256k1::new();
-    //     let sender_key_pair = Keypair::new(&secp, &mut generators::rng());
-    //     let sender_address = public_key_to_address(sender_key_pair.public_key());
+        let secp = Secp256k1::new();
+        let sender_key_pair = Keypair::new(&secp, &mut generators::rng());
+        let sender_address = public_key_to_address(sender_key_pair.public_key());
 
-    //     db.insert_account_info(
-    //         sender_address,
-    //         AccountInfo { nonce: 1, balance: U256::from(ETH_TO_WEI), ..Default::default() },
-    //     );
+        db.insert_account_info(
+            sender_address,
+            AccountInfo { nonce: 1, balance: U256::from(ETH_TO_WEI), ..Default::default() },
+        );
 
-    //     // https://github.com/lightclient/sys-asm/blob/9282bdb9fd64e024e27f60f507486ffb2183cba2/test/Withdrawal.t.sol.in#L36
-    //     let validator_public_key = fixed_bytes!("111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111");
-    //     let withdrawal_amount = fixed_bytes!("0203040506070809");
-    //     let input: Bytes = [&validator_public_key[..], &withdrawal_amount[..]].concat().into();
-    //     assert_eq!(input.len(), 56);
+        // https://github.com/lightclient/sys-asm/blob/9282bdb9fd64e024e27f60f507486ffb2183cba2/test/Withdrawal.t.sol.in#L36
+        let validator_public_key = fixed_bytes!("111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111");
+        let withdrawal_amount = fixed_bytes!("0203040506070809");
+        let input: Bytes = [&validator_public_key[..], &withdrawal_amount[..]].concat().into();
+        assert_eq!(input.len(), 56);
 
-    //     let mut header = chain_spec.genesis_header().clone();
-    //     header.gas_limit = 1_500_000;
-    //     // measured
-    //     header.gas_used = 135_856;
-    //     header.receipts_root =
-    //         b256!("0xb31a3e47b902e9211c4d349af4e4c5604ce388471e79ca008907ae4616bb0ed3");
+        let mut header = chain_spec.genesis_header().clone();
+        header.gas_limit = 1_500_000;
+        // measured
+        header.gas_used = 135_856;
+        header.receipts_root =
+            b256!("0xb31a3e47b902e9211c4d349af4e4c5604ce388471e79ca008907ae4616bb0ed3");
 
-    //     // let tx = sign_tx_with_key_pair(
-    //     //     sender_key_pair,
-    //     //     Transaction::Legacy(TxLegacy {
-    //     //         chain_id: Some(chain_spec.chain.id()),
-    //     //         nonce: 1,
-    //     //         gas_price: header.base_fee_per_gas.unwrap().into(),
-    //     //         gas_limit: header.gas_used,
-    //     //         to: TxKind::Call(WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS),
-    //     //         // `MIN_WITHDRAWAL_REQUEST_FEE`
-    //     //         value: U256::from(2),
-    //     //         input,
-    //     //     }),
-    //     // );
+        let typed_tx = SeismicTypedTransaction::Legacy(TxLegacy {
+            chain_id: Some(chain_spec.chain.id()),
+            nonce: 1,
+            gas_price: header.base_fee_per_gas.unwrap().into(),
+            gas_limit: header.gas_used,
+            to: TxKind::Call(WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS),
+            // `MIN_WITHDRAWAL_REQUEST_FEE`
+            value: U256::from(2),
+            input,
+        });
+        let signing_key = SigningKey::from_bytes((&sender_key_pair.secret_bytes()).into()).unwrap();
+        let sig =
+            reth_seismic_primitives::test_utils::sign_seismic_typed_tx(&typed_tx, &signing_key);
+        let signed_tx = SeismicTransactionSigned::new_unhashed(typed_tx, sig);
 
-    //     // let provider = executor_provider(chain_spec);
+        let provider: BasicBlockExecutorProvider<SeismicEvmConfig> = executor_provider(chain_spec);
 
-    //     // let mut executor = provider.executor(db);
+        let mut executor = provider.executor(db);
 
-    //     // let BlockExecutionResult { receipts, requests, .. } = executor
-    //     //     .execute_one(
-    //     //         &Block { header, body: BlockBody { transactions: vec![tx], ..Default::default() } }
-    //     //             .try_into_recovered()
-    //     //             .unwrap(),
-    //     //     )
-    //     //     .unwrap();
+        let BlockExecutionResult { receipts, requests, .. } = executor
+            .execute_one(
+                &Block {
+                    header,
+                    body: BlockBody { transactions: vec![signed_tx], ..Default::default() },
+                }
+                .try_into_recovered()
+                .unwrap(),
+            )
+            .unwrap();
 
-    //     // let receipt = receipts.first().unwrap();
-    //     // assert!(receipt.success);
+        let receipt = receipts.first().unwrap().as_receipt();
+        assert!(receipt.status());
 
-    //     // // There should be exactly one entry with withdrawal requests
-    //     // assert_eq!(requests.len(), 1);
-    //     // assert_eq!(requests[0][0], 1);
-    // }
+        // There should be exactly one entry with withdrawal requests
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0][0], 1);
+    }
 
     // #[test]
     // fn block_gas_limit_error() {
@@ -750,15 +757,17 @@ mod tests {
     //     // Get the sender's address from the public key
     //     let sender_address = public_key_to_address(sender_key_pair.public_key());
 
-    //     // Insert the sender account into the state with a nonce of 1 and a balance of 1 ETH in Wei
-    //     db.insert_account_info(
+    //     // Insert the sender account into the state with a nonce of 1 and a balance of 1 ETH in
+    // Wei     db.insert_account_info(
     //         sender_address,
     //         AccountInfo { nonce: 1, balance: U256::from(ETH_TO_WEI), ..Default::default() },
     //     );
 
     //     // Define the validator public key and withdrawal amount as fixed bytes
-    //     let validator_public_key = fixed_bytes!("111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111");
-    //     let withdrawal_amount = fixed_bytes!("2222222222222222");
+    //     let validator_public_key =
+    // fixed_bytes!("
+    // 111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+    // );     let withdrawal_amount = fixed_bytes!("2222222222222222");
     //     // Concatenate the validator public key and withdrawal amount into a single byte array
     //     let input: Bytes = [&validator_public_key[..], &withdrawal_amount[..]].concat().into();
     //     // Ensure the input length is 56 bytes

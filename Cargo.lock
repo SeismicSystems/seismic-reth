@@ -9963,6 +9963,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-seismic-evm",
  "derive_more 2.0.1",
+ "k256",
  "reth-chainspec",
  "reth-consensus",
  "reth-consensus-common",

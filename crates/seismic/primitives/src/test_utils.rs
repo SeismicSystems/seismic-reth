@@ -106,8 +106,8 @@ pub fn get_seismic_tx() -> TxSeismic {
 }
 
 /// Sign a seismic transaction
-pub fn sign_seismic_tx(tx: &TxSeismic) -> PrimitiveSignature {
-    let _signature = get_signing_private_key()
+pub fn sign_seismic_tx(tx: &TxSeismic, signing_sk: &SigningKey) -> PrimitiveSignature {
+    let _signature = signing_sk
         .clone()
         .sign_prehash_recoverable(tx.signature_hash().as_slice())
         .expect("Failed to sign");
@@ -124,10 +124,25 @@ pub fn sign_seismic_tx(tx: &TxSeismic) -> PrimitiveSignature {
     signature
 }
 
+/// signes a [`SeismicTypedTransaction`] using the provided [`SigningKey`]
+pub fn sign_seismic_typed_tx(typed_data: &SeismicTypedTransaction, signing_sk: &SigningKey) -> PrimitiveSignature {
+    let sig_hash = typed_data.signature_hash();
+    let sig = signing_sk.sign_prehash_recoverable(&sig_hash.as_slice()).unwrap();
+    let recoverid = sig.1;
+
+    let signature = PrimitiveSignature::new(
+        U256::from_be_slice(sig.0.r().to_bytes().as_slice()),
+        U256::from_be_slice(sig.0.s().to_bytes().as_slice()),
+        recoverid.is_y_odd(),
+    );
+    signature
+}
+
 /// Get a signed seismic transaction
 pub fn get_signed_seismic_tx() -> SeismicTransactionSigned {
+    let signing_sk = get_signing_private_key();
     let tx = get_seismic_tx();
-    let signature = sign_seismic_tx(&tx);
+    let signature = sign_seismic_tx(&tx, &signing_sk);
     SignableTransaction::into_signed(tx, signature).into()
 }
 
