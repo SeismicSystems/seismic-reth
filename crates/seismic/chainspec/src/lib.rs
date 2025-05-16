@@ -22,14 +22,15 @@ use reth_chainspec::{
     // DisplayHardforks, EthereumHardforks, ForkFilter, ForkId, Hardforks, Head,
     HardforkBlobParams, DEV_HARDFORKS, MAINNET_PRUNE_DELETE_LIMIT,
 };
-use reth_ethereum_forks::{EthereumHardfork};
+// use reth_ethereum_forks::{EthereumHardfork};
 use reth_primitives_traits::{sync::LazyLock, SealedHeader};
+use reth_seismic_forks::{SEISMIC_DEV_HARDFORKS, SEISMIC_MAINNET_HARDFORKS};
 
 /// Seismic testnet specification
 pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     let genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
         .expect("Can't deserialize Dev testnet genesis json");
-    let hardforks = DEV_HARDFORKS.clone();
+    let hardforks = SEISMIC_DEV_HARDFORKS.clone();
     ChainSpec {
         chain: Chain::from_id(5124),
         genesis_header: SealedHeader::new(
@@ -50,7 +51,7 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 pub static SEISMIC_MAINNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     let genesis = serde_json::from_str(include_str!("../res/genesis/mainnet.json"))
         .expect("Can't deserialize Mainnet genesis json");
-    let hardforks = EthereumHardfork::mainnet().into();
+    let hardforks = SEISMIC_MAINNET_HARDFORKS.clone();
     let mut spec = ChainSpec {
         chain: Chain::from_id(5123),
         genesis_header: SealedHeader::new(

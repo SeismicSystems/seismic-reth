@@ -9900,6 +9900,7 @@ dependencies = [
  "reth-ethereum-forks",
  "reth-network-peers",
  "reth-primitives-traits",
+ "reth-seismic-forks",
  "reth-seismic-primitives",
  "seismic-alloy-consensus",
  "seismic-alloy-rpc-types",
@@ -10019,7 +10020,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "reth-seismic-hardforks"
+name = "reth-seismic-forks"
 version = "1.3.4"
 dependencies = [
  "alloy-chains",
