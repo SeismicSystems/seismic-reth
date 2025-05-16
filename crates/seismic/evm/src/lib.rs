@@ -304,7 +304,7 @@ mod tests {
     use alloy_genesis::Genesis;
     use alloy_primitives::{bytes, map::HashMap, Address, LogData, B256};
     use reth_chainspec::ChainSpec;
-    use reth_evm::{execute::ProviderError, Database};
+    use reth_evm::{execute::ProviderError};
     use reth_execution_types::{
         AccountRevertInit, BundleStateInit, Chain, ExecutionOutcome, RevertsInit,
     };
