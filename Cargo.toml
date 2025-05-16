@@ -170,7 +170,6 @@ members = [
     "crates/seismic/primitives/",
     "crates/seismic/reth/",
     "crates/seismic/rpc/",
-    "crates/seismic/storage",
     "crates/seismic/txpool/",
 ]
 default-members = ["bin/seismic-reth", "bin/reth"]
@@ -338,7 +337,6 @@ reth-seismic-payload-builder = { path = "crates/seismic/payload" }
 reth-seismic-primitives = { path = "crates/seismic/primitives" }
 reth-seismic-reth = { path = "crates/seismic/reth" }
 reth-seismic-rpc = { path = "crates/seismic/rpc" }
-reth-seismic-storage = { path = "crates/seismic/storage" }
 reth-seismic-txpool = { path = "crates/seismic/txpool" }
 
 seismic-enclave = "0.1.0"
