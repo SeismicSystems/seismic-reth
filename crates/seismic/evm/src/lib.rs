@@ -13,19 +13,19 @@ extern crate alloc;
 use alloc::{borrow::Cow, sync::Arc};
 use alloy_consensus::{BlockHeader, Header};
 use alloy_eips::eip1559::INITIAL_BASE_FEE;
-use alloy_evm::{eth::EthBlockExecutionCtx, EvmFactory, FromRecoveredTx};
+use alloy_evm::eth::EthBlockExecutionCtx;
 use alloy_primitives::{Bytes, U256};
 use build::SeismicBlockAssembler;
 use core::fmt::Debug;
 use reth_chainspec::{ChainSpec, EthChainSpec, EthereumHardforks};
 use reth_ethereum_forks::EthereumHardfork;
 use reth_evm::{
-    eth::EthBlockExecutorFactory, ConfigureEvm, EvmEnv, NextBlockEnvAttributes, TransactionEnv,
+    eth::EthBlockExecutorFactory, ConfigureEvm, EvmEnv, NextBlockEnvAttributes,
 };
-use reth_primitives_traits::{NodePrimitives, SealedBlock, SealedHeader, SignedTransaction};
-use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicTransactionSigned};
+use reth_primitives_traits::{SealedBlock, SealedHeader};
+use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
 use revm::{
-    context::{BlockEnv, CfgEnv, TxEnv},
+    context::{BlockEnv, CfgEnv},
     context_interface::block::BlobExcessGasAndPrice,
     primitives::hardfork::SpecId,
 };
@@ -322,9 +322,8 @@ mod tests {
         primitives::Log,
         state::AccountInfo,
     };
-    use secp256k1::serde::de::Expected;
     use seismic_revm::{
-        precompiles::{self, SeismicPrecompiles},
+        precompiles::SeismicPrecompiles,
         SeismicContext,
     };
     use std::sync::Arc;

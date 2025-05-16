@@ -12,7 +12,7 @@ use alloc::{boxed::Box, string::String, sync::Arc, vec::Vec};
 use alloy_consensus::transaction::TransactionMeta;
 use alloy_eips::{eip4895::Withdrawals, BlockHashOrNumber, BlockId, BlockNumberOrTag};
 use alloy_primitives::{
-    Address, BlockHash, BlockNumber, Bytes, StorageKey, StorageValue, TxHash, TxNumber, B256, U256,
+    Address, BlockHash, BlockNumber, Bytes, StorageKey, TxHash, TxNumber, B256, U256,
 };
 use core::{
     fmt::Debug,

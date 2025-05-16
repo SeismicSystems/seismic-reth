@@ -1,9 +1,9 @@
-//! Optimism block execution strategy.
+//! Seismic block execution strategy.
 
-use crate::{SeismicEvmConfig, SeismicRethReceiptBuilder};
+use crate::SeismicEvmConfig;
 use alloc::sync::Arc;
 use reth_chainspec::ChainSpec;
-use reth_evm::{eth::EthBlockExecutorFactory, execute::BasicBlockExecutorProvider};
+use reth_evm::execute::BasicBlockExecutorProvider;
 
 /// Helper type with backwards compatible methods to obtain executor providers.
 #[derive(Debug)]
@@ -31,7 +31,6 @@ mod tests {
     use alloy_primitives::{b256, fixed_bytes, keccak256, Bytes, TxKind, B256, U256};
     use reth_chainspec::{ChainSpecBuilder, EthereumHardfork, ForkCondition, MAINNET};
     use reth_evm::execute::{BasicBlockExecutorProvider, BlockExecutorProvider, Executor};
-    use reth_execution_types::BlockExecutionResult;
     use reth_primitives_traits::{
         crypto::secp256k1::public_key_to_address, Block as _, RecoveredBlock,
     };
@@ -46,7 +45,7 @@ mod tests {
     use std::sync::mpsc;
     use revm_state::FlaggedStorage;
     use reth_seismic_primitives::{SeismicBlock as Block, SeismicBlockBody as BlockBody};
-    use reth_seismic_primitives::{SeismicTransactionSigned as Transaction, SeismicTxType};
+    use reth_seismic_primitives::SeismicTransactionSigned as Transaction;
 
     fn create_database_with_beacon_root_contract() -> CacheDB<EmptyDB> {
         let mut db = CacheDB::new(Default::default());
@@ -697,38 +696,38 @@ mod tests {
     //     header.receipts_root =
     //         b256!("0xb31a3e47b902e9211c4d349af4e4c5604ce388471e79ca008907ae4616bb0ed3");
 
-    //     let tx = sign_tx_with_key_pair(
-    //         sender_key_pair,
-    //         Transaction::Legacy(TxLegacy {
-    //             chain_id: Some(chain_spec.chain.id()),
-    //             nonce: 1,
-    //             gas_price: header.base_fee_per_gas.unwrap().into(),
-    //             gas_limit: header.gas_used,
-    //             to: TxKind::Call(WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS),
-    //             // `MIN_WITHDRAWAL_REQUEST_FEE`
-    //             value: U256::from(2),
-    //             input,
-    //         }),
-    //     );
+    //     // let tx = sign_tx_with_key_pair(
+    //     //     sender_key_pair,
+    //     //     Transaction::Legacy(TxLegacy {
+    //     //         chain_id: Some(chain_spec.chain.id()),
+    //     //         nonce: 1,
+    //     //         gas_price: header.base_fee_per_gas.unwrap().into(),
+    //     //         gas_limit: header.gas_used,
+    //     //         to: TxKind::Call(WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS),
+    //     //         // `MIN_WITHDRAWAL_REQUEST_FEE`
+    //     //         value: U256::from(2),
+    //     //         input,
+    //     //     }),
+    //     // );
 
-    //     let provider = executor_provider(chain_spec);
+    //     // let provider = executor_provider(chain_spec);
 
-    //     let mut executor = provider.executor(db);
+    //     // let mut executor = provider.executor(db);
 
-    //     let BlockExecutionResult { receipts, requests, .. } = executor
-    //         .execute_one(
-    //             &Block { header, body: BlockBody { transactions: vec![tx], ..Default::default() } }
-    //                 .try_into_recovered()
-    //                 .unwrap(),
-    //         )
-    //         .unwrap();
+    //     // let BlockExecutionResult { receipts, requests, .. } = executor
+    //     //     .execute_one(
+    //     //         &Block { header, body: BlockBody { transactions: vec![tx], ..Default::default() } }
+    //     //             .try_into_recovered()
+    //     //             .unwrap(),
+    //     //     )
+    //     //     .unwrap();
 
-    //     let receipt = receipts.first().unwrap();
-    //     assert!(receipt.success);
+    //     // let receipt = receipts.first().unwrap();
+    //     // assert!(receipt.success);
 
-    //     // There should be exactly one entry with withdrawal requests
-    //     assert_eq!(requests.len(), 1);
-    //     assert_eq!(requests[0][0], 1);
+    //     // // There should be exactly one entry with withdrawal requests
+    //     // assert_eq!(requests.len(), 1);
+    //     // assert_eq!(requests[0][0], 1);
     // }
 
     // #[test]
