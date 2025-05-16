@@ -19,7 +19,6 @@ reth-seismic-evm.workspace = true
 reth-seismic-rpc.workspace = true
 reth-seismic-txpool.workspace = true
 reth-seismic-chainspec.workspace = true
-reth-seismic-consensus = { workspace = true, features = ["std"] }
 reth-seismic-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
 
 

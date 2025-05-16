@@ -34,7 +34,6 @@ reth-node-metrics.workspace = true
 ## seismic
 reth-seismic-primitives.workspace = true
 reth-seismic-chainspec.workspace = true
-reth-seismic-consensus.workspace = true
 reth-seismic-node.workspace = true
 
 reth-chainspec.workspace = true
