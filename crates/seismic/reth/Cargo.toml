@@ -31,7 +31,6 @@ reth-trie = { workspace = true, optional = true }
 # reth-op
 reth-seismic-primitives.workspace = true
 reth-seismic-chainspec.workspace = true
-reth-seismic-consensus = { workspace = true, optional = true }
 reth-seismic-evm = { workspace = true, optional = true }
 reth-seismic-node = { workspace = true, optional = true }
 reth-seismic-rpc = { workspace = true, optional = true }
@@ -44,7 +43,6 @@ std = [
     "reth-consensus?/std",
     "reth-consensus-common?/std",
     "reth-seismic-chainspec/std",
-    "reth-seismic-consensus?/std",
     "reth-seismic-evm?/std",
     "reth-seismic-primitives/std",
     "reth-primitives-traits/std",
@@ -77,7 +75,7 @@ alloy-compat = [
     "reth-seismic-primitives/alloy-compat",
 ]
 cli = ["dep:reth-seismic-cli"]
-consensus = ["dep:reth-consensus", "dep:reth-consensus-common", "dep:reth-seismic-consensus"]
+consensus = ["dep:reth-consensus", "dep:reth-consensus-common"]
 evm = ["dep:reth-evm", "dep:reth-seismic-evm"]
 node-api = ["dep:reth-node-api"]
 node = ["provider", "consensus", "evm", "node-api", "dep:reth-seismic-node", "rpc", "trie"]

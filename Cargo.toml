@@ -164,7 +164,6 @@ members = [
     # "crates/seismic/bin",
     "crates/seismic/chainspec",
     "crates/seismic/cli",
-    "crates/seismic/consensus",
     "crates/seismic/evm/",
     "crates/seismic/node/",
     "crates/seismic/payload/",
@@ -332,7 +331,6 @@ codegen-units = 1
 # reth-seismic-bin = { path = "crates/seismic/bin" }
 reth-seismic-chainspec = { path = "crates/seismic/chainspec" }
 reth-seismic-cli = { path = "crates/seismic/cli" }
-reth-seismic-consensus = { path = "crates/seismic/consensus" }
 reth-seismic-evm = { path = "crates/seismic/evm" }
 reth-seismic-node = { path = "crates/seismic/node" }
 reth-seismic-chain-registry = { path = "crates/seismic/chain-registry" }
@@ -747,7 +745,7 @@ alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "
 alloy-op-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "4996c1e"}
 alloy-seismic-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "4996c1e"}
 
-# revm 
+# revm
 revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "7f398f8a"}
 revm-bytecode = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "7f398f8a"}
 revm-database = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "7f398f8a"}
