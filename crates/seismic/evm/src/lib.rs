@@ -118,7 +118,7 @@ impl ConfigureEvm for SeismicEvmConfig {
             beneficiary: header.beneficiary(),
             timestamp: header.timestamp(),
             difficulty: U256::ZERO,
-            prevrandao: header.mix_hash(),
+            prevrandao: header.mix_hash(), // Seismic genesis spec (Mercury) starts after Paris, so we always use header.mix_hash()
             gas_limit: header.gas_limit(),
             basefee: header.base_fee_per_gas().unwrap_or_default(),
             // EIP-4844 excess blob gas of this block, introduced in Cancun
