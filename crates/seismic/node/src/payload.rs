@@ -10,7 +10,6 @@ use reth_node_builder::{
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
-use reth_seismic_txpool::SeismicPooledTx;
 use reth_transaction_pool::{PoolTransaction, TransactionPool};
 
 /// A basic ethereum payload service.
