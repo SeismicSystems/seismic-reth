@@ -44,7 +44,7 @@ use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
 use reth_seismic_rpc::{SeismicEthApi, SeismicEthApiBuilder};
-use reth_seismic_txpool::{SeismicPooledTransaction, SeismicPooledTx};
+use reth_seismic_txpool::SeismicPooledTransaction;
 use reth_tracing::tracing::{debug, info};
 use reth_transaction_pool::{
     blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},

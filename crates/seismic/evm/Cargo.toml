@@ -31,7 +31,6 @@ alloy-primitives.workspace = true
 seismic-alloy-consensus.workspace = true
 alloy-consensus.workspace = true
 
-# Seismic
 reth-seismic-chainspec.workspace = true
 reth-seismic-forks.workspace = true
 reth-seismic-primitives = { workspace = true }
