@@ -44,7 +44,6 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
         hardforks: DEV_HARDFORKS.clone(),
         base_fee_params: BaseFeeParamsKind::Constant(BaseFeeParams::ethereum()),
-        deposit_contract: None,
         ..Default::default()
     }
     .into()
@@ -62,11 +61,8 @@ pub static SEISMIC_MAINNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
             SEISMIC_MAINNET_GENESIS_HASH,
         ),
         genesis,
-        // <https://etherscan.io/block/15537394>
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
         hardforks,
-        // https://etherscan.io/tx/0xe75fb554e433e03763a1560646ee22dcb74e5274b34c5ad644e7c0f619a7e1d0
-        deposit_contract: None,
         ..Default::default()
     };
     spec.genesis.config.dao_fork_support = true;
