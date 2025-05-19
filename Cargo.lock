@@ -8156,7 +8156,6 @@ dependencies = [
  "alloy-genesis",
  "alloy-primitives",
  "reth-chainspec",
- "reth-consensus",
  "reth-ethereum-forks",
  "reth-ethereum-primitives",
  "reth-evm",
@@ -8164,8 +8163,6 @@ dependencies = [
  "reth-primitives-traits",
  "reth-testing-utils",
  "revm",
- "revm-primitives",
- "secp256k1 0.30.0",
  "serde_json",
  "tokio",
 ]
