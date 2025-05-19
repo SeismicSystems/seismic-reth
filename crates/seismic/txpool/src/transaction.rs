@@ -89,8 +89,9 @@ impl<Cons: InMemorySize, Pooled> InMemorySize for SeismicPooledTransaction<Cons,
     }
 }
 
- impl<Cons, Pooled> alloy_consensus::Transaction for SeismicPooledTransaction<Cons, Pooled>
- where
+
+impl<Cons, Pooled> alloy_consensus::Transaction for SeismicPooledTransaction<Cons, Pooled>
+where
      Cons: alloy_consensus::Transaction + SignedTransaction, // Ensure Cons has the methods
      Pooled: Debug + Send + Sync + 'static, // From Optimism example, for completeness
  {
@@ -116,48 +117,34 @@ impl<Cons: InMemorySize, Pooled> InMemorySize for SeismicPooledTransaction<Cons,
 
 impl<Cons, Pooled> EthPoolTransaction for SeismicPooledTransaction<Cons, Pooled>
 where
-    Cons: SignedTransaction + From<Pooled> + alloy_consensus::Transaction + 'static, // 'static often needed for trait objects or Arc
-         // Cons needs methods like is_eip4844(), validate_blob(), try_into_pooled_with_sidecar()
-    Pooled: SignedTransaction + TryFrom<Cons, Error: core::error::Error> + 'static,
-         // Pooled needs to be constructible from Cons + Sidecar
-    // We need a way for Cons to become Pooled with a sidecar.
-    // And for Pooled to potentially destructure into Cons and a sidecar (for from_pooled).
-    // Let's assume Cons has a method:
-    // `fn into_pooled_with_sidecar(self, sidecar: RethBlobSidecar) -> Result<Pooled, SomeError>`
-    // And Pooled might have:
-    // `fn into_parts_for_blob(self) -> (Cons, Option<RethBlobSidecar>)` (used in PoolTransaction::from_pooled)
+    Cons: SignedTransaction + From<Pooled>,
+    Pooled: SignedTransaction + TryFrom<Cons>,
+    <Pooled as TryFrom<Cons>>::Error: core::error::Error,
 {
     fn take_blob(&mut self) -> EthBlobTransactionSidecar {
-        self.inner.take_blob()
+        EthBlobTransactionSidecar::None
     }
 
     fn try_into_pooled_eip4844(
         self,
-        sidecar: Arc<BlobTransactionSidecar>,
+        _sidecar: Arc<BlobTransactionSidecar>,
     ) -> Option<Recovered<Self::Pooled>> {
-        self.inner.try_into_pooled_eip4844(sidecar)
+        None
     }
 
     fn try_from_eip4844(
-        tx: Recovered<Self::Consensus>,
-        sidecar: BlobTransactionSidecar,
+        _tx: Recovered<Self::Consensus>,
+        _sidecar: BlobTransactionSidecar,
     ) -> Option<Self> {
-        let (consensus_tx, signer) = tx.into_parts();
-        match consensus_tx.try_into_pooled_with_sidecar(sidecar) {
-            Ok(pooled_tx_envelope) => {
-                let recovered_pooled = Recovered::new_unchecked(pooled_tx_envelope, signer);
-                Some(Self::from_pooled(recovered_pooled))
-            }
-            Err(_) => None,
-        }
+        None
     }
 
     fn validate_blob(
         &self,
-        sidecar: &BlobTransactionSidecar,
-        settings: &KzgSettings,
+        _sidecar: &BlobTransactionSidecar,
+        _settings: &KzgSettings,
     ) -> Result<(), BlobTransactionValidationError> {
-        self.inner.validate_blob(sidecar, settings)
+        Err(BlobTransactionValidationError::NotBlobTransaction(self.ty()))
     }
 }
 
