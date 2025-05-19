@@ -261,7 +261,7 @@ pub trait BlockBuilder {
         &mut self,
         _tx: Recovered<TxTy<Self::Primitives>>,
     ) -> Result<u64, BlockExecutionError> {
-        unimplemented!()
+        unimplemented!("BlockBuilder trait's add_transaction function is not implemented")
     }
 
     /// Completes the block building process and returns the [`BlockBuilderOutcome`].

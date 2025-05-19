@@ -15,7 +15,7 @@ use reth_basic_payload_builder::{
     is_better_payload, BuildArguments, BuildOutcome, MissingPayloadBehaviour, PayloadBuilder,
     PayloadConfig,
 };
-use reth_chainspec::{ChainSpec, ChainSpecProvider, EthChainSpec, EthereumHardforks};
+use reth_chainspec::{ChainSpec, ChainSpecProvider, EthereumHardforks};
 use reth_enclave::EnclaveClient;
 use reth_errors::{BlockExecutionError, BlockValidationError};
 use reth_evm::{
@@ -194,11 +194,6 @@ where
         warn!(target: "payload_builder", %err, "failed to apply pre-execution changes");
         PayloadBuilderError::Internal(err.into())
     })?;
-
-    let block_blob_count = 0;
-    let blob_params = chain_spec.blob_params_at_timestamp(attributes.timestamp);
-    let max_blob_count =
-        blob_params.as_ref().map(|params| params.max_blob_count).unwrap_or_default();
 
     while let Some(pool_tx) = best_txs.next() {
         // ensure we still have capacity for this transaction
@@ -394,26 +389,21 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    pub use alloy_evm::block::{BlockExecutor, BlockExecutorFactory};
-    use reth_enclave::SyncEnclaveApiClient;
     use reth_evm::{
-        execute::{BlockBuilder, BlockBuilderOutcome, Executor},
-        ConfigureEvm, Database, OnStateHook,
-    };
-    pub use reth_execution_errors::{
-        BlockExecutionError, BlockValidationError, InternalBlockExecutionError,
+        execute::{BlockBuilder, BlockBuilderOutcome},
+       OnStateHook,
     };
     use reth_execution_types::BlockExecutionResult;
     use reth_primitives_traits::{
-        Block, HeaderTy, NodePrimitives, ReceiptTy, Recovered, RecoveredBlock, SealedHeader, TxTy,
+        NodePrimitives, Recovered, TxTy,
     };
     use reth_seismic_evm::SeismicEvm;
-    use reth_trie_common::{updates::TrieUpdates, HashedPostState};
     use revm::{
-        database::{CacheDB, EmptyDB},
-        state::AccountInfo,
+        database::EmptyDB,
     };
     use seismic_enclave::MockEnclaveClient;
+    use proptest::prelude::*;
+    use proptest_arbitrary_interop::arb;
 
     // test util, not a meaningful conversion
     fn bytes_to_u64_consistent(input: &[u8]) -> u64 {
@@ -426,46 +416,51 @@ mod tests {
         u64::from_le_bytes(buf)
     }
 
-    pub struct MockExecutor {}
+    #[derive(Default, Debug)]
+    struct MockExecutor {}
     impl BlockExecutor for MockExecutor {
         type Transaction = <reth_seismic_primitives::SeismicPrimitives as NodePrimitives>::SignedTx;
         type Receipt = <reth_seismic_primitives::SeismicPrimitives as NodePrimitives>::Receipt;
         type Evm = SeismicEvm<EmptyDB, revm::inspector::NoOpInspector>;
 
         fn apply_pre_execution_changes(&mut self) -> Result<(), BlockExecutionError> {
-            unimplemented!()
+            Ok(())
         }
 
         fn execute_transaction_with_result_closure(
             &mut self,
             tx: Recovered<&Self::Transaction>,
-            f: impl FnOnce(&ExecutionResult<<Self::Evm as Evm>::HaltReason>),
+            _f: impl FnOnce(&ExecutionResult<<Self::Evm as Evm>::HaltReason>),
         ) -> Result<u64, BlockExecutionError> {
-            unimplemented!()
+            let plaintext = tx.input().clone(); // expected to be decrypted when this is reached
+            let exec_res = bytes_to_u64_consistent(plaintext.as_ref());
+            Ok(exec_res)
         }
 
         fn finish(
             self,
         ) -> Result<(Self::Evm, BlockExecutionResult<Self::Receipt>), BlockExecutionError> {
-            unimplemented!()
+            unimplemented!("MockExecutor::finish Not implemented")
         }
 
-        fn set_state_hook(&mut self, hook: Option<Box<dyn OnStateHook>>) {
-            unimplemented!()
+        fn set_state_hook(&mut self, _hook: Option<Box<dyn OnStateHook>>) {
+            unimplemented!("MockExecutor::set_state_hook Not implemented")
         }
 
         fn evm_mut(&mut self) -> &mut Self::Evm {
-            unimplemented!()
+            unimplemented!("MockExecutor::evm_mut Not implemented")
         }
     }
 
     /// A mock implementation of BlockBuilder for testing purposes
     #[derive(Debug, Default)]
-    pub struct MockBlockBuilder {}
+    struct MockBlockBuilder {
+        executor: MockExecutor,
+    }
 
     impl MockBlockBuilder {
-        pub fn new() -> Self {
-            Self {}
+        fn new() -> Self {
+            Self {executor: MockExecutor {}}
         }
     }
 
@@ -493,39 +488,35 @@ mod tests {
             self,
             _state: impl StateProvider,
         ) -> Result<BlockBuilderOutcome<Self::Primitives>, BlockExecutionError> {
-            unimplemented!("Mock block builder not implemented")
+            unimplemented!("Mock block builder Not implemented")
         }
 
         fn executor_mut(&mut self) -> &mut Self::Executor {
-            unimplemented!("Mock executor not implemented")
+            &mut self.executor
         }
 
         fn into_executor(self) -> Self::Executor {
-            unimplemented!("Mock executor not implemented")
+            return MockExecutor {}
+        }
+
+        fn add_transaction(&mut self, _tx: Recovered<TxTy<Self::Primitives>>) -> Result<u64, BlockExecutionError> {
+            Ok(1u64)
         }
     }
-
-    use alloy_primitives::Bytes;
-    use proptest::{arbitrary::Arbitrary, prelude::*};
-    use proptest_arbitrary_interop::arb;
-    use seismic_alloy_consensus::SeismicTxEnvelope;
-    use seismic_enclave::mock;
 
     proptest! {
         #[test]
         fn test_tx_decryption(reth_tx in arb::<SeismicTransactionSigned>()) {
             let mut r_tx: Recovered<SeismicTransactionSigned> = Recovered::new_unchecked(reth_tx.clone().into(), reth_tx.recover_signer().unwrap());
-            let mut inner_tx = r_tx.inner_mut();
+            let inner_tx = r_tx.inner_mut();
             let typed_tx: SeismicTypedTransaction = reth_tx.transaction().clone();
             let mock = MockBlockBuilder::new();
             let mut seismic_builder = SeismicBlockBuilder::new(mock, MockEnclaveClient);
 
-            let mut plaintext: Bytes = Bytes::new();
-
 
             match typed_tx {
-                SeismicTypedTransaction::Seismic(mut tx_seismic) => {
-                    plaintext = tx_seismic.input().clone();
+                SeismicTypedTransaction::Seismic(tx_seismic) => {
+                    let plaintext = tx_seismic.input().clone();
                     let seismic_elements = tx_seismic.seismic_elements.clone();
 
                     // encrypt the arbitrary data so its a real ciphertext to be decrypted

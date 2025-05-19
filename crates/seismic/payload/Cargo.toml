@@ -49,3 +49,4 @@ reth-storage-errors.workspace = true
 reth-execution-errors.workspace = true
 proptest.workspace = true
 proptest-arbitrary-interop.workspace = true
+reth-execution-types.workspace = true
