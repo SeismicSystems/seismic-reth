@@ -1,4 +1,9 @@
 //! A basic Seismic payload builder implementation.
+//! 
+//! The key edits here are to incorperate decryption of transaction data before execution.
+//! The [`SeismicPayloadBuilder`] impliments the [`PayloadBuilder`] trait, and builds seismic payloads.
+//! When making the default_seismic_payload, it uses the [`SeismicBlockBuilder`] to build the block,
+//! whick is when decryption occurs. 
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
