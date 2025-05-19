@@ -2,23 +2,21 @@
 
 use crate::SeismicEthApi;
 use alloy_consensus::BlockHeader;
-use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::B256;
 use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks};
 use reth_evm::{ConfigureEvm, NextBlockEnvAttributes};
 use reth_node_api::NodePrimitives;
-use reth_primitives_traits::{RecoveredBlock, SealedHeader};
-use reth_rpc::EthApi;
+use reth_primitives_traits::SealedHeader;
 use reth_rpc_eth_api::{
     helpers::{LoadPendingBlock, SpawnBlocking},
     types::RpcTypes,
-    EthApiTypes, FromEthApiError, FromEvmError, FullEthApiTypes, RpcNodeCore,
+    EthApiTypes, FromEvmError, RpcNodeCore,
 };
 use reth_rpc_eth_types::{EthApiError, PendingBlock};
 use reth_seismic_primitives::{SeismicBlock, SeismicReceipt, SeismicTransactionSigned};
 use reth_storage_api::{
-    BlockReader, BlockReaderIdExt, HeaderProvider, ProviderBlock, ProviderHeader, ProviderReceipt,
-    ProviderTx, ReceiptProvider, StateProviderFactory,
+    BlockReaderIdExt, ProviderBlock, ProviderHeader, ProviderReceipt, ProviderTx,
+    StateProviderFactory,
 };
 use reth_transaction_pool::{PoolTransaction, TransactionPool};
 

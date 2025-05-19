@@ -12,12 +12,6 @@ description = "Reth RPC implementation"
 workspace = true
 
 [dependencies]
-# seismic
-seismic-alloy-consensus.workspace = true
-seismic-alloy-network.workspace = true
-reth-seismic-primitives.workspace = true
-reth-seismic-evm.workspace = true
-
 # reth
 reth-chainspec.workspace = true
 reth-primitives-traits.workspace = true

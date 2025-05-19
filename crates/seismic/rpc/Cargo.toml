@@ -24,35 +24,25 @@ reth-rpc-server-types.workspace = true
 reth-tasks = { workspace = true, features = ["rayon"] }
 reth-transaction-pool.workspace = true
 reth-rpc.workspace = true
-reth-rpc-api.workspace = true
 reth-node-api.workspace = true
 reth-network-api.workspace = true
 reth-node-builder.workspace = true
 reth-chainspec.workspace = true
-reth-rpc-engine-api.workspace = true
 reth-tracing.workspace = true
 reth-node-core.workspace = true
-
-# seismic-reth
-reth-seismic-chainspec.workspace = true
-reth-seismic-evm.workspace = true
-reth-seismic-payload-builder.workspace = true
-reth-seismic-txpool.workspace = true
 reth-primitives.workspace = true
 
+# seismic-reth
+reth-seismic-primitives = { workspace = true, features = ["reth-codec", "serde-bincode-compat"] }
 seismic-enclave.workspace = true
 
-# TODO remove node-builder import
-reth-seismic-primitives = { workspace = true, features = ["reth-codec", "serde-bincode-compat"] }
 
 # ethereum
 alloy-eips.workspace = true
 alloy-primitives.workspace = true
 alloy-rpc-types.workspace = true
 alloy-rpc-types-eth.workspace = true
-alloy-rpc-types-debug.workspace = true
 alloy-consensus.workspace = true
-alloy-rpc-types-engine.workspace = true
 alloy-json-rpc.workspace = true
 alloy-dyn-abi.workspace = true
 
@@ -64,20 +54,15 @@ seismic-revm.workspace = true
 # async
 parking_lot.workspace = true
 tokio.workspace = true
-reqwest = { workspace = true, features = ["rustls-tls-native-roots"] }
-async-trait.workspace = true
 
 # rpc
-jsonrpsee-core.workspace = true
 jsonrpsee-types.workspace = true
 jsonrpsee.workspace = true
-serde_json.workspace = true
 futures.workspace = true
 
 # misc
 thiserror.workspace = true
 tracing.workspace = true
-derive_more = { workspace = true, features = ["constructor"] }
 
 [dev-dependencies]
 reth-seismic-chainspec.workspace = true
@@ -98,6 +83,9 @@ reth-e2e-test-utils.workspace = true
 reth-engine-primitives.workspace = true
 reth-node-ethereum.workspace = true
 reth-seismic-evm.workspace = true
+reth-seismic-txpool.workspace = true
+reth-rpc-engine-api.workspace = true
+alloy-rpc-types-engine.workspace = true
 
 [features]
 default = ["client"]

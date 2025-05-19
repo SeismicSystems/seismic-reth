@@ -2,7 +2,6 @@
 use alloy_eips::BlockNumHash;
 use reth_errors::ProviderError;
 use reth_node_core::dirs::{ChainPath, DataDirPath};
-use reth_provider::errors::any::AnyError;
 use std::{
     path::PathBuf,
     sync::mpsc::{Receiver, Sender},

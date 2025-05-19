@@ -8,6 +8,11 @@
 //!
 //! - `eth_signTypedData_v4` will sign a typed data request using the Seismic enclave.
 
+use super::api::FullSeismicApi;
+use crate::{
+    error::SeismicEthApiError,
+    utils::{recover_typed_data_request, seismic_override_call_request},
+};
 use alloy_dyn_abi::TypedData;
 use alloy_json_rpc::RpcObject;
 use alloy_primitives::{Address, Bytes, B256};
@@ -18,7 +23,7 @@ use alloy_rpc_types::{
 };
 use alloy_rpc_types_eth::{
     simulate::{SimulatePayload, SimulatedBlock},
-    transaction::{TransactionInput, TransactionRequest},
+    transaction::TransactionRequest,
 };
 use futures::Future;
 use jsonrpsee::{
@@ -36,16 +41,9 @@ use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
 use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
 use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest};
 use seismic_enclave::{
-    rpc::EnclaveApiClient, serde::de, tx_io::IoDecryptionRequest, EnclaveClient, PublicKey,
+    rpc::EnclaveApiClient, tx_io::IoDecryptionRequest, EnclaveClient, PublicKey,
 };
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-
-use crate::{
-    error::SeismicApiError,
-    utils::{recover_typed_data_request, seismic_override_call_request},
-};
-
-use super::api::FullSeismicApi;
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///
@@ -90,7 +88,7 @@ impl SeismicApiServer for SeismicApi {
         self.enclave_client
             .get_public_key()
             .await
-            .map_err(|e| SeismicApiError::EnclaveError(e.to_string()).into())
+            .map_err(|e| SeismicEthApiError::EnclaveError(e.to_string()).into())
     }
 }
 
@@ -119,8 +117,8 @@ pub trait EthApiOverride<B: RpcObject> {
     #[method(name = "signTypedData_v4")]
     async fn sign_typed_data_v4(&self, address: Address, data: TypedData) -> RpcResult<String>;
 
-    /// `eth_simulateV1` executes an arbitrary number of transactions on top of the requested state.
-    /// The transactions are packed into individual blocks. Overrides can be provided.
+    // /// `eth_simulateV1` executes an arbitrary number of transactions on top of the requested state.
+    // /// The transactions are packed into individual blocks. Overrides can be provided.
     // #[method(name = "simulateV1")]
     // async fn simulate_v1(
     //     &self,
@@ -172,7 +170,7 @@ where
         Ok(format!("0x{signature}"))
     }
 
-    /// Handler for: `eth_simulateV1` TODO: fix this
+    // /// Handler for: `eth_simulateV1` TODO: fix this
     // async fn simulate_v1(
     //     &self,
     //     payload: SimulatePayload<SeismicCallRequest>,
@@ -188,19 +186,19 @@ where
 
     //         for call in calls {
     //             let tx_request = match call {
-    //                 alloy_rpc_types::SeismicCallRequest::TransactionRequest(_tx_request) => {
+    //                 SeismicCallRequest::TransactionRequest(_tx_request) => {
     //                     return Err(EthApiError::InvalidParams(
     //                         "Invalid Transaction Request".to_string(),
     //                     )
     //                     .into())
     //                 }
 
-    //                 alloy_rpc_types::SeismicCallRequest::TypedData(typed_request) => {
+    //                 SeismicCallRequest::TypedData(typed_request) => {
     //                     let tx =
-    //
-    // recover_typed_data_request::<PoolPooledTx<Eth::Pool>>(&typed_request)?
-    // .map_transaction(                             <Eth::Pool as
-    // TransactionPool>::Transaction::pooled_into_consensus,                         );
+    //                         recover_typed_data_request::<PoolPooledTx<Eth::Pool>>(&typed_request)?
+    //                             .map_transaction(
+    //                             <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
+    //                         );
 
     //                     TransactionRequest::from_transaction_with_sender(
     //                         tx.as_signed().clone(),
@@ -208,11 +206,11 @@ where
     //                     )
     //                 }
 
-    //                 alloy_rpc_types::SeismicCallRequest::Bytes(bytes) => {
+    //                 SeismicCallRequest::Bytes(bytes) => {
     //                     let tx = recover_raw_transaction::<PoolPooledTx<Eth::Pool>>(&bytes)?
     //                         .map_transaction(
-    //                             <Eth::Pool as
-    // TransactionPool>::Transaction::pooled_into_consensus,                         );
+    //                             <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
+    //                         );
 
     //                     TransactionRequest::from_transaction_with_sender(
     //                         tx.as_signed().clone(),
@@ -331,7 +329,8 @@ where
                 Ok(EthTransactions::send_raw_transaction(&self.eth_api, bytes).await?)
             }
             SeismicRawTxRequest::TypedData(typed_data) => {
-                Ok(SeismicTransaction::send_typed_data_transaction(&self.eth_api, typed_data).await?)
+                Ok(SeismicTransaction::send_typed_data_transaction(&self.eth_api, typed_data)
+                    .await?)
             }
         }
     }
@@ -342,11 +341,11 @@ mod tests {
     // use crate::utils::test_utils::{build_test_eth_api};
     // use crate::utils2::test_utils::{launch_http};
     use super::EthApiOverrideClient;
-    use reth_seismic_primitives::test_utils::get_seismic_tx;
     use alloy_primitives::{b256, hex, PrimitiveSignature, U256};
     use alloy_rpc_types::Block;
     use jsonrpsee::core::client::{ClientT, SubscriptionClientT};
     use reth_enclave::start_mock_enclave_server_random_port;
+    use reth_seismic_primitives::test_utils::get_seismic_tx;
     use seismic_alloy_consensus::{TxSeismic, TxSeismicElements, TypedDataRequest};
     use std::str::FromStr;
 

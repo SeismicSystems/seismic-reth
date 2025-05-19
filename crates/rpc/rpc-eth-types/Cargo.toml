@@ -12,6 +12,10 @@ description = "Types supporting implementation of 'eth' namespace RPC server API
 workspace = true
 
 [dependencies]
+# seismic
+seismic-revm.workspace = true
+
+# reth
 reth-chainspec.workspace = true
 reth-chain-state.workspace = true
 reth-errors.workspace = true
@@ -35,7 +39,6 @@ alloy-consensus.workspace = true
 alloy-sol-types.workspace = true
 alloy-rpc-types-eth.workspace = true
 revm.workspace = true
-seismic-revm.workspace = true
 revm-inspectors.workspace = true
 
 # rpc

@@ -5,17 +5,15 @@ use alloy_rpc_types_eth::BlockId;
 use reth_chainspec::{ChainSpec, ChainSpecProvider, EthChainSpec};
 use reth_node_api::BlockBody;
 use reth_primitives_traits::SignedTransaction;
-use reth_rpc::EthApi;
 use reth_rpc_eth_api::{
     helpers::{EthBlocks, LoadBlock, LoadPendingBlock, LoadReceipt, SpawnBlocking},
     types::RpcTypes,
-    RpcReceipt,
+    RpcNodeCore, RpcReceipt,
 };
 use reth_rpc_eth_types::EthApiError;
 use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
 use reth_storage_api::{BlockReader, HeaderProvider};
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
-use reth_rpc_eth_api::RpcNodeCore;
 
 use crate::{eth::SeismicNodeCore, SeismicEthApi};
 
@@ -45,8 +43,7 @@ where
             let block_hash = block.hash();
             let excess_blob_gas = block.excess_blob_gas();
             let timestamp = block.timestamp();
-            let blob_params =
-                self.provider().chain_spec().blob_params_at_timestamp(timestamp);
+            let blob_params = self.provider().chain_spec().blob_params_at_timestamp(timestamp);
 
             return block
                 .body()

@@ -1,7 +1,9 @@
-use reth_rpc_eth_api::{helpers::{EthApiSpec, EthBlocks, EthCall, EthFees, EthState, LoadReceipt, Trace}, FullEthApiTypes};
+use reth_rpc_eth_api::{
+    helpers::{EthApiSpec, EthBlocks, EthCall, EthFees, EthState, LoadReceipt, Trace},
+    FullEthApiTypes,
+};
 
 use super::ext::SeismicTransaction;
-
 
 /// Helper trait to unify all `eth` rpc server building block traits, for simplicity.
 ///
@@ -31,4 +33,3 @@ impl<T> FullSeismicApi for T where
         + LoadReceipt
 {
 }
-

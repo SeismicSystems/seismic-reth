@@ -14,15 +14,12 @@ mod pending_block;
 
 use alloy_primitives::U256;
 use reth_chain_state::CanonStateSubscriptions;
-use reth_chainspec::{ChainSpec, ChainSpecProvider, EthChainSpec, EthereumHardforks};
-use reth_evm::{ConfigureEvm, NextBlockEnvAttributes};
+use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks};
+use reth_evm::ConfigureEvm;
 use reth_network_api::NetworkInfo;
-use reth_node_api::{FullNodeComponents, NodePrimitives, NodeTypesWithEngine};
+use reth_node_api::{FullNodeComponents, NodePrimitives};
 use reth_node_builder::rpc::{EthApiBuilder, EthApiCtx};
-use reth_rpc::{
-    eth::{core::EthApiInner, DevSigner},
-    EthApi,
-};
+use reth_rpc::eth::{core::EthApiInner, DevSigner};
 use reth_rpc_eth_api::{
     helpers::{
         AddDevSigners, EthApiSpec, EthFees, EthSigner, EthState, LoadBlock, LoadFee, LoadState,
@@ -31,9 +28,7 @@ use reth_rpc_eth_api::{
     EthApiTypes, FromEvmError, FullEthApiServer, RpcNodeCore, RpcNodeCoreExt,
 };
 use reth_rpc_eth_types::{EthApiError, EthStateCache, FeeHistoryCache, GasPriceOracle};
-use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_primitives::SeismicPrimitives;
-use reth_seismic_txpool::SeismicTransactionPool;
 use reth_storage_api::{
     BlockNumReader, BlockReader, BlockReaderIdExt, ProviderBlock, ProviderHeader, ProviderReceipt,
     ProviderTx, StageCheckpointReader, StateProviderFactory,
@@ -44,7 +39,7 @@ use reth_tasks::{
 };
 use reth_transaction_pool::TransactionPool;
 use seismic_alloy_network::Seismic;
-use std::{fmt, ops::Deref, sync::Arc};
+use std::{fmt, sync::Arc};
 
 /// Adapter for [`EthApiInner`], which holds all the data required to serve core `eth_` API.
 pub type EthApiNodeBackend<N> = EthApiInner<
@@ -54,17 +49,9 @@ pub type EthApiNodeBackend<N> = EthApiInner<
     <N as RpcNodeCore>::Evm,
 >;
 
-
 /// A helper trait with requirements for [`RpcNodeCore`] to be used in [`SeismicEthApi`].
 pub trait SeismicNodeCore: RpcNodeCore<Provider: BlockReader> {}
 impl<T> SeismicNodeCore for T where T: RpcNodeCore<Provider: BlockReader> {}
-
-// type SeismicEthApiInner<Provider, Pool, Network, EvmConfig> = EthApiInner<
-//     Provider,
-//     Pool,
-//     Network,
-//     EvmConfig,
-// >;
 
 /// seismic-reth `Eth` API implementation.
 #[derive(Clone)]
@@ -274,20 +261,6 @@ impl<N: SeismicNodeCore> fmt::Debug for SeismicEthApi<N> {
         f.debug_struct("SeismicEthApi").finish_non_exhaustive()
     }
 }
-
-// /// Container type `OpEthApi`
-// #[allow(missing_debug_implementations)]
-// struct SeismicEthApiInner<N: SeismicNodeCore> {
-//     /// Gateway to node's core components.
-//     pub eth_api: EthApiNodeBackend<N>,
-// }
-
-// impl<N: SeismicNodeCore> SeismicEthApiInner<N> {
-//     /// Returns a reference to the [`EthApiNodeBackend`].
-//     const fn eth_api(&self) -> &EthApiNodeBackend<N> {
-//         &self.eth_api
-//     }
-// }
 
 /// Builds [`SeismicEthApi`] for Optimism.
 #[derive(Debug, Default)]

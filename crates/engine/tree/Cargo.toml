@@ -60,7 +60,6 @@ rayon.workspace = true
 tracing.workspace = true
 derive_more.workspace = true
 parking_lot.workspace = true
-anyhow.workspace = true
 
 # optional deps for test-utils
 reth-prune-types = { workspace = true, optional = true }

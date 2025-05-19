@@ -1,7 +1,6 @@
 //! Utils for testing the seismic rpc api
 
-use alloy_rpc_types::{BlockTransactions, TransactionRequest};
-use reth_rpc_eth_api::{helpers::FullEthApi, RpcBlock};
+use alloy_rpc_types::TransactionRequest;
 
 /// Override the request for seismic calls
 pub fn seismic_override_call_request(request: &mut TransactionRequest) {
@@ -21,7 +20,7 @@ pub fn seismic_override_call_request(request: &mut TransactionRequest) {
 /// copied from reth-rpc-api-builder
 #[cfg(test)]
 pub mod test_utils {
-    use crate::SeismicEthApiBuilder;
+    use crate::{SeismicEthApi, SeismicEthApiBuilder};
     use alloy_rpc_types_engine::{ClientCode, ClientVersionV1};
     use jsonrpsee::Methods;
     use reth_chainspec::{ChainSpec, ChainSpec as SeismicChainSpec, MAINNET};
@@ -70,7 +69,6 @@ pub mod test_utils {
         sync::Arc,
     };
     use tokio::sync::mpsc::unbounded_channel;
-    use crate::{SeismicEthApi};
 
     /// Localhost with port 0 so a free port is used.
     pub const fn test_address() -> SocketAddr {
@@ -137,8 +135,7 @@ pub mod test_utils {
     //     SeismicEvmConfig,
     //     BasicBlockExecutorProvider<SeismicEvmConfig>,
     //     NoopConsensus,
-    // > {
-    //     let spec = SEISMIC_MAINNET.clone();
+    // > { let spec = SEISMIC_MAINNET.clone();
 
     //     let test_pool = Pool::new(
     //         MockTransactionValidator::default(),
@@ -148,8 +145,8 @@ pub mod test_utils {
     //     );
 
     //     RpcModuleBuilder::default()
-    //         .with_provider(NoopProvider::<SeismicChainSpec, SeismicPrimitives>::new(spec.clone()))
-    //         .with_pool(test_pool)
+    //         .with_provider(NoopProvider::<SeismicChainSpec,
+    // SeismicPrimitives>::new(spec.clone()))         .with_pool(test_pool)
     //         .with_network(NoopNetwork::default())
     //         .with_executor(TokioTaskExecutor::default())
     //         .with_evm_config(SeismicEvmConfig::seismic(spec.clone()))

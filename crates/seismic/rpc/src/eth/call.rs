@@ -1,11 +1,9 @@
 use super::SeismicNodeCore;
 use crate::SeismicEthApi;
-use alloy_consensus::TxType;
-use alloy_primitives::{Bytes, TxKind, B256, U256};
+use alloy_primitives::{TxKind, U256};
 use alloy_rpc_types_eth::transaction::TransactionRequest;
 use reth_evm::{execute::BlockExecutorFactory, ConfigureEvm, EvmEnv, EvmFactory, SpecFor};
 use reth_node_api::NodePrimitives;
-use reth_rpc::EthApi;
 use reth_rpc_eth_api::{
     helpers::{estimate::EstimateCall, Call, EthCall, LoadBlock, LoadState, SpawnBlocking},
     FromEthApiError, FromEvmError, FullEthApiTypes, IntoEthApiError,
@@ -14,7 +12,6 @@ use reth_rpc_eth_types::{revm_utils::CallFees, EthApiError, RpcInvalidTransactio
 use reth_storage_api::{ProviderHeader, ProviderTx};
 use revm::{context::TxEnv, context_interface::Block, Database};
 use seismic_alloy_consensus::SeismicTxType;
-use seismic_alloy_network::Seismic;
 use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
 use tracing::debug;
 
@@ -156,6 +153,10 @@ where
 
         debug!("DEBUG: create_txn_env {:?}", env);
 
-        Ok(SeismicTransaction { base: env, tx_hash: Default::default(), rng_mode: RngMode::Simulation })
+        Ok(SeismicTransaction {
+            base: env,
+            tx_hash: Default::default(),
+            rng_mode: RngMode::Simulation,
+        })
     }
 }

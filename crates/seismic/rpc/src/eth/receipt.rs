@@ -1,17 +1,15 @@
 //! Loads and formats Seismic receipt RPC response.
 
 use alloy_consensus::transaction::TransactionMeta;
-use alloy_eips::{eip2718::Encodable2718, eip7840::BlobParams};
-use alloy_rpc_types_eth::{Log, TransactionReceipt};
+use alloy_eips::eip7840::BlobParams;
 use reth_chainspec::{ChainSpec, ChainSpecProvider, EthChainSpec};
 use reth_node_api::{FullNodeComponents, NodeTypes};
-use reth_rpc_eth_api::{helpers::LoadReceipt, FromEthApiError, RpcReceipt};
+use reth_rpc_eth_api::{helpers::LoadReceipt, FromEthApiError, RpcNodeCore, RpcReceipt};
 use reth_rpc_eth_types::{receipt::build_receipt, EthApiError};
 use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
 use reth_storage_api::{ReceiptProvider, TransactionsProvider};
 use seismic_alloy_consensus::{SeismicReceiptEnvelope, SeismicTxType};
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
-use reth_rpc_eth_api::RpcNodeCore;
 
 use crate::SeismicEthApi;
 
@@ -45,7 +43,7 @@ where
 }
 
 /// Builds an [`SeismicTransactionReceipt`].
-/// 
+///
 /// Like [`EthReceiptBuilder`], but with Seismic types
 #[derive(Debug)]
 pub struct SeismicReceiptBuilder {

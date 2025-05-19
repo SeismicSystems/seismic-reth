@@ -1,11 +1,10 @@
 //! Loads and formats OP transaction RPC response.
 
+use crate::utils::recover_typed_data_request;
 use alloy_consensus::{transaction::Recovered, Transaction as _};
-use alloy_primitives::{Bytes, PrimitiveSignature as Signature, Sealable, Sealed, B256};
+use alloy_primitives::{Bytes, B256};
 use alloy_rpc_types_eth::{Transaction, TransactionInfo};
-use reqwest::Error;
 use reth_node_api::FullNodeComponents;
-use reth_rpc::EthApi;
 use reth_rpc_eth_api::{
     helpers::{EthSigner, EthTransactions, LoadTransaction, SpawnBlocking},
     FromEthApiError, FullEthApiTypes, RpcNodeCore, RpcNodeCoreExt, TransactionCompat,
@@ -16,11 +15,8 @@ use reth_storage_api::{
     BlockReader, BlockReaderIdExt, ProviderTx, ReceiptProvider, TransactionsProvider,
 };
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
-use seismic_alloy_consensus::SeismicTxEnvelope;
+use seismic_alloy_consensus::{SeismicTxEnvelope, TypedDataRequest};
 use seismic_alloy_network::{Network, Seismic};
-use seismic_alloy_rpc_types::SeismicTransactionRequest;
-use seismic_alloy_consensus::TypedDataRequest;
-use crate::utils::recover_typed_data_request;
 
 use crate::{eth::SeismicNodeCore, SeismicEthApi};
 
@@ -59,28 +55,25 @@ where
     Self: LoadTransaction<Provider: BlockReaderIdExt>,
     N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
 {
-    async fn send_typed_data_transaction(
-            &self,
-            tx: TypedDataRequest,
-        ) -> Result<B256, Self::Error> {
-            let recovered = recover_typed_data_request(&tx)?;
+    async fn send_typed_data_transaction(&self, tx: TypedDataRequest) -> Result<B256, Self::Error> {
+        let recovered = recover_typed_data_request(&tx)?;
 
-            // broadcast raw transaction to subscribers if there is any.
-            // TODO: maybe we need to broadcast the encoded tx instead of the recovered tx
-            // when other nodes receive the raw bytes the hash they recover needs to be
-            // type
-            // self.broadcast_raw_transaction(recovered.to);
+        // broadcast raw transaction to subscribers if there is any.
+        // TODO: maybe we need to broadcast the encoded tx instead of the recovered tx
+        // when other nodes receive the raw bytes the hash they recover needs to be
+        // type
+        // self.broadcast_raw_transaction(recovered.to);
 
-            let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
+        let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
 
-            // submit the transaction to the pool with a `Local` origin
-            let hash = self
-                .pool()
-                .add_transaction(TransactionOrigin::Local, pool_transaction)
-                .await
-                .map_err(Self::Error::from_eth_err)?;
+        // submit the transaction to the pool with a `Local` origin
+        let hash = self
+            .pool()
+            .add_transaction(TransactionOrigin::Local, pool_transaction)
+            .await
+            .map_err(Self::Error::from_eth_err)?;
 
-            Ok(hash)
+        Ok(hash)
     }
 }
 

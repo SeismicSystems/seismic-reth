@@ -114,24 +114,12 @@ impl FromEvmHalt<HaltReason> for EthApiError {
 impl FromEvmHalt<SeismicHaltReason> for EthApiError {
     fn from_evm_halt(halt: SeismicHaltReason, gas_limit: u64) -> Self {
         match halt {
-            SeismicHaltReason::Base(reason) => {
-                EthApiError::from_evm_halt(reason, gas_limit)
-            }
+            SeismicHaltReason::Base(reason) => EthApiError::from_evm_halt(reason, gas_limit),
             SeismicHaltReason::InvalidPrivateStorageAccess => {
-                let err_obj = jsonrpsee_types::ErrorObject::owned(
-                    -32000, // TODO: pick a better error code?
-                    "InvalidPrivateStorageAccess",
-                    Some("Invalid private storage access".to_string()),
-                );
-                EthApiError::Other(Box::new(err_obj))
+                EthApiError::EvmCustom("Invalid Private Storage Access".to_string())
             }
             SeismicHaltReason::InvalidPublicStorageAccess => {
-                let err_obj = jsonrpsee_types::ErrorObject::owned(
-                    -32000, // TODO: pick a better error code?
-                    "InvalidPublicStorageAccess",
-                    Some("Invalid public storage access".to_string()),
-                );
-                EthApiError::Other(Box::new(err_obj))
+                EthApiError::EvmCustom("Invalid Public Storage Access".to_string())
             }
         }
     }
