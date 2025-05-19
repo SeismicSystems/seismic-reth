@@ -1,6 +1,6 @@
-//! OP-Reth `eth_` endpoint implementation.
+//! Seismic-Reth `eth_` endpoint implementation.
 
-// Seismic extension of API traits
+/// Seismic extension of API traits
 pub mod api;
 /// seismic implementation of eth api and its extensions
 pub mod ext;
@@ -69,6 +69,7 @@ impl<T> SeismicNodeCore for T where T: RpcNodeCore<Provider: BlockReader> {}
 /// seismic-reth `Eth` API implementation.
 #[derive(Clone)]
 pub struct SeismicEthApi<N: SeismicNodeCore> {
+    /// Inner `Eth` API implementation.
     pub inner: Arc<EthApiInner<N::Provider, N::Pool, N::Network, N::Evm>>,
 }
 
