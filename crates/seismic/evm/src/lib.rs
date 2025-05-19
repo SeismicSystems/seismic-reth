@@ -13,21 +13,18 @@ extern crate alloc;
 use alloc::{borrow::Cow, sync::Arc};
 use alloy_consensus::{BlockHeader, Header};
 use alloy_eips::eip1559::INITIAL_BASE_FEE;
-use alloy_evm::{eth::EthBlockExecutionCtx, EvmFactory, FromRecoveredTx};
+use alloy_evm::eth::EthBlockExecutionCtx;
 use alloy_primitives::{Bytes, U256};
 use build::SeismicBlockAssembler;
 use core::fmt::Debug;
-use reth_chainspec::{ChainSpec, EthChainSpec, EthereumHardforks};
+use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_ethereum_forks::EthereumHardfork;
-use reth_evm::{
-    eth::EthBlockExecutorFactory, ConfigureEvm, EvmEnv, NextBlockEnvAttributes, TransactionEnv,
-};
-use reth_primitives_traits::{NodePrimitives, SealedBlock, SealedHeader, SignedTransaction};
-use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicTransactionSigned};
+use reth_evm::{eth::EthBlockExecutorFactory, ConfigureEvm, EvmEnv, NextBlockEnvAttributes};
+use reth_primitives_traits::{SealedBlock, SealedHeader};
+use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
 use revm::{
-    context::{BlockEnv, CfgEnv, TxEnv},
+    context::{BlockEnv, CfgEnv},
     context_interface::block::BlobExcessGasAndPrice,
-    primitives::hardfork::SpecId,
 };
 use seismic_revm::SeismicSpecId;
 use std::convert::Infallible;
@@ -37,6 +34,9 @@ pub use execute::*;
 mod receipts;
 pub use receipts::*;
 mod build;
+
+pub mod config;
+use config::revm_spec;
 
 pub use alloy_seismic_evm::{SeismicEvm, SeismicEvmFactory};
 
@@ -135,10 +135,7 @@ impl ConfigureEvm for SeismicEvmConfig {
         parent: &Header,
         attributes: &NextBlockEnvAttributes,
     ) -> Result<EvmEnv<SeismicSpecId>, Self::Error> {
-        // ensure we're not missing any timestamp based hardforks
-        // let spec_id = revm_spec_by_timestamp_after_bedrock(self.chain_spec(),
-        // attributes.timestamp);
-        let spec_id = SeismicSpecId::MERCURY; // this is the only SeismicSpecId for now
+        let spec_id = revm_spec(self.chain_spec(), parent);
 
         // configure evm env based on parent block
         let cfg = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
@@ -215,88 +212,6 @@ impl ConfigureEvm for SeismicEvmConfig {
     }
 }
 
-/// Code copied and pasted from reth-evm-ethereum
-/// Map the latest active hardfork at the given timestamp or block number to a revm [`SpecId`].
-pub fn revm_spec_by_timestamp_and_block_number(
-    chain_spec: &ChainSpec,
-    timestamp: u64,
-    block_number: u64,
-) -> SpecId {
-    if chain_spec
-        .fork(EthereumHardfork::Osaka)
-        .active_at_timestamp_or_number(timestamp, block_number)
-    {
-        SpecId::OSAKA
-    } else if chain_spec
-        .fork(EthereumHardfork::Prague)
-        .active_at_timestamp_or_number(timestamp, block_number)
-    {
-        SpecId::PRAGUE
-    } else if chain_spec
-        .fork(EthereumHardfork::Cancun)
-        .active_at_timestamp_or_number(timestamp, block_number)
-    {
-        SpecId::CANCUN
-    } else if chain_spec
-        .fork(EthereumHardfork::Shanghai)
-        .active_at_timestamp_or_number(timestamp, block_number)
-    {
-        SpecId::SHANGHAI
-    } else if chain_spec.is_paris_active_at_block(block_number) {
-        SpecId::MERGE
-    } else if chain_spec
-        .fork(EthereumHardfork::London)
-        .active_at_timestamp_or_number(timestamp, block_number)
-    {
-        SpecId::LONDON
-    } else if chain_spec
-        .fork(EthereumHardfork::Berlin)
-        .active_at_timestamp_or_number(timestamp, block_number)
-    {
-        SpecId::BERLIN
-    } else if chain_spec
-        .fork(EthereumHardfork::Istanbul)
-        .active_at_timestamp_or_number(timestamp, block_number)
-    {
-        SpecId::ISTANBUL
-    } else if chain_spec
-        .fork(EthereumHardfork::Petersburg)
-        .active_at_timestamp_or_number(timestamp, block_number)
-    {
-        SpecId::PETERSBURG
-    } else if chain_spec
-        .fork(EthereumHardfork::Byzantium)
-        .active_at_timestamp_or_number(timestamp, block_number)
-    {
-        SpecId::BYZANTIUM
-    } else if chain_spec
-        .fork(EthereumHardfork::SpuriousDragon)
-        .active_at_timestamp_or_number(timestamp, block_number)
-    {
-        SpecId::SPURIOUS_DRAGON
-    } else if chain_spec
-        .fork(EthereumHardfork::Tangerine)
-        .active_at_timestamp_or_number(timestamp, block_number)
-    {
-        SpecId::TANGERINE
-    } else if chain_spec
-        .fork(EthereumHardfork::Homestead)
-        .active_at_timestamp_or_number(timestamp, block_number)
-    {
-        SpecId::HOMESTEAD
-    } else if chain_spec
-        .fork(EthereumHardfork::Frontier)
-        .active_at_timestamp_or_number(timestamp, block_number)
-    {
-        SpecId::FRONTIER
-    } else {
-        panic!(
-            "invalid hardfork chainspec: expected at least one hardfork, got {:?}",
-            chain_spec.hardforks
-        )
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -306,7 +221,7 @@ mod tests {
     use alloy_genesis::Genesis;
     use alloy_primitives::{bytes, map::HashMap, Address, LogData, B256};
     use reth_chainspec::ChainSpec;
-    use reth_evm::{execute::ProviderError, Database};
+    use reth_evm::execute::ProviderError;
     use reth_execution_types::{
         AccountRevertInit, BundleStateInit, Chain, ExecutionOutcome, RevertsInit,
     };
@@ -321,11 +236,6 @@ mod tests {
         precompile::u64_to_address,
         primitives::Log,
         state::AccountInfo,
-    };
-    use secp256k1::serde::de::Expected;
-    use seismic_revm::{
-        precompiles::{self, SeismicPrecompiles},
-        SeismicContext,
     };
     use std::sync::Arc;
 
@@ -370,27 +280,6 @@ mod tests {
         // Check that the EVM environment is correctly set
         assert_eq!(evm.cfg, evm_env.cfg_env);
         assert_eq!(evm.cfg.spec, SeismicSpecId::MERCURY);
-
-        // Check that the Evm type is correctly set
-        type ExpectedDbType = CacheDB<EmptyDBTyped<ProviderError>>;
-        type ExpectedPrecompilesType = SeismicPrecompiles<SeismicContext<ExpectedDbType>>;
-        type ExpectedEvmType = SeismicEvm<ExpectedDbType, NoOpInspector, ExpectedPrecompilesType>;
-
-        // Utility trait to assert type equality at compile time
-        trait AssertSameType<A> {
-            fn same_type(_: A) {}
-        }
-        impl<T> AssertSameType<T> for () {}
-
-        // If the types mismatch, this line will not compile
-        fn assert_type<DB, I>(evm: SeismicEvm<DB, I>)
-        where
-            (): AssertSameType<SeismicEvm<DB, I>>,
-            DB: Database,
-        {
-            let _ = evm;
-        }
-        assert_type(evm);
 
         // Check that the expected number of precompiles is set
         let precompile_addresses =

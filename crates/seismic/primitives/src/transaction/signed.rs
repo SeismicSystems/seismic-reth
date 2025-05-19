@@ -212,9 +212,9 @@ impl OpTransaction for SeismicTransactionSigned {
 use seismic_revm::transaction::abstraction::RngMode;
 impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
     fn from_recovered_tx(tx: &SeismicTransactionSigned, sender: Address) -> Self {
-        let tx_hash = tx.hash.get().unwrap().clone();
+        let tx_hash = tx.tx_hash().clone();
         let rng_mode = RngMode::Execution; // TODO WARNING: chose a default value
-        match &tx.transaction {
+        let tx = match &tx.transaction {
             SeismicTypedTransaction::Legacy(tx) => SeismicTransaction::<TxEnv> {
                 base: TxEnv {
                     gas_limit: tx.gas_limit,
@@ -315,7 +315,9 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                 tx_hash,
                 rng_mode,
             },
-        }
+        };
+        println!("from_recovered_tx: tx: {:?}", tx);
+        tx
     }
 }
 
@@ -735,11 +737,19 @@ pub mod serde_bincode_compat {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Read;
+
+    use crate::test_utils::{
+        get_signed_seismic_tx, get_signed_seismic_tx_bytes, get_signing_private_key,
+    };
+
     use super::*;
-    use crate::test_utils::{get_signed_seismic_tx, get_signing_private_key};
+    use enr::{EnrKey, EnrPublicKey};
+    use k256::ecdsa::signature::Keypair;
     use proptest::proptest;
     use proptest_arbitrary_interop::arb;
     use reth_codecs::Compact;
+    use secp256k1::SecretKey;
 
     #[test]
     fn recover_signer_test() {
@@ -750,7 +760,7 @@ mod tests {
 
         assert_eq!(recovered_signer, expected_signer);
     }
-
+  
     proptest! {
         #[test]
         fn test_roundtrip_2718(signed_tx in arb::<SeismicTransactionSigned>()) {

@@ -1,7 +1,6 @@
 use alloc::sync::Arc;
 use alloy_consensus::{
-    constants::EMPTY_WITHDRAWALS, proofs, Block, BlockBody, BlockHeader, Header, Transaction,
-    TxReceipt, EMPTY_OMMER_ROOT_HASH,
+    proofs, Block, BlockBody, BlockHeader, Header, Transaction, TxReceipt, EMPTY_OMMER_ROOT_HASH,
 };
 use alloy_eips::merge::BEACON_NONCE;
 use alloy_evm::block::BlockExecutorFactory;
@@ -13,8 +12,7 @@ use reth_evm::{
 };
 use reth_execution_errors::BlockExecutionError;
 use reth_execution_types::BlockExecutionResult;
-use reth_primitives_traits::SignedTransaction;
-use reth_seismic_primitives::{SeismicBlock, SeismicReceipt, SeismicTransactionSigned};
+use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
 
 /// Block builder for Seismic.
 #[derive(Debug, Clone)]

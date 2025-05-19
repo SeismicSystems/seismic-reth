@@ -886,6 +886,7 @@ where
         //
         // This validation **MUST** be instantly run in all cases even during active sync process.
         let parent_hash = payload.parent_hash();
+        println!("on_new_payload: payload: {:?}", payload);
         let block = match self.payload_validator.ensure_well_formed_payload(payload) {
             Ok(block) => block,
             Err(error) => {
@@ -1489,6 +1490,7 @@ where
                                 }
                             }
                             BeaconEngineMessage::NewPayload { payload, tx } => {
+                                println!("receiving beacon engine message: payload: {:?}", payload);
                                 let mut output = self.on_new_payload(payload);
 
                                 let maybe_event =

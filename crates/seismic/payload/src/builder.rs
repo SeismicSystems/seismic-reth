@@ -218,6 +218,7 @@ where
 
         // convert tx to a signed transaction
         let tx = pool_tx.to_consensus();
+        println!("default_seismic_payload: tx: {:?}", tx);
 
         let gas_used = match builder.execute_transaction(tx.clone()) {
             Ok(gas_used) => gas_used,
@@ -331,6 +332,7 @@ where
         tx: Recovered<TxTy<Self::Primitives>>,
         f: impl FnOnce(&ExecutionResult<<<Self::Executor as BlockExecutor>::Evm as Evm>::HaltReason>),
     ) -> Result<u64, BlockExecutionError> {
+        println!("seismic_block_builder: execute_transaction_with_result_closure: tx: {:?}", tx);
         let mut decrypted_tx = tx.clone();
         let mut inner_tx = decrypted_tx.inner_mut();
         let mut typed_tx: SeismicTypedTransaction = tx.inner().transaction().clone();
@@ -358,8 +360,16 @@ where
             _ => (),
         };
 
-        // call the inner execute_transaction
-        self.inner.execute_transaction_with_result_closure(decrypted_tx, f)
+        println!(
+            "seismic_block_builder: execute_transaction_with_result_closure: decrypted_tx: {:?}",
+            decrypted_tx
+        );
+
+        let gas_used = self
+            .executor_mut()
+            .execute_transaction_with_result_closure(decrypted_tx.as_recovered_ref(), f)?;
+        self.inner.add_transaction(tx)?;
+        Ok(gas_used)
     }
 
     fn finish(

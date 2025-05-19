@@ -253,6 +253,17 @@ pub trait BlockBuilder {
         self.execute_transaction_with_result_closure(tx, |_| ())
     }
 
+    /// Add transaction
+    /// 
+    /// Seismic team added this function to the trait for our stuff,
+    /// default unimplemented for backward compatibility
+    fn add_transaction(
+        &mut self,
+        _tx: Recovered<TxTy<Self::Primitives>>,
+    ) -> Result<u64, BlockExecutionError> {
+        unimplemented!()
+    }
+
     /// Completes the block building process and returns the [`BlockBuilderOutcome`].
     fn finish(
         self,
@@ -311,6 +322,7 @@ where
         tx: Recovered<TxTy<Self::Primitives>>,
         f: impl FnOnce(&ExecutionResult<<F::EvmFactory as EvmFactory>::HaltReason>),
     ) -> Result<u64, BlockExecutionError> {
+        println!("BasicBlockBuilder: execute_transaction_with_result_closure: tx: {:?}", tx);
         let gas_used =
             self.executor.execute_transaction_with_result_closure(tx.as_recovered_ref(), f)?;
         self.transactions.push(tx);
@@ -350,6 +362,14 @@ where
         let block = RecoveredBlock::new_unhashed(block, senders);
 
         Ok(BlockBuilderOutcome { execution_result: result, hashed_state, trie_updates, block })
+    }
+
+    fn add_transaction(
+        &mut self,
+        tx: Recovered<TxTy<Self::Primitives>>,
+    ) -> Result<u64, BlockExecutionError> {
+        self.transactions.push(tx);
+        Ok(self.transactions.len() as u64)
     }
 
     fn executor_mut(&mut self) -> &mut Self::Executor {
@@ -452,6 +472,7 @@ where
     where
         H: OnStateHook + 'static,
     {
+        println!("BasicBlockExecutor: execute_one_with_state_hook: block: {:?}", block);
         let mut strategy = self
             .strategy_factory
             .executor_for_block(&mut self.db, block)

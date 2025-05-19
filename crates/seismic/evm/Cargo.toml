@@ -31,9 +31,10 @@ alloy-primitives.workspace = true
 seismic-alloy-consensus.workspace = true
 alloy-consensus.workspace = true
 
-# Optimism
 reth-seismic-chainspec.workspace = true
+reth-seismic-forks.workspace = true
 reth-seismic-primitives = { workspace = true }
+reth-ethereum-primitives = { workspace = true, features = ["serde", "reth-codec"]}
 
 # Seismic
 alloy-seismic-evm.workspace = true
@@ -56,6 +57,7 @@ reth-seismic-primitives = { workspace = true, features = ["arbitrary"] }
 reth-testing-utils.workspace = true
 secp256k1.workspace = true
 revm-state.workspace = true
+k256.workspace = true
 
 [features]
 default = ["std"]
