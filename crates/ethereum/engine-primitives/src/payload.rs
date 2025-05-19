@@ -103,6 +103,7 @@ impl BuiltPayload for EthBuiltPayload {
 type SeismicBuiltPayload = EthBuiltPayload<reth_seismic_primitives::SeismicBlock>;
 
 impl SeismicBuiltPayload {
+    /// Create a new [`SeismicBuiltPayload`].
     pub fn new_seismic_payload(
         id: PayloadId,
         block: Arc<SealedBlock<reth_seismic_primitives::SeismicBlock>>,

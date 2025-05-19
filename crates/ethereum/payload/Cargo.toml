@@ -12,9 +12,7 @@ description = "A basic ethereum payload builder for reth that uses the txpool AP
 workspace = true
 
 [dependencies]
-reth-seismic-primitives.workspace = true
 # reth
-reth-ethereum-primitives.workspace = true
 reth-primitives-traits.workspace = true
 reth-revm.workspace = true
 reth-transaction-pool.workspace = true
@@ -28,15 +26,16 @@ reth-evm-ethereum.workspace = true
 reth-errors.workspace = true
 reth-chainspec.workspace = true
 reth-payload-validator.workspace = true
+reth-ethereum-primitives.workspace = true
 
 # ethereum
 revm.workspace = true
 alloy-rpc-types-engine.workspace = true
 
 # alloy
-alloy-eips.workspace = true
 alloy-consensus.workspace = true
 alloy-primitives.workspace = true
+alloy-eips.workspace = true
 
 # misc
 tracing.workspace = true

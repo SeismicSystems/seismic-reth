@@ -11,7 +11,7 @@ use reth_seismic_primitives::SeismicTransactionSigned;
 use reth_transaction_pool::{
     EthBlobTransactionSidecar, EthPoolTransaction, EthPooledTransaction, PoolTransaction,
 };
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 /// Pool Transaction for Seismic. Inspired from OP.
 #[derive(Debug, Clone, derive_more::Deref)]
@@ -26,6 +26,7 @@ pub struct SeismicPooledTransaction<
 }
 
 impl<Cons: SignedTransaction, Pooled> SeismicPooledTransaction<Cons, Pooled> {
+    /// Create a new [`SeismicPooledTransaction`].
     pub fn new(transaction: Recovered<Cons>, encoded_length: usize) -> Self {
         Self {
             inner: EthPooledTransaction::new(transaction, encoded_length),
@@ -153,11 +154,9 @@ mod tests {
     use crate::SeismicPooledTransaction;
     use alloy_consensus::transaction::Recovered;
     use alloy_eips::eip2718::Encodable2718;
-    use alloy_primitives::{PrimitiveSignature as Signature, TxKind, U256};
     use reth_primitives_traits::transaction::error::InvalidTransactionError;
     use reth_provider::test_utils::MockEthProvider;
     use reth_seismic_chainspec::SEISMIC_MAINNET;
-    use reth_seismic_evm::SeismicEvmConfig;
     use reth_seismic_primitives::test_utils::get_signed_seismic_tx;
     use reth_transaction_pool::{
         blobstore::InMemoryBlobStore, error::InvalidPoolTransactionError,

@@ -8,12 +8,10 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-use reth_seismic_primitives::SeismicTransactionSigned;
 use reth_transaction_pool::{
-    CoinbaseTipOrdering, EthPooledTransaction, EthTransactionValidator, Pool,
+    CoinbaseTipOrdering, EthTransactionValidator, Pool,
     TransactionValidationTaskExecutor,
 };
-use seismic_alloy_consensus::SeismicTxEnvelope;
 
 /// Type alias for default seismic transaction pool
 pub type SeismicTransactionPool<Client, S, T = SeismicPooledTransaction> = Pool<

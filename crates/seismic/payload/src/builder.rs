@@ -4,8 +4,6 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 #![allow(clippy::useless_let_if_seq)]
 
-use reth_basic_payload_builder::*;
-
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::U256;
 use reth_basic_payload_builder::{
@@ -17,13 +15,13 @@ use reth_enclave::EnclaveClient;
 use reth_errors::{BlockExecutionError, BlockValidationError};
 use reth_evm::{
     block::{BlockExecutor, InternalBlockExecutionError},
-    execute::{BasicBlockExecutorProvider, BlockBuilder, BlockBuilderOutcome},
-    ConfigureEvm, Evm, EvmFactory, NextBlockEnvAttributes,
+    execute::{BlockBuilder, BlockBuilderOutcome},
+    ConfigureEvm, Evm, NextBlockEnvAttributes,
 };
 use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_payload_builder_primitives::PayloadBuilderError;
 use reth_payload_primitives::PayloadBuilderAttributes;
-use reth_primitives_traits::{NodePrimitives, Recovered, SignedTransaction, TxTy};
+use reth_primitives_traits::{Recovered, SignedTransaction, TxTy};
 use reth_revm::{database::StateProviderDatabase, db::State};
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicTransactionSigned};
@@ -33,12 +31,11 @@ use reth_transaction_pool::{
     PoolTransaction, TransactionPool, ValidPoolTransaction,
 };
 use revm::{context::result::ExecutionResult, context_interface::Block as _};
-use seismic_alloy_consensus::{seismic, typed, SeismicTypedTransaction};
+use seismic_alloy_consensus::SeismicTypedTransaction;
 use std::sync::Arc;
 use tracing::{debug, trace, warn};
 
 use reth_primitives_traits::transaction::error::InvalidTransactionError;
-use reth_transaction_pool::error::Eip4844PoolTransactionError;
 
 type BestTransactionsIter<Pool> = Box<
     dyn BestTransactions<Item = Arc<ValidPoolTransaction<<Pool as TransactionPool>::Transaction>>>,
@@ -155,7 +152,7 @@ where
     let mut db =
         State::builder().with_database(cached_reads.as_db_mut(state)).with_bundle_update().build();
 
-    let mut builder = evm_config
+    let builder = evm_config
         .builder_for_next_block(
             &mut db,
             &parent_header,
@@ -193,7 +190,7 @@ where
         PayloadBuilderError::Internal(err.into())
     })?;
 
-    let mut block_blob_count = 0;
+    let block_blob_count = 0;
     let blob_params = chain_spec.blob_params_at_timestamp(attributes.timestamp);
     let max_blob_count =
         blob_params.as_ref().map(|params| params.max_blob_count).unwrap_or_default();
@@ -287,7 +284,7 @@ where
     let sealed_block = Arc::new(block.sealed_block().clone());
     debug!(target: "payload_builder", id=%attributes.id, sealed_block_header = ?sealed_block.sealed_header(), "sealed built block");
 
-    let mut payload = EthBuiltPayload::<SeismicBlock>::new_seismic_payload(
+    let payload = EthBuiltPayload::<SeismicBlock>::new_seismic_payload(
         attributes.id,
         sealed_block,
         total_fees,
@@ -301,6 +298,7 @@ where
 /// A Seismic Block Builder
 ///
 /// Wraps a [`BlockBuilder`], and applies decryotion to the transactions before executing them.
+#[derive(Debug)]
 pub struct SeismicBlockBuilder<B, C> {
     inner: B,
     decryption_helper: C,
@@ -334,13 +332,13 @@ where
     ) -> Result<u64, BlockExecutionError> {
         println!("seismic_block_builder: execute_transaction_with_result_closure: tx: {:?}", tx);
         let mut decrypted_tx = tx.clone();
-        let mut inner_tx = decrypted_tx.inner_mut();
-        let mut typed_tx: SeismicTypedTransaction = tx.inner().transaction().clone();
+        let inner_tx = decrypted_tx.inner_mut();
+        let typed_tx: SeismicTypedTransaction = tx.inner().transaction().clone();
 
         // If there is encrypted calldata decrypt the transaction
         // and replace the call data with the plaintext for inner_tx
         match typed_tx {
-            SeismicTypedTransaction::Seismic(mut tx_seismic) => {
+            SeismicTypedTransaction::Seismic(tx_seismic) => {
                 let ciphertext = tx_seismic.input().clone();
                 let seismic_elements = tx_seismic.seismic_elements.clone();
 

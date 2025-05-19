@@ -12,11 +12,10 @@ use std::sync::Arc;
 
 use alloy_chains::Chain;
 use alloy_consensus::constants::{DEV_GENESIS_HASH, MAINNET_GENESIS_HASH};
-use alloy_eips::eip6110::MAINNET_DEPOSIT_CONTRACT_ADDRESS;
-use alloy_primitives::{b256, U256};
+use alloy_primitives::U256;
 use reth_chainspec::{
-    make_genesis_header, BaseFeeParams, BaseFeeParamsKind, ChainSpec, DepositContract,
-    HardforkBlobParams, DEV_HARDFORKS, MAINNET_PRUNE_DELETE_LIMIT,
+    make_genesis_header, BaseFeeParams, BaseFeeParamsKind, ChainSpec,
+    DEV_HARDFORKS,
 };
 use reth_primitives_traits::{sync::LazyLock, SealedHeader};
 use reth_seismic_forks::{SEISMIC_DEV_HARDFORKS, SEISMIC_MAINNET_HARDFORKS};
@@ -36,7 +35,7 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
         hardforks: DEV_HARDFORKS.clone(),
         base_fee_params: BaseFeeParamsKind::Constant(BaseFeeParams::ethereum()),
-        deposit_contract: None, // TODO: do we even have?
+        deposit_contract: None,
         ..Default::default()
     }
     .into()
@@ -51,24 +50,15 @@ pub static SEISMIC_MAINNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
         chain: Chain::from_id(5123),
         genesis_header: SealedHeader::new(
             make_genesis_header(&genesis, &hardforks),
-            MAINNET_GENESIS_HASH,
+            MAINNET_GENESIS_HASH, // TODO: check this
         ),
         genesis,
         // <https://etherscan.io/block/15537394>
-        paris_block_and_final_difficulty: Some((
-            15537394,
-            U256::from(58_750_003_716_598_352_816_469u128),
-        )),
+        paris_block_and_final_difficulty: Some((0, U256::from(0))),
         hardforks,
         // https://etherscan.io/tx/0xe75fb554e433e03763a1560646ee22dcb74e5274b34c5ad644e7c0f619a7e1d0
-        deposit_contract: Some(DepositContract::new(
-            MAINNET_DEPOSIT_CONTRACT_ADDRESS,
-            11052984,
-            b256!("0x649bbc62d0e31342afea4e5cd82d4049e7e1ee912fc0889aa790803be39038c5"),
-        )),
-        base_fee_params: BaseFeeParamsKind::Constant(BaseFeeParams::ethereum()),
-        prune_delete_limit: MAINNET_PRUNE_DELETE_LIMIT,
-        blob_params: HardforkBlobParams::default(),
+        deposit_contract: None,
+        ..Default::default()
     };
     spec.genesis.config.dao_fork_support = true;
     spec.into()

@@ -16,37 +16,21 @@ workspace = true
 alloy-consensus.workspace = true
 alloy-eips.workspace = true
 alloy-primitives.workspace = true
-alloy-rpc-types-eth.workspace = true
-alloy-rpc-client = { workspace = true, features = ["reqwest", "default"] }
-alloy-json-rpc.workspace = true
 
 # reth
-reth-chainspec.workspace = true
 reth-primitives-traits.workspace = true
-reth-chain-state.workspace = true
-reth-storage-api.workspace = true
 reth-transaction-pool = {workspace = true, features = ["serde", "reth-codec", "serde-bincode-compat"]}
 
 # seismic
 seismic-alloy-consensus.workspace = true
-reth-seismic-evm.workspace = true
 reth-seismic-primitives = {workspace = true, features = ["serde", "reth-codec", "serde-bincode-compat"]}
-op-alloy-flz.workspace = true
-
-# metrics
-reth-metrics.workspace = true
-metrics.workspace = true
+reth-seismic-evm = { workspace = true } # removing this makes something break, I think because reth-evm builds without std
 
 # misc
 c-kzg.workspace = true
 derive_more.workspace = true
-futures-util.workspace = true
-parking_lot.workspace = true
-serde.workspace = true
-tracing.workspace = true
-thiserror.workspace = true
-tokio = { workspace = true, features = ["time"] }
 
 [dev-dependencies]
 reth-seismic-chainspec.workspace = true
 reth-provider = { workspace = true, features = ["test-utils"] }
+tokio.workspace = true
