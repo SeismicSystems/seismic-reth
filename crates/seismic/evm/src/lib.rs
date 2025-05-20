@@ -122,9 +122,10 @@ impl ConfigureEvm for SeismicEvmConfig {
             gas_limit: header.gas_limit(),
             basefee: header.base_fee_per_gas().unwrap_or_default(),
             // EIP-4844 excess blob gas of this block, introduced in Cancun
-            blob_excess_gas_and_price: header
-                .excess_blob_gas
-                .map(|excess_blob_gas| BlobExcessGasAndPrice::new(excess_blob_gas, true)),
+            // blob_excess_gas_and_price: header
+            //     .excess_blob_gas
+            //     .map(|excess_blob_gas| BlobExcessGasAndPrice::new(excess_blob_gas, true)),
+            blob_excess_gas_and_price: None, // Seismic does not enable blobs for now
         };
 
         EvmEnv { cfg_env, block_env }
@@ -136,6 +137,7 @@ impl ConfigureEvm for SeismicEvmConfig {
         attributes: &NextBlockEnvAttributes,
     ) -> Result<EvmEnv<SeismicSpecId>, Self::Error> {
         let spec_id = revm_spec(self.chain_spec(), parent);
+        let after_prague = true; // Seismic is always after prague
 
         // configure evm env based on parent block
         let cfg = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
@@ -146,7 +148,7 @@ impl ConfigureEvm for SeismicEvmConfig {
             .maybe_next_block_excess_blob_gas(
                 self.chain_spec().blob_params_at_timestamp(attributes.timestamp),
             )
-            .map(|gas| BlobExcessGasAndPrice::new(gas, spec_id >= SeismicSpecId::MERCURY));
+            .map(|gas| BlobExcessGasAndPrice::new(gas, after_prague));
 
         let mut basefee = parent.next_block_base_fee(
             self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp),
