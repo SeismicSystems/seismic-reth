@@ -5,10 +5,6 @@
 //! When making the default_seismic_payload, it uses the [`SeismicBlockBuilder`] to build the block,
 //! whick is when decryption occurs. 
 
-#![cfg_attr(not(test), warn(unused_crate_dependencies))]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
-#![allow(clippy::useless_let_if_seq)]
-
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::U256;
 use reth_basic_payload_builder::{

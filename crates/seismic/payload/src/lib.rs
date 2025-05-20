@@ -13,3 +13,8 @@ pub mod builder;
 pub use builder::SeismicPayloadBuilder;
 
 pub use reth_ethereum_payload_builder::EthereumBuilderConfig as SeismicBuilderConfig;
+
+// Use reth_ethereum_primitives to suppress unused import warning
+// We import the crate ensure features such as serde and reth-codec are enabled
+// When it is pulled in by other dependencies
+use reth_ethereum_primitives as _; 
