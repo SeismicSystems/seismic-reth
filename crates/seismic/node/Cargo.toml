@@ -91,6 +91,11 @@ alloy-network = { workspace = true }
 alloy-genesis = { workspace = true }
 seismic-alloy-network = { workspace = true }
 seismic-alloy-provider = { workspace = true }
+reth-enclave.workspace = true
+alloy-dyn-abi.workspace = true
+alloy-sol-types.workspace = true
+alloy-json-abi.workspace = true
+alloy-provider.workspace = true
 
 [features]
 default = ["reth-codec"]
