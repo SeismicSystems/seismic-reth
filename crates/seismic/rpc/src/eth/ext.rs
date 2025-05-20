@@ -11,18 +11,20 @@
 use super::api::FullSeismicApi;
 use crate::{
     error::SeismicEthApiError,
-    utils::{recover_typed_data_request, seismic_override_call_request},
+    utils::{
+        convert_seismic_call_to_tx_request, recover_typed_data_request,
+        seismic_override_call_request,
+    },
 };
 use alloy_dyn_abi::TypedData;
 use alloy_json_rpc::RpcObject;
 use alloy_primitives::{Address, Bytes, B256};
 use alloy_rpc_types::{
-    simulate::SimBlock,
     state::{EvmOverrides, StateOverride},
     BlockId, BlockOverrides,
 };
 use alloy_rpc_types_eth::{
-    simulate::{SimulatePayload, SimulatedBlock},
+    simulate::{SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock},
     transaction::TransactionRequest,
 };
 use futures::Future;
@@ -39,7 +41,10 @@ use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
 use reth_tracing::tracing::*;
 use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
 use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
-use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest};
+use seismic_alloy_rpc_types::{
+    SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest,
+    SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
+};
 use seismic_enclave::{
     rpc::EnclaveApiClient, tx_io::IoDecryptionRequest, EnclaveClient, PublicKey,
 };
@@ -117,14 +122,14 @@ pub trait EthApiOverride<B: RpcObject> {
     #[method(name = "signTypedData_v4")]
     async fn sign_typed_data_v4(&self, address: Address, data: TypedData) -> RpcResult<String>;
 
-    // /// `eth_simulateV1` executes an arbitrary number of transactions on top of the requested state.
-    // /// The transactions are packed into individual blocks. Overrides can be provided.
-    // #[method(name = "simulateV1")]
-    // async fn simulate_v1(
-    //     &self,
-    //     opts: SimulatePayload<SeismicCallRequest>,
-    //     block_number: Option<BlockId>,
-    // ) -> RpcResult<Vec<SimulatedBlock<B>>>;
+    /// `eth_simulateV1` executes an arbitrary number of transactions on top of the requested state.
+    /// The transactions are packed into individual blocks. Overrides can be provided.
+    #[method(name = "simulateV1")]
+    async fn simulate_v1(
+        &self,
+        opts: SeismicSimulatePayload<SeismicCallRequest>,
+        block_number: Option<BlockId>,
+    ) -> RpcResult<Vec<SimulatedBlock<B>>>;
 
     /// Executes a new message call immediately without creating a transaction on the block chain.
     #[method(name = "call")]
@@ -170,95 +175,77 @@ where
         Ok(format!("0x{signature}"))
     }
 
-    // /// Handler for: `eth_simulateV1` TODO: fix this
-    // async fn simulate_v1(
-    //     &self,
-    //     payload: SimulatePayload<SeismicCallRequest>,
-    //     block_number: Option<BlockId>,
-    // ) -> RpcResult<Vec<SimulatedBlock<RpcBlock<Eth::NetworkTypes>>>> {
-    //     trace!(target: "rpc::eth", "Serving eth_simulateV1");
+    /// Handler for: `eth_simulateV1`
+    async fn simulate_v1(
+        &self,
+        payload: SeismicSimulatePayload<SeismicCallRequest>,
+        block_number: Option<BlockId>,
+    ) -> RpcResult<Vec<SimulatedBlock<RpcBlock<Eth::NetworkTypes>>>> {
+        trace!(target: "rpc::eth", "Serving eth_simulateV1");
 
-    //     let mut simulated_blocks = Vec::with_capacity(payload.block_state_calls.len());
+        let seismic_sim_blocks: Vec<SeismicSimBlock<SeismicCallRequest>> =
+            payload.block_state_calls.clone();
 
-    //     for block in payload.block_state_calls {
-    //         let SimBlock { block_overrides, state_overrides, calls } = block;
-    //         let mut prepared_calls: Vec<TransactionRequest> = Vec::with_capacity(calls.len());
+        // Recover EthSimBlocks from the SeismicSimulatePayload<SeismicCallRequest>
+        let mut eth_simulated_blocks: Vec<EthSimBlock> =
+            Vec::with_capacity(payload.block_state_calls.len());
+        for block in payload.block_state_calls {
+            let SeismicSimBlock { block_overrides, state_overrides, calls } = block;
+            let mut prepared_calls = Vec::with_capacity(calls.len());
 
-    //         for call in calls {
-    //             let tx_request = match call {
-    //                 SeismicCallRequest::TransactionRequest(_tx_request) => {
-    //                     return Err(EthApiError::InvalidParams(
-    //                         "Invalid Transaction Request".to_string(),
-    //                     )
-    //                     .into())
-    //                 }
+            for call in calls {
+                let seismic_tx_request = convert_seismic_call_to_tx_request(call)?;
+                // TODO: decryption
+                let tx_request: TransactionRequest = seismic_tx_request.inner;
+                prepared_calls.push(tx_request);
+            }
 
-    //                 SeismicCallRequest::TypedData(typed_request) => {
-    //                     let tx =
-    //                         recover_typed_data_request::<PoolPooledTx<Eth::Pool>>(&typed_request)?
-    //                             .map_transaction(
-    //                             <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
-    //                         );
+            let prepared_block =
+                EthSimBlock { block_overrides, state_overrides, calls: prepared_calls };
 
-    //                     TransactionRequest::from_transaction_with_sender(
-    //                         tx.as_signed().clone(),
-    //                         tx.signer(),
-    //                     )
-    //                 }
+            eth_simulated_blocks.push(prepared_block);
+        }
 
-    //                 SeismicCallRequest::Bytes(bytes) => {
-    //                     let tx = recover_raw_transaction::<PoolPooledTx<Eth::Pool>>(&bytes)?
-    //                         .map_transaction(
-    //                             <Eth::Pool as TransactionPool>::Transaction::pooled_into_consensus,
-    //                         );
+        let result = EthCall::simulate_v1(
+            &self.eth_api,
+            EthSimulatePayload {
+                block_state_calls: eth_simulated_blocks.clone(),
+                trace_transfers: payload.trace_transfers,
+                validation: payload.validation,
+                return_full_transactions: payload.return_full_transactions,
+            },
+            block_number,
+        )
+        .await;
+        let mut result = result.unwrap();
 
-    //                     TransactionRequest::from_transaction_with_sender(
-    //                         tx.as_signed().clone(),
-    //                         tx.signer(),
-    //                     )
-    //                 }
-    //             };
-    //             prepared_calls.push(tx_request);
-    //         }
+        for (block, result) in seismic_sim_blocks.iter().zip(result.iter_mut()) {
+            let SeismicSimBlock::<SeismicCallRequest> { calls, .. } = block;
+            let SimulatedBlock { calls: call_results, .. } = result;
 
-    //         let prepared_block =
-    //             SimBlock { block_overrides, state_overrides, calls: prepared_calls };
+            for (call_result, call) in call_results.iter_mut().zip(calls.iter()) {
+                let seismic_tx_request = convert_seismic_call_to_tx_request(call.clone())?;
+                let seismic_elements = seismic_tx_request.seismic_elements.clone();
 
-    //         simulated_blocks.push(prepared_block);
-    //     }
+                let enclave_client = EnclaveClient::default();
 
-    //     let result = EthCall::simulate_v1(
-    //         &self.eth_api,
-    //         SimulatePayload {
-    //             block_state_calls: simulated_blocks.clone(),
-    //             trace_transfers: payload.trace_transfers,
-    //             validation: payload.validation,
-    //             return_full_transactions: payload.return_full_transactions,
-    //         },
-    //         block_number,
-    //     )
-    //     .await;
-    //     let mut result = result.unwrap();
+                if let Some(seismic_elements) = seismic_elements {
+                    let encrypted_output = seismic_elements
+                        .server_encrypt(&enclave_client, &call_result.return_data)
+                        .map_err(|e| {
+                            EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+                                -32000, // TODO: pick a better error code?
+                                "EncryptionError",
+                                Some(e.to_string()),
+                            )))
+                        })?;
+                    call_result.return_data = encrypted_output;
+                }
+            }
+        }
 
-    //     for (block, result) in simulated_blocks.iter().zip(result.iter_mut()) {
-    //         let SimBlock { calls, .. } = block;
-    //         let SimulatedBlock { calls: call_results, .. } = result;
-
-    //         for (call_result, call) in call_results.iter_mut().zip(calls.iter()) {
-    //             call.seismic_elements.map(|seismic_elements| {
-    //                 let encrypted_output = self
-    //                     .eth_api
-    //                     .evm_config()
-    //                     .encrypt(&call_result.return_data, &seismic_elements)
-    //                     .map(|encrypted_output| Bytes::from(encrypted_output))
-    //                     .unwrap();
-    //                 call_result.return_data = encrypted_output;
-    //             });
-    //         }
-    //     }
-
-    //     Ok(result)
-    // }
+        Ok(result)
+    }
 
     /// Handler for: `eth_call`
     async fn call(
@@ -269,21 +256,7 @@ where
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
         debug!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving overridden eth_call");
-        let seismic_tx_request: SeismicTransactionRequest = match request {
-            SeismicCallRequest::TransactionRequest(mut tx_request) => {
-                seismic_override_call_request(&mut tx_request.inner);
-                tx_request
-            }
-
-            SeismicCallRequest::TypedData(typed_request) => {
-                SeismicTransactionRequest::decode_712(&typed_request).unwrap()
-            }
-
-            SeismicCallRequest::Bytes(bytes) => {
-                let tx = recover_raw_transaction::<SeismicTxEnvelope>(&bytes)?;
-                tx.inner().clone().into()
-            }
-        };
+        let seismic_tx_request = convert_seismic_call_to_tx_request(request)?;
 
         // decrypt seismic elements
         let seismic_elements = seismic_tx_request.seismic_elements;
