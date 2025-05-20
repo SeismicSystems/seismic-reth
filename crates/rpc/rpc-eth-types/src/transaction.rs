@@ -67,7 +67,6 @@ impl<T: SignedTransaction> TransactionSource<T> {
                 (tx, TransactionInfo { hash: Some(hash), ..Default::default() })
             }
             Self::Block { transaction, index, block_hash, block_number, base_fee } => {
-                let tx_type = Some(transaction.ty() as isize);
                 let hash = transaction.trie_hash();
                 (
                     transaction,
