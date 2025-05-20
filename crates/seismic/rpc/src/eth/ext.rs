@@ -377,17 +377,20 @@ mod tests {
                 .unwrap();
     }
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn test_call_seismic_functions_http() {
-    //     reth_tracing::init_test_tracing();
-    //     let enclave_client = start_mock_enclave_server_random_port().await;
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_call_seismic_functions_http() {
+        use crate::utils2::test_utils::{launch_http};
 
-    //     let seismic_api = SeismicApi::default().with_enclave_client(enclave_client);
+        reth_tracing::init_test_tracing();
+        let enclave_client = start_mock_enclave_server_random_port().await;
 
-    //     let handle = launch_http(seismic_api.into_rpc()).await;
-    //     let client = handle.http_client().unwrap();
-    //     test_basic_seismic_calls(&client).await;
-    // }
+        let seismic_api = SeismicApi::default().with_enclave_client(enclave_client);
+        let rpc_mod = seismic_api.into_rpc();
+
+        let handle = launch_http(rpc_mod).await;
+        let client = handle.http_client().unwrap();
+        test_basic_seismic_calls(&client).await;
+    }
 
     // #[tokio::test(flavor = "multi_thread")]
     // async fn test_call_eth_functions_http() {

@@ -61,6 +61,7 @@ pub mod test_utils {
         test_utils::{testing_pool, MockOrdering, TestPool, TestPoolBuilder},
         CoinbaseTipOrdering, Pool,
     };
+    use seismic_alloy_consensus::seismic;
     use seismic_alloy_network::Seismic;
     use seismic_revm::SeismicTransaction;
     use std::{
@@ -105,12 +106,24 @@ pub mod test_utils {
 
     // /// Launches a new server with http only with the given modules
     // pub async fn launch_http(modules: impl Into<Methods>) -> RpcServerHandle {
-    //     let builder = test_seismic_rpc_builder();
-    //     let eth_api = builder.bootstrap_eth_api();
-    //     // let seismic_eth_api = SeismicEthApi { inner: eth_api.inner.clone() };
-    //     let mut server = builder.build(
+    //     let rpc_builder = test_seismic_rpc_builder();
+    //     let api_builder = rpc_builder.eth_api_builder();
+    //     let eth_inner = api_builder.build_inner();
+    //     // EthApi::new(
+    //     //     eth_inner.provider().clone(),
+    //     //     eth_inner.pool().clone(),
+    //     //     eth_inner.network().clone(),
+    //     //     eth_inner.evm_config().clone(),
+    //     // );
+
+    //     let seismic_builder = SeismicEthApiBuilder::new();
+
+    //     let seismic_eth_api = SeismicEthApi { inner: eth_inner.clone() };
+    //     // let eth_api  = rpc_builder.bootstrap_eth_api();
+    //     // let seismic_eth_api: SeismicEthApi<_> = SeismicEthApi { inner: eth_api.inner.clone() };
+    //     let mut server = rpc_builder.build(
     //         TransportRpcModuleConfig::set_http(RpcModuleSelection::Standard),
-    //         *Box::new(eth_api),
+    //         *Box::new(seismic_eth_api),
     //     );
     //     server.replace_configured(modules).unwrap();
     //     RpcServerConfig::http(Default::default())
@@ -155,6 +168,47 @@ pub mod test_utils {
     //         )))
     //         .with_consensus(NoopConsensus::default())
     // }
+
+
+/////////////////////// Old stuff for reference ///////////////////////////////////////
+
+    // use reth_evm_ethereum::EthEvmConfig;
+    // use reth_primitives::EthPrimitives;
+    // /// Launches a new server with http only with the given modules
+    // pub async fn launch_http(modules: impl Into<RpcModuleSelection>) -> RpcServerHandle {
+    //     let builder = test_rpc_builder();
+    //     let eth_api = builder.bootstrap_eth_api();
+    //     let server = builder.build(TransportRpcModuleConfig::set_http(modules), eth_api);
+    //     RpcServerConfig::http(Default::default())
+    //         .with_http_address(test_address())
+    //         .start(&server)
+    //         .await
+    //         .unwrap()
+    // }
+
+    // pub fn test_rpc_builder() -> RpcModuleBuilder<
+    //     EthPrimitives,
+    //     NoopProvider,
+    //     TestPool,
+    //     NoopNetwork,
+    //     TokioTaskExecutor,
+    //     EthEvmConfig,
+    //     BasicBlockExecutorProvider<EthEvmConfig>,
+    //     NoopConsensus,
+    // > {
+    //     RpcModuleBuilder::default()
+    //         .with_provider(NoopProvider::default())
+    //         .with_pool(TestPoolBuilder::default().into())
+    //         .with_network(NoopNetwork::default())
+    //         .with_executor(TokioTaskExecutor::default())
+    //         .with_evm_config(EthEvmConfig::mainnet())
+    //         .with_block_executor(BasicBlockExecutorProvider::new(EthEvmConfig::mainnet()))
+    //         .with_consensus(NoopConsensus::default())
+    // }
+
+
+
+
 
     // /// Builds a test eth api
     // pub fn build_test_eth_api<
