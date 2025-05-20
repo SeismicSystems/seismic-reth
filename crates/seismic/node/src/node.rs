@@ -1,28 +1,25 @@
 //! Seismic Node types config.
 
 use crate::{
-    args::EnclaveArgs,
     engine::{SeismicEngineTypes, SeismicEngineValidator},
     txpool::SeismicTransactionPool,
 };
-use alloy_consensus::transaction::PooledTransaction;
 use alloy_eips::merge::EPOCH_SLOTS;
-use alloy_rpc_types_engine::PayloadAttributes;
-use reth_chainspec::{ChainSpec, EthChainSpec, EthereumHardforks, Hardforks};
+use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_consensus::{ConsensusError, FullConsensus};
 use reth_evm::{
     execute::BasicBlockExecutorProvider, ConfigureEvm, EvmFactory, EvmFactoryFor,
     NextBlockEnvAttributes,
 };
-use reth_network::{NetworkConfig, NetworkHandle, NetworkManager, NetworkPrimitives, PeersInfo};
+use reth_network::{NetworkHandle, NetworkPrimitives};
 use reth_node_api::{
-    AddOnsContext, FullNodeComponents, KeyHasherTy, NodeAddOns, NodePrimitives, PayloadTypes,
+    AddOnsContext, FullNodeComponents, NodeAddOns,
     PrimitivesTy, TxTy,
 };
 use reth_node_builder::{
     components::{
         BasicPayloadServiceBuilder, ComponentsBuilder, ConsensusBuilder, ExecutorBuilder,
-        NetworkBuilder, PayloadBuilderBuilder, PoolBuilder, PoolBuilderConfigOverrides,
+        NetworkBuilder, PayloadBuilderBuilder, PoolBuilder,
     },
     node::{FullNodeTypes, NodeTypes, NodeTypesWithEngine},
     rpc::{
@@ -32,23 +29,20 @@ use reth_node_builder::{
     BuilderContext, DebugNode, Node, NodeAdapter, NodeComponentsBuilder, PayloadBuilderConfig,
 };
 use reth_node_ethereum::consensus::EthBeaconConsensus;
-use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_provider::{providers::ProviderFactoryBuilder, CanonStateSubscriptions, EthStorage};
-use reth_rpc::{eth::core::EthApiFor, ValidationApi};
-use reth_rpc_api::{BlockSubmissionValidationApiServer, DebugApiServer};
+use reth_rpc::ValidationApi;
+use reth_rpc_api::BlockSubmissionValidationApiServer;
 use reth_rpc_builder::config::RethRpcServerConfig;
-use reth_rpc_eth_api::{ext::L2EthApiExtServer, FullEthApiServer};
+use reth_rpc_eth_api::FullEthApiServer;
 use reth_rpc_eth_types::{error::FromEvmError, EthApiError};
 use reth_rpc_server_types::RethRpcModule;
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
 use reth_seismic_rpc::{SeismicEthApi, SeismicEthApiBuilder};
-use reth_seismic_txpool::SeismicPooledTransaction;
-use reth_tracing::tracing::{debug, info};
 use reth_transaction_pool::{
     blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},
-    CoinbaseTipOrdering, EthPoolTransaction, EthPooledTransaction, EthTransactionPool,
+    CoinbaseTipOrdering,
     PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
 };
 use reth_trie_db::MerklePatriciaTrie;

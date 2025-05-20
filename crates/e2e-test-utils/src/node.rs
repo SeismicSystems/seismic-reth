@@ -20,16 +20,12 @@ use reth_provider::{
     BlockReader, BlockReaderIdExt, CanonStateNotificationStream, CanonStateSubscriptions,
     StageCheckpointReader,
 };
-use reth_rpc_eth_api::helpers::{EthApiSpec, EthTransactions, FullEthApi, TraceExt};
+use reth_rpc_eth_api::helpers::{EthApiSpec,FullEthApi, TraceExt};
 use reth_rpc_layer::AuthClientService;
 use reth_stages_types::StageId;
 use std::pin::Pin;
 use tokio_stream::StreamExt;
 use url::Url;
-
-
-use alloy_rpc_types_eth::TransactionTrait;
-use alloy_consensus::Transaction;
 
 /// An helper struct to handle node actions
 #[expect(missing_debug_implementations)]

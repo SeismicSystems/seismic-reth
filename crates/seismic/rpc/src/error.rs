@@ -1,8 +1,7 @@
 use alloy_rpc_types_eth::BlockError;
 use reth_rpc_eth_api::AsEthApiError;
-use reth_rpc_eth_types::{error::api::FromEvmHalt, EthApiError};
+use reth_rpc_eth_types::EthApiError;
 use reth_rpc_server_types::result::internal_rpc_err;
-use seismic_revm::SeismicHaltReason;
 
 #[derive(Debug, thiserror::Error)]
 /// Seismic API error

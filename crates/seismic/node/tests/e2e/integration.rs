@@ -1,7 +1,7 @@
 //! This file is used to test the seismic node.
 use alloy_dyn_abi::EventExt;
 use alloy_json_abi::{Event, EventParam};
-use alloy_network::{EthereumWallet, TransactionBuilder};
+use alloy_network::EthereumWallet;
 use alloy_primitives::{
     aliases::{B96, U96},
     hex,

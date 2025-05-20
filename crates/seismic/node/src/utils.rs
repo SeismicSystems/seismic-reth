@@ -1,54 +1,16 @@
-use alloy_primitives::{Address, B256};
-use reth_chainspec::ChainSpecBuilder;
-use reth_e2e_test_utils::{
-    transaction::TransactionTestContext, wallet::Wallet, NodeHelperType, TmpDB,
-};
-use reth_node_api::NodeTypesWithDBAdapter;
-use reth_provider::providers::BlockchainProvider;
-use std::sync::Arc;
-use tokio::sync::Mutex;
+//! test utils for the e2e tests
 
 /// Test utils for the seismic rpc api
 pub mod test_utils {
-    use super::*;
-    use alloy_consensus::{SignableTransaction, TxEnvelope, TypedTransaction};
-    use alloy_dyn_abi::TypedData;
-    use alloy_eips::eip2718::Encodable2718;
-    use alloy_network::{EthereumWallet, TransactionBuilder};
     use alloy_primitives::{
-        aliases::U96, hex_literal, Address, Bytes, PrimitiveSignature, TxKind, B256, U256,
+        Address,
     };
-    use alloy_rpc_types::{Block, Header, Transaction, TransactionInput, TransactionReceipt};
-    use alloy_rpc_types_eth::TransactionRequest;
-    use alloy_signer_local::PrivateKeySigner;
-    use core::str::FromStr;
-    use enr::EnrKey;
+    use alloy_rpc_types::{Block, Header, Transaction, TransactionReceipt};
     use jsonrpsee::http_client::HttpClient;
-    use jsonrpsee_core::server::Methods;
-    use k256::ecdsa::SigningKey;
-    use reth_chainspec::MAINNET;
-    use reth_e2e_test_utils::transaction::TransactionTestContext;
-    use reth_enclave::MockEnclaveServer;
-    use reth_network_api::noop::NoopNetwork;
-    use reth_payload_builder::EthPayloadBuilderAttributes;
-    use reth_primitives::TransactionSigned;
-    use reth_provider::StateProviderFactory;
-    use reth_rpc::EthApi;
-    use reth_rpc_builder::{
-        RpcModuleSelection, RpcServerConfig, RpcServerHandle, TransportRpcModuleConfig,
-    };
     use reth_rpc_eth_api::EthApiClient;
     use reth_seismic_chainspec::SEISMIC_DEV;
-    use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
-    use reth_transaction_pool::test_utils::TestPool;
-    use secp256k1::{PublicKey, SecretKey};
-    use seismic_alloy_consensus::{
-        SeismicTxEnvelope, SeismicTypedTransaction, TxSeismic, TxSeismicElements, TypedDataRequest,
-    };
-    use seismic_alloy_network::Seismic;
-    use seismic_alloy_rpc_types::SeismicTransactionRequest;
     use serde_json::Value;
-    use std::{path::PathBuf, process::Stdio, sync::Arc};
+    use std::{path::PathBuf, process::Stdio};
     use tokio::{
         io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
         process::Command,
