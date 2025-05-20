@@ -322,7 +322,6 @@ where
         tx: Recovered<TxTy<Self::Primitives>>,
         f: impl FnOnce(&ExecutionResult<<F::EvmFactory as EvmFactory>::HaltReason>),
     ) -> Result<u64, BlockExecutionError> {
-        println!("BasicBlockBuilder: execute_transaction_with_result_closure: tx: {:?}", tx);
         let gas_used =
             self.executor.execute_transaction_with_result_closure(tx.as_recovered_ref(), f)?;
         self.transactions.push(tx);
@@ -472,7 +471,6 @@ where
     where
         H: OnStateHook + 'static,
     {
-        println!("BasicBlockExecutor: execute_one_with_state_hook: block: {:?}", block);
         let mut strategy = self
             .strategy_factory
             .executor_for_block(&mut self.db, block)

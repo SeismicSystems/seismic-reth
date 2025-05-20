@@ -10206,7 +10206,6 @@ dependencies = [
  "reth-primitives-traits",
  "reth-provider",
  "reth-seismic-chainspec",
- "reth-seismic-evm",
  "reth-seismic-primitives",
  "reth-transaction-pool",
  "seismic-alloy-consensus",
