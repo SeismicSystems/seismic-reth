@@ -13,6 +13,7 @@ use reth_evm::{
 };
 use reth_primitives_traits::{NodePrimitives, RecoveredBlock};
 use revm_database::State;
+use reth_seismic_primitives::SeismicPrimitives;
 
 /// Helper type with backwards compatible methods to obtain executor providers.
 #[derive(Debug)]
@@ -27,11 +28,17 @@ impl SeismicExecutorProvider {
 
 /// A generic block executor provider that can create executors using a strategy factory.
 #[derive(Debug)]
-pub struct SeismicBlockExecutorProvider<F> {
+pub struct SeismicBlockExecutorProvider<F>
+where
+    F: ConfigureEvm<Primitives = SeismicPrimitives>,
+{
     strategy_factory: F,
 }
 
-impl<F> SeismicBlockExecutorProvider<F> {
+impl<F> SeismicBlockExecutorProvider<F>
+where
+    F: ConfigureEvm<Primitives = SeismicPrimitives>,
+{
     /// Creates a new `SeismicBlockExecutorProvider` with the given strategy factory.
     pub const fn new(strategy_factory: F) -> Self {
         Self { strategy_factory }
@@ -40,7 +47,7 @@ impl<F> SeismicBlockExecutorProvider<F> {
 
 impl<F> BlockExecutorProvider for SeismicBlockExecutorProvider<F>
 where
-    F: ConfigureEvm + 'static,
+    F: ConfigureEvm<Primitives = SeismicPrimitives> + 'static,
 {
     type Primitives = F::Primitives;
 
@@ -56,7 +63,7 @@ where
 
 impl<F> Clone for SeismicBlockExecutorProvider<F>
 where
-    F: Clone,
+    F: ConfigureEvm<Primitives = SeismicPrimitives>,
 {
     fn clone(&self) -> Self {
         Self { strategy_factory: self.strategy_factory.clone() }
@@ -79,10 +86,10 @@ impl<F, DB: Database> SeismicBlockExecutor<F, DB> {
 
 impl<F, DB> Executor<DB> for SeismicBlockExecutor<F, DB>
 where
-    F: ConfigureEvm,
+    F: ConfigureEvm<Primitives = SeismicPrimitives>,
     DB: Database,
 {
-    type Primitives = SeismicPrimitives;
+    type Primitives = F::Primitives;
     type Error = BlockExecutionError;
 
     fn execute_one(

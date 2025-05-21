@@ -32,7 +32,6 @@ use reth_node_core::{
     args::LogArgs,
     version::{LONG_VERSION, SHORT_VERSION},
 };
-use reth_seismic_evm::SeismicExecutorProvider;
 use reth_tracing::FileWorkerGuard;
 use tracing::info;
 

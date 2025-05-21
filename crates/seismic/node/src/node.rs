@@ -49,6 +49,7 @@ use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
 use std::{sync::Arc, time::SystemTime};
+use reth_seismic_evm::SeismicBlockExecutorProvider;
 
 /// Storage implementation for Optimism.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
@@ -361,14 +362,14 @@ where
     Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
 {
     type EVM = SeismicEvmConfig;
-    type Executor = BasicBlockExecutorProvider<Self::EVM>;
+    type Executor = SeismicBlockExecutorProvider<Self::EVM>;
 
     async fn build_evm(
         self,
         ctx: &BuilderContext<Node>,
     ) -> eyre::Result<(Self::EVM, Self::Executor)> {
         let evm_config = SeismicEvmConfig::seismic(ctx.chain_spec());
-        let executor = BasicBlockExecutorProvider::new(evm_config.clone());
+        let executor = SeismicBlockExecutorProvider::new(evm_config.clone());
 
         Ok((evm_config, executor))
     }
