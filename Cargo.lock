@@ -9962,6 +9962,7 @@ dependencies = [
  "revm-state",
  "secp256k1",
  "seismic-alloy-consensus",
+ "seismic-enclave 0.1.0 (git+https://github.com/SeismicSystems/enclave.git?rev=3a56cce)",
  "seismic-revm",
  "thiserror 2.0.12",
  "tracing",

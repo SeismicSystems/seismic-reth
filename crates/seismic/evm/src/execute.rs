@@ -2,8 +2,12 @@
 
 use crate::SeismicEvmConfig;
 use alloc::sync::Arc;
+use alloy_consensus::Transaction;
 use alloy_evm::{
-    block::{BlockExecutionError, BlockExecutionResult, OnStateHook},
+    block::{
+        BlockExecutionError, BlockExecutionResult, BlockValidationError,
+        InternalBlockExecutionError, OnStateHook,
+    },
     Database,
 };
 use reth_chainspec::ChainSpec;
@@ -11,9 +15,15 @@ use reth_evm::{
     execute::{BasicBlockExecutor, BasicBlockExecutorProvider, BlockExecutorProvider, Executor},
     ConfigureEvm,
 };
-use reth_primitives_traits::{NodePrimitives, RecoveredBlock};
+use reth_primitives_traits::{
+    transaction::error::InvalidTransactionError, NodePrimitives, RecoveredBlock, SignedTransaction,
+};
+use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
 use revm_database::State;
-use reth_seismic_primitives::SeismicPrimitives;
+use seismic_alloy_consensus::SeismicTypedTransaction;
+use seismic_enclave::{
+    rpc::EnclaveApiClient, tx_io::IoDecryptionRequest, EnclaveClient, PublicKey,
+};
 
 /// Helper type with backwards compatible methods to obtain executor providers.
 #[derive(Debug)]
@@ -120,6 +130,47 @@ where
     fn size_hint(&self) -> usize {
         self.inner.size_hint()
     }
+}
+
+fn decrypt_seismic_transaction(
+    client: &EnclaveClient,
+    tx: SeismicTransactionSigned,
+) -> Result<SeismicTransactionSigned, BlockExecutionError> {
+    let mut typed_tx = tx.transaction().clone();
+
+    // Match to gain ownership and mutate
+    typed_tx = match typed_tx {
+        SeismicTypedTransaction::Seismic(mut tx_seismic) => {
+            let seismic_elements = tx_seismic.seismic_elements;
+            let ciphertext = tx_seismic.input.clone();
+            let decrypted_data =
+                seismic_elements.server_decrypt(client, &ciphertext).map_err(|e| {
+                    let hash = tx.tx_hash().clone();
+                    BlockExecutionError::Internal(InternalBlockExecutionError::Other(
+                        format!("Failed to decrypt seismic transaction: {}", e).into(),
+                    ))
+                })?;
+            tx_seismic.input = decrypted_data.into();
+            SeismicTypedTransaction::Seismic(tx_seismic)
+        }
+        other => other, // no change for non-seismic transactions
+    };
+
+    let tx = SeismicTransactionSigned::new_unhashed(typed_tx, tx.signature().clone());
+
+    Ok(tx)
+}
+
+fn decrypt_block(
+    client: &EnclaveClient,
+    rec_block: &RecoveredBlock<alloy_consensus::Block<SeismicTransactionSigned>>,
+) -> Result<RecoveredBlock<alloy_consensus::Block<SeismicTransactionSigned>>, BlockExecutionError> {
+    let (block, senders) = rec_block.clone().split();
+    let block = block.try_map_transactions(|tx| {
+        let decrypted_tx = decrypt_seismic_transaction(client, tx)?;
+        Ok::<SeismicTransactionSigned, BlockExecutionError>(decrypted_tx)
+    })?;
+    Ok(RecoveredBlock::new_unhashed(block.clone(), senders))
 }
 
 /// a test util for accessing the state

@@ -13,6 +13,7 @@ workspace = true
 [dependencies]
 # seismic
 seismic-revm.workspace = true
+seismic-enclave.workspace = true
 
 # Reth
 reth-chainspec.workspace = true
@@ -27,6 +28,7 @@ reth-consensus-common.workspace = true
 # ethereum
 alloy-eips.workspace = true
 alloy-evm.workspace = true
+alloy-seismic-evm.workspace = true
 alloy-primitives.workspace = true
 seismic-alloy-consensus.workspace = true
 alloy-consensus.workspace = true
@@ -35,9 +37,6 @@ reth-seismic-chainspec.workspace = true
 reth-seismic-forks.workspace = true
 reth-seismic-primitives = { workspace = true }
 reth-ethereum-primitives = { workspace = true, features = ["serde", "reth-codec"]}
-
-# Seismic
-alloy-seismic-evm.workspace = true
 
 # revm
 revm.workspace = true
