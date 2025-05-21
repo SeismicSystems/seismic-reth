@@ -60,7 +60,9 @@ pub struct SeismicNode;
 
 impl SeismicNode {
     /// Returns the components for the given [`EnclaveArgs`].
-    pub fn components<Node>() -> ComponentsBuilder<
+    pub fn components<Node>(
+        &self
+        ) -> ComponentsBuilder<
         Node,
         SeismicPoolBuilder,
         BasicPayloadServiceBuilder<SeismicPayloadBuilder>,
@@ -147,7 +149,7 @@ where
     >;
 
     fn components_builder(&self) -> Self::ComponentsBuilder {
-        Self::components()
+        Self::components(self)
     }
 
     fn add_ons(&self) -> Self::AddOns {
