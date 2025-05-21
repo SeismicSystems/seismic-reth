@@ -9958,6 +9958,7 @@ dependencies = [
  "reth-seismic-primitives",
  "reth-testing-utils",
  "revm",
+ "revm-database",
  "revm-state",
  "secp256k1",
  "seismic-alloy-consensus",

@@ -2,8 +2,17 @@
 
 use crate::SeismicEvmConfig;
 use alloc::sync::Arc;
+use alloy_evm::{
+    block::{BlockExecutionError, BlockExecutionResult, OnStateHook},
+    Database,
+};
 use reth_chainspec::ChainSpec;
-use reth_evm::execute::BasicBlockExecutorProvider;
+use reth_evm::{
+    execute::{BasicBlockExecutor, BasicBlockExecutorProvider, BlockExecutorProvider, Executor},
+    ConfigureEvm,
+};
+use reth_primitives_traits::{NodePrimitives, RecoveredBlock};
+use revm_database::State;
 
 /// Helper type with backwards compatible methods to obtain executor providers.
 #[derive(Debug)]
@@ -11,8 +20,118 @@ pub struct SeismicExecutorProvider;
 
 impl SeismicExecutorProvider {
     /// Creates a new default seismic executor strategy factory.
-    pub fn seismic(chain_spec: Arc<ChainSpec>) -> BasicBlockExecutorProvider<SeismicEvmConfig> {
-        BasicBlockExecutorProvider::new(SeismicEvmConfig::seismic(chain_spec))
+    pub fn seismic(chain_spec: Arc<ChainSpec>) -> SeismicBlockExecutorProvider<SeismicEvmConfig> {
+        SeismicBlockExecutorProvider::new(SeismicEvmConfig::seismic(chain_spec))
+    }
+}
+
+/// A generic block executor provider that can create executors using a strategy factory.
+#[derive(Debug)]
+pub struct SeismicBlockExecutorProvider<F> {
+    strategy_factory: F,
+}
+
+impl<F> SeismicBlockExecutorProvider<F> {
+    /// Creates a new `SeismicBlockExecutorProvider` with the given strategy factory.
+    pub const fn new(strategy_factory: F) -> Self {
+        Self { strategy_factory }
+    }
+}
+
+impl<F> BlockExecutorProvider for SeismicBlockExecutorProvider<F>
+where
+    F: ConfigureEvm + 'static,
+{
+    type Primitives = F::Primitives;
+
+    type Executor<DB: Database> = SeismicBlockExecutor<F, DB>;
+
+    fn executor<DB>(&self, db: DB) -> Self::Executor<DB>
+    where
+        DB: Database,
+    {
+        SeismicBlockExecutor::new(self.strategy_factory.clone(), db)
+    }
+}
+
+impl<F> Clone for SeismicBlockExecutorProvider<F>
+where
+    F: Clone,
+{
+    fn clone(&self) -> Self {
+        Self { strategy_factory: self.strategy_factory.clone() }
+    }
+}
+
+/// A Seismic Block Executor
+/// Wraps a `SeismicBlockExecutor` and adds Seismic transaction decryption logic
+#[allow(missing_debug_implementations)]
+pub struct SeismicBlockExecutor<F, DB> {
+    inner: BasicBlockExecutor<F, DB>,
+}
+
+impl<F, DB: Database> SeismicBlockExecutor<F, DB> {
+    /// Creates a new `BasicBlockExecutor` with the given strategy.
+    pub fn new(strategy_factory: F, db: DB) -> Self {
+        Self { inner: BasicBlockExecutor::new(strategy_factory, db) }
+    }
+}
+
+impl<F, DB> Executor<DB> for SeismicBlockExecutor<F, DB>
+where
+    F: ConfigureEvm,
+    DB: Database,
+{
+    type Primitives = SeismicPrimitives;
+    type Error = BlockExecutionError;
+
+    fn execute_one(
+        &mut self,
+        block: &RecoveredBlock<<Self::Primitives as NodePrimitives>::Block>,
+    ) -> Result<BlockExecutionResult<<Self::Primitives as NodePrimitives>::Receipt>, Self::Error>
+    {
+        // TODO: Handle Seismic transaction decryption here
+        self.inner.execute_one(block)
+    }
+
+    fn execute_one_with_state_hook<H>(
+        &mut self,
+        block: &RecoveredBlock<<Self::Primitives as NodePrimitives>::Block>,
+        state_hook: H,
+    ) -> Result<BlockExecutionResult<<Self::Primitives as NodePrimitives>::Receipt>, Self::Error>
+    where
+        H: OnStateHook + 'static,
+    {
+        // TODO: Handle Seismic transaction decryption here
+        self.inner.execute_one_with_state_hook(block, state_hook)
+    }
+
+    fn into_state(self) -> State<DB> {
+        self.inner.into_state()
+    }
+
+    fn size_hint(&self) -> usize {
+        self.inner.size_hint()
+    }
+}
+
+/// a test util for accessing the state
+#[cfg(test)]
+impl<Factory, DB> SeismicBlockExecutor<Factory, DB> {
+    /// Provides safe read access to the state
+    pub fn with_state<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&State<DB>) -> R,
+    {
+        self.inner.with_state(f)
+    }
+
+    /// Provides safe write access to the state
+    pub fn with_state_mut<F, R>(&mut self, f: F) -> R
+    where
+        F: FnOnce(&mut State<DB>) -> R,
+    {
+        self.inner.with_state_mut(f)
     }
 }
 

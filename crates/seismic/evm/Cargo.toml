@@ -41,6 +41,7 @@ alloy-seismic-evm.workspace = true
 
 # revm
 revm.workspace = true
+revm-database.workspace = true
 
 # misc
 derive_more.workspace = true
