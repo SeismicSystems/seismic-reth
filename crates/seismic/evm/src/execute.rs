@@ -22,8 +22,9 @@ use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
 use revm_database::State;
 use seismic_alloy_consensus::SeismicTypedTransaction;
 use seismic_enclave::{
-    rpc::EnclaveApiClient, tx_io::IoDecryptionRequest, EnclaveClient, PublicKey,
+    tx_io::IoDecryptionRequest, EnclaveClient, PublicKey,
 };
+ use seismic_enclave::rpc::SyncEnclaveApiClient;
 
 /// Helper type with backwards compatible methods to obtain executor providers.
 #[derive(Debug)]
@@ -31,73 +32,81 @@ pub struct SeismicExecutorProvider;
 
 impl SeismicExecutorProvider {
     /// Creates a new default seismic executor strategy factory.
-    pub fn seismic(chain_spec: Arc<ChainSpec>) -> SeismicBlockExecutorProvider<SeismicEvmConfig> {
-        SeismicBlockExecutorProvider::new(SeismicEvmConfig::seismic(chain_spec))
+    /// TODO: allow for a custom client
+    pub fn seismic(chain_spec: Arc<ChainSpec>) -> SeismicBlockExecutorProvider<SeismicEvmConfig, EnclaveClient> {
+        SeismicBlockExecutorProvider::new(SeismicEvmConfig::seismic(chain_spec), EnclaveClient::default())
     }
 }
 
 /// A generic block executor provider that can create executors using a strategy factory.
 #[derive(Debug)]
-pub struct SeismicBlockExecutorProvider<F>
+pub struct SeismicBlockExecutorProvider<F, C>
 where
     F: ConfigureEvm<Primitives = SeismicPrimitives>,
+    C: SyncEnclaveApiClient,
 {
     strategy_factory: F,
+    client: C,
 }
 
-impl<F> SeismicBlockExecutorProvider<F>
+impl<F, C> SeismicBlockExecutorProvider<F, C>
 where
     F: ConfigureEvm<Primitives = SeismicPrimitives>,
+    C: SyncEnclaveApiClient,
 {
     /// Creates a new `SeismicBlockExecutorProvider` with the given strategy factory.
-    pub const fn new(strategy_factory: F) -> Self {
-        Self { strategy_factory }
+    pub const fn new(strategy_factory: F, client: impl SyncEnclaveApiClient) -> Self {
+        Self { strategy_factory, client }
     }
 }
 
-impl<F> BlockExecutorProvider for SeismicBlockExecutorProvider<F>
+impl<F, C> BlockExecutorProvider for SeismicBlockExecutorProvider<F, C>
 where
     F: ConfigureEvm<Primitives = SeismicPrimitives> + 'static,
+    C: SyncEnclaveApiClient + std::fmt::Debug + Send + Sync,
 {
     type Primitives = F::Primitives;
 
-    type Executor<DB: Database> = SeismicBlockExecutor<F, DB>;
+    type Executor<DB: Database> = SeismicBlockExecutor<F, DB, C>;
 
     fn executor<DB>(&self, db: DB) -> Self::Executor<DB>
     where
         DB: Database,
     {
-        SeismicBlockExecutor::new(self.strategy_factory.clone(), db)
+        SeismicBlockExecutor::new(self.strategy_factory.clone(), db, self.client.clone())
     }
 }
 
-impl<F> Clone for SeismicBlockExecutorProvider<F>
+impl<F, C> Clone for SeismicBlockExecutorProvider<F, C>
 where
     F: ConfigureEvm<Primitives = SeismicPrimitives>,
+    C: SyncEnclaveApiClient,
 {
     fn clone(&self) -> Self {
-        Self { strategy_factory: self.strategy_factory.clone() }
+        Self { strategy_factory: self.strategy_factory.clone(), client: self.client.clone() }
     }
 }
 
 /// A Seismic Block Executor
 /// Wraps a `SeismicBlockExecutor` and adds Seismic transaction decryption logic
 #[allow(missing_debug_implementations)]
-pub struct SeismicBlockExecutor<F, DB> {
+pub struct SeismicBlockExecutor<F, DB, C> {
     inner: BasicBlockExecutor<F, DB>,
+    client: C,
 }
 
-impl<F, DB: Database> SeismicBlockExecutor<F, DB> {
+impl<F, DB: Database, C: SyncEnclaveApiClient> SeismicBlockExecutor<F, DB, C> {
     /// Creates a new `BasicBlockExecutor` with the given strategy.
-    pub fn new(strategy_factory: F, db: DB) -> Self {
-        Self { inner: BasicBlockExecutor::new(strategy_factory, db) }
+    pub fn new(strategy_factory: F, db: DB, client: impl SyncEnclaveApiClient) -> Self {
+        Self { inner: BasicBlockExecutor::new(strategy_factory, db), client }
     }
 }
 
-impl<F, DB> Executor<DB> for SeismicBlockExecutor<F, DB>
+impl<F, DB, C: SyncEnclaveApiClient> Executor<DB> for SeismicBlockExecutor<F, DB, C>
 where
     F: ConfigureEvm<Primitives = SeismicPrimitives>,
     DB: Database,
+    C: SyncEnclaveApiClient,
 {
     type Primitives = F::Primitives;
     type Error = BlockExecutionError;
@@ -107,8 +116,8 @@ where
         block: &RecoveredBlock<<Self::Primitives as NodePrimitives>::Block>,
     ) -> Result<BlockExecutionResult<<Self::Primitives as NodePrimitives>::Receipt>, Self::Error>
     {
-        // TODO: Handle Seismic transaction decryption here
-        self.inner.execute_one(block)
+        let block = decrypt_block(&self.client, block)?;
+        self.inner.execute_one(&block)
     }
 
     fn execute_one_with_state_hook<H>(
@@ -119,8 +128,8 @@ where
     where
         H: OnStateHook + 'static,
     {
-        // TODO: Handle Seismic transaction decryption here
-        self.inner.execute_one_with_state_hook(block, state_hook)
+        let block = decrypt_block(&self.client, block)?;
+        self.inner.execute_one_with_state_hook(&block, state_hook)
     }
 
     fn into_state(self) -> State<DB> {
@@ -133,7 +142,7 @@ where
 }
 
 fn decrypt_seismic_transaction(
-    client: &EnclaveClient,
+    client: &impl SyncEnclaveApiClient,
     tx: SeismicTransactionSigned,
 ) -> Result<SeismicTransactionSigned, BlockExecutionError> {
     let mut typed_tx = tx.transaction().clone();
@@ -145,7 +154,6 @@ fn decrypt_seismic_transaction(
             let ciphertext = tx_seismic.input.clone();
             let decrypted_data =
                 seismic_elements.server_decrypt(client, &ciphertext).map_err(|e| {
-                    let hash = tx.tx_hash().clone();
                     BlockExecutionError::Internal(InternalBlockExecutionError::Other(
                         format!("Failed to decrypt seismic transaction: {}", e).into(),
                     ))
@@ -162,7 +170,7 @@ fn decrypt_seismic_transaction(
 }
 
 fn decrypt_block(
-    client: &EnclaveClient,
+    client: &impl SyncEnclaveApiClient,
     rec_block: &RecoveredBlock<alloy_consensus::Block<SeismicTransactionSigned>>,
 ) -> Result<RecoveredBlock<alloy_consensus::Block<SeismicTransactionSigned>>, BlockExecutionError> {
     let (block, senders) = rec_block.clone().split();
@@ -175,7 +183,7 @@ fn decrypt_block(
 
 /// a test util for accessing the state
 #[cfg(test)]
-impl<Factory, DB> SeismicBlockExecutor<Factory, DB> {
+impl<Factory, DB, C> SeismicBlockExecutor<Factory, DB, C > {
     /// Provides safe read access to the state
     pub fn with_state<F, R>(&self, f: F) -> R
     where
@@ -229,6 +237,7 @@ mod tests {
     use revm_state::FlaggedStorage;
     use secp256k1::{Keypair, Secp256k1};
     use seismic_alloy_consensus::SeismicTypedTransaction;
+    use seismic_enclave::MockEnclaveClient;
     use std::sync::mpsc;
 
     fn create_database_with_beacon_root_contract() -> CacheDB<EmptyDB> {
@@ -266,8 +275,8 @@ mod tests {
 
     fn executor_provider(
         chain_spec: Arc<ChainSpec>,
-    ) -> BasicBlockExecutorProvider<SeismicEvmConfig> {
-        BasicBlockExecutorProvider::new(SeismicEvmConfig::new(chain_spec))
+    ) -> SeismicBlockExecutorProvider<SeismicEvmConfig, MockEnclaveClient> {
+        SeismicBlockExecutorProvider::new(SeismicEvmConfig::new(chain_spec), MockEnclaveClient::new())
     }
 
     #[test]
@@ -891,7 +900,7 @@ mod tests {
             reth_seismic_primitives::test_utils::sign_seismic_typed_tx(&typed_tx, &signing_key);
         let signed_tx = SeismicTransactionSigned::new_unhashed(typed_tx, sig);
 
-        let provider: BasicBlockExecutorProvider<SeismicEvmConfig> = executor_provider(chain_spec);
+        let provider= executor_provider(chain_spec);
 
         let mut executor = provider.executor(db);
 
@@ -1066,4 +1075,60 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_transaction_decryption_in_executor() {
+
+        let chain_spec = Arc::new(ChainSpecBuilder::from(&*SEISMIC_MAINNET).build());
+
+        let mut db = create_database_with_withdrawal_requests_contract();
+
+        let secp = Secp256k1::new();
+        let sender_key_pair = Keypair::new(&secp, &mut generators::rng());
+        let sender_address = public_key_to_address(sender_key_pair.public_key());
+
+        db.insert_account_info(
+            sender_address,
+            AccountInfo { nonce: 1, balance: U256::from(ETH_TO_WEI), ..Default::default() },
+        );
+
+        // https://github.com/lightclient/sys-asm/blob/9282bdb9fd64e024e27f60f507486ffb2183cba2/test/Withdrawal.t.sol.in#L36
+        let validator_public_key = fixed_bytes!("111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111");
+        let withdrawal_amount = fixed_bytes!("0203040506070809");
+        let input: Bytes = [&validator_public_key[..], &withdrawal_amount[..]].concat().into();
+        assert_eq!(input.len(), 56);
+
+        let mut header = chain_spec.genesis_header().clone();
+        header.gas_limit = 1_500_000;
+        // measured
+        header.gas_used = 135_856;
+        header.receipts_root =
+            b256!("0xb31a3e47b902e9211c4d349af4e4c5604ce388471e79ca008907ae4616bb0ed3");
+
+        
+        let signed_tx = reth_seismic_primitives::test_utils::get_signed_seismic_tx();
+
+        let provider= executor_provider(chain_spec);
+
+        let mut executor = provider.executor(db);
+
+        let BlockExecutionResult { receipts, requests, .. } = executor
+            .execute_one(
+                &Block {
+                    header,
+                    body: BlockBody { transactions: vec![signed_tx], ..Default::default() },
+                }
+                .try_into_recovered()
+                .unwrap(),
+            )
+            .unwrap();
+
+        let receipt = receipts.first().unwrap().as_receipt();
+        assert!(receipt.status());
+
+        // There should be exactly one entry with withdrawal requests
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0][0], 1);
+    }
+
 }
