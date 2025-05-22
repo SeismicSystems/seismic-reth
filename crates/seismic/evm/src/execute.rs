@@ -21,23 +21,6 @@ use seismic_enclave::{
 };
 use std::{fmt::Debug, marker::PhantomData};
 
-/// Helper type with backwards compatible methods to obtain executor providers.
-#[derive(Debug)]
-pub struct SeismicExecutorProvider;
-
-impl SeismicExecutorProvider {
-    /// Creates a new default seismic executor strategy factory.
-    /// TODO: allow for a custom client
-    pub fn seismic(
-        chain_spec: Arc<ChainSpec>,
-    ) -> SeismicBlockExecutorProvider<SeismicEvmConfig, EnclaveClient, EnclaveClientBuilder> {
-        SeismicBlockExecutorProvider::new(
-            SeismicEvmConfig::seismic(chain_spec),
-            EnclaveClientBuilder::default(),
-        )
-    }
-}
-
 /// A generic block executor provider that can create executors using a strategy factory.
 pub struct SeismicBlockExecutorProvider<F, C, CB>
 where
