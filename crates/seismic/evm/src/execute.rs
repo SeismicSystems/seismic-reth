@@ -2,29 +2,24 @@
 
 use crate::SeismicEvmConfig;
 use alloc::sync::Arc;
-use alloy_consensus::Transaction;
 use alloy_evm::{
-    block::{
-        BlockExecutionError, BlockExecutionResult, BlockValidationError,
-        InternalBlockExecutionError, OnStateHook,
-    },
+    block::{BlockExecutionError, BlockExecutionResult, InternalBlockExecutionError, OnStateHook},
     Database,
 };
 use reth_chainspec::ChainSpec;
 use reth_evm::{
-    execute::{BasicBlockExecutor, BasicBlockExecutorProvider, BlockExecutorProvider, Executor},
+    execute::{BasicBlockExecutor, BlockExecutorProvider, Executor},
     ConfigureEvm,
 };
-use reth_primitives_traits::{
-    transaction::error::InvalidTransactionError, NodePrimitives, RecoveredBlock, SignedTransaction,
-};
+use reth_primitives_traits::{NodePrimitives, RecoveredBlock, SignedTransaction};
 use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
 use revm_database::State;
 use seismic_alloy_consensus::SeismicTypedTransaction;
 use seismic_enclave::{
-    tx_io::IoDecryptionRequest, EnclaveClient, PublicKey,
+    rpc::{SyncEnclaveApiClient, SyncEnclaveApiClientBuilder},
+    EnclaveClient, EnclaveClientBuilder,
 };
- use seismic_enclave::rpc::SyncEnclaveApiClient;
+use std::{fmt::Debug, marker::PhantomData};
 
 /// Helper type with backwards compatible methods to obtain executor providers.
 #[derive(Debug)]
@@ -33,57 +28,84 @@ pub struct SeismicExecutorProvider;
 impl SeismicExecutorProvider {
     /// Creates a new default seismic executor strategy factory.
     /// TODO: allow for a custom client
-    pub fn seismic(chain_spec: Arc<ChainSpec>) -> SeismicBlockExecutorProvider<SeismicEvmConfig, EnclaveClient> {
-        SeismicBlockExecutorProvider::new(SeismicEvmConfig::seismic(chain_spec), EnclaveClient::default())
+    pub fn seismic(
+        chain_spec: Arc<ChainSpec>,
+    ) -> SeismicBlockExecutorProvider<SeismicEvmConfig, EnclaveClient, EnclaveClientBuilder> {
+        SeismicBlockExecutorProvider::new(
+            SeismicEvmConfig::seismic(chain_spec),
+            EnclaveClientBuilder::default(),
+        )
     }
 }
 
 /// A generic block executor provider that can create executors using a strategy factory.
-#[derive(Debug)]
-pub struct SeismicBlockExecutorProvider<F, C>
+pub struct SeismicBlockExecutorProvider<F, C, CB>
 where
     F: ConfigureEvm<Primitives = SeismicPrimitives>,
     C: SyncEnclaveApiClient,
+    CB: SyncEnclaveApiClientBuilder<C>,
 {
     strategy_factory: F,
-    client: C,
+    client_builder: CB,
+    _p: PhantomData<C>,
 }
 
-impl<F, C> SeismicBlockExecutorProvider<F, C>
+impl<F, C, CB> std::fmt::Debug for SeismicBlockExecutorProvider<F, C, CB>
 where
-    F: ConfigureEvm<Primitives = SeismicPrimitives>,
+    F: ConfigureEvm<Primitives = SeismicPrimitives> + Debug,
     C: SyncEnclaveApiClient,
+    CB: SyncEnclaveApiClientBuilder<C> + Debug,
 {
-    /// Creates a new `SeismicBlockExecutorProvider` with the given strategy factory.
-    pub const fn new(strategy_factory: F, client: impl SyncEnclaveApiClient) -> Self {
-        Self { strategy_factory, client }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SeismicBlockExecutorProvider")
+            .field("strategy_factory", &self.strategy_factory)
+            .field("client_builder", &self.client_builder)
+            .finish()
     }
 }
 
-impl<F, C> BlockExecutorProvider for SeismicBlockExecutorProvider<F, C>
+impl<F, C, CB> SeismicBlockExecutorProvider<F, C, CB>
 where
-    F: ConfigureEvm<Primitives = SeismicPrimitives> + 'static,
-    C: SyncEnclaveApiClient + std::fmt::Debug + Send + Sync,
+    F: ConfigureEvm<Primitives = SeismicPrimitives>,
+    C: SyncEnclaveApiClient,
+    CB: SyncEnclaveApiClientBuilder<C>,
+{
+    /// Creates a new `SeismicBlockExecutorProvider` with the given strategy factory.
+    pub const fn new(strategy_factory: F, client_builder: CB) -> Self {
+        Self { strategy_factory, client_builder, _p: PhantomData }
+    }
+}
+
+impl<F, C, CB> BlockExecutorProvider for SeismicBlockExecutorProvider<F, C, CB>
+where
+    F: ConfigureEvm<Primitives = SeismicPrimitives> + Clone + Debug + Send + Sync + Unpin + 'static,
+    C: SyncEnclaveApiClient + Send + Sync + Unpin + 'static,
+    CB: SyncEnclaveApiClientBuilder<C> + Clone + Debug + Send + Sync + Unpin + 'static,
 {
     type Primitives = F::Primitives;
-
     type Executor<DB: Database> = SeismicBlockExecutor<F, DB, C>;
 
     fn executor<DB>(&self, db: DB) -> Self::Executor<DB>
     where
         DB: Database,
     {
-        SeismicBlockExecutor::new(self.strategy_factory.clone(), db, self.client.clone())
+        let client = self.client_builder.clone().build();
+        SeismicBlockExecutor::new(self.strategy_factory.clone(), db, client)
     }
 }
 
-impl<F, C> Clone for SeismicBlockExecutorProvider<F, C>
+impl<F, C, CB> Clone for SeismicBlockExecutorProvider<F, C, CB>
 where
     F: ConfigureEvm<Primitives = SeismicPrimitives>,
     C: SyncEnclaveApiClient,
+    CB: SyncEnclaveApiClientBuilder<C> + std::fmt::Debug + Send + Sync + Clone,
 {
     fn clone(&self) -> Self {
-        Self { strategy_factory: self.strategy_factory.clone(), client: self.client.clone() }
+        Self {
+            strategy_factory: self.strategy_factory.clone(),
+            client_builder: self.client_builder.clone(),
+            _p: PhantomData,
+        }
     }
 }
 
@@ -97,7 +119,7 @@ pub struct SeismicBlockExecutor<F, DB, C> {
 
 impl<F, DB: Database, C: SyncEnclaveApiClient> SeismicBlockExecutor<F, DB, C> {
     /// Creates a new `BasicBlockExecutor` with the given strategy.
-    pub fn new(strategy_factory: F, db: DB, client: impl SyncEnclaveApiClient) -> Self {
+    pub fn new(strategy_factory: F, db: DB, client: C) -> Self {
         Self { inner: BasicBlockExecutor::new(strategy_factory, db), client }
     }
 }
@@ -183,7 +205,7 @@ fn decrypt_block(
 
 /// a test util for accessing the state
 #[cfg(test)]
-impl<Factory, DB, C> SeismicBlockExecutor<Factory, DB, C > {
+impl<Factory, DB, C> SeismicBlockExecutor<Factory, DB, C> {
     /// Provides safe read access to the state
     pub fn with_state<F, R>(&self, f: F) -> R
     where
@@ -218,7 +240,7 @@ mod tests {
     use reth_chainspec::{ChainSpecBuilder, EthereumHardfork, ForkCondition, MAINNET};
     use reth_evm::{
         block::BlockExecutionResult,
-        execute::{BasicBlockExecutorProvider, BlockExecutorProvider, Executor},
+        execute::{BlockExecutorProvider, Executor},
     };
     use reth_primitives_traits::{
         crypto::secp256k1::public_key_to_address, Block as _, RecoveredBlock,
@@ -237,7 +259,7 @@ mod tests {
     use revm_state::FlaggedStorage;
     use secp256k1::{Keypair, Secp256k1};
     use seismic_alloy_consensus::SeismicTypedTransaction;
-    use seismic_enclave::MockEnclaveClient;
+    use seismic_enclave::{MockEnclaveClient, MockEnclaveClientBuilder};
     use std::sync::mpsc;
 
     fn create_database_with_beacon_root_contract() -> CacheDB<EmptyDB> {
@@ -275,8 +297,12 @@ mod tests {
 
     fn executor_provider(
         chain_spec: Arc<ChainSpec>,
-    ) -> SeismicBlockExecutorProvider<SeismicEvmConfig, MockEnclaveClient> {
-        SeismicBlockExecutorProvider::new(SeismicEvmConfig::new(chain_spec), MockEnclaveClient::new())
+    ) -> SeismicBlockExecutorProvider<SeismicEvmConfig, MockEnclaveClient, MockEnclaveClientBuilder>
+    {
+        SeismicBlockExecutorProvider::new(
+            SeismicEvmConfig::new(chain_spec),
+            MockEnclaveClientBuilder::new(),
+        )
     }
 
     #[test]
@@ -900,7 +926,7 @@ mod tests {
             reth_seismic_primitives::test_utils::sign_seismic_typed_tx(&typed_tx, &signing_key);
         let signed_tx = SeismicTransactionSigned::new_unhashed(typed_tx, sig);
 
-        let provider= executor_provider(chain_spec);
+        let provider = executor_provider(chain_spec);
 
         let mut executor = provider.executor(db);
 
@@ -1078,7 +1104,6 @@ mod tests {
 
     #[test]
     fn test_transaction_decryption_in_executor() {
-
         let chain_spec = Arc::new(ChainSpecBuilder::from(&*SEISMIC_MAINNET).build());
 
         let mut db = create_database_with_withdrawal_requests_contract();
@@ -1105,10 +1130,9 @@ mod tests {
         header.receipts_root =
             b256!("0xb31a3e47b902e9211c4d349af4e4c5604ce388471e79ca008907ae4616bb0ed3");
 
-        
         let signed_tx = reth_seismic_primitives::test_utils::get_signed_seismic_tx();
 
-        let provider= executor_provider(chain_spec);
+        let provider = executor_provider(chain_spec);
 
         let mut executor = provider.executor(db);
 
@@ -1130,5 +1154,4 @@ mod tests {
         assert_eq!(requests.len(), 1);
         assert_eq!(requests[0][0], 1);
     }
-
 }
