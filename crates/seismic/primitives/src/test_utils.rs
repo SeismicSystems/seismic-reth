@@ -105,6 +105,24 @@ pub fn get_seismic_tx() -> TxSeismic {
     }
 }
 
+/// Get a seismic transaction with encryption forgotten
+/// i.e. a bad TxSeismic that should cause errors on decryption attempts
+pub fn get_seismic_tx_with_encryption_forgotten() -> TxSeismic {
+    let plaintext = get_plaintext();
+    TxSeismic {
+        chain_id: 5123, // seismic chain id
+        nonce: 1,
+        gas_price: 20000000000,
+        gas_limit: 210000,
+        to: alloy_primitives::TxKind::Call(
+            Address::from_str("0x5fbdb2315678afecb367f032d93f642f64180aa3").unwrap(),
+        ),
+        value: U256::ZERO,
+        input: Bytes::copy_from_slice(&plaintext),
+        seismic_elements: get_seismic_elements(),
+    }
+}
+
 /// Sign a seismic transaction
 pub fn sign_seismic_tx(tx: &TxSeismic, signing_sk: &SigningKey) -> PrimitiveSignature {
     let _signature = signing_sk

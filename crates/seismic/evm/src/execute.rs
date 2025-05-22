@@ -17,7 +17,6 @@ use revm_database::State;
 use seismic_alloy_consensus::SeismicTypedTransaction;
 use seismic_enclave::{
     rpc::{SyncEnclaveApiClient, SyncEnclaveApiClientBuilder},
-    EnclaveClient, EnclaveClientBuilder,
 };
 use std::{fmt::Debug, marker::PhantomData};
 
@@ -209,7 +208,9 @@ impl<Factory, DB, C> SeismicBlockExecutor<Factory, DB, C> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_consensus::{constants::ETH_TO_WEI, Header, TxLegacy, TxReceipt};
+    use alloy_consensus::{
+        constants::ETH_TO_WEI, Header, SignableTransaction, TxLegacy, TxReceipt,
+    };
     use alloy_eips::{
         eip2935::{HISTORY_SERVE_WINDOW, HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_CODE},
         eip4788::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_CODE, SYSTEM_ADDRESS},
@@ -243,7 +244,10 @@ mod tests {
     use secp256k1::{Keypair, Secp256k1};
     use seismic_alloy_consensus::SeismicTypedTransaction;
     use seismic_enclave::{MockEnclaveClient, MockEnclaveClientBuilder};
-    use std::sync::mpsc;
+    use std::{
+        panic::{catch_unwind, AssertUnwindSafe},
+        sync::mpsc,
+    };
 
     fn create_database_with_beacon_root_contract() -> CacheDB<EmptyDB> {
         let mut db = CacheDB::new(Default::default());
@@ -1121,5 +1125,53 @@ mod tests {
 
         let receipt = receipts.first().unwrap().as_receipt();
         assert!(receipt.status());
+    }
+
+    #[test]
+    fn bad_decryption_in_executor() {
+        let chain_spec = Arc::new(ChainSpecBuilder::from(&*SEISMIC_MAINNET).build());
+
+        let mut db = create_database_with_withdrawal_requests_contract();
+
+        // create the bad tx
+        let signing_sk = reth_seismic_primitives::test_utils::get_signing_private_key();
+        let tx_seismic =
+            reth_seismic_primitives::test_utils::get_seismic_tx_with_encryption_forgotten();
+        let signature =
+            reth_seismic_primitives::test_utils::sign_seismic_tx(&tx_seismic, &signing_sk);
+        let signed_tx: SeismicTransactionSigned =
+            SignableTransaction::into_signed(tx_seismic, signature).into();
+
+        let sender_address = signed_tx.recover_signer().unwrap();
+
+        db.insert_account_info(
+            sender_address,
+            AccountInfo { nonce: 1, balance: U256::from(ETH_TO_WEI), ..Default::default() },
+        );
+
+        let mut header = chain_spec.genesis_header().clone();
+        header.gas_limit = 1_500_000;
+        // measured
+        header.gas_used = 21510;
+
+        let provider = executor_provider(chain_spec);
+
+        let mut executor = provider.executor(db);
+
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            // Expect This code to panic
+            let _block_execution_result = executor
+                .execute_one(
+                    &Block {
+                        header,
+                        body: BlockBody { transactions: vec![signed_tx], ..Default::default() },
+                    }
+                    .try_into_recovered()
+                    .unwrap(),
+                )
+                .unwrap();
+        }));
+
+        assert!(result.is_err(), "Expected the mock client to panic on bad decryption");
     }
 }
