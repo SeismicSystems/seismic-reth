@@ -4,7 +4,6 @@
 use std::net::{IpAddr, TcpListener};
 
 use derive_more::Display;
-use seismic_enclave::rpc::SyncEnclaveApiClientBuilder;
 pub use seismic_enclave::{
     client::{
         rpc::{BuildableServer, SyncEnclaveApiClient},
