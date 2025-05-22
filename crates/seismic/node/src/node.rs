@@ -48,6 +48,7 @@ use reth_transaction_pool::{
 use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
+use seismic_enclave::{MockEnclaveClient, MockEnclaveClientBuilder};
 use std::{sync::Arc, time::SystemTime};
 use reth_seismic_evm::SeismicBlockExecutorProvider;
 
@@ -362,14 +363,15 @@ where
     Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
 {
     type EVM = SeismicEvmConfig;
-    type Executor = SeismicBlockExecutorProvider<Self::EVM>;
+    type Executor = SeismicBlockExecutorProvider<Self::EVM, MockEnclaveClient, MockEnclaveClientBuilder>;
 
     async fn build_evm(
         self,
         ctx: &BuilderContext<Node>,
     ) -> eyre::Result<(Self::EVM, Self::Executor)> {
+        let builder = MockEnclaveClientBuilder::new();
         let evm_config = SeismicEvmConfig::seismic(ctx.chain_spec());
-        let executor = SeismicBlockExecutorProvider::new(evm_config.clone());
+        let executor = SeismicBlockExecutorProvider::new(evm_config.clone(), builder);
 
         Ok((evm_config, executor))
     }
