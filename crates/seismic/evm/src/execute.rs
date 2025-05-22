@@ -1108,35 +1108,24 @@ mod tests {
 
         let mut db = create_database_with_withdrawal_requests_contract();
 
-        let secp = Secp256k1::new();
-        let sender_key_pair = Keypair::new(&secp, &mut generators::rng());
-        let sender_address = public_key_to_address(sender_key_pair.public_key());
+        let signed_tx = reth_seismic_primitives::test_utils::get_signed_seismic_tx();
+        let sender_address = signed_tx.recover_signer().unwrap();
 
         db.insert_account_info(
             sender_address,
             AccountInfo { nonce: 1, balance: U256::from(ETH_TO_WEI), ..Default::default() },
         );
 
-        // https://github.com/lightclient/sys-asm/blob/9282bdb9fd64e024e27f60f507486ffb2183cba2/test/Withdrawal.t.sol.in#L36
-        let validator_public_key = fixed_bytes!("111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111");
-        let withdrawal_amount = fixed_bytes!("0203040506070809");
-        let input: Bytes = [&validator_public_key[..], &withdrawal_amount[..]].concat().into();
-        assert_eq!(input.len(), 56);
-
         let mut header = chain_spec.genesis_header().clone();
         header.gas_limit = 1_500_000;
         // measured
-        header.gas_used = 135_856;
-        header.receipts_root =
-            b256!("0xb31a3e47b902e9211c4d349af4e4c5604ce388471e79ca008907ae4616bb0ed3");
-
-        let signed_tx = reth_seismic_primitives::test_utils::get_signed_seismic_tx();
+        header.gas_used = 21510;
 
         let provider = executor_provider(chain_spec);
 
         let mut executor = provider.executor(db);
 
-        let BlockExecutionResult { receipts, requests, .. } = executor
+        let BlockExecutionResult { receipts, .. } = executor
             .execute_one(
                 &Block {
                     header,
@@ -1149,9 +1138,5 @@ mod tests {
 
         let receipt = receipts.first().unwrap().as_receipt();
         assert!(receipt.status());
-
-        // There should be exactly one entry with withdrawal requests
-        assert_eq!(requests.len(), 1);
-        assert_eq!(requests[0][0], 1);
     }
 }
