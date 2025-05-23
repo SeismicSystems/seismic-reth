@@ -52,6 +52,7 @@ mod tests {
     use revm_state::FlaggedStorage;
     use secp256k1::{Keypair, Secp256k1};
     use seismic_alloy_consensus::SeismicTypedTransaction;
+    use seismic_enclave::MockEnclaveClientBuilder;
     use std::sync::mpsc;
 
     fn create_database_with_beacon_root_contract() -> CacheDB<EmptyDB> {
@@ -89,8 +90,8 @@ mod tests {
 
     fn executor_provider(
         chain_spec: Arc<ChainSpec>,
-    ) -> BasicBlockExecutorProvider<SeismicEvmConfig> {
-        BasicBlockExecutorProvider::new(SeismicEvmConfig::new(chain_spec))
+    ) -> BasicBlockExecutorProvider<SeismicEvmConfig<MockEnclaveClientBuilder>> {
+        BasicBlockExecutorProvider::new(SeismicEvmConfig::new(chain_spec, MockEnclaveClientBuilder::new()))
     }
 
     #[test]
@@ -714,7 +715,7 @@ mod tests {
             reth_seismic_primitives::test_utils::sign_seismic_typed_tx(&typed_tx, &signing_key);
         let signed_tx = SeismicTransactionSigned::new_unhashed(typed_tx, sig);
 
-        let provider: BasicBlockExecutorProvider<SeismicEvmConfig> = executor_provider(chain_spec);
+        let provider = executor_provider(chain_spec);
 
         let mut executor = provider.executor(db);
 
