@@ -28,7 +28,7 @@ use revm::{
 };
 use seismic_revm::SeismicSpecId;
 use std::convert::Infallible;
-use seismic_enclave::rpc::SyncEnclaveApiClient;
+use seismic_enclave::rpc::SyncEnclaveApiClientBuilder;
 
 mod execute;
 pub use execute::*;
@@ -44,24 +44,24 @@ pub use alloy_seismic_evm::block::SeismicBlockExecutorFactory;
 
 /// Ethereum-related EVM configuration.
 #[derive(Debug, Clone)]
-pub struct SeismicEvmConfig<C, EvmFactory = SeismicEvmFactory> {
+pub struct SeismicEvmConfig<CB, EvmFactory = SeismicEvmFactory> {
     /// Inner [`SeismicBlockExecutorFactory`].
     pub executor_factory:
-        SeismicBlockExecutorFactory<C, SeismicRethReceiptBuilder, Arc<ChainSpec>, EvmFactory>,
+        SeismicBlockExecutorFactory<CB, SeismicRethReceiptBuilder, Arc<ChainSpec>, EvmFactory>,
     /// Seismic block assembler.
     pub block_assembler: SeismicBlockAssembler<ChainSpec>,
 }
 
-impl<C> SeismicEvmConfig<C> {
+impl<CB> SeismicEvmConfig<CB> {
     /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
-    pub fn seismic(chain_spec: Arc<ChainSpec>, enclave_client: C) -> Self {
+    pub fn seismic(chain_spec: Arc<ChainSpec>, enclave_client: CB) -> Self {
         SeismicEvmConfig::new_with_evm_factory(chain_spec, SeismicEvmFactory::default(), enclave_client)
     }
 }
 
-impl<C> SeismicEvmConfig<C> {
+impl<CB> SeismicEvmConfig<CB> {
     /// Creates a new Seismic EVM configuration with the given chain spec.
-    pub fn new(chain_spec: Arc<ChainSpec>, enclave_client: C) -> Self {
+    pub fn new(chain_spec: Arc<ChainSpec>, enclave_client: CB) -> Self {
         Self::seismic(chain_spec, enclave_client)
     }
 
@@ -69,7 +69,7 @@ impl<C> SeismicEvmConfig<C> {
     pub fn new_with_evm_factory(
         chain_spec: Arc<ChainSpec>,
         evm_factory: SeismicEvmFactory,
-        enclave_client: C,
+        client_builder: CB,
     ) -> Self {
         Self {
             block_assembler: SeismicBlockAssembler::new(chain_spec.clone()),
@@ -77,7 +77,7 @@ impl<C> SeismicEvmConfig<C> {
                 SeismicRethReceiptBuilder::default(),
                 chain_spec,
                 evm_factory,
-                enclave_client,
+                client_builder,
             ),
         }
     }
@@ -94,15 +94,15 @@ impl<C> SeismicEvmConfig<C> {
     }
 }
 
-impl<C> ConfigureEvm for SeismicEvmConfig<C>
+impl<CB> ConfigureEvm for SeismicEvmConfig<CB>
 where
-    C: SyncEnclaveApiClient + Debug + Clone + Send + Sync + Unpin,
+    CB: SyncEnclaveApiClientBuilder + Debug + Clone + Send + Sync + Unpin + 'static,
 {
     type Primitives = SeismicPrimitives;
     type Error = Infallible;
     type NextBlockEnvCtx = NextBlockEnvAttributes;
     type BlockExecutorFactory =
-        SeismicBlockExecutorFactory<C, SeismicRethReceiptBuilder, Arc<ChainSpec>, SeismicEvmFactory>;
+        SeismicBlockExecutorFactory<CB, SeismicRethReceiptBuilder, Arc<ChainSpec>, SeismicEvmFactory>;
     type BlockAssembler = SeismicBlockAssembler<ChainSpec>;
 
     fn block_executor_factory(&self) -> &Self::BlockExecutorFactory {

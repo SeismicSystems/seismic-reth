@@ -747,9 +747,9 @@ seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-op-al
 seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "7240ae3" }
 
 # alloy-evm
-alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "36e27dd" }
-alloy-op-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "36e27dd"}
-alloy-seismic-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "36e27dd"}
+alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "4c8926d" }
+alloy-op-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "4c8926d"}
+alloy-seismic-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "4c8926d"}
 
 # revm
 revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "21555820"}
@@ -770,5 +770,5 @@ revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspec
 alloy-trie = { git = "https://github.com/SeismicSystems/seismic-trie.git", rev = "d53b661" }
 
 # Seismic 
-seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "600b656" }
+seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "b60dae6" }
 

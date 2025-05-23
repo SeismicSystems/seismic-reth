@@ -266,7 +266,7 @@ dependencies = [
 [[package]]
 name = "alloy-evm"
 version = "0.1.0-alpha.3"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=36e27dd#36e27dd57b1e7db12a9b873f39fc0cad7f3a2836"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=4c8926d#4c8926d4f697b97ac85a1af3321e0e9de5e68f8b"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -396,7 +396,7 @@ dependencies = [
 [[package]]
 name = "alloy-op-evm"
 version = "0.1.0-alpha.3"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=36e27dd#36e27dd57b1e7db12a9b873f39fc0cad7f3a2836"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=4c8926d#4c8926d4f697b97ac85a1af3321e0e9de5e68f8b"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -723,7 +723,7 @@ dependencies = [
 [[package]]
 name = "alloy-seismic-evm"
 version = "0.1.0-alpha.3"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=36e27dd#36e27dd57b1e7db12a9b873f39fc0cad7f3a2836"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=4c8926d#4c8926d4f697b97ac85a1af3321e0e9de5e68f8b"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11420,7 +11420,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=600b656#600b6566989d3acf8ad23833fcab10171599ccf7"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=b60dae6#b60dae6eef95452b3068eb24aa6a3ff35bece73f"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -11449,7 +11449,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave-derive"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=600b656#600b6566989d3acf8ad23833fcab10171599ccf7"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=b60dae6#b60dae6eef95452b3068eb24aa6a3ff35bece73f"
 dependencies = [
  "proc-macro2",
  "quote",
