@@ -12,29 +12,27 @@ use reth_basic_payload_builder::{
     PayloadConfig,
 };
 use reth_chainspec::{ChainSpec, ChainSpecProvider, EthereumHardforks};
-use reth_enclave::EnclaveClient;
 use reth_errors::{BlockExecutionError, BlockValidationError};
 use reth_evm::{
-    block::{BlockExecutor, InternalBlockExecutionError},
     execute::{BlockBuilder, BlockBuilderOutcome},
     ConfigureEvm, Evm, NextBlockEnvAttributes,
 };
 use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_payload_builder_primitives::PayloadBuilderError;
 use reth_payload_primitives::PayloadBuilderAttributes;
-use reth_primitives_traits::{Recovered, SignedTransaction, TxTy};
+use reth_primitives_traits::SignedTransaction;
 use reth_revm::{database::StateProviderDatabase, db::State};
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicTransactionSigned};
-use reth_storage_api::{StateProvider, StateProviderFactory};
+use reth_storage_api::StateProviderFactory;
 use reth_transaction_pool::{
     error::InvalidPoolTransactionError, BestTransactions, BestTransactionsAttributes,
     PoolTransaction, TransactionPool, ValidPoolTransaction,
 };
-use revm::{context::result::ExecutionResult, context_interface::Block as _};
-use seismic_alloy_consensus::SeismicTypedTransaction;
+use revm::context_interface::Block as _;
 use std::sync::Arc;
 use tracing::{debug, trace, warn};
+use seismic_enclave::EnclaveClientBuilder;
 
 use reth_primitives_traits::transaction::error::InvalidTransactionError;
 
@@ -46,7 +44,7 @@ use super::SeismicBuilderConfig;
 
 /// Seismic payload builder
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SeismicPayloadBuilder<Pool, Client, EvmConfig = SeismicEvmConfig> {
+pub struct SeismicPayloadBuilder<Pool, Client, EvmConfig = SeismicEvmConfig<EnclaveClientBuilder>> {
     /// Client providing access to node state.
     client: Client,
     /// Transaction pool.
@@ -153,7 +151,7 @@ where
     let mut db =
         State::builder().with_database(cached_reads.as_db_mut(state)).with_bundle_update().build();
 
-    let builder = evm_config
+    let mut builder = evm_config
         .builder_for_next_block(
             &mut db,
             &parent_header,
