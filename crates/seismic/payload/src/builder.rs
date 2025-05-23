@@ -1,9 +1,6 @@
 //! A basic Seismic payload builder implementation.
 //! 
-//! The key edits here are to incorperate decryption of transaction data before execution.
-//! The [`SeismicPayloadBuilder`] impliments the [`PayloadBuilder`] trait, and builds seismic payloads.
-//! When making the default_seismic_payload, it uses the [`SeismicBlockBuilder`] to build the block,
-//! whick is when decryption occurs. 
+//! The key edits here are ... TODO
 
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::U256;
