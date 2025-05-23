@@ -30,8 +30,6 @@ use seismic_revm::SeismicSpecId;
 use std::convert::Infallible;
 use seismic_enclave::rpc::SyncEnclaveApiClientBuilder;
 
-mod execute;
-pub use execute::*;
 mod receipts;
 pub use receipts::*;
 mod build;
