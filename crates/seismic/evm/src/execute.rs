@@ -11,8 +11,8 @@ pub struct SeismicExecutorProvider;
 
 impl SeismicExecutorProvider {
     /// Creates a new default seismic executor strategy factory.
-    pub fn seismic(chain_spec: Arc<ChainSpec>) -> BasicBlockExecutorProvider<SeismicEvmConfig> {
-        BasicBlockExecutorProvider::new(SeismicEvmConfig::seismic(chain_spec))
+    pub fn seismic<C>(chain_spec: Arc<ChainSpec>, enclave_client: C) -> BasicBlockExecutorProvider<SeismicEvmConfig<C>> {
+        BasicBlockExecutorProvider::new(SeismicEvmConfig::seismic(chain_spec, enclave_client))
     }
 }
 
