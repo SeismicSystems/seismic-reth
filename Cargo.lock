@@ -7154,6 +7154,7 @@ dependencies = [
  "alloy-genesis",
  "alloy-primitives",
  "alloy-rlp",
+ "alloy-seismic-evm",
  "alloy-trie",
  "auto_impl",
  "derive_more 2.0.1",
