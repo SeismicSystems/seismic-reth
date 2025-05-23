@@ -20,53 +20,22 @@ pub fn seismic_override_call_request(request: &mut TransactionRequest) {
 /// copied from reth-rpc-api-builder
 #[cfg(test)]
 pub mod test_utils {
-    use crate::{SeismicEthApi, SeismicEthApiBuilder};
     use alloy_rpc_types_engine::{ClientCode, ClientVersionV1};
-    use jsonrpsee::Methods;
-    use reth_chainspec::{ChainSpec, ChainSpec as SeismicChainSpec, MAINNET};
-    use reth_consensus::noop::NoopConsensus;
+    use reth_chainspec::MAINNET;
     use reth_engine_primitives::BeaconConsensusEngineHandle;
     use reth_ethereum_engine_primitives::EthEngineTypes;
-    use reth_evm::execute::BasicBlockExecutorProvider;
-    use reth_network_api::noop::NoopNetwork;
-    use reth_node_builder::rpc::EthApiBuilder;
     use reth_node_ethereum::EthereumEngineValidator;
     use reth_payload_builder::test_utils::spawn_test_payload_service;
-    use reth_provider::{
-        test_utils::{NoopProvider, TestCanonStateSubscriptions},
-        BlockReader, BlockReaderIdExt, ChainSpecProvider, StateProviderFactory,
-    };
-    use reth_rpc::{eth, EthApi};
+    use reth_provider::test_utils::NoopProvider;
     use reth_rpc_builder::{
         auth::{AuthRpcModule, AuthServerConfig, AuthServerHandle},
-        RpcModuleBuilder, RpcServerConfig, RpcServerHandle, TransportRpcModuleConfig,
     };
     use reth_rpc_engine_api::{capabilities::EngineCapabilities, EngineApi};
-    use reth_rpc_eth_types::{
-        EthStateCache, FeeHistoryCache, FeeHistoryCacheConfig, GasCap, GasPriceOracle,
-    };
     use reth_rpc_layer::JwtSecret;
-    use reth_rpc_server_types::{
-        constants::{DEFAULT_ETH_PROOF_WINDOW, DEFAULT_MAX_SIMULATE_BLOCKS, DEFAULT_PROOF_PERMITS},
-        RpcModuleSelection,
-    };
-    use reth_seismic_chainspec::SEISMIC_MAINNET;
-    use reth_seismic_evm::SeismicEvmConfig;
-    use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
-    use reth_seismic_txpool::SeismicPooledTransaction;
-    use reth_tasks::{pool::BlockingTaskPool, TokioTaskExecutor};
-    use reth_transaction_pool::{
-        blobstore::InMemoryBlobStore,
-        noop::{MockTransactionValidator, NoopTransactionPool},
-        test_utils::{testing_pool, MockOrdering, TestPool, TestPoolBuilder},
-        CoinbaseTipOrdering, Pool,
-    };
-    use seismic_alloy_network::Seismic;
-    use seismic_revm::SeismicTransaction;
+    use reth_tasks::TokioTaskExecutor;
+    use reth_transaction_pool::noop::NoopTransactionPool;
     use std::{
-        default,
         net::{Ipv4Addr, SocketAddr, SocketAddrV4},
-        sync::Arc,
     };
     use tokio::sync::mpsc::unbounded_channel;
 
