@@ -244,6 +244,7 @@ mod tests {
         primitives::Log,
         state::AccountInfo,
     };
+    use std::sync::Arc;
     use seismic_enclave::MockEnclaveClientBuilder;
 
     fn test_evm_config() -> SeismicEvmConfig<MockEnclaveClientBuilder> {
@@ -268,7 +269,7 @@ mod tests {
         // Use the `SeismicEvmConfig` to create the `cfg_env` and `block_env` based on the
         // ChainSpec, Header, and total difficulty
         let EvmEnv { cfg_env, .. } =
-            test_evm_config().evm_env(&header);
+            SeismicEvmConfig::seismic(Arc::new(chain_spec.clone()), MockEnclaveClientBuilder::new()).evm_env(&header);
 
         // Assert that the chain ID in the `cfg_env` is correctly set to the chain ID of the
         // ChainSpec
