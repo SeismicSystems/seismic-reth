@@ -23,7 +23,6 @@ reth-payload-builder.workspace = true
 reth-payload-builder-primitives.workspace = true
 reth-payload-primitives = { workspace = true}
 reth-basic-payload-builder.workspace = true
-reth-enclave.workspace = true
 reth-ethereum-payload-builder.workspace = true
 reth-errors.workspace = true
 
@@ -36,7 +35,9 @@ reth-ethereum-primitives = {workspace = true, features = ["serde", "serde-bincod
 revm.workspace = true
 alloy-primitives.workspace = true
 alloy-consensus.workspace = true
-seismic-alloy-consensus.workspace = true
+
+# enclave
+seismic-enclave.workspace = true
 
 # misc
 tracing.workspace = true

@@ -120,7 +120,7 @@ where
 
     fn build_simulate_v1_transaction(
         &self,
-        request: alloy_rpc_types_eth::TransactionRequest,
+        _request: alloy_rpc_types_eth::TransactionRequest,
     ) -> Result<SeismicTransactionSigned, Self::Error> {
         // let request: SeismicTransactionRequest = request.into();
         // let Ok(tx) = request.build_typed_tx() else {

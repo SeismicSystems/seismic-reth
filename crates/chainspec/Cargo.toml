@@ -24,6 +24,7 @@ alloy-eips = { workspace = true, features = ["serde"] }
 alloy-genesis.workspace = true
 alloy-primitives = { workspace = true, features = ["rlp"] }
 alloy-consensus.workspace = true
+alloy-seismic-evm.workspace = true
 
 # misc
 auto_impl.workspace = true

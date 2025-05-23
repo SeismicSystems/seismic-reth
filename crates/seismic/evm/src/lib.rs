@@ -19,7 +19,7 @@ use build::SeismicBlockAssembler;
 use core::fmt::Debug;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_ethereum_forks::EthereumHardfork;
-use reth_evm::{eth::EthBlockExecutorFactory, ConfigureEvm, EvmEnv, NextBlockEnvAttributes};
+use reth_evm::{ConfigureEvm, EvmEnv, NextBlockEnvAttributes};
 use reth_primitives_traits::{SealedBlock, SealedHeader};
 use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
 use revm::{
@@ -28,9 +28,8 @@ use revm::{
 };
 use seismic_revm::SeismicSpecId;
 use std::convert::Infallible;
+use seismic_enclave::rpc::SyncEnclaveApiClientBuilder;
 
-mod execute;
-pub use execute::*;
 mod receipts;
 pub use receipts::*;
 mod build;
@@ -39,41 +38,44 @@ pub mod config;
 use config::revm_spec;
 
 pub use alloy_seismic_evm::{SeismicEvm, SeismicEvmFactory};
+pub use alloy_seismic_evm::block::SeismicBlockExecutorFactory;
 
 /// Ethereum-related EVM configuration.
 #[derive(Debug, Clone)]
-pub struct SeismicEvmConfig<EvmFactory = SeismicEvmFactory> {
-    /// Inner [`EthBlockExecutorFactory`].
+pub struct SeismicEvmConfig<CB, EvmFactory = SeismicEvmFactory> {
+    /// Inner [`SeismicBlockExecutorFactory`].
     pub executor_factory:
-        EthBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, EvmFactory>,
-    /// Ethereum block assembler.
+        SeismicBlockExecutorFactory<CB, SeismicRethReceiptBuilder, Arc<ChainSpec>, EvmFactory>,
+    /// Seismic block assembler.
     pub block_assembler: SeismicBlockAssembler<ChainSpec>,
 }
 
-impl SeismicEvmConfig {
+impl<CB> SeismicEvmConfig<CB> {
     /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
-    pub fn seismic(chain_spec: Arc<ChainSpec>) -> Self {
-        SeismicEvmConfig::new_with_evm_factory(chain_spec, SeismicEvmFactory::default())
+    pub fn seismic(chain_spec: Arc<ChainSpec>, enclave_client: CB) -> Self {
+        SeismicEvmConfig::new_with_evm_factory(chain_spec, SeismicEvmFactory::default(), enclave_client)
     }
 }
 
-impl SeismicEvmConfig {
+impl<CB> SeismicEvmConfig<CB> {
     /// Creates a new Seismic EVM configuration with the given chain spec.
-    pub fn new(chain_spec: Arc<ChainSpec>) -> Self {
-        Self::seismic(chain_spec)
+    pub fn new(chain_spec: Arc<ChainSpec>, enclave_client: CB) -> Self {
+        Self::seismic(chain_spec, enclave_client)
     }
 
     /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
     pub fn new_with_evm_factory(
         chain_spec: Arc<ChainSpec>,
         evm_factory: SeismicEvmFactory,
+        client_builder: CB,
     ) -> Self {
         Self {
             block_assembler: SeismicBlockAssembler::new(chain_spec.clone()),
-            executor_factory: EthBlockExecutorFactory::new(
+            executor_factory: SeismicBlockExecutorFactory::new(
                 SeismicRethReceiptBuilder::default(),
                 chain_spec,
                 evm_factory,
+                client_builder,
             ),
         }
     }
@@ -90,12 +92,15 @@ impl SeismicEvmConfig {
     }
 }
 
-impl ConfigureEvm for SeismicEvmConfig {
+impl<CB> ConfigureEvm for SeismicEvmConfig<CB>
+where
+    CB: SyncEnclaveApiClientBuilder + Debug + Clone + Send + Sync + Unpin + 'static,
+{
     type Primitives = SeismicPrimitives;
     type Error = Infallible;
     type NextBlockEnvCtx = NextBlockEnvAttributes;
     type BlockExecutorFactory =
-        EthBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, SeismicEvmFactory>;
+        SeismicBlockExecutorFactory<CB, SeismicRethReceiptBuilder, Arc<ChainSpec>, SeismicEvmFactory>;
     type BlockAssembler = SeismicBlockAssembler<ChainSpec>;
 
     fn block_executor_factory(&self) -> &Self::BlockExecutorFactory {
@@ -238,9 +243,10 @@ mod tests {
         state::AccountInfo,
     };
     use std::sync::Arc;
+    use seismic_enclave::MockEnclaveClientBuilder;
 
-    fn test_evm_config() -> SeismicEvmConfig {
-        SeismicEvmConfig::seismic(SEISMIC_MAINNET.clone())
+    fn test_evm_config() -> SeismicEvmConfig<MockEnclaveClientBuilder> {
+        SeismicEvmConfig::seismic(SEISMIC_MAINNET.clone(), MockEnclaveClientBuilder::new())
     }
 
     #[test]
@@ -261,7 +267,7 @@ mod tests {
         // Use the `SeismicEvmConfig` to create the `cfg_env` and `block_env` based on the
         // ChainSpec, Header, and total difficulty
         let EvmEnv { cfg_env, .. } =
-            SeismicEvmConfig::seismic(Arc::new(chain_spec.clone())).evm_env(&header);
+            SeismicEvmConfig::seismic(Arc::new(chain_spec.clone()), MockEnclaveClientBuilder::new()).evm_env(&header);
 
         // Assert that the chain ID in the `cfg_env` is correctly set to the chain ID of the
         // ChainSpec

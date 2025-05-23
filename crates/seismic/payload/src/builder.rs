@@ -1,9 +1,6 @@
 //! A basic Seismic payload builder implementation.
 //! 
-//! The key edits here are to incorperate decryption of transaction data before execution.
-//! The [`SeismicPayloadBuilder`] impliments the [`PayloadBuilder`] trait, and builds seismic payloads.
-//! When making the default_seismic_payload, it uses the [`SeismicBlockBuilder`] to build the block,
-//! whick is when decryption occurs. 
+//! The key edits here are ... TODO
 
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::U256;
@@ -12,29 +9,27 @@ use reth_basic_payload_builder::{
     PayloadConfig,
 };
 use reth_chainspec::{ChainSpec, ChainSpecProvider, EthereumHardforks};
-use reth_enclave::EnclaveClient;
 use reth_errors::{BlockExecutionError, BlockValidationError};
 use reth_evm::{
-    block::{BlockExecutor, InternalBlockExecutionError},
     execute::{BlockBuilder, BlockBuilderOutcome},
     ConfigureEvm, Evm, NextBlockEnvAttributes,
 };
 use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_payload_builder_primitives::PayloadBuilderError;
 use reth_payload_primitives::PayloadBuilderAttributes;
-use reth_primitives_traits::{Recovered, SignedTransaction, TxTy};
+use reth_primitives_traits::SignedTransaction;
 use reth_revm::{database::StateProviderDatabase, db::State};
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicTransactionSigned};
-use reth_storage_api::{StateProvider, StateProviderFactory};
+use reth_storage_api::StateProviderFactory;
 use reth_transaction_pool::{
     error::InvalidPoolTransactionError, BestTransactions, BestTransactionsAttributes,
     PoolTransaction, TransactionPool, ValidPoolTransaction,
 };
-use revm::{context::result::ExecutionResult, context_interface::Block as _};
-use seismic_alloy_consensus::SeismicTypedTransaction;
+use revm::context_interface::Block as _;
 use std::sync::Arc;
 use tracing::{debug, trace, warn};
+use seismic_enclave::EnclaveClientBuilder;
 
 use reth_primitives_traits::transaction::error::InvalidTransactionError;
 
@@ -46,7 +41,7 @@ use super::SeismicBuilderConfig;
 
 /// Seismic payload builder
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SeismicPayloadBuilder<Pool, Client, EvmConfig = SeismicEvmConfig> {
+pub struct SeismicPayloadBuilder<Pool, Client, EvmConfig = SeismicEvmConfig<EnclaveClientBuilder>> {
     /// Client providing access to node state.
     client: Client,
     /// Transaction pool.
@@ -153,7 +148,7 @@ where
     let mut db =
         State::builder().with_database(cached_reads.as_db_mut(state)).with_bundle_update().build();
 
-    let builder = evm_config
+    let mut builder = evm_config
         .builder_for_next_block(
             &mut db,
             &parent_header,
@@ -167,11 +162,6 @@ where
             },
         )
         .map_err(PayloadBuilderError::other)?;
-
-    // wrap the builder with a seismic block builder, which should apply decryption to the
-    // transactions
-    let decryption_helper = EnclaveClient::default(); // using default client to handle decryption
-    let mut builder = SeismicBlockBuilder::new(builder, decryption_helper);
 
     let chain_spec = client.chain_spec();
 
@@ -289,250 +279,4 @@ where
     );
 
     Ok(BuildOutcome::Better { payload, cached_reads })
-}
-
-/// A Seismic Block Builder
-///
-/// Wraps a [`BlockBuilder`], and applies decryotion to the transactions before executing them.
-#[derive(Debug)]
-pub struct SeismicBlockBuilder<B, C> {
-    inner: B,
-    decryption_helper: C,
-}
-
-impl<B, C> SeismicBlockBuilder<B, C> {
-    /// Creates a new [`SeismicBlockBuilder`].
-    pub fn new(inner: B, decryption_helper: C) -> Self {
-        Self { inner, decryption_helper }
-    }
-}
-
-impl<B, C> BlockBuilder for SeismicBlockBuilder<B, C>
-where
-    B: BlockBuilder<Primitives = SeismicPrimitives>,
-    C: reth_enclave::SyncEnclaveApiClient,
-{
-    type Primitives = SeismicPrimitives;
-    type Executor = B::Executor;
-
-    fn apply_pre_execution_changes(&mut self) -> Result<(), BlockExecutionError> {
-        self.inner.apply_pre_execution_changes()
-    }
-
-    // First decrypts the transaction input
-    // Then calls the inner execute_transaction_with_result_closure
-    fn execute_transaction_with_result_closure(
-        &mut self,
-        tx: Recovered<TxTy<Self::Primitives>>,
-        f: impl FnOnce(&ExecutionResult<<<Self::Executor as BlockExecutor>::Evm as Evm>::HaltReason>),
-    ) -> Result<u64, BlockExecutionError> {
-        println!("seismic_block_builder: execute_transaction_with_result_closure: tx: {:?}", tx);
-        let mut decrypted_tx = tx.clone();
-        let inner_tx = decrypted_tx.inner_mut();
-        let typed_tx: SeismicTypedTransaction = tx.inner().transaction().clone();
-
-        // If there is encrypted calldata decrypt the transaction
-        // and replace the call data with the plaintext for inner_tx
-        match typed_tx {
-            SeismicTypedTransaction::Seismic(tx_seismic) => {
-                let ciphertext = tx_seismic.input().clone();
-                let seismic_elements = tx_seismic.seismic_elements.clone();
-
-                let decrypted_data = seismic_elements
-                    .server_decrypt(&self.decryption_helper, &ciphertext)
-                    .map_err(|e| InternalBlockExecutionError::Other(Box::new(e)))?;
-
-                let mut new_tx = tx_seismic.clone();
-                new_tx.input = decrypted_data;
-
-                *inner_tx = SeismicTransactionSigned::new(
-                    SeismicTypedTransaction::Seismic(new_tx),
-                    *inner_tx.signature(),
-                    *inner_tx.tx_hash(),
-                );
-            }
-            _ => (),
-        };
-
-        println!(
-            "seismic_block_builder: execute_transaction_with_result_closure: decrypted_tx: {:?}",
-            decrypted_tx
-        );
-
-        let gas_used = self
-            .executor_mut()
-            .execute_transaction_with_result_closure(decrypted_tx.as_recovered_ref(), f)?;
-        self.inner.add_transaction(tx)?;
-        Ok(gas_used)
-    }
-
-    fn finish(
-        self,
-        state: impl StateProvider,
-    ) -> Result<BlockBuilderOutcome<Self::Primitives>, BlockExecutionError> {
-        self.inner.finish(state)
-    }
-
-    fn executor_mut(&mut self) -> &mut Self::Executor {
-        self.inner.executor_mut()
-    }
-
-    fn into_executor(self) -> Self::Executor {
-        self.inner.into_executor()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use reth_evm::{
-        execute::{BlockBuilder, BlockBuilderOutcome},
-       OnStateHook,
-    };
-    use reth_execution_types::BlockExecutionResult;
-    use reth_primitives_traits::{
-        NodePrimitives, Recovered, TxTy,
-    };
-    use reth_seismic_evm::SeismicEvm;
-    use revm::{
-        database::EmptyDB,
-    };
-    use seismic_enclave::MockEnclaveClient;
-    use proptest::prelude::*;
-    use proptest_arbitrary_interop::arb;
-
-    // test util, not a meaningful conversion
-    fn bytes_to_u64_consistent(input: &[u8]) -> u64 {
-        let mut buf = [0u8; 8];
-
-        // Copy the first up-to-8 bytes into the buffer
-        let len = input.len().min(8);
-        buf[..len].copy_from_slice(&input[..len]);
-
-        u64::from_le_bytes(buf)
-    }
-
-    #[derive(Default, Debug)]
-    struct MockExecutor {}
-    impl BlockExecutor for MockExecutor {
-        type Transaction = <reth_seismic_primitives::SeismicPrimitives as NodePrimitives>::SignedTx;
-        type Receipt = <reth_seismic_primitives::SeismicPrimitives as NodePrimitives>::Receipt;
-        type Evm = SeismicEvm<EmptyDB, revm::inspector::NoOpInspector>;
-
-        fn apply_pre_execution_changes(&mut self) -> Result<(), BlockExecutionError> {
-            Ok(())
-        }
-
-        fn execute_transaction_with_result_closure(
-            &mut self,
-            tx: Recovered<&Self::Transaction>,
-            _f: impl FnOnce(&ExecutionResult<<Self::Evm as Evm>::HaltReason>),
-        ) -> Result<u64, BlockExecutionError> {
-            let plaintext = tx.input().clone(); // expected to be decrypted when this is reached
-            let exec_res = bytes_to_u64_consistent(plaintext.as_ref());
-            Ok(exec_res)
-        }
-
-        fn finish(
-            self,
-        ) -> Result<(Self::Evm, BlockExecutionResult<Self::Receipt>), BlockExecutionError> {
-            unimplemented!("MockExecutor::finish Not implemented")
-        }
-
-        fn set_state_hook(&mut self, _hook: Option<Box<dyn OnStateHook>>) {
-            unimplemented!("MockExecutor::set_state_hook Not implemented")
-        }
-
-        fn evm_mut(&mut self) -> &mut Self::Evm {
-            unimplemented!("MockExecutor::evm_mut Not implemented")
-        }
-    }
-
-    /// A mock implementation of BlockBuilder for testing purposes
-    #[derive(Debug, Default)]
-    struct MockBlockBuilder {
-        executor: MockExecutor,
-    }
-
-    impl MockBlockBuilder {
-        fn new() -> Self {
-            Self {executor: MockExecutor {}}
-        }
-    }
-
-    impl BlockBuilder for MockBlockBuilder {
-        type Primitives = SeismicPrimitives;
-        type Executor = MockExecutor;
-
-        fn apply_pre_execution_changes(&mut self) -> Result<(), BlockExecutionError> {
-            Ok(())
-        }
-
-        fn execute_transaction_with_result_closure(
-            &mut self,
-            tx: Recovered<TxTy<Self::Primitives>>,
-            _f: impl FnOnce(
-                &ExecutionResult<<<Self::Executor as BlockExecutor>::Evm as Evm>::HaltReason>,
-            ),
-        ) -> Result<u64, BlockExecutionError> {
-            let plaintext = tx.input().clone(); // expected to be decrypted when this is reached
-            let exec_res = bytes_to_u64_consistent(plaintext.as_ref());
-            Ok(exec_res)
-        }
-
-        fn finish(
-            self,
-            _state: impl StateProvider,
-        ) -> Result<BlockBuilderOutcome<Self::Primitives>, BlockExecutionError> {
-            unimplemented!("Mock block builder Not implemented")
-        }
-
-        fn executor_mut(&mut self) -> &mut Self::Executor {
-            &mut self.executor
-        }
-
-        fn into_executor(self) -> Self::Executor {
-            return MockExecutor {}
-        }
-
-        fn add_transaction(&mut self, _tx: Recovered<TxTy<Self::Primitives>>) -> Result<u64, BlockExecutionError> {
-            Ok(1u64)
-        }
-    }
-
-    proptest! {
-        #[test]
-        fn test_tx_decryption(reth_tx in arb::<SeismicTransactionSigned>()) {
-            let mut r_tx: Recovered<SeismicTransactionSigned> = Recovered::new_unchecked(reth_tx.clone().into(), reth_tx.recover_signer().unwrap());
-            let inner_tx = r_tx.inner_mut();
-            let typed_tx: SeismicTypedTransaction = reth_tx.transaction().clone();
-            let mock = MockBlockBuilder::new();
-            let mut seismic_builder = SeismicBlockBuilder::new(mock, MockEnclaveClient);
-
-
-            match typed_tx {
-                SeismicTypedTransaction::Seismic(tx_seismic) => {
-                    let plaintext = tx_seismic.input().clone();
-                    let seismic_elements = tx_seismic.seismic_elements.clone();
-
-                    // encrypt the arbitrary data so its a real ciphertext to be decrypted
-                    let encrypted_data = seismic_elements.server_encrypt(&MockEnclaveClient, &plaintext).unwrap();
-
-                    let mut new_tx = tx_seismic.clone();
-                    new_tx.input = encrypted_data.clone();
-
-                    *inner_tx = SeismicTransactionSigned::new(
-                        SeismicTypedTransaction::Seismic(new_tx),
-                        *inner_tx.signature(),
-                        *inner_tx.tx_hash(),
-                    );
-
-                    let exex_res = seismic_builder.execute_transaction(r_tx)?;
-                    assert_eq!(exex_res, bytes_to_u64_consistent(plaintext.as_ref()));
-                }
-                _ => (),
-            }
-
-        }
-    }
 }
