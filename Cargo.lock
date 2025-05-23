@@ -10059,7 +10059,6 @@ dependencies = [
  "proptest-arbitrary-interop",
  "reth-basic-payload-builder",
  "reth-chainspec",
- "reth-enclave",
  "reth-errors",
  "reth-ethereum-payload-builder",
  "reth-ethereum-primitives",
@@ -10078,7 +10077,6 @@ dependencies = [
  "reth-transaction-pool",
  "reth-trie-common",
  "revm",
- "seismic-alloy-consensus",
  "seismic-enclave",
  "tracing",
 ]
@@ -11420,7 +11418,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=15d4940#15d4940f9105959d6c64b2ed8269e4d816b56ed9"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=5d7e2e1#5d7e2e1e836d1505762d4838653c1610a9c7c9d6"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -11449,7 +11447,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave-derive"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=15d4940#15d4940f9105959d6c64b2ed8269e4d816b56ed9"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=5d7e2e1#5d7e2e1e836d1505762d4838653c1610a9c7c9d6"
 dependencies = [
  "proc-macro2",
  "quote",
