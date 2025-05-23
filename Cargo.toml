@@ -741,15 +741,15 @@ alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy
 alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "feb9801" }
 
 # Seismic op-alloy
-seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "7edb230b" }
-seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "7edb230b" }
-seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "7edb230b" }
-seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "7edb230b" }
+seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "7240ae3" }
+seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "7240ae3" }
+seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "7240ae3" }
+seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-op-alloy.git", rev = "7240ae3" }
 
 # alloy-evm
-alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "4996c1e" }
-alloy-op-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "4996c1e"}
-alloy-seismic-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "4996c1e"}
+alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "36e27dd" }
+alloy-op-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "36e27dd"}
+alloy-seismic-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "36e27dd"}
 
 # revm
 revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "21555820"}

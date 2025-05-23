@@ -39,6 +39,7 @@ pub mod config;
 use config::revm_spec;
 
 pub use alloy_seismic_evm::{SeismicEvm, SeismicEvmFactory};
+pub use alloy_seismic_evm::block::SeismicBlockExecutorFactory;
 
 /// Ethereum-related EVM configuration.
 #[derive(Debug, Clone)]
