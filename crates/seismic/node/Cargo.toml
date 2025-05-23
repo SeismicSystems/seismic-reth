@@ -14,7 +14,6 @@ workspace = true
 seismic-enclave.workspace = true
 
 # seismic-reth
-reth-seismic-payload-builder.workspace = true
 reth-seismic-evm.workspace = true
 reth-seismic-rpc.workspace = true
 reth-seismic-txpool.workspace = true

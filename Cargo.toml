@@ -166,7 +166,6 @@ members = [
     "crates/seismic/cli",
     "crates/seismic/evm/",
     "crates/seismic/node/",
-    "crates/seismic/payload/",
     "crates/seismic/primitives/",
     "crates/seismic/reth/",
     "crates/seismic/rpc/",
@@ -334,7 +333,6 @@ reth-seismic-cli = { path = "crates/seismic/cli" }
 reth-seismic-evm = { path = "crates/seismic/evm" }
 reth-seismic-node = { path = "crates/seismic/node" }
 reth-seismic-chain-registry = { path = "crates/seismic/chain-registry" }
-reth-seismic-payload-builder = { path = "crates/seismic/payload" }
 reth-seismic-primitives = { path = "crates/seismic/primitives" }
 reth-seismic-reth = { path = "crates/seismic/reth" }
 reth-seismic-rpc = { path = "crates/seismic/rpc" }
