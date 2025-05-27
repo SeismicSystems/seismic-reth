@@ -47,6 +47,7 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use reth_rpc_eth_types::EthApiError;
 use alloy_rpc_types_eth::simulate::{SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock};
 use alloy_rpc_types::TransactionRequest;
+use seismic_alloy_network::TransactionBuilder;
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///
@@ -268,7 +269,9 @@ where
 
             SeismicCallRequest::Bytes(bytes) => {
                 let tx = recover_raw_transaction::<SeismicTxEnvelope>(&bytes)?;
-                tx.inner().clone().into()
+                let mut req: SeismicTransactionRequest = tx.inner().clone().into();
+                req.set_from(tx.signer());
+                req
             }
         };
 
