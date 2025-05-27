@@ -31,9 +31,10 @@ use reth_primitives_traits::{
 };
 use revm_context::TxEnv;
 use seismic_alloy_consensus::{
-    Decodable712, SeismicTxEnvelope, SeismicTypedTransaction, TxSeismic,
+    Decodable712, InputDecryptionElements, InputDecryptionElementsError, SeismicTxEnvelope,
+    SeismicTypedTransaction, TxSeismic, TxSeismicElements,
 };
-use seismic_revm::SeismicTransaction;
+use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
 
 /// Signed transaction.
 ///
@@ -209,7 +210,6 @@ impl OpTransaction for SeismicTransactionSigned {
     }
 }
 
-use seismic_revm::transaction::abstraction::RngMode;
 impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
     fn from_recovered_tx(tx: &SeismicTransactionSigned, sender: Address) -> Self {
         let tx_hash = tx.tx_hash().clone();
@@ -515,6 +515,16 @@ impl Transaction for SeismicTransactionSigned {
     }
 }
 
+impl InputDecryptionElements for SeismicTransactionSigned {
+    fn get_decryption_elements(&self) -> Result<TxSeismicElements, InputDecryptionElementsError> {
+        self.transaction.get_decryption_elements()
+    }
+
+    fn set_input(&mut self, input: Bytes) -> Result<(), InputDecryptionElementsError> {
+        self.transaction.set_input(input)
+    }
+}
+
 impl Typed2718 for SeismicTransactionSigned {
     fn ty(&self) -> u8 {
         self.deref().ty()
@@ -737,9 +747,7 @@ pub mod serde_bincode_compat {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::{
-        get_signed_seismic_tx, get_signing_private_key,
-    };
+    use crate::test_utils::{get_signed_seismic_tx, get_signing_private_key};
 
     use super::*;
     use proptest::proptest;
@@ -755,7 +763,7 @@ mod tests {
 
         assert_eq!(recovered_signer, expected_signer);
     }
-  
+
     proptest! {
         #[test]
         fn test_roundtrip_2718(signed_tx in arb::<SeismicTransactionSigned>()) {

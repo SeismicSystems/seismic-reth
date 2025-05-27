@@ -36,7 +36,7 @@ use reth_rpc_builder::config::RethRpcServerConfig;
 use reth_rpc_eth_api::FullEthApiServer;
 use reth_rpc_eth_types::{error::FromEvmError, EthApiError};
 use reth_rpc_server_types::RethRpcModule;
-use reth_seismic_evm::SeismicEvmConfig;
+// use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
 use reth_seismic_rpc::{SeismicEthApi, SeismicEthApiBuilder};
@@ -49,6 +49,8 @@ use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
 use std::{sync::Arc, time::SystemTime};
+
+use crate::{real_seismic_evm_config, RealSeismicEvmConfig};
 
 /// Storage implementation for Optimism.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
@@ -362,14 +364,14 @@ impl<Node> ExecutorBuilder<Node> for SeismicExecutorBuilder
 where
     Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
 {
-    type EVM = SeismicEvmConfig;
+    type EVM = RealSeismicEvmConfig;
     type Executor = BasicBlockExecutorProvider<Self::EVM>;
 
     async fn build_evm(
         self,
         ctx: &BuilderContext<Node>,
     ) -> eyre::Result<(Self::EVM, Self::Executor)> {
-        let evm_config = SeismicEvmConfig::seismic(ctx.chain_spec());
+        let evm_config = real_seismic_evm_config(ctx.chain_spec());
         let executor = BasicBlockExecutorProvider::new(evm_config.clone());
 
         Ok((evm_config, executor))
@@ -531,15 +533,15 @@ where
         + 'static,
 {
     type PayloadBuilder =
-        reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider, SeismicEvmConfig>;
+        reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider, RealSeismicEvmConfig>;
 
     async fn build_payload_builder(
         self,
         ctx: &BuilderContext<Node>,
         pool: Pool,
     ) -> eyre::Result<Self::PayloadBuilder> {
-        self.build::<Node::Types, Node, SeismicEvmConfig, Pool>(
-            SeismicEvmConfig::seismic(ctx.chain_spec()),
+        self.build::<Node::Types, Node, RealSeismicEvmConfig, Pool>(
+            real_seismic_evm_config(ctx.chain_spec()),
             ctx,
             pool,
         )

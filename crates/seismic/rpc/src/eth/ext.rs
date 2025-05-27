@@ -23,10 +23,6 @@ use alloy_rpc_types::{
     state::{EvmOverrides, StateOverride},
     BlockId, BlockOverrides,
 };
-use alloy_rpc_types_eth::{
-    simulate::{SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock},
-    transaction::TransactionRequest,
-};
 use futures::Future;
 use jsonrpsee::{
     core::{async_trait, RpcResult},
@@ -37,16 +33,15 @@ use reth_rpc_eth_api::{
     helpers::{EthCall, EthTransactions},
     RpcBlock,
 };
-use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
+use reth_rpc_eth_types::{utils::recover_raw_transaction};
 use reth_tracing::tracing::*;
-use reth_transaction_pool::{PoolPooledTx, PoolTransaction, TransactionPool};
 use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
 use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest,
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
 };
 use seismic_enclave::{
-    rpc::EnclaveApiClient, tx_io::IoDecryptionRequest, EnclaveClient, PublicKey,
+    rpc::EnclaveApiClient, EnclaveClient, PublicKey,
 };
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
@@ -256,42 +251,36 @@ where
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
         debug!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving overridden eth_call");
-        let seismic_tx_request = convert_seismic_call_to_tx_request(request)?;
+        let seismic_tx_request: SeismicTransactionRequest = match request {
+            SeismicCallRequest::TransactionRequest(mut tx_request) => {
+                seismic_override_call_request(&mut tx_request.inner);
+                tx_request
+            }
 
-        // decrypt seismic elements
-        let seismic_elements = seismic_tx_request.seismic_elements;
-        let tx_request = if let Some(seismic_elements) = seismic_elements {
-            let ciphertext = seismic_tx_request.inner.input.clone().into_input().unwrap();
+            SeismicCallRequest::TypedData(typed_request) => {
+                SeismicTransactionRequest::decode_712(&typed_request).unwrap()
+            }
 
-            let decrypted_data = seismic_elements
-                .server_decrypt(&self.enclave_client, &ciphertext)
-                .map_err(|e| {
-                    EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
-                        -32000, // TODO: pick a better error code?
-                        "DecryptionError",
-                        Some(e.to_string()),
-                    )))
-                })?;
-
-            let decrypted_data = Bytes::from(decrypted_data);
-            seismic_tx_request.inner.input(decrypted_data.into())
-        } else {
-            seismic_tx_request.inner
+            SeismicCallRequest::Bytes(bytes) => {
+                let tx = recover_raw_transaction::<SeismicTxEnvelope>(&bytes)?;
+                tx.inner().clone().into()
+            }
         };
 
         let result = EthCall::call(
             &self.eth_api,
-            tx_request,
+            seismic_tx_request.inner,
             block_number,
             EvmOverrides::new(state_overrides, block_overrides),
         )
         .await?;
 
-        if let Some(seismic_elements) = seismic_elements {
-            return Ok(seismic_elements.server_encrypt(&self.enclave_client, &result).unwrap());
-        } else {
-            Ok(result)
-        }
+        // if let Some(seismic_elements) = seismic_elements {
+        //     return Ok(seismic_elements.server_encrypt(&self.enclave_client, &result).unwrap());
+        // } else {
+        //     Ok(result)
+        // }
+        Ok(result)
     }
 
     /// Handler for: `eth_sendRawTransaction`
@@ -307,98 +296,4 @@ where
             }
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    // use crate::utils::test_utils::{build_test_eth_api};
-    // use crate::utils2::test_utils::{launch_http};
-    use super::EthApiOverrideClient;
-    use alloy_primitives::{b256, hex, PrimitiveSignature, U256};
-    use alloy_rpc_types::Block;
-    use jsonrpsee::core::client::{ClientT, SubscriptionClientT};
-    use reth_enclave::start_mock_enclave_server_random_port;
-    use reth_seismic_primitives::test_utils::get_seismic_tx;
-    use seismic_alloy_consensus::{TxSeismic, TxSeismicElements, TypedDataRequest};
-    use std::str::FromStr;
-
-    use super::*;
-
-    async fn test_basic_seismic_calls<C>(client: &C)
-    where
-        C: ClientT + SubscriptionClientT + Sync,
-    {
-        let _pk = SeismicApiClient::get_tee_public_key(client).await.unwrap();
-    }
-
-    async fn test_basic_eth_calls<C>(client: &C)
-    where
-        C: ClientT + SubscriptionClientT + Sync,
-    {
-        let typed_data = get_seismic_tx().eip712_to_type_data();
-        let typed_data_request = TypedDataRequest {
-            data: typed_data.clone(),
-            signature: PrimitiveSignature::new(
-                b256!("1fd474b1f9404c0c5df43b7620119ffbc3a1c3f942c73b6e14e9f55255ed9b1d").into(),
-                b256!("29aca24813279a901ec13b5f7bb53385fa1fc627b946592221417ff74a49600d").into(),
-                false,
-            ),
-        };
-        let tx = Bytes::from(hex!("02f871018303579880850555633d1b82520894eee27662c2b8eba3cd936a23f039f3189633e4c887ad591c62bdaeb180c080a07ea72c68abfb8fca1bd964f0f99132ed9280261bdca3e549546c0205e800f7d0a05b4ef3039e9c9b9babc179a1878fb825b5aaf5aed2fa8744854150157b08d6f3"));
-        let call_request = SeismicTransactionRequest::default();
-
-        let _signature = EthApiOverrideClient::<Block>::sign_typed_data_v4(
-            client,
-            Address::ZERO,
-            typed_data.clone(),
-        )
-        .await
-        .unwrap_err();
-        let _result =
-            EthApiOverrideClient::<Block>::call(client, call_request.into(), None, None, None)
-                .await
-                .unwrap_err();
-        let _result =
-            EthApiOverrideClient::<Block>::call(client, tx.clone().into(), None, None, None)
-                .await
-                .unwrap_err();
-        let _result = EthApiOverrideClient::<Block>::call(
-            client,
-            typed_data_request.clone().into(),
-            None,
-            None,
-            None,
-        )
-        .await
-        .unwrap_err();
-        let _result =
-            EthApiOverrideClient::<Block>::send_raw_transaction(client, tx.clone().into())
-                .await
-                .unwrap();
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_call_seismic_functions_http() {
-        use crate::utils2::test_utils::{launch_http};
-
-        reth_tracing::init_test_tracing();
-        let enclave_client = start_mock_enclave_server_random_port().await;
-
-        let seismic_api = SeismicApi::default().with_enclave_client(enclave_client);
-        let rpc_mod = seismic_api.into_rpc();
-
-        let handle = launch_http(rpc_mod).await;
-        let client = handle.http_client().unwrap();
-        test_basic_seismic_calls(&client).await;
-    }
-
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn test_call_eth_functions_http() {
-    //     reth_tracing::init_test_tracing();
-
-    //     let eth_api = build_test_eth_api(MockEthProvider::default());
-    //     let eth_api = EthApiExt::new(eth_api, EnclaveClient::default());
-    //     let handle = launch_http(eth_api.into_rpc()).await;
-    //     test_basic_eth_calls(&handle.http_client().unwrap()).await;
-    // }
 }
