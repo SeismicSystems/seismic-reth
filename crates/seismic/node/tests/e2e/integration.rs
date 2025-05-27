@@ -27,6 +27,14 @@ use seismic_enclave::aes_decrypt;
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
 
+use reth_seismic_primitives::SeismicPrimitives;
+use reth_seismic_primitives::SeismicTransactionSigned;
+use reth_seismic_primitives::SeismicBlock;
+use reth_seismic_primitives::SeismicReceipt;
+use alloy_consensus::TxReceipt;
+use seismic_alloy_rpc_types::SeismicTransactionReceipt;
+use alloy_network::ReceiptResponse;
+
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
 const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessage(bytes)
 
@@ -363,7 +371,7 @@ async fn test_seismic_reth_rpc() {
 
     // Get the transaction receipt
     let receipt =
-        EthApiClient::<Transaction, Block, TransactionReceipt, Header>::transaction_receipt(
+        EthApiClient::<SeismicTransactionSigned, SeismicBlock, SeismicTransactionReceipt, Header>::transaction_receipt(
             &client, tx_hash,
         )
         .await
@@ -430,7 +438,7 @@ async fn test_seismic_reth_rpc() {
 
     // Get the transaction receipt
     let receipt =
-        EthApiClient::<Transaction, Block, TransactionReceipt, Header>::transaction_receipt(
+        EthApiClient::<SeismicTransactionSigned, SeismicBlock, SeismicTransactionReceipt, Header>::transaction_receipt(
             &client, tx_hash,
         )
         .await
@@ -440,7 +448,7 @@ async fn test_seismic_reth_rpc() {
     assert_eq!(receipt.status(), true);
 
     // Final eth_call to check the parity. Should be 1
-    let output = EthApiOverrideClient::<Block>::call(
+    let output = EthApiOverrideClient::<SeismicBlock>::call(
         &client,
         get_signed_seismic_tx_bytes(
             &wallet.inner,

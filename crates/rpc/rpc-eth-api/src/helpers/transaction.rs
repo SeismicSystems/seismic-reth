@@ -175,6 +175,7 @@ pub trait EthTransactions: LoadTransaction<Provider: BlockReaderIdExt> {
     where
         Self: 'static,
     {
+        tracing::info!("EthTransactions::load_transaction_and_receipt");
         let provider = self.provider().clone();
         self.spawn_blocking_io(move |_| {
             let (tx, meta) = match provider
@@ -190,6 +191,8 @@ pub trait EthTransactions: LoadTransaction<Provider: BlockReaderIdExt> {
                 None => return Ok(None),
             };
 
+            tracing::info!("EthTransactions::load_transaction_and_receipt finished");
+            println!("receipt: {:?}", receipt);
             Ok(Some((tx, meta, receipt)))
         })
     }

@@ -10134,6 +10134,7 @@ dependencies = [
  "seismic-alloy-consensus",
  "seismic-alloy-network",
  "seismic-alloy-provider",
+ "seismic-alloy-rpc-types",
  "seismic-enclave",
  "seismic-revm",
  "serde",

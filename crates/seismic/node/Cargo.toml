@@ -96,6 +96,7 @@ alloy-dyn-abi.workspace = true
 alloy-sol-types.workspace = true
 alloy-json-abi.workspace = true
 alloy-provider.workspace = true
+seismic-alloy-rpc-types.workspace = true
 
 [features]
 default = ["reth-codec"]

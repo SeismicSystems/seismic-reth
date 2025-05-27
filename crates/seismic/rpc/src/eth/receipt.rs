@@ -27,6 +27,7 @@ where
         meta: TransactionMeta,
         receipt: SeismicReceipt,
     ) -> Result<RpcReceipt<Self::NetworkTypes>, Self::Error> {
+        tracing::info!("SeismicEthApi::build_transaction_receipt");
         let hash = meta.block_hash;
         // get all receipts for the block
         let all_receipts = self
@@ -38,6 +39,7 @@ where
             .ok_or(EthApiError::HeaderNotFound(hash.into()))?;
         let blob_params = self.provider().chain_spec().blob_params_at_timestamp(meta.timestamp);
 
+        tracing::info!("SeismicEthApi::build_transaction_receipt start build()");
         Ok(SeismicReceiptBuilder::new(&tx, meta, &receipt, &all_receipts, blob_params)?.build())
     }
 }
@@ -60,6 +62,7 @@ impl SeismicReceiptBuilder {
         all_receipts: &[SeismicReceipt],
         blob_params: Option<BlobParams>,
     ) -> Result<Self, EthApiError> {
+        tracing::info!("SeismicReceiptBuilder::new");
         let base = build_receipt(
             transaction,
             meta,
@@ -77,6 +80,7 @@ impl SeismicReceiptBuilder {
             },
         )?;
 
+        tracing::info!("SeismicReceiptBuilder::new finished");
         Ok(Self { base })
     }
 
