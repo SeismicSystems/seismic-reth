@@ -193,7 +193,6 @@ where
 
             for call in calls {
                 let seismic_tx_request = convert_seismic_call_to_tx_request(call)?;
-                // TODO: decryption
                 let tx_request: TransactionRequest = seismic_tx_request.inner;
                 prepared_calls.push(tx_request);
             }
@@ -204,6 +203,7 @@ where
             eth_simulated_blocks.push(prepared_block);
         }
 
+        // Call Eth simulate_v1, which only takes EthSimPayload/EthSimBlock
         let result = EthCall::simulate_v1(
             &self.eth_api,
             EthSimulatePayload {
@@ -217,6 +217,8 @@ where
         .await;
         let mut result = result.unwrap();
 
+        // Convert Eth Blocks back to Seismic blocks
+        // Includes encrypting the output? should it?
         for (block, result) in seismic_sim_blocks.iter().zip(result.iter_mut()) {
             let SeismicSimBlock::<SeismicCallRequest> { calls, .. } = block;
             let SimulatedBlock { calls: call_results, .. } = result;

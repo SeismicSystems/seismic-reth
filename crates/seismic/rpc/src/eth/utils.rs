@@ -42,7 +42,7 @@ pub fn recover_typed_data_request<T: SignedTransaction>(
 
 /// Convert a [`SeismicCallRequest`] to a [`SeismicTransactionRequest`].
 /// 
-/// If the call requests simulates a transaction without a signature from msg.sender,,
+/// If the call requests simulates a transaction without a signature from msg.sender,
 /// we null out the fields that may reveal sensitive information.
 pub fn convert_seismic_call_to_tx_request(request: SeismicCallRequest) -> Result<SeismicTransactionRequest, EthApiError> {
     match request {
