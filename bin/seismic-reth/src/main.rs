@@ -3,17 +3,14 @@
 use reth_cli_commands::node::NoArgs;
 use reth_enclave::{start_blocking_mock_enclave_server, EnclaveClient};
 use reth_node_builder::{EngineNodeLauncher, TreeConfig};
-use reth_provider::providers::BlockchainProvider;
 use reth_seismic_cli::chainspec::SeismicChainSpecParser;
 use reth_seismic_node::node::{SeismicAddOns, SeismicNode};
 use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
+use clap::Parser;
+use reth::cli::Cli;
 
 fn main() {
-    use clap::Parser;
-    use reth::cli::Cli;
-    use reth_node_ethereum::{node::EthereumAddOns, EthereumNode};
-
     reth_cli_util::sigsegv_handler::install();
 
     // Enable backtraces unless a RUST_BACKTRACE value has already been explicitly provided.
