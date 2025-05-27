@@ -398,57 +398,5 @@ pub mod test_utils {
         let signature = sign_seismic_tx(&tx);
         SignableTransaction::into_signed(tx, signature).into()
     }
-
-    // /// Launches a new server with http only with the given modules
-    // pub async fn launch_http(modules: impl Into<Methods>) -> RpcServerHandle {
-    //     let builder = test_rpc_builder();
-    //     let mut server = builder.build(
-    //         TransportRpcModuleConfig::set_http(RpcModuleSelection::Standard),
-    //         Box::new(EthApi::with_spawner),
-    //         Arc::new(SeismicEngineValidator::new(MAINNET.clone())),
-    //     );
-    //     server.replace_configured(modules).unwrap();
-    //     RpcServerConfig::http(Default::default())
-    //         .with_http_address(test_address())
-    //         .start(&server)
-    //         .await
-    //         .unwrap()
-    // }
-
-    // /// Builds a test eth api
-    // pub fn build_test_seismic_eth_api<
-    //     P: BlockReaderIdExt<
-    //             Block = SeismicPrimitives::Block,
-    //             Receipt = SeismicPrimitives::Receipt,
-    //             Header = SeismicPrimitives::Header,
-    //         > + BlockReader
-    //         + ChainSpecProvider<ChainSpec = ChainSpec>
-    //         + EvmEnvProvider
-    //         + StateProviderFactory
-    //         + Unpin
-    //         + Clone
-    //         + 'static,
-    // >(
-    //     provider: P,
-    // ) -> EthApi<P, TestPool, NoopNetwork, EthEvmConfig> {
-    // let evm_config = EthEvmConfig::new(provider.chain_spec());
-    // let cache = EthStateCache::spawn(provider.clone(), Default::default());
-    // let fee_history_cache = FeeHistoryCache::new(FeeHistoryCacheConfig::default());
-
-    // EthApi::new(
-    //     provider.clone(),
-    //     testing_pool(),
-    //     NoopNetwork::default(),
-    //     cache.clone(),
-    //     GasPriceOracle::new(provider, Default::default(), cache),
-    //     GasCap::default(),
-    //     DEFAULT_MAX_SIMULATE_BLOCKS,
-    //     DEFAULT_ETH_PROOF_WINDOW,
-    //     BlockingTaskPool::build().expect("failed to build tracing pool"),
-    //     fee_history_cache,
-    //     evm_config,
-    //     DEFAULT_PROOF_PERMITS,
-    // )
-    //     todo!()
-    // }
+    
 }

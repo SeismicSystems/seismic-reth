@@ -40,7 +40,6 @@ impl Default for EnclaveArgs {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::args::enclave::EnclaveArgs;
     use clap::{Args, Parser};
 
     /// A helper type to parse Args more easily
