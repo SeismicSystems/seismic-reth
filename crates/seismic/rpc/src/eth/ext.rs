@@ -12,7 +12,7 @@ use super::api::FullSeismicApi;
 use crate::{
     error::SeismicEthApiError,
     utils::{
-        convert_seismic_call_to_tx_request, recover_typed_data_request,
+        convert_seismic_call_to_tx_request,
         seismic_override_call_request,
     },
 };
@@ -44,6 +44,9 @@ use seismic_enclave::{
     rpc::EnclaveApiClient, EnclaveClient, PublicKey,
 };
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use reth_rpc_eth_types::EthApiError;
+use alloy_rpc_types_eth::simulate::{SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock};
+use alloy_rpc_types::TransactionRequest;
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///
