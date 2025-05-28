@@ -63,17 +63,15 @@ pub fn get_seismic_elements() -> TxSeismicElements {
 }
 
 /// Encrypt plaintext using network public key and client private key
-pub fn client_encrypt(plaintext: &Bytes) -> Bytes {
+pub fn client_encrypt(plaintext: &Bytes) -> Result<Bytes, anyhow::Error> {
     get_seismic_elements()
         .client_encrypt(plaintext, &get_network_public_key(), &get_client_io_sk())
-        .unwrap()
 }
 
 /// Decrypt ciphertext using network public key and client private key
-pub fn client_decrypt(ciphertext: &Bytes) -> Bytes {
+pub fn client_decrypt(ciphertext: &Bytes) -> Result<Bytes, anyhow::Error> {
     get_seismic_elements()
         .client_decrypt(ciphertext, &get_network_public_key(), &get_client_io_sk())
-        .unwrap()
 }
 
 /// Get the plaintext for a seismic transaction
@@ -84,7 +82,7 @@ pub fn get_plaintext() -> Bytes {
 
 /// Encrypt plaintext using network public key and client private key
 pub fn get_ciphertext() -> Bytes {
-    let encrypted_data = client_encrypt(&get_plaintext());
+    let encrypted_data = client_encrypt(&get_plaintext()).unwrap();
     encrypted_data
 }
 
@@ -172,7 +170,7 @@ pub async fn get_unsigned_seismic_tx_request(
             gas: Some(6000000),
             gas_price: Some(20e9 as u128),
             chain_id: Some(chain_id),
-            input: TransactionInput { input: Some(client_encrypt(&plaintext)), data: None },
+            input: TransactionInput { input: Some(client_encrypt(&plaintext).unwrap()), data: None },
             transaction_type: Some(TxSeismic::TX_TYPE),
             ..Default::default()
         },

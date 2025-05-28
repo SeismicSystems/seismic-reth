@@ -413,7 +413,7 @@ async fn test_seismic_reth_rpc() {
     )
     .await
     .unwrap();
-    let decrypted_output = client_decrypt(&output);
+    let decrypted_output = client_decrypt(&output).unwrap();
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 
@@ -465,7 +465,7 @@ async fn test_seismic_reth_rpc() {
     )
     .await
     .unwrap();
-    let decrypted_output = client_decrypt(&output);
+    let decrypted_output = client_decrypt(&output).unwrap();
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::from(1));
 
