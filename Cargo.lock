@@ -10104,6 +10104,7 @@ dependencies = [
  "reth-engine-primitives",
  "reth-ethereum-payload-builder",
  "reth-evm",
+ "reth-exex",
  "reth-network",
  "reth-node-api",
  "reth-node-builder",
