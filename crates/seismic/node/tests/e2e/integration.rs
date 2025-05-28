@@ -370,13 +370,15 @@ async fn test_seismic_reth_rpc() {
     println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
 
     // Get the transaction receipt
-    let receipt =
-        EthApiClient::<SeismicTransactionSigned, SeismicBlock, SeismicTransactionReceipt, Header>::transaction_receipt(
-            &client, tx_hash,
-        )
-        .await
-        .unwrap()
-        .unwrap();
+    let receipt = EthApiClient::<
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::transaction_receipt(&client, tx_hash)
+    .await
+    .unwrap()
+    .unwrap();
     let contract_addr = receipt.contract_address.unwrap();
     println!(
         "eth_getTransactionReceipt getting contract deployment transaction receipt: {:?}",
