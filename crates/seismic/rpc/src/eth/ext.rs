@@ -47,6 +47,7 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use reth_rpc_eth_types::EthApiError;
 use alloy_rpc_types_eth::simulate::{SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock};
 use alloy_rpc_types::TransactionRequest;
+use seismic_alloy_network::TransactionBuilder;
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///
@@ -268,24 +269,47 @@ where
 
             SeismicCallRequest::Bytes(bytes) => {
                 let tx = recover_raw_transaction::<SeismicTxEnvelope>(&bytes)?;
-                tx.inner().clone().into()
+                let mut req: SeismicTransactionRequest = tx.inner().clone().into();
+                req.set_from(tx.signer());
+                req
             }
+        };
+
+        // decrypt seismic elements
+        // note: call does not trigger the SeismicEvm's BlockExecutor (aka SeismicBlockExecutor)
+        let seismic_elements = seismic_tx_request.seismic_elements;
+        let tx_request = if let Some(seismic_elements) = seismic_elements {
+            let ciphertext = seismic_tx_request.inner.input.clone().into_input().unwrap();
+
+            let decrypted_data = seismic_elements
+                .server_decrypt(&self.enclave_client, &ciphertext)
+                .map_err(|e| {
+                    EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+                        -32000, // TODO: pick a better error code?
+                        "DecryptionError",
+                        Some(e.to_string()),
+                    )))
+                })?;
+
+            let decrypted_data = Bytes::from(decrypted_data);
+            seismic_tx_request.inner.input(decrypted_data.into())
+        } else {
+            seismic_tx_request.inner
         };
 
         let result = EthCall::call(
             &self.eth_api,
-            seismic_tx_request.inner,
+            tx_request,
             block_number,
             EvmOverrides::new(state_overrides, block_overrides),
         )
         .await?;
 
-        // if let Some(seismic_elements) = seismic_elements {
-        //     return Ok(seismic_elements.server_encrypt(&self.enclave_client, &result).unwrap());
-        // } else {
-        //     Ok(result)
-        // }
-        Ok(result)
+        if let Some(seismic_elements) = seismic_elements {
+            return Ok(seismic_elements.server_encrypt(&self.enclave_client, &result).unwrap());
+        } else {
+            Ok(result)
+        }
     }
 
     /// Handler for: `eth_sendRawTransaction`

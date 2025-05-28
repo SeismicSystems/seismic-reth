@@ -43,7 +43,7 @@ use revm::{
     Database, DatabaseCommit,
 };
 use revm_inspectors::{access_list::AccessListInspector, transfer::TransferInspector};
-use tracing::trace;
+use tracing::{debug, trace, warn};
 
 /// Result type for `eth_simulateV1` RPC method.
 pub type SimulatedBlocksResult<N, E> = Result<Vec<SimulatedBlock<RpcBlock<N>>>, E>;
@@ -217,6 +217,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         block_number: Option<BlockId>,
         overrides: EvmOverrides,
     ) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
+        println!("entered EthCall::call");
         async move {
             let (res, _env) =
                 self.transact_call_at(request, block_number.unwrap_or_default(), overrides).await?;
@@ -475,6 +476,9 @@ pub trait Call:
         let mut evm = self.evm_config().evm_with_env(db, evm_env.clone());
         let res = evm.transact(tx_env.clone()).map_err(Self::Error::from_evm_err)?;
 
+        debug!("Call::transact result: {:?}", res);
+        debug!("tx_env for call::transact: {:?}", tx_env); //are there seisic elements here for decryption?
+
         Ok((res, (evm_env, tx_env)))
     }
 
@@ -518,7 +522,9 @@ pub trait Call:
         Self: LoadPendingBlock,
     {
         let this = self.clone();
+        println!("entering EthCall::spawn_with_call_at");
         self.spawn_with_call_at(request, at, overrides, move |db, evm_env, tx_env| {
+            println!("finished spawn_with_call_at");
             this.transact(db, evm_env, tx_env)
         })
     }
@@ -582,6 +588,8 @@ pub trait Call:
 
                 let (evm_env, tx_env) =
                     this.prepare_call_env(evm_env, request, &mut db, overrides)?;
+
+                tracing::debug!("made it to spawn_with_call_at, called prepare_call_env");
 
                 f(StateCacheDbRefMutWrapper(&mut db), evm_env, tx_env)
             })
@@ -714,6 +722,7 @@ pub trait Call:
         DB: DatabaseRef,
         EthApiError: From<<DB as DatabaseRef>::Error>,
     {
+        warn!("Call::prepare_call_env,\n evm_env: {:?},\n request: {:?}", evm_env, request);
         if request.gas > Some(self.call_gas_limit()) {
             // configured gas exceeds limit
             return Err(
@@ -744,14 +753,22 @@ pub trait Call:
         }
 
         let request_gas = request.gas;
+        let request_from = request.from;
         let mut tx_env = self.create_txn_env(&evm_env, request, &mut *db)?;
+        warn!("tex_env.gas_price: {:?}", tx_env.gas_price());
 
-        if request_gas.is_none() {
+
+        if request_from.is_none() {
+            // No from address was provided in the request, so we use the default gas limit
+        }
+        else if request_gas.is_none() {
             // No gas limit was provided in the request, so we need to cap the transaction gas limit
             if tx_env.gas_price() > 0 {
                 // If gas price is specified, cap transaction gas limit with caller allowance
                 trace!(target: "rpc::eth::call", ?tx_env, "Applying gas limit cap with caller allowance");
+                warn!("here 1");
                 let cap = caller_gas_allowance(db, &tx_env)?;
+                warn!("here 2");
                 // ensure we cap gas_limit to the block's
                 tx_env.set_gas_limit(cap.min(evm_env.block_env.gas_limit));
             }
