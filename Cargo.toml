@@ -770,5 +770,5 @@ revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspec
 alloy-trie = { git = "https://github.com/SeismicSystems/seismic-trie.git", rev = "d53b661" }
 
 # Seismic 
-seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "e1c341b" }
+seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "3749534" }
 
