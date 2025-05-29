@@ -166,6 +166,8 @@ where
     jsonrpsee_types::error::ErrorObject<'static>: From<Eth::Error>,
 {
     /// Handler for: `eth_signTypedData_v4`
+    /// 
+    /// TODO: determine if this should be removed, seems the same as eth functionality
     async fn sign_typed_data_v4(&self, from: Address, data: TypedData) -> RpcResult<String> {
         trace!(target: "rpc::eth", "Serving eth_signTypedData_v4");
         let signature = EthTransactions::sign_typed_data(&self.eth_api, &data, from)
