@@ -520,6 +520,10 @@ impl InputDecryptionElements for SeismicTransactionSigned {
         self.transaction.get_decryption_elements()
     }
 
+    fn get_input(&self) -> &Bytes {
+        self.transaction.get_input()
+    }
+
     fn set_input(&mut self, input: Bytes) -> Result<(), InputDecryptionElementsError> {
         self.transaction.set_input(input)
     }
