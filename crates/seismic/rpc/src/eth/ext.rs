@@ -25,7 +25,7 @@ use alloy_rpc_types_eth::simulate::{
 };
 use futures::Future;
 use jsonrpsee::{
-    core::{async_trait, client, RpcResult},
+    core::{async_trait, RpcResult},
     proc_macros::rpc,
 };
 use reth_node_core::node_config::NodeConfig;
@@ -344,6 +344,7 @@ where
     }
 }
 
+/// Creates a EthApiError that says that seismic decryption failed
 pub fn ext_decryption_error(e_str: String) -> EthApiError {
     EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
         -32000, // TODO: pick a better error code?
