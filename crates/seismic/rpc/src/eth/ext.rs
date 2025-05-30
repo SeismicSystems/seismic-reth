@@ -11,19 +11,18 @@
 use super::api::FullSeismicApi;
 use crate::{
     error::SeismicEthApiError,
-    utils::{
-        convert_seismic_call_to_tx_request,
-        seismic_override_call_request,
-    },
+    utils::{convert_seismic_call_to_tx_request, seismic_override_call_request},
 };
 use alloy_dyn_abi::TypedData;
 use alloy_json_rpc::RpcObject;
-use alloy_primitives::{Address, Bytes, B256};
+use alloy_primitives::{Address, Bytes, B256, U256};
 use alloy_rpc_types::{
     state::{EvmOverrides, StateOverride},
-    BlockId, BlockOverrides,
+    BlockId, BlockOverrides, TransactionRequest,
 };
-use alloy_primitives::U256;
+use alloy_rpc_types_eth::simulate::{
+    SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock,
+};
 use futures::Future;
 use jsonrpsee::{
     core::{async_trait, client, RpcResult},
@@ -34,22 +33,18 @@ use reth_rpc_eth_api::{
     helpers::{EthCall, EthTransactions},
     RpcBlock,
 };
-use reth_rpc_eth_types::{utils::recover_raw_transaction};
+use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
 use reth_tracing::tracing::*;
-use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
+use seismic_alloy_consensus::{
+    Decodable712, InputDecryptionElements, SeismicTxEnvelope, TypedDataRequest,
+};
+use seismic_alloy_network::TransactionBuilder;
 use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest,
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
 };
-use seismic_enclave::{
-    rpc::EnclaveApiClient, EnclaveClient, PublicKey,
-};
+use seismic_enclave::{rpc::EnclaveApiClient, EnclaveClient, PublicKey};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use reth_rpc_eth_types::EthApiError;
-use alloy_rpc_types_eth::simulate::{SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock};
-use alloy_rpc_types::TransactionRequest;
-use seismic_alloy_network::TransactionBuilder;
-use seismic_alloy_consensus::InputDecryptionElements;
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///
@@ -178,7 +173,7 @@ where
     jsonrpsee_types::error::ErrorObject<'static>: From<Eth::Error>,
 {
     /// Handler for: `eth_signTypedData_v4`
-    /// 
+    ///
     /// TODO: determine if this should be removed, seems the same as eth functionality
     async fn sign_typed_data_v4(&self, from: Address, data: TypedData) -> RpcResult<String> {
         trace!(target: "rpc::eth", "Serving eth_signTypedData_v4");
@@ -271,7 +266,7 @@ where
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
         debug!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving overridden eth_call");
-        
+
         // process different CallRequest types
         let seismic_tx_request: SeismicTransactionRequest = match request {
             SeismicCallRequest::TransactionRequest(mut tx_request) => {
@@ -292,9 +287,9 @@ where
         };
 
         // decrypt seismic elements
-        let tx_request = seismic_tx_request.plaintext_copy(&self.enclave_client).map_err(|e| {
-            ext_decryption_error(e.to_string())
-        })?;
+        let tx_request = seismic_tx_request
+            .plaintext_copy(&self.enclave_client)
+            .map_err(|e| ext_decryption_error(e.to_string()))?;
 
         // call inner
         let result = EthCall::call(
@@ -334,11 +329,11 @@ where
         state_override: Option<StateOverride>,
     ) -> RpcResult<U256> {
         // decrypt
-        let decrypted_req = request.plaintext_copy(&self.enclave_client).map_err(|e| {
-            ext_decryption_error(e.to_string())
-        })?;
+        let decrypted_req = request
+            .plaintext_copy(&self.enclave_client)
+            .map_err(|e| ext_decryption_error(e.to_string()))?;
 
-        // call inner 
+        // call inner
         Ok(EthCall::estimate_gas_at(
             &self.eth_api,
             decrypted_req.inner,
