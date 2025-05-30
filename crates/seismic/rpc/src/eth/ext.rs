@@ -146,6 +146,8 @@ pub trait EthApiOverride<B: RpcObject> {
     #[method(name = "sendRawTransaction")]
     async fn send_raw_transaction(&self, bytes: SeismicRawTxRequest) -> RpcResult<B256>;
 
+    /// Generates and returns an estimate of how much gas is necessary to allow the transaction to
+    /// complete.
     #[method(name = "estimateGas")]
     async fn estimate_gas(
         &self,
@@ -269,6 +271,8 @@ where
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
         debug!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving overridden eth_call");
+        
+        // process different CallRequest types
         let seismic_tx_request: SeismicTransactionRequest = match request {
             SeismicCallRequest::TransactionRequest(mut tx_request) => {
                 seismic_override_call_request(&mut tx_request.inner);
@@ -288,15 +292,11 @@ where
         };
 
         // decrypt seismic elements
-        // note: call does not trigger the SeismicEvm's BlockExecutor (aka SeismicBlockExecutor)
         let tx_request = seismic_tx_request.plaintext_copy(&self.enclave_client).map_err(|e| {
-            EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
-                -32000, // TODO: pick a better error code?
-                "DecryptionError",
-                Some(e.to_string()),
-            )))
+            ext_decryption_error(e.to_string())
         })?;
 
+        // call inner
         let result = EthCall::call(
             &self.eth_api,
             tx_request.inner,
@@ -305,6 +305,7 @@ where
         )
         .await?;
 
+        // encrypt result
         if let Some(seismic_elements) = seismic_tx_request.seismic_elements {
             return Ok(seismic_elements.server_encrypt(&self.enclave_client, &result).unwrap());
         } else {
@@ -332,14 +333,12 @@ where
         block_number: Option<BlockId>,
         state_override: Option<StateOverride>,
     ) -> RpcResult<U256> {
+        // decrypt
         let decrypted_req = request.plaintext_copy(&self.enclave_client).map_err(|e| {
-            EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
-                -32000, // TODO: pick a better error code?
-                "DecryptionError",
-                Some(e.to_string()),
-            )))
+            ext_decryption_error(e.to_string())
         })?;
 
+        // call inner 
         Ok(EthCall::estimate_gas_at(
             &self.eth_api,
             decrypted_req.inner,
@@ -348,4 +347,12 @@ where
         )
         .await?)
     }
+}
+
+pub fn ext_decryption_error(e_str: String) -> EthApiError {
+    EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+        -32000, // TODO: pick a better error code?
+        "Error Decrypting in Seismic EthApiExt",
+        Some(e_str),
+    )))
 }
