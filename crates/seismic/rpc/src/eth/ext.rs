@@ -23,6 +23,7 @@ use alloy_rpc_types::{
     state::{EvmOverrides, StateOverride},
     BlockId, BlockOverrides,
 };
+use alloy_primitives::U256;
 use futures::Future;
 use jsonrpsee::{
     core::{async_trait, client, RpcResult},
@@ -144,6 +145,14 @@ pub trait EthApiOverride<B: RpcObject> {
     /// Sends signed transaction, returning its hash.
     #[method(name = "sendRawTransaction")]
     async fn send_raw_transaction(&self, bytes: SeismicRawTxRequest) -> RpcResult<B256>;
+
+    #[method(name = "estimateGas")]
+    async fn estimate_gas(
+        &self,
+        request: SeismicTransactionRequest,
+        block_number: Option<BlockId>,
+        state_override: Option<StateOverride>,
+    ) -> RpcResult<U256>;
 }
 
 /// Implementation of the `eth_` namespace override
@@ -315,5 +324,28 @@ where
                     .await?)
             }
         }
+    }
+
+    async fn estimate_gas(
+        &self,
+        request: SeismicTransactionRequest,
+        block_number: Option<BlockId>,
+        state_override: Option<StateOverride>,
+    ) -> RpcResult<U256> {
+        let decrypted_req = request.plaintext_copy(&self.enclave_client).map_err(|e| {
+            EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+                -32000, // TODO: pick a better error code?
+                "DecryptionError",
+                Some(e.to_string()),
+            )))
+        })?;
+
+        Ok(EthCall::estimate_gas_at(
+            &self.eth_api,
+            decrypted_req.inner,
+            block_number.unwrap_or_default(),
+            state_override,
+        )
+        .await?)
     }
 }
