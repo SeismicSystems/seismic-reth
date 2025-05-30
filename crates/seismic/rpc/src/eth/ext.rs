@@ -211,7 +211,7 @@ where
         }
 
         // Call Eth simulate_v1, which only takes EthSimPayload/EthSimBlock
-        let result = EthCall::simulate_v1(
+        let mut result = EthCall::simulate_v1(
             &self.eth_api,
             EthSimulatePayload {
                 block_state_calls: eth_simulated_blocks.clone(),
@@ -221,8 +221,7 @@ where
             },
             block_number,
         )
-        .await;
-        let mut result = result.unwrap();
+        .await?;
 
         // Convert Eth Blocks back to Seismic blocks
         for (block, result) in seismic_sim_blocks.iter().zip(result.iter_mut()) {
