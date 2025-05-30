@@ -494,15 +494,15 @@ async fn test_seismic_reth_rpc() {
     println!("eth_estimateGas for is_odd() gas: {:?}", gas);
     assert!(gas > U256::ZERO);
 
-    // let access_list =
-    //     EthApiClient::<SeismicTransactionSigned, SeismicBlock, SeismicTransactionReceipt,
-    // Header>::create_access_list(         &client,
-    //         simulate_tx_request.inner.clone(),
-    //         None,
-    //     )
-    //     .await
-    //     .unwrap();
-    // println!("eth_createAccessList for is_odd() access_list: {:?}", access_list);
+    let access_list =
+        EthApiClient::<SeismicTransactionSigned, SeismicBlock, SeismicTransactionReceipt,
+    Header>::create_access_list(         &client,
+            simulate_tx_request.inner.clone(),
+            None,
+        )
+        .await
+        .unwrap();
+    println!("eth_createAccessList for is_odd() access_list: {:?}", access_list);
 
     // test call
     let output = EthApiOverrideClient::<Block>::call(
