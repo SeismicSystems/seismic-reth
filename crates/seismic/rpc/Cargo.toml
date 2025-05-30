@@ -47,7 +47,7 @@ alloy-consensus.workspace = true
 alloy-json-rpc.workspace = true
 alloy-dyn-abi.workspace = true
 
-seismic-alloy-rpc-types = { workspace = true, features = ["serde"] }
+seismic-alloy-rpc-types = { workspace = true, features = ["serde", "k256"] }
 seismic-alloy-consensus.workspace = true
 revm.workspace = true
 seismic-revm.workspace = true

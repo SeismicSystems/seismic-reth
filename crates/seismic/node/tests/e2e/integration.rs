@@ -313,6 +313,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
         .unwrap()
         .unwrap();
     let contract_addr = receipt.contract_address.unwrap();
+    println!("contract_addr: {:?}", contract_addr);
     println!(
         "eth_getTransactionReceipt getting contract deployment transaction receipt: {:?}",
         receipt
