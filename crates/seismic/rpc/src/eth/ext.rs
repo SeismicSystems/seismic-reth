@@ -11,17 +11,17 @@
 use super::api::FullSeismicApi;
 use crate::{
     error::SeismicEthApiError,
-    utils::{
-        convert_seismic_call_to_tx_request,
-        seismic_override_call_request,
-    },
+    utils::{convert_seismic_call_to_tx_request, seismic_override_call_request},
 };
 use alloy_dyn_abi::TypedData;
 use alloy_json_rpc::RpcObject;
-use alloy_primitives::{Address, Bytes, B256};
+use alloy_primitives::{Address, Bytes, B256, U256};
 use alloy_rpc_types::{
     state::{EvmOverrides, StateOverride},
-    BlockId, BlockOverrides,
+    BlockId, BlockOverrides, TransactionRequest,
+};
+use alloy_rpc_types_eth::simulate::{
+    SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock,
 };
 use futures::Future;
 use jsonrpsee::{
@@ -33,21 +33,18 @@ use reth_rpc_eth_api::{
     helpers::{EthCall, EthTransactions},
     RpcBlock,
 };
-use reth_rpc_eth_types::{utils::recover_raw_transaction};
+use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
 use reth_tracing::tracing::*;
-use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
+use seismic_alloy_consensus::{
+    Decodable712, InputDecryptionElements, SeismicTxEnvelope, TypedDataRequest,
+};
+use seismic_alloy_network::TransactionBuilder;
 use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest,
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
 };
-use seismic_enclave::{
-    rpc::EnclaveApiClient, EnclaveClient, PublicKey,
-};
+use seismic_enclave::{rpc::EnclaveApiClient, EnclaveClient, PublicKey};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use reth_rpc_eth_types::EthApiError;
-use alloy_rpc_types_eth::simulate::{SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock};
-use alloy_rpc_types::TransactionRequest;
-use seismic_alloy_network::TransactionBuilder;
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///
@@ -143,6 +140,16 @@ pub trait EthApiOverride<B: RpcObject> {
     /// Sends signed transaction, returning its hash.
     #[method(name = "sendRawTransaction")]
     async fn send_raw_transaction(&self, bytes: SeismicRawTxRequest) -> RpcResult<B256>;
+
+    /// Generates and returns an estimate of how much gas is necessary to allow the transaction to
+    /// complete.
+    #[method(name = "estimateGas")]
+    async fn estimate_gas(
+        &self,
+        request: SeismicTransactionRequest,
+        block_number: Option<BlockId>,
+        state_override: Option<StateOverride>,
+    ) -> RpcResult<U256>;
 }
 
 /// Implementation of the `eth_` namespace override
@@ -166,7 +173,7 @@ where
     jsonrpsee_types::error::ErrorObject<'static>: From<Eth::Error>,
 {
     /// Handler for: `eth_signTypedData_v4`
-    /// 
+    ///
     /// TODO: determine if this should be removed, seems the same as eth functionality
     async fn sign_typed_data_v4(&self, from: Address, data: TypedData) -> RpcResult<String> {
         trace!(target: "rpc::eth", "Serving eth_signTypedData_v4");
@@ -259,6 +266,8 @@ where
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
         debug!(target: "rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving overridden eth_call");
+
+        // process different CallRequest types
         let seismic_tx_request: SeismicTransactionRequest = match request {
             SeismicCallRequest::TransactionRequest(mut tx_request) => {
                 seismic_override_call_request(&mut tx_request.inner);
@@ -278,36 +287,21 @@ where
         };
 
         // decrypt seismic elements
-        // note: call does not trigger the SeismicEvm's BlockExecutor (aka SeismicBlockExecutor)
-        let seismic_elements = seismic_tx_request.seismic_elements;
-        let tx_request = if let Some(seismic_elements) = seismic_elements {
-            let ciphertext = seismic_tx_request.inner.input.clone().into_input().unwrap();
+        let tx_request = seismic_tx_request
+            .plaintext_copy(&self.enclave_client)
+            .map_err(|e| ext_decryption_error(e.to_string()))?;
 
-            let decrypted_data = seismic_elements
-                .server_decrypt(&self.enclave_client, &ciphertext)
-                .map_err(|e| {
-                    EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
-                        -32000, // TODO: pick a better error code?
-                        "DecryptionError",
-                        Some(e.to_string()),
-                    )))
-                })?;
-
-            let decrypted_data = Bytes::from(decrypted_data);
-            seismic_tx_request.inner.input(decrypted_data.into())
-        } else {
-            seismic_tx_request.inner
-        };
-
+        // call inner
         let result = EthCall::call(
             &self.eth_api,
-            tx_request,
+            tx_request.inner,
             block_number,
             EvmOverrides::new(state_overrides, block_overrides),
         )
         .await?;
 
-        if let Some(seismic_elements) = seismic_elements {
+        // encrypt result
+        if let Some(seismic_elements) = seismic_tx_request.seismic_elements {
             return Ok(seismic_elements.server_encrypt(&self.enclave_client, &result).unwrap());
         } else {
             Ok(result)
@@ -327,4 +321,34 @@ where
             }
         }
     }
+
+    async fn estimate_gas(
+        &self,
+        request: SeismicTransactionRequest,
+        block_number: Option<BlockId>,
+        state_override: Option<StateOverride>,
+    ) -> RpcResult<U256> {
+        // decrypt
+        let decrypted_req = request
+            .plaintext_copy(&self.enclave_client)
+            .map_err(|e| ext_decryption_error(e.to_string()))?;
+
+        // call inner
+        Ok(EthCall::estimate_gas_at(
+            &self.eth_api,
+            decrypted_req.inner,
+            block_number.unwrap_or_default(),
+            state_override,
+        )
+        .await?)
+    }
+}
+
+/// Creates a EthApiError that says that seismic decryption failed
+pub fn ext_decryption_error(e_str: String) -> EthApiError {
+    EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+        -32000, // TODO: pick a better error code?
+        "Error Decrypting in Seismic EthApiExt",
+        Some(e_str),
+    )))
 }
