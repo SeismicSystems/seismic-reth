@@ -10096,6 +10096,7 @@ dependencies = [
  "futures",
  "jsonrpsee",
  "once_cell",
+ "reqwest",
  "reth-chainspec",
  "reth-consensus",
  "reth-db",
