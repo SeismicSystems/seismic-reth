@@ -480,7 +480,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
 
     let tx_bytes = get_signed_seismic_tx_bytes(
         &wallet.inner,
-        nonce + 1,
+        nonce + 2,
         TxKind::Create,
         chain_id,
         test_utils::ContractTestContext::get_deploy_input_plaintext(),
@@ -489,7 +489,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
 
     let tx_typed_data = get_signed_seismic_tx_typed_data(
         &wallet.inner,
-        nonce + 2,
+        nonce + 3,
         TxKind::Create,
         chain_id,
         test_utils::ContractTestContext::get_deploy_input_plaintext(),
@@ -507,7 +507,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
 
     let tx_bytes = get_signed_seismic_tx_bytes(
         &wallet.inner,
-        nonce + 2,
+        nonce + 4,
         TxKind::Create,
         chain_id,
         test_utils::ContractTestContext::get_deploy_input_plaintext(),
@@ -516,7 +516,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
 
     let tx_typed_data = get_signed_seismic_tx_typed_data(
         &wallet.inner,
-        nonce + 3,
+        nonce + 5,
         TxKind::Create,
         chain_id,
         test_utils::ContractTestContext::get_deploy_input_plaintext(),
