@@ -25,7 +25,7 @@ use alloy_rpc_types::{
 };
 use futures::Future;
 use jsonrpsee::{
-    core::{async_trait, RpcResult},
+    core::{async_trait, client, RpcResult},
     proc_macros::rpc,
 };
 use reth_node_core::node_config::NodeConfig;
@@ -48,6 +48,7 @@ use reth_rpc_eth_types::EthApiError;
 use alloy_rpc_types_eth::simulate::{SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock};
 use alloy_rpc_types::TransactionRequest;
 use seismic_alloy_network::TransactionBuilder;
+use seismic_alloy_consensus::InputDecryptionElements;
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///
@@ -279,35 +280,23 @@ where
 
         // decrypt seismic elements
         // note: call does not trigger the SeismicEvm's BlockExecutor (aka SeismicBlockExecutor)
-        let seismic_elements = seismic_tx_request.seismic_elements;
-        let tx_request = if let Some(seismic_elements) = seismic_elements {
-            let ciphertext = seismic_tx_request.inner.input.clone().into_input().unwrap();
-
-            let decrypted_data = seismic_elements
-                .server_decrypt(&self.enclave_client, &ciphertext)
-                .map_err(|e| {
-                    EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
-                        -32000, // TODO: pick a better error code?
-                        "DecryptionError",
-                        Some(e.to_string()),
-                    )))
-                })?;
-
-            let decrypted_data = Bytes::from(decrypted_data);
-            seismic_tx_request.inner.input(decrypted_data.into())
-        } else {
-            seismic_tx_request.inner
-        };
+        let tx_request = seismic_tx_request.plaintext_copy(&self.enclave_client).map_err(|e| {
+            EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+                -32000, // TODO: pick a better error code?
+                "DecryptionError",
+                Some(e.to_string()),
+            )))
+        })?;
 
         let result = EthCall::call(
             &self.eth_api,
-            tx_request,
+            tx_request.inner,
             block_number,
             EvmOverrides::new(state_overrides, block_overrides),
         )
         .await?;
 
-        if let Some(seismic_elements) = seismic_elements {
+        if let Some(seismic_elements) = seismic_tx_request.seismic_elements {
             return Ok(seismic_elements.server_encrypt(&self.enclave_client, &result).unwrap());
         } else {
             Ok(result)
