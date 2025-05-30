@@ -3,13 +3,10 @@
 use alloy_rpc_types::TransactionRequest;
 use reth_primitives::Recovered;
 use reth_primitives_traits::SignedTransaction;
-use reth_rpc_eth_types::{EthApiError, EthResult};
-use seismic_alloy_consensus::TypedDataRequest;
-use seismic_alloy_rpc_types::SeismicTransactionRequest;
-use seismic_alloy_rpc_types::SeismicCallRequest;
-use reth_rpc_eth_types::utils::recover_raw_transaction;
-use seismic_alloy_consensus::SeismicTxEnvelope;
-use seismic_alloy_consensus::Decodable712;
+use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError, EthResult};
+use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
+use seismic_alloy_network::TransactionBuilder;
+use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
 
 /// Override the request for seismic calls
 pub fn seismic_override_call_request(request: &mut TransactionRequest) {
@@ -41,10 +38,12 @@ pub fn recover_typed_data_request<T: SignedTransaction>(
 }
 
 /// Convert a [`SeismicCallRequest`] to a [`SeismicTransactionRequest`].
-/// 
+///
 /// If the call requests simulates a transaction without a signature from msg.sender,
 /// we null out the fields that may reveal sensitive information.
-pub fn convert_seismic_call_to_tx_request(request: SeismicCallRequest) -> Result<SeismicTransactionRequest, EthApiError> {
+pub fn convert_seismic_call_to_tx_request(
+    request: SeismicCallRequest,
+) -> Result<SeismicTransactionRequest, EthApiError> {
     match request {
         SeismicCallRequest::TransactionRequest(mut tx_request) => {
             seismic_override_call_request(&mut tx_request.inner); // null fields that may reveal sensitive information
@@ -52,14 +51,15 @@ pub fn convert_seismic_call_to_tx_request(request: SeismicCallRequest) -> Result
         }
 
         SeismicCallRequest::TypedData(typed_request) => {
-            SeismicTransactionRequest::decode_712(&typed_request).map_err(
-                |_e| EthApiError::FailedToDecodeSignedTransaction,
-            )
+            SeismicTransactionRequest::decode_712(&typed_request)
+                .map_err(|_e| EthApiError::FailedToDecodeSignedTransaction)
         }
 
         SeismicCallRequest::Bytes(bytes) => {
             let tx = recover_raw_transaction::<SeismicTxEnvelope>(&bytes)?;
-            Ok(tx.inner().clone().into())
+            let mut req: SeismicTransactionRequest = tx.inner().clone().into();
+            req.set_from(tx.signer());
+            Ok(req)
         }
     }
 }
