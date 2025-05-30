@@ -2,7 +2,7 @@
 
 use crate::utils::recover_typed_data_request;
 use alloy_consensus::{transaction::Recovered, Transaction as _};
-use alloy_primitives::{Bytes, B256};
+use alloy_primitives::{Bytes, PrimitiveSignature as Signature, B256};
 use alloy_rpc_types_eth::{Transaction, TransactionInfo};
 use reth_node_api::FullNodeComponents;
 use reth_rpc_eth_api::{
@@ -17,6 +17,7 @@ use reth_storage_api::{
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
 use seismic_alloy_consensus::{SeismicTxEnvelope, TypedDataRequest};
 use seismic_alloy_network::{Network, Seismic};
+use seismic_alloy_rpc_types::SeismicTransactionRequest;
 
 use crate::{eth::SeismicNodeCore, SeismicEthApi};
 
@@ -122,15 +123,17 @@ where
         &self,
         _request: alloy_rpc_types_eth::TransactionRequest,
     ) -> Result<SeismicTransactionSigned, Self::Error> {
-        // let request: SeismicTransactionRequest = request.into();
-        // let Ok(tx) = request.build_typed_tx() else {
-        //     return Err(EthApiError::TransactionConversionError)
-        // };
+        let request = SeismicTransactionRequest { 
+            inner: _request, 
+            seismic_elements: None // Assumed that the transaction has already been decrypted in the EthApiExt
+        }; 
+        let Ok(tx) = request.build_typed_tx() else {
+            return Err(EthApiError::TransactionConversionError)
+        };
 
-        // // Create an empty signature for the transaction.
-        // let signature = Signature::new(Default::default(), Default::default(), false);
-        // Ok(SeismicTransactionSigned::new_unhashed(tx, signature))
-        todo!()
+        // Create an empty signature for the transaction.
+        let signature = Signature::new(Default::default(), Default::default(), false);
+        Ok(SeismicTransactionSigned::new_unhashed(tx, signature))
     }
 
     fn otterscan_api_truncate_input(tx: &mut Self::Transaction) {
