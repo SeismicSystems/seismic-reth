@@ -32,11 +32,9 @@ use alloy_network::ReceiptResponse;
 use reth_seismic_primitives::{
     SeismicBlock, SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned,
 };
-use seismic_alloy_rpc_types::{SeismicTransactionReceipt, SeismicTransactionRequest};
-use seismic_alloy_rpc_types::SeismicCallRequest;
 use seismic_alloy_rpc_types::{
-    SeismicRawTxRequest,
-    SimBlock, SimulatePayload
+    SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionReceipt, SeismicTransactionRequest,
+    SimBlock, SimulatePayload,
 };
 
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)

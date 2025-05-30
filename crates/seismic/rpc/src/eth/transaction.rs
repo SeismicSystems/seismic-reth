@@ -123,10 +123,11 @@ where
         &self,
         _request: alloy_rpc_types_eth::TransactionRequest,
     ) -> Result<SeismicTransactionSigned, Self::Error> {
-        let request = SeismicTransactionRequest { 
-            inner: _request, 
-            seismic_elements: None // Assumed that the transaction has already been decrypted in the EthApiExt
-        }; 
+        let request = SeismicTransactionRequest {
+            inner: _request,
+            seismic_elements: None, /* Assumed that the transaction has already been decrypted in
+                                     * the EthApiExt */
+        };
         let Ok(tx) = request.build_typed_tx() else {
             return Err(EthApiError::TransactionConversionError)
         };

@@ -12,23 +12,23 @@ use super::api::FullSeismicApi;
 use crate::{error::SeismicEthApiError, utils::convert_seismic_call_to_tx_request};
 use alloy_dyn_abi::TypedData;
 use alloy_json_rpc::RpcObject;
-use alloy_primitives::{Address, Bytes, B256, U256};
+use alloy_primitives::{Address, B256, Bytes, U256};
 use alloy_rpc_types::{
-    state::{EvmOverrides, StateOverride},
     BlockId, BlockOverrides, TransactionRequest,
+    state::{EvmOverrides, StateOverride},
 };
 use alloy_rpc_types_eth::simulate::{
     SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock,
 };
 use futures::Future;
 use jsonrpsee::{
-    core::{async_trait, RpcResult},
+    core::{RpcResult, async_trait},
     proc_macros::rpc,
 };
 use reth_node_core::node_config::NodeConfig;
 use reth_rpc_eth_api::{
-    helpers::{EthCall, EthTransactions},
     RpcBlock,
+    helpers::{EthCall, EthTransactions},
 };
 use reth_rpc_eth_types::EthApiError;
 use reth_tracing::tracing::*;
@@ -37,7 +37,7 @@ use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest,
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
 };
-use seismic_enclave::{rpc::EnclaveApiClient, EnclaveClient, PublicKey};
+use seismic_enclave::{EnclaveClient, PublicKey, rpc::EnclaveApiClient};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
 /// trait interface for a custom rpc namespace: `seismic`
