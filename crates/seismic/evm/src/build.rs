@@ -1,3 +1,5 @@
+//! The SeismicBlockAssembler. Nearly identical to the EthBlockAssembler, except with seismic types
+
 use alloc::sync::Arc;
 use alloy_consensus::{
     proofs, Block, BlockBody, BlockHeader, Header, Transaction, TxReceipt, EMPTY_OMMER_ROOT_HASH,
