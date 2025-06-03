@@ -22,11 +22,10 @@ use reth_seismic_node::utils::test_utils::{
 };
 use reth_seismic_rpc::ext::EthApiOverrideClient;
 use seismic_alloy_consensus::TxSeismicElements;
-use seismic_alloy_provider::{test_utils, SeismicSignedProvider};
+use seismic_alloy_provider::{test_utils};
 use seismic_enclave::aes_decrypt;
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
-
 use alloy_consensus::TxReceipt;
 use alloy_network::ReceiptResponse;
 use reth_seismic_primitives::{
@@ -36,6 +35,8 @@ use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionReceipt, SeismicTransactionRequest,
     SimBlock, SimulatePayload,
 };
+
+use seismic_alloy_provider::SeismicSignedProvider;
 
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
 const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessage(bytes)
@@ -67,10 +68,10 @@ async fn integration_test() {
     // SeismicRethTestCommand::run(tx, shutdown_rx).await;
     // rx.recv().await.unwrap();
 
-    test_seismic_reth_rpc().await;
-    test_seismic_reth_rpc_with_typed_data().await;
-    // test_seismic_reth_rpc_with_rust_client().await;
-    test_seismic_reth_rpc_simulate_block().await;
+    // test_seismic_reth_rpc().await;
+    // test_seismic_reth_rpc_with_typed_data().await;
+    test_seismic_reth_rpc_with_rust_client().await;
+    // test_seismic_reth_rpc_simulate_block().await;
     // test_seismic_precompiles_end_to_end().await;
 
     // let _ = shutdown_tx.try_send(()).unwrap();
@@ -370,7 +371,7 @@ async fn test_seismic_reth_rpc_with_rust_client() {
         SeismicSignedProvider::new(wallet.clone(), reqwest::Url::parse(&reth_rpc_url).unwrap());
     let pending_transaction = provider
         .send_transaction(
-            TransactionRequest::default()
+            SeismicTransactionRequest::default()
                 .with_input(test_utils::ContractTestContext::get_deploy_input_plaintext())
                 .with_kind(TxKind::Create),
         )
@@ -398,9 +399,9 @@ async fn test_seismic_reth_rpc_with_rust_client() {
     // // eth_call to check the parity. Should be 0
     // let output = provider
     //     .seismic_call(SendableTx::Builder(
-    //         TransactionRequest::default()
-    //             .input(test_utils::ContractTestContext::get_is_odd_input_plaintext())
-    //             .to(contract_addr),
+    //         SeismicTransactionRequest::default()
+    //             .with_input(test_utils::ContractTestContext::get_is_odd_input_plaintext())
+    //             .with_to(contract_addr),
     //     ))
     //     .await
     //     .unwrap();
@@ -410,7 +411,7 @@ async fn test_seismic_reth_rpc_with_rust_client() {
     // // Send transaction to set suint
     // let pending_transaction = provider
     //     .send_transaction(
-    //         TransactionRequest::default()
+    //         SeismicTransactionRequest::default()
     //             .with_input(test_utils::ContractTestContext::get_set_number_input_plaintext())
     //             .with_to(contract_addr),
     //     )
@@ -428,7 +429,7 @@ async fn test_seismic_reth_rpc_with_rust_client() {
     // // Final eth_call to check the parity. Should be 1
     // let output = provider
     //     .seismic_call(SendableTx::Builder(
-    //         TransactionRequest::default()
+    //         SeismicTransactionRequest::default()
     //             .with_input(test_utils::ContractTestContext::get_is_odd_input_plaintext())
     //             .with_to(contract_addr),
     //     ))
