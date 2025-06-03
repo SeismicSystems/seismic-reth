@@ -369,14 +369,12 @@ async fn test_seismic_reth_rpc_with_rust_client() {
 
     let provider =
         SeismicSignedProvider::new(wallet.clone(), reqwest::Url::parse(&reth_rpc_url).unwrap());
-    
-    let gas_price = provider.get_gas_price().await.unwrap(); // TODO: should this be required?
+
     let pending_transaction = provider
         .send_transaction(
             SeismicTransactionRequest::default()
                 .with_input(test_utils::ContractTestContext::get_deploy_input_plaintext())
                 .with_kind(TxKind::Create)
-                .with_gas_price(gas_price)
         )
         .await
         .unwrap();
@@ -412,13 +410,11 @@ async fn test_seismic_reth_rpc_with_rust_client() {
     assert_eq!(U256::from_be_slice(&output), U256::ZERO);
 
     // Send transaction to set suint
-    let gas_price = provider.get_gas_price().await.unwrap();
     let pending_transaction = provider
         .send_transaction(
             SeismicTransactionRequest::default()
                 .with_input(test_utils::ContractTestContext::get_set_number_input_plaintext())
                 .with_to(contract_addr)
-                .with_gas_price(gas_price)
         )
         .await
         .unwrap();
