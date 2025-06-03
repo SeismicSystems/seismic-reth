@@ -10096,6 +10096,7 @@ dependencies = [
  "futures",
  "jsonrpsee",
  "once_cell",
+ "reqwest",
  "reth-chainspec",
  "reth-consensus",
  "reth-db",
@@ -11452,7 +11453,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-consensus"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=c15bf35#c15bf35cbe87a95de34ae74b9d2b139a29cfc0f7"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=c6134f4#c6134f4cc2a0acf5360c528b97bb0f91ae5a67b3"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -11477,13 +11478,16 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-network"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=c15bf35#c15bf35cbe87a95de34ae74b9d2b139a29cfc0f7"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=c6134f4#c6134f4cc2a0acf5360c528b97bb0f91ae5a67b3"
 dependencies = [
  "alloy-consensus",
  "alloy-network",
  "alloy-primitives",
+ "alloy-provider",
  "alloy-rpc-types-eth",
  "alloy-signer",
+ "alloy-transport",
+ "futures",
  "seismic-alloy-consensus",
  "seismic-alloy-rpc-types",
 ]
@@ -11491,15 +11495,24 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-provider"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=c15bf35#c15bf35cbe87a95de34ae74b9d2b139a29cfc0f7"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=c6134f4#c6134f4cc2a0acf5360c528b97bb0f91ae5a67b3"
 dependencies = [
+ "alloy-network",
  "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-client",
+ "alloy-transport",
+ "async-trait",
+ "reqwest",
+ "seismic-alloy-consensus",
+ "seismic-alloy-network",
+ "seismic-enclave",
 ]
 
 [[package]]
 name = "seismic-alloy-rpc-types"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=c15bf35#c15bf35cbe87a95de34ae74b9d2b139a29cfc0f7"
+source = "git+https://github.com/SeismicSystems/seismic-op-alloy.git?rev=c6134f4#c6134f4cc2a0acf5360c528b97bb0f91ae5a67b3"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
