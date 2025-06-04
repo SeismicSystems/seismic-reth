@@ -63,7 +63,6 @@ where
         request: TransactionRequest,
         mut db: impl Database<Error: Into<EthApiError>>,
     ) -> Result<SeismicTransaction<TxEnv>, Self::Error> {
-        debug!("impl<N> Call for SeismicEthApi<N> EthCall::create_txn_env");
         // Ensure that if versioned hashes are set, they're not empty
         if request.blob_versioned_hashes.as_ref().is_some_and(|hashes| hashes.is_empty()) {
             return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err())
@@ -152,7 +151,7 @@ where
             authorization_list: authorization_list.unwrap_or_default(),
         };
 
-        debug!("DEBUG: create_txn_env {:?}", env);
+        debug!("reth-seismic-rpc::eth create_txn_env {:?}", env);
 
         Ok(SeismicTransaction {
             base: env,

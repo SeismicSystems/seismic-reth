@@ -13,10 +13,7 @@ pub mod chainspec;
 
 use reth_chainspec::ChainSpec;
 use reth_cli_commands::node;
-use reth_seismic_node::{
-    args::EnclaveArgs,
-    node::{SeismicNetworkPrimitives, SeismicNode},
-};
+use reth_seismic_node::args::EnclaveArgs;
 
 use std::{ffi::OsString, fmt, sync::Arc};
 
