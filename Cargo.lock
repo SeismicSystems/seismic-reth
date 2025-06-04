@@ -10134,6 +10134,7 @@ dependencies = [
  "reth-transaction-pool",
  "reth-trie-db",
  "revm",
+ "secp256k1",
  "seismic-alloy-consensus",
  "seismic-alloy-network",
  "seismic-alloy-provider",
