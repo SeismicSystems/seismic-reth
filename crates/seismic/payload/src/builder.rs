@@ -201,7 +201,7 @@ where
 
         // convert tx to a signed transaction
         let tx = pool_tx.to_consensus();
-        println!("default_seismic_payload: tx: {:?}", tx);
+        debug!("default_seismic_payload: tx: {:?}", tx);
 
         let gas_used = match builder.execute_transaction(tx.clone()) {
             Ok(gas_used) => gas_used,

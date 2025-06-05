@@ -316,7 +316,7 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                 rng_mode,
             },
         };
-        println!("from_recovered_tx: tx: {:?}", tx);
+        tracing::debug!("from_recovered_tx: tx: {:?}", tx);
         tx
     }
 }

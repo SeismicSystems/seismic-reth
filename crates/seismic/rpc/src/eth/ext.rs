@@ -252,7 +252,7 @@ where
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
-        debug!(target: "reth-seismic-rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving seismic eth_call ext");
+        debug!(target: "reth-seismic-rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving seismic eth_call extension");
 
         // process different CallRequest types
         let seismic_tx_request = convert_seismic_call_to_tx_request(request)?;
@@ -282,7 +282,7 @@ where
 
     /// Handler for: `eth_sendRawTransaction`
     async fn send_raw_transaction(&self, tx: SeismicRawTxRequest) -> RpcResult<B256> {
-        debug!(target: "reth-seismic-rpc::eth", ?tx, "Serving overridden eth_sendRawTransaction");
+        debug!(target: "reth-seismic-rpc::eth", ?tx, "Serving overridden eth_sendRawTransaction extension");
         match tx {
             SeismicRawTxRequest::Bytes(bytes) => {
                 Ok(EthTransactions::send_raw_transaction(&self.eth_api, bytes).await?)
@@ -300,7 +300,7 @@ where
         block_number: Option<BlockId>,
         state_override: Option<StateOverride>,
     ) -> RpcResult<U256> {
-        debug!(target: "reth-seismic-rpc::eth", "serving seismic eth_estimateGas extension");
+        debug!(target: "reth-seismic-rpc::eth", ?request, ?block_number, ?state_override, "serving seismic eth_estimateGas extension");
         // decrypt
         let decrypted_req = request
             .plaintext_copy(&self.enclave_client)
