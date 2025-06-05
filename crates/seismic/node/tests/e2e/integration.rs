@@ -60,10 +60,10 @@ async fn integration_test() {
     // SeismicRethTestCommand::run(tx, shutdown_rx).await;
     // rx.recv().await.unwrap();
 
-    // test_seismic_reth_rpc().await;
-    // test_seismic_reth_rpc_with_typed_data().await;
-    // test_seismic_reth_rpc_with_rust_client().await;
-    // test_seismic_reth_rpc_simulate_block().await;
+    test_seismic_reth_rpc().await;
+    test_seismic_reth_rpc_with_typed_data().await;
+    test_seismic_reth_rpc_with_rust_client().await;
+    test_seismic_reth_rpc_simulate_block().await;
     test_seismic_precompiles_end_to_end().await;
 
     // let _ = shutdown_tx.try_send(()).unwrap();
