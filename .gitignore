@@ -60,6 +60,6 @@ recipe.json
 
 # seismic-viem tests
 node_modules
-bun.lock
-
+bun.lock*
+.env
 .cursor
