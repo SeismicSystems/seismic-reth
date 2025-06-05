@@ -27,8 +27,8 @@ use seismic_alloy_rpc_types::{
 use seismic_enclave::aes_decrypt;
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
-
 use seismic_alloy_provider::SeismicSignedProvider;
+use seismic_alloy_provider::SeismicProviderExt;
 
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
 const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessage(bytes)
