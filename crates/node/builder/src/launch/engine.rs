@@ -325,7 +325,7 @@ where
                     }
                     event = engine_service.next() => {
                         let Some(event) = event else { break };
-                        debug!(target: "reth::cli", "ChainEvent: {event}");
+                        // debug!(target: "reth::cli", "ChainEvent: {event}");
                         match event {
                             ChainEvent::BackfillSyncFinished => {
                                 if terminate_after_backfill {
