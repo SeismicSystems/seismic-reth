@@ -337,7 +337,6 @@ pub trait EthTransactions: LoadTransaction<Provider: BlockReaderIdExt> {
         Self: EthApiSpec + LoadBlock + EstimateCall,
     {
         async move {
-            tracing::warn!("send_transaction {:?}", request.from);
             let from = match request.from {
                 Some(from) => from,
                 None => return Err(SignError::NoAccount.into_eth_err()),
