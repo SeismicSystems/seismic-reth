@@ -50,6 +50,7 @@ rand = { workspace = true, optional = true }
 secp256k1 = { workspace = true, features = ["rand", "std", "global-context", "recovery"]}
 num-traits = { workspace = true, optional = true }
 anyhow.workspace = true
+tracing.workspace = true
 
 # test
 arbitrary = { workspace = true, features = ["derive"], optional = true }
