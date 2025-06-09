@@ -37,7 +37,7 @@ where
 mod tests {
     use super::*;
     use alloy_eips::eip1559::ETHEREUM_BLOCK_GAS_LIMIT_30M;
-    use alloy_primitives::{Address, StorageKey, StorageValue, U256};
+    use alloy_primitives::{Address, StorageKey, U256};
     use reth_evm_ethereum::EthEvmConfig;
     use reth_network_api::noop::NoopNetwork;
     use reth_provider::test_utils::{ExtendedAccount, MockEthProvider, NoopProvider};

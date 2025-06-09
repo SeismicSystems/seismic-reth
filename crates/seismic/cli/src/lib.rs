@@ -163,8 +163,8 @@ pub enum Commands<C: ChainSpecParser, Ext: clap::Args + fmt::Debug> {
 mod test {
     use crate::chainspec::SeismicChainSpecParser;
     use clap::Parser;
-    use reth_chainspec::SEISMIC_DEV;
     use reth_cli_commands::{node::NoArgs, NodeCommand};
+    use reth_seismic_chainspec::SEISMIC_DEV;
 
     #[test]
     fn parse_dev() {

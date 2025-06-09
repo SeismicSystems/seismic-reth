@@ -5,14 +5,13 @@ use reth_node_api::{FullNodeComponents, NodeTypesWithDBAdapter};
 use reth_node_builder::{Node, NodeBuilder, NodeConfig};
 use reth_provider::providers::BlockchainProvider;
 use reth_seismic_chainspec::SEISMIC_MAINNET;
-use reth_seismic_node::{args::EnclaveArgs, node::SeismicNode};
+use reth_seismic_node::node::SeismicNode;
 
 #[test]
 fn test_basic_setup() {
     // parse CLI -> config
     let config = NodeConfig::new(SEISMIC_MAINNET.clone());
     let db = create_test_rw_db();
-    let args = EnclaveArgs::default();
     let seismic_node = SeismicNode::default();
     let _builder = NodeBuilder::new(config)
         .with_database(db)

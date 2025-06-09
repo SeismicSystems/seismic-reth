@@ -1,7 +1,5 @@
 use alloc::vec::Vec;
-use alloy_primitives::{
-    keccak256, map::HashMap, Address, BlockNumber, Bytes, StorageKey, B256,
-};
+use alloy_primitives::{keccak256, map::HashMap, Address, BlockNumber, Bytes, StorageKey, B256};
 use reth_primitives_traits::{Account, Bytecode};
 use reth_storage_api::{
     AccountReader, BlockHashReader, HashedPostStateProvider, StateProofProvider, StateProvider,
