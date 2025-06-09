@@ -1,6 +1,4 @@
 //! A basic Seismic payload builder implementation.
-//!
-//! The key edits here are ... TODO
 
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::U256;
@@ -53,7 +51,7 @@ pub struct SeismicPayloadBuilder<Pool, Client, EvmConfig = SeismicEvmConfig<Encl
 }
 
 impl<Pool, Client, EvmConfig> SeismicPayloadBuilder<Pool, Client, EvmConfig> {
-    /// `SeismicPayloadBuilder` constructor.
+    /// [`SeismicPayloadBuilder`] constructor.
     pub const fn new(
         client: Client,
         pool: Pool,
@@ -64,7 +62,7 @@ impl<Pool, Client, EvmConfig> SeismicPayloadBuilder<Pool, Client, EvmConfig> {
     }
 }
 
-// Default implementation of [PayloadBuilder] for unit type
+// Default implementation of [`PayloadBuilder`] for unit type
 impl<Pool, Client, EvmConfig> PayloadBuilder for SeismicPayloadBuilder<Pool, Client, EvmConfig>
 where
     EvmConfig:

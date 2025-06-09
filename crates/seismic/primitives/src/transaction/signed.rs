@@ -1,4 +1,4 @@
-//! A signed Optimism transaction.
+//! A signed Seismic transaction.
 
 use alloc::vec::Vec;
 use alloy_consensus::{
@@ -189,19 +189,7 @@ impl From<SeismicTransactionSigned> for Signed<SeismicTypedTransaction> {
     }
 }
 
-/// A trait that represents an optimism transaction, mainly used to indicate whether or not the
-/// transaction is a deposit transaction.
-pub trait OpTransaction {
-    /// Whether or not the transaction is a dpeosit transaction.
-    fn is_deposit(&self) -> bool;
-}
-
-impl OpTransaction for SeismicTransactionSigned {
-    fn is_deposit(&self) -> bool {
-        false // Seismic doesn't have deposit enum for [`SeismicTypedTransaction`]
-    }
-}
-
+// This function converts reth types (SeismicTransactionSigned) to revm types (SeismicTransaction<TxEnv>)
 impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
     fn from_recovered_tx(tx: &SeismicTransactionSigned, sender: Address) -> Self {
         let tx_hash = tx.tx_hash().clone();

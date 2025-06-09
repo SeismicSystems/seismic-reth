@@ -100,7 +100,7 @@ mod tests {
     fn latest_seismic_mainnet_fork_id_with_builder() {
         let seismic_mainnet = &SEISMIC_MAINNET;
         assert_eq!(
-            seismic_mainnet.hardfork_fork_id(SeismicHardfork::MERCURY).unwrap(),
+            seismic_mainnet.hardfork_fork_id(SeismicHardfork::Mercury).unwrap(),
             seismic_mainnet.latest_fork_id()
         )
     }

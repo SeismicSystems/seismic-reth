@@ -1,4 +1,4 @@
-//! EVM config for vanilla optimism.
+//! EVM config for vanilla seismic.
 
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
@@ -39,7 +39,7 @@ use config::revm_spec;
 
 pub use alloy_seismic_evm::{block::SeismicBlockExecutorFactory, SeismicEvm, SeismicEvmFactory};
 
-/// Ethereum-related EVM configuration.
+/// Seismic EVM configuration.
 #[derive(Debug, Clone)]
 pub struct SeismicEvmConfig<CB>
 where

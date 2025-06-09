@@ -10,13 +10,13 @@ use reth_ethereum_forks::{ChainHardforks, EthereumHardfork, ForkCondition, Hardf
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub enum SeismicHardfork {
-    MERCURY,
+    Mercury,
 }
 
 impl Hardfork for SeismicHardfork {
     fn name(&self) -> &'static str {
         match self {
-            Self::MERCURY => "Mercury",
+            Self::Mercury => "Mercury",
         }
     }
 }
@@ -51,7 +51,7 @@ pub static SEISMIC_MAINNET_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|
         (EthereumHardfork::Shanghai.boxed(), ForkCondition::Timestamp(0)),
         (EthereumHardfork::Cancun.boxed(), ForkCondition::Timestamp(0)),
         (EthereumHardfork::Prague.boxed(), ForkCondition::Timestamp(0)),
-        (SeismicHardfork::MERCURY.boxed(), ForkCondition::Timestamp(0)),
+        (SeismicHardfork::Mercury.boxed(), ForkCondition::Timestamp(0)),
     ])
 });
 
@@ -83,7 +83,7 @@ pub static SEISMIC_DEV_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
         (EthereumHardfork::Shanghai.boxed(), ForkCondition::Timestamp(0)),
         (EthereumHardfork::Cancun.boxed(), ForkCondition::Timestamp(0)),
         (EthereumHardfork::Prague.boxed(), ForkCondition::Timestamp(0)),
-        (SeismicHardfork::MERCURY.boxed(), ForkCondition::Timestamp(0)),
+        (SeismicHardfork::Mercury.boxed(), ForkCondition::Timestamp(0)),
     ])
 });
 
@@ -120,7 +120,7 @@ mod tests {
     fn check_seismic_hardforks_at_zero() {
         let seismic_hardforks = SEISMIC_MAINNET_HARDFORKS.clone();
         assert!(
-            seismic_hardforks.get(SeismicHardfork::MERCURY).is_some(),
+            seismic_hardforks.get(SeismicHardfork::Mercury).is_some(),
             "Missing hardfork mercury"
         );
     }

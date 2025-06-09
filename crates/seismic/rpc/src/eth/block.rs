@@ -1,4 +1,4 @@
-//! Loads and formats OP block RPC response.
+//! Loads and formats Seismic block RPC response.
 
 use alloy_consensus::{transaction::TransactionMeta, BlockHeader};
 use alloy_rpc_types_eth::BlockId;
