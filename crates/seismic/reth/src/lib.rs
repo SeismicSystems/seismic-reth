@@ -24,24 +24,8 @@ pub mod primitives {
 #[cfg(feature = "cli")]
 pub use reth_seismic_cli as cli;
 
-/// Re-exported consensus types
-#[cfg(feature = "consensus")]
-pub mod consensus {
-    #[doc(inline)]
-    pub use reth_consensus::*;
-    /// Consensus rule checks.
-    pub mod validation {
-        #[doc(inline)]
-        pub use reth_consensus_common::validation::*;
-        #[doc(inline)]
-        pub use reth_seismic_consensus::validation::*;
-    }
-}
-
 /// Re-exported from `reth_chainspec`
 pub mod chainspec {
-    #[doc(inline)]
-    pub use reth_chainspec::*;
     #[doc(inline)]
     pub use reth_chainspec::*;
 }

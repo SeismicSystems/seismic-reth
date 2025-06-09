@@ -34,15 +34,13 @@ clap = { workspace = true, features = ["derive", "env"] }
 tracing.workspace = true
 eyre.workspace = true
 
-# reth test-vectors
-proptest = { workspace = true, optional = true }
-
 [dev-dependencies]
 tempfile.workspace = true
 reth-stages = { workspace = true, features = ["test-utils"] }
 reth-db-common.workspace = true
 reth-cli-commands.workspace = true
 seismic-alloy-consensus.workspace = true
+proptest.workspace = true
 
 [features]
 asm-keccak = [
@@ -53,7 +51,7 @@ asm-keccak = [
 # Jemalloc feature for vergen to generate correct env vars
 jemalloc = ["reth-node-core/jemalloc", "reth-node-metrics/jemalloc"]
 
-dev = ["dep:proptest", "reth-cli-commands/arbitrary"]
+dev = ["reth-cli-commands/arbitrary"]
 
 serde = [
     "seismic-alloy-consensus/serde",

@@ -69,16 +69,15 @@ test-utils = [
     "reth-trie?/test-utils",
 ]
 
-full = ["consensus", "evm", "node", "provider", "rpc", "trie"]
+full = ["evm", "node", "provider", "rpc", "trie"]
 
 alloy-compat = [
     "reth-seismic-primitives/alloy-compat",
 ]
 cli = ["dep:reth-seismic-cli"]
-consensus = ["dep:reth-consensus", "dep:reth-consensus-common"]
 evm = ["dep:reth-evm", "dep:reth-seismic-evm"]
 node-api = ["dep:reth-node-api"]
-node = ["provider", "consensus", "evm", "node-api", "dep:reth-seismic-node", "rpc", "trie"]
+node = ["provider", "evm", "node-api", "dep:reth-seismic-node", "rpc", "trie"]
 rpc = ["dep:reth-rpc", "dep:reth-rpc-builder", "dep:reth-rpc-api", "dep:reth-rpc-eth-types", "dep:reth-seismic-rpc"]
 js-tracer = ["rpc", "reth-rpc/js-tracer"]
 network = ["dep:reth-network"]
