@@ -35,9 +35,9 @@ const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessa
 // async fn unit_test() {
 //     let reth_rpc_url = SeismicRethTestCommand::url();
 //     let chain_id = SeismicRethTestCommand::chain_id();
-//     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
-//     let wallet = Wallet::default().with_chain_id(chain_id);
-
+//     let client =
+// jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();     let wallet
+// = Wallet::default().with_chain_id(chain_id);
 //     let tx_bytes = get_signed_seismic_tx_bytes(
 //         &wallet.inner,
 //         get_nonce(&client, wallet.inner.address()).await,
