@@ -43,7 +43,6 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
         genesis,
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
         hardforks: DEV_HARDFORKS.clone(),
-        base_fee_params: BaseFeeParamsKind::Constant(BaseFeeParams::ethereum()),
         ..Default::default()
     }
     .into()
