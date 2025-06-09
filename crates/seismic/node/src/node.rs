@@ -184,7 +184,7 @@ where
     }
 }
 
-/// Add-ons w.r.t. optimism.
+/// Add-ons w.r.t. seismic
 #[derive(Debug)]
 pub struct SeismicAddOns<N: FullNodeComponents>
 where
@@ -216,7 +216,7 @@ where
     }
 }
 
-/// A regular optimism evm and executor builder.
+/// A regular seismic evm and executor builder.
 #[derive(Debug, Default, Clone)]
 pub struct SeismicAddOnsBuilder {}
 
@@ -351,7 +351,7 @@ where
     }
 }
 
-/// A regular optimism evm and executor builder.
+/// A regular seismic evm and executor builder.
 #[derive(Debug, Default, Clone, Copy)]
 #[non_exhaustive]
 pub struct SeismicExecutorBuilder;
@@ -478,7 +478,7 @@ reth_transaction_pool::maintain::LocalTransactionBackupConfig::with_local_txs_ba
     }
 }
 
-/// A basic optimism payload service builder
+/// A basic seismic payload service builder
 #[derive(Debug, Default, Clone)]
 pub struct SeismicPayloadBuilder;
 
@@ -576,7 +576,7 @@ where
     }
 }
 
-/// A basic optimism consensus builder.
+/// A basic seismic consensus builder.
 #[derive(Debug, Default, Clone)]
 #[non_exhaustive]
 pub struct SeismicConsensusBuilder;
@@ -622,7 +622,6 @@ impl NetworkPrimitives for SeismicNetworkPrimitives {
     type BlockBody = alloy_consensus::BlockBody<SeismicTransactionSigned>;
     type Block = alloy_consensus::Block<SeismicTransactionSigned>;
     type BroadcastedTransaction = SeismicTransactionSigned;
-    type PooledTransaction = SeismicTxEnvelope; // before was op_alloy_consensus::OpPoooledTransaction, not
-                                                // reth_optimism_txpool::OpPooledTransaction;
+    type PooledTransaction = SeismicTxEnvelope;
     type Receipt = SeismicReceipt;
 }

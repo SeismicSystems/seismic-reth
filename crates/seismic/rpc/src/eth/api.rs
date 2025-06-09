@@ -1,3 +1,5 @@
+//! Seismic extension of API traits
+
 use reth_rpc_eth_api::{
     helpers::{EthApiSpec, EthBlocks, EthCall, EthFees, EthState, LoadReceipt, Trace},
     FullEthApiTypes,

@@ -1,4 +1,4 @@
-//! Optimism transaction type.
+//! Seismic transaction type.
 
 pub use seismic_alloy_consensus::SeismicTxType;
 

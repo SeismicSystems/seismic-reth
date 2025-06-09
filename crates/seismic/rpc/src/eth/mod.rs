@@ -1,8 +1,6 @@
 //! Seismic-Reth `eth_` endpoint implementation.
 
-/// Seismic extension of API traits
 pub mod api;
-/// seismic implementation of eth api and its extensions
 pub mod ext;
 pub mod receipt;
 pub mod transaction;

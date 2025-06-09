@@ -1,3 +1,5 @@
+//! Error types for the seismic rpc api.
+
 use alloy_rpc_types_eth::BlockError;
 use reth_rpc_eth_api::AsEthApiError;
 use reth_rpc_eth_types::EthApiError;

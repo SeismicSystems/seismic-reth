@@ -1,12 +1,9 @@
-//! Seismic rpc logic.
+//! seismic implementation of eth api and its extensions
 //!
-//! `seismic_` namespace overrides:
-//!
-//! - `seismic_getTeePublicKey` will return the public key of the Seismic enclave.
-//!
-//! `eth_` namespace overrides:
-//!
-//! - `eth_signTypedData_v4` will sign a typed data request using the Seismic enclave.
+//! Overrides the eth_ namespace to be compatible with seismic specific types
+//! Most endpoints handle transaction decrytpion before passing to the inner eth api
+//! For `eth_sendRawTransaction`, we directly call the inner eth api without decryption
+//! See that function's docs for more details
 
 use super::api::FullSeismicApi;
 use crate::{error::SeismicEthApiError, utils::convert_seismic_call_to_tx_request};
@@ -281,6 +278,10 @@ where
     }
 
     /// Handler for: `eth_sendRawTransaction`
+    ///
+    /// Directly calls the inner eth api without decryption
+    /// We do this so that it is encrypted in the tx pool, so it is encrypted in blocks
+    /// decryption during execution is handled by the [`SeismicBlockExecutor`]
     async fn send_raw_transaction(&self, tx: SeismicRawTxRequest) -> RpcResult<B256> {
         debug!(target: "reth-seismic-rpc::eth", ?tx, "Serving overridden eth_sendRawTransaction extension");
         match tx {

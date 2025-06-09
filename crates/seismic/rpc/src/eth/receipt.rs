@@ -80,8 +80,8 @@ impl SeismicReceiptBuilder {
         Ok(Self { base })
     }
 
-    /// Builds [`SeismicTransactionReceipt`] by combing core (l1) receipt fields and additional OP
-    /// receipt fields.
+    /// Builds [`SeismicTransactionReceipt`] by combing core (l1) receipt fields and additional
+    /// Seismic receipt fields.
     pub fn build(self) -> SeismicTransactionReceipt {
         self.base
     }

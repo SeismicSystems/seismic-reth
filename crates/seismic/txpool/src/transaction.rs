@@ -13,7 +13,7 @@ use reth_transaction_pool::{
 use seismic_alloy_consensus::SeismicTxEnvelope;
 use std::sync::Arc;
 
-/// Pool Transaction for Seismic. Inspired from OP.
+/// Pool Transaction for Seismic.
 #[derive(Debug, Clone, derive_more::Deref)]
 pub struct SeismicPooledTransaction<Cons = SeismicTransactionSigned, Pooled = SeismicTxEnvelope> {
     #[deref]

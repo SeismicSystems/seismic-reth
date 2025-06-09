@@ -1,4 +1,4 @@
-//! Loads OP pending block for a RPC response.
+//! Loads Seismic pending block for a RPC response.
 
 use crate::SeismicEthApi;
 use alloy_consensus::BlockHeader;

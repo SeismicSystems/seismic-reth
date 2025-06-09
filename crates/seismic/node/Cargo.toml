@@ -45,7 +45,7 @@ reth-rpc.workspace = true
 reth-rpc-builder.workspace = true
 reth-ethereum-payload-builder.workspace = true
 
-# revm with required optimism features
+# revm
 revm = { workspace = true, features = ["secp256k1", "blst", "c-kzg"] }
 seismic-revm = { workspace = true }
 

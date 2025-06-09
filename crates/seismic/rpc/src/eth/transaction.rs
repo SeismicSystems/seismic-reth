@@ -1,4 +1,4 @@
-//! Loads and formats OP transaction RPC response.
+//! Loads and formats Seismic transaction RPC response.
 
 use super::ext::SeismicTransaction;
 use crate::{eth::SeismicNodeCore, utils::recover_typed_data_request, SeismicEthApi};
