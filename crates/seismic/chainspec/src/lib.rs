@@ -27,7 +27,7 @@ pub const SEISMIC_MAINNET_GENESIS_HASH: B256 =
 /// Calculated by rlp encoding the genesis header and hashing it
 /// Currently matches the mainnet genesis hash because they have matching hardforks
 pub const SEISMIC_DEV_GENESIS_HASH: B256 =
-    b256!("0xee01857dd54ff6d7de6a90b2a76b42a86b7ea8f3a6d2ae27bd45ee6b3698b7b2");
+    b256!("0x683713729fcb72be6f3d8b88c8cda3e10569d73b9640d3bf6f5184d94bd97616");
 
 /// Seismic testnet specification
 pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
@@ -132,8 +132,8 @@ mod tests {
 
         // Confirm seismic mainnet genesis header hash is calculated correctly
         let expected = SEISMIC_MAINNET_GENESIS_HASH;
-        let genesis = serde_json::from_str(include_str!("../res/genesis/mainnet.json"))
-            .expect("Can't deserialize Mainnet genesis json");
+        let genesis = serde_json::from_str(include_str!("../res/genesis/mainnet.json")) // note: same as Ethereum, needs to be updated before launch
+            .expect("Can't deserialize Seismic Mainnet genesis json");
         let hardforks = SEISMIC_MAINNET_HARDFORKS.clone();
         let genesis_header = make_genesis_header(&genesis, &hardforks);
         let actual_hash = genesis_header.hash_slow();
@@ -141,8 +141,8 @@ mod tests {
 
         // Confirm seismic devnet genesis header hash is calculated correctly
         let expected = SEISMIC_DEV_GENESIS_HASH;
-        let genesis = serde_json::from_str(include_str!("../res/genesis/mainnet.json"))
-            .expect("Can't deserialize Mainnet genesis json");
+        let genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
+            .expect("Can't deserialize Seismic devnet genesis json");
         let hardforks = SEISMIC_DEV_HARDFORKS.clone();
         let genesis_header = make_genesis_header(&genesis, &hardforks);
         let actual_hash = genesis_header.hash_slow();
