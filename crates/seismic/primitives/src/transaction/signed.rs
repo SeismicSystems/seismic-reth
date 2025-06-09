@@ -31,7 +31,7 @@ use reth_primitives_traits::{
 };
 use revm_context::TxEnv;
 use seismic_alloy_consensus::{
-    Decodable712, InputDecryptionElements, InputDecryptionElementsError, SeismicTxEnvelope,
+    InputDecryptionElements, InputDecryptionElementsError, SeismicTxEnvelope,
     SeismicTypedTransaction, TxSeismic, TxSeismicElements,
 };
 use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
@@ -89,14 +89,6 @@ impl SeismicTransactionSigned {
     pub fn into_parts(self) -> (SeismicTypedTransaction, Signature, B256) {
         let hash = *self.hash.get_or_init(|| self.recalculate_hash());
         (self.transaction, self.signature, hash)
-    }
-}
-
-impl Decodable712 for SeismicTransactionSigned {
-    fn decode_712(
-        _buf: &seismic_alloy_consensus::TypedDataRequest,
-    ) -> seismic_alloy_consensus::Eip712Result<Self> {
-        todo!("todo: Decodable712 for SeismicTransactionSigned")
     }
 }
 

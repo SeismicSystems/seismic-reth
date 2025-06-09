@@ -28,7 +28,7 @@ pub fn seismic_override_call_request(request: &mut TransactionRequest) {
 /// malformed.
 ///
 /// See [`alloy_eips::eip2718::Decodable2718::decode_2718`]
-pub fn recover_typed_data_request<T: SignedTransaction>(
+pub fn recover_typed_data_request<T: SignedTransaction + Decodable712>(
     mut data: &TypedDataRequest,
 ) -> EthResult<Recovered<T>> {
     let transaction =

@@ -1,6 +1,7 @@
 //! Loads and formats OP transaction RPC response.
 
-use crate::utils::recover_typed_data_request;
+use super::ext::SeismicTransaction;
+use crate::{eth::SeismicNodeCore, utils::recover_typed_data_request, SeismicEthApi};
 use alloy_consensus::{transaction::Recovered, Transaction as _};
 use alloy_primitives::{Bytes, PrimitiveSignature as Signature, B256};
 use alloy_rpc_types_eth::{Transaction, TransactionInfo};
@@ -15,13 +16,9 @@ use reth_storage_api::{
     BlockReader, BlockReaderIdExt, ProviderTx, ReceiptProvider, TransactionsProvider,
 };
 use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
-use seismic_alloy_consensus::{SeismicTxEnvelope, TypedDataRequest};
+use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
 use seismic_alloy_network::{Network, Seismic};
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
-
-use crate::{eth::SeismicNodeCore, SeismicEthApi};
-
-use super::ext::SeismicTransaction;
 
 impl<N> EthTransactions for SeismicEthApi<N>
 where
@@ -55,6 +52,7 @@ impl<N> SeismicTransaction for SeismicEthApi<N>
 where
     Self: LoadTransaction<Provider: BlockReaderIdExt>,
     N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
+    <<<SeismicEthApi<N> as RpcNodeCore>::Pool as TransactionPool>::Transaction as PoolTransaction>::Pooled: Decodable712,
 {
     async fn send_typed_data_transaction(&self, tx: TypedDataRequest) -> Result<B256, Self::Error> {
         let recovered = recover_typed_data_request(&tx)?;

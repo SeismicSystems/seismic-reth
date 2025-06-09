@@ -25,7 +25,6 @@ use reth_primitives_traits::{
     InMemorySize, SignedTransaction,
 };
 use revm_context::TxEnv;
-use seismic_alloy_consensus::Decodable712;
 
 macro_rules! delegate {
     ($self:expr => $tx:ident.$method:ident($($arg:expr),*)) => {
@@ -568,12 +567,6 @@ impl From<Signed<TxEip4844Variant>> for TransactionSigned {
     fn from(value: Signed<TxEip4844Variant>) -> Self {
         let (tx, sig, hash) = value.into_parts();
         Self::new(tx.into(), sig, hash)
-    }
-}
-
-impl Decodable712 for TransactionSigned {
-    fn decode_712(_buf: &seismic_alloy_consensus::TypedDataRequest) -> seismic_alloy_consensus::Eip712Result<Self> {
-        todo!()
     }
 }
 
