@@ -189,7 +189,8 @@ impl From<SeismicTransactionSigned> for Signed<SeismicTypedTransaction> {
     }
 }
 
-// This function converts reth types (SeismicTransactionSigned) to revm types (SeismicTransaction<TxEnv>)
+// This function converts reth types (SeismicTransactionSigned) to revm types
+// (SeismicTransaction<TxEnv>)
 impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
     fn from_recovered_tx(tx: &SeismicTransactionSigned, sender: Address) -> Self {
         let tx_hash = tx.tx_hash().clone();

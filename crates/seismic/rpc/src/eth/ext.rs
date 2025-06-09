@@ -1,5 +1,5 @@
 //! seismic implementation of eth api and its extensions
-//! 
+//!
 //! Overrides the eth_ namespace to be compatible with seismic specific types
 //! Most endpoints handle transaction decrytpion before passing to the inner eth api
 //! For `eth_sendRawTransaction`, we directly call the inner eth api without decryption
@@ -278,7 +278,7 @@ where
     }
 
     /// Handler for: `eth_sendRawTransaction`
-    /// 
+    ///
     /// Directly calls the inner eth api without decryption
     /// We do this so that it is encrypted in the tx pool, so it is encrypted in blocks
     /// decryption during execution is handled by the [`SeismicBlockExecutor`]
