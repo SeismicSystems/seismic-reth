@@ -99,7 +99,6 @@ impl BuiltPayload for EthBuiltPayload {
     }
 }
 
-
 type SeismicBuiltPayload = EthBuiltPayload<reth_seismic_primitives::SeismicBlock>;
 
 impl SeismicBuiltPayload {

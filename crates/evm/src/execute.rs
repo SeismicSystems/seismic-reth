@@ -254,7 +254,7 @@ pub trait BlockBuilder {
     }
 
     /// Add transaction
-    /// 
+    ///
     /// Seismic team added this function to the trait for our stuff,
     /// default unimplemented for backward compatibility
     fn add_transaction(

@@ -456,7 +456,10 @@ mod tests {
                         let slot = U256::from(rng.gen::<u64>());
                         storage.insert(
                             slot,
-                            EvmStorageSlot::new_changed(U256::ZERO.into(), U256::from(rng.gen::<u64>()).into()),
+                            EvmStorageSlot::new_changed(
+                                U256::ZERO.into(),
+                                U256::from(rng.gen::<u64>()).into(),
+                            ),
                         );
                     }
                 }
@@ -505,9 +508,12 @@ mod tests {
                     .expect("failed to insert accounts");
 
                 let storage_updates = update.iter().map(|(address, account)| {
-                    let storage_entries = account.storage.iter().map(|(slot, value)| {
-                        StorageEntry { key: B256::from(*slot), value: value.present_value.into(), is_private: false }
-                    });
+                    let storage_entries =
+                        account.storage.iter().map(|(slot, value)| StorageEntry {
+                            key: B256::from(*slot),
+                            value: value.present_value.into(),
+                            is_private: false,
+                        });
                     (*address, storage_entries)
                 });
                 provider_rw
