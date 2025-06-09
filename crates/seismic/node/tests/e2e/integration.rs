@@ -52,11 +52,11 @@ async fn unit_test() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn integration_test() {
-    // let (tx, mut rx) = mpsc::channel(1);
-    // let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
+    let (tx, mut rx) = mpsc::channel(1);
+    let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
 
-    // SeismicRethTestCommand::run(tx, shutdown_rx).await;
-    // rx.recv().await.unwrap();
+    SeismicRethTestCommand::run(tx, shutdown_rx).await;
+    rx.recv().await.unwrap();
 
     test_seismic_reth_rpc().await;
     test_seismic_reth_rpc_with_typed_data().await;
@@ -64,9 +64,9 @@ async fn integration_test() {
     test_seismic_reth_rpc_simulate_block().await;
     test_seismic_precompiles_end_to_end().await;
 
-    // let _ = shutdown_tx.try_send(()).unwrap();
-    // println!("shutdown signal sent");
-    // thread::sleep(Duration::from_secs(1));
+    let _ = shutdown_tx.try_send(()).unwrap();
+    println!("shutdown signal sent");
+    thread::sleep(Duration::from_secs(1));
 }
 
 // this is the same test as basic.rs but with actual RPC calls and standalone reth instance
