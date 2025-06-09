@@ -456,7 +456,7 @@ mod tests {
                         let slot = U256::from(rng.gen::<u64>());
                         storage.insert(
                             slot,
-                            EvmStorageSlot::new_changed(U256::ZERO, U256::from(rng.gen::<u64>())),
+                            EvmStorageSlot::new_changed(U256::ZERO.into(), U256::from(rng.gen::<u64>()).into()),
                         );
                     }
                 }
@@ -506,7 +506,7 @@ mod tests {
 
                 let storage_updates = update.iter().map(|(address, account)| {
                     let storage_entries = account.storage.iter().map(|(slot, value)| {
-                        StorageEntry { key: B256::from(*slot), value: value.present_value }
+                        StorageEntry { key: B256::from(*slot), value: value.present_value.into(), is_private: false }
                     });
                     (*address, storage_entries)
                 });
@@ -519,12 +519,11 @@ mod tests {
 
         for update in &state_updates {
             hashed_state.extend(evm_state_to_hashed_post_state(update.clone()));
-
             for (address, account) in update {
                 let storage: HashMap<B256, U256> = account
                     .storage
                     .iter()
-                    .map(|(k, v)| (B256::from(*k), v.present_value))
+                    .map(|(k, v)| (B256::from(*k), v.present_value.value))
                     .collect();
 
                 let entry = accumulated_state.entry(*address).or_default();
