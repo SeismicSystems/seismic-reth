@@ -42,8 +42,6 @@ pub mod consensus {
 pub mod chainspec {
     #[doc(inline)]
     pub use reth_chainspec::*;
-    #[doc(inline)]
-    pub use reth_chainspec::*;
 }
 
 /// Re-exported evm types
