@@ -1,5 +1,5 @@
 //! A basic Seismic payload builder implementation.
-//! 
+//!
 //! The key edits here are ... TODO
 
 use alloy_consensus::{Transaction, Typed2718};
@@ -27,9 +27,9 @@ use reth_transaction_pool::{
     PoolTransaction, TransactionPool, ValidPoolTransaction,
 };
 use revm::context_interface::Block as _;
+use seismic_enclave::EnclaveClientBuilder;
 use std::sync::Arc;
 use tracing::{debug, trace, warn};
-use seismic_enclave::EnclaveClientBuilder;
 
 use reth_primitives_traits::transaction::error::InvalidTransactionError;
 

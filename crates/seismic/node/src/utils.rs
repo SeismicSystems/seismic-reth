@@ -2,9 +2,7 @@
 
 /// Test utils for the seismic rpc api
 pub mod test_utils {
-    use alloy_primitives::{
-        Address,
-    };
+    use alloy_primitives::Address;
     use alloy_rpc_types::{Block, Header, Transaction, TransactionReceipt};
     use jsonrpsee::http_client::HttpClient;
     use reth_rpc_eth_api::EthApiClient;

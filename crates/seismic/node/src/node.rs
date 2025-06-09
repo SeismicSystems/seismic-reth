@@ -12,10 +12,7 @@ use reth_evm::{
     NextBlockEnvAttributes,
 };
 use reth_network::{NetworkHandle, NetworkPrimitives};
-use reth_node_api::{
-    AddOnsContext, FullNodeComponents, NodeAddOns,
-    PrimitivesTy, TxTy,
-};
+use reth_node_api::{AddOnsContext, FullNodeComponents, NodeAddOns, PrimitivesTy, TxTy};
 use reth_node_builder::{
     components::{
         BasicPayloadServiceBuilder, ComponentsBuilder, ConsensusBuilder, ExecutorBuilder,
@@ -42,8 +39,7 @@ use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransact
 use reth_seismic_rpc::{SeismicEthApi, SeismicEthApiBuilder};
 use reth_transaction_pool::{
     blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},
-    CoinbaseTipOrdering,
-    PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
+    CoinbaseTipOrdering, PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
 };
 use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
@@ -63,8 +59,8 @@ pub struct SeismicNode;
 impl SeismicNode {
     /// Returns the components for the given [`EnclaveArgs`].
     pub fn components<Node>(
-        &self
-        ) -> ComponentsBuilder<
+        &self,
+    ) -> ComponentsBuilder<
         Node,
         SeismicPoolBuilder,
         BasicPayloadServiceBuilder<SeismicPayloadBuilder>,
@@ -532,8 +528,11 @@ where
         + Unpin
         + 'static,
 {
-    type PayloadBuilder =
-        reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider, RealSeismicEvmConfig>;
+    type PayloadBuilder = reth_seismic_payload_builder::SeismicPayloadBuilder<
+        Pool,
+        Node::Provider,
+        RealSeismicEvmConfig,
+    >;
 
     async fn build_payload_builder(
         self,

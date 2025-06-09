@@ -9,6 +9,7 @@ pub use alloy_rpc_types_engine::{
 };
 use reth_chainspec::ChainSpec;
 use reth_engine_primitives::EngineTypes;
+use reth_ethereum_payload_builder::EthereumExecutionPayloadValidator;
 use reth_node_api::{
     validate_execution_requests, validate_version_specific_fields, EngineApiMessageVersion,
     EngineObjectValidationError, EngineValidator, NewPayloadError, PayloadOrAttributes,
@@ -17,7 +18,6 @@ use reth_node_api::{
 use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_payload_primitives::{BuiltPayload, PayloadTypes};
 use reth_primitives_traits::{NodePrimitives, RecoveredBlock, SealedBlock};
-use reth_ethereum_payload_builder::EthereumExecutionPayloadValidator;
 
 /// The types used in the default mainnet ethereum beacon consensus engine.
 #[derive(Debug, Default, Clone, serde::Deserialize, serde::Serialize)]

@@ -27,7 +27,6 @@ pub use reth_seismic_payload_builder::SeismicPayloadBuilder;
 
 pub use reth_seismic_evm::*;
 
-
 use reth_chainspec::ChainSpec;
 use seismic_enclave::EnclaveClientBuilder;
 use std::sync::Arc;
@@ -35,4 +34,4 @@ type RealSeismicEvmConfig = SeismicEvmConfig<EnclaveClientBuilder>;
 /// Hacky solution to get things compiling, hardcodes the enclave client builder
 pub fn real_seismic_evm_config(spec: Arc<ChainSpec>) -> RealSeismicEvmConfig {
     SeismicEvmConfig::seismic(spec, EnclaveClientBuilder::default())
-} 
+}

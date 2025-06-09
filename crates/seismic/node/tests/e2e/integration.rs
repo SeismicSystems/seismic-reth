@@ -19,7 +19,7 @@ use reth_seismic_node::utils::test_utils::{
 };
 use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
-use seismic_alloy_provider::test_utils;
+use seismic_alloy_provider::{test_utils, SeismicProviderExt, SeismicSignedProvider};
 use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicTransactionReceipt, SeismicTransactionRequest, SimBlock,
     SimulatePayload,
@@ -27,8 +27,6 @@ use seismic_alloy_rpc_types::{
 use seismic_enclave::aes_decrypt;
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
-use seismic_alloy_provider::SeismicSignedProvider;
-use seismic_alloy_provider::SeismicProviderExt;
 
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
 const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessage(bytes)

@@ -4,12 +4,10 @@ use crate::engine::SeismicEngineTypes;
 use reth_chainspec::ChainSpec;
 use reth_evm::ConfigureEvm;
 use reth_node_api::{FullNodeTypes, NodeTypesWithEngine, PrimitivesTy, TxTy};
-use reth_node_builder::{
-    components::PayloadBuilderBuilder, BuilderContext, PayloadBuilderConfig,
-};
+use reth_node_builder::{components::PayloadBuilderBuilder, BuilderContext, PayloadBuilderConfig};
 // use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
-use reth_seismic_primitives::{SeismicPrimitives};
+use reth_seismic_primitives::SeismicPrimitives;
 use reth_transaction_pool::{PoolTransaction, TransactionPool};
 
 use crate::{real_seismic_evm_config, RealSeismicEvmConfig};
@@ -65,8 +63,11 @@ where
         + Unpin
         + 'static,
 {
-    type PayloadBuilder =
-        reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider, RealSeismicEvmConfig>;
+    type PayloadBuilder = reth_seismic_payload_builder::SeismicPayloadBuilder<
+        Pool,
+        Node::Provider,
+        RealSeismicEvmConfig,
+    >;
 
     async fn build_payload_builder(
         self,

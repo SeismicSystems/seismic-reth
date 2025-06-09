@@ -2,10 +2,9 @@
 extern crate alloc;
 
 use alloc::vec;
+use alloy_primitives::uint;
 use once_cell::sync::Lazy as LazyLock;
 use reth_ethereum_forks::{ChainHardforks, EthereumHardfork, ForkCondition, Hardfork};
-use alloy_primitives::uint;
-
 
 /// Seismic hardfork enum
 #[derive(Clone, Debug)]
@@ -23,7 +22,7 @@ impl Hardfork for SeismicHardfork {
 }
 
 /// Mainnet hardforks
-/// Based off EthereumHardfork::mainnet(), 
+/// Based off EthereumHardfork::mainnet(),
 /// with existing eth hardforks activated at block 0
 pub static SEISMIC_MAINNET_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
     ChainHardforks::new(vec![
@@ -90,8 +89,8 @@ pub static SEISMIC_DEV_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
 
 #[cfg(test)]
 mod tests {
-    use core::panic;
     use super::*;
+    use core::panic;
 
     #[test]
     fn check_ethereum_hardforks_at_zero() {
@@ -103,7 +102,11 @@ mod tests {
             match lookup {
                 Some(condition) => {
                     if fork <= EthereumHardfork::Prague {
-                        assert!(condition.active_at_timestamp(0) || condition.active_at_block(0), "Hardfork {} not active at timestamp 1", fork);
+                        assert!(
+                            condition.active_at_timestamp(0) || condition.active_at_block(0),
+                            "Hardfork {} not active at timestamp 1",
+                            fork
+                        );
                     }
                 }
                 None => {
@@ -116,6 +119,9 @@ mod tests {
     #[test]
     fn check_seismic_hardforks_at_zero() {
         let seismic_hardforks = SEISMIC_MAINNET_HARDFORKS.clone();
-        assert!(seismic_hardforks.get(SeismicHardfork::MERCURY).is_some(), "Missing hardfork mercury");
+        assert!(
+            seismic_hardforks.get(SeismicHardfork::MERCURY).is_some(),
+            "Missing hardfork mercury"
+        );
     }
 }

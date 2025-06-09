@@ -6,7 +6,7 @@ use seismic_alloy_consensus::SeismicTxType;
 
 /// A builder that operates on seismic-reth primitive types, specifically
 /// [`SeismicTransactionSigned`] and [`SeismicReceipt`].
-/// 
+///
 /// Why is this different than SeismicAlloyReceiptBuilder in seismic-evm? Can we reuse code?
 #[derive(Debug, Default, Clone, Copy)]
 #[non_exhaustive]

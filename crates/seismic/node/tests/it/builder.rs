@@ -3,9 +3,9 @@
 use reth_db::test_utils::create_test_rw_db;
 use reth_node_api::{FullNodeComponents, NodeTypesWithDBAdapter};
 use reth_node_builder::{Node, NodeBuilder, NodeConfig};
+use reth_provider::providers::BlockchainProvider;
 use reth_seismic_chainspec::SEISMIC_MAINNET;
 use reth_seismic_node::{args::EnclaveArgs, node::SeismicNode};
-use reth_provider::providers::BlockchainProvider;
 
 #[test]
 fn test_basic_setup() {

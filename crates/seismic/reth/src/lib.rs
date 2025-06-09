@@ -100,9 +100,9 @@ pub mod trie {
 #[cfg(feature = "rpc")]
 pub mod rpc {
     #[doc(inline)]
-    pub use reth_seismic_rpc::*;
-    #[doc(inline)]
     pub use reth_rpc::*;
+    #[doc(inline)]
+    pub use reth_seismic_rpc::*;
 
     #[doc(inline)]
     pub use reth_rpc_api as api;

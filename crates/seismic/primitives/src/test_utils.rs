@@ -64,14 +64,16 @@ pub fn get_seismic_elements() -> TxSeismicElements {
 
 /// Encrypt plaintext using network public key and client private key
 pub fn client_encrypt(plaintext: &Bytes) -> Result<Bytes, anyhow::Error> {
-    get_seismic_elements()
-        .client_encrypt(plaintext, &get_network_public_key(), &get_client_io_sk())
+    get_seismic_elements().client_encrypt(plaintext, &get_network_public_key(), &get_client_io_sk())
 }
 
 /// Decrypt ciphertext using network public key and client private key
 pub fn client_decrypt(ciphertext: &Bytes) -> Result<Bytes, anyhow::Error> {
-    get_seismic_elements()
-        .client_decrypt(ciphertext, &get_network_public_key(), &get_client_io_sk())
+    get_seismic_elements().client_decrypt(
+        ciphertext,
+        &get_network_public_key(),
+        &get_client_io_sk(),
+    )
 }
 
 /// Get the plaintext for a seismic transaction
@@ -123,7 +125,10 @@ pub fn sign_seismic_tx(tx: &TxSeismic, signing_sk: &SigningKey) -> PrimitiveSign
 }
 
 /// signes a [`SeismicTypedTransaction`] using the provided [`SigningKey`]
-pub fn sign_seismic_typed_tx(typed_data: &SeismicTypedTransaction, signing_sk: &SigningKey) -> PrimitiveSignature {
+pub fn sign_seismic_typed_tx(
+    typed_data: &SeismicTypedTransaction,
+    signing_sk: &SigningKey,
+) -> PrimitiveSignature {
     let sig_hash = typed_data.signature_hash();
     let sig = signing_sk.sign_prehash_recoverable(&sig_hash.as_slice()).unwrap();
     let recoverid = sig.1;
@@ -170,7 +175,10 @@ pub async fn get_unsigned_seismic_tx_request(
             gas: Some(6000000),
             gas_price: Some(20e9 as u128),
             chain_id: Some(chain_id),
-            input: TransactionInput { input: Some(client_encrypt(&plaintext).unwrap()), data: None },
+            input: TransactionInput {
+                input: Some(client_encrypt(&plaintext).unwrap()),
+                data: None,
+            },
             transaction_type: Some(TxSeismic::TX_TYPE),
             ..Default::default()
         },

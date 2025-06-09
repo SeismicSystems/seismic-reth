@@ -4,21 +4,18 @@ use alloy_consensus::{
 use alloy_eips::{eip2930::AccessList, eip7702::SignedAuthorization, Encodable2718};
 use alloy_primitives::{Address, Bytes, TxHash, TxKind, B256, U256};
 use c_kzg::KzgSettings;
-use seismic_alloy_consensus::SeismicTxEnvelope;
 use core::fmt::Debug;
 use reth_primitives_traits::{InMemorySize, SignedTransaction};
 use reth_seismic_primitives::SeismicTransactionSigned;
 use reth_transaction_pool::{
     EthBlobTransactionSidecar, EthPoolTransaction, EthPooledTransaction, PoolTransaction,
 };
+use seismic_alloy_consensus::SeismicTxEnvelope;
 use std::sync::Arc;
 
 /// Pool Transaction for Seismic. Inspired from OP.
 #[derive(Debug, Clone, derive_more::Deref)]
-pub struct SeismicPooledTransaction<
-    Cons = SeismicTransactionSigned,
-    Pooled = SeismicTxEnvelope,
-> {
+pub struct SeismicPooledTransaction<Cons = SeismicTransactionSigned, Pooled = SeismicTxEnvelope> {
     #[deref]
     inner: EthPooledTransaction<Cons>,
     /// The pooled transaction type.
@@ -90,31 +87,64 @@ impl<Cons: InMemorySize, Pooled> InMemorySize for SeismicPooledTransaction<Cons,
     }
 }
 
-
 impl<Cons, Pooled> alloy_consensus::Transaction for SeismicPooledTransaction<Cons, Pooled>
 where
-     Cons: alloy_consensus::Transaction + SignedTransaction, // Ensure Cons has the methods
-     Pooled: Debug + Send + Sync + 'static, // From Optimism example, for completeness
- {
-    fn chain_id(&self) -> Option<u64> { self.inner.chain_id() }
-    fn nonce(&self) -> u64 { self.inner.nonce() }
-    fn gas_limit(&self) -> u64 { self.inner.gas_limit() }
-    fn gas_price(&self) -> Option<u128> { self.inner.gas_price() }
-    fn max_fee_per_gas(&self) -> u128 { self.inner.max_fee_per_gas() }
-    fn max_priority_fee_per_gas(&self) -> Option<u128> { self.inner.max_priority_fee_per_gas() }
-    fn max_fee_per_blob_gas(&self) -> Option<u128> { self.inner.max_fee_per_blob_gas() }
-    fn value(&self) -> U256 { self.inner.value() }
-    fn input(&self) -> &Bytes { self.inner.input() }
-    fn access_list(&self) -> Option<&AccessList> { self.inner.access_list() }
-    fn blob_versioned_hashes(&self) -> Option<&[B256]> { self.inner.blob_versioned_hashes() }
-    fn authorization_list(&self) -> Option<&[SignedAuthorization]> { self.inner.authorization_list() }
-    fn priority_fee_or_price(&self) -> u128 { self.inner.priority_fee_or_price() }
-    fn effective_gas_price(&self, base_fee: Option<u64>) -> u128 { self.inner.effective_gas_price(base_fee) }
-    fn is_dynamic_fee(&self) -> bool { self.inner.is_dynamic_fee() }
-    fn kind(&self) -> TxKind { self.inner.kind() }
-    fn is_create(&self) -> bool { self.inner.is_create() }
- }
-
+    Cons: alloy_consensus::Transaction + SignedTransaction, // Ensure Cons has the methods
+    Pooled: Debug + Send + Sync + 'static,                  /* From Optimism example, for
+                                                             * completeness */
+{
+    fn chain_id(&self) -> Option<u64> {
+        self.inner.chain_id()
+    }
+    fn nonce(&self) -> u64 {
+        self.inner.nonce()
+    }
+    fn gas_limit(&self) -> u64 {
+        self.inner.gas_limit()
+    }
+    fn gas_price(&self) -> Option<u128> {
+        self.inner.gas_price()
+    }
+    fn max_fee_per_gas(&self) -> u128 {
+        self.inner.max_fee_per_gas()
+    }
+    fn max_priority_fee_per_gas(&self) -> Option<u128> {
+        self.inner.max_priority_fee_per_gas()
+    }
+    fn max_fee_per_blob_gas(&self) -> Option<u128> {
+        self.inner.max_fee_per_blob_gas()
+    }
+    fn value(&self) -> U256 {
+        self.inner.value()
+    }
+    fn input(&self) -> &Bytes {
+        self.inner.input()
+    }
+    fn access_list(&self) -> Option<&AccessList> {
+        self.inner.access_list()
+    }
+    fn blob_versioned_hashes(&self) -> Option<&[B256]> {
+        self.inner.blob_versioned_hashes()
+    }
+    fn authorization_list(&self) -> Option<&[SignedAuthorization]> {
+        self.inner.authorization_list()
+    }
+    fn priority_fee_or_price(&self) -> u128 {
+        self.inner.priority_fee_or_price()
+    }
+    fn effective_gas_price(&self, base_fee: Option<u64>) -> u128 {
+        self.inner.effective_gas_price(base_fee)
+    }
+    fn is_dynamic_fee(&self) -> bool {
+        self.inner.is_dynamic_fee()
+    }
+    fn kind(&self) -> TxKind {
+        self.inner.kind()
+    }
+    fn is_create(&self) -> bool {
+        self.inner.is_create()
+    }
+}
 
 impl<Cons, Pooled> EthPoolTransaction for SeismicPooledTransaction<Cons, Pooled>
 where
@@ -198,4 +228,3 @@ mod tests {
         }
     }
 }
-
