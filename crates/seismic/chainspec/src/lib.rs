@@ -11,11 +11,9 @@
 use std::sync::Arc;
 
 use alloy_chains::Chain;
-use alloy_primitives::{B256, U256, b256};
-use reth_chainspec::{
-    ChainSpec, DEV_HARDFORKS, make_genesis_header,
-};
-use reth_primitives_traits::{SealedHeader, sync::LazyLock};
+use alloy_primitives::{b256, B256, U256};
+use reth_chainspec::{make_genesis_header, ChainSpec, DEV_HARDFORKS};
+use reth_primitives_traits::{sync::LazyLock, SealedHeader};
 use reth_seismic_forks::{SEISMIC_DEV_HARDFORKS, SEISMIC_MAINNET_HARDFORKS};
 
 /// Genesis hash for the Seismic mainnet
