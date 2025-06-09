@@ -163,7 +163,7 @@ where
 //         // note: must be empty (default) chain spec to ensure storage is empty after init
 // genesis,         // otherwise can't use `storage_root_prehashed` to determine storage root later
 //         let provider_factory = create_test_provider_factory_with_node_types::<OpNode>(Arc::new(
-//             
+//
 // OpChainSpecBuilder::default().chain(Chain::dev()).genesis(Default::default()).build(),
 //         ));
 //         let _ = init_genesis(&provider_factory).unwrap();

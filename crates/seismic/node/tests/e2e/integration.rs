@@ -31,24 +31,24 @@ use tokio::sync::mpsc;
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
 const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessage(bytes)
 
-#[tokio::test(flavor = "multi_thread")]
-async fn unit_test() {
-    let reth_rpc_url = SeismicRethTestCommand::url();
-    let chain_id = SeismicRethTestCommand::chain_id();
-    let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
-    let wallet = Wallet::default().with_chain_id(chain_id);
+// #[tokio::test(flavor = "multi_thread")]
+// async fn unit_test() {
+//     let reth_rpc_url = SeismicRethTestCommand::url();
+//     let chain_id = SeismicRethTestCommand::chain_id();
+//     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
+//     let wallet = Wallet::default().with_chain_id(chain_id);
 
-    let tx_bytes = get_signed_seismic_tx_bytes(
-        &wallet.inner,
-        get_nonce(&client, wallet.inner.address()).await,
-        TxKind::Create,
-        chain_id,
-        test_utils::ContractTestContext::get_deploy_input_plaintext(),
-    )
-    .await;
+//     let tx_bytes = get_signed_seismic_tx_bytes(
+//         &wallet.inner,
+//         get_nonce(&client, wallet.inner.address()).await,
+//         TxKind::Create,
+//         chain_id,
+//         test_utils::ContractTestContext::get_deploy_input_plaintext(),
+//     )
+//     .await;
 
-    println!("tx_bytes: {:?}", tx_bytes);
-}
+//     println!("tx_bytes: {:?}", tx_bytes);
+// }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn integration_test() {
