@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 homepage.workspace = true
 repository.workspace = true
-description = "Ethereum RPC implementation for optimism."
+description = "Ethereum RPC implementation for seismic."
 
 [lints]
 workspace = true
