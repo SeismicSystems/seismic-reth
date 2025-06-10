@@ -52,11 +52,19 @@ const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessa
 
 #[tokio::test(flavor = "multi_thread")]
 async fn integration_test() {
-    let (tx, mut rx) = mpsc::channel(1);
-    let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
+    // set to true when I want to spin up my own node outside the test to see logs more easily
+    let manual_debug = false;
 
-    SeismicRethTestCommand::run(tx, shutdown_rx).await;
-    rx.recv().await.unwrap();
+    let mut shutdown_tx_top: Option<mpsc::Sender<()>> = None;
+    if !manual_debug {
+        // spin up a reth node
+        let (tx, mut rx) = mpsc::channel(1);
+        let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
+        shutdown_tx_top = Some(shutdown_tx);
+
+        SeismicRethTestCommand::run(tx, shutdown_rx).await;
+        rx.recv().await.unwrap();
+    }
 
     test_seismic_reth_rpc().await;
     test_seismic_reth_rpc_with_typed_data().await;
@@ -64,9 +72,11 @@ async fn integration_test() {
     test_seismic_reth_rpc_simulate_block().await;
     test_seismic_precompiles_end_to_end().await;
 
-    let _ = shutdown_tx.try_send(()).unwrap();
-    println!("shutdown signal sent");
-    thread::sleep(Duration::from_secs(1));
+    if !manual_debug {
+        let _ = shutdown_tx_top.unwrap().try_send(()).unwrap();
+        println!("shutdown signal sent");
+        thread::sleep(Duration::from_secs(1));
+    }
 }
 
 // this is the same test as basic.rs but with actual RPC calls and standalone reth instance
