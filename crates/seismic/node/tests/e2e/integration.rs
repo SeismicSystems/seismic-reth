@@ -50,7 +50,6 @@ const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessa
 //     println!("tx_bytes: {:?}", tx_bytes);
 // }
 
-
 #[tokio::test(flavor = "multi_thread")]
 async fn integration_test() {
     // set to true when I want to spin up my own node outside the test to see logs more easily
