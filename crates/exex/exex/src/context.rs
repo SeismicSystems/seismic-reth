@@ -1,9 +1,7 @@
 use crate::{ExExContextDyn, ExExEvent, ExExNotifications, ExExNotificationsStream};
 use alloy_eips::BlockNumHash;
 use reth_exex_types::ExExHead;
-use reth_node_api::{
-    FullNodeComponents, NodePrimitives, NodeTypes, NodeTypesWithEngine, PrimitivesTy,
-};
+use reth_node_api::{FullNodeComponents, NodePrimitives, NodeTypes, PrimitivesTy};
 use reth_node_core::node_config::NodeConfig;
 use reth_payload_builder::PayloadBuilderHandle;
 use reth_provider::BlockReader;
@@ -35,7 +33,7 @@ pub struct ExExContext<Node: FullNodeComponents> {
     ///
     /// Once an [`ExExNotification`](crate::ExExNotification) is sent over the channel, it is
     /// considered delivered by the node.
-    pub notifications: ExExNotifications<Node::Provider, Node::Executor>,
+    pub notifications: ExExNotifications<Node::Provider, Node::Evm>,
 
     /// Node components
     pub components: Node,
@@ -45,7 +43,6 @@ impl<Node> Debug for ExExContext<Node>
 where
     Node: FullNodeComponents,
     Node::Provider: Debug,
-    Node::Executor: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ExExContext")
@@ -63,7 +60,6 @@ impl<Node> ExExContext<Node>
 where
     Node: FullNodeComponents,
     Node::Provider: Debug + BlockReader,
-    Node::Executor: Debug,
     Node::Types: NodeTypes<Primitives: NodePrimitives>,
 {
     /// Returns dynamic version of the context
@@ -87,11 +83,6 @@ where
         self.components.evm_config()
     }
 
-    /// Returns the node's executor type.
-    pub fn block_executor(&self) -> &Node::Executor {
-        self.components.block_executor()
-    }
-
     /// Returns the provider of the node.
     pub fn provider(&self) -> &Node::Provider {
         self.components.provider()
@@ -105,7 +96,7 @@ where
     /// Returns the handle to the payload builder service.
     pub fn payload_builder_handle(
         &self,
-    ) -> &PayloadBuilderHandle<<Node::Types as NodeTypesWithEngine>::Payload> {
+    ) -> &PayloadBuilderHandle<<Node::Types as NodeTypes>::Payload> {
         self.components.payload_builder_handle()
     }
 
@@ -161,7 +152,7 @@ mod tests {
         {
             async fn _test_bounds(mut self) -> eyre::Result<()> {
                 self.ctx.pool();
-                self.ctx.block_executor();
+                self.ctx.evm_config();
                 self.ctx.provider();
                 self.ctx.network();
                 self.ctx.payload_builder_handle();

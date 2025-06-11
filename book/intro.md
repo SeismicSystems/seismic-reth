@@ -43,7 +43,7 @@ As a data engineer/analyst, or as a data indexer, you'll want to use Archive mod
 
 ## Is this secure?
 
-To make sure the node is built securely, we run extensive unit and integration tests against seismic components. Our auditing process is on the way.
+To make sure the node is built securely, we run extensive unit and integration tests against Seismic components. Our auditing process is on the way.
 
 ## Sections
 

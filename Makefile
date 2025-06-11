@@ -26,7 +26,7 @@ PROFILE ?= release
 CARGO_INSTALL_EXTRA_FLAGS ?=
 
 # The release tag of https://github.com/ethereum/tests to use for EF tests
-EF_TESTS_TAG := v12.2
+EF_TESTS_TAG := v17.0
 EF_TESTS_URL := https://github.com/ethereum/tests/archive/refs/tags/$(EF_TESTS_TAG).tar.gz
 EF_TESTS_DIR := ./testing/ef-tests/ethereum-tests
 
@@ -66,7 +66,7 @@ RUST_BUILD_FLAGS =
 # Enable static linking to ensure reproducibility across builds
 RUST_BUILD_FLAGS += --C target-feature=+crt-static
 # Set the linker to use static libgcc to ensure reproducibility across builds
-RUST_BUILD_FLAGS += -Clink-arg=-static-libgcc
+RUST_BUILD_FLAGS += -C link-arg=-static-libgcc
 # Remove build ID from the binary to ensure reproducibility across builds
 RUST_BUILD_FLAGS += -C link-arg=-Wl,--build-id=none
 # Remove metadata hash from symbol names to ensure reproducible builds
@@ -392,6 +392,17 @@ clippy:
 	--benches \
 	--all-features \
 	-- -D warnings
+
+clippy-op-dev:
+	cargo +nightly clippy \
+	--bin op-reth \
+	--workspace \
+	--lib \
+	--examples \
+	--tests \
+	--benches \
+	--locked \
+	--all-features
 
 lint-codespell: ensure-codespell
 	codespell --skip "*.json" --skip "./testing/ef-tests/ethereum-tests"

@@ -13,7 +13,7 @@ use alloy_primitives::B256;
 use rand::seq::SliceRandom;
 use reth_eth_wire::{
     BlockHashNumber, Capabilities, DisconnectReason, EthNetworkPrimitives, NetworkPrimitives,
-    NewBlockHashes, Status,
+    NewBlockHashes, UnifiedStatus,
 };
 use reth_ethereum_forks::ForkId;
 use reth_network_api::{DiscoveredEvent, DiscoveryEvent, PeerRequest, PeerRequestSender};
@@ -82,7 +82,7 @@ pub struct NetworkState<N: NetworkPrimitives = EthNetworkPrimitives> {
     /// The client type that can interact with the chain.
     ///
     /// This type is used to fetch the block number after we established a session and received the
-    /// [Status] block hash.
+    /// [`UnifiedStatus`] block hash.
     client: BlockNumReader,
     /// Network discovery.
     discovery: Discovery,
@@ -114,12 +114,12 @@ impl<N: NetworkPrimitives> NetworkState<N> {
     }
 
     /// Returns mutable access to the [`PeersManager`]
-    pub(crate) fn peers_mut(&mut self) -> &mut PeersManager {
+    pub(crate) const fn peers_mut(&mut self) -> &mut PeersManager {
         &mut self.peers_manager
     }
 
     /// Returns mutable access to the [`Discovery`]
-    pub(crate) fn discovery_mut(&mut self) -> &mut Discovery {
+    pub(crate) const fn discovery_mut(&mut self) -> &mut Discovery {
         &mut self.discovery
     }
 
@@ -146,7 +146,7 @@ impl<N: NetworkPrimitives> NetworkState<N> {
         &mut self,
         peer: PeerId,
         capabilities: Arc<Capabilities>,
-        status: Arc<Status>,
+        status: Arc<UnifiedStatus>,
         request_tx: PeerRequestSender<PeerRequest<N>>,
         timeout: Arc<AtomicU64>,
     ) {
@@ -195,7 +195,7 @@ impl<N: NetworkPrimitives> NetworkState<N> {
 
         // Shuffle to propagate to a random sample of peers on every block announcement
         let mut peers: Vec<_> = self.active_peers.iter_mut().collect();
-        peers.shuffle(&mut rand::thread_rng());
+        peers.shuffle(&mut rand::rng());
 
         for (peer_id, peer) in peers {
             if peer.blocks.contains(&msg.hash) {

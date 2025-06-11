@@ -8,8 +8,11 @@ use crate::{
 };
 use op_alloy_consensus::{interop::SafetyLevel, OpPooledTransaction};
 use reth_chainspec::{EthChainSpec, Hardforks};
-use reth_evm::{execute::BasicBlockExecutorProvider, ConfigureEvm, EvmFactory, EvmFactoryFor};
-use reth_network::{NetworkConfig, NetworkHandle, NetworkManager, NetworkPrimitives, PeersInfo};
+use reth_evm::{ConfigureEvm, EvmFactory, EvmFactoryFor};
+use reth_network::{
+    primitives::NetPrimitivesFor, NetworkConfig, NetworkHandle, NetworkManager, NetworkPrimitives,
+    PeersInfo,
+};
 use reth_node_api::{
     AddOnsContext, FullNodeComponents, KeyHasherTy, NodeAddOns, NodePrimitives, PrimitivesTy, TxTy,
 };
@@ -18,7 +21,7 @@ use reth_node_builder::{
         BasicPayloadServiceBuilder, ComponentsBuilder, ConsensusBuilder, ExecutorBuilder,
         NetworkBuilder, PayloadBuilderBuilder, PoolBuilder, PoolBuilderConfigOverrides,
     },
-    node::{FullNodeTypes, NodeTypes, NodeTypesWithEngine},
+    node::{FullNodeTypes, NodeTypes},
     rpc::{
         EngineValidatorAddOn, EngineValidatorBuilder, EthApiBuilder, RethRpcAddOns, RpcAddOns,
         RpcHandle,
@@ -27,7 +30,7 @@ use reth_node_builder::{
 };
 use reth_optimism_chainspec::OpChainSpec;
 use reth_optimism_consensus::OpBeaconConsensus;
-use reth_optimism_evm::{OpEvmConfig, OpNextBlockEnvAttributes};
+use reth_optimism_evm::{OpEvmConfig, OpNextBlockEnvAttributes, OpRethReceiptBuilder};
 use reth_optimism_forks::OpHardforks;
 use reth_optimism_payload_builder::{
     builder::OpPayloadTransactions,
@@ -41,14 +44,12 @@ use reth_optimism_rpc::{
     OpEthApi, OpEthApiError, SequencerClient,
 };
 use reth_optimism_txpool::{
-    conditional::MaybeConditionalTransaction,
-    interop::MaybeInteropTransaction,
     supervisor::{SupervisorClient, DEFAULT_SUPERVISOR_URL},
     OpPooledTx,
 };
 use reth_provider::{providers::ProviderFactoryBuilder, CanonStateSubscriptions, EthStorage};
 use reth_rpc_api::DebugApiServer;
-use reth_rpc_eth_api::ext::L2EthApiExtServer;
+use reth_rpc_eth_api::{ext::L2EthApiExtServer, FullEthApiServer};
 use reth_rpc_eth_types::error::FromEvmError;
 use reth_rpc_server_types::RethRpcModule;
 use reth_tracing::tracing::{debug, info};
@@ -58,8 +59,18 @@ use reth_transaction_pool::{
 };
 use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
+/// Marker trait for Optimism node types with standard engine, chain spec, and primitives.
+pub trait OpNodeTypes:
+    NodeTypes<Payload = OpEngineTypes, ChainSpec = OpChainSpec, Primitives = OpPrimitives>
+{
+}
+/// Blanket impl for all node types that conform to the Optimism spec.
+impl<N> OpNodeTypes for N where
+    N: NodeTypes<Payload = OpEngineTypes, ChainSpec = OpChainSpec, Primitives = OpPrimitives>
+{
+}
 /// Storage implementation for Optimism.
 pub type OpStorage = EthStorage<OpTransactionSigned>;
 
@@ -102,13 +113,7 @@ impl OpNode {
         OpConsensusBuilder,
     >
     where
-        Node: FullNodeTypes<
-            Types: NodeTypesWithEngine<
-                Payload = OpEngineTypes,
-                ChainSpec = OpChainSpec,
-                Primitives = OpPrimitives,
-            >,
-        >,
+        Node: FullNodeTypes<Types: OpNodeTypes>,
     {
         let RollupArgs { disable_txpool_gossip, compute_pending_block, discovery_v4, .. } =
             self.args;
@@ -122,14 +127,11 @@ impl OpNode {
                         self.args.supervisor_safety_level,
                     ),
             )
+            .executor(OpExecutorBuilder::default())
             .payload(BasicPayloadServiceBuilder::new(
                 OpPayloadBuilder::new(compute_pending_block).with_da_config(self.da_config.clone()),
             ))
-            .network(OpNetworkBuilder {
-                disable_txpool_gossip,
-                disable_discovery_v4: !discovery_v4,
-            })
-            .executor(OpExecutorBuilder::default())
+            .network(OpNetworkBuilder::new(disable_txpool_gossip, !discovery_v4))
             .consensus(OpConsensusBuilder::default())
     }
 
@@ -148,7 +150,7 @@ impl OpNode {
     ///     OpNode::provider_factory_builder().open_read_only(BASE_MAINNET.clone(), "datadir").unwrap();
     /// ```
     ///
-    /// # Open a Providerfactory manually with with all required components
+    /// # Open a Providerfactory manually with all required components
     ///
     /// ```no_run
     /// use reth_db::open_db_read_only;
@@ -171,7 +173,7 @@ impl OpNode {
 impl<N> Node<N> for OpNode
 where
     N: FullNodeTypes<
-        Types: NodeTypesWithEngine<
+        Types: NodeTypes<
             Payload = OpEngineTypes,
             ChainSpec = OpChainSpec,
             Primitives = OpPrimitives,
@@ -188,8 +190,10 @@ where
         OpConsensusBuilder,
     >;
 
-    type AddOns =
-        OpAddOns<NodeAdapter<N, <Self::ComponentsBuilder as NodeComponentsBuilder<N>>::Components>>;
+    type AddOns = OpAddOns<
+        NodeAdapter<N, <Self::ComponentsBuilder as NodeComponentsBuilder<N>>::Components>,
+        OpEthApiBuilder,
+    >;
 
     fn components_builder(&self) -> Self::ComponentsBuilder {
         Self::components(self)
@@ -197,7 +201,7 @@ where
 
     fn add_ons(&self) -> Self::AddOns {
         Self::AddOns::builder()
-            .with_sequencer(self.args.sequencer_http.clone())
+            .with_sequencer(self.args.sequencer.clone())
             .with_da_config(self.da_config.clone())
             .with_enable_tx_conditional(self.args.enable_tx_conditional)
             .build()
@@ -215,7 +219,7 @@ where
         reth_optimism_primitives::OpBlock {
             header: header.inner,
             body: reth_optimism_primitives::OpBlockBody {
-                transactions: transactions.into_transactions().map(Into::into).collect(),
+                transactions: transactions.into_transactions().collect(),
                 ..Default::default()
             },
         }
@@ -227,61 +231,54 @@ impl NodeTypes for OpNode {
     type ChainSpec = OpChainSpec;
     type StateCommitment = MerklePatriciaTrie;
     type Storage = OpStorage;
-}
-
-impl NodeTypesWithEngine for OpNode {
     type Payload = OpEngineTypes;
 }
 
 /// Add-ons w.r.t. optimism.
 #[derive(Debug)]
-pub struct OpAddOns<N>
-where
+pub struct OpAddOns<
     N: FullNodeComponents,
-    OpEthApiBuilder: EthApiBuilder<N>,
-{
+    EthB: EthApiBuilder<N>,
+    EV = OpEngineValidatorBuilder,
+    EB = OpEngineApiBuilder<OpEngineValidatorBuilder>,
+> {
     /// Rpc add-ons responsible for launching the RPC servers and instantiating the RPC handlers
     /// and eth-api.
-    pub rpc_add_ons: RpcAddOns<
-        N,
-        OpEthApiBuilder,
-        OpEngineValidatorBuilder,
-        OpEngineApiBuilder<OpEngineValidatorBuilder>,
-    >,
+    pub rpc_add_ons: RpcAddOns<N, EthB, EV, EB>,
     /// Data availability configuration for the OP builder.
     pub da_config: OpDAConfig,
     /// Sequencer client, configured to forward submitted transactions to sequencer of given OP
     /// network.
-    pub sequencer_client: Option<SequencerClient>,
+    pub sequencer_url: Option<String>,
     /// Enable transaction conditionals.
     enable_tx_conditional: bool,
 }
 
-impl<N> Default for OpAddOns<N>
+impl<N, NetworkT> Default for OpAddOns<N, OpEthApiBuilder<NetworkT>>
 where
-    N: FullNodeComponents<Types: NodeTypes<Primitives = OpPrimitives>>,
-    OpEthApiBuilder: EthApiBuilder<N>,
+    N: FullNodeComponents<Types: NodeTypes>,
+    OpEthApiBuilder<NetworkT>: EthApiBuilder<N>,
 {
     fn default() -> Self {
         Self::builder().build()
     }
 }
 
-impl<N> OpAddOns<N>
+impl<N, NetworkT> OpAddOns<N, OpEthApiBuilder<NetworkT>>
 where
-    N: FullNodeComponents<Types: NodeTypes<Primitives = OpPrimitives>>,
-    OpEthApiBuilder: EthApiBuilder<N>,
+    N: FullNodeComponents<Types: NodeTypes>,
+    OpEthApiBuilder<NetworkT>: EthApiBuilder<N>,
 {
     /// Build a [`OpAddOns`] using [`OpAddOnsBuilder`].
-    pub fn builder() -> OpAddOnsBuilder {
+    pub fn builder() -> OpAddOnsBuilder<NetworkT> {
         OpAddOnsBuilder::default()
     }
 }
 
-impl<N> NodeAddOns<N> for OpAddOns<N>
+impl<N, NetworkT> NodeAddOns<N> for OpAddOns<N, OpEthApiBuilder<NetworkT>>
 where
     N: FullNodeComponents<
-        Types: NodeTypesWithEngine<
+        Types: NodeTypes<
             ChainSpec = OpChainSpec,
             Primitives = OpPrimitives,
             Storage = OpStorage,
@@ -292,14 +289,16 @@ where
     OpEthApiError: FromEvmError<N::Evm>,
     <N::Pool as TransactionPool>::Transaction: OpPooledTx,
     EvmFactoryFor<N::Evm>: EvmFactory<Tx = op_revm::OpTransaction<TxEnv>>,
+    OpEthApi<N, NetworkT>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
+    NetworkT: op_alloy_network::Network + Unpin,
 {
-    type Handle = RpcHandle<N, OpEthApi<N>>;
+    type Handle = RpcHandle<N, OpEthApi<N, NetworkT>>;
 
     async fn launch_add_ons(
         self,
         ctx: reth_node_api::AddOnsContext<'_, N>,
     ) -> eyre::Result<Self::Handle> {
-        let Self { rpc_add_ons, da_config, sequencer_client, enable_tx_conditional } = self;
+        let Self { rpc_add_ons, da_config, sequencer_url, enable_tx_conditional } = self;
 
         let builder = reth_optimism_payload_builder::OpPayloadBuilder::new(
             ctx.node.pool().clone(),
@@ -313,6 +312,12 @@ where
             builder,
         );
         let miner_ext = OpMinerExtApi::new(da_config);
+
+        let sequencer_client = if let Some(url) = sequencer_url {
+            Some(SequencerClient::new(url).await?)
+        } else {
+            None
+        };
 
         let tx_conditional_ext: OpEthExtApi<N::Pool, N::Provider> = OpEthExtApi::new(
             sequencer_client,
@@ -357,10 +362,10 @@ where
     }
 }
 
-impl<N> RethRpcAddOns<N> for OpAddOns<N>
+impl<N, NetworkT> RethRpcAddOns<N> for OpAddOns<N, OpEthApiBuilder<NetworkT>>
 where
     N: FullNodeComponents<
-        Types: NodeTypesWithEngine<
+        Types: NodeTypes<
             ChainSpec = OpChainSpec,
             Primitives = OpPrimitives,
             Storage = OpStorage,
@@ -371,24 +376,26 @@ where
     OpEthApiError: FromEvmError<N::Evm>,
     <<N as FullNodeComponents>::Pool as TransactionPool>::Transaction: OpPooledTx,
     EvmFactoryFor<N::Evm>: EvmFactory<Tx = op_revm::OpTransaction<TxEnv>>,
+    OpEthApi<N, NetworkT>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>,
+    NetworkT: op_alloy_network::Network + Unpin,
 {
-    type EthApi = OpEthApi<N>;
+    type EthApi = OpEthApi<N, NetworkT>;
 
     fn hooks_mut(&mut self) -> &mut reth_node_builder::rpc::RpcHooks<N, Self::EthApi> {
         self.rpc_add_ons.hooks_mut()
     }
 }
 
-impl<N> EngineValidatorAddOn<N> for OpAddOns<N>
+impl<N, NetworkT> EngineValidatorAddOn<N> for OpAddOns<N, OpEthApiBuilder<NetworkT>>
 where
     N: FullNodeComponents<
-        Types: NodeTypesWithEngine<
+        Types: NodeTypes<
             ChainSpec = OpChainSpec,
             Primitives = OpPrimitives,
             Payload = OpEngineTypes,
         >,
     >,
-    OpEthApiBuilder: EthApiBuilder<N>,
+    OpEthApiBuilder<NetworkT>: EthApiBuilder<N>,
 {
     type Validator = OpEngineValidator<N::Provider>;
 
@@ -398,22 +405,35 @@ where
 }
 
 /// A regular optimism evm and executor builder.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
-pub struct OpAddOnsBuilder {
+pub struct OpAddOnsBuilder<NetworkT> {
     /// Sequencer client, configured to forward submitted transactions to sequencer of given OP
     /// network.
-    sequencer_client: Option<SequencerClient>,
+    sequencer_url: Option<String>,
     /// Data availability configuration for the OP builder.
     da_config: Option<OpDAConfig>,
     /// Enable transaction conditionals.
     enable_tx_conditional: bool,
+    /// Marker for network types.
+    _nt: PhantomData<NetworkT>,
 }
 
-impl OpAddOnsBuilder {
+impl<NetworkT> Default for OpAddOnsBuilder<NetworkT> {
+    fn default() -> Self {
+        Self {
+            sequencer_url: None,
+            da_config: None,
+            enable_tx_conditional: false,
+            _nt: PhantomData,
+        }
+    }
+}
+
+impl<NetworkT> OpAddOnsBuilder<NetworkT> {
     /// With a [`SequencerClient`].
     pub fn with_sequencer(mut self, sequencer_client: Option<String>) -> Self {
-        self.sequencer_client = sequencer_client.map(SequencerClient::new);
+        self.sequencer_url = sequencer_client;
         self
     }
 
@@ -424,55 +444,63 @@ impl OpAddOnsBuilder {
     }
 
     /// Configure if transaction conditional should be enabled.
-    pub fn with_enable_tx_conditional(mut self, enable_tx_conditional: bool) -> Self {
+    pub const fn with_enable_tx_conditional(mut self, enable_tx_conditional: bool) -> Self {
         self.enable_tx_conditional = enable_tx_conditional;
         self
     }
 }
 
-impl OpAddOnsBuilder {
+impl<NetworkT> OpAddOnsBuilder<NetworkT> {
     /// Builds an instance of [`OpAddOns`].
-    pub fn build<N>(self) -> OpAddOns<N>
+    pub fn build<N>(self) -> OpAddOns<N, OpEthApiBuilder<NetworkT>>
     where
-        N: FullNodeComponents<Types: NodeTypes<Primitives = OpPrimitives>>,
-        OpEthApiBuilder: EthApiBuilder<N>,
+        N: FullNodeComponents<Types: NodeTypes>,
+        OpEthApiBuilder<NetworkT>: EthApiBuilder<N>,
     {
-        let Self { sequencer_client, da_config, enable_tx_conditional } = self;
+        let Self { sequencer_url, da_config, enable_tx_conditional, .. } = self;
 
-        let sequencer_client_clone = sequencer_client.clone();
         OpAddOns {
             rpc_add_ons: RpcAddOns::new(
-                OpEthApiBuilder::default().with_sequencer(sequencer_client_clone),
-                Default::default(),
-                Default::default(),
+                OpEthApiBuilder::default().with_sequencer(sequencer_url.clone()),
+                OpEngineValidatorBuilder::default(),
+                OpEngineApiBuilder::default(),
             ),
             da_config: da_config.unwrap_or_default(),
-            sequencer_client,
+            sequencer_url,
             enable_tx_conditional,
         }
     }
 }
 
 /// A regular optimism evm and executor builder.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
-pub struct OpExecutorBuilder;
+pub struct OpExecutorBuilder<ChainSpec = OpChainSpec, Primitives = OpPrimitives> {
+    /// Marker for chain spec type.
+    _cs: PhantomData<ChainSpec>,
+    /// Marker for primitives type.
+    _p: PhantomData<Primitives>,
+}
 
-impl<Node> ExecutorBuilder<Node> for OpExecutorBuilder
+impl<ChainSpec, Primitives> Default for OpExecutorBuilder<ChainSpec, Primitives> {
+    fn default() -> Self {
+        Self { _cs: PhantomData, _p: PhantomData }
+    }
+}
+
+impl<Node, ChainSpec, Primitives> ExecutorBuilder<Node> for OpExecutorBuilder<ChainSpec, Primitives>
 where
-    Node: FullNodeTypes<Types: NodeTypes<ChainSpec = OpChainSpec, Primitives = OpPrimitives>>,
+    Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = Primitives>>,
+    ChainSpec: EthChainSpec + OpHardforks,
+    Primitives: NodePrimitives,
+    OpEvmConfig<ChainSpec, Primitives>: ConfigureEvm<Primitives = Primitives> + 'static,
 {
-    type EVM = OpEvmConfig;
-    type Executor = BasicBlockExecutorProvider<Self::EVM>;
+    type EVM = OpEvmConfig<ChainSpec, Primitives>;
 
-    async fn build_evm(
-        self,
-        ctx: &BuilderContext<Node>,
-    ) -> eyre::Result<(Self::EVM, Self::Executor)> {
-        let evm_config = OpEvmConfig::optimism(ctx.chain_spec());
-        let executor = BasicBlockExecutorProvider::new(evm_config.clone());
+    async fn build_evm(self, ctx: &BuilderContext<Node>) -> eyre::Result<Self::EVM> {
+        let evm_config = OpEvmConfig::new(ctx.chain_spec(), OpRethReceiptBuilder::default());
 
-        Ok((evm_config, executor))
+        Ok(evm_config)
     }
 }
 
@@ -480,7 +508,7 @@ where
 ///
 /// This contains various settings that can be configured and take precedence over the node's
 /// config.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct OpPoolBuilder<T = crate::txpool::OpPooledTransaction> {
     /// Enforced overrides that are applied to the pool config.
     pub pool_config_overrides: PoolBuilderConfigOverrides,
@@ -506,9 +534,21 @@ impl<T> Default for OpPoolBuilder<T> {
     }
 }
 
+impl<T> Clone for OpPoolBuilder<T> {
+    fn clone(&self) -> Self {
+        Self {
+            pool_config_overrides: self.pool_config_overrides.clone(),
+            enable_tx_conditional: self.enable_tx_conditional,
+            supervisor_http: self.supervisor_http.clone(),
+            supervisor_safety_level: self.supervisor_safety_level,
+            _pd: core::marker::PhantomData,
+        }
+    }
+}
+
 impl<T> OpPoolBuilder<T> {
     /// Sets the `enable_tx_conditional` flag on the pool builder.
-    pub fn with_enable_tx_conditional(mut self, enable_tx_conditional: bool) -> Self {
+    pub const fn with_enable_tx_conditional(mut self, enable_tx_conditional: bool) -> Self {
         self.enable_tx_conditional = enable_tx_conditional;
         self
     }
@@ -537,9 +577,7 @@ impl<T> OpPoolBuilder<T> {
 impl<Node, T> PoolBuilder<Node> for OpPoolBuilder<T>
 where
     Node: FullNodeTypes<Types: NodeTypes<ChainSpec: OpHardforks>>,
-    T: EthPoolTransaction<Consensus = TxTy<Node::Types>>
-        + MaybeConditionalTransaction
-        + MaybeInteropTransaction,
+    T: EthPoolTransaction<Consensus = TxTy<Node::Types>> + OpPooledTx,
 {
     type Pool = OpTransactionPool<Node::Provider, DiskFileBlobStore, T>;
 
@@ -556,13 +594,16 @@ where
                 "Default supervisor url is used, consider changing --rollup.supervisor-http."
             );
         }
-        let supervisor_client =
-            SupervisorClient::new(self.supervisor_http.clone(), self.supervisor_safety_level).await;
+        let supervisor_client = SupervisorClient::builder(self.supervisor_http.clone())
+            .minimum_safety(self.supervisor_safety_level)
+            .build()
+            .await;
 
         let validator = TransactionValidationTaskExecutor::eth_builder(ctx.provider().clone())
             .no_eip4844()
             .with_head_timestamp(ctx.head().timestamp)
             .kzg_settings(ctx.kzg_settings()?)
+            .set_tx_fee_cap(ctx.config().rpc.rpc_tx_fee_cap)
             .with_additional_tasks(
                 pool_config_overrides
                     .additional_validation_tasks
@@ -584,26 +625,35 @@ where
             pool_config_overrides.apply(ctx.pool_config()),
         );
         info!(target: "reth::cli", "Transaction pool initialized");
-        let transactions_path = data_dir.txpool_transactions();
 
         // spawn txpool maintenance tasks
         {
             let pool = transaction_pool.clone();
             let chain_events = ctx.provider().canonical_state_stream();
             let client = ctx.provider().clone();
-            let transactions_backup_config =
-                reth_transaction_pool::maintain::LocalTransactionBackupConfig::with_local_txs_backup(transactions_path);
+            if !ctx.config().txpool.disable_transactions_backup {
+                // Use configured backup path or default to data dir
+                let transactions_path = ctx
+                    .config()
+                    .txpool
+                    .transactions_backup_path
+                    .clone()
+                    .unwrap_or_else(|| data_dir.txpool_transactions());
 
-            ctx.task_executor().spawn_critical_with_graceful_shutdown_signal(
-                "local transactions backup task",
-                |shutdown| {
-                    reth_transaction_pool::maintain::backup_local_transactions_task(
-                        shutdown,
-                        pool.clone(),
-                        transactions_backup_config,
-                    )
-                },
-            );
+                let transactions_backup_config =
+                    reth_transaction_pool::maintain::LocalTransactionBackupConfig::with_local_txs_backup(transactions_path);
+
+                ctx.task_executor().spawn_critical_with_graceful_shutdown_signal(
+                    "local transactions backup task",
+                    |shutdown| {
+                        reth_transaction_pool::maintain::backup_local_transactions_task(
+                            shutdown,
+                            pool.clone(),
+                            transactions_backup_config,
+                        )
+                    },
+                );
+            }
 
             // spawn the main maintenance task
             ctx.task_executor().spawn_critical(
@@ -615,6 +665,10 @@ where
                     ctx.task_executor().clone(),
                     reth_transaction_pool::maintain::MaintainPoolConfig {
                         max_tx_lifetime: pool.config().max_queued_lifetime,
+                        no_local_exemptions: transaction_pool
+                            .config()
+                            .local_transactions_config
+                            .no_exemptions,
                         ..Default::default()
                     },
                 ),
@@ -692,29 +746,36 @@ impl<Txs> OpPayloadBuilder<Txs> {
         let Self { compute_pending_block, da_config, .. } = self;
         OpPayloadBuilder { compute_pending_block, best_transactions, da_config }
     }
+}
 
-    /// A helper method to initialize [`reth_optimism_payload_builder::OpPayloadBuilder`] with the
-    /// given EVM config.
-    pub fn build<Node, Evm, Pool>(
+impl<Node, Pool, Txs, Evm> PayloadBuilderBuilder<Node, Pool, Evm> for OpPayloadBuilder<Txs>
+where
+    Node: FullNodeTypes<
+        Types: NodeTypes<
+            Payload = OpEngineTypes,
+            ChainSpec = OpChainSpec,
+            Primitives = OpPrimitives,
+        >,
+    >,
+    Evm: ConfigureEvm<
+            Primitives = PrimitivesTy<Node::Types>,
+            NextBlockEnvCtx = OpNextBlockEnvAttributes,
+        > + 'static,
+    Pool: TransactionPool<Transaction: PoolTransaction<Consensus = TxTy<Node::Types>>>
+        + Unpin
+        + 'static,
+    Txs: OpPayloadTransactions<Pool::Transaction>,
+    <Pool as TransactionPool>::Transaction: OpPooledTx,
+{
+    type PayloadBuilder =
+        reth_optimism_payload_builder::OpPayloadBuilder<Pool, Node::Provider, Evm, Txs>;
+
+    async fn build_payload_builder(
         self,
-        evm_config: Evm,
         ctx: &BuilderContext<Node>,
         pool: Pool,
-    ) -> eyre::Result<reth_optimism_payload_builder::OpPayloadBuilder<Pool, Node::Provider, Evm, Txs>>
-    where
-        Node: FullNodeTypes<
-            Types: NodeTypesWithEngine<
-                Payload = OpEngineTypes,
-                ChainSpec = OpChainSpec,
-                Primitives = OpPrimitives,
-            >,
-        >,
-        Pool: TransactionPool<Transaction: PoolTransaction<Consensus = TxTy<Node::Types>>>
-            + Unpin
-            + 'static,
-        Evm: ConfigureEvm<Primitives = PrimitivesTy<Node::Types>>,
-        Txs: OpPayloadTransactions<Pool::Transaction>,
-    {
+        evm_config: Evm,
+    ) -> eyre::Result<Self::PayloadBuilder> {
         let payload_builder = reth_optimism_payload_builder::OpPayloadBuilder::with_builder_config(
             pool,
             ctx.provider().clone(),
@@ -727,54 +788,44 @@ impl<Txs> OpPayloadBuilder<Txs> {
     }
 }
 
-impl<Node, Pool, Txs> PayloadBuilderBuilder<Node, Pool> for OpPayloadBuilder<Txs>
-where
-    Node: FullNodeTypes<
-        Types: NodeTypesWithEngine<
-            Payload = OpEngineTypes,
-            ChainSpec = OpChainSpec,
-            Primitives = OpPrimitives,
-        >,
-    >,
-    Pool: TransactionPool<Transaction: PoolTransaction<Consensus = TxTy<Node::Types>>>
-        + Unpin
-        + 'static,
-    Txs: OpPayloadTransactions<Pool::Transaction>,
-    <Pool as TransactionPool>::Transaction: OpPooledTx,
-{
-    type PayloadBuilder =
-        reth_optimism_payload_builder::OpPayloadBuilder<Pool, Node::Provider, OpEvmConfig, Txs>;
-
-    async fn build_payload_builder(
-        self,
-        ctx: &BuilderContext<Node>,
-        pool: Pool,
-    ) -> eyre::Result<Self::PayloadBuilder> {
-        self.build(OpEvmConfig::optimism(ctx.chain_spec()), ctx, pool)
-    }
-}
-
 /// A basic optimism network builder.
-#[derive(Debug, Default, Clone)]
-pub struct OpNetworkBuilder {
+#[derive(Debug, Default)]
+pub struct OpNetworkBuilder<NetworkP = OpNetworkPrimitives, PooledTx = OpPooledTransaction> {
     /// Disable transaction pool gossip
     pub disable_txpool_gossip: bool,
     /// Disable discovery v4
     pub disable_discovery_v4: bool,
+    /// Marker for the network primitives type
+    _np: PhantomData<NetworkP>,
+    /// Marker for the pooled transaction type
+    _pt: PhantomData<PooledTx>,
 }
 
-impl OpNetworkBuilder {
+impl<NetworkP, PooledTx> Clone for OpNetworkBuilder<NetworkP, PooledTx> {
+    fn clone(&self) -> Self {
+        Self::new(self.disable_txpool_gossip, self.disable_discovery_v4)
+    }
+}
+
+impl<NetworkP, PooledTx> OpNetworkBuilder<NetworkP, PooledTx> {
+    /// Creates a new `OpNetworkBuilder`.
+    pub const fn new(disable_txpool_gossip: bool, disable_discovery_v4: bool) -> Self {
+        Self { disable_txpool_gossip, disable_discovery_v4, _np: PhantomData, _pt: PhantomData }
+    }
+}
+
+impl<NetworkP: NetworkPrimitives, PooledTx> OpNetworkBuilder<NetworkP, PooledTx> {
     /// Returns the [`NetworkConfig`] that contains the settings to launch the p2p network.
     ///
     /// This applies the configured [`OpNetworkBuilder`] settings.
     pub fn network_config<Node>(
         &self,
         ctx: &BuilderContext<Node>,
-    ) -> eyre::Result<NetworkConfig<<Node as FullNodeTypes>::Provider, OpNetworkPrimitives>>
+    ) -> eyre::Result<NetworkConfig<<Node as FullNodeTypes>::Provider, NetworkP>>
     where
         Node: FullNodeTypes<Types: NodeTypes<ChainSpec: Hardforks>>,
     {
-        let Self { disable_txpool_gossip, disable_discovery_v4 } = self.clone();
+        let Self { disable_txpool_gossip, disable_discovery_v4, .. } = self.clone();
         let args = &ctx.config().network;
         let network_builder = ctx
             .network_config_builder()?
@@ -811,24 +862,28 @@ impl OpNetworkBuilder {
     }
 }
 
-impl<Node, Pool> NetworkBuilder<Node, Pool> for OpNetworkBuilder
+impl<Node, Pool, NetworkP, PooledTx> NetworkBuilder<Node, Pool>
+    for OpNetworkBuilder<NetworkP, PooledTx>
 where
-    Node: FullNodeTypes<Types: NodeTypes<ChainSpec = OpChainSpec, Primitives = OpPrimitives>>,
+    Node: FullNodeTypes<Types: NodeTypes<ChainSpec: Hardforks>>,
     Pool: TransactionPool<
-            Transaction: PoolTransaction<
-                Consensus = TxTy<Node::Types>,
-                Pooled = OpPooledTransaction,
-            >,
+            Transaction: PoolTransaction<Consensus = TxTy<Node::Types>, Pooled = PooledTx>,
         > + Unpin
         + 'static,
+    NetworkP: NetworkPrimitives<
+            PooledTransaction = PooledTx,
+            BroadcastedTransaction = <<Node::Types as NodeTypes>::Primitives as NodePrimitives>::SignedTx
+        >
+        + NetPrimitivesFor<PrimitivesTy<Node::Types>>,
+    PooledTx: Send,
 {
-    type Primitives = OpNetworkPrimitives;
+    type Network = NetworkHandle<NetworkP>;
 
     async fn build_network(
         self,
         ctx: &BuilderContext<Node>,
         pool: Pool,
-    ) -> eyre::Result<NetworkHandle<Self::Primitives>> {
+    ) -> eyre::Result<Self::Network> {
         let network_config = self.network_config(ctx)?;
         let network = NetworkManager::builder(network_config).await?;
         let handle = ctx.start_network(network, pool);
@@ -866,11 +921,7 @@ pub struct OpEngineValidatorBuilder;
 
 impl<Node, Types> EngineValidatorBuilder<Node> for OpEngineValidatorBuilder
 where
-    Types: NodeTypesWithEngine<
-        ChainSpec = OpChainSpec,
-        Primitives = OpPrimitives,
-        Payload = OpEngineTypes,
-    >,
+    Types: NodeTypes<ChainSpec = OpChainSpec, Primitives = OpPrimitives, Payload = OpEngineTypes>,
     Node: FullNodeComponents<Types = Types>,
 {
     type Validator = OpEngineValidator<Node::Provider>;

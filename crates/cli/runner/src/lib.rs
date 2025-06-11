@@ -33,7 +33,7 @@ impl CliRunner {
     }
 
     /// Create a new [`CliRunner`] from a provided tokio [`Runtime`](tokio::runtime::Runtime).
-    pub fn from_runtime(tokio_runtime: tokio::runtime::Runtime) -> Self {
+    pub const fn from_runtime(tokio_runtime: tokio::runtime::Runtime) -> Self {
         Self { tokio_runtime }
     }
 }
@@ -174,8 +174,10 @@ where
     {
         let fut = pin!(fut);
         tokio::select! {
-            err = tasks => {
-                return Err(err.into())
+            task_manager_result = tasks => {
+                if let Err(panicked_error) = task_manager_result {
+                    return Err(panicked_error.into());
+                }
             },
             res = fut => res?,
         }

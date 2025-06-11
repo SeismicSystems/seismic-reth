@@ -1,10 +1,5 @@
-use crate::{
-    interop::{MaybeInteropTransaction, TransactionInterop},
-    supervisor::{is_valid_cross_tx, SupervisorClient},
-    InvalidCrossTx,
-};
+use crate::{supervisor::SupervisorClient, InvalidCrossTx, OpPooledTx};
 use alloy_consensus::{BlockHeader, Transaction};
-use alloy_eips::Encodable2718;
 use op_revm::L1BlockInfo;
 use parking_lot::RwLock;
 use reth_chainspec::ChainSpecProvider;
@@ -80,11 +75,6 @@ impl<Client, Tx> OpTransactionValidator<Client, Tx> {
         self.block_info.timestamp.load(Ordering::Relaxed)
     }
 
-    /// Returns the current block number.
-    fn block_number(&self) -> u64 {
-        self.block_info.number.load(Ordering::Relaxed)
-    }
-
     /// Whether to ensure that the transaction's sender has enough balance to also cover the L1 gas
     /// fee.
     pub fn require_l1_data_gas_fee(self, require_l1_data_gas_fee: bool) -> Self {
@@ -101,7 +91,7 @@ impl<Client, Tx> OpTransactionValidator<Client, Tx> {
 impl<Client, Tx> OpTransactionValidator<Client, Tx>
 where
     Client: ChainSpecProvider<ChainSpec: OpHardforks> + StateProviderFactory + BlockReaderIdExt,
-    Tx: EthPoolTransaction + MaybeInteropTransaction,
+    Tx: EthPoolTransaction + OpPooledTx,
 {
     /// Create a new [`OpTransactionValidator`].
     pub fn new(inner: EthTransactionValidator<Client, Tx>) -> Self {
@@ -144,7 +134,7 @@ where
 
     /// Update the L1 block info for the given header and system transaction, if any.
     ///
-    /// Note: this supports optional system transaction, in case this is used in a dev setuo
+    /// Note: this supports optional system transaction, in case this is used in a dev setup
     pub fn update_l1_block_info<H, T>(&self, header: &H, tx: Option<&T>)
     where
         H: BlockHeader,
@@ -213,9 +203,9 @@ where
             }
             Some(Ok(_)) => {
                 // valid interop tx
-                transaction.set_interop(TransactionInterop {
-                    timeout: self.block_timestamp() + TRANSACTION_VALIDITY_WINDOW_SECS,
-                });
+                transaction.set_interop_deadline(
+                    self.block_timestamp() + TRANSACTION_VALIDITY_WINDOW_SECS,
+                );
             }
             _ => {}
         }
@@ -240,6 +230,22 @@ where
         .await
     }
 
+    /// Validates all given transactions with the specified origin parameter.
+    ///
+    /// Returns all outcomes for the given transactions in the same order.
+    ///
+    /// See also [`Self::validate_one`]
+    pub async fn validate_all_with_origin(
+        &self,
+        origin: TransactionOrigin,
+        transactions: impl IntoIterator<Item = Tx> + Send,
+    ) -> Vec<TransactionValidationOutcome<Tx>> {
+        futures_util::future::join_all(
+            transactions.into_iter().map(|tx| self.validate_one(origin, tx)),
+        )
+        .await
+    }
+
     /// Performs the necessary opstack specific checks based on top of the regular eth outcome.
     fn apply_op_checks(
         &self,
@@ -255,18 +261,17 @@ where
             state_nonce,
             transaction: valid_tx,
             propagate,
+            bytecode_hash,
+            authorities,
         } = outcome
         {
             let mut l1_block_info = self.block_info.l1_block_info.read().clone();
 
-            let mut encoded = Vec::with_capacity(valid_tx.transaction().encoded_length());
-            let tx = valid_tx.transaction().clone_into_consensus();
-            tx.encode_2718(&mut encoded);
+            let encoded = valid_tx.transaction().encoded_2718();
 
             let cost_addition = match l1_block_info.l1_tx_data_fee(
                 self.chain_spec(),
                 self.block_timestamp(),
-                self.block_number(),
                 &encoded,
                 false,
             ) {
@@ -293,31 +298,34 @@ where
                 state_nonce,
                 transaction: valid_tx,
                 propagate,
+                bytecode_hash,
+                authorities,
             }
         }
         outcome
     }
 
-    /// Wrapper for [`is_valid_cross_tx`]
+    /// Wrapper for is valid cross tx
     pub async fn is_valid_cross_tx(&self, tx: &Tx) -> Option<Result<(), InvalidCrossTx>> {
         // We don't need to check for deposit transaction in here, because they won't come from
         // txpool
-        is_valid_cross_tx(
-            tx.access_list(),
-            tx.hash(),
-            self.block_info.timestamp.load(Ordering::Relaxed),
-            Some(TRANSACTION_VALIDITY_WINDOW_SECS),
-            self.fork_tracker.is_interop_activated(),
-            self.supervisor_client.as_ref(),
-        )
-        .await
+        self.supervisor_client
+            .as_ref()?
+            .is_valid_cross_tx(
+                tx.access_list(),
+                tx.hash(),
+                self.block_info.timestamp.load(Ordering::Relaxed),
+                Some(TRANSACTION_VALIDITY_WINDOW_SECS),
+                self.fork_tracker.is_interop_activated(),
+            )
+            .await
     }
 }
 
 impl<Client, Tx> TransactionValidator for OpTransactionValidator<Client, Tx>
 where
     Client: ChainSpecProvider<ChainSpec: OpHardforks> + StateProviderFactory + BlockReaderIdExt,
-    Tx: EthPoolTransaction + MaybeInteropTransaction,
+    Tx: EthPoolTransaction + OpPooledTx,
 {
     type Transaction = Tx;
 
@@ -334,6 +342,14 @@ where
         transactions: Vec<(TransactionOrigin, Self::Transaction)>,
     ) -> Vec<TransactionValidationOutcome<Self::Transaction>> {
         self.validate_all(transactions).await
+    }
+
+    async fn validate_transactions_with_origin(
+        &self,
+        origin: TransactionOrigin,
+        transactions: impl IntoIterator<Item = Self::Transaction> + Send,
+    ) -> Vec<TransactionValidationOutcome<Self::Transaction>> {
+        self.validate_all_with_origin(origin, transactions).await
     }
 
     fn on_new_head_block<B>(&self, new_tip_block: &SealedBlock<B>)

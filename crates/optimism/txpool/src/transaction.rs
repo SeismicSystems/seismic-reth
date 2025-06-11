@@ -1,22 +1,33 @@
 use crate::{
-    conditional::MaybeConditionalTransaction,
-    interop::{MaybeInteropTransaction, TransactionInterop},
+    conditional::MaybeConditionalTransaction, estimated_da_size::DataAvailabilitySized,
+    interop::MaybeInteropTransaction,
 };
-use alloy_consensus::{
-    transaction::Recovered, BlobTransactionSidecar, BlobTransactionValidationError, Typed2718,
+use alloy_consensus::{transaction::Recovered, BlobTransactionValidationError, Typed2718};
+use alloy_eips::{
+    eip2718::{Encodable2718, WithEncoded},
+    eip2930::AccessList,
+    eip7594::BlobTransactionSidecarVariant,
+    eip7702::SignedAuthorization,
 };
-use alloy_eips::{eip2930::AccessList, eip7702::SignedAuthorization};
 use alloy_primitives::{Address, Bytes, TxHash, TxKind, B256, U256};
 use alloy_rpc_types_eth::erc4337::TransactionConditional;
 use c_kzg::KzgSettings;
 use core::fmt::Debug;
-use parking_lot::RwLock;
 use reth_optimism_primitives::OpTransactionSigned;
 use reth_primitives_traits::{InMemorySize, SignedTransaction};
 use reth_transaction_pool::{
     EthBlobTransactionSidecar, EthPoolTransaction, EthPooledTransaction, PoolTransaction,
 };
-use std::sync::{Arc, OnceLock};
+use std::{
+    borrow::Cow,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, OnceLock,
+    },
+};
+
+/// Marker for no-interop transactions
+pub(crate) const NO_INTEROP_TX: u64 = 0;
 
 /// Pool transaction for OP.
 ///
@@ -38,8 +49,8 @@ pub struct OpPooledTransaction<
     /// Optional conditional attached to this transaction.
     conditional: Option<Box<TransactionConditional>>,
 
-    /// Optional interop validation attached to this transaction.
-    interop: Arc<RwLock<Option<TransactionInterop>>>,
+    /// Optional interop deadline attached to this transaction.
+    interop: Arc<AtomicU64>,
 
     /// Cached EIP-2718 encoded bytes of the transaction, lazily computed.
     encoded_2718: OnceLock<Bytes>,
@@ -52,7 +63,7 @@ impl<Cons: SignedTransaction, Pooled> OpPooledTransaction<Cons, Pooled> {
             inner: EthPooledTransaction::new(transaction, encoded_length),
             estimated_tx_compressed_size: Default::default(),
             conditional: None,
-            interop: Arc::new(RwLock::new(None)),
+            interop: Arc::new(AtomicU64::new(NO_INTEROP_TX)),
             _pd: core::marker::PhantomData,
             encoded_2718: Default::default(),
         }
@@ -91,12 +102,22 @@ impl<Cons, Pooled> MaybeConditionalTransaction for OpPooledTransaction<Cons, Poo
 }
 
 impl<Cons, Pooled> MaybeInteropTransaction for OpPooledTransaction<Cons, Pooled> {
-    fn set_interop(&self, interop: TransactionInterop) {
-        *self.interop.write() = Some(interop);
+    fn set_interop_deadline(&self, deadline: u64) {
+        self.interop.store(deadline, Ordering::Relaxed);
     }
 
-    fn interop(&self) -> Option<TransactionInterop> {
-        self.interop.read().clone()
+    fn interop_deadline(&self) -> Option<u64> {
+        let interop = self.interop.load(Ordering::Relaxed);
+        if interop > NO_INTEROP_TX {
+            return Some(interop)
+        }
+        None
+    }
+}
+
+impl<Cons: SignedTransaction, Pooled> DataAvailabilitySized for OpPooledTransaction<Cons, Pooled> {
+    fn estimated_da_size(&self) -> u64 {
+        self.estimated_compressed_size()
     }
 }
 
@@ -115,6 +136,11 @@ where
 
     fn into_consensus(self) -> Recovered<Self::Consensus> {
         self.inner.transaction
+    }
+
+    fn into_consensus_with2718(self) -> WithEncoded<Recovered<Self::Consensus>> {
+        let encoding = self.encoded_2718().clone();
+        self.inner.transaction.into_encoded_with(encoding)
     }
 
     fn from_pooled(tx: Recovered<Self::Pooled>) -> Self {
@@ -241,21 +267,21 @@ where
 
     fn try_into_pooled_eip4844(
         self,
-        _sidecar: Arc<BlobTransactionSidecar>,
+        _sidecar: Arc<BlobTransactionSidecarVariant>,
     ) -> Option<Recovered<Self::Pooled>> {
         None
     }
 
     fn try_from_eip4844(
         _tx: Recovered<Self::Consensus>,
-        _sidecar: BlobTransactionSidecar,
+        _sidecar: BlobTransactionSidecarVariant,
     ) -> Option<Self> {
         None
     }
 
     fn validate_blob(
         &self,
-        _sidecar: &BlobTransactionSidecar,
+        _sidecar: &BlobTransactionSidecarVariant,
         _settings: &KzgSettings,
     ) -> Result<(), BlobTransactionValidationError> {
         Err(BlobTransactionValidationError::NotBlobTransaction(self.ty()))
@@ -265,12 +291,21 @@ where
 /// Helper trait to provide payload builder with access to conditionals and encoded bytes of
 /// transaction.
 pub trait OpPooledTx:
-    MaybeConditionalTransaction + MaybeInteropTransaction + PoolTransaction
+    MaybeConditionalTransaction + MaybeInteropTransaction + PoolTransaction + DataAvailabilitySized
 {
+    /// Returns the EIP-2718 encoded bytes of the transaction.
+    fn encoded_2718(&self) -> Cow<'_, Bytes>;
 }
-impl<T> OpPooledTx for T where
-    T: MaybeConditionalTransaction + MaybeInteropTransaction + PoolTransaction
+
+impl<Cons, Pooled> OpPooledTx for OpPooledTransaction<Cons, Pooled>
+where
+    Cons: SignedTransaction + From<Pooled>,
+    Pooled: SignedTransaction + TryFrom<Cons>,
+    <Pooled as TryFrom<Cons>>::Error: core::error::Error,
 {
+    fn encoded_2718(&self) -> Cow<'_, Bytes> {
+        Cow::Borrowed(self.encoded_2718())
+    }
 }
 
 #[cfg(test)]
@@ -278,8 +313,8 @@ mod tests {
     use crate::{OpPooledTransaction, OpTransactionValidator};
     use alloy_consensus::transaction::Recovered;
     use alloy_eips::eip2718::Encodable2718;
-    use alloy_primitives::{PrimitiveSignature as Signature, TxKind, U256};
-    use op_alloy_consensus::{OpTypedTransaction, TxDeposit};
+    use alloy_primitives::{TxKind, U256};
+    use op_alloy_consensus::TxDeposit;
     use reth_optimism_chainspec::OP_MAINNET;
     use reth_optimism_primitives::OpTransactionSigned;
     use reth_provider::test_utils::MockEthProvider;
@@ -298,7 +333,7 @@ mod tests {
 
         let origin = TransactionOrigin::External;
         let signer = Default::default();
-        let deposit_tx = OpTypedTransaction::Deposit(TxDeposit {
+        let deposit_tx = TxDeposit {
             source_hash: Default::default(),
             from: signer,
             to: TxKind::Create,
@@ -307,9 +342,8 @@ mod tests {
             gas_limit: 0,
             is_system_transaction: false,
             input: Default::default(),
-        });
-        let signature = Signature::test_signature();
-        let signed_tx = OpTransactionSigned::new_unhashed(deposit_tx, signature);
+        };
+        let signed_tx: OpTransactionSigned = deposit_tx.into();
         let signed_recovered = Recovered::new_unchecked(signed_tx, signer);
         let len = signed_recovered.encode_2718_len();
         let pooled_tx: OpPooledTransaction = OpPooledTransaction::new(signed_recovered, len);

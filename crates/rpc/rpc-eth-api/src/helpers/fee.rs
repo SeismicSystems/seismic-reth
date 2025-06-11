@@ -7,13 +7,13 @@ use alloy_eips::eip7840::BlobParams;
 use alloy_primitives::U256;
 use alloy_rpc_types_eth::{BlockNumberOrTag, FeeHistory};
 use futures::Future;
-use reth_chainspec::EthChainSpec;
+use reth_chainspec::{ChainSpecProvider, EthChainSpec};
 use reth_primitives_traits::BlockBody;
-use reth_provider::{BlockIdReader, ChainSpecProvider, HeaderProvider};
 use reth_rpc_eth_types::{
     fee_history::calculate_reward_percentiles_for_block, EthApiError, FeeHistoryCache,
     FeeHistoryEntry, GasPriceOracle, RpcInvalidTransactionError,
 };
+use reth_storage_api::{BlockIdReader, HeaderProvider};
 use tracing::debug;
 
 /// Fee related functions for the [`EthApiServer`](crate::EthApiServer) trait in the
@@ -116,7 +116,7 @@ pub trait EthFees: LoadFee {
             // Fetch the headers and ensure we got all of them
             //
             // Treat a request for 1 block as a request for `newest_block..=newest_block`,
-            // otherwise `newest_block - 2
+            // otherwise `newest_block - 2`
             // NOTE: We ensured that block count is capped
             let start_block = end_block_plus - block_count;
 
@@ -181,7 +181,7 @@ pub trait EthFees: LoadFee {
                     base_fee_per_blob_gas.push(header.blob_fee(blob_params).unwrap_or_default());
                     blob_gas_used_ratio.push(
                         header.blob_gas_used().unwrap_or_default() as f64
-                            / alloy_eips::eip4844::MAX_DATA_GAS_PER_BLOCK as f64,
+                            / blob_params.max_blob_gas_per_block() as f64,
                     );
 
                     // Percentiles were specified, so we need to collect reward percentile info

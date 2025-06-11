@@ -15,8 +15,8 @@ use reth_exex::ExExManagerHandle;
 use reth_network::{NetworkSyncUpdater, SyncState};
 use reth_network_api::BlockDownloaderProvider;
 use reth_node_api::{
-    BeaconConsensusEngineHandle, BuiltPayload, FullNodeTypes, NodeTypesWithDBAdapter,
-    NodeTypesWithEngine, PayloadAttributesBuilder, PayloadTypes,
+    BeaconConsensusEngineHandle, BuiltPayload, FullNodeTypes, NodeTypes, NodeTypesWithDBAdapter,
+    PayloadAttributesBuilder, PayloadTypes,
 };
 use reth_node_core::{
     dirs::{ChainPath, DataDirPath},
@@ -65,7 +65,7 @@ impl EngineNodeLauncher {
 
 impl<Types, DB, T, CB, AO> LaunchNode<NodeBuilderWithComponents<T, CB, AO>> for EngineNodeLauncher
 where
-    Types: NodeTypesForProvider + NodeTypesWithEngine,
+    Types: NodeTypesForProvider + NodeTypes,
     DB: Database + DatabaseMetrics + Clone + Unpin + 'static,
     T: FullNodeTypes<
         Types = Types,
@@ -76,7 +76,7 @@ where
     AO: RethRpcAddOns<NodeAdapter<T, CB::Components>>
         + EngineValidatorAddOn<NodeAdapter<T, CB::Components>>,
     LocalPayloadAttributesBuilder<Types::ChainSpec>: PayloadAttributesBuilder<
-        <<Types as NodeTypesWithEngine>::Payload as PayloadTypes>::PayloadAttributes,
+        <<Types as NodeTypes>::Payload as PayloadTypes>::PayloadAttributes,
     >,
 {
     type Node = NodeHandle<NodeAdapter<T, CB::Components>, AO>;
@@ -96,7 +96,7 @@ where
 
         // setup the launch context
         let ctx = ctx
-            .with_configured_globals()
+            .with_configured_globals(engine_tree_config.reserved_cpu_cores())
             // load the toml config
             .with_loaded_toml_config(config)?
             // add resolved peers
@@ -106,7 +106,7 @@ where
             // ensure certain settings take effect
             .with_adjusted_configs()
             // Create the provider factory
-            .with_provider_factory().await?
+            .with_provider_factory::<_, <CB::Components as NodeComponents<T>>::Evm>().await?
             .inspect(|_| {
                 info!(target: "reth::cli", "Database opened");
             })
@@ -163,7 +163,7 @@ where
             ctx.prune_config(),
             max_block,
             static_file_producer,
-            ctx.components().block_executor().clone(),
+            ctx.components().evm_config().clone(),
             pipeline_exex_handle,
         )?;
 
@@ -215,7 +215,6 @@ where
         let mut engine_service = if ctx.is_dev() {
             let eth_service = LocalEngineService::new(
                 consensus.clone(),
-                ctx.components().block_executor().clone(),
                 ctx.provider_factory().clone(),
                 ctx.blockchain_db().clone(),
                 pruner,
@@ -236,7 +235,6 @@ where
         } else {
             let eth_service = EngineService::new(
                 consensus.clone(),
-                ctx.components().block_executor().clone(),
                 ctx.chain_spec(),
                 network_client.clone(),
                 Box::pin(consensus_engine_stream),
@@ -366,7 +364,6 @@ where
 
         let full_node = FullNode {
             evm_config: ctx.components().evm_config().clone(),
-            block_executor: ctx.components().block_executor().clone(),
             pool: ctx.components().pool().clone(),
             network: ctx.components().network().clone(),
             provider: ctx.node_adapter().provider.clone(),

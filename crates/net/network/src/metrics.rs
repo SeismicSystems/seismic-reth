@@ -380,8 +380,7 @@ pub struct TxTypesCounter {
 }
 
 impl TxTypesCounter {
-    pub(crate) fn increase_by_tx_type(&mut self, tx_type: TxType) {
-        #[expect(unreachable_patterns)]
+    pub(crate) const fn increase_by_tx_type(&mut self, tx_type: TxType) {
         match tx_type {
             TxType::Legacy => {
                 self.legacy += 1;
@@ -398,7 +397,6 @@ impl TxTypesCounter {
             TxType::Eip7702 => {
                 self.eip7702 += 1;
             }
-            _ => {}
         }
     }
 }
