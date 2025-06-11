@@ -9,10 +9,11 @@ use crate::{
 };
 use alloy_consensus::{
     transaction::{TxEip1559, TxEip2930, TxEip7702, TxLegacy},
-    Signed,
+    Signed, TxEip4844Variant,
 };
-use alloy_eips::eip2718::EIP7702_TX_TYPE_ID;
-use alloy_primitives::{aliases::U96, Bytes, ChainId, PrimitiveSignature, TxKind, U256};
+use alloy_consensus::TxEip4844;
+use alloy_eips::eip2718::{EIP7702_TX_TYPE_ID, EIP4844_TX_TYPE_ID};
+use alloy_primitives::{aliases::U96, Bytes, ChainId, Signature, TxKind, U256};
 use bytes::{Buf, BufMut, BytesMut};
 use reth_codecs_derive::generate_tests;
 use seismic_alloy_consensus::{
@@ -149,6 +150,10 @@ impl Compact for SeismicTxType {
             Self::Legacy => COMPACT_IDENTIFIER_LEGACY,
             Self::Eip2930 => COMPACT_IDENTIFIER_EIP2930,
             Self::Eip1559 => COMPACT_IDENTIFIER_EIP1559,
+            Self::Eip4844 => {
+                buf.put_u8(EIP4844_TX_TYPE_ID);
+                COMPACT_EXTENDED_IDENTIFIER_FLAG
+            }
             Self::Eip7702 => {
                 buf.put_u8(EIP7702_TX_TYPE_ID);
                 COMPACT_EXTENDED_IDENTIFIER_FLAG
@@ -182,6 +187,11 @@ impl Compact for SeismicTxType {
     }
 }
 
+// impl<Eip4844> Compact for SeismicTypedTransaction<Eip4844>
+// where
+//     Eip4844: Compact + RlpEcdsaEncodableTx,
+// {
+
 impl Compact for SeismicTypedTransaction {
     fn to_compact<B>(&self, out: &mut B) -> usize
     where
@@ -192,6 +202,15 @@ impl Compact for SeismicTypedTransaction {
             Self::Legacy(tx) => tx.to_compact(out),
             Self::Eip2930(tx) => tx.to_compact(out),
             Self::Eip1559(tx) => tx.to_compact(out),
+            Self::Eip4844(tx) => {
+                match tx {
+                    TxEip4844Variant::TxEip4844(tx) => tx.to_compact(out),
+                    TxEip4844Variant::TxEip4844WithSidecar(_tx) => {
+                        // tx.to_compact(out)
+                        todo!("seismic upstream merge: Make this work with compact")
+                    },
+                }
+            },
             Self::Eip7702(tx) => tx.to_compact(out),
             Self::Seismic(tx) => tx.to_compact(out),
         };
@@ -213,6 +232,11 @@ impl Compact for SeismicTypedTransaction {
                 let (tx, buf) = Compact::from_compact(buf, buf.len());
                 (Self::Eip1559(tx), buf)
             }
+            SeismicTxType::Eip4844 => {
+                let (tx, buf): (TxEip4844, _) = Compact::from_compact(buf, buf.len()); // seismic upstream merge: this should be the TxEip4844Variant type, make it work with otehr compat
+                let tx = TxEip4844Variant::TxEip4844(tx);
+                (Self::Eip4844(tx), buf)
+            }
             SeismicTxType::Eip7702 => {
                 let (tx, buf) = Compact::from_compact(buf, buf.len());
                 (Self::Eip7702(tx), buf)
@@ -231,6 +255,15 @@ impl ToTxCompact for SeismicTxEnvelope {
             Self::Legacy(tx) => tx.tx().to_compact(buf),
             Self::Eip2930(tx) => tx.tx().to_compact(buf),
             Self::Eip1559(tx) => tx.tx().to_compact(buf),
+            Self::Eip4844(tx) => {
+                match tx.tx() {
+                    TxEip4844Variant::TxEip4844(tx) => tx.to_compact(buf),
+                    TxEip4844Variant::TxEip4844WithSidecar(_tx) => {
+                        // tx.tx().to_compact(buf)
+                        todo!("seismic upstream merge: Make this work with compact")
+                    },
+                }
+            },
             Self::Eip7702(tx) => tx.tx().to_compact(buf),
             Self::Seismic(tx) => tx.tx().to_compact(buf),
         };
@@ -243,7 +276,7 @@ impl FromTxCompact for SeismicTxEnvelope {
     fn from_tx_compact(
         buf: &[u8],
         tx_type: SeismicTxType,
-        signature: PrimitiveSignature,
+        signature: Signature,
     ) -> (Self, &[u8]) {
         match tx_type {
             SeismicTxType::Legacy => {
@@ -261,6 +294,12 @@ impl FromTxCompact for SeismicTxEnvelope {
                 let tx = Signed::new_unhashed(tx, signature);
                 (Self::Eip1559(tx), buf)
             }
+            SeismicTxType::Eip4844 => {
+                let (tx, buf): (TxEip4844, _) = TxEip4844::from_compact(buf, buf.len()); // seismic upstream merge: this should be the TxEip4844Variant type, make it work with otehr compat
+                let tx = TxEip4844Variant::TxEip4844(tx);
+                let tx = Signed::new_unhashed(tx, signature);
+                (Self::Eip4844(tx), buf)
+            }
             SeismicTxType::Eip7702 => {
                 let (tx, buf) = TxEip7702::from_compact(buf, buf.len());
                 let tx = Signed::new_unhashed(tx, signature);
@@ -276,11 +315,12 @@ impl FromTxCompact for SeismicTxEnvelope {
 }
 
 impl Envelope for SeismicTxEnvelope {
-    fn signature(&self) -> &PrimitiveSignature {
+    fn signature(&self) -> &Signature {
         match self {
             Self::Legacy(tx) => tx.signature(),
             Self::Eip2930(tx) => tx.signature(),
             Self::Eip1559(tx) => tx.signature(),
+            Self::Eip4844(tx) => tx.signature(),
             Self::Eip7702(tx) => tx.signature(),
             Self::Seismic(tx) => tx.signature(),
         }
