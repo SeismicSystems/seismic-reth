@@ -351,7 +351,7 @@ reth-seismic-forks = { path = "crates/seismic/hardforks", default-features = fal
 
 seismic-enclave = "0.1.0"
 seismic-revm = "1.0.0"
-alloy-seismic-evm = {version = "0.1.0-alpha.3"}
+alloy-seismic-evm = {version = "0.9"}
 # alloy-seismic-evm = {version = "0.0.1", default-features = false}
 
 seismic-alloy-rpc-types = {version = "0.0.1", default-features = false}
