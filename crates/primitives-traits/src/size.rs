@@ -133,6 +133,7 @@ mod seismic {
                 Self::Legacy(tx) => tx.size(),
                 Self::Eip2930(tx) => tx.size(),
                 Self::Eip1559(tx) => tx.size(),
+                Self::Eip4844(tx) => tx.size(),
                 Self::Eip7702(tx) => tx.size(),
                 Self::Seismic(tx) => tx.size(),
             }
@@ -145,6 +146,7 @@ mod seismic {
                 Self::Legacy(tx) => tx.size(),
                 Self::Eip2930(tx) => tx.size(),
                 Self::Eip1559(tx) => tx.size(),
+                Self::Eip4844(tx) => tx.size(),
                 Self::Eip7702(tx) => tx.size(),
                 Self::Seismic(tx) => tx.size(),
             }
