@@ -13,7 +13,6 @@ workspace = true
 
 [dependencies]
 # Seismic imports
-seismic-alloy-consensus = { workspace = true, features = ["serde"] }
 alloy-serde = { workspace = true, optional = true }
 
 # reth
