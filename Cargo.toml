@@ -768,7 +768,7 @@ seismic-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev
 revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "505ff96"}
 
 # alloy-evm
-alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "34f1438" }
-alloy-op-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "34f1438"}
-alloy-seismic-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "34f1438"}
+alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "79c6fda" }
+alloy-op-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "79c6fda"}
+alloy-seismic-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "79c6fda"}
 
