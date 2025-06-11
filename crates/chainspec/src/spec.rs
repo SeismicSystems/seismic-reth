@@ -1136,8 +1136,8 @@ Post-merge hard forks (timestamp based):
 - Shanghai                         @1681338455
 - Cancun                           @1710338135
 - Prague                           @1746612311"
-);
-}
+        );
+    }
 
     #[test]
     fn test_hardfork_list_ignores_disabled_forks() {
