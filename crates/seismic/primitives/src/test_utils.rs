@@ -6,7 +6,7 @@ use alloy_dyn_abi::TypedData;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_network::{EthereumWallet, TransactionBuilder};
 use alloy_primitives::{
-    aliases::U96, hex_literal, Address, Bytes, PrimitiveSignature, TxKind, U256,
+    aliases::U96, hex_literal, Address, Bytes, Signature, TxKind, U256,
 };
 use alloy_rpc_types::{TransactionInput, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
@@ -106,7 +106,7 @@ pub fn get_seismic_tx() -> TxSeismic {
 }
 
 /// Sign a seismic transaction
-pub fn sign_seismic_tx(tx: &TxSeismic, signing_sk: &SigningKey) -> PrimitiveSignature {
+pub fn sign_seismic_tx(tx: &TxSeismic, signing_sk: &SigningKey) -> Signature {
     let _signature = signing_sk
         .clone()
         .sign_prehash_recoverable(tx.signature_hash().as_slice())
@@ -115,7 +115,7 @@ pub fn sign_seismic_tx(tx: &TxSeismic, signing_sk: &SigningKey) -> PrimitiveSign
     let recoverid = _signature.1;
     let _signature = _signature.0;
 
-    let signature = PrimitiveSignature::new(
+    let signature = Signature::new(
         U256::from_be_slice(_signature.r().to_bytes().as_slice()),
         U256::from_be_slice(_signature.s().to_bytes().as_slice()),
         recoverid.is_y_odd(),
@@ -128,12 +128,12 @@ pub fn sign_seismic_tx(tx: &TxSeismic, signing_sk: &SigningKey) -> PrimitiveSign
 pub fn sign_seismic_typed_tx(
     typed_data: &SeismicTypedTransaction,
     signing_sk: &SigningKey,
-) -> PrimitiveSignature {
+) -> Signature {
     let sig_hash = typed_data.signature_hash();
     let sig = signing_sk.sign_prehash_recoverable(&sig_hash.as_slice()).unwrap();
     let recoverid = sig.1;
 
-    let signature = PrimitiveSignature::new(
+    let signature = Signature::new(
         U256::from_be_slice(sig.0.r().to_bytes().as_slice()),
         U256::from_be_slice(sig.0.s().to_bytes().as_slice()),
         recoverid.is_y_odd(),

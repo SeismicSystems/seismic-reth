@@ -3,17 +3,16 @@
 use alloc::vec::Vec;
 use alloy_consensus::{
     transaction::{RlpEcdsaDecodableTx, RlpEcdsaEncodableTx},
-    SignableTransaction, Signed, Transaction, TxEip1559, TxEip2930, TxEip7702, TxLegacy, Typed2718,
+    SignableTransaction, Signed, Transaction, TxEip1559, TxEip2930, TxEip4844, TxEip7702, TxLegacy,
+    Typed2718,
 };
 use alloy_eips::{
     eip2718::{Decodable2718, Eip2718Error, Eip2718Result, Encodable2718},
     eip2930::AccessList,
-    eip7702::SignedAuthorization,
+    eip7702::{SignedAuthorization},
 };
 use alloy_evm::FromRecoveredTx;
-use alloy_primitives::{
-    keccak256, Address, Bytes, PrimitiveSignature as Signature, TxHash, TxKind, Uint, B256,
-};
+use alloy_primitives::{keccak256, Address, Bytes, Signature, TxHash, TxKind, Uint, B256};
 use alloy_rlp::Header;
 use core::{
     hash::{Hash, Hasher},
@@ -21,13 +20,14 @@ use core::{
     ops::Deref,
 };
 use derive_more::{AsRef, Deref};
+use revm_context::either::Either;
 #[cfg(any(test, feature = "reth-codec"))]
 use proptest as _;
 use reth_primitives_traits::{
     crypto::secp256k1::{recover_signer, recover_signer_unchecked},
     sync::OnceLock,
     transaction::signed::RecoveryError,
-    InMemorySize, SignedTransaction,
+    InMemorySize, SignedTransaction, SignerRecoverable,
 };
 use revm_context::TxEnv;
 use seismic_alloy_consensus::{
@@ -35,6 +35,9 @@ use seismic_alloy_consensus::{
     SeismicTypedTransaction, TxSeismic, TxSeismicElements,
 };
 use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
+
+// Seismic imports, not used by upstream
+use alloy_consensus::TxEip4844Variant;
 
 /// Signed transaction.
 ///
@@ -92,15 +95,7 @@ impl SeismicTransactionSigned {
     }
 }
 
-impl SignedTransaction for SeismicTransactionSigned {
-    fn tx_hash(&self) -> &TxHash {
-        self.hash.get_or_init(|| self.recalculate_hash())
-    }
-
-    fn signature(&self) -> &Signature {
-        &self.signature
-    }
-
+impl SignerRecoverable for SeismicTransactionSigned {
     fn recover_signer(&self) -> Result<Address, RecoveryError> {
         let Self { transaction, signature, .. } = self;
         let signature_hash = signature_hash(transaction);
@@ -112,6 +107,12 @@ impl SignedTransaction for SeismicTransactionSigned {
         let signature_hash = signature_hash(transaction);
         recover_signer_unchecked(signature, signature_hash)
     }
+}
+
+impl SignedTransaction for SeismicTransactionSigned {
+    fn tx_hash(&self) -> &TxHash {
+        self.hash.get_or_init(|| self.recalculate_hash())
+    }
 
     fn recover_signer_unchecked_with_buf(
         &self,
@@ -121,6 +122,7 @@ impl SignedTransaction for SeismicTransactionSigned {
             SeismicTypedTransaction::Legacy(tx) => tx.encode_for_signing(buf),
             SeismicTypedTransaction::Eip2930(tx) => tx.encode_for_signing(buf),
             SeismicTypedTransaction::Eip1559(tx) => tx.encode_for_signing(buf),
+            SeismicTypedTransaction::Eip4844(tx) => tx.encode_for_signing(buf),
             SeismicTypedTransaction::Eip7702(tx) => tx.encode_for_signing(buf),
             SeismicTypedTransaction::Seismic(tx) => tx.encode_for_signing(buf),
         };
@@ -145,7 +147,15 @@ macro_rules! impl_from_signed {
     };
 }
 
-impl_from_signed!(TxLegacy, TxEip2930, TxEip1559, TxEip7702, TxSeismic, SeismicTypedTransaction);
+impl_from_signed!(
+    TxLegacy,
+    TxEip2930,
+    TxEip1559,
+    TxEip4844Variant,
+    TxEip7702,
+    TxSeismic,
+    SeismicTypedTransaction
+);
 
 impl From<SeismicTxEnvelope> for SeismicTransactionSigned {
     fn from(value: SeismicTxEnvelope) -> Self {
@@ -153,6 +163,7 @@ impl From<SeismicTxEnvelope> for SeismicTransactionSigned {
             SeismicTxEnvelope::Legacy(tx) => tx.into(),
             SeismicTxEnvelope::Eip2930(tx) => tx.into(),
             SeismicTxEnvelope::Eip1559(tx) => tx.into(),
+            SeismicTxEnvelope::Eip4844(tx) => tx.into(),
             SeismicTxEnvelope::Eip7702(tx) => tx.into(),
             SeismicTxEnvelope::Seismic(tx) => tx.into(),
         }
@@ -170,6 +181,9 @@ impl From<SeismicTransactionSigned> for SeismicTxEnvelope {
                 Signed::new_unchecked(tx, signature, hash).into()
             }
             SeismicTypedTransaction::Eip1559(tx) => {
+                Signed::new_unchecked(tx, signature, hash).into()
+            }
+            SeismicTypedTransaction::Eip4844(tx) => {
                 Signed::new_unchecked(tx, signature, hash).into()
             }
             SeismicTypedTransaction::Seismic(tx) => {
@@ -256,6 +270,48 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                 tx_hash,
                 rng_mode,
             },
+            SeismicTypedTransaction::Eip4844(tx) => match tx {
+                TxEip4844Variant::TxEip4844(tx) => SeismicTransaction::<TxEnv> {
+                    base: TxEnv {
+                        gas_limit: tx.gas_limit,
+                        gas_price: tx.max_fee_per_gas,
+                        gas_priority_fee: Some(tx.max_priority_fee_per_gas),
+                        kind: TxKind::Call(tx.to),
+                        value: tx.value,
+                        data: tx.input.clone(),
+                        chain_id: Some(tx.chain_id),
+                        nonce: tx.nonce,
+                        access_list: tx.access_list.clone(),
+                        blob_hashes: Default::default(),
+                        max_fee_per_blob_gas: Default::default(),
+                        authorization_list: Default::default(),
+                        tx_type: 4,
+                        caller: sender,
+                    },
+                    tx_hash,
+                    rng_mode,
+                },
+                TxEip4844Variant::TxEip4844WithSidecar(tx) => SeismicTransaction::<TxEnv> {
+                    base: TxEnv {
+                        gas_limit: tx.tx.gas_limit,
+                        gas_price: tx.tx.max_fee_per_gas,
+                        gas_priority_fee: Some(tx.tx.max_priority_fee_per_gas),
+                        kind: TxKind::Call(tx.tx.to),
+                        value: tx.tx.value,
+                        data: tx.tx.input.clone(),
+                        chain_id: Some(tx.tx.chain_id),
+                        nonce: tx.tx.nonce,
+                        access_list: tx.tx.access_list.clone(),
+                        blob_hashes: Default::default(),
+                        max_fee_per_blob_gas: Default::default(),
+                        authorization_list: Default::default(),
+                        tx_type: 4,
+                        caller: sender,
+                    },
+                    tx_hash,
+                    rng_mode,
+                },
+            },
             SeismicTypedTransaction::Eip7702(tx) => SeismicTransaction::<TxEnv> {
                 base: TxEnv {
                     gas_limit: tx.gas_limit,
@@ -269,7 +325,7 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                     access_list: tx.access_list.clone(),
                     blob_hashes: Default::default(),
                     max_fee_per_blob_gas: Default::default(),
-                    authorization_list: tx.authorization_list.clone(),
+                    authorization_list: tx.authorization_list.iter().map(|auth| Either::Left(auth.clone())).collect(),
                     tx_type: 4,
                     caller: sender,
                 },
@@ -350,6 +406,9 @@ impl Encodable2718 for SeismicTransactionSigned {
             SeismicTypedTransaction::Eip1559(dynamic_fee_tx) => {
                 dynamic_fee_tx.eip2718_encoded_length(&self.signature)
             }
+            SeismicTypedTransaction::Eip4844(blob_tx) => {
+                blob_tx.eip2718_encoded_length(&self.signature)
+            }
             SeismicTypedTransaction::Eip7702(set_code_tx) => {
                 set_code_tx.eip2718_encoded_length(&self.signature)
             }
@@ -373,6 +432,7 @@ impl Encodable2718 for SeismicTransactionSigned {
             SeismicTypedTransaction::Eip1559(dynamic_fee_tx) => {
                 dynamic_fee_tx.eip2718_encode(signature, out)
             }
+            SeismicTypedTransaction::Eip4844(blob_tx) => blob_tx.eip2718_encode(signature, out),
             SeismicTypedTransaction::Eip7702(set_code_tx) => {
                 set_code_tx.eip2718_encode(signature, out)
             }
@@ -396,6 +456,15 @@ impl Decodable2718 for SeismicTransactionSigned {
             seismic_alloy_consensus::SeismicTxType::Eip1559 => {
                 let (tx, signature, hash) = TxEip1559::rlp_decode_signed(buf)?.into_parts();
                 let signed_tx = Self::new_unhashed(SeismicTypedTransaction::Eip1559(tx), signature);
+                signed_tx.hash.get_or_init(|| hash);
+                Ok(signed_tx)
+            }
+            seismic_alloy_consensus::SeismicTxType::Eip4844 => {
+                let (tx, signature, hash) = TxEip4844::rlp_decode_signed(buf)?.into_parts();
+                let signed_tx = Self::new_unhashed(
+                    SeismicTypedTransaction::Eip4844(TxEip4844Variant::TxEip4844(tx)),
+                    signature,
+                );
                 signed_tx.hash.get_or_init(|| hash);
                 Ok(signed_tx)
             }
@@ -621,7 +690,7 @@ impl<'a> arbitrary::Arbitrary<'a> for SeismicTransactionSigned {
         let mut transaction = SeismicTypedTransaction::arbitrary(u)?;
 
         let secp = secp256k1::Secp256k1::new();
-        let key_pair = secp256k1::Keypair::new(&secp, &mut rand::thread_rng());
+        let key_pair = secp256k1::Keypair::new(&secp, &mut rand_08::thread_rng());
         let signature = reth_primitives_traits::crypto::secp256k1::sign_message(
             B256::from_slice(&key_pair.secret_bytes()[..]),
             signature_hash(&transaction),
@@ -638,6 +707,10 @@ fn signature_hash(tx: &SeismicTypedTransaction) -> B256 {
         SeismicTypedTransaction::Legacy(tx) => tx.signature_hash(),
         SeismicTypedTransaction::Eip2930(tx) => tx.signature_hash(),
         SeismicTypedTransaction::Eip1559(tx) => tx.signature_hash(),
+        SeismicTypedTransaction::Eip4844(tx) => match tx {
+            TxEip4844Variant::TxEip4844(tx) => tx.signature_hash(),
+            TxEip4844Variant::TxEip4844WithSidecar(tx) => tx.tx.signature_hash(),
+        },
         SeismicTypedTransaction::Eip7702(tx) => tx.signature_hash(),
         SeismicTypedTransaction::Seismic(tx) => tx.signature_hash(),
     }
@@ -649,7 +722,7 @@ pub mod serde_bincode_compat {
     use alloy_consensus::transaction::serde_bincode_compat::{
         TxEip1559, TxEip2930, TxEip7702, TxLegacy,
     };
-    use alloy_primitives::{PrimitiveSignature as Signature, TxHash};
+    use alloy_primitives::{Signature, TxHash};
     use reth_primitives_traits::{serde_bincode_compat::SerdeBincodeCompat, SignedTransaction};
     use seismic_alloy_consensus::serde_bincode_compat::TxSeismic;
     use serde::{Deserialize, Serialize};
@@ -671,6 +744,7 @@ pub mod serde_bincode_compat {
                 super::SeismicTypedTransaction::Legacy(tx) => Self::Legacy(TxLegacy::from(tx)),
                 super::SeismicTypedTransaction::Eip2930(tx) => Self::Eip2930(TxEip2930::from(tx)),
                 super::SeismicTypedTransaction::Eip1559(tx) => Self::Eip1559(TxEip1559::from(tx)),
+                super::SeismicTypedTransaction::Eip4844(_tx) => todo!("seismic upstream merge:Eip4844 not supported"),
                 super::SeismicTypedTransaction::Eip7702(tx) => Self::Eip7702(TxEip7702::from(tx)),
                 super::SeismicTypedTransaction::Seismic(tx) => Self::Seismic(TxSeismic::from(tx)),
             }

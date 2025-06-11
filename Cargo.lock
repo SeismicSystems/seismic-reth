@@ -10595,6 +10595,7 @@ dependencies = [
  "num-traits",
  "proptest",
  "proptest-arbitrary-interop",
+ "rand 0.8.5",
  "rand 0.9.1",
  "reth-codecs",
  "reth-enclave",
@@ -11846,7 +11847,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-consensus"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=c64b36f#c64b36f595a2e87c8c372dd7fa7ae4f9a55e5557"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=993577d#993577dd87736d7658cfe39999ccb6570d6b0eb6"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -11871,7 +11872,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-network"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=c64b36f#c64b36f595a2e87c8c372dd7fa7ae4f9a55e5557"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=993577d#993577dd87736d7658cfe39999ccb6570d6b0eb6"
 dependencies = [
  "alloy-consensus",
  "alloy-eip7702",
@@ -11892,7 +11893,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-provider"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=c64b36f#c64b36f595a2e87c8c372dd7fa7ae4f9a55e5557"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=993577d#993577dd87736d7658cfe39999ccb6570d6b0eb6"
 dependencies = [
  "alloy-consensus",
  "alloy-network",
@@ -11911,7 +11912,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-rpc-types"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=c64b36f#c64b36f595a2e87c8c372dd7fa7ae4f9a55e5557"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=993577d#993577dd87736d7658cfe39999ccb6570d6b0eb6"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",

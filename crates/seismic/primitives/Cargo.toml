@@ -46,7 +46,6 @@ derive_more = { workspace = true, features = [
     "into",
     "constructor",
 ] }
-rand = { workspace = true, optional = true }
 secp256k1 = { workspace = true, features = ["rand", "std", "global-context", "recovery"]}
 num-traits = { workspace = true, optional = true }
 anyhow.workspace = true
@@ -54,6 +53,7 @@ tracing.workspace = true
 
 # test
 arbitrary = { workspace = true, features = ["derive"], optional = true }
+rand_08 = { workspace = true, optional = true }
 proptest = { workspace = true, optional = true }
 
 # test utils
@@ -122,7 +122,8 @@ serde = [
     "bytes?/serde",
     "reth-codecs?/serde",
     "seismic-alloy-consensus/serde",
-    "rand?/serde",
+    "rand/serde",
+    "rand_08/serde",
     "secp256k1/serde",
     "alloy-rpc-types-eth?/serde",
     "revm-context/serde",
@@ -146,7 +147,7 @@ arbitrary = [
     "alloy-consensus/arbitrary",
     "alloy-eips/arbitrary",
     "alloy-primitives/arbitrary",
-    "rand",
+    "rand_08",
     "alloy-rpc-types-eth?/arbitrary",
     "alloy-serde?/arbitrary",
 ]
