@@ -160,9 +160,6 @@ impl NodeTypes for SeismicNode {
     type ChainSpec = ChainSpec;
     type StateCommitment = MerklePatriciaTrie;
     type Storage = SeismicStorage;
-}
-
-impl NodeTypesWithEngine for SeismicNode {
     type Payload = SeismicEngineTypes;
 }
 
