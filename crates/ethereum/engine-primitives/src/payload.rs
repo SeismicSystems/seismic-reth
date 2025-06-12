@@ -18,8 +18,12 @@ use core::convert::Infallible;
 use reth_ethereum_primitives::{Block, EthPrimitives};
 use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes};
 use reth_primitives_traits::SealedBlock;
+use reth_seismic_primitives::SeismicPrimitives;
 
 use crate::BuiltPayloadConversionError;
+
+// Seismic imports not used upstream
+use reth_primitives_traits::NodePrimitives;
 
 /// Contains the built payload.
 ///
@@ -27,11 +31,11 @@ use crate::BuiltPayloadConversionError;
 /// Therefore, the empty-block here is always available and full-block will be set/updated
 /// afterward.
 #[derive(Debug, Clone)]
-pub struct EthBuiltPayload<Block: reth_primitives_traits::Block = reth_ethereum_primitives::Block> {
+pub struct EthBuiltPayload<N: NodePrimitives = EthPrimitives> {
     /// Identifier of the payload
     pub(crate) id: PayloadId,
     /// The built block
-    pub(crate) block: Arc<SealedBlock<Block>>,
+    pub(crate) block: Arc<SealedBlock<N::Block>>,
     /// The fees of the block
     pub(crate) fees: U256,
     /// The blobs, proofs, and commitments in the block. If the block is pre-cancun, this will be
@@ -43,13 +47,17 @@ pub struct EthBuiltPayload<Block: reth_primitives_traits::Block = reth_ethereum_
 
 // === impl BuiltPayload ===
 
-impl EthBuiltPayload {
+impl<N> EthBuiltPayload<N>
+where
+    N: NodePrimitives,
+    N::Block: Into<reth_ethereum_primitives::Block>,
+{
     /// Initializes the payload with the given initial block
     ///
     /// Caution: This does not set any [`BlobSidecars`].
     pub const fn new(
         id: PayloadId,
-        block: Arc<SealedBlock<Block>>,
+        block: Arc<SealedBlock<N::Block>>,
         fees: U256,
         requests: Option<Requests>,
     ) -> Self {
@@ -62,7 +70,7 @@ impl EthBuiltPayload {
     }
 
     /// Returns the built block(sealed)
-    pub fn block(&self) -> &SealedBlock<Block> {
+    pub fn block(&self) -> &SealedBlock<N::Block> {
         &self.block
     }
 
@@ -99,7 +107,7 @@ impl EthBuiltPayload {
         Ok(ExecutionPayloadEnvelopeV3 {
             execution_payload: ExecutionPayloadV3::from_block_unchecked(
                 block.hash(),
-                &Arc::unwrap_or_clone(block).into_block(),
+                &Arc::unwrap_or_clone(block).into_block().into(),
             ),
             block_value: fees,
             // From the engine API spec:
@@ -121,7 +129,7 @@ impl EthBuiltPayload {
     pub fn try_into_v4(self) -> Result<ExecutionPayloadEnvelopeV4, BuiltPayloadConversionError> {
         Ok(ExecutionPayloadEnvelopeV4 {
             execution_requests: self.requests.clone().unwrap_or_default(),
-            envelope_inner: self.try_into()?,
+            envelope_inner: self.try_into_v3()?,
         })
     }
 
@@ -140,7 +148,7 @@ impl EthBuiltPayload {
         Ok(ExecutionPayloadEnvelopeV5 {
             execution_payload: ExecutionPayloadV3::from_block_unchecked(
                 block.hash(),
-                &Arc::unwrap_or_clone(block).into_block(),
+                &Arc::unwrap_or_clone(block).into_block().into(),
             ),
             block_value: fees,
             // From the engine API spec:
@@ -174,7 +182,7 @@ impl BuiltPayload for EthBuiltPayload {
     }
 }
 
-type SeismicBuiltPayload = EthBuiltPayload<reth_seismic_primitives::SeismicBlock>;
+type SeismicBuiltPayload = EthBuiltPayload<SeismicPrimitives>;
 
 impl SeismicBuiltPayload {
     /// Create a new [`SeismicBuiltPayload`].
@@ -182,7 +190,7 @@ impl SeismicBuiltPayload {
         id: PayloadId,
         block: Arc<SealedBlock<reth_seismic_primitives::SeismicBlock>>,
         fees: U256,
-        sidecars: Vec<BlobTransactionSidecar>,
+        sidecars: BlobSidecars,
         requests: Option<Requests>,
     ) -> Self {
         Self { id, block, fees, sidecars, requests }
@@ -338,63 +346,6 @@ impl From<alloc::vec::IntoIter<BlobTransactionSidecar>> for BlobSidecars {
 impl From<alloc::vec::IntoIter<BlobTransactionSidecarEip7594>> for BlobSidecars {
     fn from(value: alloc::vec::IntoIter<BlobTransactionSidecarEip7594>) -> Self {
         value.collect::<Vec<_>>().into()
-    }
-}
-
-impl From<SeismicBuiltPayload> for ExecutionPayloadV1 {
-    fn from(value: SeismicBuiltPayload) -> Self {
-        Self::from_block_unchecked(
-            value.block().hash(),
-            &Arc::unwrap_or_clone(value.block).into_block(),
-        )
-    }
-}
-
-// V2 engine_getPayloadV2 response
-impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV2 {
-    fn from(value: SeismicBuiltPayload) -> Self {
-        let SeismicBuiltPayload { block, fees, .. } = value;
-
-        Self {
-            block_value: fees,
-            execution_payload: ExecutionPayloadFieldV2::from_block_unchecked(
-                block.hash(),
-                &Arc::unwrap_or_clone(block).into_block(),
-            ),
-        }
-    }
-}
-
-impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV3 {
-    fn from(value: SeismicBuiltPayload) -> Self {
-        let SeismicBuiltPayload { block, fees, sidecars, .. } = value;
-
-        Self {
-            execution_payload: ExecutionPayloadV3::from_block_unchecked(
-                block.hash(),
-                &Arc::unwrap_or_clone(block).into_block(),
-            ),
-            block_value: fees,
-            // From the engine API spec:
-            //
-            // > Client software **MAY** use any heuristics to decide whether to set
-            // `shouldOverrideBuilder` flag or not. If client software does not implement any
-            // heuristic this flag **SHOULD** be set to `false`.
-            //
-            // Spec:
-            // <https://github.com/ethereum/execution-apis/blob/fe8e13c288c592ec154ce25c534e26cb7ce0530d/src/engine/cancun.md#specification-2>
-            should_override_builder: false,
-            blobs_bundle: sidecars.into(),
-        }
-    }
-}
-
-impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV4 {
-    fn from(value: SeismicBuiltPayload) -> Self {
-        Self {
-            execution_requests: value.requests.clone().unwrap_or_default(),
-            envelope_inner: value.into(),
-        }
     }
 }
 
