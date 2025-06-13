@@ -2875,7 +2875,6 @@ mod tests {
     };
 
     // seismic imports not used by upstream
-    use reth_evm::test_utils::MockExecutorProvider;
     use reth_evm_ethereum::EthEvmConfig;
     use reth_node_core::dirs::MaybePlatformPath;
     

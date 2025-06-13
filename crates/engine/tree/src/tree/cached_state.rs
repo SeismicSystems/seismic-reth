@@ -709,7 +709,7 @@ mod tests {
         let storage_key = StorageKey::random();
         let storage_value = U256::from(1);
         let account =
-            ExtendedAccount::new(0, U256::ZERO).extend_storage(vec![(storage_key, storage_value)]);
+            ExtendedAccount::new(0, U256::ZERO).extend_storage(vec![(storage_key, storage_value.into())]);
 
         // note that we extend storage here with one value
         let provider = MockEthProvider::default();
@@ -722,7 +722,7 @@ mod tests {
         // check that the storage is empty
         let res = state_provider.storage(address, storage_key);
         assert!(res.is_ok());
-        assert_eq!(res.unwrap(), Some(storage_value));
+        assert_eq!(res.unwrap(), Some(storage_value.into()));
     }
 
     #[test]
@@ -734,11 +734,11 @@ mod tests {
 
         // insert into caches directly
         let caches = ProviderCacheBuilder::default().build_caches(1000);
-        caches.insert_storage(address, storage_key, Some(storage_value));
+        caches.insert_storage(address, storage_key, Some(storage_value.into()));
 
         // check that the storage is empty
         let slot_status = caches.get_storage(&address, &storage_key);
-        assert_eq!(slot_status, SlotStatus::Value(storage_value));
+        assert_eq!(slot_status, SlotStatus::Value(storage_value.into()));
     }
 
     #[test]
