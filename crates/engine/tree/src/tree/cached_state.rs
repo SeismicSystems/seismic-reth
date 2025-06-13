@@ -310,7 +310,7 @@ impl ProviderCaches {
         &self,
         address: Address,
         key: StorageKey,
-        value: Option<FlaggedStorage>,
+        value: Option<StorageValue>,
     ) {
         let account_cache = self.storage_cache.get(&address).unwrap_or_else(|| {
             let account_cache = AccountStorageCache::default();
@@ -536,7 +536,7 @@ impl SavedCache {
 #[derive(Debug, Clone)]
 pub(crate) struct AccountStorageCache {
     /// The storage slots for this account
-    slots: Cache<StorageKey, Option<FlaggedStorage>>,
+    slots: Cache<StorageKey, Option<StorageValue>>,
 }
 
 impl AccountStorageCache {
@@ -560,7 +560,7 @@ impl AccountStorageCache {
     }
 
     /// Insert a storage value
-    pub(crate) fn insert_storage(&self, key: StorageKey, value: Option<FlaggedStorage>) {
+    pub(crate) fn insert_storage(&self, key: StorageKey, value: Option<StorageValue>) {
         self.slots.insert(key, value);
     }
 
@@ -676,8 +676,8 @@ mod tests {
 
         println!("\nTheoretical sizes:");
         println!("StorageKey size: {} bytes", size_of::<StorageKey>());
-        println!("FlaggedStorage size: {} bytes", size_of::<FlaggedStorage>());
-        println!("Option<FlaggedStorage> size: {} bytes", size_of::<Option<FlaggedStorage>>());
+        println!("StorageValue size: {} bytes", size_of::<StorageValue>());
+        println!("Option<StorageValue> size: {} bytes", size_of::<Option<StorageValue>>());
         println!("Option<B256> size: {} bytes", size_of::<Option<B256>>());
     }
 
