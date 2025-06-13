@@ -33,7 +33,7 @@ use reth_rpc_builder::config::RethRpcServerConfig;
 use reth_rpc_eth_api::FullEthApiServer;
 use reth_rpc_eth_types::{error::FromEvmError, EthApiError};
 use reth_rpc_server_types::RethRpcModule;
-// use reth_seismic_evm::SeismicEvmConfig;
+use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
 use reth_seismic_rpc::{SeismicEthApi, SeismicEthApiBuilder};
@@ -44,6 +44,7 @@ use reth_transaction_pool::{
 use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
+use seismic_alloy_network::Seismic;
 use std::{sync::Arc, time::SystemTime};
 
 use crate::{real_seismic_evm_config, RealSeismicEvmConfig};
@@ -512,7 +513,7 @@ impl SeismicPayloadBuilder {
     }
 }
 
-impl<Node, Pool> PayloadBuilderBuilder<Node, Pool> for SeismicPayloadBuilder
+impl<Node, Pool, CB> PayloadBuilderBuilder<Node, Pool, SeismicEvmConfig<CB>> for SeismicPayloadBuilder
 where
     Node: FullNodeTypes<
         Types: NodeTypesWithEngine<
