@@ -17,8 +17,6 @@ pub mod engine;
 
 pub mod node;
 
-pub mod payload;
-
 pub use reth_seismic_txpool as txpool;
 
 pub mod utils;
