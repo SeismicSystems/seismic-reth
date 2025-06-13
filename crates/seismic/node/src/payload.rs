@@ -5,7 +5,6 @@ use reth_chainspec::ChainSpec;
 use reth_evm::ConfigureEvm;
 use reth_node_api::{FullNodeTypes, NodeTypesWithEngine, PrimitivesTy, TxTy};
 use reth_node_builder::{components::PayloadBuilderBuilder, BuilderContext, PayloadBuilderConfig};
-// use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::SeismicPrimitives;
 use reth_transaction_pool::{PoolTransaction, TransactionPool};
