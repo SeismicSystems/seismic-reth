@@ -1,5 +1,5 @@
 #![allow(missing_docs, unreachable_pub)]
-use alloy_primitives::{B256, U256};
+use alloy_primitives::{B256};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use proptest::{prelude::*, strategy::ValueTree, test_runner::TestRunner};
 use proptest_arbitrary_interop::arb;
@@ -13,7 +13,7 @@ use reth_trie::{
 };
 use reth_trie_db::{DatabaseHashedCursorFactory, DatabaseStateRoot};
 use reth_trie_parallel::root::ParallelStateRoot;
-use revm::state::FlaggedStorage;
+use revm_state::FlaggedStorage;
 use std::collections::HashMap;
 
 pub fn calculate_state_root(c: &mut Criterion) {

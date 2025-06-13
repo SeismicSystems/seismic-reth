@@ -22,10 +22,11 @@ fn update_rlp_node_level(c: &mut Criterion) {
             .current();
 
         // Create a sparse trie with `size` leaves
+        let is_private = false; // hardcoded to false for legacy benchmark
         let mut sparse = RevealedSparseTrie::default();
         for (key, value) in &state {
             sparse
-                .update_leaf(Nibbles::unpack(key), alloy_rlp::encode_fixed_size(value).to_vec())
+                .update_leaf(Nibbles::unpack(key), alloy_rlp::encode_fixed_size(value).to_vec(), is_private)
                 .unwrap();
         }
         sparse.root();
@@ -39,6 +40,7 @@ fn update_rlp_node_level(c: &mut Criterion) {
                     .update_leaf(
                         Nibbles::unpack(key),
                         alloy_rlp::encode_fixed_size(&rng.random::<U256>()).to_vec(),
+                        is_private,
                     )
                     .unwrap();
             }
