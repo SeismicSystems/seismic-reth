@@ -47,7 +47,7 @@ pub(crate) fn calculate_state_root(
             if value.is_zero() {
                 storage_trie.remove_leaf(&nibbles)?;
             } else {
-                storage_trie.update_leaf(nibbles, alloy_rlp::encode_fixed_size(&value).to_vec())?;
+                storage_trie.update_leaf(nibbles, alloy_rlp::encode_fixed_size(&value).to_vec(), value.is_private)?;
             }
         }
 
