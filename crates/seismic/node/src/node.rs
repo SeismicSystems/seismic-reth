@@ -559,7 +559,7 @@ where
         > + Unpin
         + 'static,
 {
-    type Primitives = SeismicNetworkPrimitives;
+    type Network = NetworkHandle<SeismicNetworkPrimitives>;
 
     async fn build_network(
         self,
