@@ -32,6 +32,7 @@ impl ReceiptBuilder for SeismicRethReceiptBuilder {
                     SeismicTxType::Legacy => SeismicReceipt::Legacy(receipt),
                     SeismicTxType::Eip1559 => SeismicReceipt::Eip1559(receipt),
                     SeismicTxType::Eip2930 => SeismicReceipt::Eip2930(receipt),
+                    SeismicTxType::Eip4844 => SeismicReceipt::Eip4844(receipt),
                     SeismicTxType::Eip7702 => SeismicReceipt::Eip7702(receipt),
                     SeismicTxType::Seismic => SeismicReceipt::Seismic(receipt),
                 }
