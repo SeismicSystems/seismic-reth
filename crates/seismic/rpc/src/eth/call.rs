@@ -14,6 +14,9 @@ use revm::{context::TxEnv, context_interface::Block, Database};
 use seismic_alloy_consensus::SeismicTxType;
 use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
 use tracing::debug;
+use alloy_eips::eip7702::SignedAuthorization;
+use alloy_eips::eip7702::RecoveredAuthorization;
+use alloy_consensus::transaction::Either;
 
 impl<N> EthCall for SeismicEthApi<N>
 where
@@ -127,6 +130,7 @@ where
             db.basic(caller).map_err(Into::into)?.map(|acc| acc.nonce).unwrap_or_default()
         };
 
+        let authorization_list: Vec<Either<SignedAuthorization, RecoveredAuthorization>> = authorization_list.unwrap_or_default().iter().map(|auth| Either::Left(auth.clone())).collect();
         let env = TxEnv {
             tx_type,
             gas_limit,
@@ -148,7 +152,7 @@ where
                 .map(|v| v.saturating_to())
                 .unwrap_or_default(),
             // EIP-7702 fields
-            authorization_list: authorization_list.unwrap_or_default(),
+            authorization_list: authorization_list,
         };
 
         debug!("reth-seismic-rpc::eth create_txn_env {:?}", env);

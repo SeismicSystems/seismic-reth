@@ -14,9 +14,10 @@ use reth_rpc_eth_types::EthApiError;
 use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
 use reth_storage_api::{BlockReader, HeaderProvider};
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
-
+use reth_transaction_pool::TransactionPool;
+use reth_transaction_pool::PoolTransaction;
+use reth_storage_api::ProviderTx;
 use crate::{eth::SeismicNodeCore, SeismicEthApi};
-
 use super::receipt::SeismicReceiptBuilder;
 
 impl<N> EthBlocks for SeismicEthApi<N>
@@ -74,7 +75,11 @@ where
 
 impl<N> LoadBlock for SeismicEthApi<N>
 where
-    Self: LoadPendingBlock + SpawnBlocking,
+    Self: LoadPendingBlock<
+            Pool: TransactionPool<
+                Transaction: PoolTransaction<Consensus = ProviderTx<Self::Provider>>,
+            >,
+        > + SpawnBlocking,
     N: SeismicNodeCore,
 {
 }

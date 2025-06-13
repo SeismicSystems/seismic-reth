@@ -3,7 +3,7 @@
 use super::ext::SeismicTransaction;
 use crate::{eth::SeismicNodeCore, utils::recover_typed_data_request, SeismicEthApi};
 use alloy_consensus::{transaction::Recovered, Transaction as _};
-use alloy_primitives::{Bytes, PrimitiveSignature as Signature, B256};
+use alloy_primitives::{Bytes, Signature, B256};
 use alloy_rpc_types_eth::{Transaction, TransactionInfo};
 use reth_node_api::FullNodeComponents;
 use reth_rpc_eth_api::{
@@ -137,9 +137,10 @@ where
 
     fn otterscan_api_truncate_input(tx: &mut Self::Transaction) {
         let input = match tx.inner.inner_mut() {
+            SeismicTxEnvelope::Legacy(tx) => &mut tx.tx_mut().input,
             SeismicTxEnvelope::Eip1559(tx) => &mut tx.tx_mut().input,
             SeismicTxEnvelope::Eip2930(tx) => &mut tx.tx_mut().input,
-            SeismicTxEnvelope::Legacy(tx) => &mut tx.tx_mut().input,
+            SeismicTxEnvelope::Eip4844(tx) => &mut tx.tx_mut().input().clone(),
             SeismicTxEnvelope::Eip7702(tx) => &mut tx.tx_mut().input,
             SeismicTxEnvelope::Seismic(tx) => &mut tx.tx_mut().input,
         };

@@ -5,7 +5,7 @@ use reth_primitives::Recovered;
 use reth_primitives_traits::SignedTransaction;
 use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError, EthResult};
 use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
-use seismic_alloy_network::TransactionBuilder;
+use seismic_alloy_network::{SeismicReth, TransactionBuilder};
 use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
 
 /// Override the request for seismic calls
@@ -34,7 +34,7 @@ pub fn recover_typed_data_request<T: SignedTransaction + Decodable712>(
     let transaction =
         T::decode_712(&mut data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
 
-    transaction.try_into_recovered().or(Err(EthApiError::InvalidTransactionSignature))
+    SignedTransaction::try_into_recovered(transaction).or(Err(EthApiError::InvalidTransactionSignature))
 }
 
 /// Convert a [`SeismicCallRequest`] to a [`SeismicTransactionRequest`].
@@ -58,7 +58,7 @@ pub fn convert_seismic_call_to_tx_request(
         SeismicCallRequest::Bytes(bytes) => {
             let tx = recover_raw_transaction::<SeismicTxEnvelope>(&bytes)?;
             let mut req: SeismicTransactionRequest = tx.inner().clone().into();
-            req.set_from(tx.signer());
+            TransactionBuilder::<SeismicReth>::set_from(&mut req, tx.signer());
             Ok(req)
         }
     }

@@ -10633,6 +10633,7 @@ dependencies = [
  "alloy-rpc-types-eth",
  "alloy-signer-local",
  "enr",
+ "eyre",
  "futures",
  "jsonrpsee 0.25.1",
  "jsonrpsee-types 0.25.1",
