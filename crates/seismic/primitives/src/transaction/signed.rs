@@ -38,6 +38,7 @@ use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
 
 // Seismic imports, not used by upstream
 use alloy_consensus::TxEip4844Variant;
+use alloy_evm::FromTxWithEncoded;
 
 /// Signed transaction.
 ///
@@ -355,6 +356,13 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
         };
         tracing::debug!("from_recovered_tx: tx: {:?}", tx);
         tx
+    }
+}
+
+impl FromTxWithEncoded<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
+    fn from_encoded_tx(tx: &SeismicTransactionSigned, sender: Address, _encoded: Bytes) -> Self {
+        let tx_env = SeismicTransaction::<TxEnv>::from_recovered_tx(tx, sender);
+        Self { base: tx_env.base, tx_hash: tx_env.tx_hash, rng_mode: RngMode::Execution }
     }
 }
 
