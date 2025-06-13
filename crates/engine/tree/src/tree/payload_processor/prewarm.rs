@@ -269,15 +269,16 @@ where
         let spec_id = *evm_env.spec_id();
         let mut evm = evm_config.evm_with_env(state_provider, evm_env);
 
-        if precompile_cache_enabled {
-            evm.precompiles_mut().map_precompiles(|address, precompile| {
-                CachedPrecompile::wrap(
-                    precompile,
-                    precompile_cache_map.cache_for_address(*address),
-                    spec_id,
-                )
-            });
-        }
+        // seismic upstream merge: we do not enable precompile cache since it breaks our stateful precompiles
+        // if precompile_cache_enabled {
+        //     evm.precompiles_mut().map_precompiles(|address, precompile| {
+        //         CachedPrecompile::wrap(
+        //             precompile,
+        //             precompile_cache_map.cache_for_address(*address),
+        //             spec_id,
+        //         )
+        //     });
+        // }
 
         Some((evm, evm_config, metrics, terminate_execution))
     }

@@ -2356,15 +2356,16 @@ where
             .build();
         let mut executor = self.evm_config.executor_for_block(&mut db, block);
 
-        if self.config.precompile_cache_enabled() {
-            executor.evm_mut().precompiles_mut().map_precompiles(|address, precompile| {
-                CachedPrecompile::wrap(
-                    precompile,
-                    self.precompile_cache_map.cache_for_address(*address),
-                    *self.evm_config.evm_env(block.header()).spec_id(),
-                )
-            });
-        }
+        // seismic upstream merge: we do not enable precompile cache since it breaks our stateful precompiles
+        // if self.config.precompile_cache_enabled() {
+        //     executor.evm_mut().precompiles_mut().map_precompiles(|address, precompile| {
+        //         CachedPrecompile::wrap(
+        //             precompile,
+        //             self.precompile_cache_map.cache_for_address(*address),
+        //             *self.evm_config.evm_env(block.header()).spec_id(),
+        //         )
+        //     });
+        // }
 
         let execution_start = Instant::now();
         let output = self.metrics.executor.execute_metered(
