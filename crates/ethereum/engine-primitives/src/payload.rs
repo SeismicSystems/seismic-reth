@@ -14,7 +14,7 @@ use alloy_rpc_types_engine::{
     ExecutionPayloadEnvelopeV4, ExecutionPayloadEnvelopeV5, ExecutionPayloadFieldV2,
     ExecutionPayloadV1, ExecutionPayloadV3, PayloadAttributes, PayloadId,
 };
-use core::convert::Infallible;
+use core::{convert::Infallible};
 use reth_ethereum_primitives::{Block, EthPrimitives};
 use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes};
 use reth_primitives_traits::SealedBlock;
@@ -214,50 +214,65 @@ impl BuiltPayload for SeismicBuiltPayload {
 }
 
 // V1 engine_getPayloadV1 response
-impl From<EthBuiltPayload> for ExecutionPayloadV1 {
-    fn from(value: EthBuiltPayload) -> Self {
+impl<N> From<EthBuiltPayload<N>> for ExecutionPayloadV1 
+where N: NodePrimitives,
+N::Block: Into<reth_ethereum_primitives::Block>,
+{
+    fn from(value: EthBuiltPayload<N>) -> Self {
         Self::from_block_unchecked(
             value.block().hash(),
-            &Arc::unwrap_or_clone(value.block).into_block(),
+            &Arc::unwrap_or_clone(value.clone().block).into_block().into(),
         )
     }
 }
 
 // V2 engine_getPayloadV2 response
-impl From<EthBuiltPayload> for ExecutionPayloadEnvelopeV2 {
-    fn from(value: EthBuiltPayload) -> Self {
+impl<N> From<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV2 
+where N: NodePrimitives,
+N::Block: Into<reth_ethereum_primitives::Block>,
+{
+    fn from(value: EthBuiltPayload<N>) -> Self {
         let EthBuiltPayload { block, fees, .. } = value;
 
         Self {
             block_value: fees,
             execution_payload: ExecutionPayloadFieldV2::from_block_unchecked(
                 block.hash(),
-                &Arc::unwrap_or_clone(block).into_block(),
+                &Arc::unwrap_or_clone(block).into_block().into(),
             ),
         }
     }
 }
 
-impl TryFrom<EthBuiltPayload> for ExecutionPayloadEnvelopeV3 {
+impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV3 
+where N: NodePrimitives,
+N::Block: Into<reth_ethereum_primitives::Block>,
+{
     type Error = BuiltPayloadConversionError;
 
-    fn try_from(value: EthBuiltPayload) -> Result<Self, Self::Error> {
+    fn try_from(value: EthBuiltPayload<N>) -> Result<Self, Self::Error> {
         value.try_into_v3()
     }
 }
 
-impl TryFrom<EthBuiltPayload> for ExecutionPayloadEnvelopeV4 {
+impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV4
+where N: NodePrimitives,
+N::Block: Into<reth_ethereum_primitives::Block>,
+{
     type Error = BuiltPayloadConversionError;
 
-    fn try_from(value: EthBuiltPayload) -> Result<Self, Self::Error> {
+    fn try_from(value: EthBuiltPayload<N>) -> Result<Self, Self::Error> {
         value.try_into_v4()
     }
 }
 
-impl TryFrom<EthBuiltPayload> for ExecutionPayloadEnvelopeV5 {
+impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV5 
+where N: NodePrimitives,
+N::Block: Into<reth_ethereum_primitives::Block>,
+{
     type Error = BuiltPayloadConversionError;
 
-    fn try_from(value: EthBuiltPayload) -> Result<Self, Self::Error> {
+    fn try_from(value: EthBuiltPayload<N>) -> Result<Self, Self::Error> {
         value.try_into_v5()
     }
 }
