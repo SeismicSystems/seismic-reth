@@ -14,7 +14,7 @@
     },
     "dependencies": {
         "seismic-viem": "latest",
-        "seismic-viem-tests": "latest",
+        "seismic-viem-tests": "0.0.13",
         "viem": "2.x"
     }
 }
