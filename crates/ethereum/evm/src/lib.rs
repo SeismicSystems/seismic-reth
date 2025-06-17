@@ -29,7 +29,7 @@ use core::{convert::Infallible, fmt::Debug};
 use reth_chainspec::{ChainSpec, EthChainSpec, MAINNET};
 use reth_ethereum_primitives::{Block, EthPrimitives, TransactionSigned};
 use reth_evm::{
-    precompiles::PrecompilesMap, ConfigureEvm, EvmEnv, EvmFactory, NextBlockEnvAttributes,
+    ConfigureEvm, EvmEnv, EvmFactory, NextBlockEnvAttributes,
     TransactionEnv,
 };
 use reth_primitives_traits::{SealedBlock, SealedHeader};
