@@ -45,7 +45,6 @@ use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
 use std::{sync::Arc, time::SystemTime};
-use reth_seismic_evm::SeismicRethReceiptBuilder;
 use seismic_enclave::rpc::SyncEnclaveApiClientBuilder;
 
 use crate::{real_seismic_evm_config, RealSeismicEvmConfig};
