@@ -29,7 +29,6 @@ use url::Url;
 
 // seismic imports that upstream doesn't use
 use reth_rpc_eth_api::helpers::{FullEthApi};
-use reth_rpc_layer::AuthClientService;
 
 
 /// An helper struct to handle node actions
