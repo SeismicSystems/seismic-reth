@@ -362,7 +362,7 @@ seismic-alloy-rpc-types-engine = {version = "0.0.1", default-features = false}
 seismic-alloy-network = {version = "0.0.1", default-features = false}
 seismic-alloy-flz = {version = "0.0.1", default-features = false}
 
-alloy-json-abi = { version = "0.8.25", default-features = false } # only used by seismic rn
+alloy-json-abi = { version = "1.1.2", default-features = false } # only used by seismic rn
 
 # reth
 op-reth = { path = "crates/optimism/bin" }
