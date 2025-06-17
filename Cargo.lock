@@ -8530,6 +8530,7 @@ dependencies = [
 name = "reth-ethereum-engine-primitives"
 version = "1.4.3"
 dependencies = [
+ "alloy-consensus",
  "alloy-eips",
  "alloy-primitives 1.1.2",
  "alloy-rlp",
