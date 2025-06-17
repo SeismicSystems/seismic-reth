@@ -243,6 +243,26 @@ N::Block: Into<reth_ethereum_primitives::Block>,
         }
     }
 }
+fn my_thing(s_payload: SeismicBuiltPayload) -> ExecutionPayloadEnvelopeV2 {
+    s_payload.try_into().unwrap()
+}
+
+// // V2 engine_getPayloadV2 response
+// impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV2 {
+//     fn from(value: SeismicBuiltPayload) -> Self {
+//         let SeismicBuiltPayload { block, fees, .. } = value;
+//         let clone: Arc<SealedBlock<reth_seismic_primitives::SeismicBlock>> = block.clone();
+//         let _thing: alloy_consensus::Block<reth_seismic_primitives::SeismicTransactionSigned> = Arc::unwrap_or_clone(clone).into_block();
+
+//         Self {
+//             block_value: fees,
+//             execution_payload: ExecutionPayloadFieldV2::from_block_unchecked(
+//                 block.hash(),
+//                 &Arc::unwrap_or_clone(block).into_block().into(),
+//             ),
+//         }
+//     }
+// }
 
 impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV3 
 where N: NodePrimitives,
