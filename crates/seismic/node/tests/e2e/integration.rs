@@ -659,7 +659,7 @@ async fn test_seismic_precompiles_end_to_end() {
         ],
         anonymous: false,
     };
-    let decoded = event.parse_log(&log_data.into_log_data(), false).unwrap();
+    let decoded = event.decode_log(&log_data.into_log_data(), false).unwrap();
 
     sol! {
         #[derive(Debug, PartialEq)]
