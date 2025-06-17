@@ -688,7 +688,7 @@ async fn test_seismic_precompiles_end_to_end() {
         ))
         .await
         .unwrap();
-    let result_bytes = PlaintextType::abi_decode(&Bytes::from(decrypted_output), false)
+    let result_bytes = PlaintextType::abi_decode(&Bytes::from(decrypted_output))
         .expect("failed to decode the bytes");
     let final_string =
         String::from_utf8(result_bytes.to_vec()).expect("invalid utf8 in decrypted bytes");
