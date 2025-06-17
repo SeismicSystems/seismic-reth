@@ -25,8 +25,7 @@ use alloy_eips::{
     eip4895::Withdrawals,
 };
 use alloy_evm::{
-    block::{BlockExecutorFactory, BlockExecutorFor},
-    precompiles::PrecompilesMap,
+    block::{BlockExecutorFactory, BlockExecutorFor}
 };
 use alloy_primitives::{Address, B256};
 use core::{error::Error, fmt::Debug};

@@ -10,7 +10,6 @@ use crate::{
 };
 use alloy_consensus::BlockHeader;
 use alloy_eips::{merge::EPOCH_SLOTS, BlockNumHash, NumHash};
-use alloy_evm::block::BlockExecutor;
 use alloy_primitives::B256;
 use alloy_rpc_types_engine::{
     ForkchoiceState, PayloadStatus, PayloadStatusEnum, PayloadValidationError,
@@ -19,7 +18,7 @@ use error::{InsertBlockError, InsertBlockErrorKind, InsertBlockFatalError};
 use instrumented_state::InstrumentedStateProvider;
 use payload_processor::sparse_trie::StateRootComputeOutcome;
 use persistence_state::CurrentPersistenceAction;
-use precompile_cache::{CachedPrecompile, PrecompileCacheMap};
+use precompile_cache::{PrecompileCacheMap};
 use reth_chain_state::{
     CanonicalInMemoryState, ExecutedBlock, ExecutedBlockWithTrieUpdates,
     MemoryOverlayStateProvider, NewCanonicalChain,
@@ -31,7 +30,7 @@ use reth_engine_primitives::{
     ExecutionPayload, ForkchoiceStateTracker, OnForkChoiceUpdated,
 };
 use reth_errors::{ConsensusError, ProviderResult};
-use reth_evm::{ConfigureEvm, Evm, SpecFor};
+use reth_evm::{ConfigureEvm, SpecFor};
 use reth_payload_builder::PayloadBuilderHandle;
 use reth_payload_primitives::{EngineApiMessageVersion, PayloadBuilderAttributes, PayloadTypes};
 use reth_primitives_traits::{
@@ -72,6 +71,7 @@ mod invalid_headers;
 mod metrics;
 mod payload_processor;
 mod persistence_state;
+#[allow(unused)]
 pub mod precompile_cache;
 // TODO(alexey): compare trie updates in `insert_block_inner`
 #[expect(unused)]
@@ -271,6 +271,7 @@ where
     /// The EVM configuration.
     evm_config: C,
     /// Precompile cache map.
+    #[allow(unused)]
     precompile_cache_map: PrecompileCacheMap<SpecFor<C>>,
     /// The backup handler
     backup: BackupHandle,
@@ -2354,9 +2355,9 @@ where
             .with_bundle_update()
             .without_state_clear()
             .build();
-        let mut executor = self.evm_config.executor_for_block(&mut db, block);
-
+        
         // seismic upstream merge: we do not enable precompile cache since it breaks our stateful precompiles
+        let executor = self.evm_config.executor_for_block(&mut db, block);
         // if self.config.precompile_cache_enabled() {
         //     executor.evm_mut().precompiles_mut().map_precompiles(|address, precompile| {
         //         CachedPrecompile::wrap(
