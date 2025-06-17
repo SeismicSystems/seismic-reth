@@ -50,7 +50,7 @@ pub struct EthBuiltPayload<N: NodePrimitives = EthPrimitives> {
 impl<N> EthBuiltPayload<N>
 where
     N: NodePrimitives,
-    N::Block: Into<reth_ethereum_primitives::Block>,
+    N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
 {
     /// Initializes the payload with the given initial block
     ///
@@ -216,7 +216,7 @@ impl BuiltPayload for SeismicBuiltPayload {
 // V1 engine_getPayloadV1 response
 impl<N> From<EthBuiltPayload<N>> for ExecutionPayloadV1 
 where N: NodePrimitives,
-N::Block: Into<reth_ethereum_primitives::Block>,
+N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
 {
     fn from(value: EthBuiltPayload<N>) -> Self {
         Self::from_block_unchecked(
@@ -229,7 +229,7 @@ N::Block: Into<reth_ethereum_primitives::Block>,
 // V2 engine_getPayloadV2 response
 impl<N> From<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV2 
 where N: NodePrimitives,
-N::Block: Into<reth_ethereum_primitives::Block>,
+N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
 {
     fn from(value: EthBuiltPayload<N>) -> Self {
         let EthBuiltPayload { block, fees, .. } = value;
@@ -243,30 +243,10 @@ N::Block: Into<reth_ethereum_primitives::Block>,
         }
     }
 }
-fn my_thing(s_payload: SeismicBuiltPayload) -> ExecutionPayloadEnvelopeV2 {
-    s_payload.try_into().unwrap()
-}
-
-// // V2 engine_getPayloadV2 response
-// impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV2 {
-//     fn from(value: SeismicBuiltPayload) -> Self {
-//         let SeismicBuiltPayload { block, fees, .. } = value;
-//         let clone: Arc<SealedBlock<reth_seismic_primitives::SeismicBlock>> = block.clone();
-//         let _thing: alloy_consensus::Block<reth_seismic_primitives::SeismicTransactionSigned> = Arc::unwrap_or_clone(clone).into_block();
-
-//         Self {
-//             block_value: fees,
-//             execution_payload: ExecutionPayloadFieldV2::from_block_unchecked(
-//                 block.hash(),
-//                 &Arc::unwrap_or_clone(block).into_block().into(),
-//             ),
-//         }
-//     }
-// }
 
 impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV3 
 where N: NodePrimitives,
-N::Block: Into<reth_ethereum_primitives::Block>,
+N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
 {
     type Error = BuiltPayloadConversionError;
 
@@ -277,7 +257,7 @@ N::Block: Into<reth_ethereum_primitives::Block>,
 
 impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV4
 where N: NodePrimitives,
-N::Block: Into<reth_ethereum_primitives::Block>,
+N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
 {
     type Error = BuiltPayloadConversionError;
 
@@ -288,7 +268,7 @@ N::Block: Into<reth_ethereum_primitives::Block>,
 
 impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV5 
 where N: NodePrimitives,
-N::Block: Into<reth_ethereum_primitives::Block>,
+N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
 {
     type Error = BuiltPayloadConversionError;
 
