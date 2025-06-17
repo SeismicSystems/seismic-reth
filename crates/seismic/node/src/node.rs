@@ -81,6 +81,7 @@ impl SeismicNode {
         ComponentsBuilder::default()
             .node_types::<Node>()
             .pool(SeismicPoolBuilder::default())
+            .executor(SeismicExecutorBuilder::default())
             .payload(BasicPayloadServiceBuilder::<SeismicPayloadBuilder>::default())
             .network(SeismicNetworkBuilder::default())
             .executor(SeismicExecutorBuilder::default())
