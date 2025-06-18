@@ -2877,7 +2877,6 @@ mod tests {
     };
 
     // seismic imports not used by upstream
-    use reth_evm_ethereum::EthEvmConfig;
     use reth_node_core::dirs::MaybePlatformPath;
 
     /// This is a test channel that allows you to `release` any value that is in the channel.
