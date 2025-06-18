@@ -14,9 +14,10 @@ use reth_trie::{
 };
 use reth_trie_common::{HashBuilder, Nibbles};
 use reth_trie_sparse::SparseTrie;
-use revm::state::FlaggedStorage;
+use revm_state::FlaggedStorage;
 
 fn calculate_root_from_leaves(c: &mut Criterion) {
+    let is_private = false; // hardcode to false for legacy test
     let mut group = c.benchmark_group("calculate root from leaves");
     group.sample_size(20);
 
@@ -33,7 +34,11 @@ fn calculate_root_from_leaves(c: &mut Criterion) {
         group.bench_function(BenchmarkId::new("hash builder", size), |b| {
             b.iter_with_setup(HashBuilder::default, |mut hb| {
                 for (key, value) in state.iter().sorted_by_key(|(key, _)| *key) {
-                    hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value.value));
+                    hb.add_leaf(
+                        Nibbles::unpack(key),
+                        &alloy_rlp::encode_fixed_size(&value.value),
+                        is_private,
+                    );
                 }
                 hb.root();
                 hb
@@ -48,6 +53,7 @@ fn calculate_root_from_leaves(c: &mut Criterion) {
                         .update_leaf(
                             Nibbles::unpack(key),
                             alloy_rlp::encode_fixed_size(&value.value).to_vec(),
+                            is_private,
                         )
                         .unwrap();
                 }
@@ -59,6 +65,8 @@ fn calculate_root_from_leaves(c: &mut Criterion) {
 }
 
 fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
+    let is_private = false; // hardcode to false for legacy test
+
     let mut group = c.benchmark_group("calculate root from leaves repeated");
     group.sample_size(20);
 
@@ -85,7 +93,9 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                 // hash builder
                 let benchmark_id = BenchmarkId::new(
                     "hash builder",
-                    format!("init size {init_size} | update size {update_size} | num updates {num_updates}"),
+                    format!(
+                        "init size {init_size} | update size {update_size} | num updates {num_updates}"
+                    ),
                 );
                 group.bench_function(benchmark_id, |b| {
                     b.iter_with_setup(
@@ -102,6 +112,7 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                 hb.add_leaf(
                                     Nibbles::unpack(key),
                                     &alloy_rlp::encode_fixed_size(&value.value),
+                                    is_private,
                                 );
                             }
                             hb.root();
@@ -130,7 +141,7 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                         )
                                     };
 
-                                let walker = TrieWalker::new(
+                                let walker = TrieWalker::storage_trie(
                                     InMemoryStorageTrieCursor::new(
                                         B256::ZERO,
                                         NoopStorageTrieCursor::default(),
@@ -138,7 +149,7 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                     ),
                                     prefix_set,
                                 );
-                                let mut node_iter = TrieNodeIter::new(
+                                let mut node_iter = TrieNodeIter::storage_trie(
                                     walker,
                                     HashedPostStateStorageCursor::new(
                                         NoopHashedStorageCursor::default(),
@@ -160,6 +171,7 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                             hb.add_leaf(
                                                 Nibbles::unpack(hashed_slot),
                                                 alloy_rlp::encode_fixed_size(&value.value).as_ref(),
+                                                is_private,
                                             );
                                         }
                                     }
@@ -178,7 +190,9 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                 // sparse trie
                 let benchmark_id = BenchmarkId::new(
                     "sparse trie",
-                    format!("init size {init_size} | update size {update_size} | num updates {num_updates}"),
+                    format!(
+                        "init size {init_size} | update size {update_size} | num updates {num_updates}"
+                    ),
                 );
                 group.bench_function(benchmark_id, |b| {
                     b.iter_with_setup(
@@ -189,6 +203,7 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                     .update_leaf(
                                         Nibbles::unpack(key),
                                         alloy_rlp::encode_fixed_size(&value.value).to_vec(),
+                                        is_private,
                                     )
                                     .unwrap();
                             }
@@ -202,6 +217,7 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                         .update_leaf(
                                             Nibbles::unpack(key),
                                             alloy_rlp::encode_fixed_size(&value.value).to_vec(),
+                                            is_private,
                                         )
                                         .unwrap();
                                 }

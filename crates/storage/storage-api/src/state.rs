@@ -7,11 +7,25 @@ use alloy_consensus::constants::KECCAK_EMPTY;
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{Address, BlockHash, BlockNumber, StorageKey, B256, U256};
 use auto_impl::auto_impl;
+use reth_execution_types::ExecutionOutcome;
 use reth_primitives_traits::Bytecode;
 use reth_storage_errors::provider::ProviderResult;
 use reth_trie_common::HashedPostState;
 use revm_database::BundleState;
 use revm_state::FlaggedStorage;
+
+/// This just receives state, or [`ExecutionOutcome`], from the provider
+#[auto_impl::auto_impl(&, Arc, Box)]
+pub trait StateReader: Send + Sync {
+    /// Receipt type in [`ExecutionOutcome`].
+    type Receipt: Send + Sync;
+
+    /// Get the [`ExecutionOutcome`] for the given block
+    fn get_state(
+        &self,
+        block: BlockNumber,
+    ) -> ProviderResult<Option<ExecutionOutcome<Self::Receipt>>>;
+}
 
 /// Type alias of boxed [`StateProvider`].
 pub type StateProviderBox = Box<dyn StateProvider>;

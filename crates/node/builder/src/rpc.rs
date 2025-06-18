@@ -4,11 +4,12 @@ use crate::{BeaconConsensusEngineEvent, BeaconConsensusEngineHandle};
 use alloy_rpc_types::engine::ClientVersionV1;
 use alloy_rpc_types_engine::ExecutionData;
 use futures::TryFutureExt;
+use jsonrpsee::RpcModule;
 use reth_chain_state::CanonStateSubscriptions;
 use reth_chainspec::{ChainSpecProvider, EthereumHardforks};
 use reth_node_api::{
     AddOnsContext, BlockTy, EngineTypes, EngineValidator, FullNodeComponents, FullNodeTypes,
-    NodeAddOns, NodeTypes, NodeTypesWithEngine, PayloadTypes, ReceiptTy,
+    NodeAddOns, NodeTypes, PayloadTypes, ReceiptTy,
 };
 use reth_node_core::{
     node_config::NodeConfig,
@@ -24,7 +25,6 @@ use reth_rpc_builder::{
 };
 use reth_rpc_engine_api::{capabilities::EngineCapabilities, EngineApi};
 use reth_rpc_eth_types::{cache::cache_new_blocks_task, EthConfig, EthStateCache};
-use reth_tasks::TaskExecutor;
 use reth_tokio_util::EventSender;
 use reth_tracing::tracing::{debug, info};
 use std::{
@@ -193,9 +193,8 @@ pub struct RpcRegistry<Node: FullNodeComponents, EthApi: EthApiTypes> {
         Node::Provider,
         Node::Pool,
         Node::Network,
-        TaskExecutor,
         EthApi,
-        Node::Executor,
+        Node::Evm,
         Node::Consensus,
     >,
 }
@@ -209,9 +208,8 @@ where
         Node::Provider,
         Node::Pool,
         Node::Network,
-        TaskExecutor,
         EthApi,
-        Node::Executor,
+        Node::Evm,
         Node::Consensus,
     >;
 
@@ -293,7 +291,7 @@ where
     /// Returns the handle to the payload builder service
     pub fn payload_builder_handle(
         &self,
-    ) -> &PayloadBuilderHandle<<Node::Types as NodeTypesWithEngine>::Payload> {
+    ) -> &PayloadBuilderHandle<<Node::Types as NodeTypes>::Payload> {
         self.node.payload_builder_handle()
     }
 }
@@ -311,8 +309,7 @@ pub struct RpcHandle<Node: FullNodeComponents, EthApi: EthApiTypes> {
     pub engine_events:
         EventSender<BeaconConsensusEngineEvent<<Node::Types as NodeTypes>::Primitives>>,
     /// Handle to the beacon consensus engine.
-    pub beacon_engine_handle:
-        BeaconConsensusEngineHandle<<Node::Types as NodeTypesWithEngine>::Payload>,
+    pub beacon_engine_handle: BeaconConsensusEngineHandle<<Node::Types as NodeTypes>::Payload>,
 }
 
 impl<Node: FullNodeComponents, EthApi: EthApiTypes> Clone for RpcHandle<Node, EthApi> {
@@ -347,6 +344,15 @@ where
 }
 
 /// Node add-ons containing RPC server configuration, with customizable eth API handler.
+///
+/// This struct can be used to provide the RPC server functionality. It is responsible for launching
+/// the regular RPC and the authenticated RPC server (engine API). It is intended to be used and
+/// modified as part of the [`NodeAddOns`] see for example `OpRpcAddons`, `EthereumAddOns`.
+///
+/// It can be modified to register RPC API handlers, see [`RpcAddOns::launch_add_ons_with`] which
+/// takes a closure that provides access to all the configured modules (namespaces), and is invoked
+/// just before the servers are launched. This can be used to extend the node with custom RPC
+/// methods or even replace existing method handlers, see also [`TransportRpcModules`].
 pub struct RpcAddOns<
     Node: FullNodeComponents,
     EthB: EthApiBuilder<Node>,
@@ -397,6 +403,21 @@ where
             engine_validator_builder,
             engine_api_builder,
         }
+    }
+
+    /// Maps the [`EngineApiBuilder`] builder type.
+    pub fn with_engine_api<T>(self, engine_api_builder: T) -> RpcAddOns<Node, EthB, EV, T> {
+        let Self { hooks, eth_api_builder, engine_validator_builder, .. } = self;
+        RpcAddOns { hooks, eth_api_builder, engine_validator_builder, engine_api_builder }
+    }
+
+    /// Maps the [`EngineValidatorBuilder`] builder type.
+    pub fn with_engine_validator<T>(
+        self,
+        engine_validator_builder: T,
+    ) -> RpcAddOns<Node, EthB, T, EB> {
+        let Self { hooks, eth_api_builder, engine_api_builder, .. } = self;
+        RpcAddOns { hooks, eth_api_builder, engine_validator_builder, engine_api_builder }
     }
 
     /// Sets the hook that is run once the rpc server is started.
@@ -477,7 +498,7 @@ where
         );
 
         let ctx = EthApiCtx { components: &node, config: config.rpc.eth_config(), cache };
-        let eth_api = eth_api_builder.build_eth_api(ctx);
+        let eth_api = eth_api_builder.build_eth_api(ctx).await?;
 
         let auth_config = config.rpc.auth_server_config(jwt_secret)?;
         let module_config = config.rpc.transport_rpc_module_config();
@@ -487,9 +508,8 @@ where
             .with_provider(node.provider().clone())
             .with_pool(node.pool().clone())
             .with_network(node.network().clone())
-            .with_executor(node.task_executor().clone())
+            .with_executor(Box::new(node.task_executor().clone()))
             .with_evm_config(node.evm_config().clone())
-            .with_block_executor(node.block_executor().clone())
             .with_consensus(node.consensus().clone())
             .build_with_auth_server(module_config, engine_api, eth_api);
 
@@ -530,7 +550,7 @@ where
         let launch_auth = auth_module.clone().start_server(auth_config).map_ok(|handle| {
             let addr = handle.local_addr();
             if let Some(ipc_endpoint) = handle.ipc_endpoint() {
-                info!(target: "reth::cli", url=%addr, ipc_endpoint=%ipc_endpoint,"RPC auth server started");
+                info!(target: "reth::cli", url=%addr, ipc_endpoint=%ipc_endpoint, "RPC auth server started");
             } else {
                 info!(target: "reth::cli", url=%addr, "RPC auth server started");
             }
@@ -622,13 +642,16 @@ pub trait EthApiBuilder<N: FullNodeComponents>: Default + Send + 'static {
         + 'static;
 
     /// Builds the [`EthApiServer`](reth_rpc_api::eth::EthApiServer) from the given context.
-    fn build_eth_api(self, ctx: EthApiCtx<'_, N>) -> Self::EthApi;
+    fn build_eth_api(
+        self,
+        ctx: EthApiCtx<'_, N>,
+    ) -> impl Future<Output = eyre::Result<Self::EthApi>> + Send;
 }
 
 /// Helper trait that provides the validator for the engine API
 pub trait EngineValidatorAddOn<Node: FullNodeComponents>: Send {
     /// The Validator type to use for the engine API.
-    type Validator: EngineValidator<<Node::Types as NodeTypesWithEngine>::Payload, Block = BlockTy<Node::Types>>
+    type Validator: EngineValidator<<Node::Types as NodeTypes>::Payload, Block = BlockTy<Node::Types>>
         + Clone;
 
     /// Creates the engine validator for an engine API based node.
@@ -655,7 +678,7 @@ where
 /// A type that knows how to build the engine validator.
 pub trait EngineValidatorBuilder<Node: FullNodeComponents>: Send + Sync + Clone {
     /// The consensus implementation to build.
-    type Validator: EngineValidator<<Node::Types as NodeTypesWithEngine>::Payload, Block = BlockTy<Node::Types>>
+    type Validator: EngineValidator<<Node::Types as NodeTypes>::Payload, Block = BlockTy<Node::Types>>
         + Clone;
 
     /// Creates the engine validator.
@@ -668,7 +691,7 @@ pub trait EngineValidatorBuilder<Node: FullNodeComponents>: Send + Sync + Clone 
 impl<Node, F, Fut, Validator> EngineValidatorBuilder<Node> for F
 where
     Node: FullNodeComponents,
-    Validator: EngineValidator<<Node::Types as NodeTypesWithEngine>::Payload, Block = BlockTy<Node::Types>>
+    Validator: EngineValidator<<Node::Types as NodeTypes>::Payload, Block = BlockTy<Node::Types>>
         + Clone
         + Unpin
         + 'static,
@@ -686,11 +709,19 @@ where
 }
 
 /// Builder for engine API RPC module.
+///
+/// This builder type is responsible for providing an instance of [`IntoEngineApiRpcModule`], which
+/// is effectively a helper trait that provides the type erased [`jsonrpsee::RpcModule`] instance
+/// that contains the method handlers for the engine API. See [`EngineApi`] for an implementation of
+/// [`IntoEngineApiRpcModule`].
 pub trait EngineApiBuilder<Node: FullNodeComponents>: Send + Sync {
-    /// The engine API RPC module. Only required to be convertible to an [`jsonrpsee`] module.
+    /// The engine API RPC module. Only required to be convertible to an [`jsonrpsee::RpcModule`].
     type EngineApi: IntoEngineApiRpcModule + Send + Sync;
 
-    /// Builds the engine API.
+    /// Builds the engine API instance given the provided [`AddOnsContext`].
+    ///
+    /// [`Self::EngineApi`] will be converted into the method handlers of the authenticated RPC
+    /// server (engine API).
     fn build_engine_api(
         self,
         ctx: &AddOnsContext<'_, Node>,
@@ -698,6 +729,10 @@ pub trait EngineApiBuilder<Node: FullNodeComponents>: Send + Sync {
 }
 
 /// Builder for basic [`EngineApi`] implementation.
+///
+/// This provides a basic default implementation for opstack and ethereum engine API via
+/// [`EngineTypes`] and uses the general purpose [`EngineApi`] implementation as the builder's
+/// output.
 #[derive(Debug, Default)]
 pub struct BasicEngineApiBuilder<EV> {
     engine_validator_builder: EV,
@@ -706,7 +741,7 @@ pub struct BasicEngineApiBuilder<EV> {
 impl<N, EV> EngineApiBuilder<N> for BasicEngineApiBuilder<EV>
 where
     N: FullNodeComponents<
-        Types: NodeTypesWithEngine<
+        Types: NodeTypes<
             ChainSpec: EthereumHardforks,
             Payload: PayloadTypes<ExecutionData = ExecutionData> + EngineTypes,
         >,
@@ -715,7 +750,7 @@ where
 {
     type EngineApi = EngineApi<
         N::Provider,
-        <N::Types as NodeTypesWithEngine>::Payload,
+        <N::Types as NodeTypes>::Payload,
         N::Pool,
         EV::Validator,
         <N::Types as NodeTypes>::ChainSpec,
@@ -743,5 +778,36 @@ where
             engine_validator,
             ctx.config.engine.accept_execution_requests_hash,
         ))
+    }
+}
+
+/// A noop Builder that satisfies the [`EngineApiBuilder`] trait without actually configuring an
+/// engine API module
+///
+/// This is intended to be used as a workaround for reusing all the existing ethereum node launch
+/// utilities which require an engine API.
+#[derive(Debug, Clone, Default)]
+#[non_exhaustive]
+pub struct NoopEngineApiBuilder;
+
+impl<N: FullNodeComponents> EngineApiBuilder<N> for NoopEngineApiBuilder {
+    type EngineApi = NoopEngineApi;
+
+    async fn build_engine_api(self, _ctx: &AddOnsContext<'_, N>) -> eyre::Result<Self::EngineApi> {
+        Ok(NoopEngineApi::default())
+    }
+}
+
+/// Represents an empty Engine API [`RpcModule`].
+///
+/// This is only intended to be used in combination with the [`NoopEngineApiBuilder`] in order to
+/// satisfy trait bounds in the regular ethereum launch routine that mandate an engine API instance.
+#[derive(Debug, Clone, Default)]
+#[non_exhaustive]
+pub struct NoopEngineApi;
+
+impl IntoEngineApiRpcModule for NoopEngineApi {
+    fn into_rpc_module(self) -> RpcModule<()> {
+        RpcModule::new(())
     }
 }

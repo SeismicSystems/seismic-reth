@@ -30,19 +30,21 @@ use reth_engine_tree::{
     persistence::PersistenceHandle,
     tree::{EngineApiTreeHandler, InvalidBlockHook, TreeConfig},
 };
-use reth_evm::{execute::BlockExecutorProvider, ConfigureEvm};
-use reth_node_core::dirs::{ChainPath, DataDirPath};
+use reth_evm::ConfigureEvm;
 use reth_node_types::BlockTy;
 use reth_payload_builder::PayloadBuilderHandle;
 use reth_payload_primitives::{PayloadAttributesBuilder, PayloadTypes};
 use reth_provider::{
-    providers::{BlockchainProvider, EngineNodeTypes},
+    providers::{BlockchainProvider, ProviderNodeTypes},
     ChainSpecProvider, ProviderFactory,
 };
 use reth_prune::PrunerWithFactory;
 use reth_stages_api::MetricEventsSender;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::error;
+
+// seismic imports not used by upstream
+use reth_node_core::dirs::{ChainPath, DataDirPath};
 
 /// Provides a local dev service engine that can be used to drive the
 /// chain forward.
@@ -51,7 +53,7 @@ use tracing::error;
 /// modifications of the stream
 pub struct LocalEngineService<N>
 where
-    N: EngineNodeTypes,
+    N: ProviderNodeTypes,
 {
     /// Processes requests.
     ///
@@ -63,13 +65,12 @@ where
 
 impl<N> LocalEngineService<N>
 where
-    N: EngineNodeTypes,
+    N: ProviderNodeTypes,
 {
     /// Constructor for [`LocalEngineService`].
     #[expect(clippy::too_many_arguments)]
     pub fn new<B, V, C>(
         consensus: Arc<dyn FullConsensus<N::Primitives, Error = ConsensusError>>,
-        executor_factory: impl BlockExecutorProvider<Primitives = N::Primitives>,
         provider: ProviderFactory<N>,
         blockchain_db: BlockchainProvider<N>,
         pruner: PrunerWithFactory<ProviderFactory<N>>,
@@ -99,21 +100,19 @@ where
         let canonical_in_memory_state = blockchain_db.canonical_in_memory_state();
         let backup_handle = BackupHandle::spawn_service(data_dir);
 
-        let (to_tree_tx, from_tree) =
-            EngineApiTreeHandler::<N::Primitives, _, _, _, _, _>::spawn_new(
-                blockchain_db.clone(),
-                executor_factory,
-                consensus,
-                payload_validator,
-                persistence_handle,
-                payload_builder.clone(),
-                canonical_in_memory_state,
-                tree_config,
-                invalid_block_hook,
-                engine_kind,
-                evm_config,
-                backup_handle,
-            );
+        let (to_tree_tx, from_tree) = EngineApiTreeHandler::<N::Primitives, _, _, _, _>::spawn_new(
+            blockchain_db.clone(),
+            consensus,
+            payload_validator,
+            persistence_handle,
+            payload_builder.clone(),
+            canonical_in_memory_state,
+            tree_config,
+            invalid_block_hook,
+            engine_kind,
+            evm_config,
+            backup_handle,
+        );
 
         let handler = EngineApiRequestHandler::new(to_tree_tx, from_tree);
 
@@ -131,7 +130,7 @@ where
 
 impl<N> Stream for LocalEngineService<N>
 where
-    N: EngineNodeTypes,
+    N: ProviderNodeTypes,
 {
     type Item = ChainEvent<BeaconConsensusEngineEvent<N::Primitives>>;
 
@@ -164,7 +163,7 @@ where
     }
 }
 
-impl<N: EngineNodeTypes> Debug for LocalEngineService<N> {
+impl<N: ProviderNodeTypes> Debug for LocalEngineService<N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("LocalEngineService").finish_non_exhaustive()
     }

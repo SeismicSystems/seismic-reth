@@ -8,7 +8,6 @@ use crate::{
 };
 use alloy_consensus::{Transaction, Typed2718};
 use alloy_primitives::{Bytes, B256, U256};
-use alloy_rlp::Encodable;
 use alloy_rpc_types_debug::ExecutionWitness;
 use alloy_rpc_types_engine::PayloadId;
 use op_alloy_rpc_types_engine::OpPayloadAttributes;
@@ -24,8 +23,12 @@ use reth_evm::{
 use reth_execution_types::ExecutionOutcome;
 use reth_optimism_evm::OpNextBlockEnvAttributes;
 use reth_optimism_forks::OpHardforks;
-use reth_optimism_primitives::transaction::signed::OpTransaction;
-use reth_optimism_txpool::{interop::MaybeInteropTransaction, OpPooledTx};
+use reth_optimism_primitives::{transaction::OpTransaction, ADDRESS_L2_TO_L1_MESSAGE_PASSER};
+use reth_optimism_txpool::{
+    estimated_da_size::DataAvailabilitySized,
+    interop::{is_valid_interop, MaybeInteropTransaction},
+    OpPooledTx,
+};
 use reth_payload_builder_primitives::PayloadBuilderError;
 use reth_payload_primitives::PayloadBuilderAttributes;
 use reth_payload_util::{BestPayloadTransactions, NoopPayloadTransactions, PayloadTransactions};
@@ -68,7 +71,7 @@ impl<Pool, Client, Evm> OpPayloadBuilder<Pool, Client, Evm> {
     }
 
     /// Configures the builder with the given [`OpBuilderConfig`].
-    pub fn with_builder_config(
+    pub const fn with_builder_config(
         pool: Pool,
         client: Client,
         evm_config: Evm,
@@ -141,9 +144,8 @@ where
         best: impl FnOnce(BestTransactionsAttributes) -> Txs + Send + Sync + 'a,
     ) -> Result<BuildOutcome<OpBuiltPayload<N>>, PayloadBuilderError>
     where
-        Txs: PayloadTransactions<
-            Transaction: PoolTransaction<Consensus = N::SignedTx> + MaybeInteropTransaction,
-        >,
+        Txs:
+            PayloadTransactions<Transaction: PoolTransaction<Consensus = N::SignedTx> + OpPooledTx>,
     {
         let BuildArguments { mut cached_reads, config, cancel, best_payload } = args;
 
@@ -284,9 +286,8 @@ impl<Txs> OpBuilder<'_, Txs> {
         EvmConfig: ConfigureEvm<Primitives = N, NextBlockEnvCtx = OpNextBlockEnvAttributes>,
         ChainSpec: EthChainSpec + OpHardforks,
         N: OpPayloadPrimitives,
-        Txs: PayloadTransactions<
-            Transaction: PoolTransaction<Consensus = N::SignedTx> + MaybeInteropTransaction,
-        >,
+        Txs:
+            PayloadTransactions<Transaction: PoolTransaction<Consensus = N::SignedTx> + OpPooledTx>,
     {
         let Self { best } = self;
         debug!(target: "payload_builder", id=%ctx.payload_id(), parent_header = ?ctx.parent().hash(), parent_number = ctx.parent().number, "building new payload");
@@ -378,10 +379,21 @@ impl<Txs> OpBuilder<'_, Txs> {
         ctx.execute_sequencer_transactions(&mut builder)?;
         builder.into_executor().apply_post_execution_changes()?;
 
-        let ExecutionWitnessRecord { hashed_state, codes, keys } =
+        if ctx.chain_spec.is_isthmus_active_at_timestamp(ctx.attributes().timestamp()) {
+            // force load `L2ToL1MessagePasser.sol` so l2 withdrawals root can be computed even if
+            // no l2 withdrawals in block
+            _ = db.load_cache_account(ADDRESS_L2_TO_L1_MESSAGE_PASSER)?;
+        }
+
+        let ExecutionWitnessRecord { hashed_state, codes, keys, lowest_block_number: _ } =
             ExecutionWitnessRecord::from_executed_state(&db);
         let state = state_provider.witness(Default::default(), hashed_state)?;
-        Ok(ExecutionWitness { state: state.into_iter().collect(), codes, keys })
+        Ok(ExecutionWitness {
+            state: state.into_iter().collect(),
+            codes,
+            keys,
+            ..Default::default()
+        })
     }
 }
 
@@ -432,7 +444,7 @@ pub struct ExecutionInfo {
 
 impl ExecutionInfo {
     /// Create a new instance with allocated slots.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { cumulative_gas_used: 0, cumulative_da_bytes_used: 0, total_fees: U256::ZERO }
     }
 
@@ -444,22 +456,23 @@ impl ExecutionInfo {
     ///   maximum allowed DA limit per block.
     pub fn is_tx_over_limits(
         &self,
-        tx: &(impl Encodable + Transaction),
+        tx_da_size: u64,
         block_gas_limit: u64,
         tx_data_limit: Option<u64>,
         block_data_limit: Option<u64>,
+        tx_gas_limit: u64,
     ) -> bool {
-        if tx_data_limit.is_some_and(|da_limit| tx.length() as u64 > da_limit) {
+        if tx_data_limit.is_some_and(|da_limit| tx_da_size > da_limit) {
             return true;
         }
 
         if block_data_limit
-            .is_some_and(|da_limit| self.cumulative_da_bytes_used + (tx.length() as u64) > da_limit)
+            .is_some_and(|da_limit| self.cumulative_da_bytes_used + tx_da_size > da_limit)
         {
             return true;
         }
 
-        self.cumulative_gas_used + tx.gas_limit() > block_gas_limit
+        self.cumulative_gas_used + tx_gas_limit > block_gas_limit
     }
 }
 
@@ -615,8 +628,7 @@ where
         info: &mut ExecutionInfo,
         builder: &mut impl BlockBuilder<Primitives = Evm::Primitives>,
         mut best_txs: impl PayloadTransactions<
-            Transaction: PoolTransaction<Consensus = TxTy<Evm::Primitives>>
-                             + MaybeInteropTransaction,
+            Transaction: PoolTransaction<Consensus = TxTy<Evm::Primitives>> + OpPooledTx,
         >,
     ) -> Result<Option<()>, PayloadBuilderError> {
         let block_gas_limit = builder.evm_mut().block().gas_limit;
@@ -625,9 +637,16 @@ where
         let base_fee = builder.evm_mut().block().basefee;
 
         while let Some(tx) = best_txs.next(()) {
-            let interop = tx.interop();
+            let interop = tx.interop_deadline();
+            let tx_da_size = tx.estimated_da_size();
             let tx = tx.into_consensus();
-            if info.is_tx_over_limits(tx.inner(), block_gas_limit, tx_da_limit, block_da_limit) {
+            if info.is_tx_over_limits(
+                tx_da_size,
+                block_gas_limit,
+                tx_da_limit,
+                block_da_limit,
+                tx.gas_limit(),
+            ) {
                 // we can't fit this transaction into the block, so we need to mark it as
                 // invalid which also removes all dependent transaction from
                 // the iterator before we can continue
@@ -644,7 +663,7 @@ where
             // We skip invalid cross chain txs, they would be removed on the next block update in
             // the maintenance job
             if let Some(interop) = interop {
-                if !interop.is_valid(self.config.attributes.timestamp()) {
+                if !is_valid_interop(interop, self.config.attributes.timestamp()) {
                     best_txs.mark_invalid(tx.signer(), tx.nonce());
                     continue
                 }
@@ -680,7 +699,7 @@ where
             // add gas used by the transaction to cumulative gas used, before creating the
             // receipt
             info.cumulative_gas_used += gas_used;
-            info.cumulative_da_bytes_used += tx.length() as u64;
+            info.cumulative_da_bytes_used += tx_da_size;
 
             // update add to total fees
             let miner_fee = tx

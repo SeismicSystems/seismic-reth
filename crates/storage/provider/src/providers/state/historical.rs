@@ -547,7 +547,7 @@ mod tests {
         transaction::{DbTx, DbTxMut},
         BlockNumberList,
     };
-    use reth_primitives::{Account, StorageEntry};
+    use reth_primitives_traits::{Account, StorageEntry};
     use reth_storage_api::{
         BlockHashReader, BlockNumReader, DBProvider, DatabaseProviderFactory,
         StateCommitmentProvider,
@@ -746,7 +746,7 @@ mod tests {
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 4).storage(ADDRESS, STORAGE),
-            Ok(Some(expected_value)) if expected_value == higher_entry_at4.value
+            Ok(Some(expected_value)) if expected_value == entry_at7.value
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 7).storage(ADDRESS, STORAGE),

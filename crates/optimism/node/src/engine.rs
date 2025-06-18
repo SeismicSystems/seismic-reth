@@ -19,10 +19,8 @@ use reth_node_api::{
 use reth_optimism_chainspec::OpChainSpec;
 use reth_optimism_consensus::isthmus;
 use reth_optimism_forks::{OpHardfork, OpHardforks};
-use reth_optimism_payload_builder::{
-    OpBuiltPayload, OpExecutionPayloadValidator, OpPayloadBuilderAttributes,
-};
-use reth_optimism_primitives::{OpBlock, OpPrimitives, ADDRESS_L2_TO_L1_MESSAGE_PASSER};
+use reth_optimism_payload_builder::{OpExecutionPayloadValidator, OpPayloadTypes};
+use reth_optimism_primitives::{OpBlock, ADDRESS_L2_TO_L1_MESSAGE_PASSER};
 use reth_primitives_traits::{RecoveredBlock, SealedBlock};
 use reth_provider::StateProviderFactory;
 use reth_trie_common::{HashedPostState, KeyHasher};
@@ -68,29 +66,7 @@ where
     type ExecutionPayloadEnvelopeV2 = ExecutionPayloadEnvelopeV2;
     type ExecutionPayloadEnvelopeV3 = OpExecutionPayloadEnvelopeV3;
     type ExecutionPayloadEnvelopeV4 = OpExecutionPayloadEnvelopeV4;
-}
-
-/// A default payload type for [`OpEngineTypes`]
-#[derive(Debug, Default, Clone, serde::Deserialize, serde::Serialize)]
-#[non_exhaustive]
-pub struct OpPayloadTypes<N: NodePrimitives = OpPrimitives>(core::marker::PhantomData<N>);
-
-impl<N: NodePrimitives> PayloadTypes for OpPayloadTypes<N>
-where
-    OpBuiltPayload<N>: BuiltPayload<Primitives: NodePrimitives<Block = OpBlock>>,
-{
-    type ExecutionData = OpExecutionData;
-    type BuiltPayload = OpBuiltPayload<N>;
-    type PayloadAttributes = OpPayloadAttributes;
-    type PayloadBuilderAttributes = OpPayloadBuilderAttributes<N::SignedTx>;
-
-    fn block_to_payload(
-        block: SealedBlock<
-            <<Self::BuiltPayload as BuiltPayload>::Primitives as NodePrimitives>::Block,
-        >,
-    ) -> Self::ExecutionData {
-        OpExecutionData::from_block_unchecked(block.hash(), &block.into_block())
-    }
+    type ExecutionPayloadEnvelopeV5 = OpExecutionPayloadEnvelopeV4;
 }
 
 /// Validator for Optimism engine API.
@@ -141,9 +117,12 @@ where
         block: &RecoveredBlock<Self::Block>,
     ) -> Result<(), ConsensusError> {
         if self.chain_spec().is_isthmus_active_at_timestamp(block.timestamp()) {
-            let state = self.provider.state_by_block_hash(block.parent_hash()).map_err(|err| {
-                ConsensusError::Other(format!("failed to verify block post-execution: {err}"))
-            })?;
+            let Ok(state) = self.provider.state_by_block_hash(block.parent_hash()) else {
+                // FIXME: we don't necessarily have access to the parent block here because the
+                // parent block isn't necessarily part of the canonical chain yet. Instead this
+                // function should receive the list of in memory blocks as input
+                return Ok(())
+            };
             let predeploy_storage_updates = state_updates
                 .storages
                 .get(&self.hashed_addr_l2tol1_msg_passer)
@@ -256,7 +235,10 @@ pub fn validate_withdrawals_presence(
                     .to_error(VersionSpecificValidationError::NoWithdrawalsPostShanghai))
             }
         }
-        EngineApiMessageVersion::V2 | EngineApiMessageVersion::V3 | EngineApiMessageVersion::V4 => {
+        EngineApiMessageVersion::V2 |
+        EngineApiMessageVersion::V3 |
+        EngineApiMessageVersion::V4 |
+        EngineApiMessageVersion::V5 => {
             if is_shanghai && !has_withdrawals {
                 return Err(message_validation_kind
                     .to_error(VersionSpecificValidationError::NoWithdrawalsPostShanghai))

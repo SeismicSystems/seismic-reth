@@ -6,26 +6,29 @@ use alloy_rpc_types_engine::ForkchoiceState;
 use alloy_rpc_types_eth::BlockNumberOrTag;
 use eyre::Ok;
 use futures_util::Future;
-use jsonrpsee::http_client::{transport::HttpBackend, HttpClient};
+use jsonrpsee::http_client::HttpClient;
 use reth_chainspec::EthereumHardforks;
 use reth_network_api::test_utils::PeersHandleProvider;
 use reth_node_api::{
     Block, BlockBody, BlockTy, EngineApiMessageVersion, FullNodeComponents, PayloadTypes,
     PrimitivesTy,
 };
-use reth_node_builder::{rpc::RethRpcAddOns, FullNode, NodeTypesWithEngine};
+use reth_node_builder::{rpc::RethRpcAddOns, FullNode, NodeTypes};
 use reth_node_core::primitives::SignedTransaction;
 use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes};
 use reth_provider::{
     BlockReader, BlockReaderIdExt, CanonStateNotificationStream, CanonStateSubscriptions,
     StageCheckpointReader,
 };
-use reth_rpc_eth_api::helpers::{EthApiSpec, FullEthApi, TraceExt};
-use reth_rpc_layer::AuthClientService;
+use reth_rpc_builder::auth::AuthServerHandle;
+use reth_rpc_eth_api::helpers::{EthApiSpec, TraceExt}; // upstream needs EthTransactions,
 use reth_stages_types::StageId;
 use std::pin::Pin;
 use tokio_stream::StreamExt;
 use url::Url;
+
+// seismic imports that upstream doesn't use
+use reth_rpc_eth_api::helpers::FullEthApi;
 
 /// An helper struct to handle node actions
 #[expect(missing_debug_implementations)]
@@ -37,7 +40,7 @@ where
     /// The core structure representing the full node.
     pub inner: FullNode<Node, AddOns>,
     /// Context for testing payload-related features.
-    pub payload: PayloadTestContext<<Node::Types as NodeTypesWithEngine>::Payload>,
+    pub payload: PayloadTestContext<<Node::Types as NodeTypes>::Payload>,
     /// Context for testing network functionalities.
     pub network: NetworkTestContext<Node::Network>,
     /// Context for testing RPC features.
@@ -50,7 +53,7 @@ impl<Node, Payload, AddOns> NodeTestContext<Node, AddOns>
 where
     Payload: PayloadTypes,
     Node: FullNodeComponents,
-    Node::Types: NodeTypesWithEngine<ChainSpec: EthereumHardforks, Payload = Payload>,
+    Node::Types: NodeTypes<ChainSpec: EthereumHardforks, Payload = Payload>,
     Node::Network: PeersHandleProvider,
     AddOns: RethRpcAddOns<Node>,
 {
@@ -292,7 +295,7 @@ where
     /// Returns the RPC URL.
     pub fn rpc_url(&self) -> Url {
         let addr = self.inner.rpc_server_handle().http_local_addr().unwrap();
-        format!("http://{}", addr).parse().unwrap()
+        format!("http://{addr}").parse().unwrap()
     }
 
     /// Returns an RPC client.
@@ -301,7 +304,7 @@ where
     }
 
     /// Returns an Engine API client.
-    pub fn engine_api_client(&self) -> HttpClient<AuthClientService<HttpBackend>> {
-        self.inner.auth_server_handle().http_client()
+    pub fn auth_server_handle(&self) -> AuthServerHandle {
+        self.inner.auth_server_handle().clone()
     }
 }
