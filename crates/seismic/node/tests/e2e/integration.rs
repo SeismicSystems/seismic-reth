@@ -651,7 +651,7 @@ async fn test_seismic_precompiles_end_to_end() {
     let event = Event {
         name: "EncryptedMessage".into(),
         inputs: vec![
-            EventParam { ty: "int96".into(), indexed: true, ..Default::default() },
+            EventParam { ty: "uint96".into(), indexed: true, ..Default::default() },
             EventParam { ty: "bytes".into(), indexed: false, ..Default::default() },
         ],
         anonymous: false,
