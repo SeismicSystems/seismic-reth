@@ -187,11 +187,6 @@ impl Compact for SeismicTxType {
     }
 }
 
-// impl<Eip4844> Compact for SeismicTypedTransaction<Eip4844>
-// where
-//     Eip4844: Compact + RlpEcdsaEncodableTx,
-// {
-
 impl Compact for SeismicTypedTransaction {
     fn to_compact<B>(&self, out: &mut B) -> usize
     where
@@ -205,9 +200,10 @@ impl Compact for SeismicTypedTransaction {
             Self::Eip4844(tx) => {
                 match tx {
                     TxEip4844Variant::TxEip4844(tx) => tx.to_compact(out),
-                    TxEip4844Variant::TxEip4844WithSidecar(_tx) => {
-                        // tx.to_compact(out)
-                        todo!("seismic upstream merge: Make this work with compact")
+                    TxEip4844Variant::TxEip4844WithSidecar(tx) => {
+                        // we do not have a way to encode the sidecar, so we just encode the inner
+                        let inner: &TxEip4844 = tx.tx();
+                        inner.to_compact(out)
                     },
                 }
             },
@@ -233,7 +229,7 @@ impl Compact for SeismicTypedTransaction {
                 (Self::Eip1559(tx), buf)
             }
             SeismicTxType::Eip4844 => {
-                let (tx, buf): (TxEip4844, _) = Compact::from_compact(buf, buf.len()); // seismic upstream merge: this should be the TxEip4844Variant type, make it work with otehr compat
+                let (tx, buf): (TxEip4844, _) = Compact::from_compact(buf, buf.len());
                 let tx = TxEip4844Variant::TxEip4844(tx);
                 (Self::Eip4844(tx), buf)
             }
@@ -258,9 +254,8 @@ impl ToTxCompact for SeismicTxEnvelope {
             Self::Eip4844(tx) => {
                 match tx.tx() {
                     TxEip4844Variant::TxEip4844(tx) => tx.to_compact(buf),
-                    TxEip4844Variant::TxEip4844WithSidecar(_tx) => {
-                        // tx.tx().to_compact(buf)
-                        todo!("seismic upstream merge: Make this work with compact")
+                    TxEip4844Variant::TxEip4844WithSidecar(tx) => {
+                        Compact::to_compact(&tx.tx(), buf)
                     },
                 }
             },
@@ -295,10 +290,17 @@ impl FromTxCompact for SeismicTxEnvelope {
                 (Self::Eip1559(tx), buf)
             }
             SeismicTxType::Eip4844 => {
-                let (tx, buf): (TxEip4844, _) = TxEip4844::from_compact(buf, buf.len()); // seismic upstream merge: this should be the TxEip4844Variant type, make it work with otehr compat
-                let tx = TxEip4844Variant::TxEip4844(tx);
-                let tx = Signed::new_unhashed(tx, signature);
-                (Self::Eip4844(tx), buf)
+                let (variant_tag, rest) = buf.split_first().expect("buffer should not be empty");
+            
+                match variant_tag {
+                    0 => {
+                        let (tx, buf) = TxEip4844::from_compact(rest, rest.len());
+                        let tx = Signed::new_unhashed(TxEip4844Variant::TxEip4844(tx), signature);
+                        (Self::Eip4844(tx), buf)
+                    }
+                    1 => unreachable!("seismic does not serialize sidecars yet"),
+                    _ => panic!("Unknown EIP-4844 variant tag: {}", variant_tag),
+                }
             }
             SeismicTxType::Eip7702 => {
                 let (tx, buf) = TxEip7702::from_compact(buf, buf.len());
