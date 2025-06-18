@@ -825,6 +825,7 @@ mod tests {
     use proptest::proptest;
     use proptest_arbitrary_interop::arb;
     use reth_codecs::Compact;
+    use seismic_alloy_consensus::SeismicTxType;
 
     #[test]
     fn recover_signer_test() {
@@ -839,6 +840,10 @@ mod tests {
     proptest! {
         #[test]
         fn test_roundtrip_2718(signed_tx in arb::<SeismicTransactionSigned>()) {
+            if signed_tx.transaction().tx_type() == SeismicTxType::Eip4844 {
+                // comapct not supported for eip4844
+                return Ok(())
+            }
 
             let mut signed_tx_bytes = Vec::<u8>::new();
             signed_tx.encode_2718(&mut signed_tx_bytes);
@@ -863,6 +868,11 @@ mod tests {
 
         #[test]
         fn test_roundtrip_compact_decode_envelope(reth_tx in arb::<SeismicTransactionSigned>()) {
+            if reth_tx.transaction().tx_type() == SeismicTxType::Eip4844 {
+                // comapct not supported for eip4844
+                return Ok(())
+            }
+
             let mut buf = Vec::<u8>::new();
             let len = reth_tx.to_compact(&mut buf);
 
