@@ -229,6 +229,7 @@ where
     fn evm_for_ctx(
         self,
     ) -> Option<(EvmFor<Evm, impl Database>, Evm, PrewarmMetrics, Arc<AtomicBool>)> {
+        #[allow(unused_variables)]
         let Self {
             header,
             evm_config,
@@ -238,7 +239,7 @@ where
             metrics,
             terminate_execution,
             precompile_cache_enabled,
-            mut precompile_cache_map,
+            precompile_cache_map,
         } = self;
 
         let state_provider = match provider.build() {
