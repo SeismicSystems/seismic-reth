@@ -26,7 +26,11 @@ fn update_rlp_node_level(c: &mut Criterion) {
         let mut sparse = RevealedSparseTrie::default();
         for (key, value) in &state {
             sparse
-                .update_leaf(Nibbles::unpack(key), alloy_rlp::encode_fixed_size(value).to_vec(), is_private)
+                .update_leaf(
+                    Nibbles::unpack(key),
+                    alloy_rlp::encode_fixed_size(value).to_vec(),
+                    is_private,
+                )
                 .unwrap();
         }
         sparse.root();

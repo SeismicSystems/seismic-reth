@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use alloy_rpc_types_engine::{ExecutionData, ExecutionPayload};
+use alloy_rpc_types_engine::{ExecutionData, ExecutionPayload, ExecutionPayloadEnvelopeV5};
 pub use alloy_rpc_types_engine::{
     ExecutionPayloadEnvelopeV2, ExecutionPayloadEnvelopeV3, ExecutionPayloadEnvelopeV4,
     ExecutionPayloadV1, PayloadAttributes,
@@ -18,7 +18,6 @@ use reth_node_api::{
 use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_payload_primitives::{BuiltPayload, PayloadTypes};
 use reth_primitives_traits::{NodePrimitives, RecoveredBlock, SealedBlock};
-use alloy_rpc_types_engine::ExecutionPayloadEnvelopeV5;
 use reth_seismic_primitives::SeismicPrimitives;
 
 /// The types used in the default mainnet ethereum beacon consensus engine.

@@ -708,8 +708,8 @@ mod tests {
         let address = Address::random();
         let storage_key = StorageKey::random();
         let storage_value = U256::from(1);
-        let account =
-            ExtendedAccount::new(0, U256::ZERO).extend_storage(vec![(storage_key, storage_value.into())]);
+        let account = ExtendedAccount::new(0, U256::ZERO)
+            .extend_storage(vec![(storage_key, storage_value.into())]);
 
         // note that we extend storage here with one value
         let provider = MockEthProvider::default();

@@ -14,7 +14,7 @@ use alloy_rpc_types_engine::{
     ExecutionPayloadEnvelopeV4, ExecutionPayloadEnvelopeV5, ExecutionPayloadFieldV2,
     ExecutionPayloadV1, ExecutionPayloadV3, PayloadAttributes, PayloadId,
 };
-use core::{convert::Infallible};
+use core::convert::Infallible;
 use reth_ethereum_primitives::{Block, EthPrimitives};
 use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes};
 use reth_primitives_traits::SealedBlock;
@@ -214,9 +214,10 @@ impl BuiltPayload for SeismicBuiltPayload {
 }
 
 // V1 engine_getPayloadV1 response
-impl<N> From<EthBuiltPayload<N>> for ExecutionPayloadV1 
-where N: NodePrimitives,
-N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
+impl<N> From<EthBuiltPayload<N>> for ExecutionPayloadV1
+where
+    N: NodePrimitives,
+    N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
 {
     fn from(value: EthBuiltPayload<N>) -> Self {
         Self::from_block_unchecked(
@@ -227,9 +228,10 @@ N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
 }
 
 // V2 engine_getPayloadV2 response
-impl<N> From<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV2 
-where N: NodePrimitives,
-N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
+impl<N> From<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV2
+where
+    N: NodePrimitives,
+    N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
 {
     fn from(value: EthBuiltPayload<N>) -> Self {
         let EthBuiltPayload { block, fees, .. } = value;
@@ -244,9 +246,10 @@ N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
     }
 }
 
-impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV3 
-where N: NodePrimitives,
-N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
+impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV3
+where
+    N: NodePrimitives,
+    N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
 {
     type Error = BuiltPayloadConversionError;
 
@@ -256,8 +259,9 @@ N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
 }
 
 impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV4
-where N: NodePrimitives,
-N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
+where
+    N: NodePrimitives,
+    N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
 {
     type Error = BuiltPayloadConversionError;
 
@@ -266,9 +270,10 @@ N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
     }
 }
 
-impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV5 
-where N: NodePrimitives,
-N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
+impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV5
+where
+    N: NodePrimitives,
+    N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
 {
     type Error = BuiltPayloadConversionError;
 

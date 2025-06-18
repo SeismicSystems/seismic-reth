@@ -34,7 +34,11 @@ fn calculate_root_from_leaves(c: &mut Criterion) {
         group.bench_function(BenchmarkId::new("hash builder", size), |b| {
             b.iter_with_setup(HashBuilder::default, |mut hb| {
                 for (key, value) in state.iter().sorted_by_key(|(key, _)| *key) {
-                    hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value.value), is_private);
+                    hb.add_leaf(
+                        Nibbles::unpack(key),
+                        &alloy_rlp::encode_fixed_size(&value.value),
+                        is_private,
+                    );
                 }
                 hb.root();
                 hb

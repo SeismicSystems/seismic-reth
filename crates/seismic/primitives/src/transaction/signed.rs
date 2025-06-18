@@ -9,7 +9,7 @@ use alloy_consensus::{
 use alloy_eips::{
     eip2718::{Decodable2718, Eip2718Error, Eip2718Result, Encodable2718},
     eip2930::AccessList,
-    eip7702::{SignedAuthorization},
+    eip7702::SignedAuthorization,
 };
 use alloy_evm::FromRecoveredTx;
 use alloy_primitives::{keccak256, Address, Bytes, Signature, TxHash, TxKind, Uint, B256};
@@ -20,7 +20,6 @@ use core::{
     ops::Deref,
 };
 use derive_more::{AsRef, Deref};
-use revm_context::either::Either;
 #[cfg(any(test, feature = "reth-codec"))]
 use proptest as _;
 use reth_primitives_traits::{
@@ -29,7 +28,7 @@ use reth_primitives_traits::{
     transaction::signed::RecoveryError,
     InMemorySize, SignedTransaction, SignerRecoverable,
 };
-use revm_context::TxEnv;
+use revm_context::{either::Either, TxEnv};
 use seismic_alloy_consensus::{
     InputDecryptionElements, InputDecryptionElementsError, SeismicTxEnvelope,
     SeismicTypedTransaction, TxSeismic, TxSeismicElements,
@@ -326,7 +325,11 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                     access_list: tx.access_list.clone(),
                     blob_hashes: Default::default(),
                     max_fee_per_blob_gas: Default::default(),
-                    authorization_list: tx.authorization_list.iter().map(|auth| Either::Left(auth.clone())).collect(),
+                    authorization_list: tx
+                        .authorization_list
+                        .iter()
+                        .map(|auth| Either::Left(auth.clone()))
+                        .collect(),
                     tx_type: 4,
                     caller: sender,
                 },
@@ -752,7 +755,9 @@ pub mod serde_bincode_compat {
                 super::SeismicTypedTransaction::Legacy(tx) => Self::Legacy(TxLegacy::from(tx)),
                 super::SeismicTypedTransaction::Eip2930(tx) => Self::Eip2930(TxEip2930::from(tx)),
                 super::SeismicTypedTransaction::Eip1559(tx) => Self::Eip1559(TxEip1559::from(tx)),
-                super::SeismicTypedTransaction::Eip4844(_tx) => todo!("seismic upstream merge:Eip4844 not supported"),
+                super::SeismicTypedTransaction::Eip4844(_tx) => {
+                    todo!("seismic upstream merge:Eip4844 not supported")
+                }
                 super::SeismicTypedTransaction::Eip7702(tx) => Self::Eip7702(TxEip7702::from(tx)),
                 super::SeismicTypedTransaction::Seismic(tx) => Self::Seismic(TxSeismic::from(tx)),
             }

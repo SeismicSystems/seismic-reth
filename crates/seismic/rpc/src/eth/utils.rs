@@ -34,7 +34,8 @@ pub fn recover_typed_data_request<T: SignedTransaction + Decodable712>(
     let transaction =
         T::decode_712(&mut data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
 
-    SignedTransaction::try_into_recovered(transaction).or(Err(EthApiError::InvalidTransactionSignature))
+    SignedTransaction::try_into_recovered(transaction)
+        .or(Err(EthApiError::InvalidTransactionSignature))
 }
 
 /// Convert a [`SeismicCallRequest`] to a [`SeismicTransactionRequest`].

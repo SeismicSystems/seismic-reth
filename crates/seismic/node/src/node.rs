@@ -7,10 +7,7 @@ use crate::{
 use alloy_eips::merge::EPOCH_SLOTS;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_consensus::{ConsensusError, FullConsensus};
-use reth_evm::{
-    ConfigureEvm, EvmFactory, EvmFactoryFor,
-    NextBlockEnvAttributes,
-};
+use reth_evm::{ConfigureEvm, EvmFactory, EvmFactoryFor, NextBlockEnvAttributes};
 use reth_network::{NetworkHandle, NetworkPrimitives};
 use reth_node_api::{AddOnsContext, FullNodeComponents, NodeAddOns, PrimitivesTy, TxTy};
 use reth_node_builder::{
@@ -44,8 +41,8 @@ use reth_transaction_pool::{
 use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
-use std::{sync::Arc, time::SystemTime};
 use seismic_enclave::rpc::SyncEnclaveApiClientBuilder;
+use std::{sync::Arc, time::SystemTime};
 
 use crate::{real_seismic_evm_config, RealSeismicEvmConfig};
 
@@ -504,7 +501,8 @@ impl SeismicPayloadBuilder {
     }
 }
 
-impl<Node, Pool, CB> PayloadBuilderBuilder<Node, Pool, SeismicEvmConfig<CB>> for SeismicPayloadBuilder
+impl<Node, Pool, CB> PayloadBuilderBuilder<Node, Pool, SeismicEvmConfig<CB>>
+    for SeismicPayloadBuilder
 where
     Node: FullNodeTypes<
         Types: NodeTypes<

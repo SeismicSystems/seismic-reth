@@ -5,7 +5,7 @@ use crate::tree::{
     payload_processor::{
         executor::WorkloadExecutor, multiproof::MultiProofMessage, ExecutionCache,
     },
-    precompile_cache::{PrecompileCacheMap},
+    precompile_cache::PrecompileCacheMap,
     StateProviderBuilder,
 };
 use alloy_consensus::transaction::Recovered;
@@ -265,8 +265,8 @@ where
         // doesn't match what's on chain.
         evm_env.cfg_env.disable_nonce_check = true;
 
-        // seismic upstream merge: we do not enable precompile cache since it breaks our stateful precompiles
-        // create a new executor and disable nonce checks in the env
+        // seismic upstream merge: we do not enable precompile cache since it breaks our stateful
+        // precompiles create a new executor and disable nonce checks in the env
         // let spec_id = *evm_env.spec_id();
         let evm = evm_config.evm_with_env(state_provider, evm_env);
         // if precompile_cache_enabled {

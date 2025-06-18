@@ -2360,7 +2360,8 @@ mod find_leaf_tests {
         let rlp_node_child1 = RlpNode::word_rlp(&blinded_hash); // Blinded node
 
         let is_private = false; // legacy test does not use private storage
-        let leaf_node_child5 = LeafNode::new(revealed_leaf_suffix.clone(), revealed_value.clone(), is_private);
+        let leaf_node_child5 =
+            LeafNode::new(revealed_leaf_suffix.clone(), revealed_value.clone(), is_private);
         let leaf_node_child5_rlp_buf = alloy_rlp::encode(&leaf_node_child5);
         let hash_of_child5 = keccak256(&leaf_node_child5_rlp_buf);
         let rlp_node_child5 = RlpNode::word_rlp(&hash_of_child5);
@@ -3766,20 +3767,34 @@ mod tests {
     #[test]
     fn sparse_trie_clear() {
         let is_private = false; // hardcoded to false for legacy test
-        // tests that if we fill a sparse trie with some nodes and then clear it, it has the same
-        // contents as an empty sparse trie
+                                // tests that if we fill a sparse trie with some nodes and then clear it, it has the same
+                                // contents as an empty sparse trie
         let mut sparse = RevealedSparseTrie::default();
         let value = alloy_rlp::encode_fixed_size(&U256::ZERO).to_vec();
         sparse
-            .update_leaf(Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x1]), value.clone(), is_private)
+            .update_leaf(
+                Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x1]),
+                value.clone(),
+                is_private,
+            )
             .unwrap();
         sparse
-            .update_leaf(Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x3]), value.clone(), is_private)
+            .update_leaf(
+                Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x3]),
+                value.clone(),
+                is_private,
+            )
             .unwrap();
         sparse
-            .update_leaf(Nibbles::from_nibbles([0x5, 0x2, 0x0, 0x1, 0x3]), value.clone(), is_private)
+            .update_leaf(
+                Nibbles::from_nibbles([0x5, 0x2, 0x0, 0x1, 0x3]),
+                value.clone(),
+                is_private,
+            )
             .unwrap();
-        sparse.update_leaf(Nibbles::from_nibbles([0x5, 0x3, 0x1, 0x0, 0x2]), value, is_private).unwrap();
+        sparse
+            .update_leaf(Nibbles::from_nibbles([0x5, 0x3, 0x1, 0x0, 0x2]), value, is_private)
+            .unwrap();
 
         sparse.clear();
 

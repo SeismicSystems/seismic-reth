@@ -50,7 +50,15 @@ macro_rules! impl_in_mem_size {
     };
 }
 
-impl_in_mem_size!(Header, TxLegacy, TxEip2930, TxEip1559, TxEip7702, TxEip4844, seismic_alloy_consensus::TxSeismic);
+impl_in_mem_size!(
+    Header,
+    TxLegacy,
+    TxEip2930,
+    TxEip1559,
+    TxEip7702,
+    TxEip4844,
+    seismic_alloy_consensus::TxSeismic
+);
 
 impl<T: TxEip4844Sidecar> InMemorySize for TxEip4844Variant<T> {
     #[inline]

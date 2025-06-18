@@ -1,7 +1,8 @@
-use alloy_consensus::{
-    transaction::Recovered, BlobTransactionValidationError, Typed2718,
+use alloy_consensus::{transaction::Recovered, BlobTransactionValidationError, Typed2718};
+use alloy_eips::{
+    eip2930::AccessList, eip7594::BlobTransactionSidecarVariant, eip7702::SignedAuthorization,
+    Encodable2718,
 };
-use alloy_eips::{eip2930::AccessList, eip7594::BlobTransactionSidecarVariant, eip7702::SignedAuthorization, Encodable2718};
 use alloy_primitives::{Address, Bytes, TxHash, TxKind, B256, U256};
 use c_kzg::KzgSettings;
 use core::fmt::Debug;

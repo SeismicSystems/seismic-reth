@@ -18,7 +18,7 @@ use error::{InsertBlockError, InsertBlockErrorKind, InsertBlockFatalError};
 use instrumented_state::InstrumentedStateProvider;
 use payload_processor::sparse_trie::StateRootComputeOutcome;
 use persistence_state::CurrentPersistenceAction;
-use precompile_cache::{PrecompileCacheMap};
+use precompile_cache::PrecompileCacheMap;
 use reth_chain_state::{
     CanonicalInMemoryState, ExecutedBlock, ExecutedBlockWithTrieUpdates,
     MemoryOverlayStateProvider, NewCanonicalChain,
@@ -2355,8 +2355,9 @@ where
             .with_bundle_update()
             .without_state_clear()
             .build();
-        
-        // seismic upstream merge: we do not enable precompile cache since it breaks our stateful precompiles
+
+        // seismic upstream merge: we do not enable precompile cache since it breaks our stateful
+        // precompiles
         let executor = self.evm_config.executor_for_block(&mut db, block);
         // if self.config.precompile_cache_enabled() {
         //     executor.evm_mut().precompiles_mut().map_precompiles(|address, precompile| {
@@ -2878,7 +2879,6 @@ mod tests {
     // seismic imports not used by upstream
     use reth_evm_ethereum::EthEvmConfig;
     use reth_node_core::dirs::MaybePlatformPath;
-    
 
     /// This is a test channel that allows you to `release` any value that is in the channel.
     ///

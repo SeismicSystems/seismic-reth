@@ -2,15 +2,11 @@ use alloy_consensus::{
     proofs::ordered_trie_root_with_encoder, Eip2718EncodableReceipt, Eip658Value, Receipt,
     ReceiptWithBloom, RlpDecodableReceipt, RlpEncodableReceipt, TxReceipt, Typed2718,
 };
-use alloy_eips::Encodable2718;
+use alloy_eips::{eip2718::Eip2718Result, Decodable2718, Encodable2718};
 use alloy_primitives::{Bloom, Log, B256};
-use alloy_rlp::{BufMut, Decodable, Header};
+use alloy_rlp::{BufMut, Decodable, Encodable, Header};
 use reth_primitives_traits::InMemorySize;
 use seismic_alloy_consensus::SeismicTxType;
-use alloy_rlp::Encodable;
-use alloy_eips::Decodable2718;
-use alloy_eips::eip2718::Eip2718Result;
-
 
 /// Typed ethereum transaction receipt.
 /// Receipt containing result of transaction execution.
@@ -213,12 +209,24 @@ impl SeismicReceipt {
         }
 
         match tx_type {
-            SeismicTxType::Legacy => Ok(Self::Legacy(Receipt { status, cumulative_gas_used, logs })),
-            SeismicTxType::Eip2930 => Ok(Self::Eip2930(Receipt { status, cumulative_gas_used, logs })),
-            SeismicTxType::Eip1559 => Ok(Self::Eip1559(Receipt { status, cumulative_gas_used, logs })),
-            SeismicTxType::Eip4844 => Ok(Self::Eip4844(Receipt { status, cumulative_gas_used, logs })),
-            SeismicTxType::Eip7702 => Ok(Self::Eip7702(Receipt { status, cumulative_gas_used, logs })),
-            SeismicTxType::Seismic => Ok(Self::Seismic(Receipt { status, cumulative_gas_used, logs })),
+            SeismicTxType::Legacy => {
+                Ok(Self::Legacy(Receipt { status, cumulative_gas_used, logs }))
+            }
+            SeismicTxType::Eip2930 => {
+                Ok(Self::Eip2930(Receipt { status, cumulative_gas_used, logs }))
+            }
+            SeismicTxType::Eip1559 => {
+                Ok(Self::Eip1559(Receipt { status, cumulative_gas_used, logs }))
+            }
+            SeismicTxType::Eip4844 => {
+                Ok(Self::Eip4844(Receipt { status, cumulative_gas_used, logs }))
+            }
+            SeismicTxType::Eip7702 => {
+                Ok(Self::Eip7702(Receipt { status, cumulative_gas_used, logs }))
+            }
+            SeismicTxType::Seismic => {
+                Ok(Self::Seismic(Receipt { status, cumulative_gas_used, logs }))
+            }
         }
     }
 

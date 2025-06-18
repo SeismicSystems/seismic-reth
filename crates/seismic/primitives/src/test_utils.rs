@@ -5,9 +5,7 @@ use alloy_consensus::SignableTransaction;
 use alloy_dyn_abi::TypedData;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_network::{EthereumWallet, TransactionBuilder};
-use alloy_primitives::{
-    aliases::U96, hex_literal, Address, Bytes, Signature, TxKind, U256,
-};
+use alloy_primitives::{aliases::U96, hex_literal, Address, Bytes, Signature, TxKind, U256};
 use alloy_rpc_types::{TransactionInput, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
 use core::str::FromStr;

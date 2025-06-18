@@ -1,5 +1,5 @@
 #![allow(missing_docs, unreachable_pub)]
-use alloy_primitives::{B256};
+use alloy_primitives::B256;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use proptest::{prelude::*, strategy::ValueTree, test_runner::TestRunner};
 use proptest_arbitrary_interop::arb;
