@@ -746,27 +746,27 @@ mod tests {
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 4).storage(ADDRESS, STORAGE),
-            Ok(Some(expected_value)) if expected_value == higher_entry_at4.value
+            Ok(Some(expected_value)) if expected_value == entry_at7.value.into()
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 7).storage(ADDRESS, STORAGE),
-            Ok(Some(expected_value)) if expected_value == entry_at7.value
+            Ok(Some(expected_value)) if expected_value == entry_at7.value.into()
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 9).storage(ADDRESS, STORAGE),
-            Ok(Some(expected_value)) if expected_value == entry_at10.value
+            Ok(Some(expected_value)) if expected_value == entry_at10.value.into()
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 10).storage(ADDRESS, STORAGE),
-            Ok(Some(expected_value)) if expected_value == entry_at10.value
+            Ok(Some(expected_value)) if expected_value == entry_at10.value.into()
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 11).storage(ADDRESS, STORAGE),
-            Ok(Some(expected_value)) if expected_value == entry_at15.value
+            Ok(Some(expected_value)) if expected_value == entry_at15.value.into()
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 16).storage(ADDRESS, STORAGE),
-            Ok(Some(expected_value)) if expected_value == entry_plain.value
+            Ok(Some(expected_value)) if expected_value == entry_plain.value.into()
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 1).storage(HIGHER_ADDRESS, STORAGE),
@@ -774,7 +774,7 @@ mod tests {
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 1000).storage(HIGHER_ADDRESS, STORAGE),
-            Ok(Some(expected_value)) if expected_value == higher_entry_plain.value
+            Ok(Some(expected_value)) if expected_value == higher_entry_plain.value.into()
         ));
     }
 
