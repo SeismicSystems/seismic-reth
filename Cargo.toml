@@ -137,33 +137,33 @@ members = [
     "crates/trie/parallel/",
     "crates/trie/sparse",
     "crates/trie/trie",
-    "examples/beacon-api-sidecar-fetcher/",
-    "examples/beacon-api-sse/",
-    "examples/bsc-p2p",
-    "examples/custom-dev-node/",
-    "examples/custom-node/",
-    "examples/custom-engine-types/",
-    "examples/custom-evm/",
-    "examples/custom-inspector/",
-    "examples/custom-node-components/",
-    "examples/custom-payload-builder/",
-    "examples/custom-rlpx-subprotocol",
-    "examples/custom-node",
-    "examples/db-access",
-    "examples/exex-hello-world",
-    "examples/exex-subscription",
-    "examples/exex-test",
-    "examples/manual-p2p/",
-    "examples/network-txpool/",
-    "examples/network/",
-    "examples/network-proxy/",
-    "examples/node-custom-rpc/",
-    "examples/node-event-hooks/",
-    "examples/polygon-p2p/",
-    "examples/rpc-db/",
-    "examples/precompile-cache/",
-    "examples/txpool-tracing/",
-    "examples/custom-beacon-withdrawals",
+    # "examples/beacon-api-sidecar-fetcher/",
+    # "examples/beacon-api-sse/",
+    # "examples/bsc-p2p",
+    # "examples/custom-dev-node/",
+    # "examples/custom-node/",
+    # "examples/custom-engine-types/",
+    # "examples/custom-evm/",
+    # "examples/custom-inspector/",
+    # "examples/custom-node-components/",
+    # "examples/custom-payload-builder/",
+    # "examples/custom-rlpx-subprotocol",
+    # "examples/custom-node",
+    # "examples/db-access",
+    # "examples/exex-hello-world",
+    # "examples/exex-subscription",
+    # "examples/exex-test",
+    # "examples/manual-p2p/",
+    # "examples/network-txpool/",
+    # "examples/network/",
+    # "examples/network-proxy/",
+    # "examples/node-custom-rpc/",
+    # "examples/node-event-hooks/",
+    # "examples/polygon-p2p/",
+    # "examples/rpc-db/",
+    # "examples/precompile-cache/",
+    # "examples/txpool-tracing/",
+    # "examples/custom-beacon-withdrawals",
     "testing/ef-tests/",
     "testing/testing-utils",
 
@@ -180,7 +180,11 @@ members = [
     "crates/seismic/hardforks",
 ]
 default-members = ["bin/seismic-reth", "bin/reth"]
-exclude = ["book/sources", "book/cli", "crates/tracing-otlp"]
+exclude = [
+    "book/sources",
+    "book/cli",
+    "crates/tracing-otlp",
+]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
 # https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
@@ -347,18 +351,18 @@ reth-seismic-forks = { path = "crates/seismic/hardforks", default-features = fal
 
 seismic-enclave = "0.1.0"
 seismic-revm = "1.0.0"
-alloy-seismic-evm = { version = "0.1.0-alpha.3" }
+alloy-seismic-evm = {version = "0.9"}
 # alloy-seismic-evm = {version = "0.0.1", default-features = false}
 
-seismic-alloy-rpc-types = { version = "0.0.1", default-features = false }
-seismic-alloy-consensus = { version = "0.0.1", default-features = false }
-seismic-alloy-provider = { version = "0.0.1", default-features = false }
+seismic-alloy-rpc-types = {version = "0.0.1", default-features = false}
+seismic-alloy-consensus = {version = "0.0.1", default-features = false}
+seismic-alloy-provider = {version = "0.0.1", default-features = false}
 
-seismic-alloy-rpc-types-engine = { version = "0.0.1", default-features = false }
-seismic-alloy-network = { version = "0.0.1", default-features = false }
-seismic-alloy-flz = { version = "0.0.1", default-features = false }
+seismic-alloy-rpc-types-engine = {version = "0.0.1", default-features = false}
+seismic-alloy-network = {version = "0.0.1", default-features = false}
+seismic-alloy-flz = {version = "0.0.1", default-features = false}
 
-alloy-json-abi = { version = "0.8.25", default-features = false } # only used by seismic rn
+alloy-json-abi = { version = "1.1.2", default-features = false } # only used by seismic rn
 
 # reth
 op-reth = { path = "crates/optimism/bin" }
@@ -508,12 +512,8 @@ alloy-chains = { version = "0.2.0", default-features = false }
 alloy-dyn-abi = "1.1.0"
 alloy-eip2124 = { version = "0.2.0", default-features = false }
 alloy-evm = { version = "0.9", default-features = false }
-alloy-primitives = { version = "1.1.0", default-features = false, features = [
-    "map-foldhash",
-] }
-alloy-rlp = { version = "0.3.10", default-features = false, features = [
-    "core-net",
-] }
+alloy-primitives = { version = "1.1.0", default-features = false, features = ["map-foldhash"] }
+alloy-rlp = { version = "0.3.10", default-features = false, features = ["core-net"] }
 alloy-sol-macro = "1.1.0"
 alloy-sol-types = { version = "1.1.0", default-features = false }
 alloy-trie = { version = "0.8.1", default-features = false }
@@ -527,14 +527,10 @@ alloy-genesis = { version = "1.0.5", default-features = false }
 alloy-json-rpc = { version = "1.0.5", default-features = false }
 alloy-network = { version = "1.0.5", default-features = false }
 alloy-network-primitives = { version = "1.0.5", default-features = false }
-alloy-provider = { version = "1.0.5", features = [
-    "reqwest",
-], default-features = false }
+alloy-provider = { version = "1.0.5", features = ["reqwest"], default-features = false }
 alloy-pubsub = { version = "1.0.5", default-features = false }
 alloy-rpc-client = { version = "1.0.5", default-features = false }
-alloy-rpc-types = { version = "1.0.5", features = [
-    "eth",
-], default-features = false }
+alloy-rpc-types = { version = "1.0.5", features = ["eth"], default-features = false }
 alloy-rpc-types-admin = { version = "1.0.5", default-features = false }
 alloy-rpc-types-anvil = { version = "1.0.5", default-features = false }
 alloy-rpc-types-beacon = { version = "1.0.5", default-features = false }
@@ -548,9 +544,7 @@ alloy-serde = { version = "1.0.5", default-features = false }
 alloy-signer = { version = "1.0.5", default-features = false }
 alloy-signer-local = { version = "1.0.5", default-features = false }
 alloy-transport = { version = "1.0.5" }
-alloy-transport-http = { version = "1.0.5", features = [
-    "reqwest-rustls-tls",
-], default-features = false }
+alloy-transport-http = { version = "1.0.5", features = ["reqwest-rustls-tls"], default-features = false }
 alloy-transport-ipc = { version = "1.0.5", default-features = false }
 alloy-transport-ws = { version = "1.0.5", default-features = false }
 
@@ -567,10 +561,7 @@ op-alloy-flz = { version = "0.13.0", default-features = false }
 # misc
 aquamarine = "0.6"
 auto_impl = "1"
-backon = { version = "1.2", default-features = false, features = [
-    "std-blocking-sleep",
-    "tokio-sleep",
-] }
+backon = { version = "1.2", default-features = false, features = ["std-blocking-sleep", "tokio-sleep"] }
 bincode = "1.3"
 bitflags = "2.4"
 blake3 = "1.5.5"
@@ -591,13 +582,9 @@ itertools = { version = "0.14", default-features = false }
 linked_hash_set = "0.1"
 lz4 = "1.28.1"
 modular-bitfield = "0.11.2"
-notify = { version = "8.0.0", default-features = false, features = [
-    "macos_fsevent",
-] }
+notify = { version = "8.0.0", default-features = false, features = ["macos_fsevent"] }
 nybbles = { version = "0.3.0", default-features = false }
-once_cell = { version = "1.19", default-features = false, features = [
-    "critical-section",
-] }
+once_cell = { version = "1.19", default-features = false, features = ["critical-section"] }
 parking_lot = "0.12"
 paste = "1.0"
 rand = "0.9"
@@ -675,10 +662,7 @@ proptest-arbitrary-interop = "0.1.0"
 # crypto
 enr = { version = "0.13", default-features = false }
 k256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
-secp256k1 = { version = "0.30", default-features = false, features = [
-    "global-context",
-    "recovery",
-] }
+secp256k1 = { version = "0.30", default-features = false, features = ["global-context", "recovery"] }
 # rand 8 for secp256k1
 rand_08 = { package = "rand", version = "0.8" }
 
@@ -767,42 +751,43 @@ vergen-git2 = "1.0.5"
 
 [patch.crates-io]
 # Seismic enclave
-seismic-enclave = { git = "https://github.com/SeismicSystems/seismic-enclave.git", rev = "7a0519c" }
+seismic-enclave = { git = "https://github.com/SeismicSystems/seismic-enclave.git", rev = "30a53d5"}
 
 # seismic-alloy-core
-alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ab2208a" }
-alloy-json-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ab2208a" }
-alloy-sol-macro-expander = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ab2208a" }
-alloy-sol-macro-input = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ab2208a" }
-alloy-sol-types = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ab2208a" }
-alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ab2208a" }
-alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ab2208a" }
+alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "417492f" }
+alloy-json-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "417492f" }
+alloy-sol-macro-expander = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "417492f" }
+alloy-sol-macro-input = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "417492f" }
+alloy-sol-types = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "417492f" }
+alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "417492f" }
+alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "417492f" }
 
 alloy-trie = { git = "https://github.com/SeismicSystems/seismic-trie.git", rev = "f3a74a3" }
 
 # Seismic alloy
-seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "47a7612" }
-seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "47a7612" }
-seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "47a7612" }
-seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "47a7612" }
+seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "bd8eeae" }
+seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "bd8eeae" }
+seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "bd8eeae" }
+seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "bd8eeae" }
 
 # revm
-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "c17e5a35" }
-revm-bytecode = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "c17e5a35" }
-revm-database = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "c17e5a35" }
-revm-state = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "c17e5a35" }
-revm-primitives = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "c17e5a35" }
-revm-interpreter = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "c17e5a35" }
-revm-inspector = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "c17e5a35" }
-revm-context = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "c17e5a35" }
-revm-context-interface = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "c17e5a35" }
-revm-database-interface = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "c17e5a35" }
-op-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "c17e5a35" }
-seismic-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "c17e5a35" }
+revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "eb5e3c5e"}
+revm-bytecode = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "eb5e3c5e"}
+revm-database = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "eb5e3c5e"}
+revm-state = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "eb5e3c5e"}
+revm-primitives = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "eb5e3c5e"}
+revm-interpreter = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "eb5e3c5e"}
+revm-inspector = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "eb5e3c5e"}
+revm-context = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "eb5e3c5e"}
+revm-context-interface = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "eb5e3c5e"}
+revm-database-interface = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "eb5e3c5e"}
+op-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "eb5e3c5e"}
+seismic-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "eb5e3c5e"}
 
-revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "f6dbe5b" }
+revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "f6dbe5b"}
 
 # alloy-evm
-alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "84d4a82" }
-# alloy-op-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "84d4a82"}
-alloy-seismic-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "84d4a82" }
+alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "2bd68f0" }
+# alloy-op-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "2bd68f0"}
+alloy-seismic-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "2bd68f0"}
+
