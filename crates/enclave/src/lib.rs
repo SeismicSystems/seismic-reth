@@ -7,7 +7,7 @@ use derive_more::Display;
 pub use seismic_enclave::{
     client::{
         rpc::{BuildableServer, SyncEnclaveApiClient},
-        EnclaveClient, MockEnclaveServer, ENCLAVE_DEFAULT_ENDPOINT_ADDR,
+        EnclaveClient, MockEnclaveServer, ENCLAVE_DEFAULT_ENDPOINT_IP,
         ENCLAVE_DEFAULT_ENDPOINT_PORT,
     },
     SchnorrkelKeypair,
@@ -40,20 +40,21 @@ fn get_random_port() -> u16 {
 pub async fn start_mock_enclave_server_random_port() -> EnclaveClient {
     let port = get_random_port();
     tokio::spawn(async move {
-        start_blocking_mock_enclave_server(ENCLAVE_DEFAULT_ENDPOINT_ADDR, port).await;
+        start_blocking_mock_enclave_server(ENCLAVE_DEFAULT_ENDPOINT_IP, port).await;
     });
-    EnclaveClient::builder().addr(ENCLAVE_DEFAULT_ENDPOINT_ADDR.to_string()).port(port).build()
+    EnclaveClient::builder().ip(ENCLAVE_DEFAULT_ENDPOINT_IP.to_string()).port(port).build().unwrap()
 }
 
 /// Start the mock enclave server
 pub async fn start_default_mock_enclave_server() -> EnclaveClient {
     let client = EnclaveClient::builder()
-        .addr(ENCLAVE_DEFAULT_ENDPOINT_ADDR.to_string())
+        .ip(ENCLAVE_DEFAULT_ENDPOINT_IP.to_string())
         .port(ENCLAVE_DEFAULT_ENDPOINT_PORT)
-        .build();
+        .build()
+        .unwrap();
     tokio::spawn(async move {
         start_blocking_mock_enclave_server(
-            ENCLAVE_DEFAULT_ENDPOINT_ADDR,
+            ENCLAVE_DEFAULT_ENDPOINT_IP,
             ENCLAVE_DEFAULT_ENDPOINT_PORT,
         )
         .await;

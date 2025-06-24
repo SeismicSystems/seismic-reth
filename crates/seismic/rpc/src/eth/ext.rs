@@ -59,10 +59,11 @@ impl SeismicApi {
     pub fn new<ChainSpec>(config: &NodeConfig<ChainSpec>) -> Self {
         Self {
             enclave_client: EnclaveClient::builder()
-                .addr(config.enclave.enclave_server_addr.to_string())
+                .ip(config.enclave.enclave_server_addr.to_string())
                 .port(config.enclave.enclave_server_port)
                 .timeout(std::time::Duration::from_secs(config.enclave.enclave_timeout))
-                .build(),
+                .build()
+                .unwrap(),
         }
     }
 
@@ -77,10 +78,12 @@ impl SeismicApi {
 impl SeismicApiServer for SeismicApi {
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey> {
         trace!(target: "rpc::seismic", "Serving seismic_getTeePublicKey");
-        self.enclave_client
-            .get_public_key()
+        let keys = self
+            .enclave_client
+            .get_purpose_keys(seismic_enclave::keys::GetPurposeKeysRequest { epoch: 0 })
             .await
-            .map_err(|e| SeismicEthApiError::EnclaveError(e.to_string()).into())
+            .map_err(|e| SeismicEthApiError::EnclaveError(e.to_string()))?;
+        Ok(keys.tx_io_pk)
     }
 }
 
