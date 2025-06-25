@@ -2,7 +2,6 @@
 use alloy_eips::BlockNumHash;
 use reth_errors::ProviderError;
 use reth_node_core::dirs::{ChainPath, DataDirPath};
-use reth_tracing::tracing::*;
 use std::{
     path::PathBuf,
     sync::mpsc::{Receiver, Sender},
@@ -10,6 +9,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::sync::oneshot;
+use tracing::*;
 
 /// Configuration for the backup service
 #[derive(Debug, Clone)]
@@ -97,23 +97,14 @@ impl BackupService {
         let destination_path = destination.as_path();
 
         // Retrieve the metadata of the source path
-        let metadata = std::fs::metadata(source_path).map_err(|e| {
-            ProviderError::FsPathError(format!(
-                "Failed to access source path: {} : {}",
-                source_path.display(),
-                e,
-            ))
-        })?;
+        let metadata = std::fs::metadata(source_path)
+            .expect(&format!("Failed to access source path: {} ", source_path.display(),));
 
         // If the source is a directory, create the destination directory if it does not exist
         if metadata.is_dir() {
             if !destination_path.exists() {
-                std::fs::create_dir_all(destination_path).map_err(|e| {
-                    ProviderError::FsPathError(format!(
-                        "Failed to create destination directory: {}",
-                        e
-                    ))
-                })?;
+                std::fs::create_dir_all(destination_path)
+                    .expect(&format!("Failed to create destination directory"));
             }
 
             // Stack to manage recursive copying
@@ -121,44 +112,32 @@ impl BackupService {
                 vec![(source_path.to_path_buf(), destination_path.to_path_buf())];
 
             while let Some((current_src, current_dst)) = entries_stack.pop() {
-                let mut entries = std::fs::read_dir(&current_src).map_err(|e| {
-                    ProviderError::FsPathError(format!(
-                        "Failed to read directory {}: {}",
-                        current_src.display(),
-                        e
-                    ))
-                })?;
+                let mut entries = std::fs::read_dir(&current_src)
+                    .expect(&format!("Failed to read directory {}", current_src.display(),));
 
-                while let Some(entry) = entries.next().transpose().map_err(|e| {
-                    ProviderError::FsPathError(format!("Failed to get diredctory entry: {}", e))
-                })? {
+                while let Some(entry) =
+                    entries.next().transpose().expect(&format!("Failed to get diredctory entry"))
+                {
                     let entry_path = entry.path();
                     let entry_name = entry.file_name();
                     let dst_path = current_dst.join(&entry_name);
-                    let entry_metadata = entry.metadata().map_err(|e| {
-                        ProviderError::FsPathError(format!("Failed to get diredctory entry: {}", e))
-                    })?;
+                    let entry_metadata =
+                        entry.metadata().expect(&format!("Failed to get diredctory entry"));
 
                     if entry_metadata.is_dir() {
                         if !dst_path.exists() {
-                            std::fs::create_dir_all(&dst_path).map_err(|e| {
-                                ProviderError::FsPathError(format!(
-                                    "Failed to create directory {}: {}",
-                                    dst_path.display(),
-                                    e
-                                ))
-                            })?;
+                            std::fs::create_dir_all(&dst_path).expect(&format!(
+                                "Failed to create directory {}",
+                                dst_path.display(),
+                            ));
                         }
                         entries_stack.push((entry_path, dst_path));
                     } else {
-                        std::fs::copy(&entry_path, &dst_path).map_err(|e| {
-                            ProviderError::FsPathError(format!(
-                                "Failed to copy file from {} to {}: {}",
-                                entry_path.display(),
-                                dst_path.display(),
-                                e
-                            ))
-                        })?;
+                        std::fs::copy(&entry_path, &dst_path).expect(&format!(
+                            "Failed to copy file from {} to {}",
+                            entry_path.display(),
+                            dst_path.display(),
+                        ));
                     }
                 }
             }
@@ -166,23 +145,17 @@ impl BackupService {
             // If the source is a file, copy it directly, creating parent directories if necessary
             if let Some(parent) = destination_path.parent() {
                 if !parent.exists() {
-                    std::fs::create_dir_all(parent).map_err(|e| {
-                        ProviderError::FsPathError(format!(
-                            "Failed to create parent directory {}: {}",
-                            parent.display(),
-                            e
-                        ))
-                    })?;
+                    std::fs::create_dir_all(parent)
+                        .expect(
+                            &format!("Failed to create parent directory {}", parent.display(),),
+                        );
                 }
             }
-            std::fs::copy(source_path, destination_path).map_err(|e| {
-                ProviderError::FsPathError(format!(
-                    "Failed to copy file from {} to {}: {}",
-                    source_path.display(),
-                    destination_path.display(),
-                    e
-                ))
-            })?;
+            std::fs::copy(source_path, destination_path).expect(&format!(
+                "Failed to copy file from {} to {}",
+                source_path.display(),
+                destination_path.display(),
+            ));
         }
 
         Ok(())

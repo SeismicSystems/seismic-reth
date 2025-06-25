@@ -28,10 +28,10 @@
 //! use std::pin::Pin;
 //! use std::sync::Arc;
 //! use std::task::{Context, Poll};
-//! use alloy_consensus::Header;
+//! use alloy_consensus::{Header, Block};
 //! use alloy_primitives::U256;
 //! use reth_payload_builder::{EthBuiltPayload, PayloadBuilderError, KeepPayloadJobAlive, EthPayloadBuilderAttributes, PayloadJob, PayloadJobGenerator, PayloadKind};
-//! use reth_primitives::{Block, BlockExt};
+//! use reth_primitives_traits::SealedBlock;
 //!
 //! /// The generator type that creates new jobs that builds empty blocks.
 //! pub struct EmptyBlockPayloadJobGenerator;
@@ -67,7 +67,7 @@
 //!         },
 //!         ..Default::default()
 //!     };
-//!     let payload = EthBuiltPayload::new(self.attributes.id, Arc::new(block.seal_slow()), U256::ZERO, None, None);
+//!     let payload = EthBuiltPayload::new(self.attributes.id, Arc::new(SealedBlock::seal_slow(block)), U256::ZERO, None);
 //!     Ok(payload)
 //! }
 //!
@@ -122,4 +122,6 @@ pub use traits::{KeepPayloadJobAlive, PayloadJob, PayloadJobGenerator};
 
 // re-export the Ethereum engine primitives for convenience
 #[doc(inline)]
-pub use reth_ethereum_engine_primitives::{EthBuiltPayload, EthPayloadBuilderAttributes};
+pub use reth_ethereum_engine_primitives::{
+    BlobSidecars, EthBuiltPayload, EthPayloadBuilderAttributes,
+};

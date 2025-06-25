@@ -1,11 +1,10 @@
-use std::{net::SocketAddr, path::PathBuf};
-
-use jsonrpsee::server::ServerBuilder;
+use jsonrpsee::server::ServerConfigBuilder;
 use reth_node_core::{args::RpcServerArgs, utils::get_or_create_jwt_secret_from_path};
 use reth_rpc::ValidationApiConfig;
 use reth_rpc_eth_types::{EthConfig, EthStateCacheConfig, GasPriceOracleConfig};
 use reth_rpc_layer::{JwtError, JwtSecret};
 use reth_rpc_server_types::RpcModuleSelection;
+use std::{net::SocketAddr, path::PathBuf};
 use tower::layer::util::Identity;
 use tracing::{debug, warn};
 
@@ -49,8 +48,8 @@ pub trait RethRpcServerConfig {
     /// settings in the [`TransportRpcModuleConfig`].
     fn transport_rpc_module_config(&self) -> TransportRpcModuleConfig;
 
-    /// Returns the default server builder for http/ws
-    fn http_ws_server_builder(&self) -> ServerBuilder<Identity, Identity>;
+    /// Returns the default server config for http/ws
+    fn http_ws_server_builder(&self) -> ServerConfigBuilder;
 
     /// Returns the default ipc server builder
     fn ipc_server_builder(&self) -> IpcServerBuilder<Identity, Identity>;
@@ -95,6 +94,7 @@ impl RethRpcServerConfig for RpcServerArgs {
     fn eth_config(&self) -> EthConfig {
         EthConfig::default()
             .max_tracing_requests(self.rpc_max_tracing_requests)
+            .max_trace_filter_blocks(self.rpc_max_trace_filter_blocks)
             .max_blocks_per_filter(self.rpc_max_blocks_per_filter.unwrap_or_max())
             .max_logs_per_response(self.rpc_max_logs_per_response.unwrap_or_max() as usize)
             .eth_proof_window(self.rpc_eth_proof_window)
@@ -106,7 +106,10 @@ impl RethRpcServerConfig for RpcServerArgs {
     }
 
     fn flashbots_config(&self) -> ValidationApiConfig {
-        ValidationApiConfig { disallow: self.builder_disallow.clone().unwrap_or_default() }
+        ValidationApiConfig {
+            disallow: self.builder_disallow.clone().unwrap_or_default(),
+            validation_window: self.rpc_eth_proof_window,
+        }
     }
 
     fn state_cache_config(&self) -> EthStateCacheConfig {
@@ -157,8 +160,8 @@ impl RethRpcServerConfig for RpcServerArgs {
         config
     }
 
-    fn http_ws_server_builder(&self) -> ServerBuilder<Identity, Identity> {
-        ServerBuilder::new()
+    fn http_ws_server_builder(&self) -> ServerConfigBuilder {
+        ServerConfigBuilder::new()
             .max_connections(self.rpc_max_connections.get())
             .max_request_body_size(self.rpc_max_request_size_bytes())
             .max_response_body_size(self.rpc_max_response_size_bytes())
@@ -189,6 +192,7 @@ impl RethRpcServerConfig for RpcServerArgs {
                 .with_http_address(socket_address)
                 .with_http(self.http_ws_server_builder())
                 .with_http_cors(self.http_corsdomain.clone())
+                .with_http_disable_compression(self.http_disable_compression)
                 .with_ws_cors(self.ws_allowed_origins.clone());
         }
 

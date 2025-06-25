@@ -29,9 +29,7 @@ Options:
 
           Max number of instances is 200. It is chosen in a way so that it's not possible to have port numbers that conflict with each other.
 
-          Changes to the following port numbers: - `DISCOVERY_PORT`: default + `instance` - 1 - `AUTH_PORT`: default + `instance` * 100 - 100 - `HTTP_RPC_PORT`: default - `instance` + 1 - `WS_RPC_PORT`: default + `instance` * 2 - 2
-
-          [default: 1]
+          Changes to the following port numbers: - `DISCOVERY_PORT`: default + `instance` - 1 - `AUTH_PORT`: default + `instance` * 100 - 100 - `HTTP_RPC_PORT`: default - `instance` + 1 - `WS_RPC_PORT`: default + `instance` * 2 - 2 - `IPC_PATH`: default + `-instance`
 
       --with-unused-ports
           Sets all ports to unused, allowing the OS to choose random unused ports when sockets are bound.
@@ -107,7 +105,7 @@ Networking:
       --discovery.v5.lookup-interval <DISCOVERY_V5_LOOKUP_INTERVAL>
           The interval in seconds at which to carry out periodic lookup queries, for the whole run of the program
 
-          [default: 60]
+          [default: 20]
 
       --discovery.v5.bootstrap.lookup-interval <DISCOVERY_V5_BOOTSTRAP_LOOKUP_INTERVAL>
           The interval in seconds at which to carry out boost lookup queries, for a fixed number of times, at bootstrap
@@ -117,7 +115,7 @@ Networking:
       --discovery.v5.bootstrap.lookup-countdown <DISCOVERY_V5_BOOTSTRAP_LOOKUP_COUNTDOWN>
           The number of times to carry out boost lookup queries at bootstrap
 
-          [default: 100]
+          [default: 200]
 
       --trusted-peers <TRUSTED_PEERS>
           Comma separated enode URLs of trusted peers for P2P connections.
@@ -229,6 +227,13 @@ Networking:
 
           If flag is set, but no value is passed, the default interface for docker `eth0` is tried.
 
+      --tx-propagation-policy <TX_PROPAGATION_POLICY>
+          Transaction Propagation Policy
+
+          The policy determines which peers transactions are gossiped to.
+
+          [default: All]
+
 RPC:
       --http
           Enable the HTTP-RPC server
@@ -243,10 +248,13 @@ RPC:
 
           [default: 8545]
 
+      --http.disable-compression
+          Disable compression for HTTP responses
+
       --http.api <HTTP_API>
           Rpc Modules to be configured for the HTTP server
 
-          [possible values: admin, debug, eth, net, trace, txpool, web3, rpc, reth, ots, flashbots, miner]
+          [possible values: admin, debug, eth, net, trace, txpool, web3, rpc, reth, ots, flashbots, miner, mev]
 
       --http.corsdomain <HTTP_CORSDOMAIN>
           Http Corsdomain to allow request from
@@ -270,7 +278,7 @@ RPC:
       --ws.api <WS_API>
           Rpc Modules to be configured for the WS server
 
-          [possible values: admin, debug, eth, net, trace, txpool, web3, rpc, reth, ots, flashbots, miner]
+          [possible values: admin, debug, eth, net, trace, txpool, web3, rpc, reth, ots, flashbots, miner, mev]
 
       --ipcdisable
           Disable the IPC-RPC server
@@ -319,7 +327,7 @@ RPC:
           Set the maximum RPC response payload size for both HTTP and WS in megabytes
 
           [default: 160]
-          [aliases: rpc.returndata.limit]
+          [aliases: --rpc.returndata.limit]
 
       --rpc.max-subscriptions-per-connection <RPC_MAX_SUBSCRIPTIONS_PER_CONNECTION>
           Set the maximum concurrent subscriptions per connection
@@ -338,6 +346,11 @@ RPC:
 
           [default: <NUM CPU CORES-2>]
 
+      --rpc.max-trace-filter-blocks <COUNT>
+          Maximum number of blocks for `trace_filter` requests
+
+          [default: 100]
+
       --rpc.max-blocks-per-filter <COUNT>
           Maximum number of blocks that could be scanned per filter request. (0 = entire chain)
 
@@ -352,6 +365,11 @@ RPC:
           Maximum gas limit for `eth_call` and call tracing RPC methods
 
           [default: 50000000]
+
+      --rpc.txfeecap <TX_FEE_CAP>
+          Maximum eth transaction fee (in ether) that can be sent via the RPC APIs (0 = no cap)
+
+          [default: 1.0]
 
       --rpc.max-simulate-blocks <BLOCKS_COUNT>
           Maximum number of blocks for `eth_simulateV1` call
@@ -382,7 +400,7 @@ RPC State Cache:
 
           [default: 2000]
 
-      --rpc-cache.max-envs <MAX_HEADERS>
+      --rpc-cache.max-headers <MAX_HEADERS>
           Max number of headers in cache
 
           [default: 1000]
@@ -444,6 +462,19 @@ TxPool:
 
           [default: 20]
 
+      --txpool.blobpool-max-count <BLOBPOOL_MAX_COUNT>
+          Max number of transaction in the blobpool
+
+          [default: 10000]
+
+      --txpool.blobpool-max-size <BLOBPOOL_MAX_SIZE>
+          Max size of the blobpool in megabytes
+
+          [default: 20]
+
+      --txpool.blob-cache-size <BLOB_CACHE_SIZE>
+          Max number of entries for the in memory cache of the blob store
+
       --txpool.max-account-slots <MAX_ACCOUNT_SLOTS>
           Max number of executable transaction slots guaranteed per account
 
@@ -459,7 +490,7 @@ TxPool:
 
           [default: 7]
 
-      --txpool.gas-limit <GAS_LIMIT>
+      --txpool.gas-limit <ENFORCED_GAS_LIMIT>
           The default enforced gas limit for transactions entering the pool
 
           [default: 30000000]
@@ -508,16 +539,25 @@ TxPool:
 
           [default: 200]
 
+      --txpool.lifetime <DURATION>
+          Maximum amount of time non-executable transaction are queued
+
+          [default: 10800]
+
+      --txpool.transactions-backup <PATH>
+          Path to store the local transaction backup at, to survive node restarts
+
+      --txpool.disable-transactions-backup
+          Disables transaction backup to disk on node shutdown
+
 Builder:
-      --builder.extradata <EXTRADATA>
+      --builder.extradata <EXTRA_DATA>
           Block extra data set by the payload builder
 
           [default: reth/<VERSION>/<OS>]
 
       --builder.gaslimit <GAS_LIMIT>
-          Target gas ceiling for built blocks
-
-          [default: 30000000]
+          Target gas limit for built blocks
 
       --builder.interval <DURATION>
           The interval at which the job should build a new payload after the last.
@@ -661,6 +701,9 @@ Pruning:
       --prune.receipts.before <BLOCK_NUMBER>
           Prune receipts before the specified block number. The specified block number is not pruned
 
+      --prune.receiptslogfilter <FILTER_CONFIG>
+          Configure receipts log filter. Format: <`address`>:<`prune_mode`>[,<`address`>:<`prune_mode`>...] Where <`prune_mode`> can be 'full', 'distance:<`blocks`>', or 'before:<`block_number`>'
+
       --prune.accounthistory.full
           Prunes all account history
 
@@ -679,18 +722,7 @@ Pruning:
       --prune.storagehistory.before <BLOCK_NUMBER>
           Prune storage history before the specified block number. The specified block number is not pruned
 
-      --prune.receiptslogfilter <FILTER_CONFIG>
-          Configure receipts log filter. Format: <`address`>:<`prune_mode`>[,<`address`>:<`prune_mode`>...] Where <`prune_mode`> can be 'full', 'distance:<`blocks`>', or 'before:<`block_number`>'
-
 Engine:
-      --engine.experimental
-          Enable the experimental engine features on reth binary
-
-          DEPRECATED: experimental engine is default now, use --engine.legacy to enable the legacy functionality
-
-      --engine.legacy
-          Enable the legacy engine on reth binary
-
       --engine.persistence-threshold <PERSISTENCE_THRESHOLD>
           Configure persistence threshold for engine experimental
 
@@ -700,6 +732,66 @@ Engine:
           Configure the target number of blocks to keep in memory
 
           [default: 2]
+
+      --engine.legacy-state-root
+          Enable legacy state root
+
+      --engine.caching-and-prewarming
+          CAUTION: This CLI flag has no effect anymore, use --engine.disable-caching-and-prewarming if you want to disable caching and prewarming
+
+      --engine.disable-caching-and-prewarming
+          Disable cross-block caching and parallel prewarming
+
+      --engine.state-provider-metrics
+          Enable state provider latency metrics. This allows the engine to collect and report stats about how long state provider calls took during execution, but this does introduce slight overhead to state provider calls
+
+      --engine.cross-block-cache-size <CROSS_BLOCK_CACHE_SIZE>
+          Configure the size of cross-block cache in megabytes
+
+          [default: 4096]
+
+      --engine.state-root-task-compare-updates
+          Enable comparing trie updates from the state root task to the trie updates from the regular state root calculation
+
+      --engine.accept-execution-requests-hash
+          Enables accepting requests hash instead of an array of requests in `engine_newPayloadV4`
+
+      --engine.max-proof-task-concurrency <MAX_PROOF_TASK_CONCURRENCY>
+          Configure the maximum number of concurrent proof tasks
+
+          [default: 256]
+
+      --engine.reserved-cpu-cores <RESERVED_CPU_CORES>
+          Configure the number of reserved CPU cores for non-reth processes
+
+          [default: 1]
+
+      --engine.precompile-cache
+          Enable precompile cache
+
+Ress:
+      --ress.enable
+          Enable support for `ress` subprotocol
+
+      --ress.max-active-connections <MAX_ACTIVE_CONNECTIONS>
+          The maximum number of active connections for `ress` subprotocol
+
+          [default: 5]
+
+      --ress.max-witness-window <MAX_WITNESS_WINDOW>
+          The maximum witness lookback window
+
+          [default: 1024]
+
+      --ress.witness-max-parallel <WITNESS_MAX_PARALLEL>
+          The maximum number of witnesses to generate in parallel
+
+          [default: 5]
+
+      --ress.witness-cache-size <WITNESS_CACHE_SIZE>
+          Witness cache size
+
+          [default: 10]
 
 Logging:
       --log.stdout.format <FORMAT>

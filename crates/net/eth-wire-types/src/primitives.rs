@@ -1,14 +1,13 @@
 //! Abstraction over primitive types in network messages.
 
+use alloy_consensus::{RlpDecodableReceipt, RlpEncodableReceipt, TxReceipt};
 use alloy_rlp::{Decodable, Encodable};
-use reth_primitives_traits::{Block, BlockBody, BlockHeader, SignedTransaction};
-use std::fmt::Debug;
+use core::fmt::Debug;
+use reth_primitives_traits::{Block, BlockBody, BlockHeader, NodePrimitives, SignedTransaction};
 
 /// Abstraction over primitive types which might appear in network messages. See
 /// [`crate::EthMessage`] for more context.
-pub trait NetworkPrimitives:
-    Send + Sync + Unpin + Clone + Debug + PartialEq + Eq + 'static
-{
+pub trait NetworkPrimitives: Send + Sync + Unpin + Clone + Debug + 'static {
     /// The block header type.
     type BlockHeader: BlockHeader + 'static;
 
@@ -30,28 +29,49 @@ pub trait NetworkPrimitives:
     type PooledTransaction: SignedTransaction + TryFrom<Self::BroadcastedTransaction> + 'static;
 
     /// The transaction type which peers return in `GetReceipts` messages.
-    type Receipt: Encodable
+    type Receipt: TxReceipt
+        + RlpEncodableReceipt
+        + RlpDecodableReceipt
+        + Encodable
         + Decodable
-        + Send
-        + Sync
         + Unpin
-        + Clone
-        + Debug
-        + PartialEq
-        + Eq
         + 'static;
 }
 
-/// Primitive types used by Ethereum network.
+/// This is a helper trait for use in bounds, where some of the [`NetworkPrimitives`] associated
+/// types must be the same as the [`NodePrimitives`] associated types.
+pub trait NetPrimitivesFor<N: NodePrimitives>:
+    NetworkPrimitives<
+    BlockHeader = N::BlockHeader,
+    BlockBody = N::BlockBody,
+    Block = N::Block,
+    Receipt = N::Receipt,
+>
+{
+}
+
+impl<N, T> NetPrimitivesFor<N> for T
+where
+    N: NodePrimitives,
+    T: NetworkPrimitives<
+        BlockHeader = N::BlockHeader,
+        BlockBody = N::BlockBody,
+        Block = N::Block,
+        Receipt = N::Receipt,
+    >,
+{
+}
+
+/// Network primitive types used by Ethereum networks.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub struct EthNetworkPrimitives;
 
 impl NetworkPrimitives for EthNetworkPrimitives {
     type BlockHeader = alloy_consensus::Header;
-    type BlockBody = reth_primitives::BlockBody;
-    type Block = reth_primitives::Block;
-    type BroadcastedTransaction = reth_primitives::TransactionSigned;
-    type PooledTransaction = reth_primitives::PooledTransactionsElement;
-    type Receipt = reth_primitives::Receipt;
+    type BlockBody = reth_ethereum_primitives::BlockBody;
+    type Block = reth_ethereum_primitives::Block;
+    type BroadcastedTransaction = reth_ethereum_primitives::TransactionSigned;
+    type PooledTransaction = reth_ethereum_primitives::PooledTransactionVariant;
+    type Receipt = reth_ethereum_primitives::Receipt;
 }

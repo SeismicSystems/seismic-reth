@@ -1,13 +1,11 @@
-use std::sync::Arc;
-
 use super::setup;
-use reth_db::{tables, DatabaseEnv};
+use reth_consensus::{noop::NoopConsensus, ConsensusError, FullConsensus};
+use reth_db::DatabaseEnv;
 use reth_db_api::{
-    cursor::DbCursorRO, database::Database, table::TableImporter, transaction::DbTx,
+    cursor::DbCursorRO, database::Database, table::TableImporter, tables, transaction::DbTx,
 };
 use reth_db_common::DbTool;
-use reth_evm::{execute::BlockExecutorProvider, noop::NoopBlockExecutorProvider};
-use reth_node_api::NodePrimitives;
+use reth_evm::ConfigureEvm;
 use reth_node_builder::NodeTypesWithDB;
 use reth_node_core::dirs::{ChainPath, DataDirPath};
 use reth_provider::{
@@ -15,32 +13,28 @@ use reth_provider::{
     DatabaseProviderFactory, ProviderFactory,
 };
 use reth_stages::{stages::ExecutionStage, Stage, StageCheckpoint, UnwindInput};
+use std::sync::Arc;
 use tracing::info;
 
-pub(crate) async fn dump_execution_stage<N, E>(
+pub(crate) async fn dump_execution_stage<N, E, C>(
     db_tool: &DbTool<N>,
     from: u64,
     to: u64,
     output_datadir: ChainPath<DataDirPath>,
     should_run: bool,
-    executor: E,
+    evm_config: E,
+    consensus: C,
 ) -> eyre::Result<()>
 where
-    N: ProviderNodeTypes<
-        DB = Arc<DatabaseEnv>,
-        Primitives: NodePrimitives<
-            Block = reth_primitives::Block,
-            Receipt = reth_primitives::Receipt,
-            BlockHeader = reth_primitives::Header,
-        >,
-    >,
-    E: BlockExecutorProvider<Primitives = N::Primitives>,
+    N: ProviderNodeTypes<DB = Arc<DatabaseEnv>>,
+    E: ConfigureEvm<Primitives = N::Primitives> + 'static,
+    C: FullConsensus<E::Primitives, Error = ConsensusError> + 'static,
 {
     let (output_db, tip_block_number) = setup(from, to, &output_datadir.db(), db_tool)?;
 
     import_tables_with_range(&output_db, db_tool, from, to)?;
 
-    unwind_and_copy(db_tool, from, tip_block_number, &output_db)?;
+    unwind_and_copy(db_tool, from, tip_block_number, &output_db, evm_config.clone())?;
 
     if should_run {
         dry_run(
@@ -51,7 +45,8 @@ where
             ),
             to,
             from,
-            executor,
+            evm_config,
+            consensus,
         )?;
     }
 
@@ -139,18 +134,16 @@ fn import_tables_with_range<N: NodeTypesWithDB>(
 /// Dry-run an unwind to FROM block, so we can get the `PlainStorageState` and
 /// `PlainAccountState` safely. There might be some state dependency from an address
 /// which hasn't been changed in the given range.
-fn unwind_and_copy<
-    N: ProviderNodeTypes<Primitives: NodePrimitives<BlockHeader = reth_primitives::Header>>,
->(
+fn unwind_and_copy<N: ProviderNodeTypes>(
     db_tool: &DbTool<N>,
     from: u64,
     tip_block_number: u64,
     output_db: &DatabaseEnv,
+    evm_config: impl ConfigureEvm<Primitives = N::Primitives>,
 ) -> eyre::Result<()> {
     let provider = db_tool.provider_factory.database_provider_rw()?;
 
-    let mut exec_stage =
-        ExecutionStage::new_with_executor(NoopBlockExecutorProvider::<N::Primitives>::default());
+    let mut exec_stage = ExecutionStage::new_with_executor(evm_config, NoopConsensus::arc());
 
     exec_stage.unwind(
         &provider,
@@ -172,25 +165,21 @@ fn unwind_and_copy<
 }
 
 /// Try to re-execute the stage without committing
-fn dry_run<N, E>(
+fn dry_run<N, E, C>(
     output_provider_factory: ProviderFactory<N>,
     to: u64,
     from: u64,
-    executor: E,
+    evm_config: E,
+    consensus: C,
 ) -> eyre::Result<()>
 where
-    N: ProviderNodeTypes<
-        Primitives: NodePrimitives<
-            Block = reth_primitives::Block,
-            Receipt = reth_primitives::Receipt,
-            BlockHeader = reth_primitives::Header,
-        >,
-    >,
-    E: BlockExecutorProvider<Primitives = N::Primitives>,
+    N: ProviderNodeTypes,
+    E: ConfigureEvm<Primitives = N::Primitives> + 'static,
+    C: FullConsensus<E::Primitives, Error = ConsensusError> + 'static,
 {
     info!(target: "reth::cli", "Executing stage. [dry-run]");
 
-    let mut exec_stage = ExecutionStage::new_with_executor(executor);
+    let mut exec_stage = ExecutionStage::new_with_executor(evm_config, Arc::new(consensus));
 
     let input =
         reth_stages::ExecInput { target: Some(to), checkpoint: Some(StageCheckpoint::new(from)) };

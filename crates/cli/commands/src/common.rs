@@ -5,19 +5,21 @@ use clap::Parser;
 use reth_chainspec::EthChainSpec;
 use reth_cli::chainspec::ChainSpecParser;
 use reth_config::{config::EtlConfig, Config};
-use reth_consensus::noop::NoopConsensus;
+use reth_consensus::{noop::NoopConsensus, ConsensusError, FullConsensus};
 use reth_db::{init_db, open_db_read_only, DatabaseEnv};
 use reth_db_common::init::init_genesis;
 use reth_downloaders::{bodies::noop::NoopBodiesDownloader, headers::noop::NoopHeaderDownloader};
-use reth_evm::noop::NoopBlockExecutorProvider;
-use reth_node_builder::{NodeTypesWithDBAdapter, NodeTypesWithEngine};
+use reth_evm::{noop::NoopEvmConfig, ConfigureEvm};
+use reth_node_api::FullNodeTypesAdapter;
+use reth_node_builder::{
+    Node, NodeComponents, NodeComponentsBuilder, NodeTypes, NodeTypesWithDBAdapter,
+};
 use reth_node_core::{
     args::{DatabaseArgs, DatadirArgs},
     dirs::{ChainPath, DataDirPath},
 };
-use reth_primitives::EthPrimitives;
 use reth_provider::{
-    providers::{NodeTypesForProvider, StaticFileProvider},
+    providers::{BlockchainProvider, NodeTypesForProvider, StaticFileProvider},
     ProviderFactory, StaticFileProviderFactory,
 };
 use reth_stages::{sets::DefaultStages, Pipeline, PipelineTarget};
@@ -45,7 +47,8 @@ pub struct EnvironmentArgs<C: ChainSpecParser> {
         value_name = "CHAIN_OR_PATH",
         long_help = C::help_message(),
         default_value = C::SUPPORTED_CHAINS[0],
-        value_parser = C::parser()
+        value_parser = C::parser(),
+        global = true
     )]
     pub chain: Arc<C::ChainSpec>,
 
@@ -107,7 +110,7 @@ impl<C: ChainSpecParser> EnvironmentArgs<C> {
     /// Returns a [`ProviderFactory`] after executing consistency checks.
     ///
     /// If it's a read-write environment and an issue is found, it will attempt to heal (including a
-    /// pipeline unwind). Otherwise, it will print out an warning, advising the user to restart the
+    /// pipeline unwind). Otherwise, it will print out a warning, advising the user to restart the
     /// node to heal.
     fn create_provider_factory<N: CliNodeTypes>(
         &self,
@@ -140,7 +143,11 @@ impl<C: ChainSpecParser> EnvironmentArgs<C> {
 
             // Highly unlikely to happen, and given its destructive nature, it's better to panic
             // instead.
-            assert_ne!(unwind_target, PipelineTarget::Unwind(0), "A static file <> database inconsistency was found that would trigger an unwind to block 0");
+            assert_ne!(
+                unwind_target,
+                PipelineTarget::Unwind(0),
+                "A static file <> database inconsistency was found that would trigger an unwind to block 0"
+            );
 
             info!(target: "reth::cli", unwind_target = %unwind_target, "Executing an unwind after a failed storage consistency check.");
 
@@ -154,7 +161,7 @@ impl<C: ChainSpecParser> EnvironmentArgs<C> {
                     Arc::new(NoopConsensus::default()),
                     NoopHeaderDownloader::default(),
                     NoopBodiesDownloader::default(),
-                    NoopBlockExecutorProvider::<N::Primitives>::default(),
+                    NoopEvmConfig::<N::Evm>::default(),
                     config.stages.clone(),
                     prune_modes.clone(),
                 ))
@@ -171,7 +178,7 @@ impl<C: ChainSpecParser> EnvironmentArgs<C> {
 
 /// Environment built from [`EnvironmentArgs`].
 #[derive(Debug)]
-pub struct Environment<N: NodeTypesWithEngine> {
+pub struct Environment<N: NodeTypes> {
     /// Configuration for reth node
     pub config: Config,
     /// Provider factory.
@@ -196,13 +203,52 @@ impl AccessRights {
     }
 }
 
+/// Helper alias to satisfy `FullNodeTypes` bound on [`Node`] trait generic.
+type FullTypesAdapter<T> = FullNodeTypesAdapter<
+    T,
+    Arc<DatabaseEnv>,
+    BlockchainProvider<NodeTypesWithDBAdapter<T, Arc<DatabaseEnv>>>,
+>;
+
 /// Helper trait with a common set of requirements for the
-/// [`NodeTypes`](reth_node_builder::NodeTypes) in CLI.
-pub trait CliNodeTypes:
-    NodeTypesWithEngine + NodeTypesForProvider<Primitives = EthPrimitives>
-{
+/// [`NodeTypes`] in CLI.
+pub trait CliNodeTypes: NodeTypesForProvider {
+    type Evm: ConfigureEvm<Primitives = Self::Primitives>;
 }
-impl<N> CliNodeTypes for N where
-    N: NodeTypesWithEngine + NodeTypesForProvider<Primitives = EthPrimitives>
+
+impl<N> CliNodeTypes for N
+where
+    N: Node<FullTypesAdapter<Self>> + NodeTypesForProvider,
 {
+    type Evm = <<N::ComponentsBuilder as NodeComponentsBuilder<FullTypesAdapter<Self>>>::Components as NodeComponents<FullTypesAdapter<Self>>>::Evm;
+}
+
+/// Helper trait aggregating components required for the CLI.
+pub trait CliNodeComponents<N: CliNodeTypes> {
+    /// Evm to use.
+    type Evm: ConfigureEvm<Primitives = N::Primitives> + 'static;
+    /// Consensus implementation.
+    type Consensus: FullConsensus<N::Primitives, Error = ConsensusError> + Clone + 'static;
+
+    /// Returns the configured EVM.
+    fn evm_config(&self) -> &Self::Evm;
+    /// Returns the consensus implementation.
+    fn consensus(&self) -> &Self::Consensus;
+}
+
+impl<N: CliNodeTypes, E, C> CliNodeComponents<N> for (E, C)
+where
+    E: ConfigureEvm<Primitives = N::Primitives> + 'static,
+    C: FullConsensus<N::Primitives, Error = ConsensusError> + Clone + 'static,
+{
+    type Evm = E;
+    type Consensus = C;
+
+    fn evm_config(&self) -> &Self::Evm {
+        &self.0
+    }
+
+    fn consensus(&self) -> &Self::Consensus {
+        &self.1
+    }
 }

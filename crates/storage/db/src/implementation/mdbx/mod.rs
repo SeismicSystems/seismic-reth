@@ -12,7 +12,7 @@ use metrics::{gauge, Label};
 use reth_db_api::{
     cursor::{DbCursorRO, DbCursorRW},
     database::Database,
-    database_metrics::{DatabaseMetadata, DatabaseMetadataValue, DatabaseMetrics},
+    database_metrics::DatabaseMetrics,
     models::ClientVersion,
     transaction::{DbTx, DbTxMut},
 };
@@ -33,6 +33,8 @@ use tx::Tx;
 pub mod cursor;
 pub mod tx;
 
+mod utils;
+
 /// 1 KB in bytes
 pub const KILOBYTE: usize = 1024;
 /// 1 MB in bytes
@@ -50,7 +52,7 @@ const DEFAULT_MAX_READERS: u64 = 32_000;
 const MAX_SAFE_READER_SPACE: usize = 10 * GIGABYTE;
 
 /// Environment used when opening a MDBX environment. RO/RW.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DatabaseEnvKind {
     /// Read-only MDBX environment.
     RO,
@@ -276,12 +278,6 @@ impl DatabaseMetrics for DatabaseEnv {
     }
 }
 
-impl DatabaseMetadata for DatabaseEnv {
-    fn metadata(&self) -> DatabaseMetadataValue {
-        DatabaseMetadataValue::new(self.freelist().ok())
-    }
-}
-
 impl DatabaseEnv {
     /// Opens the database at the specified path with the given `EnvKind`.
     ///
@@ -479,7 +475,7 @@ impl DatabaseEnv {
         if Some(&version) != last_version.as_ref() {
             version_cursor.upsert(
                 SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs(),
-                version,
+                &version,
             )?;
             tx.commit()?;
         }
@@ -507,7 +503,7 @@ mod tests {
         AccountChangeSets,
     };
     use alloy_consensus::Header;
-    use alloy_primitives::{Address, B256, U256};
+    use alloy_primitives::{address, Address, B256, U256};
     use reth_db_api::{
         cursor::{DbDupCursorRO, DbDupCursorRW, ReverseWalker, Walker},
         models::{AccountBeforeTx, IntegerList, ShardedKey},
@@ -523,7 +519,7 @@ mod tests {
     fn create_test_db(kind: DatabaseEnvKind) -> Arc<DatabaseEnv> {
         Arc::new(create_test_db_with_path(
             kind,
-            &tempfile::TempDir::new().expect(ERROR_TEMPDIR).into_path(),
+            &tempfile::TempDir::new().expect(ERROR_TEMPDIR).keep(),
         ))
     }
 
@@ -588,8 +584,8 @@ mod tests {
             ..Default::default()
         };
 
-        dup_cursor.upsert(Address::with_last_byte(1), entry_0).expect(ERROR_UPSERT);
-        dup_cursor.upsert(Address::with_last_byte(1), entry_1).expect(ERROR_UPSERT);
+        dup_cursor.upsert(Address::with_last_byte(1), &entry_0).expect(ERROR_UPSERT);
+        dup_cursor.upsert(Address::with_last_byte(1), &entry_1).expect(ERROR_UPSERT);
 
         assert_eq!(
             dup_cursor.walk(None).unwrap().collect::<Result<Vec<_>, _>>(),
@@ -747,7 +743,7 @@ mod tests {
         assert_eq!(walker.next(), None);
     }
 
-    #[allow(clippy::reversed_empty_ranges)]
+    #[expect(clippy::reversed_empty_ranges)]
     #[test]
     fn db_cursor_walk_range_invalid() {
         let db: Arc<DatabaseEnv> = create_test_db(DatabaseEnvKind::RW);
@@ -896,9 +892,7 @@ mod tests {
         // Seek exact
         let exact = cursor.seek_exact(missing_key).unwrap();
         assert_eq!(exact, None);
-        assert_eq!(cursor.current(), Ok(Some((missing_key + 1, B256::ZERO))));
-        assert_eq!(cursor.prev(), Ok(Some((missing_key - 1, B256::ZERO))));
-        assert_eq!(cursor.prev(), Ok(Some((missing_key - 2, B256::ZERO))));
+        assert_eq!(cursor.current(), Ok(None));
     }
 
     #[test]
@@ -918,12 +912,12 @@ mod tests {
         let mut cursor = tx.cursor_write::<CanonicalHeaders>().unwrap();
 
         // INSERT
-        assert_eq!(cursor.insert(key_to_insert, B256::ZERO), Ok(()));
+        assert_eq!(cursor.insert(key_to_insert, &B256::ZERO), Ok(()));
         assert_eq!(cursor.current(), Ok(Some((key_to_insert, B256::ZERO))));
 
         // INSERT (failure)
         assert_eq!(
-            cursor.insert(key_to_insert, B256::ZERO),
+            cursor.insert(key_to_insert, &B256::ZERO),
             Err(DatabaseWriteError {
                 info: Error::KeyExist.into(),
                 operation: DatabaseWriteOperation::CursorInsert,
@@ -955,11 +949,11 @@ mod tests {
         let subkey2 = B256::random();
 
         let entry1 = StorageEntry { key: subkey1, value: U256::ZERO, ..Default::default() };
-        assert!(dup_cursor.insert(key, entry1).is_ok());
+        assert!(dup_cursor.insert(key, &entry1).is_ok());
 
         // Can't insert
         let entry2 = StorageEntry { key: subkey2, value: U256::ZERO, ..Default::default() };
-        assert!(dup_cursor.insert(key, entry2).is_err());
+        assert!(dup_cursor.insert(key, &entry2).is_err());
     }
 
     #[test]
@@ -972,9 +966,9 @@ mod tests {
         let key3 = Address::with_last_byte(3);
         let mut cursor = tx.cursor_write::<PlainAccountState>().unwrap();
 
-        assert!(cursor.insert(key1, Account::default()).is_ok());
-        assert!(cursor.insert(key2, Account::default()).is_ok());
-        assert!(cursor.insert(key3, Account::default()).is_ok());
+        assert!(cursor.insert(key1, &Account::default()).is_ok());
+        assert!(cursor.insert(key2, &Account::default()).is_ok());
+        assert!(cursor.insert(key3, &Account::default()).is_ok());
 
         // Seek & delete key2
         cursor.seek_exact(key2).unwrap();
@@ -983,11 +977,14 @@ mod tests {
 
         // Seek & delete key2 again
         assert_eq!(cursor.seek_exact(key2), Ok(None));
-        assert_eq!(cursor.delete_current(), Ok(()));
+        assert_eq!(
+            cursor.delete_current(),
+            Err(DatabaseError::Delete(reth_libmdbx::Error::NoData.into()))
+        );
         // Assert that key1 is still there
         assert_eq!(cursor.seek_exact(key1), Ok(Some((key1, Account::default()))));
-        // Assert that key3 was deleted
-        assert_eq!(cursor.seek_exact(key3), Ok(None));
+        // Assert that key3 is still there
+        assert_eq!(cursor.seek_exact(key3), Ok(Some((key3, Account::default()))));
     }
 
     #[test]
@@ -1010,7 +1007,7 @@ mod tests {
         assert_eq!(cursor.current(), Ok(Some((9, B256::ZERO))));
 
         for pos in (2..=8).step_by(2) {
-            assert_eq!(cursor.insert(pos, B256::ZERO), Ok(()));
+            assert_eq!(cursor.insert(pos, &B256::ZERO), Ok(()));
             assert_eq!(cursor.current(), Ok(Some((pos, B256::ZERO))));
         }
         tx.commit().expect(ERROR_COMMIT);
@@ -1039,7 +1036,7 @@ mod tests {
         let key_to_append = 5;
         let tx = db.tx_mut().expect(ERROR_INIT_TX);
         let mut cursor = tx.cursor_write::<CanonicalHeaders>().unwrap();
-        assert_eq!(cursor.append(key_to_append, B256::ZERO), Ok(()));
+        assert_eq!(cursor.append(key_to_append, &B256::ZERO), Ok(()));
         tx.commit().expect(ERROR_COMMIT);
 
         // Confirm the result
@@ -1067,7 +1064,7 @@ mod tests {
         let tx = db.tx_mut().expect(ERROR_INIT_TX);
         let mut cursor = tx.cursor_write::<CanonicalHeaders>().unwrap();
         assert_eq!(
-            cursor.append(key_to_append, B256::ZERO),
+            cursor.append(key_to_append, &B256::ZERO),
             Err(DatabaseWriteError {
                 info: Error::KeyMismatch.into(),
                 operation: DatabaseWriteOperation::CursorAppend,
@@ -1096,15 +1093,15 @@ mod tests {
         let key = Address::random();
 
         let account = Account::default();
-        cursor.upsert(key, account).expect(ERROR_UPSERT);
+        cursor.upsert(key, &account).expect(ERROR_UPSERT);
         assert_eq!(cursor.seek_exact(key), Ok(Some((key, account))));
 
         let account = Account { nonce: 1, ..Default::default() };
-        cursor.upsert(key, account).expect(ERROR_UPSERT);
+        cursor.upsert(key, &account).expect(ERROR_UPSERT);
         assert_eq!(cursor.seek_exact(key), Ok(Some((key, account))));
 
         let account = Account { nonce: 2, ..Default::default() };
-        cursor.upsert(key, account).expect(ERROR_UPSERT);
+        cursor.upsert(key, &account).expect(ERROR_UPSERT);
         assert_eq!(cursor.seek_exact(key), Ok(Some((key, account))));
 
         let mut dup_cursor = tx.cursor_dup_write::<PlainStorageState>().unwrap();
@@ -1112,12 +1109,12 @@ mod tests {
 
         let value = U256::from(1);
         let entry1 = StorageEntry { key: subkey, value, ..Default::default() };
-        dup_cursor.upsert(key, entry1).expect(ERROR_UPSERT);
+        dup_cursor.upsert(key, &entry1).expect(ERROR_UPSERT);
         assert_eq!(dup_cursor.seek_by_key_subkey(key, subkey), Ok(Some(entry1)));
 
         let value = U256::from(2);
         let entry2 = StorageEntry { key: subkey, value, ..Default::default() };
-        dup_cursor.upsert(key, entry2).expect(ERROR_UPSERT);
+        dup_cursor.upsert(key, &entry2).expect(ERROR_UPSERT);
         assert_eq!(dup_cursor.seek_by_key_subkey(key, subkey), Ok(Some(entry1)));
         assert_eq!(dup_cursor.next_dup_val(), Ok(Some(entry2)));
     }
@@ -1135,7 +1132,7 @@ mod tests {
             .try_for_each(|val| {
                 cursor.append(
                     transition_id,
-                    AccountBeforeTx { address: Address::with_last_byte(val), info: None },
+                    &AccountBeforeTx { address: Address::with_last_byte(val), info: None },
                 )
             })
             .expect(ERROR_APPEND);
@@ -1161,7 +1158,7 @@ mod tests {
         assert_eq!(
             cursor.append(
                 transition_id - 1,
-                AccountBeforeTx { address: Address::with_last_byte(subkey_to_append), info: None }
+                &AccountBeforeTx { address: Address::with_last_byte(subkey_to_append), info: None }
             ),
             Err(DatabaseWriteError {
                 info: Error::KeyMismatch.into(),
@@ -1174,7 +1171,7 @@ mod tests {
         assert_eq!(
             cursor.append(
                 transition_id,
-                AccountBeforeTx { address: Address::with_last_byte(subkey_to_append), info: None }
+                &AccountBeforeTx { address: Address::with_last_byte(subkey_to_append), info: None }
             ),
             Ok(())
         );
@@ -1182,7 +1179,7 @@ mod tests {
 
     #[test]
     fn db_closure_put_get() {
-        let path = TempDir::new().expect(ERROR_TEMPDIR).into_path();
+        let path = TempDir::new().expect(ERROR_TEMPDIR).keep();
 
         let value = Account {
             nonce: 18446744073709551615,
@@ -1377,10 +1374,11 @@ mod tests {
     #[test]
     fn db_sharded_key() {
         let db: Arc<DatabaseEnv> = create_test_db(DatabaseEnvKind::RW);
-        let real_key = Address::from_str("0xa2c122be93b0074270ebee7f6b7292c7deb45047").unwrap();
+        let real_key = address!("0xa2c122be93b0074270ebee7f6b7292c7deb45047");
 
-        for i in 1..5 {
-            let key = ShardedKey::new(real_key, i * 100);
+        let shards = 5;
+        for i in 1..=shards {
+            let key = ShardedKey::new(real_key, if i == shards { u64::MAX } else { i * 100 });
             let list = IntegerList::new_pre_sorted([i * 100u64]);
 
             db.update(|tx| tx.put::<AccountsHistory>(key.clone(), list.clone()).expect(""))

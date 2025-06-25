@@ -10,7 +10,7 @@ use reth_db_api::{
     cursor::{DbCursorRO, DbCursorRW, DbDupCursorRO},
     transaction::{DbTx, DbTxMut},
 };
-use reth_primitives::{Account, StorageEntry};
+use reth_primitives_traits::{Account, StorageEntry};
 use reth_provider::{
     providers::ProviderNodeTypes, test_utils::create_test_provider_factory, DatabaseProviderRW,
     StorageTrieWriter, TrieWriter,
@@ -21,7 +21,7 @@ use reth_trie::{
     triehash::KeccakHasher,
     updates::StorageTrieUpdates,
     BranchNodeCompact, HashBuilder, IntermediateStateRootState, Nibbles, StateRoot,
-    StateRootProgress, StorageRoot, TrieAccount, TrieMask,
+    StateRootProgress, StorageRoot, TrieMask,
 };
 use reth_trie_db::{DatabaseStateRoot, DatabaseStorageRoot};
 use std::{collections::BTreeMap, ops::Mul, str::FromStr, sync::Arc};
@@ -58,7 +58,7 @@ fn incremental_vs_full_root(inputs: &[&str], modified: &str) {
     let value = U256::from(0);
     for key in data {
         hashed_storage_cursor
-            .upsert(hashed_address, StorageEntry { key, value, is_private: false })
+            .upsert(hashed_address, &StorageEntry { key, value, is_private: false })
             .unwrap();
     }
 
@@ -73,7 +73,7 @@ fn incremental_vs_full_root(inputs: &[&str], modified: &str) {
         hashed_storage_cursor.delete_current().unwrap();
     }
     hashed_storage_cursor
-        .upsert(hashed_address, StorageEntry { key: modified_key, value, is_private: false })
+        .upsert(hashed_address, &StorageEntry { key: modified_key, value, is_private: false })
         .unwrap();
 
     // 2. Calculate full merkle root
@@ -132,7 +132,7 @@ fn arbitrary_storage_root() {
 }
 
 #[test]
-// This ensures we dont add empty accounts to the trie
+// This ensures we don't add empty accounts to the trie
 fn test_empty_account() {
     let state: State = BTreeMap::from([
         (
@@ -285,7 +285,7 @@ fn test_state_root_with_state(state: State) {
 }
 
 fn encode_account(account: Account, storage_root: Option<B256>) -> Vec<u8> {
-    let account = TrieAccount::from((account, storage_root.unwrap_or(EMPTY_ROOT_HASH)));
+    let account = account.into_trie_account(storage_root.unwrap_or(EMPTY_ROOT_HASH));
     let mut account_rlp = Vec::with_capacity(account.length());
     account.encode(&mut account_rlp);
     account_rlp
@@ -315,7 +315,7 @@ fn storage_root_regression() {
         tx.tx_ref().cursor_dup_write::<tables::HashedStorages>().unwrap();
     for (hashed_slot, value) in storage.clone() {
         hashed_storage_cursor
-            .upsert(key3, StorageEntry { key: hashed_slot, value, is_private: false })
+            .upsert(key3, &StorageEntry { key: hashed_slot, value, is_private: false })
             .unwrap();
     }
     tx.commit().unwrap();
@@ -328,6 +328,7 @@ fn storage_root_regression() {
 
 #[test]
 fn account_and_storage_trie() {
+    let account_is_private = false; // accounts are always public
     let ether = U256::from(1e18);
     let storage = BTreeMap::from(
         [
@@ -352,8 +353,12 @@ fn account_and_storage_trie() {
     let key1 =
         B256::from_str("b000000000000000000000000000000000000000000000000000000000000000").unwrap();
     let account1 = Account { nonce: 0, balance: U256::from(3).mul(ether), bytecode_hash: None };
-    hashed_account_cursor.upsert(key1, account1).unwrap();
-    hash_builder.add_leaf(Nibbles::unpack(key1), &encode_account(account1, None));
+    hashed_account_cursor.upsert(key1, &account1).unwrap();
+    hash_builder.add_leaf(
+        Nibbles::unpack(key1),
+        &encode_account(account1, None),
+        account_is_private,
+    );
 
     // Some address whose hash starts with 0xB040
     let address2 = Address::from_str("7db3e81b72d2695e19764583f6d219dbee0f35ca").unwrap();
@@ -361,8 +366,12 @@ fn account_and_storage_trie() {
     assert_eq!(key2[0], 0xB0);
     assert_eq!(key2[1], 0x40);
     let account2 = Account { nonce: 0, balance: ether, ..Default::default() };
-    hashed_account_cursor.upsert(key2, account2).unwrap();
-    hash_builder.add_leaf(Nibbles::unpack(key2), &encode_account(account2, None));
+    hashed_account_cursor.upsert(key2, &account2).unwrap();
+    hash_builder.add_leaf(
+        Nibbles::unpack(key2),
+        &encode_account(account2, None),
+        account_is_private,
+    );
 
     // Some address whose hash starts with 0xB041
     let address3 = Address::from_str("16b07afd1c635f77172e842a000ead9a2a222459").unwrap();
@@ -373,7 +382,7 @@ fn account_and_storage_trie() {
         B256::from_str("5be74cad16203c4905c068b012a2e9fb6d19d036c410f16fd177f337541440dd").unwrap();
     let account3 =
         Account { nonce: 0, balance: U256::from(2).mul(ether), bytecode_hash: Some(code_hash) };
-    hashed_account_cursor.upsert(key3, account3).unwrap();
+    hashed_account_cursor.upsert(key3, &account3).unwrap();
     for (hashed_slot, value) in storage {
         if hashed_storage_cursor
             .seek_by_key_subkey(key3, hashed_slot)
@@ -384,30 +393,45 @@ fn account_and_storage_trie() {
             hashed_storage_cursor.delete_current().unwrap();
         }
         hashed_storage_cursor
-            .upsert(key3, StorageEntry { key: hashed_slot, value, is_private: false })
+            .upsert(key3, &StorageEntry { key: hashed_slot, value, is_private: false })
             .unwrap();
     }
     let account3_storage_root = StorageRoot::from_tx(tx.tx_ref(), address3).root().unwrap();
-    hash_builder
-        .add_leaf(Nibbles::unpack(key3), &encode_account(account3, Some(account3_storage_root)));
+    hash_builder.add_leaf(
+        Nibbles::unpack(key3),
+        &encode_account(account3, Some(account3_storage_root)),
+        account_is_private,
+    );
 
     let key4a =
         B256::from_str("B1A0000000000000000000000000000000000000000000000000000000000000").unwrap();
     let account4a = Account { nonce: 0, balance: U256::from(4).mul(ether), ..Default::default() };
-    hashed_account_cursor.upsert(key4a, account4a).unwrap();
-    hash_builder.add_leaf(Nibbles::unpack(key4a), &encode_account(account4a, None));
+    hashed_account_cursor.upsert(key4a, &account4a).unwrap();
+    hash_builder.add_leaf(
+        Nibbles::unpack(key4a),
+        &encode_account(account4a, None),
+        account_is_private,
+    );
 
     let key5 =
         B256::from_str("B310000000000000000000000000000000000000000000000000000000000000").unwrap();
     let account5 = Account { nonce: 0, balance: U256::from(8).mul(ether), ..Default::default() };
-    hashed_account_cursor.upsert(key5, account5).unwrap();
-    hash_builder.add_leaf(Nibbles::unpack(key5), &encode_account(account5, None));
+    hashed_account_cursor.upsert(key5, &account5).unwrap();
+    hash_builder.add_leaf(
+        Nibbles::unpack(key5),
+        &encode_account(account5, None),
+        account_is_private,
+    );
 
     let key6 =
         B256::from_str("B340000000000000000000000000000000000000000000000000000000000000").unwrap();
     let account6 = Account { nonce: 0, balance: U256::from(1).mul(ether), ..Default::default() };
-    hashed_account_cursor.upsert(key6, account6).unwrap();
-    hash_builder.add_leaf(Nibbles::unpack(key6), &encode_account(account6, None));
+    hashed_account_cursor.upsert(key6, &account6).unwrap();
+    hash_builder.add_leaf(
+        Nibbles::unpack(key6),
+        &encode_account(account6, None),
+        account_is_private,
+    );
 
     // Populate account & storage trie DB tables
     let expected_root =
@@ -457,7 +481,7 @@ fn account_and_storage_trie() {
     let key4b = keccak256(address4b);
     assert_eq!(key4b.0[0], key4a.0[0]);
     let account4b = Account { nonce: 0, balance: U256::from(5).mul(ether), bytecode_hash: None };
-    hashed_account_cursor.upsert(key4b, account4b).unwrap();
+    hashed_account_cursor.upsert(key4b, &account4b).unwrap();
 
     let mut prefix_set = PrefixSetMut::default();
     prefix_set.insert(Nibbles::unpack(key4b));
@@ -654,7 +678,7 @@ proptest! {
             let should_generate_changeset = !state.is_empty();
             let mut changes = PrefixSetMut::default();
             for (hashed_address, balance) in accounts.clone() {
-                hashed_account_cursor.upsert(hashed_address, Account { balance, ..Default::default() }).unwrap();
+                hashed_account_cursor.upsert(hashed_address, &Account { balance, ..Default::default() }).unwrap();
                 if should_generate_changeset {
                     changes.insert(Nibbles::unpack(hashed_address));
                 }
@@ -694,6 +718,7 @@ fn extension_node_storage_trie<N: ProviderNodeTypes>(
     tx: &DatabaseProviderRW<Arc<TempDatabase<DatabaseEnv>>, N>,
     hashed_address: B256,
 ) -> (B256, StorageTrieUpdates) {
+    let is_private = false; // legacy test doesn't use private state
     let value = U256::from(1);
 
     let mut hashed_storage = tx.tx_ref().cursor_write::<tables::HashedStorages>().unwrap();
@@ -709,9 +734,9 @@ fn extension_node_storage_trie<N: ProviderNodeTypes>(
         hex!("3100000000000000000000000000000000000000000000000000000000000000"),
     ] {
         hashed_storage
-            .upsert(hashed_address, StorageEntry { key: B256::new(key), value, is_private: false })
+            .upsert(hashed_address, &StorageEntry { key: B256::new(key), value, is_private })
             .unwrap();
-        hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value));
+        hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value), is_private);
     }
 
     let root = hb.root();
@@ -737,8 +762,8 @@ fn extension_node_trie<N: ProviderNodeTypes>(
         hex!("30af8f0000000000000000000000000000000000000000000000000000000000"),
         hex!("3100000000000000000000000000000000000000000000000000000000000000"),
     ] {
-        hashed_accounts.upsert(B256::new(key), a).unwrap();
-        hb.add_leaf(Nibbles::unpack(key), &val);
+        hashed_accounts.upsert(B256::new(key), &a).unwrap();
+        hb.add_leaf(Nibbles::unpack(key), &val, false); // account leaves are always public
     }
 
     hb.root()

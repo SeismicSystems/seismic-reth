@@ -1,11 +1,10 @@
 use super::error::HeadersDownloaderResult;
 use crate::error::{DownloadError, DownloadResult};
-use alloy_consensus::BlockHeader;
 use alloy_eips::{eip1898::BlockWithParent, BlockHashOrNumber};
-use alloy_primitives::B256;
+use alloy_primitives::{Sealable, B256};
 use futures::Stream;
 use reth_consensus::HeaderValidator;
-use reth_primitives::SealedHeader;
+use reth_primitives_traits::{BlockHeader, Header, SealedHeader};
 use std::fmt::Debug;
 
 /// A downloader capable of fetching and yielding block headers.
@@ -22,9 +21,9 @@ pub trait HeaderDownloader:
     + Unpin
 {
     /// The header type being downloaded.
-    type Header: Debug + Send + Sync + Unpin + 'static;
+    type Header: Sealable + Debug + Send + Sync + Unpin + 'static;
 
-    /// Updates the gap to sync which ranges from local head to the sync target
+    /// Updates the gap to sync which ranges from local head to the sync target.
     ///
     /// See also [`HeaderDownloader::update_sync_target`] and
     /// [`HeaderDownloader::update_local_head`]
@@ -36,7 +35,7 @@ pub trait HeaderDownloader:
     /// Updates the block number of the local database
     fn update_local_head(&mut self, head: SealedHeader<Self::Header>);
 
-    /// Updates the target we want to sync to
+    /// Updates the target we want to sync to.
     fn update_sync_target(&mut self, target: SyncTarget);
 
     /// Sets the headers batch size that the Stream should return.
@@ -76,6 +75,27 @@ impl SyncTarget {
             Self::Tip(tip) => (*tip).into(),
             Self::Gap(gap) => gap.parent.into(),
             Self::TipNum(num) => (*num).into(),
+        }
+    }
+}
+
+/// Represents a gap to sync: from `local_head` to `target`
+#[derive(Clone, Debug)]
+pub struct HeaderSyncGap<H = Header> {
+    /// The local head block. Represents lower bound of sync range.
+    pub local_head: SealedHeader<H>,
+
+    /// The sync target. Represents upper bound of sync range.
+    pub target: SyncTarget,
+}
+
+impl<H: BlockHeader + Sealable> HeaderSyncGap<H> {
+    /// Returns `true` if the gap from the head to the target was closed
+    #[inline]
+    pub fn is_closed(&self) -> bool {
+        match self.target.tip() {
+            BlockHashOrNumber::Hash(hash) => self.local_head.hash() == hash,
+            BlockHashOrNumber::Number(num) => self.local_head.number() == num,
         }
     }
 }

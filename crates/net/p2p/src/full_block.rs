@@ -1,16 +1,19 @@
 use super::headers::client::HeadersRequest;
 use crate::{
     bodies::client::{BodiesClient, SingleBodyRequest},
+    download::DownloadClient,
     error::PeerRequestResult,
     headers::client::{HeadersClient, SingleHeaderRequest},
+    priority::Priority,
     BlockClient,
 };
 use alloy_consensus::BlockHeader;
 use alloy_primitives::{Sealable, B256};
-use reth_consensus::Consensus;
-use reth_eth_wire_types::HeadersDirection;
-use reth_network_peers::WithPeerId;
-use reth_primitives::{SealedBlock, SealedHeader};
+use core::marker::PhantomData;
+use reth_consensus::{Consensus, ConsensusError};
+use reth_eth_wire_types::{EthNetworkPrimitives, HeadersDirection, NetworkPrimitives};
+use reth_network_peers::{PeerId, WithPeerId};
+use reth_primitives_traits::{SealedBlock, SealedHeader};
 use std::{
     cmp::Reverse,
     collections::{HashMap, VecDeque},
@@ -30,7 +33,7 @@ where
     Client: BlockClient,
 {
     client: Client,
-    consensus: Arc<dyn Consensus<Client::Header, Client::Body>>,
+    consensus: Arc<dyn Consensus<Client::Block, Error = ConsensusError>>,
 }
 
 impl<Client> FullBlockClient<Client>
@@ -40,7 +43,7 @@ where
     /// Creates a new instance of `FullBlockClient`.
     pub fn new(
         client: Client,
-        consensus: Arc<dyn Consensus<Client::Header, Client::Body>>,
+        consensus: Arc<dyn Consensus<Client::Block, Error = ConsensusError>>,
     ) -> Self {
         Self { client, consensus }
     }
@@ -118,7 +121,7 @@ where
     Client: BlockClient,
 {
     client: Client,
-    consensus: Arc<dyn Consensus<Client::Header, Client::Body>>,
+    consensus: Arc<dyn Consensus<Client::Block, Error = ConsensusError>>,
     hash: B256,
     request: FullBlockRequest<Client>,
     header: Option<SealedHeader<Client::Header>>,
@@ -140,7 +143,7 @@ where
     }
 
     /// Returns the [`SealedBlock`] if the request is complete and valid.
-    fn take_block(&mut self) -> Option<SealedBlock<Client::Header, Client::Body>> {
+    fn take_block(&mut self) -> Option<SealedBlock<Client::Block>> {
         if self.header.is_none() || self.body.is_none() {
             return None
         }
@@ -148,7 +151,7 @@ where
         let header = self.header.take().unwrap();
         let resp = self.body.take().unwrap();
         match resp {
-            BodyResponse::Validated(body) => Some(SealedBlock::new(header, body)),
+            BodyResponse::Validated(body) => Some(SealedBlock::from_sealed_parts(header, body)),
             BodyResponse::PendingValidation(resp) => {
                 // ensure the block is valid, else retry
                 if let Err(err) = self.consensus.validate_body_against_header(resp.data(), &header)
@@ -159,7 +162,7 @@ where
                     self.request.body = Some(self.client.get_block_body(self.hash));
                     return None
                 }
-                Some(SealedBlock::new(header, resp.into_data()))
+                Some(SealedBlock::from_sealed_parts(header, resp.into_data()))
             }
         }
     }
@@ -182,7 +185,7 @@ impl<Client> Future for FetchFullBlockFuture<Client>
 where
     Client: BlockClient<Header: BlockHeader + Sealable> + 'static,
 {
-    type Output = SealedBlock<Client::Header, Client::Body>;
+    type Output = SealedBlock<Client::Block>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
@@ -196,7 +199,7 @@ where
                     match res {
                         Ok(maybe_header) => {
                             let (peer, maybe_header) =
-                                maybe_header.map(|h| h.map(SealedHeader::seal)).split();
+                                maybe_header.map(|h| h.map(SealedHeader::seal_slow)).split();
                             if let Some(header) = maybe_header {
                                 if header.hash() == this.hash {
                                     this.header = Some(header);
@@ -322,7 +325,7 @@ enum BodyResponse<B> {
 /// NOTE: this assumes that bodies responses are returned by the client in the same order as the
 /// hash array used to request them.
 #[must_use = "futures do nothing unless polled"]
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct FetchFullBlockRangeFuture<Client>
 where
     Client: BlockClient,
@@ -330,7 +333,7 @@ where
     /// The client used to fetch headers and bodies.
     client: Client,
     /// The consensus instance used to validate the blocks.
-    consensus: Arc<dyn Consensus<Client::Header, Client::Body>>,
+    consensus: Arc<dyn Consensus<Client::Block, Error = ConsensusError>>,
     /// The block hash to start fetching from (inclusive).
     start_hash: B256,
     /// How many blocks to fetch: `len([start_hash, ..]) == count`
@@ -388,7 +391,7 @@ where
     ///
     /// These are returned in falling order starting with the requested `hash`, i.e. with
     /// descending block numbers.
-    fn take_blocks(&mut self) -> Option<Vec<SealedBlock<Client::Header, Client::Body>>> {
+    fn take_blocks(&mut self) -> Option<Vec<SealedBlock<Client::Block>>> {
         if !self.is_bodies_complete() {
             // not done with bodies yet
             return None
@@ -421,7 +424,8 @@ where
                     }
                 };
 
-                valid_responses.push(SealedBlock::new(header.clone(), body));
+                valid_responses
+                    .push(SealedBlock::<Client::Block>::from_sealed_parts(header.clone(), body));
             }
         }
 
@@ -429,7 +433,7 @@ where
             // put response hashes back into bodies map since we aren't returning them as a
             // response
             for block in valid_responses {
-                let (header, body) = block.split_header_body();
+                let (header, body) = block.split_sealed_header_body();
                 self.bodies.insert(header, BodyResponse::Validated(body));
             }
 
@@ -447,7 +451,7 @@ where
 
     fn on_headers_response(&mut self, headers: WithPeerId<Vec<Client::Header>>) {
         let (peer, mut headers_falling) =
-            headers.map(|h| h.into_iter().map(SealedHeader::seal).collect::<Vec<_>>()).split();
+            headers.map(|h| h.into_iter().map(SealedHeader::seal_slow).collect::<Vec<_>>()).split();
 
         // fill in the response if it's the correct length
         if headers_falling.len() == self.count as usize {
@@ -505,7 +509,7 @@ impl<Client> Future for FetchFullBlockRangeFuture<Client>
 where
     Client: BlockClient<Header: Debug + BlockHeader + Sealable + Clone + Hash + Eq> + 'static,
 {
-    type Output = Vec<SealedBlock<Client::Header, Client::Body>>;
+    type Output = Vec<SealedBlock<Client::Block>>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
@@ -641,9 +645,105 @@ enum RangeResponseResult<H, B> {
     Body(PeerRequestResult<Vec<B>>),
 }
 
+/// A headers+bodies client implementation that does nothing.
+#[derive(Debug, Default, Clone)]
+#[non_exhaustive]
+pub struct NoopFullBlockClient<Net = EthNetworkPrimitives>(PhantomData<Net>);
+
+/// Implements the `DownloadClient` trait for the `NoopFullBlockClient` struct.
+impl<Net> DownloadClient for NoopFullBlockClient<Net>
+where
+    Net: Debug + Send + Sync,
+{
+    /// Reports a bad message received from a peer.
+    ///
+    /// # Arguments
+    ///
+    /// * `_peer_id` - Identifier for the peer sending the bad message (unused in this
+    ///   implementation).
+    fn report_bad_message(&self, _peer_id: PeerId) {}
+
+    /// Retrieves the number of connected peers.
+    ///
+    /// # Returns
+    ///
+    /// The number of connected peers, which is always zero in this implementation.
+    fn num_connected_peers(&self) -> usize {
+        0
+    }
+}
+
+/// Implements the `BodiesClient` trait for the `NoopFullBlockClient` struct.
+impl<Net> BodiesClient for NoopFullBlockClient<Net>
+where
+    Net: NetworkPrimitives,
+{
+    type Body = Net::BlockBody;
+    /// Defines the output type of the function.
+    type Output = futures::future::Ready<PeerRequestResult<Vec<Self::Body>>>;
+
+    /// Retrieves block bodies based on provided hashes and priority.
+    ///
+    /// # Arguments
+    ///
+    /// * `_hashes` - A vector of block hashes (unused in this implementation).
+    /// * `_priority` - Priority level for block body retrieval (unused in this implementation).
+    ///
+    /// # Returns
+    ///
+    /// A future containing an empty vector of block bodies and a randomly generated `PeerId`.
+    fn get_block_bodies_with_priority(
+        &self,
+        _hashes: Vec<B256>,
+        _priority: Priority,
+    ) -> Self::Output {
+        // Create a future that immediately returns an empty vector of block bodies and a random
+        // PeerId.
+        futures::future::ready(Ok(WithPeerId::new(PeerId::random(), vec![])))
+    }
+}
+
+impl<Net> HeadersClient for NoopFullBlockClient<Net>
+where
+    Net: NetworkPrimitives,
+{
+    type Header = Net::BlockHeader;
+    /// The output type representing a future containing a peer request result with a vector of
+    /// headers.
+    type Output = futures::future::Ready<PeerRequestResult<Vec<Self::Header>>>;
+
+    /// Retrieves headers with a specified priority level.
+    ///
+    /// This implementation does nothing and returns an empty vector of headers.
+    ///
+    /// # Arguments
+    ///
+    /// * `_request` - A request for headers (unused in this implementation).
+    /// * `_priority` - The priority level for the headers request (unused in this implementation).
+    ///
+    /// # Returns
+    ///
+    /// Always returns a ready future with an empty vector of headers wrapped in a
+    /// `PeerRequestResult`.
+    fn get_headers_with_priority(
+        &self,
+        _request: HeadersRequest,
+        _priority: Priority,
+    ) -> Self::Output {
+        futures::future::ready(Ok(WithPeerId::new(PeerId::random(), vec![])))
+    }
+}
+
+impl<Net> BlockClient for NoopFullBlockClient<Net>
+where
+    Net: NetworkPrimitives,
+{
+    type Block = Net::Block;
+}
+
 #[cfg(test)]
 mod tests {
-    use reth_primitives::BlockBody;
+    use reth_ethereum_primitives::BlockBody;
 
     use super::*;
     use crate::test_utils::TestFullBlockClient;
@@ -658,7 +758,7 @@ mod tests {
         let client = FullBlockClient::test_client(client);
 
         let received = client.get_full_block(header.hash()).await;
-        assert_eq!(received, SealedBlock::new(header, body));
+        assert_eq!(received, SealedBlock::from_sealed_parts(header, body));
     }
 
     #[tokio::test]
@@ -671,7 +771,7 @@ mod tests {
 
         let received = client.get_full_block_range(header.hash(), 1).await;
         let received = received.first().expect("response should include a block");
-        assert_eq!(*received, SealedBlock::new(header, body));
+        assert_eq!(*received, SealedBlock::from_sealed_parts(header, body));
     }
 
     /// Inserts headers and returns the last header and block body.
@@ -687,7 +787,7 @@ mod tests {
             header.parent_hash = hash;
             header.number += 1;
 
-            sealed_header = SealedHeader::seal(header);
+            sealed_header = SealedHeader::seal_slow(header);
 
             client.insert(sealed_header.clone(), body.clone());
         }
@@ -703,13 +803,13 @@ mod tests {
 
         let received = client.get_full_block_range(header.hash(), 1).await;
         let received = received.first().expect("response should include a block");
-        assert_eq!(*received, SealedBlock::new(header.clone(), body));
+        assert_eq!(*received, SealedBlock::from_sealed_parts(header.clone(), body));
 
         let received = client.get_full_block_range(header.hash(), 10).await;
         assert_eq!(received.len(), 10);
         for (i, block) in received.iter().enumerate() {
             let expected_number = header.number - i as u64;
-            assert_eq!(block.header.number, expected_number);
+            assert_eq!(block.number, expected_number);
         }
     }
 
@@ -722,13 +822,13 @@ mod tests {
 
         let received = client.get_full_block_range(header.hash(), 1).await;
         let received = received.first().expect("response should include a block");
-        assert_eq!(*received, SealedBlock::new(header.clone(), body));
+        assert_eq!(*received, SealedBlock::from_sealed_parts(header.clone(), body));
 
         let received = client.get_full_block_range(header.hash(), 50).await;
         assert_eq!(received.len(), 50);
         for (i, block) in received.iter().enumerate() {
             let expected_number = header.number - i as u64;
-            assert_eq!(block.header.number, expected_number);
+            assert_eq!(block.number, expected_number);
         }
     }
 
@@ -748,7 +848,7 @@ mod tests {
         assert_eq!(received.len(), range_length);
         for (i, block) in received.iter().enumerate() {
             let expected_number = header.number - i as u64;
-            assert_eq!(block.header.number, expected_number);
+            assert_eq!(block.number, expected_number);
         }
     }
 }

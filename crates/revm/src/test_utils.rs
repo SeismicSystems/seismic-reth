@@ -1,10 +1,6 @@
 use alloc::vec::Vec;
-use alloy_primitives::{
-    keccak256,
-    map::{B256HashMap, HashMap},
-    Address, BlockNumber, Bytes, StorageKey, B256,
-};
-use reth_primitives::{Account, Bytecode};
+use alloy_primitives::{keccak256, map::HashMap, Address, BlockNumber, Bytes, StorageKey, B256};
+use reth_primitives_traits::{Account, Bytecode};
 use reth_storage_api::{
     AccountReader, BlockHashReader, HashedPostStateProvider, StateProofProvider, StateProvider,
     StateRootProvider, StorageRootProvider,
@@ -17,7 +13,7 @@ use reth_trie::{
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use revm::primitives::FlaggedStorage;
+use revm::state::FlaggedStorage;
 
 /// Mock state for testing
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
@@ -51,8 +47,8 @@ impl StateProviderTest {
 }
 
 impl AccountReader for StateProviderTest {
-    fn basic_account(&self, address: Address) -> ProviderResult<Option<Account>> {
-        Ok(self.accounts.get(&address).map(|(_, acc)| *acc))
+    fn basic_account(&self, address: &Address) -> ProviderResult<Option<Account>> {
+        Ok(self.accounts.get(address).map(|(_, acc)| *acc))
     }
 }
 
@@ -145,17 +141,13 @@ impl StateProofProvider for StateProviderTest {
         unimplemented!("proof generation is not supported")
     }
 
-    fn witness(
-        &self,
-        _input: TrieInput,
-        _target: HashedPostState,
-    ) -> ProviderResult<B256HashMap<Bytes>> {
+    fn witness(&self, _input: TrieInput, _target: HashedPostState) -> ProviderResult<Vec<Bytes>> {
         unimplemented!("witness generation is not supported")
     }
 }
 
 impl HashedPostStateProvider for StateProviderTest {
-    fn hashed_post_state(&self, bundle_state: &revm::db::BundleState) -> HashedPostState {
+    fn hashed_post_state(&self, bundle_state: &revm::database::BundleState) -> HashedPostState {
         HashedPostState::from_bundle_state::<KeccakKeyHasher>(bundle_state.state())
     }
 }
@@ -169,7 +161,7 @@ impl StateProvider for StateProviderTest {
         Ok(self.accounts.get(&account).and_then(|(storage, _)| storage.get(&storage_key).copied()))
     }
 
-    fn bytecode_by_hash(&self, code_hash: B256) -> ProviderResult<Option<Bytecode>> {
-        Ok(self.contracts.get(&code_hash).cloned())
+    fn bytecode_by_hash(&self, code_hash: &B256) -> ProviderResult<Option<Bytecode>> {
+        Ok(self.contracts.get(code_hash).cloned())
     }
 }

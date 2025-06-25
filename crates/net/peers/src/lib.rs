@@ -255,9 +255,29 @@ impl<T> WithPeerId<T> {
 }
 
 impl<T> WithPeerId<Option<T>> {
-    /// returns `None` if the inner value is `None`, otherwise returns `Some(WithPeerId<T>)`.
+    /// Returns `None` if the inner value is `None`, otherwise returns `Some(WithPeerId<T>)`.
     pub fn transpose(self) -> Option<WithPeerId<T>> {
         self.1.map(|v| WithPeerId(self.0, v))
+    }
+
+    /// Returns the contained Some value, consuming the self value.
+    ///
+    /// See also [`Option::unwrap`]
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value is a None
+    pub fn unwrap(self) -> T {
+        self.1.unwrap()
+    }
+
+    /// Returns the transposed [`WithPeerId`] type with the contained Some value
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value is a None
+    pub fn unwrapped(self) -> WithPeerId<T> {
+        self.transpose().unwrap()
     }
 }
 
@@ -309,7 +329,7 @@ mod tests {
     #[test]
     #[cfg(feature = "secp256k1")]
     fn pk2id2pk() {
-        let prikey = secp256k1::SecretKey::new(&mut rand::thread_rng());
+        let prikey = secp256k1::SecretKey::new(&mut rand_08::thread_rng());
         let pubkey = secp256k1::PublicKey::from_secret_key(secp256k1::SECP256K1, &prikey);
         assert_eq!(pubkey, id2pk(pk2id(&pubkey)).unwrap());
     }

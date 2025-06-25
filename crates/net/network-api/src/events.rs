@@ -4,12 +4,12 @@ use reth_eth_wire_types::{
     message::RequestPair, BlockBodies, BlockHeaders, Capabilities, DisconnectReason, EthMessage,
     EthNetworkPrimitives, EthVersion, GetBlockBodies, GetBlockHeaders, GetNodeData,
     GetPooledTransactions, GetReceipts, NetworkPrimitives, NodeData, PooledTransactions, Receipts,
-    Status,
+    UnifiedStatus,
 };
 use reth_ethereum_forks::ForkId;
 use reth_network_p2p::error::{RequestError, RequestResult};
 use reth_network_peers::PeerId;
-use reth_network_types::PeerAddr;
+use reth_network_types::{PeerAddr, PeerKind};
 use reth_tokio_util::EventStream;
 use std::{
     fmt,
@@ -63,9 +63,11 @@ pub struct SessionInfo {
     /// Capabilities the peer announced.
     pub capabilities: Arc<Capabilities>,
     /// The status of the peer to which a session was established.
-    pub status: Arc<Status>,
+    pub status: Arc<UnifiedStatus>,
     /// Negotiated eth version of the session.
     pub version: EthVersion,
+    /// The kind of peer this session represents
+    pub peer_kind: PeerKind,
 }
 
 /// (Non-exhaustive) List of the different events emitted by the network that are of interest for
@@ -225,7 +227,7 @@ pub enum PeerRequest<N: NetworkPrimitives = EthNetworkPrimitives> {
         /// The request for receipts.
         request: GetReceipts,
         /// The channel to send the response for receipts.
-        response: oneshot::Sender<RequestResult<Receipts>>,
+        response: oneshot::Sender<RequestResult<Receipts<N::Receipt>>>,
     },
 }
 

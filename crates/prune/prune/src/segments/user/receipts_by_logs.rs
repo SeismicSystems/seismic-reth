@@ -4,7 +4,7 @@ use crate::{
     PrunerError,
 };
 use alloy_consensus::TxReceipt;
-use reth_db::{table::Value, tables, transaction::DbTxMut};
+use reth_db_api::{table::Value, tables, transaction::DbTxMut};
 use reth_primitives_traits::NodePrimitives;
 use reth_provider::{
     BlockReader, DBProvider, NodePrimitivesProvider, PruneCheckpointWriter, TransactionsProvider,
@@ -230,8 +230,7 @@ mod tests {
     use crate::segments::{PruneInput, PruneLimiter, ReceiptsByLogs, Segment};
     use alloy_primitives::B256;
     use assert_matches::assert_matches;
-    use reth_db::tables;
-    use reth_db_api::{cursor::DbCursorRO, transaction::DbTx};
+    use reth_db_api::{cursor::DbCursorRO, tables, transaction::DbTx};
     use reth_primitives_traits::InMemorySize;
     use reth_provider::{DatabaseProviderFactory, PruneCheckpointReader, TransactionsProvider};
     use reth_prune_types::{PruneMode, PruneSegment, ReceiptsLogPruneConfig};
@@ -273,12 +272,12 @@ mod tests {
 
         let (deposit_contract_addr, _) = random_eoa_account(&mut rng);
         for block in &blocks {
-            receipts.reserve_exact(block.body.size());
-            for (txi, transaction) in block.body.transactions.iter().enumerate() {
+            receipts.reserve_exact(block.body().size());
+            for (txi, transaction) in block.body().transactions.iter().enumerate() {
                 let mut receipt = random_receipt(&mut rng, transaction, Some(1));
                 receipt.logs.push(random_log(
                     &mut rng,
-                    (txi == (block.body.transactions.len() - 1)).then_some(deposit_contract_addr),
+                    (txi == (block.transaction_count() - 1)).then_some(deposit_contract_addr),
                     Some(1),
                 ));
                 receipts.push((receipts.len() as u64, receipt));
@@ -288,7 +287,7 @@ mod tests {
 
         assert_eq!(
             db.table::<tables::Transactions>().unwrap().len(),
-            blocks.iter().map(|block| block.body.transactions.len()).sum::<usize>()
+            blocks.iter().map(|block| block.transaction_count()).sum::<usize>()
         );
         assert_eq!(
             db.table::<tables::Transactions>().unwrap().len(),
@@ -337,7 +336,7 @@ mod tests {
 
             assert_eq!(
                 db.table::<tables::Receipts>().unwrap().len(),
-                blocks.iter().map(|block| block.body.transactions.len()).sum::<usize>() -
+                blocks.iter().map(|block| block.transaction_count()).sum::<usize>() -
                     ((pruned_tx + 1) - unprunable) as usize
             );
 

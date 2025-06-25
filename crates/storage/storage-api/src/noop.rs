@@ -8,33 +8,31 @@ use crate::{
     StateProviderBox, StateProviderFactory, StateRootProvider, StorageRootProvider,
     TransactionVariant, TransactionsProvider, WithdrawalsProvider,
 };
-use alloy_eips::{
-    eip4895::{Withdrawal, Withdrawals},
-    BlockHashOrNumber, BlockId, BlockNumberOrTag,
-};
+use alloc::{boxed::Box, string::String, sync::Arc, vec::Vec};
+use alloy_consensus::transaction::TransactionMeta;
+use alloy_eips::{eip4895::Withdrawals, BlockHashOrNumber, BlockId, BlockNumberOrTag};
 use alloy_primitives::{
-    map::{B256HashMap, HashMap},
     Address, BlockHash, BlockNumber, Bytes, StorageKey, TxHash, TxNumber, B256, U256,
+};
+use core::{
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{RangeBounds, RangeInclusive},
 };
 use reth_chainspec::{ChainInfo, ChainSpecProvider, EthChainSpec, MAINNET};
 use reth_db_models::{AccountBeforeTx, StoredBlockBodyIndices};
-use reth_primitives::{
-    BlockWithSenders, EthPrimitives, SealedBlockFor, SealedBlockWithSenders, TransactionMeta,
+use reth_ethereum_primitives::EthPrimitives;
+use reth_primitives_traits::{
+    Account, Bytecode, NodePrimitives, RecoveredBlock, SealedBlock, SealedHeader,
 };
-use reth_primitives_traits::{Account, Bytecode, NodePrimitives, SealedHeader};
 use reth_prune_types::{PruneCheckpoint, PruneSegment};
 use reth_stages_types::{StageCheckpoint, StageId};
 use reth_storage_errors::provider::{ProviderError, ProviderResult};
-use reth_trie::{
+use reth_trie_common::{
     updates::TrieUpdates, AccountProof, HashedPostState, HashedStorage, MultiProof,
-    MultiProofTargets, TrieInput,
+    MultiProofTargets, StorageMultiProof, StorageProof, TrieInput,
 };
-use revm::primitives::FlaggedStorage;
-use std::{
-    marker::PhantomData,
-    ops::{RangeBounds, RangeInclusive},
-    sync::Arc,
-};
+use revm_state::FlaggedStorage;
 
 /// Supports various api interfaces for testing purposes.
 #[derive(Debug)]
@@ -88,7 +86,7 @@ impl<ChainSpec: Send + Sync, N: Send + Sync> BlockHashReader for NoopProvider<Ch
         _start: BlockNumber,
         _end: BlockNumber,
     ) -> ProviderResult<Vec<B256>> {
-        Ok(vec![])
+        Ok(Vec::new())
     }
 }
 
@@ -110,7 +108,7 @@ impl<ChainSpec: Send + Sync, N: Send + Sync> BlockNumReader for NoopProvider<Cha
     }
 }
 
-impl<ChainSpec: EthChainSpec + 'static, N: Send + Sync + 'static> ChainSpecProvider
+impl<ChainSpec: EthChainSpec + 'static, N: Debug + Send + Sync + 'static> ChainSpecProvider
     for NoopProvider<ChainSpec, N>
 {
     type ChainSpec = ChainSpec;
@@ -170,27 +168,25 @@ impl<C: Send + Sync, N: NodePrimitives> BlockReader for NoopProvider<C, N> {
         Ok(None)
     }
 
-    fn pending_block(&self) -> ProviderResult<Option<SealedBlockFor<Self::Block>>> {
+    fn pending_block(&self) -> ProviderResult<Option<SealedBlock<Self::Block>>> {
         Ok(None)
     }
 
-    fn pending_block_with_senders(
-        &self,
-    ) -> ProviderResult<Option<SealedBlockWithSenders<Self::Block>>> {
+    fn pending_block_with_senders(&self) -> ProviderResult<Option<RecoveredBlock<Self::Block>>> {
         Ok(None)
     }
 
     fn pending_block_and_receipts(
         &self,
-    ) -> ProviderResult<Option<(SealedBlockFor<Self::Block>, Vec<Self::Receipt>)>> {
+    ) -> ProviderResult<Option<(SealedBlock<Self::Block>, Vec<Self::Receipt>)>> {
         Ok(None)
     }
 
-    fn block_with_senders(
+    fn recovered_block(
         &self,
         _id: BlockHashOrNumber,
         _transaction_kind: TransactionVariant,
-    ) -> ProviderResult<Option<BlockWithSenders<Self::Block>>> {
+    ) -> ProviderResult<Option<RecoveredBlock<Self::Block>>> {
         Ok(None)
     }
 
@@ -198,26 +194,26 @@ impl<C: Send + Sync, N: NodePrimitives> BlockReader for NoopProvider<C, N> {
         &self,
         _id: BlockHashOrNumber,
         _transaction_kind: TransactionVariant,
-    ) -> ProviderResult<Option<SealedBlockWithSenders<Self::Block>>> {
+    ) -> ProviderResult<Option<RecoveredBlock<Self::Block>>> {
         Ok(None)
     }
 
     fn block_range(&self, _range: RangeInclusive<BlockNumber>) -> ProviderResult<Vec<Self::Block>> {
-        Ok(vec![])
+        Ok(Vec::new())
     }
 
     fn block_with_senders_range(
         &self,
         _range: RangeInclusive<BlockNumber>,
-    ) -> ProviderResult<Vec<BlockWithSenders<Self::Block>>> {
-        Ok(vec![])
+    ) -> ProviderResult<Vec<RecoveredBlock<Self::Block>>> {
+        Ok(Vec::new())
     }
 
-    fn sealed_block_with_senders_range(
+    fn recovered_block_range(
         &self,
         _range: RangeInclusive<BlockNumber>,
-    ) -> ProviderResult<Vec<SealedBlockWithSenders<Self::Block>>> {
-        Ok(vec![])
+    ) -> ProviderResult<Vec<RecoveredBlock<Self::Block>>> {
+        Ok(Vec::new())
     }
 }
 
@@ -309,7 +305,7 @@ impl<C: Send + Sync, N: NodePrimitives> ReceiptProvider for NoopProvider<C, N> {
         &self,
         _range: impl RangeBounds<TxNumber>,
     ) -> ProviderResult<Vec<Self::Receipt>> {
-        Ok(vec![])
+        Ok(Vec::new())
     }
 }
 
@@ -338,7 +334,7 @@ impl<C: Send + Sync, N: NodePrimitives> HeaderProvider for NoopProvider<C, N> {
         &self,
         _range: impl RangeBounds<BlockNumber>,
     ) -> ProviderResult<Vec<Self::Header>> {
-        Ok(vec![])
+        Ok(Vec::new())
     }
 
     fn sealed_header(
@@ -353,12 +349,12 @@ impl<C: Send + Sync, N: NodePrimitives> HeaderProvider for NoopProvider<C, N> {
         _range: impl RangeBounds<BlockNumber>,
         _predicate: impl FnMut(&SealedHeader<Self::Header>) -> bool,
     ) -> ProviderResult<Vec<SealedHeader<Self::Header>>> {
-        Ok(vec![])
+        Ok(Vec::new())
     }
 }
 
 impl<C: Send + Sync, N: NodePrimitives> AccountReader for NoopProvider<C, N> {
-    fn basic_account(&self, _address: Address) -> ProviderResult<Option<Account>> {
+    fn basic_account(&self, _address: &Address) -> ProviderResult<Option<Account>> {
         Ok(None)
     }
 }
@@ -410,8 +406,8 @@ impl<C: Send + Sync, N: NodePrimitives> StorageRootProvider for NoopProvider<C, 
         _address: Address,
         slot: B256,
         _hashed_storage: HashedStorage,
-    ) -> ProviderResult<reth_trie::StorageProof> {
-        Ok(reth_trie::StorageProof::new(slot))
+    ) -> ProviderResult<StorageProof> {
+        Ok(StorageProof::new(slot))
     }
 
     fn storage_multiproof(
@@ -419,8 +415,8 @@ impl<C: Send + Sync, N: NodePrimitives> StorageRootProvider for NoopProvider<C, 
         _address: Address,
         _slots: &[B256],
         _hashed_storage: HashedStorage,
-    ) -> ProviderResult<reth_trie::StorageMultiProof> {
-        Ok(reth_trie::StorageMultiProof::empty())
+    ) -> ProviderResult<StorageMultiProof> {
+        Ok(StorageMultiProof::empty())
     }
 }
 
@@ -442,17 +438,13 @@ impl<C: Send + Sync, N: NodePrimitives> StateProofProvider for NoopProvider<C, N
         Ok(MultiProof::default())
     }
 
-    fn witness(
-        &self,
-        _input: TrieInput,
-        _target: HashedPostState,
-    ) -> ProviderResult<B256HashMap<Bytes>> {
-        Ok(HashMap::default())
+    fn witness(&self, _input: TrieInput, _target: HashedPostState) -> ProviderResult<Vec<Bytes>> {
+        Ok(Vec::default())
     }
 }
 
 impl<C: Send + Sync, N: NodePrimitives> HashedPostStateProvider for NoopProvider<C, N> {
-    fn hashed_post_state(&self, _bundle_state: &revm::db::BundleState) -> HashedPostState {
+    fn hashed_post_state(&self, _bundle_state: &revm_database::BundleState) -> HashedPostState {
         HashedPostState::default()
     }
 }
@@ -466,7 +458,7 @@ impl<C: Send + Sync, N: NodePrimitives> StateProvider for NoopProvider<C, N> {
         Ok(None)
     }
 
-    fn bytecode_by_hash(&self, _code_hash: B256) -> ProviderResult<Option<Bytecode>> {
+    fn bytecode_by_hash(&self, _code_hash: &B256) -> ProviderResult<Option<Bytecode>> {
         Ok(None)
     }
 }
@@ -545,9 +537,6 @@ impl<C: Send + Sync, N: NodePrimitives> WithdrawalsProvider for NoopProvider<C, 
     ) -> ProviderResult<Option<Withdrawals>> {
         Ok(None)
     }
-    fn latest_withdrawal(&self) -> ProviderResult<Option<Withdrawal>> {
-        Ok(None)
-    }
 }
 
 impl<C: Send + Sync, N: NodePrimitives> OmmersProvider for NoopProvider<C, N> {
@@ -576,5 +565,12 @@ impl<C: Send + Sync, N: NodePrimitives> NodePrimitivesProvider for NoopProvider<
 impl<C: Send + Sync, N: Send + Sync> BlockBodyIndicesProvider for NoopProvider<C, N> {
     fn block_body_indices(&self, _num: u64) -> ProviderResult<Option<StoredBlockBodyIndices>> {
         Ok(None)
+    }
+
+    fn block_body_indices_range(
+        &self,
+        _range: RangeInclusive<BlockNumber>,
+    ) -> ProviderResult<Vec<StoredBlockBodyIndices>> {
+        Ok(Vec::new())
     }
 }

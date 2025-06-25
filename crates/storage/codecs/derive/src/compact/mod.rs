@@ -90,7 +90,9 @@ pub fn get_fields(data: &Data) -> FieldList {
 
                 match &variant.fields {
                     syn::Fields::Named(_) => {
-                        panic!("Not allowed to have Enum Variants with multiple named fields. Make it a struct instead.")
+                        panic!(
+                            "Not allowed to have Enum Variants with multiple named fields. Make it a struct instead."
+                        )
                     }
                     syn::Fields::Unnamed(data_fields) => {
                         assert_eq!(
@@ -200,7 +202,7 @@ fn should_use_alt_impl(ftype: &str, segment: &syn::PathSegment) -> bool {
 pub fn get_bit_size(ftype: &str) -> u8 {
     match ftype {
         "TransactionKind" | "TxKind" | "bool" | "Option" | "Signature" => 1,
-        "TxType" | "OpTxType" => 2,
+        "TxType" | "OpTxType" | "SeismicTxType" => 2,
         "u64" | "BlockNumber" | "TxNumber" | "ChainId" | "NumTransactions" => 4,
         "u128" => 5,
         "U256" => 6,
@@ -222,7 +224,7 @@ mod tests {
     use syn::parse2;
 
     #[test]
-    fn gen() {
+    fn compact_codec() {
         let f_struct = quote! {
              #[derive(Debug, PartialEq, Clone)]
              pub struct TestStruct {
@@ -260,7 +262,7 @@ mod tests {
 
             pub use TestStruct_flags::TestStructFlags;
 
-            #[allow(non_snake_case)]
+            #[expect(non_snake_case)]
             mod TestStruct_flags {
                 use reth_codecs::__private::Buf;
                 use reth_codecs::__private::modular_bitfield;
@@ -290,7 +292,7 @@ mod tests {
                 }
             }
             #[cfg(test)]
-            #[allow(dead_code)]
+            #[expect(dead_code)]
             #[test_fuzz::test_fuzz]
             fn fuzz_test_test_struct(obj: TestStruct) {
                 use reth_codecs::Compact;
@@ -300,7 +302,7 @@ mod tests {
                 assert_eq!(obj, same_obj);
             }
             #[test]
-            #[allow(missing_docs)]
+            #[expect(missing_docs)]
             pub fn fuzz_test_struct() {
                 fuzz_test_test_struct(TestStruct::default())
             }

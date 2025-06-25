@@ -66,49 +66,48 @@
 //!    category (2.) and become pending.
 
 use crate::{
+    blobstore::BlobStore,
     error::{PoolError, PoolErrorKind, PoolResult},
     identifier::{SenderId, SenderIdentifiers, TransactionId},
+    metrics::BlobStoreMetrics,
     pool::{
-        listener::PoolEventBroadcast,
+        listener::{
+            BlobTransactionSidecarListener, PendingTransactionHashListener, PoolEventBroadcast,
+            TransactionListener,
+        },
         state::SubPool,
         txpool::{SenderInfo, TxPool},
+        update::UpdateOutcome,
     },
     traits::{
-        AllPoolTransactions, BestTransactionsAttributes, BlockInfo, NewTransactionEvent, PoolSize,
-        PoolTransaction, PropagatedTransactions, TransactionOrigin,
+        AllPoolTransactions, BestTransactionsAttributes, BlockInfo, GetPooledTransactionLimit,
+        NewBlobSidecar, PoolSize, PoolTransaction, PropagatedTransactions, TransactionOrigin,
     },
-    validate::{TransactionValidationOutcome, ValidPoolTransaction},
+    validate::{TransactionValidationOutcome, ValidPoolTransaction, ValidTransaction},
     CanonicalStateUpdate, EthPoolTransaction, PoolConfig, TransactionOrdering,
     TransactionValidator,
 };
+
 use alloy_primitives::{Address, TxHash, B256};
 use best::BestTransactions;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use reth_eth_wire_types::HandleMempoolData;
 use reth_execution_types::ChangedAccount;
 
-use alloy_eips::eip4844::BlobTransactionSidecar;
-use reth_primitives::RecoveredTx;
+use alloy_eips::{eip7594::BlobTransactionSidecarVariant, Typed2718};
+use reth_primitives_traits::Recovered;
 use rustc_hash::FxHashMap;
 use std::{collections::HashSet, fmt, sync::Arc, time::Instant};
 use tokio::sync::mpsc;
 use tracing::{debug, trace, warn};
 mod events;
-use crate::{
-    blobstore::BlobStore,
-    metrics::BlobStoreMetrics,
-    pool::txpool::UpdateOutcome,
-    traits::{GetPooledTransactionLimit, NewBlobSidecar, TransactionListenerKind},
-    validate::ValidTransaction,
-};
-pub use best::{
-    BestPayloadTransactions, BestTransactionFilter, BestTransactionsWithPrioritizedSenders,
-};
-pub use blob::{blob_tx_priority, fee_delta};
-pub use events::{FullTransactionEvent, TransactionEvent};
-pub use listener::{AllTransactionsEvents, TransactionEvents};
+pub use best::{BestTransactionFilter, BestTransactionsWithPrioritizedSenders};
+pub use blob::{blob_tx_priority, fee_delta, BlobOrd, BlobTransactions};
+pub use events::{FullTransactionEvent, NewTransactionEvent, TransactionEvent};
+pub use listener::{AllTransactionsEvents, TransactionEvents, TransactionListenerKind};
 pub use parked::{BasefeeOrd, ParkedOrd, ParkedPool, QueuedOrd};
 pub use pending::PendingPool;
+use reth_primitives_traits::Block;
 
 mod best;
 mod blob;
@@ -134,7 +133,7 @@ where
 {
     /// Internal mapping of addresses to plain ints.
     identifiers: RwLock<SenderIdentifiers>,
-    /// Transaction validation.
+    /// Transaction validator.
     validator: V,
     /// Storage for blob transactions
     blob_store: S,
@@ -200,6 +199,11 @@ where
     /// Returns the internal [`SenderId`] for this address
     pub fn get_sender_id(&self, addr: Address) -> SenderId {
         self.identifiers.write().sender_id_or_create(addr)
+    }
+
+    /// Returns the internal [`SenderId`]s for the given addresses.
+    pub fn get_sender_ids(&self, addrs: impl IntoIterator<Item = Address>) -> Vec<SenderId> {
+        self.identifiers.write().sender_ids_or_create(addrs)
     }
 
     /// Returns all senders in the pool
@@ -315,7 +319,7 @@ where
     fn to_pooled_transaction(
         &self,
         transaction: Arc<ValidPoolTransaction<T::Transaction>>,
-    ) -> Option<RecoveredTx<<<V as TransactionValidator>::Transaction as PoolTransaction>::Pooled>>
+    ) -> Option<Recovered<<<V as TransactionValidator>::Transaction as PoolTransaction>::Pooled>>
     where
         <V as TransactionValidator>::Transaction: EthPoolTransaction,
     {
@@ -356,7 +360,7 @@ where
             };
 
             size += encoded_len;
-            elements.push(pooled.into_signed());
+            elements.push(pooled.into_inner());
 
             if limit.exceeds(size) {
                 break
@@ -370,7 +374,7 @@ where
     pub fn get_pooled_transaction_element(
         &self,
         tx_hash: TxHash,
-    ) -> Option<RecoveredTx<<<V as TransactionValidator>::Transaction as PoolTransaction>::Pooled>>
+    ) -> Option<Recovered<<<V as TransactionValidator>::Transaction as PoolTransaction>::Pooled>>
     where
         <V as TransactionValidator>::Transaction: EthPoolTransaction,
     {
@@ -378,7 +382,10 @@ where
     }
 
     /// Updates the entire pool after a new block was executed.
-    pub fn on_canonical_state_change(&self, update: CanonicalStateUpdate<'_>) {
+    pub fn on_canonical_state_change<B>(&self, update: CanonicalStateUpdate<'_, B>)
+    where
+        B: Block,
+    {
         trace!(target: "txpool", ?update, "updating pool on canonical state change");
 
         let block_info = update.block_info();
@@ -437,6 +444,8 @@ where
                 state_nonce,
                 transaction,
                 propagate,
+                bytecode_hash,
+                authorities,
             } => {
                 let sender_id = self.get_sender_id(transaction.sender());
                 let transaction_id = TransactionId::new(sender_id, transaction.nonce());
@@ -459,9 +468,10 @@ where
                     propagate,
                     timestamp: Instant::now(),
                     origin,
+                    authority_ids: authorities.map(|auths| self.get_sender_ids(auths)),
                 };
 
-                let added = pool.add_transaction(tx, balance, state_nonce)?;
+                let added = pool.add_transaction(tx, balance, state_nonce, bytecode_hash)?;
                 let hash = *added.hash();
 
                 // transaction was successfully inserted into the pool
@@ -497,7 +507,7 @@ where
             }
             TransactionValidationOutcome::Invalid(tx, err) => {
                 let mut listener = self.event_listener.write();
-                listener.discarded(tx.hash());
+                listener.invalid(tx.hash());
                 Err(PoolError::new(*tx.hash(), err))
             }
             TransactionValidationOutcome::Error(tx_hash, err) => {
@@ -609,7 +619,7 @@ where
     }
 
     /// Notify all listeners about a blob sidecar for a newly inserted blob (eip4844) transaction.
-    fn on_new_blob_sidecar(&self, tx_hash: &TxHash, sidecar: &BlobTransactionSidecar) {
+    fn on_new_blob_sidecar(&self, tx_hash: &TxHash, sidecar: &BlobTransactionSidecarVariant) {
         let mut sidecar_listeners = self.blob_transaction_sidecar_listener.lock();
         if sidecar_listeners.is_empty() {
             return
@@ -724,6 +734,9 @@ where
     }
 
     /// Removes and returns all matching transactions from the pool.
+    ///
+    /// This behaves as if the transactions got discarded (_not_ mined), effectively introducing a
+    /// nonce gap for the given transactions.
     pub fn remove_transactions(
         &self,
         hashes: Vec<TxHash>,
@@ -805,7 +818,7 @@ where
         sender: Address,
     ) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
         let sender_id = self.get_sender_id(sender);
-        self.get_pool_data().pending_txs_by_sender(sender_id)
+        self.get_pool_data().queued_txs_by_sender(sender_id)
     }
 
     /// Returns all pending transactions filtered by predicate
@@ -822,7 +835,7 @@ where
         sender: Address,
     ) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
         let sender_id = self.get_sender_id(sender);
-        self.get_pool_data().queued_txs_by_sender(sender_id)
+        self.get_pool_data().pending_txs_by_sender(sender_id)
     }
 
     /// Returns the highest transaction of the address
@@ -911,7 +924,7 @@ where
     }
 
     /// Inserts a blob transaction into the blob store
-    fn insert_blob(&self, hash: TxHash, blob: BlobTransactionSidecar) {
+    fn insert_blob(&self, hash: TxHash, blob: BlobTransactionSidecarVariant) {
         debug!(target: "txpool", "[{:?}] storing blob sidecar", hash);
         if let Err(err) = self.blob_store.insert(hash, blob) {
             warn!(target: "txpool", %err, "[{:?}] failed to insert blob", hash);
@@ -962,87 +975,6 @@ impl<V, T: TransactionOrdering, S> fmt::Debug for PoolInner<V, T, S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PoolInner").field("config", &self.config).finish_non_exhaustive()
     }
-}
-
-/// An active listener for new pending transactions.
-#[derive(Debug)]
-struct PendingTransactionHashListener {
-    sender: mpsc::Sender<TxHash>,
-    /// Whether to include transactions that should not be propagated over the network.
-    kind: TransactionListenerKind,
-}
-
-impl PendingTransactionHashListener {
-    /// Attempts to send all hashes to the listener.
-    ///
-    /// Returns false if the channel is closed (receiver dropped)
-    fn send_all(&self, hashes: impl IntoIterator<Item = TxHash>) -> bool {
-        for tx_hash in hashes {
-            match self.sender.try_send(tx_hash) {
-                Ok(()) => {}
-                Err(err) => {
-                    return if matches!(err, mpsc::error::TrySendError::Full(_)) {
-                        debug!(
-                            target: "txpool",
-                            "[{:?}] failed to send pending tx; channel full",
-                            tx_hash,
-                        );
-                        true
-                    } else {
-                        false
-                    }
-                }
-            }
-        }
-        true
-    }
-}
-
-/// An active listener for new pending transactions.
-#[derive(Debug)]
-struct TransactionListener<T: PoolTransaction> {
-    sender: mpsc::Sender<NewTransactionEvent<T>>,
-    /// Whether to include transactions that should not be propagated over the network.
-    kind: TransactionListenerKind,
-}
-
-impl<T: PoolTransaction> TransactionListener<T> {
-    /// Attempts to send the event to the listener.
-    ///
-    /// Returns false if the channel is closed (receiver dropped)
-    fn send(&self, event: NewTransactionEvent<T>) -> bool {
-        self.send_all(std::iter::once(event))
-    }
-
-    /// Attempts to send all events to the listener.
-    ///
-    /// Returns false if the channel is closed (receiver dropped)
-    fn send_all(&self, events: impl IntoIterator<Item = NewTransactionEvent<T>>) -> bool {
-        for event in events {
-            match self.sender.try_send(event) {
-                Ok(()) => {}
-                Err(err) => {
-                    return if let mpsc::error::TrySendError::Full(event) = err {
-                        debug!(
-                            target: "txpool",
-                            "[{:?}] failed to send pending tx; channel full",
-                            event.transaction.hash(),
-                        );
-                        true
-                    } else {
-                        false
-                    }
-                }
-            }
-        }
-        true
-    }
-}
-
-/// An active listener for new blobs
-#[derive(Debug)]
-struct BlobTransactionSidecarListener {
-    sender: mpsc::Sender<NewBlobSidecar>,
 }
 
 /// Tracks an added transaction and all graph changes caused by adding it.
@@ -1263,12 +1195,39 @@ mod tests {
         validate::ValidTransaction,
         BlockInfo, PoolConfig, SubPoolLimit, TransactionOrigin, TransactionValidationOutcome, U256,
     };
-    use alloy_eips::eip4844::BlobTransactionSidecar;
-    use reth_primitives::kzg::Blob;
+    use alloy_eips::{eip4844::BlobTransactionSidecar, eip7594::BlobTransactionSidecarVariant};
     use std::{fs, path::PathBuf};
 
     #[test]
     fn test_discard_blobs_on_blob_tx_eviction() {
+        let blobs = {
+            // Read the contents of the JSON file into a string.
+            let json_content = fs::read_to_string(
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_data/blob1.json"),
+            )
+            .expect("Failed to read the blob data file");
+
+            // Parse the JSON contents into a serde_json::Value.
+            let json_value: serde_json::Value =
+                serde_json::from_str(&json_content).expect("Failed to deserialize JSON");
+
+            // Extract blob data from JSON and convert it to Blob.
+            vec![
+                // Extract the "data" field from the JSON and parse it as a string.
+                json_value
+                    .get("data")
+                    .unwrap()
+                    .as_str()
+                    .expect("Data is not a valid string")
+                    .to_string(),
+            ]
+        };
+
+        // Generate a BlobTransactionSidecar from the blobs.
+        let sidecar = BlobTransactionSidecarVariant::Eip4844(
+            BlobTransactionSidecar::try_from_blobs_hex(blobs).unwrap(),
+        );
+
         // Define the maximum limit for blobs in the sub-pool.
         let blob_limit = SubPoolLimit::new(1000, usize::MAX);
 
@@ -1280,26 +1239,6 @@ mod tests {
         // Set the block info for the pool, including a pending blob fee.
         test_pool
             .set_block_info(BlockInfo { pending_blob_fee: Some(10_000_000), ..Default::default() });
-
-        // Read the contents of the JSON file into a string.
-        let json_content = fs::read_to_string(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_data/blob1.json"),
-        )
-        .expect("Failed to read the blob data file");
-
-        // Parse the JSON contents into a serde_json::Value.
-        let json_value: serde_json::Value =
-            serde_json::from_str(&json_content).expect("Failed to deserialize JSON");
-
-        // Extract blob data from JSON and convert it to Blob.
-        let blobs: Vec<Blob> = vec![Blob::from_hex(
-            // Extract the "data" field from the JSON and parse it as a string.
-            json_value.get("data").unwrap().as_str().expect("Data is not a valid string"),
-        )
-        .unwrap()];
-
-        // Generate a BlobTransactionSidecar from the blobs.
-        let sidecar = BlobTransactionSidecar::try_from_blobs(blobs).unwrap();
 
         // Create an in-memory blob store.
         let blob_store = InMemoryBlobStore::default();
@@ -1323,11 +1262,13 @@ mod tests {
                 [TransactionValidationOutcome::Valid {
                     balance: U256::from(1_000),
                     state_nonce: 0,
+                    bytecode_hash: None,
                     transaction: ValidTransaction::ValidWithSidecar {
                         transaction: tx,
                         sidecar: sidecar.clone(),
                     },
                     propagate: true,
+                    authorities: None,
                 }],
             );
         }

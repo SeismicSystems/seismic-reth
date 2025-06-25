@@ -1,11 +1,21 @@
 //! Compact implementation for [`AlloyTxDeposit`]
 
-use alloy_consensus::constants::EIP7702_TX_TYPE_ID;
-use crate::Compact;
-use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
-use op_alloy_consensus::{OpTxType, OpTypedTransaction, TxDeposit as AlloyTxDeposit, DEPOSIT_TX_TYPE_ID};
+use crate::{
+    alloy::transaction::ethereum::{CompactEnvelope, Envelope, FromTxCompact, ToTxCompact},
+    generate_tests,
+    txtype::{
+        COMPACT_EXTENDED_IDENTIFIER_FLAG, COMPACT_IDENTIFIER_EIP1559, COMPACT_IDENTIFIER_EIP2930,
+        COMPACT_IDENTIFIER_LEGACY,
+    },
+    Compact,
+};
+use alloy_consensus::{
+    constants::EIP7702_TX_TYPE_ID, Signed, TxEip1559, TxEip2930, TxEip7702, TxLegacy,
+};
+use alloy_primitives::{Address, Bytes, Sealed, Signature, TxKind, B256, U256};
+use bytes::BufMut;
+use op_alloy_consensus::{OpTxEnvelope, OpTxType, OpTypedTransaction, TxDeposit as AlloyTxDeposit};
 use reth_codecs_derive::add_arbitrary_tests;
-use crate::txtype::{COMPACT_EXTENDED_IDENTIFIER_FLAG, COMPACT_IDENTIFIER_EIP1559, COMPACT_IDENTIFIER_EIP2930, COMPACT_IDENTIFIER_LEGACY};
 
 /// Deposit transactions, also known as deposits are initiated on L1, and executed on L2.
 ///
@@ -68,7 +78,6 @@ impl Compact for AlloyTxDeposit {
     }
 }
 
-
 impl crate::Compact for OpTxType {
     fn to_compact<B>(&self, buf: &mut B) -> usize
     where
@@ -106,7 +115,7 @@ impl crate::Compact for OpTxType {
                     match extended_identifier {
                         EIP7702_TX_TYPE_ID => Self::Eip7702,
                         op_alloy_consensus::DEPOSIT_TX_TYPE_ID => Self::Deposit,
-                        _ => panic!("Unsupported TxType identifier: {extended_identifier}"),
+                        _ => panic!("Unsupported OpTxType identifier: {extended_identifier}"),
                     }
                 }
                 _ => panic!("Unknown identifier for TxType: {identifier}"),
@@ -121,53 +130,119 @@ impl Compact for OpTypedTransaction {
     where
         B: bytes::BufMut + AsMut<[u8]>,
     {
+        let identifier = self.tx_type().to_compact(out);
         match self {
             Self::Legacy(tx) => tx.to_compact(out),
             Self::Eip2930(tx) => tx.to_compact(out),
             Self::Eip1559(tx) => tx.to_compact(out),
             Self::Eip7702(tx) => tx.to_compact(out),
             Self::Deposit(tx) => tx.to_compact(out),
-        }
+        };
+        identifier
     }
 
-    fn from_compact(mut buf: &[u8], identifier: usize) -> (Self, &[u8]) {
-        use bytes::Buf;
-
-        match identifier {
-            COMPACT_IDENTIFIER_LEGACY => {
+    fn from_compact(buf: &[u8], identifier: usize) -> (Self, &[u8]) {
+        let (tx_type, buf) = OpTxType::from_compact(buf, identifier);
+        match tx_type {
+            OpTxType::Legacy => {
                 let (tx, buf) = Compact::from_compact(buf, buf.len());
                 (Self::Legacy(tx), buf)
             }
-            COMPACT_IDENTIFIER_EIP2930 => {
+            OpTxType::Eip2930 => {
                 let (tx, buf) = Compact::from_compact(buf, buf.len());
                 (Self::Eip2930(tx), buf)
             }
-            COMPACT_IDENTIFIER_EIP1559 => {
+            OpTxType::Eip1559 => {
                 let (tx, buf) = Compact::from_compact(buf, buf.len());
                 (Self::Eip1559(tx), buf)
             }
-            COMPACT_EXTENDED_IDENTIFIER_FLAG => {
-                // An identifier of 3 indicates that the transaction type did not fit into
-                // the backwards compatible 2 bit identifier, their transaction types are
-                // larger than 2 bits (eg. 4844 and Deposit Transactions). In this case,
-                // we need to read the concrete transaction type from the buffer by
-                // reading the full 8 bits (single byte) and match on this transaction type.
-                let identifier = buf.get_u8();
-                match identifier {
-                    EIP7702_TX_TYPE_ID => {
-                        let (tx, buf) = Compact::from_compact(buf, buf.len());
-                        (Self::Eip7702(tx), buf)
-                    }
-                    DEPOSIT_TX_TYPE_ID => {
-                        let (tx, buf) = Compact::from_compact(buf, buf.len());
-                        (Self::Deposit(tx), buf)
-                    }
-                    _ => unreachable!(
-                        "Junk data in database: unknown Transaction variant: {identifier}"
-                    ),
-                }
+            OpTxType::Eip7702 => {
+                let (tx, buf) = Compact::from_compact(buf, buf.len());
+                (Self::Eip7702(tx), buf)
             }
-            _ => unreachable!("Junk data in database: unknown Transaction variant: {identifier}"),
+            OpTxType::Deposit => {
+                let (tx, buf) = Compact::from_compact(buf, buf.len());
+                (Self::Deposit(tx), buf)
+            }
         }
     }
 }
+
+impl ToTxCompact for OpTxEnvelope {
+    fn to_tx_compact(&self, buf: &mut (impl BufMut + AsMut<[u8]>)) {
+        match self {
+            Self::Legacy(tx) => tx.tx().to_compact(buf),
+            Self::Eip2930(tx) => tx.tx().to_compact(buf),
+            Self::Eip1559(tx) => tx.tx().to_compact(buf),
+            Self::Eip7702(tx) => tx.tx().to_compact(buf),
+            Self::Deposit(tx) => tx.to_compact(buf),
+        };
+    }
+}
+
+impl FromTxCompact for OpTxEnvelope {
+    type TxType = OpTxType;
+
+    fn from_tx_compact(buf: &[u8], tx_type: OpTxType, signature: Signature) -> (Self, &[u8]) {
+        match tx_type {
+            OpTxType::Legacy => {
+                let (tx, buf) = TxLegacy::from_compact(buf, buf.len());
+                let tx = Signed::new_unhashed(tx, signature);
+                (Self::Legacy(tx), buf)
+            }
+            OpTxType::Eip2930 => {
+                let (tx, buf) = TxEip2930::from_compact(buf, buf.len());
+                let tx = Signed::new_unhashed(tx, signature);
+                (Self::Eip2930(tx), buf)
+            }
+            OpTxType::Eip1559 => {
+                let (tx, buf) = TxEip1559::from_compact(buf, buf.len());
+                let tx = Signed::new_unhashed(tx, signature);
+                (Self::Eip1559(tx), buf)
+            }
+            OpTxType::Eip7702 => {
+                let (tx, buf) = TxEip7702::from_compact(buf, buf.len());
+                let tx = Signed::new_unhashed(tx, signature);
+                (Self::Eip7702(tx), buf)
+            }
+            OpTxType::Deposit => {
+                let (tx, buf) = op_alloy_consensus::TxDeposit::from_compact(buf, buf.len());
+                let tx = Sealed::new(tx);
+                (Self::Deposit(tx), buf)
+            }
+        }
+    }
+}
+
+const DEPOSIT_SIGNATURE: Signature = Signature::new(U256::ZERO, U256::ZERO, false);
+
+impl Envelope for OpTxEnvelope {
+    fn signature(&self) -> &Signature {
+        match self {
+            Self::Legacy(tx) => tx.signature(),
+            Self::Eip2930(tx) => tx.signature(),
+            Self::Eip1559(tx) => tx.signature(),
+            Self::Eip7702(tx) => tx.signature(),
+            Self::Deposit(_) => &DEPOSIT_SIGNATURE,
+        }
+    }
+
+    fn tx_type(&self) -> Self::TxType {
+        Self::tx_type(self)
+    }
+}
+
+impl Compact for OpTxEnvelope {
+    fn to_compact<B>(&self, buf: &mut B) -> usize
+    where
+        B: BufMut + AsMut<[u8]>,
+    {
+        CompactEnvelope::to_compact(self, buf)
+    }
+
+    fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
+        CompactEnvelope::from_compact(buf, len)
+    }
+}
+
+generate_tests!(#[crate, compact] OpTypedTransaction, OpTypedTransactionTests);

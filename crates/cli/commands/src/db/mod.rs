@@ -4,8 +4,10 @@ use reth_chainspec::{EthChainSpec, EthereumHardforks};
 use reth_cli::chainspec::ChainSpecParser;
 use reth_db::version::{get_db_version, DatabaseVersionError, DB_VERSION};
 use reth_db_common::DbTool;
-use std::io::{self, Write};
-
+use std::{
+    io::{self, Write},
+    sync::Arc,
+};
 mod checksum;
 mod clear;
 mod diff;
@@ -68,6 +70,7 @@ impl<C: ChainSpecParser<ChainSpec: EthChainSpec + EthereumHardforks>> Command<C>
         let data_dir = self.env.datadir.clone().resolve_datadir(self.env.chain.chain());
         let db_path = data_dir.db();
         let static_files_path = data_dir.static_files();
+        let exex_wal_path = data_dir.exex_wal();
 
         // ensure the provided datadir exist
         eyre::ensure!(
@@ -109,7 +112,9 @@ impl<C: ChainSpecParser<ChainSpec: EthChainSpec + EthereumHardforks>> Command<C>
             Subcommands::Drop { force } => {
                 if !force {
                     // Ask for confirmation
-                    print!("Are you sure you want to drop the database at {data_dir}? This cannot be undone. (y/N): ");
+                    print!(
+                        "Are you sure you want to drop the database at {data_dir}? This cannot be undone. (y/N): "
+                    );
                     // Flush the buffer to ensure the message is printed immediately
                     io::stdout().flush().unwrap();
 
@@ -124,7 +129,7 @@ impl<C: ChainSpecParser<ChainSpec: EthChainSpec + EthereumHardforks>> Command<C>
 
                 let Environment { provider_factory, .. } = self.env.init::<N>(AccessRights::RW)?;
                 let tool = DbTool::new(provider_factory)?;
-                tool.drop(db_path, static_files_path)?;
+                tool.drop(db_path, static_files_path, exex_wal_path)?;
             }
             Subcommands::Clear(command) => {
                 let Environment { provider_factory, .. } = self.env.init::<N>(AccessRights::RW)?;
@@ -151,6 +156,13 @@ impl<C: ChainSpecParser<ChainSpec: EthChainSpec + EthereumHardforks>> Command<C>
         }
 
         Ok(())
+    }
+}
+
+impl<C: ChainSpecParser> Command<C> {
+    /// Returns the underlying chain being used to run this command
+    pub fn chain_spec(&self) -> Option<&Arc<C::ChainSpec>> {
+        Some(&self.env.chain)
     }
 }
 

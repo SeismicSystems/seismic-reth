@@ -2,15 +2,30 @@ use super::{
     AccountReader, BlockHashReader, BlockIdReader, StateProofProvider, StateRootProvider,
     StorageRootProvider,
 };
+use alloc::boxed::Box;
 use alloy_consensus::constants::KECCAK_EMPTY;
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{Address, BlockHash, BlockNumber, StorageKey, B256, U256};
 use auto_impl::auto_impl;
-use reth_primitives::Bytecode;
+use reth_execution_types::ExecutionOutcome;
+use reth_primitives_traits::Bytecode;
 use reth_storage_errors::provider::ProviderResult;
-use reth_trie::HashedPostState;
-use reth_trie_db::StateCommitment;
-use revm::{db::states::BundleState, primitives::FlaggedStorage};
+use reth_trie_common::HashedPostState;
+use revm_database::BundleState;
+use revm_state::FlaggedStorage;
+
+/// This just receives state, or [`ExecutionOutcome`], from the provider
+#[auto_impl::auto_impl(&, Arc, Box)]
+pub trait StateReader: Send + Sync {
+    /// Receipt type in [`ExecutionOutcome`].
+    type Receipt: Send + Sync;
+
+    /// Get the [`ExecutionOutcome`] for the given block
+    fn get_state(
+        &self,
+        block: BlockNumber,
+    ) -> ProviderResult<Option<ExecutionOutcome<Self::Receipt>>>;
+}
 
 /// Type alias of boxed [`StateProvider`].
 pub type StateProviderBox = Box<dyn StateProvider>;
@@ -35,12 +50,12 @@ pub trait StateProvider:
     ) -> ProviderResult<Option<FlaggedStorage>>;
 
     /// Get account code by its hash
-    fn bytecode_by_hash(&self, code_hash: B256) -> ProviderResult<Option<Bytecode>>;
+    fn bytecode_by_hash(&self, code_hash: &B256) -> ProviderResult<Option<Bytecode>>;
 
     /// Get account code by its address.
     ///
     /// Returns `None` if the account doesn't exist or account is not a contract
-    fn account_code(&self, addr: Address) -> ProviderResult<Option<Bytecode>> {
+    fn account_code(&self, addr: &Address) -> ProviderResult<Option<Bytecode>> {
         // Get basic account information
         // Returns None if acc doesn't exist
         let acc = match self.basic_account(addr)? {
@@ -53,7 +68,7 @@ pub trait StateProvider:
                 return Ok(None)
             }
             // Get the code from the code hash
-            return self.bytecode_by_hash(code_hash)
+            return self.bytecode_by_hash(&code_hash)
         }
 
         // Return `None` if no code hash is set
@@ -63,32 +78,30 @@ pub trait StateProvider:
     /// Get account balance by its address.
     ///
     /// Returns `None` if the account doesn't exist
-    fn account_balance(&self, addr: Address) -> ProviderResult<Option<U256>> {
+    fn account_balance(&self, addr: &Address) -> ProviderResult<Option<U256>> {
         // Get basic account information
         // Returns None if acc doesn't exist
-        match self.basic_account(addr)? {
-            Some(acc) => Ok(Some(acc.balance)),
-            None => Ok(None),
-        }
+
+        self.basic_account(addr)?.map_or_else(|| Ok(None), |acc| Ok(Some(acc.balance)))
     }
 
     /// Get account nonce by its address.
     ///
     /// Returns `None` if the account doesn't exist
-    fn account_nonce(&self, addr: Address) -> ProviderResult<Option<u64>> {
+    fn account_nonce(&self, addr: &Address) -> ProviderResult<Option<u64>> {
         // Get basic account information
         // Returns None if acc doesn't exist
-        match self.basic_account(addr)? {
-            Some(acc) => Ok(Some(acc.nonce)),
-            None => Ok(None),
-        }
+        self.basic_account(addr)?.map_or_else(|| Ok(None), |acc| Ok(Some(acc.nonce)))
     }
 }
 
-/// Trait implemented for database providers that can provide the [`StateCommitment`] type.
+/// Trait implemented for database providers that can provide the [`reth_trie_db::StateCommitment`]
+/// type.
+#[cfg(feature = "db-api")]
 pub trait StateCommitmentProvider: Send + Sync {
-    /// The [`StateCommitment`] type that can be used to perform state commitment operations.
-    type StateCommitment: StateCommitment;
+    /// The [`reth_trie_db::StateCommitment`] type that can be used to perform state commitment
+    /// operations.
+    type StateCommitment: reth_trie_db::StateCommitment;
 }
 
 /// Trait that provides the hashed state from various sources.

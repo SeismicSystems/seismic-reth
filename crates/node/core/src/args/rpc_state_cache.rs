@@ -24,7 +24,8 @@ pub struct RpcStateCacheArgs {
 
     /// Max number of headers in cache.
     #[arg(
-        long = "rpc-cache.max-envs",
+        long = "rpc-cache.max-headers",
+        alias = "rpc-cache.max-envs",
         default_value_t = DEFAULT_HEADER_CACHE_MAX_LEN,
     )]
     pub max_headers: u32,
@@ -35,6 +36,15 @@ pub struct RpcStateCacheArgs {
         default_value_t = DEFAULT_CONCURRENT_DB_REQUESTS,
     )]
     pub max_concurrent_db_requests: usize,
+}
+
+impl RpcStateCacheArgs {
+    /// Sets the Cache sizes to zero, effectively disabling caching.
+    pub const fn set_zero_lengths(&mut self) {
+        self.max_blocks = 0;
+        self.max_receipts = 0;
+        self.max_headers = 0;
+    }
 }
 
 impl Default for RpcStateCacheArgs {

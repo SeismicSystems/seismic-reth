@@ -1,9 +1,27 @@
 //! Compact implementation for [`AlloyTxSeismic`]
 
-use crate::Compact;
-use alloy_consensus::{transaction::TxSeismicElements, TxSeismic as AlloyTxSeismic};
-use alloy_primitives::{aliases::U96, Bytes, ChainId, TxKind, U256};
-use bytes::{Buf, BytesMut};
+use crate::{
+    txtype::{
+        COMPACT_EXTENDED_IDENTIFIER_FLAG, COMPACT_IDENTIFIER_EIP1559, COMPACT_IDENTIFIER_EIP2930,
+        COMPACT_IDENTIFIER_LEGACY,
+    },
+    Compact,
+};
+use alloy_consensus::{
+    transaction::{TxEip1559, TxEip2930, TxEip7702, TxLegacy},
+    Signed, TxEip4844Variant,
+};
+use alloy_consensus::TxEip4844;
+use alloy_eips::eip2718::{EIP7702_TX_TYPE_ID, EIP4844_TX_TYPE_ID};
+use alloy_primitives::{aliases::U96, Bytes, ChainId, Signature, TxKind, U256};
+use bytes::{Buf, BufMut, BytesMut};
+use reth_codecs_derive::generate_tests;
+use seismic_alloy_consensus::{
+    transaction::TxSeismicElements, SeismicTxEnvelope, SeismicTxType, SeismicTypedTransaction,
+    TxSeismic as AlloyTxSeismic, SEISMIC_TX_TYPE_ID,
+};
+
+use super::ethereum::{CompactEnvelope, Envelope, FromTxCompact, ToTxCompact};
 
 /// Seismic transaction.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Compact)]
@@ -122,6 +140,213 @@ impl Compact for AlloyTxSeismic {
         (alloy_tx, buf)
     }
 }
+
+impl Compact for SeismicTxType {
+    fn to_compact<B>(&self, buf: &mut B) -> usize
+    where
+        B: bytes::BufMut + AsMut<[u8]>,
+    {
+        match self {
+            Self::Legacy => COMPACT_IDENTIFIER_LEGACY,
+            Self::Eip2930 => COMPACT_IDENTIFIER_EIP2930,
+            Self::Eip1559 => COMPACT_IDENTIFIER_EIP1559,
+            Self::Eip4844 => {
+                buf.put_u8(EIP4844_TX_TYPE_ID);
+                COMPACT_EXTENDED_IDENTIFIER_FLAG
+            }
+            Self::Eip7702 => {
+                buf.put_u8(EIP7702_TX_TYPE_ID);
+                COMPACT_EXTENDED_IDENTIFIER_FLAG
+            }
+            Self::Seismic => {
+                buf.put_u8(SEISMIC_TX_TYPE_ID);
+                COMPACT_EXTENDED_IDENTIFIER_FLAG
+            }
+        }
+    }
+
+    fn from_compact(mut buf: &[u8], identifier: usize) -> (Self, &[u8]) {
+        use bytes::Buf;
+        (
+            match identifier {
+                COMPACT_IDENTIFIER_LEGACY => Self::Legacy,
+                COMPACT_IDENTIFIER_EIP2930 => Self::Eip2930,
+                COMPACT_IDENTIFIER_EIP1559 => Self::Eip1559,
+                COMPACT_EXTENDED_IDENTIFIER_FLAG => {
+                    let extended_identifier = buf.get_u8();
+                    match extended_identifier {
+                        EIP7702_TX_TYPE_ID => Self::Eip7702,
+                        SEISMIC_TX_TYPE_ID => Self::Seismic,
+                        _ => panic!("Unsupported TxType identifier: {extended_identifier}"),
+                    }
+                }
+                _ => panic!("Unknown identifier for TxType: {identifier}"),
+            },
+            buf,
+        )
+    }
+}
+
+impl Compact for SeismicTypedTransaction {
+    fn to_compact<B>(&self, out: &mut B) -> usize
+    where
+        B: bytes::BufMut + AsMut<[u8]>,
+    {
+        let identifier = self.tx_type().to_compact(out);
+        match self {
+            Self::Legacy(tx) => tx.to_compact(out),
+            Self::Eip2930(tx) => tx.to_compact(out),
+            Self::Eip1559(tx) => tx.to_compact(out),
+            Self::Eip4844(tx) => {
+                match tx {
+                    TxEip4844Variant::TxEip4844(tx) => tx.to_compact(out),
+                    TxEip4844Variant::TxEip4844WithSidecar(tx) => {
+                        // we do not have a way to encode the sidecar, so we just encode the inner
+                        let inner: &TxEip4844 = tx.tx();
+                        inner.to_compact(out)
+                    },
+                }
+            },
+            Self::Eip7702(tx) => tx.to_compact(out),
+            Self::Seismic(tx) => tx.to_compact(out),
+        };
+        identifier
+    }
+
+    fn from_compact(buf: &[u8], identifier: usize) -> (Self, &[u8]) {
+        let (tx_type, buf) = SeismicTxType::from_compact(buf, identifier);
+        match tx_type {
+            SeismicTxType::Legacy => {
+                let (tx, buf) = Compact::from_compact(buf, buf.len());
+                (Self::Legacy(tx), buf)
+            }
+            SeismicTxType::Eip2930 => {
+                let (tx, buf) = Compact::from_compact(buf, buf.len());
+                (Self::Eip2930(tx), buf)
+            }
+            SeismicTxType::Eip1559 => {
+                let (tx, buf) = Compact::from_compact(buf, buf.len());
+                (Self::Eip1559(tx), buf)
+            }
+            SeismicTxType::Eip4844 => {
+                let (tx, buf): (TxEip4844, _) = Compact::from_compact(buf, buf.len());
+                let tx = TxEip4844Variant::TxEip4844(tx);
+                (Self::Eip4844(tx), buf)
+            }
+            SeismicTxType::Eip7702 => {
+                let (tx, buf) = Compact::from_compact(buf, buf.len());
+                (Self::Eip7702(tx), buf)
+            }
+            SeismicTxType::Seismic => {
+                let (tx, buf) = Compact::from_compact(buf, buf.len());
+                (Self::Seismic(tx), buf)
+            }
+        }
+    }
+}
+
+impl ToTxCompact for SeismicTxEnvelope {
+    fn to_tx_compact(&self, buf: &mut (impl BufMut + AsMut<[u8]>)) {
+        match self {
+            Self::Legacy(tx) => tx.tx().to_compact(buf),
+            Self::Eip2930(tx) => tx.tx().to_compact(buf),
+            Self::Eip1559(tx) => tx.tx().to_compact(buf),
+            Self::Eip4844(tx) => {
+                match tx.tx() {
+                    TxEip4844Variant::TxEip4844(tx) => tx.to_compact(buf),
+                    TxEip4844Variant::TxEip4844WithSidecar(tx) => {
+                        Compact::to_compact(&tx.tx(), buf)
+                    },
+                }
+            },
+            Self::Eip7702(tx) => tx.tx().to_compact(buf),
+            Self::Seismic(tx) => tx.tx().to_compact(buf),
+        };
+    }
+}
+
+impl FromTxCompact for SeismicTxEnvelope {
+    type TxType = SeismicTxType;
+
+    fn from_tx_compact(
+        buf: &[u8],
+        tx_type: SeismicTxType,
+        signature: Signature,
+    ) -> (Self, &[u8]) {
+        match tx_type {
+            SeismicTxType::Legacy => {
+                let (tx, buf) = TxLegacy::from_compact(buf, buf.len());
+                let tx = Signed::new_unhashed(tx, signature);
+                (Self::Legacy(tx), buf)
+            }
+            SeismicTxType::Eip2930 => {
+                let (tx, buf) = TxEip2930::from_compact(buf, buf.len());
+                let tx = Signed::new_unhashed(tx, signature);
+                (Self::Eip2930(tx), buf)
+            }
+            SeismicTxType::Eip1559 => {
+                let (tx, buf) = TxEip1559::from_compact(buf, buf.len());
+                let tx = Signed::new_unhashed(tx, signature);
+                (Self::Eip1559(tx), buf)
+            }
+            SeismicTxType::Eip4844 => {
+                let (variant_tag, rest) = buf.split_first().expect("buffer should not be empty");
+            
+                match variant_tag {
+                    0 => {
+                        let (tx, buf) = TxEip4844::from_compact(rest, rest.len());
+                        let tx = Signed::new_unhashed(TxEip4844Variant::TxEip4844(tx), signature);
+                        (Self::Eip4844(tx), buf)
+                    }
+                    1 => unreachable!("seismic does not serialize sidecars yet"),
+                    _ => panic!("Unknown EIP-4844 variant tag: {}", variant_tag),
+                }
+            }
+            SeismicTxType::Eip7702 => {
+                let (tx, buf) = TxEip7702::from_compact(buf, buf.len());
+                let tx = Signed::new_unhashed(tx, signature);
+                (Self::Eip7702(tx), buf)
+            }
+            SeismicTxType::Seismic => {
+                let (tx, buf) = AlloyTxSeismic::from_compact(buf, buf.len());
+                let tx = Signed::new_unhashed(tx, signature);
+                (Self::Seismic(tx), buf)
+            }
+        }
+    }
+}
+
+impl Envelope for SeismicTxEnvelope {
+    fn signature(&self) -> &Signature {
+        match self {
+            Self::Legacy(tx) => tx.signature(),
+            Self::Eip2930(tx) => tx.signature(),
+            Self::Eip1559(tx) => tx.signature(),
+            Self::Eip4844(tx) => tx.signature(),
+            Self::Eip7702(tx) => tx.signature(),
+            Self::Seismic(tx) => tx.signature(),
+        }
+    }
+
+    fn tx_type(&self) -> Self::TxType {
+        Self::tx_type(self)
+    }
+}
+
+impl Compact for SeismicTxEnvelope {
+    fn to_compact<B>(&self, buf: &mut B) -> usize
+    where
+        B: BufMut + AsMut<[u8]>,
+    {
+        CompactEnvelope::to_compact(self, buf)
+    }
+
+    fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
+        CompactEnvelope::from_compact(buf, len)
+    }
+}
+
+generate_tests!(#[crate, compact] SeismicTypedTransaction, SeismicTypedTransactionTests);
 
 #[cfg(test)]
 mod tests {

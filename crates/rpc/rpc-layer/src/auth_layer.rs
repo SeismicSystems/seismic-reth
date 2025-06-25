@@ -38,7 +38,7 @@ use tower::{Layer, Service};
 ///         .unwrap();
 /// }
 /// ```
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct AuthLayer<V> {
     validator: V,
 }
@@ -104,7 +104,7 @@ where
 
 /// A future representing the response of an RPC request
 #[pin_project]
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct ResponseFuture<F> {
     /// The kind of response future, error or pending
     #[pin]
@@ -155,7 +155,7 @@ mod tests {
     use crate::JwtAuthValidator;
     use alloy_rpc_types_engine::{Claims, JwtError, JwtSecret};
     use jsonrpsee::{
-        server::{RandomStringIdProvider, ServerBuilder, ServerHandle},
+        server::{RandomStringIdProvider, ServerBuilder, ServerConfig, ServerHandle},
         RpcModule,
     };
     use reqwest::{header, StatusCode};
@@ -260,7 +260,9 @@ mod tests {
 
         // Create a layered server
         let server = ServerBuilder::default()
-            .set_id_provider(RandomStringIdProvider::new(16))
+            .set_config(
+                ServerConfig::builder().set_id_provider(RandomStringIdProvider::new(16)).build(),
+            )
             .set_http_middleware(middleware)
             .build(addr.parse::<SocketAddr>().unwrap())
             .await

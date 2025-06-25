@@ -1,19 +1,25 @@
+//! Ethereum protocol stream implementations.
+//!
+//! Provides stream types for the Ethereum wire protocol.
+//! It separates protocol logic [`EthStreamInner`] from transport concerns [`EthStream`].
+//! Handles handshaking, message processing, and RLP serialization.
+
 use crate::{
-    capability::RawCapabilityMessage,
     errors::{EthHandshakeError, EthStreamError},
+    handshake::EthereumEthHandshake,
     message::{EthBroadcastMessage, ProtocolBroadcastMessage},
     p2pstream::HANDSHAKE_TIMEOUT,
     CanDisconnect, DisconnectReason, EthMessage, EthNetworkPrimitives, EthVersion, ProtocolMessage,
-    Status,
+    UnifiedStatus,
 };
 use alloy_primitives::bytes::{Bytes, BytesMut};
 use alloy_rlp::Encodable;
-use futures::{ready, Sink, SinkExt, StreamExt};
+use futures::{ready, Sink, SinkExt};
 use pin_project::pin_project;
-use reth_eth_wire_types::NetworkPrimitives;
+use reth_eth_wire_types::{NetworkPrimitives, RawCapabilityMessage};
 use reth_ethereum_forks::ForkFilter;
-use reth_primitives_traits::GotExpected;
 use std::{
+    future::Future,
     pin::Pin,
     task::{Context, Poll},
     time::Duration,
@@ -52,7 +58,7 @@ impl<S> UnauthedEthStream<S> {
 
 impl<S, E> UnauthedEthStream<S>
 where
-    S: Stream<Item = Result<BytesMut, E>> + CanDisconnect<Bytes> + Unpin,
+    S: Stream<Item = Result<BytesMut, E>> + CanDisconnect<Bytes> + Send + Unpin,
     EthStreamError: From<E> + From<<S as Sink<Bytes>>::Error>,
 {
     /// Consumes the [`UnauthedEthStream`] and returns an [`EthStream`] after the `Status`
@@ -60,19 +66,19 @@ where
     /// remote peer.
     pub async fn handshake<N: NetworkPrimitives>(
         self,
-        status: Status,
+        status: UnifiedStatus,
         fork_filter: ForkFilter,
-    ) -> Result<(EthStream<S, N>, Status), EthStreamError> {
+    ) -> Result<(EthStream<S, N>, UnifiedStatus), EthStreamError> {
         self.handshake_with_timeout(status, fork_filter, HANDSHAKE_TIMEOUT).await
     }
 
     /// Wrapper around handshake which enforces a timeout.
     pub async fn handshake_with_timeout<N: NetworkPrimitives>(
         self,
-        status: Status,
+        status: UnifiedStatus,
         fork_filter: ForkFilter,
         timeout_limit: Duration,
-    ) -> Result<(EthStream<S, N>, Status), EthStreamError> {
+    ) -> Result<(EthStream<S, N>, UnifiedStatus), EthStreamError> {
         timeout(timeout_limit, Self::handshake_without_timeout(self, status, fork_filter))
             .await
             .map_err(|_| EthStreamError::StreamTimeout)?
@@ -81,113 +87,86 @@ where
     /// Handshake with no timeout
     pub async fn handshake_without_timeout<N: NetworkPrimitives>(
         mut self,
-        status: Status,
+        status: UnifiedStatus,
         fork_filter: ForkFilter,
-    ) -> Result<(EthStream<S, N>, Status), EthStreamError> {
+    ) -> Result<(EthStream<S, N>, UnifiedStatus), EthStreamError> {
         trace!(
-            %status,
+            status = %status.into_message(),
             "sending eth status to peer"
         );
+        let their_status =
+            EthereumEthHandshake(&mut self.inner).eth_handshake(status, fork_filter).await?;
 
-        // we need to encode and decode here on our own because we don't have an `EthStream` yet
-        // The max length for a status with TTD is: <msg id = 1 byte> + <rlp(status) = 88 byte>
-        self.inner
-            .send(
-                alloy_rlp::encode(ProtocolMessage::<N>::from(EthMessage::<N>::Status(status)))
-                    .into(),
-            )
-            .await?;
+        // now we can create the `EthStream` because the peer has successfully completed
+        // the handshake
+        let stream = EthStream::new(status.version, self.inner);
 
-        let their_msg_res = self.inner.next().await;
+        Ok((stream, their_status))
+    }
+}
 
-        let their_msg = match their_msg_res {
-            Some(msg) => msg,
-            None => {
-                self.inner.disconnect(DisconnectReason::DisconnectRequested).await?;
-                return Err(EthStreamError::EthHandshakeError(EthHandshakeError::NoResponse))
-            }
-        }?;
+/// Contains eth protocol specific logic for processing messages
+#[derive(Debug)]
+pub struct EthStreamInner<N> {
+    /// Negotiated eth version
+    version: EthVersion,
+    _pd: std::marker::PhantomData<N>,
+}
 
-        if their_msg.len() > MAX_STATUS_SIZE {
-            self.inner.disconnect(DisconnectReason::ProtocolBreach).await?;
-            return Err(EthStreamError::MessageTooBig(their_msg.len()))
+impl<N> EthStreamInner<N>
+where
+    N: NetworkPrimitives,
+{
+    /// Creates a new [`EthStreamInner`] with the given eth version
+    pub const fn new(version: EthVersion) -> Self {
+        Self { version, _pd: std::marker::PhantomData }
+    }
+
+    /// Returns the eth version
+    #[inline]
+    pub const fn version(&self) -> EthVersion {
+        self.version
+    }
+
+    /// Decodes incoming bytes into an [`EthMessage`].
+    pub fn decode_message(&self, bytes: BytesMut) -> Result<EthMessage<N>, EthStreamError> {
+        if bytes.len() > MAX_MESSAGE_SIZE {
+            return Err(EthStreamError::MessageTooBig(bytes.len()));
         }
 
-        let version = status.version;
-        let msg = match ProtocolMessage::<N>::decode_message(version, &mut their_msg.as_ref()) {
+        let msg = match ProtocolMessage::decode_message(self.version, &mut bytes.as_ref()) {
             Ok(m) => m,
             Err(err) => {
-                debug!("decode error in eth handshake: msg={their_msg:x}");
-                self.inner.disconnect(DisconnectReason::DisconnectRequested).await?;
-                return Err(EthStreamError::InvalidMessage(err))
+                let msg = if bytes.len() > 50 {
+                    format!("{:02x?}...{:x?}", &bytes[..10], &bytes[bytes.len() - 10..])
+                } else {
+                    format!("{bytes:02x?}")
+                };
+                debug!(
+                    version=?self.version,
+                    %msg,
+                    "failed to decode protocol message"
+                );
+                return Err(EthStreamError::InvalidMessage(err));
             }
         };
 
-        // The following checks should match the checks in go-ethereum:
-        // https://github.com/ethereum/go-ethereum/blob/9244d5cd61f3ea5a7645fdf2a1a96d53421e412f/eth/protocols/eth/handshake.go#L87-L89
-        match msg.message {
-            EthMessage::Status(resp) => {
-                trace!(
-                    status=%resp,
-                    "validating incoming eth status from peer"
-                );
-                if status.genesis != resp.genesis {
-                    self.inner.disconnect(DisconnectReason::ProtocolBreach).await?;
-                    return Err(EthHandshakeError::MismatchedGenesis(
-                        GotExpected { expected: status.genesis, got: resp.genesis }.into(),
-                    )
-                    .into())
-                }
-
-                if status.version != resp.version {
-                    self.inner.disconnect(DisconnectReason::ProtocolBreach).await?;
-                    return Err(EthHandshakeError::MismatchedProtocolVersion(GotExpected {
-                        got: resp.version,
-                        expected: status.version,
-                    })
-                    .into())
-                }
-
-                if status.chain != resp.chain {
-                    self.inner.disconnect(DisconnectReason::ProtocolBreach).await?;
-                    return Err(EthHandshakeError::MismatchedChain(GotExpected {
-                        got: resp.chain,
-                        expected: status.chain,
-                    })
-                    .into())
-                }
-
-                // TD at mainnet block #7753254 is 76 bits. If it becomes 100 million times
-                // larger, it will still fit within 100 bits
-                if status.total_difficulty.bit_len() > 100 {
-                    self.inner.disconnect(DisconnectReason::ProtocolBreach).await?;
-                    return Err(EthHandshakeError::TotalDifficultyBitLenTooLarge {
-                        got: status.total_difficulty.bit_len(),
-                        maximum: 100,
-                    }
-                    .into())
-                }
-
-                if let Err(err) =
-                    fork_filter.validate(resp.forkid).map_err(EthHandshakeError::InvalidFork)
-                {
-                    self.inner.disconnect(DisconnectReason::ProtocolBreach).await?;
-                    return Err(err.into())
-                }
-
-                // now we can create the `EthStream` because the peer has successfully completed
-                // the handshake
-                let stream = EthStream::new(version, self.inner);
-
-                Ok((stream, resp))
-            }
-            _ => {
-                self.inner.disconnect(DisconnectReason::ProtocolBreach).await?;
-                Err(EthStreamError::EthHandshakeError(
-                    EthHandshakeError::NonStatusMessageInHandshake,
-                ))
-            }
+        if matches!(msg.message, EthMessage::Status(_)) {
+            return Err(EthStreamError::EthHandshakeError(EthHandshakeError::StatusNotInHandshake));
         }
+
+        Ok(msg.message)
+    }
+
+    /// Encodes an [`EthMessage`] to bytes.
+    ///
+    /// Validates that Status messages are not sent after handshake, enforcing protocol rules.
+    pub fn encode_message(&self, item: EthMessage<N>) -> Result<Bytes, EthStreamError> {
+        if matches!(item, EthMessage::Status(_)) {
+            return Err(EthStreamError::EthHandshakeError(EthHandshakeError::StatusNotInHandshake));
+        }
+
+        Ok(Bytes::from(alloy_rlp::encode(ProtocolMessage::from(item))))
     }
 }
 
@@ -196,26 +175,24 @@ where
 #[pin_project]
 #[derive(Debug)]
 pub struct EthStream<S, N = EthNetworkPrimitives> {
-    /// Negotiated eth version.
-    version: EthVersion,
+    /// Eth-specific logic
+    eth: EthStreamInner<N>,
     #[pin]
     inner: S,
-
-    _pd: std::marker::PhantomData<N>,
 }
 
-impl<S, N> EthStream<S, N> {
+impl<S, N: NetworkPrimitives> EthStream<S, N> {
     /// Creates a new unauthed [`EthStream`] from a provided stream. You will need
     /// to manually handshake a peer.
     #[inline]
     pub const fn new(version: EthVersion, inner: S) -> Self {
-        Self { version, inner, _pd: std::marker::PhantomData }
+        Self { eth: EthStreamInner::new(version), inner }
     }
 
     /// Returns the eth version.
     #[inline]
     pub const fn version(&self) -> EthVersion {
-        self.version
+        self.eth.version()
     }
 
     /// Returns the underlying stream.
@@ -226,7 +203,7 @@ impl<S, N> EthStream<S, N> {
 
     /// Returns mutable access to the underlying stream.
     #[inline]
-    pub fn inner_mut(&mut self) -> &mut S {
+    pub const fn inner_mut(&mut self) -> &mut S {
         &mut self.inner
     }
 
@@ -257,7 +234,7 @@ where
 
     /// Sends a raw capability message directly over the stream
     pub fn start_send_raw(&mut self, msg: RawCapabilityMessage) -> Result<(), EthStreamError> {
-        let mut bytes = Vec::new();
+        let mut bytes = Vec::with_capacity(msg.payload.len() + 1);
         msg.id.encode(&mut bytes);
         bytes.extend_from_slice(&msg.payload);
 
@@ -277,40 +254,12 @@ where
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
         let res = ready!(this.inner.poll_next(cx));
-        let bytes = match res {
-            Some(Ok(bytes)) => bytes,
-            Some(Err(err)) => return Poll::Ready(Some(Err(err.into()))),
-            None => return Poll::Ready(None),
-        };
 
-        if bytes.len() > MAX_MESSAGE_SIZE {
-            return Poll::Ready(Some(Err(EthStreamError::MessageTooBig(bytes.len()))))
+        match res {
+            Some(Ok(bytes)) => Poll::Ready(Some(this.eth.decode_message(bytes))),
+            Some(Err(err)) => Poll::Ready(Some(Err(err.into()))),
+            None => Poll::Ready(None),
         }
-
-        let msg = match ProtocolMessage::decode_message(*this.version, &mut bytes.as_ref()) {
-            Ok(m) => m,
-            Err(err) => {
-                let msg = if bytes.len() > 50 {
-                    format!("{:02x?}...{:x?}", &bytes[..10], &bytes[bytes.len() - 10..])
-                } else {
-                    format!("{bytes:02x?}")
-                };
-                debug!(
-                    version=?this.version,
-                    %msg,
-                    "failed to decode protocol message"
-                );
-                return Poll::Ready(Some(Err(EthStreamError::InvalidMessage(err))))
-            }
-        };
-
-        if matches!(msg.message, EthMessage::Status(_)) {
-            return Poll::Ready(Some(Err(EthStreamError::EthHandshakeError(
-                EthHandshakeError::StatusNotInHandshake,
-            ))))
-        }
-
-        Poll::Ready(Some(Ok(msg.message)))
     }
 }
 
@@ -362,8 +311,11 @@ where
     EthStreamError: From<<S as Sink<Bytes>>::Error>,
     N: NetworkPrimitives,
 {
-    async fn disconnect(&mut self, reason: DisconnectReason) -> Result<(), EthStreamError> {
-        self.inner.disconnect(reason).await.map_err(Into::into)
+    fn disconnect(
+        &mut self,
+        reason: DisconnectReason,
+    ) -> Pin<Box<dyn Future<Output = Result<(), EthStreamError>> + Send + '_>> {
+        Box::pin(async move { self.inner.disconnect(reason).await.map_err(Into::into) })
     }
 }
 
@@ -377,14 +329,14 @@ mod tests {
         hello::DEFAULT_TCP_PORT,
         p2pstream::UnauthedP2PStream,
         EthMessage, EthStream, EthVersion, HelloMessageWithProtocols, PassthroughCodec,
-        ProtocolVersion, Status,
+        ProtocolVersion, Status, StatusMessage,
     };
     use alloy_chains::NamedChain;
     use alloy_primitives::{bytes::Bytes, B256, U256};
     use alloy_rlp::Decodable;
     use futures::{SinkExt, StreamExt};
     use reth_ecies::stream::ECIESStream;
-    use reth_eth_wire_types::EthNetworkPrimitives;
+    use reth_eth_wire_types::{EthNetworkPrimitives, UnifiedStatus};
     use reth_ethereum_forks::{ForkFilter, Head};
     use reth_network_peers::pk2id;
     use secp256k1::{SecretKey, SECP256K1};
@@ -406,11 +358,12 @@ mod tests {
             // Pass the current fork id.
             forkid: fork_filter.current(),
         };
+        let unified_status = UnifiedStatus::from_message(StatusMessage::Legacy(status));
 
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let local_addr = listener.local_addr().unwrap();
 
-        let status_clone = status;
+        let status_clone = unified_status;
         let fork_filter_clone = fork_filter.clone();
         let handle = tokio::spawn(async move {
             // roughly based off of the design of tokio::net::TcpListener
@@ -430,12 +383,12 @@ mod tests {
 
         // try to connect
         let (_, their_status) = UnauthedEthStream::new(sink)
-            .handshake::<EthNetworkPrimitives>(status, fork_filter)
+            .handshake::<EthNetworkPrimitives>(unified_status, fork_filter)
             .await
             .unwrap();
 
         // their status is a clone of our status, these should be equal
-        assert_eq!(their_status, status);
+        assert_eq!(their_status, unified_status);
 
         // wait for it to finish
         handle.await.unwrap();
@@ -455,11 +408,12 @@ mod tests {
             // Pass the current fork id.
             forkid: fork_filter.current(),
         };
+        let unified_status = UnifiedStatus::from_message(StatusMessage::Legacy(status));
 
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let local_addr = listener.local_addr().unwrap();
 
-        let status_clone = status;
+        let status_clone = unified_status;
         let fork_filter_clone = fork_filter.clone();
         let handle = tokio::spawn(async move {
             // roughly based off of the design of tokio::net::TcpListener
@@ -479,12 +433,12 @@ mod tests {
 
         // try to connect
         let (_, their_status) = UnauthedEthStream::new(sink)
-            .handshake::<EthNetworkPrimitives>(status, fork_filter)
+            .handshake::<EthNetworkPrimitives>(unified_status, fork_filter)
             .await
             .unwrap();
 
         // their status is a clone of our status, these should be equal
-        assert_eq!(their_status, status);
+        assert_eq!(their_status, unified_status);
 
         // await the other handshake
         handle.await.unwrap();
@@ -498,17 +452,18 @@ mod tests {
         let status = Status {
             version: EthVersion::Eth67,
             chain: NamedChain::Mainnet.into(),
-            total_difficulty: U256::from(2).pow(U256::from(100)),
+            total_difficulty: U256::from(2).pow(U256::from(164)),
             blockhash: B256::random(),
             genesis,
             // Pass the current fork id.
             forkid: fork_filter.current(),
         };
+        let unified_status = UnifiedStatus::from_message(StatusMessage::Legacy(status));
 
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let local_addr = listener.local_addr().unwrap();
 
-        let status_clone = status;
+        let status_clone = unified_status;
         let fork_filter_clone = fork_filter.clone();
         let handle = tokio::spawn(async move {
             // roughly based off of the design of tokio::net::TcpListener
@@ -522,7 +477,7 @@ mod tests {
             assert!(matches!(
                 handshake_res,
                 Err(EthStreamError::EthHandshakeError(
-                    EthHandshakeError::TotalDifficultyBitLenTooLarge { got: 101, maximum: 100 }
+                    EthHandshakeError::TotalDifficultyBitLenTooLarge { got: 165, maximum: 160 }
                 ))
             ));
         });
@@ -532,14 +487,14 @@ mod tests {
 
         // try to connect
         let handshake_res = UnauthedEthStream::new(sink)
-            .handshake::<EthNetworkPrimitives>(status, fork_filter)
+            .handshake::<EthNetworkPrimitives>(unified_status, fork_filter)
             .await;
 
         // this handshake should also fail due to td too high
         assert!(matches!(
             handshake_res,
             Err(EthStreamError::EthHandshakeError(
-                EthHandshakeError::TotalDifficultyBitLenTooLarge { got: 101, maximum: 100 }
+                EthHandshakeError::TotalDifficultyBitLenTooLarge { got: 165, maximum: 160 }
             ))
         ));
 
@@ -585,7 +540,7 @@ mod tests {
     async fn can_write_and_read_ecies() {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let local_addr = listener.local_addr().unwrap();
-        let server_key = SecretKey::new(&mut rand::thread_rng());
+        let server_key = SecretKey::new(&mut rand_08::thread_rng());
         let test_msg = EthMessage::<EthNetworkPrimitives>::NewBlockHashes(
             vec![
                 BlockHashNumber { hash: B256::random(), number: 5 },
@@ -609,7 +564,7 @@ mod tests {
         // create the server pubkey
         let server_id = pk2id(&server_key.public_key(SECP256K1));
 
-        let client_key = SecretKey::new(&mut rand::thread_rng());
+        let client_key = SecretKey::new(&mut rand_08::thread_rng());
 
         let outgoing = TcpStream::connect(local_addr).await.unwrap();
         let outgoing = ECIESStream::connect(outgoing, client_key, server_id).await.unwrap();
@@ -627,7 +582,7 @@ mod tests {
         // create tcpstream
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let local_addr = listener.local_addr().unwrap();
-        let server_key = SecretKey::new(&mut rand::thread_rng());
+        let server_key = SecretKey::new(&mut rand_08::thread_rng());
         let test_msg = EthMessage::<EthNetworkPrimitives>::NewBlockHashes(
             vec![
                 BlockHashNumber { hash: B256::random(), number: 5 },
@@ -648,8 +603,9 @@ mod tests {
             // Pass the current fork id.
             forkid: fork_filter.current(),
         };
+        let unified_status = UnifiedStatus::from_message(StatusMessage::Legacy(status));
 
-        let status_copy = status;
+        let status_copy = unified_status;
         let fork_filter_clone = fork_filter.clone();
         let test_msg_clone = test_msg.clone();
         let handle = tokio::spawn(async move {
@@ -680,7 +636,7 @@ mod tests {
         // create the server pubkey
         let server_id = pk2id(&server_key.public_key(SECP256K1));
 
-        let client_key = SecretKey::new(&mut rand::thread_rng());
+        let client_key = SecretKey::new(&mut rand_08::thread_rng());
 
         let outgoing = TcpStream::connect(local_addr).await.unwrap();
         let sink = ECIESStream::connect(outgoing, client_key, server_id).await.unwrap();
@@ -696,8 +652,10 @@ mod tests {
         let unauthed_stream = UnauthedP2PStream::new(sink);
         let (p2p_stream, _) = unauthed_stream.handshake(client_hello).await.unwrap();
 
-        let (mut client_stream, _) =
-            UnauthedEthStream::new(p2p_stream).handshake(status, fork_filter).await.unwrap();
+        let (mut client_stream, _) = UnauthedEthStream::new(p2p_stream)
+            .handshake(unified_status, fork_filter)
+            .await
+            .unwrap();
 
         client_stream.send(test_msg).await.unwrap();
 
@@ -719,11 +677,12 @@ mod tests {
             // Pass the current fork id.
             forkid: fork_filter.current(),
         };
+        let unified_status = UnifiedStatus::from_message(StatusMessage::Legacy(status));
 
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let local_addr = listener.local_addr().unwrap();
 
-        let status_clone = status;
+        let status_clone = unified_status;
         let fork_filter_clone = fork_filter.clone();
         let _handle = tokio::spawn(async move {
             // Delay accepting the connection for longer than the client's timeout period
@@ -746,7 +705,7 @@ mod tests {
         // try to connect
         let handshake_result = UnauthedEthStream::new(sink)
             .handshake_with_timeout::<EthNetworkPrimitives>(
-                status,
+                unified_status,
                 fork_filter,
                 Duration::from_secs(1),
             )

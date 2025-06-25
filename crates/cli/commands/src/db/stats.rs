@@ -5,8 +5,8 @@ use eyre::WrapErr;
 use human_bytes::human_bytes;
 use itertools::Itertools;
 use reth_chainspec::EthereumHardforks;
-use reth_db::{mdbx, static_file::iter_static_files, DatabaseEnv, TableViewer, Tables};
-use reth_db_api::database::Database;
+use reth_db::{mdbx, static_file::iter_static_files, DatabaseEnv};
+use reth_db_api::{database::Database, TableViewer, Tables};
 use reth_db_common::DbTool;
 use reth_fs_util as fs;
 use reth_node_builder::{NodePrimitives, NodeTypesWithDB, NodeTypesWithDBAdapter};
@@ -172,7 +172,7 @@ impl Command {
             ]);
         }
 
-        let static_files = iter_static_files(data_dir.static_files())?;
+        let static_files = iter_static_files(&data_dir.static_files())?;
         let static_file_provider =
             StaticFileProvider::<N>::read_only(data_dir.static_files(), false)?;
 
@@ -343,8 +343,8 @@ impl Command {
             // add rows containing checksums to the table
             let mut row = Row::new();
             row.add_cell(Cell::new(db_table));
-            row.add_cell(Cell::new(format!("{:x}", checksum)));
-            row.add_cell(Cell::new(format!("{:?}", elapsed)));
+            row.add_cell(Cell::new(format!("{checksum:x}")));
+            row.add_cell(Cell::new(format!("{elapsed:?}")));
             table.add_row(row);
         }
 
@@ -360,7 +360,7 @@ impl Command {
         let mut row = Row::new();
         row.add_cell(Cell::new("Total elapsed"));
         row.add_cell(Cell::new(""));
-        row.add_cell(Cell::new(format!("{:?}", total_elapsed)));
+        row.add_cell(Cell::new(format!("{total_elapsed:?}")));
         table.add_row(row);
 
         Ok(table)

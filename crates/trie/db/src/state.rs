@@ -1,22 +1,22 @@
 use crate::{DatabaseHashedCursorFactory, DatabaseTrieCursorFactory, PrefixSetLoader};
 use alloy_primitives::{
-    map::{AddressHashMap, B256HashMap},
+    map::{AddressMap, B256Map},
     Address, BlockNumber, B256,
 };
-use reth_db::tables;
 use reth_db_api::{
     cursor::DbCursorRO,
     models::{AccountBeforeTx, BlockNumberAddress},
+    tables,
     transaction::DbTx,
+    DatabaseError,
 };
 use reth_execution_errors::StateRootError;
-use reth_storage_errors::db::DatabaseError;
 use reth_trie::{
     hashed_cursor::HashedPostStateCursorFactory, trie_cursor::InMemoryTrieCursorFactory,
     updates::TrieUpdates, HashedPostState, HashedStorage, KeccakKeyHasher, KeyHasher, StateRoot,
     StateRootProgress, TrieInput,
 };
-use revm::primitives::FlaggedStorage;
+use revm::state::FlaggedStorage;
 use std::{collections::HashMap, ops::RangeInclusive};
 use tracing::debug;
 
@@ -81,7 +81,7 @@ pub trait DatabaseStateRoot<'a, TX>: Sized {
     /// use alloy_primitives::U256;
     /// use reth_db::test_utils::create_test_rw_db;
     /// use reth_db_api::database::Database;
-    /// use reth_primitives::Account;
+    /// use reth_primitives_traits::Account;
     /// use reth_trie::{updates::TrieUpdates, HashedPostState, StateRoot};
     /// use reth_trie_db::DatabaseStateRoot;
     ///
@@ -231,7 +231,7 @@ impl<TX: DbTx> DatabaseHashedPostState<TX> for HashedPostState {
         }
 
         // Iterate over storage changesets and record value before first occurring storage change.
-        let mut storages = AddressHashMap::<B256HashMap<FlaggedStorage>>::default();
+        let mut storages = AddressMap::<B256Map<FlaggedStorage>>::default();
         let mut storage_changesets_cursor = tx.cursor_read::<tables::StorageChangeSets>()?;
         for entry in
             storage_changesets_cursor.walk_range(BlockNumberAddress((from, Address::ZERO))..)?
@@ -271,7 +271,8 @@ mod tests {
     use reth_db::test_utils::create_test_rw_db;
     use reth_db_api::database::Database;
     use reth_trie::KeccakKeyHasher;
-    use revm::{db::BundleState, primitives::AccountInfo};
+    use revm::state::AccountInfo;
+    use revm_database::BundleState;
 
     #[test]
     fn from_bundle_state_with_rayon() {

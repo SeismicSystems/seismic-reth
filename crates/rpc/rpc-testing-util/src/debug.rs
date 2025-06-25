@@ -15,7 +15,7 @@ use alloy_rpc_types_trace::{
 };
 use futures::{Stream, StreamExt};
 use jsonrpsee::core::client::Error as RpcError;
-use reth_primitives::Receipt;
+use reth_ethereum_primitives::Receipt;
 use reth_rpc_api::{clients::DebugApiClient, EthApiClient};
 
 const NOOP_TRACER: &str = include_str!("../assets/noop-tracer.js");
@@ -133,12 +133,12 @@ where
             futures::stream::iter(blocks.into_iter().map(move |(block, opts)| async move {
                 let trace_future = match block {
                     BlockId::Hash(hash) => {
-                        self.debug_trace_block_by_hash(hash.block_hash, opts.clone())
+                        self.debug_trace_block_by_hash(hash.block_hash, opts).await
                     }
-                    BlockId::Number(tag) => self.debug_trace_block_by_number(tag, opts.clone()),
+                    BlockId::Number(tag) => self.debug_trace_block_by_number(tag, opts).await,
                 };
 
-                match trace_future.await {
+                match trace_future {
                     Ok(result) => Ok((result, block)),
                     Err(err) => Err((err, block)),
                 }
@@ -297,7 +297,7 @@ impl DebugTraceTransactionsStream<'_> {
     pub async fn next_err(&mut self) -> Option<(RpcError, TxHash)> {
         loop {
             match self.next().await? {
-                Ok(_) => continue,
+                Ok(_) => {}
                 Err(err) => return Some(err),
             }
         }
@@ -329,7 +329,7 @@ impl DebugTraceBlockStream<'_> {
     pub async fn next_err(&mut self) -> Option<(RpcError, BlockId)> {
         loop {
             match self.next().await? {
-                Ok(_) => continue,
+                Ok(_) => {}
                 Err(err) => return Some(err),
             }
         }

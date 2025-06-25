@@ -1,6 +1,6 @@
-#![allow(missing_docs, unreachable_pub)]
+#![allow(missing_docs)]
 
-use alloy_primitives::{map::B256HashMap, B256, U256};
+use alloy_primitives::{map::B256Map, B256, U256};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use itertools::Itertools;
 use proptest::{prelude::*, strategy::ValueTree, test_runner::TestRunner};
@@ -14,22 +14,34 @@ use reth_trie::{
 };
 use reth_trie_common::{HashBuilder, Nibbles};
 use reth_trie_sparse::SparseTrie;
-use revm_primitives::FlaggedStorage;
+use revm_state::FlaggedStorage;
 
-pub fn calculate_root_from_leaves(c: &mut Criterion) {
+fn calculate_root_from_leaves(c: &mut Criterion) {
+    let is_private = false; // hardcode to false for legacy test
     let mut group = c.benchmark_group("calculate root from leaves");
     group.sample_size(20);
 
     for size in [1_000, 5_000, 10_000, 100_000] {
+        // Too slow.
+        #[expect(unexpected_cfgs)]
+        if cfg!(codspeed) && size > 5_000 {
+            continue;
+        }
+
         let state = generate_test_data(size);
 
         // hash builder
         group.bench_function(BenchmarkId::new("hash builder", size), |b| {
             b.iter_with_setup(HashBuilder::default, |mut hb| {
                 for (key, value) in state.iter().sorted_by_key(|(key, _)| *key) {
-                    hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value.value));
+                    hb.add_leaf(
+                        Nibbles::unpack(key),
+                        &alloy_rlp::encode_fixed_size(&value.value),
+                        is_private,
+                    );
                 }
                 hb.root();
+                hb
             })
         });
 
@@ -41,23 +53,39 @@ pub fn calculate_root_from_leaves(c: &mut Criterion) {
                         .update_leaf(
                             Nibbles::unpack(key),
                             alloy_rlp::encode_fixed_size(&value.value).to_vec(),
+                            is_private,
                         )
                         .unwrap();
                 }
                 sparse.root().unwrap();
+                sparse
             })
         });
     }
 }
 
-pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
+fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
+    let is_private = false; // hardcode to false for legacy test
+
     let mut group = c.benchmark_group("calculate root from leaves repeated");
     group.sample_size(20);
 
     for init_size in [1_000, 10_000, 100_000] {
+        // Too slow.
+        #[expect(unexpected_cfgs)]
+        if cfg!(codspeed) && init_size > 10_000 {
+            continue;
+        }
+
         let init_state = generate_test_data(init_size);
 
         for update_size in [100, 1_000, 5_000, 10_000] {
+            // Too slow.
+            #[expect(unexpected_cfgs)]
+            if cfg!(codspeed) && update_size > 1_000 {
+                continue;
+            }
+
             for num_updates in [1, 3, 5, 10] {
                 let updates =
                     (0..num_updates).map(|_| generate_test_data(update_size)).collect::<Vec<_>>();
@@ -65,7 +93,9 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                 // hash builder
                 let benchmark_id = BenchmarkId::new(
                     "hash builder",
-                    format!("init size {init_size} | update size {update_size} | num updates {num_updates}"),
+                    format!(
+                        "init size {init_size} | update size {update_size} | num updates {num_updates}"
+                    ),
                 );
                 group.bench_function(benchmark_id, |b| {
                     b.iter_with_setup(
@@ -82,6 +112,7 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                 hb.add_leaf(
                                     Nibbles::unpack(key),
                                     &alloy_rlp::encode_fixed_size(&value.value),
+                                    is_private,
                                 );
                             }
                             hb.root();
@@ -110,7 +141,7 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                         )
                                     };
 
-                                let walker = TrieWalker::new(
+                                let walker = TrieWalker::storage_trie(
                                     InMemoryStorageTrieCursor::new(
                                         B256::ZERO,
                                         NoopStorageTrieCursor::default(),
@@ -118,7 +149,7 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                     ),
                                     prefix_set,
                                 );
-                                let mut node_iter = TrieNodeIter::new(
+                                let mut node_iter = TrieNodeIter::storage_trie(
                                     walker,
                                     HashedPostStateStorageCursor::new(
                                         NoopHashedStorageCursor::default(),
@@ -140,6 +171,7 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                             hb.add_leaf(
                                                 Nibbles::unpack(hashed_slot),
                                                 alloy_rlp::encode_fixed_size(&value.value).as_ref(),
+                                                is_private,
                                             );
                                         }
                                     }
@@ -150,6 +182,7 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                     trie_updates.finalize(hb, node_iter.walker.take_removed_keys());
                                 }
                             }
+                            (storage, storage_updates, trie_updates)
                         },
                     )
                 });
@@ -157,7 +190,9 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                 // sparse trie
                 let benchmark_id = BenchmarkId::new(
                     "sparse trie",
-                    format!("init size {init_size} | update size {update_size} | num updates {num_updates}"),
+                    format!(
+                        "init size {init_size} | update size {update_size} | num updates {num_updates}"
+                    ),
                 );
                 group.bench_function(benchmark_id, |b| {
                     b.iter_with_setup(
@@ -168,6 +203,7 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                     .update_leaf(
                                         Nibbles::unpack(key),
                                         alloy_rlp::encode_fixed_size(&value.value).to_vec(),
+                                        is_private,
                                     )
                                     .unwrap();
                             }
@@ -181,11 +217,13 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                         .update_leaf(
                                             Nibbles::unpack(key),
                                             alloy_rlp::encode_fixed_size(&value.value).to_vec(),
+                                            is_private,
                                         )
                                         .unwrap();
                                 }
                                 sparse.root().unwrap();
                             }
+                            sparse
                         },
                     )
                 });
@@ -194,9 +232,9 @@ pub fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
     }
 }
 
-fn generate_test_data(size: usize) -> B256HashMap<FlaggedStorage> {
-    let mut runner = TestRunner::new(ProptestConfig::default());
-    proptest::collection::hash_map(any::<B256>(), any::<FlaggedStorage>(), size)
+fn generate_test_data(size: usize) -> B256Map<U256> {
+    let mut runner = TestRunner::deterministic();
+    proptest::collection::hash_map(any::<B256>(), any::<U256>(), size)
         .new_tree(&mut runner)
         .unwrap()
         .current()

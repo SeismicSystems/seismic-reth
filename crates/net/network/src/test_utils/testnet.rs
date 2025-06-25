@@ -5,22 +5,25 @@ use crate::{
     error::NetworkError,
     eth_requests::EthRequestHandler,
     protocol::IntoRlpxSubProtocol,
-    transactions::{TransactionsHandle, TransactionsManager, TransactionsManagerConfig},
+    transactions::{
+        config::TransactionPropagationKind, TransactionsHandle, TransactionsManager,
+        TransactionsManagerConfig,
+    },
     NetworkConfig, NetworkConfigBuilder, NetworkHandle, NetworkManager,
 };
 use futures::{FutureExt, StreamExt};
 use pin_project::pin_project;
-use reth_chainspec::{ChainSpecProvider, Hardforks, MAINNET};
+use reth_chainspec::{ChainSpecProvider, EthereumHardforks, Hardforks};
 use reth_eth_wire::{
     protocol::Protocol, DisconnectReason, EthNetworkPrimitives, HelloMessageWithProtocols,
 };
+use reth_ethereum_primitives::{PooledTransactionVariant, TransactionSigned};
 use reth_network_api::{
     events::{PeerEvent, SessionInfo},
     test_utils::{PeersHandle, PeersHandleProvider},
     NetworkEvent, NetworkEventListenerProvider, NetworkInfo, Peers,
 };
 use reth_network_peers::PeerId;
-use reth_primitives::{PooledTransactionsElement, TransactionSigned};
 use reth_storage_api::{
     noop::NoopProvider, BlockReader, BlockReaderIdExt, HeaderProvider, StateProviderFactory,
 };
@@ -175,7 +178,12 @@ where
 
 impl<C, Pool> Testnet<C, Pool>
 where
-    C: StateProviderFactory + BlockReaderIdExt + HeaderProvider + Clone + 'static,
+    C: ChainSpecProvider<ChainSpec: EthereumHardforks>
+        + StateProviderFactory
+        + BlockReaderIdExt
+        + HeaderProvider
+        + Clone
+        + 'static,
     Pool: TransactionPool,
 {
     /// Installs an eth pool on each peer
@@ -184,7 +192,6 @@ where
             let blob_store = InMemoryBlobStore::default();
             let pool = TransactionValidationTaskExecutor::eth(
                 peer.client.clone(),
-                MAINNET.clone(),
                 blob_store.clone(),
                 TokioTaskExecutor::default(),
             );
@@ -201,18 +208,27 @@ where
         self,
         tx_manager_config: TransactionsManagerConfig,
     ) -> Testnet<C, EthTransactionPool<C, InMemoryBlobStore>> {
+        self.with_eth_pool_config_and_policy(tx_manager_config, Default::default())
+    }
+
+    /// Installs an eth pool on each peer with custom transaction manager config and policy.
+    pub fn with_eth_pool_config_and_policy(
+        self,
+        tx_manager_config: TransactionsManagerConfig,
+        policy: TransactionPropagationKind,
+    ) -> Testnet<C, EthTransactionPool<C, InMemoryBlobStore>> {
         self.map_pool(|peer| {
             let blob_store = InMemoryBlobStore::default();
             let pool = TransactionValidationTaskExecutor::eth(
                 peer.client.clone(),
-                MAINNET.clone(),
                 blob_store.clone(),
                 TokioTaskExecutor::default(),
             );
 
-            peer.map_transactions_manager_with_config(
+            peer.map_transactions_manager_with(
                 EthTransactionPool::eth_pool(pool, blob_store, Default::default()),
                 tx_manager_config.clone(),
+                policy,
             )
         })
     }
@@ -221,9 +237,9 @@ where
 impl<C, Pool> Testnet<C, Pool>
 where
     C: BlockReader<
-            Block = reth_primitives::Block,
-            Receipt = reth_primitives::Receipt,
-            Header = reth_primitives::Header,
+            Block = reth_ethereum_primitives::Block,
+            Receipt = reth_ethereum_primitives::Receipt,
+            Header = alloy_consensus::Header,
         > + HeaderProvider
         + Clone
         + Unpin
@@ -231,7 +247,7 @@ where
     Pool: TransactionPool<
             Transaction: PoolTransaction<
                 Consensus = TransactionSigned,
-                Pooled = PooledTransactionsElement,
+                Pooled = PooledTransactionVariant,
             >,
         > + Unpin
         + 'static,
@@ -293,16 +309,16 @@ impl<C, Pool> fmt::Debug for Testnet<C, Pool> {
 impl<C, Pool> Future for Testnet<C, Pool>
 where
     C: BlockReader<
-            Block = reth_primitives::Block,
-            Receipt = reth_primitives::Receipt,
-            Header = reth_primitives::Header,
+            Block = reth_ethereum_primitives::Block,
+            Receipt = reth_ethereum_primitives::Receipt,
+            Header = alloy_consensus::Header,
         > + HeaderProvider
         + Unpin
         + 'static,
     Pool: TransactionPool<
             Transaction: PoolTransaction<
                 Consensus = TransactionSigned,
-                Pooled = PooledTransactionsElement,
+                Pooled = PooledTransactionVariant,
             >,
         > + Unpin
         + 'static,
@@ -425,7 +441,7 @@ where
     }
 
     /// Returns mutable access to the network.
-    pub fn network_mut(&mut self) -> &mut NetworkManager<EthNetworkPrimitives> {
+    pub const fn network_mut(&mut self) -> &mut NetworkManager<EthNetworkPrimitives> {
         &mut self.network
     }
 
@@ -495,15 +511,29 @@ where
     where
         P: TransactionPool,
     {
+        self.map_transactions_manager_with(pool, config, Default::default())
+    }
+
+    /// Map transactions manager with custom config and the given policy.
+    pub fn map_transactions_manager_with<P>(
+        self,
+        pool: P,
+        config: TransactionsManagerConfig,
+        policy: TransactionPropagationKind,
+    ) -> Peer<C, P>
+    where
+        P: TransactionPool,
+    {
         let Self { mut network, request_handler, client, secret_key, .. } = self;
         let (tx, rx) = unbounded_channel();
         network.set_transactions(tx);
 
-        let transactions_manager = TransactionsManager::new(
+        let transactions_manager = TransactionsManager::with_policy(
             network.handle().clone(),
             pool.clone(),
             rx,
-            config, // Use provided config
+            config,
+            policy,
         );
 
         Peer {
@@ -530,16 +560,16 @@ where
 impl<C, Pool> Future for Peer<C, Pool>
 where
     C: BlockReader<
-            Block = reth_primitives::Block,
-            Receipt = reth_primitives::Receipt,
-            Header = reth_primitives::Header,
+            Block = reth_ethereum_primitives::Block,
+            Receipt = reth_ethereum_primitives::Receipt,
+            Header = alloy_consensus::Header,
         > + HeaderProvider
         + Unpin
         + 'static,
     Pool: TransactionPool<
             Transaction: PoolTransaction<
                 Consensus = TransactionSigned,
-                Pooled = PooledTransactionsElement,
+                Pooled = PooledTransactionVariant,
             >,
         > + Unpin
         + 'static,
@@ -643,7 +673,7 @@ where
     where
         C: ChainSpecProvider<ChainSpec: Hardforks>,
     {
-        let secret_key = SecretKey::new(&mut rand::thread_rng());
+        let secret_key = SecretKey::new(&mut rand_08::thread_rng());
         let config = Self::network_config_builder(secret_key).build(client.clone());
         Self { config, client, secret_key }
     }
@@ -663,7 +693,7 @@ where
     where
         C: ChainSpecProvider<ChainSpec: Hardforks>,
     {
-        let secret_key = SecretKey::new(&mut rand::thread_rng());
+        let secret_key = SecretKey::new(&mut rand_08::thread_rng());
 
         let builder = Self::network_config_builder(secret_key);
         let hello_message =
@@ -707,11 +737,8 @@ impl NetworkEventStream {
     /// Awaits the next event for a session to be closed
     pub async fn next_session_closed(&mut self) -> Option<(PeerId, Option<DisconnectReason>)> {
         while let Some(ev) = self.inner.next().await {
-            match ev {
-                NetworkEvent::Peer(PeerEvent::SessionClosed { peer_id, reason }) => {
-                    return Some((peer_id, reason))
-                }
-                _ => continue,
+            if let NetworkEvent::Peer(PeerEvent::SessionClosed { peer_id, reason }) = ev {
+                return Some((peer_id, reason))
             }
         }
         None
@@ -725,7 +752,7 @@ impl NetworkEventStream {
                 NetworkEvent::Peer(PeerEvent::SessionEstablished(info)) => {
                     return Some(info.peer_id)
                 }
-                _ => continue,
+                _ => {}
             }
         }
         None
@@ -738,15 +765,12 @@ impl NetworkEventStream {
         }
         let mut peers = Vec::with_capacity(num);
         while let Some(ev) = self.inner.next().await {
-            match ev {
-                NetworkEvent::ActivePeerSession { info: SessionInfo { peer_id, .. }, .. } => {
-                    peers.push(peer_id);
-                    num -= 1;
-                    if num == 0 {
-                        return peers;
-                    }
+            if let NetworkEvent::ActivePeerSession { info: SessionInfo { peer_id, .. }, .. } = ev {
+                peers.push(peer_id);
+                num -= 1;
+                if num == 0 {
+                    return peers;
                 }
-                _ => continue,
             }
         }
         peers
@@ -774,5 +798,25 @@ impl NetworkEventStream {
             }
             _ => None,
         }
+    }
+
+    /// Awaits the next event for a peer added.
+    pub async fn peer_added(&mut self) -> Option<PeerId> {
+        let peer_id = match self.inner.next().await {
+            Some(NetworkEvent::Peer(PeerEvent::PeerAdded(peer_id))) => peer_id,
+            _ => return None,
+        };
+
+        Some(peer_id)
+    }
+
+    /// Awaits the next event for a peer removed.
+    pub async fn peer_removed(&mut self) -> Option<PeerId> {
+        let peer_id = match self.inner.next().await {
+            Some(NetworkEvent::Peer(PeerEvent::PeerRemoved(peer_id))) => peer_id,
+            _ => return None,
+        };
+
+        Some(peer_id)
     }
 }

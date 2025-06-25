@@ -1,8 +1,6 @@
 //! Ethereum EVM support
 
 #[doc(inline)]
-pub use reth_evm::execute::BasicBlockExecutorProvider;
+pub use reth_evm_ethereum::execute::EthExecutorProvider;
 #[doc(inline)]
-pub use reth_evm_ethereum::execute::{EthExecutionStrategyFactory, EthExecutorProvider};
-#[doc(inline)]
-pub use reth_evm_ethereum::EthEvmConfig;
+pub use reth_evm_ethereum::{EthEvm, EthEvmConfig};

@@ -9,7 +9,7 @@ use parking_lot::Mutex;
 use reth_discv4::{Discv4, NatResolver};
 use reth_discv5::Discv5;
 use reth_eth_wire::{
-    DisconnectReason, EthNetworkPrimitives, NetworkPrimitives, NewBlock,
+    BlockRangeUpdate, DisconnectReason, EthNetworkPrimitives, NetworkPrimitives, NewBlock,
     NewPooledTransactionHashes, SharedTransactions,
 };
 use reth_ethereum_forks::Head;
@@ -51,7 +51,7 @@ pub struct NetworkHandle<N: NetworkPrimitives = EthNetworkPrimitives> {
 
 impl<N: NetworkPrimitives> NetworkHandle<N> {
     /// Creates a single new instance.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub(crate) fn new(
         num_active_peers: Arc<AtomicUsize>,
         listener_address: Arc<Mutex<SocketAddr>>,
@@ -415,6 +415,11 @@ impl<N: NetworkPrimitives> NetworkSyncUpdater for NetworkHandle<N> {
     fn update_status(&self, head: Head) {
         self.send_message(NetworkHandleMessage::StatusUpdate { head });
     }
+
+    /// Updates the advertised block range.
+    fn update_block_range(&self, update: reth_eth_wire::BlockRangeUpdate) {
+        self.send_message(NetworkHandleMessage::InternalBlockRangeUpdate(update));
+    }
 }
 
 impl<N: NetworkPrimitives> BlockDownloaderProvider for NetworkHandle<N> {
@@ -439,7 +444,7 @@ struct NetworkInner<N: NetworkPrimitives = EthNetworkPrimitives> {
     secret_key: SecretKey,
     /// The identifier used by this node.
     local_peer_id: PeerId,
-    /// Access to the all the nodes.
+    /// Access to all the nodes.
     peers: PeersHandle,
     /// The mode of the network
     network_mode: NetworkMode,
@@ -505,7 +510,7 @@ pub(crate) enum NetworkHandleMessage<N: NetworkPrimitives = EthNetworkPrimitives
     EthMessage {
         /// The peer to send the message to.
         peer_id: PeerId,
-        /// The message to send to the peer's sessions.
+        /// The `eth` protocol message to send to the peer's session.
         message: PeerMessage<N>,
     },
     /// Applies a reputation change to the given peer.
@@ -541,4 +546,6 @@ pub(crate) enum NetworkHandleMessage<N: NetworkPrimitives = EthNetworkPrimitives
     AddRlpxSubProtocol(RlpxSubProtocol),
     /// Connect to the given peer.
     ConnectPeer(PeerId, PeerKind, PeerAddr),
+    /// Message to update the node's advertised block range information.
+    InternalBlockRangeUpdate(BlockRangeUpdate),
 }

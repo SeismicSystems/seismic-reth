@@ -1,6 +1,6 @@
 use crate::Nibbles;
-use alloy_primitives::map::{B256HashMap, B256HashSet};
-use std::sync::Arc;
+use alloc::{sync::Arc, vec::Vec};
+use alloy_primitives::map::{B256Map, B256Set};
 
 /// Collection of mutable prefix sets.
 #[derive(Clone, Default, Debug)]
@@ -9,9 +9,9 @@ pub struct TriePrefixSetsMut {
     pub account_prefix_set: PrefixSetMut,
     /// A map containing storage changes with the hashed address as key and a set of storage key
     /// prefixes as the value.
-    pub storage_prefix_sets: B256HashMap<PrefixSetMut>,
+    pub storage_prefix_sets: B256Map<PrefixSetMut>,
     /// A set of hashed addresses of destroyed accounts.
-    pub destroyed_accounts: B256HashSet,
+    pub destroyed_accounts: B256Set,
 }
 
 impl TriePrefixSetsMut {
@@ -47,9 +47,9 @@ pub struct TriePrefixSets {
     pub account_prefix_set: PrefixSet,
     /// A map containing storage changes with the hashed address as key and a set of storage key
     /// prefixes as the value.
-    pub storage_prefix_sets: B256HashMap<PrefixSet>,
+    pub storage_prefix_sets: B256Map<PrefixSet>,
     /// A set of hashed addresses of destroyed accounts.
-    pub destroyed_accounts: B256HashSet,
+    pub destroyed_accounts: B256Set,
 }
 
 /// A container for efficiently storing and checking for the presence of key prefixes.
@@ -136,6 +136,12 @@ impl PrefixSetMut {
         self.keys.is_empty()
     }
 
+    /// Clears the inner vec for reuse, setting `all` to `false`.
+    pub fn clear(&mut self) {
+        self.all = false;
+        self.keys.clear();
+    }
+
     /// Returns a `PrefixSet` with the same elements as this set.
     ///
     /// If not yet sorted, the elements will be sorted and deduplicated.
@@ -166,6 +172,19 @@ pub struct PrefixSet {
 
 impl PrefixSet {
     /// Returns `true` if any of the keys in the set has the given prefix
+    ///
+    /// # Note on Mutability
+    ///
+    /// This method requires `&mut self` (unlike typical `contains` methods) because it maintains an
+    /// internal position tracker (`self.index`) between calls. This enables significant performance
+    /// optimization for sequential lookups in sorted order, which is common during trie traversal.
+    ///
+    /// The `index` field allows subsequent searches to start where previous ones left off,
+    /// avoiding repeated full scans of the prefix array when keys are accessed in nearby ranges.
+    ///
+    /// This optimization was inspired by Silkworm's implementation and significantly improves
+    /// incremental state root calculation performance
+    /// ([see PR #2417](https://github.com/paradigmxyz/reth/pull/2417)).
     #[inline]
     pub fn contains(&mut self, prefix: &[u8]) -> bool {
         if self.all {
@@ -209,7 +228,7 @@ impl PrefixSet {
 
 impl<'a> IntoIterator for &'a PrefixSet {
     type Item = &'a Nibbles;
-    type IntoIter = std::slice::Iter<'a, Nibbles>;
+    type IntoIter = core::slice::Iter<'a, Nibbles>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }

@@ -1,9 +1,8 @@
 //! Transaction wrapper for libmdbx-sys.
 
-use super::cursor::Cursor;
+use super::{cursor::Cursor, utils::*};
 use crate::{
     metrics::{DatabaseEnvMetrics, Operation, TransactionMode, TransactionOutcome},
-    tables::utils::decode_one,
     DatabaseError,
 };
 use reth_db_api::{
@@ -241,9 +240,9 @@ impl<K: TransactionKind> MetricsHandler<K> {
                 self.backtrace_recorded.store(true, Ordering::Relaxed);
                 #[cfg(debug_assertions)]
                 let message = format!(
-                   "The database read transaction has been open for too long. Open backtrace:\n{}\n\nCurrent backtrace:\n{}",
-                   self.open_backtrace,
-                   Backtrace::force_capture()
+                    "The database read transaction has been open for too long. Open backtrace:\n{}\n\nCurrent backtrace:\n{}",
+                    self.open_backtrace,
+                    Backtrace::force_capture()
                 );
                 #[cfg(not(debug_assertions))]
                 let message = format!(

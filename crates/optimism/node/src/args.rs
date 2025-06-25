@@ -2,17 +2,16 @@
 
 //! clap [Args](clap::Args) for optimism rollup configuration
 
-use reth_node_builder::engine_tree_config::{
-    DEFAULT_MEMORY_BLOCK_BUFFER_TARGET, DEFAULT_PERSISTENCE_THRESHOLD,
-};
+use op_alloy_consensus::interop::SafetyLevel;
+use reth_optimism_txpool::supervisor::DEFAULT_SUPERVISOR_URL;
 
 /// Parameters for rollup configuration
 #[derive(Debug, Clone, PartialEq, Eq, clap::Args)]
 #[command(next_help_heading = "Rollup")]
 pub struct RollupArgs {
-    /// HTTP endpoint for the sequencer mempool
-    #[arg(long = "rollup.sequencer-http", value_name = "HTTP_URL")]
-    pub sequencer_http: Option<String>,
+    /// Endpoint for the sequencer mempool (can be both HTTP and WS)
+    #[arg(long = "rollup.sequencer", visible_aliases = ["rollup.sequencer-http", "rollup.sequencer-ws"])]
+    pub sequencer: Option<String>,
 
     /// Disable transaction pool gossip
     #[arg(long = "rollup.disable-tx-pool-gossip")]
@@ -38,38 +37,42 @@ pub struct RollupArgs {
     #[arg(long = "rollup.discovery.v4", default_value = "false")]
     pub discovery_v4: bool,
 
-    /// Enable the experimental engine features on reth binary
-    ///
-    /// DEPRECATED: experimental engine is default now, use --engine.legacy to enable the legacy
-    /// functionality
-    #[arg(long = "engine.experimental", default_value = "false")]
-    pub experimental: bool,
+    /// Enable transaction conditional support on sequencer
+    #[arg(long = "rollup.enable-tx-conditional", default_value = "false")]
+    pub enable_tx_conditional: bool,
 
-    /// Enable the legacy engine on reth binary
-    #[arg(long = "engine.legacy", default_value = "false")]
-    pub legacy: bool,
+    /// HTTP endpoint for the supervisor
+    #[arg(
+        long = "rollup.supervisor-http",
+        value_name = "SUPERVISOR_HTTP_URL",
+        default_value = DEFAULT_SUPERVISOR_URL
+    )]
+    pub supervisor_http: String,
 
-    /// Configure persistence threshold for engine experimental.
-    #[arg(long = "engine.persistence-threshold", conflicts_with = "legacy", default_value_t = DEFAULT_PERSISTENCE_THRESHOLD)]
-    pub persistence_threshold: u64,
+    /// Safety level for the supervisor
+    #[arg(
+        long = "rollup.supervisor-safety-level",
+        default_value_t = SafetyLevel::CrossUnsafe,
+    )]
+    pub supervisor_safety_level: SafetyLevel,
 
-    /// Configure the target number of blocks to keep in memory.
-    #[arg(long = "engine.memory-block-buffer-target", conflicts_with = "legacy", default_value_t = DEFAULT_MEMORY_BLOCK_BUFFER_TARGET)]
-    pub memory_block_buffer_target: u64,
+    /// Optional headers to use when connecting to the sequencer.
+    #[arg(long = "rollup.sequencer-headers", requires = "sequencer")]
+    pub sequencer_headers: Vec<String>,
 }
 
 impl Default for RollupArgs {
     fn default() -> Self {
         Self {
-            sequencer_http: None,
+            sequencer: None,
             disable_txpool_gossip: false,
             enable_genesis_walkback: false,
             compute_pending_block: false,
             discovery_v4: false,
-            experimental: false,
-            legacy: false,
-            persistence_threshold: DEFAULT_PERSISTENCE_THRESHOLD,
-            memory_block_buffer_target: DEFAULT_MEMORY_BLOCK_BUFFER_TARGET,
+            enable_tx_conditional: false,
+            supervisor_http: DEFAULT_SUPERVISOR_URL.to_string(),
+            supervisor_safety_level: SafetyLevel::CrossUnsafe,
+            sequencer_headers: Vec::new(),
         }
     }
 }
@@ -121,7 +124,7 @@ mod tests {
     #[test]
     fn test_parse_optimism_sequencer_http_args() {
         let expected_args =
-            RollupArgs { sequencer_http: Some("http://host:port".into()), ..Default::default() };
+            RollupArgs { sequencer: Some("http://host:port".into()), ..Default::default() };
         let args = CommandParser::<RollupArgs>::parse_from([
             "reth",
             "--rollup.sequencer-http",
@@ -141,12 +144,22 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_optimism_enable_tx_conditional() {
+        let expected_args = RollupArgs { enable_tx_conditional: true, ..Default::default() };
+        let args =
+            CommandParser::<RollupArgs>::parse_from(["reth", "--rollup.enable-tx-conditional"])
+                .args;
+        assert_eq!(args, expected_args);
+    }
+
+    #[test]
     fn test_parse_optimism_many_args() {
         let expected_args = RollupArgs {
             disable_txpool_gossip: true,
             compute_pending_block: true,
             enable_genesis_walkback: true,
-            sequencer_http: Some("http://host:port".into()),
+            enable_tx_conditional: true,
+            sequencer: Some("http://host:port".into()),
             ..Default::default()
         };
         let args = CommandParser::<RollupArgs>::parse_from([
@@ -154,6 +167,7 @@ mod tests {
             "--rollup.disable-tx-pool-gossip",
             "--rollup.compute-pending-block",
             "--rollup.enable-genesis-walkback",
+            "--rollup.enable-tx-conditional",
             "--rollup.sequencer-http",
             "http://host:port",
         ])

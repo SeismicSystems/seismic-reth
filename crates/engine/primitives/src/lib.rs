@@ -7,46 +7,60 @@
 )]
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(not(feature = "std"), no_std)]
 
-mod error;
-
-use core::fmt;
+extern crate alloc;
 
 use alloy_consensus::BlockHeader;
-use alloy_rpc_types_engine::{ExecutionPayload, ExecutionPayloadSidecar, PayloadError};
-pub use error::BeaconOnNewPayloadError;
+use reth_errors::ConsensusError;
+use reth_payload_primitives::{
+    EngineApiMessageVersion, EngineObjectValidationError, InvalidPayloadAttributesError,
+    NewPayloadError, PayloadAttributes, PayloadOrAttributes, PayloadTypes,
+};
+use reth_primitives_traits::{Block, RecoveredBlock};
+use reth_trie_common::HashedPostState;
+use serde::{de::DeserializeOwned, Serialize};
+
+// Re-export [`ExecutionPayload`] moved to `reth_payload_primitives`
+pub use reth_payload_primitives::ExecutionPayload;
+
+mod error;
+pub use error::*;
 
 mod forkchoice;
 pub use forkchoice::{ForkchoiceStateHash, ForkchoiceStateTracker, ForkchoiceStatus};
 
 mod message;
-pub use message::{BeaconEngineMessage, OnForkChoiceUpdated};
+pub use message::*;
+
+mod event;
+pub use event::*;
 
 mod invalid_block_hook;
 pub use invalid_block_hook::InvalidBlockHook;
 
-pub use reth_payload_primitives::{
-    BuiltPayload, EngineApiMessageVersion, EngineObjectValidationError, PayloadOrAttributes,
-    PayloadTypes,
-};
-use reth_payload_primitives::{InvalidPayloadAttributesError, PayloadAttributes};
-use reth_primitives::SealedBlockFor;
-use reth_primitives_traits::Block;
-use serde::{de::DeserializeOwned, ser::Serialize};
+pub mod config;
+pub use config::*;
 
-/// This type defines the versioned types of the engine API.
+/// This type defines the versioned types of the engine API based on the [ethereum engine API](https://github.com/ethereum/execution-apis/tree/main/src/engine).
 ///
 /// This includes the execution payload types and payload attributes that are used to trigger a
 /// payload job. Hence this trait is also [`PayloadTypes`].
+///
+/// Implementations of this type are intended to be stateless and just define the types as
+/// associated types.
+/// This type is intended for non-ethereum chains that closely mirror the ethereum engine API spec,
+/// but may have different payload, for example opstack, but structurally equivalent otherwise (same
+/// engine API RPC endpoints for example).
 pub trait EngineTypes:
     PayloadTypes<
         BuiltPayload: TryInto<Self::ExecutionPayloadEnvelopeV1>
                           + TryInto<Self::ExecutionPayloadEnvelopeV2>
                           + TryInto<Self::ExecutionPayloadEnvelopeV3>
-                          + TryInto<Self::ExecutionPayloadEnvelopeV4>,
+                          + TryInto<Self::ExecutionPayloadEnvelopeV4>
+                          + TryInto<Self::ExecutionPayloadEnvelopeV5>,
     > + DeserializeOwned
     + Serialize
-    + 'static
 {
     /// Execution Payload V1 envelope type.
     type ExecutionPayloadEnvelopeV1: DeserializeOwned
@@ -80,12 +94,24 @@ pub trait EngineTypes:
         + Send
         + Sync
         + 'static;
+    /// Execution Payload V5 envelope type.
+    type ExecutionPayloadEnvelopeV5: DeserializeOwned
+        + Serialize
+        + Clone
+        + Unpin
+        + Send
+        + Sync
+        + 'static;
 }
 
 /// Type that validates an [`ExecutionPayload`].
-pub trait PayloadValidator: fmt::Debug + Send + Sync + Unpin + 'static {
+#[auto_impl::auto_impl(&, Arc)]
+pub trait PayloadValidator: Send + Sync + Unpin + 'static {
     /// The block type used by the engine.
     type Block: Block;
+
+    /// The execution payload type used by the engine.
+    type ExecutionData;
 
     /// Ensures that the given payload does not violate any consensus rules that concern the block's
     /// layout.
@@ -97,19 +123,34 @@ pub trait PayloadValidator: fmt::Debug + Send + Sync + Unpin + 'static {
     /// engine-API specification.
     fn ensure_well_formed_payload(
         &self,
-        payload: ExecutionPayload,
-        sidecar: ExecutionPayloadSidecar,
-    ) -> Result<SealedBlockFor<Self::Block>, PayloadError>;
+        payload: Self::ExecutionData,
+    ) -> Result<RecoveredBlock<Self::Block>, NewPayloadError>;
+
+    /// Verifies payload post-execution w.r.t. hashed state updates.
+    fn validate_block_post_execution_with_hashed_state(
+        &self,
+        _state_updates: &HashedPostState,
+        _block: &RecoveredBlock<Self::Block>,
+    ) -> Result<(), ConsensusError> {
+        // method not used by l1
+        Ok(())
+    }
 }
 
 /// Type that validates the payloads processed by the engine.
-pub trait EngineValidator<Types: EngineTypes>: PayloadValidator {
+pub trait EngineValidator<Types: PayloadTypes>:
+    PayloadValidator<ExecutionData = Types::ExecutionData>
+{
     /// Validates the presence or exclusion of fork-specific fields based on the payload attributes
     /// and the message version.
     fn validate_version_specific_fields(
         &self,
         version: EngineApiMessageVersion,
-        payload_or_attrs: PayloadOrAttributes<'_, <Types as PayloadTypes>::PayloadAttributes>,
+        payload_or_attrs: PayloadOrAttributes<
+            '_,
+            Types::ExecutionData,
+            <Types as PayloadTypes>::PayloadAttributes,
+        >,
     ) -> Result<(), EngineObjectValidationError>;
 
     /// Ensures that the payload attributes are valid for the given [`EngineApiMessageVersion`].

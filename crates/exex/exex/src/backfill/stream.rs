@@ -5,10 +5,14 @@ use futures::{
     stream::{FuturesOrdered, Stream},
     StreamExt,
 };
-use reth_evm::execute::{BlockExecutionError, BlockExecutionOutput, BlockExecutorProvider};
+use reth_ethereum_primitives::EthPrimitives;
+use reth_evm::{
+    execute::{BlockExecutionError, BlockExecutionOutput},
+    ConfigureEvm,
+};
 use reth_node_api::NodePrimitives;
-use reth_primitives::{BlockWithSenders, EthPrimitives};
-use reth_provider::{BlockReader, Chain, HeaderProvider, StateProviderFactory};
+use reth_primitives_traits::RecoveredBlock;
+use reth_provider::{BlockReader, Chain, StateProviderFactory};
 use reth_prune_types::PruneModes;
 use reth_stages_api::ExecutionStageThresholds;
 use reth_tracing::tracing::debug;
@@ -38,7 +42,7 @@ struct BackfillTaskOutput<T> {
 type BackfillTasks<T> = FuturesOrdered<JoinHandle<BackfillTaskOutput<T>>>;
 
 type SingleBlockStreamItem<N = EthPrimitives> = (
-    BlockWithSenders<<N as NodePrimitives>::Block>,
+    RecoveredBlock<<N as NodePrimitives>::Block>,
     BlockExecutionOutput<<N as NodePrimitives>::Receipt>,
 );
 type BatchBlockStreamItem<N = EthPrimitives> = Chain<N>;
@@ -49,7 +53,7 @@ type BatchBlockStreamItem<N = EthPrimitives> = Chain<N>;
 /// processed asynchronously but in order within a specified range.
 #[derive(Debug)]
 pub struct StreamBackfillJob<E, P, T> {
-    executor: E,
+    evm_config: E,
     provider: P,
     prune_modes: PruneModes,
     range: RangeInclusive<BlockNumber>,
@@ -114,8 +118,8 @@ where
 
 impl<E, P> Stream for StreamBackfillJob<E, P, SingleBlockStreamItem<E::Primitives>>
 where
-    E: BlockExecutorProvider<Primitives: NodePrimitives<Block = P::Block>> + Clone + Send + 'static,
-    P: HeaderProvider + BlockReader + StateProviderFactory + Clone + Send + Unpin + 'static,
+    E: ConfigureEvm<Primitives: NodePrimitives<Block = P::Block>> + 'static,
+    P: BlockReader + StateProviderFactory + Clone + Unpin + 'static,
 {
     type Item = BackfillJobResult<SingleBlockStreamItem<E::Primitives>>;
 
@@ -133,7 +137,7 @@ where
             // Spawn a new task for that block
             debug!(target: "exex::backfill", tasks = %this.tasks.len(), ?block_number, "Spawning new single block backfill task");
             let job = Box::new(SingleBlockBackfillJob {
-                executor: this.executor.clone(),
+                evm_config: this.evm_config.clone(),
                 provider: this.provider.clone(),
                 range: block_number..=block_number,
                 stream_parallelism: this.parallelism,
@@ -147,8 +151,8 @@ where
 
 impl<E, P> Stream for StreamBackfillJob<E, P, BatchBlockStreamItem<E::Primitives>>
 where
-    E: BlockExecutorProvider<Primitives: NodePrimitives<Block = P::Block>> + Clone + Send + 'static,
-    P: HeaderProvider + BlockReader + StateProviderFactory + Clone + Send + Unpin + 'static,
+    E: ConfigureEvm<Primitives: NodePrimitives<Block = P::Block>> + 'static,
+    P: BlockReader + StateProviderFactory + Clone + Unpin + 'static,
 {
     type Item = BackfillJobResult<BatchBlockStreamItem<E::Primitives>>;
 
@@ -172,7 +176,7 @@ where
                 // Spawn a new task for that range
                 debug!(target: "exex::backfill", tasks = %this.tasks.len(), ?range, "Spawning new block batch backfill task");
                 let job = Box::new(BackfillJob {
-                    executor: this.executor.clone(),
+                    evm_config: this.evm_config.clone(),
                     provider: this.provider.clone(),
                     prune_modes: this.prune_modes.clone(),
                     thresholds: this.thresholds.clone(),
@@ -199,7 +203,7 @@ where
 impl<E, P> From<SingleBlockBackfillJob<E, P>> for StreamBackfillJob<E, P, SingleBlockStreamItem> {
     fn from(job: SingleBlockBackfillJob<E, P>) -> Self {
         Self {
-            executor: job.executor,
+            evm_config: job.evm_config,
             provider: job.provider,
             prune_modes: PruneModes::default(),
             range: job.range,
@@ -213,12 +217,12 @@ impl<E, P> From<SingleBlockBackfillJob<E, P>> for StreamBackfillJob<E, P, Single
 
 impl<E, P> From<BackfillJob<E, P>> for StreamBackfillJob<E, P, BatchBlockStreamItem<E::Primitives>>
 where
-    E: BlockExecutorProvider,
+    E: ConfigureEvm,
 {
     fn from(job: BackfillJob<E, P>) -> Self {
         let batch_size = job.thresholds.max_blocks.map_or(DEFAULT_BATCH_SIZE, |max| max as usize);
         Self {
-            executor: job.executor,
+            evm_config: job.evm_config,
             provider: job.provider,
             prune_modes: job.prune_modes,
             range: job.range,
@@ -235,8 +239,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use crate::{
         backfill::test_utils::{
             blocks_and_execution_outcome, blocks_and_execution_outputs, chain_spec,
@@ -244,23 +246,21 @@ mod tests {
         BackfillJobFactory,
     };
     use futures::StreamExt;
-    use reth_blockchain_tree::noop::NoopBlockchainTree;
     use reth_db_common::init::init_genesis;
     use reth_evm_ethereum::execute::EthExecutorProvider;
-    use reth_primitives::public_key_to_address;
+    use reth_primitives_traits::crypto::secp256k1::public_key_to_address;
     use reth_provider::{
         providers::BlockchainProvider, test_utils::create_test_provider_factory_with_chain_spec,
     };
     use reth_stages_api::ExecutionStageThresholds;
     use reth_testing_utils::generators;
-    use secp256k1::Keypair;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_single_blocks() -> eyre::Result<()> {
         reth_tracing::init_test_tracing();
 
         // Create a key pair for the sender
-        let key_pair = Keypair::new_global(&mut generators::rng());
+        let key_pair = generators::generate_key(&mut generators::rng());
         let address = public_key_to_address(key_pair.public_key());
 
         let chain_spec = chain_spec(address);
@@ -268,10 +268,7 @@ mod tests {
         let executor = EthExecutorProvider::ethereum(chain_spec.clone());
         let provider_factory = create_test_provider_factory_with_chain_spec(chain_spec.clone());
         init_genesis(&provider_factory)?;
-        let blockchain_db = BlockchainProvider::new(
-            provider_factory.clone(),
-            Arc::new(NoopBlockchainTree::default()),
-        )?;
+        let blockchain_db = BlockchainProvider::new(provider_factory.clone())?;
 
         // Create first 2 blocks
         let blocks_and_execution_outcomes =
@@ -284,8 +281,7 @@ mod tests {
         // execute first block
         let (block, mut execution_output) = backfill_stream.next().await.unwrap().unwrap();
         execution_output.state.reverts.sort();
-        let sealed_block_with_senders = blocks_and_execution_outcomes[0].0.clone();
-        let expected_block = sealed_block_with_senders.unseal();
+        let expected_block = blocks_and_execution_outcomes[0].0.clone();
         let expected_output = &blocks_and_execution_outcomes[0].1;
         assert_eq!(block, expected_block);
         assert_eq!(&execution_output, expected_output);
@@ -301,7 +297,7 @@ mod tests {
         reth_tracing::init_test_tracing();
 
         // Create a key pair for the sender
-        let key_pair = Keypair::new_global(&mut generators::rng());
+        let key_pair = generators::generate_key(&mut generators::rng());
         let address = public_key_to_address(key_pair.public_key());
 
         let chain_spec = chain_spec(address);
@@ -309,10 +305,7 @@ mod tests {
         let executor = EthExecutorProvider::ethereum(chain_spec.clone());
         let provider_factory = create_test_provider_factory_with_chain_spec(chain_spec.clone());
         init_genesis(&provider_factory)?;
-        let blockchain_db = BlockchainProvider::new(
-            provider_factory.clone(),
-            Arc::new(NoopBlockchainTree::default()),
-        )?;
+        let blockchain_db = BlockchainProvider::new(provider_factory.clone())?;
 
         // Create first 2 blocks
         let (blocks, execution_outcome) =

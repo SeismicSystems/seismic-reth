@@ -1,25 +1,24 @@
 //! Unwinding a certain block range
 
-use crate::common::{AccessRights, CliNodeTypes, Environment, EnvironmentArgs};
+use crate::{
+    common::{AccessRights, CliNodeTypes, Environment, EnvironmentArgs},
+    stage::CliNodeComponents,
+};
 use alloy_eips::BlockHashOrNumber;
 use alloy_primitives::B256;
 use clap::{Parser, Subcommand};
-use reth_beacon_consensus::EthBeaconConsensus;
-use reth_chainspec::{EthChainSpec, EthereumHardforks};
+use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks};
 use reth_cli::chainspec::ChainSpecParser;
 use reth_config::Config;
-use reth_consensus::Consensus;
+use reth_consensus::noop::NoopConsensus;
 use reth_db::DatabaseEnv;
 use reth_downloaders::{bodies::noop::NoopBodiesDownloader, headers::noop::NoopHeaderDownloader};
-use reth_evm::noop::NoopBlockExecutorProvider;
+use reth_evm::ConfigureEvm;
 use reth_exex::ExExManagerHandle;
-use reth_node_core::args::NetworkArgs;
 use reth_provider::{
-    providers::ProviderNodeTypes, BlockExecutionWriter, BlockNumReader, ChainSpecProvider,
-    ChainStateBlockReader, ChainStateBlockWriter, ProviderFactory, StaticFileProviderFactory,
-    StorageLocation,
+    providers::ProviderNodeTypes, BlockExecutionWriter, BlockNumReader, ChainStateBlockReader,
+    ChainStateBlockWriter, ProviderFactory, StaticFileProviderFactory, StorageLocation,
 };
-use reth_prune::PruneModes;
 use reth_stages::{
     sets::{DefaultStages, OfflineStages},
     stages::ExecutionStage,
@@ -36,9 +35,6 @@ pub struct Command<C: ChainSpecParser> {
     #[command(flatten)]
     env: EnvironmentArgs<C>,
 
-    #[command(flatten)]
-    network: NetworkArgs,
-
     #[command(subcommand)]
     command: Subcommands,
 
@@ -50,10 +46,19 @@ pub struct Command<C: ChainSpecParser> {
 
 impl<C: ChainSpecParser<ChainSpec: EthChainSpec + EthereumHardforks>> Command<C> {
     /// Execute `db stage unwind` command
-    pub async fn execute<N: CliNodeTypes<ChainSpec = C::ChainSpec>>(self) -> eyre::Result<()> {
+    pub async fn execute<N: CliNodeTypes<ChainSpec = C::ChainSpec>, F, Comp>(
+        self,
+        components: F,
+    ) -> eyre::Result<()>
+    where
+        Comp: CliNodeComponents<N>,
+        F: FnOnce(Arc<C::ChainSpec>) -> Comp,
+    {
         let Environment { provider_factory, config, .. } = self.env.init::<N>(AccessRights::RW)?;
 
         let target = self.command.unwind_target(provider_factory.clone())?;
+
+        let components = components(provider_factory.chain_spec());
 
         let highest_static_file_block = provider_factory
             .static_file_provider()
@@ -79,7 +84,8 @@ impl<C: ChainSpecParser<ChainSpec: EthChainSpec + EthereumHardforks>> Command<C>
             }
 
             // This will build an offline-only pipeline if the `offline` flag is enabled
-            let mut pipeline = self.build_pipeline(config, provider_factory)?;
+            let mut pipeline =
+                self.build_pipeline(config, provider_factory, components.evm_config().clone())?;
 
             // Move all applicable data from database to static files.
             pipeline.move_to_static_files()?;
@@ -107,41 +113,43 @@ impl<C: ChainSpecParser<ChainSpec: EthChainSpec + EthereumHardforks>> Command<C>
         Ok(())
     }
 
-    fn build_pipeline<N: ProviderNodeTypes<ChainSpec = C::ChainSpec> + CliNodeTypes>(
+    fn build_pipeline<N: ProviderNodeTypes<ChainSpec = C::ChainSpec>>(
         self,
         config: Config,
         provider_factory: ProviderFactory<N>,
+        evm_config: impl ConfigureEvm<Primitives = N::Primitives> + 'static,
     ) -> Result<Pipeline<N>, eyre::Error> {
-        let consensus: Arc<dyn Consensus> =
-            Arc::new(EthBeaconConsensus::new(provider_factory.chain_spec()));
         let stage_conf = &config.stages;
         let prune_modes = config.prune.clone().map(|prune| prune.segments).unwrap_or_default();
 
         let (tip_tx, tip_rx) = watch::channel(B256::ZERO);
 
-        // Unwinding does not require a valid executor
-        let executor = NoopBlockExecutorProvider::<N::Primitives>::default();
-
         let builder = if self.offline {
             Pipeline::<N>::builder().add_stages(
-                OfflineStages::new(executor, config.stages, PruneModes::default())
-                    .builder()
-                    .disable(reth_stages::StageId::SenderRecovery),
+                OfflineStages::new(
+                    evm_config,
+                    NoopConsensus::arc(),
+                    config.stages,
+                    prune_modes.clone(),
+                )
+                .builder()
+                .disable(reth_stages::StageId::SenderRecovery),
             )
         } else {
             Pipeline::<N>::builder().with_tip_sender(tip_tx).add_stages(
                 DefaultStages::new(
                     provider_factory.clone(),
                     tip_rx,
-                    Arc::clone(&consensus),
+                    Arc::new(NoopConsensus::default()),
                     NoopHeaderDownloader::default(),
                     NoopBodiesDownloader::default(),
-                    executor.clone(),
+                    evm_config.clone(),
                     stage_conf.clone(),
                     prune_modes.clone(),
                 )
                 .set(ExecutionStage::new(
-                    executor,
+                    evm_config,
+                    Arc::new(NoopConsensus::default()),
                     ExecutionStageThresholds {
                         max_blocks: None,
                         max_changes: None,
@@ -149,7 +157,6 @@ impl<C: ChainSpecParser<ChainSpec: EthChainSpec + EthereumHardforks>> Command<C>
                         max_duration: None,
                     },
                     stage_conf.execution_external_clean_threshold(),
-                    prune_modes,
                     ExExManagerHandle::empty(),
                 )),
             )
@@ -157,9 +164,16 @@ impl<C: ChainSpecParser<ChainSpec: EthChainSpec + EthereumHardforks>> Command<C>
 
         let pipeline = builder.build(
             provider_factory.clone(),
-            StaticFileProducer::new(provider_factory, PruneModes::default()),
+            StaticFileProducer::new(provider_factory, prune_modes),
         );
         Ok(pipeline)
+    }
+}
+
+impl<C: ChainSpecParser> Command<C> {
+    /// Return the underlying chain being used to run this command
+    pub fn chain_spec(&self) -> Option<&Arc<C::ChainSpec>> {
+        Some(&self.env.chain)
     }
 }
 

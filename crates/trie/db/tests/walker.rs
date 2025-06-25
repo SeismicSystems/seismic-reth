@@ -1,8 +1,7 @@
 #![allow(missing_docs)]
 
 use alloy_primitives::B256;
-use reth_db::tables;
-use reth_db_api::{cursor::DbCursorRW, transaction::DbTxMut};
+use reth_db_api::{cursor::DbCursorRW, tables, transaction::DbTxMut};
 use reth_provider::test_utils::create_test_provider_factory;
 use reth_trie::{
     prefix_set::PrefixSetMut, trie_cursor::TrieCursor, walker::TrieWalker, BranchNodeCompact,
@@ -38,7 +37,7 @@ fn walk_nodes_with_common_prefix() {
 
     let mut account_cursor = tx.tx_ref().cursor_write::<tables::AccountsTrie>().unwrap();
     for (k, v) in &inputs {
-        account_cursor.upsert(k.clone().into(), v.clone()).unwrap();
+        account_cursor.upsert(k.clone().into(), &v.clone()).unwrap();
     }
     let account_trie = DatabaseAccountTrieCursor::new(account_cursor);
     test_cursor(account_trie, &expected);
@@ -47,7 +46,10 @@ fn walk_nodes_with_common_prefix() {
     let mut storage_cursor = tx.tx_ref().cursor_dup_write::<tables::StoragesTrie>().unwrap();
     for (k, v) in &inputs {
         storage_cursor
-            .upsert(hashed_address, StorageTrieEntry { nibbles: k.clone().into(), node: v.clone() })
+            .upsert(
+                hashed_address,
+                &StorageTrieEntry { nibbles: k.clone().into(), node: v.clone() },
+            )
             .unwrap();
     }
     let storage_trie = DatabaseStorageTrieCursor::new(storage_cursor, hashed_address);
@@ -58,7 +60,7 @@ fn test_cursor<T>(mut trie: T, expected: &[Vec<u8>])
 where
     T: TrieCursor,
 {
-    let mut walker = TrieWalker::new(&mut trie, Default::default());
+    let mut walker = TrieWalker::state_trie(&mut trie, Default::default());
     assert!(walker.key().unwrap().is_empty());
 
     // We're traversing the path in lexicographical order.
@@ -106,13 +108,13 @@ fn cursor_rootnode_with_changesets() {
 
     let hashed_address = B256::random();
     for (k, v) in nodes {
-        cursor.upsert(hashed_address, StorageTrieEntry { nibbles: k.into(), node: v }).unwrap();
+        cursor.upsert(hashed_address, &StorageTrieEntry { nibbles: k.into(), node: v }).unwrap();
     }
 
     let mut trie = DatabaseStorageTrieCursor::new(cursor, hashed_address);
 
     // No changes
-    let mut cursor = TrieWalker::new(&mut trie, Default::default());
+    let mut cursor = TrieWalker::state_trie(&mut trie, Default::default());
     assert_eq!(cursor.key().cloned(), Some(Nibbles::new())); // root
     assert!(cursor.can_skip_current_node); // due to root_hash
     cursor.advance().unwrap(); // skips to the end of trie
@@ -121,7 +123,7 @@ fn cursor_rootnode_with_changesets() {
     // We insert something that's not part of the existing trie/prefix.
     let mut changed = PrefixSetMut::default();
     changed.insert(Nibbles::from_nibbles([0xF, 0x1]));
-    let mut cursor = TrieWalker::new(&mut trie, changed.freeze());
+    let mut cursor = TrieWalker::state_trie(&mut trie, changed.freeze());
 
     // Root node
     assert_eq!(cursor.key().cloned(), Some(Nibbles::new()));

@@ -1,9 +1,10 @@
 //! Support for representing the version of the `eth`
 
-use std::{fmt, str::FromStr};
-
+use crate::alloc::string::ToString;
+use alloc::string::String;
 use alloy_rlp::{Decodable, Encodable, Error as RlpError};
 use bytes::BufMut;
+use core::{fmt, str::FromStr};
 use derive_more::Display;
 use reth_codecs_derive::add_arbitrary_tests;
 
@@ -40,8 +41,8 @@ impl EthVersion {
                 // eth/67,68 are eth/66 minus GetNodeData and NodeData messages
                 13
             }
-            // eth69 is both eth67 and eth68 minus NewBlockHashes and NewBlock
-            Self::Eth69 => 11,
+            // eth69 is both eth67 and eth68 minus NewBlockHashes and NewBlock + BlockRangeUpdate
+            Self::Eth69 => 12,
         }
     }
 
@@ -264,6 +265,6 @@ mod tests {
         assert_eq!(EthVersion::Eth66.total_messages(), 15);
         assert_eq!(EthVersion::Eth67.total_messages(), 13);
         assert_eq!(EthVersion::Eth68.total_messages(), 13);
-        assert_eq!(EthVersion::Eth69.total_messages(), 11);
+        assert_eq!(EthVersion::Eth69.total_messages(), 12);
     }
 }

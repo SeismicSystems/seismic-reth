@@ -1,7 +1,7 @@
 //! Run with
 //!
-//! ```not_rust
-//! cargo run -p beacon-api-beacon-sidecar-fetcher --node -- full
+//! ```sh
+//! cargo run -p beacon-api-beacon-sidecar-fetcher --node --full
 //! ```
 //!
 //! This launches a regular reth instance and subscribes to payload attributes event stream.
@@ -11,7 +11,7 @@
 //!
 //! See beacon Node API: <https://ethereum.github.io/beacon-APIs/>
 
-#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+#![warn(unused_crate_dependencies)]
 
 use std::{
     collections::VecDeque,
@@ -22,11 +22,12 @@ use alloy_primitives::B256;
 use clap::Parser;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use mined_sidecar::MinedSidecarStream;
-use reth::{
-    builder::NodeHandle, chainspec::EthereumChainSpecParser, cli::Cli,
-    providers::CanonStateSubscriptions,
+use reth::builder::NodeHandle;
+use reth_ethereum::{
+    cli::{chainspec::EthereumChainSpecParser, interface::Cli},
+    node::EthereumNode,
+    provider::CanonStateSubscriptions,
 };
-use reth_node_ethereum::EthereumNode;
 
 pub mod mined_sidecar;
 
@@ -56,11 +57,11 @@ fn main() {
                     match result {
                         Ok(blob_transaction) => {
                             // Handle successful transaction
-                            println!("Processed BlobTransaction: {:?}", blob_transaction);
+                            println!("Processed BlobTransaction: {blob_transaction:?}");
                         }
                         Err(e) => {
                             // Handle errors specifically
-                            eprintln!("Failed to process transaction: {:?}", e);
+                            eprintln!("Failed to process transaction: {e:?}");
                         }
                     }
                 }

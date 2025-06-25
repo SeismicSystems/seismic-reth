@@ -1,32 +1,32 @@
 use alloy_consensus::BlockHeader;
-use alloy_eips::{eip1898::BlockWithParent, NumHash};
 use alloy_primitives::{BlockHash, BlockNumber, Bytes, B256};
 use futures_util::StreamExt;
 use reth_config::config::EtlConfig;
-use reth_consensus::HeaderValidator;
-use reth_db::{table::Value, tables, transaction::DbTx, RawKey, RawTable, RawValue};
 use reth_db_api::{
     cursor::{DbCursorRO, DbCursorRW},
-    transaction::DbTxMut,
-    DbTxUnwindExt,
+    table::Value,
+    tables,
+    transaction::{DbTx, DbTxMut},
+    DbTxUnwindExt, RawKey, RawTable, RawValue,
 };
 use reth_etl::Collector;
-use reth_network_p2p::headers::{downloader::HeaderDownloader, error::HeadersDownloaderError};
-use reth_primitives::{NodePrimitives, SealedHeader, StaticFileSegment};
-use reth_primitives_traits::{serde_bincode_compat, FullBlockHeader};
+use reth_network_p2p::headers::{
+    downloader::{HeaderDownloader, HeaderSyncGap, SyncTarget},
+    error::HeadersDownloaderError,
+};
+use reth_primitives_traits::{serde_bincode_compat, FullBlockHeader, NodePrimitives, SealedHeader};
 use reth_provider::{
-    providers::StaticFileWriter, BlockHashReader, DBProvider, HeaderProvider, HeaderSyncGap,
+    providers::StaticFileWriter, BlockHashReader, DBProvider, HeaderProvider,
     HeaderSyncGapProvider, StaticFileProviderFactory,
 };
 use reth_stages_api::{
-    BlockErrorKind, CheckpointBlockRange, EntitiesCheckpoint, ExecInput, ExecOutput,
-    HeadersCheckpoint, Stage, StageCheckpoint, StageError, StageId, UnwindInput, UnwindOutput,
+    CheckpointBlockRange, EntitiesCheckpoint, ExecInput, ExecOutput, HeadersCheckpoint, Stage,
+    StageCheckpoint, StageError, StageId, UnwindInput, UnwindOutput,
 };
+use reth_static_file_types::StaticFileSegment;
 use reth_storage_errors::provider::ProviderError;
-use std::{
-    sync::Arc,
-    task::{ready, Context, Poll},
-};
+use std::task::{ready, Context, Poll};
+
 use tokio::sync::watch;
 use tracing::*;
 
@@ -36,7 +36,7 @@ use tracing::*;
 /// the perceived highest block on the network.
 ///
 /// The headers are processed and data is inserted into static files, as well as into the
-/// [`HeaderNumbers`][reth_db::tables::HeaderNumbers] table.
+/// [`HeaderNumbers`][reth_db_api::tables::HeaderNumbers] table.
 ///
 /// NOTE: This stage downloads headers in reverse and pushes them to the ETL [`Collector`]. It then
 /// proceeds to push them sequentially to static files. The stage checkpoint is not updated until
@@ -48,9 +48,9 @@ pub struct HeaderStage<Provider, Downloader: HeaderDownloader> {
     /// Strategy for downloading the headers
     downloader: Downloader,
     /// The tip for the stage.
+    ///
+    /// This determines the sync target of the stage (set by the pipeline).
     tip: watch::Receiver<B256>,
-    /// Consensus client implementation
-    consensus: Arc<dyn HeaderValidator<Downloader::Header>>,
     /// Current sync gap.
     sync_gap: Option<HeaderSyncGap<Downloader::Header>>,
     /// ETL collector with `HeaderHash` -> `BlockNumber`
@@ -72,14 +72,12 @@ where
         database: Provider,
         downloader: Downloader,
         tip: watch::Receiver<B256>,
-        consensus: Arc<dyn HeaderValidator<Downloader::Header>>,
         etl_config: EtlConfig,
     ) -> Self {
         Self {
             provider: database,
             downloader,
             tip,
-            consensus,
             sync_gap: None,
             hash_collector: Collector::new(etl_config.file_size / 2, etl_config.dir.clone()),
             header_collector: Collector::new(etl_config.file_size / 2, etl_config.dir),
@@ -130,7 +128,7 @@ where
                     .map_err(|err| StageError::Fatal(Box::new(err)))?
                     .into();
 
-            let (header, header_hash) = sealed_header.split();
+            let (header, header_hash) = sealed_header.split_ref();
             if header.number() == 0 {
                 continue
             }
@@ -139,19 +137,8 @@ where
             // Increase total difficulty
             td += header.difficulty();
 
-            // Header validation
-            self.consensus.validate_header_with_total_difficulty(&header, td).map_err(|error| {
-                StageError::Block {
-                    block: Box::new(BlockWithParent::new(
-                        header.parent_hash(),
-                        NumHash::new(header.number(), header_hash),
-                    )),
-                    error: BlockErrorKind::Validation(error),
-                }
-            })?;
-
             // Append to Headers segment
-            writer.append_header(&header, td, &header_hash)?;
+            writer.append_header(header, td, header_hash)?;
         }
 
         info!(target: "sync::stages::headers", total = total_headers, "Writing headers hash index");
@@ -184,12 +171,12 @@ where
             if first_sync {
                 cursor_header_numbers.append(
                     RawKey::<BlockHash>::from_vec(hash),
-                    RawValue::<BlockNumber>::from_vec(number),
+                    &RawValue::<BlockNumber>::from_vec(number),
                 )?;
             } else {
-                cursor_header_numbers.insert(
+                cursor_header_numbers.upsert(
                     RawKey::<BlockHash>::from_vec(hash),
-                    RawValue::<BlockNumber>::from_vec(number),
+                    &RawValue::<BlockNumber>::from_vec(number),
                 )?;
             }
         }
@@ -223,7 +210,9 @@ where
         }
 
         // Lookup the head and tip of the sync range
-        let gap = self.provider.sync_gap(self.tip.clone(), current_checkpoint.block_number)?;
+        let local_head = self.provider.local_tip_header(current_checkpoint.block_number)?;
+        let target = SyncTarget::Tip(*self.tip.borrow());
+        let gap = HeaderSyncGap { local_head, target };
         let tip = gap.target.tip();
         self.sync_gap = Some(gap.clone());
 
@@ -406,12 +395,14 @@ mod tests {
     };
     use alloy_primitives::B256;
     use assert_matches::assert_matches;
+    use reth_ethereum_primitives::BlockBody;
     use reth_execution_types::ExecutionOutcome;
-    use reth_primitives::{BlockBody, SealedBlock, SealedBlockWithSenders};
+    use reth_primitives_traits::{RecoveredBlock, SealedBlock};
     use reth_provider::{BlockWriter, ProviderFactory, StaticFileProviderFactory};
     use reth_stages_api::StageUnitCheckpoint;
     use reth_testing_utils::generators::{self, random_header, random_header_range};
     use reth_trie::{updates::TrieUpdates, HashedPostStateSorted};
+    use std::sync::Arc;
     use test_runner::HeadersTestRunner;
 
     mod test_runner {
@@ -430,7 +421,6 @@ mod tests {
             channel: (watch::Sender<B256>, watch::Receiver<B256>),
             downloader_factory: Box<dyn Fn() -> D + Send + Sync + 'static>,
             db: TestStageDB,
-            consensus: Arc<TestConsensus>,
         }
 
         impl Default for HeadersTestRunner<TestHeaderDownloader> {
@@ -439,14 +429,9 @@ mod tests {
                 Self {
                     client: client.clone(),
                     channel: watch::channel(B256::ZERO),
-                    consensus: Arc::new(TestConsensus::default()),
+
                     downloader_factory: Box::new(move || {
-                        TestHeaderDownloader::new(
-                            client.clone(),
-                            Arc::new(TestConsensus::default()),
-                            1000,
-                            1000,
-                        )
+                        TestHeaderDownloader::new(client.clone(), 1000, 1000)
                     }),
                     db: TestStageDB::default(),
                 }
@@ -467,7 +452,6 @@ mod tests {
                     self.db.factory.clone(),
                     (*self.downloader_factory)(),
                     self.channel.1.clone(),
-                    self.consensus.clone(),
                     EtlConfig::default(),
                 )
             }
@@ -521,15 +505,12 @@ mod tests {
                             // validate the header
                             let header = provider.header_by_number(block_num)?;
                             assert!(header.is_some());
-                            let header = SealedHeader::seal(header.unwrap());
+                            let header = SealedHeader::seal_slow(header.unwrap());
                             assert_eq!(header.hash(), hash);
 
                             // validate the header total difficulty
                             td += header.difficulty;
-                            assert_eq!(
-                                provider.header_td_by_number(block_num)?.map(Into::into),
-                                Some(td)
-                            );
+                            assert_eq!(provider.header_td_by_number(block_num)?, Some(td));
                         }
                     }
                     _ => self.check_no_header_entry_above(initial_checkpoint)?,
@@ -538,7 +519,7 @@ mod tests {
             }
 
             async fn after_execution(&self, headers: Self::Seed) -> Result<(), TestRunnerError> {
-                self.client.extend(headers.iter().map(|h| h.clone().unseal())).await;
+                self.client.extend(headers.iter().map(|h| h.clone_header())).await;
                 let tip = if headers.is_empty() {
                     let tip = random_header(&mut generators::rng(), 0, None);
                     self.db.insert_headers(std::iter::once(&tip))?;
@@ -571,7 +552,6 @@ mod tests {
                             .build(client.clone(), Arc::new(TestConsensus::default()))
                     }),
                     db: TestStageDB::default(),
-                    consensus: Arc::new(TestConsensus::default()),
                 }
             }
         }
@@ -613,7 +593,7 @@ mod tests {
         let headers = runner.seed_execution(input).expect("failed to seed execution");
         let rx = runner.execute(input);
 
-        runner.client.extend(headers.iter().rev().map(|h| h.clone().unseal())).await;
+        runner.client.extend(headers.iter().rev().map(|h| h.clone_header())).await;
 
         // skip `after_execution` hook for linear downloader
         let tip = headers.last().unwrap();
@@ -650,11 +630,10 @@ mod tests {
         let sealed_blocks = sealed_headers
             .iter()
             .map(|header| {
-                SealedBlockWithSenders::new(
-                    SealedBlock::new(header.clone(), BlockBody::default()),
+                RecoveredBlock::new_sealed(
+                    SealedBlock::from_sealed_parts(header.clone(), BlockBody::default()),
                     vec![],
                 )
-                .unwrap()
             })
             .collect();
 
@@ -663,7 +642,7 @@ mod tests {
         provider
             .append_blocks_with_state(
                 sealed_blocks,
-                ExecutionOutcome::default(),
+                &ExecutionOutcome::default(),
                 HashedPostStateSorted::default(),
                 TrieUpdates::default(),
             )
@@ -696,7 +675,7 @@ mod tests {
         let headers = runner.seed_execution(input).expect("failed to seed execution");
         let rx = runner.execute(input);
 
-        runner.client.extend(headers.iter().rev().map(|h| h.clone().unseal())).await;
+        runner.client.extend(headers.iter().rev().map(|h| h.clone_header())).await;
 
         // skip `after_execution` hook for linear downloader
         let tip = headers.last().unwrap();

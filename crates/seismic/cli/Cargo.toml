@@ -1,0 +1,58 @@
+[package]
+name = "reth-seismic-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# reth
+reth-cli-commands.workspace = true
+reth-db = { workspace = true, features = ["mdbx"] }
+reth-node-core.workspace = true
+reth-chainspec.workspace = true
+reth-cli.workspace = true
+reth-cli-runner.workspace = true
+reth-node-builder.workspace = true
+reth-tracing.workspace = true
+
+# so jemalloc metrics can be included
+reth-node-metrics.workspace = true
+
+## seismic
+reth-seismic-chainspec.workspace = true
+reth-seismic-node.workspace = true
+
+# misc
+futures-util.workspace = true
+clap = { workspace = true, features = ["derive", "env"] }
+tracing.workspace = true
+eyre.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+reth-stages = { workspace = true, features = ["test-utils"] }
+reth-db-common.workspace = true
+reth-cli-commands.workspace = true
+seismic-alloy-consensus.workspace = true
+proptest.workspace = true
+
+[features]
+asm-keccak = [
+    "reth-node-core/asm-keccak",
+    "reth-seismic-node/asm-keccak",
+]
+
+# Jemalloc feature for vergen to generate correct env vars
+jemalloc = ["reth-node-core/jemalloc", "reth-node-metrics/jemalloc"]
+
+dev = ["reth-cli-commands/arbitrary"]
+
+serde = [
+    "seismic-alloy-consensus/serde",
+]

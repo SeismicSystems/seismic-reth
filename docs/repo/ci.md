@@ -4,36 +4,35 @@ The CI runs a couple of workflows:
 
 ### Code
 
-- **[unit]**: Runs unit tests (tests in `src/`) and doc tests
-- **[integration]**: Runs integration tests (tests in `tests/` and sync tests)
-- **[bench]**: Runs benchmarks
-- **[sync]**: Runs sync tests
-- **[stage]**: Runs all `stage run` commands
-- **[seismic]**: Runs all Seismic-specific CI
+-   **[unit]**: Runs unit tests (tests in `src/`) and doc tests
+-   **[integration]**: Runs integration tests (tests in `tests/` and sync tests)
+-   **[bench]**: Runs benchmarks
+-   **[sync]**: Runs sync tests
+-   **[stage]**: Runs all `stage run` commands
+-   **[seismic]**: Runs all Seismic-specific CI
 
 ### Docs
 
-- **[book]**: Builds, tests, and deploys the book.
+-   **[book]**: Builds, tests, and deploys the book.
 
 ### Meta
 
-- **[deny]**: Runs `cargo deny` to check for license conflicts and security advisories in our dependencies
-- **[release]**: Runs the release workflow
-- **[release-dist]**: Publishes Reth to external package managers
-- **[dependencies]**: Runs `cargo update` periodically to keep dependencies current
-- **[stale]**: Marks issues as stale if there has been no activity
-- **[docker]**: Publishes the Docker image.
+-   **[release]**: Runs the release workflow
+-   **[release-dist]**: Publishes Reth to external package managers
+-   **[dependencies]**: Runs `cargo update` periodically to keep dependencies current
+-   **[stale]**: Marks issues as stale if there has been no activity
+-   **[docker]**: Publishes the Docker image.
 
 ### Integration Testing
 
-- **[kurtosis]**: Spins up a Kurtosis testnet and runs Assertoor tests on Reth pairs.
-- **[hive]**: Runs `ethereum/hive` tests.
+-   **[kurtosis]**: Spins up a Kurtosis testnet and runs Assertoor tests on Reth pairs.
+-   **[hive]**: Runs `ethereum/hive` tests.
 
 ### Linting and Checks
 
-- **[lint]**: Lints code using `cargo clippy` and other checks
-- **[lint-actions]**: Lints GitHub Actions workflows
-- **[label-pr]**: Automatically labels PRs
+-   **[lint]**: Lints code using `cargo clippy` and other checks
+-   **[lint-actions]**: Lints GitHub Actions workflows
+-   **[label-pr]**: Automatically labels PRs
 
 [unit]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/unit.yml
 [integration]: https://github.com/SeismicSystems/seismic-reth/blob/main/.github/workflows/integration.yml

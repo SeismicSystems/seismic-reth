@@ -5,7 +5,7 @@ use proptest::prelude::*;
 use proptest_arbitrary_interop::arb;
 use reth_db::{tables, test_utils::create_test_rw_db};
 use reth_db_api::{database::Database, transaction::DbTxMut};
-use reth_primitives::{Account, StorageEntry};
+use reth_primitives_traits::{Account, StorageEntry};
 use reth_trie::{
     hashed_cursor::{
         HashedCursor, HashedCursorFactory, HashedPostStateCursorFactory, HashedStorageCursor,
@@ -13,7 +13,7 @@ use reth_trie::{
     HashedPostState, HashedStorage,
 };
 use reth_trie_db::DatabaseHashedCursorFactory;
-use revm_primitives::FlaggedStorage;
+use revm::state::FlaggedStorage;
 use std::collections::BTreeMap;
 
 fn assert_account_cursor_order(
@@ -470,7 +470,7 @@ fn fuzz_hashed_storage_cursor() {
     proptest!(ProptestConfig::with_cases(10),
         |(
             db_storages: BTreeMap<B256, BTreeMap<B256, FlaggedStorage>>,
-            post_state_storages: BTreeMap<B256, (bool, BTreeMap<B256, FlaggedStorage>)>
+            post_state_storages: BTreeMap<B256, (bool, BTreeMap<B256, FlaggedStorage>)>,
         )|
     {
         let db = create_test_rw_db();
