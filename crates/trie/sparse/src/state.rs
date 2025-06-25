@@ -371,15 +371,14 @@ impl<F: BlindedProviderFactory> SparseStateTrie<F> {
 
             // Reveal the remaining proof nodes.
             for (path, node) in account_nodes {
+                // // seismic upstream merge: unsure if this section is necessary. kept during
+                // self.metrics.increment_total_account_nodes();
+                // // If the node is already revealed, skip it.
+                // if self.revealed_account_paths.contains(&path) {
+                //     self.metrics.increment_skipped_account_nodes();
+                //     continue;
+                // }
 
-                // seismic upstream merge: unsure if this section is necessary. kept during 
-                self.metrics.increment_total_account_nodes();
-                // If the node is already revealed, skip it.
-                if self.revealed_account_paths.contains(&path) {
-                    self.metrics.increment_skipped_account_nodes();
-                    continue;
-                }
-                
                 let (hash_mask, tree_mask) = if let TrieNode::Branch(_) = node {
                     (
                         branch_node_hash_masks.get(&path).copied(),
@@ -455,14 +454,13 @@ impl<F: BlindedProviderFactory> SparseStateTrie<F> {
 
             // Reveal the remaining proof nodes.
             for (path, node) in nodes {
-
-                // seismic upstream merge: unsure if this section is necessary. kept during
-                self.metrics.increment_total_storage_nodes();
-                // If the node is already revealed, skip it.
-                if revealed_nodes.contains(&path) {
-                    self.metrics.increment_skipped_storage_nodes();
-                    continue;
-                }
+                // // seismic upstream merge: unsure if this section is necessary. kept during
+                // self.metrics.increment_total_storage_nodes();
+                // // If the node is already revealed, skip it.
+                // if revealed_nodes.contains(&path) {
+                //     self.metrics.increment_skipped_storage_nodes();
+                //     continue;
+                // }
 
                 let (hash_mask, tree_mask) = if let TrieNode::Branch(_) = node {
                     (
@@ -1327,8 +1325,10 @@ mod tests {
 
     #[test]
     fn test_filter_revealed_nodes() {
+        let is_private = false; // hardcode to false for legacy test
         let revealed_nodes = HashSet::from_iter([Nibbles::from_nibbles([0x0])]);
-        let leaf = TrieNode::Leaf(LeafNode::new(Nibbles::default(), alloy_rlp::encode([])));
+        let leaf =
+            TrieNode::Leaf(LeafNode::new(Nibbles::default(), alloy_rlp::encode([]), is_private));
         let leaf_encoded = alloy_rlp::encode(&leaf);
         let branch = TrieNode::Branch(BranchNode::new(
             vec![RlpNode::from_rlp(&leaf_encoded), RlpNode::from_rlp(&leaf_encoded)],

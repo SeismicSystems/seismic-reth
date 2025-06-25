@@ -13,10 +13,6 @@ default-run = "reth"
 workspace = true
 
 [dependencies]
-# Seismic pre-merge
-reth-db-api.workspace = true
-reth-exex.workspace = true
-
 # reth
 reth-ethereum-cli.workspace = true
 reth-chainspec.workspace = true

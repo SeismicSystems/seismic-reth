@@ -2,7 +2,7 @@
 //! specifically designed for stateless execution environments.
 
 use alloc::{collections::btree_map::BTreeMap, format};
-use alloy_primitives::{keccak256, map::B256Map, Address, B256, U256};
+use alloy_primitives::{keccak256, map::B256Map, Address, FlaggedStorage, B256, U256};
 use alloy_rlp::Decodable;
 use alloy_trie::{TrieAccount, EMPTY_ROOT_HASH};
 use reth_errors::ProviderError;
@@ -93,12 +93,12 @@ impl Database for WitnessDatabase<'_> {
     /// Get storage value of an account at a specific slot.
     ///
     /// Returns `U256::ZERO` if the slot is not found in the trie.
-    fn storage(&mut self, address: Address, slot: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, slot: U256) -> Result<FlaggedStorage, Self::Error> {
         let hashed_address = keccak256(address);
         let hashed_slot = keccak256(B256::from(slot));
 
         if let Some(raw) = self.trie.get_storage_slot_value(&hashed_address, &hashed_slot) {
-            return Ok(U256::decode(&mut raw.as_slice())?)
+            return Ok(FlaggedStorage::decode(&mut raw.as_slice())?)
         }
 
         // Storage slot value is not present in the trie, validate that the witness is complete.
@@ -122,7 +122,7 @@ impl Database for WitnessDatabase<'_> {
             )));
         }
 
-        Ok(U256::ZERO)
+        Ok(FlaggedStorage::ZERO)
     }
 
     /// Get account code by its hash from the provided bytecode map.

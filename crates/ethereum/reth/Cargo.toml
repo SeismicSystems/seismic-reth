@@ -38,7 +38,6 @@ reth-node-builder = { workspace = true, optional = true }
 # reth-ethereum
 reth-ethereum-primitives.workspace = true
 reth-ethereum-cli = { workspace = true, optional = true }
-reth-ethereum-consensus = { workspace = true, optional = true }
 reth-evm-ethereum = { workspace = true, optional = true }
 reth-node-ethereum = { workspace = true, optional = true }
 
@@ -50,7 +49,6 @@ default = ["std"]
 std = [
     "reth-chainspec/std",
     "reth-ethereum-primitives/std",
-    "reth-ethereum-consensus/std",
     "reth-primitives-traits/std",
     "reth-consensus?/std",
     "reth-consensus-common?/std",
@@ -104,7 +102,6 @@ cli = ["dep:reth-ethereum-cli"]
 consensus = [
     "dep:reth-consensus",
     "dep:reth-consensus-common",
-    "dep:reth-ethereum-consensus",
 ]
 evm = ["dep:reth-evm", "dep:reth-evm-ethereum", "dep:reth-revm"]
 exex = ["provider", "dep:reth-exex"]

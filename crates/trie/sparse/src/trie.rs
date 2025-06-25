@@ -2107,7 +2107,8 @@ mod find_leaf_tests {
         let path = Nibbles::from_nibbles([0x1, 0x2, 0x3]);
         let value = b"test_value".to_vec();
 
-        sparse.update_leaf(path.clone(), value.clone()).unwrap();
+        let is_private = false; // hardcode to false for legacy test
+        sparse.update_leaf(path.clone(), value.clone(), is_private).unwrap();
 
         // Check that the leaf exists
         let result = sparse.find_leaf(&path, None);
@@ -2126,7 +2127,8 @@ mod find_leaf_tests {
         let value = b"test_value".to_vec();
         let wrong_value = b"wrong_value".to_vec();
 
-        sparse.update_leaf(path.clone(), value).unwrap();
+        let is_private = false; // hardcode to false for legacy test
+        sparse.update_leaf(path.clone(), value, is_private).unwrap();
 
         // Check with wrong expected value
         let result = sparse.find_leaf(&path, Some(&wrong_value));
@@ -2165,7 +2167,8 @@ mod find_leaf_tests {
     fn find_leaf_exists_no_value_check() {
         let mut sparse = RevealedSparseTrie::<DefaultBlindedProvider>::default();
         let path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x3, 0x4]);
-        sparse.update_leaf(path.clone(), VALUE_A()).unwrap();
+        let is_private = false; // hardcode to false for legacy test
+        sparse.update_leaf(path.clone(), VALUE_A(), is_private).unwrap();
 
         let result = sparse.find_leaf(&path, None);
         assert_matches!(result, Ok(LeafLookup::Exists));
@@ -2176,7 +2179,8 @@ mod find_leaf_tests {
         let mut sparse = RevealedSparseTrie::<DefaultBlindedProvider>::default();
         let path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x3, 0x4]);
         let value = VALUE_A();
-        sparse.update_leaf(path.clone(), value.clone()).unwrap();
+        let is_private = false; // hardcode to false for legacy test
+        sparse.update_leaf(path.clone(), value.clone(), is_private).unwrap();
 
         let result = sparse.find_leaf(&path, Some(&value));
         assert_matches!(result, Ok(LeafLookup::Exists));
@@ -2189,8 +2193,9 @@ mod find_leaf_tests {
         let path2 = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x5, 0x6]); // Belongs to same branch
         let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x7, 0x8]); // Diverges at nibble 7
 
-        sparse.update_leaf(path1, VALUE_A()).unwrap();
-        sparse.update_leaf(path2, VALUE_B()).unwrap();
+        let is_private = false; // hardcode to false for legacy test
+        sparse.update_leaf(path1, VALUE_A(), is_private).unwrap();
+        sparse.update_leaf(path2, VALUE_B(), is_private).unwrap();
 
         let result = sparse.find_leaf(&search_path, None);
 
@@ -2207,7 +2212,8 @@ mod find_leaf_tests {
         // This path diverges from the extension key
         let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x7, 0x8]);
 
-        sparse.update_leaf(path1, VALUE_A()).unwrap();
+        let is_private = false; // hardcode to false for legacy test
+        sparse.update_leaf(path1, VALUE_A(), is_private).unwrap();
 
         let result = sparse.find_leaf(&search_path, None);
 
@@ -2222,7 +2228,8 @@ mod find_leaf_tests {
         let existing_leaf_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x3, 0x4]);
         let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x3, 0x4, 0x5, 0x6]);
 
-        sparse.update_leaf(existing_leaf_path, VALUE_A()).unwrap();
+        let is_private = false; // hardcode to false for legacy test
+        sparse.update_leaf(existing_leaf_path, VALUE_A(), is_private).unwrap();
 
         let result = sparse.find_leaf(&search_path, None);
 
@@ -2240,8 +2247,9 @@ mod find_leaf_tests {
         let path2 = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x5, 0x6]);
         let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2]); // Path of the branch itself
 
-        sparse.update_leaf(path1, VALUE_A()).unwrap();
-        sparse.update_leaf(path2, VALUE_B()).unwrap();
+        let is_private = false; // hardcode to false for legacy test
+        sparse.update_leaf(path1, VALUE_A(), is_private).unwrap();
+        sparse.update_leaf(path2, VALUE_B(), is_private).unwrap();
 
         let result = sparse.find_leaf(&search_path, None);
 
@@ -2295,6 +2303,7 @@ mod find_leaf_tests {
 
     #[test]
     fn find_leaf_error_blinded_node() {
+        let is_private = false; // legacy test does not use private storage
         let blinded_hash = B256::repeat_byte(0xAA);
         let path_to_blind = Nibbles::from_nibbles_unchecked([0x1]);
         let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x3, 0x4]);
@@ -2311,7 +2320,7 @@ mod find_leaf_tests {
         let path_revealed_leaf = Nibbles::from_nibbles_unchecked([0x5, 0x6, 0x7, 0x8]);
         nodes.insert(
             path_revealed,
-            SparseNode::new_leaf(Nibbles::from_nibbles_unchecked([0x6, 0x7, 0x8])),
+            SparseNode::new_leaf(Nibbles::from_nibbles_unchecked([0x6, 0x7, 0x8]), is_private),
         );
 
         let mut values = HashMap::with_hasher(RandomState::default());
@@ -2350,7 +2359,9 @@ mod find_leaf_tests {
         // 1. Construct the RLP representation of the children for the root branch
         let rlp_node_child1 = RlpNode::word_rlp(&blinded_hash); // Blinded node
 
-        let leaf_node_child5 = LeafNode::new(revealed_leaf_suffix.clone(), revealed_value.clone());
+        let is_private = false; // legacy test does not use private storage
+        let leaf_node_child5 =
+            LeafNode::new(revealed_leaf_suffix.clone(), revealed_value.clone(), is_private);
         let leaf_node_child5_rlp_buf = alloy_rlp::encode(&leaf_node_child5);
         let hash_of_child5 = keccak256(&leaf_node_child5_rlp_buf);
         let rlp_node_child5 = RlpNode::word_rlp(&hash_of_child5);
@@ -3755,20 +3766,35 @@ mod tests {
 
     #[test]
     fn sparse_trie_clear() {
-        // tests that if we fill a sparse trie with some nodes and then clear it, it has the same
-        // contents as an empty sparse trie
+        let is_private = false; // hardcoded to false for legacy test
+                                // tests that if we fill a sparse trie with some nodes and then clear it, it has the same
+                                // contents as an empty sparse trie
         let mut sparse = RevealedSparseTrie::default();
         let value = alloy_rlp::encode_fixed_size(&U256::ZERO).to_vec();
         sparse
-            .update_leaf(Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x1]), value.clone())
+            .update_leaf(
+                Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x1]),
+                value.clone(),
+                is_private,
+            )
             .unwrap();
         sparse
-            .update_leaf(Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x3]), value.clone())
+            .update_leaf(
+                Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x3]),
+                value.clone(),
+                is_private,
+            )
             .unwrap();
         sparse
-            .update_leaf(Nibbles::from_nibbles([0x5, 0x2, 0x0, 0x1, 0x3]), value.clone())
+            .update_leaf(
+                Nibbles::from_nibbles([0x5, 0x2, 0x0, 0x1, 0x3]),
+                value.clone(),
+                is_private,
+            )
             .unwrap();
-        sparse.update_leaf(Nibbles::from_nibbles([0x5, 0x3, 0x1, 0x0, 0x2]), value).unwrap();
+        sparse
+            .update_leaf(Nibbles::from_nibbles([0x5, 0x3, 0x1, 0x0, 0x2]), value, is_private)
+            .unwrap();
 
         sparse.clear();
 

@@ -1,5 +1,5 @@
 //! Implements a state provider that tracks latency metrics.
-use alloy_primitives::{Address, StorageKey, StorageValue, B256};
+use alloy_primitives::{Address, StorageKey, B256};
 use metrics::{Gauge, Histogram};
 use reth_errors::ProviderResult;
 use reth_metrics::Metrics;
@@ -16,6 +16,9 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
     time::{Duration, Instant},
 };
+
+// Seismic imports not used upstream
+use revm_state::FlaggedStorage as StorageValue;
 
 /// Nanoseconds per second
 const NANOS_PER_SEC: u32 = 1_000_000_000;
