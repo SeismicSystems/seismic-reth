@@ -24,10 +24,7 @@ use alloy_eips::{
     eip2930::AccessList,
     eip4895::Withdrawals,
 };
-use alloy_evm::{
-    block::{BlockExecutorFactory, BlockExecutorFor},
-    precompiles::PrecompilesMap,
-};
+use alloy_evm::block::{BlockExecutorFactory, BlockExecutorFor};
 use alloy_primitives::{Address, B256};
 use core::{error::Error, fmt::Debug};
 use execute::{BasicBlockExecutor, BlockAssembler, BlockBuilder};
@@ -116,7 +113,7 @@ pub trait ConfigureEvm: Clone + Debug + Send + Sync + Unpin {
             Tx: TransactionEnv
                     + FromRecoveredTx<TxTy<Self::Primitives>>
                     + FromTxWithEncoded<TxTy<Self::Primitives>>,
-            Precompiles = PrecompilesMap,
+            // Precompiles = PrecompilesMap,
         >,
     >;
 

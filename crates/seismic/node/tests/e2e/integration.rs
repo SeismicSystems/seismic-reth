@@ -1,14 +1,14 @@
 //! This file is used to test the seismic node.
 use alloy_dyn_abi::EventExt;
 use alloy_json_abi::{Event, EventParam};
-use alloy_network::{EthereumWallet, ReceiptResponse, TransactionBuilder};
+use alloy_network::{ReceiptResponse, TransactionBuilder};
 use alloy_primitives::{
     aliases::{B96, U96},
     hex,
     hex::FromHex,
     Bytes, IntoLogData, TxKind, B256, U256,
 };
-use alloy_provider::{Provider, SendableTx};
+use alloy_provider::{PendingTransactionBuilder, Provider, SendableTx};
 use alloy_rpc_types::{Block, Header, TransactionInput, TransactionRequest};
 use alloy_sol_types::{sol, SolCall, SolValue};
 use reth_e2e_test_utils::wallet::Wallet;
@@ -19,7 +19,10 @@ use reth_seismic_node::utils::test_utils::{
 };
 use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
-use seismic_alloy_provider::{test_utils, SeismicProviderExt, SeismicSignedProvider};
+use seismic_alloy_network::{wallet::SeismicWallet, SeismicReth};
+use seismic_alloy_provider::{
+    test_utils::ContractTestContext, SeismicProviderExt, SeismicSignedProvider,
+};
 use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicTransactionReceipt, SeismicTransactionRequest, SimBlock,
     SimulatePayload,
@@ -43,7 +46,7 @@ const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessa
 //         get_nonce(&client, wallet.inner.address()).await,
 //         TxKind::Create,
 //         chain_id,
-//         test_utils::ContractTestContext::get_deploy_input_plaintext(),
+//         ContractTestContext::get_deploy_input_plaintext(),
 //     )
 //     .await;
 
@@ -94,7 +97,7 @@ async fn test_seismic_reth_rpc() {
             get_nonce(&client, wallet.inner.address()).await,
             TxKind::Create,
             chain_id,
-            test_utils::ContractTestContext::get_deploy_input_plaintext(),
+            ContractTestContext::get_deploy_input_plaintext(),
         )
         .await
         .into(),
@@ -131,7 +134,7 @@ async fn test_seismic_reth_rpc() {
     >::get_code(&client, contract_addr, None)
     .await
     .unwrap();
-    assert_eq!(test_utils::ContractTestContext::get_code(), code);
+    assert_eq!(ContractTestContext::get_code(), code);
     println!("eth_getCode getting contract deployment code: {:?}", code);
 
     // eth_call to check the parity. Should be 0
@@ -142,7 +145,7 @@ async fn test_seismic_reth_rpc() {
             get_nonce(&client, wallet.inner.address()).await,
             TxKind::Call(contract_addr),
             chain_id,
-            test_utils::ContractTestContext::get_is_odd_input_plaintext(),
+            ContractTestContext::get_is_odd_input_plaintext(),
         )
         .await
         .into(),
@@ -169,7 +172,7 @@ async fn test_seismic_reth_rpc() {
             get_nonce(&client, wallet.inner.address()).await,
             TxKind::Call(contract_addr),
             chain_id,
-            test_utils::ContractTestContext::get_set_number_input_plaintext(),
+            ContractTestContext::get_set_number_input_plaintext(),
         )
         .await
         .into(),
@@ -200,7 +203,7 @@ async fn test_seismic_reth_rpc() {
             get_nonce(&client, wallet.inner.address()).await,
             TxKind::Call(contract_addr),
             chain_id,
-            test_utils::ContractTestContext::get_is_odd_input_plaintext(),
+            ContractTestContext::get_is_odd_input_plaintext(),
         )
         .await
         .into(),
@@ -219,7 +222,7 @@ async fn test_seismic_reth_rpc() {
         get_nonce(&client, wallet.inner.address()).await,
         TxKind::Call(contract_addr),
         chain_id,
-        test_utils::ContractTestContext::get_is_odd_input_plaintext(),
+        ContractTestContext::get_is_odd_input_plaintext(),
     )
     .await;
 
@@ -240,7 +243,9 @@ async fn test_seismic_reth_rpc() {
         SeismicBlock,
         SeismicTransactionReceipt,
         Header,
-    >::create_access_list(&client, simulate_tx_request.inner.clone(), None)
+    >::create_access_list(
+        &client, simulate_tx_request.inner.clone(), None, None
+    )
     .await
     .unwrap();
     println!("eth_createAccessList for is_odd() access_list: {:?}", access_list);
@@ -264,7 +269,7 @@ async fn test_seismic_reth_rpc() {
             inner: TransactionRequest {
                 from: Some(wallet.inner.address()),
                 input: TransactionInput {
-                    data: Some(test_utils::ContractTestContext::get_is_odd_input_plaintext()),
+                    data: Some(ContractTestContext::get_is_odd_input_plaintext()),
                     ..Default::default()
                 },
                 to: Some(TxKind::Call(contract_addr)),
@@ -295,7 +300,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
             get_nonce(&client, wallet.inner.address()).await,
             TxKind::Create,
             chain_id,
-            test_utils::ContractTestContext::get_deploy_input_plaintext(),
+            ContractTestContext::get_deploy_input_plaintext(),
         )
         .await
         .into(),
@@ -333,7 +338,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
     >::get_code(&client, contract_addr, None)
     .await
     .unwrap();
-    assert_eq!(test_utils::ContractTestContext::get_code(), code);
+    assert_eq!(ContractTestContext::get_code(), code);
     println!("eth_getCode getting contract deployment code: {:?}", code);
 
     // eth_call to check the parity. Should be 0
@@ -344,7 +349,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
             get_nonce(&client, wallet.inner.address()).await,
             TxKind::Call(contract_addr),
             chain_id,
-            test_utils::ContractTestContext::get_is_odd_input_plaintext(),
+            ContractTestContext::get_is_odd_input_plaintext(),
         )
         .await
         .into(),
@@ -361,23 +366,25 @@ async fn test_seismic_reth_rpc_with_typed_data() {
 
 // this is the same test as basic.rs but with actual RPC calls and standalone reth instance
 // with rust client in alloy
+
 async fn test_seismic_reth_rpc_with_rust_client() {
     let reth_rpc_url = SeismicRethTestCommand::url();
     let chain_id = SeismicRethTestCommand::chain_id();
     let _wallet = Wallet::default().with_chain_id(chain_id);
-    let wallet = EthereumWallet::from(_wallet.inner);
+    let wallet: SeismicWallet<SeismicReth> = SeismicWallet::from(_wallet.inner);
 
-    let provider =
-        SeismicSignedProvider::new(wallet.clone(), reqwest::Url::parse(&reth_rpc_url).unwrap());
+    let provider = SeismicSignedProvider::new(wallet, reqwest::Url::parse(&reth_rpc_url).unwrap());
 
-    let pending_transaction = provider
-        .send_transaction(
-            SeismicTransactionRequest::default()
-                .with_input(test_utils::ContractTestContext::get_deploy_input_plaintext())
-                .with_kind(TxKind::Create),
-        )
-        .await
-        .unwrap();
+    let req = TransactionBuilder::<SeismicReth>::with_kind(
+        TransactionBuilder::<SeismicReth>::with_input(
+            SeismicTransactionRequest::default(),
+            ContractTestContext::get_deploy_input_plaintext(),
+        ),
+        TxKind::Create,
+    );
+    let pending_transaction: PendingTransactionBuilder<SeismicReth> =
+        provider.send_transaction(req).await.unwrap();
+
     let tx_hash = pending_transaction.tx_hash();
     // assert_eq!(tx_hash, itx.tx_hashes[0]);
     thread::sleep(Duration::from_secs(1));
@@ -394,16 +401,18 @@ async fn test_seismic_reth_rpc_with_rust_client() {
 
     // Make sure the code of the contract is deployed
     let code = provider.get_code_at(contract_addr).await.unwrap();
-    assert_eq!(test_utils::ContractTestContext::get_code(), code);
+    assert_eq!(ContractTestContext::get_code(), code);
     println!("eth_getCode getting contract deployment code: {:?}", code);
 
     // eth_call to check the parity. Should be 0
     let output = provider
-        .seismic_call(SendableTx::Builder(
-            SeismicTransactionRequest::default()
-                .with_input(test_utils::ContractTestContext::get_is_odd_input_plaintext())
-                .with_to(contract_addr),
-        ))
+        .seismic_call(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
+            TransactionBuilder::<SeismicReth>::with_input(
+                SeismicTransactionRequest::default(),
+                ContractTestContext::get_is_odd_input_plaintext(),
+            ),
+            contract_addr,
+        )))
         .await
         .unwrap();
     println!("eth_call decrypted output: {:?}", output);
@@ -411,11 +420,13 @@ async fn test_seismic_reth_rpc_with_rust_client() {
 
     // Send transaction to set suint
     let pending_transaction = provider
-        .send_transaction(
-            SeismicTransactionRequest::default()
-                .with_input(test_utils::ContractTestContext::get_set_number_input_plaintext())
-                .with_to(contract_addr),
-        )
+        .send_transaction(TransactionBuilder::<SeismicReth>::with_to(
+            TransactionBuilder::<SeismicReth>::with_input(
+                SeismicTransactionRequest::default(),
+                ContractTestContext::get_set_number_input_plaintext(),
+            ),
+            contract_addr,
+        ))
         .await
         .unwrap();
     let tx_hash = pending_transaction.tx_hash();
@@ -429,11 +440,13 @@ async fn test_seismic_reth_rpc_with_rust_client() {
 
     // Final eth_call to check the parity. Should be 1
     let output = provider
-        .seismic_call(SendableTx::Builder(
-            SeismicTransactionRequest::default()
-                .with_input(test_utils::ContractTestContext::get_is_odd_input_plaintext())
-                .with_to(contract_addr),
-        ))
+        .seismic_call(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
+            TransactionBuilder::<SeismicReth>::with_input(
+                SeismicTransactionRequest::default(),
+                ContractTestContext::get_is_odd_input_plaintext(),
+            ),
+            contract_addr,
+        )))
         .await
         .unwrap();
     println!("eth_call decrypted output: {:?}", output);
@@ -456,7 +469,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
         nonce,
         TxKind::Create,
         chain_id,
-        test_utils::ContractTestContext::get_deploy_input_plaintext(),
+        ContractTestContext::get_deploy_input_plaintext(),
     )
     .await;
 
@@ -465,7 +478,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
         nonce + 1,
         TxKind::Create,
         chain_id,
-        test_utils::ContractTestContext::get_deploy_input_plaintext(),
+        ContractTestContext::get_deploy_input_plaintext(),
     )
     .await;
 
@@ -483,7 +496,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
         nonce + 2,
         TxKind::Create,
         chain_id,
-        test_utils::ContractTestContext::get_deploy_input_plaintext(),
+        ContractTestContext::get_deploy_input_plaintext(),
     )
     .await;
 
@@ -492,7 +505,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
         nonce + 3,
         TxKind::Create,
         chain_id,
-        test_utils::ContractTestContext::get_deploy_input_plaintext(),
+        ContractTestContext::get_deploy_input_plaintext(),
     )
     .await;
 
@@ -510,7 +523,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
         nonce + 4,
         TxKind::Create,
         chain_id,
-        test_utils::ContractTestContext::get_deploy_input_plaintext(),
+        ContractTestContext::get_deploy_input_plaintext(),
     )
     .await;
 
@@ -519,7 +532,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
         nonce + 5,
         TxKind::Create,
         chain_id,
-        test_utils::ContractTestContext::get_deploy_input_plaintext(),
+        ContractTestContext::get_deploy_input_plaintext(),
     )
     .await;
 
@@ -546,7 +559,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
         for call in block_result.calls {
             let decrypted_output = client_decrypt(&call.return_data).unwrap();
             println!("decrypted_output: {:?}", decrypted_output);
-            assert_eq!(decrypted_output, test_utils::ContractTestContext::get_code());
+            assert_eq!(decrypted_output, ContractTestContext::get_code());
         }
     }
 }
@@ -555,18 +568,17 @@ async fn test_seismic_precompiles_end_to_end() {
     let reth_rpc_url = SeismicRethTestCommand::url();
     let chain_id = SeismicRethTestCommand::chain_id();
     let _wallet = Wallet::default().with_chain_id(chain_id);
-    let wallet = EthereumWallet::from(_wallet.inner);
+    let wallet: SeismicWallet<SeismicReth> = SeismicWallet::from(_wallet.inner);
 
-    let provider =
-        SeismicSignedProvider::new(wallet.clone(), reqwest::Url::parse(&reth_rpc_url).unwrap());
-    let pending_transaction = provider
-        .send_transaction(
-            SeismicTransactionRequest::default()
-                .with_input(get_encryption_precompiles_contracts())
-                .with_kind(TxKind::Create),
-        )
-        .await
-        .unwrap();
+    let provider = SeismicSignedProvider::new(wallet, reqwest::Url::parse(&reth_rpc_url).unwrap());
+    let req = TransactionBuilder::<SeismicReth>::with_kind(
+        TransactionBuilder::<SeismicReth>::with_input(
+            SeismicTransactionRequest::default(),
+            get_encryption_precompiles_contracts(),
+        ),
+        TxKind::Create,
+    );
+    let pending_transaction = provider.send_transaction(req).await.unwrap();
     let tx_hash = pending_transaction.tx_hash();
     thread::sleep(Duration::from_secs(1));
 
@@ -586,14 +598,14 @@ async fn test_seismic_precompiles_end_to_end() {
     // 2. Tx #1: Set AES key in the contract
     //
     let unencrypted_aes_key = get_input_data(PRECOMPILES_TEST_SET_AES_KEY_SELECTOR, private_key);
-    let pending_transaction = provider
-        .send_transaction(
-            SeismicTransactionRequest::default()
-                .with_input(unencrypted_aes_key)
-                .with_kind(TxKind::Call(contract_addr)),
-        )
-        .await
-        .unwrap();
+    let req = TransactionBuilder::<SeismicReth>::with_kind(
+        TransactionBuilder::<SeismicReth>::with_input(
+            SeismicTransactionRequest::default(),
+            unencrypted_aes_key,
+        ),
+        TxKind::Call(contract_addr),
+    );
+    let pending_transaction = provider.send_transaction(req).await.unwrap();
     let tx_hash = pending_transaction.tx_hash();
     thread::sleep(Duration::from_secs(1));
 
@@ -612,14 +624,14 @@ async fn test_seismic_precompiles_end_to_end() {
     let unencrypted_input =
         concat_input_data(PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR, encoded_message.into());
 
-    let pending_transaction = provider
-        .send_transaction(
-            SeismicTransactionRequest::default()
-                .with_input(unencrypted_input)
-                .with_kind(TxKind::Call(contract_addr)),
-        )
-        .await
-        .unwrap();
+    let req = TransactionBuilder::<SeismicReth>::with_kind(
+        TransactionBuilder::<SeismicReth>::with_input(
+            SeismicTransactionRequest::default(),
+            unencrypted_input,
+        ),
+        TxKind::Call(contract_addr),
+    );
+    let pending_transaction = provider.send_transaction(req).await.unwrap();
     let tx_hash = pending_transaction.tx_hash();
     thread::sleep(Duration::from_secs(1));
 
@@ -639,12 +651,12 @@ async fn test_seismic_precompiles_end_to_end() {
     let event = Event {
         name: "EncryptedMessage".into(),
         inputs: vec![
-            EventParam { ty: "int96".into(), indexed: true, ..Default::default() },
+            EventParam { ty: "uint96".into(), indexed: true, ..Default::default() },
             EventParam { ty: "bytes".into(), indexed: false, ..Default::default() },
         ],
         anonymous: false,
     };
-    let decoded = event.decode_log(&log_data.into_log_data(), false).unwrap();
+    let decoded = event.decode_log(&log_data.into_log_data()).unwrap();
 
     sol! {
         #[derive(Debug, PartialEq)]
@@ -665,15 +677,15 @@ async fn test_seismic_precompiles_end_to_end() {
     let call = Encryption::decryptCall { nonce, ciphertext: ciphertext.clone() };
     let unencrypted_decrypt_call: Bytes = call.abi_encode().into();
 
-    let decrypted_output = provider
-        .seismic_call(SendableTx::Builder(
-            SeismicTransactionRequest::default()
-                .with_input(unencrypted_decrypt_call)
-                .with_kind(TxKind::Call(contract_addr)),
-        ))
-        .await
-        .unwrap();
-    let result_bytes = PlaintextType::abi_decode(&Bytes::from(decrypted_output), false)
+    let req = TransactionBuilder::<SeismicReth>::with_kind(
+        TransactionBuilder::<SeismicReth>::with_input(
+            SeismicTransactionRequest::default(),
+            unencrypted_decrypt_call,
+        ),
+        TxKind::Call(contract_addr),
+    );
+    let decrypted_output = provider.seismic_call(SendableTx::Builder(req)).await.unwrap();
+    let result_bytes = PlaintextType::abi_decode(&Bytes::from(decrypted_output))
         .expect("failed to decode the bytes");
     let final_string =
         String::from_utf8(result_bytes.to_vec()).expect("invalid utf8 in decrypted bytes");

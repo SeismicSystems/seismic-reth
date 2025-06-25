@@ -488,7 +488,7 @@ mod tests {
                             slot,
                             EvmStorageSlot::new_changed(
                                 U256::ZERO.into(),
-                                U256::from(rng.gen::<u64>()).into(),
+                                U256::from(rng.random::<u64>()).into(),
                             ),
                         );
                     }

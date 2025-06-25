@@ -1,5 +1,7 @@
 //! Loads and formats Seismic block RPC response.
 
+use super::receipt::SeismicReceiptBuilder;
+use crate::{eth::SeismicNodeCore, SeismicEthApi};
 use alloy_consensus::{transaction::TransactionMeta, BlockHeader};
 use alloy_rpc_types_eth::BlockId;
 use reth_chainspec::{ChainSpec, ChainSpecProvider, EthChainSpec};
@@ -12,12 +14,9 @@ use reth_rpc_eth_api::{
 };
 use reth_rpc_eth_types::EthApiError;
 use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
-use reth_storage_api::{BlockReader, HeaderProvider};
+use reth_storage_api::{BlockReader, HeaderProvider, ProviderTx};
+use reth_transaction_pool::{PoolTransaction, TransactionPool};
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
-
-use crate::{eth::SeismicNodeCore, SeismicEthApi};
-
-use super::receipt::SeismicReceiptBuilder;
 
 impl<N> EthBlocks for SeismicEthApi<N>
 where
@@ -74,7 +73,11 @@ where
 
 impl<N> LoadBlock for SeismicEthApi<N>
 where
-    Self: LoadPendingBlock + SpawnBlocking,
+    Self: LoadPendingBlock<
+            Pool: TransactionPool<
+                Transaction: PoolTransaction<Consensus = ProviderTx<Self::Provider>>,
+            >,
+        > + SpawnBlocking,
     N: SeismicNodeCore,
 {
 }

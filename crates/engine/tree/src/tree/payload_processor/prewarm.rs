@@ -5,7 +5,7 @@ use crate::tree::{
     payload_processor::{
         executor::WorkloadExecutor, multiproof::MultiProofMessage, ExecutionCache,
     },
-    precompile_cache::{CachedPrecompile, PrecompileCacheMap},
+    precompile_cache::PrecompileCacheMap,
     StateProviderBuilder,
 };
 use alloy_consensus::transaction::Recovered;
@@ -229,6 +229,7 @@ where
     fn evm_for_ctx(
         self,
     ) -> Option<(EvmFor<Evm, impl Database>, Evm, PrewarmMetrics, Arc<AtomicBool>)> {
+        #[allow(unused_variables)]
         let Self {
             header,
             evm_config,
@@ -238,7 +239,7 @@ where
             metrics,
             terminate_execution,
             precompile_cache_enabled,
-            mut precompile_cache_map,
+            precompile_cache_map,
         } = self;
 
         let state_provider = match provider.build() {
@@ -265,19 +266,19 @@ where
         // doesn't match what's on chain.
         evm_env.cfg_env.disable_nonce_check = true;
 
-        // create a new executor and disable nonce checks in the env
-        let spec_id = *evm_env.spec_id();
-        let mut evm = evm_config.evm_with_env(state_provider, evm_env);
-
-        if precompile_cache_enabled {
-            evm.precompiles_mut().map_precompiles(|address, precompile| {
-                CachedPrecompile::wrap(
-                    precompile,
-                    precompile_cache_map.cache_for_address(*address),
-                    spec_id,
-                )
-            });
-        }
+        // seismic upstream merge: we do not enable precompile cache since it breaks our stateful
+        // precompiles create a new executor and disable nonce checks in the env
+        // let spec_id = *evm_env.spec_id();
+        let evm = evm_config.evm_with_env(state_provider, evm_env);
+        // if precompile_cache_enabled {
+        //     evm.precompiles_mut().map_precompiles(|address, precompile| {
+        //         CachedPrecompile::wrap(
+        //             precompile,
+        //             precompile_cache_map.cache_for_address(*address),
+        //             spec_id,
+        //         )
+        //     });
+        // }
 
         Some((evm, evm_config, metrics, terminate_execution))
     }

@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use alloy_rpc_types_engine::{ExecutionData, ExecutionPayload};
+use alloy_rpc_types_engine::{ExecutionData, ExecutionPayload, ExecutionPayloadEnvelopeV5};
 pub use alloy_rpc_types_engine::{
     ExecutionPayloadEnvelopeV2, ExecutionPayloadEnvelopeV3, ExecutionPayloadEnvelopeV4,
     ExecutionPayloadV1, PayloadAttributes,
@@ -18,6 +18,7 @@ use reth_node_api::{
 use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_payload_primitives::{BuiltPayload, PayloadTypes};
 use reth_primitives_traits::{NodePrimitives, RecoveredBlock, SealedBlock};
+use reth_seismic_primitives::SeismicPrimitives;
 
 /// The types used in the default mainnet ethereum beacon consensus engine.
 #[derive(Debug, Default, Clone, serde::Deserialize, serde::Serialize)]
@@ -58,12 +59,14 @@ where
         + TryInto<ExecutionPayloadV1>
         + TryInto<ExecutionPayloadEnvelopeV2>
         + TryInto<ExecutionPayloadEnvelopeV3>
-        + TryInto<ExecutionPayloadEnvelopeV4>,
+        + TryInto<ExecutionPayloadEnvelopeV4>
+        + TryInto<ExecutionPayloadEnvelopeV5>,
 {
     type ExecutionPayloadEnvelopeV1 = ExecutionPayloadV1;
     type ExecutionPayloadEnvelopeV2 = ExecutionPayloadEnvelopeV2;
     type ExecutionPayloadEnvelopeV3 = ExecutionPayloadEnvelopeV3;
     type ExecutionPayloadEnvelopeV4 = ExecutionPayloadEnvelopeV4;
+    type ExecutionPayloadEnvelopeV5 = ExecutionPayloadEnvelopeV5;
 }
 
 /// A default payload type for [`EthEngineTypes`]
@@ -72,7 +75,7 @@ where
 pub struct SeismicPayloadTypes;
 
 impl PayloadTypes for SeismicPayloadTypes {
-    type BuiltPayload = EthBuiltPayload<reth_seismic_primitives::SeismicBlock>;
+    type BuiltPayload = EthBuiltPayload<SeismicPrimitives>;
     type PayloadAttributes = PayloadAttributes;
     type PayloadBuilderAttributes = EthPayloadBuilderAttributes;
     type ExecutionData = ExecutionData;
