@@ -9,11 +9,18 @@
 use super::{
     broadcast::NewBlockHashes, BlockBodies, BlockHeaders, GetBlockBodies, GetBlockHeaders,
     GetNodeData, GetPooledTransactions, GetReceipts, NewBlock, NewPooledTransactionHashes66,
-    NewPooledTransactionHashes68, NodeData, PooledTransactions, Receipts, Status, Transactions,
+    NewPooledTransactionHashes68, NodeData, PooledTransactions, Receipts, Status, StatusEth69,
+    Transactions,
 };
-use crate::{EthNetworkPrimitives, EthVersion, NetworkPrimitives, SharedTransactions};
+use crate::{
+    status::StatusMessage, BlockRangeUpdate, EthNetworkPrimitives, EthVersion, NetworkPrimitives,
+    RawCapabilityMessage, Receipts69, SharedTransactions,
+};
 use alloc::{boxed::Box, sync::Arc};
-use alloy_primitives::bytes::{Buf, BufMut};
+use alloy_primitives::{
+    bytes::{Buf, BufMut},
+    Bytes,
+};
 use alloy_rlp::{length_of_length, Decodable, Encodable, Header};
 use core::fmt::Debug;
 
@@ -27,7 +34,7 @@ pub enum MessageError {
     /// Flags an unrecognized message ID for a given protocol version.
     #[error("message id {1:?} is invalid for version {0:?}")]
     Invalid(EthVersion, EthMessageID),
-    /// Thrown when rlp decoding a message message failed.
+    /// Thrown when rlp decoding a message failed.
     #[error("RLP error: {0}")]
     RlpError(#[from] alloy_rlp::Error),
 }
@@ -48,11 +55,19 @@ pub struct ProtocolMessage<N: NetworkPrimitives = EthNetworkPrimitives> {
 
 impl<N: NetworkPrimitives> ProtocolMessage<N> {
     /// Create a new `ProtocolMessage` from a message type and message rlp bytes.
+    ///
+    /// This will enforce decoding according to the given [`EthVersion`] of the connection.
     pub fn decode_message(version: EthVersion, buf: &mut &[u8]) -> Result<Self, MessageError> {
         let message_type = EthMessageID::decode(buf)?;
 
+        // For EIP-7642 (https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7642.md):
+        // pre-merge (legacy) status messages include total difficulty, whereas eth/69 omits it.
         let message = match message_type {
-            EthMessageID::Status => EthMessage::Status(Status::decode(buf)?),
+            EthMessageID::Status => EthMessage::Status(if version < EthVersion::Eth69 {
+                StatusMessage::Legacy(Status::decode(buf)?)
+            } else {
+                StatusMessage::Eth69(StatusEth69::decode(buf)?)
+            }),
             EthMessageID::NewBlockHashes => {
                 if version.is_eth69() {
                     return Err(MessageError::Invalid(version, EthMessageID::NewBlockHashes));
@@ -100,7 +115,28 @@ impl<N: NetworkPrimitives> ProtocolMessage<N> {
                 EthMessage::NodeData(RequestPair::decode(buf)?)
             }
             EthMessageID::GetReceipts => EthMessage::GetReceipts(RequestPair::decode(buf)?),
-            EthMessageID::Receipts => EthMessage::Receipts(RequestPair::decode(buf)?),
+            EthMessageID::Receipts => {
+                if version < EthVersion::Eth69 {
+                    EthMessage::Receipts(RequestPair::decode(buf)?)
+                } else {
+                    // with eth69, receipts no longer include the bloom
+                    EthMessage::Receipts69(RequestPair::decode(buf)?)
+                }
+            }
+            EthMessageID::BlockRangeUpdate => {
+                if version < EthVersion::Eth69 {
+                    return Err(MessageError::Invalid(version, EthMessageID::BlockRangeUpdate))
+                }
+                EthMessage::BlockRangeUpdate(BlockRangeUpdate::decode(buf)?)
+            }
+            EthMessageID::Other(_) => {
+                let raw_payload = Bytes::copy_from_slice(buf);
+                buf.advance(raw_payload.len());
+                EthMessage::Other(RawCapabilityMessage::new(
+                    message_type.to_u8() as usize,
+                    raw_payload.into(),
+                ))
+            }
         };
         Ok(Self { message_type, message })
     }
@@ -152,7 +188,7 @@ impl<N: NetworkPrimitives> From<EthBroadcastMessage<N>> for ProtocolBroadcastMes
     }
 }
 
-/// Represents a message in the eth wire protocol, versions 66, 67 and 68.
+/// Represents a message in the eth wire protocol, versions 66, 67, 68 and 69.
 ///
 /// The ethereum wire protocol is a set of messages that are broadcast to the network in two
 /// styles:
@@ -169,11 +205,14 @@ impl<N: NetworkPrimitives> From<EthBroadcastMessage<N>> for ProtocolBroadcastMes
 /// The `eth/68` changes only `NewPooledTransactionHashes` to include `types` and `sized`. For
 /// it, `NewPooledTransactionHashes` is renamed as [`NewPooledTransactionHashes66`] and
 /// [`NewPooledTransactionHashes68`] is defined.
+///
+/// The `eth/69` announces the historical block range served by the node. Removes total difficulty
+/// information. And removes the Bloom field from receipts transferred over the protocol.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum EthMessage<N: NetworkPrimitives = EthNetworkPrimitives> {
     /// Represents a Status message required for the protocol handshake.
-    Status(Status),
+    Status(StatusMessage),
     /// Represents a `NewBlockHashes` message broadcast to the network.
     NewBlockHashes(NewBlockHashes),
     /// Represents a `NewBlock` message broadcast to the network.
@@ -229,6 +268,20 @@ pub enum EthMessage<N: NetworkPrimitives = EthNetworkPrimitives> {
         serde(bound = "N::Receipt: serde::Serialize + serde::de::DeserializeOwned")
     )]
     Receipts(RequestPair<Receipts<N::Receipt>>),
+    /// Represents a Receipts request-response pair for eth/69.
+    #[cfg_attr(
+        feature = "serde",
+        serde(bound = "N::Receipt: serde::Serialize + serde::de::DeserializeOwned")
+    )]
+    Receipts69(RequestPair<Receipts69<N::Receipt>>),
+    /// Represents a `BlockRangeUpdate` message broadcast to the network.
+    #[cfg_attr(
+        feature = "serde",
+        serde(bound = "N::BroadcastedTransaction: serde::Serialize + serde::de::DeserializeOwned")
+    )]
+    BlockRangeUpdate(BlockRangeUpdate),
+    /// Represents an encoded message that doesn't match any other variant
+    Other(RawCapabilityMessage),
 }
 
 impl<N: NetworkPrimitives> EthMessage<N> {
@@ -251,7 +304,9 @@ impl<N: NetworkPrimitives> EthMessage<N> {
             Self::GetNodeData(_) => EthMessageID::GetNodeData,
             Self::NodeData(_) => EthMessageID::NodeData,
             Self::GetReceipts(_) => EthMessageID::GetReceipts,
-            Self::Receipts(_) => EthMessageID::Receipts,
+            Self::Receipts(_) | Self::Receipts69(_) => EthMessageID::Receipts,
+            Self::BlockRangeUpdate(_) => EthMessageID::BlockRangeUpdate,
+            Self::Other(msg) => EthMessageID::Other(msg.id as u8),
         }
     }
 
@@ -299,6 +354,9 @@ impl<N: NetworkPrimitives> Encodable for EthMessage<N> {
             Self::NodeData(data) => data.encode(out),
             Self::GetReceipts(request) => request.encode(out),
             Self::Receipts(receipts) => receipts.encode(out),
+            Self::Receipts69(receipt69) => receipt69.encode(out),
+            Self::BlockRangeUpdate(block_range_update) => block_range_update.encode(out),
+            Self::Other(unknown) => out.put_slice(&unknown.payload),
         }
     }
     fn length(&self) -> usize {
@@ -319,6 +377,9 @@ impl<N: NetworkPrimitives> Encodable for EthMessage<N> {
             Self::NodeData(data) => data.length(),
             Self::GetReceipts(request) => request.length(),
             Self::Receipts(receipts) => receipts.length(),
+            Self::Receipts69(receipt69) => receipt69.length(),
+            Self::BlockRangeUpdate(block_range_update) => block_range_update.length(),
+            Self::Other(unknown) => unknown.length(),
         }
     }
 }
@@ -401,18 +462,51 @@ pub enum EthMessageID {
     GetReceipts = 0x0f,
     /// Represents receipts.
     Receipts = 0x10,
+    /// Block range update.
+    ///
+    /// Introduced in Eth69
+    BlockRangeUpdate = 0x11,
+    /// Represents unknown message types.
+    Other(u8),
 }
 
 impl EthMessageID {
-    /// Returns the max value.
-    pub const fn max() -> u8 {
-        Self::Receipts as u8
+    /// Returns the corresponding `u8` value for an `EthMessageID`.
+    pub const fn to_u8(&self) -> u8 {
+        match self {
+            Self::Status => 0x00,
+            Self::NewBlockHashes => 0x01,
+            Self::Transactions => 0x02,
+            Self::GetBlockHeaders => 0x03,
+            Self::BlockHeaders => 0x04,
+            Self::GetBlockBodies => 0x05,
+            Self::BlockBodies => 0x06,
+            Self::NewBlock => 0x07,
+            Self::NewPooledTransactionHashes => 0x08,
+            Self::GetPooledTransactions => 0x09,
+            Self::PooledTransactions => 0x0a,
+            Self::GetNodeData => 0x0d,
+            Self::NodeData => 0x0e,
+            Self::GetReceipts => 0x0f,
+            Self::Receipts => 0x10,
+            Self::BlockRangeUpdate => 0x11,
+            Self::Other(value) => *value, // Return the stored `u8`
+        }
+    }
+
+    /// Returns the max value for the given version.
+    pub const fn max(version: EthVersion) -> u8 {
+        if version.is_eth69() {
+            Self::BlockRangeUpdate.to_u8()
+        } else {
+            Self::Receipts.to_u8()
+        }
     }
 }
 
 impl Encodable for EthMessageID {
     fn encode(&self, out: &mut dyn BufMut) {
-        out.put_u8(*self as u8);
+        out.put_u8(self.to_u8());
     }
     fn length(&self) -> usize {
         1
@@ -437,7 +531,8 @@ impl Decodable for EthMessageID {
             0x0e => Self::NodeData,
             0x0f => Self::GetReceipts,
             0x10 => Self::Receipts,
-            _ => return Err(alloy_rlp::Error::Custom("Invalid message ID")),
+            0x11 => Self::BlockRangeUpdate,
+            unknown => Self::Other(*unknown),
         };
         buf.advance(1);
         Ok(id)
@@ -464,6 +559,7 @@ impl TryFrom<usize> for EthMessageID {
             0x0e => Ok(Self::NodeData),
             0x0f => Ok(Self::GetReceipts),
             0x10 => Ok(Self::Receipts),
+            0x11 => Ok(Self::BlockRangeUpdate),
             _ => Err("Invalid message ID"),
         }
     }
@@ -481,6 +577,17 @@ pub struct RequestPair<T> {
 
     /// the request or response message payload
     pub message: T,
+}
+
+impl<T> RequestPair<T> {
+    /// Converts the message type with the given closure.
+    pub fn map<F, R>(self, f: F) -> RequestPair<R>
+    where
+        F: FnOnce(T) -> R,
+    {
+        let Self { request_id, message } = self;
+        RequestPair { request_id, message: f(message) }
+    }
 }
 
 /// Allows messages with request ids to be serialized into RLP bytes.
@@ -534,7 +641,7 @@ mod tests {
     use super::MessageError;
     use crate::{
         message::RequestPair, EthMessage, EthMessageID, EthNetworkPrimitives, EthVersion,
-        GetNodeData, NodeData, ProtocolMessage,
+        GetNodeData, NodeData, ProtocolMessage, RawCapabilityMessage,
     };
     use alloy_primitives::hex;
     use alloy_rlp::{Decodable, Encodable, Error};
@@ -660,5 +767,42 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(msg, MessageError::RlpError(alloy_rlp::Error::InputTooShort)));
+    }
+
+    #[test]
+    fn custom_message_roundtrip() {
+        let custom_payload = vec![1, 2, 3, 4, 5];
+        let custom_message = RawCapabilityMessage::new(0x20, custom_payload.into());
+        let protocol_message = ProtocolMessage::<EthNetworkPrimitives> {
+            message_type: EthMessageID::Other(0x20),
+            message: EthMessage::Other(custom_message),
+        };
+
+        let encoded = encode(protocol_message.clone());
+        let decoded = ProtocolMessage::<EthNetworkPrimitives>::decode_message(
+            EthVersion::Eth68,
+            &mut &encoded[..],
+        )
+        .unwrap();
+
+        assert_eq!(protocol_message, decoded);
+    }
+
+    #[test]
+    fn custom_message_empty_payload_roundtrip() {
+        let custom_message = RawCapabilityMessage::new(0x30, vec![].into());
+        let protocol_message = ProtocolMessage::<EthNetworkPrimitives> {
+            message_type: EthMessageID::Other(0x30),
+            message: EthMessage::Other(custom_message),
+        };
+
+        let encoded = encode(protocol_message.clone());
+        let decoded = ProtocolMessage::<EthNetworkPrimitives>::decode_message(
+            EthVersion::Eth68,
+            &mut &encoded[..],
+        )
+        .unwrap();
+
+        assert_eq!(protocol_message, decoded);
     }
 }

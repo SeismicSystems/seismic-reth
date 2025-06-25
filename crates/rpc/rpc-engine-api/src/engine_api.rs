@@ -12,12 +12,12 @@ use alloy_rpc_types_engine::{
     CancunPayloadFields, ClientVersionV1, ExecutionData, ExecutionPayloadBodiesV1,
     ExecutionPayloadBodyV1, ExecutionPayloadInputV2, ExecutionPayloadSidecar, ExecutionPayloadV1,
     ExecutionPayloadV3, ForkchoiceState, ForkchoiceUpdated, PayloadId, PayloadStatus,
-    PraguePayloadFields, TransitionConfiguration,
+    PraguePayloadFields,
 };
 use async_trait::async_trait;
 use jsonrpsee_core::{server::RpcModule, RpcResult};
 use parking_lot::Mutex;
-use reth_chainspec::{EthereumHardfork, EthereumHardforks};
+use reth_chainspec::EthereumHardforks;
 use reth_engine_primitives::{BeaconConsensusEngineHandle, EngineTypes, EngineValidator};
 use reth_payload_builder::PayloadStore;
 use reth_payload_primitives::{
@@ -26,13 +26,12 @@ use reth_payload_primitives::{
 };
 use reth_primitives_traits::{Block, BlockBody};
 use reth_rpc_api::{EngineApiServer, IntoEngineApiRpcModule};
-use reth_rpc_server_types::result::internal_rpc_err;
 use reth_storage_api::{BlockReader, HeaderProvider, StateProviderFactory};
 use reth_tasks::TaskSpawner;
 use reth_transaction_pool::TransactionPool;
 use std::{sync::Arc, time::Instant};
 use tokio::sync::oneshot;
-use tracing::{trace, warn};
+use tracing::{debug, trace, warn};
 
 /// The Engine API response sender.
 pub type EngineApiSender<Ok> = oneshot::Sender<EngineApiResult<Ok>>;
@@ -40,7 +39,7 @@ pub type EngineApiSender<Ok> = oneshot::Sender<EngineApiResult<Ok>>;
 /// The upper limit for payload bodies request.
 const MAX_PAYLOAD_BODIES_LIMIT: u64 = 1024;
 
-/// The upper limit blobs `eth_getBlobs`.
+/// The upper limit for blobs in `engine_getBlobsVx`.
 const MAX_BLOB_LIMIT: usize = 128;
 
 /// The Engine API implementation that grants the Consensus layer access to data and
@@ -53,8 +52,11 @@ const MAX_BLOB_LIMIT: usize = 128;
 /// ## Implementers
 ///
 /// Implementing support for an engine API jsonrpsee RPC handler is done by defining the engine API
-/// server trait and implementing it on a type that can wrap this [`EngineApi`] type.
-/// See also [`EngineApiServer`] implementation for this type which is the L1 implementation.
+/// server trait and implementing it on a type that can either wrap this [`EngineApi`] type or
+/// use a custom [`EngineTypes`] implementation if it mirrors ethereum's versioned engine API
+/// endpoints (e.g. opstack).
+/// See also [`EngineApiServer`] implementation for this type which is the
+/// L1 implementation.
 pub struct EngineApi<Provider, PayloadT: PayloadTypes, Pool, Validator, ChainSpec> {
     inner: Arc<EngineApiInner<Provider, PayloadT, Pool, Validator, ChainSpec>>,
 }
@@ -322,7 +324,7 @@ where
     }
 
     /// Metrics version of `fork_choice_updated_v1`
-    async fn fork_choice_updated_v1_metered(
+    pub async fn fork_choice_updated_v1_metered(
         &self,
         state: ForkchoiceState,
         payload_attrs: Option<EngineT::PayloadAttributes>,
@@ -386,6 +388,42 @@ where
         res
     }
 
+    /// Helper function for retrieving the build payload by id.
+    async fn get_built_payload(
+        &self,
+        payload_id: PayloadId,
+    ) -> EngineApiResult<EngineT::BuiltPayload> {
+        self.inner
+            .payload_store
+            .resolve(payload_id)
+            .await
+            .ok_or(EngineApiError::UnknownPayload)?
+            .map_err(|_| EngineApiError::UnknownPayload)
+    }
+
+    /// Helper function for validating the payload timestamp and retrieving & converting the payload
+    /// into desired envelope.
+    async fn get_payload_inner<R>(
+        &self,
+        payload_id: PayloadId,
+        version: EngineApiMessageVersion,
+    ) -> EngineApiResult<R>
+    where
+        EngineT::BuiltPayload: TryInto<R>,
+    {
+        // First we fetch the payload attributes to check the timestamp
+        let attributes = self.get_payload_attributes(payload_id).await?;
+
+        // validate timestamp according to engine rules
+        validate_payload_timestamp(&self.inner.chain_spec, version, attributes.timestamp())?;
+
+        // Now resolve the payload
+        self.get_built_payload(payload_id).await?.try_into().map_err(|_| {
+            warn!(?version, "could not transform built payload");
+            EngineApiError::UnknownPayload
+        })
+    }
+
     /// Returns the most recent version of the payload that is available in the corresponding
     /// payload build process at the time of receiving this call.
     ///
@@ -399,17 +437,10 @@ where
         &self,
         payload_id: PayloadId,
     ) -> EngineApiResult<EngineT::ExecutionPayloadEnvelopeV1> {
-        self.inner
-            .payload_store
-            .resolve(payload_id)
-            .await
-            .ok_or(EngineApiError::UnknownPayload)?
-            .map_err(|_| EngineApiError::UnknownPayload)?
-            .try_into()
-            .map_err(|_| {
-                warn!("could not transform built payload into ExecutionPayloadV1");
-                EngineApiError::UnknownPayload
-            })
+        self.get_built_payload(payload_id).await?.try_into().map_err(|_| {
+            warn!(version = ?EngineApiMessageVersion::V1, "could not transform built payload");
+            EngineApiError::UnknownPayload
+        })
     }
 
     /// Metrics version of `get_payload_v1`
@@ -434,28 +465,7 @@ where
         &self,
         payload_id: PayloadId,
     ) -> EngineApiResult<EngineT::ExecutionPayloadEnvelopeV2> {
-        // First we fetch the payload attributes to check the timestamp
-        let attributes = self.get_payload_attributes(payload_id).await?;
-
-        // validate timestamp according to engine rules
-        validate_payload_timestamp(
-            &self.inner.chain_spec,
-            EngineApiMessageVersion::V2,
-            attributes.timestamp(),
-        )?;
-
-        // Now resolve the payload
-        self.inner
-            .payload_store
-            .resolve(payload_id)
-            .await
-            .ok_or(EngineApiError::UnknownPayload)?
-            .map_err(|_| EngineApiError::UnknownPayload)?
-            .try_into()
-            .map_err(|_| {
-                warn!("could not transform built payload into ExecutionPayloadV2");
-                EngineApiError::UnknownPayload
-            })
+        self.get_payload_inner(payload_id, EngineApiMessageVersion::V2).await
     }
 
     /// Metrics version of `get_payload_v2`
@@ -480,28 +490,7 @@ where
         &self,
         payload_id: PayloadId,
     ) -> EngineApiResult<EngineT::ExecutionPayloadEnvelopeV3> {
-        // First we fetch the payload attributes to check the timestamp
-        let attributes = self.get_payload_attributes(payload_id).await?;
-
-        // validate timestamp according to engine rules
-        validate_payload_timestamp(
-            &self.inner.chain_spec,
-            EngineApiMessageVersion::V3,
-            attributes.timestamp(),
-        )?;
-
-        // Now resolve the payload
-        self.inner
-            .payload_store
-            .resolve(payload_id)
-            .await
-            .ok_or(EngineApiError::UnknownPayload)?
-            .map_err(|_| EngineApiError::UnknownPayload)?
-            .try_into()
-            .map_err(|_| {
-                warn!("could not transform built payload into ExecutionPayloadV3");
-                EngineApiError::UnknownPayload
-            })
+        self.get_payload_inner(payload_id, EngineApiMessageVersion::V3).await
     }
 
     /// Metrics version of `get_payload_v3`
@@ -526,28 +515,7 @@ where
         &self,
         payload_id: PayloadId,
     ) -> EngineApiResult<EngineT::ExecutionPayloadEnvelopeV4> {
-        // First we fetch the payload attributes to check the timestamp
-        let attributes = self.get_payload_attributes(payload_id).await?;
-
-        // validate timestamp according to engine rules
-        validate_payload_timestamp(
-            &self.inner.chain_spec,
-            EngineApiMessageVersion::V4,
-            attributes.timestamp(),
-        )?;
-
-        // Now resolve the payload
-        self.inner
-            .payload_store
-            .resolve(payload_id)
-            .await
-            .ok_or(EngineApiError::UnknownPayload)?
-            .map_err(|_| EngineApiError::UnknownPayload)?
-            .try_into()
-            .map_err(|_| {
-                warn!("could not transform built payload into ExecutionPayloadV3");
-                EngineApiError::UnknownPayload
-            })
+        self.get_payload_inner(payload_id, EngineApiMessageVersion::V4).await
     }
 
     /// Metrics version of `get_payload_v4`
@@ -558,6 +526,33 @@ where
         let start = Instant::now();
         let res = Self::get_payload_v4(self, payload_id).await;
         self.inner.metrics.latency.get_payload_v4.record(start.elapsed());
+        res
+    }
+
+    /// Handler for `engine_getPayloadV5`
+    ///
+    /// Returns the most recent version of the payload that is available in the corresponding
+    /// payload build process at the time of receiving this call.
+    ///
+    /// See also <https://github.com/ethereum/execution-apis/blob/15399c2e2f16a5f800bf3f285640357e2c245ad9/src/engine/osaka.md#engine_getpayloadv5>
+    ///
+    /// Note:
+    /// > Provider software MAY stop the corresponding build process after serving this call.
+    pub async fn get_payload_v5(
+        &self,
+        payload_id: PayloadId,
+    ) -> EngineApiResult<EngineT::ExecutionPayloadEnvelopeV5> {
+        self.get_payload_inner(payload_id, EngineApiMessageVersion::V5).await
+    }
+
+    /// Metrics version of `get_payload_v5`
+    pub async fn get_payload_v5_metered(
+        &self,
+        payload_id: PayloadId,
+    ) -> EngineApiResult<EngineT::ExecutionPayloadEnvelopeV5> {
+        let start = Instant::now();
+        let res = Self::get_payload_v5(self, payload_id).await;
+        self.inner.metrics.latency.get_payload_v5.record(start.elapsed());
         res
     }
 
@@ -713,75 +708,6 @@ where
         res.await
     }
 
-    /// Called to verify network configuration parameters and ensure that Consensus and Execution
-    /// layers are using the latest configuration.
-    pub fn exchange_transition_configuration(
-        &self,
-        config: TransitionConfiguration,
-    ) -> EngineApiResult<TransitionConfiguration> {
-        let TransitionConfiguration {
-            terminal_total_difficulty,
-            terminal_block_hash,
-            terminal_block_number,
-        } = config;
-
-        let merge_terminal_td = self
-            .inner
-            .chain_spec
-            .ethereum_fork_activation(EthereumHardfork::Paris)
-            .ttd()
-            .expect("the engine API should not be running for chains w/o paris");
-
-        // Compare total difficulty values
-        if merge_terminal_td != terminal_total_difficulty {
-            return Err(EngineApiError::TerminalTD {
-                execution: merge_terminal_td,
-                consensus: terminal_total_difficulty,
-            })
-        }
-
-        self.inner.beacon_consensus.transition_configuration_exchanged();
-
-        // Short circuit if communicated block hash is zero
-        if terminal_block_hash.is_zero() {
-            return Ok(TransitionConfiguration {
-                terminal_total_difficulty: merge_terminal_td,
-                ..Default::default()
-            })
-        }
-
-        // Attempt to look up terminal block hash
-        let local_hash = self
-            .inner
-            .provider
-            .block_hash(terminal_block_number)
-            .map_err(|err| EngineApiError::Internal(Box::new(err)))?;
-
-        // Transition configuration exchange is successful if block hashes match
-        match local_hash {
-            Some(hash) if hash == terminal_block_hash => Ok(TransitionConfiguration {
-                terminal_total_difficulty: merge_terminal_td,
-                terminal_block_hash,
-                terminal_block_number,
-            }),
-            _ => Err(EngineApiError::TerminalBlockHash {
-                execution: local_hash,
-                consensus: terminal_block_hash,
-            }),
-        }
-    }
-
-    /// Metrics version of `exchange_transition_configuration`
-    fn exchange_transition_configuration_metered(
-        &self,
-        config: TransitionConfiguration,
-    ) -> EngineApiResult<TransitionConfiguration> {
-        let start = Instant::now();
-        let res = Self::exchange_transition_configuration(self, config);
-        self.inner.metrics.latency.exchange_transition_configuration.record(start.elapsed());
-        res
-    }
-
     /// Validates the `engine_forkchoiceUpdated` payload attributes and executes the forkchoice
     /// update.
     ///
@@ -850,7 +776,7 @@ where
 
         self.inner
             .tx_pool
-            .get_blobs_for_versioned_hashes(&versioned_hashes)
+            .get_blobs_for_versioned_hashes_v1(&versioned_hashes)
             .map_err(|err| EngineApiError::Internal(Box::new(err)))
     }
 
@@ -869,6 +795,55 @@ where
 
             self.inner.metrics.blob_metrics.blob_count.increment(blobs_found as u64);
             self.inner.metrics.blob_metrics.blob_misses.increment(blobs_missed as u64);
+        }
+
+        res
+    }
+
+    fn get_blobs_v2(
+        &self,
+        versioned_hashes: Vec<B256>,
+    ) -> EngineApiResult<Option<Vec<BlobAndProofV2>>> {
+        if versioned_hashes.len() > MAX_BLOB_LIMIT {
+            return Err(EngineApiError::BlobRequestTooLarge { len: versioned_hashes.len() })
+        }
+
+        self.inner
+            .tx_pool
+            .get_blobs_for_versioned_hashes_v2(&versioned_hashes)
+            .map_err(|err| EngineApiError::Internal(Box::new(err)))
+    }
+
+    fn get_blobs_v2_metered(
+        &self,
+        versioned_hashes: Vec<B256>,
+    ) -> EngineApiResult<Option<Vec<BlobAndProofV2>>> {
+        let hashes_len = versioned_hashes.len();
+        let start = Instant::now();
+        let res = Self::get_blobs_v2(self, versioned_hashes);
+        self.inner.metrics.latency.get_blobs_v2.record(start.elapsed());
+
+        if let Ok(blobs) = &res {
+            let blobs_found = blobs.iter().flatten().count();
+
+            self.inner
+                .metrics
+                .blob_metrics
+                .get_blobs_requests_blobs_total
+                .increment(hashes_len as u64);
+            self.inner
+                .metrics
+                .blob_metrics
+                .get_blobs_requests_blobs_in_blobpool_total
+                .increment(blobs_found as u64);
+
+            if blobs_found == hashes_len {
+                self.inner.metrics.blob_metrics.get_blobs_requests_success_total.increment(1);
+            } else {
+                self.inner.metrics.blob_metrics.get_blobs_requests_failure_total.increment(1);
+            }
+        } else {
+            self.inner.metrics.blob_metrics.get_blobs_requests_failure_total.increment(1);
         }
 
         res
@@ -1043,7 +1018,7 @@ where
         &self,
         payload_id: PayloadId,
     ) -> RpcResult<EngineT::ExecutionPayloadEnvelopeV2> {
-        trace!(target: "rpc::engine", "Serving engine_getPayloadV2");
+        debug!(target: "rpc::engine", id = %payload_id, "Serving engine_getPayloadV2");
         Ok(self.get_payload_v2_metered(payload_id).await?)
     }
 
@@ -1081,6 +1056,23 @@ where
         Ok(self.get_payload_v4_metered(payload_id).await?)
     }
 
+    /// Handler for `engine_getPayloadV5`
+    ///
+    /// Returns the most recent version of the payload that is available in the corresponding
+    /// payload build process at the time of receiving this call.
+    ///
+    /// See also <https://github.com/ethereum/execution-apis/blob/15399c2e2f16a5f800bf3f285640357e2c245ad9/src/engine/osaka.md#engine_getpayloadv5>
+    ///
+    /// Note:
+    /// > Provider software MAY stop the corresponding build process after serving this call.
+    async fn get_payload_v5(
+        &self,
+        payload_id: PayloadId,
+    ) -> RpcResult<EngineT::ExecutionPayloadEnvelopeV5> {
+        trace!(target: "rpc::engine", "Serving engine_getPayloadV5");
+        Ok(self.get_payload_v5_metered(payload_id).await?)
+    }
+
     /// Handler for `engine_getPayloadBodiesByHashV1`
     /// See also <https://github.com/ethereum/execution-apis/blob/6452a6b194d7db269bf1dbd087a267251d3cc7f8/src/engine/shanghai.md#engine_getpayloadbodiesbyhashv1>
     async fn get_payload_bodies_by_hash_v1(
@@ -1116,16 +1108,6 @@ where
         Ok(self.get_payload_bodies_by_range_v1_metered(start.to(), count.to()).await?)
     }
 
-    /// Handler for `engine_exchangeTransitionConfigurationV1`
-    /// See also <https://github.com/ethereum/execution-apis/blob/3d627c95a4d3510a8187dd02e0250ecb4331d27e/src/engine/paris.md#engine_exchangeTransitionConfigurationV1>
-    async fn exchange_transition_configuration(
-        &self,
-        config: TransitionConfiguration,
-    ) -> RpcResult<TransitionConfiguration> {
-        trace!(target: "rpc::engine", "Serving engine_exchangeTransitionConfigurationV1");
-        Ok(self.exchange_transition_configuration_metered(config)?)
-    }
-
     /// Handler for `engine_getClientVersionV1`
     ///
     /// See also <https://github.com/ethereum/execution-apis/blob/03911ffc053b8b806123f1fc237184b0092a485a/src/engine/identification.md>
@@ -1153,10 +1135,10 @@ where
 
     async fn get_blobs_v2(
         &self,
-        _versioned_hashes: Vec<B256>,
-    ) -> RpcResult<Vec<Option<BlobAndProofV2>>> {
+        versioned_hashes: Vec<B256>,
+    ) -> RpcResult<Option<Vec<BlobAndProofV2>>> {
         trace!(target: "rpc::engine", "Serving engine_getBlobsV2");
-        Err(internal_rpc_err("unimplemented"))
+        Ok(self.get_blobs_v2_metered(versioned_hashes)?)
     }
 }
 
@@ -1186,7 +1168,7 @@ mod tests {
     use super::*;
     use alloy_rpc_types_engine::{ClientCode, ClientVersionV1};
     use assert_matches::assert_matches;
-    use reth_chainspec::{ChainSpec, EthereumHardfork, MAINNET};
+    use reth_chainspec::{ChainSpec, MAINNET};
     use reth_engine_primitives::BeaconEngineMessage;
     use reth_ethereum_engine_primitives::EthEngineTypes;
     use reth_ethereum_primitives::Block;
@@ -1194,7 +1176,6 @@ mod tests {
     use reth_payload_builder::test_utils::spawn_test_payload_service;
     use reth_provider::test_utils::MockEthProvider;
     use reth_tasks::TokioTaskExecutor;
-    use reth_testing_utils::generators::random_block;
     use reth_transaction_pool::noop::NoopTransactionPool;
     use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
@@ -1250,6 +1231,7 @@ mod tests {
     }
 
     struct EngineApiTestHandle {
+        #[allow(dead_code)]
         chain_spec: Arc<ChainSpec>,
         provider: Arc<MockEthProvider>,
         from_api: UnboundedReceiver<BeaconEngineMessage<EthEngineTypes>>,
@@ -1391,106 +1373,6 @@ mod tests {
             let hashes = blocks.iter().map(|b| b.hash()).collect();
             let res = api.get_payload_bodies_by_hash_v1(hashes).await.unwrap();
             assert_eq!(res, expected);
-        }
-    }
-
-    // https://github.com/ethereum/execution-apis/blob/main/src/engine/paris.md#specification-3
-    mod exchange_transition_configuration {
-        use super::*;
-        use alloy_primitives::U256;
-        use reth_testing_utils::generators::{self, BlockParams};
-
-        #[tokio::test]
-        async fn terminal_td_mismatch() {
-            let (handle, api) = setup_engine_api();
-
-            let transition_config = TransitionConfiguration {
-                terminal_total_difficulty: handle
-                    .chain_spec
-                    .fork(EthereumHardfork::Paris)
-                    .ttd()
-                    .unwrap() +
-                    U256::from(1),
-                ..Default::default()
-            };
-
-            let res = api.exchange_transition_configuration(transition_config);
-
-            assert_matches!(
-                res,
-                Err(EngineApiError::TerminalTD { execution, consensus })
-                    if execution == handle.chain_spec.fork(EthereumHardfork::Paris).ttd().unwrap() && consensus == U256::from(transition_config.terminal_total_difficulty)
-            );
-        }
-
-        #[tokio::test]
-        async fn terminal_block_hash_mismatch() {
-            let mut rng = generators::rng();
-
-            let (handle, api) = setup_engine_api();
-
-            let terminal_block_number = 1000;
-            let consensus_terminal_block =
-                random_block(&mut rng, terminal_block_number, BlockParams::default());
-            let execution_terminal_block =
-                random_block(&mut rng, terminal_block_number, BlockParams::default());
-
-            let transition_config = TransitionConfiguration {
-                terminal_total_difficulty: handle
-                    .chain_spec
-                    .fork(EthereumHardfork::Paris)
-                    .ttd()
-                    .unwrap(),
-                terminal_block_hash: consensus_terminal_block.hash(),
-                terminal_block_number,
-            };
-
-            // Unknown block number
-            let res = api.exchange_transition_configuration(transition_config);
-
-            assert_matches!(
-               res,
-                Err(EngineApiError::TerminalBlockHash { execution, consensus })
-                    if execution.is_none() && consensus == transition_config.terminal_block_hash
-            );
-
-            // Add block and to provider local store and test for mismatch
-            handle.provider.add_block(
-                execution_terminal_block.hash(),
-                execution_terminal_block.clone().into_block(),
-            );
-
-            let res = api.exchange_transition_configuration(transition_config);
-
-            assert_matches!(
-                res,
-                Err(EngineApiError::TerminalBlockHash { execution, consensus })
-                    if execution == Some(execution_terminal_block.hash()) && consensus == transition_config.terminal_block_hash
-            );
-        }
-
-        #[tokio::test]
-        async fn configurations_match() {
-            let (handle, api) = setup_engine_api();
-
-            let terminal_block_number = 1000;
-            let terminal_block =
-                random_block(&mut generators::rng(), terminal_block_number, BlockParams::default());
-
-            let transition_config = TransitionConfiguration {
-                terminal_total_difficulty: handle
-                    .chain_spec
-                    .fork(EthereumHardfork::Paris)
-                    .ttd()
-                    .unwrap(),
-                terminal_block_hash: terminal_block.hash(),
-                terminal_block_number,
-            };
-
-            handle.provider.add_block(terminal_block.hash(), terminal_block.into_block());
-
-            let config = api.exchange_transition_configuration(transition_config).unwrap();
-            assert_eq!(config, transition_config);
         }
     }
 }

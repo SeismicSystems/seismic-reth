@@ -64,6 +64,7 @@ futures.workspace = true
 # misc
 thiserror.workspace = true
 tracing.workspace = true
+eyre.workspace = true
 
 [dev-dependencies]
 reth-seismic-chainspec.workspace = true

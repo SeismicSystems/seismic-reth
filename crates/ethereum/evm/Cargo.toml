@@ -26,12 +26,15 @@ alloy-eips.workspace = true
 alloy-evm.workspace = true
 alloy-consensus.workspace = true
 
+# Misc
+parking_lot = { workspace = true, optional = true }
+derive_more = { workspace = true, optional = true }
+
 [dev-dependencies]
 reth-testing-utils.workspace = true
 reth-evm = { workspace = true, features = ["test-utils"] }
 reth-execution-types.workspace = true
 secp256k1.workspace = true
-
 alloy-genesis.workspace = true
 
 serde_json.workspace = true
@@ -45,7 +48,6 @@ std = [
     "alloy-genesis/std",
     "alloy-primitives/std",
     "reth-ethereum-forks/std",
-    "serde_json/std",
     "reth-chainspec/std",
     "alloy-evm/std",
     "reth-execution-types/std",
@@ -53,4 +55,13 @@ std = [
     "reth-primitives-traits/std",
     "revm/std",
     "reth-ethereum-primitives/std",
+    "derive_more?/std",
+]
+test-utils = [
+    "dep:parking_lot",
+    "dep:derive_more",
+    "reth-chainspec/test-utils",
+    "reth-ethereum-primitives/test-utils",
+    "reth-evm/test-utils",
+    "reth-primitives-traits/test-utils",
 ]

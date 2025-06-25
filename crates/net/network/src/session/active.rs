@@ -23,11 +23,11 @@ use alloy_primitives::Sealable;
 use futures::{stream::Fuse, SinkExt, StreamExt};
 use metrics::Gauge;
 use reth_eth_wire::{
-    capability::RawCapabilityMessage,
     errors::{EthHandshakeError, EthStreamError},
     message::{EthBroadcastMessage, RequestPair},
     Capabilities, DisconnectP2P, DisconnectReason, EthMessage, NetworkPrimitives,
 };
+use reth_eth_wire_types::RawCapabilityMessage;
 use reth_metrics::common::mpsc::MeteredPollSender;
 use reth_network_api::PeerRequest;
 use reth_network_p2p::error::RequestError;
@@ -123,7 +123,7 @@ impl<N: NetworkPrimitives> ActiveSession<N> {
     }
 
     /// Returns the next request id
-    fn next_id(&mut self) -> u64 {
+    const fn next_id(&mut self) -> u64 {
         let id = self.next_id;
         self.next_id += 1;
         id
@@ -169,7 +169,6 @@ impl<N: NetworkPrimitives> ActiveSession<N> {
         macro_rules! on_response {
             ($resp:ident, $item:ident) => {{
                 let RequestPair { request_id, message } = $resp;
-                #[allow(clippy::collapsible_match)]
                 if let Some(req) = self.inflight_requests.remove(&request_id) {
                     match req.request {
                         RequestState::Waiting(PeerRequest::$item { response, .. }) => {
@@ -255,6 +254,15 @@ impl<N: NetworkPrimitives> ActiveSession<N> {
             EthMessage::Receipts(resp) => {
                 on_response!(resp, GetReceipts)
             }
+            EthMessage::Receipts69(resp) => {
+                // TODO: remove mandatory blooms
+                let resp = resp.map(|receipts| receipts.into_with_bloom());
+                on_response!(resp, GetReceipts)
+            }
+            EthMessage::BlockRangeUpdate(msg) => {
+                self.try_emit_broadcast(PeerMessage::BlockRangeUpdated(msg)).into()
+            }
+            EthMessage::Other(bytes) => self.try_emit_broadcast(PeerMessage::Other(bytes)).into(),
         }
     }
 
@@ -292,6 +300,7 @@ impl<N: NetworkPrimitives> ActiveSession<N> {
             PeerMessage::SendTransactions(msg) => {
                 self.queued_outgoing.push_back(EthBroadcastMessage::Transactions(msg).into());
             }
+            PeerMessage::BlockRangeUpdated(_) => {}
             PeerMessage::ReceivedTransaction(_) => {
                 unreachable!("Not emitted by network")
             }
@@ -847,8 +856,8 @@ mod tests {
     use reth_ecies::stream::ECIESStream;
     use reth_eth_wire::{
         handshake::EthHandshake, EthNetworkPrimitives, EthStream, GetBlockBodies,
-        HelloMessageWithProtocols, P2PStream, Status, StatusBuilder, UnauthedEthStream,
-        UnauthedP2PStream,
+        HelloMessageWithProtocols, P2PStream, StatusBuilder, UnauthedEthStream, UnauthedP2PStream,
+        UnifiedStatus,
     };
     use reth_ethereum_forks::EthereumHardfork;
     use reth_network_peers::pk2id;
@@ -872,7 +881,7 @@ mod tests {
         secret_key: SecretKey,
         local_peer_id: PeerId,
         hello: HelloMessageWithProtocols,
-        status: Status,
+        status: UnifiedStatus,
         fork_filter: ForkFilter,
         next_id: usize,
     }
@@ -898,7 +907,7 @@ mod tests {
             let fork_filter = self.fork_filter.clone();
             let local_peer_id = self.local_peer_id;
             let mut hello = self.hello.clone();
-            let key = SecretKey::new(&mut rand::thread_rng());
+            let key = SecretKey::new(&mut rand_08::thread_rng());
             hello.id = pk2id(&key.public_key(SECP256K1));
             Box::pin(async move {
                 let outgoing = TcpStream::connect(local_addr).await.unwrap();
@@ -989,7 +998,7 @@ mod tests {
         fn default() -> Self {
             let (active_session_tx, active_session_rx) = mpsc::channel(100);
 
-            let (secret_key, pk) = SECP256K1.generate_keypair(&mut rand::thread_rng());
+            let (secret_key, pk) = SECP256K1.generate_keypair(&mut rand_08::thread_rng());
             let local_peer_id = pk2id(&pk);
 
             Self {

@@ -7,10 +7,7 @@ use crate::{
 use alloy_eips::merge::EPOCH_SLOTS;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_consensus::{ConsensusError, FullConsensus};
-use reth_evm::{
-    execute::BasicBlockExecutorProvider, ConfigureEvm, EvmFactory, EvmFactoryFor,
-    NextBlockEnvAttributes,
-};
+use reth_evm::{ConfigureEvm, EvmFactory, EvmFactoryFor, NextBlockEnvAttributes};
 use reth_network::{NetworkHandle, NetworkPrimitives};
 use reth_node_api::{AddOnsContext, FullNodeComponents, NodeAddOns, PrimitivesTy, TxTy};
 use reth_node_builder::{
@@ -18,7 +15,7 @@ use reth_node_builder::{
         BasicPayloadServiceBuilder, ComponentsBuilder, ConsensusBuilder, ExecutorBuilder,
         NetworkBuilder, PayloadBuilderBuilder, PoolBuilder,
     },
-    node::{FullNodeTypes, NodeTypes, NodeTypesWithEngine},
+    node::{FullNodeTypes, NodeTypes},
     rpc::{
         EngineValidatorAddOn, EngineValidatorBuilder, EthApiBuilder, RethRpcAddOns, RpcAddOns,
         RpcHandle,
@@ -33,7 +30,7 @@ use reth_rpc_builder::config::RethRpcServerConfig;
 use reth_rpc_eth_api::FullEthApiServer;
 use reth_rpc_eth_types::{error::FromEvmError, EthApiError};
 use reth_rpc_server_types::RethRpcModule;
-// use reth_seismic_evm::SeismicEvmConfig;
+use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
 use reth_seismic_rpc::{SeismicEthApi, SeismicEthApiBuilder};
@@ -44,6 +41,7 @@ use reth_transaction_pool::{
 use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
+use seismic_enclave::rpc::SyncEnclaveApiClientBuilder;
 use std::{sync::Arc, time::SystemTime};
 
 use crate::{real_seismic_evm_config, RealSeismicEvmConfig};
@@ -70,7 +68,7 @@ impl SeismicNode {
     >
     where
         Node: FullNodeTypes<
-            Types: NodeTypesWithEngine<
+            Types: NodeTypes<
                 Payload = SeismicEngineTypes,
                 ChainSpec = ChainSpec,
                 Primitives = SeismicPrimitives,
@@ -80,6 +78,7 @@ impl SeismicNode {
         ComponentsBuilder::default()
             .node_types::<Node>()
             .pool(SeismicPoolBuilder::default())
+            .executor(SeismicExecutorBuilder::default())
             .payload(BasicPayloadServiceBuilder::<SeismicPayloadBuilder>::default())
             .network(SeismicNetworkBuilder::default())
             .executor(SeismicExecutorBuilder::default())
@@ -125,7 +124,7 @@ impl SeismicNode {
 impl<N> Node<N> for SeismicNode
 where
     N: FullNodeTypes<
-        Types: NodeTypesWithEngine<
+        Types: NodeTypes<
             Payload = SeismicEngineTypes,
             ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
@@ -160,9 +159,6 @@ impl NodeTypes for SeismicNode {
     type ChainSpec = ChainSpec;
     type StateCommitment = MerklePatriciaTrie;
     type Storage = SeismicStorage;
-}
-
-impl NodeTypesWithEngine for SeismicNode {
     type Payload = SeismicEngineTypes;
 }
 
@@ -201,7 +197,7 @@ where
 impl<N> SeismicAddOns<N>
 where
     N: FullNodeComponents<
-        Types: NodeTypesWithEngine<
+        Types: NodeTypes<
             ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
             Storage = SeismicStorage,
@@ -225,7 +221,7 @@ impl SeismicAddOnsBuilder {
     pub fn build<N>(self) -> SeismicAddOns<N>
     where
         N: FullNodeComponents<
-            Types: NodeTypesWithEngine<
+            Types: NodeTypes<
                 ChainSpec = ChainSpec,
                 Primitives = SeismicPrimitives,
                 Storage = SeismicStorage,
@@ -242,7 +238,7 @@ impl SeismicAddOnsBuilder {
 impl<N: FullNodeComponents> Default for SeismicAddOns<N>
 where
     N: FullNodeComponents<
-        Types: NodeTypesWithEngine<
+        Types: NodeTypes<
             ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
             Storage = SeismicStorage,
@@ -260,24 +256,16 @@ where
 impl<N> NodeAddOns<N> for SeismicAddOns<N>
 where
     N: FullNodeComponents<
-        Types: NodeTypesWithEngine<
+        Types: NodeTypes<
             ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
             Storage = SeismicStorage,
             Payload = SeismicEngineTypes,
         >,
         Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
-        // Pool: TransactionPool<
-        //     Transaction: PoolTransaction<Consensus = TxTy<N::Types>, Pooled =
-        // SeismicTxEnvelope>, /* equiv to op_alloy_consensus::OpPooledTransaction>, */
-        // > + Unpin
-        // + 'static,
-        // Pool: TransactionPool<Transaction = SeismicTxEnvelope> + Unpin + 'static,
     >,
     EthApiError: FromEvmError<N::Evm>,
     EvmFactoryFor<N::Evm>: EvmFactory<Tx = seismic_revm::SeismicTransaction<TxEnv>>,
-    // SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>, /* Needed to
-    // compile, but why? */
 {
     type Handle = RpcHandle<N, SeismicEthApi<N>>;
 
@@ -288,7 +276,7 @@ where
         let validation_api = ValidationApi::new(
             ctx.node.provider().clone(),
             Arc::new(ctx.node.consensus().clone()),
-            ctx.node.block_executor().clone(),
+            ctx.node.evm_config().clone(),
             ctx.config.rpc.flashbots_config(),
             Box::new(ctx.node.task_executor().clone()),
             Arc::new(SeismicEngineValidator::new(ctx.config.chain.clone())),
@@ -310,7 +298,7 @@ where
 impl<N> RethRpcAddOns<N> for SeismicAddOns<N>
 where
     N: FullNodeComponents<
-        Types: NodeTypesWithEngine<
+        Types: NodeTypes<
             ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
             Storage = SeismicStorage,
@@ -333,7 +321,7 @@ where
 impl<N> EngineValidatorAddOn<N> for SeismicAddOns<N>
 where
     N: FullNodeComponents<
-        Types: NodeTypesWithEngine<
+        Types: NodeTypes<
             ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
             Storage = SeismicStorage,
@@ -361,16 +349,11 @@ where
     Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
 {
     type EVM = RealSeismicEvmConfig;
-    type Executor = BasicBlockExecutorProvider<Self::EVM>;
 
-    async fn build_evm(
-        self,
-        ctx: &BuilderContext<Node>,
-    ) -> eyre::Result<(Self::EVM, Self::Executor)> {
+    async fn build_evm(self, ctx: &BuilderContext<Node>) -> eyre::Result<Self::EVM> {
         let evm_config = real_seismic_evm_config(ctx.chain_spec());
-        let executor = BasicBlockExecutorProvider::new(evm_config.clone());
 
-        Ok((evm_config, executor))
+        Ok(evm_config)
     }
 }
 
@@ -385,7 +368,7 @@ pub struct SeismicPoolBuilder;
 impl<Node> PoolBuilder<Node> for SeismicPoolBuilder
 where
     Node: FullNodeTypes<
-        Types: NodeTypesWithEngine<
+        Types: NodeTypes<
             Payload = SeismicEngineTypes,
             ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
@@ -493,7 +476,7 @@ impl SeismicPayloadBuilder {
     ) -> eyre::Result<reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider, Evm>>
     where
         Node: FullNodeTypes<
-            Types: NodeTypesWithEngine<
+            Types: NodeTypes<
                 Payload = SeismicEngineTypes,
                 ChainSpec = ChainSpec,
                 Primitives = SeismicPrimitives,
@@ -506,19 +489,23 @@ impl SeismicPayloadBuilder {
         // Txs: SeismicPayloadTransactions<Pool::Transaction>,
     {
         let conf = ctx.payload_builder_config();
+        let chain = ctx.chain_spec().chain();
+        let gas_limit = conf.gas_limit_for(chain);
+
         Ok(reth_seismic_payload_builder::SeismicPayloadBuilder::new(
             ctx.provider().clone(),
             pool,
             evm_config,
-            SeismicBuilderConfig::new().with_gas_limit(conf.gas_limit()),
+            SeismicBuilderConfig::new().with_gas_limit(gas_limit),
         ))
     }
 }
 
-impl<Node, Pool> PayloadBuilderBuilder<Node, Pool> for SeismicPayloadBuilder
+impl<Node, Pool, CB> PayloadBuilderBuilder<Node, Pool, SeismicEvmConfig<CB>>
+    for SeismicPayloadBuilder
 where
     Node: FullNodeTypes<
-        Types: NodeTypesWithEngine<
+        Types: NodeTypes<
             Payload = SeismicEngineTypes,
             ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
@@ -527,23 +514,32 @@ where
     Pool: TransactionPool<Transaction: PoolTransaction<Consensus = TxTy<Node::Types>>>
         + Unpin
         + 'static,
+
+    CB: SyncEnclaveApiClientBuilder + 'static,
 {
     type PayloadBuilder = reth_seismic_payload_builder::SeismicPayloadBuilder<
         Pool,
         Node::Provider,
-        RealSeismicEvmConfig,
+        SeismicEvmConfig<CB>,
     >;
 
     async fn build_payload_builder(
         self,
         ctx: &BuilderContext<Node>,
         pool: Pool,
+        evm_config: SeismicEvmConfig<CB>,
     ) -> eyre::Result<Self::PayloadBuilder> {
-        self.build::<Node::Types, Node, RealSeismicEvmConfig, Pool>(
-            real_seismic_evm_config(ctx.chain_spec()),
-            ctx,
+        let conf = ctx.payload_builder_config();
+        let chain = ctx.chain_spec().chain();
+        let gas_limit = conf.gas_limit_for(chain);
+
+        let payload_builder = reth_seismic_payload_builder::SeismicPayloadBuilder::new(
+            ctx.provider().clone(),
             pool,
-        )
+            evm_config,
+            SeismicBuilderConfig::new().with_gas_limit(gas_limit),
+        );
+        Ok(payload_builder)
     }
 }
 
@@ -561,7 +557,7 @@ where
         > + Unpin
         + 'static,
 {
-    type Primitives = SeismicNetworkPrimitives;
+    type Network = NetworkHandle<SeismicNetworkPrimitives>;
 
     async fn build_network(
         self,
@@ -599,7 +595,7 @@ pub struct SeismicEngineValidatorBuilder;
 
 impl<Node, Types> EngineValidatorBuilder<Node> for SeismicEngineValidatorBuilder
 where
-    Types: NodeTypesWithEngine<
+    Types: NodeTypes<
         ChainSpec = ChainSpec,
         Primitives = SeismicPrimitives,
         Payload = SeismicEngineTypes,

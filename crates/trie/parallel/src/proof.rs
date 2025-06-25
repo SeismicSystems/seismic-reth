@@ -25,8 +25,8 @@ use reth_trie::{
     trie_cursor::{InMemoryTrieCursorFactory, TrieCursorFactory},
     updates::TrieUpdatesSorted,
     walker::TrieWalker,
-    HashBuilder, HashedPostStateSorted, MultiProof, MultiProofTargets, Nibbles, StorageMultiProof,
-    TRIE_ACCOUNT_RLP_MAX_SIZE,
+    DecodedMultiProof, DecodedStorageMultiProof, HashBuilder, HashedPostStateSorted, MultiProof,
+    MultiProofTargets, Nibbles, StorageMultiProof, TRIE_ACCOUNT_RLP_MAX_SIZE,
 };
 use reth_trie_common::proof::ProofRetainer;
 use reth_trie_db::{DatabaseHashedCursorFactory, DatabaseTrieCursorFactory};
@@ -145,6 +145,21 @@ where
         proof_result
     }
 
+    /// Generate a [`DecodedStorageMultiProof`] for the given proof by first calling
+    /// `storage_proof`, then decoding the proof nodes.
+    pub fn decoded_storage_proof(
+        self,
+        hashed_address: B256,
+        target_slots: B256Set,
+    ) -> Result<DecodedStorageMultiProof, ParallelStateRootError> {
+        let proof = self.storage_proof(hashed_address, target_slots)?;
+
+        // Now decode the nodes of the proof
+        let proof = proof.try_into()?;
+
+        Ok(proof)
+    }
+
     /// Generate a state multiproof according to specified targets.
     pub fn multiproof(
         self,
@@ -209,7 +224,7 @@ where
         );
 
         // Create the walker.
-        let walker = TrieWalker::new(
+        let walker = TrieWalker::state_trie(
             trie_cursor_factory.account_trie_cursor().map_err(ProviderError::Database)?,
             prefix_sets.account_prefix_set,
         )
@@ -226,7 +241,7 @@ where
         let mut storages: B256Map<_> =
             targets.keys().map(|key| (*key, StorageMultiProof::empty())).collect();
         let mut account_rlp = Vec::with_capacity(TRIE_ACCOUNT_RLP_MAX_SIZE);
-        let mut account_node_iter = TrieNodeIter::new(
+        let mut account_node_iter = TrieNodeIter::state_trie(
             walker,
             hashed_cursor_factory.hashed_account_cursor().map_err(ProviderError::Database)?,
         );
@@ -321,6 +336,21 @@ where
 
         Ok(MultiProof { account_subtree, branch_node_hash_masks, branch_node_tree_masks, storages })
     }
+
+    /// Returns a [`DecodedMultiProof`] for the given proof.
+    ///
+    /// Uses `multiproof` first to get the proof, and then decodes the nodes of the multiproof.
+    pub fn decoded_multiproof(
+        self,
+        targets: MultiProofTargets,
+    ) -> Result<DecodedMultiProof, ParallelStateRootError> {
+        let multiproof = self.multiproof(targets)?;
+
+        // Now decode the nodes of the multiproof
+        let multiproof = multiproof.try_into()?;
+
+        Ok(multiproof)
+    }
 }
 
 #[cfg(test)]
@@ -343,19 +373,19 @@ mod tests {
         let factory = create_test_provider_factory();
         let consistent_view = ConsistentDbView::new(factory.clone(), None);
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let state = (0..100)
             .map(|_| {
                 let address = Address::random();
                 let account =
-                    Account { balance: U256::from(rng.gen::<u64>()), ..Default::default() };
+                    Account { balance: U256::from(rng.random::<u64>()), ..Default::default() };
                 let mut storage = HashMap::<B256, U256, DefaultHashBuilder>::default();
-                let has_storage = rng.gen_bool(0.7);
+                let has_storage = rng.random_bool(0.7);
                 if has_storage {
                     for _ in 0..100 {
                         storage.insert(
-                            B256::from(U256::from(rng.gen::<u64>())),
-                            U256::from(rng.gen::<u64>()),
+                            B256::from(U256::from(rng.random::<u64>())),
+                            U256::from(rng.random::<u64>()),
                         );
                     }
                 }

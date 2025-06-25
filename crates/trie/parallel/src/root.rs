@@ -145,12 +145,12 @@ where
             &hashed_state_sorted,
         );
 
-        let walker = TrieWalker::new(
+        let walker = TrieWalker::state_trie(
             trie_cursor_factory.account_trie_cursor().map_err(ProviderError::Database)?,
             prefix_sets.account_prefix_set,
         )
         .with_deletions_retained(retain_updates);
-        let mut account_node_iter = TrieNodeIter::new(
+        let mut account_node_iter = TrieNodeIter::state_trie(
             walker,
             hashed_cursor_factory.hashed_account_cursor().map_err(ProviderError::Database)?,
         );
@@ -255,6 +255,12 @@ impl From<ParallelStateRootError> for ProviderError {
     }
 }
 
+impl From<alloy_rlp::Error> for ParallelStateRootError {
+    fn from(error: alloy_rlp::Error) -> Self {
+        Self::Provider(ProviderError::Rlp(error))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,19 +276,19 @@ mod tests {
         let factory = create_test_provider_factory();
         let consistent_view = ConsistentDbView::new(factory.clone(), None);
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut state = (0..100)
             .map(|_| {
                 let address = Address::random();
                 let account =
-                    Account { balance: U256::from(rng.gen::<u64>()), ..Default::default() };
+                    Account { balance: U256::from(rng.random::<u64>()), ..Default::default() };
                 let mut storage = HashMap::<B256, U256>::default();
-                let has_storage = rng.gen_bool(0.7);
+                let has_storage = rng.random_bool(0.7);
                 if has_storage {
                     for _ in 0..100 {
                         storage.insert(
-                            B256::from(U256::from(rng.gen::<u64>())),
-                            U256::from(rng.gen::<u64>()),
+                            B256::from(U256::from(rng.random::<u64>())),
+                            U256::from(rng.random::<u64>()),
                         );
                     }
                 }
@@ -323,17 +329,17 @@ mod tests {
         for (address, (account, storage)) in &mut state {
             let hashed_address = keccak256(address);
 
-            let should_update_account = rng.gen_bool(0.5);
+            let should_update_account = rng.random_bool(0.5);
             if should_update_account {
-                *account = Account { balance: U256::from(rng.gen::<u64>()), ..*account };
+                *account = Account { balance: U256::from(rng.random::<u64>()), ..*account };
                 hashed_state.accounts.insert(hashed_address, Some(*account));
             }
 
-            let should_update_storage = rng.gen_bool(0.3);
+            let should_update_storage = rng.random_bool(0.3);
             if should_update_storage {
                 for (slot, value) in storage.iter_mut() {
                     let hashed_slot = keccak256(slot);
-                    *value = U256::from(rng.gen::<u64>());
+                    *value = U256::from(rng.random::<u64>());
                     hashed_state
                         .storages
                         .entry(hashed_address)
