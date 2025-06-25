@@ -9,7 +9,7 @@ use reth_node_builder::{rpc::RpcRegistry, NodeTypes};
 use reth_provider::BlockReader;
 use reth_rpc_api::DebugApiServer;
 use reth_rpc_eth_api::{
-    helpers::{EthApiSpec, EthState, EthTransactions, FullEthApi, TraceExt},
+    helpers::{EthApiSpec, EthState, FullEthApi, TraceExt},
     EthApiTypes, RpcReceipt,
 };
 

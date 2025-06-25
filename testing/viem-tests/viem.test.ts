@@ -41,7 +41,12 @@ let pcParams: { chain: Chain; url: string };
 
 beforeAll(async () => {
     await buildNode(chain);
-    const node = await setupNode(chain, { port, ws: true });
+    const debug = false;
+    const rethArgs = debug
+        ? { port, ws: true, silent: false, verbosity: 4 }
+        : { port, ws: true };
+
+    const node = await setupNode(chain, rethArgs);
     pcParams = { chain, url: node.url };
     exitProcess = node.exitProcess;
     url = node.url;

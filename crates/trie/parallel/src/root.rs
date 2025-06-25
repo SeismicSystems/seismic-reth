@@ -194,7 +194,12 @@ where
                     account_rlp.clear();
                     let account = account.into_trie_account(storage_root);
                     account.encode(&mut account_rlp as &mut dyn BufMut);
-                    hash_builder.add_leaf(Nibbles::unpack(hashed_address), &account_rlp);
+                    let is_private = false; // account leaves are always public. Their storage leaves can be private.
+                    hash_builder.add_leaf(
+                        Nibbles::unpack(hashed_address),
+                        &account_rlp,
+                        is_private,
+                    );
                 }
             }
         }
@@ -258,7 +263,7 @@ mod tests {
     use reth_primitives_traits::{Account, StorageEntry};
     use reth_provider::{test_utils::create_test_provider_factory, HashingWriter};
     use reth_trie::{test_utils, HashedPostState, HashedStorage};
-    use revm::state::FlaggedStorage;
+    use revm_state::FlaggedStorage;
 
     #[test]
     fn random_parallel_root() {

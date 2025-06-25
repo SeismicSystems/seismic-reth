@@ -886,6 +886,7 @@ where
         //
         // This validation **MUST** be instantly run in all cases even during active sync process.
         let parent_hash = payload.parent_hash();
+        debug!("on_new_payload: payload: {:?}", payload);
         let block = match self.payload_validator.ensure_well_formed_payload(payload) {
             Ok(block) => block,
             Err(error) => {
@@ -1369,7 +1370,6 @@ where
         Ok(())
     }
 
-
     fn advance_backup(&mut self) -> Result<(), AdvancePersistenceError> {
         debug!(target: "engine::tree", "advance_backup called");
         if !self.backup.in_progress() {
@@ -1490,6 +1490,7 @@ where
                                 }
                             }
                             BeaconEngineMessage::NewPayload { payload, tx } => {
+                                debug!("receiving beacon engine message: payload: {:?}", payload);
                                 let mut output = self.on_new_payload(payload);
 
                                 let maybe_event =
@@ -3133,8 +3134,8 @@ mod tests {
     use reth_ethereum_primitives::{Block, EthPrimitives};
     use reth_evm::test_utils::MockExecutorProvider;
     use reth_evm_ethereum::EthEvmConfig;
-    use reth_node_ethereum::EthereumEngineValidator;
     use reth_node_core::dirs::MaybePlatformPath;
+    use reth_node_ethereum::EthereumEngineValidator;
     use reth_primitives_traits::Block as _;
     use reth_provider::test_utils::MockEthProvider;
     use reth_trie::{updates::TrieUpdates, HashedPostState};

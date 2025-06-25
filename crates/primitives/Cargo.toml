@@ -17,7 +17,6 @@ reth-ethereum-primitives = { workspace = true, features = ["serde"] }
 reth-primitives-traits = { workspace = true, features = ["serde"] }
 reth-ethereum-forks.workspace = true
 reth-static-file-types.workspace = true
-reth-tracing.workspace = true
 
 # ethereum
 alloy-consensus.workspace = true

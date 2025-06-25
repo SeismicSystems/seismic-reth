@@ -30,6 +30,7 @@ alloy-eips = { workspace = true, features = ["kzg"] }
 alloy-primitives.workspace = true
 alloy-rlp.workspace = true
 alloy-consensus = { workspace = true, features = ["kzg"] }
+seismic-alloy-consensus.workspace = true
 
 # async/futures
 futures-util.workspace = true
@@ -88,6 +89,11 @@ serde = [
     "reth-primitives-traits/serde",
     "reth-ethereum-primitives/serde",
 ]
+serde-bincode-compat = [
+    "reth-ethereum-primitives/serde-bincode-compat",
+    "reth-execution-types/serde-bincode-compat",
+]
+reth-codec = ["reth-ethereum-primitives/reth-codec"]
 test-utils = [
     "rand",
     "paste",
@@ -113,6 +119,7 @@ arbitrary = [
     "reth-ethereum-primitives/arbitrary",
     "revm-primitives/arbitrary",
 ]
+
 
 [[bench]]
 name = "truncate"

@@ -1,6 +1,5 @@
-
 [package]
-name = "seismic-primitives"
+name = "reth-seismic-primitives"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -13,26 +12,26 @@ description = "Seismic primitive types"
 workspace = true
 
 [dependencies]
-# seismic
-seismic-alloy-consensus.workspace = true
-
 # reth
-reth-primitives-traits = { workspace = true, features = ["op"] }
-reth-codecs = { workspace = true, optional = true, features = ["op"] }
+reth-primitives-traits = { workspace = true, features = ["serde"] }
+reth-codecs = { workspace = true, optional = true }
 reth-zstd-compressors = { workspace = true, optional = true }
+revm-context.workspace = true
 
 # ethereum
 alloy-evm.workspace = true
-alloy-primitives.workspace = true
+alloy-primitives = { workspace = true, features = ["serde"] }
 alloy-consensus.workspace = true
 alloy-rlp.workspace = true
 alloy-eips = { workspace = true, features = ["k256"] }
-revm-context.workspace = true
-secp256k1 = { workspace = true, optional = true }
 
+# op
+seismic-alloy-consensus.workspace = true
 alloy-rpc-types-eth = { workspace = true, optional = true }
-alloy-network = { workspace = true, optional = true }
+alloy-network = { workspace = true }
+seismic-alloy-network = { workspace = true }
 alloy-serde = { workspace = true, optional = true }
+seismic-revm.workspace = true
 
 # codec
 bytes = { workspace = true, optional = true }
@@ -41,26 +40,43 @@ serde = { workspace = true, optional = true }
 serde_with = { workspace = true, optional = true }
 
 # misc
-derive_more = { workspace = true, features = ["deref", "from", "into", "constructor"] }
+derive_more = { workspace = true, features = [
+    "deref",
+    "from",
+    "into",
+    "constructor",
+] }
 rand = { workspace = true, optional = true }
+secp256k1 = { workspace = true, features = ["rand", "std", "global-context", "recovery"]}
+num-traits = { workspace = true, optional = true }
+anyhow.workspace = true
+tracing.workspace = true
 
 # test
 arbitrary = { workspace = true, features = ["derive"], optional = true }
 proptest = { workspace = true, optional = true }
+
+# test utils
+alloy-signer-local.workspace = true
+alloy-rpc-types.workspace = true
+k256.workspace = true
+enr = {workspace = true, features = ["rust-secp256k1"]}
+alloy-dyn-abi.workspace = true
+reth-enclave.workspace = true
+seismic-alloy-rpc-types.workspace = true
 
 [dev-dependencies]
 arbitrary.workspace = true
 proptest-arbitrary-interop.workspace = true
 proptest.workspace = true
 rand.workspace = true
-reth-codecs = { workspace = true, features = ["test-utils", "op"] }
+reth-codecs = { workspace = true, features = ["test-utils"] }
 rstest.workspace = true
-secp256k1 = { workspace = true, features = ["rand"] }
 serde_json.workspace = true
 bincode.workspace = true
 
 [features]
-default = ["std"]
+default = ["std", "serde", "reth-codec"]
 std = [
     "reth-primitives-traits/std",
     "reth-codecs?/std",
@@ -70,7 +86,7 @@ std = [
     "serde?/std",
     "bytes?/std",
     "derive_more/std",
-    "secp256k1?/std",
+    "secp256k1/std",
     "alloy-rlp/std",
     "reth-zstd-compressors?/std",
     "seismic-alloy-consensus/std",
@@ -81,7 +97,12 @@ std = [
     "alloy-evm/std",
     "serde_with?/std",
 ]
-alloy-compat = ["dep:alloy-network", "dep:alloy-serde", "dep:alloy-rpc-types-eth", "seismic-alloy-consensus/alloy-compat"]
+alloy-compat = [
+    "dep:alloy-serde",
+    "dep:alloy-rpc-types-eth",
+    "dep:num-traits",
+    "seismic-alloy-consensus/alloy-compat",
+]
 reth-codec = [
     "dep:reth-codecs",
     "std",
@@ -102,7 +123,7 @@ serde = [
     "reth-codecs?/serde",
     "seismic-alloy-consensus/serde",
     "rand?/serde",
-    "secp256k1?/serde",
+    "secp256k1/serde",
     "alloy-rpc-types-eth?/serde",
     "revm-context/serde",
 ]
@@ -117,8 +138,8 @@ serde-bincode-compat = [
 arbitrary = [
     "std",
     "dep:arbitrary",
-    "dep:secp256k1",
-    "secp256k1?/rand",
+    # "dep:secp256k1",
+    "secp256k1/rand",
     "reth-primitives-traits/arbitrary",
     "reth-codecs?/arbitrary",
     "seismic-alloy-consensus/arbitrary",

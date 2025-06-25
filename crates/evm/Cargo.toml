@@ -14,7 +14,6 @@ workspace = true
 # reth
 reth-execution-errors.workspace = true
 reth-execution-types.workspace = true
-reth-enclave.workspace = true
 reth-metrics = { workspace = true, optional = true }
 reth-primitives-traits.workspace = true
 reth-storage-api.workspace = true
@@ -25,6 +24,7 @@ reth-ethereum-primitives = { workspace = true, optional = true }
 
 revm.workspace = true
 op-revm = { workspace = true, optional = true }
+seismic-revm = { workspace = true }
 
 # alloy
 alloy-primitives.workspace = true

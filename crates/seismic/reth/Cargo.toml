@@ -1,0 +1,86 @@
+[package]
+name = "reth-seismic"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# reth
+reth-primitives-traits = { workspace = true}
+reth-chainspec.workspace = true
+reth-network = { workspace = true, optional = true }
+reth-provider = { workspace = true, optional = true }
+reth-db = { workspace = true, optional = true, features = ["mdbx"] }
+reth-storage-api = { workspace = true, optional = true }
+reth-node-api = { workspace = true, optional = true }
+reth-consensus = { workspace = true, optional = true }
+reth-consensus-common = { workspace = true, optional = true }
+reth-evm = { workspace = true, optional = true }
+reth-rpc = { workspace = true, optional = true }
+reth-rpc-api = { workspace = true, optional = true }
+reth-rpc-eth-types = { workspace = true, optional = true }
+reth-rpc-builder = { workspace = true, optional = true }
+reth-trie = { workspace = true, optional = true }
+
+# reth-op
+reth-seismic-primitives.workspace = true
+reth-seismic-chainspec.workspace = true
+reth-seismic-evm = { workspace = true, optional = true }
+reth-seismic-node = { workspace = true, optional = true }
+reth-seismic-rpc = { workspace = true, optional = true }
+reth-seismic-cli = { workspace = true, optional = true }
+
+[features]
+default = ["std"]
+std = [
+    "reth-chainspec/std",
+    "reth-consensus?/std",
+    "reth-consensus-common?/std",
+    "reth-seismic-chainspec/std",
+    "reth-seismic-evm?/std",
+    "reth-seismic-primitives/std",
+    "reth-primitives-traits/std",
+    "reth-storage-api?/std",
+    "reth-evm?/std",
+]
+arbitrary = [
+    "std",
+    "reth-chainspec/arbitrary",
+    "reth-seismic-primitives/arbitrary",
+    "reth-primitives-traits/arbitrary",
+    "reth-db?/arbitrary",
+]
+
+test-utils = [
+    "reth-chainspec/test-utils",
+    "reth-consensus?/test-utils",
+    "reth-db?/test-utils",
+    "reth-evm?/test-utils",
+    "reth-network?/test-utils",
+    "reth-seismic-node?/test-utils",
+    "reth-primitives-traits/test-utils",
+    "reth-provider?/test-utils",
+    "reth-trie?/test-utils",
+]
+
+full = ["evm", "node", "provider", "rpc", "trie"]
+
+alloy-compat = [
+    "reth-seismic-primitives/alloy-compat",
+]
+cli = ["dep:reth-seismic-cli"]
+evm = ["dep:reth-evm", "dep:reth-seismic-evm"]
+node-api = ["dep:reth-node-api"]
+node = ["provider", "evm", "node-api", "dep:reth-seismic-node", "rpc", "trie"]
+rpc = ["dep:reth-rpc", "dep:reth-rpc-builder", "dep:reth-rpc-api", "dep:reth-rpc-eth-types", "dep:reth-seismic-rpc"]
+js-tracer = ["rpc", "reth-rpc/js-tracer"]
+network = ["dep:reth-network"]
+provider = ["storage-api", "dep:reth-provider", "dep:reth-db"]
+storage-api = ["dep:reth-storage-api"]
+trie = ["dep:reth-trie"]

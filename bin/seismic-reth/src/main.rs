@@ -1,17 +1,16 @@
 #![allow(missing_docs)]
 
+use clap::Parser;
+use reth::cli::Cli;
 use reth_cli_commands::node::NoArgs;
-use reth_enclave::start_blocking_mock_enclave_server;
+use reth_enclave::{start_blocking_mock_enclave_server, EnclaveClient};
 use reth_node_builder::{EngineNodeLauncher, TreeConfig};
+use reth_seismic_cli::chainspec::SeismicChainSpecParser;
+use reth_seismic_node::node::SeismicNode;
+use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
-use seismic_node::chainspec::SeismicChainSpecParser;
-use seismic_rpc::rpc::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 
 fn main() {
-    use clap::Parser;
-    use reth::cli::Cli;
-    use reth_node_ethereum::{node::EthereumAddOns, EthereumNode};
-
     reth_cli_util::sigsegv_handler::install();
 
     // Enable backtraces unless a RUST_BACKTRACE value has already been explicitly provided.
@@ -22,13 +21,11 @@ fn main() {
     if let Err(err) = Cli::<SeismicChainSpecParser, NoArgs>::parse().run(|builder, _| async move {
         let engine_tree_config = TreeConfig::default();
 
-        // building seismic api
+        // building additional endpoints seismic api
         let seismic_api = SeismicApi::new(builder.config());
 
         let node = builder
-            .with_types::<EthereumNode>()
-            .with_components(EthereumNode::components())
-            .with_add_ons(EthereumAddOns::default())
+            .node(SeismicNode::default())
             .on_node_started(move |ctx| {
                 if ctx.config.enclave.mock_server {
                     ctx.task_executor.spawn(async move {
@@ -44,7 +41,8 @@ fn main() {
             .extend_rpc_modules(move |ctx| {
                 // replace eth_ namespace
                 ctx.modules.replace_configured(
-                    EthApiExt::new(ctx.registry.eth_api().clone()).into_rpc(),
+                    EthApiExt::new(ctx.registry.eth_api().clone(), EnclaveClient::default())
+                        .into_rpc(),
                 )?;
 
                 // add seismic_ namespace

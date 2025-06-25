@@ -3,7 +3,7 @@ use crate::{
     HashedPostStateProvider, ProviderError, StateProvider, StateRootProvider,
 };
 use alloy_eips::merge::EPOCH_SLOTS;
-use alloy_primitives::{Address, BlockNumber, Bytes, StorageKey, StorageValue, B256};
+use alloy_primitives::{Address, BlockNumber, Bytes, StorageKey, B256};
 use reth_db_api::{
     cursor::{DbCursorRO, DbDupCursorRO},
     models::{storage_sharded_key::StorageShardedKey, ShardedKey},
@@ -746,39 +746,27 @@ mod tests {
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 4).storage(ADDRESS, STORAGE),
-            Ok(
-                Some(FlaggedStorage::new_from_value(expected_value)) if expected_value == entry_at7.value,
-            )
+            Ok(Some(expected_value)) if expected_value == higher_entry_at4.value
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 7).storage(ADDRESS, STORAGE),
-            Ok(
-                Some(FlaggedStorage::new_from_value(expected_value)) if expected_value == entry_at7.value,
-            )
+            Ok(Some(expected_value)) if expected_value == entry_at7.value
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 9).storage(ADDRESS, STORAGE),
-            Ok(
-                Some(FlaggedStorage::new_from_value(expected_value)) if expected_value == entry_at10.value,
-            )
+            Ok(Some(expected_value)) if expected_value == entry_at10.value
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 10).storage(ADDRESS, STORAGE),
-            Ok(
-                Some(FlaggedStorage::new_from_value(expected_value)) if expected_value == entry_at10.value,
-            )
+            Ok(Some(expected_value)) if expected_value == entry_at10.value
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 11).storage(ADDRESS, STORAGE),
-            Ok(
-                Some(FlaggedStorage::new_from_value(expected_value)) if expected_value == entry_at15.value,
-            )
+            Ok(Some(expected_value)) if expected_value == entry_at15.value
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 16).storage(ADDRESS, STORAGE),
-            Ok(
-                Some(FlaggedStorage::new_from_value(expected_value)) if expected_value == entry_plain.value,
-            )
+            Ok(Some(expected_value)) if expected_value == entry_plain.value
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 1).storage(HIGHER_ADDRESS, STORAGE),
@@ -786,9 +774,7 @@ mod tests {
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 1000).storage(HIGHER_ADDRESS, STORAGE),
-            Ok(
-                Some(FlaggedStorage::new_from_value(expected_value)) if expected_value == higher_entry_plain.value,
-            )
+            Ok(Some(expected_value)) if expected_value == higher_entry_plain.value
         ));
     }
 

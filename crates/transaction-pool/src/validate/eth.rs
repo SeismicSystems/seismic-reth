@@ -28,6 +28,7 @@ use reth_primitives_traits::{
 };
 use reth_storage_api::{StateProvider, StateProviderFactory};
 use reth_tasks::TaskSpawner;
+use seismic_alloy_consensus::SEISMIC_TX_TYPE_ID;
 use std::{
     marker::PhantomData,
     sync::{
@@ -246,6 +247,10 @@ where
                         InvalidTransactionError::Eip7702Disabled.into(),
                     )
                 }
+            }
+
+            SEISMIC_TX_TYPE_ID => {
+                // Accept seismic transactions
             }
 
             _ => {
@@ -942,7 +947,6 @@ mod tests {
     use alloy_eips::eip2718::Decodable2718;
     use alloy_primitives::{hex, U256};
     use reth_ethereum_primitives::PooledTransaction;
-    use reth_primitives_traits::SignedTransaction;
     use reth_provider::test_utils::{ExtendedAccount, MockEthProvider};
 
     fn get_transaction() -> EthPooledTransaction {

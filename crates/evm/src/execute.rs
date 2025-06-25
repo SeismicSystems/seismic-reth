@@ -253,6 +253,17 @@ pub trait BlockBuilder {
         self.execute_transaction_with_result_closure(tx, |_| ())
     }
 
+    /// Add transaction
+    ///
+    /// Seismic team added this function to the trait for our stuff,
+    /// default unimplemented for backward compatibility
+    fn add_transaction(
+        &mut self,
+        _tx: Recovered<TxTy<Self::Primitives>>,
+    ) -> Result<u64, BlockExecutionError> {
+        unimplemented!("BlockBuilder trait's add_transaction function is not implemented")
+    }
+
     /// Completes the block building process and returns the [`BlockBuilderOutcome`].
     fn finish(
         self,
@@ -350,6 +361,14 @@ where
         let block = RecoveredBlock::new_unhashed(block, senders);
 
         Ok(BlockBuilderOutcome { execution_result: result, hashed_state, trie_updates, block })
+    }
+
+    fn add_transaction(
+        &mut self,
+        tx: Recovered<TxTy<Self::Primitives>>,
+    ) -> Result<u64, BlockExecutionError> {
+        self.transactions.push(tx);
+        Ok(self.transactions.len() as u64)
     }
 
     fn executor_mut(&mut self) -> &mut Self::Executor {

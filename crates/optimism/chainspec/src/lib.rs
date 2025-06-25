@@ -23,7 +23,7 @@ use alloy_consensus::{proofs::storage_root_unhashed, Header};
 use alloy_eips::eip7840::BlobParams;
 use alloy_genesis::Genesis;
 use alloy_hardforks::Hardfork;
-use alloy_primitives::{B256, U256};
+use alloy_primitives::{ruint::aliases::U256, B256};
 pub use base::BASE_MAINNET;
 pub use base_sepolia::BASE_SEPOLIA;
 use derive_more::{Constructor, Deref, From, Into};
@@ -450,8 +450,9 @@ pub fn make_op_genesis_header(genesis: &Genesis, hardforks: &ChainHardforks) -> 
     if hardforks.fork(OpHardfork::Isthmus).active_at_timestamp(header.timestamp) {
         if let Some(predeploy) = genesis.alloc.get(&ADDRESS_L2_TO_L1_MESSAGE_PASSER) {
             if let Some(storage) = &predeploy.storage {
-                header.withdrawals_root =
-                    Some(storage_root_unhashed(storage.iter().map(|(k, v)| (*k, (*v).into()))))
+                header.withdrawals_root = Some(storage_root_unhashed(
+                    storage.iter().map(|(k, v)| (*k, Into::<alloy_primitives::U256>::into(*v))),
+                ))
             }
         }
     }

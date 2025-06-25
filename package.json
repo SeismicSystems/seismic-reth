@@ -1,7 +1,6 @@
 {
   "workspaces": [
-    "testing/viem-tests",
-    "testing/seismic-tests"
+    "testing/viem-tests"
   ],
   "private": true,
   "scripts": {

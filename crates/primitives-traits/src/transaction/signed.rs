@@ -183,6 +183,48 @@ where
     }
 }
 
+impl SignedTransaction for seismic_alloy_consensus::SeismicTxEnvelope {
+    fn tx_hash(&self) -> &TxHash {
+        match self {
+            Self::Legacy(tx) => tx.hash(),
+            Self::Eip2930(tx) => tx.hash(),
+            Self::Eip1559(tx) => tx.hash(),
+            Self::Eip7702(tx) => tx.hash(),
+            Self::Seismic(tx) => tx.hash(),
+        }
+    }
+
+    fn signature(&self) -> &Signature {
+        match self {
+            Self::Legacy(tx) => tx.signature(),
+            Self::Eip2930(tx) => tx.signature(),
+            Self::Eip1559(tx) => tx.signature(),
+            Self::Eip7702(tx) => tx.signature(),
+            Self::Seismic(tx) => tx.signature(),
+        }
+    }
+
+    fn recover_signer(&self) -> Result<Address, RecoveryError> {
+        let signature_hash = self.signature_hash();
+        recover_signer(self.signature(), signature_hash)
+    }
+
+    fn recover_signer_unchecked_with_buf(
+        &self,
+        buf: &mut Vec<u8>,
+    ) -> Result<Address, RecoveryError> {
+        match self {
+            Self::Legacy(tx) => tx.tx().encode_for_signing(buf),
+            Self::Eip2930(tx) => tx.tx().encode_for_signing(buf),
+            Self::Eip1559(tx) => tx.tx().encode_for_signing(buf),
+            Self::Eip7702(tx) => tx.tx().encode_for_signing(buf),
+            Self::Seismic(tx) => tx.tx().encode_for_signing(buf),
+        }
+        let signature_hash = keccak256(buf);
+        recover_signer_unchecked(self.signature(), signature_hash)
+    }
+}
+
 #[cfg(feature = "op")]
 mod op {
     use super::*;
@@ -293,6 +335,7 @@ mod op {
         }
     }
 }
+
 /// Opaque error type for sender recovery.
 #[derive(Debug, Default, thiserror::Error)]
 #[error("Failed to recover the signer")]

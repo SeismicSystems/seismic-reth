@@ -187,7 +187,9 @@ where
 
 /// Testing database
 pub type TmpDB = Arc<TempDatabase<DatabaseEnv>>;
-type TmpNodeAdapter<N, Provider = BlockchainProvider<NodeTypesWithDBAdapter<N, TmpDB>>> =
+
+/// Type alias for a testing `FullNodeTypesAdapter`
+pub type TmpNodeAdapter<N, Provider = BlockchainProvider<NodeTypesWithDBAdapter<N, TmpDB>>> =
     FullNodeTypesAdapter<N, TmpDB, Provider>;
 
 /// Type alias for a `NodeAdapter`

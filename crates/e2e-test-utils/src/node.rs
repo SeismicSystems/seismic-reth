@@ -20,7 +20,7 @@ use reth_provider::{
     BlockReader, BlockReaderIdExt, CanonStateNotificationStream, CanonStateSubscriptions,
     StageCheckpointReader,
 };
-use reth_rpc_eth_api::helpers::{EthApiSpec, EthTransactions, FullEthApi, TraceExt};
+use reth_rpc_eth_api::helpers::{EthApiSpec, FullEthApi, TraceExt};
 use reth_rpc_layer::AuthClientService;
 use reth_stages_types::StageId;
 use std::pin::Pin;
