@@ -2,9 +2,9 @@ use alloy_consensus::{
     proofs::ordered_trie_root_with_encoder, Eip2718EncodableReceipt, Eip658Value, Receipt,
     ReceiptWithBloom, RlpDecodableReceipt, RlpEncodableReceipt, TxReceipt, Typed2718,
 };
-use alloy_eips::Encodable2718;
+use alloy_eips::{eip2718::Eip2718Result, Decodable2718, Encodable2718};
 use alloy_primitives::{Bloom, Log, B256};
-use alloy_rlp::{BufMut, Decodable, Header};
+use alloy_rlp::{BufMut, Decodable, Encodable, Header};
 use reth_primitives_traits::InMemorySize;
 use seismic_alloy_consensus::SeismicTxType;
 
@@ -20,6 +20,8 @@ pub enum SeismicReceipt {
     Eip2930(Receipt),
     /// EIP-1559 receipt
     Eip1559(Receipt),
+    /// EIP-4844 receipt
+    Eip4844(Receipt),
     /// EIP-7702 receipt
     Eip7702(Receipt),
     /// Seismic receipt
@@ -39,6 +41,7 @@ impl SeismicReceipt {
             Self::Legacy(_) => SeismicTxType::Legacy,
             Self::Eip2930(_) => SeismicTxType::Eip2930,
             Self::Eip1559(_) => SeismicTxType::Eip1559,
+            Self::Eip4844(_) => SeismicTxType::Eip4844,
             Self::Eip7702(_) => SeismicTxType::Eip7702,
             Self::Seismic(_) => SeismicTxType::Seismic,
         }
@@ -50,6 +53,7 @@ impl SeismicReceipt {
             Self::Legacy(receipt) |
             Self::Eip2930(receipt) |
             Self::Eip1559(receipt) |
+            Self::Eip4844(receipt) |
             Self::Eip7702(receipt) |
             Self::Seismic(receipt) => receipt,
         }
@@ -61,6 +65,19 @@ impl SeismicReceipt {
             Self::Legacy(receipt) |
             Self::Eip2930(receipt) |
             Self::Eip1559(receipt) |
+            Self::Eip4844(receipt) |
+            Self::Eip7702(receipt) |
+            Self::Seismic(receipt) => receipt,
+        }
+    }
+
+    /// Consumes this and returns the inner [`Receipt`].
+    pub fn into_receipt(self) -> Receipt {
+        match self {
+            Self::Legacy(receipt) |
+            Self::Eip2930(receipt) |
+            Self::Eip1559(receipt) |
+            Self::Eip4844(receipt) |
             Self::Eip7702(receipt) |
             Self::Seismic(receipt) => receipt,
         }
@@ -72,6 +89,7 @@ impl SeismicReceipt {
             Self::Legacy(receipt) |
             Self::Eip2930(receipt) |
             Self::Eip1559(receipt) |
+            Self::Eip4844(receipt) |
             Self::Eip7702(receipt) |
             Self::Seismic(receipt) => receipt.rlp_encoded_fields_length_with_bloom(bloom),
         }
@@ -83,6 +101,7 @@ impl SeismicReceipt {
             Self::Legacy(receipt) |
             Self::Eip2930(receipt) |
             Self::Eip1559(receipt) |
+            Self::Eip4844(receipt) |
             Self::Eip7702(receipt) |
             Self::Seismic(receipt) => receipt.rlp_encode_fields_with_bloom(bloom, out),
         }
@@ -91,6 +110,11 @@ impl SeismicReceipt {
     /// Returns RLP header for inner encoding.
     pub fn rlp_header_inner(&self, bloom: &Bloom) -> Header {
         Header { list: true, payload_length: self.rlp_encoded_fields_length(bloom) }
+    }
+
+    /// Returns RLP header for inner encoding without bloom.
+    pub fn rlp_header_inner_without_bloom(&self) -> Header {
+        Header { list: true, payload_length: self.rlp_encoded_fields_length_without_bloom() }
     }
 
     /// RLP-decodes the receipt from the provided buffer. This does not expect a type byte or
@@ -115,6 +139,11 @@ impl SeismicReceipt {
                     RlpDecodableReceipt::rlp_decode_with_bloom(buf)?;
                 Ok(ReceiptWithBloom { receipt: Self::Eip1559(receipt), logs_bloom })
             }
+            SeismicTxType::Eip4844 => {
+                let ReceiptWithBloom { receipt, logs_bloom } =
+                    RlpDecodableReceipt::rlp_decode_with_bloom(buf)?;
+                Ok(ReceiptWithBloom { receipt: Self::Eip4844(receipt), logs_bloom })
+            }
             SeismicTxType::Eip7702 => {
                 let ReceiptWithBloom { receipt, logs_bloom } =
                     RlpDecodableReceipt::rlp_decode_with_bloom(buf)?;
@@ -124,6 +153,79 @@ impl SeismicReceipt {
                 let ReceiptWithBloom { receipt, logs_bloom } =
                     RlpDecodableReceipt::rlp_decode_with_bloom(buf)?;
                 Ok(ReceiptWithBloom { receipt: Self::Seismic(receipt), logs_bloom })
+            }
+        }
+    }
+
+    /// RLP-encodes receipt fields without an RLP header.
+    pub fn rlp_encode_fields_without_bloom(&self, out: &mut dyn BufMut) {
+        match self {
+            Self::Legacy(receipt) |
+            Self::Eip2930(receipt) |
+            Self::Eip1559(receipt) |
+            Self::Eip4844(receipt) |
+            Self::Eip7702(receipt) |
+            Self::Seismic(receipt) => {
+                receipt.status.encode(out);
+                receipt.cumulative_gas_used.encode(out);
+                receipt.logs.encode(out);
+            }
+        }
+    }
+
+    /// Returns length of RLP-encoded receipt fields without an RLP header.
+    pub fn rlp_encoded_fields_length_without_bloom(&self) -> usize {
+        match self {
+            Self::Legacy(receipt) |
+            Self::Eip2930(receipt) |
+            Self::Eip1559(receipt) |
+            Self::Eip4844(receipt) |
+            Self::Eip7702(receipt) |
+            Self::Seismic(receipt) => {
+                receipt.status.length() +
+                    receipt.cumulative_gas_used.length() +
+                    receipt.logs.length()
+            }
+        }
+    }
+
+    /// RLP-decodes the receipt from the provided buffer without bloom.
+    pub fn rlp_decode_inner_without_bloom(
+        buf: &mut &[u8],
+        tx_type: SeismicTxType,
+    ) -> alloy_rlp::Result<Self> {
+        let header = Header::decode(buf)?;
+        if !header.list {
+            return Err(alloy_rlp::Error::UnexpectedString);
+        }
+
+        let remaining = buf.len();
+        let status = Decodable::decode(buf)?;
+        let cumulative_gas_used = Decodable::decode(buf)?;
+        let logs = Decodable::decode(buf)?;
+
+        if buf.len() + header.payload_length != remaining {
+            return Err(alloy_rlp::Error::UnexpectedLength);
+        }
+
+        match tx_type {
+            SeismicTxType::Legacy => {
+                Ok(Self::Legacy(Receipt { status, cumulative_gas_used, logs }))
+            }
+            SeismicTxType::Eip2930 => {
+                Ok(Self::Eip2930(Receipt { status, cumulative_gas_used, logs }))
+            }
+            SeismicTxType::Eip1559 => {
+                Ok(Self::Eip1559(Receipt { status, cumulative_gas_used, logs }))
+            }
+            SeismicTxType::Eip4844 => {
+                Ok(Self::Eip4844(Receipt { status, cumulative_gas_used, logs }))
+            }
+            SeismicTxType::Eip7702 => {
+                Ok(Self::Eip7702(Receipt { status, cumulative_gas_used, logs }))
+            }
+            SeismicTxType::Seismic => {
+                Ok(Self::Seismic(Receipt { status, cumulative_gas_used, logs }))
             }
         }
     }
@@ -195,6 +297,47 @@ impl RlpDecodableReceipt for SeismicReceipt {
         }
 
         Ok(this)
+    }
+}
+
+impl Encodable2718 for SeismicReceipt {
+    fn encode_2718_len(&self) -> usize {
+        !self.tx_type().is_legacy() as usize +
+            self.rlp_header_inner_without_bloom().length_with_payload()
+    }
+
+    fn encode_2718(&self, out: &mut dyn BufMut) {
+        if !self.tx_type().is_legacy() {
+            out.put_u8(self.tx_type() as u8);
+        }
+        self.rlp_header_inner_without_bloom().encode(out);
+        self.rlp_encode_fields_without_bloom(out);
+    }
+}
+
+impl Decodable2718 for SeismicReceipt {
+    fn typed_decode(ty: u8, buf: &mut &[u8]) -> Eip2718Result<Self> {
+        Ok(Self::rlp_decode_inner_without_bloom(buf, SeismicTxType::try_from(ty)?)?)
+    }
+
+    fn fallback_decode(buf: &mut &[u8]) -> Eip2718Result<Self> {
+        Ok(Self::rlp_decode_inner_without_bloom(buf, SeismicTxType::Legacy)?)
+    }
+}
+
+impl Encodable for SeismicReceipt {
+    fn encode(&self, out: &mut dyn BufMut) {
+        self.network_encode(out);
+    }
+
+    fn length(&self) -> usize {
+        self.network_len()
+    }
+}
+
+impl Decodable for SeismicReceipt {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        Ok(Self::network_decode(buf)?)
     }
 }
 
@@ -277,6 +420,7 @@ mod compact {
                 SeismicTxType::Legacy => Self::Legacy(inner),
                 SeismicTxType::Eip2930 => Self::Eip2930(inner),
                 SeismicTxType::Eip1559 => Self::Eip1559(inner),
+                SeismicTxType::Eip4844 => Self::Eip4844(inner),
                 SeismicTxType::Eip7702 => Self::Eip7702(inner),
                 SeismicTxType::Seismic => Self::Seismic(inner),
             }
@@ -326,6 +470,8 @@ pub(super) mod serde_bincode_compat {
         Eip2930(alloy_consensus::serde_bincode_compat::Receipt<'a, alloy_primitives::Log>),
         /// EIP-1559 receipt
         Eip1559(alloy_consensus::serde_bincode_compat::Receipt<'a, alloy_primitives::Log>),
+        /// EIP-4844 receipt
+        Eip4844(alloy_consensus::serde_bincode_compat::Receipt<'a, alloy_primitives::Log>),
         /// EIP-7702 receipt
         Eip7702(alloy_consensus::serde_bincode_compat::Receipt<'a, alloy_primitives::Log>),
         /// Seismic receipt
@@ -338,6 +484,7 @@ pub(super) mod serde_bincode_compat {
                 super::SeismicReceipt::Legacy(receipt) => Self::Legacy(receipt.into()),
                 super::SeismicReceipt::Eip2930(receipt) => Self::Eip2930(receipt.into()),
                 super::SeismicReceipt::Eip1559(receipt) => Self::Eip1559(receipt.into()),
+                super::SeismicReceipt::Eip4844(receipt) => Self::Eip4844(receipt.into()),
                 super::SeismicReceipt::Eip7702(receipt) => Self::Eip7702(receipt.into()),
                 super::SeismicReceipt::Seismic(receipt) => Self::Seismic(receipt.into()),
             }
@@ -350,6 +497,7 @@ pub(super) mod serde_bincode_compat {
                 SeismicReceipt::Legacy(receipt) => Self::Legacy(receipt.into()),
                 SeismicReceipt::Eip2930(receipt) => Self::Eip2930(receipt.into()),
                 SeismicReceipt::Eip1559(receipt) => Self::Eip1559(receipt.into()),
+                SeismicReceipt::Eip4844(receipt) => Self::Eip4844(receipt.into()),
                 SeismicReceipt::Eip7702(receipt) => Self::Eip7702(receipt.into()),
                 SeismicReceipt::Seismic(receipt) => Self::Seismic(receipt.into()),
             }
@@ -404,7 +552,7 @@ pub(super) mod serde_bincode_compat {
             }
 
             let mut bytes = [0u8; 1024];
-            rand::thread_rng().fill(bytes.as_mut_slice());
+            rand::rng().fill(bytes.as_mut_slice());
             let mut data = Data {
                 reseipt: SeismicReceipt::arbitrary(&mut arbitrary::Unstructured::new(&bytes))
                     .unwrap(),

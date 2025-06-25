@@ -105,6 +105,8 @@ where
 
         let canonical_in_memory_state = blockchain_db.canonical_in_memory_state();
 
+        let backup_handle = BackupHandle::spawn_service(data_dir);
+
         let (to_tree_tx, from_tree) = EngineApiTreeHandler::<N::Primitives, _, _, _, _>::spawn_new(
             blockchain_db,
             consensus,
@@ -116,6 +118,7 @@ where
             invalid_block_hook,
             engine_kind,
             evm_config,
+            backup_handle,
         );
 
         let engine_handler = EngineApiRequestHandler::new(to_tree_tx, from_tree);
@@ -205,7 +208,7 @@ mod tests {
         let (tx, _rx) = unbounded_channel();
         let _eth_service = EngineService::new(
             consensus,
-            chain_spec,
+            chain_spec.clone(),
             client,
             Box::pin(incoming_requests),
             pipeline,

@@ -44,7 +44,6 @@ use tokio::sync::mpsc::UnboundedSender;
 use tracing::error;
 
 // seismic imports not used by upstream
-use reth_evm::execute::BlockExecutorProvider;
 use reth_node_core::dirs::{ChainPath, DataDirPath};
 
 /// Provides a local dev service engine that can be used to drive the
@@ -112,6 +111,7 @@ where
             invalid_block_hook,
             engine_kind,
             evm_config,
+            backup_handle,
         );
 
         let handler = EngineApiRequestHandler::new(to_tree_tx, from_tree);

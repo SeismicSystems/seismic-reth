@@ -12,7 +12,7 @@
 pub mod chainspec;
 
 use reth_chainspec::ChainSpec;
-use reth_cli_commands::node;
+use reth_cli_commands::{launcher::FnLauncher, node};
 use reth_seismic_node::args::EnclaveArgs;
 
 use std::{ffi::OsString, fmt, sync::Arc};
@@ -134,9 +134,9 @@ where
         let _ = install_prometheus_recorder();
 
         match self.command {
-            Commands::Node(command) => {
-                runner.run_command_until_exit(|ctx| command.execute(ctx, launcher))
-            }
+            Commands::Node(command) => runner.run_command_until_exit(|ctx| {
+                command.execute(ctx, FnLauncher::new::<C, Ext>(launcher))
+            }),
         }
     }
 

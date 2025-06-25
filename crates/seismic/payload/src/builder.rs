@@ -12,13 +12,13 @@ use reth_evm::{
     execute::{BlockBuilder, BlockBuilderOutcome},
     ConfigureEvm, Evm, NextBlockEnvAttributes,
 };
-use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
+use reth_payload_builder::{BlobSidecars, EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_payload_builder_primitives::PayloadBuilderError;
 use reth_payload_primitives::PayloadBuilderAttributes;
 use reth_primitives_traits::SignedTransaction;
 use reth_revm::{database::StateProviderDatabase, db::State};
 use reth_seismic_evm::SeismicEvmConfig;
-use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicTransactionSigned};
+use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
 use reth_storage_api::StateProviderFactory;
 use reth_transaction_pool::{
     error::InvalidPoolTransactionError, BestTransactions, BestTransactionsAttributes,
@@ -71,12 +71,12 @@ where
     Pool: TransactionPool<Transaction: PoolTransaction<Consensus = SeismicTransactionSigned>>,
 {
     type Attributes = EthPayloadBuilderAttributes;
-    type BuiltPayload = EthBuiltPayload<SeismicBlock>;
+    type BuiltPayload = EthBuiltPayload<SeismicPrimitives>;
 
     fn try_build(
         &self,
-        args: BuildArguments<EthPayloadBuilderAttributes, EthBuiltPayload<SeismicBlock>>,
-    ) -> Result<BuildOutcome<EthBuiltPayload<SeismicBlock>>, PayloadBuilderError> {
+        args: BuildArguments<EthPayloadBuilderAttributes, Self::BuiltPayload>,
+    ) -> Result<BuildOutcome<EthBuiltPayload<SeismicPrimitives>>, PayloadBuilderError> {
         default_seismic_payload(
             self.evm_config.clone(),
             self.client.clone(),
@@ -101,7 +101,7 @@ where
     fn build_empty_payload(
         &self,
         config: PayloadConfig<Self::Attributes>,
-    ) -> Result<EthBuiltPayload<SeismicBlock>, PayloadBuilderError> {
+    ) -> Result<Self::BuiltPayload, PayloadBuilderError> {
         let args = BuildArguments::new(Default::default(), config, Default::default(), None);
 
         default_seismic_payload(
@@ -128,9 +128,9 @@ pub fn default_seismic_payload<EvmConfig, Client, Pool, F>(
     client: Client,
     pool: Pool,
     builder_config: SeismicBuilderConfig,
-    args: BuildArguments<EthPayloadBuilderAttributes, EthBuiltPayload<SeismicBlock>>,
+    args: BuildArguments<EthPayloadBuilderAttributes, EthBuiltPayload<SeismicPrimitives>>,
     best_txs: F,
-) -> Result<BuildOutcome<EthBuiltPayload<SeismicBlock>>, PayloadBuilderError>
+) -> Result<BuildOutcome<EthBuiltPayload<SeismicPrimitives>>, PayloadBuilderError>
 where
     EvmConfig:
         ConfigureEvm<Primitives = SeismicPrimitives, NextBlockEnvCtx = NextBlockEnvAttributes>,
@@ -265,14 +265,20 @@ where
             .map_err(PayloadBuilderError::other)?;
     }
 
+    let mut sidecars = BlobSidecars::Empty;
+    blob_sidecars
+        .into_iter()
+        .map(Arc::unwrap_or_clone)
+        .for_each(|s| sidecars.push_sidecar_variant(s));
+
     let sealed_block = Arc::new(block.sealed_block().clone());
     debug!(target: "payload_builder", id=%attributes.id, sealed_block_header = ?sealed_block.sealed_header(), "sealed built block");
 
-    let payload = EthBuiltPayload::<SeismicBlock>::new_seismic_payload(
+    let payload = EthBuiltPayload::<SeismicPrimitives>::new_seismic_payload(
         attributes.id,
         sealed_block,
         total_fees,
-        blob_sidecars.into_iter().map(Arc::unwrap_or_clone).collect(),
+        sidecars,
         requests,
     );
 

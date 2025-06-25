@@ -310,7 +310,7 @@ impl ProviderCaches {
         &self,
         address: Address,
         key: StorageKey,
-        value: Option<FlaggedStorage>,
+        value: Option<StorageValue>,
     ) {
         let account_cache = self.storage_cache.get(&address).unwrap_or_else(|| {
             let account_cache = AccountStorageCache::default();
@@ -536,7 +536,7 @@ impl SavedCache {
 #[derive(Debug, Clone)]
 pub(crate) struct AccountStorageCache {
     /// The storage slots for this account
-    slots: Cache<StorageKey, Option<FlaggedStorage>>,
+    slots: Cache<StorageKey, Option<StorageValue>>,
 }
 
 impl AccountStorageCache {
@@ -560,7 +560,7 @@ impl AccountStorageCache {
     }
 
     /// Insert a storage value
-    pub(crate) fn insert_storage(&self, key: StorageKey, value: Option<FlaggedStorage>) {
+    pub(crate) fn insert_storage(&self, key: StorageKey, value: Option<StorageValue>) {
         self.slots.insert(key, value);
     }
 
@@ -676,8 +676,8 @@ mod tests {
 
         println!("\nTheoretical sizes:");
         println!("StorageKey size: {} bytes", size_of::<StorageKey>());
-        println!("FlaggedStorage size: {} bytes", size_of::<FlaggedStorage>());
-        println!("Option<FlaggedStorage> size: {} bytes", size_of::<Option<FlaggedStorage>>());
+        println!("StorageValue size: {} bytes", size_of::<StorageValue>());
+        println!("Option<StorageValue> size: {} bytes", size_of::<Option<StorageValue>>());
         println!("Option<B256> size: {} bytes", size_of::<Option<B256>>());
     }
 
@@ -708,8 +708,8 @@ mod tests {
         let address = Address::random();
         let storage_key = StorageKey::random();
         let storage_value = U256::from(1);
-        let account =
-            ExtendedAccount::new(0, U256::ZERO).extend_storage(vec![(storage_key, storage_value)]);
+        let account = ExtendedAccount::new(0, U256::ZERO)
+            .extend_storage(vec![(storage_key, storage_value.into())]);
 
         // note that we extend storage here with one value
         let provider = MockEthProvider::default();
@@ -722,7 +722,7 @@ mod tests {
         // check that the storage is empty
         let res = state_provider.storage(address, storage_key);
         assert!(res.is_ok());
-        assert_eq!(res.unwrap(), Some(storage_value));
+        assert_eq!(res.unwrap(), Some(storage_value.into()));
     }
 
     #[test]
@@ -734,11 +734,11 @@ mod tests {
 
         // insert into caches directly
         let caches = ProviderCacheBuilder::default().build_caches(1000);
-        caches.insert_storage(address, storage_key, Some(storage_value));
+        caches.insert_storage(address, storage_key, Some(storage_value.into()));
 
         // check that the storage is empty
         let slot_status = caches.get_storage(&address, &storage_key);
-        assert_eq!(slot_status, SlotStatus::Value(storage_value));
+        assert_eq!(slot_status, SlotStatus::Value(storage_value.into()));
     }
 
     #[test]
