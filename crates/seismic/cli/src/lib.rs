@@ -184,4 +184,23 @@ mod test {
 
         assert!(cmd.dev.dev);
     }
+
+    #[test]
+    fn parse_test() {
+        let cmd =
+            NodeCommand::<SeismicChainSpecParser, NoArgs>::parse_from(["seismic-reth", "--test"]);
+        let chain = SEISMIC_DEV.clone();
+        assert_eq!(cmd.chain.chain, chain.chain);
+        assert_eq!(cmd.chain.genesis_hash(), chain.genesis_hash());
+        assert_eq!(
+            cmd.chain.paris_block_and_final_difficulty,
+            chain.paris_block_and_final_difficulty
+        );
+        assert_eq!(cmd.chain.hardforks, chain.hardforks);
+
+        assert!(cmd.rpc.http);
+        assert!(cmd.network.discovery.disable_discovery);
+
+        assert!(cmd.dev.dev);
+    }
 }

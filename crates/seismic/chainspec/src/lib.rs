@@ -26,31 +26,34 @@ pub const SEISMIC_MAINNET_GENESIS_HASH: B256 =
 /// Calculated by rlp encoding the genesis header and hashing it
 /// Currently matches the mainnet genesis hash because they have matching hardforks
 pub const SEISMIC_DEV_GENESIS_HASH: B256 =
-    b256!("0x2f980576711e3617a5e4d83dd539548ec0f7792007d505a3d2e9674833af2d7c");
+    b256!("0x683713729fcb72be6f3d8b88c8cda3e10569d73b9640d3bf6f5184d94bd97616");
 
-/// Seismic testnet specification
+/// Seismic devnet specification
 pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
-    // let genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
-    //     .expect("Can't deserialize Dev testnet genesis json");
-    // let hardforks = SEISMIC_DEV_HARDFORKS.clone();
-    // ChainSpec {
-    //     chain: Chain::from_id(5124),
-    //     genesis_header: SealedHeader::new(
-    //         make_genesis_header(&genesis, &hardforks),
-    //         SEISMIC_DEV_GENESIS_HASH,
-    //     ),
-    //     genesis,
-    //     paris_block_and_final_difficulty: Some((0, U256::from(0))),
-    //     hardforks: DEV_HARDFORKS.clone(),
-    //     ..Default::default()
-    // }
-    // .into()
-
     let genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
         .expect("Can't deserialize Dev testnet genesis json");
-    let hardforks = DEV_HARDFORKS.clone();
+    let hardforks = SEISMIC_DEV_HARDFORKS.clone();
     ChainSpec {
-        chain: Chain::dev(),
+        chain: Chain::from_id(5124),
+        genesis_header: SealedHeader::new(
+            make_genesis_header(&genesis, &hardforks),
+            SEISMIC_DEV_GENESIS_HASH,
+        ),
+        genesis,
+        paris_block_and_final_difficulty: Some((0, U256::from(0))),
+        hardforks: DEV_HARDFORKS.clone(),
+        ..Default::default()
+    }
+    .into()
+});
+
+/// Seismic testnet specification
+pub static SEISMIC_DEV_OLD: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
+    let genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
+        .expect("Can't deserialize Dev testnet genesis json");
+    let hardforks = SEISMIC_DEV_HARDFORKS.clone();
+    ChainSpec {
+        chain: Chain::from_id(5124),
         genesis_header: SealedHeader::new(
             make_genesis_header(&genesis, &hardforks),
             DEV_GENESIS_HASH,
@@ -58,8 +61,6 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
         genesis,
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
         hardforks: DEV_HARDFORKS.clone(),
-        base_fee_params: BaseFeeParamsKind::Constant(BaseFeeParams::ethereum()),
-        deposit_contract: None, // TODO: do we even have?
         ..Default::default()
     }
     .into()
