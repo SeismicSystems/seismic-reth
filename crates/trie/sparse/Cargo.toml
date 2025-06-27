@@ -31,6 +31,8 @@ smallvec = { workspace = true, features = ["const_new"] }
 reth-metrics = { workspace = true, optional = true }
 metrics = { workspace = true, optional = true }
 
+revm-state.workspace = true
+
 [dev-dependencies]
 reth-primitives-traits = { workspace = true, features = ["arbitrary"] }
 reth-provider = { workspace = true, features = ["test-utils"] }
