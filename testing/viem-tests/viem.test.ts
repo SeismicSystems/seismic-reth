@@ -34,24 +34,24 @@ const encryptionSk =
 const encryptionPubkey =
     "0x028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0";
 
-let url: string;
-let wsUrl: string;
+let url: string = 'https://node-1.seismicdev.net/rpc';
+let wsUrl: string = 'wss://node-1.seismicdev.net/ws';
 let exitProcess: () => Promise<void>;
 let pcParams: { chain: Chain; url: string };
 
-beforeAll(async () => {
-    await buildNode(chain);
-    const debug = false;
-    const rethArgs = debug
-        ? { port, ws: true, silent: false, verbosity: 4 }
-        : { port, ws: true };
+// beforeAll(async () => {
+//     await buildNode(chain);
+//     const debug = false;
+//     const rethArgs = debug
+//         ? { port, ws: true, silent: false, verbosity: 4 }
+//         : { port, ws: true };
 
-    const node = await setupNode(chain, rethArgs);
-    pcParams = { chain, url: node.url };
-    exitProcess = node.exitProcess;
-    url = node.url;
-    wsUrl = `ws://localhost:${port}`;
-});
+//     const node = await setupNode(chain, rethArgs);
+//     pcParams = { chain, url: node.url };
+//     exitProcess = node.exitProcess;
+//     url = node.url;
+//     wsUrl = `ws://localhost:${port}`;
+// });
 
 describe("Seismic Contract", async () => {
     test(
@@ -188,5 +188,5 @@ describe("Transaction Trace", async () => {
 });
 
 afterAll(async () => {
-    await exitProcess();
+    // await exitProcess();
 });

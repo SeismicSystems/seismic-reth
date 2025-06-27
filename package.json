@@ -7,6 +7,6 @@
     "viem:test": "bun run --cwd testing/viem-tests test"
   },
   "dependencies": {
-    "seismic-viem": "^1.0.34"
+    "seismic-viem": "^1.0.44"
   }
 }
