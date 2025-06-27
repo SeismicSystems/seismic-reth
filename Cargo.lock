@@ -9474,6 +9474,7 @@ dependencies = [
  "reth-rpc-builder",
  "reth-rpc-eth-api",
  "reth-rpc-eth-types",
+ "reth-rpc-layer",
  "reth-rpc-server-types",
  "reth-seismic-chainspec",
  "reth-seismic-evm",
@@ -9498,6 +9499,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "tower 0.5.2",
 ]
 
 [[package]]
