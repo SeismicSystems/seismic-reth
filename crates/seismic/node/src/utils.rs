@@ -53,6 +53,7 @@ pub mod test_utils {
                 .arg("1")
                 .arg("--enclave.mock-server")
                 .arg("-vvvv")
+                .arg("8545")
                 .current_dir(workspace_root)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())

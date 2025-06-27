@@ -57,11 +57,32 @@ pub trait EthBlocks: LoadBlock {
     where
         Self: FullEthApiTypes,
     {
-        async move {
-            let Some(block) = self.recovered_block(block_id).await? else { return Ok(None) };
+        // async move {
+        //     let Some(block) = self.recovered_block(block_id).await? else { return Ok(None) };
 
-            let block = from_block((*block).clone(), full.into(), self.tx_resp_builder())?;
-            Ok(Some(block))
+        //     let block = from_block((*block).clone(), full.into(), self.tx_resp_builder())?;
+        //     Ok(Some(block))
+        // }
+        async move {
+            match self.recovered_block(block_id).await {
+                Ok(Some(block)) => {
+                    match from_block((*block).clone(), full.into(), self.tx_resp_builder()) {
+                        Ok(block) => Ok(Some(block)),
+                        Err(e) => {
+                            tracing::error!("from_block Error: {:?}", e);
+                            return Err(e);
+                        },
+                    }
+                }
+                Ok(None) => {
+                    tracing::error!("recovered_block returned None");
+                    Ok(None)
+                },
+                Err(e) => {
+                    tracing::error!("recovered_block Error: {:?}", e);
+                    Err(e)
+                },
+            }
         }
     }
 

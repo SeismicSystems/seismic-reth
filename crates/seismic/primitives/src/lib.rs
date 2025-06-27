@@ -21,6 +21,9 @@ mod receipt;
 pub use receipt::SeismicReceipt;
 pub mod test_utils;
 
+/// Seismic-specific RPC block type.
+pub type SeismicRpcBlock = alloy_rpc_types::Block<SeismicTransactionSigned>;
+
 /// Seismic-specific block type.
 pub type SeismicBlock = alloy_consensus::Block<SeismicTransactionSigned>;
 

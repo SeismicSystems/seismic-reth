@@ -21,7 +21,7 @@ use reth_seismic_node::utils::test_utils::{
     client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
     get_unsigned_seismic_tx_request, SeismicRethTestCommand,
 };
-use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
+use reth_seismic_primitives::{SeismicBlock, SeismicRpcBlock, SeismicTransactionSigned};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
 use seismic_alloy_network::{wallet::SeismicWallet, SeismicReth};
 use seismic_alloy_provider::{
@@ -117,7 +117,7 @@ async fn test_seismic_reth_rpc() {
     // Get the transaction receipt
     let receipt = EthApiClient::<
         SeismicTransactionSigned,
-        SeismicBlock,
+        SeismicBlock, // NOTE: all of these should probably be SeismicRpcBlock
         SeismicTransactionReceipt,
         Header,
     >::transaction_receipt(&client, tx_hash)
@@ -758,7 +758,7 @@ async fn test_engine_api_payload_workflow() {
     // **** THIS CURRENTLY FAILS BUT I HARDCODED THE DATA WE NEED BELOW SO YOU CAN COMMENT OUT TO MOVE TEST FORWARD
     let current_block = EthApiClient::<
         SeismicTransactionSigned,
-        SeismicBlock,
+        SeismicRpcBlock,
         SeismicTransactionReceipt,
         Header,
     >::block_by_number(&client, BlockNumberOrTag::Latest, true)
