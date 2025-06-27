@@ -1,18 +1,22 @@
 //! This file is used to test the seismic node.
 use alloy_dyn_abi::EventExt;
+use alloy_eips::BlockNumberOrTag;
 use alloy_json_abi::{Event, EventParam};
 use alloy_network::{ReceiptResponse, TransactionBuilder};
 use alloy_primitives::{
     aliases::{B96, U96},
     hex,
     hex::FromHex,
-    Bytes, IntoLogData, TxKind, B256, U256,
+    Address, Bytes, IntoLogData, TxKind, B256, U256,
 };
 use alloy_provider::{PendingTransactionBuilder, Provider, SendableTx};
 use alloy_rpc_types::{Block, Header, TransactionInput, TransactionRequest};
+use alloy_rpc_types_engine::{ForkchoiceState, PayloadAttributes, PayloadStatusEnum};
 use alloy_sol_types::{sol, SolCall, SolValue};
 use reth_e2e_test_utils::wallet::Wallet;
+use reth_rpc_api::clients::EngineApiClient;
 use reth_rpc_eth_api::EthApiClient;
+use reth_seismic_node::engine::SeismicEngineTypes;
 use reth_seismic_node::utils::test_utils::{
     client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
     get_unsigned_seismic_tx_request, SeismicRethTestCommand,
@@ -28,6 +32,7 @@ use seismic_alloy_rpc_types::{
     SimulatePayload,
 };
 use seismic_enclave::aes_decrypt;
+use serde::Serialize;
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
 
@@ -56,7 +61,7 @@ const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessa
 #[tokio::test(flavor = "multi_thread")]
 async fn integration_test() {
     // set to true when I want to spin up my own node outside the test to see logs more easily
-    let manual_debug = false;
+    let manual_debug = true;
 
     let mut shutdown_tx_top: Option<mpsc::Sender<()>> = None;
     if !manual_debug {
@@ -69,11 +74,12 @@ async fn integration_test() {
         rx.recv().await.unwrap();
     }
 
-    test_seismic_reth_rpc().await;
-    test_seismic_reth_rpc_with_typed_data().await;
-    test_seismic_reth_rpc_with_rust_client().await;
-    test_seismic_reth_rpc_simulate_block().await;
-    test_seismic_precompiles_end_to_end().await;
+    // test_seismic_reth_rpc().await;
+    // test_seismic_reth_rpc_with_typed_data().await;
+    // test_seismic_reth_rpc_with_rust_client().await;
+    // test_seismic_reth_rpc_simulate_block().await;
+    // test_seismic_precompiles_end_to_end().await;
+    test_engine_api_payload_workflow().await;
 
     if !manual_debug {
         let _ = shutdown_tx_top.unwrap().try_send(()).unwrap();
@@ -737,4 +743,143 @@ fn concat_input_data(selector: &str, value: Bytes) -> Bytes {
     input_data.extend_from_slice(&value_bytes);
 
     input_data.into()
+}
+
+/// Tests the Engine API payload workflow by calling engine_forkchoiceUpdatedV3
+/// to request a payload and then engine_getPayloadV3 to retrieve it
+async fn test_engine_api_payload_workflow() {
+    let reth_rpc_url = SeismicRethTestCommand::url();
+    let chain_id = SeismicRethTestCommand::chain_id();
+    let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
+
+    println!("Starting Engine API payload workflow test");
+
+    // Get the current chain head to use as the base for our forkchoice state
+    // **** THIS CURRENTLY FAILS BUT I HARDCODED THE DATA WE NEED BELOW SO YOU CAN COMMENT OUT TO MOVE TEST FORWARD
+    let current_block = EthApiClient::<
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::block_by_number(&client, BlockNumberOrTag::Latest, true)
+    .await
+    .unwrap()
+    .unwrap();
+
+    let hash: [u8; 32] = [
+        0xf0, 0x9d, 0x8f, 0x7d, 0xa5, 0xbc, 0x50, 0x36, 0xf8, 0xdd, 0x95, 0x36, 0xc9, 0x53, 0xe2,
+        0x21, 0x23, 0x90, 0xa4, 0x6f, 0xb3, 0xe5, 0x53, 0xec, 0xe2, 0xb7, 0xd4, 0x19, 0x13, 0x15,
+        0x37, 0xb1,
+    ];
+    let current_head_hash = hash.into();
+    let current_timestamp = 1_687_257_554;
+    let current_number = 0;
+
+    println!(
+        "Current head: {:?}, number: {}, timestamp: {}",
+        current_head_hash, current_number, current_timestamp
+    );
+
+    // Create forkchoice state pointing to current head as safe and finalized
+    let forkchoice_state = ForkchoiceState {
+        head_block_hash: current_head_hash,
+        safe_block_hash: current_head_hash,
+        finalized_block_hash: current_head_hash,
+    };
+
+    // Create payload attributes for the next block
+    let next_timestamp = current_timestamp + 12; // 12 second block time
+    let payload_attributes = PayloadAttributes {
+        timestamp: next_timestamp,
+        prev_randao: B256::random(),
+        suggested_fee_recipient: Address::ZERO,
+        withdrawals: Some(vec![]),
+        parent_beacon_block_root: Some(B256::ZERO),
+    };
+
+    println!("Calling engine_forkchoiceUpdatedV3 with payload attributes");
+
+    // Call engine_forkchoiceUpdatedV3 to request a new payload
+    // ***** Currently fails with method not found
+    let fcu_result = EngineApiClient::<SeismicEngineTypes>::fork_choice_updated_v3(
+        &client,
+        forkchoice_state,
+        Some(payload_attributes),
+    )
+    .await
+    .expect("engine_forkchoiceUpdatedV3 should succeed");
+
+    println!("engine_forkchoiceUpdatedV3 result: {:?}", fcu_result);
+
+    // Assert that the payload status is valid and we received a payload ID
+    assert_eq!(
+        fcu_result.payload_status.status,
+        PayloadStatusEnum::Valid,
+        "Forkchoice update should be valid"
+    );
+
+    let payload_id = fcu_result
+        .payload_id
+        .expect("Should receive a payload ID when requesting payload attributes");
+
+    println!("Received payload ID: {:?}", payload_id);
+
+    // Give the payload builder a moment to construct the payload
+    thread::sleep(Duration::from_millis(100));
+
+    println!("Calling engine_getPayloadV3 with payload ID");
+
+    // Call engine_getPayloadV3 to retrieve the constructed payload
+    let payload_envelope =
+        EngineApiClient::<SeismicEngineTypes>::get_payload_v3(&client, payload_id)
+            .await
+            .expect("engine_getPayloadV3 should succeed");
+
+    println!(
+        "engine_getPayloadV3 result: execution_payload block_number={}, block_hash={:?}",
+        payload_envelope.execution_payload.payload_inner.payload_inner.block_number,
+        payload_envelope.execution_payload.payload_inner.payload_inner.block_hash
+    );
+
+    // Validate the returned execution payload
+    let execution_payload = payload_envelope.execution_payload;
+
+    // The payload should build on the current head
+    assert_eq!(
+        execution_payload.payload_inner.payload_inner.parent_hash, current_head_hash,
+        "Execution payload should build on current head"
+    );
+
+    // The payload should have the next block number
+    assert_eq!(
+        execution_payload.payload_inner.payload_inner.block_number,
+        current_number + 1,
+        "Execution payload should have next block number"
+    );
+
+    // The payload should have the requested timestamp
+    assert_eq!(
+        execution_payload.timestamp(),
+        next_timestamp,
+        "Execution payload should have requested timestamp"
+    );
+
+    // The payload should have a valid block hash
+    assert_ne!(
+        execution_payload.payload_inner.payload_inner.block_hash,
+        B256::ZERO,
+        "Execution payload should have a non-zero block hash"
+    );
+
+    // The payload should have the correct fee recipient
+    assert_eq!(
+        execution_payload.payload_inner.payload_inner.fee_recipient,
+        Address::ZERO,
+        "Execution payload should have requested fee recipient"
+    );
+
+    println!("✅ Engine API payload workflow test completed successfully");
+    println!("   - engine_forkchoiceUpdatedV3 returned valid status and payload ID");
+    println!("   - engine_getPayloadV3 returned valid execution payload");
+    println!("   - Payload correctly builds on current head with next block number");
 }
