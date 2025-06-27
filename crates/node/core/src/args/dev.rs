@@ -19,11 +19,6 @@ pub struct DevArgs {
     #[arg(long = "dev", alias = "auto-mine", help_heading = "Dev testnet", verbatim_doc_comment)]
     pub dev: bool,
 
-    /// Start the node in old Seismic devnet mode (so genesis hash is same)
-    /// TODO: remove this once we launch devnet with consensus
-    #[arg(long = "dev-old", help_heading = "Dev testnet", verbatim_doc_comment)]
-    pub dev_old: bool,
-
     /// How many transactions to mine per block.
     #[arg(
         long = "dev.block-max-transactions",
@@ -61,13 +56,13 @@ mod tests {
     #[test]
     fn test_parse_dev_args() {
         let args = CommandParser::<DevArgs>::parse_from(["reth"]).args;
-        assert_eq!(args, DevArgs { dev: false, block_max_transactions: None, block_time: None, dev_old: false });
+        assert_eq!(args, DevArgs { dev: false, block_max_transactions: None, block_time: None });
 
         let args = CommandParser::<DevArgs>::parse_from(["reth", "--dev"]).args;
-        assert_eq!(args, DevArgs { dev: true, block_max_transactions: None, block_time: None, dev_old: false });
+        assert_eq!(args, DevArgs { dev: true, block_max_transactions: None, block_time: None });
 
         let args = CommandParser::<DevArgs>::parse_from(["reth", "--auto-mine"]).args;
-        assert_eq!(args, DevArgs { dev: true, block_max_transactions: None, block_time: None, dev_old: false });
+        assert_eq!(args, DevArgs { dev: true, block_max_transactions: None, block_time: None });
 
         let args = CommandParser::<DevArgs>::parse_from([
             "reth",
@@ -76,7 +71,7 @@ mod tests {
             "2",
         ])
         .args;
-        assert_eq!(args, DevArgs { dev: true, block_max_transactions: Some(2), block_time: None, dev_old: false });
+        assert_eq!(args, DevArgs { dev: true, block_max_transactions: Some(2), block_time: None });
 
         let args =
             CommandParser::<DevArgs>::parse_from(["reth", "--dev", "--dev.block-time", "1s"]).args;
@@ -85,8 +80,7 @@ mod tests {
             DevArgs {
                 dev: true,
                 block_max_transactions: None,
-                block_time: Some(std::time::Duration::from_secs(1)),
-                dev_old: false,
+                block_time: Some(std::time::Duration::from_secs(1))
             }
         );
     }

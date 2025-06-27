@@ -13,7 +13,7 @@ use std::sync::Arc;
 use alloy_chains::Chain;
 use alloy_consensus::constants::DEV_GENESIS_HASH;
 use alloy_primitives::{b256, B256, U256};
-use reth_chainspec::{make_genesis_header, BaseFeeParams, BaseFeeParamsKind, ChainSpec, DEV_HARDFORKS};
+use reth_chainspec::{make_genesis_header, ChainSpec, DEV_HARDFORKS};
 use reth_primitives_traits::{sync::LazyLock, SealedHeader};
 use reth_seismic_forks::{SEISMIC_DEV_HARDFORKS, SEISMIC_MAINNET_HARDFORKS};
 
@@ -48,6 +48,7 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 });
 
 /// Seismic testnet specification
+/// TODO: remove this once we launch devnet with consensus
 pub static SEISMIC_DEV_OLD: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     let genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
         .expect("Can't deserialize Dev testnet genesis json");

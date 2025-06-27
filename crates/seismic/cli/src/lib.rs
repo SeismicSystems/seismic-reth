@@ -164,7 +164,7 @@ mod test {
     use crate::chainspec::SeismicChainSpecParser;
     use clap::Parser;
     use reth_cli_commands::{node::NoArgs, NodeCommand};
-    use reth_seismic_chainspec::SEISMIC_DEV;
+    use reth_seismic_chainspec::{SEISMIC_DEV, SEISMIC_DEV_OLD};
 
     #[test]
     fn parse_dev() {
@@ -186,10 +186,11 @@ mod test {
     }
 
     #[test]
-    fn parse_test() {
+    fn parse_dev_old() {
+        // TODO: remove this once we launch devnet with consensus
         let cmd =
-            NodeCommand::<SeismicChainSpecParser, NoArgs>::parse_from(["seismic-reth", "--test"]);
-        let chain = SEISMIC_DEV.clone();
+            NodeCommand::<SeismicChainSpecParser, NoArgs>::parse_from(["seismic-reth", "--chain", "dev-old", "--http", "-d"]);
+        let chain = SEISMIC_DEV_OLD.clone();
         assert_eq!(cmd.chain.chain, chain.chain);
         assert_eq!(cmd.chain.genesis_hash(), chain.genesis_hash());
         assert_eq!(
@@ -200,7 +201,5 @@ mod test {
 
         assert!(cmd.rpc.http);
         assert!(cmd.network.discovery.disable_discovery);
-
-        assert!(cmd.dev.dev);
     }
 }
