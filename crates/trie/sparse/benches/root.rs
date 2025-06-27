@@ -14,7 +14,9 @@ use reth_trie::{
 };
 use reth_trie_common::{HashBuilder, Nibbles};
 use reth_trie_sparse::SparseTrie;
-use revm_state::FlaggedStorage;
+
+// seismic-only dependencies
+use alloy_primitives::FlaggedStorage;
 
 fn calculate_root_from_leaves(c: &mut Criterion) {
     let is_private = false; // hardcode to false for legacy test
@@ -232,13 +234,14 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
     }
 }
 
-fn generate_test_data(size: usize) -> B256Map<U256> {
+fn generate_test_data(size: usize) -> B256Map<FlaggedStorage> {
     let mut runner = TestRunner::deterministic();
     proptest::collection::hash_map(any::<B256>(), any::<U256>(), size)
         .new_tree(&mut runner)
         .unwrap()
         .current()
         .into_iter()
+        .map(|(key, value)| (key, FlaggedStorage::new(value, false)))
         .collect()
 }
 
