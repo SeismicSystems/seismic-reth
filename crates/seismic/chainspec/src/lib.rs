@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use alloy_chains::Chain;
+use alloy_consensus::constants::DEV_GENESIS_HASH;
 use alloy_primitives::{b256, B256, U256};
 use reth_chainspec::{make_genesis_header, ChainSpec, DEV_HARDFORKS};
 use reth_primitives_traits::{sync::LazyLock, SealedHeader};
@@ -27,7 +28,7 @@ pub const SEISMIC_MAINNET_GENESIS_HASH: B256 =
 pub const SEISMIC_DEV_GENESIS_HASH: B256 =
     b256!("0x683713729fcb72be6f3d8b88c8cda3e10569d73b9640d3bf6f5184d94bd97616");
 
-/// Seismic testnet specification
+/// Seismic devnet specification
 pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     let genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
         .expect("Can't deserialize Dev testnet genesis json");
@@ -37,6 +38,26 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
         genesis_header: SealedHeader::new(
             make_genesis_header(&genesis, &hardforks),
             SEISMIC_DEV_GENESIS_HASH,
+        ),
+        genesis,
+        paris_block_and_final_difficulty: Some((0, U256::from(0))),
+        hardforks: DEV_HARDFORKS.clone(),
+        ..Default::default()
+    }
+    .into()
+});
+
+// TODO: remove this once we launch devnet with consensus
+/// Seismic old devnet specification
+pub static SEISMIC_DEV_OLD: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
+    let genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
+        .expect("Can't deserialize Dev testnet genesis json");
+    let hardforks = SEISMIC_DEV_HARDFORKS.clone();
+    ChainSpec {
+        chain: Chain::from_id(5124),
+        genesis_header: SealedHeader::new(
+            make_genesis_header(&genesis, &hardforks),
+            DEV_GENESIS_HASH,
         ),
         genesis,
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
