@@ -188,8 +188,13 @@ mod test {
     #[test]
     fn parse_dev_old() {
         // TODO: remove this once we launch devnet with consensus
-        let cmd =
-            NodeCommand::<SeismicChainSpecParser, NoArgs>::parse_from(["seismic-reth", "--chain", "dev-old", "--http", "-d"]);
+        let cmd = NodeCommand::<SeismicChainSpecParser, NoArgs>::parse_from([
+            "seismic-reth",
+            "--chain",
+            "dev-old",
+            "--http",
+            "-d",
+        ]);
         let chain = SEISMIC_DEV_OLD.clone();
         assert_eq!(cmd.chain.chain, chain.chain);
         assert_eq!(cmd.chain.genesis_hash(), chain.genesis_hash());
