@@ -1259,8 +1259,8 @@ mod tests {
         let mut storage = HashedStorage::default();
         let slot1 = B256::random();
         let slot2 = B256::random();
-        storage.storage.insert(slot1, U256::ZERO);
-        storage.storage.insert(slot2, U256::from(1));
+        storage.storage.insert(slot1, U256::ZERO.into());
+        storage.storage.insert(slot2, U256::from(1).into());
         state.storages.insert(addr1, storage);
 
         state
@@ -1365,8 +1365,8 @@ mod tests {
         state.accounts.insert(addr2, Some(Default::default()));
 
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, U256::ZERO);
-        storage.storage.insert(slot2, U256::from(1));
+        storage.storage.insert(slot1, U256::ZERO.into());
+        storage.storage.insert(slot2, U256::from(1).into());
         state.storages.insert(addr1, storage);
 
         let mut fetched_slots = HashSet::default();
@@ -1392,8 +1392,8 @@ mod tests {
         // don't add the account to state.accounts (simulating unmodified account)
         // but add storage updates for this account
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, U256::from(1));
-        storage.storage.insert(slot2, U256::from(2));
+        storage.storage.insert(slot1, U256::from(1).into());
+        storage.storage.insert(slot2, U256::from(2).into());
         state.storages.insert(addr, storage);
 
         assert!(!state.accounts.contains_key(&addr));

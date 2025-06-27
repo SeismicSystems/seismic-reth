@@ -1,4 +1,5 @@
 use alloy_primitives::{B256, U256};
+use revm_state::FlaggedStorage;
 
 /// Account storage entry.
 ///
@@ -12,18 +13,37 @@ pub struct StorageEntry {
     pub key: B256,
     /// Value on storage key.
     pub value: U256,
+    /// Indicates whether the value is private
+    pub is_private: bool,
 }
 
 impl StorageEntry {
     /// Create a new `StorageEntry` with given key and value.
-    pub const fn new(key: B256, value: U256) -> Self {
-        Self { key, value }
+    pub const fn new(key: B256, value: U256, is_private: bool) -> Self {
+        Self { key, value, is_private }
+    }
+
+    /// Convert the storage entry to a flagged storage entry.
+    pub const fn to_flagged_storage(self) -> FlaggedStorage {
+        FlaggedStorage { value: self.value, is_private: self.is_private }
     }
 }
 
-impl From<(B256, U256)> for StorageEntry {
-    fn from((key, value): (B256, U256)) -> Self {
-        Self { key, value }
+impl From<(B256, U256, bool)> for StorageEntry {
+    fn from((key, value, is_private): (B256, U256, bool)) -> Self {
+        Self { key, value, is_private }
+    }
+}
+
+impl From<(B256, (U256, bool))> for StorageEntry {
+    fn from((key, (value, is_private)): (B256, (U256, bool))) -> Self {
+        Self { key, value, is_private }
+    }
+}
+
+impl From<StorageEntry> for FlaggedStorage {
+    fn from(entry: StorageEntry) -> Self {
+        Self { value: entry.value, is_private: entry.is_private }
     }
 }
 
@@ -38,12 +58,14 @@ impl reth_codecs::Compact for StorageEntry {
     {
         // for now put full bytes and later compress it.
         buf.put_slice(&self.key[..]);
-        self.value.to_compact(buf) + 32
+        buf.put_u8(self.is_private as u8);
+        self.value.to_compact(buf) + 32 + 1
     }
 
     fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
         let key = B256::from_slice(&buf[..32]);
-        let (value, out) = U256::from_compact(&buf[32..], len - 32);
-        (Self { key, value }, out)
+        let is_private = buf[32] != 0;
+        let (value, out) = U256::from_compact(&buf[33..], len - 33);
+        (Self { key, value, is_private }, out)
     }
 }

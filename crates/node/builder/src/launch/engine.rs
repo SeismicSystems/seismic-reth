@@ -228,6 +228,7 @@ where
                 ctx.dev_mining_mode(ctx.components().pool()),
                 LocalPayloadAttributesBuilder::new(ctx.chain_spec()),
                 ctx.components().evm_config().clone(),
+                ctx.data_dir().clone(),
             );
 
             Either::Left(eth_service)
@@ -248,6 +249,7 @@ where
                 ctx.invalid_block_hook()?,
                 ctx.sync_metrics_tx(),
                 ctx.components().evm_config().clone(),
+                ctx.data_dir().clone(),
             );
 
             Either::Right(eth_service)
@@ -321,7 +323,7 @@ where
                     }
                     event = engine_service.next() => {
                         let Some(event) = event else { break };
-                        debug!(target: "reth::cli", "Event: {event}");
+                        // debug!(target: "reth::cli", "ChainEvent: {event}");
                         match event {
                             ChainEvent::BackfillSyncFinished => {
                                 if terminate_after_backfill {

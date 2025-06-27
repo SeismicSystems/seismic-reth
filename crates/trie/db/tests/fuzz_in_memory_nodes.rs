@@ -16,6 +16,7 @@ use reth_trie::{
     HashedPostState, HashedStorage, StateRoot, StorageRoot,
 };
 use reth_trie_db::{DatabaseStateRoot, DatabaseStorageRoot, DatabaseTrieCursorFactory};
+use revm::state::FlaggedStorage;
 use std::collections::BTreeMap;
 
 proptest! {
@@ -85,7 +86,7 @@ proptest! {
         // Insert init state into database
         for (hashed_slot, value) in init_storage.clone() {
             hashed_storage_cursor
-                .upsert(hashed_address, &StorageEntry { key: hashed_slot, value })
+                .upsert(hashed_address, &StorageEntry { key: hashed_slot, value, is_private: false })
                 .unwrap();
         }
 
@@ -102,9 +103,9 @@ proptest! {
             let mut hashed_storage = HashedStorage::new(is_deleted);
             for (hashed_slot, value) in storage_update.clone() {
                 hashed_storage_cursor
-                    .upsert(hashed_address, &StorageEntry { key: hashed_slot, value })
+                    .upsert(hashed_address, &StorageEntry { key: hashed_slot, value: value, is_private: false })
                     .unwrap();
-                hashed_storage.storage.insert(hashed_slot, value);
+                hashed_storage.storage.insert(hashed_slot, FlaggedStorage::new_from_value(value));
             }
 
             // Compute root with in-memory trie nodes overlay

@@ -628,7 +628,7 @@ mod tests {
                     let mut storage_cursor =
                         tx.cursor_dup_write::<tables::HashedStorages>().unwrap();
 
-                    let mut tree: BTreeMap<B256, BTreeMap<B256, U256>> = BTreeMap::new();
+                    let mut tree: BTreeMap<B256, BTreeMap<B256, (U256, bool)>> = BTreeMap::new();
 
                     let mut rev_changeset_walker =
                         storage_changesets_cursor.walk_back(None).unwrap();
@@ -641,10 +641,10 @@ mod tests {
 
                         tree.entry(keccak256(bn_address.address()))
                             .or_default()
-                            .insert(keccak256(entry.key), entry.value);
+                            .insert(keccak256(entry.key), (entry.value, entry.is_private));
                     }
                     for (hashed_address, storage) in tree {
-                        for (hashed_slot, value) in storage {
+                        for (hashed_slot, (value, is_private)) in storage {
                             let storage_entry = storage_cursor
                                 .seek_by_key_subkey(hashed_address, hashed_slot)
                                 .unwrap();
@@ -653,7 +653,8 @@ mod tests {
                             }
 
                             if !value.is_zero() {
-                                let storage_entry = StorageEntry { key: hashed_slot, value };
+                                let storage_entry =
+                                    StorageEntry { key: hashed_slot, value, is_private };
                                 storage_cursor.upsert(hashed_address, &storage_entry).unwrap();
                             }
                         }

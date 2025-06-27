@@ -33,6 +33,9 @@ mod tests {
     };
     use std::sync::{mpsc, Arc};
 
+    // seismic imports not used by upstream
+    use alloy_primitives::FlaggedStorage;
+
     fn create_database_with_beacon_root_contract() -> CacheDB<EmptyDB> {
         let mut db = CacheDB::new(Default::default());
 
@@ -133,7 +136,7 @@ mod tests {
         let timestamp_storage = executor.with_state_mut(|state| {
             state.storage(BEACON_ROOTS_ADDRESS, U256::from(timestamp_index)).unwrap()
         });
-        assert_eq!(timestamp_storage, U256::from(header.timestamp));
+        assert_eq!(timestamp_storage, FlaggedStorage::new_from_value(header.timestamp));
 
         // get parent beacon block root storage and compare
         let parent_beacon_block_root_storage = executor.with_state_mut(|state| {
@@ -141,7 +144,7 @@ mod tests {
                 .storage(BEACON_ROOTS_ADDRESS, U256::from(parent_beacon_block_root_index))
                 .expect("storage value should exist")
         });
-        assert_eq!(parent_beacon_block_root_storage, U256::from(0x69));
+        assert_eq!(parent_beacon_block_root_storage, FlaggedStorage::new_from_value(0x69));
     }
 
     #[test]
@@ -334,13 +337,13 @@ mod tests {
         let timestamp_storage = executor.with_state_mut(|state| {
             state.storage(BEACON_ROOTS_ADDRESS, U256::from(timestamp_index)).unwrap()
         });
-        assert_eq!(timestamp_storage, U256::from(header.timestamp));
+        assert_eq!(timestamp_storage, FlaggedStorage::new_from_value(header.timestamp));
 
         // get parent beacon block root storage and compare
         let parent_beacon_block_root_storage = executor.with_state_mut(|state| {
             state.storage(BEACON_ROOTS_ADDRESS, U256::from(parent_beacon_block_root_index)).unwrap()
         });
-        assert_eq!(parent_beacon_block_root_storage, U256::from(0x69));
+        assert_eq!(parent_beacon_block_root_storage, FlaggedStorage::new_from_value(0x69));
     }
 
     /// Create a state provider with blockhashes and the EIP-2935 system contract.
@@ -480,7 +483,7 @@ mod tests {
             executor.with_state_mut(|state| state
                 .storage(HISTORY_STORAGE_ADDRESS, U256::from(fork_activation_block - 1))
                 .unwrap()),
-            U256::ZERO
+            FlaggedStorage::ZERO
         );
 
         // the hash of the block itself should not be in storage
@@ -599,7 +602,7 @@ mod tests {
             executor.with_state_mut(|state| state
                 .storage(HISTORY_STORAGE_ADDRESS, U256::ZERO)
                 .unwrap()),
-            U256::ZERO
+            FlaggedStorage::ZERO
         );
         assert!(executor.with_state_mut(|state| {
             state.storage(HISTORY_STORAGE_ADDRESS, U256::from(1)).unwrap().is_zero()
@@ -632,13 +635,13 @@ mod tests {
             executor.with_state_mut(|state| state
                 .storage(HISTORY_STORAGE_ADDRESS, U256::ZERO)
                 .unwrap()),
-            U256::ZERO
+            FlaggedStorage::ZERO
         );
         assert_ne!(
             executor.with_state_mut(|state| state
                 .storage(HISTORY_STORAGE_ADDRESS, U256::from(1))
                 .unwrap()),
-            U256::ZERO
+            FlaggedStorage::ZERO
         );
         assert!(executor.with_state_mut(|state| {
             state.storage(HISTORY_STORAGE_ADDRESS, U256::from(2)).unwrap().is_zero()

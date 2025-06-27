@@ -10,8 +10,8 @@ use reth_db::init_db;
 use reth_node_builder::NodeBuilder;
 use reth_node_core::{
     args::{
-        DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, EngineArgs, NetworkArgs, PayloadBuilderArgs,
-        PruningArgs, RpcServerArgs, TxPoolArgs,
+        DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, EnclaveArgs, EngineArgs, NetworkArgs,
+        PayloadBuilderArgs, PruningArgs, RpcServerArgs, TxPoolArgs,
     },
     node_config::NodeConfig,
     version,
@@ -112,6 +112,10 @@ pub struct NodeCommand<C: ChainSpecParser, Ext: clap::Args + fmt::Debug = NoArgs
     /// Additional cli arguments
     #[command(flatten, next_help_heading = "Extension")]
     pub ext: Ext,
+
+    /// All enclave related arguments
+    #[command(flatten)]
+    pub enclave: EnclaveArgs,
 }
 
 impl<C: ChainSpecParser> NodeCommand<C> {
@@ -163,6 +167,7 @@ where
             pruning,
             ext,
             engine,
+            enclave,
         } = self;
 
         // set up node config
@@ -181,6 +186,7 @@ where
             dev,
             pruning,
             engine,
+            enclave,
         };
 
         let data_dir = node_config.datadir();

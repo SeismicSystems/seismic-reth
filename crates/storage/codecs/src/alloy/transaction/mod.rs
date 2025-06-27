@@ -53,7 +53,7 @@ where
     }
 }
 
-cond_mod!(eip1559, eip2930, eip4844, eip7702, legacy, txtype);
+cond_mod!(eip1559, eip2930, eip4844, eip7702, legacy, seismic, txtype);
 
 mod ethereum;
 pub use ethereum::{Envelope, FromTxCompact, ToTxCompact};

@@ -181,7 +181,7 @@ mod tests {
 
     const fn storage(key: B256) -> StorageEntry {
         // Value is not used in indexing stage.
-        StorageEntry { key, value: U256::ZERO }
+        StorageEntry { key, value: U256::ZERO, is_private: false }
     }
 
     const fn block_number_address(block_number: u64) -> BlockNumberAddress {

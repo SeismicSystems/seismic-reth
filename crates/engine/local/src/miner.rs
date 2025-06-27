@@ -205,6 +205,7 @@ where
         };
 
         let block = payload.block();
+        tracing::debug!("local_miner: advance: block: {:?}", block.body());
 
         let (tx, rx) = oneshot::channel();
         let payload = T::block_to_payload(payload.block().clone());

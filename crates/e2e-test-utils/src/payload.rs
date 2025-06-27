@@ -4,6 +4,7 @@ use reth_payload_builder::{PayloadBuilderHandle, PayloadId};
 use reth_payload_builder_primitives::Events;
 use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes, PayloadTypes};
 use tokio_stream::wrappers::BroadcastStream;
+use tracing::debug;
 
 /// Helper for payload operations
 #[derive(derive_more::Debug)]

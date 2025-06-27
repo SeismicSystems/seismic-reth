@@ -763,9 +763,12 @@ pub trait Call:
         }
 
         let request_gas = request.gas;
+        let request_from = request.from;
         let mut tx_env = self.create_txn_env(&evm_env, request, &mut *db)?;
 
-        if request_gas.is_none() {
+        if request_from.is_none() {
+            // No from address was provided in the request, so we use the default gas limit
+        } else if request_gas.is_none() {
             // No gas limit was provided in the request, so we need to cap the transaction gas limit
             if tx_env.gas_price() > 0 {
                 // If gas price is specified, cap transaction gas limit with caller allowance

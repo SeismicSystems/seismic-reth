@@ -1,0 +1,35 @@
+[package]
+name = "reth-seismic-txpool"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Seismic-Reth Transaction Pool"
+
+[lints]
+workspace = true
+
+[dependencies]
+# ethereum
+alloy-consensus.workspace = true
+alloy-eips.workspace = true
+alloy-primitives.workspace = true
+seismic-alloy-consensus.workspace = true
+
+# reth
+reth-primitives-traits.workspace = true
+reth-transaction-pool = {workspace = true, features = ["serde", "reth-codec", "serde-bincode-compat"]}
+
+# seismic
+reth-seismic-primitives = {workspace = true, features = ["serde", "reth-codec", "serde-bincode-compat"]}
+
+# misc
+c-kzg.workspace = true
+derive_more.workspace = true
+
+[dev-dependencies]
+reth-seismic-chainspec.workspace = true
+reth-provider = { workspace = true, features = ["test-utils"] }
+tokio.workspace = true

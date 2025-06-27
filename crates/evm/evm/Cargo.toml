@@ -11,6 +11,10 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+# Seismic
+op-revm = { workspace = true, optional = true }
+seismic-revm = { workspace = true }
+
 # reth
 reth-execution-errors.workspace = true
 reth-execution-types.workspace = true

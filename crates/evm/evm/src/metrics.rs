@@ -174,6 +174,9 @@ mod tests {
     };
     use std::sync::mpsc;
 
+    // seimsic imports not used by upstream
+    use revm::state::FlaggedStorage;
+
     /// A mock executor that simulates state changes
     struct MockExecutor {
         state: EvmState,
@@ -276,8 +279,10 @@ mod tests {
 
         let state = {
             let mut state = EvmState::default();
-            let storage =
-                EvmStorage::from_iter([(U256::from(1), EvmStorageSlot::new(U256::from(2)))]);
+            let storage = EvmStorage::from_iter([(
+                U256::from(1),
+                EvmStorageSlot::new(FlaggedStorage::new_from_value(2)),
+            )]);
             state.insert(
                 Default::default(),
                 Account {

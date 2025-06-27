@@ -5,8 +5,9 @@ Debug the clean & incremental state root calculations
 ```bash
 $ reth debug merkle --help
 ```
+
 ```txt
-Usage: reth debug merkle [OPTIONS] --to <TO>
+Usage: seismic-reth debug merkle [OPTIONS] --to <TO>
 
 Options:
   -h, --help

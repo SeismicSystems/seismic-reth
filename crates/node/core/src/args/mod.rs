@@ -1,4 +1,7 @@
 //! Parameters for configuring the rpc more granularity via CLI
+/// EnclaveArgs struct for configuring the enclave
+mod enclave;
+pub use enclave::EnclaveArgs;
 
 /// NetworkArg struct for configuring the network
 mod network;

@@ -218,7 +218,8 @@ where
                 m.iter()
                     .map(|(key, value)| {
                         let value = U256::from_be_bytes(value.0);
-                        (*key, (U256::ZERO, value))
+                        let is_private = false;
+                        (*key, ((U256::ZERO, false), (value, is_private)))
                     })
                     .collect::<HashMap<_, _>>()
             })
@@ -226,7 +227,10 @@ where
 
         reverts_init.insert(
             *address,
-            (Some(None), storage.keys().map(|k| StorageEntry::new(*k, U256::ZERO)).collect()),
+            (
+                Some(None),
+                storage.keys().map(|k| StorageEntry { key: *k, ..Default::default() }).collect(),
+            ),
         );
 
         state_init.insert(
@@ -281,7 +285,14 @@ where
     let alloc_storage = alloc.filter_map(|(addr, account)| {
         // only return Some if there is storage
         account.storage.as_ref().map(|storage| {
-            (*addr, storage.iter().map(|(&key, &value)| StorageEntry { key, value: value.into() }))
+            (
+                *addr,
+                storage.clone().into_iter().map(|(key, value)| StorageEntry {
+                    key,
+                    value: value.into(),
+                    is_private: false,
+                }),
+            )
         })
     });
     provider.insert_storage_for_hashing(alloc_storage)?;

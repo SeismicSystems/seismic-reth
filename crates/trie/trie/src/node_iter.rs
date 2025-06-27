@@ -211,7 +211,7 @@ where
                             key.clone(),
                             self.walker.hash().unwrap(),
                             self.walker.children_are_in_trie(),
-                        ))))
+                        ))));
                     }
                 }
             }
@@ -362,6 +362,7 @@ mod tests {
                     hash_builder.add_leaf(
                         Nibbles::unpack(key),
                         &alloy_rlp::encode(account.into_trie_account(EMPTY_ROOT_HASH)),
+                        false, // account nodes are always public
                     );
                 }
             }
@@ -380,6 +381,7 @@ mod tests {
             RlpNode::from_rlp(&alloy_rlp::encode(LeafNode::new(
                 key,
                 alloy_rlp::encode(TrieAccount::default()),
+                false, // account nodes are always public
             )))
         }
 

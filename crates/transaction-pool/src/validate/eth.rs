@@ -29,6 +29,7 @@ use reth_primitives_traits::{
 };
 use reth_storage_api::{StateProvider, StateProviderFactory};
 use reth_tasks::TaskSpawner;
+use seismic_alloy_consensus::SEISMIC_TX_TYPE_ID;
 use std::{
     marker::PhantomData,
     sync::{
@@ -307,6 +308,10 @@ where
                         InvalidTransactionError::Eip7702Disabled.into(),
                     ))
                 }
+            }
+
+            SEISMIC_TX_TYPE_ID => {
+                // Accept seismic transactions
             }
 
             _ => {

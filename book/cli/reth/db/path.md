@@ -5,8 +5,9 @@ Returns the full database path
 ```bash
 $ reth db path --help
 ```
+
 ```txt
-Usage: reth db path [OPTIONS]
+Usage: seismic-reth db path [OPTIONS]
 
 Options:
   -h, --help

@@ -1,5 +1,6 @@
 use crate::{
     backfill::{BackfillAction, BackfillSyncState},
+    backup::{BackupAction, BackupHandle},
     chain::FromOrchestrator,
     engine::{DownloadRequest, EngineApiEvent, EngineApiKind, EngineApiRequest, FromEngine},
     persistence::PersistenceHandle,
@@ -9,7 +10,6 @@ use crate::{
 };
 use alloy_consensus::BlockHeader;
 use alloy_eips::{merge::EPOCH_SLOTS, BlockNumHash, NumHash};
-use alloy_evm::block::BlockExecutor;
 use alloy_primitives::B256;
 use alloy_rpc_types_engine::{
     ForkchoiceState, PayloadStatus, PayloadStatusEnum, PayloadValidationError,
@@ -18,7 +18,7 @@ use error::{InsertBlockError, InsertBlockErrorKind, InsertBlockFatalError};
 use instrumented_state::InstrumentedStateProvider;
 use payload_processor::sparse_trie::StateRootComputeOutcome;
 use persistence_state::CurrentPersistenceAction;
-use precompile_cache::{CachedPrecompile, PrecompileCacheMap};
+use precompile_cache::PrecompileCacheMap;
 use reth_chain_state::{
     CanonicalInMemoryState, ExecutedBlock, ExecutedBlockWithTrieUpdates,
     MemoryOverlayStateProvider, NewCanonicalChain,
@@ -30,7 +30,7 @@ use reth_engine_primitives::{
     ExecutionPayload, ForkchoiceStateTracker, OnForkChoiceUpdated,
 };
 use reth_errors::{ConsensusError, ProviderResult};
-use reth_evm::{ConfigureEvm, Evm, SpecFor};
+use reth_evm::{ConfigureEvm, SpecFor};
 use reth_payload_builder::PayloadBuilderHandle;
 use reth_payload_primitives::{EngineApiMessageVersion, PayloadBuilderAttributes, PayloadTypes};
 use reth_primitives_traits::{
@@ -71,6 +71,7 @@ mod invalid_headers;
 mod metrics;
 mod payload_processor;
 mod persistence_state;
+#[allow(unused)]
 pub mod precompile_cache;
 // TODO(alexey): compare trie updates in `insert_block_inner`
 #[expect(unused)]
@@ -270,7 +271,10 @@ where
     /// The EVM configuration.
     evm_config: C,
     /// Precompile cache map.
+    #[allow(unused)]
     precompile_cache_map: PrecompileCacheMap<SpecFor<C>>,
+    /// The backup handler
+    backup: BackupHandle,
 }
 
 impl<N, P: Debug, T: PayloadTypes + Debug, V: Debug, C> std::fmt::Debug
@@ -333,6 +337,7 @@ where
         config: TreeConfig,
         engine_kind: EngineApiKind,
         evm_config: C,
+        backup: BackupHandle,
     ) -> Self {
         let (incoming_tx, incoming) = std::sync::mpsc::channel();
 
@@ -365,6 +370,7 @@ where
             payload_processor,
             evm_config,
             precompile_cache_map,
+            backup,
         }
     }
 
@@ -390,6 +396,7 @@ where
         invalid_block_hook: Box<dyn InvalidBlockHook<N>>,
         kind: EngineApiKind,
         evm_config: C,
+        backup: BackupHandle,
     ) -> (Sender<FromEngine<EngineApiRequest<T, N>, N::Block>>, UnboundedReceiver<EngineApiEvent<N>>)
     {
         let best_block_number = provider.best_block_number().unwrap_or(0);
@@ -421,6 +428,7 @@ where
             config,
             kind,
             evm_config,
+            backup,
         );
         task.set_invalid_block_hook(invalid_block_hook);
         let incoming = task.incoming_tx.clone();
@@ -457,6 +465,10 @@ where
 
             if let Err(err) = self.advance_persistence() {
                 error!(target: "engine::tree", %err, "Advancing persistence failed");
+                return
+            }
+            if let Err(err) = self.advance_backup() {
+                error!(target: "engine::tree", %err, "Advancing backup failed");
                 return
             }
         }
@@ -544,6 +556,7 @@ where
         //
         // This validation **MUST** be instantly run in all cases even during active sync process.
         let parent_hash = payload.parent_hash();
+        debug!("on_new_payload: payload: {:?}", payload);
         let block = match self.payload_validator.ensure_well_formed_payload(payload) {
             Ok(block) => block,
             Err(error) => {
@@ -929,7 +942,7 @@ where
     fn try_recv_engine_message(
         &self,
     ) -> Result<Option<FromEngine<EngineApiRequest<T, N>, N::Block>>, RecvError> {
-        if self.persistence_state.in_progress() {
+        if self.persistence_state.in_progress() || self.backup.in_progress() {
             // try to receive the next request with a timeout to not block indefinitely
             match self.incoming.recv_timeout(std::time::Duration::from_millis(500)) {
                 Ok(msg) => Ok(Some(msg)),
@@ -1027,6 +1040,51 @@ where
         Ok(())
     }
 
+    fn advance_backup(&mut self) -> Result<(), AdvancePersistenceError> {
+        debug!(target: "engine::tree", "advance_backup called");
+        if !self.backup.in_progress() {
+            if self.should_backup() {
+                debug!(target: "engine::tree", "sending backup action");
+                let (tx, rx) = oneshot::channel();
+                let _ = self.backup.sender.send(BackupAction::BackupAtBlock(
+                    self.persistence_state.last_persisted_block,
+                    tx,
+                ));
+                self.backup.start(rx);
+            }
+        }
+
+        if self.backup.in_progress() {
+            let (mut rx, start_time) = self
+                .backup
+                .rx
+                .take()
+                .expect("if a backup task is in progress Receiver must be Some");
+            // Check if persistence has complete
+            match rx.try_recv() {
+                Ok(last_backup_hash_num) => {
+                    let Some(BlockNumHash {
+                        hash: last_backup_block_hash,
+                        number: last_backup_block_number,
+                    }) = last_backup_hash_num
+                    else {
+                        warn!(target: "engine::tree", "Backup task completed but did not backup any blocks");
+                        return Ok(())
+                    };
+
+                    debug!(target: "engine::tree", ?last_backup_hash_num, "Finished backup, calling finish");
+                    self.backup.finish(BlockNumHash::new(
+                        last_backup_block_number,
+                        last_backup_block_hash,
+                    ));
+                }
+                Err(TryRecvError::Closed) => return Err(TryRecvError::Closed.into()),
+                Err(TryRecvError::Empty) => self.backup.rx = Some((rx, start_time)),
+            }
+        }
+        Ok(())
+    }
+
     /// Handles a message from the engine.
     fn on_engine_message(
         &mut self,
@@ -1107,6 +1165,7 @@ where
                                 }
                             }
                             BeaconEngineMessage::NewPayload { payload, tx } => {
+                                debug!("receiving beacon engine message: payload: {:?}", payload);
                                 let mut output = self.on_new_payload(payload);
 
                                 let maybe_event =
@@ -1343,6 +1402,14 @@ where
         let min_block = self.persistence_state.last_persisted_block.number;
         self.state.tree_state.canonical_block_number().saturating_sub(min_block) >
             self.config.persistence_threshold()
+    }
+
+    /// Returns true if the canonical chain length minus the last persisted
+    /// block is greater than or equal to the backup threshold and
+    /// backfill is not running.
+    fn should_backup(&self) -> bool {
+        debug!(target: "engine::tree", "checking if we should backup");
+        return false;
     }
 
     /// Returns a batch of consecutive canonical blocks to persist in the range
@@ -2288,17 +2355,19 @@ where
             .with_bundle_update()
             .without_state_clear()
             .build();
-        let mut executor = self.evm_config.executor_for_block(&mut db, block);
 
-        if self.config.precompile_cache_enabled() {
-            executor.evm_mut().precompiles_mut().map_precompiles(|address, precompile| {
-                CachedPrecompile::wrap(
-                    precompile,
-                    self.precompile_cache_map.cache_for_address(*address),
-                    *self.evm_config.evm_env(block.header()).spec_id(),
-                )
-            });
-        }
+        // seismic upstream merge: we do not enable precompile cache since it breaks our stateful
+        // precompiles
+        let executor = self.evm_config.executor_for_block(&mut db, block);
+        // if self.config.precompile_cache_enabled() {
+        //     executor.evm_mut().precompiles_mut().map_precompiles(|address, precompile| {
+        //         CachedPrecompile::wrap(
+        //             precompile,
+        //             self.precompile_cache_map.cache_for_address(*address),
+        //             *self.evm_config.evm_env(block.header()).spec_id(),
+        //         )
+        //     });
+        // }
 
         let execution_start = Instant::now();
         let output = self.metrics.executor.execute_metered(
@@ -2807,6 +2876,9 @@ mod tests {
         sync::mpsc::{channel, Sender},
     };
 
+    // seismic imports not used by upstream
+    use reth_node_core::dirs::MaybePlatformPath;
+
     /// This is a test channel that allows you to `release` any value that is in the channel.
     ///
     /// If nothing has been sent, then the next value will be immediately sent.
@@ -2896,6 +2968,10 @@ mod tests {
         ) -> Self {
             let persistence_handle = PersistenceHandle::new(action_tx);
 
+            let backup_handle = BackupHandle::spawn_service(MaybePlatformPath::chain_default(
+                chain_spec.chain.clone(),
+            ));
+
             let consensus = Arc::new(EthBeaconConsensus::new(chain_spec.clone()));
 
             let provider = MockEthProvider::default();
@@ -2932,6 +3008,7 @@ mod tests {
                     .with_has_enough_parallelism(true),
                 EngineApiKind::Ethereum,
                 evm_config.clone(),
+                backup_handle,
             );
 
             let block_builder = TestBlockBuilder::default().with_chain_spec((*chain_spec).clone());

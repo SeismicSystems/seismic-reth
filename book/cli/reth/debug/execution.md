@@ -5,8 +5,9 @@ Debug the roundtrip execution of blocks as well as the generated data
 ```bash
 $ reth debug execution --help
 ```
+
 ```txt
-Usage: reth debug execution [OPTIONS] --to <TO>
+Usage: seismic-reth debug execution [OPTIONS] --to <TO>
 
 Options:
   -h, --help

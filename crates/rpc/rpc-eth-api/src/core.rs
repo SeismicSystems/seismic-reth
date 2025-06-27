@@ -313,7 +313,7 @@ pub trait EthApi<T: RpcObject, B: RpcObject, R: RpcObject, H: RpcObject> {
     async fn hashrate(&self) -> RpcResult<U256>;
 
     /// Returns the hash of the current block, the seedHash, and the boundary condition to be met
-    /// (“target”)
+    /// (`target`)
     #[method(name = "getWork")]
     async fn get_work(&self) -> RpcResult<Work>;
 

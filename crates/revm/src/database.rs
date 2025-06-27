@@ -1,10 +1,14 @@
-use crate::primitives::alloy_primitives::{BlockNumber, StorageKey, StorageValue};
+use crate::primitives::alloy_primitives::{BlockNumber, StorageKey};
 use alloy_primitives::{Address, B256, U256};
 use core::ops::{Deref, DerefMut};
 use reth_primitives_traits::Account;
 use reth_storage_api::{AccountReader, BlockHashReader, StateProvider};
 use reth_storage_errors::provider::{ProviderError, ProviderResult};
-use revm::{bytecode::Bytecode, state::AccountInfo, Database, DatabaseRef};
+use revm::{
+    bytecode::Bytecode,
+    state::{AccountInfo, FlaggedStorage},
+    Database, DatabaseRef,
+};
 
 /// A helper trait responsible for providing state necessary for EVM execution.
 ///
@@ -30,7 +34,7 @@ pub trait EvmStateProvider: Send + Sync {
         &self,
         account: Address,
         storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>>;
+    ) -> ProviderResult<Option<FlaggedStorage>>;
 }
 
 // Blanket implementation of EvmStateProvider for any type that implements StateProvider.
@@ -54,8 +58,8 @@ impl<T: StateProvider> EvmStateProvider for T {
         &self,
         account: Address,
         storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>> {
-        <T as StateProvider>::storage(self, account, storage_key)
+    ) -> ProviderResult<Option<FlaggedStorage>> {
+        <T as reth_storage_api::StateProvider>::storage(self, account, storage_key)
     }
 }
 
@@ -117,7 +121,7 @@ impl<DB: EvmStateProvider> Database for StateProviderDatabase<DB> {
     /// Retrieves the storage value at a specific index for a given address.
     ///
     /// Returns `Ok` with the storage value, or the default value if not found.
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         self.storage_ref(address, index)
     }
 
@@ -151,7 +155,7 @@ impl<DB: EvmStateProvider> DatabaseRef for StateProviderDatabase<DB> {
     /// Retrieves the storage value at a specific index for a given address.
     ///
     /// Returns `Ok` with the storage value, or the default value if not found.
-    fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage_ref(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         Ok(self.0.storage(address, B256::new(index.to_be_bytes()))?.unwrap_or_default())
     }
 

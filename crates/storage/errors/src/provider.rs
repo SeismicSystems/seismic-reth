@@ -3,6 +3,7 @@ use alloc::{boxed::Box, string::String};
 use alloy_eips::{BlockHashOrNumber, HashOrNumber};
 use alloy_primitives::{Address, BlockHash, BlockNumber, TxNumber, B256};
 use derive_more::Display;
+use reth_enclave::EnclaveError;
 use reth_primitives_traits::{transaction::signed::RecoveryError, GotExpected};
 use reth_prune_types::PruneSegmentError;
 use reth_static_file_types::StaticFileSegment;
@@ -134,9 +135,18 @@ pub enum ProviderError {
     /// Received invalid output from configured storage implementation.
     #[error("received invalid output from storage")]
     InvalidStorageOutput,
+    /// Enclave encryptography error.
+    #[error("enclave error: {_0}")]
+    EnclaveError(EnclaveError),
     /// Any other error type wrapped into a cloneable [`AnyError`].
     #[error(transparent)]
     Other(#[from] AnyError),
+}
+
+impl From<EnclaveError> for ProviderError {
+    fn from(err: EnclaveError) -> Self {
+        Self::EnclaveError(err)
+    }
 }
 
 impl ProviderError {

@@ -152,7 +152,12 @@ where
                     let account = account.into_trie_account(storage_multiproof.root);
                     account.encode(&mut account_rlp as &mut dyn BufMut);
 
-                    hash_builder.add_leaf(Nibbles::unpack(hashed_address), &account_rlp);
+                    let is_private = false; // account leaves are always public. Their storage leaves can be private.
+                    hash_builder.add_leaf(
+                        Nibbles::unpack(hashed_address),
+                        &account_rlp,
+                        is_private,
+                    );
 
                     // We might be adding leaves that are not necessarily our proof targets.
                     if leaf_is_proof_target {
@@ -275,7 +280,7 @@ where
 
         // short circuit on empty storage
         if hashed_storage_cursor.is_storage_empty()? {
-            return Ok(StorageMultiProof::empty())
+            return Ok(StorageMultiProof::empty());
         }
 
         let target_nibbles = targets.into_iter().map(Nibbles::unpack).collect::<Vec<_>>();
@@ -297,7 +302,8 @@ where
                 TrieElement::Leaf(hashed_slot, value) => {
                     hash_builder.add_leaf(
                         Nibbles::unpack(hashed_slot),
-                        alloy_rlp::encode_fixed_size(&value).as_ref(),
+                        alloy_rlp::encode_fixed_size(&value.value).as_ref(),
+                        value.is_private,
                     );
                 }
             }

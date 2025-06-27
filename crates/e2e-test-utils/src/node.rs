@@ -21,11 +21,14 @@ use reth_provider::{
     StageCheckpointReader,
 };
 use reth_rpc_builder::auth::AuthServerHandle;
-use reth_rpc_eth_api::helpers::{EthApiSpec, EthTransactions, TraceExt};
+use reth_rpc_eth_api::helpers::{EthApiSpec, TraceExt}; // upstream needs EthTransactions,
 use reth_stages_types::StageId;
 use std::pin::Pin;
 use tokio_stream::StreamExt;
 use url::Url;
+
+// seismic imports that upstream doesn't use
+use reth_rpc_eth_api::helpers::FullEthApi;
 
 /// An helper struct to handle node actions
 #[expect(missing_debug_implementations)]
@@ -88,9 +91,8 @@ where
         tx_generator: impl Fn(u64) -> Pin<Box<dyn Future<Output = Bytes>>>,
     ) -> eyre::Result<Vec<Payload::BuiltPayload>>
     where
-        AddOns::EthApi: EthApiSpec<Provider: BlockReader<Block = BlockTy<Node::Types>>>
-            + EthTransactions
-            + TraceExt,
+        AddOns::EthApi:
+            EthApiSpec<Provider: BlockReader<Block = BlockTy<Node::Types>>> + FullEthApi + TraceExt,
     {
         let mut chain = Vec::with_capacity(length as usize);
         for i in 0..length {

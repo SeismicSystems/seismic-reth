@@ -191,6 +191,7 @@ where
                 TrieElement::Leaf(hashed_address, account) => {
                     tracker.inc_leaf();
                     hashed_entries_walked += 1;
+                    let is_private = false; // account leaves are always public. Their storage leaves can be private.
 
                     // We assume we can always calculate a storage root without
                     // OOMing. This opens us up to a potential DOS vector if
@@ -227,7 +228,11 @@ where
                     account_rlp.clear();
                     let account = account.into_trie_account(storage_root);
                     account.encode(&mut account_rlp as &mut dyn BufMut);
-                    hash_builder.add_leaf(Nibbles::unpack(hashed_address), &account_rlp);
+                    hash_builder.add_leaf(
+                        Nibbles::unpack(hashed_address),
+                        &account_rlp,
+                        is_private,
+                    );
 
                     // Decide if we need to return intermediate progress.
                     let total_updates_len = updated_storage_nodes +
@@ -249,7 +254,7 @@ where
                             Box::new(state),
                             hashed_entries_walked,
                             trie_updates,
-                        ))
+                        ));
                     }
                 }
             }
@@ -403,7 +408,7 @@ where
 
         // short circuit on empty storage
         if hashed_storage_cursor.is_storage_empty()? {
-            return Ok((EMPTY_ROOT_HASH, 0, StorageTrieUpdates::deleted()))
+            return Ok((EMPTY_ROOT_HASH, 0, StorageTrieUpdates::deleted()));
         }
 
         let mut tracker = TrieTracker::default();
@@ -424,7 +429,8 @@ where
                     tracker.inc_leaf();
                     hash_builder.add_leaf(
                         Nibbles::unpack(hashed_slot),
-                        alloy_rlp::encode_fixed_size(&value).as_ref(),
+                        alloy_rlp::encode_fixed_size(&value.value).as_ref(),
+                        value.is_private,
                     );
                 }
             }

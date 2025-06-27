@@ -37,6 +37,9 @@ reth-execution-types.workspace = true
 secp256k1.workspace = true
 alloy-genesis.workspace = true
 
+serde_json.workspace = true
+tokio.workspace = true
+
 [features]
 default = ["std"]
 std = [
@@ -44,7 +47,6 @@ std = [
     "alloy-eips/std",
     "alloy-genesis/std",
     "alloy-primitives/std",
-    "secp256k1/std",
     "reth-ethereum-forks/std",
     "reth-chainspec/std",
     "alloy-evm/std",

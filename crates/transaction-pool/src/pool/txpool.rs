@@ -1018,7 +1018,6 @@ impl<T: TransactionOrdering> TxPool<T> {
         // We trace here instead of in structs directly, because the `ParkedPool` type is
         // generic and it would not be possible to distinguish whether a transaction is being
         // added to the `BaseFee` pool, or the `Queued` pool.
-        trace!(target: "txpool", hash=%tx.transaction.hash(), ?pool, "Adding transaction to a subpool");
         match pool {
             SubPool::Queued => self.queued_pool.add_transaction(tx),
             SubPool::Pending => {
@@ -1961,7 +1960,8 @@ impl<T: PoolTransaction> AllTransactions<T> {
 
         self.update_size_metrics();
 
-        Ok(InsertOk { transaction, move_to: state.into(), state, replaced_tx, updates })
+        let res = Ok(InsertOk { transaction, move_to: state.into(), state, replaced_tx, updates });
+        res
     }
 
     /// Number of transactions in the entire pool

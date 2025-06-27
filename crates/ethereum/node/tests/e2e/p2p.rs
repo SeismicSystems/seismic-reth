@@ -6,7 +6,7 @@ use reth_e2e_test_utils::{setup, setup_engine, transaction::TransactionTestConte
 use reth_node_ethereum::EthereumNode;
 use std::sync::Arc;
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn can_sync() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
 
@@ -49,7 +49,7 @@ async fn can_sync() -> eyre::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn e2e_test_send_transactions() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
 
@@ -85,7 +85,7 @@ async fn e2e_test_send_transactions() -> eyre::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_long_reorg() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
 

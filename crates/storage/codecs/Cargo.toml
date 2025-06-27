@@ -11,6 +11,10 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+# enclave
+seismic-enclave.workspace = true
+seismic-alloy-consensus = { workspace = true, default-features = false, features = ["arbitrary", "serde"] }
+
 # reth
 reth-codecs-derive.workspace = true
 reth-zstd-compressors = { workspace = true, optional = true, default-features = false }
@@ -33,6 +37,8 @@ serde.workspace = true
 arbitrary = { workspace = true, features = ["derive"], optional = true }
 
 [dev-dependencies]
+seismic-alloy-consensus = { workspace = true, default-features = false, features = ["arbitrary", "serde"] }
+
 alloy-eips = { workspace = true, default-features = false, features = ["arbitrary", "serde"] }
 alloy-primitives = { workspace = true, features = ["arbitrary", "serde", "rand"] }
 alloy-consensus = { workspace = true, features = ["arbitrary"] }

@@ -1,7 +1,5 @@
 use alloc::vec::Vec;
-use alloy_primitives::{
-    keccak256, map::HashMap, Address, BlockNumber, Bytes, StorageKey, B256, U256,
-};
+use alloy_primitives::{keccak256, map::HashMap, Address, BlockNumber, Bytes, StorageKey, B256};
 use reth_primitives_traits::{Account, Bytecode};
 use reth_storage_api::{
     AccountReader, BlockHashReader, HashedPostStateProvider, StateProofProvider, StateProvider,
@@ -13,10 +11,14 @@ use reth_trie::{
     MultiProof, MultiProofTargets, StorageMultiProof, StorageProof, TrieInput,
 };
 
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use revm::state::FlaggedStorage;
+
 /// Mock state for testing
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct StateProviderTest {
-    accounts: HashMap<Address, (HashMap<StorageKey, U256>, Account)>,
+    accounts: HashMap<Address, (HashMap<StorageKey, FlaggedStorage>, Account)>,
     contracts: HashMap<B256, Bytecode>,
     block_hash: HashMap<u64, B256>,
 }
@@ -28,7 +30,7 @@ impl StateProviderTest {
         address: Address,
         mut account: Account,
         bytecode: Option<Bytes>,
-        storage: HashMap<StorageKey, U256>,
+        storage: HashMap<StorageKey, FlaggedStorage>,
     ) {
         if let Some(bytecode) = bytecode {
             let hash = keccak256(&bytecode);
@@ -155,7 +157,7 @@ impl StateProvider for StateProviderTest {
         &self,
         account: Address,
         storage_key: StorageKey,
-    ) -> ProviderResult<Option<alloy_primitives::StorageValue>> {
+    ) -> ProviderResult<Option<FlaggedStorage>> {
         Ok(self.accounts.get(&account).and_then(|(storage, _)| storage.get(&storage_key).copied()))
     }
 

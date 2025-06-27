@@ -17,6 +17,8 @@ pub struct HashBuilderState {
     pub key: Vec<u8>,
     /// The current node value.
     pub value: HashBuilderValue,
+    /// Whether the state value is private.
+    pub is_private: Option<bool>,
     /// The builder stack.
     pub stack: Vec<RlpNode>,
 
@@ -37,6 +39,7 @@ impl From<HashBuilderState> for HashBuilder {
             key: Nibbles::from_nibbles_unchecked(state.key),
             stack: state.stack,
             value: state.value,
+            is_private: state.is_private,
             state_masks: state.groups,
             tree_masks: state.tree_masks,
             hash_masks: state.hash_masks,
@@ -54,6 +57,7 @@ impl From<HashBuilder> for HashBuilderState {
             key: state.key.into(),
             stack: state.stack,
             value: state.value,
+            is_private: state.is_private,
             groups: state.state_masks,
             tree_masks: state.tree_masks,
             hash_masks: state.hash_masks,
@@ -100,8 +104,18 @@ impl reth_codecs::Compact for HashBuilderState {
             len += (*item).to_compact(buf);
         }
 
+        // Serialize Seismic-specific `is_private: Option<bool>`
+        let private_byte = match self.is_private {
+            None => 0u8,
+            Some(false) => 1u8,
+            Some(true) => 2u8,
+        };
+        buf.put_u8(private_byte);
+        len += 1;
+
         buf.put_u8(self.stored_in_database as u8);
         len += 1;
+
         len
     }
 
@@ -144,8 +158,30 @@ impl reth_codecs::Compact for HashBuilderState {
             buf = rest;
         }
 
+        // Deserialize Seismic-specific `is_private`
+        let private_byte = buf.get_u8();
+        let is_private = match private_byte {
+            0 => None,
+            1 => Some(false),
+            2 => Some(true),
+            _ => panic!("Invalid byte for Option<bool>: {}", private_byte),
+        };
+
         let stored_in_database = buf.get_u8() != 0;
-        (Self { key, stack, value, groups, tree_masks, hash_masks, stored_in_database }, buf)
+
+        (
+            Self {
+                key,
+                stack,
+                value,
+                is_private,
+                groups,
+                tree_masks,
+                hash_masks,
+                stored_in_database,
+            },
+            buf,
+        )
     }
 }
 
@@ -157,6 +193,17 @@ mod tests {
     #[test]
     fn hash_builder_state_regression() {
         let mut state = HashBuilderState::default();
+        state.stack.push(Default::default());
+        let mut buf = vec![];
+        let len = state.clone().to_compact(&mut buf);
+        let (decoded, _) = HashBuilderState::from_compact(&buf, len);
+        assert_eq!(state, decoded);
+    }
+
+    #[test]
+    fn hash_builder_state_regression_with_private() {
+        let mut state = HashBuilderState::default();
+        state.is_private = Some(true);
         state.stack.push(Default::default());
         let mut buf = vec![];
         let len = state.clone().to_compact(&mut buf);

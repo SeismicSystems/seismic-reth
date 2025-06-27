@@ -16,6 +16,7 @@ use reth_trie::{
     StateRoot,
 };
 use reth_trie_db::{DatabaseProof, DatabaseStateRoot, DatabaseTrieWitness};
+use revm_state::FlaggedStorage;
 
 #[test]
 fn includes_empty_node_preimage() {
@@ -53,7 +54,7 @@ fn includes_empty_node_preimage() {
             accounts: HashMap::from_iter([(hashed_address, Some(Account::default()))]),
             storages: HashMap::from_iter([(
                 hashed_address,
-                HashedStorage::from_iter(false, [(hashed_slot, U256::from(1))]),
+                HashedStorage::from_iter(false, [(hashed_slot, FlaggedStorage::new_from_value(1))]),
             )]),
         })
         .unwrap();
@@ -78,7 +79,10 @@ fn includes_nodes_for_destroyed_storage_nodes() {
     // Insert account and slot into database
     provider.insert_account_for_hashing([(address, Some(Account::default()))]).unwrap();
     provider
-        .insert_storage_for_hashing([(address, [StorageEntry { key: slot, value: U256::from(1) }])])
+        .insert_storage_for_hashing([(
+            address,
+            [StorageEntry { key: slot, value: U256::from(1), is_private: false }],
+        )])
         .unwrap();
 
     let state_root = StateRoot::from_tx(provider.tx_ref()).root().unwrap();
@@ -123,10 +127,16 @@ fn correctly_decodes_branch_node_values() {
     let mut hashed_storage_cursor =
         provider.tx_ref().cursor_dup_write::<tables::HashedStorages>().unwrap();
     hashed_storage_cursor
-        .upsert(hashed_address, &StorageEntry { key: hashed_slot1, value: U256::from(1) })
+        .upsert(
+            hashed_address,
+            &StorageEntry { key: hashed_slot1, value: U256::from(1), is_private: false },
+        )
         .unwrap();
     hashed_storage_cursor
-        .upsert(hashed_address, &StorageEntry { key: hashed_slot2, value: U256::from(1) })
+        .upsert(
+            hashed_address,
+            &StorageEntry { key: hashed_slot2, value: U256::from(1), is_private: false },
+        )
         .unwrap();
 
     let state_root = StateRoot::from_tx(provider.tx_ref()).root().unwrap();
@@ -144,7 +154,8 @@ fn correctly_decodes_branch_node_values() {
                 hashed_address,
                 HashedStorage::from_iter(
                     false,
-                    [hashed_slot1, hashed_slot2].map(|hashed_slot| (hashed_slot, U256::from(2))),
+                    [hashed_slot1, hashed_slot2]
+                        .map(|hashed_slot| (hashed_slot, FlaggedStorage::new_from_value(2))),
                 ),
             )]),
         })

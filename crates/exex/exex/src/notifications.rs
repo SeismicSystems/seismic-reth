@@ -462,7 +462,7 @@ mod tests {
     use reth_testing_utils::generators::{self, random_block, BlockParams};
     use tokio::sync::mpsc;
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn exex_notifications_behind_head_canonical() -> eyre::Result<()> {
         let mut rng = generators::rng();
 
@@ -591,7 +591,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn exex_notifications_same_head_non_canonical() -> eyre::Result<()> {
         let mut rng = generators::rng();
 

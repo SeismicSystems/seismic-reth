@@ -1,6 +1,6 @@
 use alloy_primitives::{keccak256, Address, B256, U256};
 use reth_revm::{
-    state::{AccountInfo, Bytecode},
+    state::{AccountInfo, Bytecode, FlaggedStorage},
     Database,
 };
 use reth_trie::{HashedPostState, HashedStorage};
@@ -33,7 +33,7 @@ impl<D: Database> Database for StateWitnessRecorderDatabase<D> {
         Ok(maybe_account)
     }
 
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         let value = self.database.storage(address, index)?;
         let hashed_address = keccak256(address);
         let hashed_slot = keccak256(B256::from(index));

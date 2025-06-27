@@ -7,7 +7,9 @@ use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criteri
 use proptest::test_runner::TestRunner;
 use rand_08::Rng;
 use revm_primitives::{Address, HashMap};
-use revm_state::{Account, AccountInfo, AccountStatus, EvmState, EvmStorage, EvmStorageSlot};
+use revm_state::{
+    Account, AccountInfo, AccountStatus, EvmState, EvmStorage, EvmStorageSlot, FlaggedStorage,
+};
 use std::{hint::black_box, thread};
 
 /// Creates a mock state with the specified number of accounts for benchmarking
@@ -17,8 +19,10 @@ fn create_bench_state(num_accounts: usize) -> EvmState {
     let mut state_changes = HashMap::default();
 
     for i in 0..num_accounts {
-        let storage =
-            EvmStorage::from_iter([(U256::from(i), EvmStorageSlot::new(U256::from(i + 1)))]);
+        let storage = EvmStorage::from_iter([(
+            U256::from(i),
+            EvmStorageSlot::new(FlaggedStorage::new_from_value(i + 1)),
+        )]);
 
         let account = Account {
             info: AccountInfo {

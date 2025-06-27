@@ -31,6 +31,7 @@ EF_TESTS_URL := https://github.com/ethereum/tests/archive/refs/tags/$(EF_TESTS_T
 EF_TESTS_DIR := ./testing/ef-tests/ethereum-tests
 
 # The docker image name
+# TODO: publish one for seismic
 DOCKER_IMAGE_NAME ?= ghcr.io/paradigmxyz/reth
 
 ##@ Help
@@ -464,7 +465,20 @@ rustdocs: ## Runs `cargo docs` to generate the Rust documents in the `target/doc
 	cargo +nightly docs \
 	--document-private-items
 
-cargo-test:
+test-seismic-reth :## see profile.default in .config/nextest.toml for filtered tests
+	cargo nextest run --workspace 
+test-reth:
+	cargo test \
+	--workspace \
+	--bin "reth" \
+	--exclude optimism \
+	--lib \
+	--examples \
+	--tests \
+	--benches \
+	--features "ethereum $(BIN_OTHER_FEATURES)"
+
+test-op-reth:
 	cargo test \
 	--workspace \
 	--bin "op-reth" \
@@ -477,8 +491,10 @@ test-doc:
 	cargo test --doc --workspace --all-features
 
 test:
-	make cargo-test && \
-	make test-doc
+	make test-reth && \
+	make test-seismic-reth && \
+	make test-doc && \
+	make test-other-targets
 
 pr:
 	make lint && \

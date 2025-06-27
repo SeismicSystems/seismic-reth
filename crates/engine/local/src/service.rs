@@ -21,6 +21,7 @@ use reth_consensus::{ConsensusError, FullConsensus};
 use reth_engine_primitives::{BeaconConsensusEngineEvent, BeaconEngineMessage, EngineValidator};
 use reth_engine_service::service::EngineMessageStream;
 use reth_engine_tree::{
+    backup::BackupHandle,
     chain::{ChainEvent, HandlerEvent},
     engine::{
         EngineApiKind, EngineApiRequest, EngineApiRequestHandler, EngineRequestHandler, FromEngine,
@@ -41,6 +42,9 @@ use reth_prune::PrunerWithFactory;
 use reth_stages_api::MetricEventsSender;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::error;
+
+// seismic imports not used by upstream
+use reth_node_core::dirs::{ChainPath, DataDirPath};
 
 /// Provides a local dev service engine that can be used to drive the
 /// chain forward.
@@ -80,6 +84,7 @@ where
         mode: MiningMode,
         payload_attributes_builder: B,
         evm_config: C,
+        data_dir: ChainPath<DataDirPath>,
     ) -> Self
     where
         B: PayloadAttributesBuilder<<N::Payload as PayloadTypes>::PayloadAttributes>,
@@ -93,6 +98,7 @@ where
         let persistence_handle =
             PersistenceHandle::<N::Primitives>::spawn_service(provider, pruner, sync_metrics_tx);
         let canonical_in_memory_state = blockchain_db.canonical_in_memory_state();
+        let backup_handle = BackupHandle::spawn_service(data_dir);
 
         let (to_tree_tx, from_tree) = EngineApiTreeHandler::<N::Primitives, _, _, _, _>::spawn_new(
             blockchain_db.clone(),
@@ -105,6 +111,7 @@ where
             invalid_block_hook,
             engine_kind,
             evm_config,
+            backup_handle,
         );
 
         let handler = EngineApiRequestHandler::new(to_tree_tx, from_tree);

@@ -1,5 +1,9 @@
 use alloy_primitives::{Address, B256, U256};
-use revm::{bytecode::Bytecode, state::AccountInfo, Database};
+use revm::{
+    bytecode::Bytecode,
+    state::{AccountInfo, FlaggedStorage},
+    Database,
+};
 
 /// An enum type that can hold either of two different [`Database`] implementations.
 ///
@@ -33,7 +37,7 @@ where
         }
     }
 
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         match self {
             Self::Left(db) => db.storage(address, index),
             Self::Right(db) => db.storage(address, index),

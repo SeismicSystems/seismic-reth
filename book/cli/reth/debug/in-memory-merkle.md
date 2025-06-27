@@ -5,8 +5,9 @@ Debug in-memory state root calculation
 ```bash
 $ reth debug in-memory-merkle --help
 ```
+
 ```txt
-Usage: reth debug in-memory-merkle [OPTIONS]
+Usage: seismic-reth debug in-memory-merkle [OPTIONS]
 
 Options:
   -h, --help

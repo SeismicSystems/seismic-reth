@@ -1,0 +1,59 @@
+[package]
+name = "seismic-reth"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+default-run = "seismic-reth"
+
+[dependencies]
+alloy-signer-local.workspace = true
+alloy-network.workspace = true
+alloy-primitives.workspace = true
+
+# reth
+reth-tracing.workspace = true
+reth-cli-util.workspace = true
+reth-cli-commands.workspace = true
+reth-node-builder.workspace = true
+reth-node-core.workspace = true
+reth-node-ethereum.workspace = true
+reth-node-metrics.workspace = true
+reth-enclave.workspace = true
+reth-provider.workspace = true
+reth-primitives.workspace = true
+reth.workspace = true
+
+# seismic
+reth-seismic-node.workspace = true
+reth-seismic-rpc.workspace = true
+reth-seismic-cli.workspace = true
+
+seismic-alloy-rpc-types.workspace = true
+seismic-alloy-consensus.workspace = true
+seismic-enclave.workspace = true
+
+# misc
+clap = { workspace = true, features = ["derive"] }
+eyre.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+
+[features]
+default = ["jemalloc"]
+
+asm-keccak = ["reth-node-core/asm-keccak", "reth-primitives/asm-keccak"]
+
+jemalloc = ["reth-node-core/jemalloc", "reth-node-metrics/jemalloc"]
+jemalloc-prof = ["jemalloc"]
+
+min-error-logs = ["tracing/release_max_level_error"]
+min-warn-logs = ["tracing/release_max_level_warn"]
+min-info-logs = ["tracing/release_max_level_info"]
+min-debug-logs = ["tracing/release_max_level_debug"]
+min-trace-logs = ["tracing/release_max_level_trace"]
+
+[[bin]]
+name = "seismic-reth"
+path = "src/main.rs"

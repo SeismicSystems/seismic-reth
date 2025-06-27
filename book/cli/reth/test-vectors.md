@@ -4,7 +4,7 @@ Generate Test Vectors
 
 ```bash
 $ reth test-vectors --help
-Usage: reth test-vectors [OPTIONS] <COMMAND>
+Usage: seismic-reth test-vectors [OPTIONS] <COMMAND>
 
 Commands:
   tables  Generates test vectors for specified tables. If no table is specified, generate for all

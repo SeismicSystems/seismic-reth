@@ -17,6 +17,7 @@ mod tests {
     use reth_optimism_primitives::{OpReceipt, OpTransactionSigned};
     use reth_primitives_traits::{Account, RecoveredBlock};
     use reth_revm::{database::StateProviderDatabase, test_utils::StateProviderTest};
+    use revm::state::FlaggedStorage;
     use std::{collections::HashMap, str::FromStr};
 
     fn create_op_state_provider() -> StateProviderTest {
@@ -27,18 +28,22 @@ mod tests {
 
         let mut l1_block_storage = HashMap::default();
         // base fee
-        l1_block_storage.insert(StorageKey::with_last_byte(1), StorageValue::from(1000000000));
+        l1_block_storage
+            .insert(StorageKey::with_last_byte(1), FlaggedStorage::new_from_value(1000000000));
         // l1 fee overhead
-        l1_block_storage.insert(StorageKey::with_last_byte(5), StorageValue::from(188));
+        l1_block_storage.insert(StorageKey::with_last_byte(5), FlaggedStorage::new_from_value(188));
         // l1 fee scalar
-        l1_block_storage.insert(StorageKey::with_last_byte(6), StorageValue::from(684000));
+        l1_block_storage
+            .insert(StorageKey::with_last_byte(6), FlaggedStorage::new_from_value(684000));
         // l1 free scalars post ecotone
         l1_block_storage.insert(
             StorageKey::with_last_byte(3),
-            StorageValue::from_str(
-                "0x0000000000000000000000000000000000001db0000d27300000000000000005",
-            )
-            .unwrap(),
+            FlaggedStorage::new_from_value(
+                StorageValue::from_str(
+                    "0x0000000000000000000000000000000000001db0000d27300000000000000005",
+                )
+                .unwrap(),
+            ),
         );
 
         db.insert_account(L1_BLOCK_CONTRACT, l1_block_contract_account, None, l1_block_storage);

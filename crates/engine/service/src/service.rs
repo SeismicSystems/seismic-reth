@@ -5,6 +5,7 @@ use reth_consensus::{ConsensusError, FullConsensus};
 use reth_engine_primitives::{BeaconConsensusEngineEvent, BeaconEngineMessage, EngineValidator};
 use reth_engine_tree::{
     backfill::PipelineSync,
+    backup::BackupHandle,
     download::BasicBlockDownloader,
     engine::{EngineApiKind, EngineApiRequest, EngineApiRequestHandler, EngineHandler},
     persistence::PersistenceHandle,
@@ -31,6 +32,9 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
+
+// seismic imports that upstream doesn't use
+use reth_node_core::dirs::{ChainPath, DataDirPath};
 
 /// Alias for consensus engine stream.
 pub type EngineMessageStream<T> = Pin<Box<dyn Stream<Item = BeaconEngineMessage<T>> + Send + Sync>>;
@@ -85,6 +89,7 @@ where
         invalid_block_hook: Box<dyn InvalidBlockHook<N::Primitives>>,
         sync_metrics_tx: MetricEventsSender,
         evm_config: C,
+        data_dir: ChainPath<DataDirPath>,
     ) -> Self
     where
         V: EngineValidator<N::Payload, Block = BlockTy<N>>,
@@ -100,6 +105,8 @@ where
 
         let canonical_in_memory_state = blockchain_db.canonical_in_memory_state();
 
+        let backup_handle = BackupHandle::spawn_service(data_dir);
+
         let (to_tree_tx, from_tree) = EngineApiTreeHandler::<N::Primitives, _, _, _, _>::spawn_new(
             blockchain_db,
             consensus,
@@ -111,6 +118,7 @@ where
             invalid_block_hook,
             engine_kind,
             evm_config,
+            backup_handle,
         );
 
         let engine_handler = EngineApiRequestHandler::new(to_tree_tx, from_tree);
@@ -156,6 +164,7 @@ mod tests {
     use reth_evm_ethereum::EthEvmConfig;
     use reth_exex_types::FinishedExExHeight;
     use reth_network_p2p::test_utils::TestFullBlockClient;
+    use reth_node_core::dirs::MaybePlatformPath;
     use reth_node_ethereum::EthereumEngineValidator;
     use reth_primitives_traits::SealedHeader;
     use reth_provider::{
@@ -199,7 +208,7 @@ mod tests {
         let (tx, _rx) = unbounded_channel();
         let _eth_service = EngineService::new(
             consensus,
-            chain_spec,
+            chain_spec.clone(),
             client,
             Box::pin(incoming_requests),
             pipeline,
@@ -213,6 +222,7 @@ mod tests {
             Box::new(NoopInvalidBlockHook::default()),
             sync_metrics_tx,
             evm_config,
+            MaybePlatformPath::chain_default(chain_spec.chain.clone()),
         );
     }
 }

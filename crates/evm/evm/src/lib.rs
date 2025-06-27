@@ -9,7 +9,7 @@
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
     html_favicon_url = "https://avatars0.githubusercontent.com/u/97369466?s=256",
-    issue_tracker_base_url = "https://github.com/paradigmxyz/reth/issues/"
+    issue_tracker_base_url = "https://github.com/SeismicSystems/seismic-reth/issues/"
 )]
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
@@ -24,10 +24,7 @@ use alloy_eips::{
     eip2930::AccessList,
     eip4895::Withdrawals,
 };
-use alloy_evm::{
-    block::{BlockExecutorFactory, BlockExecutorFor},
-    precompiles::PrecompilesMap,
-};
+use alloy_evm::block::{BlockExecutorFactory, BlockExecutorFor};
 use alloy_primitives::{Address, B256};
 use core::{error::Error, fmt::Debug};
 use execute::{BasicBlockExecutor, BlockAssembler, BlockBuilder};
@@ -116,7 +113,7 @@ pub trait ConfigureEvm: Clone + Debug + Send + Sync + Unpin {
             Tx: TransactionEnv
                     + FromRecoveredTx<TxTy<Self::Primitives>>
                     + FromTxWithEncoded<TxTy<Self::Primitives>>,
-            Precompiles = PrecompilesMap,
+            // Precompiles = PrecompilesMap,
         >,
     >;
 
@@ -373,6 +370,24 @@ impl TransactionEnv for TxEnv {
 
 #[cfg(feature = "op")]
 impl<T: TransactionEnv> TransactionEnv for op_revm::OpTransaction<T> {
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.base.set_gas_limit(gas_limit);
+    }
+
+    fn nonce(&self) -> u64 {
+        TransactionEnv::nonce(&self.base)
+    }
+
+    fn set_nonce(&mut self, nonce: u64) {
+        self.base.set_nonce(nonce);
+    }
+
+    fn set_access_list(&mut self, access_list: AccessList) {
+        self.base.set_access_list(access_list);
+    }
+}
+
+impl<T: TransactionEnv> TransactionEnv for seismic_revm::SeismicTransaction<T> {
     fn set_gas_limit(&mut self, gas_limit: u64) {
         self.base.set_gas_limit(gas_limit);
     }

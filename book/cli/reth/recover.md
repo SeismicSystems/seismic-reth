@@ -5,8 +5,9 @@ Scripts for node recovery
 ```bash
 $ reth recover --help
 ```
+
 ```txt
-Usage: reth recover [OPTIONS] <COMMAND>
+Usage: seismic-reth recover [OPTIONS] <COMMAND>
 
 Commands:
   storage-tries  Recover the node by deleting dangling storage tries

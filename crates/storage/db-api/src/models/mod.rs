@@ -245,6 +245,13 @@ mod op {
     impl_compression_for_compact!(OpTransactionSigned, OpReceipt);
 }
 
+mod seismic {
+    use super::*;
+    use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
+
+    impl_compression_for_compact!(SeismicTransactionSigned, SeismicReceipt);
+}
+
 macro_rules! impl_compression_fixed_compact {
     ($($name:tt),+) => {
         $(

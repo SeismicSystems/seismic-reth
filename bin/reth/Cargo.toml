@@ -63,9 +63,14 @@ clap = { workspace = true, features = ["derive", "env"] }
 eyre.workspace = true
 
 [dev-dependencies]
+# seismic
+reth-provider = { workspace = true, features = ["test-utils"] }
+
+# upstream
 backon.workspace = true
 similar-asserts.workspace = true
 tempfile.workspace = true
+
 
 [features]
 default = ["jemalloc", "reth-revm/portable"]

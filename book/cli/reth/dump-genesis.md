@@ -5,8 +5,9 @@ Dumps genesis block JSON configuration to stdout
 ```bash
 $ reth dump-genesis --help
 ```
+
 ```txt
-Usage: reth dump-genesis [OPTIONS]
+Usage: seismic-reth dump-genesis [OPTIONS]
 
 Options:
       --chain <CHAIN_OR_PATH>

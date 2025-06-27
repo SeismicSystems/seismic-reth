@@ -19,6 +19,7 @@ use alloy_eips::{
 };
 use alloy_genesis::Genesis;
 use alloy_primitives::{address, b256, Address, BlockNumber, B256, U256};
+use alloy_seismic_evm::hardfork::{SeismicHardfork, SeismicHardforks};
 use alloy_trie::root::state_root_ref_unhashed;
 use core::fmt::Debug;
 use derive_more::From;
@@ -764,6 +765,12 @@ impl Hardforks for ChainSpec {
 
 impl EthereumHardforks for ChainSpec {
     fn ethereum_fork_activation(&self, fork: EthereumHardfork) -> ForkCondition {
+        self.fork(fork)
+    }
+}
+
+impl SeismicHardforks for ChainSpec {
+    fn seismic_fork_activation(&self, fork: SeismicHardfork) -> ForkCondition {
         self.fork(fork)
     }
 }

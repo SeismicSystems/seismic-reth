@@ -169,8 +169,11 @@ where
                     storage_trie.remove_leaf(&slot_nibbles)?;
                 } else {
                     trace!(target: "engine::root::sparse", ?slot, "Updating storage slot");
-                    storage_trie
-                        .update_leaf(slot_nibbles, alloy_rlp::encode_fixed_size(&value).to_vec())?;
+                    storage_trie.update_leaf(
+                        slot_nibbles,
+                        alloy_rlp::encode_fixed_size(&value.value).to_vec(),
+                        value.is_private,
+                    )?;
                 }
             }
 

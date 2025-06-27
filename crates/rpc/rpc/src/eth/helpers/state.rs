@@ -37,7 +37,7 @@ where
 mod tests {
     use super::*;
     use alloy_eips::eip1559::ETHEREUM_BLOCK_GAS_LIMIT_30M;
-    use alloy_primitives::{Address, StorageKey, StorageValue, U256};
+    use alloy_primitives::{Address, StorageKey, U256};
     use reth_evm_ethereum::EthEvmConfig;
     use reth_network_api::noop::NoopNetwork;
     use reth_provider::test_utils::{ExtendedAccount, MockEthProvider, NoopProvider};
@@ -50,6 +50,7 @@ mod tests {
     };
     use reth_tasks::pool::BlockingTaskPool;
     use reth_transaction_pool::test_utils::{testing_pool, TestPool};
+    use revm::state::FlaggedStorage;
     use std::collections::HashMap;
 
     fn noop_eth_api() -> EthApi<NoopProvider, TestPool, NoopNetwork, EthEvmConfig> {
@@ -108,7 +109,7 @@ mod tests {
         assert_eq!(storage, U256::ZERO.to_be_bytes());
 
         // === Mock ===
-        let storage_value = StorageValue::from(1337);
+        let storage_value = FlaggedStorage::new_from_value(1337);
         let storage_key = StorageKey::random();
         let storage = HashMap::from([(storage_key, storage_value)]);
 
@@ -118,7 +119,7 @@ mod tests {
 
         let storage_key: U256 = storage_key.into();
         let storage = eth_api.storage_at(address, storage_key.into(), None).await.unwrap();
-        assert_eq!(storage, storage_value.to_be_bytes());
+        assert_eq!(storage, storage_value.value.to_be_bytes());
     }
 
     #[tokio::test]

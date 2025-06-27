@@ -29,7 +29,7 @@ alloy_sol_types::sol! {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_fee_history() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
 
@@ -115,7 +115,7 @@ async fn test_fee_history() -> eyre::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_flashbots_validate_v3() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
 
@@ -191,7 +191,7 @@ async fn test_flashbots_validate_v3() -> eyre::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_flashbots_validate_v4() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
 

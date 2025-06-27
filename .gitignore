@@ -56,3 +56,10 @@ book/sources/Cargo.lock
 
 # Cargo chef recipe file
 recipe.json
+
+
+# seismic-viem tests
+node_modules
+bun.lock*
+.env
+.cursor

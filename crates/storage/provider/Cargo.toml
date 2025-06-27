@@ -39,7 +39,7 @@ alloy-primitives.workspace = true
 alloy-rpc-types-engine.workspace = true
 alloy-consensus.workspace = true
 revm-database.workspace = true
-revm-state = { workspace = true, optional = true }
+revm-state.workspace = true
 
 # tracing
 tracing.workspace = true
@@ -99,6 +99,6 @@ test-utils = [
     "reth-trie-db/test-utils",
     "reth-prune-types/test-utils",
     "reth-stages-types/test-utils",
-    "revm-state",
+    # "revm-state", // seismic requires revm-state as a non-optional dependency
     "tokio",
 ]

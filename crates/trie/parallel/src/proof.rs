@@ -286,8 +286,12 @@ where
                     account_rlp.clear();
                     let account = account.into_trie_account(storage_multiproof.root);
                     account.encode(&mut account_rlp as &mut dyn BufMut);
-
-                    hash_builder.add_leaf(Nibbles::unpack(hashed_address), &account_rlp);
+                    let is_private = false; // account leaves are always public. Their storage leaves can be private.
+                    hash_builder.add_leaf(
+                        Nibbles::unpack(hashed_address),
+                        &account_rlp,
+                        is_private,
+                    );
 
                     // We might be adding leaves that are not necessarily our proof targets.
                     if targets.contains_key(&hashed_address) {
@@ -400,9 +404,11 @@ mod tests {
                 .insert_storage_for_hashing(state.iter().map(|(address, (_, storage))| {
                     (
                         *address,
-                        storage
-                            .iter()
-                            .map(|(slot, value)| StorageEntry { key: *slot, value: *value }),
+                        storage.iter().map(|(slot, value)| StorageEntry {
+                            key: *slot,
+                            value: *value,
+                            is_private: false,
+                        }),
                     )
                 }))
                 .unwrap();

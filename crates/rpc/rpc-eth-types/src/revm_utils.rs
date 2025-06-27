@@ -9,7 +9,7 @@ use reth_evm::TransactionEnv;
 use revm::{
     context::BlockEnv,
     database::{CacheDB, State},
-    state::{Account, AccountStatus, Bytecode, EvmStorageSlot},
+    state::{Account, AccountStatus, Bytecode, EvmStorageSlot, FlaggedStorage},
     Database, DatabaseCommit,
 };
 use std::{
@@ -331,8 +331,8 @@ where
                 slot.into(),
                 EvmStorageSlot {
                     // we use inverted value here to ensure that storage is treated as changed
-                    original_value: (!value).into(),
-                    present_value: value.into(),
+                    original_value: FlaggedStorage::new_from_value(U256::from_be_bytes((!value).0)),
+                    present_value: FlaggedStorage::new_from_value(U256::from_be_bytes(value.0)),
                     is_cold: false,
                 },
             );

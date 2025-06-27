@@ -19,6 +19,7 @@ use reth_primitives_traits::Account;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 
 use revm_database::{AccountStatus, BundleAccount};
+use revm_state::FlaggedStorage;
 
 /// Representation of in-memory hashed state.
 #[derive(PartialEq, Eq, Clone, Default, Debug)]
@@ -341,7 +342,7 @@ pub struct HashedStorage {
     /// Flag indicating whether the storage was wiped or not.
     pub wiped: bool,
     /// Mapping of hashed storage slot to storage value.
-    pub storage: B256Map<U256>,
+    pub storage: B256Map<FlaggedStorage>,
 }
 
 impl HashedStorage {
@@ -356,14 +357,14 @@ impl HashedStorage {
     }
 
     /// Create new hashed storage from iterator.
-    pub fn from_iter(wiped: bool, iter: impl IntoIterator<Item = (B256, U256)>) -> Self {
+    pub fn from_iter(wiped: bool, iter: impl IntoIterator<Item = (B256, FlaggedStorage)>) -> Self {
         Self { wiped, storage: HashMap::from_iter(iter) }
     }
 
     /// Create new hashed storage from account status and plain storage.
     pub fn from_plain_storage<'a>(
         status: AccountStatus,
-        storage: impl IntoIterator<Item = (&'a U256, &'a U256)>,
+        storage: impl IntoIterator<Item = (&'a U256, &'a FlaggedStorage)>,
     ) -> Self {
         Self::from_iter(
             status.was_destroyed(),
@@ -464,7 +465,7 @@ impl HashedAccountsSorted {
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct HashedStorageSorted {
     /// Sorted hashed storage slots with non-zero value.
-    pub non_zero_valued_slots: Vec<(B256, U256)>,
+    pub non_zero_valued_slots: Vec<(B256, FlaggedStorage)>,
     /// Slots that have been zero valued.
     pub zero_valued_slots: B256Set,
     /// Flag indicating whether the storage was wiped or not.
@@ -478,11 +479,15 @@ impl HashedStorageSorted {
     }
 
     /// Returns a sorted iterator over updated storage slots.
-    pub fn storage_slots_sorted(&self) -> impl Iterator<Item = (B256, U256)> {
+    pub fn storage_slots_sorted(&self) -> impl Iterator<Item = (B256, FlaggedStorage)> {
         self.non_zero_valued_slots
             .iter()
             .map(|(hashed_slot, value)| (*hashed_slot, *value))
-            .chain(self.zero_valued_slots.iter().map(|hashed_slot| (*hashed_slot, U256::ZERO)))
+            .chain(
+                self.zero_valued_slots
+                    .iter()
+                    .map(|hashed_slot| (*hashed_slot, FlaggedStorage::ZERO)),
+            )
             .sorted_by_key(|entry| *entry.0)
     }
 }
@@ -504,7 +509,7 @@ pub struct ChunkedHashedPostState {
 enum FlattenedHashedPostStateItem {
     Account(Option<Account>),
     StorageWipe,
-    StorageUpdate { slot: B256, value: U256 },
+    StorageUpdate { slot: B256, value: FlaggedStorage },
 }
 
 impl ChunkedHashedPostState {
@@ -589,7 +594,7 @@ mod tests {
         let hashed_slot2 = B256::with_last_byte(65);
 
         // Initialize post state storage
-        let original_slot_value = U256::from(123);
+        let original_slot_value = FlaggedStorage::new(123, true);
         let mut hashed_state = HashedPostState::default().with_storages([(
             hashed_address,
             HashedStorage::from_iter(
@@ -599,7 +604,7 @@ mod tests {
         )]);
 
         // Update single slot value
-        let updated_slot_value = U256::from(321);
+        let updated_slot_value = FlaggedStorage::new_from_tuple((321, false));
         let extension = HashedPostState::default().with_storages([(
             hashed_address,
             HashedStorage::from_iter(false, [(hashed_slot, updated_slot_value)]),
@@ -672,7 +677,7 @@ mod tests {
         let mut storage = StorageWithOriginalValues::default();
         storage.insert(
             U256::from(1),
-            StorageSlot { present_value: U256::from(4), ..Default::default() },
+            StorageSlot { present_value: FlaggedStorage::new_from_value(4), ..Default::default() },
         );
 
         // Create a `BundleAccount` struct to represent the account and its storage.
@@ -767,8 +772,8 @@ mod tests {
         let mut storage = HashedStorage::default();
         let slot1 = B256::random();
         let slot2 = B256::random();
-        storage.storage.insert(slot1, U256::ZERO);
-        storage.storage.insert(slot2, U256::from(1));
+        storage.storage.insert(slot1, FlaggedStorage::new(0, false));
+        storage.storage.insert(slot2, FlaggedStorage::new(1, false));
         state.storages.insert(addr1, storage);
 
         state
@@ -871,8 +876,8 @@ mod tests {
         state.accounts.insert(addr2, Some(Default::default()));
 
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, U256::ZERO);
-        storage.storage.insert(slot2, U256::from(1));
+        storage.storage.insert(slot1, FlaggedStorage::new(0, false));
+        storage.storage.insert(slot2, FlaggedStorage::new(1, false));
         state.storages.insert(addr1, storage);
 
         let mut excluded_slots = HashSet::default();
@@ -898,8 +903,8 @@ mod tests {
         // don't add the account to state.accounts (simulating unmodified account)
         // but add storage updates for this account
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, U256::from(1));
-        storage.storage.insert(slot2, U256::from(2));
+        storage.storage.insert(slot1, FlaggedStorage::new_from_value(1));
+        storage.storage.insert(slot2, FlaggedStorage::new_from_value(2));
         state.storages.insert(addr, storage);
 
         assert!(!state.accounts.contains_key(&addr));
@@ -932,7 +937,10 @@ mod tests {
                 addr1,
                 HashedStorage {
                     wiped: true,
-                    storage: B256Map::from_iter([(slot1, U256::ZERO), (slot2, U256::from(1))]),
+                    storage: B256Map::from_iter([
+                        (slot1, FlaggedStorage::ZERO),
+                        (slot2, FlaggedStorage::new_from_value(1)),
+                    ]),
                 },
             )]),
         };
@@ -948,7 +956,7 @@ mod tests {
                     addr1,
                     HashedStorage {
                         wiped: true,
-                        storage: B256Map::from_iter([(slot1, U256::ZERO)])
+                        storage: B256Map::from_iter([(slot1, FlaggedStorage::ZERO)])
                     }
                 )]),
             }
@@ -961,7 +969,7 @@ mod tests {
                     addr1,
                     HashedStorage {
                         wiped: false,
-                        storage: B256Map::from_iter([(slot2, U256::from(1))])
+                        storage: B256Map::from_iter([(slot2, FlaggedStorage::new_from_value(1))])
                     }
                 )]),
             }
@@ -984,7 +992,10 @@ mod tests {
                 addr2,
                 HashedStorage {
                     wiped: true,
-                    storage: B256Map::from_iter([(slot1, U256::ZERO), (slot2, U256::from(1))]),
+                    storage: B256Map::from_iter([
+                        (slot1, FlaggedStorage::ZERO),
+                        (slot2, FlaggedStorage::new_from_value(1)),
+                    ]),
                 },
             )]),
         };
@@ -1005,7 +1016,10 @@ mod tests {
                     addr2,
                     HashedStorage {
                         wiped: false,
-                        storage: B256Map::from_iter([(slot1, U256::ZERO), (slot2, U256::from(1))]),
+                        storage: B256Map::from_iter([
+                            (slot1, FlaggedStorage::ZERO),
+                            (slot2, FlaggedStorage::new_from_value(1)),
+                        ]),
                     },
                 )])
             })

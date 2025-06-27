@@ -47,10 +47,11 @@ mod tests {
         // Convert the GenesisAccount to a TrieAccount
         let trie_account: TrieAccount = genesis_account.into();
 
-        let expected_storage_root = storage_root_unhashed(BTreeMap::from([(
+        let is_private = false; // legacy test adapter value
+        let expected_storage_root = storage_root_unhashed(vec![(
             B256::from([0x01; 32]),
-            U256::from_be_bytes(*B256::from([0x02; 32])),
-        )]));
+            (B256::from([0x02; 32]).into(), is_private),
+        )]);
 
         // Check that the fields are properly set.
         assert_eq!(trie_account.nonce, 10);
