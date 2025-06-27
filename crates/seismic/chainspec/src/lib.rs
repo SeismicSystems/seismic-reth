@@ -47,8 +47,8 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     .into()
 });
 
-/// Seismic testnet specification
-/// TODO: remove this once we launch devnet with consensus
+// TODO: remove this once we launch devnet with consensus
+/// Seismic old devnet specification
 pub static SEISMIC_DEV_OLD: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     let genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
         .expect("Can't deserialize Dev testnet genesis json");
