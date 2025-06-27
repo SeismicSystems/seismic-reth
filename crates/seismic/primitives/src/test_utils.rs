@@ -20,10 +20,7 @@ use seismic_alloy_rpc_types::SeismicTransactionRequest;
 
 /// Get the network public key
 pub fn get_network_public_key() -> PublicKey {
-    let keys = MockEnclaveServer::get_purpose_keys(seismic_enclave::keys::GetPurposeKeysRequest {
-        epoch: 0,
-    });
-    keys.tx_io_pk
+    MockEnclaveServer::get_public_key()
 }
 
 /// Get the client's sk for tx io

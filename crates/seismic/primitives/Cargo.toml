@@ -12,9 +12,6 @@ description = "Seismic primitive types"
 workspace = true
 
 [dependencies]
-# Seismic
-seismic-enclave = { workspace = true }
-
 # reth
 reth-primitives-traits = { workspace = true, features = ["serde"] }
 reth-codecs = { workspace = true, optional = true }

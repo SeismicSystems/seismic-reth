@@ -3,14 +3,14 @@
 use std::net::IpAddr;
 
 use clap::Args;
-use reth_enclave::{ENCLAVE_DEFAULT_ENDPOINT_IP, ENCLAVE_DEFAULT_ENDPOINT_PORT};
+use reth_enclave::{ENCLAVE_DEFAULT_ENDPOINT_ADDR, ENCLAVE_DEFAULT_ENDPOINT_PORT};
 
 /// Parameters for configuring the enclave more granularity via CLI
 #[derive(Debug, Clone, Args, PartialEq, Eq, Copy)]
 #[command(next_help_heading = "Enclave")]
 pub struct EnclaveArgs {
     /// Auth server address to listen on
-    #[arg(long = "enclave.endpoint-addr", default_value_t = ENCLAVE_DEFAULT_ENDPOINT_IP)]
+    #[arg(long = "enclave.endpoint-addr", default_value_t = ENCLAVE_DEFAULT_ENDPOINT_ADDR)]
     pub enclave_server_addr: IpAddr,
 
     /// Auth server port to listen on
@@ -29,7 +29,7 @@ pub struct EnclaveArgs {
 impl Default for EnclaveArgs {
     fn default() -> Self {
         Self {
-            enclave_server_addr: ENCLAVE_DEFAULT_ENDPOINT_IP,
+            enclave_server_addr: ENCLAVE_DEFAULT_ENDPOINT_ADDR,
             enclave_server_port: ENCLAVE_DEFAULT_ENDPOINT_PORT,
             mock_server: false,
             enclave_timeout: 5,
@@ -59,7 +59,7 @@ mod tests {
         let mock = args.mock_server;
 
         assert_eq!(port, ENCLAVE_DEFAULT_ENDPOINT_PORT);
-        assert_eq!(addr, ENCLAVE_DEFAULT_ENDPOINT_IP);
+        assert_eq!(addr, ENCLAVE_DEFAULT_ENDPOINT_ADDR);
         assert_eq!(mock, false);
     }
 }
