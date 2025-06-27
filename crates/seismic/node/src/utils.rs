@@ -4,8 +4,12 @@
 pub mod test_utils {
     use alloy_primitives::Address;
     use alloy_rpc_types::{Block, Header, Transaction, TransactionReceipt};
-    use jsonrpsee::http_client::HttpClient;
+    use jsonrpsee::{
+        core::client::SubscriptionClientT,
+        http_client::HttpClient,
+    };
     use reth_rpc_eth_api::EthApiClient;
+    use reth_rpc_layer::{AuthClientLayer, JwtSecret};
     use reth_seismic_chainspec::SEISMIC_DEV;
     use serde_json::Value;
     use std::{path::PathBuf, process::Stdio};
@@ -126,6 +130,34 @@ pub mod test_utils {
         /// Get the url for the seismic reth test command
         pub fn url() -> String {
             format!("http://127.0.0.1:8545")
+        }
+
+        /// Url for the auth rpc
+        fn auth_http_url() -> String {
+            format!("http://127.0.0.1:8551")
+        }
+
+        /// Get the jwt secret path
+        fn authrpc_jwtsecret_path() -> PathBuf {
+            Self::data_dir().join("jwt.hex")
+        }
+
+        /// Load the jwt secret from file
+        fn auth_rpc_jwt_secret() -> JwtSecret {
+            let jwt_path = Self::authrpc_jwtsecret_path();
+            JwtSecret::from_file(&jwt_path).unwrap()
+        }
+
+        /// Build an engine http client
+        pub fn engine_http_client()
+        -> impl SubscriptionClientT + Clone + Send + Sync + Unpin + 'static {
+            let jwt_secret = Self::auth_rpc_jwt_secret();
+            let secret_layer = AuthClientLayer::new(jwt_secret);
+            let middleware = tower::ServiceBuilder::default().layer(secret_layer);
+            jsonrpsee::http_client::HttpClientBuilder::default()
+                .set_http_middleware(middleware)
+                .build(Self::auth_http_url())
+                .expect("Failed to create http client")
         }
     }
 

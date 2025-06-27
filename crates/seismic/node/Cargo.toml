@@ -14,6 +14,7 @@ workspace = true
 seismic-enclave.workspace = true
 
 # seismic-reth
+reth-rpc-layer.workspace = true
 reth-seismic-payload-builder.workspace = true
 reth-seismic-evm.workspace = true
 reth-seismic-rpc.workspace = true
@@ -71,6 +72,8 @@ tokio = { workspace = true }
 jsonrpsee = { workspace = true }
 tempfile = { workspace = true }
 once_cell.workspace = true
+
+tower.workspace = true
 
 [dev-dependencies]
 reth-seismic-node = { workspace = true, features = ["test-utils"] }

@@ -15,6 +15,7 @@ use alloy_rpc_types_engine::{ForkchoiceState, PayloadAttributes, PayloadStatusEn
 use alloy_sol_types::{sol, SolCall, SolValue};
 use reth_e2e_test_utils::wallet::Wallet;
 use reth_rpc_api::clients::EngineApiClient;
+use reth_rpc_layer::{AuthClientLayer, JwtSecret};
 use reth_rpc_eth_api::EthApiClient;
 use reth_seismic_node::engine::SeismicEngineTypes;
 use reth_seismic_node::utils::test_utils::{
@@ -32,8 +33,7 @@ use seismic_alloy_rpc_types::{
     SimulatePayload,
 };
 use seismic_enclave::aes_decrypt;
-use serde::Serialize;
-use std::{thread, time::Duration};
+use std::{str::FromStr, thread, time::Duration};
 use tokio::sync::mpsc;
 
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
@@ -752,6 +752,8 @@ async fn test_engine_api_payload_workflow() {
     let chain_id = SeismicRethTestCommand::chain_id();
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
 
+    let engine_client = SeismicRethTestCommand::engine_http_client();
+
     println!("Starting Engine API payload workflow test");
 
     // Get the current chain head to use as the base for our forkchoice state
@@ -802,7 +804,7 @@ async fn test_engine_api_payload_workflow() {
     // Call engine_forkchoiceUpdatedV3 to request a new payload
     // ***** Currently fails with method not found
     let fcu_result = EngineApiClient::<SeismicEngineTypes>::fork_choice_updated_v3(
-        &client,
+        &engine_client,
         forkchoice_state,
         Some(payload_attributes),
     )
@@ -831,7 +833,7 @@ async fn test_engine_api_payload_workflow() {
 
     // Call engine_getPayloadV3 to retrieve the constructed payload
     let payload_envelope =
-        EngineApiClient::<SeismicEngineTypes>::get_payload_v3(&client, payload_id)
+        EngineApiClient::<SeismicEngineTypes>::get_payload_v3(&engine_client, payload_id)
             .await
             .expect("engine_getPayloadV3 should succeed");
 
