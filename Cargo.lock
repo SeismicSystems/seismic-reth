@@ -174,7 +174,7 @@ dependencies = [
 [[package]]
 name = "alloy-dyn-abi"
 version = "1.1.2"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=978056b#978056b7c9a267c6751334c8a1b48c2298b6bff1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=bc4b5ed#bc4b5ed0cf4e5c69b2c3fec8cc518fb3cf45859e"
 dependencies = [
  "alloy-json-abi",
  "alloy-primitives",
@@ -260,7 +260,7 @@ dependencies = [
 [[package]]
 name = "alloy-evm"
 version = "0.9.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=03433fd#03433fd886ef21f00b9cf6cf5f03a37536233368"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=6fdefa5#6fdefa59258c25faf1ba20a45bc54a96fd109920"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -307,7 +307,7 @@ dependencies = [
 [[package]]
 name = "alloy-json-abi"
 version = "1.1.2"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=978056b#978056b7c9a267c6751334c8a1b48c2298b6bff1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=bc4b5ed#bc4b5ed0cf4e5c69b2c3fec8cc518fb3cf45859e"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-type-parser",
@@ -382,7 +382,7 @@ dependencies = [
 [[package]]
 name = "alloy-primitives"
 version = "1.1.2"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=978056b#978056b7c9a267c6751334c8a1b48c2298b6bff1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=bc4b5ed#bc4b5ed0cf4e5c69b2c3fec8cc518fb3cf45859e"
 dependencies = [
  "alloy-rlp",
  "arbitrary",
@@ -426,6 +426,7 @@ dependencies = [
  "alloy-rpc-client",
  "alloy-rpc-types-engine",
  "alloy-rpc-types-eth",
+ "alloy-rpc-types-trace",
  "alloy-signer",
  "alloy-sol-types",
  "alloy-transport",
@@ -684,7 +685,7 @@ dependencies = [
 [[package]]
 name = "alloy-seismic-evm"
 version = "0.9.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=03433fd#03433fd886ef21f00b9cf6cf5f03a37536233368"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=6fdefa5#6fdefa59258c25faf1ba20a45bc54a96fd109920"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -746,7 +747,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-macro"
 version = "1.1.2"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=978056b#978056b7c9a267c6751334c8a1b48c2298b6bff1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=bc4b5ed#bc4b5ed0cf4e5c69b2c3fec8cc518fb3cf45859e"
 dependencies = [
  "alloy-sol-macro-expander",
  "alloy-sol-macro-input",
@@ -759,7 +760,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-macro-expander"
 version = "1.1.2"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=978056b#978056b7c9a267c6751334c8a1b48c2298b6bff1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=bc4b5ed#bc4b5ed0cf4e5c69b2c3fec8cc518fb3cf45859e"
 dependencies = [
  "alloy-sol-macro-input",
  "const-hex",
@@ -776,7 +777,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-macro-input"
 version = "1.1.2"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=978056b#978056b7c9a267c6751334c8a1b48c2298b6bff1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=bc4b5ed#bc4b5ed0cf4e5c69b2c3fec8cc518fb3cf45859e"
 dependencies = [
  "alloy-json-abi",
  "const-hex",
@@ -792,7 +793,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-type-parser"
 version = "1.1.2"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=978056b#978056b7c9a267c6751334c8a1b48c2298b6bff1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=bc4b5ed#bc4b5ed0cf4e5c69b2c3fec8cc518fb3cf45859e"
 dependencies = [
  "serde",
  "winnow",
@@ -801,7 +802,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-types"
 version = "1.1.2"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=978056b#978056b7c9a267c6751334c8a1b48c2298b6bff1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=bc4b5ed#bc4b5ed0cf4e5c69b2c3fec8cc518fb3cf45859e"
 dependencies = [
  "alloy-json-abi",
  "alloy-primitives",
@@ -889,7 +890,7 @@ dependencies = [
 [[package]]
 name = "alloy-trie"
 version = "0.8.1"
-source = "git+https://github.com/SeismicSystems/seismic-trie.git?rev=9d85b9c#9d85b9c2dfa07e46b9654ecb8d5808b5cac0fb28"
+source = "git+https://github.com/SeismicSystems/seismic-trie.git?rev=417644c#417644c389cb8819a20785db684f991c901a2101"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -2350,6 +2351,16 @@ dependencies = [
 
 [[package]]
 name = "core-foundation"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91e195e091a93c46f7102ec7818a2aa394e1e1771c3ab4825963fa03e45afb8f"
+dependencies = [
+ "core-foundation-sys",
+ "libc",
+]
+
+[[package]]
+name = "core-foundation"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2a6cd9ae233e7f62ba4e9353e81a88df7fc8a5987b8d445b4d90c879bd156f6"
@@ -3306,6 +3317,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
 
 [[package]]
+name = "foreign-types"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6f339eb8adc052cd2ca78910fda869aefa38d22d5cb648e6485e4d3fc06f3b1"
+dependencies = [
+ "foreign-types-shared",
+]
+
+[[package]]
+name = "foreign-types-shared"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
+
+[[package]]
 name = "form_urlencoded"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3979,6 +4005,22 @@ dependencies = [
  "tokio-rustls",
  "tower-service",
  "webpki-roots 1.0.0",
+]
+
+[[package]]
+name = "hyper-tls"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
+dependencies = [
+ "bytes",
+ "http-body-util",
+ "hyper 1.6.0",
+ "hyper-util",
+ "native-tls",
+ "tokio",
+ "tokio-native-tls",
+ "tower-service",
 ]
 
 [[package]]
@@ -4903,12 +4945,14 @@ dependencies = [
 
 [[package]]
 name = "kbs-types"
-version = "0.7.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b6441ed73b0faa50707d4de41c6b45c76654b661b96aaf7b26a41331eedc0a5"
+checksum = "2be9fa1f64b3c8da5043cdc634007c6f7444b3ef1f3668f66b34180bdb398ec7"
 dependencies = [
+ "base64 0.22.1",
  "serde",
  "serde_json",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -5507,6 +5551,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "native-tls"
+version = "0.2.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87de3442987e9dbec73158d5c715e7ad9072fda936bb03d19d7fa10e00520f0e"
+dependencies = [
+ "libc",
+ "log",
+ "openssl",
+ "openssl-probe",
+ "openssl-sys",
+ "schannel",
+ "security-framework 2.11.1",
+ "security-framework-sys",
+ "tempfile",
+]
+
+[[package]]
 name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5786,7 +5847,7 @@ dependencies = [
 [[package]]
 name = "op-revm"
 version = "4.0.2"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=4ee533d4#4ee533d47f3435eb4407f6966fb498dcd9e4d4bf"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=e7fa9fab#e7fa9fab2c9cdefd4590a935954593abdd6a036e"
 dependencies = [
  "auto_impl",
  "once_cell",
@@ -5801,10 +5862,48 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
+name = "openssl"
+version = "0.10.73"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8505734d46c8ab1e19a1dce3aef597ad87dcb4c37e7188231769bd6bd51cebf8"
+dependencies = [
+ "bitflags 2.9.1",
+ "cfg-if",
+ "foreign-types",
+ "libc",
+ "once_cell",
+ "openssl-macros",
+ "openssl-sys",
+]
+
+[[package]]
+name = "openssl-macros"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a948666b637a0f465e8564c73e89d4dde00d72d4d473cc972f390fc3dcee7d9c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
+]
+
+[[package]]
 name = "openssl-probe"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d05e27ee213611ffe7d6348b942e8f942b37114c00cc03cec254295a4a17852e"
+
+[[package]]
+name = "openssl-sys"
+version = "0.9.109"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90096e2e47630d78b7d1c20952dc621f957103f8bc2c8359ec81290d75238571"
+dependencies = [
+ "cc",
+ "libc",
+ "pkg-config",
+ "vcpkg",
+]
 
 [[package]]
 name = "option-ext"
@@ -6637,11 +6736,13 @@ dependencies = [
  "http-body-util",
  "hyper 1.6.0",
  "hyper-rustls",
+ "hyper-tls",
  "hyper-util",
  "ipnet",
  "js-sys",
  "log",
  "mime",
+ "native-tls",
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
@@ -6655,6 +6756,7 @@ dependencies = [
  "serde_urlencoded",
  "sync_wrapper",
  "tokio",
+ "tokio-native-tls",
  "tokio-rustls",
  "tokio-util",
  "tower 0.5.2",
@@ -8464,7 +8566,6 @@ dependencies = [
  "reth-db",
  "reth-discv4",
  "reth-discv5",
- "reth-enclave",
  "reth-engine-primitives",
  "reth-ethereum-forks",
  "reth-net-nat",
@@ -8482,6 +8583,7 @@ dependencies = [
  "reth-tracing",
  "reth-transaction-pool",
  "secp256k1",
+ "seismic-enclave",
  "serde",
  "shellexpand",
  "strum 0.27.1",
@@ -9569,6 +9671,7 @@ dependencies = [
  "seismic-alloy-consensus",
  "seismic-alloy-network",
  "seismic-alloy-rpc-types",
+ "seismic-enclave",
  "seismic-revm",
  "serde",
  "serde_json",
@@ -10130,7 +10233,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "23.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=4ee533d4#4ee533d47f3435eb4407f6966fb498dcd9e4d4bf"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=e7fa9fab#e7fa9fab2c9cdefd4590a935954593abdd6a036e"
 dependencies = [
  "revm-bytecode",
  "revm-context",
@@ -10148,7 +10251,7 @@ dependencies = [
 [[package]]
 name = "revm-bytecode"
 version = "4.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=4ee533d4#4ee533d47f3435eb4407f6966fb498dcd9e4d4bf"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=e7fa9fab#e7fa9fab2c9cdefd4590a935954593abdd6a036e"
 dependencies = [
  "bitvec",
  "once_cell",
@@ -10160,7 +10263,7 @@ dependencies = [
 [[package]]
 name = "revm-context"
 version = "4.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=4ee533d4#4ee533d47f3435eb4407f6966fb498dcd9e4d4bf"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=e7fa9fab#e7fa9fab2c9cdefd4590a935954593abdd6a036e"
 dependencies = [
  "cfg-if",
  "derive-where",
@@ -10175,7 +10278,7 @@ dependencies = [
 [[package]]
 name = "revm-context-interface"
 version = "4.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=4ee533d4#4ee533d47f3435eb4407f6966fb498dcd9e4d4bf"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=e7fa9fab#e7fa9fab2c9cdefd4590a935954593abdd6a036e"
 dependencies = [
  "alloy-eip2930",
  "alloy-eip7702",
@@ -10190,7 +10293,7 @@ dependencies = [
 [[package]]
 name = "revm-database"
 version = "4.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=4ee533d4#4ee533d47f3435eb4407f6966fb498dcd9e4d4bf"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=e7fa9fab#e7fa9fab2c9cdefd4590a935954593abdd6a036e"
 dependencies = [
  "alloy-eips",
  "revm-bytecode",
@@ -10203,7 +10306,7 @@ dependencies = [
 [[package]]
 name = "revm-database-interface"
 version = "4.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=4ee533d4#4ee533d47f3435eb4407f6966fb498dcd9e4d4bf"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=e7fa9fab#e7fa9fab2c9cdefd4590a935954593abdd6a036e"
 dependencies = [
  "auto_impl",
  "revm-primitives",
@@ -10214,7 +10317,7 @@ dependencies = [
 [[package]]
 name = "revm-handler"
 version = "4.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=4ee533d4#4ee533d47f3435eb4407f6966fb498dcd9e4d4bf"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=e7fa9fab#e7fa9fab2c9cdefd4590a935954593abdd6a036e"
 dependencies = [
  "auto_impl",
  "revm-bytecode",
@@ -10231,7 +10334,7 @@ dependencies = [
 [[package]]
 name = "revm-inspector"
 version = "4.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=4ee533d4#4ee533d47f3435eb4407f6966fb498dcd9e4d4bf"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=e7fa9fab#e7fa9fab2c9cdefd4590a935954593abdd6a036e"
 dependencies = [
  "auto_impl",
  "revm-context",
@@ -10247,7 +10350,7 @@ dependencies = [
 [[package]]
 name = "revm-inspectors"
 version = "0.22.3"
-source = "git+https://github.com/SeismicSystems/seismic-revm-inspectors.git?rev=ed6b2a7#ed6b2a758d877960e7c47f9699fdbdcf0f58a748"
+source = "git+https://github.com/SeismicSystems/seismic-revm-inspectors.git?rev=2b50433#2b50433e35dfc232711b7df38bea8b8eabfeb0ea"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-eth",
@@ -10266,7 +10369,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "19.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=4ee533d4#4ee533d47f3435eb4407f6966fb498dcd9e4d4bf"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=e7fa9fab#e7fa9fab2c9cdefd4590a935954593abdd6a036e"
 dependencies = [
  "revm-bytecode",
  "revm-context-interface",
@@ -10277,7 +10380,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "20.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=4ee533d4#4ee533d47f3435eb4407f6966fb498dcd9e4d4bf"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=e7fa9fab#e7fa9fab2c9cdefd4590a935954593abdd6a036e"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
@@ -10301,7 +10404,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "19.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=4ee533d4#4ee533d47f3435eb4407f6966fb498dcd9e4d4bf"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=e7fa9fab#e7fa9fab2c9cdefd4590a935954593abdd6a036e"
 dependencies = [
  "alloy-primitives",
  "num_enum",
@@ -10311,7 +10414,7 @@ dependencies = [
 [[package]]
 name = "revm-state"
 version = "4.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=4ee533d4#4ee533d47f3435eb4407f6966fb498dcd9e4d4bf"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=e7fa9fab#e7fa9fab2c9cdefd4590a935954593abdd6a036e"
 dependencies = [
  "bitflags 2.9.1",
  "revm-bytecode",
@@ -10596,7 +10699,7 @@ dependencies = [
  "openssl-probe",
  "rustls-pki-types",
  "schannel",
- "security-framework",
+ "security-framework 3.2.0",
 ]
 
 [[package]]
@@ -10624,7 +10727,7 @@ version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19787cda76408ec5404443dc8b31795c87cd8fec49762dc75fa727740d34acc1"
 dependencies = [
- "core-foundation",
+ "core-foundation 0.10.1",
  "core-foundation-sys",
  "jni",
  "log",
@@ -10633,7 +10736,7 @@ dependencies = [
  "rustls-native-certs",
  "rustls-platform-verifier-android",
  "rustls-webpki",
- "security-framework",
+ "security-framework 3.2.0",
  "security-framework-sys",
  "webpki-root-certs 0.26.11",
  "windows-sys 0.59.0",
@@ -10786,12 +10889,25 @@ dependencies = [
 
 [[package]]
 name = "security-framework"
+version = "2.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "897b2245f0b511c87893af39b033e5ca9cce68824c4d7e7630b5a1d339658d02"
+dependencies = [
+ "bitflags 2.9.1",
+ "core-foundation 0.9.4",
+ "core-foundation-sys",
+ "libc",
+ "security-framework-sys",
+]
+
+[[package]]
+name = "security-framework"
 version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "271720403f46ca04f7ba6f55d438f8bd878d6b8ca0a1046e8228c4145bcbb316"
 dependencies = [
  "bitflags 2.9.1",
- "core-foundation",
+ "core-foundation 0.10.1",
  "core-foundation-sys",
  "libc",
  "security-framework-sys",
@@ -10810,7 +10926,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-consensus"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=dddd920#dddd9203c038d93e2cc9039dba00322b83c68e81"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=d2aa119#d2aa119e7e576a2e7bfc324f1e666c009a287eb0"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -10835,7 +10951,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-network"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=dddd920#dddd9203c038d93e2cc9039dba00322b83c68e81"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=d2aa119#d2aa119e7e576a2e7bfc324f1e666c009a287eb0"
 dependencies = [
  "alloy-consensus",
  "alloy-eip7702",
@@ -10858,12 +10974,13 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-provider"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=dddd920#dddd9203c038d93e2cc9039dba00322b83c68e81"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=d2aa119#d2aa119e7e576a2e7bfc324f1e666c009a287eb0"
 dependencies = [
  "alloy-network",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-client",
+ "alloy-sol-types",
  "alloy-transport",
  "async-trait",
  "reqwest",
@@ -10875,7 +10992,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-rpc-types"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=dddd920#dddd9203c038d93e2cc9039dba00322b83c68e81"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=d2aa119#d2aa119e7e576a2e7bfc324f1e666c009a287eb0"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -10893,20 +11010,15 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-enclave.git?rev=30a53d5#30a53d53375de3dfa66938793dd739ec1c386a5b"
+source = "git+https://github.com/SeismicSystems/seismic-enclave.git?rev=a347832#a347832fa80db6837399c74de15efb55df478127"
 dependencies = [
  "aes-gcm",
  "anyhow",
- "bincode 1.3.3",
- "byteorder",
- "bytes",
- "clap",
+ "base64 0.22.1",
  "hkdf",
  "jsonrpsee 0.24.9",
  "kbs-types",
- "once_cell",
  "rand 0.9.1",
- "reqwest",
  "schnorrkel",
  "secp256k1",
  "seismic-enclave-derive",
@@ -10915,14 +11027,12 @@ dependencies = [
  "sha2 0.10.9",
  "strum 0.26.3",
  "tokio",
- "tracing",
- "tracing-subscriber 0.3.19",
 ]
 
 [[package]]
 name = "seismic-enclave-derive"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-enclave.git?rev=30a53d5#30a53d53375de3dfa66938793dd739ec1c386a5b"
+source = "git+https://github.com/SeismicSystems/seismic-enclave.git?rev=a347832#a347832fa80db6837399c74de15efb55df478127"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -10962,7 +11072,7 @@ dependencies = [
 [[package]]
 name = "seismic-revm"
 version = "1.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=4ee533d4#4ee533d47f3435eb4407f6966fb498dcd9e4d4bf"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?rev=e7fa9fab#e7fa9fab2c9cdefd4590a935954593abdd6a036e"
 dependencies = [
  "auto_impl",
  "hkdf",
@@ -11492,7 +11602,7 @@ dependencies = [
 [[package]]
 name = "syn-solidity"
 version = "1.1.2"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=978056b#978056b7c9a267c6751334c8a1b48c2298b6bff1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=bc4b5ed#bc4b5ed0cf4e5c69b2c3fec8cc518fb3cf45859e"
 dependencies = [
  "paste",
  "proc-macro2",
@@ -11877,6 +11987,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.101",
+]
+
+[[package]]
+name = "tokio-native-tls"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbae76ab933c85776efabc971569dd6119c580d8f5d448769dec1764bf796ef2"
+dependencies = [
+ "native-tls",
+ "tokio",
 ]
 
 [[package]]
