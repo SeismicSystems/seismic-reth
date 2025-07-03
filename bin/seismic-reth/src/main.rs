@@ -9,7 +9,7 @@ use reth_seismic_cli::chainspec::SeismicChainSpecParser;
 use reth_seismic_node::node::SeismicNode;
 use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
-use seismic_enclave::boot_enclave_sync;
+use seismic_enclave::boot_enclave_async;
 fn main() {
     reth_cli_util::sigsegv_handler::install();
 
@@ -38,11 +38,14 @@ fn main() {
                         });
                     }
                     false => {
-                        boot_enclave_sync(
-                            ctx.config.enclave.enclave_server_addr,
-                            ctx.config.enclave.enclave_server_port,
-                        )
-                        .map_err(|e| eyre::eyre!(e))?;
+                        ctx.task_executor.spawn(async move {
+                            boot_enclave_async(
+                                ctx.config.enclave.enclave_server_addr,
+                                ctx.config.enclave.enclave_server_port,
+                            )
+                            .await
+                            .expect("Failed to boot enclave");
+                        });
                     }
                 }
                 Ok(())
