@@ -34,7 +34,9 @@ use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest,
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
 };
-use seismic_enclave::{rpc::EnclaveApiClient, EnclaveClient, PublicKey};
+use seismic_enclave::{
+    keys::GetPurposeKeysRequest, rpc::EnclaveApiClient, EnclaveClient, PublicKey,
+};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
 /// trait interface for a custom rpc namespace: `seismic`
@@ -59,10 +61,11 @@ impl SeismicApi {
     pub fn new<ChainSpec>(config: &NodeConfig<ChainSpec>) -> Self {
         Self {
             enclave_client: EnclaveClient::builder()
-                .addr(config.enclave.enclave_server_addr.to_string())
+                .ip(config.enclave.enclave_server_addr.to_string())
                 .port(config.enclave.enclave_server_port)
                 .timeout(std::time::Duration::from_secs(config.enclave.enclave_timeout))
-                .build(),
+                .build()
+                .expect("Failed to build enclave client"),
         }
     }
 
@@ -78,8 +81,9 @@ impl SeismicApiServer for SeismicApi {
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey> {
         trace!(target: "rpc::seismic", "Serving seismic_getTeePublicKey");
         self.enclave_client
-            .get_public_key()
+            .get_purpose_keys(GetPurposeKeysRequest { epoch: 0 })
             .await
+            .map(|keys| keys.tx_io_pk)
             .map_err(|e| SeismicEthApiError::EnclaveError(e.to_string()).into())
     }
 }

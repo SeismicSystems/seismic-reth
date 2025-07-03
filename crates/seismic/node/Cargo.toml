@@ -21,7 +21,6 @@ reth-seismic-txpool.workspace = true
 reth-seismic-chainspec.workspace = true
 reth-seismic-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
 
-
 # reth
 reth-chainspec.workspace = true
 reth-primitives-traits.workspace = true

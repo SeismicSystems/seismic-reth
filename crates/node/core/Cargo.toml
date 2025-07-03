@@ -11,6 +11,8 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+seismic-enclave.workspace = true
+
 # reth
 reth-chainspec.workspace = true
 reth-consensus.workspace = true
@@ -34,7 +36,6 @@ reth-network-peers.workspace = true
 reth-prune-types.workspace = true
 reth-stages-types.workspace = true
 reth-ethereum-forks.workspace = true
-reth-enclave.workspace = true
 reth-engine-primitives.workspace = true
 
 # ethereum
