@@ -34,12 +34,15 @@ const encryptionSk =
 const encryptionPubkey =
     "0x028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0";
 
-let url: string;
-let wsUrl: string;
-let exitProcess: () => Promise<void>;
-let pcParams: { chain: Chain; url: string };
+const HOST = 'node-4.seismicdev.net'
+
+let url: string = `https://${HOST}/rpc`
+let wsUrl: string = `wss://${HOST}/ws`;
+let exitProcess: () => Promise<void> = async () => {}
+let pcParams: { chain: Chain; url: string }
 
 beforeAll(async () => {
+    /*
     await buildNode(chain);
     const debug = false;
     const rethArgs = debug
@@ -51,6 +54,7 @@ beforeAll(async () => {
     exitProcess = node.exitProcess;
     url = node.url;
     wsUrl = `ws://localhost:${port}`;
+    */
 });
 
 describe("Seismic Contract", async () => {
