@@ -790,4 +790,3 @@ seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-allo
 alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "6fdefa5" }
 # alloy-op-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "6fdefa5"}
 alloy-seismic-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "6fdefa5"}
-
