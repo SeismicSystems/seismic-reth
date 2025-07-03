@@ -9,7 +9,7 @@ use reth_seismic_cli::chainspec::SeismicChainSpecParser;
 use reth_seismic_node::node::SeismicNode;
 use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
-
+use seismic_enclave::boot_enclave_sync;
 fn main() {
     reth_cli_util::sigsegv_handler::install();
 
@@ -27,14 +27,23 @@ fn main() {
         let node = builder
             .node(SeismicNode::default())
             .on_node_started(move |ctx| {
-                if ctx.config.enclave.mock_server {
-                    ctx.task_executor.spawn(async move {
-                        start_blocking_mock_enclave_server(
+                match ctx.config.enclave.mock_server {
+                    true => {
+                        ctx.task_executor.spawn(async move {
+                            start_blocking_mock_enclave_server(
+                                ctx.config.enclave.enclave_server_addr,
+                                ctx.config.enclave.enclave_server_port,
+                            )
+                            .await;
+                        });
+                    }
+                    false => {
+                        boot_enclave_sync(
                             ctx.config.enclave.enclave_server_addr,
                             ctx.config.enclave.enclave_server_port,
                         )
-                        .await;
-                    });
+                        .map_err(|e| eyre::eyre!(e))?;
+                    }
                 }
                 Ok(())
             })

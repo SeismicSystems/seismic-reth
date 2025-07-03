@@ -11010,7 +11010,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-enclave.git?rev=093b21f#093b21f30e3d25e942ab43f74ab9b46625f6fd50"
+source = "git+https://github.com/SeismicSystems/seismic-enclave.git?rev=afb3f4d#afb3f4d48ff56457227bdbfd8cda5abb9e47e458"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -11026,6 +11026,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "strum 0.26.3",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
 ]
@@ -11033,7 +11034,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave-derive"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-enclave.git?rev=093b21f#093b21f30e3d25e942ab43f74ab9b46625f6fd50"
+source = "git+https://github.com/SeismicSystems/seismic-enclave.git?rev=afb3f4d#afb3f4d48ff56457227bdbfd8cda5abb9e47e458"
 dependencies = [
  "proc-macro2",
  "quote",
