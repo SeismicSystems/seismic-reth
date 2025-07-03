@@ -38,7 +38,7 @@ const HOST = 'node-4.seismicdev.net'
 
 let url: string = `https://${HOST}/rpc`
 let wsUrl: string = `wss://${HOST}/ws`;
-let exitProcess: () => Promise<void> = async () => {}
+let exitProcess: () => Promise<void> = async () => { process.exit(0) }
 let pcParams: { chain: Chain; url: string }
 
 beforeAll(async () => {
