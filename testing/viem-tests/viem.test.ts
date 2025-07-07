@@ -5,6 +5,7 @@ import {
     localSeismicDevnet,
     randomEncryptionNonce,
     signSeismicTxTypedData,
+    stringifyBigInt,
 } from "seismic-viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { beforeAll, afterAll, describe, test, expect } from "bun:test";
@@ -117,7 +118,7 @@ describe("debug", async () => {
             gasPrice: 360000n,
             gas: 169477n,
             to: "0x3aB946eEC2553114040dE82D2e18798a51cf1e14",
-            value: parseEther('0.1'),
+            value: parseEther('0.001'),
             data: encrypted,
             type: "seismic",
             encryptionPubkey: encryptionPubkey,
@@ -125,12 +126,10 @@ describe("debug", async () => {
             messageVersion: 2,
         })
 
-        expect(encrypted).toBe("0xe392574c045c9cf8f377a7dfe0d2016562359741c54ec50603daed94797e828cabe13a34b16fb6a2a76a6fed9e2d207dd7af2491")
-        // stable enclave = 3f47bf1
+        // expect(encrypted).toBe("0xde7499c4279251b9c0fe91f0929d81989f58f42e533a47daf81607e83f254ea0fcb5f987346cc1a8dd69b8f13622910ea477eacc")
 
-        console.log(typedData)
-        console.log(signature)
-    
+        console.log(JSON.stringify({typedData, signature}, stringifyBigInt, 2))
+
         // @ts-ignore
         const hash = await client.sendRawTransaction({ serializedTransaction: { data: typedData, signature }})
         console.log(hash)

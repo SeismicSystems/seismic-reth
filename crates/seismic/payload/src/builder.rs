@@ -275,6 +275,7 @@ where
 
     let sealed_block = Arc::new(block.sealed_block().clone());
     debug!(target: "payload_builder", id=%attributes.id, sealed_block_header = ?sealed_block.sealed_header(), "sealed built block");
+    println!("default_seismic_payload Sealed block:\n{:#?}", sealed_block);
 
     let payload = EthBuiltPayload::<SeismicPrimitives>::new_seismic_payload(
         attributes.id,
