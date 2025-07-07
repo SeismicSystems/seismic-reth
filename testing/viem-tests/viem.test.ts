@@ -73,6 +73,7 @@ describe("debug", async () => {
             transport: http(url),
             encryptionSk,
         });
+        console.log(account.address)
     
         const plaintext = encodeFunctionData({
             abi: [
@@ -97,7 +98,7 @@ describe("debug", async () => {
                 },
             ],
             functionName: "buy",
-            args: [56249],
+            args: [57],
         });
         console.log(await client.getTeePublicKey())
         const aesKey = client.getEncryption()
@@ -124,7 +125,8 @@ describe("debug", async () => {
             messageVersion: 2,
         })
 
-        expect(encrypted).toBe("0x55f32e0f73d7649eeea8cc39b06876438c1c56313660a296bf736c96abb754ebfc6fc5b5f8bb2f80d9ad08d11fd524badd32be72")
+        expect(encrypted).toBe("0xe392574c045c9cf8f377a7dfe0d2016562359741c54ec50603daed94797e828cabe13a34b16fb6a2a76a6fed9e2d207dd7af2491")
+        // stable enclave = 3f47bf1
 
         console.log(typedData)
         console.log(signature)
