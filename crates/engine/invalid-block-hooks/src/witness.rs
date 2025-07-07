@@ -156,7 +156,9 @@ where
     where
         N: NodePrimitives,
     {
-        println!("Invalid block: {:#?}", block);
+        println!("Invalid block");
+        println!("{:?}", parent_header);
+        println!("{:#?}", block);
         // TODO(alexey): unify with `DebugApi::debug_execution_witness`
 
         let mut executor = self.evm_config.batch_executor(StateProviderDatabase::new(
