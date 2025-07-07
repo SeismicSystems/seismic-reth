@@ -65,88 +65,94 @@ beforeAll(async () => {
     */
 });
 
-describe("Moonhatch seismic tx", async () => {
-    const client = await createShieldedWalletClient({
-        chain,
-        account,
-        transport: http(url),
-        encryptionSk,
+describe("debug", async () => {
+    test("moonhatch td", async () => {
+        const client = await createShieldedWalletClient({
+            chain,
+            account,
+            transport: http(url),
+            encryptionSk,
+        });
+    
+        const plaintext = encodeFunctionData({
+            abi: [
+                {
+                    type: "function",
+                    name: "buy",
+                    inputs: [
+                        {
+                            name: "coinId",
+                            type: "uint32",
+                            internalType: "uint32",
+                        },
+                    ],
+                    outputs: [
+                        {
+                            name: "weiRefunded",
+                            type: "uint256",
+                            internalType: "uint256",
+                        },
+                    ],
+                    stateMutability: "payable",
+                },
+            ],
+            functionName: "buy",
+            args: [56249],
+        });
+        console.log(await client.getTeePublicKey())
+        const aesKey = client.getEncryption()
+        console.log(`AES Key: ${aesKey}`)
+        const aesCipher = new AesGcmCrypto(aesKey)
+        const encryptionNonce = "0x7da3a99bf0f90d56551d99ea"
+        const encrypted = await aesCipher.encrypt(plaintext, encryptionNonce)
+        const nonce = await client.getTransactionCount({ address: account.address })
+    
+        console.log(`Encrypted calldata: ${encrypted}`)
+        console.log(`Encryption nonce: ${encryptionNonce}`)
+        console.log(`Plaintext: ${plaintext}`);
+        const { typedData, signature } = await signSeismicTxTypedData(client, {
+            chainId: client.chain.id,
+            nonce,
+            gasPrice: 360000n,
+            gas: 169477n,
+            to: "0x3aB946eEC2553114040dE82D2e18798a51cf1e14",
+            value: parseEther('0.1'),
+            data: encrypted,
+            type: "seismic",
+            encryptionPubkey: encryptionPubkey,
+            encryptionNonce: encryptionNonce,
+            messageVersion: 2,
+        })
+
+        expect(encrypted).toBe("0x55f32e0f73d7649eeea8cc39b06876438c1c56313660a296bf736c96abb754ebfc6fc5b5f8bb2f80d9ad08d11fd524badd32be72")
+
+        console.log(typedData)
+        console.log(signature)
+    
+        // @ts-ignore
+        const hash = await client.sendRawTransaction({ serializedTransaction: { data: typedData, signature }})
+        console.log(hash)
+        const receipt = await client.waitForTransactionReceipt({ hash })
+        console.log(receipt)
     });
 
-    const plaintext = encodeFunctionData({
-        abi: [
-            {
-                type: "function",
-                name: "buy",
-                inputs: [
-                    {
-                        name: "coinId",
-                        type: "uint32",
-                        internalType: "uint32",
-                    },
-                ],
-                outputs: [
-                    {
-                        name: "weiRefunded",
-                        type: "uint256",
-                        internalType: "uint256",
-                    },
-                ],
-                stateMutability: "payable",
-            },
-        ],
-        functionName: "buy",
-        args: [56249],
-    });
-    console.log(await client.getTeePublicKey())
-    const aesKey = client.getEncryption()
-    console.log(`AES Key: ${aesKey}`)
-    const aesCipher = new AesGcmCrypto(aesKey)
-    const encryptionNonce = "0x7da3a99bf0f90d56551d99ea"
-    const encrypted = await aesCipher.encrypt(plaintext, encryptionNonce)
-    const nonce = await client.getTransactionCount({ address: account.address })
-
-    console.log(encrypted)
-    console.log(encryptionNonce)
-    console.log(plaintext);
-    const { typedData, signature } = await signSeismicTxTypedData(client, {
-        chainId: client.chain.id,
-        nonce,
-        gasPrice: 360000n,
-        gas: 169477n,
-        to: "0x3aB946eEC2553114040dE82D2e18798a51cf1e14",
-        value: parseEther('0.1'),
-        data: encrypted,
-        type: "seismic",
-        encryptionPubkey: encryptionPubkey,
-        encryptionNonce: encryptionNonce,
-        messageVersion: 2,
+    test("encryption", async () => {
+        const client = await createShieldedWalletClient({
+            chain,
+            account,
+            transport: http(url),
+            encryptionSk,
+        });
+        const aesKey = client.getEncryption()
+        console.log(`AES Key: ${aesKey}`)
+        const plaintext = stringToHex("Hello, world!")
+        console.log(`Plaintext: ${plaintext}`)
+        const aesCipher = new AesGcmCrypto(aesKey)
+        const encryptionNonce = "0x7da3a99bf0f90d56551d99ea"
+        const encrypted = await aesCipher.encrypt(plaintext, encryptionNonce)
+        console.log(encrypted)
+        expect(encrypted).toBe("0x6023ff311cfb44e981daa05d915abd586ce844e0e19e667d2921ecd812")
     })
-    console.log(typedData)
-    console.log(signature)
-
-    // // @ts-ignore
-    // const hash = await client.sendRawTransaction({serializedTransaction: { data: typedData, signature }})
-    // console.log(hash)
-    // const receipt = await client.waitForTransactionReceipt({ hash })
-    // console.log(receipt)
-});
-
-describe("DECRYPT", async () => {
-    // const client = await createShieldedWalletClient({
-    //     chain,
-    //     account,
-    //     transport: http(url),
-    // });
-    // const aesKey = client.getEncryption()
-    // console.log(`AES Key: ${aesKey}`)
-    // const plaintext = stringToHex("Hello, world!")
-    // console.log(`Plaintext: ${plaintext}`)
-    // const aesCipher = new AesGcmCrypto(aesKey)
-    // const encryptionNonce = "0x7da3a99bf0f90d56551d99ea"
-    // const encrypted = await aesCipher.encrypt(plaintext, encryptionNonce)
-
-    // expect(encrypted).toBe("0x62a9351e3ad631c807e89586341d4a9ea3e64188aa2b65cd000140ea15")
 })
 
 describe("Seismic Contract", async () => {

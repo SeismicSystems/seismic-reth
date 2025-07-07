@@ -13,3 +13,5 @@ pub const COMPACT_IDENTIFIER_EIP1559: usize = 2;
 /// parameter. In the case of a [`COMPACT_EXTENDED_IDENTIFIER_FLAG`], the full transaction type is
 /// read from the buffer as a single byte.
 pub const COMPACT_EXTENDED_IDENTIFIER_FLAG: usize = 3;
+
+pub const COMPACT_IDENTIFIER_SEISMIC: usize = 74;

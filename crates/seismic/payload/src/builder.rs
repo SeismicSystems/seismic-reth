@@ -197,6 +197,8 @@ where
             return Ok(BuildOutcome::Cancelled)
         }
 
+        debug!("default_seismic_payload: pool_tx: {:?}", pool_tx);
+
         // convert tx to a signed transaction
         let tx = pool_tx.to_consensus();
         debug!("default_seismic_payload: tx: {:?}", tx);
