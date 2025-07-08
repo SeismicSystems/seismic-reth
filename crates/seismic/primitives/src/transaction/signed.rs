@@ -890,10 +890,16 @@ mod tests {
 
     #[test]
     fn test_typed_data_signature() {
-        let r = U256::from_str("71428958633055842950552481968900399270748852734491747368417687851448988125054").unwrap();
-        let s = U256::from_str("33262000809980766041358100082526545952432844285780958277847084121198676124377").unwrap();
+        let r = U256::from_str(
+            "71428958633055842950552481968900399270748852734491747368417687851448988125054",
+        )
+        .unwrap();
+        let s = U256::from_str(
+            "33262000809980766041358100082526545952432844285780958277847084121198676124377",
+        )
+        .unwrap();
         let signature = Signature::new(r, s, false);
-    
+
         let tx = TxSeismic {
             chain_id: 5124,
             nonce: 47,
@@ -911,7 +917,8 @@ mod tests {
             },
         };
 
-        let signed = SeismicTransactionSigned::new_unhashed(SeismicTypedTransaction::Seismic(tx), signature);
+        let signed =
+            SeismicTransactionSigned::new_unhashed(SeismicTypedTransaction::Seismic(tx), signature);
         let correct_hash = signed.recalculate_hash();
         println!("Correct hash: {:?}", correct_hash);
 

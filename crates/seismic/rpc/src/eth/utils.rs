@@ -73,7 +73,9 @@ mod test {
     use reth_primitives_traits::SignedTransaction;
     use reth_seismic_primitives::SeismicTransactionSigned;
     use secp256k1::PublicKey;
-    use seismic_alloy_consensus::{SeismicTxEnvelope, TxSeismic, TxSeismicElements, TypedDataRequest};
+    use seismic_alloy_consensus::{
+        SeismicTxEnvelope, TxSeismic, TxSeismicElements, TypedDataRequest,
+    };
     use seismic_alloy_network::Seismic;
 
     use crate::utils::recover_typed_data_request;
@@ -172,8 +174,12 @@ mod test {
             }
             }
         */
-        let r_bytes =  hex::decode("e93185920818650416b4b0cc953c48f59fd9a29af4b7e1c4b1ac4824392f9220").unwrap();
-        let s_bytes =  hex::decode("79b76b064a83d423997b7234c575588f60da5d3e1e0561eff9804eb04c23789a").unwrap();
+        let r_bytes =
+            hex::decode("e93185920818650416b4b0cc953c48f59fd9a29af4b7e1c4b1ac4824392f9220")
+                .unwrap();
+        let s_bytes =
+            hex::decode("79b76b064a83d423997b7234c575588f60da5d3e1e0561eff9804eb04c23789a")
+                .unwrap();
         let mut r_padded = [0u8; 32];
         let mut s_padded = [0u8; 32];
         let r_start = 32 - r_bytes.len();
@@ -181,12 +187,12 @@ mod test {
 
         r_padded[r_start..].copy_from_slice(&r_bytes);
         s_padded[s_start..].copy_from_slice(&s_bytes);
-        
+
         let r = U256::from_be_bytes(r_padded);
         let s = U256::from_be_bytes(s_padded);
 
         let signature = Signature::new(r, s, false);
-    
+
         let tx = TxSeismic {
             chain_id: 5124,
             nonce: 48,
@@ -202,15 +208,15 @@ mod test {
             }
         };
 
-        let signed = SeismicTransactionSigned::new_unhashed(seismic_alloy_consensus::SeismicTypedTransaction::Seismic(tx.clone()), signature);
+        let signed = SeismicTransactionSigned::new_unhashed(
+            seismic_alloy_consensus::SeismicTypedTransaction::Seismic(tx.clone()),
+            signature,
+        );
         let signed_hash = signed.recalculate_hash();
         let signed_sighash = signed.signature_hash();
 
         let td = tx.eip712_to_type_data();
-        let req = TypedDataRequest {
-            signature,
-            data: td,
-        };
+        let req = TypedDataRequest { signature, data: td };
         // println!("Req: {:#?}", req);
 
         let recovered = recover_typed_data_request::<SeismicTxEnvelope>(&req).unwrap();
@@ -222,6 +228,6 @@ mod test {
         println!("Recovered hash: {:?}", recovered_hash);
 
         println!("Signed sig hash: {:?}", signed_sighash);
-        println!("Recovered sig hash: {:?}", recovered_sighash);        
+        println!("Recovered sig hash: {:?}", recovered_sighash);
     }
 }

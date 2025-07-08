@@ -151,10 +151,10 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::str::FromStr;
-    use reth_rpc_eth_types::{utils::recover_raw_transaction};
     use alloy_primitives::Bytes;
+    use reth_rpc_eth_types::utils::recover_raw_transaction;
     use reth_seismic_primitives::SeismicTransactionSigned;
+    use std::str::FromStr;
 
     #[test]
     fn test_recover_raw_tx() {
