@@ -489,6 +489,7 @@ impl Decodable2718 for SeismicTransactionSigned {
                 let (tx, signature, hash) = TxSeismic::rlp_decode_signed(buf)?.into_parts();
                 let signed_tx = Self::new_unhashed(SeismicTypedTransaction::Seismic(tx), signature);
                 signed_tx.hash.get_or_init(|| hash);
+                println!("real hash: {:?}", signed_tx.recalculate_hash());
                 Ok(signed_tx)
             }
         }
