@@ -1,7 +1,14 @@
-import type { Chain } from "viem";
-import { localSeismicDevnet } from "seismic-viem";
+import { encodeFunctionData, http, parseEther, stringToBytes, stringToHex, type Chain } from "viem";
+import {
+    AesGcmCrypto,
+    createShieldedWalletClient,
+    localSeismicDevnet,
+    randomEncryptionNonce,
+    signSeismicTxTypedData,
+    stringifyBigInt,
+} from "seismic-viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { beforeAll, afterAll, describe, test } from "bun:test";
+import { beforeAll, afterAll, describe, test, expect } from "bun:test";
 import {
     setupNode,
     testAesKeygen,
@@ -34,12 +41,22 @@ const encryptionSk =
 const encryptionPubkey =
     "0x028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0";
 
-let url: string;
-let wsUrl: string;
+let url: string
+let wsUrl: string
 let exitProcess: () => Promise<void>;
 let pcParams: { chain: Chain; url: string };
 
+const HOST: string | null = "node-4.seismicdev.net";
+
 beforeAll(async () => {
+    if (HOST !== null) {
+        url = `https://${HOST}/rpc`;
+        wsUrl = `wss://${HOST}/ws`;
+        exitProcess = async () => {
+            process.exit(0);
+        }
+        return
+    }
     await buildNode(chain);
     const debug = false;
     const rethArgs = debug

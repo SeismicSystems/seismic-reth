@@ -819,13 +819,18 @@ pub mod serde_bincode_compat {
 
 #[cfg(test)]
 mod tests {
+    use core::str::FromStr;
+
     use crate::test_utils::{get_signed_seismic_tx, get_signing_private_key};
 
     use super::*;
+    use alloy_primitives::{aliases::U96, U256};
     use proptest::proptest;
     use proptest_arbitrary_interop::arb;
     use reth_codecs::Compact;
+    use secp256k1::PublicKey;
     use seismic_alloy_consensus::SeismicTxType;
+    use seismic_revm::transaction::abstraction::SeismicTxTr;
 
     #[test]
     fn recover_signer_test() {
@@ -881,5 +886,43 @@ mod tests {
 
             assert_eq!(actual_tx, expected_tx);
         }
+    }
+
+    #[test]
+    fn test_typed_data_signature() {
+        let r = U256::from_str(
+            "71428958633055842950552481968900399270748852734491747368417687851448988125054",
+        )
+        .unwrap();
+        let s = U256::from_str(
+            "33262000809980766041358100082526545952432844285780958277847084121198676124377",
+        )
+        .unwrap();
+        let signature = Signature::new(r, s, false);
+
+        let tx = TxSeismic {
+            chain_id: 5124,
+            nonce: 47,
+            gas_price: 360000,
+            gas_limit: 169477,
+            to: TxKind::Call(
+                Address::from_str("0x3ab946eec2553114040de82d2e18798a51cf1e14").unwrap(),
+            ),
+            value: U256::from_str("1000000000000000").unwrap(),
+            input: Bytes::from_str("0xf05bb3655142e855b09496062e5bd8e54852857b4e1f6c771ca9a44fcb4ecbd5cba03a534367563204044bb9466b04ae770ab4f1").unwrap(),
+            seismic_elements: TxSeismicElements {
+                encryption_pubkey: PublicKey::from_str("028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0").unwrap(),
+                encryption_nonce: U96::from_str("38883482092810179043846363626").unwrap(),
+                message_version: 2,
+            },
+        };
+
+        let signed =
+            SeismicTransactionSigned::new_unhashed(SeismicTypedTransaction::Seismic(tx), signature);
+
+        let sender = Address::from_str("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266").unwrap();
+        let recovered = SeismicTransaction::<TxEnv>::from_recovered_tx(&signed, sender);
+
+        assert_eq!(recovered.tx_hash(), signed.recalculate_hash());
     }
 }
