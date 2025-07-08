@@ -2169,8 +2169,6 @@ where
                 .trie_input_duration
                 .record(trie_input_start.elapsed().as_secs_f64());
 
-            println!("insert_block_inner - transactions:\n{:#?}", txs);
-
             self.payload_processor.spawn(
                 header,
                 txs,

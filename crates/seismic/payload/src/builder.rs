@@ -197,8 +197,6 @@ where
             return Ok(BuildOutcome::Cancelled)
         }
 
-        debug!("default_seismic_payload: pool_tx: {:?}", pool_tx);
-
         // convert tx to a signed transaction
         let tx = pool_tx.to_consensus();
         debug!("default_seismic_payload: tx: {:?}", tx);
@@ -275,7 +273,6 @@ where
 
     let sealed_block = Arc::new(block.sealed_block().clone());
     debug!(target: "payload_builder", id=%attributes.id, sealed_block_header = ?sealed_block.sealed_header(), "sealed built block");
-    println!("default_seismic_payload Sealed block:\n{:#?}", sealed_block);
 
     let payload = EthBuiltPayload::<SeismicPrimitives>::new_seismic_payload(
         attributes.id,
