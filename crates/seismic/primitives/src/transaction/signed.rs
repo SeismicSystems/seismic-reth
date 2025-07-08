@@ -489,7 +489,6 @@ impl Decodable2718 for SeismicTransactionSigned {
                 let (tx, signature, hash) = TxSeismic::rlp_decode_signed(buf)?.into_parts();
                 let signed_tx = Self::new_unhashed(SeismicTypedTransaction::Seismic(tx), signature);
                 signed_tx.hash.get_or_init(|| hash);
-                println!("real hash: {:?}", signed_tx.recalculate_hash());
                 Ok(signed_tx)
             }
         }
@@ -831,6 +830,7 @@ mod tests {
     use reth_codecs::Compact;
     use secp256k1::PublicKey;
     use seismic_alloy_consensus::SeismicTxType;
+    use seismic_revm::transaction::abstraction::SeismicTxTr;
 
     #[test]
     fn recover_signer_test() {
@@ -919,12 +919,10 @@ mod tests {
 
         let signed =
             SeismicTransactionSigned::new_unhashed(SeismicTypedTransaction::Seismic(tx), signature);
-        let correct_hash = signed.recalculate_hash();
-        println!("Correct hash: {:?}", correct_hash);
 
         let sender = Address::from_str("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266").unwrap();
         let recovered = SeismicTransaction::<TxEnv>::from_recovered_tx(&signed, sender);
 
-        println!("Recovered: {:#?}", recovered);
+        assert_eq!(recovered.tx_hash(), signed.recalculate_hash());
     }
 }
