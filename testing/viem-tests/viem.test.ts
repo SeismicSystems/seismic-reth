@@ -41,17 +41,22 @@ const encryptionSk =
 const encryptionPubkey =
     "0x028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0";
 
-const HOST = "node-4.seismicdev.net";
-
-let url: string = `https://${HOST}/rpc`;
-let wsUrl: string = `wss://${HOST}/ws`;
-let exitProcess: () => Promise<void> = async () => {
-    process.exit(0);
-};
+let url: string
+let wsUrl: string
+let exitProcess: () => Promise<void>;
 let pcParams: { chain: Chain; url: string };
 
+const HOST: string | null = "node-4.seismicdev.net";
+
 beforeAll(async () => {
-    /*
+    if (HOST !== null) {
+        url = `https://${HOST}/rpc`;
+        wsUrl = `wss://${HOST}/ws`;
+        exitProcess = async () => {
+            process.exit(0);
+        }
+        return
+    }
     await buildNode(chain);
     const debug = false;
     const rethArgs = debug
@@ -63,98 +68,7 @@ beforeAll(async () => {
     exitProcess = node.exitProcess;
     url = node.url;
     wsUrl = `ws://localhost:${port}`;
-    */
 });
-
-describe("debug", async () => {
-    test("moonhatch td", async () => {
-        const client = await createShieldedWalletClient({
-            chain,
-            account,
-            transport: http(url),
-            encryptionSk,
-        });
-        console.log(account.address)
-    
-        const plaintext = encodeFunctionData({
-            abi: [
-                {
-                    type: "function",
-                    name: "buy",
-                    inputs: [
-                        {
-                            name: "coinId",
-                            type: "uint32",
-                            internalType: "uint32",
-                        },
-                    ],
-                    outputs: [
-                        {
-                            name: "weiRefunded",
-                            type: "uint256",
-                            internalType: "uint256",
-                        },
-                    ],
-                    stateMutability: "payable",
-                },
-            ],
-            functionName: "buy",
-            args: [57],
-        });
-        console.log(await client.getTeePublicKey())
-        const aesKey = client.getEncryption()
-        console.log(`AES Key: ${aesKey}`)
-        const aesCipher = new AesGcmCrypto(aesKey)
-        const encryptionNonce = "0x7da3a99bf0f90d56551d99ea"
-        const encrypted = await aesCipher.encrypt(plaintext, encryptionNonce)
-        const nonce = await client.getTransactionCount({ address: account.address })
-    
-        console.log(`Encrypted calldata: ${encrypted}`)
-        console.log(`Encryption nonce: ${encryptionNonce}`)
-        console.log(`Plaintext: ${plaintext}`);
-        const { typedData, signature } = await signSeismicTxTypedData(client, {
-            chainId: client.chain.id,
-            nonce,
-            gasPrice: 360000n,
-            gas: 169477n,
-            to: "0x3aB946eEC2553114040dE82D2e18798a51cf1e14",
-            value: parseEther('0.001'),
-            data: encrypted,
-            type: "seismic",
-            encryptionPubkey: encryptionPubkey,
-            encryptionNonce: encryptionNonce,
-            messageVersion: 2,
-        })
-
-        // expect(encrypted).toBe("0xde7499c4279251b9c0fe91f0929d81989f58f42e533a47daf81607e83f254ea0fcb5f987346cc1a8dd69b8f13622910ea477eacc")
-
-        console.log(JSON.stringify({typedData, signature}, stringifyBigInt, 2))
-
-        // @ts-ignore
-        const hash = await client.sendRawTransaction({ serializedTransaction: { data: typedData, signature }})
-        console.log(hash)
-        const receipt = await client.waitForTransactionReceipt({ hash })
-        console.log(receipt)
-    });
-
-    test("encryption", async () => {
-        const client = await createShieldedWalletClient({
-            chain,
-            account,
-            transport: http(url),
-            encryptionSk,
-        });
-        const aesKey = client.getEncryption()
-        console.log(`AES Key: ${aesKey}`)
-        const plaintext = stringToHex("Hello, world!")
-        console.log(`Plaintext: ${plaintext}`)
-        const aesCipher = new AesGcmCrypto(aesKey)
-        const encryptionNonce = "0x7da3a99bf0f90d56551d99ea"
-        const encrypted = await aesCipher.encrypt(plaintext, encryptionNonce)
-        console.log(encrypted)
-        expect(encrypted).toBe("0x6023ff311cfb44e981daa05d915abd586ce844e0e19e667d2921ecd812")
-    })
-})
 
 describe("Seismic Contract", async () => {
     test(
