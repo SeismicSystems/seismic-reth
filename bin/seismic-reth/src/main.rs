@@ -39,10 +39,15 @@ fn main() {
                         });
                     }
                     false => {
+                        let enclave_client = EnclaveClient::builder()
+                            .ip(ctx.config.enclave.enclave_server_addr.to_string())
+                            .port(ctx.config.enclave.enclave_server_port)
+                            .build()
+                            .expect("Failed to build enclave client");
+
                         ctx.task_executor.spawn(async move {
                             boot_genesis_streamlined_async(
-                                ctx.config.enclave.enclave_server_addr,
-                                ctx.config.enclave.enclave_server_port,
+                                &enclave_client,
                             )
                             .await
                             .expect("Failed to boot enclave");
