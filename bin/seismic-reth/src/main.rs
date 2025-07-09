@@ -9,7 +9,8 @@ use reth_seismic_cli::chainspec::SeismicChainSpecParser;
 use reth_seismic_node::node::SeismicNode;
 use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
-use seismic_enclave::boot_enclave_async;
+use seismic_enclave::boot_genesis_streamlined_async;
+
 fn main() {
     reth_cli_util::sigsegv_handler::install();
 
@@ -39,7 +40,7 @@ fn main() {
                     }
                     false => {
                         ctx.task_executor.spawn(async move {
-                            boot_enclave_async(
+                            boot_genesis_streamlined_async(
                                 ctx.config.enclave.enclave_server_addr,
                                 ctx.config.enclave.enclave_server_port,
                             )

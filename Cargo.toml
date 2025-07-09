@@ -751,7 +751,7 @@ vergen-git2 = "1.0.5"
 
 [patch.crates-io]
 # Seismic enclave
-seismic-enclave = { git = "https://github.com/SeismicSystems/seismic-enclave.git", rev = "afb3f4d"}
+seismic-enclave = { git = "https://github.com/SeismicSystems/seismic-enclave.git", rev = "fb959b6"}
 
 # seismic-alloy-core
 alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "bc4b5ed" }
