@@ -46,11 +46,9 @@ fn main() {
                             .expect("Failed to build enclave client");
 
                         ctx.task_executor.spawn(async move {
-                            boot_genesis_streamlined_async(
-                                &enclave_client,
-                            )
-                            .await
-                            .expect("Failed to boot enclave");
+                            boot_genesis_streamlined_async(&enclave_client)
+                                .await
+                                .expect("Failed to boot enclave");
                         });
                     }
                 }
