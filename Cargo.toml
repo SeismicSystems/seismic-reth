@@ -329,7 +329,6 @@ opt-level = 3
 lto = "thin"
 debug = "full"
 strip = "none"
-panic = "unwind"
 codegen-units = 16
 
 [profile.maxperf]
