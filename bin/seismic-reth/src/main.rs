@@ -39,6 +39,8 @@ fn main() {
                         });
                     }
                     false => {
+                        // Boots the enclave with random keys (aka enclave genesis boot)
+                        // Long term this should be removed and node operators should handle booting
                         let enclave_client = EnclaveClient::builder()
                             .ip(ctx.config.enclave.enclave_server_addr.to_string())
                             .port(ctx.config.enclave.enclave_server_port)
