@@ -9,7 +9,8 @@ use reth_seismic_cli::chainspec::SeismicChainSpecParser;
 use reth_seismic_node::node::SeismicNode;
 use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
-use seismic_enclave::boot_enclave_async;
+use seismic_enclave::boot_genesis_streamlined_async;
+
 fn main() {
     reth_cli_util::sigsegv_handler::install();
 
@@ -38,13 +39,18 @@ fn main() {
                         });
                     }
                     false => {
+                        // Boots the enclave with random keys (aka enclave genesis boot)
+                        // Long term this should be removed and node operators should handle booting
+                        let enclave_client = EnclaveClient::builder()
+                            .ip(ctx.config.enclave.enclave_server_addr.to_string())
+                            .port(ctx.config.enclave.enclave_server_port)
+                            .build()
+                            .expect("Failed to build enclave client");
+
                         ctx.task_executor.spawn(async move {
-                            boot_enclave_async(
-                                ctx.config.enclave.enclave_server_addr,
-                                ctx.config.enclave.enclave_server_port,
-                            )
-                            .await
-                            .expect("Failed to boot enclave");
+                            boot_genesis_streamlined_async(&enclave_client)
+                                .await
+                                .expect("Failed to boot enclave");
                         });
                     }
                 }
