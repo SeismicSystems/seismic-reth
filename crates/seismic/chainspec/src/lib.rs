@@ -141,8 +141,9 @@ mod tests {
     fn genesis_header_hash() {
         // Confirm how eth mainnet genesis header hash is calculated
         let expected = MAINNET_GENESIS_HASH;
-        let genesis = serde_json::from_str(include_str!("../../../chainspec/res/genesis/mainnet.json"))
-            .expect("Can't deserialize Mainnet genesis json");
+        let genesis =
+            serde_json::from_str(include_str!("../../../chainspec/res/genesis/mainnet.json"))
+                .expect("Can't deserialize Mainnet genesis json");
         let hardforks = EthereumHardfork::mainnet().into();
         let genesis_header = make_genesis_header(&genesis, &hardforks);
         let actual_hash = genesis_header.hash_slow();
