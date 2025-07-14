@@ -125,7 +125,6 @@ serde = [
     "reth-codecs?/serde",
     "seismic-alloy-consensus/serde",
     "rand/serde",
-    "rand_08/serde",
     "secp256k1/serde",
     "alloy-rpc-types-eth?/serde",
     "revm-context/serde",
