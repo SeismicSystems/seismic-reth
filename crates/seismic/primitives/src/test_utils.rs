@@ -17,7 +17,7 @@ use seismic_alloy_consensus::{
     SeismicTxEnvelope, SeismicTypedTransaction, TxSeismic, TxSeismicElements, TypedDataRequest,
 };
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
-use seismic_enclave::keys::GetPurposeKeysRequest;
+use seismic_enclave::request_types::GetPurposeKeysRequest;
 
 /// Get the network public key
 pub fn get_network_public_key() -> PublicKey {
