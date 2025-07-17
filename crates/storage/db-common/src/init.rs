@@ -218,7 +218,7 @@ where
                 m.iter()
                     .map(|(key, value)| {
                         let value = U256::from_be_bytes(value.0);
-                        let is_private = false;
+                        let is_private = false; // All state read from the genesis json is assumed to be public
                         (*key, ((U256::ZERO, false), (value, is_private)))
                     })
                     .collect::<HashMap<_, _>>()
