@@ -8654,6 +8654,7 @@ dependencies = [
  "reth-transaction-pool",
  "reth-trie-db",
  "revm",
+ "seismic-alloy-genesis",
  "serde_json",
  "tokio",
 ]
