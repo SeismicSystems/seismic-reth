@@ -358,13 +358,12 @@ seismic-revm = "1.0.0"
 alloy-seismic-evm = {version = "0.9"}
 # alloy-seismic-evm = {version = "0.0.1", default-features = false}
 
-seismic-alloy-rpc-types = {version = "0.0.1", default-features = false}
-seismic-alloy-consensus = {version = "0.0.1", default-features = false}
-seismic-alloy-provider = {version = "0.0.1", default-features = false}
-
-seismic-alloy-rpc-types-engine = {version = "0.0.1", default-features = false}
-seismic-alloy-network = {version = "0.0.1", default-features = false}
-seismic-alloy-flz = {version = "0.0.1", default-features = false}
+seismic-alloy-rpc-types = {version = "1.0", default-features = false}
+seismic-alloy-consensus = {version = "1.0", default-features = false}
+seismic-alloy-provider = {version = "1.0", default-features = false}
+seismic-alloy-rpc-types-engine = {version = "1.0", default-features = false}
+seismic-alloy-network = {version = "1.0", default-features = false}
+seismic-alloy-flz = {version = "1.0", default-features = false}
 
 alloy-json-abi = { version = "1.1.2", default-features = false } # only used by seismic rn
 
@@ -527,7 +526,7 @@ alloy-hardforks = "0.2.2"
 alloy-consensus = { version = "1.0.5", default-features = false }
 alloy-contract = { version = "1.0.5", default-features = false }
 alloy-eips = { version = "1.0.5", default-features = false }
-alloy-genesis = { version = "0.0.1", default-features = false } # patched to a seismic version
+alloy-genesis = { version = "1.0.5", default-features = false } # patched to a seismic version
 alloy-json-rpc = { version = "1.0.5", default-features = false }
 alloy-network-primitives = { version = "1.0.5", default-features = false }
 alloy-network = { version = "1.0.5", default-features = false }
@@ -785,16 +784,16 @@ seismic-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev
 revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "2b50433"}
 
 # Seismic alloy
-seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "134a1960e48f766ed2c80cd8f4783d38f7ce7f09" }
-seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "134a1960e48f766ed2c80cd8f4783d38f7ce7f09" }
-seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "134a1960e48f766ed2c80cd8f4783d38f7ce7f09" }
-seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "134a1960e48f766ed2c80cd8f4783d38f7ce7f09" }
-alloy-genesis = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "134a1960e48f766ed2c80cd8f4783d38f7ce7f09" }
+seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "31c2d7d2fe902e847756c50b25c4b2e890312a94" }
+seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "31c2d7d2fe902e847756c50b25c4b2e890312a94" }
+seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "31c2d7d2fe902e847756c50b25c4b2e890312a94" }
+seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "31c2d7d2fe902e847756c50b25c4b2e890312a94" }
+alloy-genesis = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "31c2d7d2fe902e847756c50b25c4b2e890312a94" }
 
 # alloy-evm
-alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "6a68682320d317bf6ac2b76142b349f086828fbb" }
-# alloy-op-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "6a68682320d317bf6ac2b76142b349f086828fbb"}
-alloy-seismic-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "6a68682320d317bf6ac2b76142b349f086828fbb"}
+alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "22c2fbb0665a3cedb3a9ca8f62600e67a946250b" }
+# alloy-op-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "22c2fbb0665a3cedb3a9ca8f62600e67a946250b"}
+alloy-seismic-evm = {git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "22c2fbb0665a3cedb3a9ca8f62600e67a946250b"}
 
 
 

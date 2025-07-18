@@ -256,7 +256,7 @@ dependencies = [
 [[package]]
 name = "alloy-evm"
 version = "0.9.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=6a68682320d317bf6ac2b76142b349f086828fbb#6a68682320d317bf6ac2b76142b349f086828fbb"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=22c2fbb0665a3cedb3a9ca8f62600e67a946250b#22c2fbb0665a3cedb3a9ca8f62600e67a946250b"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -275,8 +275,8 @@ dependencies = [
 
 [[package]]
 name = "alloy-genesis"
-version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=134a1960e48f766ed2c80cd8f4783d38f7ce7f09#134a1960e48f766ed2c80cd8f4783d38f7ce7f09"
+version = "1.0.9"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94#31c2d7d2fe902e847756c50b25c4b2e890312a94"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -544,7 +544,7 @@ name = "alloy-rpc-types-admin"
 version = "1.0.9"
 source = "git+https://github.com/alloy-rs/alloy?rev=375ba75#375ba75209760e1b107361a2929e235554feab68"
 dependencies = [
- "alloy-genesis 1.0.9",
+ "alloy-genesis 1.0.9 (git+https://github.com/alloy-rs/alloy?rev=375ba75)",
  "alloy-primitives",
  "serde",
  "serde_json",
@@ -677,7 +677,7 @@ dependencies = [
 [[package]]
 name = "alloy-seismic-evm"
 version = "0.9.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=6a68682320d317bf6ac2b76142b349f086828fbb#6a68682320d317bf6ac2b76142b349f086828fbb"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=22c2fbb0665a3cedb3a9ca8f62600e67a946250b#22c2fbb0665a3cedb3a9ca8f62600e67a946250b"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -2984,7 +2984,7 @@ version = "1.4.3"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-primitives",
  "alloy-rlp",
  "crunchy",
@@ -6932,7 +6932,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-eips",
  "alloy-evm",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-primitives",
  "alloy-rlp",
  "alloy-seismic-evm",
@@ -6949,7 +6949,7 @@ dependencies = [
 name = "reth-cli"
 version = "1.4.3"
 dependencies = [
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "clap",
  "eyre",
  "reth-cli-runner",
@@ -7071,7 +7071,7 @@ version = "1.4.3"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-primitives",
  "alloy-trie",
  "arbitrary",
@@ -7205,7 +7205,7 @@ name = "reth-db-api"
 version = "1.4.3"
 dependencies = [
  "alloy-consensus",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-primitives",
  "arbitrary",
  "bytes",
@@ -7236,7 +7236,7 @@ name = "reth-db-common"
 version = "1.4.3"
 dependencies = [
  "alloy-consensus",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-primitives",
  "boyer-moore-magiclen",
  "eyre",
@@ -7797,7 +7797,7 @@ dependencies = [
  "alloy-chains",
  "alloy-consensus",
  "alloy-eips",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-hardforks",
  "alloy-primitives",
  "alloy-rlp",
@@ -8052,7 +8052,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-eips",
  "alloy-evm",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-primitives",
  "derive_more 2.0.1",
  "parking_lot",
@@ -8107,7 +8107,7 @@ version = "1.4.3"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-primitives",
  "eyre",
  "futures",
@@ -8317,7 +8317,7 @@ version = "1.4.3"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-primitives",
  "alloy-rlp",
  "aquamarine",
@@ -8611,7 +8611,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-contract",
  "alloy-eips",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-types-beacon",
@@ -8721,7 +8721,7 @@ dependencies = [
  "alloy-chains",
  "alloy-consensus",
  "alloy-eips",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-hardforks",
  "alloy-primitives",
  "derive_more 2.0.1",
@@ -8851,7 +8851,7 @@ version = "1.4.3"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-primitives",
  "alloy-rlp",
  "arbitrary",
@@ -8873,7 +8873,7 @@ version = "1.4.3"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-primitives",
  "alloy-rlp",
  "alloy-trie",
@@ -9079,7 +9079,7 @@ dependencies = [
  "alloy-dyn-abi",
  "alloy-eips",
  "alloy-evm",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-network",
  "alloy-primitives",
  "alloy-rlp",
@@ -9152,7 +9152,7 @@ name = "reth-rpc-api"
 version = "1.4.3"
 dependencies = [
  "alloy-eips",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-json-rpc",
  "alloy-primitives",
  "alloy-rpc-types",
@@ -9445,7 +9445,7 @@ dependencies = [
  "alloy-chains",
  "alloy-consensus",
  "alloy-eips",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-hardforks",
  "alloy-primitives",
  "derive_more 2.0.1",
@@ -9495,7 +9495,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-eips",
  "alloy-evm",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-primitives",
  "alloy-seismic-evm",
  "derive_more 2.0.1",
@@ -9544,7 +9544,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
  "alloy-eips",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-json-abi",
  "alloy-network",
  "alloy-primitives",
@@ -9998,7 +9998,7 @@ version = "1.4.3"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-primitives",
  "rand 0.8.5",
  "rand 0.9.1",
@@ -10114,7 +10114,7 @@ name = "reth-trie-common"
 version = "1.4.3"
 dependencies = [
  "alloy-consensus",
- "alloy-genesis 0.0.1",
+ "alloy-genesis 1.0.9 (git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94)",
  "alloy-primitives",
  "alloy-rlp",
  "alloy-rpc-types-eth",
@@ -10949,8 +10949,8 @@ dependencies = [
 
 [[package]]
 name = "seismic-alloy-consensus"
-version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=134a1960e48f766ed2c80cd8f4783d38f7ce7f09#134a1960e48f766ed2c80cd8f4783d38f7ce7f09"
+version = "1.0.9"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94#31c2d7d2fe902e847756c50b25c4b2e890312a94"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -10974,8 +10974,8 @@ dependencies = [
 
 [[package]]
 name = "seismic-alloy-network"
-version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=134a1960e48f766ed2c80cd8f4783d38f7ce7f09#134a1960e48f766ed2c80cd8f4783d38f7ce7f09"
+version = "1.0.9"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94#31c2d7d2fe902e847756c50b25c4b2e890312a94"
 dependencies = [
  "alloy-consensus",
  "alloy-eip7702",
@@ -10997,8 +10997,8 @@ dependencies = [
 
 [[package]]
 name = "seismic-alloy-provider"
-version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=134a1960e48f766ed2c80cd8f4783d38f7ce7f09#134a1960e48f766ed2c80cd8f4783d38f7ce7f09"
+version = "1.0.9"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94#31c2d7d2fe902e847756c50b25c4b2e890312a94"
 dependencies = [
  "alloy-network",
  "alloy-primitives",
@@ -11015,8 +11015,8 @@ dependencies = [
 
 [[package]]
 name = "seismic-alloy-rpc-types"
-version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=134a1960e48f766ed2c80cd8f4783d38f7ce7f09#134a1960e48f766ed2c80cd8f4783d38f7ce7f09"
+version = "1.0.9"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=31c2d7d2fe902e847756c50b25c4b2e890312a94#31c2d7d2fe902e847756c50b25c4b2e890312a94"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
