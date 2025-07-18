@@ -294,7 +294,7 @@ mod tests {
         // hardforks
         let chain_spec = ChainSpec::builder()
             .chain(Chain::mainnet())
-            .genesis(Genesis::default())
+            .genesis(Genesis::default().into())
             .london_activated()
             .paris_activated()
             .shanghai_activated()

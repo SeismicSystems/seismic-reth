@@ -12,6 +12,9 @@ description = "EVM chain spec implementation for optimism."
 workspace = true
 
 [dependencies]
+# seismic
+seismic-alloy-genesis.workspace = true
+
 # reth
 reth-chainspec.workspace = true
 reth-ethereum-forks.workspace = true

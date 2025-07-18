@@ -14,6 +14,7 @@ workspace = true
 # enclave
 seismic-enclave.workspace = true
 seismic-alloy-consensus = { workspace = true, default-features = false, features = ["arbitrary", "serde"] }
+seismic-alloy-genesis.workspace = true
 
 # reth
 reth-codecs-derive.workspace = true
@@ -22,7 +23,6 @@ reth-zstd-compressors = { workspace = true, optional = true, default-features = 
 # eth
 alloy-consensus = { workspace = true, optional = true }
 alloy-eips = { workspace = true, optional = true, features = ["serde"] }
-alloy-genesis = { workspace = true, optional = true }
 alloy-primitives.workspace = true
 alloy-trie = { workspace = true, optional = true }
 
@@ -39,6 +39,7 @@ arbitrary = { workspace = true, features = ["derive"], optional = true }
 [dev-dependencies]
 seismic-alloy-consensus = { workspace = true, default-features = false, features = ["arbitrary", "serde"] }
 
+alloy-genesis = { workspace = true }
 alloy-eips = { workspace = true, default-features = false, features = ["arbitrary", "serde"] }
 alloy-primitives = { workspace = true, features = ["arbitrary", "serde", "rand"] }
 alloy-consensus = { workspace = true, features = ["arbitrary"] }
@@ -57,7 +58,6 @@ std = [
     "bytes/std",
     "alloy-consensus?/std",
     "alloy-eips?/std",
-    "alloy-genesis?/std",
     "alloy-trie?/std",
     "serde/std",
     "op-alloy-consensus?/std",
@@ -67,7 +67,6 @@ std = [
 alloy = [
     "dep:alloy-consensus",
     "dep:alloy-eips",
-    "dep:alloy-genesis",
     "dep:alloy-trie",
     "dep:reth-zstd-compressors",
 ]

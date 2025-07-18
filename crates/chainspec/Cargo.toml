@@ -11,6 +11,9 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+# seismic
+seismic-alloy-genesis.workspace = true
+
 # reth
 reth-ethereum-forks.workspace = true
 reth-network-peers.workspace = true
@@ -21,7 +24,6 @@ reth-primitives-traits.workspace = true
 alloy-evm.workspace = true
 alloy-chains = { workspace = true, features = ["serde", "rlp"] }
 alloy-eips = { workspace = true, features = ["serde"] }
-alloy-genesis.workspace = true
 alloy-primitives = { workspace = true, features = ["rlp"] }
 alloy-consensus.workspace = true
 alloy-seismic-evm.workspace = true

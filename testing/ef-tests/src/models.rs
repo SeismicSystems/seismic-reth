@@ -3,13 +3,15 @@
 use crate::{assert::assert_equal, Error};
 use alloy_consensus::Header as RethHeader;
 use alloy_eips::eip4895::Withdrawals;
-use alloy_genesis::GenesisAccount;
 use alloy_primitives::{keccak256, Address, Bloom, Bytes, B256, B64, U256};
 use reth_chainspec::{ChainSpec, ChainSpecBuilder};
 use reth_db_api::{cursor::DbDupCursorRO, tables, transaction::DbTx};
 use reth_primitives_traits::SealedHeader;
+use seismic_alloy_genesis::GenesisAccount;
 use serde::Deserialize;
 use std::{collections::BTreeMap, ops::Deref};
+
+use alloy_primitives::FlaggedStorage;
 
 /// The definition of a blockchain test.
 #[derive(Debug, PartialEq, Eq, Deserialize)]
@@ -155,6 +157,7 @@ pub struct State(BTreeMap<Address, Account>);
 impl State {
     /// Return state as genesis state.
     pub fn into_genesis_state(self) -> BTreeMap<Address, GenesisAccount> {
+        let is_private = false; // testing helper assume no private state
         self.0
             .into_iter()
             .map(|(address, account)| {
@@ -165,7 +168,10 @@ impl State {
                     .map(|(k, v)| {
                         (
                             B256::from_slice(&k.to_be_bytes::<32>()),
-                            B256::from_slice(&v.to_be_bytes::<32>()),
+                            FlaggedStorage::new(
+                                U256::from_be_bytes(v.to_be_bytes::<32>()),
+                                is_private,
+                            ),
                         )
                     })
                     .collect();
