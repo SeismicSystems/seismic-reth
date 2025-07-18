@@ -108,7 +108,7 @@ impl OpChainSpecBuilder {
 
     /// Set the genesis block.
     pub fn genesis(mut self, genesis: Genesis) -> Self {
-        self.inner = self.inner.genesis(genesis);
+        self.inner = self.inner.genesis(genesis.into());
         self
     }
 
@@ -496,7 +496,7 @@ pub fn make_op_genesis_header(genesis: &Genesis, hardforks: &ChainHardforks) -> 
 #[cfg(test)]
 mod tests {
     use alloc::string::String;
-    use alloy_genesis::{ChainConfig, Genesis};
+    use seismic_alloy_genesis::{ChainConfig, Genesis};
     use alloy_primitives::b256;
     use reth_chainspec::{test_fork_ids, BaseFeeParams, BaseFeeParamsKind};
     use reth_ethereum_forks::{EthereumHardfork, ForkCondition, ForkHash, ForkId, Head};

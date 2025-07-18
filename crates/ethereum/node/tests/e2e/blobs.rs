@@ -1,5 +1,5 @@
 use crate::utils::eth_payload_attributes;
-use seismic_alloy_genesis::Genesis;
+use alloy_genesis::Genesis;
 use reth_chainspec::{ChainSpecBuilder, MAINNET};
 use reth_e2e_test_utils::{
     node::NodeTestContext, transaction::TransactionTestContext, wallet::Wallet,
@@ -21,7 +21,7 @@ async fn can_handle_blobs() -> eyre::Result<()> {
     let chain_spec = Arc::new(
         ChainSpecBuilder::default()
             .chain(MAINNET.chain)
-            .genesis(genesis)
+            .genesis(genesis.into())
             .cancun_activated()
             .build(),
     );

@@ -1,7 +1,7 @@
 use crate::utils::eth_payload_attributes;
 use alloy_consensus::{EthereumTxEnvelope, TxEip4844};
 use alloy_eips::{eip1559::ETHEREUM_BLOCK_GAS_LIMIT_30M, Encodable2718};
-use seismic_alloy_genesis::Genesis;
+use alloy_genesis::Genesis;
 use alloy_primitives::B256;
 use reth_chainspec::{ChainSpecBuilder, MAINNET};
 use reth_e2e_test_utils::{
@@ -40,7 +40,7 @@ async fn maintain_txpool_stale_eviction() -> eyre::Result<()> {
     let chain_spec = Arc::new(
         ChainSpecBuilder::default()
             .chain(MAINNET.chain)
-            .genesis(genesis)
+            .genesis(genesis.into())
             .cancun_activated()
             .build(),
     );
@@ -114,7 +114,7 @@ async fn maintain_txpool_reorg() -> eyre::Result<()> {
     let chain_spec = Arc::new(
         ChainSpecBuilder::default()
             .chain(MAINNET.chain)
-            .genesis(genesis)
+            .genesis(genesis.into())
             .cancun_activated()
             .build(),
     );
@@ -247,7 +247,7 @@ async fn maintain_txpool_commit() -> eyre::Result<()> {
     let chain_spec = Arc::new(
         ChainSpecBuilder::default()
             .chain(MAINNET.chain)
-            .genesis(genesis)
+            .genesis(genesis.into())
             .cancun_activated()
             .build(),
     );

@@ -1,5 +1,5 @@
 use crate::utils::eth_payload_attributes;
-use seismic_alloy_genesis::Genesis;
+use alloy_genesis::Genesis;
 use reth_chainspec::{ChainSpecBuilder, MAINNET};
 use reth_e2e_test_utils::{
     node::NodeTestContext, setup, transaction::TransactionTestContext, wallet::Wallet,
@@ -58,7 +58,7 @@ async fn can_run_eth_node_with_auth_engine_api_over_ipc() -> eyre::Result<()> {
     let chain_spec = Arc::new(
         ChainSpecBuilder::default()
             .chain(MAINNET.chain)
-            .genesis(genesis)
+            .genesis(genesis.into())
             .cancun_activated()
             .build(),
     );
