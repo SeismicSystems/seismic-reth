@@ -216,9 +216,9 @@ where
             .as_ref()
             .map(|m| {
                 m.iter()
-                    .map(|(key, value)| {
-                        let value = U256::from_be_bytes(value.0);
-                        let is_private = false; // All state read from the genesis json is assumed to be public
+                    .map(|(key, flagged_value)| {
+                        let value = flagged_value.value;
+                        let is_private = flagged_value.is_private;
                         (*key, ((U256::ZERO, false), (value, is_private)))
                     })
                     .collect::<HashMap<_, _>>()
@@ -638,7 +638,7 @@ mod tests {
     use alloy_consensus::constants::{
         HOLESKY_GENESIS_HASH, MAINNET_GENESIS_HASH, SEPOLIA_GENESIS_HASH,
     };
-    use alloy_genesis::Genesis;
+    use seismic_alloy_genesis::Genesis;
     use reth_chainspec::{Chain, ChainSpec, HOLESKY, MAINNET, SEPOLIA};
     use reth_db::DatabaseEnv;
     use reth_db_api::{
@@ -729,7 +729,7 @@ mod tests {
                     (
                         address_with_storage,
                         GenesisAccount {
-                            storage: Some(BTreeMap::from([(storage_key, B256::random())])),
+                            storage: Some(seismic_alloy_genesis::convert_fixedbytes_map_to_flagged_storage(BTreeMap::from([(storage_key, B256::random())]))),
                             ..Default::default()
                         },
                     ),

@@ -459,7 +459,7 @@ impl Display for StatusMessage {
 mod tests {
     use crate::{EthVersion, Status, StatusEth69, StatusMessage, UnifiedStatus};
     use alloy_consensus::constants::MAINNET_GENESIS_HASH;
-    use alloy_genesis::Genesis;
+    use seismic_alloy_genesis::Genesis;
     use alloy_hardforks::{EthereumHardfork, ForkHash, ForkId, Head};
     use alloy_primitives::{hex, B256, U256};
     use alloy_rlp::{Decodable, Encodable};

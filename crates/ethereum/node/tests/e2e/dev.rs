@@ -1,5 +1,5 @@
 use alloy_eips::eip2718::Encodable2718;
-use alloy_genesis::Genesis;
+use seismic_alloy_genesis::Genesis;
 use alloy_primitives::{b256, hex};
 use futures::StreamExt;
 use reth_chainspec::ChainSpec;

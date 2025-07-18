@@ -6946,6 +6946,7 @@ dependencies = [
  "eyre",
  "reth-cli-runner",
  "reth-db",
+ "seismic-alloy-genesis",
  "serde_json",
  "shellexpand",
 ]
@@ -7248,6 +7249,7 @@ dependencies = [
  "reth-static-file-types",
  "reth-trie",
  "reth-trie-db",
+ "seismic-alloy-genesis",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -7805,6 +7807,7 @@ dependencies = [
  "reth-codecs-derive",
  "reth-ethereum-primitives",
  "reth-primitives-traits",
+ "seismic-alloy-genesis",
  "serde",
  "thiserror 2.0.12",
 ]
@@ -8059,6 +8062,7 @@ dependencies = [
  "reth-testing-utils",
  "revm",
  "secp256k1",
+ "seismic-alloy-genesis",
  "serde_json",
  "tokio",
 ]
@@ -8356,6 +8360,7 @@ dependencies = [
  "rustc-hash 2.1.1",
  "schnellru",
  "secp256k1",
+ "seismic-alloy-genesis",
  "serde",
  "smallvec",
  "tempfile",

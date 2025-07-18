@@ -1,7 +1,7 @@
 use crate::utils::eth_payload_attributes;
 use alloy_consensus::{EthereumTxEnvelope, TxEip4844};
 use alloy_eips::{eip1559::ETHEREUM_BLOCK_GAS_LIMIT_30M, Encodable2718};
-use alloy_genesis::Genesis;
+use seismic_alloy_genesis::Genesis;
 use alloy_primitives::B256;
 use reth_chainspec::{ChainSpecBuilder, MAINNET};
 use reth_e2e_test_utils::{

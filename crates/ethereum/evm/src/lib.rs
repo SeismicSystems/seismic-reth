@@ -275,7 +275,7 @@ where
 mod tests {
     use super::*;
     use alloy_consensus::Header;
-    use alloy_genesis::Genesis;
+    use seismic_alloy_genesis::Genesis;
     use reth_chainspec::{Chain, ChainSpec};
     use reth_evm::{execute::ProviderError, EvmEnv};
     use revm::{
