@@ -5,7 +5,7 @@ use crate::{
     DatabaseError,
 };
 use alloy_consensus::Header;
-use alloy_genesis::GenesisAccount;
+use seismic_alloy_genesis::GenesisAccount;
 use alloy_primitives::{Address, Bytes, Log, B256, U256};
 use reth_codecs::{add_arbitrary_tests, Compact};
 use reth_ethereum_primitives::{Receipt, TransactionSigned, TxType};

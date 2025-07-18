@@ -3,7 +3,7 @@ use alloc::{boxed::Box, vec::Vec};
 use alloy_chains::Chain;
 use alloy_consensus::Header;
 use alloy_eips::{eip1559::BaseFeeParams, eip7840::BlobParams};
-use alloy_genesis::Genesis;
+use seismic_alloy_genesis::Genesis;
 use alloy_primitives::{B256, U256};
 use core::fmt::{Debug, Display};
 use reth_ethereum_forks::EthereumHardforks;

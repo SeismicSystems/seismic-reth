@@ -14,6 +14,7 @@ workspace = true
 # enclave
 seismic-enclave.workspace = true
 seismic-alloy-consensus = { workspace = true, default-features = false, features = ["arbitrary", "serde"] }
+seismic-alloy-genesis.workspace = true
 
 # reth
 reth-codecs-derive.workspace = true

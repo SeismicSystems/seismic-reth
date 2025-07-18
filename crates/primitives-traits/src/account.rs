@@ -1,5 +1,5 @@
 use alloy_consensus::constants::KECCAK_EMPTY;
-use alloy_genesis::GenesisAccount;
+use seismic_alloy_genesis::GenesisAccount;
 use alloy_primitives::{keccak256, Bytes, B256, U256};
 use alloy_trie::TrieAccount;
 use derive_more::Deref;

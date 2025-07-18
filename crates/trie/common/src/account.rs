@@ -6,7 +6,7 @@ mod tests {
     use super::*;
     use crate::root::storage_root_unhashed;
     use alloy_consensus::constants::KECCAK_EMPTY;
-    use alloy_genesis::GenesisAccount;
+    use seismic_alloy_genesis::GenesisAccount;
     use alloy_primitives::{keccak256, Bytes, B256, U256};
     use std::collections::BTreeMap;
 
@@ -35,6 +35,7 @@ mod tests {
         // Create a GenesisAccount with specific values
         let mut storage = BTreeMap::new();
         storage.insert(B256::from([0x01; 32]), B256::from([0x02; 32]));
+        let storage = seismic_alloy_genesis::convert_fixedbytes_map_to_flagged_storage(storage);
 
         let genesis_account = GenesisAccount {
             nonce: Some(10),
@@ -75,6 +76,7 @@ mod tests {
     fn test_from_genesis_account_with_zeroed_storage_values() {
         // Create a GenesisAccount with storage containing zero values
         let storage = BTreeMap::from([(B256::from([0x01; 32]), B256::from([0x00; 32]))]);
+        let storage = seismic_alloy_genesis::convert_fixedbytes_map_to_flagged_storage(storage);
 
         let genesis_account = GenesisAccount {
             nonce: Some(3),

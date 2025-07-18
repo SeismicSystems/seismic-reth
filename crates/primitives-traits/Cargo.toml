@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 # seimsic
 seismic-alloy-consensus = { workspace = true, features = ["k256"] }
+seismic-alloy-genesis.workspace = true
 
 # reth
 reth-codecs = { workspace = true, optional = true }

@@ -12,6 +12,9 @@ description = "Execution extensions for Reth"
 workspace = true
 
 [dependencies]
+## seismic
+seismic-alloy-genesis.workspace = true
+
 ## reth
 reth-chain-state.workspace = true
 reth-chainspec.workspace = true

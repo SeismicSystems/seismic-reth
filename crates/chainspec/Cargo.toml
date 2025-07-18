@@ -11,6 +11,9 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+# seismic
+seismic-alloy-genesis.workspace = true
+
 # reth
 reth-ethereum-forks.workspace = true
 reth-network-peers.workspace = true

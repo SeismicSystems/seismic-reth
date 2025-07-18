@@ -17,7 +17,7 @@ use alloy_consensus::{
 use alloy_eips::{
     eip1559::INITIAL_BASE_FEE, eip7685::EMPTY_REQUESTS_HASH, eip7892::BlobScheduleBlobParams,
 };
-use alloy_genesis::Genesis;
+use seismic_alloy_genesis::Genesis;
 use alloy_primitives::{address, b256, Address, BlockNumber, B256, U256};
 use alloy_seismic_evm::hardfork::{SeismicHardfork, SeismicHardforks};
 use alloy_trie::root::state_root_ref_unhashed;
@@ -1042,7 +1042,8 @@ mod tests {
     use alloy_consensus::constants::ETH_TO_WEI;
     use alloy_eips::{eip4844::BLOB_TX_MIN_BLOB_GASPRICE, eip7840::BlobParams};
     use alloy_evm::block::calc::{base_block_reward, block_reward};
-    use alloy_genesis::{ChainConfig, GenesisAccount};
+    use seismic_alloy_genesis::{ChainConfig};
+    use seismic_alloy_genesis::GenesisAccount;
     use alloy_primitives::{b256, hex};
     use alloy_trie::{TrieAccount, EMPTY_ROOT_HASH};
     use core::ops::Deref;

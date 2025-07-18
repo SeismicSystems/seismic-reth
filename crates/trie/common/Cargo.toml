@@ -64,6 +64,8 @@ serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 
+seismic-alloy-genesis.workspace = true
+
 [features]
 default = ["std"]
 std = [
