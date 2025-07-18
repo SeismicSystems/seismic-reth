@@ -697,7 +697,7 @@ impl NetworkMode {
 mod tests {
     use super::*;
     use alloy_eips::eip2124::ForkHash;
-    use seismic_alloy_genesis::Genesis;
+    use alloy_genesis::Genesis;
     use alloy_primitives::U256;
     use reth_chainspec::{
         Chain, ChainSpecBuilder, EthereumHardfork, ForkCondition, ForkId, MAINNET,
@@ -762,7 +762,7 @@ mod tests {
 
         let chain_spec = ChainSpecBuilder::default()
             .chain(Chain::dev())
-            .genesis(genesis)
+            .genesis(genesis.into())
             .with_fork(active_fork.0, active_fork.1)
             .with_fork(future_fork.0, future_fork.1)
             .build();

@@ -20,7 +20,7 @@ pub use alloy_consensus::proofs::calculate_ommers_root;
 #[cfg(test)]
 mod tests {
     use alloy_consensus::EMPTY_ROOT_HASH;
-    use seismic_alloy_genesis::GenesisAccount;
+    use alloy_genesis::GenesisAccount;
     use alloy_primitives::{b256, hex_literal::hex, Address, B256, U256};
     use alloy_trie::root::{state_root_ref_unhashed, state_root_unhashed};
     use reth_chainspec::{HOLESKY, MAINNET, SEPOLIA};

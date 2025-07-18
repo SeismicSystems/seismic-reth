@@ -12,9 +12,6 @@ description = "Ethereum network support"
 workspace = true
 
 [dependencies]
-# seismic
-seismic-alloy-genesis.workspace = true
-
 # reth
 reth-chainspec.workspace = true
 reth-fs-util.workspace = true

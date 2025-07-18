@@ -7200,7 +7200,6 @@ name = "reth-db-api"
 version = "1.4.3"
 dependencies = [
  "alloy-consensus",
- "alloy-genesis",
  "alloy-primitives",
  "arbitrary",
  "bytes",
@@ -7232,7 +7231,6 @@ name = "reth-db-common"
 version = "1.4.3"
 dependencies = [
  "alloy-consensus",
- "alloy-genesis",
  "alloy-primitives",
  "boyer-moore-magiclen",
  "eyre",
@@ -7808,7 +7806,6 @@ dependencies = [
  "reth-codecs-derive",
  "reth-ethereum-primitives",
  "reth-primitives-traits",
- "seismic-alloy-genesis",
  "serde",
  "thiserror 2.0.12",
 ]
@@ -8063,7 +8060,6 @@ dependencies = [
  "reth-testing-utils",
  "revm",
  "secp256k1",
- "seismic-alloy-genesis",
  "serde_json",
  "tokio",
 ]
@@ -8361,7 +8357,6 @@ dependencies = [
  "rustc-hash 2.1.1",
  "schnellru",
  "secp256k1",
- "seismic-alloy-genesis",
  "serde",
  "smallvec",
  "tempfile",

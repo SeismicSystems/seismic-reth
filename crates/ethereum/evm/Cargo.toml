@@ -11,9 +11,6 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-# seismic
-seismic-alloy-genesis.workspace = true
-
 # Reth
 reth-execution-types.workspace = true
 reth-chainspec.workspace = true

@@ -28,7 +28,6 @@ reth-static-file-types.workspace = true
 
 # eth
 alloy-consensus.workspace = true
-alloy-genesis.workspace = true
 alloy-primitives.workspace = true
 
 # misc

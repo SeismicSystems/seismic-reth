@@ -275,7 +275,7 @@ where
 mod tests {
     use super::*;
     use alloy_consensus::Header;
-    use seismic_alloy_genesis::Genesis;
+    use alloy_genesis::Genesis;
     use reth_chainspec::{Chain, ChainSpec};
     use reth_evm::{execute::ProviderError, EvmEnv};
     use revm::{
@@ -294,7 +294,7 @@ mod tests {
         // hardforks
         let chain_spec = ChainSpec::builder()
             .chain(Chain::mainnet())
-            .genesis(Genesis::default())
+            .genesis(Genesis::default().into())
             .london_activated()
             .paris_activated()
             .shanghai_activated()
