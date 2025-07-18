@@ -23,7 +23,7 @@ pub static BASE_SEPOLIA: LazyLock<Arc<OpChainSpec>> = LazyLock::new(|| {
                 make_op_genesis_header(&genesis, &hardforks),
                 b256!("0x0dcc9e089e30b90ddfc55be9a37dd15bc551aeee999d2e2b51414c54eaf934e4"),
             ),
-            genesis,
+            genesis: genesis.into(),
             paris_block_and_final_difficulty: Some((0, U256::from(0))),
             hardforks,
             base_fee_params: BaseFeeParamsKind::Variable(

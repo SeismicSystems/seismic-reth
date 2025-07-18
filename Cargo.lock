@@ -8731,6 +8731,7 @@ dependencies = [
  "reth-optimism-forks",
  "reth-optimism-primitives",
  "reth-primitives-traits",
+ "seismic-alloy-genesis",
  "serde",
  "serde_json",
  "tar-no-std",
