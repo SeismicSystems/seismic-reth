@@ -204,8 +204,10 @@ impl OpChainSpecBuilder {
     /// [`Self::genesis`])
     pub fn build(self) -> OpChainSpec {
         let mut inner = self.inner.build();
-        inner.genesis_header =
-            SealedHeader::seal_slow(make_op_genesis_header( &inner.genesis.clone(), &inner.hardforks));
+        inner.genesis_header = SealedHeader::seal_slow(make_op_genesis_header(
+            &inner.genesis.clone(),
+            &inner.hardforks,
+        ));
 
         OpChainSpec { inner }
     }
@@ -402,7 +404,8 @@ impl From<Genesis> for OpChainSpec {
         ordered_hardforks.append(&mut block_hardforks);
 
         let hardforks = ChainHardforks::new(ordered_hardforks);
-        let genesis_header = SealedHeader::seal_slow(make_op_genesis_header(&genesis.clone().into(), &hardforks));
+        let genesis_header =
+            SealedHeader::seal_slow(make_op_genesis_header(&genesis.clone().into(), &hardforks));
 
         Self {
             inner: ChainSpec {
@@ -475,7 +478,10 @@ impl OpGenesisInfo {
 }
 
 /// Helper method building a [`Header`] given [`Genesis`] and [`ChainHardforks`].
-pub fn make_op_genesis_header(genesis: &seismic_alloy_genesis::Genesis, hardforks: &ChainHardforks) -> Header {
+pub fn make_op_genesis_header(
+    genesis: &seismic_alloy_genesis::Genesis,
+    hardforks: &ChainHardforks,
+) -> Header {
     let mut header = reth_chainspec::make_genesis_header(&genesis.clone().into(), hardforks);
 
     // If Isthmus is active, overwrite the withdrawals root with the storage root of predeploy

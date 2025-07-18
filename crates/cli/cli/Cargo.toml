@@ -17,7 +17,6 @@ seismic-alloy-genesis.workspace = true
 # reth
 reth-cli-runner.workspace = true
 reth-db.workspace = true
-alloy-genesis.workspace = true
 
 # misc
 clap.workspace = true

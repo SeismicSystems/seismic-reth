@@ -1,13 +1,13 @@
 //! Helps create a custom genesis alloc by making it easy to add funded accounts with known
 //! signers to the genesis block.
 
-use seismic_alloy_genesis::GenesisAccount;
 use alloy_primitives::{Address, Bytes, B256, U256};
 use reth_primitives_traits::crypto::secp256k1::public_key_to_address;
 use secp256k1::{
     rand::{thread_rng, RngCore},
     Keypair, Secp256k1,
 };
+use seismic_alloy_genesis::GenesisAccount;
 use std::{
     collections::{hash_map::Entry, BTreeMap, HashMap},
     fmt,

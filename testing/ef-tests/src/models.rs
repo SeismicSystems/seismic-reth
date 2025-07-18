@@ -3,11 +3,11 @@
 use crate::{assert::assert_equal, Error};
 use alloy_consensus::Header as RethHeader;
 use alloy_eips::eip4895::Withdrawals;
-use seismic_alloy_genesis::GenesisAccount;
 use alloy_primitives::{keccak256, Address, Bloom, Bytes, B256, B64, U256};
 use reth_chainspec::{ChainSpec, ChainSpecBuilder};
 use reth_db_api::{cursor::DbDupCursorRO, tables, transaction::DbTx};
 use reth_primitives_traits::SealedHeader;
+use seismic_alloy_genesis::GenesisAccount;
 use serde::Deserialize;
 use std::{collections::BTreeMap, ops::Deref};
 
@@ -168,7 +168,10 @@ impl State {
                     .map(|(k, v)| {
                         (
                             B256::from_slice(&k.to_be_bytes::<32>()),
-                            FlaggedStorage::new(U256::from_be_bytes(v.to_be_bytes::<32>()), is_private),
+                            FlaggedStorage::new(
+                                U256::from_be_bytes(v.to_be_bytes::<32>()),
+                                is_private,
+                            ),
                         )
                     })
                     .collect();

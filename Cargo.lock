@@ -6942,7 +6942,6 @@ dependencies = [
 name = "reth-cli"
 version = "1.4.3"
 dependencies = [
- "alloy-genesis",
  "clap",
  "eyre",
  "reth-cli-runner",

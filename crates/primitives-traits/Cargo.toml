@@ -22,7 +22,6 @@ reth-codecs = { workspace = true, optional = true }
 # ethereum
 alloy-consensus = { workspace = true, features = ["k256"] }
 alloy-eips.workspace = true
-alloy-genesis.workspace = true
 alloy-primitives = { workspace = true, features = ["k256"] }
 alloy-rlp.workspace = true
 alloy-trie.workspace = true
@@ -57,6 +56,7 @@ proptest-arbitrary-interop = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
+alloy-genesis.workspace = true
 reth-codecs.workspace = true
 reth-chainspec = { workspace = true, features = ["arbitrary"] }
 
