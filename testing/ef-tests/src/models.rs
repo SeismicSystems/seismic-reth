@@ -11,6 +11,8 @@ use reth_primitives_traits::SealedHeader;
 use serde::Deserialize;
 use std::{collections::BTreeMap, ops::Deref};
 
+use alloy_primitives::FlaggedStorage;
+
 /// The definition of a blockchain test.
 #[derive(Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -155,6 +157,7 @@ pub struct State(BTreeMap<Address, Account>);
 impl State {
     /// Return state as genesis state.
     pub fn into_genesis_state(self) -> BTreeMap<Address, GenesisAccount> {
+        let is_private = false; // legacy test helper does not support private state
         self.0
             .into_iter()
             .map(|(address, account)| {
@@ -165,7 +168,7 @@ impl State {
                     .map(|(k, v)| {
                         (
                             B256::from_slice(&k.to_be_bytes::<32>()),
-                            B256::from_slice(&v.to_be_bytes::<32>()),
+                            FlaggedStorage::new(U256::from_be_bytes(v.to_be_bytes::<32>()), is_private),
                         )
                     })
                     .collect();

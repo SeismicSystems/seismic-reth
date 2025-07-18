@@ -105,6 +105,8 @@ impl<'a> GenesisAllocator<'a> {
         balance: U256,
         storage: BTreeMap<B256, B256>,
     ) -> (Keypair, Address) {
+        let storage = alloy_genesis::convert_fixedbytes_map_to_flagged_storage(storage);
+
         let secp = Secp256k1::new();
         let pair = Keypair::new(&secp, &mut self.rng);
         let address = public_key_to_address(pair.public_key());
@@ -125,6 +127,8 @@ impl<'a> GenesisAllocator<'a> {
         code: Bytes,
         storage: BTreeMap<B256, B256>,
     ) -> (Keypair, Address) {
+        let storage = alloy_genesis::convert_fixedbytes_map_to_flagged_storage(storage);
+
         let secp = Secp256k1::new();
         let pair = Keypair::new(&secp, &mut self.rng);
         let address = public_key_to_address(pair.public_key());
