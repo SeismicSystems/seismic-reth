@@ -138,5 +138,5 @@ pub struct AllTransactionsMetrics {
 #[metrics(scope = "transaction_pool")]
 pub struct TxPoolValidationMetrics {
     /// How long to successfully validate a blob
-    pub(crate) blob_validation_duration: Histogram,
+    pub blob_validation_duration: Histogram,
 }

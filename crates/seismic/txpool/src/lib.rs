@@ -10,7 +10,7 @@
 
 mod transaction;
 pub use transaction::SeismicPooledTransaction;
-mod validate;
+pub mod validate;
 pub use validate::SeismicTransactionValidator;
 
 use reth_transaction_pool::{
