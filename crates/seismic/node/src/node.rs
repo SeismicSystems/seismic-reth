@@ -36,7 +36,7 @@ use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransact
 use reth_seismic_rpc::{SeismicEthApi, SeismicEthApiBuilder};
 use reth_transaction_pool::{
     blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},
-    CoinbaseTipOrdering, PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
+    CoinbaseTipOrdering, PoolTransaction, TransactionPool,
 };
 use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
@@ -45,6 +45,7 @@ use seismic_enclave::rpc::SyncEnclaveApiClientBuilder;
 use std::{sync::Arc, time::SystemTime};
 
 use crate::{real_seismic_evm_config, RealSeismicEvmConfig};
+use reth_seismic_txpool::validate::SeismicTransactionValidatorBuilder;
 
 /// Storage implementation for Optimism.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
@@ -404,7 +405,7 @@ where
             DiskFileBlobStoreConfig::default().with_max_cached_entries(blob_cache_size);
 
         let blob_store = DiskFileBlobStore::open(data_dir.blobstore(), custom_config)?;
-        let validator = TransactionValidationTaskExecutor::eth_builder(ctx.provider().clone())
+        let validator = SeismicTransactionValidatorBuilder::new(ctx.provider().clone())
             .with_head_timestamp(ctx.head().timestamp)
             .kzg_settings(ctx.kzg_settings()?)
             .with_local_transactions_config(pool_config.local_transactions_config.clone())
