@@ -330,14 +330,24 @@ where
         // TODO: check caller is msg.sender
         use seismic_revm::src20_gas::GAS_SRC20_ADDRESS;
         use seismic_revm::src20_gas::gas_caller_key;
+        use reth_rpc_eth_api::FromEthApiError;
+
         debug!(target: "reth-seismic-rpc::eth", ?address, ?block_number, "serving seismic eth_getBalance extension");
         let storage_key = gas_caller_key(address);
         let storage_slot_b256: B256 = storage_key.into();
-        let balance = EthState::storage_at(&self.eth_api, GAS_SRC20_ADDRESS, storage_key.into(), block_number).await?;
+        // let balance = EthState::storage_at(&self.eth_api, GAS_SRC20_ADDRESS, storage_key.into(), block_number).await?;
+        let balance = self.eth_api.spawn_blocking_io(move |this| {
+            let storage_value = this
+                .state_at_block_id_or_latest(block_number)?
+                .storage(GAS_SRC20_ADDRESS, storage_slot_b256)
+                .map_err(EthApiError::from_eth_err)?
+                .unwrap_or_default();
+            Ok(storage_value.value)
+        }).await?;
         
 
-        let code = EthState::get_code(&self.eth_api, GAS_SRC20_ADDRESS, block_number).await?;
-        debug!(target: "reth-seismic-rpc::eth", ?code, "eth_getBalance code extension");
+        // let code = EthState::get_code(&self.eth_api, GAS_SRC20_ADDRESS, block_number).await?;
+        // debug!(target: "reth-seismic-rpc::eth", ?code, "eth_getBalance code extension");
         
         debug!(target: "reth-seismic-rpc::eth", ?balance, ?storage_slot_b256, "eth_getBalance balance extension");
         Ok(balance.into())
