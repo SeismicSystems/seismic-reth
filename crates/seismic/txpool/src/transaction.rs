@@ -193,6 +193,7 @@ mod tests {
         blobstore::InMemoryBlobStore, error::InvalidPoolTransactionError,
         validate::EthTransactionValidatorBuilder, TransactionOrigin, TransactionValidationOutcome,
     };
+    // TODO: use seismic tranaction validator instead of eth transaction validator
 
     #[tokio::test]
     async fn validate_seismic_transaction() {
