@@ -38,6 +38,7 @@ use seismic_enclave::{
     request_types::GetPurposeKeysRequest, rpc::EnclaveApiClient, EnclaveClient, PublicKey,
 };
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use reth_rpc_eth_api::helpers::EthState;
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///
@@ -145,6 +146,10 @@ pub trait EthApiOverride<B: RpcObject> {
         block_number: Option<BlockId>,
         state_override: Option<StateOverride>,
     ) -> RpcResult<U256>;
+
+    /// Returns the balance of the account of the given address.
+    #[method(name = "getBalance")]
+    async fn balance(&self, address: Address, block_number: Option<BlockId>) -> RpcResult<U256>;
 }
 
 /// Implementation of the `eth_` namespace override
@@ -319,6 +324,13 @@ where
             state_override,
         )
         .await?)
+    }
+
+    async fn balance(&self, address: Address, block_number: Option<BlockId>) -> RpcResult<U256> {
+        // TODO: check caller is msg.sender
+        debug!(target: "reth-seismic-rpc::eth", ?address, ?block_number, "serving seismic eth_getBalance extension");
+        let storage_key = seismic_revm::src20_gas::gas_caller_key(address);
+        Ok(EthState::storage_at(&self.eth_api, address, storage_key.into(), block_number).await?.into())
     }
 }
 
