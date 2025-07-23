@@ -21,7 +21,7 @@ async fn can_handle_blobs() -> eyre::Result<()> {
     let chain_spec = Arc::new(
         ChainSpecBuilder::default()
             .chain(MAINNET.chain)
-            .genesis(genesis)
+            .genesis(genesis.into())
             .cancun_activated()
             .build(),
     );

@@ -12,6 +12,10 @@ description = "Database abstraction used in reth."
 workspace = true
 
 [dependencies]
+# seismic
+reth-seismic-primitives = { workspace = true, features = ["serde", "reth-codec"] }
+seismic-alloy-genesis.workspace = true
+
 # reth
 reth-codecs.workspace = true
 reth-db-models = { workspace = true, features = ["serde", "reth-codec"] }
@@ -24,11 +28,7 @@ reth-trie-common.workspace = true
 
 # ethereum
 alloy-primitives.workspace = true
-alloy-genesis.workspace = true
 alloy-consensus.workspace = true
-
-# seismic
-reth-seismic-primitives = { workspace = true, features = ["serde", "reth-codec"] }
 
 # optimism
 reth-optimism-primitives = { workspace = true, optional = true }

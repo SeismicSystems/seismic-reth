@@ -40,7 +40,7 @@ async fn maintain_txpool_stale_eviction() -> eyre::Result<()> {
     let chain_spec = Arc::new(
         ChainSpecBuilder::default()
             .chain(MAINNET.chain)
-            .genesis(genesis)
+            .genesis(genesis.into())
             .cancun_activated()
             .build(),
     );
@@ -114,7 +114,7 @@ async fn maintain_txpool_reorg() -> eyre::Result<()> {
     let chain_spec = Arc::new(
         ChainSpecBuilder::default()
             .chain(MAINNET.chain)
-            .genesis(genesis)
+            .genesis(genesis.into())
             .cancun_activated()
             .build(),
     );
@@ -247,7 +247,7 @@ async fn maintain_txpool_commit() -> eyre::Result<()> {
     let chain_spec = Arc::new(
         ChainSpecBuilder::default()
             .chain(MAINNET.chain)
-            .genesis(genesis)
+            .genesis(genesis.into())
             .cancun_activated()
             .build(),
     );

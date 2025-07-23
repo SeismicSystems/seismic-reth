@@ -1,7 +1,6 @@
 //! Reth genesis initialization utility functions.
 
 use alloy_consensus::BlockHeader;
-use alloy_genesis::GenesisAccount;
 use alloy_primitives::{map::HashMap, Address, B256, U256};
 use reth_chainspec::EthChainSpec;
 use reth_codecs::Compact;
@@ -20,6 +19,7 @@ use reth_stages_types::{StageCheckpoint, StageId};
 use reth_static_file_types::StaticFileSegment;
 use reth_trie::{IntermediateStateRootState, StateRoot as StateRootComputer, StateRootProgress};
 use reth_trie_db::DatabaseStateRoot;
+use seismic_alloy_genesis::GenesisAccount;
 use serde::{Deserialize, Serialize};
 use std::io::BufRead;
 use tracing::{debug, error, info, trace};
@@ -216,9 +216,9 @@ where
             .as_ref()
             .map(|m| {
                 m.iter()
-                    .map(|(key, value)| {
-                        let value = U256::from_be_bytes(value.0);
-                        let is_private = false;
+                    .map(|(key, flagged_value)| {
+                        let value = flagged_value.value;
+                        let is_private = flagged_value.is_private;
                         (*key, ((U256::ZERO, false), (value, is_private)))
                     })
                     .collect::<HashMap<_, _>>()
@@ -638,7 +638,6 @@ mod tests {
     use alloy_consensus::constants::{
         HOLESKY_GENESIS_HASH, MAINNET_GENESIS_HASH, SEPOLIA_GENESIS_HASH,
     };
-    use alloy_genesis::Genesis;
     use reth_chainspec::{Chain, ChainSpec, HOLESKY, MAINNET, SEPOLIA};
     use reth_db::DatabaseEnv;
     use reth_db_api::{
@@ -652,6 +651,7 @@ mod tests {
         test_utils::{create_test_provider_factory_with_chain_spec, MockNodeTypesWithDB},
         ProviderFactory,
     };
+    use seismic_alloy_genesis::Genesis;
     use std::{collections::BTreeMap, sync::Arc};
 
     fn collect_table_entries<DB, T>(
@@ -729,7 +729,11 @@ mod tests {
                     (
                         address_with_storage,
                         GenesisAccount {
-                            storage: Some(BTreeMap::from([(storage_key, B256::random())])),
+                            storage: Some(
+                                seismic_alloy_genesis::convert_fixedbytes_map_to_flagged_storage(
+                                    BTreeMap::from([(storage_key, B256::random())]),
+                                ),
+                            ),
                             ..Default::default()
                         },
                     ),

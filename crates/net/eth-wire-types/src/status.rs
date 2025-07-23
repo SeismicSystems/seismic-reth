@@ -735,7 +735,8 @@ mod tests {
             (EthereumHardfork::Shanghai, ForkCondition::Timestamp(13)),
         ];
 
-        let mut chainspec = ChainSpec::builder().genesis(genesis).chain(Chain::from_id(1337));
+        let mut chainspec =
+            ChainSpec::builder().genesis(genesis.into()).chain(Chain::from_id(1337));
 
         for (fork, condition) in &hardforks {
             chainspec = chainspec.with_fork(*fork, *condition);

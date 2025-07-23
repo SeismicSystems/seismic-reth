@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use alloy_consensus::{constants::ETH_TO_WEI, BlockHeader, Header, TxEip2930};
-use alloy_genesis::{Genesis, GenesisAccount};
 use alloy_primitives::{b256, Address, TxKind, U256};
 use reth_chainspec::{ChainSpec, ChainSpecBuilder, EthereumHardfork, MAINNET, MIN_TRANSACTION_GAS};
 use reth_ethereum_primitives::{Block, BlockBody, Receipt, Transaction};
@@ -19,6 +18,7 @@ use reth_provider::{
 use reth_revm::database::StateProviderDatabase;
 use reth_testing_utils::generators::sign_tx_with_key_pair;
 use secp256k1::Keypair;
+use seismic_alloy_genesis::{Genesis, GenesisAccount};
 
 pub(crate) fn to_execution_outcome(
     block_number: u64,

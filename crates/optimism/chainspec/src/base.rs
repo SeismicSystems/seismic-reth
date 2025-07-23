@@ -23,7 +23,7 @@ pub static BASE_MAINNET: LazyLock<Arc<OpChainSpec>> = LazyLock::new(|| {
                 make_op_genesis_header(&genesis, &hardforks),
                 b256!("0xf712aa9241cc24369b143cf6dce85f0902a9731e70d66818a3a5845b296c73dd"),
             ),
-            genesis,
+            genesis: genesis.into(),
             paris_block_and_final_difficulty: Some((0, U256::from(0))),
             hardforks,
             base_fee_params: BaseFeeParamsKind::Variable(

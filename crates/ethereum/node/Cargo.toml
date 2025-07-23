@@ -48,6 +48,9 @@ revm = { workspace = true, features = ["secp256k1", "blst", "c-kzg"] }
 eyre.workspace = true
 
 [dev-dependencies]
+# seismic
+seismic-alloy-genesis.workspace = true
+
 reth-chainspec.workspace = true
 reth-db.workspace = true
 reth-exex.workspace = true

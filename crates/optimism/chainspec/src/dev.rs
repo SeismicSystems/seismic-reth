@@ -23,7 +23,7 @@ pub static OP_DEV: LazyLock<Arc<OpChainSpec>> = LazyLock::new(|| {
         inner: ChainSpec {
             chain: Chain::dev(),
             genesis_header,
-            genesis,
+            genesis: genesis.into(),
             paris_block_and_final_difficulty: Some((0, U256::from(0))),
             hardforks,
             base_fee_params: BaseFeeParamsKind::Constant(BaseFeeParams::ethereum()),

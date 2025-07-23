@@ -361,6 +361,7 @@ alloy-seismic-evm = {version = "0.9"}
 seismic-alloy-rpc-types = {version = "0.0.1", default-features = false}
 seismic-alloy-consensus = {version = "0.0.1", default-features = false}
 seismic-alloy-provider = {version = "0.0.1", default-features = false}
+seismic-alloy-genesis = {version = "0.0.1", default-features = false}
 
 seismic-alloy-rpc-types-engine = {version = "0.0.1", default-features = false}
 seismic-alloy-network = {version = "0.0.1", default-features = false}
@@ -785,10 +786,11 @@ seismic-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev
 revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "2b50433"}
 
 # Seismic alloy
-seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "10318e3f9ec1688b596ac136411dfb0f8c4ccdd1" }
-seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "10318e3f9ec1688b596ac136411dfb0f8c4ccdd1" }
-seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "10318e3f9ec1688b596ac136411dfb0f8c4ccdd1" }
-seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "10318e3f9ec1688b596ac136411dfb0f8c4ccdd1" }
+seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "c16ddea3f87478c2e14b259aa02f8957016a4766" }
+seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "c16ddea3f87478c2e14b259aa02f8957016a4766" }
+seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "c16ddea3f87478c2e14b259aa02f8957016a4766" }
+seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "c16ddea3f87478c2e14b259aa02f8957016a4766" }
+seismic-alloy-genesis = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "c16ddea3f87478c2e14b259aa02f8957016a4766" }
 
 # alloy-evm
 alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "6a68682320d317bf6ac2b76142b349f086828fbb" }

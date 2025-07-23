@@ -52,6 +52,9 @@ thiserror.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+# seismic
+seismic-alloy-genesis.workspace = true
+
 reth-db-common.workspace = true
 reth-evm-ethereum.workspace = true
 reth-node-api.workspace = true

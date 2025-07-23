@@ -1,13 +1,13 @@
 //! Helps create a custom genesis alloc by making it easy to add funded accounts with known
 //! signers to the genesis block.
 
-use alloy_genesis::GenesisAccount;
 use alloy_primitives::{Address, Bytes, B256, U256};
 use reth_primitives_traits::crypto::secp256k1::public_key_to_address;
 use secp256k1::{
     rand::{thread_rng, RngCore},
     Keypair, Secp256k1,
 };
+use seismic_alloy_genesis::GenesisAccount;
 use std::{
     collections::{hash_map::Entry, BTreeMap, HashMap},
     fmt,
@@ -109,6 +109,8 @@ impl<'a> GenesisAllocator<'a> {
         let pair = Keypair::new(&secp, &mut self.rng);
         let address = public_key_to_address(pair.public_key());
 
+        let storage = seismic_alloy_genesis::convert_fixedbytes_map_to_flagged_storage(storage);
+
         self.alloc.insert(
             address,
             GenesisAccount::default().with_balance(balance).with_storage(Some(storage)),
@@ -128,6 +130,8 @@ impl<'a> GenesisAllocator<'a> {
         let secp = Secp256k1::new();
         let pair = Keypair::new(&secp, &mut self.rng);
         let address = public_key_to_address(pair.public_key());
+
+        let storage = seismic_alloy_genesis::convert_fixedbytes_map_to_flagged_storage(storage);
 
         self.alloc.insert(
             address,

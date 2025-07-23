@@ -762,7 +762,7 @@ mod tests {
 
         let chain_spec = ChainSpecBuilder::default()
             .chain(Chain::dev())
-            .genesis(genesis)
+            .genesis(genesis.into())
             .with_fork(active_fork.0, active_fork.1)
             .with_fork(future_fork.0, future_fork.1)
             .build();

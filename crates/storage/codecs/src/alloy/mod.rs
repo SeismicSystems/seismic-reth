@@ -51,7 +51,7 @@ mod tests {
         validate_bitflag_backwards_compat!(HeaderExt, UnusedBits::NotZero);
         validate_bitflag_backwards_compat!(TxEip2930, UnusedBits::Zero);
         validate_bitflag_backwards_compat!(StorageEntries, UnusedBits::Zero);
-        validate_bitflag_backwards_compat!(StorageEntry, UnusedBits::Zero);
+        validate_bitflag_backwards_compat!(StorageEntry, UnusedBits::NotZero); // Seismic broke backwards compatibility here for the is_private flag
 
         validate_bitflag_backwards_compat!(GenesisAccountRef<'_>, UnusedBits::NotZero);
         validate_bitflag_backwards_compat!(GenesisAccount, UnusedBits::NotZero);
