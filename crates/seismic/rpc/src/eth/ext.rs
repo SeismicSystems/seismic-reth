@@ -328,9 +328,19 @@ where
 
     async fn balance(&self, address: Address, block_number: Option<BlockId>) -> RpcResult<U256> {
         // TODO: check caller is msg.sender
+        use seismic_revm::src20_gas::GAS_SRC20_ADDRESS;
+        use seismic_revm::src20_gas::gas_caller_key;
         debug!(target: "reth-seismic-rpc::eth", ?address, ?block_number, "serving seismic eth_getBalance extension");
-        let storage_key = seismic_revm::src20_gas::gas_caller_key(address);
-        Ok(EthState::storage_at(&self.eth_api, address, storage_key.into(), block_number).await?.into())
+        let storage_key = gas_caller_key(address);
+        let storage_slot_b256: B256 = storage_key.into();
+        let balance = EthState::storage_at(&self.eth_api, GAS_SRC20_ADDRESS, storage_key.into(), block_number).await?;
+        
+
+        let code = EthState::get_code(&self.eth_api, GAS_SRC20_ADDRESS, block_number).await?;
+        debug!(target: "reth-seismic-rpc::eth", ?code, "eth_getBalance code extension");
+        
+        debug!(target: "reth-seismic-rpc::eth", ?balance, ?storage_slot_b256, "eth_getBalance balance extension");
+        Ok(balance.into())
     }
 }
 
