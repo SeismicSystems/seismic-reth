@@ -31,6 +31,7 @@ reth-seismic-primitives = {workspace = true, features = ["serde", "reth-codec", 
 # revm
 revm-primitives.workspace = true
 revm-interpreter.workspace = true
+seismic-revm.workspace = true
 
 # misc
 c-kzg.workspace = true

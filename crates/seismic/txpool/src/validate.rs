@@ -40,6 +40,9 @@ use std::{
 use tokio::sync::Mutex;
 use reth_transaction_pool::TransactionValidationTaskExecutor;
 
+use seismic_revm::src20_gas::GAS_SRC20_ADDRESS;
+use seismic_revm::src20_gas::gas_caller_key;
+
 /// Validator for Ethereum transactions.
 /// It is a [`TransactionValidator`] implementation that validates ethereum transaction.
 #[derive(Debug, Clone)]
@@ -528,12 +531,20 @@ where
         let cost = transaction.cost();
 
         // Checks for max cost
-        if cost > &account.balance {
+        let gas_caller_key = gas_caller_key(transaction.sender());
+        let gas_balance = match state.storage(GAS_SRC20_ADDRESS, gas_caller_key.into()) {
+            Ok(gas_balance) => gas_balance.unwrap_or_default().value,
+            Err(err) => {
+                return TransactionValidationOutcome::Error(*transaction.hash(), Box::new(err))
+            }
+        };
+
+        if cost > &gas_balance {
             let expected = *cost;
             return TransactionValidationOutcome::Invalid(
                 transaction,
                 InvalidTransactionError::InsufficientFunds(
-                    GotExpected { got: account.balance, expected }.into(),
+                    GotExpected { got: gas_balance, expected }.into(),
                 )
                 .into(),
             )
@@ -611,7 +622,7 @@ where
         });
         // Return the valid transaction
         TransactionValidationOutcome::Valid {
-            balance: account.balance,
+            balance: gas_balance,
             state_nonce: account.nonce,
             bytecode_hash: account.bytecode_hash,
             transaction: ValidTransaction::new(transaction, maybe_blob_sidecar),
