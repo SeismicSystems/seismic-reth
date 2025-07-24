@@ -468,6 +468,9 @@ pub enum RpcInvalidTransactionError {
     /// Any other error
     #[error("{0}")]
     Other(Box<dyn ToRpcError>),
+    /// Thrown if a transaction uses the value field to send native currency.
+    #[error("transaction value must be zero until the Seismic token is officially launched")]
+    UnauthorizedUseOfNativeCurrency,
 }
 
 impl RpcInvalidTransactionError {
@@ -617,6 +620,7 @@ impl From<InvalidTransactionError> for RpcInvalidTransactionError {
             InvalidTransactionError::TipAboveFeeCap => Self::TipAboveFeeCap,
             InvalidTransactionError::FeeCapTooLow => Self::FeeCapTooLow,
             InvalidTransactionError::SignerAccountHasBytecode => Self::SenderNoEOA,
+            InvalidTransactionError::UnauthorizedUseOfNativeCurrency => Self::UnauthorizedUseOfNativeCurrency,
         }
     }
 }

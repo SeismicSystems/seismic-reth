@@ -61,6 +61,9 @@ pub enum InvalidTransactionError {
     /// Thrown if the sender of a transaction is a contract.
     #[error("transaction signer has bytecode set")]
     SignerAccountHasBytecode,
+    /// Thrown if a transaction uses the value field to send native currency.
+    #[error("transaction value must be zero until the Seismic token is officially launched")]
+    UnauthorizedUseOfNativeCurrency,
 }
 
 /// Represents error variants that can happen when trying to convert a transaction to pooled

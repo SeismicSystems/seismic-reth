@@ -138,6 +138,7 @@ where
     Pool: TransactionPool<Transaction: PoolTransaction<Consensus = SeismicTransactionSigned>>,
     F: FnOnce(BestTransactionsAttributes) -> BestTransactionsIter<Pool>,
 {
+    debug!(target: "reth-seismic-payload::builder", "entered default_seismic_payload");
     let BuildArguments { mut cached_reads, config, cancel, best_payload } = args;
     let PayloadConfig { parent_header, attributes } = config;
 

@@ -335,7 +335,6 @@ where
         debug!(target: "reth-seismic-rpc::eth", ?address, ?block_number, "serving seismic eth_getBalance extension");
         let storage_key = gas_caller_key(address);
         let storage_slot_b256: B256 = storage_key.into();
-        // let balance = EthState::storage_at(&self.eth_api, GAS_SRC20_ADDRESS, storage_key.into(), block_number).await?;
         let balance = self.eth_api.spawn_blocking_io(move |this| {
             let storage_value = this
                 .state_at_block_id_or_latest(block_number)?
@@ -344,10 +343,6 @@ where
                 .unwrap_or_default();
             Ok(storage_value.value)
         }).await?;
-        
-
-        // let code = EthState::get_code(&self.eth_api, GAS_SRC20_ADDRESS, block_number).await?;
-        // debug!(target: "reth-seismic-rpc::eth", ?code, "eth_getBalance code extension");
         
         debug!(target: "reth-seismic-rpc::eth", ?balance, ?storage_slot_b256, "eth_getBalance balance extension");
         Ok(balance.into())

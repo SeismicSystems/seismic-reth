@@ -47,7 +47,7 @@ use std::{sync::Arc, time::SystemTime};
 use crate::{real_seismic_evm_config, RealSeismicEvmConfig};
 use reth_seismic_txpool::validate::SeismicTransactionValidatorBuilder;
 
-/// Storage implementation for Optimism.
+/// Storage implementation for Seismic.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
 
 #[derive(Debug, Default, Clone)]

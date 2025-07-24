@@ -479,6 +479,17 @@ where
     where
         P: StateProvider,
     {
+        use tracing::debug;
+        debug!(target: "reth-seismic-txpool::validate", "entered validate_one_against_state");
+
+        if transaction.value() >  alloy_primitives::U256::ZERO {
+            return TransactionValidationOutcome::Invalid(
+                transaction,
+                InvalidTransactionError::UnauthorizedUseOfNativeCurrency
+                .into(),
+            )
+        }
+
         // Use provider to get account info
         let account = match state.basic_account(transaction.sender_ref()) {
             Ok(account) => account.unwrap_or_default(),
@@ -539,6 +550,7 @@ where
         };
 
         if cost > &gas_balance {
+            debug!(target: "reth-seismic-txpool::validate", ?cost, ?gas_balance, "insufficient funds",);
             let expected = *cost;
             return TransactionValidationOutcome::Invalid(
                 transaction,
@@ -559,8 +571,9 @@ where
         let authorities = transaction.authorization_list().map(|auths| {
             auths.iter().flat_map(|auth| auth.recover_authority()).collect::<Vec<_>>()
         });
+        
         // Return the valid transaction
-        TransactionValidationOutcome::Valid {
+        let outcome = TransactionValidationOutcome::Valid {
             balance: gas_balance,
             state_nonce: account.nonce,
             bytecode_hash: account.bytecode_hash,
@@ -574,7 +587,9 @@ where
                 TransactionOrigin::Private => false,
             },
             authorities,
-        }
+        };
+        debug!(target: "reth-seismic-txpool::validate", ?outcome, "valid outcome",);
+        outcome
     }
 
     /// Validates a single transaction.

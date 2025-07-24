@@ -37,6 +37,7 @@ seismic-revm.workspace = true
 c-kzg.workspace = true
 derive_more.workspace = true
 tokio.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 reth-seismic-chainspec.workspace = true
