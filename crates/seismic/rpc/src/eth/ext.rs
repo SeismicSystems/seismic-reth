@@ -345,7 +345,6 @@ where
             })
             .await?;
 
-        debug!(target: "reth-seismic-rpc::eth", ?balance, ?storage_slot_b256, "eth_getBalance balance extension");
         Ok(balance.into())
     }
 }
