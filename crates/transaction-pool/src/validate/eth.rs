@@ -173,9 +173,9 @@ where
 ///
 /// And adheres to the configured [`LocalTransactionConfig`].
 #[derive(Debug)]
-pub struct EthTransactionValidatorInner<Client, T> {
+pub(crate) struct EthTransactionValidatorInner<Client, T> {
     /// This type fetches account info from the db
-    pub client: Client,
+    client: Client,
     /// Blobstore used for fetching re-injected blob transactions.
     blob_store: Box<dyn BlobStore>,
     /// tracks activated forks relevant for transaction validation
@@ -228,7 +228,7 @@ where
     /// Validates a single transaction using an optional cached state provider.
     /// If no provider is passed, a new one will be created. This allows reusing
     /// the same provider across multiple txs.
-    pub fn validate_one_with_provider(
+    fn validate_one_with_provider(
         &self,
         origin: TransactionOrigin,
         transaction: Tx,
@@ -628,7 +628,7 @@ where
     }
 
     /// Validates a single transaction.
-    pub fn validate_one(
+    fn validate_one(
         &self,
         origin: TransactionOrigin,
         transaction: Tx,
@@ -638,7 +638,7 @@ where
     }
 
     /// Validates all given transactions.
-    pub fn validate_batch(
+    fn validate_batch(
         &self,
         transactions: Vec<(TransactionOrigin, Tx)>,
     ) -> Vec<TransactionValidationOutcome<Tx>> {
@@ -650,7 +650,7 @@ where
     }
 
     /// Validates all given transactions with origin.
-    pub fn validate_batch_with_origin(
+    fn validate_batch_with_origin(
         &self,
         origin: TransactionOrigin,
         transactions: impl IntoIterator<Item = Tx> + Send,
@@ -662,10 +662,7 @@ where
             .collect()
     }
 
-    /// Invoked when the head block changes.
-    ///
-    /// This can be used to update fork specific values (timestamp).
-    pub fn on_new_head_block<T: BlockHeader>(&self, new_tip_block: &T) {
+    fn on_new_head_block<T: BlockHeader>(&self, new_tip_block: &T) {
         // update all forks
         if self.chain_spec().is_shanghai_active_at_timestamp(new_tip_block.timestamp()) {
             self.fork_tracker.shanghai.store(true, std::sync::atomic::Ordering::Relaxed);
