@@ -25,23 +25,19 @@ use reth_transaction_pool::{
     validate::{
         ValidTransaction, ValidationTask, DEFAULT_MAX_TX_INPUT_BYTES, MAX_INIT_CODE_BYTE_SIZE,
     },
-    EthBlobTransactionSidecar, LocalTransactionConfig, TransactionOrigin,
-    TransactionValidationOutcome, TransactionValidationTaskExecutor, TransactionValidator,
+    LocalTransactionConfig, PoolTransaction, TransactionOrigin, TransactionValidationOutcome,
+    TransactionValidationTaskExecutor, TransactionValidator,
 };
 use seismic_alloy_consensus::SEISMIC_TX_TYPE_ID;
+use seismic_revm::src20_gas::{gas_caller_key, GAS_SRC20_ADDRESS};
 use std::{
     marker::PhantomData,
     sync::{
         atomic::{AtomicBool, AtomicU64},
         Arc,
-    }
+    },
 };
 use tokio::sync::Mutex;
-
-use seismic_revm::src20_gas::{gas_caller_key, GAS_SRC20_ADDRESS};
-
-use reth_transaction_pool::PoolTransaction;
-use crate::SeismicPooledTransaction;
 
 /// Validator for Ethereum transactions.
 /// It is a [`TransactionValidator`] implementation that validates ethereum transaction.
@@ -179,8 +175,6 @@ where
 pub struct SeismicTransactionValidatorInner<Client, T> {
     /// This type fetches account info from the db
     pub client: Client,
-    /// Blobstore used for fetching re-injected blob transactions.
-    blob_store: Box<dyn BlobStore>,
     /// tracks activated forks relevant for transaction validation
     fork_tracker: ForkTracker,
     /// Fork indicator whether we are using EIP-2718 type transactions.
@@ -197,8 +191,6 @@ pub struct SeismicTransactionValidatorInner<Client, T> {
     tx_fee_cap: Option<u128>,
     /// Minimum priority fee to enforce for acceptance into the pool.
     minimum_priority_fee: Option<u128>,
-    /// Stores the setup and parameters needed for validating KZG proofs.
-    kzg_settings: EnvKzgSettings,
     /// How to handle [`TransactionOrigin::Local`](TransactionOrigin) transactions.
     local_transactions_config: LocalTransactionConfig,
     /// Maximum size in bytes a single transaction can have in order to be accepted into the pool.
@@ -483,11 +475,10 @@ where
         use tracing::debug;
         debug!(target: "reth-seismic-txpool::validate", "entered validate_one_against_state");
 
-        if transaction.value() >  alloy_primitives::U256::ZERO {
+        if transaction.value() > alloy_primitives::U256::ZERO {
             return TransactionValidationOutcome::Invalid(
                 transaction,
-                InvalidTransactionError::UnauthorizedUseOfNativeCurrency
-                .into(),
+                InvalidTransactionError::UnauthorizedUseOfNativeCurrency.into(),
             )
         }
 
@@ -577,7 +568,7 @@ where
         let authorities = transaction.authorization_list().map(|auths| {
             auths.iter().flat_map(|auth| auth.recover_authority()).collect::<Vec<_>>()
         });
-        
+
         // Return the valid transaction
         let outcome = TransactionValidationOutcome::Valid {
             balance: gas_balance,
@@ -900,7 +891,7 @@ impl<Client> SeismicTransactionValidatorBuilder<Client> {
     }
 
     /// Builds a the [`SeismicTransactionValidator`] without spawning validator tasks.
-    pub fn build<Tx, S>(self, blob_store: S) -> SeismicTransactionValidator<Client, Tx>
+    pub fn build<Tx, S>(self, _blob_store: S) -> SeismicTransactionValidator<Client, Tx>
     where
         S: BlobStore,
     {
@@ -917,7 +908,7 @@ impl<Client> SeismicTransactionValidatorBuilder<Client> {
             block_gas_limit,
             tx_fee_cap,
             minimum_priority_fee,
-            kzg_settings,
+            kzg_settings: _kzg_settings,
             local_transactions_config,
             max_tx_input_bytes,
             ..
@@ -948,8 +939,6 @@ impl<Client> SeismicTransactionValidatorBuilder<Client> {
             block_gas_limit,
             tx_fee_cap,
             minimum_priority_fee,
-            blob_store: Box::new(blob_store),
-            kzg_settings,
             local_transactions_config,
             max_tx_input_bytes,
             _marker: Default::default(),

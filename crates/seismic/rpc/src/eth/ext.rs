@@ -38,7 +38,6 @@ use seismic_enclave::{
     request_types::GetPurposeKeysRequest, rpc::EnclaveApiClient, EnclaveClient, PublicKey,
 };
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use reth_rpc_eth_api::helpers::EthState;
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///
@@ -328,22 +327,24 @@ where
 
     async fn balance(&self, address: Address, block_number: Option<BlockId>) -> RpcResult<U256> {
         // TODO: check caller is msg.sender
-        use seismic_revm::src20_gas::GAS_SRC20_ADDRESS;
-        use seismic_revm::src20_gas::gas_caller_key;
         use reth_rpc_eth_api::FromEthApiError;
+        use seismic_revm::src20_gas::{gas_caller_key, GAS_SRC20_ADDRESS};
 
         debug!(target: "reth-seismic-rpc::eth", ?address, ?block_number, "serving seismic eth_getBalance extension");
         let storage_key = gas_caller_key(address);
         let storage_slot_b256: B256 = storage_key.into();
-        let balance = self.eth_api.spawn_blocking_io(move |this| {
-            let storage_value = this
-                .state_at_block_id_or_latest(block_number)?
-                .storage(GAS_SRC20_ADDRESS, storage_slot_b256)
-                .map_err(EthApiError::from_eth_err)?
-                .unwrap_or_default();
-            Ok(storage_value.value)
-        }).await?;
-        
+        let balance = self
+            .eth_api
+            .spawn_blocking_io(move |this| {
+                let storage_value = this
+                    .state_at_block_id_or_latest(block_number)?
+                    .storage(GAS_SRC20_ADDRESS, storage_slot_b256)
+                    .map_err(EthApiError::from_eth_err)?
+                    .unwrap_or_default();
+                Ok(storage_value.value)
+            })
+            .await?;
+
         debug!(target: "reth-seismic-rpc::eth", ?balance, ?storage_slot_b256, "eth_getBalance balance extension");
         Ok(balance.into())
     }

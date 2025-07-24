@@ -620,7 +620,9 @@ impl From<InvalidTransactionError> for RpcInvalidTransactionError {
             InvalidTransactionError::TipAboveFeeCap => Self::TipAboveFeeCap,
             InvalidTransactionError::FeeCapTooLow => Self::FeeCapTooLow,
             InvalidTransactionError::SignerAccountHasBytecode => Self::SenderNoEOA,
-            InvalidTransactionError::UnauthorizedUseOfNativeCurrency => Self::UnauthorizedUseOfNativeCurrency,
+            InvalidTransactionError::UnauthorizedUseOfNativeCurrency => {
+                Self::UnauthorizedUseOfNativeCurrency
+            }
         }
     }
 }

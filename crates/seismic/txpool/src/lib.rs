@@ -13,9 +13,7 @@ pub use transaction::SeismicPooledTransaction;
 pub mod validate;
 pub use validate::SeismicTransactionValidator;
 
-use reth_transaction_pool::{
-    CoinbaseTipOrdering, Pool, TransactionValidationTaskExecutor,
-};
+use reth_transaction_pool::{CoinbaseTipOrdering, Pool, TransactionValidationTaskExecutor};
 
 /// Type alias for default seismic transaction pool
 pub type SeismicTransactionPool<Client, S, T = SeismicPooledTransaction> = Pool<
@@ -23,4 +21,3 @@ pub type SeismicTransactionPool<Client, S, T = SeismicPooledTransaction> = Pool<
     CoinbaseTipOrdering<T>,
     S,
 >;
-
