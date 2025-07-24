@@ -41,6 +41,7 @@ use tokio::sync::Mutex;
 use seismic_revm::src20_gas::{gas_caller_key, GAS_SRC20_ADDRESS};
 
 use reth_transaction_pool::PoolTransaction;
+use crate::SeismicPooledTransaction;
 
 /// Validator for Ethereum transactions.
 /// It is a [`TransactionValidator`] implementation that validates ethereum transaction.
@@ -565,7 +566,12 @@ where
 
         // heavy blob tx validation
         if transaction.is_eip4844() {
-            //  TODO: validate blob
+            // Seismic does not support blob transactions yet
+            debug!(target: "reth-seismic-txpool::validate", "blob transactions not supported",);
+            return TransactionValidationOutcome::Invalid(
+                transaction,
+                InvalidTransactionError::TxTypeNotSupported.into(),
+            )
         }
 
         let authorities = transaction.authorization_list().map(|auths| {
