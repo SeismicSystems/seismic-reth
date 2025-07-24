@@ -191,15 +191,15 @@ mod tests {
     use reth_seismic_primitives::test_utils::get_signed_seismic_tx;
     use reth_transaction_pool::{
         blobstore::InMemoryBlobStore, error::InvalidPoolTransactionError,
-        validate::EthTransactionValidatorBuilder, TransactionOrigin, TransactionValidationOutcome,
+        TransactionOrigin, TransactionValidationOutcome,
     };
-    // TODO: use seismic tranaction validator instead of eth transaction validator
+    use crate::validate::SeismicTransactionValidatorBuilder;
 
     #[tokio::test]
     async fn validate_seismic_transaction() {
         // setup validator
         let client = MockEthProvider::default().with_chain_spec(SEISMIC_MAINNET.clone());
-        let validator = EthTransactionValidatorBuilder::new(client)
+        let validator = SeismicTransactionValidatorBuilder::new(client)
             .no_shanghai()
             .no_cancun()
             .build(InMemoryBlobStore::default());
