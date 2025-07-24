@@ -182,7 +182,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::SeismicPooledTransaction;
+    use crate::{validate::SeismicTransactionValidatorBuilder, SeismicPooledTransaction};
     use alloy_consensus::transaction::Recovered;
     use alloy_eips::eip2718::Encodable2718;
     use reth_primitives_traits::transaction::error::InvalidTransactionError;
@@ -190,10 +190,9 @@ mod tests {
     use reth_seismic_chainspec::SEISMIC_MAINNET;
     use reth_seismic_primitives::test_utils::get_signed_seismic_tx;
     use reth_transaction_pool::{
-        blobstore::InMemoryBlobStore, error::InvalidPoolTransactionError,
-        TransactionOrigin, TransactionValidationOutcome,
+        blobstore::InMemoryBlobStore, error::InvalidPoolTransactionError, TransactionOrigin,
+        TransactionValidationOutcome,
     };
-    use crate::validate::SeismicTransactionValidatorBuilder;
 
     #[tokio::test]
     async fn validate_seismic_transaction() {
