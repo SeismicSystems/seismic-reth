@@ -109,14 +109,13 @@ async fn test_discv5_and_rlpx_same_socket_ok_without_discv4() {
         .listener_port(test_port)
         .disable_discv4_discovery()
         .discovery_v5(
-            reth_discv5::Config::builder((DEFAULT_DISCOVERY_ADDR, test_port).into())
-                .discv5_config(
-                    discv5::ConfigBuilder::new(discv5::ListenConfig::from_ip(
-                        DEFAULT_DISCOVERY_ADDR,
-                        test_port,
-                    ))
-                    .build(),
-                ),
+            reth_discv5::Config::builder((DEFAULT_DISCOVERY_ADDR, test_port).into()).discv5_config(
+                discv5::ConfigBuilder::new(discv5::ListenConfig::from_ip(
+                    DEFAULT_DISCOVERY_ADDR,
+                    test_port,
+                ))
+                .build(),
+            ),
         )
         .disable_dns_discovery()
         .build(NoopProvider::default());
