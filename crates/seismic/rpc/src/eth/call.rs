@@ -23,7 +23,7 @@ use reth_evm::{EvmEnvFor, TransactionEnv};
 use reth_revm::{database::StateProviderDatabase, db::CacheDB};
 use reth_rpc_eth_types::{
     error::api::FromEvmHalt,
-    revm_utils::{apply_state_overrides, caller_gas_allowance},
+    revm_utils::{apply_state_overrides},
     RevertError
 };
 use reth_rpc_server_types::constants::gas_oracle::{CALL_STIPEND_GAS, ESTIMATE_GAS_ERROR_RATIO};
@@ -31,6 +31,7 @@ use reth_storage_api::StateProvider;
 use revm::context_interface::{result::ExecutionResult, Transaction};
 use tracing::trace;
 use reth_rpc_eth_api::helpers::estimate::update_estimated_gas_range;
+use reth_rpc_eth_types::EthResult;
 
 
 impl<N> EthCall for SeismicEthApi<N>
@@ -121,14 +122,13 @@ where
             }
         }
 
-        todo!("Implement check src20 gas balance instead of this");
         // Check funds of the sender (only useful to check if transaction gas price is more than 0).
         //
         // The caller allowance is check by doing `(account.balance - tx.value) / tx.gas_price`
         if tx_env.gas_price() > 0 {
             // cap the highest gas limit by max gas caller can afford with given gas price
             highest_gas_limit = highest_gas_limit
-                .min(caller_gas_allowance(&mut db, &tx_env).map_err(Self::Error::from_eth_err)?);
+                .min(seismic_caller_gas_allowance(&mut db, &tx_env).map_err(Self::Error::from_eth_err)?);
         }
 
         // If the provided gas limit is less than computed cap, use that
@@ -413,4 +413,23 @@ where
             rng_mode: RngMode::Simulation,
         })
     }
+}
+
+/// Gets the gas allowance from the seismic gas contract
+fn seismic_caller_gas_allowance<DB>(db: &mut DB, env: &impl TransactionEnv) -> EthResult<u64>
+where
+    DB: Database,
+    EthApiError: From<<DB as Database>::Error>,
+{
+
+    let caller = env.caller();
+    let caller_gas_key = seismic_revm::src20_gas::gas_caller_key(caller);
+    let balance = db.storage(seismic_revm::src20_gas::GAS_SRC20_ADDRESS, caller_gas_key)?.value;
+
+    Ok(balance
+        // Calculate the amount of gas the caller can afford with the specified gas price.
+        .checked_div(U256::from(env.gas_price()))
+        // This will be 0 if gas price is 0. It is fine, because we check it before.
+        .unwrap_or_default()
+        .saturating_to())
 }
