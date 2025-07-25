@@ -9725,6 +9725,7 @@ dependencies = [
  "reth-primitives",
  "reth-primitives-traits",
  "reth-provider",
+ "reth-revm",
  "reth-rpc",
  "reth-rpc-builder",
  "reth-rpc-engine-api",

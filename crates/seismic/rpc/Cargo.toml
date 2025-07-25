@@ -32,6 +32,7 @@ reth-chainspec.workspace = true
 reth-tracing.workspace = true
 reth-node-core.workspace = true
 reth-primitives.workspace = true
+reth-revm.workspace = true
 
 # seismic-reth
 reth-seismic-primitives = { workspace = true, features = ["reth-codec", "serde-bincode-compat"] }
