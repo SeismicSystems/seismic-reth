@@ -3,36 +3,36 @@ use crate::SeismicEthApi;
 use alloy_consensus::transaction::Either;
 use alloy_eips::eip7702::{RecoveredAuthorization, SignedAuthorization};
 use alloy_primitives::{TxKind, U256};
-use alloy_rpc_types_eth::transaction::TransactionRequest;
-use reth_evm::{execute::BlockExecutorFactory, ConfigureEvm, EvmEnv, EvmFactory, SpecFor};
-use reth_node_api::NodePrimitives;
-use reth_rpc_eth_api::{
-    helpers::{estimate::EstimateCall, Call, EthCall, LoadBlock, LoadState, SpawnBlocking},
-    FromEthApiError, FromEvmError, FullEthApiTypes, IntoEthApiError,
-};
-use reth_rpc_eth_types::{revm_utils::CallFees, EthApiError, RpcInvalidTransactionError};
-use reth_storage_api::{ProviderHeader, ProviderTx};
-use revm::{context::TxEnv, context_interface::Block, Database};
-use seismic_alloy_consensus::SeismicTxType;
-use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
-use tracing::debug;
-use reth_rpc_eth_api::{AsEthApiError};
-use alloy_rpc_types_eth::{state::StateOverride,};
+use alloy_rpc_types_eth::{state::StateOverride, transaction::TransactionRequest};
 use reth_chainspec::MIN_TRANSACTION_GAS;
-use reth_evm::{EvmEnvFor, TransactionEnv};
+use reth_evm::{
+    execute::BlockExecutorFactory, ConfigureEvm, EvmEnv, EvmEnvFor, EvmFactory, SpecFor,
+    TransactionEnv,
+};
+use reth_node_api::NodePrimitives;
 use reth_revm::{database::StateProviderDatabase, db::CacheDB};
+use reth_rpc_eth_api::{
+    helpers::{
+        estimate::{update_estimated_gas_range, EstimateCall},
+        Call, EthCall, LoadBlock, LoadState, SpawnBlocking,
+    },
+    AsEthApiError, FromEthApiError, FromEvmError, FullEthApiTypes, IntoEthApiError,
+};
 use reth_rpc_eth_types::{
     error::api::FromEvmHalt,
-    revm_utils::{apply_state_overrides},
-    RevertError
+    revm_utils::{apply_state_overrides, CallFees},
+    EthApiError, EthResult, RevertError, RpcInvalidTransactionError,
 };
 use reth_rpc_server_types::constants::gas_oracle::{CALL_STIPEND_GAS, ESTIMATE_GAS_ERROR_RATIO};
-use reth_storage_api::StateProvider;
-use revm::context_interface::{result::ExecutionResult, Transaction};
-use tracing::trace;
-use reth_rpc_eth_api::helpers::estimate::update_estimated_gas_range;
-use reth_rpc_eth_types::EthResult;
-
+use reth_storage_api::{ProviderHeader, ProviderTx, StateProvider};
+use revm::{
+    context::TxEnv,
+    context_interface::{result::ExecutionResult, Block, Transaction},
+    Database,
+};
+use seismic_alloy_consensus::SeismicTxType;
+use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
+use tracing::{debug, trace};
 
 impl<N> EthCall for SeismicEthApi<N>
 where
@@ -47,7 +47,6 @@ where
     Self::Error: From<EthApiError>,
     N: SeismicNodeCore,
 {
-
     // Modified version of EstimateCall's default implimentation to use for SRC20 gas
     fn estimate_gas_with<S>(
         &self,
@@ -127,8 +126,10 @@ where
         // The caller allowance is check by doing `(account.balance - tx.value) / tx.gas_price`
         if tx_env.gas_price() > 0 {
             // cap the highest gas limit by max gas caller can afford with given gas price
-            highest_gas_limit = highest_gas_limit
-                .min(seismic_caller_gas_allowance(&mut db, &tx_env).map_err(Self::Error::from_eth_err)?);
+            highest_gas_limit = highest_gas_limit.min(
+                seismic_caller_gas_allowance(&mut db, &tx_env)
+                    .map_err(Self::Error::from_eth_err)?,
+            );
         }
 
         // If the provided gas limit is less than computed cap, use that
@@ -421,7 +422,6 @@ where
     DB: Database,
     EthApiError: From<<DB as Database>::Error>,
 {
-
     let caller = env.caller();
     let caller_gas_key = seismic_revm::src20_gas::gas_caller_key(caller);
     let balance = db.storage(seismic_revm::src20_gas::GAS_SRC20_ADDRESS, caller_gas_key)?.value;
