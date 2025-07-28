@@ -1512,7 +1512,14 @@ impl<P: BlindedProvider> RevealedSparseTrie<P> {
         self.prefix_set.insert(path.clone());
         let existing = self.values.insert(path.clone(), value);
         if existing.is_some() {
-            // trie structure unchanged, return immediately
+            // Check if is_private flag changed and invalidate hash if so
+            if let Some(SparseNode::Leaf { is_private: ref mut existing_is_private, hash: ref mut existing_hash, .. }) = 
+                self.nodes.values_mut().find(|node| matches!(node, SparseNode::Leaf { .. })) {
+                if *existing_is_private != is_private {
+                    *existing_is_private = is_private;
+                    *existing_hash = None; // Force hash recomputation
+                }
+            }
             return Ok(());
         }
 
