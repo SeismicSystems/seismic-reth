@@ -235,7 +235,7 @@ _Adapted from the [Foundry contributing guide][foundry-contributing]_.
 
 [dev-tg]: https://t.me/paradigm_reth
 
-[reth-book]: https://github.com/paradigmxyz/reth/tree/main/book
+[reth-book]: https://seismicsystems.github.io/seismic-reth
 
 [mcve]: https://stackoverflow.com/help/mcve
 
