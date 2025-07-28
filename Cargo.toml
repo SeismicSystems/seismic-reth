@@ -767,7 +767,7 @@ alloy-sol-types = { git = "https://github.com/SeismicSystems/seismic-alloy-core.
 alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "bc4b5ed" }
 alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "bc4b5ed" }
 
-alloy-trie = { git = "https://github.com/SeismicSystems/seismic-trie.git", rev = "3f094397e43290c077b6faaa35cfccd31cd38191" }
+alloy-trie = { git = "https://github.com/SeismicSystems/seismic-trie.git", rev = "417644c" }
 
 # revm
 revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "e7fa9fab"}
