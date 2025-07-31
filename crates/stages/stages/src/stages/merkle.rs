@@ -578,7 +578,7 @@ mod tests {
                     }
                     let storage = storage_entries
                         .into_iter()
-                        .filter(|v| !v.value.is_zero())
+                        .filter(|v| !v.to_flagged_storage().is_zero())
                         .map(|v| (v.key, v.value))
                         .collect::<Vec<_>>();
                     accounts.insert(key, (account, storage));
