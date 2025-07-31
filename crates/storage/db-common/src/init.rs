@@ -1,7 +1,7 @@
 //! Reth genesis initialization utility functions.
 
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{map::HashMap, Address, B256, U256};
+use alloy_primitives::{map::HashMap, Address, FlaggedStorage, B256, U256};
 use reth_chainspec::EthChainSpec;
 use reth_codecs::Compact;
 use reth_config::config::EtlConfig;
@@ -216,10 +216,8 @@ where
             .as_ref()
             .map(|m| {
                 m.iter()
-                    .map(|(key, flagged_value)| {
-                        let value = flagged_value.value;
-                        let is_private = flagged_value.is_private;
-                        (*key, ((U256::ZERO, false), (value, is_private)))
+                    .map(|(key, &flagged_value)| {
+                        (*key, (FlaggedStorage::public(U256::ZERO), flagged_value))
                     })
                     .collect::<HashMap<_, _>>()
             })
@@ -289,8 +287,7 @@ where
                 *addr,
                 storage.clone().into_iter().map(|(key, value)| StorageEntry {
                     key,
-                    value: value.into(),
-                    is_private: false,
+                    value: value,
                 }),
             )
         })

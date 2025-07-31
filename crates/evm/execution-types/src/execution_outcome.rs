@@ -12,7 +12,7 @@ use revm::{
 /// Type used to initialize revms bundle state.
 pub type BundleStateInit = HashMap<
     Address,
-    (Option<Account>, Option<Account>, HashMap<B256, ((U256, bool), (U256, bool))>),
+    (Option<Account>, Option<Account>, HashMap<B256, (FlaggedStorage, FlaggedStorage)>),
 >;
 
 /// Types used inside `RevertsInit` to initialize revms reverts.
@@ -117,8 +117,8 @@ impl<T> ExecutionOutcome<T> {
                             (
                                 k.into(),
                                 (
-                                    FlaggedStorage::new_from_tuple(orig_value),
-                                    FlaggedStorage::new_from_tuple(new_value),
+                                    orig_value,
+                                    new_value,
                                 ),
                             )
                         })
@@ -134,7 +134,7 @@ impl<T> ExecutionOutcome<T> {
                         storage.into_iter().map(|entry| {
                             (
                                 entry.key.into(),
-                                FlaggedStorage { value: entry.value, is_private: entry.is_private },
+                                entry.value,
                             )
                         }),
                     )

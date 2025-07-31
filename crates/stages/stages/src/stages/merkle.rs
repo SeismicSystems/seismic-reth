@@ -374,7 +374,7 @@ mod tests {
     use alloy_primitives::{keccak256, U256};
     use assert_matches::assert_matches;
     use reth_db_api::cursor::{DbCursorRO, DbCursorRW, DbDupCursorRO};
-    use reth_primitives_traits::{SealedBlock, StorageEntry};
+    use reth_primitives_traits::SealedBlock;
     use reth_provider::{providers::StaticFileWriter, StaticFileProviderFactory};
     use reth_stages_api::StageUnitCheckpoint;
     use reth_static_file_types::StaticFileSegment;
@@ -584,7 +584,9 @@ mod tests {
                     accounts.insert(key, (account, storage));
                 }
 
-                Ok(state_root_prehashed(accounts.into_iter()))
+                Ok(state_root_prehashed(accounts.into_iter()
+                    .map(|(key, (a, b))| (key, (a, b.into_iter().map(|(k, fs)| (k, fs.value))))))
+                )
             })?;
 
             let static_file_provider = self.db.factory.static_file_provider();
@@ -628,7 +630,7 @@ mod tests {
                     let mut storage_cursor =
                         tx.cursor_dup_write::<tables::HashedStorages>().unwrap();
 
-                    let mut tree: BTreeMap<B256, BTreeMap<B256, (U256, bool)>> = BTreeMap::new();
+                    let mut tree: BTreeMap<B256, BTreeMap<B256, alloy_primitives::FlaggedStorage>> = BTreeMap::new();
 
                     let mut rev_changeset_walker =
                         storage_changesets_cursor.walk_back(None).unwrap();
@@ -641,10 +643,10 @@ mod tests {
 
                         tree.entry(keccak256(bn_address.address()))
                             .or_default()
-                            .insert(keccak256(entry.key), (entry.value, entry.is_private));
+                            .insert(keccak256(entry.key), entry.value);
                     }
                     for (hashed_address, storage) in tree {
-                        for (hashed_slot, (value, is_private)) in storage {
+                        for (hashed_slot, value) in storage {
                             let storage_entry = storage_cursor
                                 .seek_by_key_subkey(hashed_address, hashed_slot)
                                 .unwrap();
@@ -653,8 +655,7 @@ mod tests {
                             }
 
                             if !value.is_zero() {
-                                let storage_entry =
-                                    StorageEntry { key: hashed_slot, value, is_private };
+                                let storage_entry = (hashed_slot, value).into();
                                 storage_cursor.upsert(hashed_address, &storage_entry).unwrap();
                             }
                         }

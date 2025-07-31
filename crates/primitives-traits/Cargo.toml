@@ -13,7 +13,7 @@ workspace = true
 
 [dependencies]
 # seimsic
-seismic-alloy-consensus = { workspace = true, features = ["k256"] }
+seismic-alloy-consensus = { workspace = true, features = ["k256", "serde"] }
 seismic-alloy-genesis.workspace = true
 
 # reth

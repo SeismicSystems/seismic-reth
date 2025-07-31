@@ -541,8 +541,7 @@ mod tests {
                     let storage_entries =
                         account.storage.iter().map(|(slot, value)| StorageEntry {
                             key: B256::from(*slot),
-                            value: value.present_value.into(),
-                            is_private: false,
+                            value: value.present_value,
                         });
                     (*address, storage_entries)
                 });

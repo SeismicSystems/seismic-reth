@@ -243,7 +243,7 @@ impl Account {
                 if U256::from_be_bytes(entry.key.0) == *slot {
                     assert_equal(
                         *value,
-                        entry.value,
+                        entry.value.value,
                         &format!("Storage for slot {slot:?} does not match"),
                     )?;
                 } else {

@@ -231,7 +231,7 @@ fn storage_is_empty() {
             // insert zero value accounts to the database
             tx.put::<tables::HashedStorages>(
                 address,
-                StorageEntry { key: *slot, value: *value, is_private: false },
+                StorageEntry { key: *slot, value: FlaggedStorage::public(*value) },
             )
             .unwrap();
         }
@@ -311,11 +311,11 @@ fn storage_cursor_correct_order() {
 
     let db = create_test_rw_db();
     db.update(|tx| {
-        for (slot, value) in &db_storage {
+        for (slot, &value) in &db_storage {
             // insert zero value accounts to the database
             tx.put::<tables::HashedStorages>(
                 address,
-                StorageEntry { key: *slot, value: value.value, is_private: value.is_private },
+                StorageEntry { key: *slot, value },
             )
             .unwrap();
         }
@@ -364,7 +364,7 @@ fn zero_value_storage_entries_are_discarded() {
             // insert zero value accounts to the database
             tx.put::<tables::HashedStorages>(
                 address,
-                StorageEntry { key: slot, value: value.value, is_private: value.is_private },
+                StorageEntry { key: slot, value },
             )
             .unwrap();
         }
@@ -406,7 +406,7 @@ fn wiped_storage_is_discarded() {
             // insert zero value accounts to the database
             tx.put::<tables::HashedStorages>(
                 address,
-                StorageEntry { key: slot, value: value.value, is_private: value.is_private },
+                StorageEntry { key: slot, value: value },
             )
             .unwrap();
         }
@@ -442,7 +442,7 @@ fn post_state_storages_take_precedence() {
             // insert zero value accounts to the database
             tx.put::<tables::HashedStorages>(
                 address,
-                StorageEntry { key: *slot, value: U256::ZERO, is_private: false },
+                StorageEntry { key: *slot, value: FlaggedStorage::ZERO },
             )
             .unwrap();
         }
@@ -476,8 +476,8 @@ fn fuzz_hashed_storage_cursor() {
         let db = create_test_rw_db();
         db.update(|tx| {
             for (address, storage) in &db_storages {
-                for (slot, value) in storage {
-                    let entry = StorageEntry { key: *slot, value: value.value, is_private: value.is_private };
+                for (slot, &value) in storage {
+                    let entry = StorageEntry { key: *slot, value };
                     tx.put::<tables::HashedStorages>(*address, entry).unwrap();
                 }
             }
