@@ -754,13 +754,13 @@ vergen-git2 = "1.0.5"
 seismic-enclave = { git = "https://github.com/SeismicSystems/seismic-enclave.git", rev = "afb3f4d"}
 
 # seismic-alloy-core
-alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "bc4b5ed" }
-alloy-json-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "bc4b5ed" }
-alloy-sol-macro-expander = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "bc4b5ed" }
-alloy-sol-macro-input = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "bc4b5ed" }
-alloy-sol-types = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "bc4b5ed" }
-alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "bc4b5ed" }
-alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "bc4b5ed" }
+alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ca7265a" }
+alloy-json-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ca7265a" }
+alloy-sol-macro-expander = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ca7265a" }
+alloy-sol-macro-input = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ca7265a" }
+alloy-sol-types = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ca7265a" }
+alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ca7265a" }
+alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ca7265a" }
 
 alloy-trie = { git = "https://github.com/SeismicSystems/seismic-trie.git", rev = "417644c" }
 

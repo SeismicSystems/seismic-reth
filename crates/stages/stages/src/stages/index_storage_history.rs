@@ -153,7 +153,7 @@ mod tests {
         stage_test_suite_ext, ExecuteStageTestRunner, StageTestRunner, TestRunnerError,
         TestStageDB, UnwindStageTestRunner,
     };
-    use alloy_primitives::{address, b256, Address, BlockNumber, B256, U256};
+    use alloy_primitives::{address, b256, Address, BlockNumber, FlaggedStorage, B256};
     use itertools::Itertools;
     use reth_db_api::{
         cursor::DbCursorRO,
@@ -181,7 +181,7 @@ mod tests {
 
     const fn storage(key: B256) -> StorageEntry {
         // Value is not used in indexing stage.
-        StorageEntry { key, value: U256::ZERO, is_private: false }
+        StorageEntry { key, value: FlaggedStorage::ZERO }
     }
 
     const fn block_number_address(block_number: u64) -> BlockNumberAddress {

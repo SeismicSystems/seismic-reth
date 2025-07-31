@@ -147,8 +147,7 @@ fn setup_provider(
                             .iter()
                             .map(|(slot, value)| StorageEntry {
                                 key: B256::from(*slot),
-                                value: value.present_value.value,
-                                is_private: value.present_value.is_private,
+                                value: value.present_value,
                             })
                             .collect::<Vec<_>>()
                     }),

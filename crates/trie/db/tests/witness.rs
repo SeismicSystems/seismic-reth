@@ -4,7 +4,7 @@ use alloy_consensus::EMPTY_ROOT_HASH;
 use alloy_primitives::{
     keccak256,
     map::{HashMap, HashSet},
-    Address, Bytes, B256, U256,
+    Address, Bytes, B256,
 };
 use alloy_rlp::EMPTY_STRING_CODE;
 use reth_db::{cursor::DbCursorRW, tables};
@@ -54,7 +54,7 @@ fn includes_empty_node_preimage() {
             accounts: HashMap::from_iter([(hashed_address, Some(Account::default()))]),
             storages: HashMap::from_iter([(
                 hashed_address,
-                HashedStorage::from_iter(false, [(hashed_slot, FlaggedStorage::new_from_value(1))]),
+                HashedStorage::from_iter(false, [(hashed_slot, FlaggedStorage::public(1))]),
             )]),
         })
         .unwrap();
@@ -81,7 +81,7 @@ fn includes_nodes_for_destroyed_storage_nodes() {
     provider
         .insert_storage_for_hashing([(
             address,
-            [StorageEntry { key: slot, value: U256::from(1), is_private: false }],
+            [StorageEntry { key: slot, value: alloy_primitives::FlaggedStorage::public(1) }],
         )])
         .unwrap();
 
@@ -129,13 +129,13 @@ fn correctly_decodes_branch_node_values() {
     hashed_storage_cursor
         .upsert(
             hashed_address,
-            &StorageEntry { key: hashed_slot1, value: U256::from(1), is_private: false },
+            &StorageEntry { key: hashed_slot1, value: alloy_primitives::FlaggedStorage::public(1) },
         )
         .unwrap();
     hashed_storage_cursor
         .upsert(
             hashed_address,
-            &StorageEntry { key: hashed_slot2, value: U256::from(1), is_private: false },
+            &StorageEntry { key: hashed_slot2, value: alloy_primitives::FlaggedStorage::public(1) },
         )
         .unwrap();
 
@@ -155,7 +155,7 @@ fn correctly_decodes_branch_node_values() {
                 HashedStorage::from_iter(
                     false,
                     [hashed_slot1, hashed_slot2]
-                        .map(|hashed_slot| (hashed_slot, FlaggedStorage::new_from_value(2))),
+                        .map(|hashed_slot| (hashed_slot, FlaggedStorage::public(2))),
                 ),
             )]),
         })

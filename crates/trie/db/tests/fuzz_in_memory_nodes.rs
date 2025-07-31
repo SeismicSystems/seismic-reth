@@ -86,7 +86,7 @@ proptest! {
         // Insert init state into database
         for (hashed_slot, value) in init_storage.clone() {
             hashed_storage_cursor
-                .upsert(hashed_address, &StorageEntry { key: hashed_slot, value, is_private: false })
+                .upsert(hashed_address, &StorageEntry { key: hashed_slot, value: FlaggedStorage::public(value) })
                 .unwrap();
         }
 
@@ -103,7 +103,7 @@ proptest! {
             let mut hashed_storage = HashedStorage::new(is_deleted);
             for (hashed_slot, value) in storage_update.clone() {
                 hashed_storage_cursor
-                    .upsert(hashed_address, &StorageEntry { key: hashed_slot, value: value, is_private: false })
+                    .upsert(hashed_address, &StorageEntry { key: hashed_slot, value: FlaggedStorage::public(value) })
                     .unwrap();
                 hashed_storage.storage.insert(hashed_slot, FlaggedStorage::new_from_value(value));
             }

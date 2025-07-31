@@ -69,7 +69,6 @@ use reth_trie_db::{DatabaseStateRoot, DatabaseStorageTrieCursor};
 use revm_database::states::{
     PlainStateReverts, PlainStorageChangeset, PlainStorageRevert, StateChangeset,
 };
-use revm_state::FlaggedStorage;
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
@@ -770,12 +769,12 @@ impl<TX: DbTx + 'static, N: NodeTypesForProvider> DatabaseProvider<TX, N> {
                         .filter(|storage| storage.key == old_storage.key)
                         .unwrap_or_default();
                     entry.insert((
-                        (old_storage.value, old_storage.is_private),
-                        (new_storage.value, new_storage.is_private),
+                        old_storage.value,
+                        new_storage.value,
                     ));
                 }
                 hash_map::Entry::Occupied(mut entry) => {
-                    entry.get_mut().0 = (old_storage.value, old_storage.is_private);
+                    entry.get_mut().0 = old_storage.value;
                 }
             };
 
@@ -1938,7 +1937,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
                 for (key, value) in StorageRevertsIter::new(storage, wiped_storage) {
                     storage_changeset_cursor.append_dup(
                         storage_id,
-                        StorageEntry { key, value: value.value, is_private: value.is_private },
+                        StorageEntry { key, value },
                     )?;
                 }
             }
@@ -2006,8 +2005,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
                 .into_iter()
                 .map(|(k, value)| StorageEntry {
                     key: k.into(),
-                    value: value.value,
-                    is_private: value.is_private,
+                    value,
                 })
                 .collect::<Vec<_>>();
             // sort storage slots by key.
@@ -2053,8 +2051,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
             for (hashed_slot, value) in storage.storage_slots_sorted() {
                 let entry = StorageEntry {
                     key: hashed_slot,
-                    value: value.value,
-                    is_private: value.is_private,
+                    value,
                 };
                 if let Some(db_entry) =
                     hashed_storage_cursor.seek_by_key_subkey(*hashed_address, entry.key)?
@@ -2147,8 +2144,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
             for (storage_key, (old_storage_value, _new_storage_value)) in storage {
                 let storage_entry = StorageEntry {
                     key: *storage_key,
-                    value: old_storage_value.0,
-                    is_private: old_storage_value.1,
+                    value: *old_storage_value,
                 };
                 // delete previous value
                 // TODO: This does not use dupsort features
@@ -2161,7 +2157,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
                 }
 
                 // insert value if needed
-                if !FlaggedStorage::new(old_storage_value.0, old_storage_value.1).is_zero() {
+                if !old_storage_value.is_zero() {
                     plain_storage_cursor.upsert(*address, &storage_entry)?;
                 }
             }
@@ -2251,8 +2247,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
             for (storage_key, (old_storage_value, _new_storage_value)) in storage {
                 let storage_entry = StorageEntry {
                     key: *storage_key,
-                    value: old_storage_value.0,
-                    is_private: old_storage_value.1,
+                    value: *old_storage_value,
                 };
                 // delete previous value
                 // TODO: This does not use dupsort features
@@ -2265,7 +2260,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
                 }
 
                 // insert value if needed
-                if !FlaggedStorage::new(old_storage_value.0, old_storage_value.1).is_zero() {
+                if !old_storage_value.is_zero() {
                     plain_storage_cursor.upsert(*address, &storage_entry)?;
                 }
             }
@@ -2476,17 +2471,16 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypes> HashingWriter for DatabaseProvi
                     keccak256(address),
                     keccak256(storage_entry.key),
                     storage_entry.value,
-                    storage_entry.is_private,
                 )
             })
             .collect::<Vec<_>>();
-        hashed_storages.sort_by_key(|(ha, hk, _, _)| (*ha, *hk));
+        hashed_storages.sort_by_key(|(ha, hk, _)| (*ha, *hk));
 
         // Apply values to HashedState, and remove the account if it's None.
         let mut hashed_storage_keys: HashMap<B256, BTreeSet<B256>> =
             HashMap::with_capacity_and_hasher(hashed_storages.len(), Default::default());
         let mut hashed_storage = self.tx.cursor_dup_write::<tables::HashedStorages>()?;
-        for (hashed_address, key, value, is_private) in hashed_storages.into_iter().rev() {
+        for (hashed_address, key, value) in hashed_storages.into_iter().rev() {
             hashed_storage_keys.entry(hashed_address).or_default().insert(key);
 
             if hashed_storage
@@ -2498,7 +2492,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypes> HashingWriter for DatabaseProvi
             }
 
             if !value.is_zero() {
-                hashed_storage.upsert(hashed_address, &StorageEntry { key, value, is_private })?;
+                hashed_storage.upsert(hashed_address, &StorageEntry { key, value })?;
             }
         }
         Ok(hashed_storage_keys)
