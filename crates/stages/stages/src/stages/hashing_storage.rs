@@ -136,7 +136,10 @@ where
                     B256::from_slice(&addr_key_is_private[..32]),
                     StorageEntry {
                         key: B256::from_slice(&addr_key_is_private[32..64]),
-                        value: alloy_primitives::FlaggedStorage { value: CompactU256::decompress(&val)?.into(), is_private: addr_key_is_private[64] != 0}
+                        value: alloy_primitives::FlaggedStorage {
+                            value: CompactU256::decompress(&val)?.into(),
+                            is_private: addr_key_is_private[64] != 0,
+                        },
                     },
                 )?;
             }
@@ -371,7 +374,9 @@ mod tests {
                             for _ in 0..2 {
                                 let new_entry = StorageEntry {
                                     key: keccak256([rng.random::<u8>()]),
-                                    value: alloy_primitives::FlaggedStorage::public(rng.random::<u8>() % 30 + 1),
+                                    value: alloy_primitives::FlaggedStorage::public(
+                                        rng.random::<u8>() % 30 + 1,
+                                    ),
                                 };
                                 self.insert_storage_entry(
                                     tx,
@@ -394,7 +399,9 @@ mod tests {
                             (block_number, Address::random()).into(),
                             StorageEntry {
                                 key: keccak256("mining"),
-                                value: alloy_primitives::FlaggedStorage::public(rng.random::<u32>()),
+                                value: alloy_primitives::FlaggedStorage::public(
+                                    rng.random::<u32>(),
+                                ),
                             },
                             progress.number == stage_progress,
                         )?;
@@ -483,16 +490,15 @@ mod tests {
             hash: bool,
         ) -> Result<(), reth_db::DatabaseError> {
             let mut storage_cursor = tx.cursor_dup_write::<tables::PlainStorageState>()?;
-            let prev_entry = match storage_cursor
-                .seek_by_key_subkey(bn_address.address(), entry.key)?
-            {
-                Some(e) if e.key == entry.key => {
-                    tx.delete::<tables::PlainStorageState>(bn_address.address(), Some(e))
-                        .expect("failed to delete entry");
-                    e
-                }
-                _ => StorageEntry { key: entry.key, value: FlaggedStorage::ZERO },
-            };
+            let prev_entry =
+                match storage_cursor.seek_by_key_subkey(bn_address.address(), entry.key)? {
+                    Some(e) if e.key == entry.key => {
+                        tx.delete::<tables::PlainStorageState>(bn_address.address(), Some(e))
+                            .expect("failed to delete entry");
+                        e
+                    }
+                    _ => StorageEntry { key: entry.key, value: FlaggedStorage::ZERO },
+                };
             tx.put::<tables::PlainStorageState>(bn_address.address(), entry)?;
 
             if hash {

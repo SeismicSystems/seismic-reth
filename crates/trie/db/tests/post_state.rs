@@ -313,11 +313,7 @@ fn storage_cursor_correct_order() {
     db.update(|tx| {
         for (slot, &value) in &db_storage {
             // insert zero value accounts to the database
-            tx.put::<tables::HashedStorages>(
-                address,
-                StorageEntry { key: *slot, value },
-            )
-            .unwrap();
+            tx.put::<tables::HashedStorages>(address, StorageEntry { key: *slot, value }).unwrap();
         }
     })
     .unwrap();
@@ -362,11 +358,7 @@ fn zero_value_storage_entries_are_discarded() {
     db.update(|tx| {
         for (slot, value) in db_storage {
             // insert zero value accounts to the database
-            tx.put::<tables::HashedStorages>(
-                address,
-                StorageEntry { key: slot, value },
-            )
-            .unwrap();
+            tx.put::<tables::HashedStorages>(address, StorageEntry { key: slot, value }).unwrap();
         }
     })
     .unwrap();
@@ -404,11 +396,7 @@ fn wiped_storage_is_discarded() {
     db.update(|tx| {
         for (slot, value) in db_storage {
             // insert zero value accounts to the database
-            tx.put::<tables::HashedStorages>(
-                address,
-                StorageEntry { key: slot, value: value },
-            )
-            .unwrap();
+            tx.put::<tables::HashedStorages>(address, StorageEntry { key: slot, value }).unwrap();
         }
     })
     .unwrap();
