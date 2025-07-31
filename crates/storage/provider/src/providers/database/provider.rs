@@ -2021,7 +2021,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
                     }
                 }
 
-                if !entry.value.is_zero() {
+                if !entry.to_flagged_storage().is_zero() {
                     storages_cursor.upsert(address, &entry)?;
                 }
             }
