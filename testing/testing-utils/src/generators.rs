@@ -314,15 +314,7 @@ where
     let mut state: BTreeMap<_, _> = accounts
         .into_iter()
         .map(|(addr, (acc, st))| {
-            (
-                addr,
-                (
-                    acc,
-                    st.into_iter()
-                        .map(|e| (e.key, e.value))
-                        .collect::<BTreeMap<_, _>>(),
-                ),
-            )
+            (addr, (acc, st.into_iter().map(|e| (e.key, e.value)).collect::<BTreeMap<_, _>>()))
         })
         .collect();
 
@@ -366,10 +358,7 @@ where
                 };
                 match old {
                     Some(old_value) => {
-                        return Some(StorageEntry {
-                            value: old_value,
-                            ..entry
-                        });
+                        return Some(StorageEntry { value: old_value, ..entry });
                     }
                     None => {
                         return Some(StorageEntry { key: entry.key, value: FlaggedStorage::ZERO });

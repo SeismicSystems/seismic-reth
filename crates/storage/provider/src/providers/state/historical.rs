@@ -711,10 +711,8 @@ mod tests {
         )
         .unwrap();
 
-        let higher_entry_plain =
-            StorageEntry { key: STORAGE, value: FlaggedStorage::public(1000) };
-        let higher_entry_at4 =
-            StorageEntry { key: STORAGE, value: FlaggedStorage::public(0) };
+        let higher_entry_plain = StorageEntry { key: STORAGE, value: FlaggedStorage::public(1000) };
+        let higher_entry_at4 = StorageEntry { key: STORAGE, value: FlaggedStorage::public(0) };
         let entry_plain = StorageEntry { key: STORAGE, value: FlaggedStorage::public(100) };
         let entry_at15 = StorageEntry { key: STORAGE, value: FlaggedStorage::public(15) };
         let entry_at10 = StorageEntry { key: STORAGE, value: FlaggedStorage::public(10) };

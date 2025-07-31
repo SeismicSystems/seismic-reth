@@ -768,10 +768,7 @@ impl<TX: DbTx + 'static, N: NodeTypesForProvider> DatabaseProvider<TX, N> {
                         .seek_by_key_subkey(address, old_storage.key)?
                         .filter(|storage| storage.key == old_storage.key)
                         .unwrap_or_default();
-                    entry.insert((
-                        old_storage.value,
-                        new_storage.value,
-                    ));
+                    entry.insert((old_storage.value, new_storage.value));
                 }
                 hash_map::Entry::Occupied(mut entry) => {
                     entry.get_mut().0 = old_storage.value;
@@ -1935,10 +1932,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
 
                 tracing::trace!(?address, ?storage, "Writing storage reverts");
                 for (key, value) in StorageRevertsIter::new(storage, wiped_storage) {
-                    storage_changeset_cursor.append_dup(
-                        storage_id,
-                        StorageEntry { key, value },
-                    )?;
+                    storage_changeset_cursor.append_dup(storage_id, StorageEntry { key, value })?;
                 }
             }
         }
@@ -2003,10 +1997,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
             // cast storages to B256.
             let mut storage = storage
                 .into_iter()
-                .map(|(k, value)| StorageEntry {
-                    key: k.into(),
-                    value,
-                })
+                .map(|(k, value)| StorageEntry { key: k.into(), value })
                 .collect::<Vec<_>>();
             // sort storage slots by key.
             storage.par_sort_unstable_by_key(|a| a.key);
@@ -2049,10 +2040,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
             }
 
             for (hashed_slot, value) in storage.storage_slots_sorted() {
-                let entry = StorageEntry {
-                    key: hashed_slot,
-                    value,
-                };
+                let entry = StorageEntry { key: hashed_slot, value };
                 if let Some(db_entry) =
                     hashed_storage_cursor.seek_by_key_subkey(*hashed_address, entry.key)?
                 {
@@ -2142,10 +2130,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
 
             // revert storages
             for (storage_key, (old_storage_value, _new_storage_value)) in storage {
-                let storage_entry = StorageEntry {
-                    key: *storage_key,
-                    value: *old_storage_value,
-                };
+                let storage_entry = StorageEntry { key: *storage_key, value: *old_storage_value };
                 // delete previous value
                 // TODO: This does not use dupsort features
                 if plain_storage_cursor
@@ -2245,10 +2230,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
 
             // revert storages
             for (storage_key, (old_storage_value, _new_storage_value)) in storage {
-                let storage_entry = StorageEntry {
-                    key: *storage_key,
-                    value: *old_storage_value,
-                };
+                let storage_entry = StorageEntry { key: *storage_key, value: *old_storage_value };
                 // delete previous value
                 // TODO: This does not use dupsort features
                 if plain_storage_cursor
@@ -2467,11 +2449,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypes> HashingWriter for DatabaseProvi
         let mut hashed_storages = changesets
             .into_iter()
             .map(|(BlockNumberAddress((_, address)), storage_entry)| {
-                (
-                    keccak256(address),
-                    keccak256(storage_entry.key),
-                    storage_entry.value,
-                )
+                (keccak256(address), keccak256(storage_entry.key), storage_entry.value)
             })
             .collect::<Vec<_>>();
         hashed_storages.sort_by_key(|(ha, hk, _)| (*ha, *hk));

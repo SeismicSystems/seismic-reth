@@ -540,10 +540,7 @@ mod tests {
 
         assert_eq!(
             storage_cursor.seek_exact(address_a).unwrap(),
-            Some((
-                address_a,
-                StorageEntry { key: B256::ZERO, value: FlaggedStorage::private(1) }
-            )),
+            Some((address_a, StorageEntry { key: B256::ZERO, value: FlaggedStorage::private(1) })),
             "Slot 0 for account A should be a private 1"
         );
         assert_eq!(
@@ -957,10 +954,7 @@ mod tests {
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((1, address1)),
-                StorageEntry {
-                    key: B256::with_last_byte(0),
-                    value: FlaggedStorage::public(1),
-                }
+                StorageEntry { key: B256::with_last_byte(0), value: FlaggedStorage::public(1) }
             )))
         );
 
@@ -971,20 +965,14 @@ mod tests {
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((2, address1)),
-                StorageEntry {
-                    key: B256::with_last_byte(0),
-                    value: FlaggedStorage::public(2),
-                }
+                StorageEntry { key: B256::with_last_byte(0), value: FlaggedStorage::public(2) }
             )))
         );
         assert_eq!(
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((2, address1)),
-                StorageEntry {
-                    key: B256::with_last_byte(1),
-                    value: FlaggedStorage::public(2),
-                }
+                StorageEntry { key: B256::with_last_byte(1), value: FlaggedStorage::public(2) }
             )))
         );
 
@@ -1025,30 +1013,21 @@ mod tests {
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((5, address1)),
-                StorageEntry {
-                    key: B256::with_last_byte(0),
-                    value: FlaggedStorage::public(2)
-                }
+                StorageEntry { key: B256::with_last_byte(0), value: FlaggedStorage::public(2) }
             )))
         );
         assert_eq!(
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((5, address1)),
-                StorageEntry {
-                    key: B256::with_last_byte(2),
-                    value: FlaggedStorage::public(4),
-                }
+                StorageEntry { key: B256::with_last_byte(2), value: FlaggedStorage::public(4) }
             )))
         );
         assert_eq!(
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((5, address1)),
-                StorageEntry {
-                    key: B256::with_last_byte(6),
-                    value: FlaggedStorage::public(6),
-                }
+                StorageEntry { key: B256::with_last_byte(6), value: FlaggedStorage::public(6) }
             )))
         );
 
@@ -1173,20 +1152,14 @@ mod tests {
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((1, address1)),
-                StorageEntry {
-                    key: B256::with_last_byte(0),
-                    value: FlaggedStorage::public(1),
-                }
+                StorageEntry { key: B256::with_last_byte(0), value: FlaggedStorage::public(1) }
             )))
         );
         assert_eq!(
             storage_changes.next(),
             Some(Ok((
                 BlockNumberAddress((1, address1)),
-                StorageEntry {
-                    key: B256::with_last_byte(1),
-                    value: FlaggedStorage::public(2),
-                }
+                StorageEntry { key: B256::with_last_byte(1), value: FlaggedStorage::public(2) }
             )))
         );
         assert_eq!(storage_changes.next(), None);

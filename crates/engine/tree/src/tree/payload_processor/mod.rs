@@ -538,11 +538,9 @@ mod tests {
                     .expect("failed to insert accounts");
 
                 let storage_updates = update.iter().map(|(address, account)| {
-                    let storage_entries =
-                        account.storage.iter().map(|(slot, value)| StorageEntry {
-                            key: B256::from(*slot),
-                            value: value.present_value,
-                        });
+                    let storage_entries = account.storage.iter().map(|(slot, value)| {
+                        StorageEntry { key: B256::from(*slot), value: value.present_value }
+                    });
                     (*address, storage_entries)
                 });
                 provider_rw

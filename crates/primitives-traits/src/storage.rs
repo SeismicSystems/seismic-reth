@@ -18,7 +18,7 @@ pub struct StorageEntry {
 impl StorageEntry {
     /// Create a new `StorageEntry` with given key and value.
     pub const fn new(key: B256, value: U256, is_private: bool) -> Self {
-        Self { key, value: FlaggedStorage { value, is_private }}
+        Self { key, value: FlaggedStorage { value, is_private } }
     }
 
     /// Convert the storage entry to a flagged storage entry.
@@ -70,6 +70,6 @@ impl reth_codecs::Compact for StorageEntry {
         let key = B256::from_slice(&buf[..32]);
         let is_private = buf[32] != 0;
         let (value, out) = U256::from_compact(&buf[33..], len - 33);
-        (Self { key, value: FlaggedStorage { value, is_private }}, out)
+        (Self { key, value: FlaggedStorage { value, is_private } }, out)
     }
 }

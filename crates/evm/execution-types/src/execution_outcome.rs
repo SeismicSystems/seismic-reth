@@ -113,15 +113,7 @@ impl<T> ExecutionOutcome<T> {
                     present.map(Into::into),
                     storage
                         .into_iter()
-                        .map(|(k, (orig_value, new_value))| {
-                            (
-                                k.into(),
-                                (
-                                    orig_value,
-                                    new_value,
-                                ),
-                            )
-                        })
+                        .map(|(k, (orig_value, new_value))| (k.into(), (orig_value, new_value)))
                         .collect(),
                 )
             }),
@@ -131,12 +123,7 @@ impl<T> ExecutionOutcome<T> {
                     (
                         address,
                         original.map(|i| i.map(Into::into)),
-                        storage.into_iter().map(|entry| {
-                            (
-                                entry.key.into(),
-                                entry.value,
-                            )
-                        }),
+                        storage.into_iter().map(|entry| (entry.key.into(), entry.value)),
                     )
                 })
             }),
