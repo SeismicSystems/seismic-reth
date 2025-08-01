@@ -8,7 +8,7 @@ use alloy_eips::{
     eip4895::{Withdrawal, Withdrawals},
     NumHash,
 };
-use alloy_primitives::{Address, BlockNumber, Bytes, TxKind, B256, B64, U256};
+use alloy_primitives::{Address, BlockNumber, Bytes, FlaggedStorage, TxKind, B256, B64, U256};
 pub use rand::Rng;
 use rand::{distr::uniform::SampleRange, rngs::StdRng, SeedableRng};
 use reth_ethereum_primitives::{Block, BlockBody, Receipt, Transaction, TransactionSigned};
@@ -314,15 +314,7 @@ where
     let mut state: BTreeMap<_, _> = accounts
         .into_iter()
         .map(|(addr, (acc, st))| {
-            (
-                addr,
-                (
-                    acc,
-                    st.into_iter()
-                        .map(|e| (e.key, (e.value, e.is_private)))
-                        .collect::<BTreeMap<_, _>>(),
-                ),
-            )
+            (addr, (acc, st.into_iter().map(|e| (e.key, e.value)).collect::<BTreeMap<_, _>>()))
         })
         .collect();
 
@@ -347,7 +339,7 @@ where
         prev_from.balance = prev_from.balance.wrapping_sub(transfer);
 
         // deposit in receiving account and update storage
-        let (prev_to, storage): &mut (Account, BTreeMap<B256, (U256, bool)>) =
+        let (prev_to, storage): &mut (Account, BTreeMap<B256, FlaggedStorage>) =
             state.get_mut(&to).unwrap();
 
         let mut old_entries: Vec<_> = new_entries
@@ -355,23 +347,21 @@ where
             .filter_map(|entry| {
                 let old = if entry.value.is_zero() {
                     let old = storage.remove(&entry.key);
-                    if matches!(old, Some((U256::ZERO, false))) {
-                        return None;
+                    if let Some(old_stored) = old {
+                        if old_stored.is_zero() {
+                            return None;
+                        }
                     }
                     old
                 } else {
-                    storage.insert(entry.key, (entry.value, entry.is_private))
+                    storage.insert(entry.key, entry.value)
                 };
                 match old {
-                    Some((old_value, old_is_private)) => {
-                        return Some(StorageEntry {
-                            value: old_value,
-                            is_private: old_is_private,
-                            ..entry
-                        });
+                    Some(old_value) => {
+                        return Some(StorageEntry { value: old_value, ..entry });
                     }
                     None => {
-                        return Some(StorageEntry { value: U256::ZERO, is_private: false, ..entry });
+                        return Some(StorageEntry { key: entry.key, value: FlaggedStorage::ZERO });
                     }
                 }
             })
@@ -434,7 +424,7 @@ pub fn random_storage_entry<R: Rng>(rng: &mut R, key_range: Range<u64>) -> Stora
     });
     let value = U256::from(rng.random::<u64>());
 
-    StorageEntry { key, value, ..Default::default() }
+    StorageEntry::new(key, value, false)
 }
 
 /// Generate random Externally Owned Account (EOA account without contract).

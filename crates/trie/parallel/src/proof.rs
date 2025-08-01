@@ -406,8 +406,7 @@ mod tests {
                         *address,
                         storage.iter().map(|(slot, value)| StorageEntry {
                             key: *slot,
-                            value: *value,
-                            is_private: false,
+                            value: alloy_primitives::FlaggedStorage::public(*value),
                         }),
                     )
                 }))

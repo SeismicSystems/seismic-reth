@@ -2,7 +2,7 @@
 
 use alloy_consensus::BlockHeader;
 use alloy_genesis::GenesisAccount;
-use alloy_primitives::{map::HashMap, Address, B256, U256};
+use alloy_primitives::{map::HashMap, Address, FlaggedStorage, B256, U256};
 use reth_chainspec::EthChainSpec;
 use reth_codecs::Compact;
 use reth_config::config::EtlConfig;
@@ -216,10 +216,11 @@ where
             .as_ref()
             .map(|m| {
                 m.iter()
-                    .map(|(key, value)| {
-                        let value = U256::from_be_bytes(value.0);
-                        let is_private = false;
-                        (*key, ((U256::ZERO, false), (value, is_private)))
+                    .map(|(key, &bytes)| {
+                        // TODO: resolve this with seismic branch state
+                        // (GenesisAccount has FlaggedStorage)
+                        let value = FlaggedStorage::public(U256::from_be_bytes(bytes.into()));
+                        (*key, (FlaggedStorage::public(U256::ZERO), value))
                     })
                     .collect::<HashMap<_, _>>()
             })
@@ -289,8 +290,9 @@ where
                 *addr,
                 storage.clone().into_iter().map(|(key, value)| StorageEntry {
                     key,
-                    value: value.into(),
-                    is_private: false,
+                    // TODO: resolve this with seismic branch state
+                    // (GenesisAccount has FlaggedStorage)
+                    value: FlaggedStorage::public(U256::from_be_bytes(value.into())),
                 }),
             )
         })

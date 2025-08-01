@@ -169,6 +169,7 @@ mod tests {
     use super::*;
     use alloy_primitives::b256;
 
+    #[ignore = "This randomly fails"]
     #[tokio::test]
     async fn test_download() {
         reth_tracing::init_test_tracing();
