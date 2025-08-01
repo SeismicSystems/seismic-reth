@@ -83,8 +83,11 @@ pub fn insert_genesis<N: ProviderNodeTypes<ChainSpec = ChainSpec>>(
                 addr,
                 storage.into_iter().map(|(key, value)| StorageEntry {
                     key,
-                    value: value.into(),
-                    ..Default::default()
+                    // TODO: resolve this with seismic branch state
+                    // (GenesisAccount has FlaggedStorage)
+                    value: revm_state::FlaggedStorage::public(
+                        alloy_primitives::U256::from_be_bytes(value.into()),
+                    ),
                 }),
             )
         })
