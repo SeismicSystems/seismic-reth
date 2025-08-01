@@ -1,6 +1,7 @@
 //! Reth genesis initialization utility functions.
 
 use alloy_consensus::BlockHeader;
+use alloy_genesis::GenesisAccount;
 use alloy_primitives::{map::HashMap, Address, FlaggedStorage, B256, U256};
 use reth_chainspec::EthChainSpec;
 use reth_codecs::Compact;
