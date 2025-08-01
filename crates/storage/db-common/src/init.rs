@@ -217,7 +217,8 @@ where
             .map(|m| {
                 m.iter()
                     .map(|(key, &bytes)| {
-                        // TODO: resolve this with seismic branch state (GenesisAccount has FlaggedStorage)
+                        // TODO: resolve this with seismic branch state
+                        // (GenesisAccount has FlaggedStorage)
                         let value = FlaggedStorage::public(U256::from_be_bytes(bytes.into()));
                         (*key, (FlaggedStorage::public(U256::ZERO), value))
                     })
@@ -289,7 +290,8 @@ where
                 *addr,
                 storage.clone().into_iter().map(|(key, value)| StorageEntry {
                     key,
-                    // TODO: resolve this with seismic branch state (GenesisAccount has FlaggedStorage)
+                    // TODO: resolve this with seismic branch state
+                    // (GenesisAccount has FlaggedStorage)
                     value: FlaggedStorage::public(U256::from_be_bytes(value.into())),
                 }),
             )
