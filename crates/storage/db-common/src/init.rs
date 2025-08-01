@@ -216,8 +216,9 @@ where
             .as_ref()
             .map(|m| {
                 m.iter()
-                    .map(|(key, &flagged_value)| {
-                        (*key, (FlaggedStorage::public(U256::ZERO), flagged_value))
+                    .map(|(key, &bytes)| {
+                        let value = FlaggedStorage::public(U256::from_be_bytes(bytes.into()));
+                        (*key, (FlaggedStorage::public(U256::ZERO), value))
                     })
                     .collect::<HashMap<_, _>>()
             })
@@ -283,7 +284,7 @@ where
     let alloc_storage = alloc.filter_map(|(addr, account)| {
         // only return Some if there is storage
         account.storage.as_ref().map(|storage| {
-            (*addr, storage.clone().into_iter().map(|(key, value)| StorageEntry { key, value }))
+            (*addr, storage.clone().into_iter().map(|(key, value)| StorageEntry { key, value: FlaggedStorage::public(U256::from_be_bytes(value.into())) }))
         })
     });
     provider.insert_storage_for_hashing(alloc_storage)?;
