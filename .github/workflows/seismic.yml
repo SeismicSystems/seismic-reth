@@ -2,9 +2,12 @@ name: Seismic CI
 
 on:
   push:
-    branches: [seismic]
+    branches:
+      - seismic
   pull_request:
-    branches: [seismic, clean-upstream-merge]
+    branches:
+      - seismic
+      - stable
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
