@@ -68,6 +68,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "integration-test-cache"
+      - name: Increase maximum open files
+        run: ulimit -n 65536
       - name: seismic-node test
         # see profile.default in .config/nextest.toml for filtered tests
         run: cargo nextest run --workspace -E '!kind(test)'
@@ -84,6 +86,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "integration-test-cache"
+      - name: Increase maximum open files
+        run: ulimit -n 65536
       - name: seismic-node test
         # see profile.default in .config/nextest.toml for filtered tests
         run: cargo nextest run --workspace -E 'kind(test)'
