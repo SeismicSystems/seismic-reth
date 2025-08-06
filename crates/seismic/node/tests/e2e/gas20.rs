@@ -30,6 +30,7 @@ use seismic_enclave::aes_decrypt;
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
 use alloy_sol_types::SolConstructor;
+use alloy_primitives::address;
 
 use crate::gas20_utils::{gas_20_deployed_bytecode, entrypoint_deployed_bytecode, paymaster_deployed_bytecode, delegatee_account_bytecode};
 
@@ -114,46 +115,40 @@ async fn test_gas20() {
     assert!(!entrypoint_code.is_empty(), "Entrypoint contract code should not be empty");
     println!("Entrypoint contract code verified");
 
-    // // Deploy Paymaster contract
-    // println!("Deploying Paymaster contract...");
-    // let paymaster_req = TransactionBuilder::<SeismicReth>::with_kind(
-    //     TransactionBuilder::<SeismicReth>::with_input(
-    //         SeismicTransactionRequest::default(),
-    //         paymaster_deployed_bytecode(),
-    //     ),
-    //     TxKind::Create,
-    // );
-    // let paymaster_pending_transaction: PendingTransactionBuilder<SeismicReth> =
-    //     provider.send_transaction(paymaster_req).await.unwrap();
-    // let paymaster_tx_hash = paymaster_pending_transaction.tx_hash();
-    // thread::sleep(Duration::from_secs(1));
-    // println!("Paymaster contract deployment tx_hash: {:?}", paymaster_tx_hash);
+    // Deploy Paymaster contract
+    println!("Deploying Paymaster contract...");
+    let seismic_treasury_addr = address!("0x5123000000000000000000000000000000000000");
+    let paymaster_constructor_data: Vec<u8> = vec![entrypoint_contract_addr.abi_encode(), gas20_contract_addr.abi_encode(), seismic_treasury_addr.abi_encode()].concat();
+    let paymaster_input = [paymaster_deployed_bytecode().as_ref(), paymaster_constructor_data.as_ref()].concat();
+    let paymaster_req = TransactionBuilder::<SeismicReth>::with_kind(
+        TransactionBuilder::<SeismicReth>::with_input(
+            SeismicTransactionRequest::default(),
+            Bytes::from(paymaster_input),
+        ),
+        TxKind::Create,
+    );
+    let paymaster_pending_transaction: PendingTransactionBuilder<SeismicReth> =
+        provider.send_transaction(paymaster_req).await.unwrap();
+    let paymaster_tx_hash = paymaster_pending_transaction.tx_hash();
+    thread::sleep(Duration::from_secs(1));
+    println!("Paymaster contract deployment tx_hash: {:?}", paymaster_tx_hash);
 
-    // let paymaster_receipt = provider.get_transaction_receipt(paymaster_tx_hash.clone()).await.unwrap().unwrap();
-    // let paymaster_contract_addr = paymaster_receipt.contract_address.unwrap();
-    // println!("Paymaster contract deployed at: {:?}", paymaster_contract_addr);
-    // assert_eq!(paymaster_receipt.status(), true);
+    let paymaster_receipt = provider.get_transaction_receipt(paymaster_tx_hash.clone()).await.unwrap().unwrap();
+    let paymaster_contract_addr = paymaster_receipt.contract_address.unwrap();
+    println!("Paymaster contract deployed at: {:?}", paymaster_contract_addr);
+    assert_eq!(paymaster_receipt.status(), true);
 
-    // let paymaster_code = provider.get_code_at(paymaster_contract_addr).await.unwrap();
-    // assert!(!paymaster_code.is_empty(), "Paymaster contract code should not be empty");
-    // println!("Paymaster contract code verified");
+    let paymaster_code = provider.get_code_at(paymaster_contract_addr).await.unwrap();
+    assert!(!paymaster_code.is_empty(), "Paymaster contract code should not be empty");
+    println!("Paymaster contract code verified");
+
 
     // Deploy Delegatee Account contract
     println!("Deploying Delegatee Account contract...");
-    
-    // Define the constructor interface for the delegatee contract
-    sol! {
-        interface DelegateeAccount {
-            constructor(address entrypoint);
-        }
-    }
-    
-    // Encode the constructor call with the entrypoint address
-    let constructor_call = DelegateeAccount::constructorCall { entrypoint: entrypoint_contract_addr };
-    let constructor_data = constructor_call.abi_encode();
-    
+
     // Combine the constructor data with the bytecode
-    let delegatee_input = [delegatee_account_bytecode().as_ref(), constructor_data.as_ref()].concat();
+    let delegatee_constructor_data = entrypoint_contract_addr.abi_encode();
+    let delegatee_input = [delegatee_account_bytecode().as_ref(), delegatee_constructor_data.as_ref()].concat();
     
     let delegatee_req = TransactionBuilder::<SeismicReth>::with_kind(
         TransactionBuilder::<SeismicReth>::with_input(
