@@ -4,11 +4,11 @@ use alloy_network::{NetworkWallet, ReceiptResponse, TransactionBuilder};
 use alloy_primitives::{
     address,
     aliases::{B96, U96},
-    hex,
+    bytes, hex,
     hex::FromHex,
     keccak256, Address, Bytes, IntoLogData, TxKind, B256, U256,
 };
-use alloy_provider::{PendingTransactionBuilder, Provider, SendableTx};
+use alloy_provider::{PendingTransactionBuilder, Provider, SendableTx, WalletProvider};
 use alloy_rpc_types::{Block, Header, TransactionInput, TransactionRequest};
 use alloy_sol_types::{sol, SolCall, SolConstructor, SolType, SolValue};
 use reth_e2e_test_utils::wallet::Wallet;
@@ -30,13 +30,12 @@ use seismic_alloy_rpc_types::{
 use seismic_enclave::aes_decrypt;
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
-use alloy_provider::WalletProvider;
 
 use crate::gas20_utils::{
     delegatee_account_bytecode, entrypoint_deployed_bytecode, gas_20_deployed_bytecode,
-    paymaster_deployed_bytecode, seismic_provider_from_eth_wallet,
+    paymaster_deployed_bytecode, seismic_provider_from_eth_wallet, BALANCE_OF_SELECTOR,
+    TRANSFER_SELECTOR,
 };
-use crate::gas20_utils::TRANSFER_SELECTOR;
 
 // Define the user operation structure similar to the forge test
 #[derive(Debug, Clone)]
@@ -104,13 +103,37 @@ async fn test_gas20() {
         delegatee_contract_addr,
     ) = deploy_gas_contracts(&deploy_provider).await;
 
+    // confirm the deployer has some gas20
+    let deployer_address = deploy_provider.wallet().default_signer_address();
+    let balance_of_selector_bytes: Vec<u8> = hex::FromHex::from_hex(BALANCE_OF_SELECTOR).unwrap();
+    let deployer_balance_of_data =
+        [balance_of_selector_bytes.as_slice(), &deployer_address.abi_encode()].concat();
+    let output = deploy_provider
+        .seismic_call(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
+            TransactionBuilder::<SeismicReth>::with_input(
+                SeismicTransactionRequest::default(),
+                Bytes::from(deployer_balance_of_data),
+            ),
+            gas20_contract_addr,
+        )))
+        .await
+        .unwrap();
+    let deployer_balance = U256::from_be_slice(&output);
+    println!("Deployer Gas20 balance: {}", deployer_balance);
+    assert!(deployer_balance > U256::ZERO, "Deployer should have some Gas20 tokens");
+
     // transfer some gas20 to alice
     let alice_address = alice_provider.wallet().default_signer_address();
-    let amount = U256::from(1000000000000000000u64);
-    let transfer_data = [TRANSFER_SELECTOR.as_bytes(), &alice_address.abi_encode(), &amount.abi_encode()].concat();
-    let transfer_req = TransactionBuilder::<SeismicReth>::with_input(
+    let amount = U256::from(100u64);
+    let transfer_selector_bytes: Vec<u8> = hex::FromHex::from_hex(TRANSFER_SELECTOR).unwrap();
+    let transfer_data =
+        [transfer_selector_bytes.as_slice(), &alice_address.abi_encode(), &amount.abi_encode()].concat();
+    let transfer_req = TransactionBuilder::<SeismicReth>::with_to(
+        TransactionBuilder::<SeismicReth>::with_input(
         SeismicTransactionRequest::default(),
         Bytes::from(transfer_data),
+        ),
+        gas20_contract_addr,
     );
     let transfer_pending_transaction: PendingTransactionBuilder<SeismicReth> =
         deploy_provider.send_transaction(transfer_req).await.unwrap();
@@ -121,7 +144,6 @@ async fn test_gas20() {
     let transfer_receipt =
         deploy_provider.get_transaction_receipt(transfer_tx_hash.clone()).await.unwrap().unwrap();
     assert_eq!(transfer_receipt.status(), true, "failed to transfer gas20 from deployer to alice");
-    
 
     // Now test the Gas20 payment functionality similar to the forge test
     let seismic_treasury_addr = address!("0x5123000000000000000000000000000000000000");
