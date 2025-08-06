@@ -36,7 +36,7 @@ use crate::gas20_utils::{
     delegatee_account_bytecode, entrypoint_deployed_bytecode, gas_20_deployed_bytecode,
     paymaster_deployed_bytecode, seismic_provider_from_eth_wallet, BALANCE_OF_SELECTOR,
     DELEGATEE_EXECUTE_SELECTOR, DELEGATEE_GET_NONCE_SELECTOR, OWNERSHIP_TRANSFER_SELECTOR,
-    TRANSFER_SELECTOR, ENTRYPOINT_GET_USER_OP_HASH_SELECTOR,
+    TRANSFER_SELECTOR, ENTRYPOINT_GET_USER_OP_HASH_SELECTOR, ENTRYPOINT_GET_NONCE_SELECTOR,
 };
 
 // Define the user operation structure similar to the forge test
@@ -80,6 +80,21 @@ struct UserOperationEvent {
     success: bool,
     actual_gas_cost: U256,
     actual_gas_used: U256,
+}
+
+struct Delegation {
+    chain_id: U256,
+    delegatee: Address,
+    nonce: U256,
+    y_parity: U256,
+    r: B256,
+    s: B256,
+}
+
+impl Delegation {
+    fn abi_encode(&self) -> Vec<u8> {
+        (self.chain_id, self.delegatee, self.nonce, self.y_parity, self.r, self.s).abi_encode()
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -138,7 +153,10 @@ async fn test_gas20() {
         deploy_provider.send_transaction(transfer_req).await.unwrap();
     let transfer_tx_hash = transfer_pending_transaction.tx_hash();
     thread::sleep(Duration::from_secs(1));
-    println!("Transfer tx_hash: {:?}", transfer_tx_hash);
+
+    let transfer_receipt =
+        deploy_provider.get_transaction_receipt(transfer_tx_hash.clone()).await.unwrap().unwrap();
+    assert_eq!(transfer_receipt.status(), true, "failed to transfer ownership of gas20 to paymaster");
 
     // transfer some gas20 to alice
     let alice_address = alice_provider.wallet().default_signer_address();
@@ -158,7 +176,6 @@ async fn test_gas20() {
         deploy_provider.send_transaction(transfer_req).await.unwrap();
     let transfer_tx_hash = transfer_pending_transaction.tx_hash();
     thread::sleep(Duration::from_secs(1));
-    println!("Transfer tx_hash: {:?}", transfer_tx_hash);
 
     let transfer_receipt =
         deploy_provider.get_transaction_receipt(transfer_tx_hash.clone()).await.unwrap().unwrap();
@@ -195,17 +212,14 @@ async fn deploy_gas_contracts(
         deploy_provider.send_transaction(gas20_req).await.unwrap();
     let gas20_tx_hash = gas20_pending_transaction.tx_hash();
     thread::sleep(Duration::from_secs(1));
-    println!("Gas20 contract deployment tx_hash: {:?}", gas20_tx_hash);
 
     let gas20_receipt =
         deploy_provider.get_transaction_receipt(gas20_tx_hash.clone()).await.unwrap().unwrap();
     let gas20_contract_addr = gas20_receipt.contract_address.unwrap();
-    println!("Gas20 contract deployed at: {:?}", gas20_contract_addr);
     assert_eq!(gas20_receipt.status(), true);
 
     let gas20_code = deploy_provider.get_code_at(gas20_contract_addr).await.unwrap();
     assert!(!gas20_code.is_empty(), "Gas20 contract code should not be empty");
-    println!("Gas20 contract code verified");
 
     // Deploy Entrypoint contract
     println!("Deploying Entrypoint contract...");
@@ -220,17 +234,14 @@ async fn deploy_gas_contracts(
         deploy_provider.send_transaction(entrypoint_req).await.unwrap();
     let entrypoint_tx_hash = entrypoint_pending_transaction.tx_hash();
     thread::sleep(Duration::from_secs(1));
-    println!("Entrypoint contract deployment tx_hash: {:?}", entrypoint_tx_hash);
 
     let entrypoint_receipt =
         deploy_provider.get_transaction_receipt(entrypoint_tx_hash.clone()).await.unwrap().unwrap();
     let entrypoint_contract_addr = entrypoint_receipt.contract_address.unwrap();
-    println!("Entrypoint contract deployed at: {:?}", entrypoint_contract_addr);
     assert_eq!(entrypoint_receipt.status(), true);
 
     let entrypoint_code = deploy_provider.get_code_at(entrypoint_contract_addr).await.unwrap();
     assert!(!entrypoint_code.is_empty(), "Entrypoint contract code should not be empty");
-    println!("Entrypoint contract code verified");
 
     // Deploy Paymaster contract
     println!("Deploying Paymaster contract...");
@@ -254,17 +265,14 @@ async fn deploy_gas_contracts(
         deploy_provider.send_transaction(paymaster_req).await.unwrap();
     let paymaster_tx_hash = paymaster_pending_transaction.tx_hash();
     thread::sleep(Duration::from_secs(1));
-    println!("Paymaster contract deployment tx_hash: {:?}", paymaster_tx_hash);
 
     let paymaster_receipt =
         deploy_provider.get_transaction_receipt(paymaster_tx_hash.clone()).await.unwrap().unwrap();
     let paymaster_contract_addr = paymaster_receipt.contract_address.unwrap();
-    println!("Paymaster contract deployed at: {:?}", paymaster_contract_addr);
     assert_eq!(paymaster_receipt.status(), true);
 
     let paymaster_code = deploy_provider.get_code_at(paymaster_contract_addr).await.unwrap();
     assert!(!paymaster_code.is_empty(), "Paymaster contract code should not be empty");
-    println!("Paymaster contract code verified");
 
     // Deploy Delegatee Account contract
     println!("Deploying Delegatee Account contract...");
@@ -285,23 +293,20 @@ async fn deploy_gas_contracts(
         deploy_provider.send_transaction(delegatee_req).await.unwrap();
     let delegatee_tx_hash = delegatee_pending_transaction.tx_hash();
     thread::sleep(Duration::from_secs(1));
-    println!("Delegatee Account contract deployment tx_hash: {:?}", delegatee_tx_hash);
 
     let delegatee_receipt =
         deploy_provider.get_transaction_receipt(delegatee_tx_hash.clone()).await.unwrap().unwrap();
     let delegatee_contract_addr = delegatee_receipt.contract_address.unwrap();
-    println!("Delegatee Account contract deployed at: {:?}", delegatee_contract_addr);
     assert_eq!(delegatee_receipt.status(), true);
 
     let delegatee_code = deploy_provider.get_code_at(delegatee_contract_addr).await.unwrap();
     assert!(!delegatee_code.is_empty(), "Delegatee Account contract code should not be empty");
-    println!("Delegatee Account contract code verified");
 
     println!("All four contracts deployed successfully!");
     println!("Gas20: {:?}", gas20_contract_addr);
     println!("Entrypoint: {:?}", entrypoint_contract_addr);
     println!("Paymaster: {:?}", paymaster_contract_addr);
-    println!("Delegatee Account: {:?}", delegatee_contract_addr);
+    println!("Delegatee Account: {:?}\n\n", delegatee_contract_addr);
 
     (
         gas20_contract_addr,
@@ -370,7 +375,7 @@ async fn test_paymaster_with_gas20_payment(
         pack_paymaster_data(paymaster_contract_addr, verification_gas_limit, U256::from(50000u64));
 
     // 7. Get the current nonce first
-    let current_nonce = delegatee_get_nonce(alice_provider).await;
+    let current_nonce = delegatee_get_nonce(alice_provider, delegatee_contract_addr).await;
     println!("Current nonce: {}", current_nonce);
 
     // 8. Generate user operation
@@ -390,7 +395,7 @@ async fn test_paymaster_with_gas20_payment(
     let user_op_hash = get_user_op_hash(deploy_provider, &user_op, entrypoint_contract_addr).await;
 
     // 10. Create signature (simplified for testing)
-    let signature = sign_user_op_hash(alice_provider, &user_op_hash).await;
+    let signature = alice_sign_hash(alice_provider, &user_op_hash).await;
 
     let mut user_op_with_signature = user_op.clone();
     user_op_with_signature.signature = signature;
@@ -453,6 +458,43 @@ async fn test_paymaster_with_gas20_payment(
     // println!("Gas20 payment test completed successfully!");
 }
 
+async fn alice_7702_authorization(alice_provider: &SeismicSignedProvider<SeismicReth>, entrypoint_contract_addr: Address, delegatee_contract_addr: Address) -> Bytes {
+    let alice_address = alice_provider.wallet().default_signer_address();
+
+    // This should be the nonce for the EOA's 7702 contract code (not the regular Ethereum nonce)
+    // Our delegatee implementation uses the entrypoint contract's nonce for its own nonce
+    // So we do a call to the entrypoint contract to get the nonce
+    let nonce_selector_bytes: Vec<u8> =
+        hex::FromHex::from_hex(ENTRYPOINT_GET_NONCE_SELECTOR).unwrap();
+    let nonce_data = [nonce_selector_bytes.as_slice(), &alice_address.abi_encode()].concat();
+    let mut tx = SeismicTransactionRequest::default();
+    tx = TransactionBuilder::<SeismicReth>::with_to(tx, entrypoint_contract_addr);
+    tx = TransactionBuilder::<SeismicReth>::with_input(tx, Bytes::from(nonce_data));
+
+    let output = alice_provider
+        .seismic_call(SendableTx::Builder(tx))
+        .await
+        .unwrap();
+    let nonce = U256::from_be_slice(&output);
+
+    let chain_id = U256::from(SeismicRethTestCommand::chain_id());
+
+    let hash = keccak256((chain_id, delegatee_contract_addr, nonce).abi_encode());
+    let signature = alice_sign_hash(alice_provider, &hash).await;
+
+    
+    let delegation = Delegation {
+        chain_id: U256::from(SeismicRethTestCommand::chain_id()),
+        delegatee: delegatee_contract_addr,
+        nonce: nonce,
+        y_parity: signature.y_parity,
+        r: signature.r,
+        s: signature.s,
+    };
+
+    todo!("return something useful")
+}
+
 // // Helper functions
 
 async fn get_gas20_balance(
@@ -477,16 +519,18 @@ async fn get_gas20_balance(
     balance
 }
 
-async fn delegatee_get_nonce(provider: &SeismicSignedProvider<SeismicReth>) -> U256 {
+async fn delegatee_get_nonce(provider: &SeismicSignedProvider<SeismicReth>, delegatee_contract_addr: Address) -> U256 {
     let sender_addr = provider.wallet().default_signer_address();
     let nonce_selector_bytes: Vec<u8> =
         hex::FromHex::from_hex(DELEGATEE_GET_NONCE_SELECTOR).unwrap();
     let nonce_data = [nonce_selector_bytes.as_slice(), &sender_addr.abi_encode()].concat();
 
+    // note: tx is to the sender, not the delegatee contract, 
+    // because we are running the contract code from the sender address 7702-style
+    // assumes the sender has already delegated to the delegatee contract
     let mut tx = SeismicTransactionRequest::default();
     tx = TransactionBuilder::<SeismicReth>::with_to(tx, sender_addr);
     tx = TransactionBuilder::<SeismicReth>::with_input(tx, Bytes::from(nonce_data));
-    // todo: alice needs to delegate to the delegatee account at some point
 
     let output = provider
         .seismic_call(SendableTx::Builder(tx))
@@ -544,14 +588,15 @@ fn format_user_op_hash_for_signing(user_op_hash: B256) -> B256 {
     keccak256(&message)
 }
 
-async fn sign_user_op_hash(provider: &SeismicSignedProvider<SeismicReth>, hash: &B256) -> Bytes {
+async fn alice_sign_hash(_provider: &SeismicSignedProvider<SeismicReth>, hash: &B256) -> alloy_primitives::Signature {
     // provider.wallet().default_signer() only impls TxSigner, not Signer, so hardcoding alice here
     let base_wallet = Wallet::new(10).with_chain_id(SeismicRethTestCommand::chain_id());
     let signer_vec = Wallet::wallet_gen(&base_wallet);
     let alice_signer = signer_vec[0].clone();
     let signature = alice_signer.sign_hash(hash).await.unwrap();
-    signature.as_bytes().into()
+    signature
 }
+
 
 
 

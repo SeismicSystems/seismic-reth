@@ -23,6 +23,7 @@ pub const OWNERSHIP_TRANSFER_SELECTOR: &str = "f2fde38b";
 pub const DELEGATEE_EXECUTE_SELECTOR: &str = "b61d27f6";
 pub const DELEGATEE_GET_NONCE_SELECTOR: &str = "d087d288";
 pub const ENTRYPOINT_GET_USER_OP_HASH_SELECTOR: &str = "22cdde4c";
+pub const ENTRYPOINT_GET_NONCE_SELECTOR: &str = "35567e1a";
 
 pub fn seismic_provider_from_eth_wallet(
     wallet: &Wallet,
