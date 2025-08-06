@@ -19,6 +19,7 @@ use seismic_alloy_provider::SeismicSignedProvider;
 
 pub const TRANSFER_SELECTOR: &str = "a9059cbb";
 pub const BALANCE_OF_SELECTOR: &str = "70a08231";
+pub const OWNERSHIP_TRANSFER_SELECTOR: &str = "f2fde38b";
 
 pub fn seismic_provider_from_eth_wallet(
     wallet: &Wallet,

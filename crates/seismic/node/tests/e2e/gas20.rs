@@ -34,7 +34,7 @@ use tokio::sync::mpsc;
 use crate::gas20_utils::{
     delegatee_account_bytecode, entrypoint_deployed_bytecode, gas_20_deployed_bytecode,
     paymaster_deployed_bytecode, seismic_provider_from_eth_wallet, BALANCE_OF_SELECTOR,
-    TRANSFER_SELECTOR,
+    TRANSFER_SELECTOR, OWNERSHIP_TRANSFER_SELECTOR,
 };
 
 // Define the user operation structure similar to the forge test
@@ -103,25 +103,23 @@ async fn test_gas20() {
         delegatee_contract_addr,
     ) = deploy_gas_contracts(&deploy_provider).await;
 
-    // confirm the deployer has some gas20
-    let deployer_address = deploy_provider.wallet().default_signer_address();
-    let balance_of_selector_bytes: Vec<u8> = hex::FromHex::from_hex(BALANCE_OF_SELECTOR).unwrap();
-    let deployer_balance_of_data =
-        [balance_of_selector_bytes.as_slice(), &deployer_address.abi_encode()].concat();
-    let output = deploy_provider
-        .seismic_call(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
-            TransactionBuilder::<SeismicReth>::with_input(
-                SeismicTransactionRequest::default(),
-                Bytes::from(deployer_balance_of_data),
-            ),
-            gas20_contract_addr,
-        )))
-        .await
-        .unwrap();
-    let deployer_balance = U256::from_be_slice(&output);
-    println!("Deployer Gas20 balance: {}", deployer_balance);
-    assert!(deployer_balance > U256::ZERO, "Deployer should have some Gas20 tokens");
-
+    // transfer ownership of gas20 to the paymaster
+    let transfer_selector_bytes: Vec<u8> = hex::FromHex::from_hex(OWNERSHIP_TRANSFER_SELECTOR).unwrap();
+    let transfer_data =
+        [transfer_selector_bytes.as_slice(), &paymaster_contract_addr.abi_encode()].concat();
+    let transfer_req = TransactionBuilder::<SeismicReth>::with_to(
+        TransactionBuilder::<SeismicReth>::with_input(
+            SeismicTransactionRequest::default(),
+            Bytes::from(transfer_data),
+        ),
+        gas20_contract_addr,
+    );
+    let transfer_pending_transaction: PendingTransactionBuilder<SeismicReth> =
+        deploy_provider.send_transaction(transfer_req).await.unwrap();
+    let transfer_tx_hash = transfer_pending_transaction.tx_hash();
+    thread::sleep(Duration::from_secs(1));
+    println!("Transfer tx_hash: {:?}", transfer_tx_hash);
+    
     // transfer some gas20 to alice
     let alice_address = alice_provider.wallet().default_signer_address();
     let amount = U256::from(100u64);
