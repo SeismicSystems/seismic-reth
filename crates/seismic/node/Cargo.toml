@@ -72,6 +72,7 @@ tempfile = { workspace = true }
 once_cell.workspace = true
 alloy-signer-local.workspace = true
 k256.workspace = true
+alloy-signer.workspace = true
 
 [dev-dependencies]
 reth-seismic-node = { workspace = true, features = ["test-utils"] }

@@ -30,11 +30,13 @@ use seismic_alloy_rpc_types::{
 use seismic_enclave::aes_decrypt;
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
+use alloy_signer::Signer;
 
 use crate::gas20_utils::{
     delegatee_account_bytecode, entrypoint_deployed_bytecode, gas_20_deployed_bytecode,
     paymaster_deployed_bytecode, seismic_provider_from_eth_wallet, BALANCE_OF_SELECTOR,
-    TRANSFER_SELECTOR, OWNERSHIP_TRANSFER_SELECTOR,
+    DELEGATEE_EXECUTE_SELECTOR, DELEGATEE_GET_NONCE_SELECTOR, OWNERSHIP_TRANSFER_SELECTOR,
+    TRANSFER_SELECTOR, ENTRYPOINT_GET_USER_OP_HASH_SELECTOR,
 };
 
 // Define the user operation structure similar to the forge test
@@ -49,6 +51,23 @@ struct PackedUserOperation {
     gas_fees: B256,
     paymaster_and_data: Bytes,
     signature: Bytes,
+}
+
+impl PackedUserOperation {
+    fn abi_encode(&self) -> Bytes {
+        let encoded = (
+            self.sender,
+            self.nonce,
+            self.init_code.clone(),
+            self.call_data.clone(),
+            self.account_gas_limits,
+            self.pre_verification_gas,
+            self.gas_fees,
+            self.paymaster_and_data.clone(),
+            self.signature.clone(),
+        ).abi_encode();
+        Bytes::from(encoded)
+    }
 }
 
 // Define the user operation event structure
@@ -104,7 +123,8 @@ async fn test_gas20() {
     ) = deploy_gas_contracts(&deploy_provider).await;
 
     // transfer ownership of gas20 to the paymaster
-    let transfer_selector_bytes: Vec<u8> = hex::FromHex::from_hex(OWNERSHIP_TRANSFER_SELECTOR).unwrap();
+    let transfer_selector_bytes: Vec<u8> =
+        hex::FromHex::from_hex(OWNERSHIP_TRANSFER_SELECTOR).unwrap();
     let transfer_data =
         [transfer_selector_bytes.as_slice(), &paymaster_contract_addr.abi_encode()].concat();
     let transfer_req = TransactionBuilder::<SeismicReth>::with_to(
@@ -119,17 +139,18 @@ async fn test_gas20() {
     let transfer_tx_hash = transfer_pending_transaction.tx_hash();
     thread::sleep(Duration::from_secs(1));
     println!("Transfer tx_hash: {:?}", transfer_tx_hash);
-    
+
     // transfer some gas20 to alice
     let alice_address = alice_provider.wallet().default_signer_address();
     let amount = U256::from(100u64);
     let transfer_selector_bytes: Vec<u8> = hex::FromHex::from_hex(TRANSFER_SELECTOR).unwrap();
     let transfer_data =
-        [transfer_selector_bytes.as_slice(), &alice_address.abi_encode(), &amount.abi_encode()].concat();
+        [transfer_selector_bytes.as_slice(), &alice_address.abi_encode(), &amount.abi_encode()]
+            .concat();
     let transfer_req = TransactionBuilder::<SeismicReth>::with_to(
         TransactionBuilder::<SeismicReth>::with_input(
-        SeismicTransactionRequest::default(),
-        Bytes::from(transfer_data),
+            SeismicTransactionRequest::default(),
+            Bytes::from(transfer_data),
         ),
         gas20_contract_addr,
     );
@@ -145,17 +166,17 @@ async fn test_gas20() {
 
     // Now test the Gas20 payment functionality similar to the forge test
     let seismic_treasury_addr = address!("0x5123000000000000000000000000000000000000");
-    // test_paymaster_with_gas20_payment(
-    //     &deploy_provider,
-    //     &alice_provider,
-    //     &bob_provider,
-    //     gas20_contract_addr,
-    //     entrypoint_contract_addr,
-    //     paymaster_contract_addr,
-    //     delegatee_contract_addr,
-    //     seismic_treasury_addr,
-    // )
-    // .await;
+    test_paymaster_with_gas20_payment(
+        &deploy_provider,
+        &alice_provider,
+        &bob_provider,
+        gas20_contract_addr,
+        entrypoint_contract_addr,
+        paymaster_contract_addr,
+        delegatee_contract_addr,
+        seismic_treasury_addr,
+    )
+    .await;
 }
 
 async fn deploy_gas_contracts(
@@ -290,207 +311,249 @@ async fn deploy_gas_contracts(
     )
 }
 
-// async fn test_paymaster_with_gas20_payment(
-//     deploy_provider: &SeismicSignedProvider<SeismicReth>,
-//     alice_provider: &SeismicSignedProvider<SeismicReth>,
-//     bob_provider: &SeismicSignedProvider<SeismicReth>,
-//     gas20_contract_addr: Address,
-//     entrypoint_contract_addr: Address,
-//     paymaster_contract_addr: Address,
-//     delegatee_contract_addr: Address,
-//     treasury_addr: Address,
-// ) {
+async fn test_paymaster_with_gas20_payment(
+    deploy_provider: &SeismicSignedProvider<SeismicReth>,
+    alice_provider: &SeismicSignedProvider<SeismicReth>,
+    bob_provider: &SeismicSignedProvider<SeismicReth>,
+    gas20_contract_addr: Address,
+    entrypoint_contract_addr: Address,
+    paymaster_contract_addr: Address,
+    delegatee_contract_addr: Address,
+    treasury_addr: Address,
+) {
+    let alice_address = alice_provider.wallet().default_signer_address();
+    let bob_address = bob_provider.wallet().default_signer_address();
 
-//     // 1.
+    // 1. Check initial balances
+    let alice_initial_balance =
+        get_gas20_balance(deploy_provider, gas20_contract_addr, alice_address).await;
+    let treasury_initial_balance =
+        get_gas20_balance(deploy_provider, gas20_contract_addr, treasury_addr).await;
 
-//     // 1. Check initial balances
-//     let alice_initial_balance =
-//         get_gas20_balance(provider, gas20_contract_addr, alice_address).await;
-//     let treasury_initial_balance =
-//         get_gas20_balance(provider, gas20_contract_addr, treasury_addr).await;
-//     let bob_initial_balance = provider.get_balance(bob_address, None).await.unwrap();
+    println!("Alice initial Gas20 balance: {}", alice_initial_balance);
+    println!("Treasury initial Gas20 balance: {}", treasury_initial_balance);
+    // println!("Bob initial ETH balance: {}", bob_initial_balance);
 
-//     println!("Alice initial Gas20 balance: {}", alice_initial_balance);
-//     println!("Treasury initial Gas20 balance: {}", treasury_initial_balance);
-//     println!("Bob initial ETH balance: {}", bob_initial_balance);
+    // 2. Construct calldata for Alice's account to execute
+    // This would be a call to the delegatee account's execute function
+    let execute_selector_bytes: Vec<u8> =
+        hex::FromHex::from_hex(DELEGATEE_EXECUTE_SELECTOR).unwrap();
+    let destination = Address::ZERO; // No destination for this test
+    let value = U256::ZERO; // No ETH needed
+    let function_call_data = Bytes::new(); // Empty function call data
 
-//     // 2. Construct calldata for Alice's account to execute
-//     // This would be a call to the delegatee account's execute function
-//     let execute_selector = keccak256("execute(address,uint256,bytes)".as_bytes())[0..4].to_vec();
-//     let destination = Address::ZERO; // No destination for this test
-//     let value = U256::ZERO; // No ETH needed
-//     let function_call_data = Bytes::new(); // Empty function call data
+    let call_data = [
+        execute_selector_bytes.as_slice(),
+        destination.abi_encode().as_slice(),
+        value.abi_encode().as_slice(),
+        function_call_data.abi_encode().as_slice(),
+    ]
+    .concat();
 
-//     let call_data = [
-//         execute_selector,
-//         destination.abi_encode(),
-//         value.abi_encode(),
-//         function_call_data.abi_encode(),
-//     ]
-//     .concat();
+    // 3. Set gas parameters (similar to forge test)
+    let gas_limit = U256::from(100000u64);
+    let verification_gas_limit = U256::from(50000u64);
+    let pre_verification_gas = U256::from(10000u64);
+    let max_fee_per_gas = U256::from(20_000_000_000u64); // 20 gwei
+    let max_priority_fee_per_gas = U256::from(2_000_000_000u64); // 2 gwei
 
-//     // 3. Set gas parameters (similar to forge test)
-//     let gas_limit = U256::from(100000u64);
-//     let verification_gas_limit = U256::from(50000u64);
-//     let pre_verification_gas = U256::from(10000u64);
-//     let max_fee_per_gas = U256::from(20_000_000_000u64); // 20 gwei
-//     let max_priority_fee_per_gas = U256::from(2_000_000_000u64); // 2 gwei
+    // 4. Pack gas parameters
+    let account_gas_limits = pack_gas_limits(verification_gas_limit, gas_limit);
+    let gas_fees = pack_gas_fees(max_priority_fee_per_gas, max_fee_per_gas);
 
-//     // 4. Pack gas parameters
-//     let account_gas_limits = pack_gas_limits(verification_gas_limit, gas_limit);
-//     let gas_fees = pack_gas_fees(max_priority_fee_per_gas, max_fee_per_gas);
+    // 5. Calculate max cost for gas payment
+    let max_cost = gas_limit * max_fee_per_gas;
+    println!("Max cost: {}", max_cost);
 
-//     // 5. Calculate max cost for gas payment
-//     let max_cost = gas_limit * max_fee_per_gas;
-//     println!("Max cost: {}", max_cost);
+    // 6. Pack paymaster data
+    let paymaster_and_data =
+        pack_paymaster_data(paymaster_contract_addr, verification_gas_limit, U256::from(50000u64));
 
-//     // 6. Pack paymaster data
-//     let paymaster_and_data =
-//         pack_paymaster_data(paymaster_contract_addr, verification_gas_limit,
-// U256::from(50000u64));
+    // 7. Get the current nonce first
+    let current_nonce = delegatee_get_nonce(alice_provider).await;
+    println!("Current nonce: {}", current_nonce);
 
-//     // 7. Get the current nonce first
-//     let current_nonce = get_account_nonce(provider, delegatee_contract_addr).await;
-//     println!("Current nonce: {}", current_nonce);
+    // 8. Generate user operation
+    let user_op = PackedUserOperation {
+        sender: alice_address,
+        nonce: current_nonce,
+        init_code: Bytes::new(),
+        call_data: Bytes::from(call_data),
+        account_gas_limits,
+        pre_verification_gas,
+        gas_fees,
+        paymaster_and_data: Bytes::from(paymaster_and_data),
+        signature: Bytes::new(),
+    };
 
-//     // 8. Generate user operation
-//     let user_op = PackedUserOperation {
-//         sender: delegatee_contract_addr,
-//         nonce: current_nonce,
-//         init_code: Bytes::new(),
-//         call_data: Bytes::from(call_data),
-//         account_gas_limits,
-//         pre_verification_gas,
-//         gas_fees,
-//         paymaster_and_data: Bytes::from(paymaster_and_data),
-//         signature: Bytes::new(),
-//     };
+    // 9. Get user operation hash
+    let user_op_hash = get_user_op_hash(deploy_provider, &user_op, entrypoint_contract_addr).await;
 
-//     // 9. Get user operation hash
-//     let user_op_hash = get_user_op_hash(&user_op, entrypoint_contract_addr);
+    // 10. Create signature (simplified for testing)
+    let signature = sign_user_op_hash(alice_provider, &user_op_hash).await;
 
-//     // 10. Create signature (simplified for testing)
-//     let signature = Bytes::new(); // Mock signature for testing
+    let mut user_op_with_signature = user_op.clone();
+    user_op_with_signature.signature = signature;
 
-//     let mut user_op_with_signature = user_op.clone();
-//     user_op_with_signature.signature = signature;
+    // // 11. Bob (bundler) submits the user operation
+    // println!("Bob submitting user operation...");
+    // let gas_before = bob_provider.get_balance(bob_address, None).await.unwrap();
 
-//     // 11. Bob (bundler) submits the user operation
-//     println!("Bob submitting user operation...");
-//     let gas_before = provider.get_balance(bob_address, None).await.unwrap();
+    // let user_operations = vec![user_op_with_signature];
+    // let result = handle_ops(bob_provider, entrypoint_contract_addr, user_operations, bob_address).await;
 
-//     let user_operations = vec![user_op_with_signature];
-//     let result = handle_ops(provider, entrypoint_contract_addr, user_operations,
-// bob_address).await;
+    // let gas_after = bob_provider.get_balance(bob_address, None).await.unwrap();
+    // let bob_gas_used = gas_before - gas_after;
 
-//     let gas_after = provider.get_balance(bob_address, None).await.unwrap();
-//     let bob_gas_used = gas_before - gas_after;
+    // match result {
+    //     Ok(_) => println!("User operation submitted successfully"),
+    //     Err(e) => {
+    //         println!("User operation failed: {:?}", e);
+    //         return;
+    //     }
+    // }
 
-//     match result {
-//         Ok(_) => println!("User operation submitted successfully"),
-//         Err(e) => {
-//             println!("User operation failed: {:?}", e);
-//             return;
-//         }
-//     }
+    // 12. Check that the operation was successful by looking for UserOperationEvent
+    // In a real implementation, you would parse the transaction receipt for events
+    println!("Checking operation results...");
 
-//     // 12. Check that the operation was successful by looking for UserOperationEvent
-//     // In a real implementation, you would parse the transaction receipt for events
-//     println!("Checking operation results...");
+    // 13. Check Gas20 token balances after operation
+    let alice_final_balance = get_gas20_balance(deploy_provider, gas20_contract_addr, alice_address).await;
+    let treasury_final_balance =
+        get_gas20_balance(deploy_provider, gas20_contract_addr, treasury_addr).await;
 
-//     // 13. Check Gas20 token balances after operation
-//     let alice_final_balance = get_gas20_balance(provider, gas20_contract_addr,
-// alice_address).await;     let treasury_final_balance =
-//         get_gas20_balance(provider, gas20_contract_addr, treasury_addr).await;
+    println!("Alice final Gas20 balance: {}", alice_final_balance);
+    println!("Treasury final Gas20 balance: {}", treasury_final_balance);
 
-//     println!("Alice final Gas20 balance: {}", alice_final_balance);
-//     println!("Treasury final Gas20 balance: {}", treasury_final_balance);
+    // Alice should have paid some Gas20 tokens
+    assert!(alice_final_balance < alice_initial_balance, "Alice should have paid Gas20 tokens");
 
-//     // Alice should have paid some Gas20 tokens
-//     assert!(alice_final_balance < alice_initial_balance, "Alice should have paid Gas20 tokens");
+    // Treasury should have received Gas20 tokens
+    assert!(
+        treasury_final_balance > treasury_initial_balance,
+        "Treasury should have received Gas20 tokens"
+    );
 
-//     // Treasury should have received Gas20 tokens
-//     assert!(
-//         treasury_final_balance > treasury_initial_balance,
-//         "Treasury should have received Gas20 tokens"
-//     );
+    // // 14. Check that Alice's EOA has no ETH (all gas paid through Gas20 tokens)
+    // let alice_account_final_balance = alice_provider.get_balance(alice_address, None).await.unwrap();
+    // assert_eq!(
+    //     alice_account_final_balance,
+    //     U256::ZERO,
+    //     "Alice's EOA should have no ETH - all gas paid through Gas20 tokens"
+    // );
 
-//     // 14. Check that Alice's EOA has no ETH (all gas paid through Gas20 tokens)
-//     let alice_account_final_balance = provider.get_balance(alice_address, None).await.unwrap();
-//     assert_eq!(
-//         alice_account_final_balance,
-//         U256::ZERO,
-//         "Alice's EOA should have no ETH - all gas paid through Gas20 tokens"
-//     );
+    // // 15. Check that Bob is compensated for his actual gas costs
+    // let bob_final_balance = bob_provider.get_balance(bob_address, None).await.unwrap();
+    // let bob_compensation = bob_final_balance - bob_initial_balance;
 
-//     // 15. Check that Bob is compensated for his actual gas costs
-//     let bob_final_balance = provider.get_balance(bob_address, None).await.unwrap();
-//     let bob_compensation = bob_final_balance - bob_initial_balance;
+    // // Bob should be compensated for his actual gas costs
+    // assert_eq!(bob_compensation, bob_gas_used, "Bob should be refunded the gas cost");
+    // println!("Bob compensation: {}", bob_compensation);
 
-//     // Bob should be compensated for his actual gas costs
-//     assert_eq!(bob_compensation, bob_gas_used, "Bob should be refunded the gas cost");
-//     println!("Bob compensation: {}", bob_compensation);
-
-//     println!("Gas20 payment test completed successfully!");
-// }
+    // println!("Gas20 payment test completed successfully!");
+}
 
 // // Helper functions
 
-// async fn get_gas20_balance(
-//     provider: &SeismicSignedProvider<SeismicReth>,
-//     gas20_contract: Address,
-//     account: Address,
-// ) -> U256 {
-//     // This would call the balanceOf function on the Gas20 contract
-//     // For now, return a mock value
-//     U256::from(1000000u64)
-// }
+async fn get_gas20_balance(
+    provider: &SeismicSignedProvider<SeismicReth>,
+    gas20_contract: Address,
+    account: Address,
+) -> U256 {
+    let balance_of_selector_bytes: Vec<u8> = hex::FromHex::from_hex(BALANCE_OF_SELECTOR).unwrap();
+    let deployer_balance_of_data =
+        [balance_of_selector_bytes.as_slice(), &account.abi_encode()].concat();
+    let output = provider
+        .seismic_call(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
+            TransactionBuilder::<SeismicReth>::with_input(
+                SeismicTransactionRequest::default(),
+                Bytes::from(deployer_balance_of_data),
+            ),
+            gas20_contract,
+        )))
+        .await
+        .unwrap();
+    let balance = U256::from_be_slice(&output);
+    balance
+}
 
-// async fn get_account_nonce(
-//     provider: &SeismicSignedProvider<SeismicReth>,
-//     account: Address,
-// ) -> U256 {
-//     // This would call the getNonce function on the account contract
-//     // For now, return a mock value
-//     U256::from(0u64)
-// }
+async fn delegatee_get_nonce(provider: &SeismicSignedProvider<SeismicReth>) -> U256 {
+    let sender_addr = provider.wallet().default_signer_address();
+    let nonce_selector_bytes: Vec<u8> =
+        hex::FromHex::from_hex(DELEGATEE_GET_NONCE_SELECTOR).unwrap();
+    let nonce_data = [nonce_selector_bytes.as_slice(), &sender_addr.abi_encode()].concat();
 
-// fn pack_gas_limits(verification_gas_limit: U256, gas_limit: U256) -> B256 {
-//     let packed = (verification_gas_limit << 128) | gas_limit;
-//     B256::from(packed)
-// }
+    let mut tx = SeismicTransactionRequest::default();
+    tx = TransactionBuilder::<SeismicReth>::with_to(tx, sender_addr);
+    tx = TransactionBuilder::<SeismicReth>::with_input(tx, Bytes::from(nonce_data));
+    // todo: alice needs to delegate to the delegatee account at some point
 
-// fn pack_gas_fees(max_priority_fee_per_gas: U256, max_fee_per_gas: U256) -> B256 {
-//     let packed = (max_priority_fee_per_gas << 128) | max_fee_per_gas;
-//     B256::from(packed)
-// }
+    let output = provider
+        .seismic_call(SendableTx::Builder(tx))
+        .await
+        .unwrap();
+    let nonce = U256::from_be_slice(&output);
+    nonce
+}
 
-// fn pack_paymaster_data(
-//     paymaster: Address,
-//     verification_gas_limit: U256,
-//     post_op_gas_limit: U256,
-// ) -> Vec<u8> {
-//     [paymaster.abi_encode(), verification_gas_limit.abi_encode(), post_op_gas_limit.abi_encode()]
-//         .concat()
-// }
+fn pack_gas_limits(verification_gas_limit: U256, gas_limit: U256) -> B256 {
+    let packed = (verification_gas_limit << 128) | gas_limit;
+    B256::from(packed)
+}
 
-// fn get_user_op_hash(user_op: &PackedUserOperation, entrypoint: Address) -> B256 {
-//     // This would call the getUserOpHash function on the entrypoint contract
-//     // For now, return a mock hash
-//     keccak256(format!("{:?}{:?}{:?}", user_op.sender, user_op.nonce, entrypoint).as_bytes())
-// }
+fn pack_gas_fees(max_priority_fee_per_gas: U256, max_fee_per_gas: U256) -> B256 {
+    let packed = (max_priority_fee_per_gas << 128) | max_fee_per_gas;
+    B256::from(packed)
+}
 
-// fn format_user_op_hash_for_signing(user_op_hash: B256) -> B256 {
-//     // Format the hash for EIP-191 signing
-//     let prefix = "\x19Ethereum Signed Message:\n32";
-//     let message = [keccak256(prefix.as_bytes()), user_op_hash.0].concat();
-//     keccak256(&message)
-// }
+fn pack_paymaster_data(
+    paymaster: Address,
+    verification_gas_limit: U256,
+    post_op_gas_limit: U256,
+) -> Vec<u8> {
+    [paymaster.abi_encode(), verification_gas_limit.abi_encode(), post_op_gas_limit.abi_encode()]
+        .concat()
+}
 
-// fn sign_user_op_hash(hash: &B256, _wallet: &()) -> Bytes {
-//     // Mock signature for testing
-//     Bytes::new()
-// }
+async fn get_user_op_hash(provider: &SeismicSignedProvider<SeismicReth>, user_op: &PackedUserOperation, entrypoint: Address) -> B256 {
+    let user_op_hash_selector_bytes: Vec<u8> =
+        hex::FromHex::from_hex(ENTRYPOINT_GET_USER_OP_HASH_SELECTOR).unwrap();
+    let user_op_hash_data = [user_op_hash_selector_bytes.as_slice(), &user_op.abi_encode()].concat();
+    let output = provider
+        .seismic_call(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
+            TransactionBuilder::<SeismicReth>::with_input(
+                SeismicTransactionRequest::default(),
+                Bytes::from(user_op_hash_data),
+            ),
+            entrypoint,
+        )))
+        .await
+        .unwrap();
+    let user_op_hash = B256::from_slice(&output);
+    println!("User op hash: {:?}", user_op_hash);
+    user_op_hash
+}
+
+fn format_user_op_hash_for_signing(user_op_hash: B256) -> B256 {
+    // Format the hash for EIP-191 signing
+    // Based on Solidity: mstore(0x00, "\x19Ethereum Signed Message:\n32") + mstore(0x1c, messageHash)
+    let prefix = "\x19Ethereum Signed Message:\n32";
+    let mut message = Vec::new();
+    message.extend_from_slice(prefix.as_bytes()); // 28 bytes (0x1c)
+    message.extend_from_slice(&user_op_hash.as_slice());   // 32 bytes (0x20)
+    keccak256(&message)
+}
+
+async fn sign_user_op_hash(provider: &SeismicSignedProvider<SeismicReth>, hash: &B256) -> Bytes {
+    // provider.wallet().default_signer() only impls TxSigner, not Signer, so hardcoding alice here
+    let base_wallet = Wallet::new(10).with_chain_id(SeismicRethTestCommand::chain_id());
+    let signer_vec = Wallet::wallet_gen(&base_wallet);
+    let alice_signer = signer_vec[0].clone();
+    let signature = alice_signer.sign_hash(hash).await.unwrap();
+    signature.as_bytes().into()
+}
+
+
 
 // async fn handle_ops(
 //     provider: &SeismicSignedProvider<SeismicReth>,
