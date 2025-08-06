@@ -1,5 +1,6 @@
 use alloy_signer::Signer;
 use alloy_signer_local::{coins_bip39::English, MnemonicBuilder, PrivateKeySigner};
+use alloy_primitives::Address;
 
 /// One of the accounts of the genesis allocations.
 #[derive(Debug)]
@@ -46,6 +47,10 @@ impl Wallet {
             wallets.push(wallet)
         }
         wallets
+    }
+
+    pub fn get_address(&self) -> Address {
+        self.inner.address()
     }
 }
 
