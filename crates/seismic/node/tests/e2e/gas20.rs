@@ -173,8 +173,9 @@ async fn test_gas20() {
     assert_eq!(transfer_owner_receipt.status(), true, "failed to transfer gas20 from deployer to alice");
 
     // // check that the delegation was successful by getting the code of Alice's EOA
-    // let alice_eoa_code = deploy_provider.get_code_at(alice_address).await.unwrap();
-    // assert!(!alice_eoa_code.is_empty(), "Alice's EOA code should not be empty");
+    let alice_eoa_code = deploy_provider.get_code_at(alice_address).await.unwrap();
+    assert!(!alice_eoa_code.is_empty(), "Alice's EOA code should not be empty");
+    println!("Alice's EOA code is non-empty!");
     let nonce = delegatee_get_nonce(&alice_provider).await;
     println!("Alice's nonce: {}", nonce);
 
