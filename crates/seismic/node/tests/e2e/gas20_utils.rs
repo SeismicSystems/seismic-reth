@@ -19,7 +19,6 @@ use seismic_alloy_provider::SeismicSignedProvider;
 
 pub const TRANSFER_SELECTOR: &str = "a9059cbb";
 pub const BALANCE_OF_SELECTOR: &str = "70a08231";
-pub const OWNERSHIP_TRANSFER_SELECTOR: &str = "f2fde38b";
 pub const ENTRYPOINT_GET_USER_OP_HASH_SELECTOR: &str = "22cdde4c";
 pub const ENTRYPOINT_GET_NONCE_SELECTOR: &str = "35567e1a";
 
@@ -34,6 +33,12 @@ pub fn seismic_provider_from_eth_wallet(
 }
 
 sol! {
+    interface IGas20 {
+        function balanceOf(address);
+        function transfer(address,uint256);
+        function transferOwnership(address);
+    }
+    
     interface IEntryPoint {
         function handleOps((address,uint256,bytes,bytes,bytes32,uint256,bytes32,bytes,bytes)[] calldata ops, address payable beneficiary) external;
     }

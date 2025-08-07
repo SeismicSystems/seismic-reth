@@ -32,12 +32,13 @@ use seismic_alloy_rpc_types::{
 use seismic_enclave::aes_decrypt;
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
+use alloy_primitives::U128;
 
 use crate::gas20_utils::{
     delegatee_account_bytecode, entrypoint_deployed_bytecode, gas_20_deployed_bytecode,
     paymaster_deployed_bytecode, seismic_provider_from_eth_wallet, IDelegateeAccount, IEntryPoint,
     BALANCE_OF_SELECTOR, ENTRYPOINT_GET_NONCE_SELECTOR, ENTRYPOINT_GET_USER_OP_HASH_SELECTOR,
-    OWNERSHIP_TRANSFER_SELECTOR, TRANSFER_SELECTOR, IPaymaster,
+    TRANSFER_SELECTOR, IPaymaster, IGas20,
 };
 
 // Define the user operation structure similar to the forge test
@@ -70,18 +71,6 @@ impl PackedUserOperation {
             .abi_encode();
         Bytes::from(encoded)
     }
-}
-
-// Define the user operation event structure
-#[derive(Debug, Clone)]
-struct UserOperationEvent {
-    user_op_hash: B256,
-    sender: Address,
-    paymaster: Address,
-    nonce: U256,
-    success: bool,
-    actual_gas_cost: U256,
-    actual_gas_used: U256,
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -129,10 +118,7 @@ async fn test_gas20() {
     ) = deploy_gas_contracts(&deploy_provider).await;
 
     // transfer ownership of gas20 to the paymaster
-    let transfer_selector_bytes: Vec<u8> =
-        hex::FromHex::from_hex(OWNERSHIP_TRANSFER_SELECTOR).unwrap();
-    let transfer_data =
-        [transfer_selector_bytes.as_slice(), &paymaster_contract_addr.abi_encode()].concat();
+    let transfer_data = IGas20::transferOwnershipCall { 0: paymaster_contract_addr }.abi_encode();
     let transfer_req = TransactionBuilder::<SeismicReth>::with_to(
         TransactionBuilder::<SeismicReth>::with_input(
             SeismicTransactionRequest::default(),
@@ -413,25 +399,32 @@ async fn test_paymaster_with_gas20_payment(
     .abi_encode();
 
     // 3. Set gas parameters (similar to forge test)
-    let gas_limit = U256::from(100000u64);
-    let verification_gas_limit = U256::from(50000u64);
-    let pre_verification_gas = U256::from(10000u64);
-    let max_fee_per_gas = U256::from(20_000_000_000u64); // 20 gwei
-    let max_priority_fee_per_gas = U256::from(2_000_000_000u64); // 2 gwei
+    let gas_limit = U256::from(100001u64);
+    let verification_gas_limit = U256::from(50002u64);
+    let pre_verification_gas = U256::from(10003u64);
+    let max_fee_per_gas = U256::from(20_000_000_004u64); // 20 gwei
+    let max_priority_fee_per_gas = U256::from(2_000_000_005u64); // 2 gwei
 
     // 4. Pack gas parameters
     let account_gas_limits = pack_gas_limits(verification_gas_limit, gas_limit);
-    let gas_fees = pack_gas_fees(max_priority_fee_per_gas, max_fee_per_gas);
+    // let account_gas_limits = B256::from_slice(&account_gas_limits.as_slice());
+    let account_gas_limits = B256::from_hex("0x0000000000000000000000000000c350000000000000000000000000000186a0").unwrap();
+    let account_gas_limits = B256::from_hex("0x0000000000000000000000000000c350000000000000000000000000000186a0").unwrap();
 
+    let gas_fees = pack_gas_fees(max_priority_fee_per_gas, max_fee_per_gas);
+    
+    println!("account_gas_limits: {:?}", account_gas_limits);
+    println!("gas_fees: {:?}", gas_fees);
+
+    // 5. Get paymaster balance
     // 5. Calculate max cost for gas payment
     let max_cost = gas_limit * max_fee_per_gas;
     println!("Max cost: {}", max_cost);
 
     // 6. Pack paymaster data
     let paymaster_and_data =
-        pack_paymaster_data(paymaster_contract_addr, verification_gas_limit, U256::from(50000u64));
-    let paymaster_and_data_bytes = Bytes::from(paymaster_and_data.clone());
-    println!("Paymaster and data: {:?}", paymaster_and_data_bytes);
+        Bytes::from(pack_paymaster_data(paymaster_contract_addr, verification_gas_limit, U256::from(50000u64)));
+    println!("Paymaster and data: {:?}", paymaster_and_data);
 
     // 7. Get the current nonce first
     let current_nonce = delegatee_get_nonce(alice_provider).await;
@@ -443,10 +436,10 @@ async fn test_paymaster_with_gas20_payment(
         nonce: current_nonce,
         init_code: Bytes::new(),
         call_data: Bytes::from(call_data),
-        account_gas_limits,
+        account_gas_limits: account_gas_limits.into(),
         pre_verification_gas,
         gas_fees,
-        paymaster_and_data: Bytes::from(paymaster_and_data),
+        paymaster_and_data,
         signature: Bytes::new(),
     };
 
@@ -673,6 +666,8 @@ async fn handle_ops(
         user_op.paymaster_and_data,
         user_op.signature,
     );
+
+    println!("user_op encoded: {:?}", Bytes::from(user_op_tuple.abi_encode()));
 
     // Use the generated interface to create the call data
     let call_data =
