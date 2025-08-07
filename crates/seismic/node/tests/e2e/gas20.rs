@@ -39,6 +39,7 @@ use crate::gas20_utils::{
     paymaster_deployed_bytecode, seismic_provider_from_eth_wallet, BALANCE_OF_SELECTOR,
     DELEGATEE_EXECUTE_SELECTOR, DELEGATEE_GET_NONCE_SELECTOR, OWNERSHIP_TRANSFER_SELECTOR,
     TRANSFER_SELECTOR, ENTRYPOINT_GET_USER_OP_HASH_SELECTOR, ENTRYPOINT_GET_NONCE_SELECTOR,
+    ENTRYPOINT_HANDLE_OPS_SELECTOR,
 };
 
 // Define the user operation structure similar to the forge test
@@ -399,23 +400,15 @@ async fn test_paymaster_with_gas20_payment(
     let mut user_op_with_signature = user_op.clone();
     user_op_with_signature.signature = signature.as_bytes().into();
 
-    // // 11. Bob (bundler) submits the user operation
-    // println!("Bob submitting user operation...");
-    // let gas_before = bob_provider.get_balance(bob_address, None).await.unwrap();
+    // 11. Bob (bundler) submits the user operation
+    println!("Bob submitting user operation...");
+    let gas_before = bob_provider.get_balance(bob_address).await.unwrap();
 
-    // let user_operations = vec![user_op_with_signature];
-    // let result = handle_ops(bob_provider, entrypoint_contract_addr, user_operations, bob_address).await;
+    let user_operations = vec![user_op_with_signature];
+    handle_ops(bob_provider, entrypoint_contract_addr, user_operations, bob_address).await;
 
-    // let gas_after = bob_provider.get_balance(bob_address, None).await.unwrap();
-    // let bob_gas_used = gas_before - gas_after;
-
-    // match result {
-    //     Ok(_) => println!("User operation submitted successfully"),
-    //     Err(e) => {
-    //         println!("User operation failed: {:?}", e);
-    //         return;
-    //     }
-    // }
+    let gas_after = bob_provider.get_balance(bob_address).await.unwrap();
+    let bob_gas_used = gas_before - gas_after;
 
     // 12. Check that the operation was successful by looking for UserOperationEvent
     // In a real implementation, you would parse the transaction receipt for events
@@ -596,16 +589,49 @@ async fn alice_sign_hash(_provider: &SeismicSignedProvider<SeismicReth>, hash: &
 }
 
 
+sol! {
+    interface IEntryPoint {
+        function handleOps((address,uint256,bytes,bytes,bytes32,uint256,bytes32,bytes,bytes)[] calldata ops, address payable beneficiary) external;
+    }
+}
 
 
-// async fn handle_ops(
-//     provider: &SeismicSignedProvider<SeismicReth>,
-//     entrypoint: Address,
-//     user_operations: Vec<PackedUserOperation>,
-//     beneficiary: Address,
-// ) -> Result<(), Box<dyn std::error::Error>> {
-//     // This would call the handleOps function on the entrypoint contract
-//     // For now, just simulate success
-//     println!("Simulating handleOps call with {} user operations", user_operations.len());
-//     Ok(())
-// }
+async fn handle_ops(
+    provider: &SeismicSignedProvider<SeismicReth>,
+    entrypoint: Address,
+    user_operations: Vec<PackedUserOperation>,
+    beneficiary: Address,
+) {
+    let user_op = user_operations[0].clone(); // we know there is only one op for this test
+    
+    // Convert PackedUserOperation to tuple format for the interface
+    let user_op_tuple = (
+        user_op.sender,
+        user_op.nonce,
+        user_op.init_code,
+        user_op.call_data,
+        user_op.account_gas_limits,
+        user_op.pre_verification_gas,
+        user_op.gas_fees,
+        user_op.paymaster_and_data,
+        user_op.signature,
+    );
+    
+    // Use the generated interface to create the call data
+    let call_data = IEntryPoint::handleOpsCall {
+        ops: vec![user_op_tuple],
+        beneficiary,
+    }
+    .abi_encode();
+    
+    let output = provider
+        .seismic_call(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
+            TransactionBuilder::<SeismicReth>::with_input(
+                SeismicTransactionRequest::default(),   
+                Bytes::from(call_data),
+            ),
+            entrypoint,
+        )))
+        .await
+        .unwrap();
+}
