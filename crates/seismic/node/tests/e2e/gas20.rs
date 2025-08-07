@@ -373,6 +373,8 @@ async fn test_paymaster_with_gas20_payment(
     // 6. Pack paymaster data
     let paymaster_and_data =
         pack_paymaster_data(paymaster_contract_addr, verification_gas_limit, U256::from(50000u64));
+    let paymaster_and_data_bytes = Bytes::from(paymaster_and_data.clone());
+    println!("Paymaster and data: {:?}", paymaster_and_data_bytes);
 
     // 7. Get the current nonce first
     let current_nonce = delegatee_get_nonce(alice_provider).await;
@@ -555,8 +557,7 @@ fn pack_paymaster_data(
     verification_gas_limit: U256,
     post_op_gas_limit: U256,
 ) -> Vec<u8> {
-    [paymaster.abi_encode(), verification_gas_limit.abi_encode(), post_op_gas_limit.abi_encode()]
-        .concat()
+    (paymaster, verification_gas_limit, post_op_gas_limit).abi_encode_packed()
 }
 
 async fn get_user_op_hash(provider: &SeismicSignedProvider<SeismicReth>, user_op: &PackedUserOperation, entrypoint: Address) -> B256 {
