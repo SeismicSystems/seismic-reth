@@ -175,7 +175,7 @@ async fn test_gas20() {
     // // check that the delegation was successful by getting the code of Alice's EOA
     let alice_eoa_code = deploy_provider.get_code_at(alice_address).await.unwrap();
     assert!(!alice_eoa_code.is_empty(), "Alice's EOA code should not be empty");
-    println!("Alice's EOA code is non-empty!");
+    println!("Alice's EOA code is non-empty! About to try getting nonce...");
     let nonce = delegatee_get_nonce(&alice_provider).await;
     println!("Alice's nonce: {}", nonce);
 
@@ -526,9 +526,10 @@ async fn get_gas20_balance(
 
 async fn delegatee_get_nonce(provider: &SeismicSignedProvider<SeismicReth>) -> U256 {
     let sender_addr = provider.wallet().default_signer_address();
+    println!("delegatee_get_nonce sender_addr: {:?}", sender_addr);
     let nonce_selector_bytes: Vec<u8> =
         hex::FromHex::from_hex(DELEGATEE_GET_NONCE_SELECTOR).unwrap();
-    let nonce_data = [nonce_selector_bytes.as_slice(), &sender_addr.abi_encode()].concat();
+    let nonce_data = [nonce_selector_bytes.as_slice()].concat();
 
     // note: tx is to the sender, not the delegatee contract, 
     // because we are running the contract code from the sender address 7702-style
@@ -581,16 +582,6 @@ async fn get_user_op_hash(provider: &SeismicSignedProvider<SeismicReth>, user_op
     let user_op_hash = B256::from_slice(&output);
     println!("User op hash: {:?}", user_op_hash);
     user_op_hash
-}
-
-fn format_user_op_hash_for_signing(user_op_hash: B256) -> B256 {
-    // Format the hash for EIP-191 signing
-    // Based on Solidity: mstore(0x00, "\x19Ethereum Signed Message:\n32") + mstore(0x1c, messageHash)
-    let prefix = "\x19Ethereum Signed Message:\n32";
-    let mut message = Vec::new();
-    message.extend_from_slice(prefix.as_bytes()); // 28 bytes (0x1c)
-    message.extend_from_slice(&user_op_hash.as_slice());   // 32 bytes (0x20)
-    keccak256(&message)
 }
 
 async fn alice_sign_hash(_provider: &SeismicSignedProvider<SeismicReth>, hash: &B256) -> alloy_primitives::Signature {
