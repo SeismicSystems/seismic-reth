@@ -31,6 +31,8 @@ use seismic_enclave::aes_decrypt;
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
 use alloy_signer::Signer;
+use alloy_eips::eip7702::{Authorization, SignedAuthorization};
+use alloy_primitives::aliases::U192;
 
 use crate::gas20_utils::{
     delegatee_account_bytecode, entrypoint_deployed_bytecode, gas_20_deployed_bytecode,
@@ -80,21 +82,6 @@ struct UserOperationEvent {
     success: bool,
     actual_gas_cost: U256,
     actual_gas_used: U256,
-}
-
-struct Delegation {
-    chain_id: U256,
-    delegatee: Address,
-    nonce: U256,
-    y_parity: U256,
-    r: B256,
-    s: B256,
-}
-
-impl Delegation {
-    fn abi_encode(&self) -> Vec<u8> {
-        (self.chain_id, self.delegatee, self.nonce, self.y_parity, self.r, self.s).abi_encode()
-    }
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -159,27 +146,31 @@ async fn test_gas20() {
     assert_eq!(transfer_receipt.status(), true, "failed to transfer ownership of gas20 to paymaster");
 
     // transfer some gas20 to alice
+    // at the same time, include a delegation from alice to the delegatee contract
     let alice_address = alice_provider.wallet().default_signer_address();
     let amount = U256::from(100u64);
     let transfer_selector_bytes: Vec<u8> = hex::FromHex::from_hex(TRANSFER_SELECTOR).unwrap();
-    let transfer_data =
+    let transfer_owner_data =
         [transfer_selector_bytes.as_slice(), &alice_address.abi_encode(), &amount.abi_encode()]
             .concat();
-    let transfer_req = TransactionBuilder::<SeismicReth>::with_to(
-        TransactionBuilder::<SeismicReth>::with_input(
-            SeismicTransactionRequest::default(),
-            Bytes::from(transfer_data),
-        ),
-        gas20_contract_addr,
-    );
-    let transfer_pending_transaction: PendingTransactionBuilder<SeismicReth> =
-        deploy_provider.send_transaction(transfer_req).await.unwrap();
-    let transfer_tx_hash = transfer_pending_transaction.tx_hash();
+    let mut transfer_owner_tx = SeismicTransactionRequest::default();
+    transfer_owner_tx = TransactionBuilder::<SeismicReth>::with_to(transfer_owner_tx, gas20_contract_addr);
+    transfer_owner_tx = TransactionBuilder::<SeismicReth>::with_input(transfer_owner_tx, Bytes::from(transfer_owner_data));
+    let signed_authorization = alice_7702_authorization(&alice_provider, entrypoint_contract_addr).await;
+    transfer_owner_tx.authorization_list = Some(vec![signed_authorization.into()]);
+
+    let transfer_owner_pending_transaction: PendingTransactionBuilder<SeismicReth> =
+        deploy_provider.send_transaction(transfer_owner_tx).await.unwrap();
+    let transfer_owner_tx_hash = transfer_owner_pending_transaction.tx_hash();
     thread::sleep(Duration::from_secs(1));
 
-    let transfer_receipt =
-        deploy_provider.get_transaction_receipt(transfer_tx_hash.clone()).await.unwrap().unwrap();
-    assert_eq!(transfer_receipt.status(), true, "failed to transfer gas20 from deployer to alice");
+    let transfer_owner_receipt =
+        deploy_provider.get_transaction_receipt(transfer_owner_tx_hash.clone()).await.unwrap().unwrap();
+    assert_eq!(transfer_owner_receipt.status(), true, "failed to transfer gas20 from deployer to alice");
+
+    // check that the delegation was successful by getting the code of Alice's EOA
+    let alice_eoa_code = deploy_provider.get_code_at(alice_address).await.unwrap();
+    assert!(!alice_eoa_code.is_empty(), "Alice's EOA code should not be empty");
 
     // Now test the Gas20 payment functionality similar to the forge test
     let seismic_treasury_addr = address!("0x5123000000000000000000000000000000000000");
@@ -375,7 +366,7 @@ async fn test_paymaster_with_gas20_payment(
         pack_paymaster_data(paymaster_contract_addr, verification_gas_limit, U256::from(50000u64));
 
     // 7. Get the current nonce first
-    let current_nonce = delegatee_get_nonce(alice_provider, delegatee_contract_addr).await;
+    let current_nonce = delegatee_get_nonce(alice_provider).await;
     println!("Current nonce: {}", current_nonce);
 
     // 8. Generate user operation
@@ -398,7 +389,7 @@ async fn test_paymaster_with_gas20_payment(
     let signature = alice_sign_hash(alice_provider, &user_op_hash).await;
 
     let mut user_op_with_signature = user_op.clone();
-    user_op_with_signature.signature = signature;
+    user_op_with_signature.signature = signature.as_bytes().into();
 
     // // 11. Bob (bundler) submits the user operation
     // println!("Bob submitting user operation...");
@@ -458,7 +449,7 @@ async fn test_paymaster_with_gas20_payment(
     // println!("Gas20 payment test completed successfully!");
 }
 
-async fn alice_7702_authorization(alice_provider: &SeismicSignedProvider<SeismicReth>, entrypoint_contract_addr: Address, delegatee_contract_addr: Address) -> Bytes {
+async fn alice_7702_authorization(alice_provider: &SeismicSignedProvider<SeismicReth>, entrypoint_contract_addr: Address) -> SignedAuthorization {
     let alice_address = alice_provider.wallet().default_signer_address();
 
     // This should be the nonce for the EOA's 7702 contract code (not the regular Ethereum nonce)
@@ -466,7 +457,8 @@ async fn alice_7702_authorization(alice_provider: &SeismicSignedProvider<Seismic
     // So we do a call to the entrypoint contract to get the nonce
     let nonce_selector_bytes: Vec<u8> =
         hex::FromHex::from_hex(ENTRYPOINT_GET_NONCE_SELECTOR).unwrap();
-    let nonce_data = [nonce_selector_bytes.as_slice(), &alice_address.abi_encode()].concat();
+    let key = U192::ZERO;
+    let nonce_data = [nonce_selector_bytes.as_slice(), &alice_address.abi_encode(), &key.abi_encode()].concat();
     let mut tx = SeismicTransactionRequest::default();
     tx = TransactionBuilder::<SeismicReth>::with_to(tx, entrypoint_contract_addr);
     tx = TransactionBuilder::<SeismicReth>::with_input(tx, Bytes::from(nonce_data));
@@ -475,24 +467,25 @@ async fn alice_7702_authorization(alice_provider: &SeismicSignedProvider<Seismic
         .seismic_call(SendableTx::Builder(tx))
         .await
         .unwrap();
-    let nonce = U256::from_be_slice(&output);
+    let nonce: u64 = U256::from_be_slice(&output).try_into().unwrap();
 
     let chain_id = U256::from(SeismicRethTestCommand::chain_id());
 
-    let hash = keccak256((chain_id, delegatee_contract_addr, nonce).abi_encode());
-    let signature = alice_sign_hash(alice_provider, &hash).await;
-
-    
-    let delegation = Delegation {
-        chain_id: U256::from(SeismicRethTestCommand::chain_id()),
-        delegatee: delegatee_contract_addr,
-        nonce: nonce,
-        y_parity: signature.y_parity,
-        r: signature.r,
-        s: signature.s,
+    let authorization = Authorization {
+        chain_id,
+        address: alice_address,
+        nonce: nonce.into(),
     };
+    let hash = authorization.signature_hash();
+    let signature = alice_sign_hash(alice_provider, &hash).await;
+    let signed_authorization = SignedAuthorization::new_unchecked(
+        authorization,
+        signature.v() as u8,
+        signature.r(),
+        signature.s(),
+    );
 
-    todo!("return something useful")
+    signed_authorization
 }
 
 // // Helper functions
@@ -519,7 +512,7 @@ async fn get_gas20_balance(
     balance
 }
 
-async fn delegatee_get_nonce(provider: &SeismicSignedProvider<SeismicReth>, delegatee_contract_addr: Address) -> U256 {
+async fn delegatee_get_nonce(provider: &SeismicSignedProvider<SeismicReth>) -> U256 {
     let sender_addr = provider.wallet().default_signer_address();
     let nonce_selector_bytes: Vec<u8> =
         hex::FromHex::from_hex(DELEGATEE_GET_NONCE_SELECTOR).unwrap();
