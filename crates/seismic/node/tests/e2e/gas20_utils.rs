@@ -20,11 +20,8 @@ use seismic_alloy_provider::SeismicSignedProvider;
 pub const TRANSFER_SELECTOR: &str = "a9059cbb";
 pub const BALANCE_OF_SELECTOR: &str = "70a08231";
 pub const OWNERSHIP_TRANSFER_SELECTOR: &str = "f2fde38b";
-pub const DELEGATEE_EXECUTE_SELECTOR: &str = "b61d27f6";
-pub const DELEGATEE_GET_NONCE_SELECTOR: &str = "d087d288";
 pub const ENTRYPOINT_GET_USER_OP_HASH_SELECTOR: &str = "22cdde4c";
 pub const ENTRYPOINT_GET_NONCE_SELECTOR: &str = "35567e1a";
-pub const ENTRYPOINT_HANDLE_OPS_SELECTOR: &str = "765e827f";
 
 pub fn seismic_provider_from_eth_wallet(
     wallet: &Wallet,
@@ -34,6 +31,19 @@ pub fn seismic_provider_from_eth_wallet(
     let wallet_gen = Wallet::wallet_gen(wallet);
     let provider = SeismicSignedProvider::new(wallet_gen[index].clone(), reqwest::Url::parse(&reth_rpc_url).unwrap());
     provider
+}
+
+sol! {
+    interface IEntryPoint {
+        function handleOps((address,uint256,bytes,bytes,bytes32,uint256,bytes32,bytes,bytes)[] calldata ops, address payable beneficiary) external;
+    }
+
+    interface IDelegateeAccount {
+        constructor(address);
+        function execute(address dest, uint256 value, bytes calldata funcCallData);
+        function entryPoint() returns (address);
+        function getNonce() returns (uint256);
+    }
 }
 
 pub fn gas_20_deployed_bytecode() -> Bytes {
