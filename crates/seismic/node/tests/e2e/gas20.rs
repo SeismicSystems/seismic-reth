@@ -529,7 +529,7 @@ async fn delegatee_get_nonce(provider: &SeismicSignedProvider<SeismicReth>) -> U
     let sender_addr = provider.wallet().default_signer_address();
     println!("delegatee_get_nonce sender_addr: {:?}", sender_addr);
     let nonce_selector_bytes: Vec<u8> =
-        hex::FromHex::from_hex("d087d2dd").unwrap();
+        hex::FromHex::from_hex(DELEGATEE_GET_NONCE_SELECTOR).unwrap();
     let nonce_data = [nonce_selector_bytes.as_slice()].concat();
 
     // note: tx is to the sender, not the delegatee contract, 
