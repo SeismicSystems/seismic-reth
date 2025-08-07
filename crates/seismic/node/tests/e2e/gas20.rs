@@ -160,7 +160,7 @@ async fn test_gas20() {
     let mut transfer_owner_tx = SeismicTransactionRequest::default();
     transfer_owner_tx = TransactionBuilder::<SeismicReth>::with_to(transfer_owner_tx, gas20_contract_addr);
     transfer_owner_tx = TransactionBuilder::<SeismicReth>::with_input(transfer_owner_tx, Bytes::from(transfer_owner_data));
-    let signed_authorization = alice_7702_authorization(&alice_provider, entrypoint_contract_addr).await;
+    let signed_authorization = alice_7702_authorization(&alice_provider, entrypoint_contract_addr, delegatee_contract_addr).await;
     transfer_owner_tx.authorization_list = Some(vec![signed_authorization.into()]);
 
     let transfer_owner_pending_transaction: PendingTransactionBuilder<SeismicReth> =
@@ -176,6 +176,7 @@ async fn test_gas20() {
     let alice_eoa_code = deploy_provider.get_code_at(alice_address).await.unwrap();
     assert!(!alice_eoa_code.is_empty(), "Alice's EOA code should not be empty");
     println!("Alice's EOA code is non-empty! About to try getting nonce...");
+    println!("code: {:?}", alice_eoa_code);
     let nonce = delegatee_get_nonce(&alice_provider).await;
     println!("Alice's nonce: {}", nonce);
 
@@ -456,7 +457,7 @@ async fn test_paymaster_with_gas20_payment(
     // println!("Gas20 payment test completed successfully!");
 }
 
-async fn alice_7702_authorization(alice_provider: &SeismicSignedProvider<SeismicReth>, entrypoint_contract_addr: Address) -> SignedAuthorization {
+async fn alice_7702_authorization(alice_provider: &SeismicSignedProvider<SeismicReth>, entrypoint_contract_addr: Address, delegatee_contract_addr: Address) -> SignedAuthorization {
     let alice_address = alice_provider.wallet().default_signer_address();
     println!("alice_7702_authorization alice_address: {:?}", alice_address);
 
@@ -481,7 +482,7 @@ async fn alice_7702_authorization(alice_provider: &SeismicSignedProvider<Seismic
 
     let authorization = Authorization {
         chain_id,
-        address: alice_address,
+        address: delegatee_contract_addr,
         nonce: nonce.into(),
     };
     let hash = authorization.signature_hash();
@@ -528,7 +529,7 @@ async fn delegatee_get_nonce(provider: &SeismicSignedProvider<SeismicReth>) -> U
     let sender_addr = provider.wallet().default_signer_address();
     println!("delegatee_get_nonce sender_addr: {:?}", sender_addr);
     let nonce_selector_bytes: Vec<u8> =
-        hex::FromHex::from_hex(DELEGATEE_GET_NONCE_SELECTOR).unwrap();
+        hex::FromHex::from_hex("d087d2dd").unwrap();
     let nonce_data = [nonce_selector_bytes.as_slice()].concat();
 
     // note: tx is to the sender, not the delegatee contract, 
