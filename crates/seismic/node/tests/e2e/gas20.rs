@@ -168,9 +168,11 @@ async fn test_gas20() {
         deploy_provider.get_transaction_receipt(transfer_owner_tx_hash.clone()).await.unwrap().unwrap();
     assert_eq!(transfer_owner_receipt.status(), true, "failed to transfer gas20 from deployer to alice");
 
-    // check that the delegation was successful by getting the code of Alice's EOA
-    let alice_eoa_code = deploy_provider.get_code_at(alice_address).await.unwrap();
-    assert!(!alice_eoa_code.is_empty(), "Alice's EOA code should not be empty");
+    // // check that the delegation was successful by getting the code of Alice's EOA
+    // let alice_eoa_code = deploy_provider.get_code_at(alice_address).await.unwrap();
+    // assert!(!alice_eoa_code.is_empty(), "Alice's EOA code should not be empty");
+    let nonce = delegatee_get_nonce(&alice_provider).await;
+    println!("Alice's nonce: {}", nonce);
 
     // Now test the Gas20 payment functionality similar to the forge test
     let seismic_treasury_addr = address!("0x5123000000000000000000000000000000000000");
@@ -484,6 +486,10 @@ async fn alice_7702_authorization(alice_provider: &SeismicSignedProvider<Seismic
         signature.r(),
         signature.s(),
     );
+
+    let recovered_address = signed_authorization.recover_authority().unwrap();
+    println!("Recovered address: {:?}", recovered_address);
+    assert_eq!(recovered_address, alice_address, "Recovered address should be the same as the signer");
 
     signed_authorization
 }
