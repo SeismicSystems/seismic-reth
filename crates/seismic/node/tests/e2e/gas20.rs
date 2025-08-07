@@ -200,6 +200,29 @@ async fn test_gas20() {
     let nonce = delegatee_get_nonce(&alice_provider).await;
     println!("Alice's nonce: {}", nonce);
 
+    // transfer some eth to the paymaster
+    let paymaster_address = paymaster_contract_addr;
+    let amount = U256::from(10_000_000u64);
+    let mut fund_paymaster_tx = SeismicTransactionRequest::default();
+    fund_paymaster_tx =
+        TransactionBuilder::<SeismicReth>::with_to(fund_paymaster_tx, paymaster_address);
+    fund_paymaster_tx = TransactionBuilder::<SeismicReth>::with_value(fund_paymaster_tx, amount);
+    let fund_paymaster_pending_transaction: PendingTransactionBuilder<SeismicReth> =
+        deploy_provider.send_transaction(fund_paymaster_tx).await.unwrap();
+    let fund_paymaster_tx_hash = fund_paymaster_pending_transaction.tx_hash();
+    thread::sleep(Duration::from_secs(1));
+    let fund_paymaster_receipt = deploy_provider
+        .get_transaction_receipt(fund_paymaster_tx_hash.clone())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        fund_paymaster_receipt.status(),
+        true,
+        "failed to fund paymaster"
+    );
+    println!("paymaster funded successfully");
+
     // Now test the Gas20 payment functionality similar to the forge test
     let seismic_treasury_addr = address!("0x5123000000000000000000000000000000000000");
     test_paymaster_with_gas20_payment(
