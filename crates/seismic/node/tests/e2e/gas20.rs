@@ -37,7 +37,7 @@ use crate::gas20_utils::{
     delegatee_account_bytecode, entrypoint_deployed_bytecode, gas_20_deployed_bytecode,
     paymaster_deployed_bytecode, seismic_provider_from_eth_wallet, IDelegateeAccount, IEntryPoint,
     BALANCE_OF_SELECTOR, ENTRYPOINT_GET_NONCE_SELECTOR, ENTRYPOINT_GET_USER_OP_HASH_SELECTOR,
-    OWNERSHIP_TRANSFER_SELECTOR, TRANSFER_SELECTOR,
+    OWNERSHIP_TRANSFER_SELECTOR, TRANSFER_SELECTOR, IPaymaster,
 };
 
 // Define the user operation structure similar to the forge test
@@ -201,11 +201,15 @@ async fn test_gas20() {
     println!("Alice's nonce: {}", nonce);
 
     // transfer some eth to the paymaster
-    let paymaster_address = paymaster_contract_addr;
-    let amount = U256::from(10_000_000u64);
+    let amount = U256::from(10_000_000_000_000_000_000_u64);
+    let paymaster_deposit_data = IPaymaster::depositCall {}.abi_encode();
     let mut fund_paymaster_tx = SeismicTransactionRequest::default();
     fund_paymaster_tx =
-        TransactionBuilder::<SeismicReth>::with_to(fund_paymaster_tx, paymaster_address);
+        TransactionBuilder::<SeismicReth>::with_to(fund_paymaster_tx, paymaster_contract_addr);
+    fund_paymaster_tx = TransactionBuilder::<SeismicReth>::with_input(
+        fund_paymaster_tx,
+        Bytes::from(paymaster_deposit_data),
+    );
     fund_paymaster_tx = TransactionBuilder::<SeismicReth>::with_value(fund_paymaster_tx, amount);
     let fund_paymaster_pending_transaction: PendingTransactionBuilder<SeismicReth> =
         deploy_provider.send_transaction(fund_paymaster_tx).await.unwrap();

@@ -38,6 +38,10 @@ sol! {
         function handleOps((address,uint256,bytes,bytes,bytes32,uint256,bytes32,bytes,bytes)[] calldata ops, address payable beneficiary) external;
     }
 
+    interface IPaymaster {
+        function deposit() public payable;
+    }
+
     interface IDelegateeAccount {
         constructor(address);
         function execute(address dest, uint256 value, bytes calldata funcCallData);
