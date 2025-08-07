@@ -117,6 +117,10 @@ async fn test_gas20() {
     let alice_provider = seismic_provider_from_eth_wallet(&base_wallet, &reth_rpc_url, 1);
     let bob_provider = seismic_provider_from_eth_wallet(&base_wallet, &reth_rpc_url, 2);
 
+    println!("deploy_provider addr: {:?}", deploy_provider.wallet().default_signer_address());
+    println!("alice_provider addr: {:?}", alice_provider.wallet().default_signer_address());
+    println!("bob_provider addr: {:?}", bob_provider.wallet().default_signer_address());
+
     let (
         gas20_contract_addr,
         entrypoint_contract_addr,
@@ -453,6 +457,7 @@ async fn test_paymaster_with_gas20_payment(
 
 async fn alice_7702_authorization(alice_provider: &SeismicSignedProvider<SeismicReth>, entrypoint_contract_addr: Address) -> SignedAuthorization {
     let alice_address = alice_provider.wallet().default_signer_address();
+    println!("alice_7702_authorization alice_address: {:?}", alice_address);
 
     // This should be the nonce for the EOA's 7702 contract code (not the regular Ethereum nonce)
     // Our delegatee implementation uses the entrypoint contract's nonce for its own nonce
@@ -591,7 +596,8 @@ async fn alice_sign_hash(_provider: &SeismicSignedProvider<SeismicReth>, hash: &
     // provider.wallet().default_signer() only impls TxSigner, not Signer, so hardcoding alice here
     let base_wallet = Wallet::new(10).with_chain_id(SeismicRethTestCommand::chain_id());
     let signer_vec = Wallet::wallet_gen(&base_wallet);
-    let alice_signer = signer_vec[0].clone();
+    let alice_index = 1;
+    let alice_signer = signer_vec[alice_index].clone();
     let signature = alice_signer.sign_hash(hash).await.unwrap();
     signature
 }
