@@ -473,6 +473,7 @@ async fn test_paymaster_with_gas20_payment(
 
     // 11. Bob (bundler) submits the user operation
     println!("Bob submitting user operation...");
+    let alice_balance_before = alice_provider.get_balance(alice_address).await.unwrap();
     let gas_before = bob_provider.get_balance(bob_address).await.unwrap();
 
     let user_operations = vec![user_op_with_signature];
@@ -505,23 +506,18 @@ async fn test_paymaster_with_gas20_payment(
     );
     println!("treasury received a fee");
 
-    // // 14. Check that Alice's EOA has no ETH (all gas paid through Gas20 tokens)
-    // let alice_account_final_balance = alice_provider.get_balance(alice_address,
-    // None).await.unwrap(); assert_eq!(
-    //     alice_account_final_balance,
-    //     U256::ZERO,
-    //     "Alice's EOA should have no ETH - all gas paid through Gas20 tokens"
-    // );
+    // 14. Check that Alice's EOA has no ETH (all gas paid through Gas20 tokens)
+    let alice_account_final_balance = alice_provider.get_balance(alice_address).await.unwrap(); 
+    assert_eq!(
+        alice_account_final_balance,
+        alice_balance_before,
+        "Alice's EOA should not have spent any ETH"
+    );
 
-    // // 15. Check that Bob is compensated for his actual gas costs
-    // let bob_final_balance = bob_provider.get_balance(bob_address, None).await.unwrap();
-    // let bob_compensation = bob_final_balance - bob_initial_balance;
+    // 15. Check that Bob is compensated for his actual gas costs
+    assert_eq!(bob_gas_used, U256::ZERO, "Bob should be compensated for his actual gas costs");
 
-    // // Bob should be compensated for his actual gas costs
-    // assert_eq!(bob_compensation, bob_gas_used, "Bob should be refunded the gas cost");
-    // println!("Bob compensation: {}", bob_compensation);
-
-    // println!("Gas20 payment test completed successfully!");
+    println!("Gas20 payment test completed successfully!");
 }
 
 async fn alice_7702_authorization(
