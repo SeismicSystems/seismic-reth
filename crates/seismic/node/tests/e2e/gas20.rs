@@ -13,6 +13,7 @@ use alloy_provider::{PendingTransactionBuilder, Provider, SendableTx, WalletProv
 use alloy_rpc_types::{Block, Header, TransactionInput, TransactionRequest};
 use alloy_signer::Signer;
 use alloy_sol_types::{sol, SolCall, SolConstructor, SolType, SolValue};
+use k256::elliptic_curve::consts::U1;
 use reth_e2e_test_utils::wallet::Wallet;
 use reth_rpc_eth_api::EthApiClient;
 use reth_seismic_node::utils::test_utils::{
@@ -631,10 +632,23 @@ async fn get_user_op_hash(
     user_op: &PackedUserOperation,
     entrypoint: Address,
 ) -> B256 {
-    let user_op_hash_selector_bytes: Vec<u8> =
-        hex::FromHex::from_hex(ENTRYPOINT_GET_USER_OP_HASH_SELECTOR).unwrap();
-    let user_op_hash_data =
-        [user_op_hash_selector_bytes.as_slice(), &user_op.abi_encode()].concat();
+    // Get UserOpHashHash based on what the entrypoint expects
+    let user_op_tuple = (
+        user_op.sender,
+        user_op.nonce,
+        user_op.init_code.clone(),
+        user_op.call_data.clone(),
+        user_op.account_gas_limits,
+        user_op.pre_verification_gas,
+        user_op.gas_fees,
+        user_op.paymaster_and_data.clone(),
+        user_op.signature.clone(),
+    );
+    let user_op_hash_data = IEntryPoint::getUserOpHashCall {
+        0: user_op_tuple,
+    }
+    .abi_encode();
+
     let output = provider
         .seismic_call(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
             TransactionBuilder::<SeismicReth>::with_input(
@@ -645,9 +659,17 @@ async fn get_user_op_hash(
         )))
         .await
         .unwrap();
-    let user_op_hash = B256::from_slice(&output);
-    println!("User op hash: {:?}", user_op_hash);
-    user_op_hash
+    let user_op_hash_raw = B256::from_slice(&output);
+    println!("entrypoint userOpHash: {:?}", user_op_hash_raw);
+
+    // Formate the UserOpHashHash with the EthSignedMessage format
+    let prefix = b"\x19Ethereum Signed Message:\n32";
+    let mut eth_message = Vec::with_capacity(prefix.len() + 32);
+    eth_message.extend_from_slice(prefix);
+    eth_message.extend_from_slice(user_op_hash_raw.as_slice());
+    let formatted_user_op_hash = keccak256(&eth_message);
+    println!("formattedUserOpHash: {:?}", formatted_user_op_hash);
+    formatted_user_op_hash
 }
 
 async fn alice_sign_hash(
