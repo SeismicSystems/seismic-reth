@@ -486,6 +486,7 @@ async fn test_paymaster_with_gas20_payment(
     println!("Checking operation results...");
 
     // 13. Check Gas20 token balances after operation
+    thread::sleep(Duration::from_secs(1));
     let alice_final_balance =
         get_gas20_balance(deploy_provider, gas20_contract_addr, alice_address).await;
     let treasury_final_balance =
@@ -714,17 +715,19 @@ async fn handle_ops(
     let call_data =
         IEntryPoint::handleOpsCall { ops: vec![user_op_tuple], beneficiary }.abi_encode();
 
-    let output = provider
-        .seismic_call(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
+    let pending_tx = provider
+        .send_transaction(TransactionBuilder::<SeismicReth>::with_to(
             TransactionBuilder::<SeismicReth>::with_input(
                 SeismicTransactionRequest::default(),
                 Bytes::from(call_data),
             ),
             entrypoint,
-        )))
-        .await;
+        ))
+        .await
+        .unwrap();
+    let tx_hash = pending_tx.tx_hash();
+    thread::sleep(Duration::from_secs(1));
 
-    if let Err(e) = output {
-        println!("Error in handle_ops: {:?}", e);
-    }
+    let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
+    assert!(receipt.status(), "handle_ops should succeed");
 }
