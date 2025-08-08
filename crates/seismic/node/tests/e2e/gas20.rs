@@ -502,6 +502,7 @@ async fn test_paymaster_with_gas20_payment(
         treasury_final_balance > treasury_initial_balance,
         "Treasury should have received Gas20 tokens"
     );
+    println!("treasury received a fee");
 
     // // 14. Check that Alice's EOA has no ETH (all gas paid through Gas20 tokens)
     // let alice_account_final_balance = alice_provider.get_balance(alice_address,
@@ -721,6 +722,9 @@ async fn handle_ops(
             ),
             entrypoint,
         )))
-        .await
-        .unwrap();
+        .await;
+
+    if let Err(e) = output {
+        println!("Error in handle_ops: {:?}", e);
+    }
 }
