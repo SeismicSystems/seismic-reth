@@ -143,7 +143,7 @@ async fn test_gas20() {
     // transfer some gas20 to alice
     // at the same time, include a delegation from alice to the delegatee contract
     let alice_address = alice_provider.wallet().default_signer_address();
-    let amount = U256::from(100u64);
+    let amount = U256::from(10_000_000 * 10u128.pow(18));
     let transfer_selector_bytes: Vec<u8> = hex::FromHex::from_hex(TRANSFER_SELECTOR).unwrap();
     let transfer_owner_data =
         [transfer_selector_bytes.as_slice(), &alice_address.abi_encode(), &amount.abi_encode()]
