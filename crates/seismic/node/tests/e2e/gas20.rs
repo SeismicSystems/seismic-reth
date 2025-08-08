@@ -186,7 +186,7 @@ async fn test_gas20() {
     let nonce = delegatee_get_nonce(&alice_provider).await;
     println!("Alice's nonce: {}", nonce);
 
-    // transfer some eth to the paymaster
+    // fund the paymaster with eth in the entrypoint
     let amount = U256::from(10_000_000_000_000_000_000_u64);
     let paymaster_deposit_data = IPaymaster::depositCall {}.abi_encode();
     let mut fund_paymaster_tx = SeismicTransactionRequest::default();
@@ -194,7 +194,7 @@ async fn test_gas20() {
         TransactionBuilder::<SeismicReth>::with_to(fund_paymaster_tx, paymaster_contract_addr);
     fund_paymaster_tx = TransactionBuilder::<SeismicReth>::with_input(
         fund_paymaster_tx,
-        Bytes::from(paymaster_deposit_data),
+        paymaster_deposit_data,
     );
     fund_paymaster_tx = TransactionBuilder::<SeismicReth>::with_value(fund_paymaster_tx, amount);
     let fund_paymaster_pending_transaction: PendingTransactionBuilder<SeismicReth> =
@@ -212,6 +212,24 @@ async fn test_gas20() {
         "failed to fund paymaster"
     );
     println!("paymaster funded successfully");
+
+    let check_paymaster_balance_data = IEntryPoint::getDepositInfoCall {
+        0: paymaster_contract_addr,
+    }
+    .abi_encode();
+    let check_paymaster_balance_tx = SeismicTransactionRequest::default();
+    let check_paymaster_balance_req = TransactionBuilder::<SeismicReth>::with_to(
+        check_paymaster_balance_tx,
+        entrypoint_contract_addr,
+    );
+    let check_paymaster_balance_req = TransactionBuilder::<SeismicReth>::with_input(
+        check_paymaster_balance_req,
+        Bytes::from(check_paymaster_balance_data),
+    );
+    let balance = deploy_provider.seismic_call(SendableTx::Builder(check_paymaster_balance_req)).await.unwrap();
+    println!("balance: {:?}", balance);
+    let balance: U256 = B256::from_slice(&balance).into();
+    assert_eq!(balance, U256::from(10_000_000_000_000_000_000_u64));
 
     // Now test the Gas20 payment functionality similar to the forge test
     let seismic_treasury_addr = address!("0x5123000000000000000000000000000000000000");
@@ -408,8 +426,7 @@ async fn test_paymaster_with_gas20_payment(
     // 4. Pack gas parameters
     let account_gas_limits = pack_gas_limits(verification_gas_limit, gas_limit);
     // let account_gas_limits = B256::from_slice(&account_gas_limits.as_slice());
-    let account_gas_limits = B256::from_hex("0x0000000000000000000000000000c350000000000000000000000000000186a0").unwrap();
-    let account_gas_limits = B256::from_hex("0x0000000000000000000000000000c350000000000000000000000000000186a0").unwrap();
+    // let account_gas_limits = B256::from_hex("0x0000000000000000000000000111c350000000000000000000000000000186a0").unwrap();
 
     let gas_fees = pack_gas_fees(max_priority_fee_per_gas, max_fee_per_gas);
     
@@ -424,7 +441,7 @@ async fn test_paymaster_with_gas20_payment(
     // 6. Pack paymaster data
     let paymaster_and_data =
         Bytes::from(pack_paymaster_data(paymaster_contract_addr, verification_gas_limit, U256::from(50000u64)));
-    println!("Paymaster and data: {:?}", paymaster_and_data);
+    let paymaster_and_data = bytes!("0xf62849f9a0b5bf2913b396098f7c7019b51a820a0000000000000000000000000000c3520000000000000000000000000000c350");
 
     // 7. Get the current nonce first
     let current_nonce = delegatee_get_nonce(alice_provider).await;
