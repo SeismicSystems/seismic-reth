@@ -49,6 +49,7 @@ impl Wallet {
         wallets
     }
 
+    /// Returns the address of the inner signer
     pub fn get_address(&self) -> Address {
         self.inner.address()
     }

@@ -31,6 +31,7 @@ sol! {
 
     interface IEntryPoint {
         function getDepositInfo(address);
+        function getNonce(address,uint192);
         function getUserOpHash((address,uint256,bytes,bytes,bytes32,uint256,bytes32,bytes,bytes));
         function handleOps((address,uint256,bytes,bytes,bytes32,uint256,bytes32,bytes,bytes)[] calldata ops, address payable beneficiary) external;
 

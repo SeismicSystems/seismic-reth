@@ -1,7 +1,7 @@
 use alloy_eips::eip7702::{Authorization, SignedAuthorization};
 use alloy_network::{NetworkWallet, ReceiptResponse, TransactionBuilder};
 use alloy_primitives::{
-    address, aliases::U192, bytes, hex, keccak256, Address, Bytes, TxKind, B256, U256,
+    address, aliases::U192, bytes, keccak256, Address, Bytes, TxKind, B256, U256,
 };
 use alloy_provider::{PendingTransactionBuilder, Provider, SendableTx, WalletProvider};
 use alloy_signer::Signer;
@@ -17,8 +17,7 @@ use tokio::sync::mpsc;
 use crate::gas20_utils::{
     delegatee_account_bytecode, entrypoint_deployed_bytecode, gas_20_deployed_bytecode,
     paymaster_deployed_bytecode, seismic_provider_from_eth_wallet, IDelegateeAccount, IEntryPoint,
-    IGas20, IPaymaster, BALANCE_OF_SELECTOR, ENTRYPOINT_GET_NONCE_SELECTOR,
-    TRANSFER_SELECTOR,
+    IGas20, IPaymaster,
 };
 
 // Define the user operation structure similar to the forge test
@@ -105,16 +104,17 @@ async fn test_gas20() {
     // at the same time, include a delegation from alice to the delegatee contract
     let alice_address = alice_provider.wallet().default_signer_address();
     let amount = U256::from(10_000_000 * 10u128.pow(18));
-    let transfer_selector_bytes: Vec<u8> = hex::FromHex::from_hex(TRANSFER_SELECTOR).unwrap();
-    let transfer_owner_data =
-        [transfer_selector_bytes.as_slice(), &alice_address.abi_encode(), &amount.abi_encode()]
-            .concat();
+    let transfer_token_data = IGas20::transferCall {
+        _0: alice_address,
+        _1: amount,
+    }
+    .abi_encode();
     let mut transfer_owner_tx = SeismicTransactionRequest::default();
     transfer_owner_tx =
         TransactionBuilder::<SeismicReth>::with_to(transfer_owner_tx, gas20_contract_addr);
     transfer_owner_tx = TransactionBuilder::<SeismicReth>::with_input(
         transfer_owner_tx,
-        Bytes::from(transfer_owner_data),
+        Bytes::from(transfer_token_data),
     );
     let signed_authorization = alice_7702_authorization(
         &alice_provider,
@@ -494,11 +494,7 @@ async fn alice_7702_authorization(
     // This should be the nonce for the EOA's 7702 contract code (not the regular Ethereum nonce)
     // Our delegatee implementation uses the entrypoint contract's nonce for its own nonce
     // So we do a call to the entrypoint contract to get the nonce
-    let nonce_selector_bytes: Vec<u8> =
-        hex::FromHex::from_hex(ENTRYPOINT_GET_NONCE_SELECTOR).unwrap();
-    let key = U192::ZERO;
-    let nonce_data =
-        [nonce_selector_bytes.as_slice(), &alice_address.abi_encode(), &key.abi_encode()].concat();
+    let nonce_data = IEntryPoint::getNonceCall { _0: alice_address, _1: U192::ZERO }.abi_encode();
     let mut tx = SeismicTransactionRequest::default();
     tx = TransactionBuilder::<SeismicReth>::with_to(tx, entrypoint_contract_addr);
     tx = TransactionBuilder::<SeismicReth>::with_input(tx, Bytes::from(nonce_data));
@@ -536,9 +532,7 @@ async fn get_gas20_balance(
     gas20_contract: Address,
     account: Address,
 ) -> U256 {
-    let balance_of_selector_bytes: Vec<u8> = hex::FromHex::from_hex(BALANCE_OF_SELECTOR).unwrap();
-    let deployer_balance_of_data =
-        [balance_of_selector_bytes.as_slice(), &account.abi_encode()].concat();
+    let deployer_balance_of_data = IGas20::balanceOfCall { 0: account }.abi_encode();
     let output = provider
         .seismic_call(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
             TransactionBuilder::<SeismicReth>::with_input(
