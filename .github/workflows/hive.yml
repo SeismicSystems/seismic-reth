@@ -28,9 +28,9 @@ jobs:
     runs-on:
       group: Reth
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Checkout hive tests
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ethereum/hive
           ref: master
@@ -153,7 +153,7 @@ jobs:
     permissions:
       issues: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -178,7 +178,7 @@ jobs:
           chmod +x /usr/local/bin/hive
 
       - name: Checkout hive tests
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ethereum/hive
           ref: master
