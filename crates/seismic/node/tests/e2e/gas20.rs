@@ -399,6 +399,7 @@ async fn test_paymaster_with_gas20_payment(
     println!("Bob submitting user operation...");
     let alice_balance_before = alice_provider.get_balance(alice_address).await.unwrap();
     let gas_before = bob_provider.get_balance(bob_address).await.unwrap();
+    println!("Bob native balance before: {}", gas_before);
 
     let user_operations = vec![user_op_with_signature];
     handle_ops(bob_provider, entrypoint_contract_addr, user_operations, bob_address).await;
