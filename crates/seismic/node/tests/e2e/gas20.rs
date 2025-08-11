@@ -1,8 +1,6 @@
 use alloy_eips::eip7702::{Authorization, SignedAuthorization};
 use alloy_network::{NetworkWallet, ReceiptResponse, TransactionBuilder};
-use alloy_primitives::{
-    address, aliases::U192, bytes, keccak256, Address, Bytes, TxKind, B256, U256,
-};
+use alloy_primitives::{address, aliases::U192, keccak256, Address, Bytes, TxKind, B256, U256};
 use alloy_provider::{PendingTransactionBuilder, Provider, SendableTx, WalletProvider};
 use alloy_signer::Signer;
 use alloy_sol_types::{SolCall, SolConstructor, SolValue};
@@ -106,11 +104,7 @@ async fn test_gas20() {
     // at the same time, include a delegation from alice to the delegatee contract
     let alice_address = alice_provider.wallet().default_signer_address();
     let amount = U256::from(10_000_000 * 10u128.pow(18));
-    let transfer_token_data = IGas20::transferCall {
-        _0: alice_address,
-        _1: amount,
-    }
-    .abi_encode();
+    let transfer_token_data = IGas20::transferCall { _0: alice_address, _1: amount }.abi_encode();
     let mut transfer_owner_tx = SeismicTransactionRequest::default();
     transfer_owner_tx =
         TransactionBuilder::<SeismicReth>::with_to(transfer_owner_tx, gas20_contract_addr);
@@ -370,18 +364,10 @@ async fn test_paymaster_with_gas20_payment(
     println!("Max cost: {}", max_cost);
 
     // 6. Pack paymaster data
-    let paymaster_and_data = Bytes::from(pack_paymaster_data(
-        paymaster_contract_addr,
-        verification_gas_limit,
-        U256::from(50000u64),
-    ));
-    println!("paymaster_and_data: {:?}", paymaster_and_data);
-    let paymaster_and_data = vec![
-        paymaster_contract_addr.abi_encode_packed(),
-        bytes!("0000000000000000000000000000c3520000000000000000000000000000c350")
-            .abi_encode_packed(),
-    ]
-    .concat();
+    let paymaster_and_data =
+        pack_paymaster_data(paymaster_contract_addr, verification_gas_limit, U256::from(50000u64));
+    let paymaster_and_data_bytes = Bytes::from(paymaster_and_data.clone());
+    println!("paymaster_and_data_bytes: {:?}", paymaster_and_data_bytes);
 
     // 7. Get the current nonce first
     let current_nonce = delegatee_get_nonce(alice_provider).await;
@@ -549,7 +535,20 @@ fn pack_paymaster_data(
     verification_gas_limit: U256,
     post_op_gas_limit: U256,
 ) -> Vec<u8> {
-    (paymaster, verification_gas_limit, post_op_gas_limit).abi_encode_packed()
+    let mut result = Vec::new();
+
+    // Add paymaster address (20 bytes)
+    result.extend_from_slice(paymaster.as_slice());
+
+    // Add verification_gas_limit (16 bytes)
+    let verification_bytes: [u8; 32] = verification_gas_limit.to_be_bytes();
+    result.extend_from_slice(&verification_bytes[16..]); // Take last 16 bytes
+
+    // Add post_op_gas_limit (16 bytes)
+    let post_op_bytes: [u8; 32] = post_op_gas_limit.to_be_bytes();
+    result.extend_from_slice(&post_op_bytes[16..]); // Take last 16 bytes
+
+    result
 }
 
 async fn get_user_op_hash(
