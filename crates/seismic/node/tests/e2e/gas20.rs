@@ -169,25 +169,6 @@ async fn test_gas20() {
     assert_eq!(fund_paymaster_receipt.status(), true, "failed to fund paymaster");
     println!("paymaster funded successfully");
 
-    // let check_paymaster_balance_data = IEntryPoint::getDepositInfoCall {
-    //     0: paymaster_contract_addr,
-    // }
-    // .abi_encode();
-    // let check_paymaster_balance_tx = SeismicTransactionRequest::default();
-    // let check_paymaster_balance_req = TransactionBuilder::<SeismicReth>::with_to(
-    //     check_paymaster_balance_tx,
-    //     entrypoint_contract_addr,
-    // );
-    // let check_paymaster_balance_req = TransactionBuilder::<SeismicReth>::with_input(
-    //     check_paymaster_balance_req,
-    //     Bytes::from(check_paymaster_balance_data),
-    // );
-    // let balance =
-    // deploy_provider.seismic_call(SendableTx::Builder(check_paymaster_balance_req)).await.
-    // unwrap(); println!("balance: {:?}", balance);
-    // let balance: U256 = B256::from_slice(&balance).into();
-    // assert_eq!(balance, U256::from(10_000_000_000_000_000_000_u64));
-
     // Now test the Gas20 payment functionality similar to the forge test
     let seismic_treasury_addr = address!("0x5123000000000000000000000000000000000000");
     test_paymaster_with_gas20_payment(
@@ -356,7 +337,6 @@ async fn test_paymaster_with_gas20_payment(
 
     println!("Alice initial Gas20 balance: {}", alice_initial_balance);
     println!("Treasury initial Gas20 balance: {}", treasury_initial_balance);
-    // println!("Bob initial ETH balance: {}", bob_initial_balance);
 
     // 2. Construct calldata for Alice's account to execute
     // This would be a call to the delegatee account's execute function
@@ -380,13 +360,7 @@ async fn test_paymaster_with_gas20_payment(
 
     // 4. Pack gas parameters
     let account_gas_limits = pack_gas_limits(verification_gas_limit, gas_limit);
-    // let account_gas_limits = B256::from_slice(&account_gas_limits.as_slice());
-    // let account_gas_limits =
-    // B256::from_hex("0x0000000000000000000000000111c350000000000000000000000000000186a0").
-    // unwrap();
-
     let gas_fees = pack_gas_fees(max_priority_fee_per_gas, max_fee_per_gas);
-
     println!("account_gas_limits: {:?}", account_gas_limits);
     println!("gas_fees: {:?}", gas_fees);
 
@@ -446,11 +420,7 @@ async fn test_paymaster_with_gas20_payment(
     let gas_after = bob_provider.get_balance(bob_address).await.unwrap();
     let bob_gas_used = gas_before - gas_after;
 
-    // 12. Check that the operation was successful by looking for UserOperationEvent
-    // In a real implementation, you would parse the transaction receipt for events
-    println!("Checking operation results...");
-
-    // 13. Check Gas20 token balances after operation
+    // 12. Check Gas20 token balances after operation
     thread::sleep(Duration::from_secs(1));
     let alice_final_balance =
         get_gas20_balance(deploy_provider, gas20_contract_addr, alice_address).await;
@@ -470,14 +440,14 @@ async fn test_paymaster_with_gas20_payment(
     );
     println!("treasury received a fee");
 
-    // 14. Check that Alice's EOA has no ETH (all gas paid through Gas20 tokens)
+    // 13. Check that Alice's EOA has no ETH (all gas paid through Gas20 tokens)
     let alice_account_final_balance = alice_provider.get_balance(alice_address).await.unwrap();
     assert_eq!(
         alice_account_final_balance, alice_balance_before,
         "Alice's EOA should not have spent any ETH"
     );
 
-    // 15. Check that Bob is compensated for his actual gas costs
+    // 14. Check that Bob is compensated for his actual gas costs
     assert_eq!(bob_gas_used, U256::ZERO, "Bob should be compensated for his actual gas costs");
 
     println!("Gas20 payment test completed successfully!");
