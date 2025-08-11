@@ -20,6 +20,8 @@ use crate::gas20_utils::{
     IGas20, IPaymaster,
 };
 
+const SEISMIC_TREASURY_ADDR: Address = address!("0x5123000000000000000000000000000000000000");
+
 // Define the user operation structure similar to the forge test
 #[derive(Debug, Clone)]
 struct PackedUserOperation {
@@ -170,7 +172,6 @@ async fn test_gas20() {
     println!("paymaster funded successfully");
 
     // Now test the Gas20 payment functionality similar to the forge test
-    let seismic_treasury_addr = address!("0x5123000000000000000000000000000000000000");
     test_paymaster_with_gas20_payment(
         &deploy_provider,
         &alice_provider,
@@ -178,7 +179,7 @@ async fn test_gas20() {
         gas20_contract_addr,
         entrypoint_contract_addr,
         paymaster_contract_addr,
-        seismic_treasury_addr,
+        SEISMIC_TREASURY_ADDR,
     )
     .await;
 }
@@ -232,11 +233,10 @@ async fn deploy_gas_contracts(
 
     // Deploy Paymaster contract
     println!("Deploying Paymaster contract...");
-    let seismic_treasury_addr = address!("0x5123000000000000000000000000000000000000");
     let paymaster_constructor_data: Vec<u8> = vec![
         entrypoint_contract_addr.abi_encode(),
         gas20_contract_addr.abi_encode(),
-        seismic_treasury_addr.abi_encode(),
+        SEISMIC_TREASURY_ADDR.abi_encode(),
     ]
     .concat();
     let paymaster_input =
