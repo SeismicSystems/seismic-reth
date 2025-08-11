@@ -406,6 +406,8 @@ async fn test_paymaster_with_gas20_payment(
 
     let gas_after = bob_provider.get_balance(bob_address).await.unwrap();
     let bob_gas_used = gas_before - gas_after;
+    println!("Bob native balance after  : {}", gas_after);
+    println!("Bob gas used              : {}", bob_gas_used);
 
     // 12. Check Gas20 token balances after operation
     thread::sleep(Duration::from_secs(1));
@@ -414,7 +416,7 @@ async fn test_paymaster_with_gas20_payment(
     let treasury_final_balance =
         get_gas20_balance(deploy_provider, gas20_contract_addr, treasury_addr).await;
 
-    println!("Alice final Gas20 balance: {}", alice_final_balance);
+    println!("Alice final Gas20 balance : {}", alice_final_balance);
     println!("Treasury final Gas20 balance: {}", treasury_final_balance);
 
     // Alice should have paid some Gas20 tokens
