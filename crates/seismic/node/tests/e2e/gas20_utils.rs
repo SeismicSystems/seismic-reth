@@ -1,20 +1,7 @@
-use alloy_dyn_abi::EventExt;
-use alloy_json_abi::{Event, EventParam};
-use alloy_network::{ReceiptResponse, TransactionBuilder};
-use alloy_primitives::{
-    aliases::{B96, U96},
-    hex,
-    hex::FromHex,
-    Bytes, IntoLogData, TxKind, B256, U256,
-};
-use alloy_provider::{PendingTransactionBuilder, Provider, SendableTx};
-use alloy_rpc_types::{Block, Header, TransactionInput, TransactionRequest};
-use alloy_sol_types::{sol, SolCall, SolValue};
-
-use alloy_signer_local::LocalSigner;
-use k256::Secp256k1;
+use alloy_primitives::{hex, Bytes};
+use alloy_sol_types::sol;
 use reth_e2e_test_utils::wallet::Wallet;
-use seismic_alloy_network::{wallet::SeismicWallet, SeismicReth};
+use seismic_alloy_network::SeismicReth;
 use seismic_alloy_provider::SeismicSignedProvider;
 
 pub const TRANSFER_SELECTOR: &str = "a9059cbb";
@@ -28,7 +15,10 @@ pub fn seismic_provider_from_eth_wallet(
     index: usize,
 ) -> SeismicSignedProvider<SeismicReth> {
     let wallet_gen = Wallet::wallet_gen(wallet);
-    let provider = SeismicSignedProvider::new(wallet_gen[index].clone(), reqwest::Url::parse(&reth_rpc_url).unwrap());
+    let provider = SeismicSignedProvider::new(
+        wallet_gen[index].clone(),
+        reqwest::Url::parse(&reth_rpc_url).unwrap(),
+    );
     provider
 }
 
@@ -38,12 +28,12 @@ sol! {
         function transfer(address,uint256);
         function transferOwnership(address);
     }
-    
+
     interface IEntryPoint {
         function getDepositInfo(address);
         function getUserOpHash((address,uint256,bytes,bytes,bytes32,uint256,bytes32,bytes,bytes));
         function handleOps((address,uint256,bytes,bytes,bytes32,uint256,bytes32,bytes,bytes)[] calldata ops, address payable beneficiary) external;
-        
+
     }
 
     interface IPaymaster {

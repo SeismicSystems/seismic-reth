@@ -1,45 +1,24 @@
-use alloy_dyn_abi::EventExt;
 use alloy_eips::eip7702::{Authorization, SignedAuthorization};
-use alloy_json_abi::{Event, EventParam};
 use alloy_network::{NetworkWallet, ReceiptResponse, TransactionBuilder};
 use alloy_primitives::{
-    address,
-    aliases::{B96, U192, U96},
-    bytes, hex,
-    hex::FromHex,
-    keccak256, Address, Bytes, IntoLogData, TxKind, B256, U256,
+    address, aliases::U192, bytes, hex, keccak256, Address, Bytes, TxKind, B256, U256,
 };
 use alloy_provider::{PendingTransactionBuilder, Provider, SendableTx, WalletProvider};
-use alloy_rpc_types::{Block, Header, TransactionInput, TransactionRequest};
 use alloy_signer::Signer;
-use alloy_sol_types::{sol, SolCall, SolConstructor, SolType, SolValue};
-use k256::elliptic_curve::consts::U1;
+use alloy_sol_types::{SolCall, SolConstructor, SolValue};
 use reth_e2e_test_utils::wallet::Wallet;
-use reth_rpc_eth_api::EthApiClient;
-use reth_seismic_node::utils::test_utils::{
-    client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
-    get_unsigned_seismic_tx_request, SeismicRethTestCommand,
-};
-use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
-use reth_seismic_rpc::ext::EthApiOverrideClient;
-use seismic_alloy_network::{wallet::SeismicWallet, SeismicReth};
-use seismic_alloy_provider::{
-    test_utils::ContractTestContext, SeismicProviderExt, SeismicSignedProvider,
-};
-use seismic_alloy_rpc_types::{
-    SeismicCallRequest, SeismicTransactionReceipt, SeismicTransactionRequest, SimBlock,
-    SimulatePayload,
-};
-use seismic_enclave::aes_decrypt;
+use reth_seismic_node::utils::test_utils::SeismicRethTestCommand;
+use seismic_alloy_network::SeismicReth;
+use seismic_alloy_provider::{SeismicProviderExt, SeismicSignedProvider};
+use seismic_alloy_rpc_types::SeismicTransactionRequest;
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
-use alloy_primitives::U128;
 
 use crate::gas20_utils::{
     delegatee_account_bytecode, entrypoint_deployed_bytecode, gas_20_deployed_bytecode,
     paymaster_deployed_bytecode, seismic_provider_from_eth_wallet, IDelegateeAccount, IEntryPoint,
-    BALANCE_OF_SELECTOR, ENTRYPOINT_GET_NONCE_SELECTOR, ENTRYPOINT_GET_USER_OP_HASH_SELECTOR,
-    TRANSFER_SELECTOR, IPaymaster, IGas20,
+    IGas20, IPaymaster, BALANCE_OF_SELECTOR, ENTRYPOINT_GET_NONCE_SELECTOR,
+    TRANSFER_SELECTOR,
 };
 
 // Define the user operation structure similar to the forge test
@@ -54,24 +33,6 @@ struct PackedUserOperation {
     gas_fees: B256,
     paymaster_and_data: Bytes,
     signature: Bytes,
-}
-
-impl PackedUserOperation {
-    fn abi_encode(&self) -> Bytes {
-        let encoded = (
-            self.sender,
-            self.nonce,
-            self.init_code.clone(),
-            self.call_data.clone(),
-            self.account_gas_limits,
-            self.pre_verification_gas,
-            self.gas_fees,
-            self.paymaster_and_data.clone(),
-            self.signature.clone(),
-        )
-            .abi_encode();
-        Bytes::from(encoded)
-    }
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -193,10 +154,8 @@ async fn test_gas20() {
     let mut fund_paymaster_tx = SeismicTransactionRequest::default();
     fund_paymaster_tx =
         TransactionBuilder::<SeismicReth>::with_to(fund_paymaster_tx, paymaster_contract_addr);
-    fund_paymaster_tx = TransactionBuilder::<SeismicReth>::with_input(
-        fund_paymaster_tx,
-        paymaster_deposit_data,
-    );
+    fund_paymaster_tx =
+        TransactionBuilder::<SeismicReth>::with_input(fund_paymaster_tx, paymaster_deposit_data);
     fund_paymaster_tx = TransactionBuilder::<SeismicReth>::with_value(fund_paymaster_tx, amount);
     let fund_paymaster_pending_transaction: PendingTransactionBuilder<SeismicReth> =
         deploy_provider.send_transaction(fund_paymaster_tx).await.unwrap();
@@ -207,11 +166,7 @@ async fn test_gas20() {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(
-        fund_paymaster_receipt.status(),
-        true,
-        "failed to fund paymaster"
-    );
+    assert_eq!(fund_paymaster_receipt.status(), true, "failed to fund paymaster");
     println!("paymaster funded successfully");
 
     // let check_paymaster_balance_data = IEntryPoint::getDepositInfoCall {
@@ -227,8 +182,9 @@ async fn test_gas20() {
     //     check_paymaster_balance_req,
     //     Bytes::from(check_paymaster_balance_data),
     // );
-    // let balance = deploy_provider.seismic_call(SendableTx::Builder(check_paymaster_balance_req)).await.unwrap();
-    // println!("balance: {:?}", balance);
+    // let balance =
+    // deploy_provider.seismic_call(SendableTx::Builder(check_paymaster_balance_req)).await.
+    // unwrap(); println!("balance: {:?}", balance);
     // let balance: U256 = B256::from_slice(&balance).into();
     // assert_eq!(balance, U256::from(10_000_000_000_000_000_000_u64));
 
@@ -241,7 +197,6 @@ async fn test_gas20() {
         gas20_contract_addr,
         entrypoint_contract_addr,
         paymaster_contract_addr,
-        delegatee_contract_addr,
         seismic_treasury_addr,
     )
     .await;
@@ -388,7 +343,6 @@ async fn test_paymaster_with_gas20_payment(
     gas20_contract_addr: Address,
     entrypoint_contract_addr: Address,
     paymaster_contract_addr: Address,
-    delegatee_contract_addr: Address,
     treasury_addr: Address,
 ) {
     let alice_address = alice_provider.wallet().default_signer_address();
@@ -427,10 +381,12 @@ async fn test_paymaster_with_gas20_payment(
     // 4. Pack gas parameters
     let account_gas_limits = pack_gas_limits(verification_gas_limit, gas_limit);
     // let account_gas_limits = B256::from_slice(&account_gas_limits.as_slice());
-    // let account_gas_limits = B256::from_hex("0x0000000000000000000000000111c350000000000000000000000000000186a0").unwrap();
+    // let account_gas_limits =
+    // B256::from_hex("0x0000000000000000000000000111c350000000000000000000000000000186a0").
+    // unwrap();
 
     let gas_fees = pack_gas_fees(max_priority_fee_per_gas, max_fee_per_gas);
-    
+
     println!("account_gas_limits: {:?}", account_gas_limits);
     println!("gas_fees: {:?}", gas_fees);
 
@@ -440,10 +396,18 @@ async fn test_paymaster_with_gas20_payment(
     println!("Max cost: {}", max_cost);
 
     // 6. Pack paymaster data
-    let paymaster_and_data =
-        Bytes::from(pack_paymaster_data(paymaster_contract_addr, verification_gas_limit, U256::from(50000u64)));
+    let paymaster_and_data = Bytes::from(pack_paymaster_data(
+        paymaster_contract_addr,
+        verification_gas_limit,
+        U256::from(50000u64),
+    ));
     println!("paymaster_and_data: {:?}", paymaster_and_data);
-    let paymaster_and_data = vec![paymaster_contract_addr.abi_encode_packed(), bytes!("0000000000000000000000000000c3520000000000000000000000000000c350").abi_encode_packed()].concat();
+    let paymaster_and_data = vec![
+        paymaster_contract_addr.abi_encode_packed(),
+        bytes!("0000000000000000000000000000c3520000000000000000000000000000c350")
+            .abi_encode_packed(),
+    ]
+    .concat();
 
     // 7. Get the current nonce first
     let current_nonce = delegatee_get_nonce(alice_provider).await;
@@ -507,10 +471,9 @@ async fn test_paymaster_with_gas20_payment(
     println!("treasury received a fee");
 
     // 14. Check that Alice's EOA has no ETH (all gas paid through Gas20 tokens)
-    let alice_account_final_balance = alice_provider.get_balance(alice_address).await.unwrap(); 
+    let alice_account_final_balance = alice_provider.get_balance(alice_address).await.unwrap();
     assert_eq!(
-        alice_account_final_balance,
-        alice_balance_before,
+        alice_account_final_balance, alice_balance_before,
         "Alice's EOA should not have spent any ETH"
     );
 
@@ -642,10 +605,7 @@ async fn get_user_op_hash(
         user_op.paymaster_and_data.clone(),
         user_op.signature.clone(),
     );
-    let user_op_hash_data = IEntryPoint::getUserOpHashCall {
-        0: user_op_tuple,
-    }
-    .abi_encode();
+    let user_op_hash_data = IEntryPoint::getUserOpHashCall { 0: user_op_tuple }.abi_encode();
 
     let output = provider
         .seismic_call(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
