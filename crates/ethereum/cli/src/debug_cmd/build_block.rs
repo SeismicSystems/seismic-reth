@@ -189,7 +189,7 @@ impl<C: ChainSpecParser<ChainSpec = ChainSpec>> Command<C> {
             // Set empty withdrawals vector if Shanghai is active, None otherwise
             withdrawals: provider_factory
                 .chain_spec()
-                .is_shanghai_active_at_timestamp(self.timestamp)
+                .is_shanghai_active_at_timestamp(self.timestamp / 1000)
                 .then(Vec::new),
         };
         let payload_config = PayloadConfig::new(

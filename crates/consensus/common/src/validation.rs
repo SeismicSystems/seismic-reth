@@ -159,11 +159,11 @@ where
     }
 
     // EIP-4895: Beacon chain push withdrawals as operations
-    if chain_spec.is_shanghai_active_at_timestamp(block.timestamp()) {
+    if chain_spec.is_shanghai_active_at_timestamp(block.timestamp_seconds()) {
         validate_shanghai_withdrawals(block)?;
     }
 
-    if chain_spec.is_cancun_active_at_timestamp(block.timestamp()) {
+    if chain_spec.is_cancun_active_at_timestamp(block.timestamp_seconds()) {
         validate_cancun_gas(block)?;
     }
 
@@ -283,7 +283,7 @@ pub fn validate_against_parent_eip1559_base_fee<
                 parent.gas_used(),
                 parent.gas_limit(),
                 base_fee,
-                chain_spec.base_fee_params_at_timestamp(header.timestamp()),
+                chain_spec.base_fee_params_at_timestamp(header.timestamp_seconds()),
             )
         };
         if expected_base_fee != base_fee {

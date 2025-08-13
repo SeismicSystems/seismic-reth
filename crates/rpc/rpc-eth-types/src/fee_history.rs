@@ -85,7 +85,7 @@ impl FeeHistoryCache {
         for (block, receipts) in blocks {
             let mut fee_history_entry = FeeHistoryEntry::new(
                 block,
-                chain_spec.blob_params_at_timestamp(block.header().timestamp()),
+                chain_spec.blob_params_at_timestamp(block.timestamp_seconds()),
             );
             fee_history_entry.rewards = calculate_reward_percentiles_for_block(
                 &percentiles,
@@ -359,7 +359,7 @@ pub struct FeeHistoryEntry {
     pub header_hash: B256,
     /// Approximated rewards for the configured percentiles.
     pub rewards: Vec<u128>,
-    /// The timestamp of the block.
+    /// The timestamp of the block in seconds
     pub timestamp: u64,
     /// Blob parameters for this block.
     pub blob_params: Option<BlobParams>,
@@ -389,7 +389,8 @@ impl FeeHistoryEntry {
             header_hash: block.hash(),
             gas_limit: block.header().gas_limit(),
             rewards: Vec::new(),
-            timestamp: block.header().timestamp(),
+            // modified to use timestamp seconds here instead of ms
+            timestamp: block.timestamp_seconds(),
             blob_params,
         }
     }

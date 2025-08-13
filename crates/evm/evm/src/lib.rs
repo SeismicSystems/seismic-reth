@@ -294,8 +294,10 @@ pub trait ConfigureEvm: Clone + Debug + Send + Sync + Unpin {
 /// [`ConfigureEvm::next_evm_env`] and contains fields that can't be derived from the
 /// parent header alone (attributes that are determined by the CL.)
 #[derive(Debug, Clone, PartialEq, Eq)]
+
+// this is created in crates/payload/basic/src/lib.rs - timestamp should be in milliseconds 
 pub struct NextBlockEnvAttributes {
-    /// The timestamp of the next block.
+    /// The timestamp of the next block, in milliseconds.
     pub timestamp: u64,
     /// The suggested fee recipient for the next block.
     pub suggested_fee_recipient: Address,
@@ -307,6 +309,13 @@ pub struct NextBlockEnvAttributes {
     pub parent_beacon_block_root: Option<B256>,
     /// Withdrawals
     pub withdrawals: Option<Withdrawals>,
+}
+
+impl NextBlockEnvAttributes {
+    /// Returns the timestamp in seconds, assuming the timestamp is in milliseconds.
+    pub fn timestamp_seconds(&self) -> u64 {
+        self.timestamp / 1000
+    }
 }
 
 /// Abstraction over transaction environment.

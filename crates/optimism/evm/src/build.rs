@@ -61,15 +61,16 @@ where
         } = input;
 
         let timestamp = evm_env.block_env.timestamp;
+        let timestamp_seconds = timestamp / 1000;
 
         let transactions_root = proofs::calculate_transaction_root(&transactions);
         let receipts_root =
-            calculate_receipt_root_no_memo_optimism(receipts, &self.chain_spec, timestamp);
+            calculate_receipt_root_no_memo_optimism(receipts, &self.chain_spec, timestamp_seconds);
         let logs_bloom = logs_bloom(receipts.iter().flat_map(|r| r.logs()));
 
         let mut requests_hash = None;
 
-        let withdrawals_root = if self.chain_spec.is_isthmus_active_at_timestamp(timestamp) {
+        let withdrawals_root = if self.chain_spec.is_isthmus_active_at_timestamp(timestamp_seconds) {
             // always empty requests hash post isthmus
             requests_hash = Some(EMPTY_REQUESTS_HASH);
 
@@ -79,14 +80,14 @@ where
                 isthmus::withdrawals_root(bundle_state, state_provider)
                     .map_err(BlockExecutionError::other)?,
             )
-        } else if self.chain_spec.is_canyon_active_at_timestamp(timestamp) {
+        } else if self.chain_spec.is_canyon_active_at_timestamp(timestamp_seconds) {
             Some(EMPTY_WITHDRAWALS)
         } else {
             None
         };
 
         let (excess_blob_gas, blob_gas_used) =
-            if self.chain_spec.is_ecotone_active_at_timestamp(timestamp) {
+            if self.chain_spec.is_ecotone_active_at_timestamp(timestamp_seconds) {
                 (Some(0), Some(0))
             } else {
                 (None, None)
@@ -123,7 +124,7 @@ where
                 ommers: Default::default(),
                 withdrawals: self
                     .chain_spec
-                    .is_canyon_active_at_timestamp(timestamp)
+                    .is_canyon_active_at_timestamp(timestamp_seconds)
                     .then(Default::default),
             },
         ))

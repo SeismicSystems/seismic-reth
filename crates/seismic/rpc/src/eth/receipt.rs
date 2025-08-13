@@ -21,6 +21,7 @@ where
         + ReceiptProvider<Receipt = SeismicReceipt>
         + ChainSpecProvider<ChainSpec = ChainSpec>,
 {
+    // Modified under assumption that timestamp is in milliseconds 
     async fn build_transaction_receipt(
         &self,
         tx: SeismicTransactionSigned,
@@ -36,7 +37,9 @@ where
             .await
             .map_err(Self::Error::from_eth_err)?
             .ok_or(EthApiError::HeaderNotFound(hash.into()))?;
-        let blob_params = self.provider().chain_spec().blob_params_at_timestamp(meta.timestamp);
+
+        let timestamp_seconds: u64 = meta.timestamp / 1000;
+        let blob_params = self.provider().chain_spec().blob_params_at_timestamp(timestamp_seconds);
 
         Ok(SeismicReceiptBuilder::new(&tx, meta, &receipt, &all_receipts, blob_params)?.build())
     }

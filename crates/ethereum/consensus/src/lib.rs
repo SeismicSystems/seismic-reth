@@ -61,7 +61,7 @@ impl<ChainSpec: EthChainSpec + EthereumHardforks> EthBeaconConsensus<ChainSpec> 
         {
             parent.gas_limit() *
                 self.chain_spec
-                    .base_fee_params_at_timestamp(header.timestamp())
+                    .base_fee_params_at_timestamp(header.timestamp_seconds())
                     .elasticity_multiplier as u64
         } else {
             parent.gas_limit()
@@ -159,11 +159,11 @@ where
                     .unwrap()
                     .as_secs();
 
-                if header.timestamp() >
+                if header.timestamp_seconds() >
                     present_timestamp + alloy_eips::merge::ALLOWED_FUTURE_BLOCK_TIME_SECONDS
                 {
                     return Err(ConsensusError::TimestampIsInFuture {
-                        timestamp: header.timestamp(),
+                        timestamp: header.timestamp_seconds(),
                         present_timestamp,
                     });
                 }
@@ -174,22 +174,22 @@ where
         validate_header_base_fee(header, &self.chain_spec)?;
 
         // EIP-4895: Beacon chain push withdrawals as operations
-        if self.chain_spec.is_shanghai_active_at_timestamp(header.timestamp()) &&
+        if self.chain_spec.is_shanghai_active_at_timestamp(header.timestamp_seconds()) &&
             header.withdrawals_root().is_none()
         {
             return Err(ConsensusError::WithdrawalsRootMissing)
-        } else if !self.chain_spec.is_shanghai_active_at_timestamp(header.timestamp()) &&
+        } else if !self.chain_spec.is_shanghai_active_at_timestamp(header.timestamp_seconds()) &&
             header.withdrawals_root().is_some()
         {
             return Err(ConsensusError::WithdrawalsRootUnexpected)
         }
 
         // Ensures that EIP-4844 fields are valid once cancun is active.
-        if self.chain_spec.is_cancun_active_at_timestamp(header.timestamp()) {
+        if self.chain_spec.is_cancun_active_at_timestamp(header.timestamp_seconds()) {
             validate_4844_header_standalone(
                 header,
                 self.chain_spec
-                    .blob_params_at_timestamp(header.timestamp())
+                    .blob_params_at_timestamp(header.timestamp_seconds())
                     .unwrap_or_else(BlobParams::cancun),
             )?;
         } else if header.blob_gas_used().is_some() {
@@ -200,7 +200,7 @@ where
             return Err(ConsensusError::ParentBeaconBlockRootUnexpected)
         }
 
-        if self.chain_spec.is_prague_active_at_timestamp(header.timestamp()) {
+        if self.chain_spec.is_prague_active_at_timestamp(header.timestamp_seconds()) {
             if header.requests_hash().is_none() {
                 return Err(ConsensusError::RequestsHashMissing)
             }
@@ -229,9 +229,9 @@ where
             parent.header(),
             &self.chain_spec,
         )?;
-
+        
         // ensure that the blob gas fields for this block
-        if let Some(blob_params) = self.chain_spec.blob_params_at_timestamp(header.timestamp()) {
+        if let Some(blob_params) = self.chain_spec.blob_params_at_timestamp(header.timestamp_seconds()) {
             validate_against_parent_4844(header.header(), parent.header(), blob_params)?;
         }
 

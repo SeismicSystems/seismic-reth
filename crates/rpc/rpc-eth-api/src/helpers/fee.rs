@@ -175,7 +175,7 @@ pub trait EthFees: LoadFee {
 
                     let blob_params = self.provider()
                         .chain_spec()
-                        .blob_params_at_timestamp(header.timestamp())
+                        .blob_params_at_timestamp(header.timestamp_seconds())
                         .unwrap_or_else(BlobParams::cancun);
 
                     base_fee_per_blob_gas.push(header.blob_fee(blob_params).unwrap_or_default());
@@ -214,7 +214,7 @@ pub trait EthFees: LoadFee {
                     last_header.next_block_base_fee(
                     self.provider()
                         .chain_spec()
-                        .base_fee_params_at_timestamp(last_header.timestamp())).unwrap_or_default() as u128
+                        .base_fee_params_at_timestamp(last_header.timestamp_seconds())).unwrap_or_default() as u128
                 );
 
                 // Same goes for the `base_fee_per_blob_gas`:
@@ -222,7 +222,7 @@ pub trait EthFees: LoadFee {
                 base_fee_per_blob_gas.push(
                     last_header
                     .maybe_next_block_blob_fee(
-                        self.provider().chain_spec().blob_params_at_timestamp(last_header.timestamp())
+                        self.provider().chain_spec().blob_params_at_timestamp(last_header.timestamp_seconds())
                     ).unwrap_or_default()
                 );
             };
@@ -351,7 +351,7 @@ pub trait LoadFee: LoadBlock {
                 .await?
                 .and_then(|h| {
                     h.maybe_next_block_blob_fee(
-                        self.provider().chain_spec().blob_params_at_timestamp(h.timestamp()),
+                        self.provider().chain_spec().blob_params_at_timestamp(h.timestamp_seconds()),
                     )
                 })
                 .ok_or(EthApiError::ExcessBlobGasNotSet.into())

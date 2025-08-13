@@ -83,7 +83,7 @@ pub struct LocalMiner<T: PayloadTypes, B> {
     mode: MiningMode,
     /// The payload builder for the engine
     payload_builder: PayloadBuilderHandle<T>,
-    /// Timestamp for the next block.
+    /// Timestamp for the next block, in milliseconds.
     last_timestamp: u64,
     /// Stores latest mined blocks.
     last_block_hashes: Vec<B256>,
@@ -102,6 +102,8 @@ where
         mode: MiningMode,
         payload_builder: PayloadBuilderHandle<T>,
     ) {
+
+        // header block timestamp should be in milliseconds here
         let latest_header =
             provider.sealed_header(provider.best_block_number().unwrap()).unwrap().unwrap();
 
@@ -180,8 +182,9 @@ where
             std::time::SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("cannot be earlier than UNIX_EPOCH")
-                .as_secs(),
+                .as_millis() as u64,
         );
+
 
         let (tx, rx) = oneshot::channel();
         self.to_engine.send(BeaconEngineMessage::ForkchoiceUpdated {

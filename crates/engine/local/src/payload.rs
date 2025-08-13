@@ -26,18 +26,24 @@ impl<ChainSpec> PayloadAttributesBuilder<EthPayloadAttributes>
 where
     ChainSpec: Send + Sync + EthereumHardforks + 'static,
 {
+    // timestamp is in milliseconds when passed into here,  will store it as milliseconds in payload attributes (similar to payload attributes emitted from consensus layer)
+    // use timestamp in seconds for is_shanghai_active_at_timestamp and is_cancun_active_at_timestamp
+
     fn build(&self, timestamp: u64) -> EthPayloadAttributes {
+
+        let timestamp_seconds: u64 = timestamp / 1000;
+
         EthPayloadAttributes {
-            timestamp,
+            timestamp: timestamp,
             prev_randao: B256::random(),
             suggested_fee_recipient: Address::random(),
             withdrawals: self
                 .chain_spec
-                .is_shanghai_active_at_timestamp(timestamp)
+                .is_shanghai_active_at_timestamp(timestamp_seconds)
                 .then(Default::default),
             parent_beacon_block_root: self
                 .chain_spec
-                .is_cancun_active_at_timestamp(timestamp)
+                .is_cancun_active_at_timestamp(timestamp_seconds)
                 .then(B256::random),
         }
     }

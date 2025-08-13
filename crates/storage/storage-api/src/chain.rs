@@ -168,7 +168,7 @@ where
         for (header, transactions) in inputs {
             // If we are past shanghai, then all blocks should have a withdrawal list,
             // even if empty
-            let withdrawals = if chain_spec.is_shanghai_active_at_timestamp(header.timestamp()) {
+            let withdrawals = if chain_spec.is_shanghai_active_at_timestamp(header.timestamp_seconds()) {
                 withdrawals_cursor
                     .seek_exact(header.number())?
                     .map(|(_, w)| w.withdrawals)

@@ -17,6 +17,8 @@ where
     >,
     Provider: BlockReader + ChainSpecProvider,
 {
+
+    // modified to assume timestamps are in ms
     async fn build_transaction_receipt(
         &self,
         tx: TransactionSigned,
@@ -31,7 +33,7 @@ where
             .await
             .map_err(Self::Error::from_eth_err)?
             .ok_or(EthApiError::HeaderNotFound(hash.into()))?;
-        let blob_params = self.provider().chain_spec().blob_params_at_timestamp(meta.timestamp);
+        let blob_params = self.provider().chain_spec().blob_params_at_timestamp(meta.timestamp / 1000);
 
         Ok(EthReceiptBuilder::new(&tx, meta, &receipt, &all_receipts, blob_params)?.build())
     }

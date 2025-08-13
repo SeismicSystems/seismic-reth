@@ -194,6 +194,11 @@ impl<B: Block> SealedBlock<B> {
         BlockWithParent { parent: self.parent_hash(), block: self.num_hash() }
     }
 
+    /// Returns the timestamp in seconds, assuming the timestamp is in milliseconds.
+    pub fn timestamp_seconds(&self) -> u64 {
+        self.timestamp() / 1000
+    }
+
     /// Returns the Sealed header.
     pub const fn sealed_header(&self) -> &SealedHeader<B::Header> {
         &self.header

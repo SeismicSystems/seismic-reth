@@ -64,7 +64,9 @@ where
         parent: &SealedHeader<ProviderHeader<Self::Provider>>,
     ) -> Result<<Self::Evm as reth_evm::ConfigureEvm>::NextBlockEnvCtx, Self::Error> {
         Ok(NextBlockEnvAttributes {
-            timestamp: parent.timestamp().saturating_add(12),
+            // timestamp: parent.timestamp().saturating_add(12),
+            // timestamp is in milliseconds, add 12 seconds but keep as milliseconds
+            timestamp: parent.timestamp().saturating_add(12000),
             suggested_fee_recipient: parent.beneficiary(),
             prev_randao: B256::random(),
             gas_limit: parent.gas_limit(),

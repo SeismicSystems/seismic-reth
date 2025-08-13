@@ -170,12 +170,12 @@ where
         // cancun now, we need to set the excess blob gas to the default value(0)
         let blob_excess_gas_and_price = parent
             .maybe_next_block_excess_blob_gas(
-                self.chain_spec().blob_params_at_timestamp(attributes.timestamp),
+                self.chain_spec().blob_params_at_timestamp(attributes.timestamp_seconds()),
             )
             .map(|gas| BlobExcessGasAndPrice::new(gas, spec_id >= SeismicSpecId::MERCURY));
 
         let mut basefee = parent.next_block_base_fee(
-            self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp),
+            self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp_seconds()),
         );
 
         let mut gas_limit = attributes.gas_limit;
@@ -186,7 +186,7 @@ where
         {
             let elasticity_multiplier = self
                 .chain_spec()
-                .base_fee_params_at_timestamp(attributes.timestamp)
+                .base_fee_params_at_timestamp(attributes.timestamp_seconds())
                 .elasticity_multiplier;
 
             // multiply the gas limit by the elasticity multiplier

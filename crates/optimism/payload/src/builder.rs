@@ -379,7 +379,7 @@ impl<Txs> OpBuilder<'_, Txs> {
         ctx.execute_sequencer_transactions(&mut builder)?;
         builder.into_executor().apply_post_execution_changes()?;
 
-        if ctx.chain_spec.is_isthmus_active_at_timestamp(ctx.attributes().timestamp()) {
+        if ctx.chain_spec.is_isthmus_active_at_timestamp(ctx.attributes().timestamp_seconds()) {
             // force load `L2ToL1MessagePasser.sol` so l2 withdrawals root can be computed even if
             // no l2 withdrawals in block
             _ = db.load_cache_account(ADDRESS_L2_TO_L1_MESSAGE_PASSER)?;
@@ -516,7 +516,7 @@ where
             self.attributes()
                 .get_holocene_extra_data(
                     self.chain_spec.base_fee_params_at_timestamp(
-                        self.attributes().payload_attributes.timestamp,
+                        self.attributes().payload_attributes.timestamp_seconds(),
                     ),
                 )
                 .map_err(PayloadBuilderError::other)
@@ -540,7 +540,7 @@ where
 
     /// Returns true if holocene is active for the payload.
     pub fn is_holocene_active(&self) -> bool {
-        self.chain_spec.is_holocene_active_at_timestamp(self.attributes().timestamp())
+        self.chain_spec.is_holocene_active_at_timestamp(self.attributes().timestamp_seconds())
     }
 
     /// Returns true if the fees are higher than the previous payload.

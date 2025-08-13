@@ -66,7 +66,7 @@ where
         parent: &SealedHeader<ProviderHeader<Self::Provider>>,
     ) -> Result<<Self::Evm as reth_evm::ConfigureEvm>::NextBlockEnvCtx, Self::Error> {
         Ok(OpNextBlockEnvAttributes {
-            timestamp: parent.timestamp().saturating_add(12),
+            timestamp: parent.timestamp().saturating_add(12000),
             suggested_fee_recipient: parent.beneficiary(),
             prev_randao: B256::random(),
             gas_limit: parent.gas_limit(),

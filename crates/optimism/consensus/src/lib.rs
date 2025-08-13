@@ -101,7 +101,7 @@ impl<ChainSpec: EthChainSpec + OpHardforks, B: Block> Consensus<B>
         }
 
         // Check empty shanghai-withdrawals
-        if self.chain_spec.is_canyon_active_at_timestamp(block.timestamp()) {
+        if self.chain_spec.is_canyon_active_at_timestamp(block.timestamp_seconds()) {
             canyon::ensure_empty_shanghai_withdrawals(block.body()).map_err(|err| {
                 ConsensusError::Other(format!("failed to verify block {}: {err}", block.number()))
             })?
@@ -109,12 +109,12 @@ impl<ChainSpec: EthChainSpec + OpHardforks, B: Block> Consensus<B>
             return Ok(())
         }
 
-        if self.chain_spec.is_ecotone_active_at_timestamp(block.timestamp()) {
+        if self.chain_spec.is_ecotone_active_at_timestamp(block.timestamp_seconds()) {
             validate_cancun_gas(block)?;
         }
 
         // Check withdrawals root field in header
-        if self.chain_spec.is_isthmus_active_at_timestamp(block.timestamp()) {
+        if self.chain_spec.is_isthmus_active_at_timestamp(block.timestamp_seconds()) {
             // storage root of withdrawals pre-deploy is verified post-execution
             isthmus::ensure_withdrawals_storage_root_is_some(block.header()).map_err(|err| {
                 ConsensusError::Other(format!("failed to verify block {}: {err}", block.number()))
@@ -176,11 +176,11 @@ impl<ChainSpec: EthChainSpec + OpHardforks, H: BlockHeader> HeaderValidator<H>
         // <https://github.com/ethereum-optimism/specs/blob/main/specs/protocol/holocene/exec-engine.md#base-fee-computation>
         // > if Holocene is active in parent_header.timestamp, then the parameters from
         // > parent_header.extraData are used.
-        if self.chain_spec.is_holocene_active_at_timestamp(parent.timestamp()) {
+        if self.chain_spec.is_holocene_active_at_timestamp(parent.timestamp_seconds()) {
             let header_base_fee =
                 header.base_fee_per_gas().ok_or(ConsensusError::BaseFeeMissing)?;
             let expected_base_fee =
-                decode_holocene_base_fee(&self.chain_spec, parent.header(), header.timestamp())
+                decode_holocene_base_fee(&self.chain_spec, parent.header(), header.timestamp_seconds())
                     .map_err(|_| ConsensusError::BaseFeeMissing)?;
             if expected_base_fee != header_base_fee {
                 return Err(ConsensusError::BaseFeeDiff(GotExpected {
@@ -197,7 +197,7 @@ impl<ChainSpec: EthChainSpec + OpHardforks, H: BlockHeader> HeaderValidator<H>
         }
 
         // ensure that the blob gas fields for this block
-        if let Some(blob_params) = self.chain_spec.blob_params_at_timestamp(header.timestamp()) {
+        if let Some(blob_params) = self.chain_spec.blob_params_at_timestamp(header.timestamp_seconds()) {
             validate_against_parent_4844(header.header(), parent.header(), blob_params)?;
         }
 

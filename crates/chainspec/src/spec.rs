@@ -41,11 +41,12 @@ pub fn make_genesis_header(genesis: &Genesis, hardforks: &ChainHardforks) -> Hea
         .active_at_block(0)
         .then(|| genesis.base_fee_per_gas.map(|fee| fee as u64).unwrap_or(INITIAL_BASE_FEE));
 
+    let genesis_timestamp_seconds = genesis.timestamp / 1000;
     // If shanghai is activated, initialize the header with an empty withdrawals hash, and
     // empty withdrawals list.
     let withdrawals_root = hardforks
         .fork(EthereumHardfork::Shanghai)
-        .active_at_timestamp(genesis.timestamp)
+        .active_at_timestamp(genesis_timestamp_seconds)
         .then_some(EMPTY_WITHDRAWALS);
 
     // If Cancun is activated at genesis, we set:
@@ -53,7 +54,7 @@ pub fn make_genesis_header(genesis: &Genesis, hardforks: &ChainHardforks) -> Hea
     // * blob gas used to provided genesis or 0x0
     // * excess blob gas to provided genesis or 0x0
     let (parent_beacon_block_root, blob_gas_used, excess_blob_gas) =
-        if hardforks.fork(EthereumHardfork::Cancun).active_at_timestamp(genesis.timestamp) {
+        if hardforks.fork(EthereumHardfork::Cancun).active_at_timestamp(genesis_timestamp_seconds) {
             let blob_gas_used = genesis.blob_gas_used.unwrap_or(0);
             let excess_blob_gas = genesis.excess_blob_gas.unwrap_or(0);
             (Some(B256::ZERO), Some(blob_gas_used), Some(excess_blob_gas))
@@ -64,7 +65,7 @@ pub fn make_genesis_header(genesis: &Genesis, hardforks: &ChainHardforks) -> Hea
     // If Prague is activated at genesis we set requests root to an empty trie root.
     let requests_hash = hardforks
         .fork(EthereumHardfork::Prague)
-        .active_at_timestamp(genesis.timestamp)
+        .active_at_timestamp(genesis_timestamp_seconds)
         .then_some(EMPTY_REQUESTS_HASH);
 
     Header {
@@ -485,7 +486,7 @@ impl ChainSpec {
             })
         });
 
-        ForkFilter::new(head, self.genesis_hash(), self.genesis_timestamp(), forks)
+        ForkFilter::new(head, self.genesis_hash(), self.genesis_timestamp() / 1000, forks)
     }
 
     /// Compute the [`ForkId`] for the given [`Head`] following eip-6122 spec.
@@ -528,9 +529,12 @@ impl ChainSpec {
         // this filter ensures that no block-based forks are returned
         for timestamp in self.hardforks.forks_iter().filter_map(|(_, cond)| {
             // ensure we only get timestamp forks activated __after__ the genesis block
-            cond.as_timestamp().filter(|time| time > &self.genesis.timestamp)
+            let genesis_timestamp_seconds = self.genesis.timestamp / 1000;
+            cond.as_timestamp().filter(|time| time > &genesis_timestamp_seconds)
         }) {
-            if head.timestamp >= timestamp {
+
+            // modified to assume timestamps are in ms
+            if head.timestamp / 1000 >= timestamp {
                 // skip duplicated hardfork activated at the same timestamp
                 if timestamp != current_applied {
                     forkhash += timestamp;
@@ -555,7 +559,8 @@ impl ChainSpec {
                 // to satisfy every timestamp ForkCondition, we find the last ForkCondition::Block
                 // if one exists, and include its block_num in the returned Head
                 Head {
-                    timestamp,
+                    // go from seconds to ms in head
+                    timestamp: timestamp * 1000,
                     number: self.last_block_fork_before_merge_or_timestamp().unwrap_or_default(),
                     ..Default::default()
                 }

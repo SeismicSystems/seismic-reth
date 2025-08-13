@@ -147,7 +147,7 @@ where
             *self.block_info.l1_block_info.write() = cost_addition;
         }
 
-        if self.chain_spec().is_interop_active_at_timestamp(header.timestamp()) {
+        if self.chain_spec().is_interop_active_at_timestamp(header.timestamp_seconds()) {
             self.fork_tracker.interop.store(true, Ordering::Relaxed);
         }
     }

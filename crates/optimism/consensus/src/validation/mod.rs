@@ -52,7 +52,7 @@ where
         (Some(header_withdrawals_root), Some(withdrawals_root)) => {
             // after isthmus, the withdrawals root field is repurposed and no longer mirrors the
             // withdrawals root computed from the body
-            if chain_spec.is_isthmus_active_at_timestamp(header.timestamp()) {
+            if chain_spec.is_isthmus_active_at_timestamp(header.timestamp_seconds()) {
                 // After isthmus we only ensure that the body has empty withdrawals
                 if withdrawals_root != EMPTY_ROOT_HASH {
                     return Err(ConsensusError::BodyWithdrawalsRootDiff(
@@ -97,7 +97,7 @@ pub fn validate_block_post_execution<R: DepositReceipt>(
             header.logs_bloom(),
             receipts,
             chain_spec,
-            header.timestamp(),
+            header.timestamp_seconds(),
         ) {
             tracing::debug!(%error, ?receipts, "receipts verification failed");
             return Err(error)
@@ -171,6 +171,8 @@ fn compare_receipts_root_and_logs_bloom(
 /// Caution: Caller must ensure that holocene is active in the parent header.
 ///
 /// See also [Base fee computation](https://github.com/ethereum-optimism/specs/blob/main/specs/protocol/holocene/exec-engine.md#base-fee-computation)
+/// 
+/// timestamp needs to be in seconds here ? 
 pub fn decode_holocene_base_fee(
     chain_spec: impl EthChainSpec + OpHardforks,
     parent: impl BlockHeader,
@@ -197,7 +199,7 @@ pub fn next_block_base_fee(
     // If we are in the Holocene, we need to use the base fee params
     // from the parent block's extra data.
     // Else, use the base fee params (default values) from chainspec
-    if chain_spec.is_holocene_active_at_timestamp(parent.timestamp()) {
+    if chain_spec.is_holocene_active_at_timestamp(parent.timestamp_seconds()) {
         Ok(decode_holocene_base_fee(chain_spec, parent, timestamp)?)
     } else {
         Ok(parent

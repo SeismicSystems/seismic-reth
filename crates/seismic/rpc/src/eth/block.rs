@@ -29,6 +29,7 @@ where
         Provider: BlockReader + ChainSpecProvider<ChainSpec = ChainSpec> + HeaderProvider,
     >,
 {
+    // Modified under assumption that timestamp is in milliseconds in headers and block timestamp returns header timestamp
     async fn block_receipts(
         &self,
         block_id: BlockId,
@@ -42,7 +43,8 @@ where
             let block_hash = block.hash();
             let excess_blob_gas = block.excess_blob_gas();
             let timestamp = block.timestamp();
-            let blob_params = self.provider().chain_spec().blob_params_at_timestamp(timestamp);
+            let timestamp_seconds: u64 = timestamp / 1000;
+            let blob_params = self.provider().chain_spec().blob_params_at_timestamp(timestamp_seconds);
 
             return block
                 .body()

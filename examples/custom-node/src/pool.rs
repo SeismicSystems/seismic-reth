@@ -91,7 +91,7 @@ where
         let data_dir = ctx.config().datadir();
         let blob_store = DiskFileBlobStore::open(data_dir.blobstore(), Default::default())?;
         // supervisor used for interop
-        if ctx.chain_spec().is_interop_active_at_timestamp(ctx.head().timestamp) &&
+        if ctx.chain_spec().is_interop_active_at_timestamp(ctx.head().timestamp_seconds()) &&
             self.supervisor_http == DEFAULT_SUPERVISOR_URL
         {
             // info!(target: "reth::cli",
@@ -106,7 +106,7 @@ where
 
         let validator = TransactionValidationTaskExecutor::eth_builder(ctx.provider().clone())
             .no_eip4844()
-            .with_head_timestamp(ctx.head().timestamp)
+            .with_head_timestamp(ctx.head().timestamp_seconds())
             .kzg_settings(ctx.kzg_settings()?)
             .set_tx_fee_cap(ctx.config().rpc.rpc_tx_fee_cap)
             .with_additional_tasks(

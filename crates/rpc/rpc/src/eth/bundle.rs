@@ -92,10 +92,11 @@ where
         }
 
         // need to adjust the timestamp for the next block
+        // modified to assume timestamps are in ms
         if let Some(timestamp) = timestamp {
             evm_env.block_env.timestamp = timestamp;
         } else {
-            evm_env.block_env.timestamp += 12;
+            evm_env.block_env.timestamp += 12000;
         }
 
         if let Some(difficulty) = difficulty {
@@ -104,13 +105,15 @@ where
 
         // Validate that the bundle does not contain more than MAX_BLOB_NUMBER_PER_BLOCK blob
         // transactions.
+
+        // modify block env timestamp which is in ms to seconds
         let blob_gas_used = transactions.iter().filter_map(|tx| tx.blob_gas_used()).sum::<u64>();
         if blob_gas_used > 0 {
             let blob_params = self
                 .eth_api()
                 .provider()
                 .chain_spec()
-                .blob_params_at_timestamp(evm_env.block_env.timestamp)
+                .blob_params_at_timestamp(evm_env.block_env.timestamp / 1000)
                 .unwrap_or_else(BlobParams::cancun);
             if transactions.iter().filter_map(|tx| tx.blob_gas_used()).sum::<u64>() >
                 blob_params.max_blob_gas_per_block()

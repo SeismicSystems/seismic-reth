@@ -34,6 +34,10 @@ pub trait BlockHeader:
     + AsRef<Self>
     + 'static
 {
+    /// Returns the timestamp in seconds, assuming the timestamp is in milliseconds.
+    fn timestamp_seconds(&self) -> u64 {
+        self.timestamp() / 1000
+    }
 }
 
 impl BlockHeader for alloy_consensus::Header {}

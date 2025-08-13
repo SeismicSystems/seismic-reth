@@ -90,19 +90,19 @@ impl<ChainSpec: EthereumHardforks> EthereumExecutionPayloadValidator<ChainSpec> 
 
         shanghai::ensure_well_formed_fields(
             sealed_block.body(),
-            self.is_shanghai_active_at_timestamp(sealed_block.timestamp),
+            self.is_shanghai_active_at_timestamp(sealed_block.timestamp_seconds()),
         )?;
 
         cancun::ensure_well_formed_fields(
             &sealed_block,
             sidecar.cancun(),
-            self.is_cancun_active_at_timestamp(sealed_block.timestamp),
+            self.is_cancun_active_at_timestamp(sealed_block.timestamp_seconds()),
         )?;
 
         prague::ensure_well_formed_fields(
             sealed_block.body(),
             sidecar.prague(),
-            self.is_prague_active_at_timestamp(sealed_block.timestamp),
+            self.is_prague_active_at_timestamp(sealed_block.timestamp_seconds()),
         )?;
 
         Ok(sealed_block)

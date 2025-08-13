@@ -173,7 +173,7 @@ where
         // cancun now, we need to set the excess blob gas to the default value(0)
         let blob_excess_gas_and_price = parent
             .maybe_next_block_excess_blob_gas(
-                self.chain_spec().blob_params_at_timestamp(attributes.timestamp),
+                self.chain_spec().blob_params_at_timestamp(attributes.timestamp_seconds()),
             )
             .or_else(|| (spec_id.into_eth_spec().is_enabled_in(SpecId::CANCUN)).then_some(0))
             .map(|gas| BlobExcessGasAndPrice::new(gas, false));
@@ -186,7 +186,7 @@ where
             prevrandao: Some(attributes.prev_randao),
             gas_limit: attributes.gas_limit,
             // calculate basefee based on parent block's gas usage
-            basefee: next_block_base_fee(self.chain_spec(), parent, attributes.timestamp)?,
+            basefee: next_block_base_fee(self.chain_spec(), parent, attributes.timestamp_seconds())?,
             // calculate excess gas based on parent block's blob gas usage
             blob_excess_gas_and_price,
         };

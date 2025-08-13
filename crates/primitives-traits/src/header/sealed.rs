@@ -127,6 +127,11 @@ impl<H: alloy_consensus::BlockHeader + Sealable> SealedHeader<H> {
     pub fn block_with_parent(&self) -> BlockWithParent {
         BlockWithParent { parent: self.parent_hash(), block: self.num_hash() }
     }
+
+    /// Returns the timestamp in seconds (header timestamp is in milliseconds)
+    pub fn timestamp_seconds(&self) -> u64 {
+        self.header.timestamp() / 1000
+    }
 }
 
 impl<H: Sealable> Eq for SealedHeader<H> {}
