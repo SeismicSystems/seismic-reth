@@ -41,7 +41,7 @@ fn insert_storage(tx: &impl DbTxMut, hashed_address: B256, storage: &BTreeMap<B2
     for (k, v) in storage {
         tx.put::<tables::HashedStorages>(
             hashed_address,
-            StorageEntry { key: keccak256(k), value: *v, is_private: false },
+            StorageEntry { key: keccak256(k), value: alloy_primitives::FlaggedStorage::public(*v) },
         )
         .unwrap();
     }
@@ -58,7 +58,10 @@ fn incremental_vs_full_root(inputs: &[&str], modified: &str) {
     let value = U256::from(0);
     for key in data {
         hashed_storage_cursor
-            .upsert(hashed_address, &StorageEntry { key, value, is_private: false })
+            .upsert(
+                hashed_address,
+                &StorageEntry { key, value: alloy_primitives::FlaggedStorage::public(value) },
+            )
             .unwrap();
     }
 
@@ -73,7 +76,13 @@ fn incremental_vs_full_root(inputs: &[&str], modified: &str) {
         hashed_storage_cursor.delete_current().unwrap();
     }
     hashed_storage_cursor
-        .upsert(hashed_address, &StorageEntry { key: modified_key, value, is_private: false })
+        .upsert(
+            hashed_address,
+            &StorageEntry {
+                key: modified_key,
+                value: alloy_primitives::FlaggedStorage::public(value),
+            },
+        )
         .unwrap();
 
     // 2. Calculate full merkle root
@@ -118,7 +127,7 @@ fn arbitrary_storage_root() {
         for (key, value) in &storage {
             tx.tx_ref().put::<tables::HashedStorages>(
                 hashed_address,
-                StorageEntry { key: keccak256(key), value: *value, is_private: false },
+                StorageEntry { key: keccak256(key), value: alloy_primitives::FlaggedStorage::public(*value) },
             )
             .unwrap();
         }
@@ -315,7 +324,13 @@ fn storage_root_regression() {
         tx.tx_ref().cursor_dup_write::<tables::HashedStorages>().unwrap();
     for (hashed_slot, value) in storage.clone() {
         hashed_storage_cursor
-            .upsert(key3, &StorageEntry { key: hashed_slot, value, is_private: false })
+            .upsert(
+                key3,
+                &StorageEntry {
+                    key: hashed_slot,
+                    value: alloy_primitives::FlaggedStorage::public(value),
+                },
+            )
             .unwrap();
     }
     tx.commit().unwrap();
@@ -393,7 +408,13 @@ fn account_and_storage_trie() {
             hashed_storage_cursor.delete_current().unwrap();
         }
         hashed_storage_cursor
-            .upsert(key3, &StorageEntry { key: hashed_slot, value, is_private: false })
+            .upsert(
+                key3,
+                &StorageEntry {
+                    key: hashed_slot,
+                    value: alloy_primitives::FlaggedStorage::public(value),
+                },
+            )
             .unwrap();
     }
     let account3_storage_root = StorageRoot::from_tx(tx.tx_ref(), address3).root().unwrap();
@@ -734,7 +755,13 @@ fn extension_node_storage_trie<N: ProviderNodeTypes>(
         hex!("3100000000000000000000000000000000000000000000000000000000000000"),
     ] {
         hashed_storage
-            .upsert(hashed_address, &StorageEntry { key: B256::new(key), value, is_private })
+            .upsert(
+                hashed_address,
+                &StorageEntry {
+                    key: B256::new(key),
+                    value: alloy_primitives::FlaggedStorage::public(value),
+                },
+            )
             .unwrap();
         hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value), is_private);
     }

@@ -12,38 +12,42 @@ pub struct StorageEntry {
     /// Storage key.
     pub key: B256,
     /// Value on storage key.
-    pub value: U256,
-    /// Indicates whether the value is private
-    pub is_private: bool,
+    pub value: FlaggedStorage,
 }
 
 impl StorageEntry {
     /// Create a new `StorageEntry` with given key and value.
     pub const fn new(key: B256, value: U256, is_private: bool) -> Self {
-        Self { key, value, is_private }
+        Self { key, value: FlaggedStorage { value, is_private } }
     }
 
     /// Convert the storage entry to a flagged storage entry.
     pub const fn to_flagged_storage(self) -> FlaggedStorage {
-        FlaggedStorage { value: self.value, is_private: self.is_private }
+        self.value
     }
 }
 
 impl From<(B256, U256, bool)> for StorageEntry {
     fn from((key, value, is_private): (B256, U256, bool)) -> Self {
-        Self { key, value, is_private }
+        Self::new(key, value, is_private)
     }
 }
 
 impl From<(B256, (U256, bool))> for StorageEntry {
     fn from((key, (value, is_private)): (B256, (U256, bool))) -> Self {
-        Self { key, value, is_private }
+        Self::new(key, value, is_private)
+    }
+}
+
+impl From<(B256, FlaggedStorage)> for StorageEntry {
+    fn from((key, value): (B256, FlaggedStorage)) -> Self {
+        Self { key, value }
     }
 }
 
 impl From<StorageEntry> for FlaggedStorage {
     fn from(entry: StorageEntry) -> Self {
-        Self { value: entry.value, is_private: entry.is_private }
+        entry.value
     }
 }
 
@@ -58,14 +62,14 @@ impl reth_codecs::Compact for StorageEntry {
     {
         // for now put full bytes and later compress it.
         buf.put_slice(&self.key[..]);
-        buf.put_u8(self.is_private as u8);
-        self.value.to_compact(buf) + 32 + 1
+        buf.put_u8(self.value.is_private as u8);
+        self.value.value.to_compact(buf) + 32 + 1
     }
 
     fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
         let key = B256::from_slice(&buf[..32]);
         let is_private = buf[32] != 0;
         let (value, out) = U256::from_compact(&buf[33..], len - 33);
-        (Self { key, value, is_private }, out)
+        (Self { key, value: FlaggedStorage { value, is_private } }, out)
     }
 }
