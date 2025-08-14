@@ -32,10 +32,14 @@ async fn test_testsuite_op_assert_mine_block() -> Result<()> {
             // TODO: refactor once we have actions to generate payload attributes.
             PayloadAttributes {
                 payload_attributes: alloy_rpc_types_engine::PayloadAttributes {
+                    // timestamp: std::time::SystemTime::now()
+                    //     .duration_since(std::time::UNIX_EPOCH)
+                    //     .unwrap()
+                    //     .as_secs(),
                     timestamp: std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()
-                        .as_secs(),
+                        .as_millis() as u64,
                     prev_randao: B256::random(),
                     suggested_fee_recipient: Address::random(),
                     withdrawals: None,

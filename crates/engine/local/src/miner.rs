@@ -83,7 +83,8 @@ pub struct LocalMiner<T: PayloadTypes, B> {
     mode: MiningMode,
     /// The payload builder for the engine
     payload_builder: PayloadBuilderHandle<T>,
-    /// Timestamp for the next block, in milliseconds.
+    /// Timestamp for the next block
+    /// NOTE: this is in MILLISECONDS. different from upstream reth, which holds this in seconds
     last_timestamp: u64,
     /// Stores latest mined blocks.
     last_block_hashes: Vec<B256>,

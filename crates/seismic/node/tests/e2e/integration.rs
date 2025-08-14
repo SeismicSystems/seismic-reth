@@ -578,6 +578,9 @@ async fn test_seismic_precompiles_end_to_end() {
         ),
         TxKind::Create,
     );
+
+
+
     let pending_transaction = provider.send_transaction(req).await.unwrap();
     let tx_hash = pending_transaction.tx_hash();
     thread::sleep(Duration::from_secs(1));
@@ -636,7 +639,7 @@ async fn test_seismic_precompiles_end_to_end() {
     thread::sleep(Duration::from_secs(1));
 
     // Get the transaction receipt
-    let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
+    let receipt: alloy_rpc_types::TransactionReceipt<seismic_alloy_consensus::SeismicReceiptEnvelope<alloy_rpc_types::Log>> = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
     assert_eq!(receipt.status(), true);
 
     //

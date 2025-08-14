@@ -36,7 +36,7 @@ async fn test_testsuite_assert_mine_block() -> Result<()> {
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
-                    .as_secs(),
+                    .as_millis() as u64,
                 prev_randao: B256::random(),
                 suggested_fee_recipient: Address::random(),
                 withdrawals: None,

@@ -419,6 +419,11 @@ impl ChainSpec {
         self.genesis_header.hash()
     }
 
+    /// Get the timestamp of the genesis block in seconds
+    pub(crate) fn genesis_timestamp_seconds(&self) -> u64 {
+        self.genesis.timestamp / 1000
+    }
+
     /// Get the timestamp of the genesis block.
     pub const fn genesis_timestamp(&self) -> u64 {
         self.genesis.timestamp
@@ -486,7 +491,7 @@ impl ChainSpec {
             })
         });
 
-        ForkFilter::new(head, self.genesis_hash(), self.genesis_timestamp() / 1000, forks)
+        ForkFilter::new(head, self.genesis_hash(), self.genesis_timestamp_seconds(), forks)
     }
 
     /// Compute the [`ForkId`] for the given [`Head`] following eip-6122 spec.

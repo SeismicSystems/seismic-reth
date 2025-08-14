@@ -359,7 +359,8 @@ pub struct FeeHistoryEntry {
     pub header_hash: B256,
     /// Approximated rewards for the configured percentiles.
     pub rewards: Vec<u128>,
-    /// The timestamp of the block in seconds
+    /// The timestamp of the block
+    /// NOTE: this is in seconds, not milliseconds like on the block headers
     pub timestamp: u64,
     /// Blob parameters for this block.
     pub blob_params: Option<BlobParams>,

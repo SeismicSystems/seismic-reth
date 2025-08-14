@@ -63,6 +63,7 @@ pub trait ChainSpecParser: Clone + Send + Sync + 'static {
             Self::SUPPORTED_CHAINS.join(", ")
         )
     }
+
 }
 
 /// A helper to parse a [`Genesis`](seismic_alloy_genesis::Genesis) as argument or from disk.

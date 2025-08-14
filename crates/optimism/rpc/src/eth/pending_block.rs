@@ -61,6 +61,7 @@ where
         self.inner.eth_api.pending_block()
     }
 
+    // MODIFIED:: 12000 is block time in ms
     fn next_env_attributes(
         &self,
         parent: &SealedHeader<ProviderHeader<Self::Provider>>,

@@ -83,7 +83,7 @@ pub trait PayloadAttributes:
     serde::de::DeserializeOwned + serde::Serialize + fmt::Debug + Clone + Send + Sync + 'static
 {
     /// Returns the timestamp to be used in the payload job.
-    /// Assumes timestamp is in milliseconds since from CL node 
+    /// NOTE: Assumes timestamp is in milliseconds since from CL node 
     fn timestamp(&self) -> u64;
 
     /// Returns the withdrawals for the given payload attributes.

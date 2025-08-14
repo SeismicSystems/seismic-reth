@@ -72,6 +72,12 @@ pub struct Command<C: ChainSpecParser> {
 }
 
 impl<C: ChainSpecParser<ChainSpec = ChainSpec>> Command<C> {
+
+    // function to get timestamp in seconds
+    pub fn timestamp_seconds(&self) -> u64 {
+        self.timestamp / 1000
+    }
+
     /// Fetches the best block from the database.
     ///
     /// If the database is empty, returns the genesis block.
@@ -133,6 +139,7 @@ impl<C: ChainSpecParser<ChainSpec = ChainSpec>> Command<C> {
 
         let mut blobs_bundle = self
             .blobs_bundle_path
+            .as_ref()
             .map(|path| -> eyre::Result<BlobsBundleV1> {
                 let contents = fs::read_to_string(&path)
                     .wrap_err(format!("could not read {}", path.display()))?;
@@ -189,7 +196,7 @@ impl<C: ChainSpecParser<ChainSpec = ChainSpec>> Command<C> {
             // Set empty withdrawals vector if Shanghai is active, None otherwise
             withdrawals: provider_factory
                 .chain_spec()
-                .is_shanghai_active_at_timestamp(self.timestamp / 1000)
+                .is_shanghai_active_at_timestamp(self.timestamp_seconds())
                 .then(Vec::new),
         };
         let payload_config = PayloadConfig::new(

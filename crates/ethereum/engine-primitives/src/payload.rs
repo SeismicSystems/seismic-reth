@@ -409,7 +409,7 @@ impl EthPayloadBuilderAttributes {
     ///
     /// Derives the unique [`PayloadId`] for the given parent and attributes
     pub fn new(parent: B256, attributes: PayloadAttributes) -> Self {
-        
+
         let id = payload_id(&parent, &attributes);
 
         Self {
