@@ -122,7 +122,6 @@ arbitrary = [
     "revm-primitives/arbitrary",
 ]
 
-
 [[bench]]
 name = "truncate"
 required-features = ["test-utils", "arbitrary"]
@@ -137,3 +136,5 @@ harness = false
 name = "priority"
 required-features = ["arbitrary"]
 harness = false
+
+timestamp-in-seconds = ["revm-interpreter/timestamp-in-seconds"]

@@ -65,3 +65,5 @@ arbitrary = [
     "alloy-rpc-types-engine/arbitrary",
 ]
 default = []
+
+timestamp-in-seconds = ["revm/timestamp-in-seconds", "op-revm/timestamp-in-seconds"]

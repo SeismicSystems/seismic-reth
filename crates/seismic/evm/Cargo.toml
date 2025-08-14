@@ -85,3 +85,4 @@ std = [
     "tracing/std",
 ]
 portable = ["reth-revm/portable"]
+timestamp-in-seconds = ["revm/timestamp-in-seconds", "seismic-revm/timestamp-in-seconds"]

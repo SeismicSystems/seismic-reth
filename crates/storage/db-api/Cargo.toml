@@ -94,3 +94,5 @@ op = [
     "reth-primitives-traits/op",
 ]
 bench = []
+
+timestamp-in-seconds = ["reth-seismic-primitives/timestamp-in-seconds"]

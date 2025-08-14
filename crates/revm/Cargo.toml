@@ -56,3 +56,5 @@ serde = [
     "reth-primitives-traits/serde",
 ]
 portable = ["revm/portable"]
+
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]

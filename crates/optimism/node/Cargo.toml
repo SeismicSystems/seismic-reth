@@ -122,3 +122,5 @@ test-utils = [
 reth-codec = [
     "reth-optimism-primitives/reth-codec",
 ]
+
+timestamp-in-seconds = ["revm/timestamp-in-seconds", "op-revm/timestamp-in-seconds"]

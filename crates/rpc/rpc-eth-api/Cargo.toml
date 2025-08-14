@@ -61,3 +61,5 @@ tracing.workspace = true
 [features]
 js-tracer = ["revm-inspectors/js-tracer", "reth-rpc-eth-types/js-tracer"]
 client = ["jsonrpsee/client", "jsonrpsee/async-client"]
+
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]

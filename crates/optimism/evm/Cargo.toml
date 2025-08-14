@@ -72,3 +72,5 @@ std = [
     "reth-evm/std",
 ]
 portable = ["reth-revm/portable"]
+
+timestamp-in-seconds = ["revm/timestamp-in-seconds", "op-revm/timestamp-in-seconds"]

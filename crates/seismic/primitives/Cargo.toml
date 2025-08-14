@@ -152,3 +152,4 @@ arbitrary = [
     "alloy-rpc-types-eth?/arbitrary",
     "alloy-serde?/arbitrary",
 ]
+timestamp-in-seconds = ["seismic-revm/timestamp-in-seconds"]

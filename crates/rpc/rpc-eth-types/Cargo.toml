@@ -67,3 +67,5 @@ serde_json.workspace = true
 
 [features]
 js-tracer = ["revm-inspectors/js-tracer"]
+
+timestamp-in-seconds = ["revm/timestamp-in-seconds", "seismic-revm/timestamp-in-seconds"]

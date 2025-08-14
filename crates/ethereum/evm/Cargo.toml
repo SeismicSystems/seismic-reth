@@ -65,3 +65,5 @@ test-utils = [
     "reth-evm/test-utils",
     "reth-primitives-traits/test-utils",
 ]
+
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]

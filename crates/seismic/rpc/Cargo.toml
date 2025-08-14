@@ -96,3 +96,5 @@ client = [
     "jsonrpsee/async-client",
     "reth-rpc-eth-api/client",
 ]
+
+timestamp-in-seconds = ["revm/timestamp-in-seconds", "seismic-revm/timestamp-in-seconds", "reth-seismic-primitives/timestamp-in-seconds"]

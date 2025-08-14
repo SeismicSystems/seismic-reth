@@ -2236,7 +2236,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
 dependencies = [
  "lazy_static",
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -4057,7 +4057,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.61.2",
+ "windows-core 0.57.0",
 ]
 
 [[package]]
@@ -5848,7 +5848,7 @@ dependencies = [
 [[package]]
 name = "op-revm"
 version = "4.0.2"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#ca29681a10fe783f0a9745b46412c2d7c73ba4c8"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#c1198c522bec2b2a25c83d2eb2bcffa21a7dbc46"
 dependencies = [
  "auto_impl",
  "once_cell",
@@ -10242,7 +10242,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "23.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#ca29681a10fe783f0a9745b46412c2d7c73ba4c8"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#c1198c522bec2b2a25c83d2eb2bcffa21a7dbc46"
 dependencies = [
  "revm-bytecode",
  "revm-context",
@@ -10260,7 +10260,7 @@ dependencies = [
 [[package]]
 name = "revm-bytecode"
 version = "4.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#ca29681a10fe783f0a9745b46412c2d7c73ba4c8"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#c1198c522bec2b2a25c83d2eb2bcffa21a7dbc46"
 dependencies = [
  "bitvec",
  "once_cell",
@@ -10272,7 +10272,7 @@ dependencies = [
 [[package]]
 name = "revm-context"
 version = "4.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#ca29681a10fe783f0a9745b46412c2d7c73ba4c8"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#c1198c522bec2b2a25c83d2eb2bcffa21a7dbc46"
 dependencies = [
  "cfg-if",
  "derive-where",
@@ -10287,7 +10287,7 @@ dependencies = [
 [[package]]
 name = "revm-context-interface"
 version = "4.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#ca29681a10fe783f0a9745b46412c2d7c73ba4c8"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#c1198c522bec2b2a25c83d2eb2bcffa21a7dbc46"
 dependencies = [
  "alloy-eip2930",
  "alloy-eip7702",
@@ -10302,7 +10302,7 @@ dependencies = [
 [[package]]
 name = "revm-database"
 version = "4.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#ca29681a10fe783f0a9745b46412c2d7c73ba4c8"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#c1198c522bec2b2a25c83d2eb2bcffa21a7dbc46"
 dependencies = [
  "alloy-eips",
  "revm-bytecode",
@@ -10315,7 +10315,7 @@ dependencies = [
 [[package]]
 name = "revm-database-interface"
 version = "4.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#ca29681a10fe783f0a9745b46412c2d7c73ba4c8"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#c1198c522bec2b2a25c83d2eb2bcffa21a7dbc46"
 dependencies = [
  "auto_impl",
  "revm-primitives",
@@ -10326,7 +10326,7 @@ dependencies = [
 [[package]]
 name = "revm-handler"
 version = "4.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#ca29681a10fe783f0a9745b46412c2d7c73ba4c8"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#c1198c522bec2b2a25c83d2eb2bcffa21a7dbc46"
 dependencies = [
  "auto_impl",
  "revm-bytecode",
@@ -10343,7 +10343,7 @@ dependencies = [
 [[package]]
 name = "revm-inspector"
 version = "4.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#ca29681a10fe783f0a9745b46412c2d7c73ba4c8"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#c1198c522bec2b2a25c83d2eb2bcffa21a7dbc46"
 dependencies = [
  "auto_impl",
  "revm-context",
@@ -10378,7 +10378,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "19.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#ca29681a10fe783f0a9745b46412c2d7c73ba4c8"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#c1198c522bec2b2a25c83d2eb2bcffa21a7dbc46"
 dependencies = [
  "revm-bytecode",
  "revm-context-interface",
@@ -10389,7 +10389,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "20.1.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#ca29681a10fe783f0a9745b46412c2d7c73ba4c8"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#c1198c522bec2b2a25c83d2eb2bcffa21a7dbc46"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
@@ -10413,7 +10413,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "19.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#ca29681a10fe783f0a9745b46412c2d7c73ba4c8"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#c1198c522bec2b2a25c83d2eb2bcffa21a7dbc46"
 dependencies = [
  "alloy-primitives",
  "num_enum",
@@ -10423,7 +10423,7 @@ dependencies = [
 [[package]]
 name = "revm-state"
 version = "4.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#ca29681a10fe783f0a9745b46412c2d7c73ba4c8"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#c1198c522bec2b2a25c83d2eb2bcffa21a7dbc46"
 dependencies = [
  "bitflags 2.9.1",
  "revm-bytecode",
@@ -11095,7 +11095,7 @@ dependencies = [
 [[package]]
 name = "seismic-revm"
 version = "1.0.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#ca29681a10fe783f0a9745b46412c2d7c73ba4c8"
+source = "git+https://github.com/SeismicSystems/seismic-revm.git?branch=timestamp-ms#c1198c522bec2b2a25c83d2eb2bcffa21a7dbc46"
 dependencies = [
  "auto_impl",
  "hkdf",
@@ -12356,7 +12356,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69fff37da548239c3bf9e64a12193d261e8b22b660991c6fd2df057c168f435f"
 dependencies = [
  "cc",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -12938,7 +12938,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

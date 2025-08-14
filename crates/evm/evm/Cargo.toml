@@ -69,3 +69,5 @@ test-utils = [
     "reth-ethereum-primitives/test-utils",
 ]
 op = ["alloy-evm/op", "reth-primitives-traits/op"]
+
+timestamp-in-seconds = ["revm/timestamp-in-seconds", "seismic-revm/timestamp-in-seconds"]

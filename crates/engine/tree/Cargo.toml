@@ -136,3 +136,5 @@ test-utils = [
     "reth-node-ethereum/test-utils",
     "reth-evm-ethereum/test-utils",
 ]
+
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]

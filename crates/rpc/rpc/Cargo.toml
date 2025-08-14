@@ -102,3 +102,5 @@ jsonrpsee = { workspace = true, features = ["client"] }
 
 [features]
 js-tracer = ["revm-inspectors/js-tracer", "reth-rpc-eth-types/js-tracer"]
+
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]

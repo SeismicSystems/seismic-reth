@@ -76,3 +76,5 @@ std = [
     "thiserror/std",
     "reth-execution-types/std",
 ]
+
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]

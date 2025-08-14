@@ -67,3 +67,5 @@ derive_more.workspace = true
 
 [features]
 optimism = ["dep:op-alloy-rpc-types-engine", "dep:reth-optimism-primitives"]
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]
+

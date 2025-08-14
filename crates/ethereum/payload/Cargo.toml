@@ -39,3 +39,6 @@ alloy-eips.workspace = true
 
 # misc
 tracing.workspace = true
+
+[features]
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]
