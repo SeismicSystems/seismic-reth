@@ -75,7 +75,11 @@ impl<C: ChainSpecParser<ChainSpec = ChainSpec>> Command<C> {
 
     // function to get timestamp in seconds
     pub fn timestamp_seconds(&self) -> u64 {
-        self.timestamp / 1000
+        if cfg!(feature = "timestamp-in-seconds") {
+            self.timestamp
+        } else {
+            self.timestamp / 1000
+        }
     }
 
     /// Fetches the best block from the database.

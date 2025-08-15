@@ -50,3 +50,5 @@ std = [
     "reth-engine-primitives/std",
     "reth-primitives-traits/std",
 ]
+
+timestamp-in-seconds = ["reth-primitives-traits/timestamp-in-seconds"]

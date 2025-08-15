@@ -156,11 +156,13 @@ where
             .with_spec(spec)
             .with_blob_max_and_target_count(self.blob_max_and_target_count_by_hardfork());
 
+        let timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") { header.timestamp() } else { header.timestamp() / 1000 };    
+
         // derive the EIP-4844 blob fees from the header's `excess_blob_gas` and the current
         // blobparams
         let blob_excess_gas_and_price = header
             .excess_blob_gas
-            .zip(self.chain_spec().blob_params_at_timestamp(header.timestamp() / 1000))
+            .zip(self.chain_spec().blob_params_at_timestamp(timestamp_seconds))
             .map(|(excess_blob_gas, params)| {
                 let blob_gasprice = params.calc_blob_fee(excess_blob_gas);
                 BlobExcessGasAndPrice { excess_blob_gas, blob_gasprice }

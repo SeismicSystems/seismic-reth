@@ -84,7 +84,7 @@ pub struct LocalMiner<T: PayloadTypes, B> {
     /// The payload builder for the engine
     payload_builder: PayloadBuilderHandle<T>,
     /// Timestamp for the next block
-    /// NOTE: this is in MILLISECONDS. different from upstream reth, which holds this in seconds
+    /// NOTE: this is in MILLISECONDS when timestamp-in-seconds feature is disabled. different from upstream reth, which holds this in seconds
     last_timestamp: u64,
     /// Stores latest mined blocks.
     last_block_hashes: Vec<B256>,
@@ -178,8 +178,17 @@ where
     /// Generates payload attributes for a new block, passes them to FCU and inserts built payload
     /// through newPayload.
     async fn advance(&mut self) -> eyre::Result<()> {
+        #[cfg(feature = "timestamp-in-seconds")]
         let timestamp = std::cmp::max(
             self.last_timestamp + 1,
+            std::time::SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("cannot be earlier than UNIX_EPOCH")
+                .as_secs() as u64,
+        );
+        #[cfg(not(feature = "timestamp-in-seconds"))]
+        let timestamp = std::cmp::max(
+            self.last_timestamp + 1000,
             std::time::SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("cannot be earlier than UNIX_EPOCH")

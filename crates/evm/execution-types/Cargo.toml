@@ -71,3 +71,5 @@ std = [
     "reth-trie-common/std",
     "alloy-evm/std",
 ]
+
+timestamp-in-seconds = ["reth-primitives-traits/timestamp-in-seconds"]

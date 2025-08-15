@@ -91,12 +91,15 @@ where
             evm_env.block_env.beneficiary = coinbase;
         }
 
+        
+
         // need to adjust the timestamp for the next block
         // modified to assume timestamps are in ms
         if let Some(timestamp) = timestamp {
             evm_env.block_env.timestamp = timestamp;
         } else {
-            evm_env.block_env.timestamp += 12000;
+            let increment: u64 = if cfg!(feature = "timestamp-in-seconds") { 12 } else { 12000 };
+            evm_env.block_env.timestamp += increment;
         }
 
         if let Some(difficulty) = difficulty {
@@ -113,7 +116,13 @@ where
                 .eth_api()
                 .provider()
                 .chain_spec()
-                .blob_params_at_timestamp(evm_env.block_env.timestamp / 1000)
+                .blob_params_at_timestamp(
+                    if cfg!(feature = "timestamp-in-seconds") {
+                        evm_env.block_env.timestamp
+                    } else {
+                        evm_env.block_env.timestamp / 1000
+                    }
+                )
                 .unwrap_or_else(BlobParams::cancun);
             if transactions.iter().filter_map(|tx| tx.blob_gas_used()).sum::<u64>() >
                 blob_params.max_blob_gas_per_block()

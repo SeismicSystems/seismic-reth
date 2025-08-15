@@ -87,7 +87,7 @@ min-info-logs = ["tracing/release_max_level_info"]
 min-debug-logs = ["tracing/release_max_level_debug"]
 min-trace-logs = ["tracing/release_max_level_trace"]
 
-timestamp-in-seconds = ["reth-node-api/timestamp-in-seconds"]
+timestamp-in-seconds = ["reth-node-api/timestamp-in-seconds", "reth-primitives-traits/timestamp-in-seconds"]
 
 # no-op feature flag for switching between the `optimism` and default functionality in CI matrices
 ethereum = []

@@ -60,7 +60,7 @@ where
         } = input;
 
         let timestamp = evm_env.block_env.timestamp;
-        let timestamp_seconds: u64 = timestamp / 1000;
+        let timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") { timestamp } else { timestamp / 1000 };  
 
         let transactions_root = proofs::calculate_transaction_root(&transactions);
         let receipts_root = SeismicReceipt::calculate_receipt_root_no_memo(receipts);

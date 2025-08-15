@@ -31,7 +31,7 @@ where
 
     fn build(&self, timestamp: u64) -> EthPayloadAttributes {
 
-        let timestamp_seconds: u64 = timestamp / 1000;
+        let timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") { timestamp } else { timestamp / 1000 };  
 
         EthPayloadAttributes {
             timestamp: timestamp,

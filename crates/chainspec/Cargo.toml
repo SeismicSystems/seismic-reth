@@ -69,3 +69,7 @@ arbitrary = [
 test-utils = [
     "reth-primitives-traits/test-utils",
 ]
+
+timestamp-in-seconds = ["reth-primitives-traits/timestamp-in-seconds"]
+
+

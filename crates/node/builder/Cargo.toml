@@ -111,3 +111,7 @@ op = [
     "reth-engine-local/op",
     "reth-evm/op",
 ]
+
+timestamp-in-seconds = [
+    "reth-engine-local/timestamp-in-seconds",
+]

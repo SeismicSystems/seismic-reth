@@ -41,7 +41,9 @@ pub fn make_genesis_header(genesis: &Genesis, hardforks: &ChainHardforks) -> Hea
         .active_at_block(0)
         .then(|| genesis.base_fee_per_gas.map(|fee| fee as u64).unwrap_or(INITIAL_BASE_FEE));
 
-    let genesis_timestamp_seconds = genesis.timestamp / 1000;
+   
+    let genesis_timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") { genesis.timestamp } else { genesis.timestamp / 1000 };  
+
     // If shanghai is activated, initialize the header with an empty withdrawals hash, and
     // empty withdrawals list.
     let withdrawals_root = hardforks
@@ -421,7 +423,10 @@ impl ChainSpec {
 
     /// Get the timestamp of the genesis block in seconds
     pub(crate) fn genesis_timestamp_seconds(&self) -> u64 {
-        self.genesis.timestamp / 1000
+        #[cfg(feature = "timestamp-in-seconds")]
+        return self.genesis.timestamp;
+        #[cfg(not(feature = "timestamp-in-seconds"))]
+        return self.genesis.timestamp / 1000;
     }
 
     /// Get the timestamp of the genesis block.
@@ -534,12 +539,12 @@ impl ChainSpec {
         // this filter ensures that no block-based forks are returned
         for timestamp in self.hardforks.forks_iter().filter_map(|(_, cond)| {
             // ensure we only get timestamp forks activated __after__ the genesis block
-            let genesis_timestamp_seconds = self.genesis.timestamp / 1000;
+            let genesis_timestamp_seconds = self.genesis_timestamp_seconds();
             cond.as_timestamp().filter(|time| time > &genesis_timestamp_seconds)
         }) {
 
-            // modified to assume timestamps are in ms
-            if head.timestamp / 1000 >= timestamp {
+            // MODIFIED:: timestamp is in seconds, not milliseconds
+            if head.timestamp >= timestamp {
                 // skip duplicated hardfork activated at the same timestamp
                 if timestamp != current_applied {
                     forkhash += timestamp;
@@ -563,9 +568,15 @@ impl ChainSpec {
             ForkCondition::Timestamp(timestamp) => {
                 // to satisfy every timestamp ForkCondition, we find the last ForkCondition::Block
                 // if one exists, and include its block_num in the returned Head
+
+                #[cfg(feature = "timestamp-in-seconds")]
+                let timestamp_seconds = timestamp;
+                #[cfg(not(feature = "timestamp-in-seconds"))]
+                let timestamp_seconds = timestamp * 1000;
+
                 Head {
                     // go from seconds to ms in head
-                    timestamp: timestamp * 1000,
+                    timestamp: timestamp_seconds,
                     number: self.last_block_fork_before_merge_or_timestamp().unwrap_or_default(),
                     ..Default::default()
                 }

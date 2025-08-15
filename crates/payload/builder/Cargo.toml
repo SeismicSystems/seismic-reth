@@ -49,3 +49,5 @@ test-utils = [
     "reth-primitives-traits/test-utils",
     "tokio/rt",
 ]
+
+timestamp-in-seconds = ["reth-primitives-traits/timestamp-in-seconds"]

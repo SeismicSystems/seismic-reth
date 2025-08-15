@@ -130,7 +130,11 @@ impl<H: alloy_consensus::BlockHeader + Sealable> SealedHeader<H> {
 
     /// Returns the timestamp in seconds (header timestamp is in milliseconds)
     pub fn timestamp_seconds(&self) -> u64 {
-        self.header.timestamp() / 1000
+        if cfg!(feature = "timestamp-in-seconds") {
+            self.header.timestamp()
+        } else {
+            self.header.timestamp() / 1000
+        }
     }
 }
 
