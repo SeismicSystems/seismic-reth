@@ -54,9 +54,10 @@ min-info-logs = ["tracing/release_max_level_info"]
 min-debug-logs = ["tracing/release_max_level_debug"]
 min-trace-logs = ["tracing/release_max_level_trace"]
 
+timestamp-in-seconds = ["reth-seismic-node/timestamp-in-seconds"]
+
 [[bin]]
 name = "seismic-reth"
 path = "src/main.rs"
 
-timestamp-in-seconds = ["reth-seismic-node/timestamp-in-seconds"]
 
