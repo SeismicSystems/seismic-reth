@@ -121,6 +121,8 @@ arbitrary = [
     "reth-ethereum-primitives/arbitrary",
     "revm-primitives/arbitrary",
 ]
+timestamp-in-seconds = ["revm-interpreter/timestamp-in-seconds", "reth-primitives-traits/timestamp-in-seconds"]
+
 
 [[bench]]
 name = "truncate"
@@ -137,4 +139,3 @@ name = "priority"
 required-features = ["arbitrary"]
 harness = false
 
-timestamp-in-seconds = ["revm-interpreter/timestamp-in-seconds", "reth-primitives-traits/timestamp-in-seconds", "reth-execution-types/timestamp-in-seconds"]

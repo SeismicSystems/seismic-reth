@@ -67,8 +67,6 @@ where
         parent: &SealedHeader<ProviderHeader<Self::Provider>>,
     ) -> Result<<Self::Evm as reth_evm::ConfigureEvm>::NextBlockEnvCtx, Self::Error> {
 
-        
-
         Ok(OpNextBlockEnvAttributes {
             timestamp: parent.timestamp().saturating_add(
                 if cfg!(feature = "timestamp-in-seconds") { 12 } else { 12000 }

@@ -664,7 +664,7 @@ where
 
     fn on_new_head_block<T: BlockHeader>(&self, new_tip_block: &T) {
 
-        let timestamp = new_tip_block.timestamp() / 1000;
+        let timestamp = if cfg!(feature = "timestamp-in-seconds") { new_tip_block.timestamp() } else { new_tip_block.timestamp() / 1000 };
         // update all forks
         if self.chain_spec().is_shanghai_active_at_timestamp(timestamp) {
             self.fork_tracker.shanghai.store(true, std::sync::atomic::Ordering::Relaxed);

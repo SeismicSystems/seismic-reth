@@ -565,18 +565,16 @@ impl ChainSpec {
     pub(crate) fn satisfy(&self, cond: ForkCondition) -> Head {
         match cond {
             ForkCondition::Block(number) => Head { number, ..Default::default() },
+            // this timestamp is in seconds
             ForkCondition::Timestamp(timestamp) => {
                 // to satisfy every timestamp ForkCondition, we find the last ForkCondition::Block
                 // if one exists, and include its block_num in the returned Head
 
-                #[cfg(feature = "timestamp-in-seconds")]
-                let timestamp_seconds = timestamp;
-                #[cfg(not(feature = "timestamp-in-seconds"))]
-                let timestamp_seconds = timestamp * 1000;
+                let timestamp = if cfg!(feature = "timestamp-in-seconds") { timestamp } else { timestamp * 1000 };
 
                 Head {
                     // go from seconds to ms in head
-                    timestamp: timestamp_seconds,
+                    timestamp: timestamp,
                     number: self.last_block_fork_before_merge_or_timestamp().unwrap_or_default(),
                     ..Default::default()
                 }
