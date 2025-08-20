@@ -783,7 +783,7 @@ revm-database-interface = { git = "https://github.com/SeismicSystems/seismic-rev
 op-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "f3dde53ca8f0bc6e482db09f606fd3f8ce699c1a"}
 seismic-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "f3dde53ca8f0bc6e482db09f606fd3f8ce699c1a"}
 
-revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "2b50433"}
+revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", branch = "shielded-trace"}
 
 # Seismic alloy
 seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "c16ddea3f87478c2e14b259aa02f8957016a4766" }
