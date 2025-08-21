@@ -35,7 +35,7 @@ use seismic_alloy_rpc_types::{
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
 };
 use seismic_enclave::{
-    request_types::GetPurposeKeysRequest, rpc::EnclaveApiClient, EnclaveClient, PublicKey,
+    keys::GetPurposeKeysRequest, rpc::EnclaveApiClient, EnclaveClient, PublicKey,
 };
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
