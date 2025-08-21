@@ -260,7 +260,7 @@ dependencies = [
 [[package]]
 name = "alloy-evm"
 version = "0.9.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?branch=m%2Frng-key#9fac8aa1ed744d0a614a5d8874d3fdab17ce6399"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?branch=m%2Frng-key#67799cb9f5606957c9d841203c37f58a15af56f5"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -685,7 +685,7 @@ dependencies = [
 [[package]]
 name = "alloy-seismic-evm"
 version = "0.9.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?branch=m%2Frng-key#9fac8aa1ed744d0a614a5d8874d3fdab17ce6399"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?branch=m%2Frng-key#67799cb9f5606957c9d841203c37f58a15af56f5"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -9516,6 +9516,7 @@ dependencies = [
  "reth-testing-utils",
  "revm",
  "revm-state",
+ "schnorrkel",
  "secp256k1",
  "seismic-alloy-consensus",
  "seismic-alloy-genesis",
