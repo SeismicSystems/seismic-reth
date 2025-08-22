@@ -120,10 +120,10 @@ where
     /// Get the live RNG key from the enclave client
     fn get_live_rng_key_from_enclave(enclave_client_builder: &CB) -> Option<schnorrkel::Keypair> {
         use seismic_enclave::{keys::GetPurposeKeysRequest, rpc::SyncEnclaveApiClient};
-        
+
         let enclave_client = enclave_client_builder.clone().build();
         let request = GetPurposeKeysRequest { epoch: 0 };
-        
+
         match enclave_client.get_purpose_keys(request) {
             Ok(response) => Some(response.rng_keypair),
             Err(_) => None,
@@ -136,13 +136,19 @@ where
     }
 
     /// Creates an EVM with the pre-fetched live RNG key
-    pub fn evm_with_env_and_live_key<DB>(&self, db: DB, evm_env: EvmEnv<SeismicSpecId>) -> SeismicEvm<DB, revm::inspector::NoOpInspector>
+    pub fn evm_with_env_and_live_key<DB>(
+        &self,
+        db: DB,
+        evm_env: EvmEnv<SeismicSpecId>,
+    ) -> SeismicEvm<DB, revm::inspector::NoOpInspector>
     where
         DB: alloy_evm::Database,
     {
-        self.executor_factory
-            .evm_factory()
-            .create_evm_with_rng_key(db, evm_env, self.live_rng_key.clone())
+        self.executor_factory.evm_factory().create_evm_with_rng_key(
+            db,
+            evm_env,
+            self.live_rng_key.clone(),
+        )
     }
 }
 
@@ -276,7 +282,11 @@ where
     }
 
     /// Override to use pre-fetched live RNG key
-    fn evm_with_env<DB: alloy_evm::Database>(&self, db: DB, evm_env: EvmEnv<SeismicSpecId>) -> SeismicEvm<DB, revm::inspector::NoOpInspector> {
+    fn evm_with_env<DB: alloy_evm::Database>(
+        &self,
+        db: DB,
+        evm_env: EvmEnv<SeismicSpecId>,
+    ) -> SeismicEvm<DB, revm::inspector::NoOpInspector> {
         self.evm_with_env_and_live_key(db, evm_env)
     }
 }
