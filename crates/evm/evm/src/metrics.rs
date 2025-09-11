@@ -49,8 +49,12 @@ impl OnStateHook for MeteredStateHook {
 pub struct ExecutorMetrics {
     /// The total amount of gas processed.
     pub gas_processed_total: Counter,
+    /// The total number of transactions executed.
+    pub transactions_executed_total: Counter,
     /// The instantaneous amount of gas processed per second.
     pub gas_per_second: Gauge,
+    /// The instantaneous number of transactions processed per second.
+    pub transactions_per_second: Gauge,
     /// The Histogram for amount of gas used.
     pub gas_used_histogram: Histogram,
 
@@ -88,6 +92,12 @@ impl ExecutorMetrics {
         // Update gas metrics.
         self.gas_processed_total.increment(block.header().gas_used());
         self.gas_per_second.set(block.header().gas_used() as f64 / execution_duration);
+        
+        // Update transaction metrics.
+        let tx_count = block.body().transactions().len() as u64;
+        self.transactions_executed_total.increment(tx_count);
+        self.transactions_per_second.set(tx_count as f64 / execution_duration);
+        
         self.gas_used_histogram.record(block.header().gas_used() as f64);
         self.execution_histogram.record(execution_duration);
         self.execution_duration.set(execution_duration);
