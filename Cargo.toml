@@ -776,7 +776,7 @@ alloy-sol-types = { git = "https://github.com/SeismicSystems/seismic-alloy-core.
 alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", branch = "usm" }
 alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", branch = "usm" }
 
-alloy-trie = { git = "https://github.com/SeismicSystems/seismic-trie.git", rev = "417644c" }
+alloy-trie = { git = "https://github.com/SeismicSystems/seismic-trie.git", branch = "usm" }
 
 # revm
 revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", branch = "usm" }
