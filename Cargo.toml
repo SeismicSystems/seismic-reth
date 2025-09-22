@@ -361,8 +361,7 @@ reth-seismic-forks = { path = "crates/seismic/hardforks", default-features = fal
 
 seismic-enclave = "0.1.0"
 seismic-revm = "1.0.0"
-alloy-seismic-evm = {version = "0.9"}
-# alloy-seismic-evm = {version = "0.0.1", default-features = false}
+alloy-seismic-evm = "0.20.1"
 
 seismic-alloy-rpc-types = {version = "0.0.1", default-features = false}
 seismic-alloy-consensus = {version = "0.0.1", default-features = false}
@@ -777,7 +776,7 @@ alloy-sol-types = { git = "https://github.com/SeismicSystems/seismic-alloy-core.
 alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", branch = "usm" }
 alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", branch = "usm" }
 
-alloy-trie = { git = "https://github.com/SeismicSystems/seismic-trie.git", rev = "417644c" }
+alloy-trie = { git = "https://github.com/SeismicSystems/seismic-trie.git", branch = "usm" }
 
 # revm
 revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", branch = "usm" }

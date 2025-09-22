@@ -43,6 +43,7 @@ reth-engine-local = { workspace = true, optional = true }
 # reth-ethereum
 reth-ethereum-primitives.workspace = true
 reth-ethereum-cli = { workspace = true, optional = true }
+reth-ethereum-consensus = { workspace = true, optional = true }
 reth-evm-ethereum = { workspace = true, optional = true }
 reth-node-ethereum = { workspace = true, optional = true }
 
