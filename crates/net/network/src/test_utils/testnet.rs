@@ -6,8 +6,9 @@ use crate::{
     eth_requests::EthRequestHandler,
     protocol::IntoRlpxSubProtocol,
     transactions::{
-        config::TransactionPropagationKind, TransactionsHandle, TransactionsManager,
-        TransactionsManagerConfig,
+        config::{StrictEthAnnouncementFilter, TransactionPropagationKind},
+        policy::NetworkPolicies,
+        TransactionsHandle, TransactionsManager, TransactionsManagerConfig,
     },
     NetworkConfig, NetworkConfigBuilder, NetworkHandle, NetworkManager,
 };
@@ -398,7 +399,13 @@ pub struct Peer<C, Pool = TestPool> {
     #[pin]
     request_handler: Option<EthRequestHandler<C, EthNetworkPrimitives>>,
     #[pin]
-    transactions_manager: Option<TransactionsManager<Pool, EthNetworkPrimitives>>,
+    transactions_manager: Option<
+        TransactionsManager<
+            Pool,
+            EthNetworkPrimitives,
+            NetworkPolicies<TransactionPropagationKind, StrictEthAnnouncementFilter>,
+        >,
+    >,
     pool: Option<Pool>,
     client: C,
     secret_key: SecretKey,
@@ -528,12 +535,15 @@ where
         let (tx, rx) = unbounded_channel();
         network.set_transactions(tx);
 
+        let announcement_policy = StrictEthAnnouncementFilter::default();
+        let policies = NetworkPolicies::new(policy, announcement_policy);
+
         let transactions_manager = TransactionsManager::with_policy(
             network.handle().clone(),
             pool.clone(),
             rx,
             config,
-            policy,
+            policies,
         );
 
         Peer {
@@ -776,9 +786,9 @@ impl NetworkEventStream {
         peers
     }
 
-    /// Ensures that the first two events are a [`NetworkEvent::Peer(PeerEvent::PeerAdded`] and
-    /// [`NetworkEvent::ActivePeerSession`], returning the [`PeerId`] of the established
-    /// session.
+    /// Ensures that the first two events are a [`NetworkEvent::Peer`] and
+    /// [`PeerEvent::PeerAdded`][`NetworkEvent::ActivePeerSession`], returning the [`PeerId`] of the
+    /// established session.
     pub async fn peer_added_and_established(&mut self) -> Option<PeerId> {
         let peer_id = match self.inner.next().await {
             Some(NetworkEvent::Peer(PeerEvent::PeerAdded(peer_id))) => peer_id,

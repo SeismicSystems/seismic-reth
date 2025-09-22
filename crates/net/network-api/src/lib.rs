@@ -35,7 +35,8 @@ pub use events::{
 };
 
 use reth_eth_wire_types::{
-    capability::Capabilities, DisconnectReason, EthVersion, NetworkPrimitives, UnifiedStatus,
+    capability::Capabilities, Capability, DisconnectReason, EthVersion, NetworkPrimitives,
+    UnifiedStatus,
 };
 use reth_network_p2p::sync::NetworkSyncUpdater;
 use reth_network_peers::NodeRecord;
@@ -191,7 +192,7 @@ pub trait Peers: PeersInfo {
     /// Disconnect an existing connection to the given peer using the provided reason
     fn disconnect_peer_with_reason(&self, peer: PeerId, reason: DisconnectReason);
 
-    /// Connect to the given peer. NOTE: if the maximum number out outbound sessions is reached,
+    /// Connect to the given peer. NOTE: if the maximum number of outbound sessions is reached,
     /// this won't do anything. See `reth_network::SessionManager::dial_outbound`.
     fn connect_peer(&self, peer: PeerId, tcp_addr: SocketAddr) {
         self.connect_peer_kind(peer, PeerKind::Static, tcp_addr, None)
@@ -285,4 +286,6 @@ pub struct NetworkStatus {
     pub protocol_version: u64,
     /// Information about the Ethereum Wire Protocol.
     pub eth_protocol_info: EthProtocolInfo,
+    /// The list of supported capabilities and their versions.
+    pub capabilities: Vec<Capability>,
 }

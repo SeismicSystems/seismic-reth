@@ -7,6 +7,7 @@ use alloy_rpc_types_eth::{
 use alloy_serde::JsonStorageKey;
 use jsonrpsee::core::RpcResult as Result;
 use reth_rpc_api::{EngineEthApiServer, EthApiServer};
+use reth_rpc_convert::RpcTxReq;
 /// Re-export for convenience
 pub use reth_rpc_engine_api::EngineApi;
 use reth_rpc_eth_api::{
@@ -36,10 +37,15 @@ impl<Eth, EthFilter> EngineEthApi<Eth, EthFilter> {
 }
 
 #[async_trait::async_trait]
-impl<Eth, EthFilter> EngineEthApiServer<RpcBlock<Eth::NetworkTypes>, RpcReceipt<Eth::NetworkTypes>>
-    for EngineEthApi<Eth, EthFilter>
+impl<Eth, EthFilter>
+    EngineEthApiServer<
+        RpcTxReq<Eth::NetworkTypes>,
+        RpcBlock<Eth::NetworkTypes>,
+        RpcReceipt<Eth::NetworkTypes>,
+    > for EngineEthApi<Eth, EthFilter>
 where
     Eth: EthApiServer<
+            RpcTxReq<Eth::NetworkTypes>,
             RpcTransaction<Eth::NetworkTypes>,
             RpcBlock<Eth::NetworkTypes>,
             RpcReceipt<Eth::NetworkTypes>,
@@ -71,8 +77,8 @@ where
     /// Handler for: `eth_call`
     async fn call(
         &self,
-        request: TransactionRequest,
-        block_number: Option<BlockId>,
+        request: RpcTxReq<Eth::NetworkTypes>,
+        block_id: Option<BlockId>,
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> Result<Bytes> {

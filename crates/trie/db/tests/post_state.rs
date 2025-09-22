@@ -101,14 +101,14 @@ fn account_cursor_correct_order() {
 
     let db = create_test_rw_db();
     db.update(|tx| {
-        for (key, account) in accounts.iter().filter(|x| x.0[31] % 2 == 0) {
+        for (key, account) in accounts.iter().filter(|x| x.0[31].is_multiple_of(2)) {
             tx.put::<tables::HashedAccounts>(*key, *account).unwrap();
         }
     })
     .unwrap();
 
     let mut hashed_post_state = HashedPostState::default();
-    for (hashed_address, account) in accounts.iter().filter(|x| x.0[31] % 2 != 0) {
+    for (hashed_address, account) in accounts.iter().filter(|x| !x.0[31].is_multiple_of(2)) {
         hashed_post_state.accounts.insert(*hashed_address, Some(*account));
     }
 
@@ -128,14 +128,14 @@ fn removed_accounts_are_discarded() {
 
     let db = create_test_rw_db();
     db.update(|tx| {
-        for (key, account) in accounts.iter().filter(|x| x.0[31] % 2 == 0) {
+        for (key, account) in accounts.iter().filter(|x| x.0[31].is_multiple_of(2)) {
             tx.put::<tables::HashedAccounts>(*key, *account).unwrap();
         }
     })
     .unwrap();
 
     let mut hashed_post_state = HashedPostState::default();
-    for (hashed_address, account) in accounts.iter().filter(|x| x.0[31] % 2 != 0) {
+    for (hashed_address, account) in accounts.iter().filter(|x| !x.0[31].is_multiple_of(2)) {
         hashed_post_state.accounts.insert(
             *hashed_address,
             if removed_keys.contains(hashed_address) { None } else { Some(*account) },
@@ -345,11 +345,7 @@ fn zero_value_storage_entries_are_discarded() {
         .map(|key| {
             (
                 B256::with_last_byte(key),
-                if key % 2 == 0 {
-                    FlaggedStorage::ZERO
-                } else {
-                    FlaggedStorage::new_from_value(key)
-                },
+                if key.is_multiple_of(2) { FlaggedStorage::ZERO } else { FlaggedStorage::new_from_value(key) },
             )
         })
         .collect::<BTreeMap<_, _>>();

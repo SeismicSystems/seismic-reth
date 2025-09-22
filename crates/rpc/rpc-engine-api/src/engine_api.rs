@@ -18,11 +18,11 @@ use async_trait::async_trait;
 use jsonrpsee_core::{server::RpcModule, RpcResult};
 use parking_lot::Mutex;
 use reth_chainspec::EthereumHardforks;
-use reth_engine_primitives::{BeaconConsensusEngineHandle, EngineTypes, EngineValidator};
+use reth_engine_primitives::{ConsensusEngineHandle, EngineApiValidator, EngineTypes};
 use reth_payload_builder::PayloadStore;
 use reth_payload_primitives::{
-    validate_payload_timestamp, EngineApiMessageVersion, ExecutionPayload,
-    PayloadBuilderAttributes, PayloadOrAttributes, PayloadTypes,
+    validate_payload_timestamp, EngineApiMessageVersion, ExecutionPayload, PayloadOrAttributes,
+    PayloadTypes,
 };
 use reth_primitives_traits::{Block, BlockBody};
 use reth_rpc_api::{EngineApiServer, IntoEngineApiRpcModule};
@@ -61,30 +61,13 @@ pub struct EngineApi<Provider, PayloadT: PayloadTypes, Pool, Validator, ChainSpe
     inner: Arc<EngineApiInner<Provider, PayloadT, Pool, Validator, ChainSpec>>,
 }
 
-struct EngineApiInner<Provider, PayloadT: PayloadTypes, Pool, Validator, ChainSpec> {
-    /// The provider to interact with the chain.
-    provider: Provider,
-    /// Consensus configuration
-    chain_spec: Arc<ChainSpec>,
-    /// The channel to send messages to the beacon consensus engine.
-    beacon_consensus: BeaconConsensusEngineHandle<PayloadT>,
-    /// The type that can communicate with the payload service to retrieve payloads.
-    payload_store: PayloadStore<PayloadT>,
-    /// For spawning and executing async tasks
-    task_spawner: Box<dyn TaskSpawner>,
-    /// The latency and response type metrics for engine api calls
-    metrics: EngineApiMetrics,
-    /// Identification of the execution client used by the consensus client
-    client: ClientVersionV1,
-    /// The list of all supported Engine capabilities available over the engine endpoint.
-    capabilities: EngineCapabilities,
-    /// Transaction pool.
-    tx_pool: Pool,
-    /// Engine validator.
-    validator: Validator,
-    /// Start time of the latest payload request
-    latest_new_payload_response: Mutex<Option<Instant>>,
-    accept_execution_requests_hash: bool,
+impl<Provider, PayloadT: PayloadTypes, Pool, Validator, ChainSpec>
+    EngineApi<Provider, PayloadT, Pool, Validator, ChainSpec>
+{
+    /// Returns the configured chainspec.
+    pub fn chain_spec(&self) -> &Arc<ChainSpec> {
+        &self.inner.chain_spec
+    }
 }
 
 impl<Provider, PayloadT, Pool, Validator, ChainSpec>
@@ -93,7 +76,7 @@ where
     Provider: HeaderProvider + BlockReader + StateProviderFactory + 'static,
     PayloadT: PayloadTypes,
     Pool: TransactionPool + 'static,
-    Validator: EngineValidator<PayloadT>,
+    Validator: EngineApiValidator<PayloadT>,
     ChainSpec: EthereumHardforks + Send + Sync + 'static,
 {
     /// Create new instance of [`EngineApi`].
@@ -101,7 +84,7 @@ where
     pub fn new(
         provider: Provider,
         chain_spec: Arc<ChainSpec>,
-        beacon_consensus: BeaconConsensusEngineHandle<PayloadT>,
+        beacon_consensus: ConsensusEngineHandle<PayloadT>,
         payload_store: PayloadStore<PayloadT>,
         tx_pool: Pool,
         task_spawner: Box<dyn TaskSpawner>,
@@ -135,15 +118,12 @@ where
         Ok(vec![self.inner.client.clone()])
     }
 
-    /// Fetches the attributes for the payload with the given id.
-    async fn get_payload_attributes(
-        &self,
-        payload_id: PayloadId,
-    ) -> EngineApiResult<PayloadT::PayloadBuilderAttributes> {
+    /// Fetches the timestamp of the payload with the given id.
+    async fn get_payload_timestamp(&self, payload_id: PayloadId) -> EngineApiResult<u64> {
         Ok(self
             .inner
             .payload_store
-            .payload_attributes(payload_id)
+            .payload_timestamp(payload_id)
             .await
             .ok_or(EngineApiError::UnknownPayload)??)
     }
@@ -173,7 +153,7 @@ where
     }
 
     /// Metered version of `new_payload_v1`.
-    async fn new_payload_v1_metered(
+    pub async fn new_payload_v1_metered(
         &self,
         payload: PayloadT::ExecutionData,
     ) -> EngineApiResult<PayloadStatus> {
@@ -297,6 +277,11 @@ where
         self.inner.metrics.new_payload_response.update_response_metrics(&res, gas_used, elapsed);
         Ok(res?)
     }
+
+    /// Returns whether the engine accepts execution requests hash.
+    pub fn accept_execution_requests_hash(&self) -> bool {
+        self.inner.accept_execution_requests_hash
+    }
 }
 
 impl<Provider, EngineT, Pool, Validator, ChainSpec>
@@ -305,7 +290,7 @@ where
     Provider: HeaderProvider + BlockReader + StateProviderFactory + 'static,
     EngineT: EngineTypes,
     Pool: TransactionPool + 'static,
-    Validator: EngineValidator<EngineT>,
+    Validator: EngineApiValidator<EngineT>,
     ChainSpec: EthereumHardforks + Send + Sync + 'static,
 {
     /// Sends a message to the beacon consensus engine to update the fork choice _without_
@@ -411,11 +396,9 @@ where
     where
         EngineT::BuiltPayload: TryInto<R>,
     {
-        // First we fetch the payload attributes to check the timestamp
-        let attributes = self.get_payload_attributes(payload_id).await?;
-
         // validate timestamp according to engine rules
-        validate_payload_timestamp(&self.inner.chain_spec, version, attributes.timestamp())?;
+        let timestamp = self.get_payload_timestamp(payload_id).await?;
+        validate_payload_timestamp(&self.inner.chain_spec, version, timestamp)?;
 
         // Now resolve the payload
         self.get_built_payload(payload_id).await?.try_into().map_err(|_| {
@@ -780,7 +763,8 @@ where
             .map_err(|err| EngineApiError::Internal(Box::new(err)))
     }
 
-    fn get_blobs_v1_metered(
+    /// Metered version of `get_blobs_v1`.
+    pub fn get_blobs_v1_metered(
         &self,
         versioned_hashes: Vec<B256>,
     ) -> EngineApiResult<Vec<Option<BlobAndProofV1>>> {
@@ -814,7 +798,8 @@ where
             .map_err(|err| EngineApiError::Internal(Box::new(err)))
     }
 
-    fn get_blobs_v2_metered(
+    /// Metered version of `get_blobs_v2`.
+    pub fn get_blobs_v2_metered(
         &self,
         versioned_hashes: Vec<B256>,
     ) -> EngineApiResult<Option<Vec<BlobAndProofV2>>> {
@@ -850,26 +835,6 @@ where
     }
 }
 
-impl<Provider, PayloadT, Pool, Validator, ChainSpec>
-    EngineApiInner<Provider, PayloadT, Pool, Validator, ChainSpec>
-where
-    PayloadT: PayloadTypes,
-{
-    /// Tracks the elapsed time between the new payload response and the received forkchoice update
-    /// request.
-    fn record_elapsed_time_on_fcu(&self) {
-        if let Some(start_time) = self.latest_new_payload_response.lock().take() {
-            let elapsed_time = start_time.elapsed();
-            self.metrics.latency.new_payload_forkchoice_updated_time_diff.record(elapsed_time);
-        }
-    }
-
-    /// Updates the timestamp for the latest new payload response.
-    fn on_new_payload_response(&self) {
-        self.latest_new_payload_response.lock().replace(Instant::now());
-    }
-}
-
 // This is the concrete ethereum engine API implementation.
 #[async_trait]
 impl<Provider, EngineT, Pool, Validator, ChainSpec> EngineApiServer<EngineT>
@@ -878,7 +843,7 @@ where
     Provider: HeaderProvider + BlockReader + StateProviderFactory + 'static,
     EngineT: EngineTypes<ExecutionData = ExecutionData>,
     Pool: TransactionPool + 'static,
-    Validator: EngineValidator<EngineT>,
+    Validator: EngineApiValidator<EngineT>,
     ChainSpec: EthereumHardforks + Send + Sync + 'static,
 {
     /// Handler for `engine_newPayloadV1`
@@ -1090,7 +1055,7 @@ where
     /// Returns the execution payload bodies by the range starting at `start`, containing `count`
     /// blocks.
     ///
-    /// WARNING: This method is associated with the BeaconBlocksByRange message in the consensus
+    /// WARNING: This method is associated with the `BeaconBlocksByRange` message in the consensus
     /// layer p2p specification, meaning the input should be treated as untrusted or potentially
     /// adversarial.
     ///
@@ -1163,6 +1128,63 @@ where
     }
 }
 
+impl<Provider, PayloadT, Pool, Validator, ChainSpec> Clone
+    for EngineApi<Provider, PayloadT, Pool, Validator, ChainSpec>
+where
+    PayloadT: PayloadTypes,
+{
+    fn clone(&self) -> Self {
+        Self { inner: Arc::clone(&self.inner) }
+    }
+}
+
+/// The container type for the engine API internals.
+struct EngineApiInner<Provider, PayloadT: PayloadTypes, Pool, Validator, ChainSpec> {
+    /// The provider to interact with the chain.
+    provider: Provider,
+    /// Consensus configuration
+    chain_spec: Arc<ChainSpec>,
+    /// The channel to send messages to the beacon consensus engine.
+    beacon_consensus: ConsensusEngineHandle<PayloadT>,
+    /// The type that can communicate with the payload service to retrieve payloads.
+    payload_store: PayloadStore<PayloadT>,
+    /// For spawning and executing async tasks
+    task_spawner: Box<dyn TaskSpawner>,
+    /// The latency and response type metrics for engine api calls
+    metrics: EngineApiMetrics,
+    /// Identification of the execution client used by the consensus client
+    client: ClientVersionV1,
+    /// The list of all supported Engine capabilities available over the engine endpoint.
+    capabilities: EngineCapabilities,
+    /// Transaction pool.
+    tx_pool: Pool,
+    /// Engine validator.
+    validator: Validator,
+    /// Start time of the latest payload request
+    latest_new_payload_response: Mutex<Option<Instant>>,
+    accept_execution_requests_hash: bool,
+}
+
+impl<Provider, PayloadT, Pool, Validator, ChainSpec>
+    EngineApiInner<Provider, PayloadT, Pool, Validator, ChainSpec>
+where
+    PayloadT: PayloadTypes,
+{
+    /// Tracks the elapsed time between the new payload response and the received forkchoice update
+    /// request.
+    fn record_elapsed_time_on_fcu(&self) {
+        if let Some(start_time) = self.latest_new_payload_response.lock().take() {
+            let elapsed_time = start_time.elapsed();
+            self.metrics.latency.new_payload_forkchoice_updated_time_diff.record(elapsed_time);
+        }
+    }
+
+    /// Updates the timestamp for the latest new payload response.
+    fn on_new_payload_response(&self) {
+        self.latest_new_payload_response.lock().replace(Instant::now());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1204,7 +1226,7 @@ mod tests {
         let api = EngineApi::new(
             provider.clone(),
             chain_spec.clone(),
-            BeaconConsensusEngineHandle::new(to_engine),
+            ConsensusEngineHandle::new(to_engine),
             payload_store.into(),
             NoopTransactionPool::default(),
             task_executor,

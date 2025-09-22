@@ -138,6 +138,9 @@ pub enum ProviderError {
     /// Enclave encryptography error.
     #[error("enclave error: {_0}")]
     EnclaveError(EnclaveError),
+    /// Missing trie updates.
+    #[error("missing trie updates for block {0}")]
+    MissingTrieUpdates(B256),
     /// Any other error type wrapped into a cloneable [`AnyError`].
     #[error(transparent)]
     Other(#[from] AnyError),

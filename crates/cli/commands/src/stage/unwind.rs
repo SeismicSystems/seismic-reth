@@ -82,6 +82,7 @@ impl<C: ChainSpecParser<ChainSpec: EthChainSpec + EthereumHardforks>> Command<C>
             } else {
                 info!(target: "reth::cli", ?target, "Executing a pipeline unwind.");
             }
+            info!(target: "reth::cli", prune_config=?config.prune, "Using prune settings");
 
             // This will build an offline-only pipeline if the `offline` flag is enabled
             let mut pipeline =
@@ -146,6 +147,7 @@ impl<C: ChainSpecParser<ChainSpec: EthChainSpec + EthereumHardforks>> Command<C>
                     evm_config.clone(),
                     stage_conf.clone(),
                     prune_modes.clone(),
+                    None,
                 )
                 .set(ExecutionStage::new(
                     evm_config,
@@ -208,7 +210,9 @@ impl Subcommands {
             Self::NumBlocks { amount } => last.saturating_sub(*amount),
         };
         if target > last {
-            eyre::bail!("Target block number is higher than the latest block number")
+            eyre::bail!(
+                "Target block number {target} is higher than the latest block number {last}"
+            )
         }
         Ok(target)
     }

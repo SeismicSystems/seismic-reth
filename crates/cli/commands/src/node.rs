@@ -10,13 +10,15 @@ use reth_db::init_db;
 use reth_node_builder::NodeBuilder;
 use reth_node_core::{
     args::{
-        DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, EnclaveArgs, EngineArgs, NetworkArgs,
+        DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, EngineArgs, EraArgs, NetworkArgs,
         PayloadBuilderArgs, PruningArgs, RpcServerArgs, TxPoolArgs,
     },
     node_config::NodeConfig,
     version,
 };
 use std::{ffi::OsString, fmt, net::SocketAddr, path::PathBuf, sync::Arc};
+
+use reth_node_core::args::EnclaveArgs;
 
 /// Start the node
 #[derive(Debug, Parser)]
@@ -109,6 +111,10 @@ pub struct NodeCommand<C: ChainSpecParser, Ext: clap::Args + fmt::Debug = NoArgs
     #[command(flatten, next_help_heading = "Engine")]
     pub engine: EngineArgs,
 
+    /// All ERA related arguments with --era prefix
+    #[command(flatten, next_help_heading = "ERA")]
+    pub era: EraArgs,
+
     /// Additional cli arguments
     #[command(flatten, next_help_heading = "Extension")]
     pub ext: Ext,
@@ -148,9 +154,10 @@ where
     where
         L: Launcher<C, Ext>,
     {
-        tracing::info!(target: "reth::cli", version = ?version::SHORT_VERSION, "Starting reth");
+        tracing::info!(target: "reth::cli", version = ?version::version_metadata().short_version, "Starting reth");
 
         let Self {
+            enclave,
             datadir,
             config,
             chain,
@@ -167,11 +174,12 @@ where
             pruning,
             ext,
             engine,
-            enclave,
+            era,
         } = self;
 
         // set up node config
         let mut node_config = NodeConfig {
+            enclave,
             datadir,
             config,
             chain,
@@ -186,7 +194,7 @@ where
             dev,
             pruning,
             engine,
-            enclave,
+            era,
         };
 
         let data_dir = node_config.datadir();

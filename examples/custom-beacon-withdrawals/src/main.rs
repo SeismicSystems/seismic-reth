@@ -12,17 +12,14 @@ use alloy_evm::{
 };
 use alloy_sol_macro::sol;
 use alloy_sol_types::SolCall;
-use reth::{
-    builder::{components::ExecutorBuilder, BuilderContext},
-    primitives::SealedBlock,
-};
 use reth_ethereum::{
     chainspec::ChainSpec,
     cli::interface::Cli,
     evm::{
         primitives::{
             execute::{BlockExecutionError, BlockExecutor, InternalBlockExecutionError},
-            Database, Evm, EvmEnv, InspectorFor, NextBlockEnvAttributes, OnStateHook,
+            Database, Evm, EvmEnv, EvmEnvFor, ExecutionCtxFor, InspectorFor,
+            NextBlockEnvAttributes, OnStateHook,
         },
         revm::{
             context::{result::ExecutionResult, TxEnv},
@@ -33,13 +30,15 @@ use reth_ethereum::{
         EthBlockAssembler, EthEvmConfig, RethReceiptBuilder,
     },
     node::{
-        api::{ConfigureEvm, FullNodeTypes, NodeTypes},
+        api::{ConfigureEngineEvm, ConfigureEvm, ExecutableTxIterator, FullNodeTypes, NodeTypes},
+        builder::{components::ExecutorBuilder, BuilderContext},
         node::EthereumAddOns,
         EthereumNode,
     },
-    primitives::{Header, SealedHeader},
+    primitives::{Header, SealedBlock, SealedHeader},
     provider::BlockExecutionResult,
-    EthPrimitives, Receipt, TransactionSigned,
+    rpc::types::engine::ExecutionData,
+    Block, EthPrimitives, Receipt, TransactionSigned,
 };
 use std::{fmt::Display, sync::Arc};
 
@@ -147,7 +146,7 @@ impl ConfigureEvm for CustomEvmConfig {
         self.inner.next_evm_env(parent, attributes)
     }
 
-    fn context_for_block<'a>(&self, block: &'a SealedBlock) -> EthBlockExecutionCtx<'a> {
+    fn context_for_block<'a>(&self, block: &'a SealedBlock<Block>) -> EthBlockExecutionCtx<'a> {
         self.inner.context_for_block(block)
     }
 
@@ -157,6 +156,20 @@ impl ConfigureEvm for CustomEvmConfig {
         attributes: Self::NextBlockEnvCtx,
     ) -> EthBlockExecutionCtx<'_> {
         self.inner.context_for_next_block(parent, attributes)
+    }
+}
+
+impl ConfigureEngineEvm<ExecutionData> for CustomEvmConfig {
+    fn evm_env_for_payload(&self, payload: &ExecutionData) -> EvmEnvFor<Self> {
+        self.inner.evm_env_for_payload(payload)
+    }
+
+    fn context_for_payload<'a>(&self, payload: &'a ExecutionData) -> ExecutionCtxFor<'a, Self> {
+        self.inner.context_for_payload(payload)
+    }
+
+    fn tx_iterator_for_payload(&self, payload: &ExecutionData) -> impl ExecutableTxIterator<Self> {
+        self.inner.tx_iterator_for_payload(payload)
     }
 }
 

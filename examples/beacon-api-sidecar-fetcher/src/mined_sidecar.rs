@@ -98,12 +98,12 @@ where
     St: Stream<Item = CanonStateNotification> + Send + Unpin + 'static,
     P: TransactionPoolExt + Unpin + 'static,
 {
-    fn process_block(&mut self, block: &RecoveredBlock<reth::primitives::Block>) {
+    fn process_block(&mut self, block: &RecoveredBlock<reth_ethereum::Block>) {
         let txs: Vec<_> = block
             .body()
             .transactions()
             .filter(|tx| tx.is_eip4844())
-            .map(|tx| (tx.clone(), tx.blob_versioned_hashes().unwrap().len()))
+            .map(|tx| (tx.clone(), tx.blob_count().unwrap_or(0) as usize))
             .collect();
 
         let mut all_blobs_available = true;
@@ -230,8 +230,8 @@ where
 async fn fetch_blobs_for_block(
     client: reqwest::Client,
     url: String,
-    block: RecoveredBlock<reth::primitives::Block>,
-    txs: Vec<(reth::primitives::TransactionSigned, usize)>,
+    block: RecoveredBlock<reth_ethereum::Block>,
+    txs: Vec<(reth_ethereum::TransactionSigned, usize)>,
 ) -> Result<Vec<BlobTransactionEvent>, SideCarError> {
     let response = match client.get(url).header("Accept", "application/json").send().await {
         Ok(response) => response,

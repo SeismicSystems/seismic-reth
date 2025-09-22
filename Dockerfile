@@ -40,13 +40,9 @@ ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 # Build dependencies
 RUN --mount=type=ssh cargo chef cook --profile $BUILD_PROFILE --features "$FEATURES" --recipe-path recipe.json
 
-# Build the application binary
-COPY ./bin/ ./bin/
-COPY ./crates/ ./crates/
-COPY ./testing/ ./testing/
-COPY ./examples/ ./examples/
-COPY Cargo.toml Cargo.lock deny.toml Makefile ./
-RUN --mount=type=ssh cargo build --profile $BUILD_PROFILE --features "$FEATURES" --locked --bin seismic-reth
+# Build application
+COPY --exclude=dist . .
+RUN cargo build --profile $BUILD_PROFILE --features "$FEATURES" --locked --bin seismic-reth
 
 # Copy the binary to a temporary location
 RUN cp /app/target/$BUILD_PROFILE/seismic-reth /app/seismic-reth

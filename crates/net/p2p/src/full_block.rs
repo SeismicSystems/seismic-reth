@@ -20,6 +20,7 @@ use std::{
     fmt::Debug,
     future::Future,
     hash::Hash,
+    ops::RangeInclusive,
     pin::Pin,
     sync::Arc,
     task::{ready, Context, Poll},
@@ -646,7 +647,7 @@ enum RangeResponseResult<H, B> {
 }
 
 /// A headers+bodies client implementation that does nothing.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct NoopFullBlockClient<Net = EthNetworkPrimitives>(PhantomData<Net>);
 
@@ -692,10 +693,11 @@ where
     /// # Returns
     ///
     /// A future containing an empty vector of block bodies and a randomly generated `PeerId`.
-    fn get_block_bodies_with_priority(
+    fn get_block_bodies_with_priority_and_range_hint(
         &self,
         _hashes: Vec<B256>,
         _priority: Priority,
+        _range_hint: Option<RangeInclusive<u64>>,
     ) -> Self::Output {
         // Create a future that immediately returns an empty vector of block bodies and a random
         // PeerId.
@@ -739,6 +741,12 @@ where
     Net: NetworkPrimitives,
 {
     type Block = Net::Block;
+}
+
+impl<Net> Default for NoopFullBlockClient<Net> {
+    fn default() -> Self {
+        Self(PhantomData::<Net>)
+    }
 }
 
 #[cfg(test)]

@@ -2,13 +2,17 @@
 
 #![warn(unused_crate_dependencies)]
 
-use alloy_evm::{eth::EthEvmContext, precompiles::PrecompilesMap, EvmFactory};
+use alloy_evm::{
+    eth::EthEvmContext,
+    precompiles::PrecompilesMap,
+    revm::{
+        handler::EthPrecompiles,
+        precompile::{Precompile, PrecompileId},
+    },
+    EvmFactory,
+};
 use alloy_genesis::Genesis;
 use alloy_primitives::{address, Bytes};
-use reth::{
-    builder::{components::ExecutorBuilder, BuilderContext, NodeBuilder},
-    tasks::TaskManager,
-};
 use reth_ethereum::{
     chainspec::{Chain, ChainSpec},
     evm::{
@@ -16,10 +20,9 @@ use reth_ethereum::{
         revm::{
             context::{Context, TxEnv},
             context_interface::result::{EVMError, HaltReason},
-            handler::EthPrecompiles,
             inspector::{Inspector, NoOpInspector},
             interpreter::interpreter::EthInterpreter,
-            precompile::{PrecompileFn, PrecompileOutput, PrecompileResult, Precompiles},
+            precompile::{PrecompileOutput, PrecompileResult, Precompiles},
             primitives::hardfork::SpecId,
             MainBuilder, MainContext,
         },
@@ -27,10 +30,12 @@ use reth_ethereum::{
     },
     node::{
         api::{FullNodeTypes, NodeTypes},
+        builder::{components::ExecutorBuilder, BuilderContext, NodeBuilder},
         core::{args::RpcServerArgs, node_config::NodeConfig},
         node::EthereumAddOns,
         EthereumNode,
     },
+    tasks::TaskManager,
     EthPrimitives,
 };
 use reth_tracing::{RethTracer, Tracer};
@@ -86,7 +91,7 @@ impl<Node> ExecutorBuilder<Node> for MyExecutorBuilder
 where
     Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = EthPrimitives>>,
 {
-    type EVM = EthEvmConfig<MyEvmFactory>;
+    type EVM = EthEvmConfig<ChainSpec, MyEvmFactory>;
 
     async fn build_evm(self, ctx: &BuilderContext<Node>) -> eyre::Result<Self::EVM> {
         let evm_config =
@@ -101,13 +106,12 @@ pub fn prague_custom() -> &'static Precompiles {
     INSTANCE.get_or_init(|| {
         let mut precompiles = Precompiles::prague().clone();
         // Custom precompile.
-        precompiles.extend([(
+        let precompile = Precompile::new(
+            PrecompileId::custom("custom"),
             address!("0x0000000000000000000000000000000000000999"),
-            |_, _| -> PrecompileResult {
-                PrecompileResult::Ok(PrecompileOutput::new(0, Bytes::new()))
-            } as PrecompileFn,
-        )
-            .into()]);
+            |_, _| PrecompileResult::Ok(PrecompileOutput::new(0, Bytes::new())),
+        );
+        precompiles.extend([precompile]);
         precompiles
     })
 }

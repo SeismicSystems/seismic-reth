@@ -24,7 +24,10 @@ use secp256k1::SECP256K1;
 use std::{collections::HashSet, net::SocketAddr, sync::Arc};
 
 // re-export for convenience
-use crate::protocol::{IntoRlpxSubProtocol, RlpxSubProtocols};
+use crate::{
+    protocol::{IntoRlpxSubProtocol, RlpxSubProtocols},
+    transactions::TransactionPropagationMode,
+};
 pub use secp256k1::SecretKey;
 
 /// Convenience function to create a new random [`SecretKey`]
@@ -68,7 +71,7 @@ pub struct NetworkConfig<C, N: NetworkPrimitives = EthNetworkPrimitives> {
     /// first hardfork, `Frontier` for mainnet.
     pub fork_filter: ForkFilter,
     /// The block importer type.
-    pub block_import: Box<dyn BlockImport<N::Block>>,
+    pub block_import: Box<dyn BlockImport<N::NewBlockPayload>>,
     /// The default mode of the network.
     pub network_mode: NetworkMode,
     /// The executor to use for spawning tasks.
@@ -209,7 +212,7 @@ pub struct NetworkConfigBuilder<N: NetworkPrimitives = EthNetworkPrimitives> {
     /// Whether tx gossip is disabled
     tx_gossip_disabled: bool,
     /// The block importer type
-    block_import: Option<Box<dyn BlockImport<N::Block>>>,
+    block_import: Option<Box<dyn BlockImport<N::NewBlockPayload>>>,
     /// How to instantiate transactions manager.
     transactions_manager_config: TransactionsManagerConfig,
     /// The NAT resolver for external IP
@@ -343,6 +346,12 @@ impl<N: NetworkPrimitives> NetworkConfigBuilder<N> {
     /// Configures the transactions manager with the given config.
     pub const fn transactions_manager_config(mut self, config: TransactionsManagerConfig) -> Self {
         self.transactions_manager_config = config;
+        self
+    }
+
+    /// Configures the propagation mode for the transaction manager.
+    pub const fn transaction_propagation_mode(mut self, mode: TransactionPropagationMode) -> Self {
+        self.transactions_manager_config.propagation_mode = mode;
         self
     }
 
@@ -536,7 +545,7 @@ impl<N: NetworkPrimitives> NetworkConfigBuilder<N> {
     }
 
     /// Sets the block import type.
-    pub fn block_import(mut self, block_import: Box<dyn BlockImport<N::Block>>) -> Self {
+    pub fn block_import(mut self, block_import: Box<dyn BlockImport<N::NewBlockPayload>>) -> Self {
         self.block_import = Some(block_import);
         self
     }

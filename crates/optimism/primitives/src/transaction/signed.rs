@@ -127,17 +127,8 @@ impl SignerRecoverable for OpTransactionSigned {
         let signature_hash = signature_hash(transaction);
         recover_signer_unchecked(signature, signature_hash)
     }
-}
 
-impl SignedTransaction for OpTransactionSigned {
-    fn tx_hash(&self) -> &TxHash {
-        self.hash.get_or_init(|| self.recalculate_hash())
-    }
-
-    fn recover_signer_unchecked_with_buf(
-        &self,
-        buf: &mut Vec<u8>,
-    ) -> Result<Address, RecoveryError> {
+    fn recover_unchecked_with_buf(&self, buf: &mut Vec<u8>) -> Result<Address, RecoveryError> {
         match &self.transaction {
             // Optimism's Deposit transaction does not have a signature. Directly return the
             // `from` address.
@@ -148,6 +139,12 @@ impl SignedTransaction for OpTransactionSigned {
             OpTypedTransaction::Eip7702(tx) => tx.encode_for_signing(buf),
         };
         recover_signer_unchecked(&self.signature, keccak256(buf))
+    }
+}
+
+impl SignedTransaction for OpTransactionSigned {
+    fn tx_hash(&self) -> &TxHash {
+        self.hash.get_or_init(|| self.recalculate_hash())
     }
 
     fn recalculate_hash(&self) -> B256 {
@@ -504,15 +501,6 @@ impl<'a> arbitrary::Arbitrary<'a> for OpTransactionSigned {
             signature_hash(&transaction),
         )
         .unwrap();
-
-        // Both `Some(0)` and `None` values are encoded as empty string byte. This introduces
-        // ambiguity in roundtrip tests. Patch the mint value of deposit transaction here, so that
-        // it's `None` if zero.
-        if let OpTypedTransaction::Deposit(ref mut tx_deposit) = transaction {
-            if tx_deposit.mint == Some(0) {
-                tx_deposit.mint = None;
-            }
-        }
 
         let signature = if transaction.is_deposit() { TxDeposit::signature() } else { signature };
 

@@ -35,12 +35,11 @@ See the [Seismic Reth Book](https://seismicsystems.github.io/seismic-reth) for i
 
 <!--
 When updating this, also update:
-- clippy.toml
 - Cargo.toml
 - .github/workflows/lint.yml
 -->
 
-The Minimum Supported Rust Version (MSRV) of this project is [1.86.0](https://blog.rust-lang.org/2025/04/03/Rust-1.86.0/).
+The Minimum Supported Rust Version (MSRV) of this project is [1.88.0](https://blog.rust-lang.org/2025/06/26/Rust-1.88.0/).
 
 See the book for detailed instructions on how to [build from source](https://seismicsystems.github.io/seismic-reth/installation/source.html).
 
@@ -76,7 +75,7 @@ cargo nextest run -p ef-tests --features ef-tests
 
 ## Getting Help
 
-If you have any questions, first see if the answer to your question can be found in the [book][book].
+If you have any questions, first see if the answer to your question can be found in the [docs][book].
 
 If the answer is not there:
 
