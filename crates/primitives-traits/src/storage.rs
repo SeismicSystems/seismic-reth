@@ -1,5 +1,6 @@
 use alloy_primitives::{B256, U256};
-use revm_state::FlaggedStorage;
+
+use alloy_primitives::FlaggedStorage;
 
 /// Account storage entry.
 ///
