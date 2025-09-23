@@ -15,12 +15,12 @@ use reth_chain_state::CanonStateSubscriptions;
 use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks};
 use reth_evm::ConfigureEvm;
 use reth_network_api::NetworkInfo;
-use reth_node_api::{FullNodeComponents, FullNodeTypes, NodePrimitives};
+use reth_node_api::{FullNodeComponents, FullNodeTypes, HeaderTy, NodePrimitives};
 use reth_node_builder::rpc::{EthApiBuilder, EthApiCtx};
 use reth_rpc::{eth::{core::EthApiInner, DevSigner}, RpcTypes};
 use reth_rpc_eth_api::{
     helpers::{
-        spec::SignersForApi, AddDevSigners, EthApiSpec, EthFees, EthSigner, EthState, LoadBlock, LoadFee, LoadPendingBlock, LoadState, SpawnBlocking, Trace
+        pending_block::BuildPendingEnv, spec::SignersForApi, AddDevSigners, EthApiSpec, EthFees, EthSigner, EthState, LoadBlock, LoadFee, LoadPendingBlock, LoadState, SpawnBlocking, Trace
     }, EthApiTypes, FromEvmError, FullEthApiServer, RpcConvert, RpcConverter, RpcNodeCore, RpcNodeCoreExt, SignableTxRequest
 };
 use reth_rpc_eth_types::{EthApiError, EthStateCache, FeeHistoryCache, GasPriceOracle};
@@ -270,9 +270,9 @@ impl<N: SeismicNodeCore, Rpc: RpcConvert> fmt::Debug for SeismicEthApi<N, Rpc> {
 pub type SeismicRpcConvert<N, NetworkT> = RpcConverter<
     NetworkT,
     <N as FullNodeComponents>::Evm,
-    SeismicReceiptConverter<<N as FullNodeTypes>::Provider>,
     (),
-    SeismicTxInfoMapper<<N as FullNodeTypes>::Provider>,
+    (),
+    (),
 >;
 
 
@@ -297,9 +297,19 @@ impl<NetworkT> SeismicEthApiBuilder<NetworkT> {
 
 impl<N, NetworkT> EthApiBuilder<N> for SeismicEthApiBuilder<NetworkT>
 where
-    N: FullNodeComponents,
+    N: FullNodeComponents<
+        Evm: ConfigureEvm<
+            NextBlockEnvCtx: BuildPendingEnv<HeaderTy<N::Types>>
+                                // + From<ExecutionPayloadBaseV1>
+                                + Unpin,
+        >,
+    >,
+    NetworkT: RpcTypes,
     SeismicRpcConvert<N, NetworkT>: RpcConvert<Network = NetworkT>,
-    SeismicEthApi<N, SeismicRpcConvert<N, NetworkT>>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool> + AddDevSigners,
+    SeismicEthApi<N, SeismicRpcConvert<N, NetworkT>>: FullEthApiServer<
+        Provider = N::Provider,
+        Pool = N::Pool
+    > + AddDevSigners,
 {
     type EthApi = SeismicEthApi<N, SeismicRpcConvert<N, NetworkT>>;
 
