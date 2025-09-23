@@ -1,7 +1,9 @@
 //! A basic Seismic payload builder implementation.
 
-use alloy_consensus::{Transaction, Typed2718};
+use alloy_network::eip2718::Typed2718;
 use alloy_primitives::U256;
+use alloy_rpc_types::TransactionTrait as _;
+use futures::executor::block_on;
 use reth_basic_payload_builder::{
     is_better_payload, BuildArguments, BuildOutcome, MissingPayloadBehaviour, PayloadBuilder,
     PayloadConfig,
@@ -21,11 +23,15 @@ use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
 use reth_storage_api::StateProviderFactory;
 use reth_transaction_pool::{
-    error::InvalidPoolTransactionError, BestTransactions, BestTransactionsAttributes,
-    PoolTransaction, TransactionPool, ValidPoolTransaction,
+    error::InvalidPoolTransactionError, identifier::TransactionId, BestTransactions,
+    BestTransactionsAttributes, PoolTransaction, TransactionPool, ValidPoolTransaction,
 };
 use revm::context_interface::Block as _;
+use seismic_alloy_consensus::SeismicTypedTransaction;
+use seismic_enclave::EnclaveClientBuilder;
+use std::path::Path;
 use std::sync::Arc;
+use std::{fs, time::Instant};
 use tracing::{debug, trace, warn};
 
 use reth_evm::execute::InternalBlockExecutionError;
@@ -35,7 +41,129 @@ type BestTransactionsIter<Pool> = Box<
     dyn BestTransactions<Item = Arc<ValidPoolTransaction<<Pool as TransactionPool>::Transaction>>>,
 >;
 
+use crate::txn::{build_consume_gas_transaction, calculate_gas_distribution};
+
 use super::SeismicBuilderConfig;
+
+const TARGET_GAS: u64 = 140975;
+const STD_DEV: u64 = 49436;
+const TXN_COUNT: u64 = 300;
+
+/// Disk-based transaction iterator for benchmarking
+#[derive(Debug)]
+pub struct DiskTransactionIterator<Transaction: PoolTransaction> {
+    transactions: Vec<Arc<ValidPoolTransaction<Transaction>>>,
+    current_index: usize,
+}
+
+impl<Transaction> DiskTransactionIterator<Transaction>
+where
+    Transaction: PoolTransaction<Consensus = SeismicTransactionSigned>,
+{
+    /// Creates a new iterator from transactions stored on disk
+    pub fn new_from_disk<P: AsRef<Path>>(
+        _file_path: P,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        // For now, we'll create 300 mock transactions
+        // You can replace this with actual disk reading logic
+        let transactions = Self::create_mock_transactions(300)?;
+
+        Ok(Self { transactions, current_index: 0 })
+    }
+
+    /// Creates mock transactions for benchmarking
+    /// Replace this with your actual transaction deserialization logic
+    fn create_mock_transactions(
+        count: usize,
+    ) -> Result<Vec<Arc<ValidPoolTransaction<Transaction>>>, Box<dyn std::error::Error + Send + Sync>>
+    {
+        let mut txns = Vec::with_capacity(count);
+
+        let gas_calcs = calculate_gas_distribution(TARGET_GAS, STD_DEV, TXN_COUNT);
+
+        for gas in gas_calcs {
+            let txn = block_on(build_consume_gas_transaction(gas)).unwrap();
+            let raw_txn = SeismicTypedTransaction::Eip1559(
+                txn.as_eip1559().unwrap().clone().into_parts().0.into(),
+            );
+            let seismic_txn =
+                SeismicTransactionSigned::new(raw_txn, txn.signature().clone(), *txn.hash());
+
+            let valid_pool_txn = ValidPoolTransaction {
+                transaction: Transaction::try_from_consensus(
+                    seismic_txn.try_into_recovered().unwrap(),
+                )
+                .unwrap_or_else(|_| panic!("Something went wrong")),
+                transaction_id: TransactionId::new(0.into(), 0),
+                propagate: false,
+                timestamp: Instant::now(),
+                origin: Default::default(),
+                authority_ids: None,
+            };
+
+            txns.push(Arc::new(valid_pool_txn));
+        }
+        // This is a placeholder - you'll need to implement actual transaction loading
+        // For now, we'll return an empty vector as we can't easily create mock ValidPoolTransactions
+        // without the full transaction pool infrastructure
+        debug!(target: "payload_builder", "Creating {} mock transactions for benchmarking", count);
+        Ok(txns)
+    }
+
+    /// Creates an iterator with a fixed number of transactions for benchmarking
+    pub fn with_count(count: usize) -> Self {
+        debug!(target: "payload_builder", "Creating disk transaction iterator with {} transactions", count);
+        Self { transactions: Vec::new(), current_index: 0 }
+    }
+
+    /// Load transactions from a JSON file
+    pub fn load_from_json<P: AsRef<Path>>(
+        file_path: P,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let _contents = fs::read_to_string(file_path)?;
+        // TODO: Deserialize transactions from JSON
+        // This is where you'd implement the actual deserialization logic
+        Ok(Self { transactions: Vec::new(), current_index: 0 })
+    }
+}
+
+// First implement Iterator trait
+impl<Transaction> Iterator for DiskTransactionIterator<Transaction>
+where
+    Transaction: PoolTransaction<Consensus = SeismicTransactionSigned>,
+{
+    type Item = Arc<ValidPoolTransaction<Transaction>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_index < self.transactions.len() {
+            let tx = self.transactions[self.current_index].clone();
+            self.current_index += 1;
+            Some(tx)
+        } else {
+            None
+        }
+    }
+}
+
+// Then implement BestTransactions trait
+impl<Transaction> BestTransactions for DiskTransactionIterator<Transaction>
+where
+    Transaction: PoolTransaction<Consensus = SeismicTransactionSigned>,
+{
+    fn mark_invalid(&mut self, _tx: &Self::Item, _error: InvalidPoolTransactionError) {
+        // For benchmarking, we might want to just log this or skip the transaction
+        // In a real scenario, you'd handle marking transactions as invalid
+        debug!("Transaction marked as invalid during benchmarking");
+    }
+
+    fn no_updates(&mut self) {
+        // No-op for disk-based iterator since we're not listening to pool updates
+    }
+
+    fn set_skip_blobs(&mut self, _skip_blobs: bool) {
+        // No-op for benchmarking - we can implement blob filtering later if needed
+    }
+}
 
 /// Seismic payload builder
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -167,11 +295,25 @@ where
     let mut cumulative_gas_used = 0;
     let block_gas_limit: u64 = builder.evm_mut().block().gas_limit;
     let base_fee = builder.evm_mut().block().basefee;
-
-    let mut best_txs = best_txs(BestTransactionsAttributes::new(
-        base_fee,
-        builder.evm_mut().block().blob_gasprice().map(|gasprice| gasprice as u64),
-    ));
+    let mut best_txs: Box<
+        dyn BestTransactions<
+            Item = Arc<ValidPoolTransaction<<Pool as TransactionPool>::Transaction>>,
+        >,
+    > = if true {
+        debug!(target: "payload_builder", "BENCHMARK MODE: Using 300 disk transactions");
+        match DiskTransactionIterator::new_from_disk("benchmark_transactions.json") {
+            Ok(disk_iter) => Box::new(disk_iter),
+            Err(e) => {
+                warn!(target: "payload_builder", error = ?e, "Failed to load disk transactions, using empty iterator for benchmarking");
+                Box::new(DiskTransactionIterator::with_count(300))
+            }
+        }
+    } else {
+        best_txs(BestTransactionsAttributes::new(
+            base_fee,
+            builder.evm_mut().block().blob_gasprice().map(|gasprice| gasprice as u64),
+        ))
+    };
     let mut total_fees = U256::ZERO;
 
     builder.apply_pre_execution_changes().map_err(|err| {
@@ -189,12 +331,12 @@ where
                 &pool_tx,
                 InvalidPoolTransactionError::ExceedsGasLimit(pool_tx.gas_limit(), block_gas_limit),
             );
-            continue
+            continue;
         }
 
         // check if the job was cancelled, if so we can exit early
         if cancel.is_cancelled() {
-            return Ok(BuildOutcome::Cancelled)
+            return Ok(BuildOutcome::Cancelled);
         }
 
         // convert tx to a signed transaction
@@ -212,7 +354,7 @@ where
                 } else {
                     // if the transaction is invalid, we can skip it and all of its
                     // descendants
-                    trace!(target: "payload_builder", %error, ?tx, "skipping invalid transaction and its descendants");
+                    debug!(target: "payload_builder", %error, ?tx, "skipping invalid transaction and its descendants");
                     best_txs.mark_invalid(
                         &pool_tx,
                         InvalidPoolTransactionError::Consensus(
@@ -220,7 +362,7 @@ where
                         ),
                     );
                 }
-                continue
+                continue;
             }
             Err(BlockExecutionError::Internal(
                 InternalBlockExecutionError::FailedToDecryptSeismicTx(error),
@@ -251,7 +393,7 @@ where
         // Release db
         drop(builder);
         // can skip building the block
-        return Ok(BuildOutcome::Aborted { fees: total_fees, cached_reads })
+        return Ok(BuildOutcome::Aborted { fees: total_fees, cached_reads });
     }
 
     let BlockBuilderOutcome { execution_result, block, .. } = builder.finish(&state_provider)?;
@@ -297,3 +439,6 @@ where
 
     Ok(BuildOutcome::Better { payload, cached_reads })
 }
+
+#[test]
+fn test() {}
