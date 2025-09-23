@@ -69,23 +69,23 @@ where
     }
 
     /// Build a [`SeismicEthApi`] using [`SeismicEthApiBuilder`].
-    pub const fn builder() -> SeismicEthApiBuilder {
+    pub const fn builder() -> SeismicEthApiBuilder<Rpc> {
         SeismicEthApiBuilder::new()
     }
 }
 
 impl<N, Rpc> EthApiTypes for SeismicEthApi<N, Rpc>
 where
-    Self: Send + Sync,
+    // Self: Send + Sync,
     N: SeismicNodeCore,
     Rpc: RpcConvert<Primitives = N::Primitives>,
 {
     type Error = SeismicEthApiError;
-    type NetworkTypes = SeismicReth;
+    type NetworkTypes = Rpc::Network;
     type RpcConvert = Rpc;
 
     fn tx_resp_builder(&self) -> &Self::RpcConvert {
-        self
+        self.inner.eth_api.tx_resp_builder()
     }
 }
 

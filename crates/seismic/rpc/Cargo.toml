@@ -32,6 +32,7 @@ reth-chainspec.workspace = true
 reth-tracing.workspace = true
 reth-node-core.workspace = true
 reth-primitives.workspace = true
+reth-provider.workspace = true
 
 # seismic-reth
 reth-seismic-primitives = { workspace = true, features = ["reth-codec", "serde-bincode-compat"] }
@@ -71,7 +72,6 @@ reth-seismic-chainspec.workspace = true
 reth-consensus.workspace = true
 reth-evm-ethereum.workspace = true
 reth-ethereum-engine-primitives.workspace = true
-reth-provider.workspace = true
 reth-rpc-builder.workspace = true
 reth-rpc-layer.workspace = true
 seismic-enclave.workspace = true

@@ -7,38 +7,38 @@ use alloy_primitives::{Bytes, Signature, B256};
 use alloy_rpc_types_eth::{Transaction, TransactionInfo};
 use reth_node_api::FullNodeComponents;
 use reth_rpc_eth_api::{
-    helpers::{EthSigner, EthTransactions, LoadTransaction, SpawnBlocking}, FromEthApiError, FullEthApiTypes, RpcConvert, RpcNodeCore, RpcNodeCoreExt
+    helpers::{spec::SignersForRpc, EthSigner, EthTransactions, LoadTransaction, SpawnBlocking}, FromEthApiError, FullEthApiTypes, RpcConvert, RpcNodeCore, RpcNodeCoreExt
 };
 use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
 use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
 use reth_storage_api::{
     BlockReader, BlockReaderIdExt, ProviderTx, ReceiptProvider, TransactionsProvider,
 };
-use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
+use reth_transaction_pool::{AddedTransactionOutcome, PoolTransaction, TransactionOrigin, TransactionPool};
 use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
 use seismic_alloy_network::{Network, Seismic};
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
 
-impl<N> EthTransactions for SeismicEthApi<N>
+impl<N, Rpc> EthTransactions for SeismicEthApi<N, Rpc>
 where
-    Self: LoadTransaction<Provider: BlockReaderIdExt>,
-    N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
+    N: RpcNodeCore,
+    Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
 {
-    fn signers(&self) -> &parking_lot::RwLock<Vec<Box<dyn EthSigner<ProviderTx<Self::Provider>>>>> {
-        self.inner.signers()
+    fn signers(&self) -> &SignersForRpc<Self::Provider, Self::NetworkTypes> {
+        self.inner.eth_api.signers()
     }
 
-    /// Decodes and recovers the transaction and submits it to the pool.
-    ///
-    /// Returns the hash of the transaction.
-    async fn send_raw_transaction(&self, tx: Bytes) -> Result<B256, Self::Error> {
+    async fn send_raw_transaction(
+        &self,
+        tx: Bytes,
+    ) -> Result<B256, Self::Error> {
         let recovered = recover_raw_transaction(&tx)?;
         tracing::debug!(target: "reth-seismic-rpc::eth", ?recovered, "serving seismic_eth_api::send_raw_transaction");
 
         let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
 
         // submit the transaction to the pool with a `Local` origin
-        let hash = self
+        let AddedTransactionOutcome { hash, .. } = self
             .pool()
             .add_transaction(TransactionOrigin::Local, pool_transaction)
             .await
@@ -48,11 +48,18 @@ where
     }
 }
 
-impl<N> SeismicTransaction for SeismicEthApi<N>
+impl<N, Rpc> SeismicTransaction for SeismicEthApi<N, Rpc>
 where
-    Self: LoadTransaction<Provider: BlockReaderIdExt>,
-    N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
-    <<<SeismicEthApi<N> as RpcNodeCore>::Pool as TransactionPool>::Transaction as PoolTransaction>::Pooled: Decodable712,
+    // Self: LoadTransaction<Provider: BlockReaderIdExt>,
+    // N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
+    // <<<SeismicEthApi<N> as RpcNodeCore>::Pool as TransactionPool>::Transaction as PoolTransaction>::Pooled: Decodable712,
+    N: RpcNodeCore<
+        
+    >,
+    Rpc: RpcConvert<
+        Primitives = N::Primitives,
+        Error = SeismicEthApiError
+    >,
 {
     async fn send_typed_data_transaction(&self, tx: TypedDataRequest) -> Result<B256, Self::Error> {
         let recovered = recover_typed_data_request(&tx)?;
@@ -66,7 +73,7 @@ where
         let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
 
         // submit the transaction to the pool with a `Local` origin
-        let hash = self
+        let AddedTransactionOutcome { hash, .. } = self
             .pool()
             .add_transaction(TransactionOrigin::Local, pool_transaction)
             .await
