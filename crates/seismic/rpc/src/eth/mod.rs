@@ -53,15 +53,7 @@ pub struct SeismicEthApi<N: SeismicNodeCore, Rpc: RpcConvert> {
     pub inner: Arc<EthApiInner<N, Rpc>>,
 }
 
-impl<N, Rpc: RpcConvert> SeismicEthApi<N, Rpc>
-where
-    N: SeismicNodeCore<
-        Provider: BlockReaderIdExt
-                      + ChainSpecProvider
-                      + CanonStateSubscriptions<Primitives = SeismicPrimitives>
-                      + Clone
-                      + 'static,
-    >,
+impl<N: RpcNodeCore, Rpc: RpcConvert> SeismicEthApi<N, Rpc>
 {
     /// Returns a reference to the [`EthApiNodeBackend`].
     pub fn eth_api(&self) -> &EthApiNodeBackend<N, Rpc> {
@@ -91,14 +83,14 @@ where
 
 impl<N, Rpc> RpcNodeCore for SeismicEthApi<N, Rpc>
 where
-    N: SeismicNodeCore,
+    N: RpcNodeCore,
     Rpc: RpcConvert<Primitives = N::Primitives>,
 {
     type Primitives = N::Primitives;
     type Provider = N::Provider;
     type Pool = N::Pool;
-    type Evm = <N as RpcNodeCore>::Evm;
-    type Network = <N as RpcNodeCore>::Network;
+    type Evm = N::Evm;
+    type Network = N::Network;
 
     #[inline]
     fn pool(&self) -> &Self::Pool {
@@ -123,7 +115,7 @@ where
 
 impl<N, Rpc> RpcNodeCoreExt for SeismicEthApi<N, Rpc>
 where
-    N: SeismicNodeCore,
+    N: RpcNodeCore,
     Rpc: RpcConvert<Primitives = N::Primitives>,
 {
     #[inline]
@@ -134,12 +126,7 @@ where
 
 impl<N, Rpc> EthApiSpec for SeismicEthApi<N, Rpc>
 where
-    N: SeismicNodeCore<
-        Provider: ChainSpecProvider<ChainSpec: EthereumHardforks>
-                      + BlockNumReader
-                      + StageCheckpointReader,
-        Network: NetworkInfo,
-    >,
+    N: RpcNodeCore,
     Rpc: RpcConvert<Primitives = N::Primitives>,
 {
     type Transaction = ProviderTx<Self::Provider>;
@@ -158,8 +145,7 @@ where
 
 impl<N, Rpc> SpawnBlocking for SeismicEthApi<N, Rpc>
 where
-    Self: Send + Sync + Clone + 'static,
-    N: RpcNodeCore<Provider: BlockReader>,
+    N: RpcNodeCore,
     Rpc: RpcConvert<Primitives = N::Primitives>,
 {
     #[inline]
@@ -180,14 +166,9 @@ where
 
 impl<N, Rpc> LoadFee for SeismicEthApi<N, Rpc>
 where
-    Self: LoadBlock<Provider = N::Provider>,
-    N: SeismicNodeCore<
-        Provider: BlockReaderIdExt
-                      + ChainSpecProvider<ChainSpec: EthChainSpec + EthereumHardforks>
-                      + StateProviderFactory,
-    >,
-    Rpc: RpcConvert<Primitives = N::Primitives>,
-    Self: LoadPendingBlock,
+    N: RpcNodeCore,
+    SeismicEthApiError: FromEvmError<N::Evm>,
+    Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
 {
     #[inline]
     fn gas_oracle(&self) -> &GasPriceOracle<Self::Provider> {
@@ -201,10 +182,7 @@ where
 }
 
 impl<N, Rpc> LoadState for SeismicEthApi<N, Rpc> where
-    N: SeismicNodeCore<
-        Provider: StateProviderFactory + ChainSpecProvider<ChainSpec: EthereumHardforks>,
-        Pool: TransactionPool,
-    >,
+    N: RpcNodeCore,
     Rpc: RpcConvert<Primitives = N::Primitives>,
     Self: LoadPendingBlock,
 {
@@ -212,9 +190,9 @@ impl<N, Rpc> LoadState for SeismicEthApi<N, Rpc> where
 
 impl<N, Rpc> EthState for SeismicEthApi<N, Rpc>
 where
-    Self: LoadState + SpawnBlocking,
-    N: SeismicNodeCore,
+    N: RpcNodeCore,
     Rpc: RpcConvert<Primitives = N::Primitives>,
+    Self: LoadPendingBlock,
 {
     #[inline]
     fn max_proof_window(&self) -> u64 {
@@ -224,7 +202,7 @@ where
 
 impl<N, Rpc> EthFees for SeismicEthApi<N, Rpc>
 where
-    N: SeismicNodeCore,
+    N: RpcNodeCore,
     SeismicEthApiError: FromEvmError<N::Evm>,
     Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
 {
@@ -232,17 +210,7 @@ where
 
 impl<N, Rpc> Trace for SeismicEthApi<N, Rpc>
 where
-    // Self: RpcNodeCore<Provider: BlockReader>
-    //     + LoadState<
-    //         Evm: ConfigureEvm<
-    //             Primitives: NodePrimitives<
-    //                 BlockHeader = ProviderHeader<Self::Provider>,
-    //                 SignedTx = ProviderTx<Self::Provider>,
-    //             >,
-    //         >,
-    //         Error: FromEvmError<Self::Evm>,
-    //     >,
-    N: SeismicNodeCore,
+    N: RpcNodeCore,
     SeismicEthApiError: FromEvmError<N::Evm>,
     Rpc: RpcConvert<Primitives = N::Primitives, Network = SeismicReth>,
 {
@@ -250,7 +218,7 @@ where
 
 impl<N, Rpc> AddDevSigners for SeismicEthApi<N, Rpc>
 where
-    N: SeismicNodeCore,
+    N: RpcNodeCore,
     Rpc: RpcConvert<
         Network: RpcTypes<TransactionRequest: SignableTxRequest<ProviderTx<N::Provider>>>,
     >
