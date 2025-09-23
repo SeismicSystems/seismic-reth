@@ -53,9 +53,7 @@ where
     // Self: LoadTransaction<Provider: BlockReaderIdExt>,
     // N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
     // <<<SeismicEthApi<N> as RpcNodeCore>::Pool as TransactionPool>::Transaction as PoolTransaction>::Pooled: Decodable712,
-    N: RpcNodeCore<
-        
-    >,
+    N: RpcNodeCore,
     Rpc: RpcConvert<
         Primitives = N::Primitives,
         Error = SeismicEthApiError
@@ -101,7 +99,7 @@ where
         &self,
         tx: Recovered<SeismicTransactionSigned>,
         tx_info: TransactionInfo,
-    ) -> Result<<eth::SeismicEthApi<N> as EthApiSpec>::Transaction, <eth::SeismicEthApi<N> as EthApiTypes>::Error> {
+    ) -> Result<Self::Transaction, Self::Error> {
         let tx = tx.convert::<SeismicTxEnvelope>();
 
         let TransactionInfo {
@@ -126,7 +124,7 @@ where
     fn build_simulate_v1_transaction(
         &self,
         _request: alloy_rpc_types_eth::TransactionRequest,
-    ) -> Result<SeismicTransactionSigned, <eth::SeismicEthApi<N> as EthApiTypes>::Error> {
+    ) -> Result<SeismicTransactionSigned, Self::Error> {
         let request = SeismicTransactionRequest {
             inner: _request,
             seismic_elements: None, /* Assumed that the transaction has already been decrypted in
@@ -153,6 +151,7 @@ where
         *input = input.slice(..4);
     }
 }
+
 
 #[cfg(test)]
 mod test {
