@@ -78,7 +78,7 @@ serde_json.workspace = true
 bincode.workspace = true
 
 [features]
-default = ["std", "serde", "reth-codec"]
+default = ["std", "serde", "serde-bincode-compat", "reth-codec"]
 std = [
     "reth-primitives-traits/std",
     "reth-codecs?/std",
