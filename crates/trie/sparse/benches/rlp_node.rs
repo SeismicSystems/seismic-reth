@@ -31,6 +31,8 @@ fn update_rlp_node_level(c: &mut Criterion) {
                 .update_leaf(
                     Nibbles::unpack(key),
                     alloy_rlp::encode_fixed_size(value).to_vec(),
+                    false,
+                    &provider,
                 )
                 .unwrap();
         }

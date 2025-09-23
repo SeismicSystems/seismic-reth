@@ -1,53 +1,76 @@
 use super::SeismicNodeCore;
-use crate::SeismicEthApi;
+use crate::{SeismicEthApi, SeismicEthApiError};
 use alloy_consensus::transaction::Either;
 use alloy_eips::eip7702::{RecoveredAuthorization, SignedAuthorization};
 use alloy_primitives::{TxKind, U256};
 use alloy_rpc_types_eth::transaction::TransactionRequest;
-use reth_evm::{execute::BlockExecutorFactory, ConfigureEvm, EvmEnv, EvmFactory, SpecFor};
+use reth_evm::{execute::BlockExecutorFactory, ConfigureEvm, EvmEnv, EvmFactory, SpecFor, TxEnvFor};
 use reth_node_api::NodePrimitives;
+use reth_rpc::RpcTypes;
 use reth_rpc_eth_api::{
-    helpers::{estimate::EstimateCall, Call, EthCall, LoadBlock, LoadState, SpawnBlocking},
-    FromEthApiError, FromEvmError, FullEthApiTypes, IntoEthApiError,
+    helpers::{estimate::EstimateCall, Call, EthCall, LoadBlock, LoadState, SpawnBlocking}, CallFees, FromEthApiError, FromEvmError, FullEthApiTypes, IntoEthApiError, RpcConvert, RpcNodeCore
 };
 use reth_rpc_eth_types::{EthApiError, RpcInvalidTransactionError};
+use reth_seismic_primitives::SeismicTransactionSigned;
 use reth_storage_api::{ProviderHeader, ProviderTx};
 use revm::{context::TxEnv, context_interface::Block, Database};
 use seismic_alloy_consensus::SeismicTxType;
 use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
 use tracing::debug;
 
-impl<N> EthCall for SeismicEthApi<N>
+use seismic_alloy_network::SeismicReth;
+
+impl<N, Rpc> EthCall for SeismicEthApi<N, Rpc>
 where
-    Self: EstimateCall + LoadBlock + FullEthApiTypes,
     N: SeismicNodeCore,
+    SeismicEthApiError: FromEvmError<N::Evm>,
+    Rpc: RpcConvert<
+        Primitives = N::Primitives,
+        Error = SeismicEthApiError,
+        TxEnv = TxEnvFor<N::Evm>,
+        Spec = SpecFor<N::Evm>,
+        Network = SeismicReth,
+    >,
 {
 }
 
-impl<N> EstimateCall for SeismicEthApi<N>
+impl<N, Rpc> EstimateCall for SeismicEthApi<N, Rpc>
 where
     Self: Call,
     Self::Error: From<EthApiError>,
     N: SeismicNodeCore,
+    Rpc: RpcConvert<
+        Primitives = N::Primitives,
+        Error = SeismicEthApiError,
+        TxEnv = TxEnvFor<N::Evm>,
+        Spec = SpecFor<N::Evm>,
+    >,
 {
 }
 
-impl<N> Call for SeismicEthApi<N>
+impl<N, Rpc> Call for SeismicEthApi<N, Rpc>
 where
-    Self: LoadState<
-            Evm: ConfigureEvm<
-                Primitives: NodePrimitives<
-                    BlockHeader = ProviderHeader<Self::Provider>,
-                    SignedTx = ProviderTx<Self::Provider>,
-                >,
-                BlockExecutorFactory: BlockExecutorFactory<
-                    EvmFactory: EvmFactory<Tx = seismic_revm::SeismicTransaction<TxEnv>>,
-                >,
-            >,
-            Error: FromEvmError<Self::Evm>,
-        > + SpawnBlocking,
-    Self::Error: From<EthApiError>,
+    // Self: LoadState<
+    //         Evm: ConfigureEvm<
+    //             Primitives: NodePrimitives<
+    //                 BlockHeader = ProviderHeader<Self::Provider>,
+    //                 SignedTx = ProviderTx<Self::Provider>,
+    //             >,
+    //             BlockExecutorFactory: BlockExecutorFactory<
+    //                 EvmFactory: EvmFactory<Tx = seismic_revm::SeismicTransaction<TxEnv>>,
+    //             >,
+    //         >,
+    //         Error: FromEvmError<Self::Evm>,
+    //     > + SpawnBlocking,
+    // Self::Error: From<EthApiError>,
     N: SeismicNodeCore,
+    SeismicEthApiError: FromEvmError<N::Evm>,
+    Rpc: RpcConvert<
+        Primitives = N::Primitives,
+        Error = SeismicEthApiError,
+        TxEnv = TxEnvFor<N::Evm>,
+        Spec = SpecFor<N::Evm>,
+    >,
 {
     #[inline]
     fn call_gas_limit(&self) -> u64 {
@@ -62,9 +85,9 @@ where
     fn create_txn_env(
         &self,
         evm_env: &EvmEnv<SpecFor<Self::Evm>>,
-        request: TransactionRequest,
+        request: <<Rpc as RpcConvert>::Network as RpcTypes>::TransactionRequest,
         mut db: impl Database<Error: Into<EthApiError>>,
-    ) -> Result<SeismicTransaction<TxEnv>, Self::Error> {
+    ) -> Result<<<<<N as RpcNodeCore>::Evm as ConfigureEvm>::BlockExecutorFactory as BlockExecutorFactory>::EvmFactory as EvmFactory>::Tx, Self::Error> {
         // Ensure that if versioned hashes are set, they're not empty
         if request.blob_versioned_hashes.as_ref().is_some_and(|hashes| hashes.is_empty()) {
             return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err())

@@ -1,14 +1,13 @@
 //! Loads and formats Seismic transaction RPC response.
 
 use super::ext::SeismicTransaction;
-use crate::{eth::SeismicNodeCore, utils::recover_typed_data_request, SeismicEthApi};
+use crate::{eth::SeismicNodeCore, utils::recover_typed_data_request, SeismicEthApi, SeismicEthApiError};
 use alloy_consensus::{transaction::Recovered, Transaction as _};
 use alloy_primitives::{Bytes, Signature, B256};
 use alloy_rpc_types_eth::{Transaction, TransactionInfo};
 use reth_node_api::FullNodeComponents;
 use reth_rpc_eth_api::{
-    helpers::{EthSigner, EthTransactions, LoadTransaction, SpawnBlocking},
-    FromEthApiError, FullEthApiTypes, RpcNodeCore, RpcNodeCoreExt,
+    helpers::{EthSigner, EthTransactions, LoadTransaction, SpawnBlocking}, FromEthApiError, FullEthApiTypes, RpcConvert, RpcNodeCore, RpcNodeCoreExt
 };
 use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
 use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
@@ -77,11 +76,10 @@ where
     }
 }
 
-impl<N> LoadTransaction for SeismicEthApi<N>
+impl<N, Rpc> LoadTransaction for SeismicEthApi<N, Rpc>
 where
-    Self: SpawnBlocking + FullEthApiTypes + RpcNodeCoreExt,
-    N: SeismicNodeCore<Provider: TransactionsProvider, Pool: TransactionPool>,
-    Self::Pool: TransactionPool,
+    N: RpcNodeCore,
+    Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>
 {
 }
 

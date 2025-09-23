@@ -966,7 +966,7 @@ mod tests {
     use super::*;
     use crate::test_utils::TestBlockBuilder;
     use alloy_eips::eip7685::Requests;
-    use alloy_primitives::{Address, BlockNumber, Bytes, StorageKey};
+    use alloy_primitives::{Address, BlockNumber, Bytes, StorageKey, U256};
     use rand::Rng;
     use reth_errors::ProviderResult;
     use reth_ethereum_primitives::{EthPrimitives, Receipt};

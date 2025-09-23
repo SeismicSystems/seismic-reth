@@ -512,6 +512,7 @@ mod tests {
                             ..Default::default()
                         },
                     )]),
+                    transaction_id: 0,
                 },
             ),
             (

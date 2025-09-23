@@ -1,33 +1,34 @@
 //! Loads and formats Seismic block RPC response.
 
 use super::receipt::SeismicReceiptBuilder;
-use crate::{eth::SeismicNodeCore, SeismicEthApi};
+use crate::{eth::SeismicNodeCore, SeismicEthApi, SeismicEthApiError};
 use alloy_consensus::{transaction::TransactionMeta, BlockHeader};
 use alloy_rpc_types_eth::BlockId;
 use reth_chainspec::{ChainSpec, ChainSpecProvider, EthChainSpec};
 use reth_node_api::BlockBody;
 use reth_primitives_traits::SignedTransaction;
 use reth_rpc_eth_api::{
-    helpers::{EthBlocks, LoadBlock, LoadPendingBlock, LoadReceipt, SpawnBlocking},
-    types::RpcTypes,
-    RpcNodeCore, RpcReceipt,
+    helpers::{EthBlocks, LoadBlock, LoadPendingBlock, LoadReceipt, SpawnBlocking}, types::RpcTypes, FromEvmError, RpcConvert, RpcNodeCore, RpcReceipt
 };
 use reth_rpc_eth_types::EthApiError;
 use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
 use reth_storage_api::{BlockReader, HeaderProvider, ProviderTx};
 use reth_transaction_pool::{PoolTransaction, TransactionPool};
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
+use seismic_alloy_network::SeismicReth;
 
-impl<N> EthBlocks for SeismicEthApi<N>
+impl<N, Rpc> EthBlocks for SeismicEthApi<N, Rpc>
 where
-    Self: LoadBlock<
-        Error = EthApiError,
-        NetworkTypes: RpcTypes<Receipt = SeismicTransactionReceipt>,
-        Provider: BlockReader<Receipt = SeismicReceipt, Transaction = SeismicTransactionSigned>,
-    >,
+    // Self: LoadBlock<
+    //     Error = EthApiError,
+    //     NetworkTypes: RpcTypes<Receipt = SeismicTransactionReceipt>,
+    //     Provider: BlockReader<Receipt = SeismicReceipt, Transaction = SeismicTransactionSigned>,
+    // >,
     N: SeismicNodeCore<
         Provider: BlockReader + ChainSpecProvider<ChainSpec = ChainSpec> + HeaderProvider,
     >,
+    SeismicEthApiError: FromEvmError<N::Evm>,
+    Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError, Network = SeismicReth>
 {
     async fn block_receipts(
         &self,
@@ -71,7 +72,7 @@ where
     }
 }
 
-impl<N> LoadBlock for SeismicEthApi<N>
+impl<N, Rpc> LoadBlock for SeismicEthApi<N, Rpc>
 where
     Self: LoadPendingBlock<
             Pool: TransactionPool<
@@ -79,5 +80,6 @@ where
             >,
         > + SpawnBlocking,
     N: SeismicNodeCore,
+    Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
 {
 }

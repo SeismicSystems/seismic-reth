@@ -1,26 +1,28 @@
 //! Loads and formats Seismic receipt RPC response.
 
+use std::fmt::Debug;
+
 use alloy_consensus::transaction::TransactionMeta;
 use alloy_eips::eip7840::BlobParams;
 use reth_chainspec::{ChainSpec, ChainSpecProvider, EthChainSpec};
-use reth_node_api::{FullNodeComponents, NodeTypes};
-use reth_rpc_eth_api::{helpers::LoadReceipt, FromEthApiError, RpcNodeCore, RpcReceipt};
+use reth_node_api::{FullNodeComponents, NodePrimitives, NodeTypes};
+use reth_rpc_eth_api::{helpers::LoadReceipt, transaction::{ConvertReceiptInput, ReceiptConverter}, FromEthApiError, RpcConvert, RpcNodeCore, RpcReceipt};
 use reth_rpc_eth_types::{receipt::build_receipt, EthApiError};
 use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
 use reth_storage_api::{ReceiptProvider, TransactionsProvider};
 use seismic_alloy_consensus::{SeismicReceiptEnvelope, SeismicTxType};
+use seismic_alloy_network::{foundry::tx_request::SeismicTransaction, SeismicReth};
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
 
-use crate::SeismicEthApi;
+use crate::{SeismicEthApi, SeismicEthApiError};
 
-impl<N> LoadReceipt for SeismicEthApi<N>
+impl<N, Rpc> LoadReceipt for SeismicEthApi<N, Rpc>
 where
-    Self: Send + Sync,
-    N: FullNodeComponents<Types: NodeTypes<ChainSpec = ChainSpec>>,
-    Self::Provider: TransactionsProvider<Transaction = SeismicTransactionSigned>
-        + ReceiptProvider<Receipt = SeismicReceipt>
-        + ChainSpecProvider<ChainSpec = ChainSpec>,
-{
+    N: RpcNodeCore,
+    Rpc: RpcConvert<Primitives = N::Primitives, Network = SeismicReth, Error = SeismicEthApiError>,
+{}
+
+/*
     async fn build_transaction_receipt(
         &self,
         tx: SeismicTransactionSigned,
@@ -40,7 +42,7 @@ where
 
         Ok(SeismicReceiptBuilder::new(&tx, meta, &receipt, &all_receipts, blob_params)?.build())
     }
-}
+*/
 
 /// Builds an [`SeismicTransactionReceipt`].
 ///
@@ -53,20 +55,15 @@ pub struct SeismicReceiptBuilder {
 
 impl SeismicReceiptBuilder {
     /// Returns a new builder.
-    pub fn new(
-        transaction: &SeismicTransactionSigned,
-        meta: TransactionMeta,
-        receipt: &SeismicReceipt,
-        all_receipts: &[SeismicReceipt],
-        blob_params: Option<BlobParams>,
-    ) -> Result<Self, EthApiError> {
+    pub fn new<N>(
+        input: ConvertReceiptInput<'_, N>
+    ) -> Result<Self, EthApiError> 
+    where N: NodePrimitives<SignedTx = SeismicTransaction, Receipt = SeismicReceipt>
+    {
         let base = build_receipt(
-            transaction,
-            meta,
-            receipt,
-            all_receipts,
-            blob_params,
-            |receipt_with_bloom| match receipt.tx_type() {
+            input,
+            None,
+            |receipt_with_bloom| match receipt_with_bloom.tx_type() {
                 SeismicTxType::Legacy => SeismicReceiptEnvelope::Legacy(receipt_with_bloom),
                 SeismicTxType::Eip2930 => SeismicReceiptEnvelope::Eip2930(receipt_with_bloom),
                 SeismicTxType::Eip1559 => SeismicReceiptEnvelope::Eip1559(receipt_with_bloom),
