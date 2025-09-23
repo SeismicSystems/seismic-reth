@@ -377,7 +377,8 @@ impl InMemorySize for SeismicReceipt {
     }
 }
 
-impl reth_primitives_traits::Receipt for SeismicReceipt {}
+// TODO(usm): remove
+// impl reth_primitives_traits::Receipt for SeismicReceipt {}
 
 #[cfg(feature = "reth-codec")]
 mod compact {

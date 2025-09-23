@@ -572,6 +572,7 @@ impl SparseTrieInterface for SerialSparseTrie {
         &mut self,
         full_path: Nibbles,
         value: Vec<u8>,
+        is_private: bool,
         provider: P,
     ) -> SparseTrieResult<()> {
         trace!(target: "trie::sparse", ?full_path, ?value, "update_leaf called");
@@ -587,7 +588,7 @@ impl SparseTrieInterface for SerialSparseTrie {
         while let Some(node) = self.nodes.get_mut(&current) {
             match node {
                 SparseNode::Empty => {
-                    *node = SparseNode::new_leaf(full_path);
+                    *node = SparseNode::new_leaf(full_path, is_private);
                     break
                 }
                 &mut SparseNode::Hash(hash) => {
@@ -619,11 +620,11 @@ impl SparseTrieInterface for SerialSparseTrie {
                     );
                     self.nodes.insert(
                         full_path.slice(..=common),
-                        SparseNode::new_leaf(full_path.slice(common + 1..)),
+                        SparseNode::new_leaf(full_path.slice(common + 1..), is_private),
                     );
                     self.nodes.insert(
                         current.slice(..=common),
-                        SparseNode::new_leaf(current.slice(common + 1..)),
+                        SparseNode::new_leaf(current.slice(common + 1..), is_private),
                     );
 
                     break;
@@ -679,7 +680,7 @@ impl SparseTrieInterface for SerialSparseTrie {
                         self.nodes.insert(current.slice(..common), branch);
 
                         // create new leaf
-                        let new_leaf = SparseNode::new_leaf(full_path.slice(common + 1..));
+                        let new_leaf = SparseNode::new_leaf(full_path.slice(common + 1..), is_private);
                         self.nodes.insert(full_path.slice(..=common), new_leaf);
 
                         // recreate extension to previous child if needed
@@ -696,7 +697,7 @@ impl SparseTrieInterface for SerialSparseTrie {
                     current.push_unchecked(nibble);
                     if !state_mask.is_bit_set(nibble) {
                         state_mask.set_bit(nibble);
-                        let new_leaf = SparseNode::new_leaf(full_path.slice(current.len()..));
+                        let new_leaf = SparseNode::new_leaf(full_path.slice(current.len()..), is_private);
                         self.nodes.insert(current, new_leaf);
                         break;
                     }
@@ -777,12 +778,12 @@ impl SparseTrieInterface for SerialSparseTrie {
                         // followed by a leaf node in a complete trie, it's possible here because we
                         // could have downgraded the extension node's child into a leaf node from
                         // another node type.
-                        SparseNode::Leaf { key: leaf_key, .. } => {
+                        SparseNode::Leaf { key: leaf_key, is_private, .. } => {
                             self.nodes.remove(&child.path);
 
                             let mut new_key = *key;
                             new_key.extend(leaf_key);
-                            SparseNode::new_leaf(new_key)
+                            SparseNode::new_leaf(new_key, *is_private)
                         }
                         // For an extension node, we collapse them into one extension node,
                         // extending the key
@@ -859,12 +860,12 @@ impl SparseTrieInterface for SerialSparseTrie {
                             // If the only child is a leaf node, we downgrade the branch node into a
                             // leaf node, prepending the nibble to the key, and delete the old
                             // child.
-                            SparseNode::Leaf { key, .. } => {
+                            SparseNode::Leaf { key, is_private, .. } => {
                                 delete_child = true;
 
                                 let mut new_key = Nibbles::from_nibbles_unchecked([child_nibble]);
                                 new_key.extend(key);
-                                SparseNode::new_leaf(new_key)
+                                SparseNode::new_leaf(new_key, *is_private)
                             }
                             // If the only child node is an extension node, we downgrade the branch
                             // node into an even longer extension node, prepending the nibble to the
@@ -1421,7 +1422,7 @@ impl SerialSparseTrie {
             let (rlp_node, node_type) = match node {
                 SparseNode::Empty => (RlpNode::word_rlp(&EMPTY_ROOT_HASH), SparseNodeType::Empty),
                 SparseNode::Hash(hash) => (RlpNode::word_rlp(hash), SparseNodeType::Hash),
-                SparseNode::Leaf { key, hash } => {
+                SparseNode::Leaf { key, hash, is_private } => {
                     let mut path = path;
                     path.extend(key);
                     if let Some(hash) = hash.filter(|_| !prefix_set_contains(&path)) {
@@ -3654,7 +3655,7 @@ mod tests {
             .update_leaf(Nibbles::from_nibbles([0x5, 0x3, 0x3, 0x0, 0x2]), value.clone(), is_private, &provider)
             .unwrap();
         sparse
-            .update_leaf(Nibbles::from_nibbles([0x5, 0x3, 0x3, 0x2, 0x0]), value, &provider)
+            .update_leaf(Nibbles::from_nibbles([0x5, 0x3, 0x3, 0x2, 0x0]), value, is_private, &provider)
             .unwrap();
 
         let normal_printed = format!("{sparse}");

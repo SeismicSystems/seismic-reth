@@ -114,6 +114,8 @@ impl SignedTransaction for SeismicTransactionSigned {
         self.hash.get_or_init(|| self.recalculate_hash())
     }
 
+    // TODO(usm): remove
+    /*
     fn recover_signer_unchecked_with_buf(
         &self,
         buf: &mut Vec<u8>,
@@ -128,6 +130,7 @@ impl SignedTransaction for SeismicTransactionSigned {
         };
         recover_signer_unchecked(&self.signature, keccak256(buf))
     }
+    */
 
     fn recalculate_hash(&self) -> B256 {
         keccak256(self.encoded_2718())

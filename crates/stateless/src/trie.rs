@@ -34,7 +34,7 @@ pub trait StatelessTrie: core::fmt::Debug {
     ///
     /// This method will error if the `ExecutionWitness` is not able to guarantee
     /// that the storage was missing from the Trie _and_ the witness was complete.
-    fn storage(&self, address: Address, slot: U256) -> Result<U256, ProviderError>;
+    fn storage(&self, address: Address, slot: U256) -> Result<alloy_primitives::FlaggedStorage, ProviderError>;
 
     /// Computes the new state root from the `HashedPostState`.
     fn calculate_state_root(
@@ -87,12 +87,12 @@ impl StatelessSparseTrie {
     ///
     /// This method will error if the `ExecutionWitness` is not able to guarantee
     /// that the storage was missing from the Trie _and_ the witness was complete.
-    pub fn storage(&self, address: Address, slot: U256) -> Result<U256, ProviderError> {
+    pub fn storage(&self, address: Address, slot: U256) -> Result<alloy_primitives::FlaggedStorage, ProviderError> {
         let hashed_address = keccak256(address);
         let hashed_slot = keccak256(B256::from(slot));
 
         if let Some(raw) = self.inner.get_storage_slot_value(&hashed_address, &hashed_slot) {
-            return Ok(U256::decode(&mut raw.as_slice())?)
+            return Ok(alloy_primitives::FlaggedStorage::decode(&mut raw.as_slice())?)
         }
 
         // Storage slot value is not present in the trie, validate that the witness is complete.
@@ -116,7 +116,7 @@ impl StatelessSparseTrie {
             )));
         }
 
-        Ok(U256::ZERO)
+        Ok(alloy_primitives::FlaggedStorage::ZERO)
     }
 
     /// Computes the new state root from the `HashedPostState`.
@@ -141,7 +141,7 @@ impl StatelessTrie for StatelessSparseTrie {
         self.account(address)
     }
 
-    fn storage(&self, address: Address, slot: U256) -> Result<U256, ProviderError> {
+    fn storage(&self, address: Address, slot: U256) -> Result<alloy_primitives::FlaggedStorage, ProviderError> {
         self.storage(address, slot)
     }
 
@@ -262,6 +262,7 @@ fn calculate_state_root(
                 storage_trie.update_leaf(
                     nibbles,
                     alloy_rlp::encode_fixed_size(&value).to_vec(),
+                    value.is_private,
                     &storage_provider,
                 )?;
             }

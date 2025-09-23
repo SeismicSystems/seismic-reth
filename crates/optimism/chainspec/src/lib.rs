@@ -510,7 +510,7 @@ pub fn make_op_genesis_header(
                         if v.is_zero() {
                             None
                         } else {
-                            Some((*k, (*v).into()))
+                            Some((*k, *v))
                         }
                     })));
             }

@@ -183,9 +183,9 @@ where
         let cfg_env = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
 
         let block_env = BlockEnv {
-            number: header.number(),
+            number: U256::from(header.number()),
             beneficiary: header.beneficiary(),
-            timestamp: header.timestamp(),
+            timestamp: U256::from(header.timestamp()),
             difficulty: U256::ZERO,
             prevrandao: header.mix_hash(), /* Seismic genesis spec (Mercury) starts after Paris,
                                             * so we always use header.mix_hash() */
@@ -194,7 +194,7 @@ where
             // EIP-4844 excess blob gas of this block, introduced in Cancun
             blob_excess_gas_and_price: header
                 .excess_blob_gas
-                .map(|excess_blob_gas| BlobExcessGasAndPrice::new(excess_blob_gas, true)),
+                .map(|excess_blob_gas| BlobExcessGasAndPrice::new_with_spec(excess_blob_gas, spec.into_eth_spec())),
         };
 
         EvmEnv { cfg_env, block_env }
@@ -216,7 +216,7 @@ where
             .maybe_next_block_excess_blob_gas(
                 self.chain_spec().blob_params_at_timestamp(attributes.timestamp),
             )
-            .map(|gas| BlobExcessGasAndPrice::new(gas, spec_id >= SeismicSpecId::MERCURY));
+            .map(|gas| BlobExcessGasAndPrice::new_with_spec(gas, spec_id.into_eth_spec()));
 
         let mut basefee = parent.next_block_base_fee(
             self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp),
@@ -241,9 +241,9 @@ where
         }
 
         let block_env = BlockEnv {
-            number: parent.number + 1,
+            number: U256::from(parent.number + 1),
             beneficiary: attributes.suggested_fee_recipient,
-            timestamp: attributes.timestamp,
+            timestamp: U256::from(attributes.timestamp),
             difficulty: U256::ZERO,
             prevrandao: Some(attributes.prev_randao),
             gas_limit,
@@ -401,7 +401,7 @@ mod tests {
 
         // Create customs block and tx env
         let block =
-            BlockEnv { basefee: 1000, gas_limit: 10_000_000, number: 42, ..Default::default() };
+            BlockEnv { basefee: 1000, gas_limit: 10_000_000, number: U256::from(42), ..Default::default() };
 
         let evm_env = EvmEnv { block_env: block, ..Default::default() };
 
@@ -464,7 +464,7 @@ mod tests {
 
         // Create custom block and tx environment
         let block =
-            BlockEnv { basefee: 1000, gas_limit: 10_000_000, number: 42, ..Default::default() };
+            BlockEnv { basefee: 1000, gas_limit: 10_000_000, number: U256::from(42), ..Default::default() };
         let evm_env = EvmEnv { block_env: block, ..Default::default() };
 
         let evm = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});

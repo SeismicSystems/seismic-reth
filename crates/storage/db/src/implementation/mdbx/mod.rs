@@ -1279,11 +1279,11 @@ mod tests {
         env.update(|tx| tx.put::<PlainStorageState>(key, value00).expect(ERROR_PUT)).unwrap();
 
         // PUT (2,2)
-        let value22 = StorageEntry { key: B256::with_last_byte(2), value: U256::from(2) };
+        let value22 = StorageEntry { key: B256::with_last_byte(2), value: U256::from(2).into() };
         env.update(|tx| tx.put::<PlainStorageState>(key, value22).expect(ERROR_PUT)).unwrap();
 
         // PUT (1,1)
-        let value11 = StorageEntry { key: B256::with_last_byte(1), value: U256::from(1) };
+        let value11 = StorageEntry { key: B256::with_last_byte(1), value: U256::from(1).into() };
         env.update(|tx| tx.put::<PlainStorageState>(key, value11).expect(ERROR_PUT)).unwrap();
 
         // Try to walk_dup with not existing key should immediately return None

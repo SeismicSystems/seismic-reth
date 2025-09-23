@@ -159,6 +159,8 @@ impl SignedTransaction for seismic_alloy_consensus::SeismicTxEnvelope {
         }
     }
 
+    // TODO(usm): remove
+    /*
     fn recover_signer_unchecked_with_buf(
         &self,
         buf: &mut Vec<u8>,
@@ -174,6 +176,7 @@ impl SignedTransaction for seismic_alloy_consensus::SeismicTxEnvelope {
         let signature_hash = keccak256(buf);
         recover_signer_unchecked(self.signature(), signature_hash)
     }
+    */
 }
 
 #[cfg(feature = "op")]
