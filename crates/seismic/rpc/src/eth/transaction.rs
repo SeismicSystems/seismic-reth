@@ -25,7 +25,7 @@ where
     Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
 {
     fn signers(&self) -> &SignersForRpc<Self::Provider, Self::NetworkTypes> {
-        self.inner.eth_api.signers()
+        self.inner.signers()
     }
 
     async fn send_raw_transaction(
@@ -88,6 +88,7 @@ where
 {
 }
 
+/*
 impl<N> TransactionCompat<SeismicTransactionSigned> for SeismicEthApi<N>
 where
     N: FullNodeComponents<Provider: ReceiptProvider<Receipt = SeismicReceipt>>,
@@ -151,7 +152,7 @@ where
         *input = input.slice(..4);
     }
 }
-
+*/
 
 #[cfg(test)]
 mod test {

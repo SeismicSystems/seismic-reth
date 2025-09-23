@@ -24,25 +24,11 @@ where
     fn pending_env_builder(
         &self,
     ) -> &dyn reth_rpc_eth_api::helpers::pending_block::PendingEnvBuilder<Self::Evm> {
-        self.inner.eth_api.pending_env_builder()
+        self.inner.pending_env_builder()
     }
 
     #[inline]
     fn pending_block_kind(&self) -> reth_rpc_eth_types::builder::config::PendingBlockKind {
-        self.inner.eth_api.pending_block_kind()
-    }
-
-    fn next_env_attributes(
-        &self,
-        parent: &SealedHeader<ProviderHeader<Self::Provider>>,
-    ) -> Result<<Self::Evm as reth_evm::ConfigureEvm>::NextBlockEnvCtx, Self::Error> {
-        Ok(NextBlockEnvAttributes {
-            timestamp: parent.timestamp().saturating_add(12),
-            suggested_fee_recipient: parent.beneficiary(),
-            prev_randao: B256::random(),
-            gas_limit: parent.gas_limit(),
-            parent_beacon_block_root: parent.parent_beacon_block_root(),
-            withdrawals: None,
-        })
+        self.inner.pending_block_kind()
     }
 }

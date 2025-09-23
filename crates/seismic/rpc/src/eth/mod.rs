@@ -77,7 +77,7 @@ where
     type RpcConvert = Rpc;
 
     fn tx_resp_builder(&self) -> &Self::RpcConvert {
-        self.inner.eth_api.tx_resp_builder()
+        self.inner.tx_resp_builder()
     }
 }
 
@@ -139,7 +139,7 @@ where
 
     #[inline]
     fn signers(&self) -> &SignersForApi<Self> {
-        self.inner.eth_api.signers()
+        self.inner.signers()
     }
 }
 
@@ -177,7 +177,7 @@ where
 
     #[inline]
     fn fee_history_cache(&self) -> &FeeHistoryCache<ProviderHeader<N::Provider>> {
-        self.inner.eth_api.fee_history_cache()
+        self.inner.fee_history_cache()
     }
 }
 

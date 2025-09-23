@@ -1,6 +1,6 @@
 //! Loads and formats Seismic receipt RPC response.
 
-use std::fmt::Debug;
+use std::{any::Any, fmt::Debug};
 
 use alloy_consensus::transaction::TransactionMeta;
 use alloy_eips::eip7840::BlobParams;
@@ -61,18 +61,18 @@ impl SeismicReceiptBuilder {
     where N: NodePrimitives<SignedTx = SeismicTransaction, Receipt = SeismicReceipt>
     {
         let base = build_receipt(
-            input,
+            &input,
             None,
-            |receipt_with_bloom| match receipt_with_bloom.tx_type() {
-                SeismicTxType::Legacy => SeismicReceiptEnvelope::Legacy(receipt_with_bloom),
-                SeismicTxType::Eip2930 => SeismicReceiptEnvelope::Eip2930(receipt_with_bloom),
-                SeismicTxType::Eip1559 => SeismicReceiptEnvelope::Eip1559(receipt_with_bloom),
-                SeismicTxType::Eip7702 => SeismicReceiptEnvelope::Eip7702(receipt_with_bloom),
-                SeismicTxType::Seismic => SeismicReceiptEnvelope::Seismic(receipt_with_bloom),
+            |receipt_with_bloom| match input.receipt.as_ref() {
+                SeismicReceipt::Legacy(_) => SeismicReceiptEnvelope::Legacy(receipt_with_bloom),
+                SeismicReceipt::Eip2930(_) => SeismicReceiptEnvelope::Eip2930(receipt_with_bloom),
+                SeismicReceipt::Eip1559(_) => SeismicReceiptEnvelope::Eip1559(receipt_with_bloom),
+                SeismicReceipt::Eip7702(_) => SeismicReceiptEnvelope::Eip7702(receipt_with_bloom),
+                SeismicReceipt::Seismic(_) => SeismicReceiptEnvelope::Seismic(receipt_with_bloom),
                 #[allow(unreachable_patterns)]
                 _ => unreachable!(),
             },
-        )?;
+        );
 
         Ok(Self { base })
     }
