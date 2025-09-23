@@ -54,7 +54,7 @@ where
     fn pending_block(
         &self,
     ) -> &tokio::sync::Mutex<
-        Option<PendingBlock<ProviderBlock<Self::Provider>, ProviderReceipt<Self::Provider>>>,
+        Option<PendingBlock<ProviderBlock<Self::Provider>>>,
     > {
         self.inner.pending_block()
     }

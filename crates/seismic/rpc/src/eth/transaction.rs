@@ -8,7 +8,7 @@ use alloy_rpc_types_eth::{Transaction, TransactionInfo};
 use reth_node_api::FullNodeComponents;
 use reth_rpc_eth_api::{
     helpers::{EthSigner, EthTransactions, LoadTransaction, SpawnBlocking},
-    FromEthApiError, FullEthApiTypes, RpcNodeCore, RpcNodeCoreExt, TransactionCompat,
+    FromEthApiError, FullEthApiTypes, RpcNodeCore, RpcNodeCoreExt,
 };
 use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
 use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
@@ -96,7 +96,7 @@ where
         &self,
         tx: Recovered<SeismicTransactionSigned>,
         tx_info: TransactionInfo,
-    ) -> Result<Self::Transaction, Self::Error> {
+    ) -> Result<<eth::SeismicEthApi<N> as EthApiSpec>::Transaction, <eth::SeismicEthApi<N> as EthApiTypes>::Error> {
         let tx = tx.convert::<SeismicTxEnvelope>();
 
         let TransactionInfo {
@@ -121,7 +121,7 @@ where
     fn build_simulate_v1_transaction(
         &self,
         _request: alloy_rpc_types_eth::TransactionRequest,
-    ) -> Result<SeismicTransactionSigned, Self::Error> {
+    ) -> Result<SeismicTransactionSigned, <eth::SeismicEthApi<N> as EthApiTypes>::Error> {
         let request = SeismicTransactionRequest {
             inner: _request,
             seismic_elements: None, /* Assumed that the transaction has already been decrypted in

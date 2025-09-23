@@ -10,7 +10,7 @@ use reth_rpc_eth_api::{
     helpers::{estimate::EstimateCall, Call, EthCall, LoadBlock, LoadState, SpawnBlocking},
     FromEthApiError, FromEvmError, FullEthApiTypes, IntoEthApiError,
 };
-use reth_rpc_eth_types::{revm_utils::CallFees, EthApiError, RpcInvalidTransactionError};
+use reth_rpc_eth_types::{EthApiError, RpcInvalidTransactionError};
 use reth_storage_api::{ProviderHeader, ProviderTx};
 use revm::{context::TxEnv, context_interface::Block, Database};
 use seismic_alloy_consensus::SeismicTxType;

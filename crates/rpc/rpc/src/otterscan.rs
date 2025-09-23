@@ -117,6 +117,7 @@ where
                             TransferKind::Call => OperationType::OpTransfer,
                             TransferKind::Create => OperationType::OpCreate,
                             TransferKind::Create2 => OperationType::OpCreate2,
+                            TransferKind::EofCreate => OperationType::OpEofCreate,
                             TransferKind::SelfDestruct => OperationType::OpSelfDestruct,
                         },
                     })

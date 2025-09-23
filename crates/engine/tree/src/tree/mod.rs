@@ -15,7 +15,6 @@ use alloy_rpc_types_engine::{
 };
 use error::{InsertBlockError, InsertBlockFatalError};
 use persistence_state::CurrentPersistenceAction;
-use precompile_cache::PrecompileCacheMap;
 use reth_chain_state::{
     CanonicalInMemoryState, ExecutedBlock, ExecutedBlockWithTrieUpdates, ExecutedTrieUpdates,
     MemoryOverlayStateProvider, NewCanonicalChain,

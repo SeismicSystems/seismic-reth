@@ -55,7 +55,7 @@ impl<T> SeismicNodeCore for T where T: RpcNodeCore<Provider: BlockReader> {}
 #[derive(Clone)]
 pub struct SeismicEthApi<N: SeismicNodeCore> {
     /// Inner `Eth` API implementation.
-    pub inner: Arc<EthApiInner<N::Provider, N::Pool, N::Network, N::Evm>>,
+    pub inner: Arc<EthApiInner<N>>,
 }
 
 impl<N> SeismicEthApi<N>
@@ -86,9 +86,8 @@ where
 {
     type Error = EthApiError;
     type NetworkTypes = Seismic;
-    type TransactionCompat = Self;
 
-    fn tx_resp_builder(&self) -> &Self::TransactionCompat {
+    fn tx_resp_builder(&self) -> &Self::RpcConvert {
         self
     }
 }
@@ -102,7 +101,6 @@ where
     type Pool = N::Pool;
     type Evm = <N as RpcNodeCore>::Evm;
     type Network = <N as RpcNodeCore>::Network;
-    type PayloadBuilder = ();
 
     #[inline]
     fn pool(&self) -> &Self::Pool {
@@ -117,11 +115,6 @@ where
     #[inline]
     fn network(&self) -> &Self::Network {
         self.inner.network()
-    }
-
-    #[inline]
-    fn payload_builder(&self) -> &Self::PayloadBuilder {
-        &()
     }
 
     #[inline]

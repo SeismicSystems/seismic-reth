@@ -5,7 +5,7 @@ use crate::tree::{
     payload_processor::{
         executor::WorkloadExecutor, multiproof::MultiProofMessage, ExecutionCache,
     },
-    precompile_cache::{CachedPrecompile, PrecompileCacheMap},
+    precompile_cache::{PrecompileCacheMap},
     ExecutionEnv, StateProviderBuilder,
 };
 use alloy_evm::Database;
@@ -245,7 +245,6 @@ where
             metrics,
             terminate_execution,
             precompile_cache_disabled,
-            #[allow(unused_variables)]
             mut precompile_cache_map,
         } = self;
 
@@ -276,7 +275,6 @@ where
         // create a new executor and disable nonce checks in the env
         let spec_id = *evm_env.spec_id();
 
-        #[allow(unused_mut)]
         let mut evm = evm_config.evm_with_env(state_provider, evm_env);
 
         if !precompile_cache_disabled {

@@ -2,7 +2,6 @@
 
 use alloy_consensus::{BlockHeader, Header};
 use alloy_eips::eip7910::{EthConfig, EthForkConfig, SystemContract};
-use alloy_evm::precompiles::Precompile;
 use alloy_primitives::Address;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks, Hardforks, Head};
@@ -115,6 +114,7 @@ where
 
         let mut config = EthConfig { current, next: None, last: None };
 
+        // TODO(usm): make evm_to_precompiles_map work
         if let Some(last_fork_idx) = current_fork_idx.checked_sub(1) {
             if let Some(last_fork_timestamp) = fork_timestamps.get(last_fork_idx).copied() {
                 let fake_header = {
@@ -160,8 +160,11 @@ where
 }
 
 fn evm_to_precompiles_map(
-    evm: impl Evm<Precompiles = PrecompilesMap>,
-) -> BTreeMap<String, Address> {
+    evm: impl Evm,
+) -> BTreeMap<String, Address> 
+{
+    // TODO(usm): make evm_to_precompiles_map work
+    /*
     let precompiles = evm.precompiles();
     precompiles
         .addresses()
@@ -169,6 +172,8 @@ fn evm_to_precompiles_map(
             Some((precompile_to_str(precompiles.get(address)?.precompile_id()), *address))
         })
         .collect()
+    */
+    BTreeMap::new()
 }
 
 // TODO: move
