@@ -177,7 +177,7 @@ dependencies = [
 [[package]]
 name = "alloy-dyn-abi"
 version = "1.3.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#6cedfe28439884de6b78a1d7b906b2073a8f5cd1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#7610dd7f3baf528121bb7956045e9428217ed752"
 dependencies = [
  "alloy-json-abi",
  "alloy-primitives",
@@ -313,7 +313,7 @@ dependencies = [
 [[package]]
 name = "alloy-json-abi"
 version = "1.3.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#6cedfe28439884de6b78a1d7b906b2073a8f5cd1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#7610dd7f3baf528121bb7956045e9428217ed752"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-type-parser",
@@ -391,7 +391,7 @@ dependencies = [
 [[package]]
 name = "alloy-primitives"
 version = "1.3.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#6cedfe28439884de6b78a1d7b906b2073a8f5cd1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#7610dd7f3baf528121bb7956045e9428217ed752"
 dependencies = [
  "alloy-rlp",
  "arbitrary",
@@ -762,7 +762,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-macro"
 version = "1.3.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#6cedfe28439884de6b78a1d7b906b2073a8f5cd1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#7610dd7f3baf528121bb7956045e9428217ed752"
 dependencies = [
  "alloy-sol-macro-expander",
  "alloy-sol-macro-input",
@@ -775,7 +775,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-macro-expander"
 version = "1.3.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#6cedfe28439884de6b78a1d7b906b2073a8f5cd1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#7610dd7f3baf528121bb7956045e9428217ed752"
 dependencies = [
  "alloy-sol-macro-input",
  "const-hex",
@@ -792,7 +792,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-macro-input"
 version = "1.3.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#6cedfe28439884de6b78a1d7b906b2073a8f5cd1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#7610dd7f3baf528121bb7956045e9428217ed752"
 dependencies = [
  "alloy-json-abi",
  "const-hex",
@@ -808,7 +808,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-type-parser"
 version = "1.3.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#6cedfe28439884de6b78a1d7b906b2073a8f5cd1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#7610dd7f3baf528121bb7956045e9428217ed752"
 dependencies = [
  "serde",
  "winnow",
@@ -817,7 +817,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-types"
 version = "1.3.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#6cedfe28439884de6b78a1d7b906b2073a8f5cd1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#7610dd7f3baf528121bb7956045e9428217ed752"
 dependencies = [
  "alloy-json-abi",
  "alloy-primitives",
@@ -3187,7 +3187,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cea14ef9355e3beab063703aa9dab15afd25f0667c341310c1e5274bb1d0da18"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4546,7 +4546,7 @@ checksum = "e04d7f318608d35d4b61ddd75cbdaee86b023ebe2bd5a66ee0915f0bf93095a9"
 dependencies = [
  "hermit-abi 0.5.1",
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6650,7 +6650,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -11001,7 +11001,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.4.15",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -11014,7 +11014,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.9.4",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -11081,7 +11081,7 @@ dependencies = [
  "security-framework 3.2.0",
  "security-framework-sys",
  "webpki-root-certs 0.26.11",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -11975,7 +11975,7 @@ dependencies = [
 [[package]]
 name = "syn-solidity"
 version = "1.3.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#6cedfe28439884de6b78a1d7b906b2073a8f5cd1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?branch=usm#7610dd7f3baf528121bb7956045e9428217ed752"
 dependencies = [
  "paste",
  "proc-macro2",
@@ -12061,7 +12061,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix 1.0.7",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
