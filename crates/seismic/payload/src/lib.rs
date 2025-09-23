@@ -11,6 +11,7 @@
 
 pub mod builder;
 pub use builder::SeismicPayloadBuilder;
+pub mod txn;
 
 pub use reth_ethereum_payload_builder::EthereumBuilderConfig as SeismicBuilderConfig;
 

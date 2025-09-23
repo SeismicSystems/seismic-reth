@@ -34,10 +34,22 @@ reth-ethereum-primitives = {workspace = true, features = ["serde", "serde-bincod
 # ethereum
 revm.workspace = true
 alloy-primitives.workspace = true
-alloy-consensus.workspace = true
+seismic-alloy-consensus.workspace = true
+alloy-provider.workspace = true
+alloy-signer.workspace = true
+alloy-network.workspace = true
+alloy-rpc-types.workspace = true
+alloy-signer-local.workspace = true
+alloy-genesis.workspace = true
+alloy-sol-macro.workspace = true
+alloy-sol-types.workspace = true
 
 # misc
 tracing.workspace = true
+
+rand = "0.8"
+rand_distr = "0.4"
+futures.workspace = true
 
 [dev-dependencies]
 seismic-enclave.workspace = true
