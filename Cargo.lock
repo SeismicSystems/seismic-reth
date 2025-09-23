@@ -750,8 +750,22 @@ name = "alloy-sol-macro"
 version = "1.1.2"
 source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=ca7265a#ca7265a5210fa93df7d264c64986f6956fd1c022"
 dependencies = [
- "alloy-sol-macro-expander",
- "alloy-sol-macro-input",
+ "alloy-sol-macro-expander 1.1.2",
+ "alloy-sol-macro-input 1.1.2",
+ "proc-macro-error2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
+]
+
+[[package]]
+name = "alloy-sol-macro"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d20d867dcf42019d4779519a1ceb55eba8d7f3d0e4f0a89bcba82b8f9eb01e48"
+dependencies = [
+ "alloy-sol-macro-expander 1.3.1",
+ "alloy-sol-macro-input 1.3.1",
  "proc-macro-error2",
  "proc-macro2",
  "quote",
@@ -763,7 +777,7 @@ name = "alloy-sol-macro-expander"
 version = "1.1.2"
 source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=ca7265a#ca7265a5210fa93df7d264c64986f6956fd1c022"
 dependencies = [
- "alloy-sol-macro-input",
+ "alloy-sol-macro-input 1.1.2",
  "const-hex",
  "heck",
  "indexmap 2.9.0",
@@ -771,7 +785,25 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.101",
- "syn-solidity",
+ "syn-solidity 1.1.2",
+ "tiny-keccak",
+]
+
+[[package]]
+name = "alloy-sol-macro-expander"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b74e91b0b553c115d14bd0ed41898309356dc85d0e3d4b9014c4e7715e48c8ad"
+dependencies = [
+ "alloy-sol-macro-input 1.3.1",
+ "const-hex",
+ "heck",
+ "indexmap 2.9.0",
+ "proc-macro-error2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
+ "syn-solidity 1.3.1",
  "tiny-keccak",
 ]
 
@@ -788,7 +820,23 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.101",
- "syn-solidity",
+ "syn-solidity 1.1.2",
+]
+
+[[package]]
+name = "alloy-sol-macro-input"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "84194d31220803f5f62d0a00f583fd3a062b36382e2bea446f1af96727754565"
+dependencies = [
+ "const-hex",
+ "dunce",
+ "heck",
+ "macro-string",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
+ "syn-solidity 1.3.1",
 ]
 
 [[package]]
@@ -807,7 +855,7 @@ source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=ca726
 dependencies = [
  "alloy-json-abi",
  "alloy-primitives",
- "alloy-sol-macro",
+ "alloy-sol-macro 1.1.2",
  "arbitrary",
  "serde",
 ]
@@ -6559,6 +6607,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_distr"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32cb0b9bc82b0a0876c2dd994a7e7a2683d3e7390ca40e6886785ef0c7e3ee31"
+dependencies = [
+ "num-traits",
+ "rand 0.8.5",
+]
+
+[[package]]
 name = "rand_xorshift"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9615,11 +9673,21 @@ dependencies = [
 name = "reth-seismic-payload-builder"
 version = "1.4.3"
 dependencies = [
- "alloy-consensus",
  "alloy-evm",
+ "alloy-genesis",
+ "alloy-network",
  "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-types",
+ "alloy-signer",
+ "alloy-signer-local",
+ "alloy-sol-macro 1.3.1",
+ "alloy-sol-types",
+ "futures",
  "proptest",
  "proptest-arbitrary-interop",
+ "rand 0.8.5",
+ "rand_distr",
  "reth-basic-payload-builder",
  "reth-chainspec",
  "reth-errors",
@@ -9640,6 +9708,7 @@ dependencies = [
  "reth-transaction-pool",
  "reth-trie-common",
  "revm",
+ "seismic-alloy-consensus",
  "seismic-enclave",
  "tracing",
 ]
@@ -11628,6 +11697,18 @@ dependencies = [
 name = "syn-solidity"
 version = "1.1.2"
 source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=ca7265a#ca7265a5210fa93df7d264c64986f6956fd1c022"
+dependencies = [
+ "paste",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
+]
+
+[[package]]
+name = "syn-solidity"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0b198d366dbec045acfcd97295eb653a7a2b40e4dc764ef1e79aafcad439d3c"
 dependencies = [
  "paste",
  "proc-macro2",

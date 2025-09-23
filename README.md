@@ -1,3 +1,7 @@
+# Not a production branch!
+
+This branch of Seismic reth has its payload building overridden to instead build realistic benchmark payloads with known private keys. The payload building is completly overridden.  To be used with https://github.com/SeismicSystems/benchmark-block-builder
+
 # Seismic Reth
 
 [![book](https://github.com/SeismicSystems/seismic-reth/actions/workflows/book.yml/badge.svg?branch=seismic)](https://github.com/SeismicSystems/seismic-reth/actions/workflows/book.yml)
