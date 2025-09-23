@@ -5,7 +5,7 @@ use crate::tree::{
     payload_processor::{
         executor::WorkloadExecutor, multiproof::MultiProofMessage, ExecutionCache,
     },
-    precompile_cache::{PrecompileCacheMap},
+    precompile_cache::PrecompileCacheMap,
     ExecutionEnv, StateProviderBuilder,
 };
 use alloy_evm::Database;
@@ -279,8 +279,9 @@ where
 
         if !precompile_cache_disabled {
             // TODO(usm): see if new logic fixes this below comment's concerns
-            // seismic upstream merge: we do not enable precompile cache since it breaks our stateful
-            // precompiles create a new executor and disable nonce checks in the env
+            // seismic upstream merge: we do not enable precompile cache since it breaks our
+            // stateful precompiles create a new executor and disable nonce checks in
+            // the env
 
             // Only cache pure precompiles to avoid issues with stateful precompiles
             // evm.precompiles_mut().map_pure_precompiles(|address, precompile| {

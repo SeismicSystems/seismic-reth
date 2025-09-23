@@ -28,7 +28,8 @@ use alloy_consensus::{constants::KECCAK_EMPTY, BlockHeader};
 use alloy_eips::{BlockHashOrNumber, BlockNumberOrTag};
 use alloy_network::{primitives::HeaderResponse, BlockResponse};
 use alloy_primitives::{
-    map::HashMap, Address, BlockHash, BlockNumber, FlaggedStorage, StorageKey, TxHash, TxNumber, B256, U256
+    map::HashMap, Address, BlockHash, BlockNumber, FlaggedStorage, StorageKey, TxHash, TxNumber,
+    B256, U256,
 };
 use alloy_provider::{ext::DebugApi, network::Network, Provider};
 use alloy_rpc_types::{AccountInfo, BlockId};
@@ -1097,7 +1098,7 @@ where
                     .await
                     // TODO(usm): this probably leaks
                     .map(FlaggedStorage::public)
-                    .map_err(ProviderError::other)?
+                    .map_err(ProviderError::other)?,
             ))
         })
     }

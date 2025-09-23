@@ -433,7 +433,11 @@ impl StateRootContext {
                 self.account_rlp.clear();
                 let trie_account = account.into_trie_account(storage_root);
                 trie_account.encode(&mut self.account_rlp as &mut dyn BufMut);
-                hash_builder.add_leaf(Nibbles::unpack(hashed_address), &self.account_rlp, is_private);
+                hash_builder.add_leaf(
+                    Nibbles::unpack(hashed_address),
+                    &self.account_rlp,
+                    is_private,
+                );
                 Ok(None)
             }
             StorageRootProgress::Progress(state, storage_slots_walked, updates) => {

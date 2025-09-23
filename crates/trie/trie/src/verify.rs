@@ -617,7 +617,8 @@ mod tests {
             // Add some storage for each account
             let mut storage = BTreeMap::new();
             for j in 0..i {
-                storage.insert(keccak256(B256::from(U256::from(j))), U256::from(j as u64 * 10).into());
+                storage
+                    .insert(keccak256(B256::from(U256::from(j))), U256::from(j as u64 * 10).into());
             }
             if !storage.is_empty() {
                 storage_tries.insert(addr, storage);

@@ -34,7 +34,11 @@ pub trait StatelessTrie: core::fmt::Debug {
     ///
     /// This method will error if the `ExecutionWitness` is not able to guarantee
     /// that the storage was missing from the Trie _and_ the witness was complete.
-    fn storage(&self, address: Address, slot: U256) -> Result<alloy_primitives::FlaggedStorage, ProviderError>;
+    fn storage(
+        &self,
+        address: Address,
+        slot: U256,
+    ) -> Result<alloy_primitives::FlaggedStorage, ProviderError>;
 
     /// Computes the new state root from the `HashedPostState`.
     fn calculate_state_root(
@@ -87,7 +91,11 @@ impl StatelessSparseTrie {
     ///
     /// This method will error if the `ExecutionWitness` is not able to guarantee
     /// that the storage was missing from the Trie _and_ the witness was complete.
-    pub fn storage(&self, address: Address, slot: U256) -> Result<alloy_primitives::FlaggedStorage, ProviderError> {
+    pub fn storage(
+        &self,
+        address: Address,
+        slot: U256,
+    ) -> Result<alloy_primitives::FlaggedStorage, ProviderError> {
         let hashed_address = keccak256(address);
         let hashed_slot = keccak256(B256::from(slot));
 
@@ -141,7 +149,11 @@ impl StatelessTrie for StatelessSparseTrie {
         self.account(address)
     }
 
-    fn storage(&self, address: Address, slot: U256) -> Result<alloy_primitives::FlaggedStorage, ProviderError> {
+    fn storage(
+        &self,
+        address: Address,
+        slot: U256,
+    ) -> Result<alloy_primitives::FlaggedStorage, ProviderError> {
         self.storage(address, slot)
     }
 

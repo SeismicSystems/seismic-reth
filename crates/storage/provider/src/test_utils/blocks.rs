@@ -181,12 +181,7 @@ fn bundle_state_root(execution_outcome: &ExecutionOutcome) -> B256 {
                             .storage
                             .iter()
                             .filter(|(_, value)| !value.present_value.is_zero())
-                            .map(|(slot, value)| {
-                                (
-                                    (*slot).into(),
-                                    value.present_value,
-                                )
-                            }),
+                            .map(|(slot, value)| ((*slot).into(), value.present_value)),
                     )),
                 )
             })

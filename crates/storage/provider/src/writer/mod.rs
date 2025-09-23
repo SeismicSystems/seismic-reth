@@ -1470,7 +1470,10 @@ mod tests {
         else {
             panic!("no threshold for root");
         };
-        assert_eq!(storage_root, storage_root_prehashed(FlaggedStorage::collect_value(init_storage.storage)));
+        assert_eq!(
+            storage_root,
+            storage_root_prehashed(FlaggedStorage::collect_value(init_storage.storage))
+        );
         assert!(!storage_updates.is_empty());
         provider_rw
             .write_individual_storage_trie_updates(hashed_address, &storage_updates)

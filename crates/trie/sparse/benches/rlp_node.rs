@@ -22,8 +22,8 @@ fn update_rlp_node_level(c: &mut Criterion) {
             .current();
 
         let is_private = false; // hardcoded to false for legacy benchmark
-        // Create a sparse trie with `size` leaves
-        
+                                // Create a sparse trie with `size` leaves
+
         let provider = DefaultTrieNodeProvider;
         let mut sparse = SerialSparseTrie::default();
         for (key, value) in &state {

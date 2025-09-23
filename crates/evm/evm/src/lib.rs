@@ -24,7 +24,7 @@ use alloy_eips::{
     eip2930::AccessList,
     eip4895::Withdrawals,
 };
-use alloy_evm::{block::{BlockExecutorFactory, BlockExecutorFor}};
+use alloy_evm::block::{BlockExecutorFactory, BlockExecutorFor};
 use alloy_primitives::{Address, B256};
 use core::{error::Error, fmt::Debug};
 use execute::{BasicBlockExecutor, BlockAssembler, BlockBuilder};
@@ -32,7 +32,7 @@ use reth_execution_errors::BlockExecutionError;
 use reth_primitives_traits::{
     BlockTy, HeaderTy, NodePrimitives, ReceiptTy, SealedBlock, SealedHeader, TxTy,
 };
-use revm::{context::TxEnv, database::{State}};
+use revm::{context::TxEnv, database::State};
 
 pub mod either;
 /// EVM environment configuration.

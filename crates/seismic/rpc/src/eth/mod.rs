@@ -17,11 +17,17 @@ use reth_evm::ConfigureEvm;
 use reth_network_api::NetworkInfo;
 use reth_node_api::{FullNodeComponents, FullNodeTypes, HeaderTy, NodePrimitives};
 use reth_node_builder::rpc::{EthApiBuilder, EthApiCtx};
-use reth_rpc::{eth::{core::EthApiInner, DevSigner}, RpcTypes};
+use reth_rpc::{
+    eth::{core::EthApiInner, DevSigner},
+    RpcTypes,
+};
 use reth_rpc_eth_api::{
     helpers::{
-        pending_block::BuildPendingEnv, spec::SignersForApi, AddDevSigners, EthApiSpec, EthFees, EthSigner, EthState, LoadBlock, LoadFee, LoadPendingBlock, LoadState, SpawnBlocking, Trace
-    }, EthApiTypes, FromEvmError, FullEthApiServer, RpcConvert, RpcConverter, RpcNodeCore, RpcNodeCoreExt, SignableTxRequest
+        pending_block::BuildPendingEnv, spec::SignersForApi, AddDevSigners, EthApiSpec, EthFees,
+        EthSigner, EthState, LoadBlock, LoadFee, LoadPendingBlock, LoadState, SpawnBlocking, Trace,
+    },
+    EthApiTypes, FromEvmError, FullEthApiServer, RpcConvert, RpcConverter, RpcNodeCore,
+    RpcNodeCoreExt, SignableTxRequest,
 };
 use reth_rpc_eth_types::{EthApiError, EthStateCache, FeeHistoryCache, GasPriceOracle};
 use reth_seismic_primitives::SeismicPrimitives;
@@ -53,8 +59,7 @@ pub struct SeismicEthApi<N: SeismicNodeCore, Rpc: RpcConvert> {
     pub inner: Arc<EthApiInner<N, Rpc>>,
 }
 
-impl<N: RpcNodeCore, Rpc: RpcConvert> SeismicEthApi<N, Rpc>
-{
+impl<N: RpcNodeCore, Rpc: RpcConvert> SeismicEthApi<N, Rpc> {
     /// Returns a reference to the [`EthApiNodeBackend`].
     pub fn eth_api(&self) -> &EthApiNodeBackend<N, Rpc> {
         &self.inner
@@ -181,7 +186,8 @@ where
     }
 }
 
-impl<N, Rpc> LoadState for SeismicEthApi<N, Rpc> where
+impl<N, Rpc> LoadState for SeismicEthApi<N, Rpc>
+where
     N: RpcNodeCore,
     Rpc: RpcConvert<Primitives = N::Primitives>,
     Self: LoadPendingBlock,
@@ -221,7 +227,7 @@ where
     N: RpcNodeCore,
     Rpc: RpcConvert<
         Network: RpcTypes<TransactionRequest: SignableTxRequest<ProviderTx<N::Provider>>>,
-    >
+    >,
 {
     fn with_dev_accounts(&self) {
         *self.inner.signers().write() = DevSigner::random_signers(20)
@@ -235,19 +241,13 @@ impl<N: SeismicNodeCore, Rpc: RpcConvert> fmt::Debug for SeismicEthApi<N, Rpc> {
 }
 
 /// Converter for OP RPC types.
-pub type SeismicRpcConvert<N, NetworkT> = RpcConverter<
-    NetworkT,
-    <N as FullNodeComponents>::Evm,
-    (),
-    (),
-    (),
->;
-
+pub type SeismicRpcConvert<N, NetworkT> =
+    RpcConverter<NetworkT, <N as FullNodeComponents>::Evm, (), (), ()>;
 
 /// Builds [`SeismicEthApi`] for Optimism.
 #[derive(Debug)]
 pub struct SeismicEthApiBuilder<NetworkT> {
-    _nt: PhantomData<NetworkT>
+    _nt: PhantomData<NetworkT>,
 }
 
 impl<NetworkT> Default for SeismicEthApiBuilder<NetworkT> {
@@ -268,16 +268,14 @@ where
     N: FullNodeComponents<
         Evm: ConfigureEvm<
             NextBlockEnvCtx: BuildPendingEnv<HeaderTy<N::Types>>
-                                // + From<ExecutionPayloadBaseV1>
-                                + Unpin,
+                                 // + From<ExecutionPayloadBaseV1>
+                                 + Unpin,
         >,
     >,
     NetworkT: RpcTypes,
     SeismicRpcConvert<N, NetworkT>: RpcConvert<Network = NetworkT>,
-    SeismicEthApi<N, SeismicRpcConvert<N, NetworkT>>: FullEthApiServer<
-        Provider = N::Provider,
-        Pool = N::Pool
-    > + AddDevSigners,
+    SeismicEthApi<N, SeismicRpcConvert<N, NetworkT>>:
+        FullEthApiServer<Provider = N::Provider, Pool = N::Pool> + AddDevSigners,
 {
     type EthApi = SeismicEthApi<N, SeismicRpcConvert<N, NetworkT>>;
 

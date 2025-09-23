@@ -11,11 +11,13 @@ where
     N: RpcNodeCore,
     SeismicEthApiError: FromEvmError<N::Evm>,
     Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
-{}
+{
+}
 
 impl<N, Rpc> LoadBlock for SeismicEthApi<N, Rpc>
 where
     N: RpcNodeCore,
     SeismicEthApiError: FromEvmError<N::Evm>,
     Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
-{}
+{
+}

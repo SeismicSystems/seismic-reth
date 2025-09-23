@@ -159,10 +159,7 @@ where
     }
 }
 
-fn evm_to_precompiles_map(
-    evm: impl Evm,
-) -> BTreeMap<String, Address> 
-{
+fn evm_to_precompiles_map(evm: impl Evm) -> BTreeMap<String, Address> {
     // TODO(usm): make evm_to_precompiles_map work
     /*
     let precompiles = evm.precompiles();

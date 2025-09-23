@@ -454,9 +454,11 @@ fn eip_2935_fork_activation_within_window_bounds() {
         executor.with_state_mut(|state| state.basic(HISTORY_STORAGE_ADDRESS).unwrap().is_some())
     );
     assert_ne!(
-        executor.with_state_mut(|state| state
-            .storage(HISTORY_STORAGE_ADDRESS, U256::from(fork_activation_block - 1))
-            .unwrap()).value,
+        executor
+            .with_state_mut(|state| state
+                .storage(HISTORY_STORAGE_ADDRESS, U256::from(fork_activation_block - 1))
+                .unwrap())
+            .value,
         U256::ZERO
     );
 
@@ -567,7 +569,8 @@ fn eip_2935_state_transition_inside_fork() {
     );
     assert_ne!(
         executor
-            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::ZERO).unwrap()).value,
+            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::ZERO).unwrap())
+            .value,
         U256::ZERO
     );
     assert!(executor.with_state_mut(|state| {
@@ -598,12 +601,14 @@ fn eip_2935_state_transition_inside_fork() {
     );
     assert_ne!(
         executor
-            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::ZERO).unwrap()).value,
+            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::ZERO).unwrap())
+            .value,
         U256::ZERO
     );
     assert_ne!(
         executor
-            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::from(1)).unwrap()).value,
+            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::from(1)).unwrap())
+            .value,
         U256::ZERO
     );
     assert!(executor.with_state_mut(|state| {

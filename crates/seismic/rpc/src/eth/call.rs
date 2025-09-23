@@ -4,11 +4,15 @@ use alloy_consensus::transaction::Either;
 use alloy_eips::eip7702::{RecoveredAuthorization, SignedAuthorization};
 use alloy_primitives::{TxKind, U256};
 use alloy_rpc_types_eth::transaction::TransactionRequest;
-use reth_evm::{execute::BlockExecutorFactory, ConfigureEvm, EvmEnv, EvmFactory, SpecFor, TxEnvFor};
+use reth_evm::{
+    execute::BlockExecutorFactory, ConfigureEvm, EvmEnv, EvmFactory, SpecFor, TxEnvFor,
+};
 use reth_node_api::NodePrimitives;
 use reth_rpc::RpcTypes;
 use reth_rpc_eth_api::{
-    helpers::{estimate::EstimateCall, Call, EthCall, LoadBlock, LoadState, SpawnBlocking}, CallFees, FromEthApiError, FromEvmError, FullEthApiTypes, IntoEthApiError, RpcConvert, RpcNodeCore
+    helpers::{estimate::EstimateCall, Call, EthCall, LoadBlock, LoadState, SpawnBlocking},
+    CallFees, FromEthApiError, FromEvmError, FullEthApiTypes, IntoEthApiError, RpcConvert,
+    RpcNodeCore,
 };
 use reth_rpc_eth_types::{EthApiError, RpcInvalidTransactionError};
 use reth_seismic_primitives::SeismicTransactionSigned;
@@ -53,11 +57,13 @@ where
     // Self: LoadState<
     //         Evm: ConfigureEvm<
     //             Primitives: NodePrimitives<
-    //                 BlockHeader = ProviderHeader<Self::Provider>,
-    //                 SignedTx = ProviderTx<Self::Provider>,
-    //             >,
-    //             BlockExecutorFactory: BlockExecutorFactory<
-    //                 EvmFactory: EvmFactory<Tx = seismic_revm::SeismicTransaction<TxEnv>>,
+    //                 BlockHeader =
+    // ProviderHeader<Self::Provider>,                 
+    // SignedTx = ProviderTx<Self::Provider>,            
+    // >,             BlockExecutorFactory:
+    // BlockExecutorFactory<                 EvmFactory:
+    // EvmFactory<Tx =
+    // seismic_revm::SeismicTransaction<TxEnv>>,
     //             >,
     //         >,
     //         Error: FromEvmError<Self::Evm>,
@@ -87,7 +93,7 @@ where
         evm_env: &EvmEnv<SpecFor<Self::Evm>>,
         request: <<Rpc as RpcConvert>::Network as RpcTypes>::TransactionRequest,
         mut db: impl Database<Error: Into<EthApiError>>,
-    ) -> Result<<<<<N as RpcNodeCore>::Evm as ConfigureEvm>::BlockExecutorFactory as BlockExecutorFactory>::EvmFactory as EvmFactory>::Tx, Self::Error> {
+    ) -> Result<<<<<N as RpcNodeCore>::Evm as ConfigureEvm>::BlockExecutorFactory as BlockExecutorFactory>::EvmFactory as EvmFactory>::Tx, Self::Error>{
         // Ensure that if versioned hashes are set, they're not empty
         if request.blob_versioned_hashes.as_ref().is_some_and(|hashes| hashes.is_empty()) {
             return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err())
