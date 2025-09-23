@@ -7,20 +7,15 @@ use alloy_rpc_types_eth::transaction::TransactionRequest;
 use reth_evm::{
     execute::BlockExecutorFactory, ConfigureEvm, EvmEnv, EvmFactory, SpecFor, TxEnvFor,
 };
-use reth_node_api::NodePrimitives;
 use reth_rpc::RpcTypes;
 use reth_rpc_eth_api::{
-    helpers::{estimate::EstimateCall, Call, EthCall, LoadBlock, LoadState, SpawnBlocking},
-    CallFees, FromEthApiError, FromEvmError, FullEthApiTypes, IntoEthApiError, RpcConvert,
-    RpcNodeCore,
+    helpers::{estimate::EstimateCall, Call, EthCall}, CallFees, EthTxEnvError, FromEthApiError, FromEvmError, IntoEthApiError, RpcConvert, RpcNodeCore
 };
 use reth_rpc_eth_types::{EthApiError, RpcInvalidTransactionError};
-use reth_seismic_primitives::SeismicTransactionSigned;
-use reth_storage_api::{ProviderHeader, ProviderTx};
 use revm::{context::TxEnv, context_interface::Block, Database};
 use seismic_alloy_consensus::SeismicTxType;
+use seismic_alloy_rpc_types::SeismicTransactionRequest;
 use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
-use tracing::debug;
 
 use seismic_alloy_network::SeismicReth;
 
@@ -91,9 +86,9 @@ where
     fn create_txn_env(
         &self,
         evm_env: &EvmEnv<SpecFor<Self::Evm>>,
-        request: <<Rpc as RpcConvert>::Network as RpcTypes>::TransactionRequest,
+        request: TransactionRequest,
         mut db: impl Database<Error: Into<EthApiError>>,
-    ) -> Result<<<<<N as RpcNodeCore>::Evm as ConfigureEvm>::BlockExecutorFactory as BlockExecutorFactory>::EvmFactory as EvmFactory>::Tx, Self::Error>{
+    ) -> Result<SeismicTransaction<TxEnv>, Self::Error>{
         // Ensure that if versioned hashes are set, they're not empty
         if request.blob_versioned_hashes.as_ref().is_some_and(|hashes| hashes.is_empty()) {
             return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err())
@@ -137,7 +132,7 @@ where
                 blob_versioned_hashes.as_deref(),
                 max_fee_per_blob_gas.map(U256::from),
                 evm_env.block_env.blob_gasprice().map(U256::from),
-            )?;
+            ).map_err(|e|EthTxEnvError::CallFees(e))?;
 
         let gas_limit = gas.unwrap_or(
             // Use maximum allowed gas limit. The reason for this
@@ -188,7 +183,7 @@ where
             authorization_list,
         };
 
-        debug!("reth-seismic-rpc::eth create_txn_env {:?}", env);
+        tracing::debug!("reth-seismic-rpc::eth create_txn_env {:?}", env);
 
         Ok(SeismicTransaction {
             base: env,
