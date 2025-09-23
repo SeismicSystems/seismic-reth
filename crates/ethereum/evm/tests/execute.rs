@@ -124,7 +124,7 @@ fn eip_4788_non_genesis_call() {
     let timestamp_storage = executor.with_state_mut(|state| {
         state.storage(BEACON_ROOTS_ADDRESS, U256::from(timestamp_index)).unwrap()
     });
-    assert_eq!(timestamp_storage, U256::from(header.timestamp));
+    assert_eq!(timestamp_storage.value, U256::from(header.timestamp));
 
     // get parent beacon block root storage and compare
     let parent_beacon_block_root_storage = executor.with_state_mut(|state| {
@@ -132,7 +132,7 @@ fn eip_4788_non_genesis_call() {
             .storage(BEACON_ROOTS_ADDRESS, U256::from(parent_beacon_block_root_index))
             .expect("storage value should exist")
     });
-    assert_eq!(parent_beacon_block_root_storage, U256::from(0x69));
+    assert_eq!(parent_beacon_block_root_storage.value, U256::from(0x69));
 }
 
 #[test]
@@ -318,13 +318,13 @@ fn eip_4788_high_base_fee() {
     let timestamp_storage = executor.with_state_mut(|state| {
         state.storage(BEACON_ROOTS_ADDRESS, U256::from(timestamp_index)).unwrap()
     });
-    assert_eq!(timestamp_storage, U256::from(header.timestamp));
+    assert_eq!(timestamp_storage.value, U256::from(header.timestamp));
 
     // get parent beacon block root storage and compare
     let parent_beacon_block_root_storage = executor.with_state_mut(|state| {
         state.storage(BEACON_ROOTS_ADDRESS, U256::from(parent_beacon_block_root_index)).unwrap()
     });
-    assert_eq!(parent_beacon_block_root_storage, U256::from(0x69));
+    assert_eq!(parent_beacon_block_root_storage.value, U256::from(0x69));
 }
 
 /// Create a state provider with blockhashes and the EIP-2935 system contract.
@@ -456,7 +456,7 @@ fn eip_2935_fork_activation_within_window_bounds() {
     assert_ne!(
         executor.with_state_mut(|state| state
             .storage(HISTORY_STORAGE_ADDRESS, U256::from(fork_activation_block - 1))
-            .unwrap()),
+            .unwrap()).value,
         U256::ZERO
     );
 
@@ -567,7 +567,7 @@ fn eip_2935_state_transition_inside_fork() {
     );
     assert_ne!(
         executor
-            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::ZERO).unwrap()),
+            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::ZERO).unwrap()).value,
         U256::ZERO
     );
     assert!(executor.with_state_mut(|state| {
@@ -598,12 +598,12 @@ fn eip_2935_state_transition_inside_fork() {
     );
     assert_ne!(
         executor
-            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::ZERO).unwrap()),
+            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::ZERO).unwrap()).value,
         U256::ZERO
     );
     assert_ne!(
         executor
-            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::from(1)).unwrap()),
+            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::from(1)).unwrap()).value,
         U256::ZERO
     );
     assert!(executor.with_state_mut(|state| {
