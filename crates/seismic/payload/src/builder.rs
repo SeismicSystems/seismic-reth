@@ -45,10 +45,6 @@ use crate::txn::{build_consume_gas_transaction, calculate_gas_distribution};
 
 use super::SeismicBuilderConfig;
 
-const TARGET_GAS: u64 = 140975;
-const STD_DEV: u64 = 49436;
-const TXN_COUNT: u64 = 300;
-
 /// Disk-based transaction iterator for benchmarking
 #[derive(Debug)]
 pub struct DiskTransactionIterator<Transaction: PoolTransaction> {
@@ -77,9 +73,28 @@ where
         count: usize,
     ) -> Result<Vec<Arc<ValidPoolTransaction<Transaction>>>, Box<dyn std::error::Error + Send + Sync>>
     {
+        let target_gas: u64 = std::env::var("BENCHMARK_TARGET_GAS")
+            .unwrap_or("140975".to_string())
+            .parse()
+            .expect("invalid BENCHMARK_TARGET_GAS");
+
+        let std_dev: u64 = std::env::var("BENCHMARK_STD_DEV")
+            .unwrap_or("49436".to_string())
+            .parse()
+            .expect("invalid BENCHMARK_STD_DEV");
+
+        let txn_count: u64 = std::env::var("BENCHMARK_TXN_COUNT")
+            .unwrap_or("300".to_string())
+            .parse()
+            .expect("invalid BENCHMARK_TXN_COUNT");
+
+        tracing::error!("Txn count: {txn_count}");
+        tracing::error!("std_dev: {std_dev}");
+        tracing::error!("target_gas: {target_gas}");
+
         let mut txns = Vec::with_capacity(count);
 
-        let gas_calcs = calculate_gas_distribution(TARGET_GAS, STD_DEV, TXN_COUNT);
+        let gas_calcs = calculate_gas_distribution(target_gas, std_dev, txn_count);
 
         for gas in gas_calcs {
             let txn = block_on(build_consume_gas_transaction(gas)).unwrap();
@@ -293,13 +308,15 @@ where
 
     debug!(target: "payload_builder", id=%attributes.id, parent_header = ?parent_header.hash(), parent_number = parent_header.number, "building new payload");
     let mut cumulative_gas_used = 0;
+
+    let benchmark_mode = std::env::var("BENCHMARK_MODE").is_ok();
     let block_gas_limit: u64 = builder.evm_mut().block().gas_limit;
     let base_fee = builder.evm_mut().block().basefee;
     let mut best_txs: Box<
         dyn BestTransactions<
             Item = Arc<ValidPoolTransaction<<Pool as TransactionPool>::Transaction>>,
         >,
-    > = if true {
+    > = if benchmark_mode {
         debug!(target: "payload_builder", "BENCHMARK MODE: Using 300 disk transactions");
         match DiskTransactionIterator::new_from_disk("benchmark_transactions.json") {
             Ok(disk_iter) => Box::new(disk_iter),
