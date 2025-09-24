@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 674b48dcd9b6a14db97f39bca073ec06adb02747031eaf1c3e45facc34ba9e3d # shrinks to state = {0x7ed5a0c0a0446aef3e8a37deb577e3e9c4d78c99: (Account { nonce: 11030852537627372716, balance: 101092925486967073639829781883998712174699118353393240094905867310731299056377, bytecode_hash: Some(0xebed5fe0368f02ef5a83086ffab16fca7db08c2d1a5f9e4850befe81abe8675d) }, {0x591bbd4d0490755e86e9109bbe9efcb4e8b9dcc5c111ad5aa4e957e31f2ceab7: FlaggedStorage { value: 101589334507263622185626339124864292125625202242444003044283033711717448354652, is_private: false }, 0xa90d4b992504eab926835443de6421b4c20dc64510688b4d46be740958c229c8: FlaggedStorage { value: 12954600061749020995018837836416948077480643696636806618, is_private: false }})}
