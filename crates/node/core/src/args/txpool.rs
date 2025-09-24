@@ -62,6 +62,7 @@ pub struct TxPoolArgs {
     pub price_bump: u128,
 
     /// Minimum base fee required by the protocol.
+    /// TODO: Explore making this 0 for tokenless transactions using shim
     #[arg(long = "txpool.minimal-protocol-fee", default_value_t = MIN_PROTOCOL_BASE_FEE)]
     pub minimal_protocol_basefee: u64,
 
