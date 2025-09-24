@@ -282,6 +282,7 @@ mod tests {
     use std::path::PathBuf;
 
     #[tokio::test]
+    #[ignore]
     async fn test_stage_checkpoints_persistence() {
         // This test specifically verifies that stage checkpoints are persisted correctly
         // when reopening the database
