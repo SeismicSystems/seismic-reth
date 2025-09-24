@@ -25,10 +25,7 @@ use reth_cli::chainspec::ChainSpecParser;
 use reth_cli_runner::CliRunner;
 use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
-use reth_node_core::{
-    args::LogArgs,
-    version::version_metadata,
-};
+use reth_node_core::{args::LogArgs, version::version_metadata};
 use reth_tracing::FileWorkerGuard;
 use tracing::info;
 
@@ -135,7 +132,12 @@ where
 
         match self.command {
             Commands::Node(command) => runner.run_command_until_exit(|ctx| {
-                command.execute(ctx, FnLauncher::new::<C, Ext>(async move |builder, ext| launcher(builder, ext).await))
+                command.execute(
+                    ctx,
+                    FnLauncher::new::<C, Ext>(async move |builder, ext| {
+                        launcher(builder, ext).await
+                    }),
+                )
             }),
         }
     }

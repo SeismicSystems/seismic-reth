@@ -7,9 +7,9 @@ use reth_provider::ProviderError;
 use reth_rpc_eth_api::{AsEthApiError, EthTxEnvError, TransactionConversionError};
 use reth_rpc_eth_types::{error::api::FromEvmHalt, EthApiError};
 use reth_rpc_server_types::result::internal_rpc_err;
-use seismic_revm::SeismicHaltReason;
 use revm::context_interface::result::EVMError;
 use revm_context::result::HaltReason;
+use seismic_revm::SeismicHaltReason;
 
 #[derive(Debug, thiserror::Error)]
 /// Seismic API error
@@ -114,12 +114,11 @@ impl FromEvmHalt<HaltReason> for SeismicEthApiError {
     fn from_evm_halt(halt: HaltReason, gas_limit: u64) -> Self {
         // Delegate to the existing From implementation for the halt reason
         // and use the gas limit info if needed
-        Self::Eth(EthApiError::other(internal_rpc_err(format!("EVM halted: {halt:?} (gas limit: {gas_limit})"))))
+        Self::Eth(EthApiError::other(internal_rpc_err(format!(
+            "EVM halted: {halt:?} (gas limit: {gas_limit})"
+        ))))
     }
 }
-
-
-
 
 #[cfg(test)]
 mod tests {

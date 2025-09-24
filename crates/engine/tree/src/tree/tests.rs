@@ -1,5 +1,8 @@
 use super::*;
-use crate::{backup::{BackupAction, BackupHandle}, persistence::PersistenceAction};
+use crate::{
+    backup::{BackupAction, BackupHandle},
+    persistence::PersistenceAction,
+};
 use alloy_consensus::Header;
 use alloy_primitives::{
     map::{HashMap, HashSet},

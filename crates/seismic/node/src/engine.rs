@@ -8,14 +8,12 @@ pub use alloy_rpc_types_engine::{
     ExecutionPayloadV1, PayloadAttributes,
 };
 use reth_chainspec::ChainSpec;
-use reth_engine_primitives::EngineTypes;
+use reth_engine_primitives::{EngineTypes, PayloadValidator};
 use reth_ethereum_payload_builder::EthereumExecutionPayloadValidator;
 use reth_node_api::{
     validate_execution_requests, validate_version_specific_fields, EngineApiMessageVersion,
-    EngineObjectValidationError, NewPayloadError, PayloadOrAttributes,
+    EngineApiValidator, EngineObjectValidationError, NewPayloadError, PayloadOrAttributes,
 };
-use reth_node_api::EngineApiValidator;
-use reth_engine_primitives::PayloadValidator;
 use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_payload_primitives::{BuiltPayload, PayloadTypes};
 use reth_primitives_traits::{NodePrimitives, RecoveredBlock, SealedBlock};
@@ -148,9 +146,7 @@ where
         validate_version_specific_fields(
             self.chain_spec(),
             version,
-            PayloadOrAttributes::<ExecutionData, PayloadAttributes>::PayloadAttributes(
-                attributes,
-            ),
+            PayloadOrAttributes::<ExecutionData, PayloadAttributes>::PayloadAttributes(attributes),
         )
     }
 }

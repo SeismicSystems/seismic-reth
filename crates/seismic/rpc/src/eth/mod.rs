@@ -12,7 +12,10 @@ mod block;
 mod call;
 mod pending_block;
 
-use crate::SeismicEthApiError;
+use crate::{
+    eth::transaction::{SeismicRpcTxConverter, SeismicSimTxConverter},
+    SeismicEthApiError,
+};
 use alloy_primitives::U256;
 use reth_evm::ConfigureEvm;
 use reth_node_api::{FullNodeComponents, HeaderTy};
@@ -37,17 +40,16 @@ use reth_tasks::{
 };
 use seismic_alloy_network::SeismicReth;
 use std::{fmt, marker::PhantomData, sync::Arc};
-use crate::eth::transaction::{SeismicRpcTxConverter, SeismicSimTxConverter};
 
+use reth_rpc_convert::transaction::{EthTxEnvError, TryIntoTxEnv};
+use revm_context::{BlockEnv, CfgEnv, TxEnv};
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
-use reth_rpc_convert::transaction::{TryIntoTxEnv, EthTxEnvError};
-use revm_context::{TxEnv, CfgEnv, BlockEnv};
 use seismic_revm;
 
 // Additional imports for SignableTxRequest wrapper
-use seismic_alloy_network::TxSigner;
 use alloy_primitives::Signature;
 use reth_rpc_convert::SignTxRequestError;
+use seismic_alloy_network::TxSigner;
 
 /// Newtype wrapper around SeismicTransactionRequest to implement SignableTxRequest
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -61,10 +63,7 @@ impl From<SeismicTransactionRequest> for SignableSeismicTransactionRequest {
 
 impl From<alloy_rpc_types_eth::TransactionRequest> for SignableSeismicTransactionRequest {
     fn from(req: alloy_rpc_types_eth::TransactionRequest) -> Self {
-        Self(SeismicTransactionRequest {
-            inner: req,
-            seismic_elements: None,
-        })
+        Self(SeismicTransactionRequest { inner: req, seismic_elements: None })
     }
 }
 
@@ -79,7 +78,6 @@ impl AsMut<alloy_rpc_types_eth::TransactionRequest> for SignableSeismicTransacti
         &mut self.0.inner
     }
 }
-
 
 impl TryIntoTxEnv<seismic_revm::SeismicTransaction<TxEnv>> for SignableSeismicTransactionRequest {
     type Err = EthTxEnvError;
@@ -96,19 +94,22 @@ impl TryIntoTxEnv<seismic_revm::SeismicTransaction<TxEnv>> for SignableSeismicTr
     }
 }
 
-impl SignableTxRequest<reth_seismic_primitives::SeismicTransactionSigned> for SignableSeismicTransactionRequest {
+impl SignableTxRequest<reth_seismic_primitives::SeismicTransactionSigned>
+    for SignableSeismicTransactionRequest
+{
     async fn try_build_and_sign(
         self,
         _signer: impl TxSigner<Signature> + Send,
     ) -> Result<reth_seismic_primitives::SeismicTransactionSigned, SignTxRequestError> {
         // TODO: Implement proper signing logic
         // For now, create a placeholder transaction to make it compile
+        use alloy_consensus::{Signed, TxLegacy};
+        use alloy_primitives::{B256, U256};
         use reth_seismic_primitives::SeismicTransactionSigned;
         use seismic_alloy_consensus::SeismicTxEnvelope;
-        use alloy_consensus::{TxLegacy, Signed};
-        use alloy_primitives::{B256, U256};
 
-        // Create a minimal transaction for compilation - this should be replaced with proper signing
+        // Create a minimal transaction for compilation - this should be replaced with proper
+        // signing
         let tx = TxLegacy {
             chain_id: Some(1),
             nonce: 0,
@@ -138,10 +139,6 @@ impl reth_rpc_eth_api::RpcTypes for SeismicRethWithSignable {
     type TransactionResponse = <SeismicReth as reth_rpc_eth_api::RpcTypes>::TransactionResponse;
     type Header = <SeismicReth as reth_rpc_eth_api::RpcTypes>::Header;
 }
-
-
-
-
 
 /// Adapter for [`EthApiInner`], which holds all the data required to serve core `eth_` API.
 pub type EthApiNodeBackend<N, Rpc> = EthApiInner<N, Rpc>;
@@ -386,7 +383,6 @@ where
     type EthApi = SeismicEthApi<N, SeismicRpcConvert<N, NetworkT>>;
 
     async fn build_eth_api(self, ctx: EthApiCtx<'_, N>) -> eyre::Result<Self::EthApi> {
-
         let receipt_converter = SeismicReceiptConverter::new();
 
         let rpc_converter: SeismicRpcConvert<N, NetworkT> = RpcConverter::new(receipt_converter)

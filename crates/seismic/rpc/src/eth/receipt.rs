@@ -1,11 +1,8 @@
 //! Loads and formats Seismic receipt RPC response.
 
-use reth_rpc_eth_api::{
-    helpers::LoadReceipt, RpcConvert, RpcNodeCore,
-};
-use reth_rpc_convert::transaction::ConvertReceiptInput;
+use reth_rpc_convert::transaction::{ConvertReceiptInput, ReceiptConverter};
+use reth_rpc_eth_api::{helpers::LoadReceipt, RpcConvert, RpcNodeCore};
 use reth_rpc_eth_types::{receipt::build_receipt, EthApiError};
-use reth_rpc_convert::transaction::ReceiptConverter;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt};
 use seismic_alloy_consensus::SeismicReceiptEnvelope;
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
@@ -73,7 +70,11 @@ impl ReceiptConverter<SeismicPrimitives> for SeismicReceiptConverter {
     ) -> Result<Vec<Self::RpcReceipt>, Self::Error> {
         inputs
             .into_iter()
-            .map(|input| SeismicReceiptBuilder::new(input).map_err(SeismicEthApiError::Eth).map(|builder| builder.build()))
+            .map(|input| {
+                SeismicReceiptBuilder::new(input)
+                    .map_err(SeismicEthApiError::Eth)
+                    .map(|builder| builder.build())
+            })
             .collect()
     }
 }

@@ -22,7 +22,9 @@ use reth_node_builder::{
     },
     node::{FullNodeTypes, NodeTypes},
     rpc::{
-        BasicEngineApiBuilder, BasicEngineValidator, BasicEngineValidatorBuilder, EngineApiBuilder, EngineValidatorAddOn, EngineValidatorBuilder, EthApiBuilder, PayloadValidatorBuilder, RethRpcAddOns, RethRpcMiddleware, RpcAddOns, RpcHandle, RpcModuleContainer
+        BasicEngineApiBuilder, BasicEngineValidator, BasicEngineValidatorBuilder, EngineApiBuilder,
+        EngineValidatorAddOn, EngineValidatorBuilder, EthApiBuilder, PayloadValidatorBuilder,
+        RethRpcAddOns, RethRpcMiddleware, RpcAddOns, RpcHandle, RpcModuleContainer,
     },
     BuilderContext, DebugNode, Node, NodeAdapter, NodeComponentsBuilder, PayloadBuilderConfig,
 };
@@ -32,15 +34,15 @@ use reth_provider::{providers::ProviderFactoryBuilder, CanonStateSubscriptions, 
 use reth_rpc::ValidationApi;
 use reth_rpc_api::BlockSubmissionValidationApiServer;
 use reth_rpc_builder::{config::RethRpcServerConfig, Identity};
-use reth_rpc_eth_types::error::api::FromEvmHalt;
-use reth_rpc_eth_types::{error::FromEvmError, EthApiError};
+use reth_rpc_eth_types::{
+    error::{api::FromEvmHalt, FromEvmError},
+    EthApiError,
+};
 use reth_rpc_server_types::RethRpcModule;
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
-use reth_seismic_rpc::{
-    SeismicEthApiBuilder, SeismicEthApiError, SeismicRethWithSignable,
-};
+use reth_seismic_rpc::{SeismicEthApiBuilder, SeismicEthApiError, SeismicRethWithSignable};
 use reth_transaction_pool::{
     blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},
     CoinbaseTipOrdering, PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
@@ -235,7 +237,9 @@ pub struct SeismicAddOnsBuilder {}
 
 impl SeismicAddOnsBuilder {
     /// Builds an instance of [`SeismicAddOns`].
-    pub fn build<N, EthB, PVB, EB, EVB, RpcMiddleware>(self) -> SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
+    pub fn build<N, EthB, PVB, EB, EVB, RpcMiddleware>(
+        self,
+    ) -> SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
     where
         N: FullNodeComponents<
             Types: NodeTypes<
@@ -289,7 +293,8 @@ where
     }
 }
 
-impl<N, EthB, PVB, EB, EVB, RpcMiddleware> NodeAddOns<N> for SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
+impl<N, EthB, PVB, EB, EVB, RpcMiddleware> NodeAddOns<N>
+    for SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
 where
     N: FullNodeComponents<
         Types: NodeTypes<
@@ -339,7 +344,8 @@ where
     }
 }
 
-impl<N, EthB, PVB, EB, EVB, RpcMiddleware> RethRpcAddOns<N> for SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
+impl<N, EthB, PVB, EB, EVB, RpcMiddleware> RethRpcAddOns<N>
+    for SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
 where
     N: FullNodeComponents<
         Types: NodeTypes<
@@ -366,7 +372,8 @@ where
     }
 }
 
-impl<N, EthB, PVB, EB, EVB, RpcMiddleware> EngineValidatorAddOn<N> for SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
+impl<N, EthB, PVB, EB, EVB, RpcMiddleware> EngineValidatorAddOn<N>
+    for SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
 where
     N: FullNodeComponents<
         Types: NodeTypes<

@@ -2,10 +2,11 @@
 
 use super::ext::SeismicTransaction;
 use crate::{
-    eth::SeismicNodeCore, utils::recover_typed_data_request, SeismicEthApi, SeismicEthApiError,
+    eth::{SeismicNodeCore, SignableSeismicTransactionRequest},
+    utils::recover_typed_data_request,
+    SeismicEthApi, SeismicEthApiError,
 };
-use alloy_consensus::transaction::Recovered;
-use alloy_consensus::Transaction as _;
+use alloy_consensus::{transaction::Recovered, Transaction as _};
 use alloy_primitives::{Bytes, Signature, B256};
 use alloy_rpc_types_eth::{Transaction, TransactionInfo};
 use reth_rpc_convert::transaction::{RpcTxConverter, SimTxConverter};
@@ -21,7 +22,6 @@ use reth_transaction_pool::{
 };
 use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
-use crate::eth::SignableSeismicTransactionRequest;
 
 impl<N, Rpc> EthTransactions for SeismicEthApi<N, Rpc>
 where
@@ -170,9 +170,7 @@ impl SimTxConverter<alloy_rpc_types_eth::TransactionRequest, SeismicTransactionS
 }
 
 // Additional implementation for SeismicTransactionRequest directly
-impl SimTxConverter<SeismicTransactionRequest, SeismicTransactionSigned>
-    for SeismicSimTxConverter
-{
+impl SimTxConverter<SeismicTransactionRequest, SeismicTransactionSigned> for SeismicSimTxConverter {
     type Err = SeismicEthApiError;
 
     fn convert_sim_tx(

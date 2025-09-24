@@ -23,10 +23,7 @@ use reth_engine_primitives::{
     ConfigureEngineEvm, ExecutableTxIterator, ExecutionPayload, InvalidBlockHook, PayloadValidator,
 };
 use reth_errors::{BlockExecutionError, ProviderResult};
-use reth_evm::{
-    execute::ExecutableTxFor, ConfigureEvm, EvmEnvFor, ExecutionCtxFor,
-    SpecFor,
-};
+use reth_evm::{execute::ExecutableTxFor, ConfigureEvm, EvmEnvFor, ExecutionCtxFor, SpecFor};
 use reth_payload_primitives::{
     BuiltPayload, InvalidPayloadAttributesError, NewPayloadError, PayloadTypes,
 };

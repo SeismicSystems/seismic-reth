@@ -20,7 +20,10 @@ use build::SeismicBlockAssembler;
 use core::fmt::Debug;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_ethereum_forks::EthereumHardfork;
-use reth_evm::{ConfigureEngineEvm, ConfigureEvm, EvmEnv, EvmEnvFor, ExecutableTxIterator, ExecutionCtxFor, NextBlockEnvAttributes};
+use reth_evm::{
+    ConfigureEngineEvm, ConfigureEvm, EvmEnv, EvmEnvFor, ExecutableTxIterator, ExecutionCtxFor,
+    NextBlockEnvAttributes,
+};
 use reth_primitives_traits::{SealedBlock, SealedHeader, SignedTransaction, TxTy};
 use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
 use reth_storage_errors::any::AnyError;
@@ -308,11 +311,13 @@ where
         };
         let spec_id = revm_spec(self.chain_spec(), &temp_header);
 
-        let cfg_env = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
+        let cfg_env =
+            CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
 
-        let blob_excess_gas_and_price = payload.payload.blob_gas_used().map(|_gas| {
-            BlobExcessGasAndPrice::new_with_spec(0, spec_id.into_eth_spec())
-        });
+        let blob_excess_gas_and_price = payload
+            .payload
+            .blob_gas_used()
+            .map(|_gas| BlobExcessGasAndPrice::new_with_spec(0, spec_id.into_eth_spec()));
 
         let block_env = BlockEnv {
             number: U256::from(payload.payload.block_number()),

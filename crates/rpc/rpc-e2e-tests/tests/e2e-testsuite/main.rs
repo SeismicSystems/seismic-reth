@@ -1,6 +1,5 @@
 //! RPC compatibility tests using execution-apis test data
 
-use seismic_alloy_genesis::Genesis;
 use eyre::Result;
 use reth_chainspec::ChainSpec;
 use reth_e2e_test_utils::testsuite::{
@@ -10,6 +9,7 @@ use reth_e2e_test_utils::testsuite::{
 };
 use reth_node_ethereum::{EthEngineTypes, EthereumNode};
 use reth_rpc_e2e_tests::rpc_compat::{InitializeFromExecutionApis, RunRpcCompatTests};
+use seismic_alloy_genesis::Genesis;
 use std::{env, path::PathBuf, sync::Arc};
 use tracing::{debug, info};
 
