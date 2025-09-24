@@ -1,6 +1,6 @@
 use super::ExecutedBlockWithTrieUpdates;
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{keccak256, Address, BlockNumber, Bytes, StorageKey, B256, U256};
+use alloy_primitives::{keccak256, Address, BlockNumber, Bytes, StorageKey, B256};
 use reth_errors::ProviderResult;
 use reth_primitives_traits::{Account, Bytecode, NodePrimitives};
 use reth_storage_api::{

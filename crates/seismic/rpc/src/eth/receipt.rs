@@ -1,22 +1,15 @@
 //! Loads and formats Seismic receipt RPC response.
 
-use std::{any::Any, fmt::Debug};
-
-use alloy_consensus::transaction::TransactionMeta;
-use alloy_eips::eip7840::BlobParams;
-use reth_chainspec::{ChainSpec, ChainSpecProvider, EthChainSpec};
-use reth_node_api::{FullNodeComponents, NodePrimitives, NodeTypes};
+use reth_node_api::NodePrimitives;
 use reth_rpc_eth_api::{
-    helpers::LoadReceipt,
-    transaction::{ConvertReceiptInput, ReceiptConverter},
-    FromEthApiError, RpcConvert, RpcNodeCore, RpcReceipt,
+    helpers::LoadReceipt, transaction::ConvertReceiptInput, RpcConvert, RpcNodeCore,
 };
 use reth_rpc_eth_types::{receipt::build_receipt, EthApiError};
-use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
-use reth_storage_api::{ReceiptProvider, TransactionsProvider};
-use seismic_alloy_consensus::{SeismicReceiptEnvelope, SeismicTxType};
+use reth_seismic_primitives::SeismicReceipt;
+use seismic_alloy_consensus::SeismicReceiptEnvelope;
 use seismic_alloy_network::{foundry::tx_request::SeismicTransaction, SeismicReth};
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
+use std::fmt::Debug;
 
 use crate::{SeismicEthApi, SeismicEthApiError};
 
@@ -26,28 +19,6 @@ where
     Rpc: RpcConvert<Primitives = N::Primitives, Network = SeismicReth, Error = SeismicEthApiError>,
 {
 }
-
-/*
-    async fn build_transaction_receipt(
-        &self,
-        tx: SeismicTransactionSigned,
-        meta: TransactionMeta,
-        receipt: SeismicReceipt,
-    ) -> Result<RpcReceipt<Self::NetworkTypes>, Self::Error> {
-        let hash = meta.block_hash;
-        // get all receipts for the block
-        let all_receipts = self
-            .inner
-            .cache()
-            .get_receipts(hash)
-            .await
-            .map_err(Self::Error::from_eth_err)?
-            .ok_or(EthApiError::HeaderNotFound(hash.into()))?;
-        let blob_params = self.provider().chain_spec().blob_params_at_timestamp(meta.timestamp);
-
-        Ok(SeismicReceiptBuilder::new(&tx, meta, &receipt, &all_receipts, blob_params)?.build())
-    }
-*/
 
 /// Builds an [`SeismicTransactionReceipt`].
 ///

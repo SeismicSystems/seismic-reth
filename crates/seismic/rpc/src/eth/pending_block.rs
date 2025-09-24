@@ -1,13 +1,8 @@
 //! Loads Seismic pending block for a RPC response.
 
 use crate::{SeismicEthApi, SeismicEthApiError};
-use alloy_consensus::BlockHeader;
-use alloy_primitives::B256;
-use reth_evm::NextBlockEnvAttributes;
-use reth_primitives_traits::SealedHeader;
 use reth_rpc_eth_api::{helpers::LoadPendingBlock, FromEvmError, RpcConvert, RpcNodeCore};
 use reth_rpc_eth_types::PendingBlock;
-use reth_storage_api::ProviderHeader;
 
 impl<N, Rpc> LoadPendingBlock for SeismicEthApi<N, Rpc>
 where

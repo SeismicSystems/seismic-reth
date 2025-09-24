@@ -4,25 +4,17 @@ use super::ext::SeismicTransaction;
 use crate::{
     eth::SeismicNodeCore, utils::recover_typed_data_request, SeismicEthApi, SeismicEthApiError,
 };
-use alloy_consensus::{transaction::Recovered, Transaction as _};
-use alloy_primitives::{Bytes, Signature, B256};
-use alloy_rpc_types_eth::{Transaction, TransactionInfo};
-use reth_node_api::FullNodeComponents;
+use alloy_primitives::{Bytes, B256};
 use reth_rpc_eth_api::{
-    helpers::{spec::SignersForRpc, EthSigner, EthTransactions, LoadTransaction, SpawnBlocking},
-    EthTxEnvError, FromEthApiError, FullEthApiTypes, RpcConvert, RpcNodeCore, RpcNodeCoreExt,
+    helpers::{spec::SignersForRpc, EthTransactions, LoadTransaction},
+    FromEthApiError, RpcConvert, RpcNodeCore,
 };
-use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
-use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
-use reth_storage_api::{
-    BlockReader, BlockReaderIdExt, ProviderTx, ReceiptProvider, TransactionsProvider,
-};
+use reth_rpc_eth_types::utils::recover_raw_transaction;
+use reth_storage_api::{BlockReader, BlockReaderIdExt, ProviderTx};
 use reth_transaction_pool::{
     AddedTransactionOutcome, PoolTransaction, TransactionOrigin, TransactionPool,
 };
-use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
-use seismic_alloy_network::{Network, Seismic};
-use seismic_alloy_rpc_types::SeismicTransactionRequest;
+use seismic_alloy_consensus::{Decodable712, TypedDataRequest};
 
 impl<N, Rpc> EthTransactions for SeismicEthApi<N, Rpc>
 where

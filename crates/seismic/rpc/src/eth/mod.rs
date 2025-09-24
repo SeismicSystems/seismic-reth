@@ -10,12 +10,10 @@ mod block;
 mod call;
 mod pending_block;
 
+use crate::SeismicEthApiError;
 use alloy_primitives::U256;
-use reth_chain_state::CanonStateSubscriptions;
-use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks};
 use reth_evm::ConfigureEvm;
-use reth_network_api::NetworkInfo;
-use reth_node_api::{FullNodeComponents, FullNodeTypes, HeaderTy, NodePrimitives};
+use reth_node_api::{FullNodeComponents, HeaderTy};
 use reth_node_builder::rpc::{EthApiBuilder, EthApiCtx};
 use reth_rpc::{
     eth::{core::EthApiInner, DevSigner},
@@ -24,26 +22,19 @@ use reth_rpc::{
 use reth_rpc_eth_api::{
     helpers::{
         pending_block::BuildPendingEnv, spec::SignersForApi, AddDevSigners, EthApiSpec, EthFees,
-        EthSigner, EthState, LoadBlock, LoadFee, LoadPendingBlock, LoadState, SpawnBlocking, Trace,
+        EthState, LoadFee, LoadPendingBlock, LoadState, SpawnBlocking, Trace,
     },
     EthApiTypes, FromEvmError, FullEthApiServer, RpcConvert, RpcConverter, RpcNodeCore,
     RpcNodeCoreExt, SignableTxRequest,
 };
-use reth_rpc_eth_types::{EthApiError, EthStateCache, FeeHistoryCache, GasPriceOracle};
-use reth_seismic_primitives::SeismicPrimitives;
-use reth_storage_api::{
-    BlockNumReader, BlockReader, BlockReaderIdExt, ProviderBlock, ProviderHeader, ProviderReceipt,
-    ProviderTx, StageCheckpointReader, StateProviderFactory,
-};
+use reth_rpc_eth_types::{EthStateCache, FeeHistoryCache, GasPriceOracle};
+use reth_storage_api::{BlockReader, ProviderHeader, ProviderTx};
 use reth_tasks::{
     pool::{BlockingTaskGuard, BlockingTaskPool},
     TaskSpawner,
 };
-use reth_transaction_pool::TransactionPool;
 use seismic_alloy_network::SeismicReth;
 use std::{fmt, marker::PhantomData, sync::Arc};
-
-use crate::SeismicEthApiError;
 
 /// Adapter for [`EthApiInner`], which holds all the data required to serve core `eth_` API.
 pub type EthApiNodeBackend<N, Rpc> = EthApiInner<N, Rpc>;

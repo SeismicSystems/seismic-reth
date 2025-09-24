@@ -25,7 +25,7 @@ use jsonrpsee::{
 use reth_node_core::node_config::NodeConfig;
 use reth_rpc_eth_api::{
     helpers::{EthCall, EthTransactions},
-    RpcBlock,
+    RpcBlock, RpcTypes,
 };
 use reth_rpc_eth_types::EthApiError;
 use reth_tracing::tracing::*;
@@ -164,8 +164,11 @@ impl<Eth> EthApiExt<Eth> {
 #[async_trait]
 impl<Eth> EthApiOverrideServer<RpcBlock<Eth::NetworkTypes>> for EthApiExt<Eth>
 where
-    Eth: FullSeismicApi,
+    Eth: FullSeismicApi + Send + Sync + 'static,
+    Eth::Error: Send + Sync + 'static,
     jsonrpsee_types::error::ErrorObject<'static>: From<Eth::Error>,
+    <Eth::NetworkTypes as RpcTypes>::TransactionRequest:
+        From<TransactionRequest> + AsRef<TransactionRequest> + Send + Sync + 'static,
 {
     /// Handler for: `eth_signTypedData_v4`
     ///
@@ -190,8 +193,9 @@ where
             payload.block_state_calls.clone();
 
         // Recover EthSimBlocks from the SeismicSimulatePayload<SeismicCallRequest>
-        let mut eth_simulated_blocks: Vec<_> =
-            Vec::with_capacity(payload.block_state_calls.len());
+        let mut eth_simulated_blocks: Vec<
+            EthSimBlock<<Eth::NetworkTypes as RpcTypes>::TransactionRequest>,
+        > = Vec::with_capacity(payload.block_state_calls.len());
         for block in payload.block_state_calls {
             let SeismicSimBlock { block_overrides, state_overrides, calls } = block;
             let mut prepared_calls = Vec::with_capacity(calls.len());
@@ -201,8 +205,8 @@ where
                 let seismic_tx_request = seismic_tx_request
                     .plaintext_copy(&self.enclave_client)
                     .map_err(|e| ext_decryption_error(e.to_string()))?;
-                // let tx_request: TransactionRequest = seismic_tx_request.inner;
-                prepared_calls.push(seismic_tx_request);
+                let tx_request: TransactionRequest = seismic_tx_request.inner;
+                prepared_calls.push(tx_request.into());
             }
 
             let prepared_block =
@@ -267,7 +271,7 @@ where
         // call inner
         let result = EthCall::call(
             &self.eth_api,
-            tx_request,
+            tx_request.into(),
             block_number,
             EvmOverrides::new(state_overrides, block_overrides),
         )
@@ -314,7 +318,7 @@ where
         // call inner
         Ok(EthCall::estimate_gas_at(
             &self.eth_api,
-            decrypted_req.inner,
+            decrypted_req.inner.into(),
             block_number.unwrap_or_default(),
             state_override,
         )
