@@ -1223,12 +1223,14 @@ mod tests {
 
     #[test]
     fn bundle_state_state_root() {
-        type PreState = BTreeMap<Address, (Account, BTreeMap<B256, alloy_primitives::FlaggedStorage>)>;
+        type PreState =
+            BTreeMap<Address, (Account, BTreeMap<B256, alloy_primitives::FlaggedStorage>)>;
         let mut prestate: PreState = (0..10)
             .map(|key| {
                 let account = Account { nonce: 1, balance: U256::from(key), bytecode_hash: None };
-                let storage =
-                    (1..11).map(|key| (B256::with_last_byte(key), U256::from(key).into())).collect();
+                let storage = (1..11)
+                    .map(|key| (B256::with_last_byte(key), U256::from(key).into()))
+                    .collect();
                 (Address::with_last_byte(key), (account, storage))
             })
             .collect();
@@ -1386,11 +1388,7 @@ mod tests {
                 info: account1_new.into(),
                 storage: HashMap::from_iter([(
                     slot20,
-                    EvmStorageSlot::new_changed(
-                        FlaggedStorage::ZERO,
-                        account1_slot20_value,
-                        0,
-                    ),
+                    EvmStorageSlot::new_changed(FlaggedStorage::ZERO, account1_slot20_value, 0),
                 )]),
                 transaction_id: 0,
             },

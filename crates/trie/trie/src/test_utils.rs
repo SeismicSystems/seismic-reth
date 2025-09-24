@@ -21,7 +21,9 @@ where
 }
 
 /// Compute the storage root for a given account using [`triehash::sec_trie_root`].
-pub fn storage_root<I: IntoIterator<Item = (B256, alloy_primitives::FlaggedStorage)>>(storage: I) -> B256 {
+pub fn storage_root<I: IntoIterator<Item = (B256, alloy_primitives::FlaggedStorage)>>(
+    storage: I,
+) -> B256 {
     let encoded_storage = storage.into_iter().map(|(k, v)| (k, encode_fixed_size(&v)));
     triehash::sec_trie_root::<KeccakHasher, _, _, _>(encoded_storage)
 }

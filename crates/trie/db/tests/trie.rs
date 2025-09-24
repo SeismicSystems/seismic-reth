@@ -39,7 +39,11 @@ fn insert_account(
     insert_storage(tx, hashed_address, storage);
 }
 
-fn insert_storage(tx: &impl DbTxMut, hashed_address: B256, storage: &BTreeMap<B256, alloy_primitives::FlaggedStorage>) {
+fn insert_storage(
+    tx: &impl DbTxMut,
+    hashed_address: B256,
+    storage: &BTreeMap<B256, alloy_primitives::FlaggedStorage>,
+) {
     for (k, v) in storage {
         tx.put::<tables::HashedStorages>(
             hashed_address,
@@ -206,8 +210,10 @@ fn test_storage_root() {
     let tx = factory.provider_rw().unwrap();
 
     let address = Address::random();
-    let storage =
-        BTreeMap::from([(B256::ZERO, alloy_primitives::FlaggedStorage::public(U256::from(3))), (B256::with_last_byte(2), alloy_primitives::FlaggedStorage::public(U256::from(1)))]);
+    let storage = BTreeMap::from([
+        (B256::ZERO, alloy_primitives::FlaggedStorage::public(U256::from(3))),
+        (B256::with_last_byte(2), alloy_primitives::FlaggedStorage::public(U256::from(1))),
+    ]);
 
     let code = "el buen fla";
     let account = Account {

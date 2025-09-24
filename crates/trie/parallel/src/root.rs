@@ -349,10 +349,9 @@ mod tests {
                 .insert_storage_for_hashing(state.iter().map(|(address, (_, storage))| {
                     (
                         *address,
-                        storage.iter().map(|(slot, value)| StorageEntry {
-                            key: *slot,
-                            value: *value,
-                        }),
+                        storage
+                            .iter()
+                            .map(|(slot, value)| StorageEntry { key: *slot, value: *value }),
                     )
                 }))
                 .unwrap();

@@ -648,8 +648,10 @@ mod tests {
 
         let state_updates = create_mock_state_updates(10, 10);
         let mut hashed_state = HashedPostState::default();
-        let mut accumulated_state: HashMap<Address, (Account, HashMap<B256, alloy_primitives::FlaggedStorage>)> =
-            HashMap::default();
+        let mut accumulated_state: HashMap<
+            Address,
+            (Account, HashMap<B256, alloy_primitives::FlaggedStorage>),
+        > = HashMap::default();
 
         {
             let provider_rw = factory.provider_rw().expect("failed to get provider");
