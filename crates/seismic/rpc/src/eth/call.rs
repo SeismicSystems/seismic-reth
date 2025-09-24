@@ -27,7 +27,6 @@ where
         Error = SeismicEthApiError,
         TxEnv = TxEnvFor<N::Evm>,
         Spec = SpecFor<N::Evm>,
-        Network = SeismicReth,
     >,
 {
 }

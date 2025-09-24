@@ -7,6 +7,7 @@ pub mod test_utils {
     use jsonrpsee::http_client::HttpClient;
     use reth_rpc_eth_api::EthApiClient;
     use reth_seismic_chainspec::SEISMIC_DEV;
+    use seismic_alloy_rpc_types::SeismicTransactionRequest;
     use serde_json::Value;
     use std::{path::PathBuf, process::Stdio};
     use tokio::{
@@ -132,7 +133,7 @@ pub mod test_utils {
     /// Get the nonce from the client
     pub async fn get_nonce(client: &HttpClient, address: Address) -> u64 {
         let nonce =
-            EthApiClient::<Transaction, Block, TransactionReceipt, Header>::transaction_count(
+            EthApiClient::<SeismicTransactionRequest, Transaction, Block, TransactionReceipt, Header>::transaction_count(
                 client, address, None,
             )
             .await

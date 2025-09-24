@@ -2,10 +2,12 @@
 
 use reth_node_api::NodePrimitives;
 use reth_rpc_eth_api::{
-    helpers::LoadReceipt, transaction::ConvertReceiptInput, RpcConvert, RpcNodeCore,
+    helpers::LoadReceipt, RpcConvert, RpcNodeCore,
 };
+use reth_rpc_convert::transaction::ConvertReceiptInput;
 use reth_rpc_eth_types::{receipt::build_receipt, EthApiError};
-use reth_seismic_primitives::SeismicReceipt;
+use reth_rpc_convert::transaction::ReceiptConverter;
+use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt};
 use seismic_alloy_consensus::SeismicReceiptEnvelope;
 use seismic_alloy_network::{foundry::tx_request::SeismicTransaction, SeismicReth};
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
@@ -16,7 +18,7 @@ use crate::{SeismicEthApi, SeismicEthApiError};
 impl<N, Rpc> LoadReceipt for SeismicEthApi<N, Rpc>
 where
     N: RpcNodeCore,
-    Rpc: RpcConvert<Primitives = N::Primitives, Network = SeismicReth, Error = SeismicEthApiError>,
+    Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
 {
 }
 
@@ -31,10 +33,7 @@ pub struct SeismicReceiptBuilder {
 
 impl SeismicReceiptBuilder {
     /// Returns a new builder.
-    pub fn new<N>(input: ConvertReceiptInput<'_, N>) -> Result<Self, EthApiError>
-    where
-        N: NodePrimitives<SignedTx = SeismicTransaction, Receipt = SeismicReceipt>,
-    {
+    pub fn new(input: ConvertReceiptInput<'_, SeismicPrimitives>) -> Result<Self, EthApiError> {
         let base = build_receipt(&input, None, |receipt_with_bloom| match input.receipt.as_ref() {
             SeismicReceipt::Legacy(_) => SeismicReceiptEnvelope::Legacy(receipt_with_bloom),
             SeismicReceipt::Eip2930(_) => SeismicReceiptEnvelope::Eip2930(receipt_with_bloom),
@@ -52,5 +51,31 @@ impl SeismicReceiptBuilder {
     /// Seismic receipt fields.
     pub fn build(self) -> SeismicTransactionReceipt {
         self.base
+    }
+}
+
+/// Seismic receipt converter.
+#[derive(Debug, Clone)]
+pub struct SeismicReceiptConverter;
+
+impl SeismicReceiptConverter {
+    /// Creates a new seismic receipt converter.
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl ReceiptConverter<SeismicPrimitives> for SeismicReceiptConverter {
+    type Error = SeismicEthApiError;
+    type RpcReceipt = SeismicTransactionReceipt;
+
+    fn convert_receipts(
+        &self,
+        inputs: Vec<ConvertReceiptInput<'_, SeismicPrimitives>>,
+    ) -> Result<Vec<Self::RpcReceipt>, Self::Error> {
+        inputs
+            .into_iter()
+            .map(|input| SeismicReceiptBuilder::new(input).map_err(SeismicEthApiError::Eth).map(|builder| builder.build()))
+            .collect()
     }
 }

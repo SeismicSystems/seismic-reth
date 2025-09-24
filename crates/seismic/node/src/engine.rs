@@ -12,9 +12,10 @@ use reth_engine_primitives::EngineTypes;
 use reth_ethereum_payload_builder::EthereumExecutionPayloadValidator;
 use reth_node_api::{
     validate_execution_requests, validate_version_specific_fields, EngineApiMessageVersion,
-    EngineObjectValidationError, EngineValidator, NewPayloadError, PayloadOrAttributes,
-    PayloadValidator,
+    EngineObjectValidationError, NewPayloadError, PayloadOrAttributes,
 };
+use reth_node_api::EngineApiValidator;
+use reth_engine_primitives::PayloadValidator;
 use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 use reth_payload_primitives::{BuiltPayload, PayloadTypes};
 use reth_primitives_traits::{NodePrimitives, RecoveredBlock, SealedBlock};
@@ -110,9 +111,8 @@ impl SeismicEngineValidator {
     }
 }
 
-impl PayloadValidator for SeismicEngineValidator {
+impl PayloadValidator<SeismicEngineTypes> for SeismicEngineValidator {
     type Block = reth_seismic_primitives::SeismicBlock;
-    type ExecutionData = ExecutionData;
 
     fn ensure_well_formed_payload(
         &self,
@@ -123,14 +123,14 @@ impl PayloadValidator for SeismicEngineValidator {
     }
 }
 
-impl<Types> EngineValidator<Types> for SeismicEngineValidator
+impl<Types> EngineApiValidator<Types> for SeismicEngineValidator
 where
     Types: PayloadTypes<PayloadAttributes = PayloadAttributes, ExecutionData = ExecutionData>,
 {
     fn validate_version_specific_fields(
         &self,
         version: EngineApiMessageVersion,
-        payload_or_attrs: PayloadOrAttributes<'_, Self::ExecutionData, PayloadAttributes>,
+        payload_or_attrs: PayloadOrAttributes<'_, ExecutionData, PayloadAttributes>,
     ) -> Result<(), EngineObjectValidationError> {
         payload_or_attrs
             .execution_requests()
@@ -148,7 +148,7 @@ where
         validate_version_specific_fields(
             self.chain_spec(),
             version,
-            PayloadOrAttributes::<Self::ExecutionData, PayloadAttributes>::PayloadAttributes(
+            PayloadOrAttributes::<ExecutionData, PayloadAttributes>::PayloadAttributes(
                 attributes,
             ),
         )

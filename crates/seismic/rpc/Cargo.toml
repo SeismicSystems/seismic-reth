@@ -52,6 +52,7 @@ alloy-dyn-abi.workspace = true
 seismic-alloy-rpc-types = { workspace = true, features = ["serde", "k256"] }
 seismic-alloy-consensus.workspace = true
 revm.workspace = true
+revm-context.workspace = true
 seismic-revm.workspace = true
 
 # async
@@ -67,6 +68,7 @@ futures.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 eyre.workspace = true
+serde.workspace = true
 
 [dev-dependencies]
 reth-seismic-chainspec.workspace = true

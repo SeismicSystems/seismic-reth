@@ -5,10 +5,12 @@ use crate::{
     txpool::SeismicTransactionPool,
 };
 use alloy_eips::merge::EPOCH_SLOTS;
+use alloy_rpc_types_engine::ExecutionData;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_consensus::{ConsensusError, FullConsensus};
-use reth_evm::{ConfigureEvm, EvmFactory, EvmFactoryFor, NextBlockEnvAttributes};
+use reth_evm::{ConfigureEvm, ConfigureEngineEvm, EvmFactory, EvmFactoryFor, NextBlockEnvAttributes};
 use reth_network::{NetworkHandle, NetworkPrimitives};
+use reth_eth_wire_types::NewBlock;
 use reth_node_api::{AddOnsContext, FullNodeComponents, NodeAddOns, PrimitivesTy, TxTy};
 use reth_node_builder::{
     components::{
@@ -17,8 +19,8 @@ use reth_node_builder::{
     },
     node::{FullNodeTypes, NodeTypes},
     rpc::{
-        EngineValidatorAddOn, EngineValidatorBuilder, EthApiBuilder, RethRpcAddOns, RpcAddOns,
-        RpcHandle,
+        EngineValidatorAddOn, EngineValidatorBuilder, EthApiBuilder, PayloadValidatorBuilder, RethRpcAddOns, RpcAddOns,
+        RpcHandle, BasicEngineValidator,
     },
     BuilderContext, DebugNode, Node, NodeAdapter, NodeComponentsBuilder, PayloadBuilderConfig,
 };
@@ -29,18 +31,21 @@ use reth_rpc_api::BlockSubmissionValidationApiServer;
 use reth_rpc_builder::config::RethRpcServerConfig;
 use reth_rpc_eth_api::FullEthApiServer;
 use reth_rpc_eth_types::{error::FromEvmError, EthApiError};
+use reth_rpc_eth_types::error::api::FromEvmHalt;
 use reth_rpc_server_types::RethRpcModule;
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
+use reth_payload_primitives::PayloadAttributesBuilder;
+use reth_engine_primitives::{TreeConfig, NoopInvalidBlockHook};
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
-use reth_seismic_rpc::{SeismicEthApi, SeismicEthApiBuilder};
+use reth_seismic_rpc::{SeismicEthApi, SeismicEthApiBuilder, SeismicEthApiError, SeismicRpcConvert, SeismicRethWithSignable};
 use reth_transaction_pool::{
     blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},
     CoinbaseTipOrdering, PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
 };
-use reth_trie_db::MerklePatriciaTrie;
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
+use seismic_alloy_network::SeismicReth;
 use seismic_enclave::rpc::SyncEnclaveApiClientBuilder;
 use std::{sync::Arc, time::SystemTime};
 
@@ -157,7 +162,6 @@ where
 impl NodeTypes for SeismicNode {
     type Primitives = SeismicPrimitives;
     type ChainSpec = ChainSpec;
-    type StateCommitment = MerklePatriciaTrie;
     type Storage = SeismicStorage;
     type Payload = SeismicEngineTypes;
 }
@@ -178,6 +182,14 @@ where
             },
         }
     }
+
+    fn local_payload_attributes_builder(
+        _chain_spec: &Self::ChainSpec,
+    ) -> impl PayloadAttributesBuilder<
+        <Self::Payload as reth_payload_primitives::PayloadTypes>::PayloadBuilderAttributes
+    > {
+        reth_engine_local::LocalPayloadAttributesBuilder::new(Arc::new(_chain_spec.clone()))
+    }
 }
 
 /// Add-ons w.r.t. seismic
@@ -185,11 +197,11 @@ where
 pub struct SeismicAddOns<N: FullNodeComponents>
 where
     N: FullNodeComponents,
-    SeismicEthApiBuilder: EthApiBuilder<N>,
+    SeismicEthApiBuilder<SeismicRethWithSignable>: EthApiBuilder<N>,
 {
     inner: RpcAddOns<
         N,                             // Node:
-        SeismicEthApiBuilder,          // EthB:
+        SeismicEthApiBuilder<SeismicRethWithSignable>,          // EthB:
         SeismicEngineValidatorBuilder, // EV:
     >,
 }
@@ -204,7 +216,7 @@ where
             Payload = SeismicEngineTypes,
         >,
     >,
-    SeismicEthApiBuilder: EthApiBuilder<N>,
+    SeismicEthApiBuilder<SeismicRethWithSignable>: EthApiBuilder<N>,
 {
     /// Build a [`SeismicAddOns`] using [`SeismicAddOnsBuilder`].
     pub fn builder() -> SeismicAddOnsBuilder {
@@ -218,7 +230,7 @@ pub struct SeismicAddOnsBuilder {}
 
 impl SeismicAddOnsBuilder {
     /// Builds an instance of [`OpAddOns`].
-    pub fn build<N>(self) -> SeismicAddOns<N>
+    pub fn build<N, PVB, EB, EVB>(self) -> SeismicAddOns<N>
     where
         N: FullNodeComponents<
             Types: NodeTypes<
@@ -229,9 +241,19 @@ impl SeismicAddOnsBuilder {
             >,
             Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
         >,
-        SeismicEthApiBuilder: EthApiBuilder<N>,
+        SeismicEthApiBuilder<SeismicRethWithSignable>: EthApiBuilder<N>,
+        PVB: Default,
+        EB: Default,
+        EVB: Default,
     {
-        SeismicAddOns { inner: Default::default() }
+        SeismicAddOns {
+            inner: RpcAddOns::new(
+                SeismicEthApiBuilder::default(),
+                PVB::default(),
+                EB::default(),
+                EVB::default(),
+            )
+        }
     }
 }
 
@@ -246,7 +268,7 @@ where
         >,
         Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
     >,
-    SeismicEthApiBuilder: EthApiBuilder<N>,
+    SeismicEthApiBuilder<SeismicRethWithSignable>: EthApiBuilder<N>,
 {
     fn default() -> Self {
         Self::builder().build()
@@ -265,9 +287,10 @@ where
         Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
     >,
     EthApiError: FromEvmError<N::Evm>,
+    SeismicEthApiError: FromEvmError<N::Evm> + FromEvmHalt<<EvmFactoryFor<N::Evm> as EvmFactory>::HaltReason>,
     EvmFactoryFor<N::Evm>: EvmFactory<Tx = seismic_revm::SeismicTransaction<TxEnv>>,
 {
-    type Handle = RpcHandle<N, SeismicEthApi<N>>;
+    type Handle = RpcHandle<N, SeismicEthApi<N, SeismicRpcConvert<N, SeismicRethWithSignable>>>;
 
     async fn launch_add_ons(
         self,
@@ -308,10 +331,10 @@ where
     >,
     EthApiError: FromEvmError<N::Evm>,
     EvmFactoryFor<N::Evm>: EvmFactory<Tx = seismic_revm::SeismicTransaction<TxEnv>>,
-    SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>, /* Needed to
+    SeismicEthApi<N, SeismicRpcConvert<N, SeismicRethWithSignable>>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>, /* Needed to
                                                                                 compile, but why? */
 {
-    type EthApi = SeismicEthApi<N>;
+    type EthApi = SeismicEthApi<N, SeismicRpcConvert<N, SeismicRethWithSignable>>;
 
     fn hooks_mut(&mut self) -> &mut reth_node_builder::rpc::RpcHooks<N, Self::EthApi> {
         self.inner.hooks_mut()
@@ -327,15 +350,15 @@ where
             Storage = SeismicStorage,
             Payload = SeismicEngineTypes,
         >,
-        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
+        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes> + ConfigureEngineEvm<ExecutionData>,
     >,
-    SeismicEthApi<N>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>, /* Needed to
+    SeismicEthApi<N, SeismicRpcConvert<N, SeismicRethWithSignable>>: FullEthApiServer<Provider = N::Provider, Pool = N::Pool>, /* Needed to
                                                                                 compile, but why? */
 {
-    type Validator = SeismicEngineValidator;
+    type ValidatorBuilder = SeismicEngineValidatorBuilder;
 
-    async fn engine_validator(&self, ctx: &AddOnsContext<'_, N>) -> eyre::Result<Self::Validator> {
-        SeismicEngineValidatorBuilder::default().build(ctx).await
+    fn engine_validator_builder(&self) -> Self::ValidatorBuilder {
+        SeismicEngineValidatorBuilder::default()
     }
 }
 
@@ -601,6 +624,30 @@ where
         Payload = SeismicEngineTypes,
     >,
     Node: FullNodeComponents<Types = Types>,
+    Node::Evm: ConfigureEngineEvm<ExecutionData>,
+{
+    type EngineValidator = BasicEngineValidator<Node::Provider, Node::Evm, SeismicEngineValidator>;
+
+    async fn build_tree_validator(
+        self,
+        ctx: &AddOnsContext<'_, Node>,
+        tree_config: TreeConfig,
+    ) -> eyre::Result<Self::EngineValidator> {
+        let seismic_validator = SeismicEngineValidator::new(ctx.config.chain.clone());
+        Ok(BasicEngineValidator::new(
+            ctx.node.provider().clone(),
+            ctx.node.consensus().clone(),
+            ctx.node.evm_config().clone(),
+            seismic_validator,
+            tree_config,
+            Box::new(NoopInvalidBlockHook::default()),
+        ))
+    }
+}
+
+impl<Node> PayloadValidatorBuilder<Node> for SeismicEngineValidatorBuilder
+where
+    Node: FullNodeComponents<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives, Payload = SeismicEngineTypes>>,
 {
     type Validator = SeismicEngineValidator;
 
@@ -620,4 +667,5 @@ impl NetworkPrimitives for SeismicNetworkPrimitives {
     type BroadcastedTransaction = SeismicTransactionSigned;
     type PooledTransaction = SeismicTxEnvelope;
     type Receipt = SeismicReceipt;
+    type NewBlockPayload = NewBlock<Self::Block>;
 }

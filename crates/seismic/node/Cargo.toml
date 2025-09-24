@@ -40,6 +40,8 @@ reth-rpc-api.workspace = true
 reth-node-ethereum.workspace = true
 reth-payload-primitives.workspace = true
 reth-engine-primitives.workspace = true
+reth-engine-local.workspace = true
+reth-eth-wire-types.workspace = true
 reth-rpc.workspace = true
 reth-rpc-builder.workspace = true
 reth-ethereum-payload-builder.workspace = true
@@ -55,6 +57,8 @@ seismic-alloy-consensus.workspace = true
 alloy-rpc-types-engine.workspace = true
 alloy-rpc-types-eth.workspace = true
 alloy-consensus.workspace = true
+seismic-alloy-network.workspace = true
+seismic-alloy-rpc-types.workspace = true
 
 # misc
 clap.workspace = true

@@ -21,6 +21,7 @@ use reth_transaction_pool::{
 };
 use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
+use crate::eth::SignableSeismicTransactionRequest;
 
 impl<N, Rpc> EthTransactions for SeismicEthApi<N, Rpc>
 where
@@ -112,7 +113,7 @@ impl SeismicSimTxConverter {
 impl RpcTxConverter<SeismicTransactionSigned, Transaction<SeismicTxEnvelope>, TransactionInfo>
     for SeismicRpcTxConverter
 {
-    type Err = EthApiError;
+    type Err = SeismicEthApiError;
 
     fn convert_rpc_tx(
         &self,
@@ -146,7 +147,7 @@ impl RpcTxConverter<SeismicTransactionSigned, Transaction<SeismicTxEnvelope>, Tr
 impl SimTxConverter<alloy_rpc_types_eth::TransactionRequest, SeismicTransactionSigned>
     for SeismicSimTxConverter
 {
-    type Err = EthApiError;
+    type Err = SeismicEthApiError;
 
     fn convert_sim_tx(
         &self,
@@ -159,12 +160,47 @@ impl SimTxConverter<alloy_rpc_types_eth::TransactionRequest, SeismicTransactionS
              * the EthApiExt */
         };
         let Ok(tx) = request.build_typed_tx() else {
-            return Err(EthApiError::TransactionConversionError);
+            return Err(SeismicEthApiError::Eth(EthApiError::TransactionConversionError));
         };
 
         // Create an empty signature for the transaction.
         let signature = Signature::new(Default::default(), Default::default(), false);
         Ok(SeismicTransactionSigned::new_unhashed(tx, signature))
+    }
+}
+
+// Additional implementation for SeismicTransactionRequest directly
+impl SimTxConverter<SeismicTransactionRequest, SeismicTransactionSigned>
+    for SeismicSimTxConverter
+{
+    type Err = SeismicEthApiError;
+
+    fn convert_sim_tx(
+        &self,
+        request: SeismicTransactionRequest,
+    ) -> Result<SeismicTransactionSigned, Self::Err> {
+        let Ok(tx) = request.build_typed_tx() else {
+            return Err(SeismicEthApiError::Eth(EthApiError::TransactionConversionError));
+        };
+
+        // Create an empty signature for the transaction.
+        let signature = Signature::new(Default::default(), Default::default(), false);
+        Ok(SeismicTransactionSigned::new_unhashed(tx, signature))
+    }
+}
+
+// Implementation for SignableSeismicTransactionRequest wrapper
+impl SimTxConverter<SignableSeismicTransactionRequest, SeismicTransactionSigned>
+    for SeismicSimTxConverter
+{
+    type Err = SeismicEthApiError;
+
+    fn convert_sim_tx(
+        &self,
+        request: SignableSeismicTransactionRequest,
+    ) -> Result<SeismicTransactionSigned, Self::Err> {
+        // Delegate to the inner SeismicTransactionRequest implementation
+        self.convert_sim_tx(request.0)
     }
 }
 
