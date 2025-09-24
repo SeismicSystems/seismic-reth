@@ -110,6 +110,7 @@ async fn test_seismic_reth_rpc() {
 
     // Get the transaction receipt
     let receipt = EthApiClient::<
+        SeismicTransactionRequest,
         SeismicTransactionSigned,
         SeismicBlock,
         SeismicTransactionReceipt,
@@ -127,6 +128,7 @@ async fn test_seismic_reth_rpc() {
 
     // Make sure the code of the contract is deployed
     let code = EthApiClient::<
+        SeismicTransactionRequest,
         SeismicTransactionSigned,
         SeismicBlock,
         SeismicTransactionReceipt,
@@ -161,6 +163,7 @@ async fn test_seismic_reth_rpc() {
 
     // Send transaction to set suint
     let tx_hash = EthApiClient::<
+        SeismicTransactionRequest,
         SeismicTransactionSigned,
         SeismicBlock,
         SeismicTransactionReceipt,
@@ -184,6 +187,7 @@ async fn test_seismic_reth_rpc() {
 
     // Get the transaction receipt
     let receipt = EthApiClient::<
+        SeismicTransactionRequest,
         SeismicTransactionSigned,
         SeismicBlock,
         SeismicTransactionReceipt,
@@ -239,12 +243,13 @@ async fn test_seismic_reth_rpc() {
     assert!(gas > U256::ZERO);
 
     let access_list = EthApiClient::<
+        SeismicTransactionRequest,
         SeismicTransactionSigned,
         SeismicBlock,
         SeismicTransactionReceipt,
         Header,
     >::create_access_list(
-        &client, simulate_tx_request.inner.clone(), None, None
+        &client, simulate_tx_request.inner.clone().into(), None, None
     )
     .await
     .unwrap();
@@ -313,6 +318,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
 
     // Get the transaction receipt
     let receipt = EthApiClient::<
+        SeismicTransactionRequest,
         SeismicTransactionSigned,
         SeismicBlock,
         SeismicTransactionReceipt,
@@ -331,6 +337,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
 
     // Make sure the code of the contract is deployed
     let code = EthApiClient::<
+        SeismicTransactionRequest,
         SeismicTransactionSigned,
         SeismicBlock,
         SeismicTransactionReceipt,

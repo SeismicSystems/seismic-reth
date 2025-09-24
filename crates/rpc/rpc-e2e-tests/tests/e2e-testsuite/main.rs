@@ -1,6 +1,6 @@
 //! RPC compatibility tests using execution-apis test data
 
-use alloy_genesis::Genesis;
+use seismic_alloy_genesis::Genesis;
 use eyre::Result;
 use reth_chainspec::ChainSpec;
 use reth_e2e_test_utils::testsuite::{
