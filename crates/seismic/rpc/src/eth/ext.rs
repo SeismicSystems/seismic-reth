@@ -190,7 +190,7 @@ where
             payload.block_state_calls.clone();
 
         // Recover EthSimBlocks from the SeismicSimulatePayload<SeismicCallRequest>
-        let mut eth_simulated_blocks: Vec<EthSimBlock> =
+        let mut eth_simulated_blocks: Vec<_> =
             Vec::with_capacity(payload.block_state_calls.len());
         for block in payload.block_state_calls {
             let SeismicSimBlock { block_overrides, state_overrides, calls } = block;
@@ -201,8 +201,8 @@ where
                 let seismic_tx_request = seismic_tx_request
                     .plaintext_copy(&self.enclave_client)
                     .map_err(|e| ext_decryption_error(e.to_string()))?;
-                let tx_request: TransactionRequest = seismic_tx_request.inner;
-                prepared_calls.push(tx_request);
+                // let tx_request: TransactionRequest = seismic_tx_request.inner;
+                prepared_calls.push(seismic_tx_request);
             }
 
             let prepared_block =

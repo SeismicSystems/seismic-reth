@@ -7,9 +7,13 @@ use alloy_rpc_types_eth::transaction::TransactionRequest;
 use reth_evm::{
     execute::BlockExecutorFactory, ConfigureEvm, EvmEnv, EvmFactory, SpecFor, TxEnvFor,
 };
+use reth_node_api::NodePrimitives;
+use reth_provider::{ProviderHeader, ProviderTx};
 use reth_rpc::RpcTypes;
 use reth_rpc_eth_api::{
-    helpers::{estimate::EstimateCall, Call, EthCall}, CallFees, EthTxEnvError, FromEthApiError, FromEvmError, IntoEthApiError, RpcConvert, RpcNodeCore
+    helpers::{estimate::EstimateCall, Call, EthCall, LoadState, SpawnBlocking},
+    CallFees, EthTxEnvError, FromEthApiError, FromEvmError, IntoEthApiError, RpcConvert,
+    RpcNodeCore,
 };
 use reth_rpc_eth_types::{EthApiError, RpcInvalidTransactionError};
 use revm::{context::TxEnv, context_interface::Block, Database};
@@ -54,13 +58,11 @@ where
     // Self: LoadState<
     //         Evm: ConfigureEvm<
     //             Primitives: NodePrimitives<
-    //                 BlockHeader =
-    // ProviderHeader<Self::Provider>,                 
-    // SignedTx = ProviderTx<Self::Provider>,            
-    // >,             BlockExecutorFactory:
-    // BlockExecutorFactory<                 EvmFactory:
-    // EvmFactory<Tx =
-    // seismic_revm::SeismicTransaction<TxEnv>>,
+    //                 BlockHeader = ProviderHeader<Self::Provider>,
+    //                 SignedTx = ProviderTx<Self::Provider>,
+    //             >,
+    //             BlockExecutorFactory: BlockExecutorFactory<
+    //                 EvmFactory: EvmFactory<Tx = seismic_revm::SeismicTransaction<TxEnv>>,
     //             >,
     //         >,
     //         Error: FromEvmError<Self::Evm>,
@@ -86,15 +88,17 @@ where
         self.inner.max_simulate_blocks()
     }
 
+    /*
+
     fn create_txn_env(
         &self,
         evm_env: &EvmEnv<SpecFor<Self::Evm>>,
         request: TransactionRequest,
         mut db: impl Database<Error: Into<EthApiError>>,
-    ) -> Result<SeismicTransaction<TxEnv>, Self::Error>{
+    ) -> Result<SeismicTransaction<TxEnv>, Self::Error> {
         // Ensure that if versioned hashes are set, they're not empty
         if request.blob_versioned_hashes.as_ref().is_some_and(|hashes| hashes.is_empty()) {
-            return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err())
+            return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err());
         }
 
         let tx_type = if request.authorization_list.is_some() {
@@ -135,7 +139,8 @@ where
                 blob_versioned_hashes.as_deref(),
                 max_fee_per_blob_gas.map(U256::from),
                 evm_env.block_env.blob_gasprice().map(U256::from),
-            ).map_err(|e|EthTxEnvError::CallFees(e))?;
+            )
+            .map_err(|e| EthTxEnvError::CallFees(e))?;
 
         let gas_limit = gas.unwrap_or(
             // Use maximum allowed gas limit. The reason for this
@@ -194,4 +199,5 @@ where
             rng_mode: RngMode::Simulation,
         })
     }
+    */
 }
