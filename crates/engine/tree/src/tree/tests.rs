@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    backup::{BackupAction, BackupHandle},
+    backup::BackupHandle,
     persistence::PersistenceAction,
 };
 use alloy_consensus::Header;
