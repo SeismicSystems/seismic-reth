@@ -1223,12 +1223,12 @@ mod tests {
 
     #[test]
     fn bundle_state_state_root() {
-        type PreState = BTreeMap<Address, (Account, BTreeMap<B256, U256>)>;
+        type PreState = BTreeMap<Address, (Account, BTreeMap<B256, alloy_primitives::FlaggedStorage>)>;
         let mut prestate: PreState = (0..10)
             .map(|key| {
                 let account = Account { nonce: 1, balance: U256::from(key), bytecode_hash: None };
                 let storage =
-                    (1..11).map(|key| (B256::with_last_byte(key), U256::from(key))).collect();
+                    (1..11).map(|key| (B256::with_last_byte(key), U256::from(key).into())).collect();
                 (Address::with_last_byte(key), (account, storage))
             })
             .collect();
@@ -1244,7 +1244,7 @@ mod tests {
             for (slot, value) in storage {
                 tx.put::<tables::HashedStorages>(
                     hashed_address,
-                    StorageEntry { key: keccak256(slot), value: FlaggedStorage::public(*value) },
+                    StorageEntry { key: keccak256(slot), value: *value },
                 )
                 .unwrap();
             }
@@ -1298,10 +1298,10 @@ mod tests {
         state.insert_account_with_storage(
             address2,
             account2.0.into(),
-            HashMap::from_iter([(slot2, FlaggedStorage::public(account2_slot2_old_value))]),
+            HashMap::from_iter([(slot2, account2_slot2_old_value)]),
         );
 
-        let account2_slot2_new_value = U256::from(100);
+        let account2_slot2_new_value = U256::from(100).into();
         account2.1.insert(slot2_key, account2_slot2_new_value);
         state.commit(HashMap::from_iter([(
             address2,
@@ -1311,8 +1311,8 @@ mod tests {
                 storage: HashMap::from_iter([(
                     slot2,
                     EvmStorageSlot::new_changed(
-                        FlaggedStorage::public(account2_slot2_old_value),
-                        FlaggedStorage::public(account2_slot2_new_value),
+                        account2_slot2_old_value,
+                        account2_slot2_new_value,
                         0,
                     ),
                 )]),
@@ -1377,7 +1377,7 @@ mod tests {
         // update storage for account 1
         let slot20 = U256::from(20);
         let slot20_key = B256::from(slot20);
-        let account1_slot20_value = U256::from(12345);
+        let account1_slot20_value = U256::from(12345).into();
         prestate.get_mut(&address1).unwrap().1.insert(slot20_key, account1_slot20_value);
         state.commit(HashMap::from_iter([(
             address1,
@@ -1388,7 +1388,7 @@ mod tests {
                     slot20,
                     EvmStorageSlot::new_changed(
                         FlaggedStorage::ZERO,
-                        FlaggedStorage::public(account1_slot20_value),
+                        account1_slot20_value,
                         0,
                     ),
                 )]),

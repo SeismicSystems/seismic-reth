@@ -324,13 +324,13 @@ mod tests {
                 let address = Address::random();
                 let account =
                     Account { balance: U256::from(rng.random::<u64>()), ..Default::default() };
-                let mut storage = HashMap::<B256, U256>::default();
+                let mut storage = HashMap::<B256, alloy_primitives::FlaggedStorage>::default();
                 let has_storage = rng.random_bool(0.7);
                 if has_storage {
                     for _ in 0..100 {
                         storage.insert(
                             B256::from(U256::from(rng.random::<u64>())),
-                            U256::from(rng.random::<u64>()),
+                            U256::from(rng.random::<u64>()).into(),
                         );
                     }
                 }
@@ -351,7 +351,7 @@ mod tests {
                         *address,
                         storage.iter().map(|(slot, value)| StorageEntry {
                             key: *slot,
-                            value: alloy_primitives::FlaggedStorage::public(*value),
+                            value: *value,
                         }),
                     )
                 }))
@@ -380,7 +380,7 @@ mod tests {
             if should_update_storage {
                 for (slot, value) in storage.iter_mut() {
                     let hashed_slot = keccak256(slot);
-                    *value = U256::from(rng.random::<u64>());
+                    *value = U256::from(rng.random::<u64>()).into();
                     hashed_state
                         .storages
                         .entry(hashed_address)

@@ -10,7 +10,7 @@ pub use triehash;
 pub fn state_root<I, S>(accounts: I) -> B256
 where
     I: IntoIterator<Item = (Address, (Account, S))>,
-    S: IntoIterator<Item = (B256, U256)>,
+    S: IntoIterator<Item = (B256, alloy_primitives::FlaggedStorage)>,
 {
     let encoded_accounts = accounts.into_iter().map(|(address, (account, storage))| {
         let storage_root = storage_root(storage);
@@ -21,7 +21,7 @@ where
 }
 
 /// Compute the storage root for a given account using [`triehash::sec_trie_root`].
-pub fn storage_root<I: IntoIterator<Item = (B256, U256)>>(storage: I) -> B256 {
+pub fn storage_root<I: IntoIterator<Item = (B256, alloy_primitives::FlaggedStorage)>>(storage: I) -> B256 {
     let encoded_storage = storage.into_iter().map(|(k, v)| (k, encode_fixed_size(&v)));
     triehash::sec_trie_root::<KeccakHasher, _, _, _>(encoded_storage)
 }

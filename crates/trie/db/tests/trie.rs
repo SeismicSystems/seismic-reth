@@ -32,18 +32,18 @@ fn insert_account(
     tx: &impl DbTxMut,
     address: Address,
     account: Account,
-    storage: &BTreeMap<B256, U256>,
+    storage: &BTreeMap<B256, alloy_primitives::FlaggedStorage>,
 ) {
     let hashed_address = keccak256(address);
     tx.put::<tables::HashedAccounts>(hashed_address, account).unwrap();
     insert_storage(tx, hashed_address, storage);
 }
 
-fn insert_storage(tx: &impl DbTxMut, hashed_address: B256, storage: &BTreeMap<B256, U256>) {
+fn insert_storage(tx: &impl DbTxMut, hashed_address: B256, storage: &BTreeMap<B256, alloy_primitives::FlaggedStorage>) {
     for (k, v) in storage {
         tx.put::<tables::HashedStorages>(
             hashed_address,
-            StorageEntry { key: keccak256(k), value: alloy_primitives::FlaggedStorage::public(*v) },
+            StorageEntry { key: keccak256(k), value: *v },
         )
         .unwrap();
     }
@@ -121,7 +121,7 @@ fn branch_node_child_changes() {
 
 #[test]
 fn arbitrary_storage_root() {
-    proptest!(ProptestConfig::with_cases(10), |(item in arb::<(Address, std::collections::BTreeMap<B256, U256>)>())| { let (address, storage) = item;
+    proptest!(ProptestConfig::with_cases(10), |(item in arb::<(Address, std::collections::BTreeMap<B256, alloy_primitives::FlaggedStorage>)>())| { let (address, storage) = item;
 
         let hashed_address = keccak256(address);
         let factory = create_test_provider_factory();
@@ -129,7 +129,7 @@ fn arbitrary_storage_root() {
         for (key, value) in &storage {
             tx.tx_ref().put::<tables::HashedStorages>(
                 hashed_address,
-                StorageEntry { key: keccak256(key), value: alloy_primitives::FlaggedStorage::public(*value) },
+                StorageEntry { key: keccak256(key), value: *value },
             )
             .unwrap();
         }
@@ -150,7 +150,7 @@ fn test_empty_account() {
             Address::random(),
             (
                 Account { nonce: 0, balance: U256::from(0), bytecode_hash: None },
-                BTreeMap::from([(B256::with_last_byte(0x4), U256::from(12))]),
+                BTreeMap::from([(B256::with_last_byte(0x4), U256::from(12).into())]),
             ),
         ),
         (
@@ -169,8 +169,8 @@ fn test_empty_account() {
                     bytecode_hash: Some(keccak256("test")),
                 },
                 BTreeMap::from([
-                    (B256::ZERO, U256::from(3)),
-                    (B256::with_last_byte(2), U256::from(1)),
+                    (B256::ZERO, U256::from(3).into()),
+                    (B256::with_last_byte(2), U256::from(1).into()),
                 ]),
             ),
         ),
@@ -207,7 +207,7 @@ fn test_storage_root() {
 
     let address = Address::random();
     let storage =
-        BTreeMap::from([(B256::ZERO, U256::from(3)), (B256::with_last_byte(2), U256::from(1))]);
+        BTreeMap::from([(B256::ZERO, alloy_primitives::FlaggedStorage::public(U256::from(3))), (B256::with_last_byte(2), alloy_primitives::FlaggedStorage::public(U256::from(1)))]);
 
     let code = "el buen fla";
     let account = Account {
@@ -225,7 +225,7 @@ fn test_storage_root() {
     assert_eq!(storage_root(storage.into_iter()), got);
 }
 
-type State = BTreeMap<Address, (Account, BTreeMap<B256, U256>)>;
+type State = BTreeMap<Address, (Account, BTreeMap<B256, alloy_primitives::FlaggedStorage>)>;
 
 #[test]
 fn arbitrary_state_root() {
