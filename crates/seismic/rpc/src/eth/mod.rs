@@ -13,8 +13,9 @@ mod pending_block;
 use crate::SeismicEthApiError;
 use alloy_primitives::U256;
 use reth_evm::ConfigureEvm;
-use reth_node_api::{FullNodeComponents, HeaderTy};
+use reth_node_api::{FullNodeComponents, FullNodeTypes, HeaderTy, NodeTypes};
 use reth_node_builder::rpc::{EthApiBuilder, EthApiCtx};
+use reth_provider::ChainSpecProvider;
 use reth_rpc::{
     eth::{core::EthApiInner, DevSigner},
     RpcTypes,
@@ -35,6 +36,9 @@ use reth_tasks::{
 };
 use seismic_alloy_network::SeismicReth;
 use std::{fmt, marker::PhantomData, sync::Arc};
+use crate::eth::transaction::{SeismicRpcTxConverter, SeismicSimTxConverter};
+use reth_rpc_eth_types::receipt::EthReceiptConverter;
+
 
 /// Adapter for [`EthApiInner`], which holds all the data required to serve core `eth_` API.
 pub type EthApiNodeBackend<N, Rpc> = EthApiInner<N, Rpc>;
@@ -232,9 +236,16 @@ impl<N: SeismicNodeCore, Rpc: RpcConvert> fmt::Debug for SeismicEthApi<N, Rpc> {
     }
 }
 
-/// Converter for OP RPC types.
-pub type SeismicRpcConvert<N, NetworkT> =
-    RpcConverter<NetworkT, <N as FullNodeComponents>::Evm, (), (), ()>;
+/// Converter for Seismic RPC types.
+pub type SeismicRpcConvert<N, NetworkT> = RpcConverter<
+    NetworkT,
+    <N as FullNodeComponents>::Evm,
+    reth_rpc_eth_types::receipt::EthReceiptConverter<<<N as FullNodeTypes>::Types as NodeTypes>::ChainSpec>,
+    (),
+    (),
+    crate::eth::transaction::SeismicSimTxConverter,
+    crate::eth::transaction::SeismicRpcTxConverter,
+>;
 
 /// Builds [`SeismicEthApi`] for Optimism.
 #[derive(Debug)]
@@ -272,7 +283,12 @@ where
     type EthApi = SeismicEthApi<N, SeismicRpcConvert<N, NetworkT>>;
 
     async fn build_eth_api(self, ctx: EthApiCtx<'_, N>) -> eyre::Result<Self::EthApi> {
-        let rpc_converter = RpcConverter::new(());
+
+        let receipt_converter = EthReceiptConverter::new(ctx.components.provider().chain_spec().clone());
+
+        let rpc_converter = RpcConverter::new(receipt_converter)
+            .with_sim_tx_converter(SeismicSimTxConverter::new())
+            .with_rpc_tx_converter(SeismicRpcTxConverter::new());
 
         let eth_api = ctx.eth_api_builder().with_rpc_converter(rpc_converter).build_inner();
 

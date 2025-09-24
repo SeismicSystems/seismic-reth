@@ -18,8 +18,10 @@ pub enum SeismicEthApiError {
     /// Enclave error
     #[error("enclave error: {0}")]
     EnclaveError(String),
+    /// Attempting to access public storage with cload
     #[error("invalid public storage access")]
     InvalidPublicStorageAccess,
+    /// Attempting to access private storage with sload
     #[error("invalid private storage access")]
     InvalidPrivateStorageAccess,
 }
