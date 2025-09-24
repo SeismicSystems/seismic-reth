@@ -489,8 +489,8 @@ impl SeismicPayloadBuilder {
         // Txs: SeismicPayloadTransactions<Pool::Transaction>,
     {
         let conf = ctx.payload_builder_config();
-        let chain = ctx.chain_spec().chain();
-        let gas_limit = conf.gas_limit_for(chain);
+        let chain: Arc<ChainSpec> = ctx.chain_spec();
+        let gas_limit = ctx.chain_spec().genesis.gas_limit;
 
         Ok(reth_seismic_payload_builder::SeismicPayloadBuilder::new(
             ctx.provider().clone(),
@@ -531,7 +531,7 @@ where
     ) -> eyre::Result<Self::PayloadBuilder> {
         let conf = ctx.payload_builder_config();
         let chain = ctx.chain_spec().chain();
-        let gas_limit = conf.gas_limit_for(chain);
+        let gas_limit = ctx.chain_spec().genesis.gas_limit;
 
         let payload_builder = reth_seismic_payload_builder::SeismicPayloadBuilder::new(
             ctx.provider().clone(),
