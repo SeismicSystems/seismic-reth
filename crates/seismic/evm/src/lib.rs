@@ -12,16 +12,18 @@ extern crate alloc;
 
 use alloc::{borrow::Cow, sync::Arc};
 use alloy_consensus::{BlockHeader, Header};
-use alloy_eips::eip1559::INITIAL_BASE_FEE;
+use alloy_eips::{eip1559::INITIAL_BASE_FEE, Decodable2718};
 use alloy_evm::eth::EthBlockExecutionCtx;
 use alloy_primitives::{Bytes, U256};
+use alloy_rpc_types_engine::ExecutionData;
 use build::SeismicBlockAssembler;
 use core::fmt::Debug;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_ethereum_forks::EthereumHardfork;
-use reth_evm::{ConfigureEvm, EvmEnv, NextBlockEnvAttributes};
-use reth_primitives_traits::{SealedBlock, SealedHeader};
+use reth_evm::{ConfigureEngineEvm, ConfigureEvm, EvmEnv, EvmEnvFor, ExecutableTxIterator, ExecutionCtxFor, NextBlockEnvAttributes};
+use reth_primitives_traits::{SealedBlock, SealedHeader, SignedTransaction, TxTy};
 use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
+use reth_storage_errors::any::AnyError;
 use revm::{
     context::{BlockEnv, CfgEnv},
     context_interface::block::BlobExcessGasAndPrice,
@@ -288,6 +290,60 @@ where
         evm_env: EvmEnv<SeismicSpecId>,
     ) -> SeismicEvm<DB, revm::inspector::NoOpInspector> {
         self.evm_with_env_and_live_key(db, evm_env)
+    }
+}
+
+impl<CB> ConfigureEngineEvm<ExecutionData> for SeismicEvmConfig<CB>
+where
+    CB: SyncEnclaveApiClientBuilder + 'static,
+{
+    fn evm_env_for_payload(&self, payload: &ExecutionData) -> EvmEnvFor<Self> {
+        // Create a temporary header with the payload information to determine the spec
+        let temp_header = Header {
+            number: payload.payload.block_number(),
+            timestamp: payload.payload.timestamp(),
+            gas_limit: payload.payload.gas_limit(),
+            beneficiary: payload.payload.fee_recipient(),
+            ..Default::default()
+        };
+        let spec_id = revm_spec(self.chain_spec(), &temp_header);
+
+        let cfg_env = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
+
+        let blob_excess_gas_and_price = payload.payload.blob_gas_used().map(|_gas| {
+            BlobExcessGasAndPrice::new_with_spec(0, spec_id.into_eth_spec())
+        });
+
+        let block_env = BlockEnv {
+            number: U256::from(payload.payload.block_number()),
+            beneficiary: payload.payload.fee_recipient(),
+            timestamp: U256::from(payload.payload.timestamp()),
+            difficulty: U256::ZERO,
+            prevrandao: Some(payload.payload.prev_randao()),
+            gas_limit: payload.payload.gas_limit(),
+            basefee: payload.payload.saturated_base_fee_per_gas(),
+            blob_excess_gas_and_price,
+        };
+
+        (cfg_env, block_env).into()
+    }
+
+    fn context_for_payload<'a>(&self, payload: &'a ExecutionData) -> ExecutionCtxFor<'a, Self> {
+        EthBlockExecutionCtx {
+            parent_hash: payload.payload.parent_hash(),
+            parent_beacon_block_root: payload.sidecar.parent_beacon_block_root(),
+            ommers: &[],
+            withdrawals: payload.payload.withdrawals().map(|w| Cow::Owned(w.clone().into())),
+        }
+    }
+
+    fn tx_iterator_for_payload(&self, payload: &ExecutionData) -> impl ExecutableTxIterator<Self> {
+        payload.payload.transactions().clone().into_iter().map(|tx| {
+            let mut tx_data = tx.as_ref();
+            let tx = TxTy::<Self::Primitives>::decode_2718(&mut tx_data).map_err(AnyError::new)?;
+            let signer = tx.try_recover().map_err(AnyError::new)?;
+            Ok::<_, AnyError>(tx.with_signer(signer))
+        })
     }
 }
 
