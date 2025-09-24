@@ -48,17 +48,17 @@ reth-ethereum-payload-builder.workspace = true
 
 # revm
 revm = { workspace = true, features = ["secp256k1", "blst", "c-kzg"] }
-seismic-revm = { workspace = true }
 
-# ethereum
+# alloy
+alloy-consensus.workspace = true
 alloy-eips.workspace = true
 alloy-primitives.workspace = true
-seismic-alloy-consensus.workspace = true
 alloy-rpc-types-engine.workspace = true
 alloy-rpc-types-eth.workspace = true
-alloy-consensus.workspace = true
-seismic-alloy-network.workspace = true
+
+seismic-alloy-consensus.workspace = true
 seismic-alloy-rpc-types.workspace = true
+seismic-revm = { workspace = true }
 
 # misc
 clap.workspace = true

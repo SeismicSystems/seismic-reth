@@ -59,6 +59,15 @@ impl From<SeismicTransactionRequest> for SignableSeismicTransactionRequest {
     }
 }
 
+impl From<alloy_rpc_types_eth::TransactionRequest> for SignableSeismicTransactionRequest {
+    fn from(req: alloy_rpc_types_eth::TransactionRequest) -> Self {
+        Self(SeismicTransactionRequest {
+            inner: req,
+            seismic_elements: None,
+        })
+    }
+}
+
 impl AsRef<alloy_rpc_types_eth::TransactionRequest> for SignableSeismicTransactionRequest {
     fn as_ref(&self) -> &alloy_rpc_types_eth::TransactionRequest {
         &self.0.inner

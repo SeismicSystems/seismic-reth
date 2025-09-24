@@ -24,7 +24,7 @@ use reth_engine_primitives::{
 };
 use reth_errors::{BlockExecutionError, ProviderResult};
 use reth_evm::{
-    block::BlockExecutor, execute::ExecutableTxFor, ConfigureEvm, EvmEnvFor, ExecutionCtxFor,
+    execute::ExecutableTxFor, ConfigureEvm, EvmEnvFor, ExecutionCtxFor,
     SpecFor,
 };
 use reth_payload_primitives::{

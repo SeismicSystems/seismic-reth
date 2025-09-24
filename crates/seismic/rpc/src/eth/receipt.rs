@@ -1,6 +1,5 @@
 //! Loads and formats Seismic receipt RPC response.
 
-use reth_node_api::NodePrimitives;
 use reth_rpc_eth_api::{
     helpers::LoadReceipt, RpcConvert, RpcNodeCore,
 };
@@ -9,7 +8,6 @@ use reth_rpc_eth_types::{receipt::build_receipt, EthApiError};
 use reth_rpc_convert::transaction::ReceiptConverter;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt};
 use seismic_alloy_consensus::SeismicReceiptEnvelope;
-use seismic_alloy_network::{foundry::tx_request::SeismicTransaction, SeismicReth};
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
 use std::fmt::Debug;
 

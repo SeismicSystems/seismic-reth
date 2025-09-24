@@ -32,7 +32,6 @@ use reth_provider::{providers::ProviderFactoryBuilder, CanonStateSubscriptions, 
 use reth_rpc::ValidationApi;
 use reth_rpc_api::BlockSubmissionValidationApiServer;
 use reth_rpc_builder::{config::RethRpcServerConfig, Identity};
-use reth_rpc_eth_api::FullEthApiServer;
 use reth_rpc_eth_types::error::api::FromEvmHalt;
 use reth_rpc_eth_types::{error::FromEvmError, EthApiError};
 use reth_rpc_server_types::RethRpcModule;
@@ -40,8 +39,7 @@ use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
 use reth_seismic_rpc::{
-    SeismicEthApi, SeismicEthApiBuilder, SeismicEthApiError, SeismicRethWithSignable,
-    SeismicRpcConvert,
+    SeismicEthApiBuilder, SeismicEthApiError, SeismicRethWithSignable,
 };
 use reth_transaction_pool::{
     blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},
@@ -49,7 +47,6 @@ use reth_transaction_pool::{
 };
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
-use seismic_alloy_network::SeismicReth;
 use seismic_enclave::rpc::SyncEnclaveApiClientBuilder;
 use std::{sync::Arc, time::SystemTime};
 

@@ -27,7 +27,7 @@ use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
 use reth_node_core::{
     args::LogArgs,
-    version::{LONG_VERSION, SHORT_VERSION},
+    version::version_metadata,
 };
 use reth_tracing::FileWorkerGuard;
 use tracing::info;
@@ -41,7 +41,7 @@ use reth_node_metrics::recorder::install_prometheus_recorder;
 ///
 /// This is the entrypoint to the executable.
 #[derive(Debug, Parser)]
-#[command(author, version = SHORT_VERSION, long_version = LONG_VERSION, about = "Reth", long_about = None)]
+#[command(author, version =version_metadata().short_version.as_ref(), long_version = version_metadata().long_version.as_ref(), about = "Reth", long_about = None)]
 pub struct Cli<
     Spec: ChainSpecParser = SeismicChainSpecParser,
     Ext: clap::Args + fmt::Debug = EnclaveArgs,
@@ -135,7 +135,7 @@ where
 
         match self.command {
             Commands::Node(command) => runner.run_command_until_exit(|ctx| {
-                command.execute(ctx, FnLauncher::new::<C, Ext>(launcher))
+                command.execute(ctx, FnLauncher::new::<C, Ext>(async move |builder, ext| launcher(builder, ext).await))
             }),
         }
     }

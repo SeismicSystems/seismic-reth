@@ -14,8 +14,6 @@ use revm::{context::TxEnv, context_interface::Block, Database};
 use seismic_alloy_consensus::SeismicTxType;
 use seismic_revm::{self, transaction::abstraction::RngMode, SeismicTransaction};
 
-use seismic_alloy_network::SeismicReth;
-
 impl<N, Rpc> EthCall for SeismicEthApi<N, Rpc>
 where
     N: RpcNodeCore,

@@ -9954,8 +9954,6 @@ dependencies = [
  "jsonrpsee 0.26.0",
  "jsonrpsee-types 0.26.0",
  "k256",
- "parking_lot",
- "reth-chain-state",
  "reth-chainspec",
  "reth-consensus",
  "reth-e2e-test-utils",
