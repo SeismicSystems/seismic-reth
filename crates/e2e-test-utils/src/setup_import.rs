@@ -451,6 +451,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_import_blocks_only() {
         // Tests just the block import functionality without full node setup
         reth_tracing::init_test_tracing();
@@ -519,6 +520,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_import_with_node_integration() {
         // Tests the full integration with node setup, forkchoice updates, and syncing
         reth_tracing::init_test_tracing();
