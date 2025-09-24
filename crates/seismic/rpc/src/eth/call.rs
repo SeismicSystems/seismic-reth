@@ -21,7 +21,8 @@ use seismic_alloy_network::SeismicReth;
 
 impl<N, Rpc> EthCall for SeismicEthApi<N, Rpc>
 where
-    N: SeismicNodeCore,
+    // N: SeismicNodeCore,
+    N: RpcNodeCore,
     SeismicEthApiError: FromEvmError<N::Evm>,
     Rpc: RpcConvert<
         Primitives = N::Primitives,
@@ -37,7 +38,8 @@ impl<N, Rpc> EstimateCall for SeismicEthApi<N, Rpc>
 where
     Self: Call,
     Self::Error: From<EthApiError>,
-    N: SeismicNodeCore,
+    // N: SeismicNodeCore,
+    N: RpcNodeCore,
     Rpc: RpcConvert<
         Primitives = N::Primitives,
         Error = SeismicEthApiError,
@@ -64,7 +66,8 @@ where
     //         Error: FromEvmError<Self::Evm>,
     //     > + SpawnBlocking,
     // Self::Error: From<EthApiError>,
-    N: SeismicNodeCore,
+    // N: SeismicNodeCore,
+    N: RpcNodeCore,
     SeismicEthApiError: FromEvmError<N::Evm>,
     Rpc: RpcConvert<
         Primitives = N::Primitives,

@@ -74,7 +74,8 @@ impl<N: RpcNodeCore, Rpc: RpcConvert> SeismicEthApi<N, Rpc> {
 impl<N, Rpc> EthApiTypes for SeismicEthApi<N, Rpc>
 where
     // Self: Send + Sync,
-    N: SeismicNodeCore,
+    // N: SeismicNodeCore,
+    N: RpcNodeCore,
     Rpc: RpcConvert<Primitives = N::Primitives>,
 {
     type Error = SeismicEthApiError;

@@ -9,8 +9,7 @@ use alloy_primitives::{Bytes, Signature, B256};
 use alloy_rpc_types_eth::{Transaction, TransactionInfo};
 use reth_node_api::FullNodeComponents;
 use reth_rpc_eth_api::{
-    helpers::{spec::SignersForRpc, EthSigner, EthTransactions, LoadTransaction, SpawnBlocking},
-    FromEthApiError, FullEthApiTypes, RpcConvert, RpcNodeCore, RpcNodeCoreExt,
+    helpers::{spec::SignersForRpc, EthSigner, EthTransactions, LoadTransaction, SpawnBlocking}, EthTxEnvError, FromEthApiError, FullEthApiTypes, RpcConvert, RpcNodeCore, RpcNodeCoreExt
 };
 use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
 use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
