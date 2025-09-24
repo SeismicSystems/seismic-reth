@@ -20,7 +20,7 @@ jobs:
   test:
     name: e2e-testsuite
     runs-on:
-      group: large-github-runner
+      group: Reth
     env:
       RUST_BACKTRACE: 1
     timeout-minutes: 90
