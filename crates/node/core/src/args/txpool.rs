@@ -139,7 +139,7 @@ impl Default for TxPoolArgs {
             blob_cache_size: None,
             max_account_slots: TXPOOL_MAX_ACCOUNT_SLOTS_PER_SENDER,
             price_bump: DEFAULT_PRICE_BUMP,
-            minimal_protocol_basefee: MIN_PROTOCOL_BASE_FEE,
+            minimal_protocol_basefee: MIN_PROTOCOL_BASE_FEE, // this is 7 wei, but should it be set to 0?
             enforced_gas_limit: ETHEREUM_BLOCK_GAS_LIMIT_30M,
             blob_transaction_price_bump: REPLACE_BLOB_PRICE_BUMP,
             max_tx_input_bytes: DEFAULT_MAX_TX_INPUT_BYTES,
