@@ -674,7 +674,7 @@ where
                     hashed_entries_walked += 1;
                     hash_builder.add_leaf(
                         Nibbles::unpack(hashed_slot),
-                        alloy_rlp::encode_fixed_size(&value.value).as_ref(),
+                        alloy_rlp::encode_fixed_size(&value).as_ref(),
                         value.is_private,
                     );
 

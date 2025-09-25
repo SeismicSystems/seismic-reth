@@ -1,7 +1,6 @@
 ## Unit tests
 
 Summary [  61.366s] 2009 tests run: 1999 passed, 10 failed, 27 skipped
-TRY 4 FAIL [   0.344s] reth-provider writer::tests::bundle_state_state_root
 TRY 4 FAIL [   0.654s] reth-stages stages::merkle::tests::execute_chunked_merkle
 TRY 4 FAIL [   1.048s] reth-stages stages::merkle::tests::execute_clean_merkle
 TRY 4 FAIL [   0.954s] reth-stages stages::merkle::tests::execute_merkle
