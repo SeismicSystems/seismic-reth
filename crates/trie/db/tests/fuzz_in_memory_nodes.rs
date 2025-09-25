@@ -76,7 +76,7 @@ proptest! {
     }
 
     #[test]
-    fn fuzz_in_memory_storage_nodes(mut init_storage: BTreeMap<B256, alloy_primitives::FlaggedStorage>, storage_updates: [(bool, BTreeMap<B256, U256>); 10]) {
+    fn fuzz_in_memory_storage_nodes(mut init_storage: BTreeMap<B256, alloy_primitives::FlaggedStorage>, storage_updates: [(bool, BTreeMap<B256, alloy_primitives::FlaggedStorage>); 10]) {
         let hashed_address = B256::random();
         let factory = create_test_provider_factory();
         let provider = factory.provider_rw().unwrap();
@@ -86,7 +86,7 @@ proptest! {
         // Insert init state into database
         for (hashed_slot, value) in init_storage.clone() {
             hashed_storage_cursor
-                .upsert(hashed_address, &StorageEntry { key: hashed_slot, value: FlaggedStorage::public(value) })
+                .upsert(hashed_address, &StorageEntry { key: hashed_slot, value })
                 .unwrap();
         }
 
@@ -103,9 +103,9 @@ proptest! {
             let mut hashed_storage = HashedStorage::new(is_deleted);
             for (hashed_slot, value) in storage_update.clone() {
                 hashed_storage_cursor
-                    .upsert(hashed_address, &StorageEntry { key: hashed_slot, value: FlaggedStorage::public(value) })
+                    .upsert(hashed_address, &StorageEntry { key: hashed_slot, value })
                     .unwrap();
-                hashed_storage.storage.insert(hashed_slot, FlaggedStorage::new_from_value(value));
+                hashed_storage.storage.insert(hashed_slot, value);
             }
 
             // Compute root with in-memory trie nodes overlay

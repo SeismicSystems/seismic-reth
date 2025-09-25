@@ -1,8 +1,5 @@
 ## Unit tests
-
-Summary [  61.366s] 2009 tests run: 1999 passed, 10 failed, 27 skipped
-TRY 4 FAIL [   0.016s] reth-trie-sparse trie::tests::sparse_trie_display
-TRY 4 FAIL [   0.013s] reth-trie-sparse trie::tests::sparse_trie_remove_leaf
+-> all pass!
 
 ### Need full fixing
 - Refactoring envelope: TRY 4 FAIL [   0.190s] reth-seismic-primitives transaction::signed::SeismicTransactionSignedTests::proptest

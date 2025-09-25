@@ -325,7 +325,7 @@ fn storage_root_regression() {
             ("3000000000000000000000000000000000000000000000000000000000E00000", 0x127a89),
             ("3000000000000000000000000000000000000000000000000000000000E00001", 0x05),
         ]
-        .map(|(slot, val)| (B256::from_str(slot).unwrap(), U256::from(val))),
+        .map(|(slot, val)| (B256::from_str(slot).unwrap(), revm_primitives::FlaggedStorage::public(val))),
     );
 
     let mut hashed_storage_cursor =
@@ -336,7 +336,7 @@ fn storage_root_regression() {
                 key3,
                 &StorageEntry {
                     key: hashed_slot,
-                    value: alloy_primitives::FlaggedStorage::public(value),
+                    value,
                 },
             )
             .unwrap();
