@@ -55,8 +55,9 @@ const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessa
 
 #[tokio::test(flavor = "multi_thread")]
 async fn integration_test() {
-    // set to true when I want to spin up my own node outside the test to see logs more easily
-    let manual_debug = true;
+    // set this to true when you want to spin up a node
+    // outside the test to see logs more easily
+    let manual_debug = false;
 
     let mut shutdown_tx_top: Option<mpsc::Sender<()>> = None;
     if !manual_debug {
@@ -69,12 +70,11 @@ async fn integration_test() {
         rx.recv().await.unwrap();
     }
 
-    // TODO(usm): uncomment these
     test_seismic_reth_rpc().await;
-    // test_seismic_reth_rpc_with_typed_data().await;
-    // test_seismic_reth_rpc_with_rust_client().await;
-    // test_seismic_reth_rpc_simulate_block().await;
-    // test_seismic_precompiles_end_to_end().await;
+    test_seismic_reth_rpc_with_typed_data().await;
+    test_seismic_reth_rpc_with_rust_client().await;
+    test_seismic_reth_rpc_simulate_block().await;
+    test_seismic_precompiles_end_to_end().await;
 
     if !manual_debug {
         let _ = shutdown_tx_top.unwrap().try_send(()).unwrap();

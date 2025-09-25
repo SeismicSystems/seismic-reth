@@ -4,7 +4,6 @@ use clap::Parser;
 use reth::cli::Cli;
 use reth_cli_commands::node::NoArgs;
 use reth_enclave::{start_blocking_mock_enclave_server, EnclaveClient};
-use reth_node_builder::{EngineNodeLauncher, TreeConfig};
 use reth_seismic_cli::chainspec::SeismicChainSpecParser;
 use reth_seismic_node::node::SeismicNode;
 use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
@@ -20,7 +19,7 @@ fn main() {
     }
 
     if let Err(err) = Cli::<SeismicChainSpecParser, NoArgs>::parse().run(|builder, _| async move {
-        let engine_tree_config = TreeConfig::default();
+        // let engine_tree_config = TreeConfig::default();
 
         // building additional endpoints seismic api
         let seismic_api = SeismicApi::new(builder.config());
@@ -68,14 +67,7 @@ fn main() {
                 info!(target: "reth::cli", "seismic api configured");
                 Ok(())
             })
-            .launch_with_fn(|builder| {
-                let launcher = EngineNodeLauncher::new(
-                    builder.task_executor().clone(),
-                    builder.config().datadir(),
-                    engine_tree_config,
-                );
-                builder.launch_with(launcher)
-            })
+            .launch_with_debug_capabilities()
             .await?;
         node.node_exit_future.await
     }) {
