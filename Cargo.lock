@@ -298,9 +298,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-hardforks"
-version = "0.3.5"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "889eb3949b58368a09d4f16931c660275ef5fb08e5fbd4a96573b19c7085c41f"
+checksum = "31c8616642b176f21e98e2740e27d28917b5d30d8612450cafff21772d4926bc"
 dependencies = [
  "alloy-chains",
  "alloy-eip2124",
@@ -377,13 +377,12 @@ dependencies = [
 
 [[package]]
 name = "alloy-op-hardforks"
-version = "0.3.5"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "599c1d7dfbccb66603cb93fde00980d12848d32fe5e814f50562104a92df6487"
+checksum = "07953246c78130f119855393ba0235d22539c60b6a627f737cdf0ae692f042f6"
 dependencies = [
  "alloy-chains",
  "alloy-hardforks",
- "alloy-primitives",
  "auto_impl",
  "serde",
 ]
@@ -4116,7 +4115,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.57.0",
+ "windows-core 0.61.2",
 ]
 
 [[package]]
