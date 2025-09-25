@@ -282,8 +282,8 @@ where
                         hashed_address,
                         account,
                         &mut hash_builder,
-                        retain_updates,
                         is_private,
+                        retain_updates,
                     )? {
                         // storage root hit threshold, need to pause
                         return Ok(storage_ctx.create_progress_state(
