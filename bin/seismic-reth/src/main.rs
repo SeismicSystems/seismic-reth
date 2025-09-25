@@ -19,8 +19,6 @@ fn main() {
     }
 
     if let Err(err) = Cli::<SeismicChainSpecParser, NoArgs>::parse().run(|builder, _| async move {
-        // let engine_tree_config = TreeConfig::default();
-
         // building additional endpoints seismic api
         let seismic_api = SeismicApi::new(builder.config());
 
