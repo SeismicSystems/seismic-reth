@@ -31,7 +31,6 @@ TRY 4 FAIL [  84.567s] reth-node-ethereum::e2e p2p::test_long_reorg
 TRY 4 FAIL [  14.926s] reth-node-ethereum::e2e rpc::test_flashbots_validate_v3
 TRY 4 FAIL [  13.804s] reth-node-ethereum::e2e rpc::test_flashbots_validate_v4
 TRY 4 FAIL [   1.152s] reth-rpc-e2e-tests::e2e_testsuite test_local_rpc_tests_compat
-TRY 4 FAIL [   6.094s] reth-seismic-node::e2e integration::integration_test
 TRY 4 FAIL [  10.828s] reth-trie-db::fuzz_in_memory_nodes fuzz_in_memory_account_nodes
 TRY 4 FAIL [   2.935s] reth-trie-db::proof holesky_deposit_contract_proof
 TRY 4 FAIL [   2.782s] reth-trie-db::proof mainnet_genesis_account_proof
