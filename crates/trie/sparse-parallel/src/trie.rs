@@ -328,8 +328,8 @@ impl SparseTrieInterface for ParallelSparseTrie {
             match self.upper_subtrie.update_next_node(
                 current,
                 &full_path,
-                retain_updates,
                 is_private,
+                retain_updates,
             )? {
                 LeafUpdateStep::Continue { next_node } => {
                     next = Some(next_node);
@@ -1542,7 +1542,7 @@ impl SparseSubtrie {
         // Here we are starting at the root of the subtrie, and traversing from there.
         let mut current = Some(self.path);
         while let Some(current_path) = current {
-            match self.update_next_node(current_path, &full_path, retain_updates, is_private)? {
+            match self.update_next_node(current_path, &full_path, is_private, retain_updates)? {
                 LeafUpdateStep::Continue { next_node } => {
                     current = Some(next_node);
                 }
@@ -1602,8 +1602,8 @@ impl SparseSubtrie {
         &mut self,
         mut current: Nibbles,
         path: &Nibbles,
-        retain_updates: bool,
         is_private: bool,
+        retain_updates: bool,
     ) -> SparseTrieResult<LeafUpdateStep> {
         debug_assert!(path.starts_with(&self.path));
         debug_assert!(current.starts_with(&self.path));

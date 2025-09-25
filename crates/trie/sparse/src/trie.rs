@@ -3766,7 +3766,7 @@ mod tests {
             .update_leaf(
                 Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x3]),
                 value.clone(),
-                is_private,
+                false,
                 &provider,
             )
             .unwrap();
