@@ -721,8 +721,13 @@ mod tests {
                         }
                         let storage = storage_entries
                             .into_iter()
-                            .filter(|v| !v.to_flagged_storage().is_zero())
-                            .map(|v| (v.key, v.value))
+                            .filter(|v| !v.value.is_zero())
+                            .map(|v| {
+                                // Debug: Log what the test seeding sees
+                                println!("TEST_SEED: account={:?}, slot={:?}, value={:?}, is_private={}",
+                                    key, v.key, v.value.value, v.value.is_private);
+                                (v.key, v.value)
+                            })
                             .collect::<Vec<_>>();
                         accounts.insert(key, (account, storage));
                     }
