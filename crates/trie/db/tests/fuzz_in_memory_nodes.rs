@@ -76,7 +76,7 @@ proptest! {
     }
 
     #[test]
-    fn fuzz_in_memory_storage_nodes(mut init_storage: BTreeMap<B256, U256>, storage_updates: [(bool, BTreeMap<B256, U256>); 10]) {
+    fn fuzz_in_memory_storage_nodes(mut init_storage: BTreeMap<B256, alloy_primitives::FlaggedStorage>, storage_updates: [(bool, BTreeMap<B256, U256>); 10]) {
         let hashed_address = B256::random();
         let factory = create_test_provider_factory();
         let provider = factory.provider_rw().unwrap();

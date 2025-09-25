@@ -728,7 +728,7 @@ mod tests {
                     }
 
                     Ok(state_root_prehashed(accounts.into_iter().map(|(key, (a, b))| {
-                        (key, (a, b.into_iter().map(|(k, fs)| (k, fs.value))))
+                        (key, (a, b.into_iter().map(|(k, v)| (k, v))))
                     })))
                 })?;
 

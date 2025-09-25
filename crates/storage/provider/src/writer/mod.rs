@@ -1470,7 +1470,7 @@ mod tests {
         };
         assert_eq!(
             storage_root,
-            storage_root_prehashed(FlaggedStorage::collect_value(init_storage.storage))
+            storage_root_prehashed(init_storage.storage)
         );
         assert!(!storage_updates.is_empty());
         provider_rw
@@ -1495,7 +1495,7 @@ mod tests {
         let storage_root = StorageRoot::overlay_root(tx, address, updated_storage.clone()).unwrap();
         assert_eq!(
             storage_root,
-            storage_root_prehashed(FlaggedStorage::collect_value(updated_storage.storage))
+            storage_root_prehashed(updated_storage.storage)
         );
     }
 }
