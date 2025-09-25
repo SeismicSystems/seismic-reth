@@ -706,31 +706,32 @@ mod tests {
             self.db.insert_accounts_and_storages(final_state)?;
 
             // Calculate state root
-            let root =
-                self.db.query(|tx| {
-                    let mut accounts = BTreeMap::default();
-                    let mut accounts_cursor = tx.cursor_read::<tables::HashedAccounts>()?;
-                    let mut storage_cursor = tx.cursor_dup_read::<tables::HashedStorages>()?;
-                    for entry in accounts_cursor.walk_range(..)? {
-                        let (key, account) = entry?;
-                        let mut storage_entries = Vec::new();
-                        let mut entry = storage_cursor.seek_exact(key)?;
-                        while let Some((_, storage)) = entry {
-                            storage_entries.push(storage);
-                            entry = storage_cursor.next_dup()?;
-                        }
-                        let storage = storage_entries
-                            .into_iter()
-                            .filter(|v| !v.value.is_zero())
-                            .map(|v| (v.key, v.value))
-                            .collect::<Vec<_>>();
-                        accounts.insert(key, (account, storage));
+            let root = self.db.query(|tx| {
+                let mut accounts = BTreeMap::default();
+                let mut accounts_cursor = tx.cursor_read::<tables::HashedAccounts>()?;
+                let mut storage_cursor = tx.cursor_dup_read::<tables::HashedStorages>()?;
+                for entry in accounts_cursor.walk_range(..)? {
+                    let (key, account) = entry?;
+                    let mut storage_entries = Vec::new();
+                    let mut entry = storage_cursor.seek_exact(key)?;
+                    while let Some((_, storage)) = entry {
+                        storage_entries.push(storage);
+                        entry = storage_cursor.next_dup()?;
                     }
+                    let storage = storage_entries
+                        .into_iter()
+                        .filter(|v| !v.value.is_zero())
+                        .map(|v| (v.key, v.value))
+                        .collect::<Vec<_>>();
+                    accounts.insert(key, (account, storage));
+                }
 
-                    Ok(state_root_prehashed(accounts.into_iter().map(|(key, (a, b))| {
-                        (key, (a, b.into_iter().map(|(k, v)| (k, v))))
-                    })))
-                })?;
+                Ok(state_root_prehashed(
+                    accounts
+                        .into_iter()
+                        .map(|(key, (a, b))| (key, (a, b.into_iter().map(|(k, v)| (k, v))))),
+                ))
+            })?;
 
             let static_file_provider = self.db.factory.static_file_provider();
             let mut writer =

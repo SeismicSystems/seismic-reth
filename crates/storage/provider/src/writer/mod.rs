@@ -1468,10 +1468,7 @@ mod tests {
         else {
             panic!("no threshold for root");
         };
-        assert_eq!(
-            storage_root,
-            storage_root_prehashed(init_storage.storage)
-        );
+        assert_eq!(storage_root, storage_root_prehashed(init_storage.storage));
         assert!(!storage_updates.is_empty());
         provider_rw
             .write_individual_storage_trie_updates(hashed_address, &storage_updates)
@@ -1493,9 +1490,6 @@ mod tests {
 
         // re-calculate database storage root
         let storage_root = StorageRoot::overlay_root(tx, address, updated_storage.clone()).unwrap();
-        assert_eq!(
-            storage_root,
-            storage_root_prehashed(updated_storage.storage)
-        );
+        assert_eq!(storage_root, storage_root_prehashed(updated_storage.storage));
     }
 }

@@ -325,21 +325,15 @@ fn storage_root_regression() {
             ("3000000000000000000000000000000000000000000000000000000000E00000", 0x127a89),
             ("3000000000000000000000000000000000000000000000000000000000E00001", 0x05),
         ]
-        .map(|(slot, val)| (B256::from_str(slot).unwrap(), revm_primitives::FlaggedStorage::public(val))),
+        .map(|(slot, val)| {
+            (B256::from_str(slot).unwrap(), revm_primitives::FlaggedStorage::public(val))
+        }),
     );
 
     let mut hashed_storage_cursor =
         tx.tx_ref().cursor_dup_write::<tables::HashedStorages>().unwrap();
     for (hashed_slot, value) in storage.clone() {
-        hashed_storage_cursor
-            .upsert(
-                key3,
-                &StorageEntry {
-                    key: hashed_slot,
-                    value,
-                },
-            )
-            .unwrap();
+        hashed_storage_cursor.upsert(key3, &StorageEntry { key: hashed_slot, value }).unwrap();
     }
     tx.commit().unwrap();
     let tx = factory.provider_rw().unwrap();
