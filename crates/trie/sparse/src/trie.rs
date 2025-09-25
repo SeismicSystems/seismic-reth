@@ -594,7 +594,9 @@ impl SparseTrieInterface for SerialSparseTrie {
                 &mut SparseNode::Hash(hash) => {
                     return Err(SparseTrieErrorKind::BlindedNode { path: current, hash }.into())
                 }
-                SparseNode::Leaf { key: current_key, .. } => {
+                SparseNode::Leaf { key: current_key, is_private: existing_is_private, .. } => {
+                    // Store the existing is_private value before modifying the node
+                    let existing_is_private = *existing_is_private;
                     current.extend(current_key);
 
                     // this leaf is being updated
@@ -624,7 +626,7 @@ impl SparseTrieInterface for SerialSparseTrie {
                     );
                     self.nodes.insert(
                         current.slice(..=common),
-                        SparseNode::new_leaf(current.slice(common + 1..), is_private),
+                        SparseNode::new_leaf(current.slice(common + 1..), existing_is_private),
                     );
 
                     break;
@@ -2643,7 +2645,7 @@ mod tests {
             .update_leaf(
                 Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x1]),
                 value.clone(),
-                is_private,
+                true,
                 &provider,
             )
             .unwrap();
@@ -3766,7 +3768,7 @@ mod tests {
             .update_leaf(
                 Nibbles::from_nibbles([0x5, 0x0, 0x2, 0x3, 0x3]),
                 value.clone(),
-                false,
+                is_private,
                 &provider,
             )
             .unwrap();
