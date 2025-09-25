@@ -1,26 +1,15 @@
 ## Unit tests
 
-Summary [  80.170s] 2009 tests run: 1988 passed, 21 failed, 27 skipped
-TRY 4 FAIL [   0.020s] reth-chainspec spec::tests::holesky_fork_ids
-TRY 4 FAIL [   0.020s] reth-chainspec spec::tests::hoodi_fork_ids
-TRY 4 FAIL [   0.365s] reth-chainspec spec::tests::latest_eth_mainnet_fork_id
-TRY 4 FAIL [   0.417s] reth-chainspec spec::tests::mainnet_fork_ids
-TRY 4 FAIL [   0.434s] reth-chainspec spec::tests::mainnet_hardfork_fork_ids
-TRY 4 FAIL [   0.007s] reth-chainspec spec::tests::sepolia_fork_ids
-TRY 4 FAIL [   0.007s] reth-chainspec spec::tests::sepolia_hardfork_fork_ids
-TRY 4 FAIL [   0.329s] reth-chainspec spec::tests::test_hardfork_list_display_mainnet
-TRY 4 FAIL [   0.637s] reth-chainspec spec::tests::timestamped_forks
-TRY 4 FAIL [   0.345s] reth-provider writer::tests::bundle_state_state_root
-TRY 4 FAIL [   0.325s] reth-seismic-chainspec tests::display_hardforks
-TRY 4 FAIL [   0.007s] reth-seismic-forks tests::check_ethereum_hardforks_at_zero
-TRY 4 FAIL [   0.183s] reth-seismic-primitives transaction::signed::SeismicTransactionSignedTests::proptest
-TRY 4 FAIL [   0.656s] reth-stages stages::merkle::tests::execute_chunked_merkle
-TRY 4 FAIL [   1.057s] reth-stages stages::merkle::tests::execute_clean_merkle
-TRY 4 FAIL [   0.950s] reth-stages stages::merkle::tests::execute_merkle
-TRY 4 FAIL [   0.595s] reth-stages stages::merkle::tests::execute_small_merkle
-TRY 4 FAIL [   1.035s] reth-stages stages::merkle::tests::unwind_merkle
-TRY 4 FAIL [   0.797s] reth-trie-parallel root::tests::random_parallel_root
-TRY 4 FAIL [   0.011s] reth-trie-sparse trie::tests::sparse_trie_display
+Summary [  61.366s] 2009 tests run: 1999 passed, 10 failed, 27 skipped
+TRY 4 FAIL [   0.190s] reth-seismic-primitives transaction::signed::SeismicTransactionSignedTests::proptest
+TRY 4 FAIL [   0.344s] reth-provider writer::tests::bundle_state_state_root
+TRY 4 FAIL [   0.654s] reth-stages stages::merkle::tests::execute_chunked_merkle
+TRY 4 FAIL [   1.048s] reth-stages stages::merkle::tests::execute_clean_merkle
+TRY 4 FAIL [   0.954s] reth-stages stages::merkle::tests::execute_merkle
+TRY 4 FAIL [   0.576s] reth-stages stages::merkle::tests::execute_small_merkle
+TRY 4 FAIL [   1.039s] reth-stages stages::merkle::tests::unwind_merkle
+TRY 4 FAIL [   0.827s] reth-trie-parallel root::tests::random_parallel_root
+TRY 4 FAIL [   0.016s] reth-trie-sparse trie::tests::sparse_trie_display
 TRY 4 FAIL [   0.013s] reth-trie-sparse trie::tests::sparse_trie_remove_leaf
 
 ## Integration tests

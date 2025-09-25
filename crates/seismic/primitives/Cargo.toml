@@ -72,6 +72,7 @@ arbitrary.workspace = true
 proptest-arbitrary-interop.workspace = true
 proptest.workspace = true
 rand.workspace = true
+rand_08.workspace = true
 reth-codecs = { workspace = true, features = ["test-utils"] }
 rstest.workspace = true
 serde_json.workspace = true
