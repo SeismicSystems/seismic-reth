@@ -147,8 +147,10 @@ where
     /// Payload processor for state root computation.
     payload_processor: PayloadProcessor<Evm>,
     /// Precompile cache map.
+    #[allow(unused_variables)]
     precompile_cache_map: PrecompileCacheMap<SpecFor<Evm>>,
     /// Precompile cache metrics.
+    #[allow(unused_variables)]
     precompile_cache_metrics: HashMap<alloy_primitives::Address, CachedPrecompileMetrics>,
     /// Hook to call when invalid blocks are encountered.
     #[debug(skip)]
