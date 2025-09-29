@@ -6,7 +6,7 @@ use alloy_primitives::Address;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks, Hardforks, Head};
 use reth_errors::{ProviderError, RethError};
-use reth_evm::{ConfigureEvm, Evm};
+use reth_evm::{precompiles::PrecompilesMap, ConfigureEvm, Evm};
 use reth_node_api::NodePrimitives;
 use reth_revm::db::EmptyDB;
 use reth_rpc_eth_types::EthApiError;
@@ -159,9 +159,9 @@ where
     }
 }
 
-fn evm_to_precompiles_map(evm: impl Evm) -> BTreeMap<String, Address> {
-    // TODO(usm): make evm_to_precompiles_map work
-    /*
+fn evm_to_precompiles_map(
+    evm: impl Evm<Precompiles = PrecompilesMap>,
+) -> BTreeMap<String, Address> {
     let precompiles = evm.precompiles();
     precompiles
         .addresses()
@@ -169,8 +169,6 @@ fn evm_to_precompiles_map(evm: impl Evm) -> BTreeMap<String, Address> {
             Some((precompile_to_str(precompiles.get(address)?.precompile_id()), *address))
         })
         .collect()
-    */
-    BTreeMap::new()
 }
 
 // TODO: move
