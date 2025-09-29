@@ -16,7 +16,6 @@ use reth_trie::{
     HashedPostState, HashedStorage, StateRoot, StorageRoot,
 };
 use reth_trie_db::{DatabaseStateRoot, DatabaseStorageRoot, DatabaseTrieCursorFactory};
-use revm::state::FlaggedStorage;
 use std::collections::BTreeMap;
 
 proptest! {
