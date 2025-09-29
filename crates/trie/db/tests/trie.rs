@@ -735,8 +735,7 @@ fn extension_node_storage_trie<N: ProviderNodeTypes>(
     tx: &DatabaseProviderRW<Arc<TempDatabase<DatabaseEnv>>, N>,
     hashed_address: B256,
 ) -> (B256, StorageTrieUpdates) {
-    let is_private = false; // legacy test doesn't use private state
-    let value = U256::from(1);
+    let value = U256::from(1).into();
 
     let mut hashed_storage = tx.tx_ref().cursor_write::<tables::HashedStorages>().unwrap();
 
@@ -755,11 +754,11 @@ fn extension_node_storage_trie<N: ProviderNodeTypes>(
                 hashed_address,
                 &StorageEntry {
                     key: B256::new(key),
-                    value: alloy_primitives::FlaggedStorage::public(value),
+                    value,
                 },
             )
             .unwrap();
-        hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value), is_private);
+        hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value), value.is_private);
     }
 
     let root = hb.root();
