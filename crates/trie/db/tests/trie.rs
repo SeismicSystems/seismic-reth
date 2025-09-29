@@ -19,7 +19,7 @@ use reth_provider::{
 };
 use reth_trie::{
     prefix_set::{PrefixSetMut, TriePrefixSets},
-    test_utils::{state_root, state_root_prehashed, storage_root, storage_root_prehashed},
+    test_utils::{state_root, state_root_prehashed, storage_root, storage_root_prehashed, storage_root_privacy_aware},
     triehash::KeccakHasher,
     updates::StorageTrieUpdates,
     BranchNodeCompact, HashBuilder, IntermediateStateRootState, Nibbles, StateRoot,
@@ -141,7 +141,7 @@ fn arbitrary_storage_root() {
 
         let tx =  factory.provider_rw().unwrap();
         let got = StorageRoot::from_tx(tx.tx_ref(), address).root().unwrap();
-        let expected = storage_root(storage.into_iter());
+        let expected = storage_root_privacy_aware(storage.into_iter());
         assert_eq!(expected, got);
     });
 }

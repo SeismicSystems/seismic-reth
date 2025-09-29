@@ -53,6 +53,30 @@ pub fn storage_root_prehashed<I: IntoIterator<Item = (B256, alloy_primitives::Fl
     triehash::trie_root::<KeccakHasher, _, _, _>(encoded_storage)
 }
 
+/// Compute the storage root for a given account using privacy-aware HashBuilder.
+/// This function respects the privacy flags in FlaggedStorage values and hashes the keys.
+pub fn storage_root_privacy_aware<I: IntoIterator<Item = (B256, alloy_primitives::FlaggedStorage)>>(
+    storage: I,
+) -> B256 {
+    let mut hash_builder = HashBuilder::default();
+
+    // Collect and sort storage entries by hashed key for consistent ordering
+    let mut storage_entries: Vec<_> = storage
+        .into_iter()
+        .map(|(k, v)| (alloy_primitives::keccak256(k), v))
+        .collect();
+    storage_entries.sort_by(|a, b| a.0.cmp(&b.0));
+
+    // Add each storage entry to the hash builder with privacy awareness
+    for (hashed_key, flagged_storage) in storage_entries {
+        let nibbles = Nibbles::unpack(hashed_key);
+        let encoded_value = encode_fixed_size(&flagged_storage);
+        hash_builder.add_leaf(nibbles, &encoded_value, flagged_storage.is_private());
+    }
+
+    hash_builder.root()
+}
+
 /// Compute the storage root for a given account with prehashed slots using privacy-aware
 /// HashBuilder. This function respects the privacy flags in FlaggedStorage values, unlike the
 /// standard version above.
