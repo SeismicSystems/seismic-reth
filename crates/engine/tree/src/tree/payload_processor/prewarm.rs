@@ -224,6 +224,7 @@ where
     /// An atomic bool that tells prewarm tasks to not start any more execution.
     pub(super) terminate_execution: Arc<AtomicBool>,
     pub(super) precompile_cache_disabled: bool,
+    #[allow(dead_code)]
     pub(super) precompile_cache_map: PrecompileCacheMap<SpecFor<Evm>>,
 }
 
@@ -245,8 +246,7 @@ where
             metrics,
             terminate_execution,
             precompile_cache_disabled,
-            #[allow(unused_variables, unused_mut)]
-            mut precompile_cache_map,
+            precompile_cache_map: _,
         } = self;
 
         let state_provider = match provider.build() {

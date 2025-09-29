@@ -8,7 +8,6 @@ use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks, Hardfor
 use reth_errors::{ProviderError, RethError};
 use reth_evm::{precompiles::{Precompile, PrecompilesMap}, ConfigureEvm, Evm};
 use reth_node_api::NodePrimitives;
-use reth_revm::db::EmptyDB;
 use reth_rpc_eth_types::EthApiError;
 use reth_storage_api::BlockReaderIdExt;
 use revm::precompile::PrecompileId;
@@ -28,6 +27,7 @@ pub trait EthConfigApi {
 #[derive(Debug, Clone)]
 pub struct EthConfigHandler<Provider, Evm> {
     provider: Provider,
+    #[allow(unused)]
     evm_config: Evm,
 }
 
