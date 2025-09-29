@@ -750,13 +750,7 @@ fn extension_node_storage_trie<N: ProviderNodeTypes>(
         hex!("3100000000000000000000000000000000000000000000000000000000000000"),
     ] {
         hashed_storage
-            .upsert(
-                hashed_address,
-                &StorageEntry {
-                    key: B256::new(key),
-                    value,
-                },
-            )
+            .upsert(hashed_address, &StorageEntry { key: B256::new(key), value })
             .unwrap();
         hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value), value.is_private);
     }
