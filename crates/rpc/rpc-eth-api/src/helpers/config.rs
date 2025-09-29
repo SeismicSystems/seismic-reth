@@ -93,13 +93,17 @@ where
             return Err(RethError::msg("cancun has not been activated"))
         }
 
+        /*
         let current_precompiles =
             evm_to_precompiles_map(self.evm_config.evm_for_block(EmptyDB::default(), &latest));
+        */
+        let current_precompiles = BTreeMap::new();
 
         let mut fork_timestamps =
             chain_spec.forks_iter().filter_map(|(_, cond)| cond.as_timestamp()).collect::<Vec<_>>();
         fork_timestamps.dedup();
 
+        #[allow(unused_variables)]
         let (current_fork_idx, current_fork_timestamp) = fork_timestamps
             .iter()
             .position(|ts| &latest.timestamp < ts)

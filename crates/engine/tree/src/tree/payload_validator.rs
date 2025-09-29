@@ -674,6 +674,8 @@ where
 
         let evm = self.evm_config.evm_with_env(&mut db, env.evm_env.clone());
         let ctx = self.execution_ctx_for(input);
+
+        #[allow(unused_mut)]
         let mut executor = self.evm_config.create_executor(evm, ctx);
 
         if !self.config.precompile_cache_disabled() {
