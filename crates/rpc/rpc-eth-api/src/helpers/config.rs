@@ -6,7 +6,10 @@ use alloy_primitives::Address;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks, Hardforks, Head};
 use reth_errors::{ProviderError, RethError};
-use reth_evm::{precompiles::{Precompile, PrecompilesMap}, ConfigureEvm, Evm};
+use reth_evm::{
+    precompiles::{Precompile, PrecompilesMap},
+    ConfigureEvm, Evm,
+};
 use reth_node_api::NodePrimitives;
 use reth_rpc_eth_types::EthApiError;
 use reth_storage_api::BlockReaderIdExt;
