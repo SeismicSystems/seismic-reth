@@ -1,8 +1,8 @@
+use crate::{HashBuilder, Nibbles};
 use alloy_primitives::{Address, B256};
 use alloy_rlp::encode_fixed_size;
 use reth_primitives_traits::Account;
 use reth_trie_common::triehash::KeccakHasher;
-use crate::{HashBuilder, Nibbles};
 
 /// Re-export of [triehash].
 pub use triehash;
@@ -53,9 +53,12 @@ pub fn storage_root_prehashed<I: IntoIterator<Item = (B256, alloy_primitives::Fl
     triehash::trie_root::<KeccakHasher, _, _, _>(encoded_storage)
 }
 
-/// Compute the storage root for a given account with prehashed slots using privacy-aware HashBuilder.
-/// This function respects the privacy flags in FlaggedStorage values, unlike the standard version above.
-pub fn storage_root_prehashed_privacy_aware<I: IntoIterator<Item = (B256, alloy_primitives::FlaggedStorage)>>(
+/// Compute the storage root for a given account with prehashed slots using privacy-aware
+/// HashBuilder. This function respects the privacy flags in FlaggedStorage values, unlike the
+/// standard version above.
+pub fn storage_root_prehashed_privacy_aware<
+    I: IntoIterator<Item = (B256, alloy_primitives::FlaggedStorage)>,
+>(
     storage: I,
 ) -> B256 {
     let mut hash_builder = HashBuilder::default();
