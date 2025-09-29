@@ -112,9 +112,11 @@ where
             .build_fork_config_at(current_fork_timestamp, current_precompiles)
             .ok_or_else(|| RethError::msg("no fork config for current fork"))?;
 
+        let config = EthConfig { current, next: None, last: None };
+
+        /*
         let mut config = EthConfig { current, next: None, last: None };
 
-        // TODO(usm): make evm_to_precompiles_map work
         if let Some(last_fork_idx) = current_fork_idx.checked_sub(1) {
             if let Some(last_fork_timestamp) = fork_timestamps.get(last_fork_idx).copied() {
                 let fake_header = {
@@ -144,6 +146,7 @@ where
         }
 
         Ok(config)
+        */
     }
 }
 
