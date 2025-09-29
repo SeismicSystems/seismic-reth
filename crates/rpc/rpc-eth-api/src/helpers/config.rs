@@ -144,9 +144,9 @@ where
 
             config.next = self.build_fork_config_at(next_fork_timestamp, next_precompiles);
         }
+        */
 
         Ok(config)
-        */
     }
 }
 
@@ -162,6 +162,7 @@ where
     }
 }
 
+#[allow(unused)]
 fn evm_to_precompiles_map(
     evm: impl Evm<Precompiles = PrecompilesMap>,
 ) -> BTreeMap<String, Address> {
