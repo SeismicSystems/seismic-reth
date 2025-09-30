@@ -105,4 +105,5 @@ rand.workspace = true
 jsonrpsee = { workspace = true, features = ["client"] }
 
 [features]
+gas-price-zero = ["reth-consensus-common/gas-price-zero"]
 js-tracer = ["revm-inspectors/js-tracer", "reth-rpc-eth-types/js-tracer"]

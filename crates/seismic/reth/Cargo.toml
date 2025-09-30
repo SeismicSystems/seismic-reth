@@ -38,6 +38,7 @@ reth-seismic-cli = { workspace = true, optional = true }
 
 [features]
 default = ["std"]
+gas-price-zero = ["reth-consensus-common/gas-price-zero"]
 std = [
     "reth-chainspec/std",
     "reth-consensus?/std",

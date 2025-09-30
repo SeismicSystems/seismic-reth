@@ -54,7 +54,10 @@ min-info-logs = ["tracing/release_max_level_info"]
 min-debug-logs = ["tracing/release_max_level_debug"]
 min-trace-logs = ["tracing/release_max_level_trace"]
 
-gas-price-zero = ["reth-seismic-node/gas-price-zero"]
+gas-price-zero = [
+    "reth-seismic-node/gas-price-zero",
+    "reth/gas-price-zero",
+]
 
 [[bin]]
 name = "seismic-reth"

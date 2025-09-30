@@ -76,6 +76,8 @@ default = ["jemalloc", "reth-revm/portable"]
 
 dev = ["reth-ethereum-cli/dev"]
 
+gas-price-zero = ["reth-consensus-common/gas-price-zero"]
+
 asm-keccak = [
     "reth-node-core/asm-keccak",
     "reth-primitives/asm-keccak",

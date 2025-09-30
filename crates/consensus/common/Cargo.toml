@@ -27,6 +27,7 @@ rand.workspace = true
 
 [features]
 default = ["std"]
+gas-price-zero = []
 std = [
     "alloy-consensus/std",
     "alloy-eips/std",

@@ -303,6 +303,10 @@ pub fn validate_against_parent_eip1559_base_fee<ChainSpec: EthChainSpec + Ethere
                 .next_block_base_fee(parent, header.timestamp())
                 .ok_or(ConsensusError::BaseFeeMissing)?
         };
+
+        #[cfg(feature = "gas-price-zero")]
+        let expected_base_fee = 0u64;
+
         if expected_base_fee != base_fee {
             return Err(ConsensusError::BaseFeeDiff(GotExpected {
                 expected: expected_base_fee,
