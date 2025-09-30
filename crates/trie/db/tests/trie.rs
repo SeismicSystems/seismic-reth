@@ -1,7 +1,9 @@
 #![allow(missing_docs)]
 
 use alloy_consensus::EMPTY_ROOT_HASH;
-use alloy_primitives::{hex_literal::hex, keccak256, map::HashMap, Address, B256, U256};
+use alloy_primitives::{
+    address, b256, hex_literal::hex, keccak256, map::HashMap, Address, B256, U256,
+};
 use alloy_rlp::Encodable;
 use proptest::{prelude::ProptestConfig, proptest};
 use proptest_arbitrary_interop::arb;
@@ -17,7 +19,10 @@ use reth_provider::{
 };
 use reth_trie::{
     prefix_set::{PrefixSetMut, TriePrefixSets},
-    test_utils::{state_root, state_root_prehashed, storage_root, storage_root_prehashed},
+    test_utils::{
+        state_root_prehashed, state_root_privacy_aware, storage_root, storage_root_prehashed,
+        storage_root_privacy_aware,
+    },
     triehash::KeccakHasher,
     updates::StorageTrieUpdates,
     BranchNodeCompact, HashBuilder, IntermediateStateRootState, Nibbles, StateRoot,
@@ -30,18 +35,22 @@ fn insert_account(
     tx: &impl DbTxMut,
     address: Address,
     account: Account,
-    storage: &BTreeMap<B256, U256>,
+    storage: &BTreeMap<B256, alloy_primitives::FlaggedStorage>,
 ) {
     let hashed_address = keccak256(address);
     tx.put::<tables::HashedAccounts>(hashed_address, account).unwrap();
     insert_storage(tx, hashed_address, storage);
 }
 
-fn insert_storage(tx: &impl DbTxMut, hashed_address: B256, storage: &BTreeMap<B256, U256>) {
+fn insert_storage(
+    tx: &impl DbTxMut,
+    hashed_address: B256,
+    storage: &BTreeMap<B256, alloy_primitives::FlaggedStorage>,
+) {
     for (k, v) in storage {
         tx.put::<tables::HashedStorages>(
             hashed_address,
-            StorageEntry { key: keccak256(k), value: alloy_primitives::FlaggedStorage::public(*v) },
+            StorageEntry { key: keccak256(k), value: *v },
         )
         .unwrap();
     }
@@ -119,7 +128,7 @@ fn branch_node_child_changes() {
 
 #[test]
 fn arbitrary_storage_root() {
-    proptest!(ProptestConfig::with_cases(10), |(item in arb::<(Address, std::collections::BTreeMap<B256, U256>)>())| { let (address, storage) = item;
+    proptest!(ProptestConfig::with_cases(10), |(item in arb::<(Address, std::collections::BTreeMap<B256, alloy_primitives::FlaggedStorage>)>())| { let (address, storage) = item;
 
         let hashed_address = keccak256(address);
         let factory = create_test_provider_factory();
@@ -127,7 +136,7 @@ fn arbitrary_storage_root() {
         for (key, value) in &storage {
             tx.tx_ref().put::<tables::HashedStorages>(
                 hashed_address,
-                StorageEntry { key: keccak256(key), value: alloy_primitives::FlaggedStorage::public(*value) },
+                StorageEntry { key: keccak256(key), value: *value },
             )
             .unwrap();
         }
@@ -135,7 +144,7 @@ fn arbitrary_storage_root() {
 
         let tx =  factory.provider_rw().unwrap();
         let got = StorageRoot::from_tx(tx.tx_ref(), address).root().unwrap();
-        let expected = storage_root(storage.into_iter());
+        let expected = storage_root_privacy_aware(storage.into_iter());
         assert_eq!(expected, got);
     });
 }
@@ -148,7 +157,7 @@ fn test_empty_account() {
             Address::random(),
             (
                 Account { nonce: 0, balance: U256::from(0), bytecode_hash: None },
-                BTreeMap::from([(B256::with_last_byte(0x4), U256::from(12))]),
+                BTreeMap::from([(B256::with_last_byte(0x4), U256::from(12).into())]),
             ),
         ),
         (
@@ -167,8 +176,8 @@ fn test_empty_account() {
                     bytecode_hash: Some(keccak256("test")),
                 },
                 BTreeMap::from([
-                    (B256::ZERO, U256::from(3)),
-                    (B256::with_last_byte(2), U256::from(1)),
+                    (B256::ZERO, U256::from(3).into()),
+                    (B256::with_last_byte(2), U256::from(1).into()),
                 ]),
             ),
         ),
@@ -204,8 +213,10 @@ fn test_storage_root() {
     let tx = factory.provider_rw().unwrap();
 
     let address = Address::random();
-    let storage =
-        BTreeMap::from([(B256::ZERO, U256::from(3)), (B256::with_last_byte(2), U256::from(1))]);
+    let storage = BTreeMap::from([
+        (B256::ZERO, alloy_primitives::FlaggedStorage::public(U256::from(3))),
+        (B256::with_last_byte(2), alloy_primitives::FlaggedStorage::public(U256::from(1))),
+    ]);
 
     let code = "el buen fla";
     let account = Account {
@@ -223,7 +234,7 @@ fn test_storage_root() {
     assert_eq!(storage_root(storage.into_iter()), got);
 }
 
-type State = BTreeMap<Address, (Account, BTreeMap<B256, U256>)>;
+type State = BTreeMap<Address, (Account, BTreeMap<B256, alloy_primitives::FlaggedStorage>)>;
 
 #[test]
 fn arbitrary_state_root() {
@@ -250,7 +261,7 @@ fn arbitrary_state_root_with_progress() {
             tx.commit().unwrap();
             let tx =  factory.provider_rw().unwrap();
 
-            let expected = state_root(state);
+            let expected = state_root_privacy_aware(state);
 
             let threshold = 10;
             let mut got = None;
@@ -286,7 +297,7 @@ fn test_state_root_with_state(state: State) {
         insert_account(tx.tx_ref(), *address, *account, storage)
     }
     tx.commit().unwrap();
-    let expected = state_root(state);
+    let expected = state_root_privacy_aware(state);
 
     let tx = factory.provider_rw().unwrap();
     let got = StateRoot::from_tx(tx.tx_ref()).root().unwrap();
@@ -305,7 +316,7 @@ fn storage_root_regression() {
     let factory = create_test_provider_factory();
     let tx = factory.provider_rw().unwrap();
     // Some address whose hash starts with 0xB041
-    let address3 = Address::from_str("16b07afd1c635f77172e842a000ead9a2a222459").unwrap();
+    let address3 = address!("0x16b07afd1c635f77172e842a000ead9a2a222459");
     let key3 = keccak256(address3);
     assert_eq!(key3[0], 0xB0);
     assert_eq!(key3[1], 0x41);
@@ -317,21 +328,15 @@ fn storage_root_regression() {
             ("3000000000000000000000000000000000000000000000000000000000E00000", 0x127a89),
             ("3000000000000000000000000000000000000000000000000000000000E00001", 0x05),
         ]
-        .map(|(slot, val)| (B256::from_str(slot).unwrap(), U256::from(val))),
+        .map(|(slot, val)| {
+            (B256::from_str(slot).unwrap(), revm_primitives::FlaggedStorage::public(val))
+        }),
     );
 
     let mut hashed_storage_cursor =
         tx.tx_ref().cursor_dup_write::<tables::HashedStorages>().unwrap();
     for (hashed_slot, value) in storage.clone() {
-        hashed_storage_cursor
-            .upsert(
-                key3,
-                &StorageEntry {
-                    key: hashed_slot,
-                    value: alloy_primitives::FlaggedStorage::public(value),
-                },
-            )
-            .unwrap();
+        hashed_storage_cursor.upsert(key3, &StorageEntry { key: hashed_slot, value }).unwrap();
     }
     tx.commit().unwrap();
     let tx = factory.provider_rw().unwrap();
@@ -365,8 +370,7 @@ fn account_and_storage_trie() {
     let mut hash_builder = HashBuilder::default();
 
     // Insert first account
-    let key1 =
-        B256::from_str("b000000000000000000000000000000000000000000000000000000000000000").unwrap();
+    let key1 = b256!("0xb000000000000000000000000000000000000000000000000000000000000000");
     let account1 = Account { nonce: 0, balance: U256::from(3).mul(ether), bytecode_hash: None };
     hashed_account_cursor.upsert(key1, &account1).unwrap();
     hash_builder.add_leaf(
@@ -376,7 +380,7 @@ fn account_and_storage_trie() {
     );
 
     // Some address whose hash starts with 0xB040
-    let address2 = Address::from_str("7db3e81b72d2695e19764583f6d219dbee0f35ca").unwrap();
+    let address2 = address!("0x7db3e81b72d2695e19764583f6d219dbee0f35ca");
     let key2 = keccak256(address2);
     assert_eq!(key2[0], 0xB0);
     assert_eq!(key2[1], 0x40);
@@ -389,12 +393,11 @@ fn account_and_storage_trie() {
     );
 
     // Some address whose hash starts with 0xB041
-    let address3 = Address::from_str("16b07afd1c635f77172e842a000ead9a2a222459").unwrap();
+    let address3 = address!("0x16b07afd1c635f77172e842a000ead9a2a222459");
     let key3 = keccak256(address3);
     assert_eq!(key3[0], 0xB0);
     assert_eq!(key3[1], 0x41);
-    let code_hash =
-        B256::from_str("5be74cad16203c4905c068b012a2e9fb6d19d036c410f16fd177f337541440dd").unwrap();
+    let code_hash = b256!("0x5be74cad16203c4905c068b012a2e9fb6d19d036c410f16fd177f337541440dd");
     let account3 =
         Account { nonce: 0, balance: U256::from(2).mul(ether), bytecode_hash: Some(code_hash) };
     hashed_account_cursor.upsert(key3, &account3).unwrap();
@@ -424,8 +427,7 @@ fn account_and_storage_trie() {
         account_is_private,
     );
 
-    let key4a =
-        B256::from_str("B1A0000000000000000000000000000000000000000000000000000000000000").unwrap();
+    let key4a = b256!("0xB1A0000000000000000000000000000000000000000000000000000000000000");
     let account4a = Account { nonce: 0, balance: U256::from(4).mul(ether), ..Default::default() };
     hashed_account_cursor.upsert(key4a, &account4a).unwrap();
     hash_builder.add_leaf(
@@ -434,8 +436,7 @@ fn account_and_storage_trie() {
         account_is_private,
     );
 
-    let key5 =
-        B256::from_str("B310000000000000000000000000000000000000000000000000000000000000").unwrap();
+    let key5 = b256!("0xB310000000000000000000000000000000000000000000000000000000000000");
     let account5 = Account { nonce: 0, balance: U256::from(8).mul(ether), ..Default::default() };
     hashed_account_cursor.upsert(key5, &account5).unwrap();
     hash_builder.add_leaf(
@@ -444,8 +445,7 @@ fn account_and_storage_trie() {
         account_is_private,
     );
 
-    let key6 =
-        B256::from_str("B340000000000000000000000000000000000000000000000000000000000000").unwrap();
+    let key6 = b256!("0xB340000000000000000000000000000000000000000000000000000000000000");
     let account6 = Account { nonce: 0, balance: U256::from(1).mul(ether), ..Default::default() };
     hashed_account_cursor.upsert(key6, &account6).unwrap();
     hash_builder.add_leaf(
@@ -455,8 +455,10 @@ fn account_and_storage_trie() {
     );
 
     // Populate account & storage trie DB tables
-    let expected_root =
-        B256::from_str("72861041bc90cd2f93777956f058a545412b56de79af5eb6b8075fe2eabbe015").unwrap();
+    /*
+    let expected_root = b256!("0x72861041bc90cd2f93777956f058a545412b56de79af5eb6b8075fe2eabbe015");
+    */
+    let expected_root = b256!("0xf7eac2e1715b2cf20e7d731df7a6cadf6602bac6f66de747c7eb929930c3e976");
     let computed_expected_root: B256 = triehash::trie_root::<KeccakHasher, _, _, _>([
         (key1, encode_account(account1, None)),
         (key2, encode_account(account2, None)),
@@ -481,7 +483,7 @@ fn account_and_storage_trie() {
     assert_eq!(account_updates.len(), 2);
 
     let (nibbles1a, node1a) = account_updates.first().unwrap();
-    assert_eq!(nibbles1a[..], [0xB]);
+    assert_eq!(nibbles1a.to_vec(), vec![0xB]);
     assert_eq!(node1a.state_mask, TrieMask::new(0b1011));
     assert_eq!(node1a.tree_mask, TrieMask::new(0b0001));
     assert_eq!(node1a.hash_mask, TrieMask::new(0b1001));
@@ -489,7 +491,7 @@ fn account_and_storage_trie() {
     assert_eq!(node1a.hashes.len(), 2);
 
     let (nibbles2a, node2a) = account_updates.last().unwrap();
-    assert_eq!(nibbles2a[..], [0xB, 0x0]);
+    assert_eq!(nibbles2a.to_vec(), vec![0xB, 0x0]);
     assert_eq!(node2a.state_mask, TrieMask::new(0b10001));
     assert_eq!(node2a.tree_mask, TrieMask::new(0b00000));
     assert_eq!(node2a.hash_mask, TrieMask::new(0b10000));
@@ -498,7 +500,7 @@ fn account_and_storage_trie() {
 
     // Add an account
     // Some address whose hash starts with 0xB1
-    let address4b = Address::from_str("4f61f2d5ebd991b85aa1677db97307caf5215c91").unwrap();
+    let address4b = address!("0x4f61f2d5ebd991b85aa1677db97307caf5215c91");
     let key4b = keccak256(address4b);
     assert_eq!(key4b.0[0], key4a.0[0]);
     let account4b = Account { nonce: 0, balance: U256::from(5).mul(ether), bytecode_hash: None };
@@ -507,9 +509,12 @@ fn account_and_storage_trie() {
     let mut prefix_set = PrefixSetMut::default();
     prefix_set.insert(Nibbles::unpack(key4b));
 
+    /*
     let expected_state_root =
-        B256::from_str("8e263cd4eefb0c3cbbb14e5541a66a755cad25bcfab1e10dd9d706263e811b28").unwrap();
-
+        b256!("0x8e263cd4eefb0c3cbbb14e5541a66a755cad25bcfab1e10dd9d706263e811b28");
+    */
+    let expected_state_root =
+        b256!("0x96372312afd49741fe2e31097b80e1f5f7f9dbb23ad662099c797cb44bf88a12");
     let (root, trie_updates) = StateRoot::from_tx(tx.tx_ref())
         .with_prefix_sets(TriePrefixSets {
             account_prefix_set: prefix_set.freeze(),
@@ -524,7 +529,7 @@ fn account_and_storage_trie() {
     assert_eq!(account_updates.len(), 2);
 
     let (nibbles1b, node1b) = account_updates.first().unwrap();
-    assert_eq!(nibbles1b[..], [0xB]);
+    assert_eq!(nibbles1b.to_vec(), vec![0xB]);
     assert_eq!(node1b.state_mask, TrieMask::new(0b1011));
     assert_eq!(node1b.tree_mask, TrieMask::new(0b0001));
     assert_eq!(node1b.hash_mask, TrieMask::new(0b1011));
@@ -534,7 +539,7 @@ fn account_and_storage_trie() {
     assert_eq!(node1a.hashes[1], node1b.hashes[2]);
 
     let (nibbles2b, node2b) = account_updates.last().unwrap();
-    assert_eq!(nibbles2b[..], [0xB, 0x0]);
+    assert_eq!(nibbles2b.to_vec(), vec![0xB, 0x0]);
     assert_eq!(node2a, node2b);
     tx.commit().unwrap();
 
@@ -575,7 +580,7 @@ fn account_and_storage_trie() {
         assert_eq!(trie_updates.account_nodes_ref().len(), 1);
 
         let (nibbles1c, node1c) = trie_updates.account_nodes_ref().iter().next().unwrap();
-        assert_eq!(nibbles1c[..], [0xB]);
+        assert_eq!(nibbles1c.to_vec(), vec![0xB]);
 
         assert_eq!(node1c.state_mask, TrieMask::new(0b1011));
         assert_eq!(node1c.tree_mask, TrieMask::new(0b0000));
@@ -633,7 +638,7 @@ fn account_and_storage_trie() {
         assert_eq!(trie_updates.account_nodes_ref().len(), 1);
 
         let (nibbles1d, node1d) = trie_updates.account_nodes_ref().iter().next().unwrap();
-        assert_eq!(nibbles1d[..], [0xB]);
+        assert_eq!(nibbles1d.to_vec(), vec![0xB]);
 
         assert_eq!(node1d.state_mask, TrieMask::new(0b1011));
         assert_eq!(node1d.tree_mask, TrieMask::new(0b0000));
@@ -739,8 +744,7 @@ fn extension_node_storage_trie<N: ProviderNodeTypes>(
     tx: &DatabaseProviderRW<Arc<TempDatabase<DatabaseEnv>>, N>,
     hashed_address: B256,
 ) -> (B256, StorageTrieUpdates) {
-    let is_private = false; // legacy test doesn't use private state
-    let value = U256::from(1);
+    let value = U256::from(1).into();
 
     let mut hashed_storage = tx.tx_ref().cursor_write::<tables::HashedStorages>().unwrap();
 
@@ -755,15 +759,9 @@ fn extension_node_storage_trie<N: ProviderNodeTypes>(
         hex!("3100000000000000000000000000000000000000000000000000000000000000"),
     ] {
         hashed_storage
-            .upsert(
-                hashed_address,
-                &StorageEntry {
-                    key: B256::new(key),
-                    value: alloy_primitives::FlaggedStorage::public(value),
-                },
-            )
+            .upsert(hashed_address, &StorageEntry { key: B256::new(key), value })
             .unwrap();
-        hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value), is_private);
+        hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value), value.is_private);
     }
 
     let root = hb.root();
@@ -799,11 +797,11 @@ fn extension_node_trie<N: ProviderNodeTypes>(
 fn assert_trie_updates(account_updates: &HashMap<Nibbles, BranchNodeCompact>) {
     assert_eq!(account_updates.len(), 2);
 
-    let node = account_updates.get(&[0x3][..]).unwrap();
+    let node = account_updates.get(&Nibbles::from_nibbles_unchecked([0x3])).unwrap();
     let expected = BranchNodeCompact::new(0b0011, 0b0001, 0b0000, vec![], None);
     assert_eq!(node, &expected);
 
-    let node = account_updates.get(&[0x3, 0x0, 0xA, 0xF][..]).unwrap();
+    let node = account_updates.get(&Nibbles::from_nibbles_unchecked([0x3, 0x0, 0xA, 0xF])).unwrap();
     assert_eq!(node.state_mask, TrieMask::new(0b101100000));
     assert_eq!(node.tree_mask, TrieMask::new(0b000000000));
     assert_eq!(node.hash_mask, TrieMask::new(0b001000000));

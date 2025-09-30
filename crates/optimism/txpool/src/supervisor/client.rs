@@ -28,7 +28,7 @@ use std::{
 use tracing::trace;
 
 /// Supervisor hosted by op-labs
-// TODO: This should be changes to actual supervisor url
+// TODO: This should be changed to actual supervisor url
 pub const DEFAULT_SUPERVISOR_URL: &str = "http://localhost:1337/";
 
 /// The default request timeout to use
@@ -113,6 +113,7 @@ impl SupervisorClient {
             )
             .await
         {
+            self.inner.metrics.increment_metrics_for_error(&err);
             trace!(target: "txpool", hash=%hash, err=%err, "Cross chain transaction invalid");
             return Some(Err(InvalidCrossTx::ValidationError(err)));
         }

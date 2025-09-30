@@ -71,7 +71,7 @@ pub trait Consensus<B: Block>: HeaderValidator<B::Header> {
     fn validate_block_pre_execution(&self, block: &SealedBlock<B>) -> Result<(), Self::Error>;
 }
 
-/// HeaderValidator is a protocol that validates headers and their relationships.
+/// `HeaderValidator` is a protocol that validates headers and their relationships.
 #[auto_impl::auto_impl(&, Arc)]
 pub trait HeaderValidator<H = Header>: Debug + Send + Sync {
     /// Validate if header is correct and follows consensus specification.
@@ -87,7 +87,7 @@ pub trait HeaderValidator<H = Header>: Debug + Send + Sync {
     ///
     /// **This should not be called for the genesis block**.
     ///
-    /// Note: Validating header against its parent does not include other HeaderValidator
+    /// Note: Validating header against its parent does not include other `HeaderValidator`
     /// validations.
     fn validate_header_against_parent(
         &self,
@@ -320,17 +320,6 @@ pub enum ConsensusError {
         blob_gas_per_blob: u64,
     },
 
-    /// Error when excess blob gas is not a multiple of blob gas per blob.
-    #[error(
-        "excess blob gas {excess_blob_gas} is not a multiple of blob gas per blob {blob_gas_per_blob}"
-    )]
-    ExcessBlobGasNotMultipleOfBlobGasPerBlob {
-        /// The actual excess blob gas.
-        excess_blob_gas: u64,
-        /// The blob gas per blob.
-        blob_gas_per_blob: u64,
-    },
-
     /// Error when the blob gas used in the header does not match the expected blob gas used.
     #[error("blob gas used mismatch: {0}")]
     BlobGasUsedDiff(GotExpected<u64>),
@@ -405,6 +394,14 @@ pub enum ConsensusError {
         parent_timestamp: u64,
         /// The block's timestamp.
         timestamp: u64,
+    },
+    /// Error when the block is too large.
+    #[error("block is too large: {rlp_length} > {max_rlp_length}")]
+    BlockTooLarge {
+        /// The actual RLP length of the block.
+        rlp_length: usize,
+        /// The maximum allowed RLP length.
+        max_rlp_length: usize,
     },
     /// Other, likely an injected L2 error.
     #[error("{0}")]

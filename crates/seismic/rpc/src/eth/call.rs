@@ -1,53 +1,60 @@
-use super::SeismicNodeCore;
-use crate::SeismicEthApi;
+use crate::{SeismicEthApi, SeismicEthApiError};
 use alloy_consensus::transaction::Either;
 use alloy_eips::eip7702::{RecoveredAuthorization, SignedAuthorization};
 use alloy_primitives::{TxKind, U256};
 use alloy_rpc_types_eth::transaction::TransactionRequest;
-use reth_evm::{execute::BlockExecutorFactory, ConfigureEvm, EvmEnv, EvmFactory, SpecFor};
-use reth_node_api::NodePrimitives;
+use reth_evm::{EvmEnv, SpecFor, TxEnvFor};
 use reth_rpc_eth_api::{
-    helpers::{estimate::EstimateCall, Call, EthCall, LoadBlock, LoadState, SpawnBlocking},
-    FromEthApiError, FromEvmError, FullEthApiTypes, IntoEthApiError,
+    helpers::{estimate::EstimateCall, Call, EthCall},
+    CallFees, EthTxEnvError, FromEthApiError, FromEvmError, IntoEthApiError, RpcConvert,
+    RpcNodeCore, RpcTxReq,
 };
-use reth_rpc_eth_types::{revm_utils::CallFees, EthApiError, RpcInvalidTransactionError};
-use reth_storage_api::{ProviderHeader, ProviderTx};
+use reth_rpc_eth_types::{EthApiError, RpcInvalidTransactionError};
 use revm::{context::TxEnv, context_interface::Block, Database};
 use seismic_alloy_consensus::SeismicTxType;
-use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
-use tracing::debug;
+use seismic_revm::{self, transaction::abstraction::RngMode, SeismicTransaction};
 
-impl<N> EthCall for SeismicEthApi<N>
+impl<N, Rpc> EthCall for SeismicEthApi<N, Rpc>
 where
-    Self: EstimateCall + LoadBlock + FullEthApiTypes,
-    N: SeismicNodeCore,
+    N: RpcNodeCore,
+    SeismicEthApiError: FromEvmError<N::Evm>,
+    TxEnvFor<N::Evm>: From<SeismicTransaction<TxEnv>>,
+    SeismicTransaction<TxEnv>: Into<TxEnvFor<N::Evm>>,
+    Rpc: RpcConvert<
+        Primitives = N::Primitives,
+        Error = SeismicEthApiError,
+        TxEnv = TxEnvFor<N::Evm>,
+        Spec = SpecFor<N::Evm>,
+    >,
 {
 }
 
-impl<N> EstimateCall for SeismicEthApi<N>
+impl<N, Rpc> EstimateCall for SeismicEthApi<N, Rpc>
 where
     Self: Call,
     Self::Error: From<EthApiError>,
-    N: SeismicNodeCore,
+    N: RpcNodeCore,
+    Rpc: RpcConvert<
+        Primitives = N::Primitives,
+        Error = SeismicEthApiError,
+        TxEnv = TxEnvFor<N::Evm>,
+        Spec = SpecFor<N::Evm>,
+    >,
 {
 }
 
-impl<N> Call for SeismicEthApi<N>
+impl<N, Rpc> Call for SeismicEthApi<N, Rpc>
 where
-    Self: LoadState<
-            Evm: ConfigureEvm<
-                Primitives: NodePrimitives<
-                    BlockHeader = ProviderHeader<Self::Provider>,
-                    SignedTx = ProviderTx<Self::Provider>,
-                >,
-                BlockExecutorFactory: BlockExecutorFactory<
-                    EvmFactory: EvmFactory<Tx = seismic_revm::SeismicTransaction<TxEnv>>,
-                >,
-            >,
-            Error: FromEvmError<Self::Evm>,
-        > + SpawnBlocking,
-    Self::Error: From<EthApiError>,
-    N: SeismicNodeCore,
+    N: RpcNodeCore,
+    SeismicEthApiError: FromEvmError<N::Evm>,
+    TxEnvFor<N::Evm>: From<SeismicTransaction<TxEnv>>,
+    SeismicTransaction<TxEnv>: Into<TxEnvFor<N::Evm>>,
+    Rpc: RpcConvert<
+        Primitives = N::Primitives,
+        Error = SeismicEthApiError,
+        TxEnv = TxEnvFor<N::Evm>,
+        Spec = SpecFor<N::Evm>,
+    >,
 {
     #[inline]
     fn call_gas_limit(&self) -> u64 {
@@ -62,12 +69,15 @@ where
     fn create_txn_env(
         &self,
         evm_env: &EvmEnv<SpecFor<Self::Evm>>,
-        request: TransactionRequest,
+        request: RpcTxReq<Rpc::Network>,
         mut db: impl Database<Error: Into<EthApiError>>,
-    ) -> Result<SeismicTransaction<TxEnv>, Self::Error> {
+    ) -> Result<TxEnvFor<N::Evm>, Self::Error> {
+        // Convert network request to concrete TransactionRequest
+        let request: &TransactionRequest = request.as_ref();
+
         // Ensure that if versioned hashes are set, they're not empty
         if request.blob_versioned_hashes.as_ref().is_some_and(|hashes| hashes.is_empty()) {
-            return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err())
+            return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err());
         }
 
         let tx_type = if request.authorization_list.is_some() {
@@ -108,7 +118,8 @@ where
                 blob_versioned_hashes.as_deref(),
                 max_fee_per_blob_gas.map(U256::from),
                 evm_env.block_env.blob_gasprice().map(U256::from),
-            )?;
+            )
+            .map_err(|e| EthTxEnvError::CallFees(e))?;
 
         let gas_limit = gas.unwrap_or(
             // Use maximum allowed gas limit. The reason for this
@@ -124,13 +135,14 @@ where
         let caller = from.unwrap_or_default();
 
         let nonce = if let Some(nonce) = nonce {
-            nonce
+            *nonce
         } else {
             db.basic(caller).map_err(Into::into)?.map(|acc| acc.nonce).unwrap_or_default()
         };
 
         let authorization_list: Vec<Either<SignedAuthorization, RecoveredAuthorization>> =
             authorization_list
+                .clone()
                 .unwrap_or_default()
                 .iter()
                 .map(|auth| Either::Left(auth.clone()))
@@ -145,13 +157,14 @@ where
             kind: to.unwrap_or(TxKind::Create),
             value: value.unwrap_or_default(),
             data: input
+                .clone()
                 .try_into_unique_input()
                 .map_err(Self::Error::from_eth_err)?
                 .unwrap_or_default(),
             chain_id: Some(chain_id),
-            access_list: access_list.unwrap_or_default(),
+            access_list: access_list.clone().unwrap_or_default(),
             // EIP-4844 fields
-            blob_hashes: blob_versioned_hashes.unwrap_or_default(),
+            blob_hashes: blob_versioned_hashes.clone().unwrap_or_default(),
             max_fee_per_blob_gas: max_fee_per_blob_gas
                 .map(|v| v.saturating_to())
                 .unwrap_or_default(),
@@ -159,12 +172,13 @@ where
             authorization_list,
         };
 
-        debug!("reth-seismic-rpc::eth create_txn_env {:?}", env);
+        tracing::debug!("reth-seismic-rpc::eth create_txn_env {:?}", env);
 
         Ok(SeismicTransaction {
             base: env,
             tx_hash: Default::default(),
             rng_mode: RngMode::Simulation,
-        })
+        }
+        .into())
     }
 }

@@ -99,6 +99,9 @@ pub struct DatabaseArguments {
     ///
     /// This flag affects only at environment opening but can't be changed after.
     exclusive: Option<bool>,
+    /// MDBX allows up to 32767 readers (`MDBX_READERS_LIMIT`). This arg is to configure the max
+    /// readers.
+    max_readers: Option<u64>,
 }
 
 impl Default for DatabaseArguments {
@@ -121,6 +124,7 @@ impl DatabaseArguments {
             log_level: None,
             max_read_transaction_duration: None,
             exclusive: None,
+            max_readers: None,
         }
     }
 
@@ -147,17 +151,31 @@ impl DatabaseArguments {
     }
 
     /// Set the maximum duration of a read transaction.
+    pub const fn max_read_transaction_duration(
+        &mut self,
+        max_read_transaction_duration: Option<MaxReadTransactionDuration>,
+    ) {
+        self.max_read_transaction_duration = max_read_transaction_duration;
+    }
+
+    /// Set the maximum duration of a read transaction.
     pub const fn with_max_read_transaction_duration(
         mut self,
         max_read_transaction_duration: Option<MaxReadTransactionDuration>,
     ) -> Self {
-        self.max_read_transaction_duration = max_read_transaction_duration;
+        self.max_read_transaction_duration(max_read_transaction_duration);
         self
     }
 
     /// Set the mdbx exclusive flag.
     pub const fn with_exclusive(mut self, exclusive: Option<bool>) -> Self {
         self.exclusive = exclusive;
+        self
+    }
+
+    /// Set `max_readers` flag.
+    pub const fn with_max_readers(mut self, max_readers: Option<u64>) -> Self {
+        self.max_readers = max_readers;
         self
     }
 
@@ -367,7 +385,7 @@ impl DatabaseEnv {
             ..Default::default()
         });
         // Configure more readers
-        inner_env.set_max_readers(DEFAULT_MAX_READERS);
+        inner_env.set_max_readers(args.max_readers.unwrap_or(DEFAULT_MAX_READERS));
         // This parameter sets the maximum size of the "reclaimed list", and the unit of measurement
         // is "pages". Reclaimed list is the list of freed pages that's populated during the
         // lifetime of DB transaction, and through which MDBX searches when it needs to insert new
@@ -1247,6 +1265,34 @@ mod tests {
                     .expect("element should exist.")
                     .expect("should be able to retrieve it.")
             );
+        }
+    }
+
+    #[test]
+    fn db_walk_dup_with_not_existing_key() {
+        let env = create_test_db(DatabaseEnvKind::RW);
+        let key = Address::from_str("0xa2c122be93b0074270ebee7f6b7292c7deb45047")
+            .expect(ERROR_ETH_ADDRESS);
+
+        // PUT (0,0)
+        let value00 = StorageEntry::default();
+        env.update(|tx| tx.put::<PlainStorageState>(key, value00).expect(ERROR_PUT)).unwrap();
+
+        // PUT (2,2)
+        let value22 = StorageEntry { key: B256::with_last_byte(2), value: U256::from(2).into() };
+        env.update(|tx| tx.put::<PlainStorageState>(key, value22).expect(ERROR_PUT)).unwrap();
+
+        // PUT (1,1)
+        let value11 = StorageEntry { key: B256::with_last_byte(1), value: U256::from(1).into() };
+        env.update(|tx| tx.put::<PlainStorageState>(key, value11).expect(ERROR_PUT)).unwrap();
+
+        // Try to walk_dup with not existing key should immediately return None
+        {
+            let tx = env.tx().expect(ERROR_INIT_TX);
+            let mut cursor = tx.cursor_dup_read::<PlainStorageState>().unwrap();
+            let not_existing_key = Address::ZERO;
+            let mut walker = cursor.walk_dup(Some(not_existing_key), None).unwrap();
+            assert_eq!(walker.next(), None);
         }
     }
 

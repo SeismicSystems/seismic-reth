@@ -181,12 +181,7 @@ fn bundle_state_root(execution_outcome: &ExecutionOutcome) -> B256 {
                             .storage
                             .iter()
                             .filter(|(_, value)| !value.present_value.is_zero())
-                            .map(|(slot, value)| {
-                                (
-                                    (*slot).into(),
-                                    (value.present_value.value, value.present_value.is_private),
-                                )
-                            }),
+                            .map(|(slot, value)| ((*slot).into(), value.present_value)),
                     )),
                 )
             })
@@ -386,7 +381,7 @@ fn block4(
     for idx in address_range {
         let address = Address::with_last_byte(idx);
         // increase balance for every even account and destroy every odd
-        bundle_state_builder = if idx % 2 == 0 {
+        bundle_state_builder = if idx.is_multiple_of(2) {
             bundle_state_builder
                 .state_present_account_info(
                     address,
@@ -494,28 +489,28 @@ fn block5(
                     )
                 })),
             );
-        bundle_state_builder =
-            if idx % 2 == 0 {
-                bundle_state_builder
-                    .revert_account_info(
-                        number,
-                        address,
-                        Some(Some(AccountInfo {
-                            nonce: 1,
-                            balance: U256::from(idx * 2),
-                            ..Default::default()
-                        })),
-                    )
-                    .revert_storage(
-                        number,
-                        address,
-                        Vec::from_iter(slot_range.clone().map(|slot| {
-                            (U256::from(slot), FlaggedStorage::new_from_value(slot * 2))
-                        })),
-                    )
-            } else {
-                bundle_state_builder.revert_address(number, address)
-            };
+        bundle_state_builder = if idx.is_multiple_of(2) {
+            bundle_state_builder
+                .revert_account_info(
+                    number,
+                    address,
+                    Some(Some(AccountInfo {
+                        nonce: 1,
+                        balance: U256::from(idx * 2),
+                        ..Default::default()
+                    })),
+                )
+                .revert_storage(
+                    number,
+                    address,
+                    slot_range
+                        .clone()
+                        .map(|slot| (U256::from(slot), FlaggedStorage::new_from_value(slot * 2)))
+                        .collect(),
+                )
+        } else {
+            bundle_state_builder.revert_address(number, address)
+        };
     }
     let execution_outcome = ExecutionOutcome::new(
         bundle_state_builder.build(),

@@ -1,5 +1,6 @@
 use alloy_primitives::{B256, U256};
-use revm_state::FlaggedStorage;
+
+use alloy_primitives::FlaggedStorage;
 
 /// Account storage entry.
 ///
@@ -69,7 +70,7 @@ impl reth_codecs::Compact for StorageEntry {
     fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
         let key = B256::from_slice(&buf[..32]);
         let is_private = buf[32] != 0;
-        let (value, out) = U256::from_compact(&buf[33..], len - 33);
+        let (value, out) = U256::from_compact(&buf[32 + 1..], len - 32 - 1);
         (Self { key, value: FlaggedStorage { value, is_private } }, out)
     }
 }

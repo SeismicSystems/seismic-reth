@@ -14,7 +14,7 @@ use op_alloy_rpc_types_engine::{
     SuperchainSignal,
 };
 use reth_chainspec::EthereumHardforks;
-use reth_node_api::{EngineTypes, EngineValidator};
+use reth_node_api::{EngineApiValidator, EngineTypes};
 use reth_rpc_api::IntoEngineApiRpcModule;
 use reth_rpc_engine_api::EngineApi;
 use reth_storage_api::{BlockReader, HeaderProvider, StateProviderFactory};
@@ -204,7 +204,7 @@ pub trait OpEngineApi<Engine: EngineTypes> {
     /// Returns the execution payload bodies by the range starting at `start`, containing `count`
     /// blocks.
     ///
-    /// WARNING: This method is associated with the BeaconBlocksByRange message in the consensus
+    /// WARNING: This method is associated with the `BeaconBlocksByRange` message in the consensus
     /// layer p2p specification, meaning the input should be treated as untrusted or potentially
     /// adversarial.
     ///
@@ -252,6 +252,16 @@ pub struct OpEngineApi<Provider, EngineT: EngineTypes, Pool, Validator, ChainSpe
     inner: EngineApi<Provider, EngineT, Pool, Validator, ChainSpec>,
 }
 
+impl<Provider, PayloadT, Pool, Validator, ChainSpec> Clone
+    for OpEngineApi<Provider, PayloadT, Pool, Validator, ChainSpec>
+where
+    PayloadT: EngineTypes,
+{
+    fn clone(&self) -> Self {
+        Self { inner: self.inner.clone() }
+    }
+}
+
 #[async_trait::async_trait]
 impl<Provider, EngineT, Pool, Validator, ChainSpec> OpEngineApiServer<EngineT>
     for OpEngineApi<Provider, EngineT, Pool, Validator, ChainSpec>
@@ -259,7 +269,7 @@ where
     Provider: HeaderProvider + BlockReader + StateProviderFactory + 'static,
     EngineT: EngineTypes<ExecutionData = OpExecutionData>,
     Pool: TransactionPool + 'static,
-    Validator: EngineValidator<EngineT>,
+    Validator: EngineApiValidator<EngineT>,
     ChainSpec: EthereumHardforks + Send + Sync + 'static,
 {
     async fn new_payload_v2(&self, payload: ExecutionPayloadInputV2) -> RpcResult<PayloadStatus> {

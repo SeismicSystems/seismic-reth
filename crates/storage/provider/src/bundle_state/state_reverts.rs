@@ -178,7 +178,7 @@ mod tests {
                 (B256::from_slice(&[9; 32]), FlaggedStorage::new_from_value(80)), /* Only revert
                                                                                    * present. */
                 (B256::from_slice(&[10; 32]), FlaggedStorage::new_from_value(85)), // Wiped entry.
-                (B256::from_slice(&[15; 32]), FlaggedStorage::new_from_value(90)), /* WGreater revert entry */
+                (B256::from_slice(&[15; 32]), FlaggedStorage::new_from_value(90)), /* Greater revert entry */
             ]
         );
     }

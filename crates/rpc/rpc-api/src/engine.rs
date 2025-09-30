@@ -10,7 +10,6 @@ use alloy_eips::{
 };
 use alloy_json_rpc::RpcObject;
 use alloy_primitives::{Address, BlockHash, Bytes, B256, U256, U64};
-use alloy_rpc_types::TransactionRequest;
 use alloy_rpc_types_engine::{
     ClientVersionV1, ExecutionPayloadBodiesV1, ExecutionPayloadInputV2, ExecutionPayloadV1,
     ExecutionPayloadV3, ForkchoiceState, ForkchoiceUpdated, PayloadId, PayloadStatus,
@@ -191,7 +190,7 @@ pub trait EngineApi<Engine: EngineTypes> {
     /// Returns the execution payload bodies by the range starting at `start`, containing `count`
     /// blocks.
     ///
-    /// WARNING: This method is associated with the BeaconBlocksByRange message in the consensus
+    /// WARNING: This method is associated with the `BeaconBlocksByRange` message in the consensus
     /// layer p2p specification, meaning the input should be treated as untrusted or potentially
     /// adversarial.
     ///
@@ -205,9 +204,9 @@ pub trait EngineApi<Engine: EngineTypes> {
         count: U64,
     ) -> RpcResult<ExecutionPayloadBodiesV1>;
 
-    /// This function will return the ClientVersionV1 object.
+    /// This function will return the [`ClientVersionV1`] object.
     /// See also:
-    /// <https://github.com/ethereum/execution-apis/blob/03911ffc053b8b806123f1fc237184b0092a485a/src/engine/identification.md#engine_getclientversionv1>make fmt
+    /// <https://github.com/ethereum/execution-apis/blob/03911ffc053b8b806123f1fc237184b0092a485a/src/engine/identification.md#engine_getclientversionv1>
     ///
     ///
     /// - When connected to a single execution client, the consensus client **MUST** receive an
@@ -243,14 +242,14 @@ pub trait EngineApi<Engine: EngineTypes> {
     ) -> RpcResult<Option<Vec<BlobAndProofV2>>>;
 }
 
-/// A subset of the ETH rpc interface: <https://ethereum.github.io/execution-apis/docs/reference/json-rpc-api>
+/// A subset of the ETH rpc interface: <https://ethereum.github.io/execution-apis/api-documentation>
 ///
 /// This also includes additional eth functions required by optimism.
 ///
 /// Specifically for the engine auth server: <https://github.com/ethereum/execution-apis/blob/main/src/engine/common.md#underlying-protocol>
 #[cfg_attr(not(feature = "client"), rpc(server, namespace = "eth"))]
 #[cfg_attr(feature = "client", rpc(server, client, namespace = "eth"))]
-pub trait EngineEthApi<B: RpcObject, R: RpcObject> {
+pub trait EngineEthApi<TxReq: RpcObject, B: RpcObject, R: RpcObject> {
     /// Returns an object with data about the sync status or false.
     #[method(name = "syncing")]
     fn syncing(&self) -> RpcResult<SyncStatus>;
@@ -267,8 +266,8 @@ pub trait EngineEthApi<B: RpcObject, R: RpcObject> {
     #[method(name = "call")]
     async fn call(
         &self,
-        request: TransactionRequest,
-        block_number: Option<BlockId>,
+        request: TxReq,
+        block_id: Option<BlockId>,
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes>;

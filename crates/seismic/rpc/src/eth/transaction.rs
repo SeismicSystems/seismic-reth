@@ -1,37 +1,37 @@
 //! Loads and formats Seismic transaction RPC response.
 
 use super::ext::SeismicTransaction;
-use crate::{eth::SeismicNodeCore, utils::recover_typed_data_request, SeismicEthApi};
+use crate::{
+    eth::{SeismicNodeCore, SignableSeismicTransactionRequest},
+    utils::recover_typed_data_request,
+    SeismicEthApi, SeismicEthApiError,
+};
 use alloy_consensus::{transaction::Recovered, Transaction as _};
 use alloy_primitives::{Bytes, Signature, B256};
 use alloy_rpc_types_eth::{Transaction, TransactionInfo};
-use reth_node_api::FullNodeComponents;
+use reth_rpc_convert::transaction::{RpcTxConverter, SimTxConverter};
 use reth_rpc_eth_api::{
-    helpers::{EthSigner, EthTransactions, LoadTransaction, SpawnBlocking},
-    FromEthApiError, FullEthApiTypes, RpcNodeCore, RpcNodeCoreExt, TransactionCompat,
+    helpers::{spec::SignersForRpc, EthTransactions, LoadTransaction},
+    FromEthApiError, RpcConvert, RpcNodeCore,
 };
 use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
-use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
-use reth_storage_api::{
-    BlockReader, BlockReaderIdExt, ProviderTx, ReceiptProvider, TransactionsProvider,
+use reth_seismic_primitives::SeismicTransactionSigned;
+use reth_storage_api::{BlockReader, BlockReaderIdExt, ProviderTx};
+use reth_transaction_pool::{
+    AddedTransactionOutcome, PoolTransaction, TransactionOrigin, TransactionPool,
 };
-use reth_transaction_pool::{PoolTransaction, TransactionOrigin, TransactionPool};
 use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
-use seismic_alloy_network::{Network, Seismic};
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
 
-impl<N> EthTransactions for SeismicEthApi<N>
+impl<N, Rpc> EthTransactions for SeismicEthApi<N, Rpc>
 where
-    Self: LoadTransaction<Provider: BlockReaderIdExt>,
-    N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
+    N: RpcNodeCore,
+    Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
 {
-    fn signers(&self) -> &parking_lot::RwLock<Vec<Box<dyn EthSigner<ProviderTx<Self::Provider>>>>> {
+    fn signers(&self) -> &SignersForRpc<Self::Provider, Self::NetworkTypes> {
         self.inner.signers()
     }
 
-    /// Decodes and recovers the transaction and submits it to the pool.
-    ///
-    /// Returns the hash of the transaction.
     async fn send_raw_transaction(&self, tx: Bytes) -> Result<B256, Self::Error> {
         let recovered = recover_raw_transaction(&tx)?;
         tracing::debug!(target: "reth-seismic-rpc::eth", ?recovered, "serving seismic_eth_api::send_raw_transaction");
@@ -39,7 +39,7 @@ where
         let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
 
         // submit the transaction to the pool with a `Local` origin
-        let hash = self
+        let AddedTransactionOutcome { hash, .. } = self
             .pool()
             .add_transaction(TransactionOrigin::Local, pool_transaction)
             .await
@@ -49,11 +49,15 @@ where
     }
 }
 
-impl<N> SeismicTransaction for SeismicEthApi<N>
+impl<N, Rpc> SeismicTransaction for SeismicEthApi<N, Rpc>
 where
     Self: LoadTransaction<Provider: BlockReaderIdExt>,
-    N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
-    <<<SeismicEthApi<N> as RpcNodeCore>::Pool as TransactionPool>::Transaction as PoolTransaction>::Pooled: Decodable712,
+    // N: RpcNodeCore,
+    N: SeismicNodeCore<
+        Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>
+    >,
+    <<<SeismicEthApi<N, Rpc> as RpcNodeCore>::Pool as TransactionPool>::Transaction as PoolTransaction>::Pooled: Decodable712,
+    Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
 {
     async fn send_typed_data_transaction(&self, tx: TypedDataRequest) -> Result<B256, Self::Error> {
         let recovered = recover_typed_data_request(&tx)?;
@@ -67,7 +71,7 @@ where
         let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
 
         // submit the transaction to the pool with a `Local` origin
-        let hash = self
+        let AddedTransactionOutcome { hash, .. } = self
             .pool()
             .add_transaction(TransactionOrigin::Local, pool_transaction)
             .await
@@ -77,27 +81,48 @@ where
     }
 }
 
-impl<N> LoadTransaction for SeismicEthApi<N>
+impl<N, Rpc> LoadTransaction for SeismicEthApi<N, Rpc>
 where
-    Self: SpawnBlocking + FullEthApiTypes + RpcNodeCoreExt,
-    N: SeismicNodeCore<Provider: TransactionsProvider, Pool: TransactionPool>,
-    Self::Pool: TransactionPool,
+    N: RpcNodeCore,
+    Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
 {
 }
 
-impl<N> TransactionCompat<SeismicTransactionSigned> for SeismicEthApi<N>
-where
-    N: FullNodeComponents<Provider: ReceiptProvider<Receipt = SeismicReceipt>>,
-{
-    type Transaction = <Seismic as Network>::TransactionResponse;
-    type Error = EthApiError;
+/// Seismic RPC transaction converter that implements Debug
+#[derive(Clone, Debug)]
+pub struct SeismicRpcTxConverter;
 
-    fn fill(
+impl SeismicRpcTxConverter {
+    /// Creates a new converter
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+/// Seismic simulation transaction converter that implements Debug
+#[derive(Clone, Debug)]
+pub struct SeismicSimTxConverter;
+
+impl SeismicSimTxConverter {
+    /// Creates a new converter
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl RpcTxConverter<SeismicTransactionSigned, Transaction<SeismicTxEnvelope>, TransactionInfo>
+    for SeismicRpcTxConverter
+{
+    type Err = SeismicEthApiError;
+
+    fn convert_rpc_tx(
         &self,
-        tx: Recovered<SeismicTransactionSigned>,
+        tx: SeismicTransactionSigned,
+        signer: alloy_primitives::Address,
         tx_info: TransactionInfo,
-    ) -> Result<Self::Transaction, Self::Error> {
-        let tx = tx.convert::<SeismicTxEnvelope>();
+    ) -> Result<Transaction<SeismicTxEnvelope>, Self::Err> {
+        let tx_envelope: SeismicTxEnvelope = tx.into();
+        let recovered_tx = Recovered::new_unchecked(tx_envelope, signer);
 
         let TransactionInfo {
             block_hash, block_number, index: transaction_index, base_fee, ..
@@ -105,47 +130,75 @@ where
 
         let effective_gas_price = base_fee
             .map(|base_fee| {
-                tx.effective_tip_per_gas(base_fee).unwrap_or_default() + base_fee as u128
+                recovered_tx.effective_tip_per_gas(base_fee).unwrap_or_default() + base_fee as u128
             })
-            .unwrap_or_else(|| tx.max_fee_per_gas());
+            .unwrap_or_else(|| recovered_tx.max_fee_per_gas());
 
         Ok(Transaction::<SeismicTxEnvelope> {
-            inner: tx,
+            inner: recovered_tx,
             block_hash,
             block_number,
             transaction_index,
             effective_gas_price: Some(effective_gas_price),
         })
     }
+}
 
-    fn build_simulate_v1_transaction(
+impl SimTxConverter<alloy_rpc_types_eth::TransactionRequest, SeismicTransactionSigned>
+    for SeismicSimTxConverter
+{
+    type Err = SeismicEthApiError;
+
+    fn convert_sim_tx(
         &self,
-        _request: alloy_rpc_types_eth::TransactionRequest,
-    ) -> Result<SeismicTransactionSigned, Self::Error> {
+        tx_req: alloy_rpc_types_eth::TransactionRequest,
+    ) -> Result<SeismicTransactionSigned, Self::Err> {
         let request = SeismicTransactionRequest {
-            inner: _request,
-            seismic_elements: None, /* Assumed that the transaction has already been decrypted in
-                                     * the EthApiExt */
+            inner: tx_req,
+            seismic_elements: None,
+            /* Assumed that the transaction has already been decrypted in
+             * the EthApiExt */
         };
         let Ok(tx) = request.build_typed_tx() else {
-            return Err(EthApiError::TransactionConversionError)
+            return Err(SeismicEthApiError::Eth(EthApiError::TransactionConversionError));
         };
 
         // Create an empty signature for the transaction.
         let signature = Signature::new(Default::default(), Default::default(), false);
         Ok(SeismicTransactionSigned::new_unhashed(tx, signature))
     }
+}
 
-    fn otterscan_api_truncate_input(tx: &mut Self::Transaction) {
-        let input = match tx.inner.inner_mut() {
-            SeismicTxEnvelope::Legacy(tx) => &mut tx.tx_mut().input,
-            SeismicTxEnvelope::Eip1559(tx) => &mut tx.tx_mut().input,
-            SeismicTxEnvelope::Eip2930(tx) => &mut tx.tx_mut().input,
-            SeismicTxEnvelope::Eip4844(tx) => &mut tx.tx_mut().input().clone(),
-            SeismicTxEnvelope::Eip7702(tx) => &mut tx.tx_mut().input,
-            SeismicTxEnvelope::Seismic(tx) => &mut tx.tx_mut().input,
+// Additional implementation for SeismicTransactionRequest directly
+impl SimTxConverter<SeismicTransactionRequest, SeismicTransactionSigned> for SeismicSimTxConverter {
+    type Err = SeismicEthApiError;
+
+    fn convert_sim_tx(
+        &self,
+        request: SeismicTransactionRequest,
+    ) -> Result<SeismicTransactionSigned, Self::Err> {
+        let Ok(tx) = request.build_typed_tx() else {
+            return Err(SeismicEthApiError::Eth(EthApiError::TransactionConversionError));
         };
-        *input = input.slice(..4);
+
+        // Create an empty signature for the transaction.
+        let signature = Signature::new(Default::default(), Default::default(), false);
+        Ok(SeismicTransactionSigned::new_unhashed(tx, signature))
+    }
+}
+
+// Implementation for SignableSeismicTransactionRequest wrapper
+impl SimTxConverter<SignableSeismicTransactionRequest, SeismicTransactionSigned>
+    for SeismicSimTxConverter
+{
+    type Err = SeismicEthApiError;
+
+    fn convert_sim_tx(
+        &self,
+        request: SignableSeismicTransactionRequest,
+    ) -> Result<SeismicTransactionSigned, Self::Err> {
+        // Delegate to the inner SeismicTransactionRequest implementation
+        self.convert_sim_tx(request.0)
     }
 }
 

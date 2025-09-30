@@ -2,7 +2,7 @@ use crate::primitives::alloy_primitives::{BlockNumber, StorageKey};
 use alloy_primitives::{Address, B256, U256};
 use core::ops::{Deref, DerefMut};
 use reth_primitives_traits::Account;
-use reth_storage_api::{AccountReader, BlockHashReader, StateProvider};
+use reth_storage_api::{AccountReader, BlockHashReader, BytecodeReader, StateProvider};
 use reth_storage_errors::provider::{ProviderError, ProviderResult};
 use revm::{
     bytecode::Bytecode,
@@ -51,7 +51,7 @@ impl<T: StateProvider> EvmStateProvider for T {
         &self,
         code_hash: &B256,
     ) -> ProviderResult<Option<reth_primitives_traits::Bytecode>> {
-        <T as StateProvider>::bytecode_by_hash(self, code_hash)
+        <T as BytecodeReader>::bytecode_by_hash(self, code_hash)
     }
 
     fn storage(
@@ -65,7 +65,7 @@ impl<T: StateProvider> EvmStateProvider for T {
 
 /// A [Database] and [`DatabaseRef`] implementation that uses [`EvmStateProvider`] as the underlying
 /// data source.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct StateProviderDatabase<DB>(pub DB);
 
 impl<DB> StateProviderDatabase<DB> {
@@ -77,6 +77,12 @@ impl<DB> StateProviderDatabase<DB> {
     /// Consume State and return inner `StateProvider`.
     pub fn into_inner(self) -> DB {
         self.0
+    }
+}
+
+impl<DB> core::fmt::Debug for StateProviderDatabase<DB> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("StateProviderDatabase").finish_non_exhaustive()
     }
 }
 

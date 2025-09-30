@@ -14,7 +14,8 @@ use alloy_primitives::{BlockNumber, B256};
 use eyre::eyre;
 use reth_chainspec::{ChainSpec, EthChainSpec, MAINNET};
 use reth_config::config::PruneConfig;
-use reth_ethereum_forks::Head;
+use reth_engine_local::MiningMode;
+use reth_ethereum_forks::{EthereumHardforks, Head};
 use reth_network_p2p::headers::client::HeadersClient;
 use reth_primitives_traits::SealedHeader;
 use reth_stages_types::StageId;
@@ -22,6 +23,7 @@ use reth_storage_api::{
     BlockHashReader, DatabaseProviderFactory, HeaderProvider, StageCheckpointReader,
 };
 use reth_storage_errors::provider::ProviderResult;
+use reth_transaction_pool::TransactionPool;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     fs,
@@ -31,6 +33,7 @@ use std::{
 };
 use tracing::*;
 
+use crate::args::EraArgs;
 pub use reth_engine_primitives::{
     DEFAULT_MAX_PROOF_TASK_CONCURRENCY, DEFAULT_MEMORY_BLOCK_BUFFER_TARGET,
     DEFAULT_RESERVED_CPU_CORES,
@@ -151,6 +154,8 @@ pub struct NodeConfig<ChainSpec> {
 
     /// All enclave related arguments
     pub enclave: EnclaveArgs,
+    /// All ERA import related arguments with --era prefix
+    pub era: EraArgs,
 }
 
 impl NodeConfig<ChainSpec> {
@@ -181,6 +186,7 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
             datadir: DatadirArgs::default(),
             engine: EngineArgs::default(),
             enclave: EnclaveArgs::default(),
+            era: EraArgs::default(),
         }
     }
 
@@ -293,8 +299,11 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
     }
 
     /// Returns pruning configuration.
-    pub fn prune_config(&self) -> Option<PruneConfig> {
-        self.pruning.prune_config()
+    pub fn prune_config(&self) -> Option<PruneConfig>
+    where
+        ChainSpec: EthereumHardforks,
+    {
+        self.pruning.prune_config(&self.chain)
     }
 
     /// Returns the max block that the node should run to, looking it up from the network if
@@ -490,6 +499,19 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
             pruning: self.pruning,
             engine: self.engine,
             enclave: self.enclave,
+            era: self.era,
+        }
+    }
+
+    /// Returns the [`MiningMode`] intended for --dev mode.
+    pub fn dev_mining_mode<Pool>(&self, pool: Pool) -> MiningMode<Pool>
+    where
+        Pool: TransactionPool + Unpin,
+    {
+        if let Some(interval) = self.dev.block_time {
+            MiningMode::interval(interval)
+        } else {
+            MiningMode::instant(pool, self.dev.block_max_transactions)
         }
     }
 }
@@ -518,6 +540,7 @@ impl<ChainSpec> Clone for NodeConfig<ChainSpec> {
             datadir: self.datadir.clone(),
             engine: self.engine.clone(),
             enclave: self.enclave.clone(),
+            era: self.era.clone(),
         }
     }
 }

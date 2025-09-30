@@ -1,4 +1,4 @@
-use crate::evm::{CustomEvmTransaction, CustomTxEnv};
+use crate::evm::{CustomTxEnv, PaymentTxEnv};
 use alloy_evm::{precompiles::PrecompilesMap, Database, Evm, EvmEnv, EvmFactory};
 use alloy_op_evm::{OpEvm, OpEvmFactory};
 use alloy_primitives::{Address, Bytes};
@@ -15,9 +15,9 @@ use reth_ethereum::evm::revm::{
 use revm::{context_interface::result::EVMError, inspector::NoOpInspector};
 use std::error::Error;
 
-/// EVM context contains data that EVM needs for execution of [`CustomEvmTransaction`].
+/// EVM context contains data that EVM needs for execution of [`CustomTxEnv`].
 pub type CustomContext<DB> =
-    Context<BlockEnv, OpTransaction<CustomTxEnv>, CfgEnv<OpSpecId>, DB, Journal<DB>, L1BlockInfo>;
+    Context<BlockEnv, OpTransaction<PaymentTxEnv>, CfgEnv<OpSpecId>, DB, Journal<DB>, L1BlockInfo>;
 
 pub struct CustomEvm<DB: Database, I, P = OpPrecompiles> {
     inner: OpEvm<DB, I, P>,
@@ -36,7 +36,7 @@ where
     P: PrecompileProvider<OpContext<DB>, Output = InterpreterResult>,
 {
     type DB = DB;
-    type Tx = CustomEvmTransaction;
+    type Tx = CustomTxEnv;
     type Error = EVMError<DB::Error, OpTransactionError>;
     type HaltReason = OpHaltReason;
     type Spec = OpSpecId;
@@ -56,8 +56,8 @@ where
         tx: Self::Tx,
     ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
         match tx {
-            CustomEvmTransaction::Op(tx) => self.inner.transact_raw(tx),
-            CustomEvmTransaction::Payment(..) => todo!(),
+            CustomTxEnv::Op(tx) => self.inner.transact_raw(tx),
+            CustomTxEnv::Payment(..) => todo!(),
         }
     }
 
@@ -70,10 +70,6 @@ where
         self.inner.transact_system_call(caller, contract, data)
     }
 
-    fn db_mut(&mut self) -> &mut Self::DB {
-        self.inner.db_mut()
-    }
-
     fn finish(self) -> (Self::DB, EvmEnv<Self::Spec>) {
         self.inner.finish()
     }
@@ -82,29 +78,28 @@ where
         self.inner.set_inspector_enabled(enabled)
     }
 
-    fn precompiles(&self) -> &Self::Precompiles {
-        self.inner.precompiles()
+    fn components(&self) -> (&Self::DB, &Self::Inspector, &Self::Precompiles) {
+        self.inner.components()
     }
 
-    fn precompiles_mut(&mut self) -> &mut Self::Precompiles {
-        self.inner.precompiles_mut()
-    }
-
-    fn inspector(&self) -> &Self::Inspector {
-        self.inner.inspector()
-    }
-
-    fn inspector_mut(&mut self) -> &mut Self::Inspector {
-        self.inner.inspector_mut()
+    fn components_mut(&mut self) -> (&mut Self::DB, &mut Self::Inspector, &mut Self::Precompiles) {
+        self.inner.components_mut()
     }
 }
 
-pub struct CustomEvmFactory(OpEvmFactory);
+#[derive(Default, Debug, Clone, Copy)]
+pub struct CustomEvmFactory(pub OpEvmFactory);
+
+impl CustomEvmFactory {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 impl EvmFactory for CustomEvmFactory {
     type Evm<DB: Database, I: Inspector<OpContext<DB>>> = CustomEvm<DB, I, Self::Precompiles>;
     type Context<DB: Database> = OpContext<DB>;
-    type Tx = CustomEvmTransaction;
+    type Tx = CustomTxEnv;
     type Error<DBError: Error + Send + Sync + 'static> = EVMError<DBError, OpTransactionError>;
     type HaltReason = OpHaltReason;
     type Spec = OpSpecId;
