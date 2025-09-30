@@ -133,17 +133,24 @@ where
 
     /// Suggests a gas price estimate based on recent blocks, using the configured percentile.
     pub async fn suggest_tip_cap(&self) -> EthResult<U256> {
-        let header = self
-            .provider
-            .sealed_header_by_number_or_tag(BlockNumberOrTag::Latest)?
-            .ok_or(EthApiError::HeaderNotFound(BlockId::latest()))?;
-
-        let mut inner = self.inner.lock().await;
-
-        // if we have stored a last price, then we check whether or not it was for the same head
-        if inner.last_price.block_hash == header.hash() {
-            return Ok(inner.last_price.price)
+        #[cfg(feature = "gas-price-zero")]
+        {
+            return Ok(U256::ZERO)
         }
+
+        #[cfg(not(feature = "gas-price-zero"))]
+        {
+            let header = self
+                .provider
+                .sealed_header_by_number_or_tag(BlockNumberOrTag::Latest)?
+                .ok_or(EthApiError::HeaderNotFound(BlockId::latest()))?;
+
+            let mut inner = self.inner.lock().await;
+
+            // if we have stored a last price, then we check whether or not it was for the same head
+            if inner.last_price.block_hash == header.hash() {
+                return Ok(inner.last_price.price)
+            }
 
         // if all responses are empty, then we can return a maximum of 2*check_block blocks' worth
         // of prices
@@ -213,6 +220,7 @@ where
         inner.last_price = GasPriceOracleResult { block_hash: header.hash(), price };
 
         Ok(price)
+        }
     }
 
     /// Get the `limit` lowest effective tip values for the given block. If the oracle has a
@@ -288,17 +296,24 @@ where
     /// A block is considered at capacity if its total gas used plus the maximum single transaction
     /// gas would exceed the block's gas limit.
     pub async fn op_suggest_tip_cap(&self, min_suggested_priority_fee: U256) -> EthResult<U256> {
-        let header = self
-            .provider
-            .sealed_header_by_number_or_tag(BlockNumberOrTag::Latest)?
-            .ok_or(EthApiError::HeaderNotFound(BlockId::latest()))?;
-
-        let mut inner = self.inner.lock().await;
-
-        // if we have stored a last price, then we check whether or not it was for the same head
-        if inner.last_price.block_hash == header.hash() {
-            return Ok(inner.last_price.price);
+        #[cfg(feature = "gas-price-zero")]
+        {
+            return Ok(U256::ZERO)
         }
+
+        #[cfg(not(feature = "gas-price-zero"))]
+        {
+            let header = self
+                .provider
+                .sealed_header_by_number_or_tag(BlockNumberOrTag::Latest)?
+                .ok_or(EthApiError::HeaderNotFound(BlockId::latest()))?;
+
+            let mut inner = self.inner.lock().await;
+
+            // if we have stored a last price, then we check whether or not it was for the same head
+            if inner.last_price.block_hash == header.hash() {
+                return Ok(inner.last_price.price);
+            }
 
         let mut suggestion = min_suggested_priority_fee;
 
@@ -347,6 +362,7 @@ where
         inner.last_price = GasPriceOracleResult { block_hash: header.hash(), price: suggestion };
 
         Ok(suggestion)
+        }
     }
 
     /// Get the median tip value for the given block. This is useful for determining

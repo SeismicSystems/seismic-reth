@@ -377,6 +377,7 @@ where
         }
 
         // Ensure max_priority_fee_per_gas (if EIP1559) is less than max_fee_per_gas if any.
+        #[cfg(not(feature = "gas-price-zero"))]
         if transaction.max_priority_fee_per_gas() > Some(transaction.max_fee_per_gas()) {
             return Err(TransactionValidationOutcome::Invalid(
                 transaction,
@@ -389,6 +390,7 @@ where
 
         // Ensure max possible transaction fee doesn't exceed configured transaction fee cap.
         // Only for transactions locally submitted for acceptance into the pool.
+        #[cfg(not(feature = "gas-price-zero"))]
         if is_local {
             match self.tx_fee_cap {
                 Some(0) | None => {} // Skip if cap is 0 or None
@@ -412,6 +414,7 @@ where
 
         // Drop non-local transactions with a fee lower than the configured fee for acceptance into
         // the pool.
+        #[cfg(not(feature = "gas-price-zero"))]
         if !is_local &&
             transaction.is_dynamic_fee() &&
             transaction.max_priority_fee_per_gas() < self.minimum_priority_fee
@@ -624,16 +627,32 @@ where
         transaction: &Tx,
         sender: &Account,
     ) -> Result<(), InvalidPoolTransactionError> {
-        let cost = transaction.cost();
-
-        if !self.disable_balance_check && cost > &sender.balance {
-            let expected = *cost;
-            return Err(InvalidTransactionError::InsufficientFunds(
-                GotExpected { got: sender.balance, expected }.into(),
-            )
-            .into())
+        #[cfg(feature = "gas-price-zero")]
+        {
+            // With zero gas price, only check value transfer, not gas costs
+            let value = transaction.value();
+            if !self.disable_balance_check && value > sender.balance {
+                return Err(InvalidTransactionError::InsufficientFunds(
+                    GotExpected { got: sender.balance, expected: value }.into(),
+                )
+                .into())
+            }
+            return Ok(())
         }
-        Ok(())
+
+        #[cfg(not(feature = "gas-price-zero"))]
+        {
+            let cost = transaction.cost();
+
+            if !self.disable_balance_check && cost > &sender.balance {
+                let expected = *cost;
+                return Err(InvalidTransactionError::InsufficientFunds(
+                    GotExpected { got: sender.balance, expected }.into(),
+                )
+                .into())
+            }
+            Ok(())
+        }
     }
 
     /// Validates EIP-4844 blob sidecar data and returns the extracted sidecar, if any.

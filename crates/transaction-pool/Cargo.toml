@@ -11,6 +11,9 @@ description = "Transaction pool implementation"
 [lints]
 workspace = true
 
+[features]
+gas-price-zero = []
+
 [dependencies]
 # reth
 reth-chain-state.workspace = true

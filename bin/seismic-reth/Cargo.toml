@@ -54,6 +54,13 @@ min-info-logs = ["tracing/release_max_level_info"]
 min-debug-logs = ["tracing/release_max_level_debug"]
 min-trace-logs = ["tracing/release_max_level_trace"]
 
+gas-price-zero = [
+    "reth-transaction-pool/gas-price-zero",
+    "reth-seismic-evm/gas-price-zero",
+    "reth-rpc-eth-types/gas-price-zero",
+    "reth-seismic-payload-builder/gas-price-zero"
+]
+
 [[bin]]
 name = "seismic-reth"
 path = "src/main.rs"

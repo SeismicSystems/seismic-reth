@@ -11,6 +11,9 @@ description = "A payload builder for seismic-reth that builds optimistic payload
 [lints]
 workspace = true
 
+[features]
+gas-price-zero = []
+
 [dependencies]
 # reth
 reth-chainspec.workspace = true

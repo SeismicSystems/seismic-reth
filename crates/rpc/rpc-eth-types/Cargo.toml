@@ -11,6 +11,9 @@ description = "Types supporting implementation of 'eth' namespace RPC server API
 [lints]
 workspace = true
 
+[features]
+gas-price-zero = []
+
 [dependencies]
 # seismic
 seismic-revm.workspace = true

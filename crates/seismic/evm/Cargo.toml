@@ -10,6 +10,9 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[features]
+gas-price-zero = []
+
 [dependencies]
 # seismic
 seismic-enclave.workspace = true

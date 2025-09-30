@@ -187,6 +187,12 @@ where
         // configure evm env based on parent block
         let cfg_env = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
 
+        #[cfg(feature = "gas-price-zero")]
+        let basefee = 0;
+
+        #[cfg(not(feature = "gas-price-zero"))]
+        let basefee = header.base_fee_per_gas().unwrap_or_default();
+
         let block_env = BlockEnv {
             number: U256::from(header.number()),
             beneficiary: header.beneficiary(),
@@ -195,7 +201,7 @@ where
             prevrandao: header.mix_hash(), /* Seismic genesis spec (Mercury) starts after Paris,
                                             * so we always use header.mix_hash() */
             gas_limit: header.gas_limit(),
-            basefee: header.base_fee_per_gas().unwrap_or_default(),
+            basefee,
             // EIP-4844 excess blob gas of this block, introduced in Cancun
             blob_excess_gas_and_price: header.excess_blob_gas.map(|excess_blob_gas| {
                 BlobExcessGasAndPrice::new_with_spec(excess_blob_gas, spec.into_eth_spec())
@@ -223,14 +229,31 @@ where
             )
             .map(|gas| BlobExcessGasAndPrice::new_with_spec(gas, spec_id.into_eth_spec()));
 
-        let mut basefee = parent.next_block_base_fee(
-            self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp),
-        );
+        #[cfg(feature = "gas-price-zero")]
+        let basefee = 0u64;
+
+        #[cfg(not(feature = "gas-price-zero"))]
+        let basefee = {
+            let mut basefee = parent.next_block_base_fee(
+                self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp),
+            );
+
+            // If we are on the London fork boundary, we need to multiply the parent's gas limit by the
+            // elasticity multiplier to get the new gas limit.
+            if self.chain_spec().fork(EthereumHardfork::London).transitions_at_block(parent.number + 1)
+            {
+                // set the base fee to the initial base fee from the EIP-1559 spec
+                basefee = Some(INITIAL_BASE_FEE)
+            }
+
+            basefee.unwrap_or_default()
+        };
 
         let mut gas_limit = attributes.gas_limit;
 
         // If we are on the London fork boundary, we need to multiply the parent's gas limit by the
         // elasticity multiplier to get the new gas limit.
+        #[cfg(not(feature = "gas-price-zero"))]
         if self.chain_spec().fork(EthereumHardfork::London).transitions_at_block(parent.number + 1)
         {
             let elasticity_multiplier = self
@@ -240,9 +263,6 @@ where
 
             // multiply the gas limit by the elasticity multiplier
             gas_limit *= elasticity_multiplier as u64;
-
-            // set the base fee to the initial base fee from the EIP-1559 spec
-            basefee = Some(INITIAL_BASE_FEE)
         }
 
         let block_env = BlockEnv {
@@ -253,7 +273,7 @@ where
             prevrandao: Some(attributes.prev_randao),
             gas_limit,
             // calculate basefee based on parent block's gas usage
-            basefee: basefee.unwrap_or_default(),
+            basefee,
             // calculate excess gas based on parent block's blob gas usage
             blob_excess_gas_and_price,
         };
@@ -319,6 +339,12 @@ where
             .blob_gas_used()
             .map(|_gas| BlobExcessGasAndPrice::new_with_spec(0, spec_id.into_eth_spec()));
 
+        #[cfg(feature = "gas-price-zero")]
+        let basefee = 0;
+
+        #[cfg(not(feature = "gas-price-zero"))]
+        let basefee = payload.payload.saturated_base_fee_per_gas();
+
         let block_env = BlockEnv {
             number: U256::from(payload.payload.block_number()),
             beneficiary: payload.payload.fee_recipient(),
@@ -326,7 +352,7 @@ where
             difficulty: U256::ZERO,
             prevrandao: Some(payload.payload.prev_randao()),
             gas_limit: payload.payload.gas_limit(),
-            basefee: payload.payload.saturated_base_fee_per_gas(),
+            basefee,
             blob_excess_gas_and_price,
         };
 
