@@ -240,7 +240,6 @@ where
 
         // If we are on the London fork boundary, we need to multiply the parent's gas limit by the
         // elasticity multiplier to get the new gas limit.
-        #[cfg(not(feature = "gas-price-zero"))]
         if self.chain_spec().fork(EthereumHardfork::London).transitions_at_block(parent.number + 1)
         {
             let elasticity_multiplier = self
