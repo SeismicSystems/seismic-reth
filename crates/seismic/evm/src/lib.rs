@@ -238,9 +238,12 @@ where
                 self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp),
             );
 
-            // If we are on the London fork boundary, we need to multiply the parent's gas limit by the
-            // elasticity multiplier to get the new gas limit.
-            if self.chain_spec().fork(EthereumHardfork::London).transitions_at_block(parent.number + 1)
+            // If we are on the London fork boundary, we need to multiply the parent's gas limit by
+            // the elasticity multiplier to get the new gas limit.
+            if self
+                .chain_spec()
+                .fork(EthereumHardfork::London)
+                .transitions_at_block(parent.number + 1)
             {
                 // set the base fee to the initial base fee from the EIP-1559 spec
                 basefee = Some(INITIAL_BASE_FEE)
