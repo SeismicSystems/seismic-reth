@@ -246,6 +246,9 @@ where
 
             // multiply the gas limit by the elasticity multiplier
             gas_limit *= elasticity_multiplier as u64;
+
+            // set the base fee to the initial base fee from the EIP-1559 spec
+            basefee = Some(INITIAL_BASE_FEE)
         }
 
         #[cfg(feature = "gas-price-zero")]
