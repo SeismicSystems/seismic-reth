@@ -11,9 +11,6 @@ description = "Transaction pool implementation"
 [lints]
 workspace = true
 
-[features]
-gas-price-zero = []
-
 [dependencies]
 # reth
 reth-chain-state.workspace = true
@@ -102,6 +99,7 @@ serde-bincode-compat = [
     "reth-execution-types/serde-bincode-compat",
 ]
 reth-codec = ["reth-ethereum-primitives/reth-codec"]
+gas-price-zero = []
 test-utils = [
     "rand",
     "paste",

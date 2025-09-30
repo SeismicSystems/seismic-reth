@@ -11,9 +11,6 @@ description = "Types supporting implementation of 'eth' namespace RPC server API
 [lints]
 workspace = true
 
-[features]
-gas-price-zero = []
-
 [dependencies]
 # seismic
 seismic-revm.workspace = true
@@ -75,3 +72,4 @@ serde_json.workspace = true
 
 [features]
 js-tracer = ["revm-inspectors/js-tracer"]
+gas-price-zero = []

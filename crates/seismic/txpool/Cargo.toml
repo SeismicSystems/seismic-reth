@@ -11,6 +11,9 @@ description = "Seismic-Reth Transaction Pool"
 [lints]
 workspace = true
 
+[features]
+gas-price-zero = ["reth-transaction-pool/gas-price-zero"]
+
 [dependencies]
 # ethereum
 alloy-consensus.workspace = true

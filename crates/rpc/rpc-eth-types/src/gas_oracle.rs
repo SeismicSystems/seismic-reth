@@ -135,22 +135,20 @@ where
     pub async fn suggest_tip_cap(&self) -> EthResult<U256> {
         #[cfg(feature = "gas-price-zero")]
         {
-            return Ok(U256::ZERO)
+            return Ok(U256::ZERO);
         }
 
-        #[cfg(not(feature = "gas-price-zero"))]
-        {
-            let header = self
-                .provider
-                .sealed_header_by_number_or_tag(BlockNumberOrTag::Latest)?
-                .ok_or(EthApiError::HeaderNotFound(BlockId::latest()))?;
+        let header = self
+            .provider
+            .sealed_header_by_number_or_tag(BlockNumberOrTag::Latest)?
+            .ok_or(EthApiError::HeaderNotFound(BlockId::latest()))?;
 
-            let mut inner = self.inner.lock().await;
+        let mut inner = self.inner.lock().await;
 
-            // if we have stored a last price, then we check whether or not it was for the same head
-            if inner.last_price.block_hash == header.hash() {
-                return Ok(inner.last_price.price)
-            }
+        // if we have stored a last price, then we check whether or not it was for the same head
+        if inner.last_price.block_hash == header.hash() {
+            return Ok(inner.last_price.price);
+        }
 
         // if all responses are empty, then we can return a maximum of 2*check_block blocks' worth
         // of prices
@@ -194,7 +192,7 @@ where
 
             // break when we have enough populated blocks
             if populated_blocks >= self.oracle_config.blocks {
-                break
+                break;
             }
 
             current_hash = parent_hash;
@@ -220,7 +218,6 @@ where
         inner.last_price = GasPriceOracleResult { block_hash: header.hash(), price };
 
         Ok(price)
-        }
     }
 
     /// Get the `limit` lowest effective tip values for the given block. If the oracle has a
@@ -237,7 +234,7 @@ where
     ) -> EthResult<Option<(B256, Vec<U256>)>> {
         // check the cache (this will hit the disk if the block is not cached)
         let Some(block) = self.cache.get_recovered_block(block_hash).await? else {
-            return Ok(None)
+            return Ok(None);
         };
 
         let base_fee_per_gas = block.base_fee_per_gas();
@@ -264,13 +261,13 @@ where
             // ignore transactions with a tip under the configured threshold
             if let Some(ignore_under) = self.ignore_price {
                 if effective_tip < Some(ignore_under) {
-                    continue
+                    continue;
                 }
             }
 
             // check if the sender was the coinbase, if so, ignore
             if tx.signer() == block.beneficiary() {
-                continue
+                continue;
             }
 
             // a `None` effective_gas_tip represents a transaction where the max_fee_per_gas is
@@ -279,7 +276,7 @@ where
 
             // we have enough entries
             if prices.len() >= limit {
-                break
+                break;
             }
         }
 
@@ -298,7 +295,7 @@ where
     pub async fn op_suggest_tip_cap(&self, min_suggested_priority_fee: U256) -> EthResult<U256> {
         #[cfg(feature = "gas-price-zero")]
         {
-            return Ok(U256::ZERO)
+            return Ok(U256::ZERO);
         }
 
         #[cfg(not(feature = "gas-price-zero"))]
@@ -315,53 +312,54 @@ where
                 return Ok(inner.last_price.price);
             }
 
-        let mut suggestion = min_suggested_priority_fee;
+            let mut suggestion = min_suggested_priority_fee;
 
-        // find the maximum gas used by any of the transactions in the block to use as the
-        // capacity margin for the block, if no receipts are found return the
-        // suggested_min_priority_fee
-        let receipts = self
-            .cache
-            .get_receipts(header.hash())
-            .await?
-            .ok_or(EthApiError::ReceiptsNotFound(BlockId::latest()))?;
+            // find the maximum gas used by any of the transactions in the block to use as the
+            // capacity margin for the block, if no receipts are found return the
+            // suggested_min_priority_fee
+            let receipts = self
+                .cache
+                .get_receipts(header.hash())
+                .await?
+                .ok_or(EthApiError::ReceiptsNotFound(BlockId::latest()))?;
 
-        let mut max_tx_gas_used = 0u64;
-        let mut last_cumulative_gas = 0;
-        for receipt in receipts.as_ref() {
-            let cumulative_gas = receipt.cumulative_gas_used();
-            // get the gas used by each transaction in the block, by subtracting the
-            // cumulative gas used of the previous transaction from the cumulative gas used of
-            // the current transaction. This is because there is no gas_used()
-            // method on the Receipt trait.
-            let gas_used = cumulative_gas - last_cumulative_gas;
-            max_tx_gas_used = max_tx_gas_used.max(gas_used);
-            last_cumulative_gas = cumulative_gas;
-        }
-
-        // if the block is at capacity, the suggestion must be increased
-        if header.gas_used() + max_tx_gas_used > header.gas_limit() {
-            let Some(median_tip) = self.get_block_median_tip(header.hash()).await? else {
-                return Ok(suggestion);
-            };
-
-            let new_suggestion = median_tip + median_tip / U256::from(10);
-
-            if new_suggestion > suggestion {
-                suggestion = new_suggestion;
+            let mut max_tx_gas_used = 0u64;
+            let mut last_cumulative_gas = 0;
+            for receipt in receipts.as_ref() {
+                let cumulative_gas = receipt.cumulative_gas_used();
+                // get the gas used by each transaction in the block, by subtracting the
+                // cumulative gas used of the previous transaction from the cumulative gas used of
+                // the current transaction. This is because there is no gas_used()
+                // method on the Receipt trait.
+                let gas_used = cumulative_gas - last_cumulative_gas;
+                max_tx_gas_used = max_tx_gas_used.max(gas_used);
+                last_cumulative_gas = cumulative_gas;
             }
-        }
 
-        // constrain to the max price
-        if let Some(max_price) = self.oracle_config.max_price {
-            if suggestion > max_price {
-                suggestion = max_price;
+            // if the block is at capacity, the suggestion must be increased
+            if header.gas_used() + max_tx_gas_used > header.gas_limit() {
+                let Some(median_tip) = self.get_block_median_tip(header.hash()).await? else {
+                    return Ok(suggestion);
+                };
+
+                let new_suggestion = median_tip + median_tip / U256::from(10);
+
+                if new_suggestion > suggestion {
+                    suggestion = new_suggestion;
+                }
             }
-        }
 
-        inner.last_price = GasPriceOracleResult { block_hash: header.hash(), price: suggestion };
+            // constrain to the max price
+            if let Some(max_price) = self.oracle_config.max_price {
+                if suggestion > max_price {
+                    suggestion = max_price;
+                }
+            }
 
-        Ok(suggestion)
+            inner.last_price =
+                GasPriceOracleResult { block_hash: header.hash(), price: suggestion };
+
+            Ok(suggestion)
         }
     }
 
@@ -372,7 +370,7 @@ where
     pub async fn get_block_median_tip(&self, block_hash: B256) -> EthResult<Option<U256>> {
         // check the cache (this will hit the disk if the block is not cached)
         let Some(block) = self.cache.get_recovered_block(block_hash).await? else {
-            return Ok(None)
+            return Ok(None);
         };
 
         let base_fee_per_gas = block.base_fee_per_gas();

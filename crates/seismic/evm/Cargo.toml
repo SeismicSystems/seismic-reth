@@ -10,9 +10,6 @@ repository.workspace = true
 [lints]
 workspace = true
 
-[features]
-gas-price-zero = []
-
 [dependencies]
 # seismic
 seismic-enclave.workspace = true
@@ -67,6 +64,7 @@ k256.workspace = true
 
 [features]
 default = ["std"]
+gas-price-zero = []
 std = [
     "reth-consensus/std",
     "reth-revm/std",

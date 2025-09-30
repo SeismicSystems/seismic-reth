@@ -133,3 +133,9 @@ test-utils = [
 reth-codec = [
     "reth-seismic-primitives/reth-codec",
 ]
+gas-price-zero = [
+    "reth-seismic-evm/gas-price-zero",
+    "reth-rpc-eth-types/gas-price-zero",
+    "reth-seismic-payload-builder/gas-price-zero",
+    "reth-seismic-txpool/gas-price-zero",
+]
