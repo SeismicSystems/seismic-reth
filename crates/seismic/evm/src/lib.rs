@@ -211,6 +211,7 @@ where
         EvmEnv { cfg_env, block_env }
     }
 
+    #[allow(unused_assignments)]
     fn next_evm_env(
         &self,
         parent: &Header,
@@ -229,6 +230,8 @@ where
             )
             .map(|gas| BlobExcessGasAndPrice::new_with_spec(gas, spec_id.into_eth_spec()));
 
+
+        #[allow(unused_variables)]
         let mut basefee = parent.next_block_base_fee(
             self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp),
         );

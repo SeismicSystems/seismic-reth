@@ -132,6 +132,8 @@ where
     }
 
     /// Suggests a gas price estimate based on recent blocks, using the configured percentile.
+    #[allow(unused_variables)]
+    #[allow(unreachable_code)]
     pub async fn suggest_tip_cap(&self) -> EthResult<U256> {
         #[cfg(feature = "gas-price-zero")]
         {
@@ -292,6 +294,8 @@ where
     ///
     /// A block is considered at capacity if its total gas used plus the maximum single transaction
     /// gas would exceed the block's gas limit.
+    #[allow(unreachable_code)]
+    #[allow(unused_variables)]
     pub async fn op_suggest_tip_cap(&self, min_suggested_priority_fee: U256) -> EthResult<U256> {
         #[cfg(feature = "gas-price-zero")]
         {

@@ -293,6 +293,7 @@ pub fn validate_against_parent_eip1559_base_fee<ChainSpec: EthChainSpec + Ethere
     if chain_spec.is_london_active_at_block(header.number()) {
         let base_fee = header.base_fee_per_gas().ok_or(ConsensusError::BaseFeeMissing)?;
 
+        #[allow(unused_variables)]
         let expected_base_fee = if chain_spec
             .ethereum_fork_activation(EthereumHardfork::London)
             .transitions_at_block(header.number())

@@ -386,6 +386,7 @@ where
         }
 
         // determine whether the transaction should be treated as local
+        #[allow(unused_variables)]
         let is_local = self.local_transactions_config.is_local(origin, transaction.sender_ref());
 
         // Ensure max possible transaction fee doesn't exceed configured transaction fee cap.
@@ -622,6 +623,7 @@ where
     }
 
     /// Ensures the sender has sufficient account balance.
+    #[allow(unreachable_code)]
     pub fn validate_sender_balance(
         &self,
         transaction: &Tx,
