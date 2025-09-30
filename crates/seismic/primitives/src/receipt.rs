@@ -377,7 +377,8 @@ impl InMemorySize for SeismicReceipt {
     }
 }
 
-impl reth_primitives_traits::Receipt for SeismicReceipt {}
+// TODO(usm): remove
+// impl reth_primitives_traits::Receipt for SeismicReceipt {}
 
 #[cfg(feature = "reth-codec")]
 mod compact {
@@ -548,18 +549,18 @@ pub(super) mod serde_bincode_compat {
             #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
             struct Data {
                 #[serde_as(as = "serde_bincode_compat::SeismicReceipt<'_>")]
-                reseipt: SeismicReceipt,
+                receipt: SeismicReceipt,
             }
 
             let mut bytes = [0u8; 1024];
             rand::rng().fill(bytes.as_mut_slice());
             let mut data = Data {
-                reseipt: SeismicReceipt::arbitrary(&mut arbitrary::Unstructured::new(&bytes))
+                receipt: SeismicReceipt::arbitrary(&mut arbitrary::Unstructured::new(&bytes))
                     .unwrap(),
             };
-            let success = data.reseipt.as_receipt_mut().status.coerce_status();
+            let success = data.receipt.as_receipt_mut().status.coerce_status();
             // // ensure we don't have an invalid poststate variant
-            data.reseipt.as_receipt_mut().status = success.into();
+            data.receipt.as_receipt_mut().status = success.into();
 
             let encoded = bincode::serialize(&data).unwrap();
             let decoded: Data = bincode::deserialize(&encoded).unwrap();

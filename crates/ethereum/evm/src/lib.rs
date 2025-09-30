@@ -31,8 +31,8 @@ use core::{convert::Infallible, fmt::Debug};
 use reth_chainspec::{ChainSpec, EthChainSpec, EthereumHardforks, MAINNET};
 use reth_ethereum_primitives::{Block, EthPrimitives, TransactionSigned};
 use reth_evm::{
-    precompiles::PrecompilesMap, ConfigureEngineEvm, ConfigureEvm, EvmEnv, EvmEnvFor, EvmFactory,
-    ExecutableTxIterator, ExecutionCtxFor, NextBlockEnvAttributes, TransactionEnv,
+    ConfigureEngineEvm, ConfigureEvm, EvmEnv, EvmEnvFor, EvmFactory, ExecutableTxIterator,
+    ExecutionCtxFor, NextBlockEnvAttributes, TransactionEnv,
 };
 use reth_primitives_traits::{
     constants::MAX_TX_GAS_LIMIT_OSAKA, SealedBlock, SealedHeader, SignedTransaction, TxTy,
@@ -132,7 +132,7 @@ where
                     + FromRecoveredTx<TransactionSigned>
                     + FromTxWithEncoded<TransactionSigned>,
             Spec = SpecId,
-            // Precompiles = PrecompilesMap,
+            // Precompiles<EmptyDBTyped<Infallible>> = PrecompilesMap,
         > + Clone
         + Debug
         + Send
@@ -296,7 +296,7 @@ where
                     + FromRecoveredTx<TransactionSigned>
                     + FromTxWithEncoded<TransactionSigned>,
             Spec = SpecId,
-            Precompiles = PrecompilesMap,
+            // Precompiles<EmptyDBTyped<Infallible>> = PrecompilesMap,
         > + Clone
         + Debug
         + Send

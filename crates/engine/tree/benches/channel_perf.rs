@@ -19,8 +19,10 @@ fn create_bench_state(num_accounts: usize) -> EvmState {
     let mut state_changes = HashMap::default();
 
     for i in 0..num_accounts {
-        let storage =
-            EvmStorage::from_iter([(U256::from(i), EvmStorageSlot::new(FlaggedStorage::new_from_value(i + 1), 0))]);
+        let storage = EvmStorage::from_iter([(
+            U256::from(i),
+            EvmStorageSlot::new(FlaggedStorage::new_from_value(i + 1), 0),
+        )]);
 
         let account = Account {
             info: AccountInfo {

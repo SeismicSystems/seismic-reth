@@ -199,7 +199,7 @@ pub trait ConfigureEvm: Clone + Debug + Send + Sync + Unpin {
             Tx: TransactionEnv
                     + FromRecoveredTx<TxTy<Self::Primitives>>
                     + FromTxWithEncoded<TxTy<Self::Primitives>>,
-            // Precompiles = PrecompilesMap,
+            // Precompiles<EmptyDBTyped<Infallible>> = PrecompilesMap,
         >,
     >;
 

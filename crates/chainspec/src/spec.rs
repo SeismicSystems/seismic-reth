@@ -1050,10 +1050,6 @@ mod tests {
     use reth_ethereum_forks::{ForkCondition, ForkHash, ForkId, Head};
     use std::{collections::HashMap, str::FromStr};
 
-    use std::{
-        collections::BTreeMap,
-        string::String,
-    };
     use seismic_alloy_genesis::GenesisAccount;
 
     fn test_hardfork_fork_ids(spec: &ChainSpec, cases: &[(EthereumHardfork, ForkId)]) {

@@ -70,7 +70,8 @@ pub trait EthState: LoadState + SpawnBlocking {
         block_id: Option<BlockId>,
     ) -> impl Future<Output = Result<B256, Self::Error>> + Send {
         self.spawn_blocking_io_fut(move |this| async move {
-            let storage_value = this.state_at_block_id_or_latest(block_id)
+            let storage_value = this
+                .state_at_block_id_or_latest(block_id)
                 .await?
                 .storage(address, index.as_b256())
                 .map_err(Self::Error::from_eth_err)?

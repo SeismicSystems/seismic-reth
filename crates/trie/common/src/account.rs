@@ -48,9 +48,10 @@ mod tests {
         let trie_account: TrieAccount = genesis_account.into();
 
         let is_private = false; // legacy test adapter value
+        let u: U256 = B256::from([0x02; 32]).into();
         let expected_storage_root = storage_root_unhashed(vec![(
             B256::from([0x01; 32]),
-            (B256::from([0x02; 32]).into(), is_private),
+            alloy_primitives::FlaggedStorage::new(u, is_private),
         )]);
 
         // Check that the fields are properly set.

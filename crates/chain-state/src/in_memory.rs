@@ -979,7 +979,8 @@ mod tests {
         AccountProof, HashedStorage, MultiProof, MultiProofTargets, StorageMultiProof,
         StorageProof, TrieInput,
     };
-    use revm_state::FlaggedStorage;
+
+    use alloy_primitives::FlaggedStorage;
 
     fn create_mock_state(
         test_block_builder: &mut TestBlockBuilder<EthPrimitives>,

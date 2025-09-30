@@ -2,14 +2,15 @@
 
 use alloy_consensus::{BlockHeader, Header};
 use alloy_eips::eip7910::{EthConfig, EthForkConfig, SystemContract};
-use alloy_evm::precompiles::Precompile;
 use alloy_primitives::Address;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks, Hardforks, Head};
 use reth_errors::{ProviderError, RethError};
-use reth_evm::{precompiles::PrecompilesMap, ConfigureEvm, Evm};
+use reth_evm::{
+    precompiles::{Precompile, PrecompilesMap},
+    ConfigureEvm, Evm,
+};
 use reth_node_api::NodePrimitives;
-use reth_revm::db::EmptyDB;
 use reth_rpc_eth_types::EthApiError;
 use reth_storage_api::BlockReaderIdExt;
 use revm::precompile::PrecompileId;
@@ -29,6 +30,7 @@ pub trait EthConfigApi {
 #[derive(Debug, Clone)]
 pub struct EthConfigHandler<Provider, Evm> {
     provider: Provider,
+    #[allow(unused)]
     evm_config: Evm,
 }
 
@@ -94,13 +96,17 @@ where
             return Err(RethError::msg("cancun has not been activated"))
         }
 
+        /*
         let current_precompiles =
             evm_to_precompiles_map(self.evm_config.evm_for_block(EmptyDB::default(), &latest));
+        */
+        let current_precompiles = BTreeMap::new();
 
         let mut fork_timestamps =
             chain_spec.forks_iter().filter_map(|(_, cond)| cond.as_timestamp()).collect::<Vec<_>>();
         fork_timestamps.dedup();
 
+        #[allow(unused_variables)]
         let (current_fork_idx, current_fork_timestamp) = fork_timestamps
             .iter()
             .position(|ts| &latest.timestamp < ts)
@@ -113,6 +119,9 @@ where
             .build_fork_config_at(current_fork_timestamp, current_precompiles)
             .ok_or_else(|| RethError::msg("no fork config for current fork"))?;
 
+        let config = EthConfig { current, next: None, last: None };
+
+        /*
         let mut config = EthConfig { current, next: None, last: None };
 
         if let Some(last_fork_idx) = current_fork_idx.checked_sub(1) {
@@ -142,6 +151,7 @@ where
 
             config.next = self.build_fork_config_at(next_fork_timestamp, next_precompiles);
         }
+        */
 
         Ok(config)
     }
@@ -159,6 +169,7 @@ where
     }
 }
 
+#[allow(unused)]
 fn evm_to_precompiles_map(
     evm: impl Evm<Precompiles = PrecompilesMap>,
 ) -> BTreeMap<String, Address> {

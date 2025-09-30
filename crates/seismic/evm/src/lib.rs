@@ -12,16 +12,21 @@ extern crate alloc;
 
 use alloc::{borrow::Cow, sync::Arc};
 use alloy_consensus::{BlockHeader, Header};
-use alloy_eips::eip1559::INITIAL_BASE_FEE;
+use alloy_eips::{eip1559::INITIAL_BASE_FEE, Decodable2718};
 use alloy_evm::eth::EthBlockExecutionCtx;
 use alloy_primitives::{Bytes, U256};
+use alloy_rpc_types_engine::ExecutionData;
 use build::SeismicBlockAssembler;
 use core::fmt::Debug;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_ethereum_forks::EthereumHardfork;
-use reth_evm::{ConfigureEvm, EvmEnv, NextBlockEnvAttributes};
-use reth_primitives_traits::{SealedBlock, SealedHeader};
+use reth_evm::{
+    ConfigureEngineEvm, ConfigureEvm, EvmEnv, EvmEnvFor, ExecutableTxIterator, ExecutionCtxFor,
+    NextBlockEnvAttributes,
+};
+use reth_primitives_traits::{SealedBlock, SealedHeader, SignedTransaction, TxTy};
 use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
+use reth_storage_errors::any::AnyError;
 use revm::{
     context::{BlockEnv, CfgEnv},
     context_interface::block::BlobExcessGasAndPrice,
@@ -183,18 +188,18 @@ where
         let cfg_env = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
 
         let block_env = BlockEnv {
-            number: header.number(),
+            number: U256::from(header.number()),
             beneficiary: header.beneficiary(),
-            timestamp: header.timestamp(),
+            timestamp: U256::from(header.timestamp()),
             difficulty: U256::ZERO,
             prevrandao: header.mix_hash(), /* Seismic genesis spec (Mercury) starts after Paris,
                                             * so we always use header.mix_hash() */
             gas_limit: header.gas_limit(),
             basefee: header.base_fee_per_gas().unwrap_or_default(),
             // EIP-4844 excess blob gas of this block, introduced in Cancun
-            blob_excess_gas_and_price: header
-                .excess_blob_gas
-                .map(|excess_blob_gas| BlobExcessGasAndPrice::new(excess_blob_gas, true)),
+            blob_excess_gas_and_price: header.excess_blob_gas.map(|excess_blob_gas| {
+                BlobExcessGasAndPrice::new_with_spec(excess_blob_gas, spec.into_eth_spec())
+            }),
         };
 
         EvmEnv { cfg_env, block_env }
@@ -216,7 +221,7 @@ where
             .maybe_next_block_excess_blob_gas(
                 self.chain_spec().blob_params_at_timestamp(attributes.timestamp),
             )
-            .map(|gas| BlobExcessGasAndPrice::new(gas, spec_id >= SeismicSpecId::MERCURY));
+            .map(|gas| BlobExcessGasAndPrice::new_with_spec(gas, spec_id.into_eth_spec()));
 
         let mut basefee = parent.next_block_base_fee(
             self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp),
@@ -241,9 +246,9 @@ where
         }
 
         let block_env = BlockEnv {
-            number: parent.number + 1,
+            number: U256::from(parent.number + 1),
             beneficiary: attributes.suggested_fee_recipient,
-            timestamp: attributes.timestamp,
+            timestamp: U256::from(attributes.timestamp),
             difficulty: U256::ZERO,
             prevrandao: Some(attributes.prev_randao),
             gas_limit,
@@ -288,6 +293,62 @@ where
         evm_env: EvmEnv<SeismicSpecId>,
     ) -> SeismicEvm<DB, revm::inspector::NoOpInspector> {
         self.evm_with_env_and_live_key(db, evm_env)
+    }
+}
+
+impl<CB> ConfigureEngineEvm<ExecutionData> for SeismicEvmConfig<CB>
+where
+    CB: SyncEnclaveApiClientBuilder + 'static,
+{
+    fn evm_env_for_payload(&self, payload: &ExecutionData) -> EvmEnvFor<Self> {
+        // Create a temporary header with the payload information to determine the spec
+        let temp_header = Header {
+            number: payload.payload.block_number(),
+            timestamp: payload.payload.timestamp(),
+            gas_limit: payload.payload.gas_limit(),
+            beneficiary: payload.payload.fee_recipient(),
+            ..Default::default()
+        };
+        let spec_id = revm_spec(self.chain_spec(), &temp_header);
+
+        let cfg_env =
+            CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
+
+        let blob_excess_gas_and_price = payload
+            .payload
+            .blob_gas_used()
+            .map(|_gas| BlobExcessGasAndPrice::new_with_spec(0, spec_id.into_eth_spec()));
+
+        let block_env = BlockEnv {
+            number: U256::from(payload.payload.block_number()),
+            beneficiary: payload.payload.fee_recipient(),
+            timestamp: U256::from(payload.payload.timestamp()),
+            difficulty: U256::ZERO,
+            prevrandao: Some(payload.payload.prev_randao()),
+            gas_limit: payload.payload.gas_limit(),
+            basefee: payload.payload.saturated_base_fee_per_gas(),
+            blob_excess_gas_and_price,
+        };
+
+        (cfg_env, block_env).into()
+    }
+
+    fn context_for_payload<'a>(&self, payload: &'a ExecutionData) -> ExecutionCtxFor<'a, Self> {
+        EthBlockExecutionCtx {
+            parent_hash: payload.payload.parent_hash(),
+            parent_beacon_block_root: payload.sidecar.parent_beacon_block_root(),
+            ommers: &[],
+            withdrawals: payload.payload.withdrawals().map(|w| Cow::Owned(w.clone().into())),
+        }
+    }
+
+    fn tx_iterator_for_payload(&self, payload: &ExecutionData) -> impl ExecutableTxIterator<Self> {
+        payload.payload.transactions().clone().into_iter().map(|tx| {
+            let mut tx_data = tx.as_ref();
+            let tx = TxTy::<Self::Primitives>::decode_2718(&mut tx_data).map_err(AnyError::new)?;
+            let signer = tx.try_recover().map_err(AnyError::new)?;
+            Ok::<_, AnyError>(tx.with_signer(signer))
+        })
     }
 }
 
@@ -400,8 +461,12 @@ mod tests {
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
 
         // Create customs block and tx env
-        let block =
-            BlockEnv { basefee: 1000, gas_limit: 10_000_000, number: 42, ..Default::default() };
+        let block = BlockEnv {
+            basefee: 1000,
+            gas_limit: 10_000_000,
+            number: U256::from(42),
+            ..Default::default()
+        };
 
         let evm_env = EvmEnv { block_env: block, ..Default::default() };
 
@@ -463,8 +528,12 @@ mod tests {
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
 
         // Create custom block and tx environment
-        let block =
-            BlockEnv { basefee: 1000, gas_limit: 10_000_000, number: 42, ..Default::default() };
+        let block = BlockEnv {
+            basefee: 1000,
+            gas_limit: 10_000_000,
+            number: U256::from(42),
+            ..Default::default()
+        };
         let evm_env = EvmEnv { block_env: block, ..Default::default() };
 
         let evm = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});

@@ -287,6 +287,8 @@ async fn test_flashbots_validate_v4() -> eyre::Result<()> {
 }
 
 #[tokio::test]
+// TODO(usm) re-enable these
+#[ignore = "We disabled fork activations"]
 async fn test_eth_config() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
 

@@ -31,7 +31,7 @@ mod tests {
     use crate::eth::helpers::types::EthRpcConverter;
 
     use super::*;
-    use alloy_primitives::{Address, StorageKey, StorageValue, U256};
+    use alloy_primitives::{Address, StorageKey, U256};
     use reth_chainspec::ChainSpec;
     use reth_evm_ethereum::EthEvmConfig;
     use reth_network_api::noop::NoopNetwork;

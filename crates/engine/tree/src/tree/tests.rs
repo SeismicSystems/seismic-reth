@@ -1,5 +1,5 @@
 use super::*;
-use crate::persistence::PersistenceAction;
+use crate::{backup::BackupHandle, persistence::PersistenceAction};
 use alloy_consensus::Header;
 use alloy_primitives::{
     map::{HashMap, HashSet},
@@ -187,6 +187,9 @@ impl TestHarness {
             Box::new(NoopInvalidBlockHook::default()),
         );
 
+        let (backup_tx, _backup_rx) = channel();
+        let backup_handle = BackupHandle::new(backup_tx);
+
         let tree = EngineApiTreeHandler::new(
             provider.clone(),
             consensus,
@@ -201,6 +204,7 @@ impl TestHarness {
             TreeConfig::default().with_legacy_state_root(false).with_has_enough_parallelism(true),
             EngineApiKind::Ethereum,
             evm_config,
+            backup_handle,
         );
 
         let block_builder = TestBlockBuilder::default().with_chain_spec((*chain_spec).clone());

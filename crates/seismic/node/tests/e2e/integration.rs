@@ -55,7 +55,8 @@ const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessa
 
 #[tokio::test(flavor = "multi_thread")]
 async fn integration_test() {
-    // set to true when I want to spin up my own node outside the test to see logs more easily
+    // set this to true when you want to spin up a node
+    // outside the test to see logs more easily
     let manual_debug = false;
 
     let mut shutdown_tx_top: Option<mpsc::Sender<()>> = None;
@@ -105,11 +106,12 @@ async fn test_seismic_reth_rpc() {
     .await
     .unwrap();
     // assert_eq!(tx_hash, itx.tx_hashes[0]);
-    thread::sleep(Duration::from_secs(1));
+    thread::sleep(Duration::from_secs(3));
     println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
 
     // Get the transaction receipt
     let receipt = EthApiClient::<
+        SeismicTransactionRequest,
         SeismicTransactionSigned,
         SeismicBlock,
         SeismicTransactionReceipt,
@@ -127,6 +129,7 @@ async fn test_seismic_reth_rpc() {
 
     // Make sure the code of the contract is deployed
     let code = EthApiClient::<
+        SeismicTransactionRequest,
         SeismicTransactionSigned,
         SeismicBlock,
         SeismicTransactionReceipt,
@@ -161,6 +164,7 @@ async fn test_seismic_reth_rpc() {
 
     // Send transaction to set suint
     let tx_hash = EthApiClient::<
+        SeismicTransactionRequest,
         SeismicTransactionSigned,
         SeismicBlock,
         SeismicTransactionReceipt,
@@ -184,6 +188,7 @@ async fn test_seismic_reth_rpc() {
 
     // Get the transaction receipt
     let receipt = EthApiClient::<
+        SeismicTransactionRequest,
         SeismicTransactionSigned,
         SeismicBlock,
         SeismicTransactionReceipt,
@@ -238,16 +243,16 @@ async fn test_seismic_reth_rpc() {
     println!("eth_estimateGas for is_odd() gas: {:?}", gas);
     assert!(gas > U256::ZERO);
 
-    let access_list = EthApiClient::<
-        SeismicTransactionSigned,
-        SeismicBlock,
-        SeismicTransactionReceipt,
-        Header,
-    >::create_access_list(
-        &client, simulate_tx_request.inner.clone(), None, None
-    )
-    .await
-    .unwrap();
+    let access_list =
+        EthApiClient::<
+            SeismicTransactionRequest,
+            SeismicTransactionSigned,
+            SeismicBlock,
+            SeismicTransactionReceipt,
+            Header,
+        >::create_access_list(&client, simulate_tx_request.inner.clone().into(), None, None)
+        .await
+        .unwrap();
     println!("eth_createAccessList for is_odd() access_list: {:?}", access_list);
 
     // test call
@@ -313,6 +318,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
 
     // Get the transaction receipt
     let receipt = EthApiClient::<
+        SeismicTransactionRequest,
         SeismicTransactionSigned,
         SeismicBlock,
         SeismicTransactionReceipt,
@@ -331,6 +337,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
 
     // Make sure the code of the contract is deployed
     let code = EthApiClient::<
+        SeismicTransactionRequest,
         SeismicTransactionSigned,
         SeismicBlock,
         SeismicTransactionReceipt,

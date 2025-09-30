@@ -10,7 +10,6 @@ use alloy_eips::{
 };
 use alloy_json_rpc::RpcObject;
 use alloy_primitives::{Address, BlockHash, Bytes, B256, U256, U64};
-use alloy_rpc_types::TransactionRequest;
 use alloy_rpc_types_engine::{
     ClientVersionV1, ExecutionPayloadBodiesV1, ExecutionPayloadInputV2, ExecutionPayloadV1,
     ExecutionPayloadV3, ForkchoiceState, ForkchoiceUpdated, PayloadId, PayloadStatus,

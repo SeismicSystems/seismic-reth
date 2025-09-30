@@ -10,13 +10,12 @@ use reth_db::{
 use reth_primitives_traits::{Account, StorageEntry};
 use reth_provider::test_utils::create_test_provider_factory;
 use reth_trie::{
-    test_utils::{state_root_prehashed, storage_root_prehashed},
+    test_utils::{state_root_prehashed, storage_root_prehashed_privacy_aware},
     trie_cursor::InMemoryTrieCursorFactory,
     updates::TrieUpdates,
     HashedPostState, HashedStorage, StateRoot, StorageRoot,
 };
 use reth_trie_db::{DatabaseStateRoot, DatabaseStorageRoot, DatabaseTrieCursorFactory};
-use revm::state::FlaggedStorage;
 use std::collections::BTreeMap;
 
 proptest! {
@@ -76,7 +75,7 @@ proptest! {
     }
 
     #[test]
-    fn fuzz_in_memory_storage_nodes(mut init_storage: BTreeMap<B256, U256>, storage_updates: [(bool, BTreeMap<B256, U256>); 10]) {
+    fn fuzz_in_memory_storage_nodes(mut init_storage: BTreeMap<B256, alloy_primitives::FlaggedStorage>, storage_updates: [(bool, BTreeMap<B256, alloy_primitives::FlaggedStorage>); 10]) {
         let hashed_address = B256::random();
         let factory = create_test_provider_factory();
         let provider = factory.provider_rw().unwrap();
@@ -86,7 +85,7 @@ proptest! {
         // Insert init state into database
         for (hashed_slot, value) in init_storage.clone() {
             hashed_storage_cursor
-                .upsert(hashed_address, &StorageEntry { key: hashed_slot, value: FlaggedStorage::public(value) })
+                .upsert(hashed_address, &StorageEntry { key: hashed_slot, value })
                 .unwrap();
         }
 
@@ -103,9 +102,9 @@ proptest! {
             let mut hashed_storage = HashedStorage::new(is_deleted);
             for (hashed_slot, value) in storage_update.clone() {
                 hashed_storage_cursor
-                    .upsert(hashed_address, &StorageEntry { key: hashed_slot, value: FlaggedStorage::public(value) })
+                    .upsert(hashed_address, &StorageEntry { key: hashed_slot, value })
                     .unwrap();
-                hashed_storage.storage.insert(hashed_slot, FlaggedStorage::new_from_value(value));
+                hashed_storage.storage.insert(hashed_slot, value);
             }
 
             // Compute root with in-memory trie nodes overlay
@@ -128,7 +127,7 @@ proptest! {
                 storage.clear();
             }
             storage.append(&mut storage_update);
-            let expected_root = storage_root_prehashed(storage.clone());
+            let expected_root = storage_root_prehashed_privacy_aware(storage.clone());
             assert_eq!(expected_root, storage_root);
         }
     }

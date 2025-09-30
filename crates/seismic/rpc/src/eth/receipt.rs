@@ -1,45 +1,20 @@
 //! Loads and formats Seismic receipt RPC response.
 
-use alloy_consensus::transaction::TransactionMeta;
-use alloy_eips::eip7840::BlobParams;
-use reth_chainspec::{ChainSpec, ChainSpecProvider, EthChainSpec};
-use reth_node_api::{FullNodeComponents, NodeTypes};
-use reth_rpc_eth_api::{helpers::LoadReceipt, FromEthApiError, RpcNodeCore, RpcReceipt};
+use reth_rpc_convert::transaction::{ConvertReceiptInput, ReceiptConverter};
+use reth_rpc_eth_api::{helpers::LoadReceipt, RpcConvert, RpcNodeCore};
 use reth_rpc_eth_types::{receipt::build_receipt, EthApiError};
-use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
-use reth_storage_api::{ReceiptProvider, TransactionsProvider};
-use seismic_alloy_consensus::{SeismicReceiptEnvelope, SeismicTxType};
+use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt};
+use seismic_alloy_consensus::SeismicReceiptEnvelope;
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
+use std::fmt::Debug;
 
-use crate::SeismicEthApi;
+use crate::{SeismicEthApi, SeismicEthApiError};
 
-impl<N> LoadReceipt for SeismicEthApi<N>
+impl<N, Rpc> LoadReceipt for SeismicEthApi<N, Rpc>
 where
-    Self: Send + Sync,
-    N: FullNodeComponents<Types: NodeTypes<ChainSpec = ChainSpec>>,
-    Self::Provider: TransactionsProvider<Transaction = SeismicTransactionSigned>
-        + ReceiptProvider<Receipt = SeismicReceipt>
-        + ChainSpecProvider<ChainSpec = ChainSpec>,
+    N: RpcNodeCore,
+    Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
 {
-    async fn build_transaction_receipt(
-        &self,
-        tx: SeismicTransactionSigned,
-        meta: TransactionMeta,
-        receipt: SeismicReceipt,
-    ) -> Result<RpcReceipt<Self::NetworkTypes>, Self::Error> {
-        let hash = meta.block_hash;
-        // get all receipts for the block
-        let all_receipts = self
-            .inner
-            .cache()
-            .get_receipts(hash)
-            .await
-            .map_err(Self::Error::from_eth_err)?
-            .ok_or(EthApiError::HeaderNotFound(hash.into()))?;
-        let blob_params = self.provider().chain_spec().blob_params_at_timestamp(meta.timestamp);
-
-        Ok(SeismicReceiptBuilder::new(&tx, meta, &receipt, &all_receipts, blob_params)?.build())
-    }
 }
 
 /// Builds an [`SeismicTransactionReceipt`].
@@ -53,29 +28,16 @@ pub struct SeismicReceiptBuilder {
 
 impl SeismicReceiptBuilder {
     /// Returns a new builder.
-    pub fn new(
-        transaction: &SeismicTransactionSigned,
-        meta: TransactionMeta,
-        receipt: &SeismicReceipt,
-        all_receipts: &[SeismicReceipt],
-        blob_params: Option<BlobParams>,
-    ) -> Result<Self, EthApiError> {
-        let base = build_receipt(
-            transaction,
-            meta,
-            receipt,
-            all_receipts,
-            blob_params,
-            |receipt_with_bloom| match receipt.tx_type() {
-                SeismicTxType::Legacy => SeismicReceiptEnvelope::Legacy(receipt_with_bloom),
-                SeismicTxType::Eip2930 => SeismicReceiptEnvelope::Eip2930(receipt_with_bloom),
-                SeismicTxType::Eip1559 => SeismicReceiptEnvelope::Eip1559(receipt_with_bloom),
-                SeismicTxType::Eip7702 => SeismicReceiptEnvelope::Eip7702(receipt_with_bloom),
-                SeismicTxType::Seismic => SeismicReceiptEnvelope::Seismic(receipt_with_bloom),
-                #[allow(unreachable_patterns)]
-                _ => unreachable!(),
-            },
-        )?;
+    pub fn new(input: ConvertReceiptInput<'_, SeismicPrimitives>) -> Result<Self, EthApiError> {
+        let base = build_receipt(&input, None, |receipt_with_bloom| match input.receipt.as_ref() {
+            SeismicReceipt::Legacy(_) => SeismicReceiptEnvelope::Legacy(receipt_with_bloom),
+            SeismicReceipt::Eip2930(_) => SeismicReceiptEnvelope::Eip2930(receipt_with_bloom),
+            SeismicReceipt::Eip1559(_) => SeismicReceiptEnvelope::Eip1559(receipt_with_bloom),
+            SeismicReceipt::Eip7702(_) => SeismicReceiptEnvelope::Eip7702(receipt_with_bloom),
+            SeismicReceipt::Seismic(_) => SeismicReceiptEnvelope::Seismic(receipt_with_bloom),
+            #[allow(unreachable_patterns)]
+            _ => unreachable!(),
+        });
 
         Ok(Self { base })
     }
@@ -84,5 +46,35 @@ impl SeismicReceiptBuilder {
     /// Seismic receipt fields.
     pub fn build(self) -> SeismicTransactionReceipt {
         self.base
+    }
+}
+
+/// Seismic receipt converter.
+#[derive(Debug, Clone)]
+pub struct SeismicReceiptConverter;
+
+impl SeismicReceiptConverter {
+    /// Creates a new seismic receipt converter.
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl ReceiptConverter<SeismicPrimitives> for SeismicReceiptConverter {
+    type Error = SeismicEthApiError;
+    type RpcReceipt = SeismicTransactionReceipt;
+
+    fn convert_receipts(
+        &self,
+        inputs: Vec<ConvertReceiptInput<'_, SeismicPrimitives>>,
+    ) -> Result<Vec<Self::RpcReceipt>, Self::Error> {
+        inputs
+            .into_iter()
+            .map(|input| {
+                SeismicReceiptBuilder::new(input)
+                    .map_err(SeismicEthApiError::Eth)
+                    .map(|builder| builder.build())
+            })
+            .collect()
     }
 }

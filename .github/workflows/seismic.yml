@@ -4,7 +4,7 @@ on:
   push:
     branches: [seismic]
   pull_request:
-    branches: [seismic, clean-upstream-merge]
+    branches: [seismic, usm]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -67,7 +67,7 @@ jobs:
           shared-key: "integration-test-cache"
       - name: seismic-node test
         # see profile.default in .config/nextest.toml for filtered tests
-        run: cargo nextest run --workspace -E '!kind(test)'
+        run: cargo nextest run --workspace -E '!kind(test)' --no-fail-fast
 
   integration-test:
     runs-on: large-github-runner
@@ -83,7 +83,7 @@ jobs:
           shared-key: "integration-test-cache"
       - name: seismic-node test
         # see profile.default in .config/nextest.toml for filtered tests
-        run: cargo nextest run --workspace -E 'kind(test)'
+        run: cargo nextest run --workspace -E 'kind(test)' --no-fail-fast
   
   viem:
     runs-on: large-github-runner

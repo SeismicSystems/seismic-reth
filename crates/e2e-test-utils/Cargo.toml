@@ -12,7 +12,6 @@ workspace = true
 
 [dependencies]
 # Seismic pre-merge
-alloy-rlp.workspace = true
 op-alloy-rpc-types-engine = { workspace = true, optional = true }
 
 # upstream

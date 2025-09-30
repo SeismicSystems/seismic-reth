@@ -22,6 +22,7 @@ reth-evm = { workspace = true }
 reth-primitives-traits.workspace = true
 reth-execution-errors.workspace = true
 reth-execution-types.workspace = true
+reth-storage-errors.workspace = true
 reth-consensus.workspace = true
 reth-consensus-common.workspace = true
 
@@ -30,13 +31,14 @@ alloy-eips.workspace = true
 alloy-evm.workspace = true
 alloy-seismic-evm.workspace = true
 alloy-primitives.workspace = true
+alloy-rpc-types-engine.workspace = true
 seismic-alloy-consensus.workspace = true
 alloy-consensus.workspace = true
 
 reth-seismic-chainspec.workspace = true
 reth-seismic-forks.workspace = true
 reth-seismic-primitives = { workspace = true }
-reth-ethereum-primitives = { workspace = true, features = ["serde", "reth-codec"]}
+reth-ethereum-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"]}
 
 # revm
 revm.workspace = true

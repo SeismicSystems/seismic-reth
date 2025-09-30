@@ -172,27 +172,19 @@ where
             )?;
             for hashed_slot in hashed_slots.into_iter().sorted_unstable() {
                 let storage_nibbles = Nibbles::unpack(hashed_slot);
-
-                /* 
-                let maybe_flagged_storage =
+                let maybe_leaf_value =
                     storage.and_then(|s| s.storage.get(&hashed_slot)).filter(|v| !v.is_zero());
-
-                if let Some(value) = maybe_flagged_storage {
+                if let Some(value) = maybe_leaf_value {
                     let is_private = value.is_private;
-                    let value = alloy_rlp::encode_fixed_size(&value.value).to_vec();
-                    storage_trie.update_leaf(storage_nibbles, value, is_private).map_err(
-                        |err| {
+                    let value = alloy_rlp::encode_fixed_size(value).to_vec();
+                    storage_trie
+                        .update_leaf(storage_nibbles, value, is_private, &provider)
+                        .map_err(|err| {
                             SparseStateTrieErrorKind::SparseStorageTrie(
                                 hashed_address,
                                 err.into_kind(),
                             )
-                        },
-                    )?;
-                */
-                if let Some(value) = maybe_leaf_value {
-                    storage_trie.update_leaf(storage_nibbles, value, &provider).map_err(|err| {
-                        SparseStateTrieErrorKind::SparseStorageTrie(hashed_address, err.into_kind())
-                    })?;
+                        })?;
                 } else {
                     storage_trie.remove_leaf(&storage_nibbles, &provider).map_err(|err| {
                         SparseStateTrieErrorKind::SparseStorageTrie(hashed_address, err.into_kind())

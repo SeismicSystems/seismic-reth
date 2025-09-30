@@ -648,8 +648,10 @@ mod tests {
 
         let state_updates = create_mock_state_updates(10, 10);
         let mut hashed_state = HashedPostState::default();
-        let mut accumulated_state: HashMap<Address, (Account, HashMap<B256, U256>)> =
-            HashMap::default();
+        let mut accumulated_state: HashMap<
+            Address,
+            (Account, HashMap<B256, alloy_primitives::FlaggedStorage>),
+        > = HashMap::default();
 
         {
             let provider_rw = factory.provider_rw().expect("failed to get provider");
@@ -678,10 +680,10 @@ mod tests {
         for update in &state_updates {
             hashed_state.extend(evm_state_to_hashed_post_state(update.clone()));
             for (address, account) in update {
-                let storage: HashMap<B256, U256> = account
+                let storage: HashMap<B256, alloy_primitives::FlaggedStorage> = account
                     .storage
                     .iter()
-                    .map(|(k, v)| (B256::from(*k), v.present_value.value))
+                    .map(|(k, v)| (B256::from(*k), v.present_value))
                     .collect();
 
                 let entry = accumulated_state.entry(*address).or_default();
