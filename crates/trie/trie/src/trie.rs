@@ -221,7 +221,8 @@ where
                     hashed_address,
                     account,
                     &mut hash_builder,
-                    false, // TODO(usm)
+                    // TODO(audit)
+                    false,
                     retain_updates,
                 )? {
                     // still in progress, need to pause again

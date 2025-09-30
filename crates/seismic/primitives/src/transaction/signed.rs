@@ -114,24 +114,6 @@ impl SignedTransaction for SeismicTransactionSigned {
         self.hash.get_or_init(|| self.recalculate_hash())
     }
 
-    // TODO(usm): remove
-    /*
-    fn recover_signer_unchecked_with_buf(
-        &self,
-        buf: &mut Vec<u8>,
-    ) -> Result<Address, RecoveryError> {
-        match &self.transaction {
-            SeismicTypedTransaction::Legacy(tx) => tx.encode_for_signing(buf),
-            SeismicTypedTransaction::Eip2930(tx) => tx.encode_for_signing(buf),
-            SeismicTypedTransaction::Eip1559(tx) => tx.encode_for_signing(buf),
-            SeismicTypedTransaction::Eip4844(tx) => tx.encode_for_signing(buf),
-            SeismicTypedTransaction::Eip7702(tx) => tx.encode_for_signing(buf),
-            SeismicTypedTransaction::Seismic(tx) => tx.encode_for_signing(buf),
-        };
-        recover_signer_unchecked(&self.signature, keccak256(buf))
-    }
-    */
-
     fn recalculate_hash(&self) -> B256 {
         keccak256(self.encoded_2718())
     }
