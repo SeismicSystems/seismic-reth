@@ -86,6 +86,10 @@ asm-keccak = [
     "reth-node-core/asm-keccak",
     "revm/asm-keccak",
 ]
+gas-price-zero = [
+    "reth-ethereum-consensus/gas-price-zero",
+    "reth-rpc/gas-price-zero",
+]
 js-tracer = ["reth-node-builder/js-tracer"]
 test-utils = [
     "reth-node-builder/test-utils",
