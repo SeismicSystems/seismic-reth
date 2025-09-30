@@ -38,7 +38,7 @@ fn calculate_root_from_leaves(c: &mut Criterion) {
                 for (key, value) in state.iter().sorted_by_key(|(key, _)| *key) {
                     hb.add_leaf(
                         Nibbles::unpack(key),
-                        &alloy_rlp::encode_fixed_size(&value.value),
+                        &alloy_rlp::encode_fixed_size(value),
                         is_private,
                     );
                 }
@@ -55,7 +55,7 @@ fn calculate_root_from_leaves(c: &mut Criterion) {
                     sparse
                         .update_leaf(
                             Nibbles::unpack(key),
-                            alloy_rlp::encode_fixed_size(&value.value).to_vec(),
+                            alloy_rlp::encode_fixed_size(value).to_vec(),
                             is_private,
                             &provider,
                         )
@@ -115,7 +115,7 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                             for (key, value) in init_state.iter().sorted_by_key(|(key, _)| *key) {
                                 hb.add_leaf(
                                     Nibbles::unpack(key),
-                                    &alloy_rlp::encode_fixed_size(&value.value),
+                                    &alloy_rlp::encode_fixed_size(value),
                                     is_private,
                                 );
                             }
@@ -174,7 +174,7 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                         TrieElement::Leaf(hashed_slot, value) => {
                                             hb.add_leaf(
                                                 Nibbles::unpack(hashed_slot),
-                                                alloy_rlp::encode_fixed_size(&value.value).as_ref(),
+                                                alloy_rlp::encode_fixed_size(&value).as_ref(),
                                                 is_private,
                                             );
                                         }
@@ -207,7 +207,7 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                 sparse
                                     .update_leaf(
                                         Nibbles::unpack(key),
-                                        alloy_rlp::encode_fixed_size(&value.value).to_vec(),
+                                        alloy_rlp::encode_fixed_size(value).to_vec(),
                                         is_private,
                                         &provider,
                                     )
@@ -222,7 +222,7 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                     sparse
                                         .update_leaf(
                                             Nibbles::unpack(key),
-                                            alloy_rlp::encode_fixed_size(&value.value).to_vec(),
+                                            alloy_rlp::encode_fixed_size(value).to_vec(),
                                             is_private,
                                             &provider,
                                         )

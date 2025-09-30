@@ -12,8 +12,9 @@ use reth_trie::{
     MultiProofTargets, StorageMultiProof, TrieInput,
 };
 use revm_database::BundleState;
-use revm_state::FlaggedStorage;
 use std::sync::OnceLock;
+
+use alloy_primitives::FlaggedStorage;
 
 /// A state provider that stores references to in-memory blocks along with their state as well as a
 /// reference of the historical state provider for fallback lookups.

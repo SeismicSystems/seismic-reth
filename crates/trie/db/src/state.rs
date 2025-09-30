@@ -312,7 +312,11 @@ mod tests {
         let tx = db.tx().expect("failed to create transaction");
         assert_eq!(
             StateRoot::overlay_root(&tx, post_state).unwrap(),
+            // If we had the same state root calculation as ethereum when all values are public:
+            /*
             hex!("b464525710cafcf5d4044ac85b72c08b1e76231b8d91f288fe438cc41d8eaafd")
+            */
+            hex!("64f7822621afd8a66d71e233b48e945c101ab97334e19398422f22c3fae72223")
         );
     }
 }

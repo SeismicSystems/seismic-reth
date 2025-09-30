@@ -7,14 +7,13 @@ use crate::tree::{
     instrumented_state::InstrumentedStateProvider,
     payload_processor::PayloadProcessor,
     persistence_state::CurrentPersistenceAction,
-    precompile_cache::{CachedPrecompile, CachedPrecompileMetrics, PrecompileCacheMap},
+    precompile_cache::{CachedPrecompileMetrics, PrecompileCacheMap},
     sparse_trie::StateRootComputeOutcome,
     ConsistentDbView, EngineApiMetrics, EngineApiTreeState, ExecutionEnv, PayloadHandle,
     PersistenceState, PersistingKind, StateProviderBuilder, StateProviderDatabase, TreeConfig,
 };
 use alloy_consensus::transaction::Either;
 use alloy_eips::{eip1898::BlockWithParent, NumHash};
-use alloy_evm::Evm;
 use alloy_primitives::B256;
 use reth_chain_state::{
     CanonicalInMemoryState, ExecutedBlock, ExecutedBlockWithTrieUpdates, ExecutedTrieUpdates,
@@ -24,10 +23,7 @@ use reth_engine_primitives::{
     ConfigureEngineEvm, ExecutableTxIterator, ExecutionPayload, InvalidBlockHook, PayloadValidator,
 };
 use reth_errors::{BlockExecutionError, ProviderResult};
-use reth_evm::{
-    block::BlockExecutor, execute::ExecutableTxFor, ConfigureEvm, EvmEnvFor, ExecutionCtxFor,
-    SpecFor,
-};
+use reth_evm::{execute::ExecutableTxFor, ConfigureEvm, EvmEnvFor, ExecutionCtxFor, SpecFor};
 use reth_payload_primitives::{
     BuiltPayload, InvalidPayloadAttributesError, NewPayloadError, PayloadTypes,
 };
@@ -151,8 +147,10 @@ where
     /// Payload processor for state root computation.
     payload_processor: PayloadProcessor<Evm>,
     /// Precompile cache map.
+    #[allow(dead_code)]
     precompile_cache_map: PrecompileCacheMap<SpecFor<Evm>>,
     /// Precompile cache metrics.
+    #[allow(dead_code)]
     precompile_cache_metrics: HashMap<alloy_primitives::Address, CachedPrecompileMetrics>,
     /// Hook to call when invalid blocks are encountered.
     #[debug(skip)]
@@ -676,23 +674,25 @@ where
 
         let evm = self.evm_config.evm_with_env(&mut db, env.evm_env.clone());
         let ctx = self.execution_ctx_for(input);
+
+        #[allow(unused_mut)]
         let mut executor = self.evm_config.create_executor(evm, ctx);
 
         if !self.config.precompile_cache_disabled() {
             // Only cache pure precompiles to avoid issues with stateful precompiles
-            executor.evm_mut().precompiles_mut().map_pure_precompiles(|address, precompile| {
-                let metrics = self
-                    .precompile_cache_metrics
-                    .entry(*address)
-                    .or_insert_with(|| CachedPrecompileMetrics::new_with_address(*address))
-                    .clone();
-                CachedPrecompile::wrap(
-                    precompile,
-                    self.precompile_cache_map.cache_for_address(*address),
-                    *env.evm_env.spec_id(),
-                    Some(metrics),
-                )
-            });
+            // executor.evm_mut().precompiles_mut().map_pure_precompiles(|address, precompile| {
+            //     let metrics = self
+            //         .precompile_cache_metrics
+            //         .entry(*address)
+            //         .or_insert_with(|| CachedPrecompileMetrics::new_with_address(*address))
+            //         .clone();
+            //     CachedPrecompile::wrap(
+            //         precompile,
+            //         self.precompile_cache_map.cache_for_address(*address),
+            //         *env.evm_env.spec_id(),
+            //         Some(metrics),
+            //     )
+            // });
         }
 
         let execution_start = Instant::now();

@@ -1,6 +1,5 @@
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{Address, Bytes, B256, U256, U64};
-use alloy_rpc_types::TransactionRequest;
 use alloy_rpc_types_eth::{
     state::StateOverride, BlockOverrides, EIP1186AccountProofResponse, Filter, Log, SyncStatus,
 };
@@ -8,12 +7,12 @@ use alloy_serde::JsonStorageKey;
 use jsonrpsee::core::RpcResult as Result;
 use reth_rpc_api::{EngineEthApiServer, EthApiServer};
 use reth_rpc_convert::RpcTxReq;
-/// Re-export for convenience
-pub use reth_rpc_engine_api::EngineApi;
 use reth_rpc_eth_api::{
     EngineEthFilter, FullEthApiTypes, QueryLimits, RpcBlock, RpcHeader, RpcReceipt, RpcTransaction,
 };
 use tracing_futures::Instrument;
+
+pub use reth_rpc_engine_api::EngineApi;
 
 macro_rules! engine_span {
     () => {
@@ -83,7 +82,7 @@ where
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> Result<Bytes> {
         self.eth
-            .call(request, block_number, state_overrides, block_overrides)
+            .call(request, block_id, state_overrides, block_overrides)
             .instrument(engine_span!())
             .await
     }

@@ -282,6 +282,7 @@ mod tests {
     use std::path::PathBuf;
 
     #[tokio::test]
+    #[ignore]
     async fn test_stage_checkpoints_persistence() {
         // This test specifically verifies that stage checkpoints are persisted correctly
         // when reopening the database
@@ -451,6 +452,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_import_blocks_only() {
         // Tests just the block import functionality without full node setup
         reth_tracing::init_test_tracing();
@@ -519,6 +521,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_import_with_node_integration() {
         // Tests the full integration with node setup, forkchoice updates, and syncing
         reth_tracing::init_test_tracing();

@@ -229,7 +229,10 @@ where
             .map(|m| {
                 m.iter()
                     .map(|(key, &flagged_value)| {
-                        (*key, (alloy_primitives::FlaggedStorage::public(U256::ZERO), flagged_value))
+                        (
+                            *key,
+                            (alloy_primitives::FlaggedStorage::public(U256::ZERO), flagged_value),
+                        )
                     })
                     .collect::<HashMap<_, _>>()
             })

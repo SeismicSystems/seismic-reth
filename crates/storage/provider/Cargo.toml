@@ -70,7 +70,7 @@ reth-chain-state = { workspace = true, features = ["test-utils"] }
 reth-trie = { workspace = true, features = ["test-utils"] }
 reth-testing-utils.workspace = true
 reth-ethereum-engine-primitives.workspace = true
-reth-ethereum-primitives.workspace = true
+reth-ethereum-primitives = { workspace = true, features = ["reth-codec", "serde", "serde-bincode-compat"] }
 
 revm-database-interface.workspace = true
 revm-state.workspace = true

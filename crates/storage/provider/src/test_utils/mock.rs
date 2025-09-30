@@ -44,7 +44,6 @@ use std::{
 };
 use tokio::sync::broadcast;
 
-use reth_trie_db::MerklePatriciaTrie;
 use revm_state::FlaggedStorage;
 
 /// A mock implementation for Provider interfaces.

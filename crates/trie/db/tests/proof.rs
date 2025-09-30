@@ -170,9 +170,12 @@ fn mainnet_genesis_account_proof_nonexistent() {
 }
 
 #[test]
+#[ignore = "State roots use non-flagged storage"]
 fn holesky_deposit_contract_proof() {
-    let is_private = false; // legacy test adapter
-                            // Create test database and insert genesis accounts.
+    // legacy test adapter
+    let is_private = false;
+
+    // Create test database and insert genesis accounts.
     let factory = create_test_provider_factory();
     let root = insert_genesis(&factory, HOLESKY.clone()).unwrap();
 

@@ -221,6 +221,7 @@ where
                     hashed_address,
                     account,
                     &mut hash_builder,
+                    false, // TODO(usm)
                     retain_updates,
                 )? {
                     // still in progress, need to pause again
@@ -281,6 +282,7 @@ where
                         hashed_address,
                         account,
                         &mut hash_builder,
+                        is_private,
                         retain_updates,
                     )? {
                         // storage root hit threshold, need to pause
@@ -415,6 +417,7 @@ impl StateRootContext {
         hashed_address: B256,
         account: Account,
         hash_builder: &mut HashBuilder,
+        is_private: bool,
         retain_updates: bool,
     ) -> Result<Option<IntermediateStorageRootState>, StateRootError> {
         match storage_result {
@@ -430,7 +433,11 @@ impl StateRootContext {
                 self.account_rlp.clear();
                 let trie_account = account.into_trie_account(storage_root);
                 trie_account.encode(&mut self.account_rlp as &mut dyn BufMut);
-                hash_builder.add_leaf(Nibbles::unpack(hashed_address), &self.account_rlp);
+                hash_builder.add_leaf(
+                    Nibbles::unpack(hashed_address),
+                    &self.account_rlp,
+                    is_private,
+                );
                 Ok(None)
             }
             StorageRootProgress::Progress(state, storage_slots_walked, updates) => {
@@ -667,7 +674,7 @@ where
                     hashed_entries_walked += 1;
                     hash_builder.add_leaf(
                         Nibbles::unpack(hashed_slot),
-                        alloy_rlp::encode_fixed_size(&value.value).as_ref(),
+                        alloy_rlp::encode_fixed_size(&value).as_ref(),
                         value.is_private,
                     );
 

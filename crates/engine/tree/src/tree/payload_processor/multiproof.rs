@@ -1534,8 +1534,8 @@ mod tests {
 
         // add storage updates
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, U256::from(100));
-        storage.storage.insert(slot2, U256::from(200));
+        storage.storage.insert(slot1, U256::from(100).into());
+        storage.storage.insert(slot2, U256::from(200).into());
         state.storages.insert(addr, storage);
 
         // mark slot1 as already fetched
@@ -1546,7 +1546,7 @@ mod tests {
         // update multi_added_removed_keys to mark slot1 as removed
         let mut removed_state = HashedPostState::default();
         let mut removed_storage = HashedStorage::default();
-        removed_storage.storage.insert(slot1, U256::ZERO); // U256::ZERO marks as removed
+        removed_storage.storage.insert(slot1, U256::ZERO.into()); // U256::ZERO marks as removed
         removed_state.storages.insert(addr, removed_storage);
         multi_added_removed_keys.update_with_state(&removed_state);
 
@@ -1574,7 +1574,7 @@ mod tests {
 
         // add wiped storage
         let mut storage = HashedStorage::new(true);
-        storage.storage.insert(slot1, U256::from(100));
+        storage.storage.insert(slot1, U256::from(100).into());
         state.storages.insert(addr, storage);
 
         let targets = get_proof_targets(&state, &fetched, &multi_added_removed_keys);
@@ -1602,8 +1602,8 @@ mod tests {
 
         // add storage updates for slot1 and slot2 only
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, U256::from(100));
-        storage.storage.insert(slot2, U256::from(200));
+        storage.storage.insert(slot1, U256::from(100).into());
+        storage.storage.insert(slot2, U256::from(200).into());
         state.storages.insert(addr, storage);
 
         // mark all slots as already fetched
@@ -1616,7 +1616,7 @@ mod tests {
         // mark slot3 as removed (even though it's not in the state update)
         let mut removed_state = HashedPostState::default();
         let mut removed_storage = HashedStorage::default();
-        removed_storage.storage.insert(slot3, U256::ZERO);
+        removed_storage.storage.insert(slot3, U256::ZERO.into());
         removed_state.storages.insert(addr, removed_storage);
         multi_added_removed_keys.update_with_state(&removed_state);
 

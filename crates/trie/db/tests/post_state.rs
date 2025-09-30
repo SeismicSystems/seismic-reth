@@ -345,7 +345,11 @@ fn zero_value_storage_entries_are_discarded() {
         .map(|key| {
             (
                 B256::with_last_byte(key),
-                if key.is_multiple_of(2) { FlaggedStorage::ZERO } else { FlaggedStorage::new_from_value(key) },
+                if key.is_multiple_of(2) {
+                    FlaggedStorage::ZERO
+                } else {
+                    FlaggedStorage::new_from_value(key)
+                },
             )
         })
         .collect::<BTreeMap<_, _>>();

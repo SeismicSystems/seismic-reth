@@ -755,7 +755,7 @@ impl From<InvalidTransaction> for RpcInvalidTransactionError {
             InvalidTransaction::BlobVersionedHashesNotSupported => {
                 Self::BlobVersionedHashesNotSupported
             }
-            InvalidTransaction::BlobGasPriceGreaterThanMax => Self::BlobFeeCapTooLow,
+            InvalidTransaction::BlobGasPriceGreaterThanMax { .. } => Self::BlobFeeCapTooLow,
             InvalidTransaction::EmptyBlobs => Self::BlobTransactionMissingBlobHashes,
             InvalidTransaction::BlobVersionNotSupported => Self::BlobHashVersionMismatch,
             InvalidTransaction::TooManyBlobs { have, .. } => Self::TooManyBlobs { have },

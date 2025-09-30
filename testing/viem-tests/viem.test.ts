@@ -46,7 +46,7 @@ let wsUrl: string
 let exitProcess: () => Promise<void>;
 let pcParams: { chain: Chain; url: string };
 
-const HOST: string | null = "node-4.seismicdev.net";
+const HOST: string | null = null  // "node-2.seismicdev.net";
 
 beforeAll(async () => {
     if (HOST !== null) {
