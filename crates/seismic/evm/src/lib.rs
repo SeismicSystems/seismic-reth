@@ -234,7 +234,7 @@ where
         );
 
         #[cfg(feature = "gas-price-zero")]
-        basefee = 0u64;
+        basefee = Some(0u64);
 
         let mut gas_limit = attributes.gas_limit;
 
@@ -259,7 +259,7 @@ where
             prevrandao: Some(attributes.prev_randao),
             gas_limit,
             // calculate basefee based on parent block's gas usage
-            basefee,
+            basefee: basefee.unwrap_or_default(),
             // calculate excess gas based on parent block's blob gas usage
             blob_excess_gas_and_price,
         };
