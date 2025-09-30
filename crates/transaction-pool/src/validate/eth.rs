@@ -640,19 +640,16 @@ where
             return Ok(())
         }
 
-        #[cfg(not(feature = "gas-price-zero"))]
-        {
-            let cost = transaction.cost();
+        let cost = transaction.cost();
 
-            if !self.disable_balance_check && cost > &sender.balance {
-                let expected = *cost;
-                return Err(InvalidTransactionError::InsufficientFunds(
-                    GotExpected { got: sender.balance, expected }.into(),
-                )
-                .into())
-            }
-            Ok(())
+        if !self.disable_balance_check && cost > &sender.balance {
+            let expected = *cost;
+            return Err(InvalidTransactionError::InsufficientFunds(
+                GotExpected { got: sender.balance, expected }.into(),
+            )
+            .into())
         }
+        Ok(())
     }
 
     /// Validates EIP-4844 blob sidecar data and returns the extracted sidecar, if any.

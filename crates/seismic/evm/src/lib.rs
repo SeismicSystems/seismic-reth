@@ -229,28 +229,12 @@ where
             )
             .map(|gas| BlobExcessGasAndPrice::new_with_spec(gas, spec_id.into_eth_spec()));
 
+        let mut basefee = parent.next_block_base_fee(
+            self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp),
+        );
+
         #[cfg(feature = "gas-price-zero")]
-        let basefee = 0u64;
-
-        #[cfg(not(feature = "gas-price-zero"))]
-        let basefee = {
-            let mut basefee = parent.next_block_base_fee(
-                self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp),
-            );
-
-            // If we are on the London fork boundary, we need to multiply the parent's gas limit by
-            // the elasticity multiplier to get the new gas limit.
-            if self
-                .chain_spec()
-                .fork(EthereumHardfork::London)
-                .transitions_at_block(parent.number + 1)
-            {
-                // set the base fee to the initial base fee from the EIP-1559 spec
-                basefee = Some(INITIAL_BASE_FEE)
-            }
-
-            basefee.unwrap_or_default()
-        };
+        basefee = 0u64;
 
         let mut gas_limit = attributes.gas_limit;
 
