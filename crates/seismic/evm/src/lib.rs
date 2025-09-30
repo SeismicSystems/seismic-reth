@@ -233,9 +233,6 @@ where
             self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp),
         );
 
-        #[cfg(feature = "gas-price-zero")]
-        basefee = Some(0u64);
-
         let mut gas_limit = attributes.gas_limit;
 
         // If we are on the London fork boundary, we need to multiply the parent's gas limit by the
@@ -250,6 +247,9 @@ where
             // multiply the gas limit by the elasticity multiplier
             gas_limit *= elasticity_multiplier as u64;
         }
+
+        #[cfg(feature = "gas-price-zero")]
+        let basefee = Some(0u64);
 
         let block_env = BlockEnv {
             number: U256::from(parent.number + 1),
