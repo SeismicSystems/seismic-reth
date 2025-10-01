@@ -158,6 +158,10 @@ impl TxPoolArgs {
 
 impl Default for TxPoolArgs {
     fn default() -> Self {
+        #[cfg(feature = "gas-price-zero")]
+        let minimal_protocol_basefee = 0;
+        #[cfg(not(feature = "gas-price-zero"))]
+        let minimal_protocol_basefee = MIN_PROTOCOL_BASE_FEE;
         Self {
             pending_max_count: TXPOOL_SUBPOOL_MAX_TXS_DEFAULT,
             pending_max_size: TXPOOL_SUBPOOL_MAX_SIZE_MB_DEFAULT,
@@ -170,7 +174,7 @@ impl Default for TxPoolArgs {
             blob_cache_size: None,
             max_account_slots: TXPOOL_MAX_ACCOUNT_SLOTS_PER_SENDER,
             price_bump: DEFAULT_PRICE_BUMP,
-            minimal_protocol_basefee: MIN_PROTOCOL_BASE_FEE,
+            minimal_protocol_basefee,
             minimum_priority_fee: None,
             enforced_gas_limit: ETHEREUM_BLOCK_GAS_LIMIT_30M,
             max_tx_gas_limit: None,
