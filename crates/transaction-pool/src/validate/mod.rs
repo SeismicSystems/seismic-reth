@@ -452,6 +452,8 @@ impl<T: PoolTransaction> ValidPoolTransaction<T> {
     /// This applies to both standard gas fees and, for blob-carrying transactions (EIP-4844),
     /// the blob-specific fees.
     #[inline]
+    #[allow(unreachable_code)]
+    #[allow(unused_variables)]
     pub(crate) fn is_underpriced(
         &self,
         maybe_replacement: &Self,
