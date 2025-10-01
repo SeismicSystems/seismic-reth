@@ -13,6 +13,7 @@ workspace = true
 
 [features]
 gas-price-zero = []
+no-value-transfers = []
 
 [dependencies]
 # reth

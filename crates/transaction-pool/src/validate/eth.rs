@@ -25,6 +25,7 @@ use alloy_eips::{
     eip1559::ETHEREUM_BLOCK_GAS_LIMIT_30M, eip4844::env_settings::EnvKzgSettings,
     eip7840::BlobParams,
 };
+use alloy_primitives::U256;
 use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks};
 use reth_primitives_traits::{
     constants::MAX_TX_GAS_LIMIT_OSAKA, transaction::error::InvalidTransactionError, Account, Block,
@@ -382,6 +383,14 @@ where
             return Err(TransactionValidationOutcome::Invalid(
                 transaction,
                 InvalidTransactionError::TipAboveFeeCap.into(),
+            ))
+        }
+
+        #[cfg(feature = "no-value-transfers")]
+        if transaction.value() > U256::ZERO {
+            return Err(TransactionValidationOutcome::Invalid(
+                transaction,
+                InvalidPoolTransactionError::AttemptingToTransferValue,
             ))
         }
 

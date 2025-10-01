@@ -211,6 +211,10 @@ pub enum Eip7702PoolTransactionError {
 /// See [`TransactionValidator`](crate::TransactionValidator).
 #[derive(Debug, thiserror::Error)]
 pub enum InvalidPoolTransactionError {
+    /// Thrown if the transaction is attempting to transfer value > 0
+    #[cfg(feature = "no-value-transfers")]
+    #[error("attempting to transfer value > 0")]
+    AttemptingToTransferValue,
     /// Hard consensus errors
     #[error(transparent)]
     Consensus(#[from] InvalidTransactionError),
@@ -388,6 +392,7 @@ impl InvalidPoolTransactionError {
                 Eip7702PoolTransactionError::AuthorityReserved => false,
             },
             Self::PriorityFeeBelowMinimum { .. } => false,
+            Self::AttemptingToTransferValue => true, // do we want to penalize this?
         }
     }
 

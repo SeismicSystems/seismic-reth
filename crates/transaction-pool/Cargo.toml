@@ -100,6 +100,7 @@ serde-bincode-compat = [
 ]
 reth-codec = ["reth-ethereum-primitives/reth-codec"]
 gas-price-zero = []
+no-value-transfers = []
 test-utils = [
     "rand",
     "paste",

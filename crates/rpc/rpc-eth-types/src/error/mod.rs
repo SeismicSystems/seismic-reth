@@ -504,6 +504,10 @@ impl From<Infallible> for EthApiError {
 ///   `tip` for `max_priority_fee_per_gas`
 #[derive(thiserror::Error, Debug)]
 pub enum RpcInvalidTransactionError {
+    /// Thrown if the transaction is attempting to transfer value > 0
+    #[cfg(feature = "no-value-transfers")]
+    #[error("attempting to transfer value > 0")]
+    AttemptingToTransferValue,
     /// returned if the nonce of a transaction is lower than the one present in the local chain.
     #[error("nonce too low: next nonce {state}, tx nonce {tx}")]
     NonceTooLow {
@@ -997,6 +1001,8 @@ impl From<InvalidPoolTransactionError> for RpcPoolError {
                     minimum_priority_fee,
                 })
             }
+            #[cfg(feature = "no-value-transfers")]
+            InvalidPoolTransactionError::AttemptingToTransferValue => Self::Invalid(RpcInvalidTransactionError::AttemptingToTransferValue),
         }
     }
 }
