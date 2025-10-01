@@ -470,7 +470,7 @@ where
             .with_additional_tasks(ctx.config().txpool.additional_validation_tasks);
 
         #[cfg(feature = "gas-price-zero")]
-        let validator_builder = validator_builder.with_minimum_priority_fee(0);
+        let validator_builder = validator_builder.with_minimum_priority_fee(Some(0));
 
         let validator = validator_builder.build_with_tasks(ctx.task_executor().clone(), blob_store.clone());
 
