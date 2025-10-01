@@ -149,7 +149,7 @@ where
 
         // if we have stored a last price, then we check whether or not it was for the same head
         if inner.last_price.block_hash == header.hash() {
-            return Ok(inner.last_price.price);
+            return Ok(inner.last_price.price)
         }
 
         // if all responses are empty, then we can return a maximum of 2*check_block blocks' worth
@@ -311,7 +311,7 @@ where
 
         // if we have stored a last price, then we check whether or not it was for the same head
         if inner.last_price.block_hash == header.hash() {
-            return Ok(inner.last_price.price)
+            return Ok(inner.last_price.price);
         }
 
         let mut suggestion = min_suggested_priority_fee;
