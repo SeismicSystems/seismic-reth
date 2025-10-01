@@ -1886,7 +1886,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
         println!("Fee cap = {fee_cap}, min protocol basefee = {}", self.minimal_protocol_basefee);
 
         if fee_cap < self.minimal_protocol_basefee as u128 {
-            print("throwing FeeCapBelowMinimumProtocolFeeCap");
+            println!("throwing FeeCapBelowMinimumProtocolFeeCap");
             return Err(InsertErr::FeeCapBelowMinimumProtocolFeeCap { transaction, fee_cap })
         }
         if fee_cap >= self.pending_fees.base_fee as u128 {
