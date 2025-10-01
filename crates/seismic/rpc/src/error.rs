@@ -26,6 +26,10 @@ pub enum SeismicEthApiError {
     /// Attempting to access private storage with sload
     #[error("invalid private storage access")]
     InvalidPrivateStorageAccess,
+    /// Attempting to transfer value > 0
+    #[cfg(feature = "no-value-transfers")]
+    #[error("attempting to transfer value > 0")]
+    AttemptingToTransferValue,
 }
 
 impl AsEthApiError for SeismicEthApiError {

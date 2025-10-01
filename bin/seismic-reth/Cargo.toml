@@ -59,6 +59,10 @@ gas-price-zero = [
     "reth/gas-price-zero",
 ]
 
+no-value-transfers = [
+    "reth-seismic-rpc/no-value-transfers"
+]
+
 [[bin]]
 name = "seismic-reth"
 path = "src/main.rs"
