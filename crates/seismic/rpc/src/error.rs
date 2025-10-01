@@ -52,6 +52,10 @@ impl From<SeismicEthApiError> for jsonrpsee::types::error::ErrorObject<'static> 
             SeismicEthApiError::InvalidPublicStorageAccess => {
                 internal_rpc_err("invalid public storage access")
             }
+            #[cfg(feature = "no-value-transfers")]
+            SeismicEthApiError::AttemptingToTransferValue => {
+                internal_rpc_err("attempting to transfer value > 0")
+            }
         }
     }
 }
