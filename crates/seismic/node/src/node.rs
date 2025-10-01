@@ -465,16 +465,18 @@ where
             DiskFileBlobStoreConfig::default().with_max_cached_entries(blob_cache_size);
 
         let blob_store = DiskFileBlobStore::open(data_dir.blobstore(), custom_config)?;
-        let validator_builder = TransactionValidationTaskExecutor::eth_builder(ctx.provider().clone())
-            .with_head_timestamp(ctx.head().timestamp)
-            .kzg_settings(ctx.kzg_settings()?)
-            .with_local_transactions_config(pool_config.local_transactions_config.clone())
-            .with_additional_tasks(ctx.config().txpool.additional_validation_tasks);
+        let validator_builder =
+            TransactionValidationTaskExecutor::eth_builder(ctx.provider().clone())
+                .with_head_timestamp(ctx.head().timestamp)
+                .kzg_settings(ctx.kzg_settings()?)
+                .with_local_transactions_config(pool_config.local_transactions_config.clone())
+                .with_additional_tasks(ctx.config().txpool.additional_validation_tasks);
 
         #[cfg(feature = "gas-price-zero")]
         let validator_builder = validator_builder.with_minimum_priority_fee(Some(0));
 
-        let validator = validator_builder.build_with_tasks(ctx.task_executor().clone(), blob_store.clone());
+        let validator =
+            validator_builder.build_with_tasks(ctx.task_executor().clone(), blob_store.clone());
 
         let transaction_pool = reth_transaction_pool::Pool::new(
             validator,
