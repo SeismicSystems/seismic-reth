@@ -457,6 +457,12 @@ impl<T: PoolTransaction> ValidPoolTransaction<T> {
         maybe_replacement: &Self,
         price_bumps: &PriceBumpConfig,
     ) -> bool {
+        #[cfg(feature = "gas-price-zero")]
+        {
+            // With zero gas price, skip underpricing checks
+            return false
+        }
+
         // Retrieve the required price bump percentage for this type of transaction.
         //
         // The bump is different for EIP-4844 and other transactions. See `PriceBumpConfig`.
