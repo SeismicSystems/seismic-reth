@@ -388,8 +388,6 @@ where
         // determine whether the transaction should be treated as local
         #[allow(unused_variables)]
         let is_local = self.local_transactions_config.is_local(origin, transaction.sender_ref());
-        println!("is_local check: origin={:?}, sender={:?}, is_local={}, no_exemptions={}, minimum_priority_fee={:?}",
-            origin, transaction.sender_ref(), is_local, self.local_transactions_config.no_local_exemptions(), self.minimum_priority_fee);
 
         // Ensure max possible transaction fee doesn't exceed configured transaction fee cap.
         // Only for transactions locally submitted for acceptance into the pool.
@@ -432,8 +430,6 @@ where
             ))
         }
 
-        println!("Checking chain id...");
-
         // Checks for chainid
         if let Some(chain_id) = transaction.chain_id() {
             if chain_id != self.chain_id() {
@@ -443,8 +439,6 @@ where
                 ))
             }
         }
-
-        println!("Checking eip 7702..");
 
         if transaction.is_eip7702() {
             // Prague fork is required for 7702 txs
@@ -463,13 +457,9 @@ where
             }
         }
 
-        println!("Checking intrinsic gas...");
-
         if let Err(err) = ensure_intrinsic_gas(&transaction, &self.fork_tracker) {
             return Err(TransactionValidationOutcome::Invalid(transaction, err))
         }
-
-        println!("Checking eip 4844...");
 
         // light blob tx pre-checks
         if transaction.is_eip4844() {
@@ -505,8 +495,6 @@ where
                 ))
             }
         }
-
-        println!("Checking osaka activated");
 
         // Osaka validation of max tx gas.
         if self.fork_tracker.is_osaka_activated() &&
