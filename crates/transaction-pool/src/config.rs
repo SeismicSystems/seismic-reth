@@ -112,6 +112,10 @@ impl PoolConfig {
 
 impl Default for PoolConfig {
     fn default() -> Self {
+        #[cfg(feature = "gas-price-zero")]
+        let minimal_protocol_basefee = 0;
+        #[cfg(not(feature = "gas-price-zero"))]
+        let minimal_protocol_basefee = MIN_PROTOCOL_BASE_FEE;
         Self {
             pending_limit: Default::default(),
             basefee_limit: Default::default(),
@@ -120,7 +124,7 @@ impl Default for PoolConfig {
             blob_cache_size: None,
             max_account_slots: TXPOOL_MAX_ACCOUNT_SLOTS_PER_SENDER,
             price_bumps: Default::default(),
-            minimal_protocol_basefee: MIN_PROTOCOL_BASE_FEE,
+            minimal_protocol_basefee,
             minimum_priority_fee: None,
             gas_limit: ETHEREUM_BLOCK_GAS_LIMIT_30M,
             local_transactions_config: Default::default(),
