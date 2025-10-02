@@ -32,7 +32,7 @@ use reth_execution_errors::BlockExecutionError;
 use reth_primitives_traits::{
     BlockTy, HeaderTy, NodePrimitives, ReceiptTy, SealedBlock, SealedHeader, TxTy,
 };
-use revm::{context::TxEnv, database::State};
+use revm::{context::TxEnv, database::State, Inspector};
 
 pub mod either;
 /// EVM environment configuration.
@@ -267,7 +267,7 @@ pub trait ConfigureEvm: Clone + Debug + Send + Sync + Unpin {
     /// including the spec id and transaction environment.
     ///
     /// This will preserve any handler modifications
-    fn evm_with_env<DB: Database>(&self, db: DB, evm_env: EvmEnvFor<Self>) -> EvmFor<Self, DB> {
+    fn evm_with_env<DB: Database>(&self, db: DB, evm_env: EvmEnvFor<Self>) -> EvmFor<Self, DB, Box<dyn Inspector<EvmContextFor<Self, DB>>>> {
         self.evm_factory().create_evm(db, evm_env)
     }
 
@@ -282,7 +282,7 @@ pub trait ConfigureEvm: Clone + Debug + Send + Sync + Unpin {
         &self,
         db: DB,
         header: &HeaderTy<Self::Primitives>,
-    ) -> EvmFor<Self, DB> {
+    ) -> EvmFor<Self, DB, Box<dyn Inspector<EvmContextFor<Self, DB>>>> {
         let evm_env = self.evm_env(header);
         self.evm_with_env(db, evm_env)
     }
@@ -324,7 +324,10 @@ pub trait ConfigureEvm: Clone + Debug + Send + Sync + Unpin {
         &'a self,
         db: &'a mut State<DB>,
         block: &'a SealedBlock<<Self::Primitives as NodePrimitives>::Block>,
-    ) -> impl BlockExecutorFor<'a, Self::BlockExecutorFactory, DB> {
+    ) -> impl BlockExecutorFor<'a, Self::BlockExecutorFactory, &'a mut State<DB>, Box<dyn Inspector<EvmContextFor<Self, &'a mut State<DB>>>>>
+    where
+        DB: Database,
+    {
         let evm = self.evm_for_block(db, block.header());
         let ctx = self.context_for_block(block);
         self.create_executor(evm, ctx)
