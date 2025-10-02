@@ -23,6 +23,7 @@ use reth_node_core::{
     version::{version_metadata, CLIENT_CODE},
 };
 use reth_payload_builder::{PayloadBuilderHandle, PayloadStore};
+use reth_provider::StateProvider;
 use reth_rpc::eth::{core::EthRpcConverterFor, EthApiTypes, FullEthApiServer};
 use reth_rpc_api::{eth::helpers::AddDevSigners, IntoEngineApiRpcModule};
 use reth_rpc_builder::{
@@ -1291,10 +1292,11 @@ where
             <<Node::Types as NodeTypes>::Payload as PayloadTypes>::ExecutionData,
         >,
     >,
+    Node::Provider: StateProvider,
     EV: PayloadValidatorBuilder<Node>,
     EV::Validator: reth_engine_primitives::PayloadValidator<
         <Node::Types as NodeTypes>::Payload,
-        Block = BlockTy<Node::Types>,
+        Block = BlockTy<Node::Types>, 
     >,
 {
     type EngineValidator = BasicEngineValidator<Node::Provider, Node::Evm, EV::Validator>;

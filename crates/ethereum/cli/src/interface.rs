@@ -22,6 +22,7 @@ use reth_tracing::FileWorkerGuard;
 use std::{ffi::OsString, fmt, future::Future, sync::Arc};
 use tracing::info;
 
+
 /// The main reth cli interface.
 ///
 /// This is the entrypoint to the executable.

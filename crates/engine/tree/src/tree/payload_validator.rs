@@ -1015,6 +1015,7 @@ impl<N, Types, P, Evm, V> EngineValidator<Types> for BasicEngineValidator<P, Evm
 where
     P: DatabaseProviderFactory<Provider: BlockReader>
         + BlockReader<Header = N::BlockHeader>
+        + StateProvider
         + StateProviderFactory
         + StateReader
         + HashedPostStateProvider
