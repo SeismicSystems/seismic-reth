@@ -26,6 +26,7 @@ use alloy_eips::{
 };
 use alloy_evm::block::{BlockExecutorFactory, BlockExecutorFor};
 use alloy_primitives::{Address, B256};
+use reth_storage_errors::db;
 use core::{error::Error, fmt::Debug};
 use execute::{BasicBlockExecutor, BlockAssembler, BlockBuilder};
 use reth_execution_errors::BlockExecutionError;
@@ -324,11 +325,12 @@ pub trait ConfigureEvm: Clone + Debug + Send + Sync + Unpin {
         &'a self,
         db: &'a mut State<DB>,
         block: &'a SealedBlock<<Self::Primitives as NodePrimitives>::Block>,
-    ) -> impl BlockExecutorFor<'a, Self::BlockExecutorFactory, &'a mut State<DB>, Box<dyn Inspector<EvmContextFor<Self, &'a mut State<DB>>>>>
+    ) -> impl BlockExecutorFor<'a, Self::BlockExecutorFactory, DB, Box<dyn Inspector<EvmContextFor<Self, &'a mut State<DB>>>>>
     where
         DB: Database,
     {
-        let evm = self.evm_for_block(db, block.header());
+        let evm_env = self.evm_env(block.header());
+        let evm = self.evm_with_env(db, evm_env);
         let ctx = self.context_for_block(block);
         self.create_executor(evm, ctx)
     }

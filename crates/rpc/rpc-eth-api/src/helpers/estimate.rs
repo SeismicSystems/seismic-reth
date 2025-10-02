@@ -9,7 +9,7 @@ use alloy_rpc_types_eth::{state::StateOverride, BlockId};
 use futures::Future;
 use reth_chainspec::MIN_TRANSACTION_GAS;
 use reth_errors::ProviderError;
-use reth_evm::{ConfigureEvm, Database, Evm, EvmEnvFor, EvmFor, TransactionEnv, TxEnvFor};
+use reth_evm::{ConfigureEvm, Database, Evm, EvmEnvFor, EvmFor, TransactionEnv, TxEnvFor, EvmContextFor};
 use reth_revm::{database::StateProviderDatabase, db::CacheDB};
 use reth_rpc_convert::{RpcConvert, RpcTxReq};
 use reth_rpc_eth_types::{
@@ -19,6 +19,8 @@ use reth_rpc_eth_types::{
 use reth_rpc_server_types::constants::gas_oracle::{CALL_STIPEND_GAS, ESTIMATE_GAS_ERROR_RATIO};
 use reth_storage_api::StateProvider;
 use revm::context_interface::{result::ExecutionResult, Transaction};
+use revm::Inspector;
+
 use tracing::trace;
 
 /// Gas execution estimates
@@ -296,7 +298,7 @@ pub trait EstimateCall: Call {
     /// or not
     #[inline]
     fn map_out_of_gas_err<DB>(
-        evm: &mut EvmFor<Self::Evm, DB>,
+        evm: &mut EvmFor<Self::Evm, DB, Box<dyn Inspector<EvmContextFor<Self::Evm, DB>>>>,
         mut tx_env: TxEnvFor<Self::Evm>,
         max_gas_limit: u64,
     ) -> Result<U256, Self::Error>

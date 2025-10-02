@@ -802,5 +802,5 @@ seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-allo
 seismic-alloy-genesis = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "84dae78acc18792399b83b188e1523d282528427" }
 
 # alloy-evm
-alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "739181c010c128f0f300e52142509db10d8082d3" }
-alloy-seismic-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "739181c010c128f0f300e52142509db10d8082d3" }
+alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "7f944fcc0e8e3c03f8822428b67d53c2d42521c5" }
+alloy-seismic-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "7f944fcc0e8e3c03f8822428b67d53c2d42521c5" }
