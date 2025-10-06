@@ -222,6 +222,15 @@ where
                 }
                 continue
             }
+            Err(BlockExecutionError::Internal(InternalBlockExecutionError::FailedToDecryptSeismicTx(error))) => {
+                trace!(target: "payload_builder", %error, ?tx, "skipping seismic tx with wrong encryption");
+                best_txs.mark_invalid(
+                    &pool_tx,
+                    InvalidPoolTransactionError::Consensus(
+                        InvalidTransactionError::FailedToDecryptSeismicTx,
+                    ),
+                );
+            }
             // this is an error that we should treat as fatal for this attempt
             Err(err) => return Err(PayloadBuilderError::evm(err)),
         };
