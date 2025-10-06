@@ -96,7 +96,7 @@ async fn test_seismic_reth_rpc() {
     let wallet = Wallet::default().with_chain_id(chain_id);
     println!("wallet: {:?}", wallet);
 
-    let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
+    let result = EthApiOverrideClient::<Block>::send_raw_transaction(
         &client,
         get_signed_seismic_tx_bytes(
             &wallet.inner,
@@ -108,11 +108,17 @@ async fn test_seismic_reth_rpc() {
         .await
         .into(),
     )
-    .await
-    .unwrap();
+    .await;
+    match result {
+        Ok(tx_hash) => println!("Transaction sent: {:?}", tx_hash),
+        Err(e) => {
+            println!("Transaction REJECTED: {:?}", e);
+            panic!("Transaction failed");
+        }
+    }
     // assert_eq!(tx_hash, itx.tx_hashes[0]);
     thread::sleep(Duration::from_secs(3));
-    println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
+    // println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
 
     // Get the transaction receipt
     let receipt = EthApiClient::<
@@ -232,7 +238,7 @@ async fn test_seismic_reth_rpc() {
         get_nonce(&client, wallet.inner.address()).await,
         TxKind::Call(contract_addr),
         chain_id,
-        ContractTestContext::get_is_odd_input_plaintext()
+        ContractTestContext::get_is_odd_input_plaintext(),
     )
     .await;
 
