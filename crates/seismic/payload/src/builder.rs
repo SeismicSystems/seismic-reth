@@ -233,6 +233,7 @@ where
                         InvalidTransactionError::FailedToDecryptSeismicTx,
                     ),
                 );
+                continue
             }
             // this is an error that we should treat as fatal for this attempt
             Err(err) => return Err(PayloadBuilderError::evm(err)),
