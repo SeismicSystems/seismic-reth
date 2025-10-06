@@ -139,6 +139,8 @@ test-utils = [
     "reth-evm-ethereum/test-utils",
 ]
 
+no-value-transfers = ["reth-evm/no-value-transfers"]
+
 [[test]]
 name = "e2e_testsuite"
 path = "tests/e2e-testsuite/main.rs"

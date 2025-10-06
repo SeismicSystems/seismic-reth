@@ -67,3 +67,4 @@ test-utils = [
     "reth-ethereum-primitives/test-utils",
 ]
 op = ["alloy-evm/op", "reth-primitives-traits/op"]
+no-value-transfers = ["seismic-revm/no-value-transfers"]

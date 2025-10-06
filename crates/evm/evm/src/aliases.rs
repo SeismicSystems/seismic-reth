@@ -11,8 +11,16 @@ pub type EvmFactoryFor<Evm> =
 /// Helper to access [`EvmFactory::Spec`] for a given [`ConfigureEvm`].
 pub type SpecFor<Evm> = <EvmFactoryFor<Evm> as EvmFactory>::Spec;
 
+/// Helper to access [`EvmFactory::DefaultInspector`] for a given [`ConfigureEvm`].
+pub type DefaultInspectorFor<Evm, DB> =
+    <EvmFactoryFor<Evm> as EvmFactory>::DefaultInspector<DB>;
+
 /// Helper to access [`EvmFactory::Evm`] for a given [`ConfigureEvm`].
-pub type EvmFor<Evm, DB, I = NoOpInspector> = <EvmFactoryFor<Evm> as EvmFactory>::Evm<DB, I>;
+pub type EvmFor<Evm, DB, I = DefaultInspectorFor<Evm, DB>> = 
+    <EvmFactoryFor<Evm> as EvmFactory>::Evm<DB, I>;
+
+/// Helper to access [`EvmFactory::Evm`] for a given [`ConfigureEvm`] with a boxed inspector.
+pub type BoxedEvmFor<Evm, DB> = EvmFor<Evm, DB, Box<dyn Inspector<EvmContextFor<Evm, DB>>>>;
 
 /// Helper to access [`EvmFactory::Error`] for a given [`ConfigureEvm`].
 pub type EvmErrorFor<Evm, DB> = <EvmFactoryFor<Evm> as EvmFactory>::Error<DB>;

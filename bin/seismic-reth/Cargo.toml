@@ -23,12 +23,14 @@ reth-node-metrics.workspace = true
 reth-enclave.workspace = true
 reth-provider.workspace = true
 reth-primitives.workspace = true
+reth-transaction-pool.workspace = true
 reth.workspace = true
 
 # seismic
 reth-seismic-node.workspace = true
 reth-seismic-rpc.workspace = true
 reth-seismic-cli.workspace = true
+
 
 seismic-alloy-rpc-types.workspace = true
 seismic-alloy-consensus.workspace = true
@@ -60,7 +62,8 @@ gas-price-zero = [
 ]
 
 no-value-transfers = [
-    "reth-seismic-rpc/no-value-transfers"
+    "reth-seismic-rpc/no-value-transfers",
+    "reth-seismic-node/no-value-transfers"
 ]
 
 [[bin]]

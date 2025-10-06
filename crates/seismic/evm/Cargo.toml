@@ -89,3 +89,4 @@ std = [
     "tracing/std",
 ]
 portable = ["reth-revm/portable"]
+no-value-transfers = ["reth-evm/no-value-transfers"]

@@ -140,3 +140,4 @@ gas-price-zero = [
     "reth-seismic-txpool/gas-price-zero",
     "reth-node-ethereum/gas-price-zero",
 ]
+no-value-transfers = ["seismic-revm/no-value-transfers"]
