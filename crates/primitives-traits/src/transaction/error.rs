@@ -67,8 +67,8 @@ pub enum InvalidTransactionError {
     #[error("gas limit too high")]
     GasLimitTooHigh,
     /// Failed to decrypt calldata of seismic tx
-    #[error("Failed to decrypt seismic tx: {0}")]
-    FailedToDecryptSeismicTx(InputDecryptionElementsError),
+    #[error("Failed to decrypt seismic tx")]
+    FailedToDecryptSeismicTx,
 }
 
 /// Represents error variants that can happen when trying to convert a transaction to pooled
