@@ -222,7 +222,9 @@ where
                 }
                 continue
             }
-            Err(BlockExecutionError::Internal(InternalBlockExecutionError::FailedToDecryptSeismicTx(error))) => {
+            Err(BlockExecutionError::Internal(
+                InternalBlockExecutionError::FailedToDecryptSeismicTx(error),
+            )) => {
                 trace!(target: "payload_builder", %error, ?tx, "skipping seismic tx with wrong encryption");
                 best_txs.mark_invalid(
                     &pool_tx,
