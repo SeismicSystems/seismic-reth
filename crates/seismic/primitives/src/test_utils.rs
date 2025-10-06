@@ -173,6 +173,9 @@ pub async fn get_unsigned_seismic_tx_request(
             value: Some(U256::from(0)),
             to: Some(to),
             gas: Some(6000000),
+            #[cfg(feature = "gas-price-zero")]
+            gas_price: Some(0),
+            #[cfg(not(feature = "gas-price-zero"))]
             gas_price: Some(20e9 as u128),
             chain_id: Some(chain_id),
             input: TransactionInput {

@@ -153,3 +153,4 @@ arbitrary = [
     "alloy-rpc-types-eth?/arbitrary",
     "alloy-serde?/arbitrary",
 ]
+gas-price-zero = []

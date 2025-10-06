@@ -232,7 +232,7 @@ async fn test_seismic_reth_rpc() {
         get_nonce(&client, wallet.inner.address()).await,
         TxKind::Call(contract_addr),
         chain_id,
-        ContractTestContext::get_is_odd_input_plaintext(),
+        ContractTestContext::get_is_odd_input_plaintext()
     )
     .await;
 
