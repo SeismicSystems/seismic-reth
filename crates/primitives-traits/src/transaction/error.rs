@@ -3,8 +3,6 @@
 use crate::GotExpectedBoxed;
 use alloy_primitives::U256;
 
-use seismic_alloy_consensus::InputDecryptionElementsError;
-
 /// Represents error variants that can happen when trying to validate a transaction.
 #[derive(Debug, Clone, Eq, PartialEq, thiserror::Error)]
 pub enum InvalidTransactionError {
