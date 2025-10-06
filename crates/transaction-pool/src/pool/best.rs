@@ -62,6 +62,7 @@ impl<T: TransactionOrdering> Iterator for BestTransactionsWithFees<T> {
             {
                 return Some(best);
             }
+            println!("best.transaction.max_fee_per_gas(): {:?}", best.transaction.max_fee_per_gas());
             crate::traits::BestTransactions::mark_invalid(
                 self,
                 &best,

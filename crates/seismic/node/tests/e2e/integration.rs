@@ -127,7 +127,7 @@ async fn test_seismic_reth_rpc() {
         SeismicBlock,
         SeismicTransactionReceipt,
         Header,
-    >::transaction_receipt(&client, tx_hash)
+    >::transaction_receipt(&client, result.unwrap())
     .await
     .unwrap()
     .unwrap();
