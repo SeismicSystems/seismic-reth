@@ -30,6 +30,7 @@ use std::sync::Arc;
 use tracing::{debug, trace, warn};
 
 use reth_primitives_traits::transaction::error::InvalidTransactionError;
+use reth_evm::execute::InternalBlockExecutionError;
 
 type BestTransactionsIter<Pool> = Box<
     dyn BestTransactions<Item = Arc<ValidPoolTransaction<<Pool as TransactionPool>::Transaction>>>,
