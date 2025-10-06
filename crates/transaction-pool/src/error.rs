@@ -392,6 +392,7 @@ impl InvalidPoolTransactionError {
                 Eip7702PoolTransactionError::AuthorityReserved => false,
             },
             Self::PriorityFeeBelowMinimum { .. } => false,
+            #[cfg(feature = "no-value-transfers")]
             Self::AttemptingToTransferValue => true, // do we want to penalize this?
         }
     }
