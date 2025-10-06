@@ -76,7 +76,7 @@ async fn integration_test() {
     test_seismic_reth_rpc_simulate_block().await;
     test_seismic_precompiles_end_to_end().await;
 
-    #[cfg(feature = "no-value-transfers")]
+    #[cfg(all(feature = "no-value-transfers", feature = "gas-price-zero"))]
     {
         test_reject_value_transfer().await;
     }
@@ -712,7 +712,7 @@ async fn test_seismic_precompiles_end_to_end() {
     assert_eq!(decrypted_locally, message);
 }
 
-#[cfg(feature = "no-value-transfers")]
+#[cfg(all(feature = "no-value-transfers", feature = "gas-price-zero"))]
 async fn test_reject_value_transfer() {
     let reth_rpc_url = SeismicRethTestCommand::url();
     let chain_id = SeismicRethTestCommand::chain_id();
@@ -726,7 +726,7 @@ async fn test_reject_value_transfer() {
             to: Some(TxKind::Call(alloy_primitives::Address::random())),
             value: Some(U256::from(1000)), // Non-zero value - should be rejected
             gas: Some(21_000),
-            gas_price: Some(20_000_000_000u128),
+            gas_price: Some(0u128),
             nonce: Some(get_nonce(&client, wallet.inner.address()).await),
             chain_id: Some(chain_id),
             ..Default::default()
