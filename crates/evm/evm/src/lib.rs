@@ -267,7 +267,7 @@ pub trait ConfigureEvm: Clone + Debug + Send + Sync + Unpin {
     /// including the spec id and transaction environment.
     ///
     /// This will preserve any handler modifications
-    fn evm_with_env<DB: Database>(&self, db: DB, evm_env: EvmEnvFor<Self>) -> EvmFor<Self, DB>{
+    fn evm_with_env<DB: Database>(&self, db: DB, evm_env: EvmEnvFor<Self>) -> EvmFor<Self, DB> {
         self.evm_factory().create_evm(db, evm_env)
     }
 
@@ -324,7 +324,12 @@ pub trait ConfigureEvm: Clone + Debug + Send + Sync + Unpin {
         &'a self,
         db: &'a mut State<DB>,
         block: &'a SealedBlock<<Self::Primitives as NodePrimitives>::Block>,
-    ) -> impl BlockExecutorFor<'a, Self::BlockExecutorFactory, DB, DefaultInspectorFor<Self, &'a mut State<DB>>> {
+    ) -> impl BlockExecutorFor<
+        'a,
+        Self::BlockExecutorFactory,
+        DB,
+        DefaultInspectorFor<Self, &'a mut State<DB>>,
+    > {
         let evm = self.evm_for_block(db, block.header());
         let ctx = self.context_for_block(block);
         self.create_executor(evm, ctx)

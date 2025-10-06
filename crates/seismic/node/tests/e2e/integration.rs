@@ -1,7 +1,7 @@
 //! This file is used to test the seismic node.
 use alloy_dyn_abi::EventExt;
 use alloy_json_abi::{Event, EventParam};
-use alloy_network::{ReceiptResponse, TransactionBuilder};
+use alloy_network::{ReceiptResponse, TransactionBuilder, TxSigner};
 use alloy_primitives::{
     aliases::{B96, U96},
     hex,
@@ -75,6 +75,11 @@ async fn integration_test() {
     test_seismic_reth_rpc_with_rust_client().await;
     test_seismic_reth_rpc_simulate_block().await;
     test_seismic_precompiles_end_to_end().await;
+
+    #[cfg(feature = "no-value-transfers")]
+    {
+        test_reject_value_transfer().await;
+    }
 
     if !manual_debug {
         let _ = shutdown_tx_top.unwrap().try_send(()).unwrap();
@@ -705,6 +710,57 @@ async fn test_seismic_precompiles_end_to_end() {
     let decrypted_locally =
         aes_decrypt(aes_key.into(), &ciphertext, nonce).expect("AES decryption failed");
     assert_eq!(decrypted_locally, message);
+}
+
+#[cfg(feature = "no-value-transfers")]
+async fn test_reject_value_transfer() {
+    let reth_rpc_url = SeismicRethTestCommand::url();
+    let chain_id = SeismicRethTestCommand::chain_id();
+    let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
+    let wallet = Wallet::default().with_chain_id(chain_id);
+
+    // Create a transaction with non-zero value
+    let tx_request = SeismicTransactionRequest {
+        inner: TransactionRequest {
+            from: Some(wallet.inner.address()),
+            to: Some(TxKind::Call(alloy_primitives::Address::random())),
+            value: Some(U256::from(1000)), // Non-zero value - should be rejected
+            gas: Some(21_000),
+            gas_price: Some(20_000_000_000u128),
+            nonce: Some(get_nonce(&client, wallet.inner.address()).await),
+            chain_id: Some(chain_id),
+            ..Default::default()
+        },
+        seismic_elements: None,
+    };
+
+    let tx_bytes = {
+        let _tx = tx_request.inner.clone();
+        get_signed_seismic_tx_bytes(
+            &wallet.inner,
+            tx_request.inner.nonce.unwrap(),
+            tx_request.inner.to.unwrap(),
+            chain_id,
+            tx_request.inner.input.input().cloned().unwrap_or_default(),
+        )
+        .await
+    };
+
+    let result =
+        EthApiOverrideClient::<Block>::send_raw_transaction(&client, tx_bytes.into()).await;
+
+    // Should fail with value transfer error
+    assert!(result.is_err(), "Transaction with value should be rejected");
+    let err = result.unwrap_err();
+    let err_msg = err.to_string();
+    assert!(
+        err_msg.contains("attempting to transfer value") ||
+            err_msg.contains("AttemptingToTransferValue"),
+        "Error should mention value transfer, got: {}",
+        err_msg
+    );
+
+    println!("sSuccessfully rejected transaction with value > 0");
 }
 
 /// Get the deploy input plaintext

@@ -1002,7 +1002,9 @@ impl From<InvalidPoolTransactionError> for RpcPoolError {
                 })
             }
             #[cfg(feature = "no-value-transfers")]
-            InvalidPoolTransactionError::AttemptingToTransferValue => Self::Invalid(RpcInvalidTransactionError::AttemptingToTransferValue),
+            InvalidPoolTransactionError::AttemptingToTransferValue => {
+                Self::Invalid(RpcInvalidTransactionError::AttemptingToTransferValue)
+            }
         }
     }
 }
