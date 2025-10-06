@@ -768,7 +768,6 @@ impl From<InvalidTransaction> for RpcInvalidTransactionError {
             }
             InvalidTransaction::AuthorizationListInvalidFields |
             InvalidTransaction::EmptyAuthorizationList => Self::AuthorizationListInvalidFields,
-            InvalidTransactionError::FailedToDecryptSeismicTx => Self::FailedToDecryptSeismicTx,
             InvalidTransaction::Eip2930NotSupported |
             InvalidTransaction::Eip1559NotSupported |
             InvalidTransaction::Eip4844NotSupported |
@@ -802,6 +801,7 @@ impl From<InvalidTransactionError> for RpcInvalidTransactionError {
             InvalidTransactionError::Eip1559Disabled |
             InvalidTransactionError::Eip4844Disabled |
             InvalidTransactionError::Eip7702Disabled |
+            InvalidTransactionError::FailedToDecryptSeismicTx => Self::FailedToDecryptSeismicTx,
             InvalidTransactionError::TxTypeNotSupported => Self::TxTypeNotSupported,
             InvalidTransactionError::GasUintOverflow => Self::GasUintOverflow,
             InvalidTransactionError::GasTooLow => Self::GasTooLow,
