@@ -144,5 +144,6 @@ no-value-transfers = [
     "seismic-revm/no-value-transfers",
     "reth-transaction-pool/no-value-transfers",
     "reth-seismic-txpool/no-value-transfers",
-    "reth-rpc-eth-types/no-value-transfers"
+    "reth-rpc-eth-types/no-value-transfers",
+    "reth-seismic-evm/gas-price-zero"
 ]
