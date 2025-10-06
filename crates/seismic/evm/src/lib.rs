@@ -22,7 +22,7 @@ use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_ethereum_forks::EthereumHardfork;
 use reth_evm::{
     ConfigureEngineEvm, ConfigureEvm, EvmEnv, EvmEnvFor, ExecutableTxIterator, ExecutionCtxFor,
-    NextBlockEnvAttributes, EvmContextFor,
+    NextBlockEnvAttributes,
 };
 use reth_primitives_traits::{SealedBlock, SealedHeader, SignedTransaction, TxTy};
 use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
@@ -30,7 +30,6 @@ use reth_storage_errors::any::AnyError;
 use revm::{
     context::{BlockEnv, CfgEnv},
     context_interface::block::BlobExcessGasAndPrice,
-    Inspector,
 };
 use seismic_enclave::rpc::SyncEnclaveApiClientBuilder;
 use seismic_revm::SeismicSpecId;
@@ -49,7 +48,7 @@ pub use alloy_seismic_evm::{block::SeismicBlockExecutorFactory, SeismicEvm, Seis
 #[derive(Debug, Clone)]
 pub struct SeismicEvmConfig<CB>
 where
-    CB: SyncEnclaveApiClientBuilder + 'static,
+    CB: SyncEnclaveApiClientBuilder,
 {
     /// Inner [`SeismicBlockExecutorFactory`].
     pub executor_factory: SeismicBlockExecutorFactory<
@@ -146,7 +145,7 @@ where
         &self,
         db: DB,
         evm_env: EvmEnv<SeismicSpecId>,
-    ) -> SeismicEvm<DB, Box<dyn Inspector<EvmContextFor<Self, DB>>>>
+    ) -> SeismicEvm<DB, revm::inspector::NoOpInspector>
     where
         DB: alloy_evm::Database,
     {
@@ -303,7 +302,7 @@ where
         &self,
         db: DB,
         evm_env: EvmEnv<SeismicSpecId>,
-    ) -> SeismicEvm<DB, Box<dyn Inspector<EvmContextFor<Self, DB>>>> {
+    ) -> SeismicEvm<DB, revm::inspector::NoOpInspector> {
         self.evm_with_env_and_live_key(db, evm_env)
     }
 }
@@ -436,7 +435,7 @@ mod tests {
         let evm_config = test_evm_config(); // Provides SeismicEvm config with Seismic mainnet spec
         let db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
         let evm_env = EvmEnv::default();
-        let evm: SeismicEvm<_, Box<dyn Inspector<EvmContextFor<SeismicEvmConfig<MockEnclaveClientBuilder>, CacheDB<EmptyDBTyped<ProviderError>>>>>> = evm_config.evm_with_env(db, evm_env.clone());
+        let evm: SeismicEvm<_, NoOpInspector> = evm_config.evm_with_env(db, evm_env.clone());
         let precompiles = evm.precompiles().clone();
 
         // Check that the EVM environment is correctly set

@@ -23,7 +23,7 @@ use reth_evm::{
 use reth_primitives_traits::NodePrimitives;
 use reth_provider::{
     providers::ConsistentDbView, BlockReader, DatabaseProviderFactory, StateProviderFactory,
-    StateReader, StateProvider,
+    StateReader,
 };
 use reth_revm::{db::BundleState, state::EvmState};
 use reth_trie::TrieInput;
@@ -161,7 +161,6 @@ where
     where
         P: DatabaseProviderFactory<Provider: BlockReader>
             + BlockReader
-            + StateProvider
             + StateProviderFactory
             + StateReader
             + Clone
@@ -247,7 +246,7 @@ where
         provider_builder: StateProviderBuilder<N, P>,
     ) -> PayloadHandle<WithTxEnv<TxEnvFor<Evm>, I::Tx>, I::Error>
     where
-        P: BlockReader + StateProviderFactory + StateReader + Clone + 'static + StateProvider,
+        P: BlockReader + StateProviderFactory + StateReader + Clone + 'static,
     {
         let (prewarm_rx, execution_rx) = self.spawn_tx_iterator(transactions);
         let prewarm_handle = self.spawn_caching_with(env, prewarm_rx, provider_builder, None);
@@ -293,7 +292,7 @@ where
         to_multi_proof: Option<Sender<MultiProofMessage>>,
     ) -> CacheTaskHandle
     where
-        P: BlockReader + StateProviderFactory + StateReader + Clone + 'static + StateProvider,
+        P: BlockReader + StateProviderFactory + StateReader + Clone + 'static,
     {
         if self.disable_transaction_prewarming {
             // if no transactions should be executed we clear them but still spawn the task for

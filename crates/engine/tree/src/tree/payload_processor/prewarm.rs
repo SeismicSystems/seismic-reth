@@ -11,12 +11,11 @@ use crate::tree::{
 use alloy_evm::Database;
 use alloy_primitives::{keccak256, map::B256Set, B256};
 use metrics::{Gauge, Histogram};
-use reth_evm::{execute::ExecutableTxFor, ConfigureEvm, Evm, EvmFor, SpecFor, EvmContextFor};
+use reth_evm::{execute::ExecutableTxFor, ConfigureEvm, Evm, EvmFor, SpecFor};
 use reth_metrics::Metrics;
 use reth_primitives_traits::{NodePrimitives, SignedTransaction};
-use reth_provider::{BlockReader, StateProviderFactory, StateReader, StateProvider};
+use reth_provider::{BlockReader, StateProviderFactory, StateReader};
 use reth_revm::{database::StateProviderDatabase, db::BundleState, state::EvmState};
-use revm::Inspector;
 use reth_trie::MultiProofTargets;
 use std::{
     sync::{
@@ -83,10 +82,7 @@ where
         &self,
         pending: mpsc::Receiver<impl ExecutableTxFor<Evm> + Send + 'static>,
         actions_tx: Sender<PrewarmTaskEvent>,
-    )
-    where
-        P: StateProvider,
-    {
+    ) {
         let executor = self.executor.clone();
         let ctx = self.ctx.clone();
         let max_concurrency = self.max_concurrency;
@@ -162,10 +158,7 @@ where
         self,
         pending: mpsc::Receiver<impl ExecutableTxFor<Evm> + Send + 'static>,
         actions_tx: Sender<PrewarmTaskEvent>,
-    )
-    where
-        P: StateProvider,
-    {
+    ) {
         // spawn execution tasks.
         self.spawn_all(pending, actions_tx);
 
@@ -243,15 +236,12 @@ where
 {
     /// Splits this context into an evm, an evm config, metrics, and the atomic bool for terminating
     /// execution.
-    fn evm_for_ctx(self) -> Option<(EvmFor<Evm, StateProviderDatabase<CachedStateProvider<Box<dyn StateProvider + 'static>>>, Box<dyn Inspector<EvmContextFor<Evm, StateProviderDatabase<CachedStateProvider<Box<dyn StateProvider + 'static>>>>> + 'static>>, PrewarmMetrics, Arc<AtomicBool>)> 
-    where P: StateProvider 
-    {
+    fn evm_for_ctx(self) -> Option<(EvmFor<Evm, impl Database>, PrewarmMetrics, Arc<AtomicBool>)> {
         let Self {
             env,
             evm_config,
             cache: caches,
             cache_metrics,
-
             provider,
             metrics,
             terminate_execution,
@@ -323,10 +313,7 @@ where
         txs: mpsc::Receiver<impl ExecutableTxFor<Evm>>,
         sender: Sender<PrewarmTaskEvent>,
         done_tx: Sender<()>,
-    )
-    where
-        P: StateProvider,
-    {
+    ) {
         let Some((mut evm, metrics, terminate_execution)) = self.evm_for_ctx() else { return };
 
         while let Ok(tx) = txs.recv() {
