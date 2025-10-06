@@ -14,6 +14,8 @@ workspace = true
 [features]
 gas-price-zero = ["reth-transaction-pool/gas-price-zero"]
 
+no-value-transfers = ["reth-transaction-pool/no-value-transfers"]
+
 [dependencies]
 # ethereum
 alloy-consensus.workspace = true
