@@ -19,6 +19,7 @@ use reth_seismic_node::utils::test_utils::{
 };
 use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
+use reth_transaction_pool::test_utils::TestPool;
 use seismic_alloy_network::{wallet::SeismicWallet, SeismicReth};
 use seismic_alloy_provider::{
     test_utils::ContractTestContext, SeismicProviderExt, SeismicSignedProvider,

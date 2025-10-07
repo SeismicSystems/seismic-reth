@@ -459,6 +459,7 @@ impl<T: PoolTransaction> ValidPoolTransaction<T> {
         maybe_replacement: &Self,
         price_bumps: &PriceBumpConfig,
     ) -> bool {
+        println!("is_underpriced called");
         #[cfg(feature = "gas-price-zero")]
         {
             println!("ValidPoolTransaction: is_underpriced: false gas-price-zero is enabled");
