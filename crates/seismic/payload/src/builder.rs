@@ -29,6 +29,7 @@ use seismic_enclave::EnclaveClientBuilder;
 use std::sync::Arc;
 use tracing::{debug, trace, warn};
 
+use reth_evm::execute::InternalBlockExecutionError;
 use reth_primitives_traits::transaction::error::InvalidTransactionError;
 
 type BestTransactionsIter<Pool> = Box<
@@ -220,6 +221,18 @@ where
                         ),
                     );
                 }
+                continue
+            }
+            Err(BlockExecutionError::Internal(
+                InternalBlockExecutionError::FailedToDecryptSeismicTx(error),
+            )) => {
+                trace!(target: "payload_builder", %error, ?tx, "skipping seismic tx with wrong encryption");
+                best_txs.mark_invalid(
+                    &pool_tx,
+                    InvalidPoolTransactionError::Consensus(
+                        InvalidTransactionError::FailedToDecryptSeismicTx,
+                    ),
+                );
                 continue
             }
             // this is an error that we should treat as fatal for this attempt
