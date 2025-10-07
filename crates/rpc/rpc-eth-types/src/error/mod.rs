@@ -947,6 +947,7 @@ impl From<RpcPoolError> for jsonrpsee_types::error::ErrorObject<'static> {
             RpcPoolError::Eip4844(_) |
             RpcPoolError::Eip7702(_) |
             RpcPoolError::AddressAlreadyReserved => {
+                println!("RpcPoolError: {:?}", error);
                 rpc_error_with_code(EthRpcErrorCode::InvalidInput.code(), error.to_string())
             }
             RpcPoolError::Other(other) => internal_rpc_err(other.to_string()),

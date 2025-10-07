@@ -378,6 +378,7 @@ impl<T: EthPoolTransaction> TransactionValidator for MockTransactionValidator<T>
         mut transaction: Self::Transaction,
     ) -> TransactionValidationOutcome<Self::Transaction> {
         if self.return_invalid {
+            println!("MockTransactionValidator: return_invalid");
             return TransactionValidationOutcome::Invalid(
                 transaction,
                 InvalidPoolTransactionError::Underpriced,
