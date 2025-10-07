@@ -60,6 +60,7 @@ pub mod test_utils {
                 .arg("node")
                 .arg("--datadir")
                 .arg(SeismicRethTestCommand::data_dir().to_str().unwrap())
+                .arg("--dev")
                 .arg("--dev.block-time")
                 .arg("2s") 
                 // .arg("--dev.block-max-transactions")
