@@ -95,6 +95,7 @@ reth-evm-ethereum = { workspace = true, features = ["test-utils"] }
 
 [features]
 default = []
+timestamp-in-seconds = ["reth-engine-local/timestamp-in-seconds"]
 js-tracer = ["reth-rpc/js-tracer"]
 test-utils = [
     "dep:reth-db",

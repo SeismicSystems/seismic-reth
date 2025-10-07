@@ -51,6 +51,7 @@ op-alloy-consensus.workspace = true
 
 [features]
 default = ["std"]
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]
 std = [
     "reth-chainspec/std",
     "reth-consensus/std",

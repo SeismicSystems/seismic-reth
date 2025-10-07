@@ -55,6 +55,7 @@ modular-bitfield.workspace = true
 test-fuzz.workspace = true
 
 [features]
+timestamp-in-seconds = ["revm/timestamp-in-seconds", "op-revm/timestamp-in-seconds"]
 arbitrary = [
     "alloy-consensus/arbitrary",
     "alloy-eips/arbitrary",

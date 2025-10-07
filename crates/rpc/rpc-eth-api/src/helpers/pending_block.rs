@@ -257,7 +257,7 @@ pub trait LoadPendingBlock:
         let blob_params = self
             .provider()
             .chain_spec()
-            .blob_params_at_timestamp(parent.timestamp())
+            .blob_params_at_timestamp(parent.timestamp_seconds())
             .unwrap_or_else(BlobParams::cancun);
         let mut cumulative_gas_used = 0;
         let mut sum_blob_gas_used = 0;
@@ -416,8 +416,10 @@ where
 
 impl<H: BlockHeader> BuildPendingEnv<H> for NextBlockEnvAttributes {
     fn build_pending_env(parent: &SealedHeader<H>) -> Self {
+        // NOTE: 12000 is block time in ms (MODIFIED)
+        let td = if cfg!(feature = "timestamp-in-seconds") { 12 } else { 12000 };
         Self {
-            timestamp: parent.timestamp().saturating_add(12),
+            timestamp: parent.timestamp().saturating_add(td),
             suggested_fee_recipient: parent.beneficiary(),
             prev_randao: B256::random(),
             gas_limit: parent.gas_limit(),

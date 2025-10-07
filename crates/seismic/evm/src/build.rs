@@ -58,6 +58,7 @@ where
         } = input;
 
         let timestamp = evm_env.block_env.timestamp.saturating_to();
+        let timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") { timestamp } else { timestamp / 1000 };
 
         let transactions_root = proofs::calculate_transaction_root(&transactions);
         let receipts_root = SeismicReceipt::calculate_receipt_root_no_memo(receipts);
@@ -65,26 +66,26 @@ where
 
         let withdrawals = self
             .chain_spec
-            .is_shanghai_active_at_timestamp(timestamp)
+            .is_shanghai_active_at_timestamp(timestamp_seconds)
             .then(|| ctx.withdrawals.map(|w| w.into_owned()).unwrap_or_default());
 
         let withdrawals_root =
             withdrawals.as_deref().map(|w| proofs::calculate_withdrawals_root(w));
         let requests_hash = self
             .chain_spec
-            .is_prague_active_at_timestamp(timestamp)
+            .is_prague_active_at_timestamp(timestamp_seconds)
             .then(|| requests.requests_hash());
 
         let mut excess_blob_gas = None;
         let mut blob_gas_used = None;
 
         // only determine cancun fields when active
-        if self.chain_spec.is_cancun_active_at_timestamp(timestamp) {
+        if self.chain_spec.is_cancun_active_at_timestamp(timestamp_seconds) {
             blob_gas_used =
                 Some(transactions.iter().map(|tx| tx.blob_gas_used().unwrap_or_default()).sum());
-            excess_blob_gas = if self.chain_spec.is_cancun_active_at_timestamp(parent.timestamp) {
+            excess_blob_gas = if self.chain_spec.is_cancun_active_at_timestamp(parent.timestamp_seconds()) {
                 parent.maybe_next_block_excess_blob_gas(
-                    self.chain_spec.blob_params_at_timestamp(timestamp),
+                    self.chain_spec.blob_params_at_timestamp(timestamp_seconds),
                 )
             } else {
                 // for the first post-fork block, both parent.blob_gas_used and

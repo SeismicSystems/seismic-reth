@@ -172,7 +172,7 @@ where
         attributes: &Self::NextBlockEnvCtx,
     ) -> Result<EvmEnv<OpSpecId>, Self::Error> {
         // ensure we're not missing any timestamp based hardforks
-        let spec_id = revm_spec_by_timestamp_after_bedrock(self.chain_spec(), attributes.timestamp);
+        let spec_id = revm_spec_by_timestamp_after_bedrock(self.chain_spec(), attributes.timestamp_seconds());
 
         // configure evm env based on parent block
         let cfg_env =
@@ -195,7 +195,7 @@ where
             // calculate basefee based on parent block's gas usage
             basefee: self
                 .chain_spec()
-                .next_block_base_fee(parent, attributes.timestamp)
+                .next_block_base_fee(parent, attributes.timestamp_seconds())
                 .unwrap_or_default(),
             // calculate excess gas based on parent block's blob gas usage
             blob_excess_gas_and_price,

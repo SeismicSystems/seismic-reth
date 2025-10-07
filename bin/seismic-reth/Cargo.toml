@@ -42,7 +42,7 @@ tokio.workspace = true
 
 [features]
 default = ["jemalloc"]
-
+timestamp-in-seconds = ["reth-seismic-node/timestamp-in-seconds"]
 asm-keccak = ["reth-node-core/asm-keccak", "reth-primitives/asm-keccak"]
 
 jemalloc = ["reth-node-core/jemalloc", "reth-node-metrics/jemalloc"]

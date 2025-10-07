@@ -51,6 +51,7 @@ reth-optimism-primitives = { workspace = true, features = ["arbitrary"] }
 
 [features]
 default = ["std"]
+timestamp-in-seconds = ["revm/timestamp-in-seconds", "op-revm/timestamp-in-seconds"]
 std = [
     "reth-revm/std",
     "alloy-consensus/std",

@@ -71,4 +71,5 @@ itertools.workspace = true
 serde_json.workspace = true
 
 [features]
+timestamp-in-seconds = ["revm/timestamp-in-seconds", "seismic-revm/timestamp-in-seconds"]
 js-tracer = ["revm-inspectors/js-tracer"]

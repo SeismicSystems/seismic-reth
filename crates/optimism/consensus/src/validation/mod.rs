@@ -54,7 +54,7 @@ where
         (Some(header_withdrawals_root), Some(withdrawals_root)) => {
             // after isthmus, the withdrawals root field is repurposed and no longer mirrors the
             // withdrawals root computed from the body
-            if chain_spec.is_isthmus_active_at_timestamp(header.timestamp()) {
+            if chain_spec.is_isthmus_active_at_timestamp(header.timestamp_seconds()) {
                 // After isthmus we only ensure that the body has empty withdrawals
                 if withdrawals_root != EMPTY_ROOT_HASH {
                     return Err(ConsensusError::BodyWithdrawalsRootDiff(
@@ -99,7 +99,7 @@ pub fn validate_block_post_execution<R: DepositReceipt>(
             header.logs_bloom(),
             receipts,
             chain_spec,
-            header.timestamp(),
+            header.timestamp_seconds(),
         ) {
             let receipts = receipts
                 .iter()

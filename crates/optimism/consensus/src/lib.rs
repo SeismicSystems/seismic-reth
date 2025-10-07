@@ -103,7 +103,7 @@ where
         }
 
         // Check empty shanghai-withdrawals
-        if self.chain_spec.is_canyon_active_at_timestamp(block.timestamp()) {
+        if self.chain_spec.is_canyon_active_at_timestamp(block.timestamp_seconds()) {
             canyon::ensure_empty_shanghai_withdrawals(block.body()).map_err(|err| {
                 ConsensusError::Other(format!("failed to verify block {}: {err}", block.number()))
             })?
@@ -111,12 +111,12 @@ where
             return Ok(())
         }
 
-        if self.chain_spec.is_ecotone_active_at_timestamp(block.timestamp()) {
+        if self.chain_spec.is_ecotone_active_at_timestamp(block.timestamp_seconds()) {
             validate_cancun_gas(block)?;
         }
 
         // Check withdrawals root field in header
-        if self.chain_spec.is_isthmus_active_at_timestamp(block.timestamp()) {
+        if self.chain_spec.is_isthmus_active_at_timestamp(block.timestamp_seconds()) {
             // storage root of withdrawals pre-deploy is verified post-execution
             isthmus::ensure_withdrawals_storage_root_is_some(block.header()).map_err(|err| {
                 ConsensusError::Other(format!("failed to verify block {}: {err}", block.number()))
@@ -183,7 +183,7 @@ where
         )?;
 
         // ensure that the blob gas fields for this block
-        if let Some(blob_params) = self.chain_spec.blob_params_at_timestamp(header.timestamp()) {
+        if let Some(blob_params) = self.chain_spec.blob_params_at_timestamp(header.timestamp_seconds()) {
             validate_against_parent_4844(header.header(), parent.header(), blob_params)?;
         }
 

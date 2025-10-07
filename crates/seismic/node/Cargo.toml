@@ -105,6 +105,15 @@ secp256k1.workspace = true
 
 [features]
 default = ["reth-codec"]
+timestamp-in-seconds = [
+    "seismic-revm/timestamp-in-seconds",
+    "reth-node-builder/timestamp-in-seconds",
+    "reth-primitives-traits/timestamp-in-seconds",
+    "reth-seismic-evm/timestamp-in-seconds",
+    "reth-seismic-payload-builder/timestamp-in-seconds",
+    "reth-seismic-primitives/timestamp-in-seconds",
+    "reth-seismic-rpc/timestamp-in-seconds",
+]
 asm-keccak = [
     "alloy-primitives/asm-keccak",
     "revm/asm-keccak",

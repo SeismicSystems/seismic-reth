@@ -45,6 +45,7 @@ reth-optimism-chainspec = { workspace = true, optional = true }
 workspace = true
 
 [features]
+timestamp-in-seconds = []
 op = [
     "dep:op-alloy-rpc-types-engine",
     "dep:reth-optimism-chainspec",

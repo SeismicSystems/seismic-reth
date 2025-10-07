@@ -82,6 +82,7 @@ metrics.workspace = true
 reth-optimism-chainspec.workspace = true
 
 [features]
+timestamp-in-seconds = ["revm/timestamp-in-seconds", "op-revm/timestamp-in-seconds"]
 client = [
     "jsonrpsee/client",
     "jsonrpsee/async-client",

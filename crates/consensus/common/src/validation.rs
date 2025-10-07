@@ -186,15 +186,15 @@ where
     }
 
     // EIP-4895: Beacon chain push withdrawals as operations
-    if chain_spec.is_shanghai_active_at_timestamp(block.timestamp()) {
+    if chain_spec.is_shanghai_active_at_timestamp(block.timestamp_seconds()) {
         validate_shanghai_withdrawals(block)?;
     }
 
-    if chain_spec.is_cancun_active_at_timestamp(block.timestamp()) {
+    if chain_spec.is_cancun_active_at_timestamp(block.timestamp_seconds()) {
         validate_cancun_gas(block)?;
     }
 
-    if chain_spec.is_osaka_active_at_timestamp(block.timestamp()) &&
+    if chain_spec.is_osaka_active_at_timestamp(block.timestamp_seconds()) &&
         block.rlp_length() > MAX_RLP_BLOCK_SIZE
     {
         return Err(ConsensusError::BlockTooLarge {
@@ -300,7 +300,7 @@ pub fn validate_against_parent_eip1559_base_fee<ChainSpec: EthChainSpec + Ethere
             alloy_eips::eip1559::INITIAL_BASE_FEE
         } else {
             chain_spec
-                .next_block_base_fee(parent, header.timestamp())
+                .next_block_base_fee(parent, header.timestamp_seconds())
                 .ok_or(ConsensusError::BaseFeeMissing)?
         };
         if expected_base_fee != base_fee {
@@ -320,10 +320,10 @@ pub fn validate_against_parent_timestamp<H: BlockHeader>(
     header: &H,
     parent: &H,
 ) -> Result<(), ConsensusError> {
-    if header.timestamp() <= parent.timestamp() {
+    if header.timestamp_seconds() <= parent.timestamp_seconds() {
         return Err(ConsensusError::TimestampIsInPast {
-            parent_timestamp: parent.timestamp(),
-            timestamp: header.timestamp(),
+            parent_timestamp: parent.timestamp_seconds(),
+            timestamp: header.timestamp_seconds(),
         })
     }
     Ok(())
@@ -347,7 +347,7 @@ pub fn validate_against_parent_gas_limit<
         chain_spec.is_london_active_at_block(header.number())
     {
         parent.gas_limit() *
-            chain_spec.base_fee_params_at_timestamp(header.timestamp()).elasticity_multiplier
+            chain_spec.base_fee_params_at_timestamp(header.timestamp_seconds()).elasticity_multiplier
                 as u64
     } else {
         parent.gas_limit()

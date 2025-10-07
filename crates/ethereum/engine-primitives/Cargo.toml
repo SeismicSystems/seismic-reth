@@ -37,6 +37,7 @@ serde_json.workspace = true
 
 [features]
 default = ["std"]
+timestamp-in-seconds = ["reth-primitives-traits/timestamp-in-seconds"]
 std = [
     "reth-ethereum-primitives/std",
     "alloy-primitives/std",
