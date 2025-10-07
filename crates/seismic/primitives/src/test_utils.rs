@@ -216,6 +216,22 @@ pub async fn get_signed_seismic_tx_bytes(
     <SeismicTxEnvelope as Encodable2718>::encoded_2718(&signed_inner).into()
 }
 
+/// Create a seismic transaction with a specific value
+pub async fn get_signed_seismic_tx_bytes_with_value(
+    sk_wallet: &PrivateKeySigner,
+    nonce: u64,
+    to: TxKind,
+    chain_id: u64,
+    plaintext: Bytes,
+    value: U256,
+) -> Bytes {
+    let mut tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, plaintext).await;
+    tx.inner.value = Some(value);
+    
+    let signed_inner = sign_tx(sk_wallet.clone(), tx).await;
+    <SeismicTxEnvelope as Encodable2718>::encoded_2718(&signed_inner).into()
+}
+
 /// Get an unsigned seismic transaction typed data
 pub async fn get_unsigned_seismic_tx_typed_data(
     sk_wallet: &PrivateKeySigner,

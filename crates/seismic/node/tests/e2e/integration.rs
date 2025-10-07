@@ -744,19 +744,24 @@ async fn test_reject_value_transfer() {
     };
 
     let tx_bytes = {
+        use reth_seismic_primitives::test_utils::get_signed_seismic_tx_bytes_with_value;
+
         let _tx = tx_request.inner.clone();
-        get_signed_seismic_tx_bytes(
+        get_signed_seismic_tx_bytes_with_value(
             &wallet.inner,
             tx_request.inner.nonce.unwrap(),
             tx_request.inner.to.unwrap(),
             chain_id,
             tx_request.inner.input.input().cloned().unwrap_or_default(),
+            U256::from(1000)
         )
         .await
     };
 
     let result =
         EthApiOverrideClient::<Block>::send_raw_transaction(&client, tx_bytes.into()).await;
+    
+    println!("result: {:?}", result);
 
     // Should fail with value transfer error
     assert!(result.is_err(), "Transaction with value should be rejected");
