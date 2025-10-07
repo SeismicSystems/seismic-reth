@@ -55,18 +55,20 @@ impl<T: TransactionOrdering> Iterator for BestTransactionsWithFees<T> {
             let best = Iterator::next(&mut self.best)?;
             // If both the base fee and blob fee (if applicable for EIP-4844) are satisfied, return
             // the transaction
-            println!("best.transaction.max_fee_per_gas(): {:?}", best.transaction.max_fee_per_gas());
-            println!("self.base_fee: {:?}", self.base_fee);
-            println!("self.base_fee_per_blob_gas: {:?}", self.base_fee_per_blob_gas);
-            println!("best.transaction.max_fee_per_blob_gas(): {:?}", best.transaction.max_fee_per_blob_gas());
+            println!(
+                "DEBUG: Best transactions checking fee: max_fee={}, base_fee={}",
+                best.transaction.max_fee_per_gas(),
+                self.base_fee
+            );
             if best.transaction.max_fee_per_gas() >= self.base_fee as u128 &&
                 best.transaction
                     .max_fee_per_blob_gas()
                     .is_none_or(|fee| fee >= self.base_fee_per_blob_gas as u128)
             {
+                println!("DEBUG: Transaction fee check passed");
                 return Some(best);
             }
-            println!("best.transaction.max_fee_per_gas(): {:?}", best.transaction.max_fee_per_gas());
+            println!("DEBUG: Transaction fee check failed, marking as underpriced");
             crate::traits::BestTransactions::mark_invalid(
                 self,
                 &best,

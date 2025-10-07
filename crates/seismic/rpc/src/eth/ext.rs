@@ -294,6 +294,7 @@ where
         debug!(target: "reth-seismic-rpc::eth", ?tx, "Serving overridden eth_sendRawTransaction extension");
         match tx {
             SeismicRawTxRequest::Bytes(bytes) => {
+                println!("DEBUG: Sending raw seismic transaction bytes");
                 Ok(EthTransactions::send_raw_transaction(&self.eth_api, bytes).await?)
             }
             SeismicRawTxRequest::TypedData(typed_data) => {

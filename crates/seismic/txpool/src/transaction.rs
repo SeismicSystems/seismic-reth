@@ -213,6 +213,7 @@ mod tests {
             SeismicPooledTransaction::new(signed_recovered, len);
 
         let outcome = validator.validate_one(origin, pooled_tx);
+        println!("DEBUG: Seismic transaction validation outcome: {:?}", outcome);
 
         match outcome {
             TransactionValidationOutcome::Invalid(

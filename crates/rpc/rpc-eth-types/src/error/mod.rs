@@ -987,7 +987,10 @@ impl From<InvalidPoolTransactionError> for RpcPoolError {
                 Self::Invalid(RpcInvalidTransactionError::GasTooLow)
             }
             InvalidPoolTransactionError::OversizedData(_, _) => Self::OversizedData,
-            InvalidPoolTransactionError::Underpriced => Self::Underpriced,
+            InvalidPoolTransactionError::Underpriced => {
+                println!("DEBUG: Converting InvalidPoolTransactionError::Underpriced to RpcPoolError::Underpriced");
+                Self::Underpriced
+            }
             InvalidPoolTransactionError::Eip2681 => {
                 Self::Invalid(RpcInvalidTransactionError::NonceMaxValue)
             }

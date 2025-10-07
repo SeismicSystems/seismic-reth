@@ -713,13 +713,17 @@ impl<T: TransactionOrdering> TxPool<T> {
                 Ok(res)
             }
             Err(err) => {
+                println!("DEBUG: Transaction insertion failed with error: {:?}", err);
                 // Update invalid transactions metric
                 self.metrics.invalid_transactions.increment(1);
                 match err {
-                    InsertErr::Underpriced { existing: _, transaction } => Err(PoolError::new(
-                        *transaction.hash(),
-                        PoolErrorKind::ReplacementUnderpriced,
-                    )),
+                    InsertErr::Underpriced { existing: _, transaction } => {
+                        println!("DEBUG: InsertErr::Underpriced, converting to PoolErrorKind::ReplacementUnderpriced");
+                        Err(PoolError::new(
+                            *transaction.hash(),
+                            PoolErrorKind::ReplacementUnderpriced,
+                        ))
+                    }
                     InsertErr::FeeCapBelowMinimumProtocolFeeCap { transaction, fee_cap } => {
                         Err(PoolError::new(
                             *transaction.hash(),
@@ -1914,7 +1918,9 @@ impl<T: PoolTransaction> AllTransactions<T> {
                 let maybe_replacement = transaction.as_ref();
 
                 // Ensure the new transaction is not underpriced
+                println!("DEBUG: Checking if transaction is underpriced for replacement");
                 if existing_transaction.is_underpriced(maybe_replacement, &self.price_bumps) {
+                    println!("DEBUG: Transaction marked as underpriced for replacement");
                     return Err(InsertErr::Underpriced {
                         transaction: pool_tx.transaction,
                         existing: *entry.get().transaction.hash(),

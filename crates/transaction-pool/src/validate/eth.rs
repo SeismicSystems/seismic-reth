@@ -193,6 +193,7 @@ where
         origin: TransactionOrigin,
         transaction: Tx,
     ) -> TransactionValidationOutcome<Tx> {
+        println!("DEBUG: ETH validator validate_one called for tx: {:?}", transaction.hash());
         self.validate_one_with_provider(origin, transaction, &mut None)
     }
 
@@ -220,6 +221,7 @@ where
         transaction: Tx,
         maybe_state: &mut Option<Box<dyn AccountInfoReader>>,
     ) -> TransactionValidationOutcome<Tx> {
+        println!("DEBUG: validate_one_with_provider called");
         match self.validate_one_no_state(origin, transaction) {
             Ok(transaction) => {
                 // stateless checks passed, pass transaction down stateful validation pipeline
@@ -528,6 +530,7 @@ where
     where
         P: AccountInfoReader,
     {
+        println!("DEBUG: validate_one_against_state called");
         // Use provider to get account info
         let account = match state.basic_account(transaction.sender_ref()) {
             Ok(account) => account.unwrap_or_default(),

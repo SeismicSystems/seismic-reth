@@ -135,7 +135,7 @@ impl<T: PoolTransaction> ValidTransaction<T> {
         }
     }
 
-    /// Consumes the wrapper and returns the transaction. 
+    /// Consumes the wrapper and returns the transaction.
     pub fn into_transaction(self) -> T {
         match self {
             Self::Valid(transaction) | Self::ValidWithSidecar { transaction, .. } => transaction,
@@ -459,13 +459,13 @@ impl<T: PoolTransaction> ValidPoolTransaction<T> {
         maybe_replacement: &Self,
         price_bumps: &PriceBumpConfig,
     ) -> bool {
-        println!("is_underpriced called");
+        println!("DEBUG: is_underpriced called - checking feature flags");
         #[cfg(feature = "gas-price-zero")]
         {
-            println!("ValidPoolTransaction: is_underpriced: false gas-price-zero is enabled");
-            // With zero gas price, skip underpricing checks
+            println!("DEBUG: gas-price-zero feature is ENABLED - skipping underpricing checks");
             return false
         }
+        println!("DEBUG: gas-price-zero feature is DISABLED - continuing with underpricing checks");
 
         // Retrieve the required price bump percentage for this type of transaction.
         //
