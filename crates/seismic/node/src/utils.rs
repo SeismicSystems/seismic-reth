@@ -42,11 +42,11 @@ pub mod test_utils {
             println!("Workspace root: {}", workspace_root);
 
             // Build feature flags
-            let mut features = Vec::new();
+            let mut features: Vec<String> = Vec::new();
             #[cfg(feature = "gas-price-zero")]
-            features.push("gas-price-zero");
+            features.push("gas-price-zero".to_string());
             #[cfg(feature = "no-value-transfers")]
-            features.push("no-value-transfers");
+            features.push("no-value-transfers".to_string());
 
             let mut cmd = Command::new("cargo");
             cmd.arg("run").arg("--bin").arg("seismic-reth");
@@ -60,9 +60,10 @@ pub mod test_utils {
                 .arg("node")
                 .arg("--datadir")
                 .arg(SeismicRethTestCommand::data_dir().to_str().unwrap())
-                .arg("--dev")
-                .arg("--dev.block-max-transactions")
-                .arg("1")
+                .arg("--dev.block-time")
+                .arg("2s") 
+                // .arg("--dev.block-max-transactions")
+                // .arg("1")
                 .arg("--enclave.mock-server")
                 .arg("-vvvv")
                 .arg("--disable-discovery")
