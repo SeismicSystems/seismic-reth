@@ -166,6 +166,10 @@ pub async fn get_unsigned_seismic_tx_request(
     chain_id: u64,
     plaintext: Bytes,
 ) -> SeismicTransactionRequest {
+    #[cfg(feature = "gas-price-zero")]
+    println!("gas_price: 0");
+    #[cfg(not(feature = "gas-price-zero"))]
+    println!("gas_price: 20e9");
     SeismicTransactionRequest {
         inner: TransactionRequest {
             from: Some(sk_wallet.address()),
