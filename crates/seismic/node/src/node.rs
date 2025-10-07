@@ -444,7 +444,8 @@ where
         println!("DEBUG: SeismicPoolBuilder::build_pool called");
         let data_dir = ctx.config().datadir();
         let mut pool_config = ctx.pool_config();
-        #[cfg(feature = "gas-price-zero")] {
+        #[cfg(feature = "gas-price-zero")]
+        {
             println!("DEBUG: gas-price-zero feature is ENABLED - disabling protocol base fee");
             pool_config = pool_config.with_disabled_protocol_base_fee();
         }
@@ -481,9 +482,7 @@ where
 
         let validator =
             validator_builder.build_with_tasks(ctx.task_executor().clone(), blob_store.clone());
-        println!(
-            "DEBUG: Transaction pool validator type:"
-        );
+        println!("DEBUG: Transaction pool validator type:");
 
         let transaction_pool = reth_transaction_pool::Pool::new(
             validator,

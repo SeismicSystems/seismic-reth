@@ -75,7 +75,6 @@ tempfile = { workspace = true }
 once_cell.workspace = true
 
 [dev-dependencies]
-reth-seismic-node = { workspace = true, features = ["test-utils"] }
 reth-db.workspace = true
 reth-node-core.workspace = true
 reth-node-builder = { workspace = true, features = ["test-utils"] }
@@ -108,8 +107,7 @@ default = ["reth-codec"]
 asm-keccak = [
     "alloy-primitives/asm-keccak",
     "revm/asm-keccak",
-    "reth-seismic-node/asm-keccak",
-    "reth-node-core/asm-keccak",
+    "reth-node-core/asm-keccak"
 ]
 js-tracer = [
     "reth-node-builder/js-tracer",
@@ -126,7 +124,6 @@ test-utils = [
     "reth-provider/test-utils",
     "reth-transaction-pool/test-utils",
     "reth-trie-db/test-utils",
-    "reth-seismic-node/test-utils",
     "reth-seismic-primitives/arbitrary",
     "reth-primitives-traits/test-utils",
 ]
@@ -148,5 +145,5 @@ no-value-transfers = [
     "reth-transaction-pool/no-value-transfers",
     "reth-seismic-txpool/no-value-transfers",
     "reth-rpc-eth-types/no-value-transfers",
-    "reth-seismic-evm/gas-price-zero"
+    "reth-seismic-evm/no-value-transfers"
 ]

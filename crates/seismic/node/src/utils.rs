@@ -41,10 +41,21 @@ pub mod test_utils {
             let workspace_root = metadata.get("workspace_root").unwrap().as_str().unwrap();
             println!("Workspace root: {}", workspace_root);
 
-            let mut child = Command::new("cargo")
-                .arg("run")
-                .arg("--bin")
-                .arg("seismic-reth") // Specify the binary name
+            // Build feature flags
+            let mut features = Vec::new();
+            #[cfg(feature = "gas-price-zero")]
+            features.push("gas-price-zero");
+            #[cfg(feature = "no-value-transfers")]
+            features.push("no-value-transfers");
+
+            let mut cmd = Command::new("cargo");
+            cmd.arg("run").arg("--bin").arg("seismic-reth");
+
+            if !features.is_empty() {
+                cmd.arg("--features").arg(features.join(","));
+            }
+
+            let mut child = cmd
                 .arg("--")
                 .arg("node")
                 .arg("--datadir")

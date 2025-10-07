@@ -9944,7 +9944,6 @@ dependencies = [
  "reth-rpc-server-types",
  "reth-seismic-chainspec",
  "reth-seismic-evm",
- "reth-seismic-node",
  "reth-seismic-payload-builder",
  "reth-seismic-primitives",
  "reth-seismic-rpc",
