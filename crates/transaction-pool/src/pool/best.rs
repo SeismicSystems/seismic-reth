@@ -55,6 +55,10 @@ impl<T: TransactionOrdering> Iterator for BestTransactionsWithFees<T> {
             let best = Iterator::next(&mut self.best)?;
             // If both the base fee and blob fee (if applicable for EIP-4844) are satisfied, return
             // the transaction
+            println!("best.transaction.max_fee_per_gas(): {:?}", best.transaction.max_fee_per_gas());
+            println!("self.base_fee: {:?}", self.base_fee);
+            println!("self.base_fee_per_blob_gas: {:?}", self.base_fee_per_blob_gas);
+            println!("best.transaction.max_fee_per_blob_gas(): {:?}", best.transaction.max_fee_per_blob_gas());
             if best.transaction.max_fee_per_gas() >= self.base_fee as u128 &&
                 best.transaction
                     .max_fee_per_blob_gas()
