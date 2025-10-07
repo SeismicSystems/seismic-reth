@@ -441,11 +441,12 @@ where
     type Pool = SeismicTransactionPool<Node::Provider, DiskFileBlobStore>;
 
     async fn build_pool(self, ctx: &BuilderContext<Node>) -> eyre::Result<Self::Pool> {
+        println!("DEBUG: SeismicPoolBuilder::build_pool called");
         let data_dir = ctx.config().datadir();
-        let pool_config = ctx.pool_config();
+        let mut pool_config = ctx.pool_config();
         #[cfg(feature = "gas-price-zero")] {
-        println!("DEBUG: gas-price-zero feature is ENABLED - disabling protocol base fee");
-        let pool_config = pool_config.with_disabled_protocol_base_fee();
+            println!("DEBUG: gas-price-zero feature is ENABLED - disabling protocol base fee");
+            pool_config = pool_config.with_disabled_protocol_base_fee();
         }
 
         let blob_cache_size = if let Some(blob_cache_size) = pool_config.blob_cache_size {
@@ -481,7 +482,7 @@ where
         let validator =
             validator_builder.build_with_tasks(ctx.task_executor().clone(), blob_store.clone());
         println!(
-            "DEBUG: Transaction pool validator"
+            "DEBUG: Transaction pool validator type:"
         );
 
         let transaction_pool = reth_transaction_pool::Pool::new(
