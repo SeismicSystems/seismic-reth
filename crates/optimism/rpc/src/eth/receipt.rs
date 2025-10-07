@@ -22,8 +22,6 @@ use reth_rpc_eth_types::{receipt::build_receipt, EthApiError};
 use reth_storage_api::BlockReader;
 use std::fmt::Debug;
 
-// NOTE: timestamp-in-seconds logic not applied here
-
 impl<N, Rpc> LoadReceipt for OpEthApi<N, Rpc>
 where
     N: RpcNodeCore,

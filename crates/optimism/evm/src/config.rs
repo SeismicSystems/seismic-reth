@@ -61,10 +61,8 @@ impl<H: alloy_consensus::BlockHeader> reth_rpc_eth_api::helpers::pending_block::
     for OpNextBlockEnvAttributes
 {
     fn build_pending_env(parent: &crate::SealedHeader<H>) -> Self {
-        let td = if cfg!(feature = "timestamp-in-seconds") { 12 } else { 12000 };
         Self {
-            // MODIFIED:: 12000 is block time in ms
-            timestamp: parent.timestamp().saturating_add(td),
+            timestamp: parent.timestamp().saturating_add(12),
             suggested_fee_recipient: parent.beneficiary(),
             prev_randao: alloy_primitives::B256::random(),
             gas_limit: parent.gas_limit(),

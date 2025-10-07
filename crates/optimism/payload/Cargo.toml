@@ -51,6 +51,3 @@ tracing.workspace = true
 thiserror.workspace = true
 sha2.workspace = true
 serde.workspace = true
-
-[features]
-timestamp-in-seconds = ["revm/timestamp-in-seconds"]

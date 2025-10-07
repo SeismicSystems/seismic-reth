@@ -81,19 +81,19 @@ where
 
     shanghai::ensure_well_formed_fields(
         sealed_block.body(),
-        chain_spec.is_shanghai_active_at_timestamp(sealed_block.timestamp_seconds()),
+        chain_spec.is_shanghai_active_at_timestamp(sealed_block.timestamp),
     )?;
 
     cancun::ensure_well_formed_header_and_sidecar_fields(
         &sealed_block,
         sidecar.ecotone(),
-        chain_spec.is_cancun_active_at_timestamp(sealed_block.timestamp_seconds()),
+        chain_spec.is_cancun_active_at_timestamp(sealed_block.timestamp),
     )?;
 
     prague::ensure_well_formed_fields(
         sealed_block.body(),
         sidecar.isthmus(),
-        chain_spec.is_prague_active_at_timestamp(sealed_block.timestamp_seconds()),
+        chain_spec.is_prague_active_at_timestamp(sealed_block.timestamp),
     )?;
 
     Ok(sealed_block)

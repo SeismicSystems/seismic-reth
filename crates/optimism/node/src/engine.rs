@@ -135,7 +135,7 @@ where
         state_updates: &HashedPostState,
         block: &RecoveredBlock<Self::Block>,
     ) -> Result<(), ConsensusError> {
-        if self.chain_spec().is_isthmus_active_at_timestamp(block.timestamp_seconds()) {
+        if self.chain_spec().is_isthmus_active_at_timestamp(block.timestamp()) {
             let Ok(state) = self.provider.state_by_block_hash(block.parent_hash()) else {
                 // FIXME: we don't necessarily have access to the parent block here because the
                 // parent block isn't necessarily part of the canonical chain yet. Instead this
@@ -185,14 +185,14 @@ where
             self.chain_spec(),
             version,
             payload_or_attrs.message_validation_kind(),
-            payload_or_attrs.timestamp_seconds(),
+            payload_or_attrs.timestamp(),
             payload_or_attrs.withdrawals().is_some(),
         )?;
         validate_parent_beacon_block_root_presence(
             self.chain_spec(),
             version,
             payload_or_attrs.message_validation_kind(),
-            payload_or_attrs.timestamp_seconds(),
+            payload_or_attrs.timestamp(),
             payload_or_attrs.parent_beacon_block_root().is_some(),
         )
     }
@@ -218,7 +218,7 @@ where
 
         if self
             .chain_spec()
-            .is_holocene_active_at_timestamp(attributes.payload_attributes.timestamp_seconds())
+            .is_holocene_active_at_timestamp(attributes.payload_attributes.timestamp)
         {
             let (elasticity, denominator) =
                 attributes.decode_eip_1559_params().ok_or_else(|| {
@@ -312,14 +312,13 @@ mod test {
     }
 
     const fn get_attributes(eip_1559_params: Option<B64>, timestamp: u64) -> OpPayloadAttributes {
-        let timestamp_ms = timestamp * 1000;
         OpPayloadAttributes {
             gas_limit: Some(1000),
             eip_1559_params,
             transactions: None,
             no_tx_pool: None,
             payload_attributes: PayloadAttributes {
-                timestamp: timestamp_ms,
+                timestamp,
                 prev_randao: B256::ZERO,
                 suggested_fee_recipient: Address::ZERO,
                 withdrawals: Some(vec![]),

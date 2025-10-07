@@ -911,7 +911,7 @@ where
         let Self { pool_config_overrides, .. } = self;
 
         // supervisor used for interop
-        if ctx.chain_spec().is_interop_active_at_timestamp(ctx.head().timestamp_seconds()) &&
+        if ctx.chain_spec().is_interop_active_at_timestamp(ctx.head().timestamp) &&
             self.supervisor_http == DEFAULT_SUPERVISOR_URL
         {
             info!(target: "reth::cli",
