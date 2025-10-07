@@ -443,8 +443,10 @@ where
     async fn build_pool(self, ctx: &BuilderContext<Node>) -> eyre::Result<Self::Pool> {
         let data_dir = ctx.config().datadir();
         let pool_config = ctx.pool_config();
-        #[cfg(feature = "gas-price-zero")]
+        #[cfg(feature = "gas-price-zero")] {
+        println!("DEBUG: gas-price-zero feature is ENABLED - disabling protocol base fee");
         let pool_config = pool_config.with_disabled_protocol_base_fee();
+        }
 
         let blob_cache_size = if let Some(blob_cache_size) = pool_config.blob_cache_size {
             blob_cache_size

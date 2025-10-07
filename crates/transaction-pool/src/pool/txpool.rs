@@ -1274,6 +1274,8 @@ pub(crate) struct AllTransactions<T: PoolTransaction> {
 impl<T: PoolTransaction> AllTransactions<T> {
     /// Create a new instance
     fn new(config: &PoolConfig) -> Self {
+        println!("DEBUG: AllTransactions::new called");
+        println!("minimal_protocol_basefee: {:?}", config.minimal_protocol_basefee);
         Self {
             max_account_slots: config.max_account_slots,
             price_bumps: config.price_bumps,
