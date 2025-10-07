@@ -91,6 +91,8 @@ async fn integration_test() {
 
 // this is the same test as basic.rs but with actual RPC calls and standalone reth instance
 async fn test_seismic_reth_rpc() {
+    #[cfg(feature = "gas-price-zero")]
+    println!("gpz feature is ENABLED");
     let reth_rpc_url = SeismicRethTestCommand::url();
     let chain_id = SeismicRethTestCommand::chain_id();
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
