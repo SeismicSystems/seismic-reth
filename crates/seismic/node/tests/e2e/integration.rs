@@ -119,7 +119,7 @@ async fn test_seismic_reth_rpc() {
         }
     }
     // assert_eq!(tx_hash, itx.tx_hashes[0]);
-    thread::sleep(Duration::from_secs(3));
+    thread::sleep(Duration::from_secs(5));
     // println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
 
     // Get the transaction receipt
@@ -133,6 +133,7 @@ async fn test_seismic_reth_rpc() {
     .await
     .unwrap()
     .unwrap();
+
     let contract_addr = receipt.contract_address.unwrap();
     println!(
         "eth_getTransactionReceipt getting contract deployment transaction receipt: {:?}",
