@@ -1888,6 +1888,9 @@ impl<T: PoolTransaction> AllTransactions<T> {
         // Check dynamic fee
         let fee_cap = transaction.max_fee_per_gas();
 
+        println!("DEBUG: fee_cap: {:?}", fee_cap);
+        println!("DEBUG: minimal_protocol_basefee: {:?}", self.minimal_protocol_basefee);
+
         if fee_cap < self.minimal_protocol_basefee as u128 {
             return Err(InsertErr::FeeCapBelowMinimumProtocolFeeCap { transaction, fee_cap })
         }

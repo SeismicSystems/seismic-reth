@@ -479,8 +479,7 @@ where
         let validator =
             validator_builder.build_with_tasks(ctx.task_executor().clone(), blob_store.clone());
         println!(
-            "DEBUG: Transaction pool validator type: {:?}",
-            std::any::type_name::<EthTransactionValidator<_, _>>()
+            "DEBUG: Transaction pool validator"
         );
 
         let transaction_pool = reth_transaction_pool::Pool::new(
