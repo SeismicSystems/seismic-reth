@@ -1077,6 +1077,14 @@ mod tests {
 
     use seismic_alloy_genesis::GenesisAccount;
 
+    fn ts(timestamp_seconds: u64) -> u64 {
+        if cfg!(feature = "timestamp-in-seconds") {
+            timestamp_seconds
+        } else {
+            1000 * timestamp_seconds
+        }
+    }
+
     fn test_hardfork_fork_ids(spec: &ChainSpec, cases: &[(EthereumHardfork, ForkId)]) {
         for (hardfork, expected_id) in cases {
             if let Some(computed_id) = spec.hardfork_fork_id(*hardfork) {
@@ -1203,10 +1211,10 @@ Post-merge hard forks (timestamp based):
             .genesis(empty_genesis.clone())
             .with_fork(EthereumHardfork::Frontier, ForkCondition::Block(0))
             .with_fork(EthereumHardfork::Homestead, ForkCondition::Block(73))
-            .with_fork(EthereumHardfork::Shanghai, ForkCondition::Timestamp(11313123))
+            .with_fork(EthereumHardfork::Shanghai, ForkCondition::Timestamp(ts(11313123)))
             .build();
         let happy_path_head = happy_path_case.satisfy(ForkCondition::Timestamp(11313123));
-        let happy_path_expected = Head { number: 73, timestamp: 11313123, ..Default::default() };
+        let happy_path_expected = Head { number: 73, timestamp: ts(11313123), ..Default::default() };
         assert_eq!(
             happy_path_head, happy_path_expected,
             "expected satisfy() to return {happy_path_expected:#?}, but got {happy_path_head:#?} "
@@ -1223,7 +1231,7 @@ Post-merge hard forks (timestamp based):
         let multi_timestamp_head =
             multiple_timestamp_fork_case.satisfy(ForkCondition::Timestamp(11313398));
         let mult_timestamp_expected =
-            Head { number: 73, timestamp: 11313398, ..Default::default() };
+            Head { number: 73, timestamp: ts(11313398), ..Default::default() };
         assert_eq!(
             multi_timestamp_head, mult_timestamp_expected,
             "expected satisfy() to return {mult_timestamp_expected:#?}, but got {multi_timestamp_head:#?} "
@@ -1235,7 +1243,7 @@ Post-merge hard forks (timestamp based):
             .with_fork(EthereumHardfork::Shanghai, ForkCondition::Timestamp(11313123))
             .build();
         let no_block_fork_head = no_block_fork_case.satisfy(ForkCondition::Timestamp(11313123));
-        let no_block_fork_expected = Head { number: 0, timestamp: 11313123, ..Default::default() };
+        let no_block_fork_expected = Head { number: 0, timestamp: ts(11313123), ..Default::default() };
         assert_eq!(
             no_block_fork_head, no_block_fork_expected,
             "expected satisfy() to return {no_block_fork_expected:#?}, but got {no_block_fork_head:#?} ",
@@ -1254,12 +1262,12 @@ Post-merge hard forks (timestamp based):
                     total_difficulty: U256::from(10_790_000),
                 },
             )
-            .with_fork(EthereumHardfork::Shanghai, ForkCondition::Timestamp(11313123))
+            .with_fork(EthereumHardfork::Shanghai, ForkCondition::Timestamp(ts(11313123)))
             .build();
         let fork_cond_ttd_blocknum_head =
             fork_cond_ttd_blocknum_case.satisfy(ForkCondition::Timestamp(11313123));
         let fork_cond_ttd_blocknum_expected =
-            Head { number: 101, timestamp: 11313123, ..Default::default() };
+            Head { number: 101, timestamp: ts(11313123), ..Default::default() };
         assert_eq!(
             fork_cond_ttd_blocknum_head, fork_cond_ttd_blocknum_expected,
             "expected satisfy() to return {fork_cond_ttd_blocknum_expected:#?}, but got {fork_cond_ttd_blocknum_expected:#?} ",
@@ -1293,14 +1301,6 @@ Post-merge hard forks (timestamp based):
             fork_cond_ttd_no_new_spec, fork_cond_ttd_no_new_spec_expected,
             "expected satisfy() to return {fork_cond_ttd_blocknum_expected:#?}, but got {fork_cond_ttd_blocknum_expected:#?} ",
         );
-    }
-
-    fn ts(timestamp_seconds: u64) -> u64 {
-        if cfg!(feature = "timestamp-in-seconds") {
-            timestamp_seconds
-        } else {
-            1000 * timestamp_seconds
-        }
     }
 
     #[test]
@@ -1504,22 +1504,22 @@ Post-merge hard forks (timestamp based):
                 ),
                 // First Shanghai block
                 (
-                    Head { number: 20000000, timestamp: 1681338455, ..Default::default() },
+                    Head { number: 20000000, timestamp: ts(1681338455), ..Default::default() },
                     ForkId { hash: ForkHash([0xdc, 0xe9, 0x6c, 0x2d]), next: ts(1710338135) },
                 ),
                 // First Cancun block
                 (
-                    Head { number: 20000001, timestamp: 1710338135, ..Default::default() },
+                    Head { number: 20000001, timestamp: ts(1710338135), ..Default::default() },
                     ForkId { hash: ForkHash([0x9f, 0x3d, 0x22, 0x54]), next: ts(1746612311) },
                 ),
                 // First Prague block
                 (
-                    Head { number: 20000002, timestamp: 1746612311, ..Default::default() },
+                    Head { number: 20000002, timestamp: ts(1746612311), ..Default::default() },
                     ForkId { hash: ForkHash([0xc3, 0x76, 0xcf, 0x8b]), next: 0 },
                 ),
                 // Future Prague block
                 (
-                    Head { number: 20000002, timestamp: 2000000000, ..Default::default() },
+                    Head { number: 20000002, timestamp: ts(2000000000), ..Default::default() },
                     ForkId { hash: ForkHash([0xc3, 0x76, 0xcf, 0x8b]), next: 0 },
                 ),
             ],
@@ -1537,7 +1537,7 @@ Post-merge hard forks (timestamp based):
                 ),
                 // First Prague block
                 (
-                    Head { number: 0, timestamp: 1742999833, ..Default::default() },
+                    Head { number: 0, timestamp: ts(1742999833), ..Default::default() },
                     ForkId { hash: ForkHash([0x09, 0x29, 0xe2, 0x4e]), next: 0 },
                 ),
             ],
@@ -1560,32 +1560,32 @@ Post-merge hard forks (timestamp based):
                 ),
                 // Last MergeNetsplit block
                 (
-                    Head { number: 123, timestamp: 1696000703, ..Default::default() },
+                    Head { number: 123, timestamp: ts(1696000703), ..Default::default() },
                     ForkId { hash: ForkHash([0xc6, 0x1a, 0x60, 0x98]), next: ts(1696000704) },
                 ),
                 // First Shanghai block
                 (
-                    Head { number: 123, timestamp: 1696000704, ..Default::default() },
+                    Head { number: 123, timestamp: ts(1696000704), ..Default::default() },
                     ForkId { hash: ForkHash([0xfd, 0x4f, 0x01, 0x6b]), next: ts(1707305664) },
                 ),
                 // Last Shanghai block
                 (
-                    Head { number: 123, timestamp: 1707305663, ..Default::default() },
+                    Head { number: 123, timestamp: ts(1707305663), ..Default::default() },
                     ForkId { hash: ForkHash([0xfd, 0x4f, 0x01, 0x6b]), next: ts(1707305664) },
                 ),
                 // First Cancun block
                 (
-                    Head { number: 123, timestamp: 1707305664, ..Default::default() },
+                    Head { number: 123, timestamp: ts(1707305664), ..Default::default() },
                     ForkId { hash: ForkHash([0x9b, 0x19, 0x2a, 0xd0]), next: ts(1740434112) },
                 ),
                 // Last Cancun block
                 (
-                    Head { number: 123, timestamp: 1740434111, ..Default::default() },
+                    Head { number: 123, timestamp: ts(1740434111), ..Default::default() },
                     ForkId { hash: ForkHash([0x9b, 0x19, 0x2a, 0xd0]), next: ts(1740434112) },
                 ),
                 // First Prague block
                 (
-                    Head { number: 123, timestamp: 1740434112, ..Default::default() },
+                    Head { number: 123, timestamp: ts(1740434112), ..Default::default() },
                     ForkId { hash: ForkHash([0xdf, 0xbd, 0x9b, 0xed]), next: 0 },
                 ),
             ],
@@ -1610,32 +1610,32 @@ Post-merge hard forks (timestamp based):
                     ForkId { hash: ForkHash([0xb9, 0x6c, 0xbd, 0x13]), next: ts(1677557088) },
                 ),
                 (
-                    Head { number: 1735372, timestamp: 1677557087, ..Default::default() },
+                    Head { number: 1735372, timestamp: ts(1677557087), ..Default::default() },
                     ForkId { hash: ForkHash([0xb9, 0x6c, 0xbd, 0x13]), next: ts(1677557088) },
                 ),
                 // First Shanghai block
                 (
-                    Head { number: 1735373, timestamp: 1677557088, ..Default::default() },
+                    Head { number: 1735373, timestamp: ts(1677557088), ..Default::default() },
                     ForkId { hash: ForkHash([0xf7, 0xf9, 0xbc, 0x08]), next: ts(1706655072) },
                 ),
                 // Last Shanghai block
                 (
-                    Head { number: 1735374, timestamp: 1706655071, ..Default::default() },
+                    Head { number: 1735374, timestamp: ts(1706655071), ..Default::default() },
                     ForkId { hash: ForkHash([0xf7, 0xf9, 0xbc, 0x08]), next: ts(1706655072) },
                 ),
                 // First Cancun block
                 (
-                    Head { number: 1735375, timestamp: 1706655072, ..Default::default() },
+                    Head { number: 1735375, timestamp: ts(1706655072), ..Default::default() },
                     ForkId { hash: ForkHash([0x88, 0xcf, 0x81, 0xd9]), next: ts(1741159776) },
                 ),
                 // Last Cancun block
                 (
-                    Head { number: 1735376, timestamp: 1741159775, ..Default::default() },
+                    Head { number: 1735376, timestamp: ts(1741159775), ..Default::default() },
                     ForkId { hash: ForkHash([0x88, 0xcf, 0x81, 0xd9]), next: ts(1741159776) },
                 ),
                 // First Prague block
                 (
-                    Head { number: 1735377, timestamp: 1741159776, ..Default::default() },
+                    Head { number: 1735377, timestamp: ts(1741159776), ..Default::default() },
                     ForkId { hash: ForkHash([0xed, 0x88, 0xb5, 0xfd]), next: 0 },
                 ),
             ],
@@ -1763,31 +1763,31 @@ Post-merge hard forks (timestamp based):
                     ForkId { hash: ForkHash([0xf0, 0xaf, 0xd0, 0xe3]), next: ts(1681338455) },
                 ), // First Gray Glacier block
                 (
-                    Head { number: 19999999, timestamp: 1667999999, ..Default::default() },
+                    Head { number: 19999999, timestamp: ts(1667999999), ..Default::default() },
                     ForkId { hash: ForkHash([0xf0, 0xaf, 0xd0, 0xe3]), next: ts(1681338455) },
                 ), // Last Gray Glacier block
                 (
-                    Head { number: 20000000, timestamp: 1681338455, ..Default::default() },
+                    Head { number: 20000000, timestamp: ts(1681338455), ..Default::default() },
                     ForkId { hash: ForkHash([0xdc, 0xe9, 0x6c, 0x2d]), next: ts(1710338135) },
                 ), // Last Shanghai block
                 (
-                    Head { number: 20000001, timestamp: 1710338134, ..Default::default() },
+                    Head { number: 20000001, timestamp: ts(1710338134), ..Default::default() },
                     ForkId { hash: ForkHash([0xdc, 0xe9, 0x6c, 0x2d]), next: ts(1710338135) },
                 ), // First Cancun block
                 (
-                    Head { number: 20000002, timestamp: 1710338135, ..Default::default() },
+                    Head { number: 20000002, timestamp: ts(1710338135), ..Default::default() },
                     ForkId { hash: ForkHash([0x9f, 0x3d, 0x22, 0x54]), next: ts(1746612311) },
                 ), // Last Cancun block
                 (
-                    Head { number: 20000003, timestamp: 1746612310, ..Default::default() },
+                    Head { number: 20000003, timestamp: ts(1746612310), ..Default::default() },
                     ForkId { hash: ForkHash([0x9f, 0x3d, 0x22, 0x54]), next: ts(1746612311) },
                 ), // First Prague block
                 (
-                    Head { number: 20000004, timestamp: 1746612311, ..Default::default() },
+                    Head { number: 20000004, timestamp: ts(1746612311), ..Default::default() },
                     ForkId { hash: ForkHash([0xc3, 0x76, 0xcf, 0x8b]), next: 0 },
                 ), // Future Prague block
                 (
-                    Head { number: 20000004, timestamp: 2000000000, ..Default::default() },
+                    Head { number: 20000004, timestamp: ts(2000000000), ..Default::default() },
                     ForkId { hash: ForkHash([0xc3, 0x76, 0xcf, 0x8b]), next: 0 },
                 ),
             ],
@@ -1813,7 +1813,7 @@ Post-merge hard forks (timestamp based):
     /// <https://github.com/ethereum/go-ethereum/blob/2e02c1ffd9dffd1ec9e43c6b66f6c9bd1e556a0b/core/forkid/forkid_test.go#L390-L440>
     #[test]
     fn test_timestamp_fork_in_genesis() {
-        let timestamp = ts(1690475657u64);
+        let timestamp = 1690475657u64;
         let default_spec_builder = ChainSpecBuilder::default()
             .chain(Chain::from_id(1337))
             .genesis(Genesis::default().with_timestamp(timestamp))
@@ -1844,7 +1844,7 @@ Post-merge hard forks (timestamp based):
             // different.
             let genesis_hash = spec.genesis_hash();
             let expected_forkid =
-                ForkId { hash: ForkHash::from(genesis_hash), next: expected_timestamp };
+                ForkId { hash: ForkHash::from(genesis_hash), next: ts(expected_timestamp) };
             assert_eq!(got_forkid, expected_forkid);
         }
     }
@@ -2246,7 +2246,7 @@ Post-merge hard forks (timestamp based):
         // make sure we are at ForkHash("bc0c2605") with Head post-cancun
         let expected_forkid = ForkId { hash: ForkHash([0xbc, 0x0c, 0x26, 0x05]), next: 0 };
         let got_forkid =
-            chainspec.fork_id(&Head { number: 73, timestamp: 840, ..Default::default() });
+            chainspec.fork_id(&Head { number: 73, timestamp: ts(840), ..Default::default() });
 
         // check that they're the same
         assert_eq!(got_forkid, expected_forkid);
