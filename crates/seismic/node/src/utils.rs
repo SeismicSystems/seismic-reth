@@ -41,6 +41,18 @@ pub mod test_utils {
             let workspace_root = metadata.get("workspace_root").unwrap().as_str().unwrap();
             println!("Workspace root: {}", workspace_root);
 
+            // Build feature flags
+            let mut features: Vec<String> = Vec::new();
+            #[cfg(feature = "gas-price-zero")]
+            features.push("gas-price-zero".to_string());
+
+            let mut cmd = Command::new("cargo");
+            cmd.arg("run").arg("--bin").arg("seismic-reth");
+
+            if !features.is_empty() {
+                cmd.arg("--features").arg(features.join(","));
+            }
+
             let mut child = Command::new("cargo")
                 .arg("run")
                 .arg("--bin")
@@ -50,8 +62,8 @@ pub mod test_utils {
                 .arg("--datadir")
                 .arg(SeismicRethTestCommand::data_dir().to_str().unwrap())
                 .arg("--dev")
-                .arg("--dev.block-max-transactions")
-                .arg("1")
+                .arg("--dev.block-time")
+                .arg("2s")
                 .arg("--enclave.mock-server")
                 .arg("-vvvv")
                 .arg("--disable-discovery")
