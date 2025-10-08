@@ -76,10 +76,15 @@ async fn integration_test() {
     test_seismic_reth_rpc_simulate_block().await;
     test_seismic_precompiles_end_to_end().await;
 
+    #[cfg(all(feature = "no-value-transfers", feature = "gas-price-zero"))]
+    {
+        test_reject_value_transfer().await;
+    }
+
     if !manual_debug {
         let _ = shutdown_tx_top.unwrap().try_send(()).unwrap();
         println!("shutdown signal sent");
-        thread::sleep(Duration::from_secs(2));
+        thread::sleep(Duration::from_secs(5));
     }
 }
 
@@ -114,8 +119,6 @@ async fn test_seismic_reth_rpc() {
         }
     }
     // assert_eq!(tx_hash, itx.tx_hashes[0]);
-    thread::sleep(Duration::from_secs(5));
-    println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
     thread::sleep(Duration::from_secs(5));
     // println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
 
@@ -195,7 +198,7 @@ async fn test_seismic_reth_rpc() {
     .await
     .unwrap();
     println!("eth_sendRawTransaction setting number transaction tx_hash: {:?}", tx_hash);
-    thread::sleep(Duration::from_secs(2));
+    thread::sleep(Duration::from_secs(5));
 
     // Get the transaction receipt
     let receipt = EthApiClient::<
@@ -324,7 +327,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
     .await
     .unwrap();
     // assert_eq!(tx_hash, itx.tx_hashes[0]);
-    thread::sleep(Duration::from_secs(2));
+    thread::sleep(Duration::from_secs(5));
     println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
 
     // Get the transaction receipt
@@ -405,7 +408,7 @@ async fn test_seismic_reth_rpc_with_rust_client() {
 
     let tx_hash = pending_transaction.tx_hash();
     // assert_eq!(tx_hash, itx.tx_hashes[0]);
-    thread::sleep(Duration::from_secs(2));
+    thread::sleep(Duration::from_secs(5));
     println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
 
     // Get the transaction receipt
@@ -449,7 +452,7 @@ async fn test_seismic_reth_rpc_with_rust_client() {
         .unwrap();
     let tx_hash = pending_transaction.tx_hash();
     println!("eth_sendRawTransaction setting number transaction tx_hash: {:?}", tx_hash);
-    thread::sleep(Duration::from_secs(2));
+    thread::sleep(Duration::from_secs(5));
 
     // Get the transaction receipt
     let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
@@ -598,7 +601,7 @@ async fn test_seismic_precompiles_end_to_end() {
     );
     let pending_transaction = provider.send_transaction(req).await.unwrap();
     let tx_hash = pending_transaction.tx_hash();
-    thread::sleep(Duration::from_secs(2));
+    thread::sleep(Duration::from_secs(5));
 
     // Get the transaction receipt
     let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
@@ -625,7 +628,7 @@ async fn test_seismic_precompiles_end_to_end() {
     );
     let pending_transaction = provider.send_transaction(req).await.unwrap();
     let tx_hash = pending_transaction.tx_hash();
-    thread::sleep(Duration::from_secs(2));
+    thread::sleep(Duration::from_secs(5));
 
     // Get the transaction receipt
     let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
@@ -651,7 +654,7 @@ async fn test_seismic_precompiles_end_to_end() {
     );
     let pending_transaction = provider.send_transaction(req).await.unwrap();
     let tx_hash = pending_transaction.tx_hash();
-    thread::sleep(Duration::from_secs(2));
+    thread::sleep(Duration::from_secs(5));
 
     // Get the transaction receipt
     let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
