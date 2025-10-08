@@ -1427,15 +1427,15 @@ Post-merge hard forks (timestamp based):
                 ),
                 (
                     EthereumHardfork::Paris,
-                    ForkId { hash: ForkHash([0xb9, 0x6c, 0xbd, 0x13]), next: 1677557088 },
+                    ForkId { hash: ForkHash([0xb9, 0x6c, 0xbd, 0x13]), next: ts(1677557088) },
                 ),
                 (
                     EthereumHardfork::Shanghai,
-                    ForkId { hash: ForkHash([0xf7, 0xf9, 0xbc, 0x08]), next: 1706655072 },
+                    ForkId { hash: ForkHash([0xf7, 0xf9, 0xbc, 0x08]), next: ts(1706655072) },
                 ),
                 (
                     EthereumHardfork::Cancun,
-                    ForkId { hash: ForkHash([0x88, 0xcf, 0x81, 0xd9]), next: 1741159776 },
+                    ForkId { hash: ForkHash([0x88, 0xcf, 0x81, 0xd9]), next: ts(1741159776) },
                 ),
                 (
                     EthereumHardfork::Prague,
