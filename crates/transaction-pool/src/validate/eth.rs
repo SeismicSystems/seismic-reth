@@ -728,7 +728,11 @@ where
     }
 
     fn on_new_head_block<T: BlockHeader>(&self, new_tip_block: &T) {
-        let timestamp = if cfg!(feature = "timestamp-in-seconds") { new_tip_block.timestamp() } else { new_tip_block.timestamp() / 1000 };
+        let timestamp = if cfg!(feature = "timestamp-in-seconds") {
+            new_tip_block.timestamp()
+        } else {
+            new_tip_block.timestamp() / 1000
+        };
 
         // update all forks
         if self.chain_spec().is_shanghai_active_at_timestamp(timestamp) {
@@ -747,9 +751,7 @@ where
             self.fork_tracker.osaka.store(true, std::sync::atomic::Ordering::Relaxed);
         }
 
-        if let Some(blob_params) =
-            self.chain_spec().blob_params_at_timestamp(timestamp)
-        {
+        if let Some(blob_params) = self.chain_spec().blob_params_at_timestamp(timestamp) {
             self.fork_tracker
                 .max_blob_count
                 .store(blob_params.max_blobs_per_tx, std::sync::atomic::Ordering::Relaxed);

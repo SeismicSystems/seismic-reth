@@ -149,8 +149,9 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
             pending_basefee: chain_spec
                 .next_block_base_fee(latest.header(), latest.timestamp_seconds())
                 .unwrap_or_default(),
-            pending_blob_fee: latest
-                .maybe_next_block_blob_fee(chain_spec.blob_params_at_timestamp(latest.timestamp_seconds())),
+            pending_blob_fee: latest.maybe_next_block_blob_fee(
+                chain_spec.blob_params_at_timestamp(latest.timestamp_seconds()),
+            ),
         };
         pool.set_block_info(info);
     }

@@ -163,7 +163,10 @@ pub trait EthFees:
                 base_fee_per_gas.push(
                     self.provider()
                         .chain_spec()
-                        .next_block_base_fee(&last_entry.header, last_entry.header.timestamp_seconds())
+                        .next_block_base_fee(
+                            &last_entry.header,
+                            last_entry.header.timestamp_seconds(),
+                        )
                         .unwrap_or_default() as u128,
                 );
 
@@ -366,7 +369,9 @@ where
                 .map_err(Self::Error::from_eth_err)?
                 .and_then(|h| {
                     h.maybe_next_block_blob_fee(
-                        self.provider().chain_spec().blob_params_at_timestamp(h.timestamp_seconds()),
+                        self.provider()
+                            .chain_spec()
+                            .blob_params_at_timestamp(h.timestamp_seconds()),
                     )
                 })
                 .ok_or(EthApiError::ExcessBlobGasNotSet.into())

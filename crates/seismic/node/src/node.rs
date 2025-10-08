@@ -463,7 +463,11 @@ where
             DiskFileBlobStoreConfig::default().with_max_cached_entries(blob_cache_size);
 
         let blob_store = DiskFileBlobStore::open(data_dir.blobstore(), custom_config)?;
-        let head_timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") { ctx.head().timestamp } else { ctx.head().timestamp / 1000 };
+        let head_timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") {
+            ctx.head().timestamp
+        } else {
+            ctx.head().timestamp / 1000
+        };
         let validator = TransactionValidationTaskExecutor::eth_builder(ctx.provider().clone())
             .with_head_timestamp(head_timestamp_seconds)
             .kzg_settings(ctx.kzg_settings()?)

@@ -185,7 +185,9 @@ where
         )?;
 
         // ensure that the blob gas fields for this block
-        if let Some(blob_params) = self.chain_spec.blob_params_at_timestamp(header.timestamp_seconds()) {
+        if let Some(blob_params) =
+            self.chain_spec.blob_params_at_timestamp(header.timestamp_seconds())
+        {
             validate_against_parent_4844(header.header(), parent.header(), blob_params)?;
         }
 

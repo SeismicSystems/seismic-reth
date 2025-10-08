@@ -111,13 +111,11 @@ where
                 .eth_api()
                 .provider()
                 .chain_spec()
-                .blob_params_at_timestamp(
-                    if cfg!(feature = "timestamp-in-seconds") {
-                        evm_env.block_env.timestamp.saturating_to()
-                    } else {
-                        (evm_env.block_env.timestamp / U256::from(1000)).saturating_to()
-                    }
-                )
+                .blob_params_at_timestamp(if cfg!(feature = "timestamp-in-seconds") {
+                    evm_env.block_env.timestamp.saturating_to()
+                } else {
+                    (evm_env.block_env.timestamp / U256::from(1000)).saturating_to()
+                })
                 .unwrap_or_else(BlobParams::cancun);
             if transactions.iter().filter_map(|tx| tx.blob_gas_used()).sum::<u64>() >
                 blob_params.max_blob_gas_per_block()

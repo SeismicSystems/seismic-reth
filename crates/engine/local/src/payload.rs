@@ -30,9 +30,11 @@ where
     /// Timestamp is in milliseconds when passed into here.
     /// Will store it as milliseconds in payload attributes
     /// (similar to payload attributes emitted from consensus layer)
-    /// Use timestamp in seconds for is_shanghai_active_at_timestamp and is_cancun_active_at_timestamp
+    /// Use timestamp in seconds for is_shanghai_active_at_timestamp and
+    /// is_cancun_active_at_timestamp
     fn build(&self, timestamp: u64) -> EthPayloadAttributes {
-        let timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") { timestamp } else { timestamp / 1000 };
+        let timestamp_seconds =
+            if cfg!(feature = "timestamp-in-seconds") { timestamp } else { timestamp / 1000 };
         EthPayloadAttributes {
             timestamp,
             prev_randao: B256::random(),

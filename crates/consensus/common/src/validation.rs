@@ -347,8 +347,9 @@ pub fn validate_against_parent_gas_limit<
         chain_spec.is_london_active_at_block(header.number())
     {
         parent.gas_limit() *
-            chain_spec.base_fee_params_at_timestamp(header.timestamp_seconds()).elasticity_multiplier
-                as u64
+            chain_spec
+                .base_fee_params_at_timestamp(header.timestamp_seconds())
+                .elasticity_multiplier as u64
     } else {
         parent.gas_limit()
     };

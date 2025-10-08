@@ -41,7 +41,11 @@ pub fn make_genesis_header(genesis: &Genesis, hardforks: &ChainHardforks) -> Hea
         .active_at_block(0)
         .then(|| genesis.base_fee_per_gas.map(|fee| fee as u64).unwrap_or(INITIAL_BASE_FEE));
 
-    let genesis_timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") { genesis.timestamp } else { genesis.timestamp / 1000 };
+    let genesis_timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") {
+        genesis.timestamp
+    } else {
+        genesis.timestamp / 1000
+    };
     // If shanghai is activated, initialize the header with an empty withdrawals hash, and
     // empty withdrawals list.
     let withdrawals_root = hardforks
@@ -53,14 +57,16 @@ pub fn make_genesis_header(genesis: &Genesis, hardforks: &ChainHardforks) -> Hea
     // * parent beacon block root to 0x0
     // * blob gas used to provided genesis or 0x0
     // * excess blob gas to provided genesis or 0x0
-    let (parent_beacon_block_root, blob_gas_used, excess_blob_gas) =
-        if hardforks.fork(EthereumHardfork::Cancun).active_at_timestamp(genesis_timestamp_seconds) {
-            let blob_gas_used = genesis.blob_gas_used.unwrap_or(0);
-            let excess_blob_gas = genesis.excess_blob_gas.unwrap_or(0);
-            (Some(B256::ZERO), Some(blob_gas_used), Some(excess_blob_gas))
-        } else {
-            (None, None, None)
-        };
+    let (parent_beacon_block_root, blob_gas_used, excess_blob_gas) = if hardforks
+        .fork(EthereumHardfork::Cancun)
+        .active_at_timestamp(genesis_timestamp_seconds)
+    {
+        let blob_gas_used = genesis.blob_gas_used.unwrap_or(0);
+        let excess_blob_gas = genesis.excess_blob_gas.unwrap_or(0);
+        (Some(B256::ZERO), Some(blob_gas_used), Some(excess_blob_gas))
+    } else {
+        (None, None, None)
+    };
 
     // If Prague is activated at genesis we set requests root to an empty trie root.
     let requests_hash = hardforks
@@ -544,7 +550,11 @@ impl ChainSpec {
             ForkCondition::Timestamp(timestamp) => {
                 // to satisfy every timestamp ForkCondition, we find the last ForkCondition::Block
                 // if one exists, and include its block_num in the returned Head
-                let timestamp = if cfg!(feature = "timestamp-in-seconds") { timestamp } else { timestamp * 1000 };
+                let timestamp = if cfg!(feature = "timestamp-in-seconds") {
+                    timestamp
+                } else {
+                    timestamp * 1000
+                };
                 Head {
                     timestamp,
                     number: self.last_block_fork_before_merge_or_timestamp().unwrap_or_default(),

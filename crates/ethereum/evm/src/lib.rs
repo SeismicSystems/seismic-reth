@@ -157,7 +157,11 @@ where
     }
 
     fn evm_env(&self, header: &Header) -> EvmEnv {
-        let timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") { header.timestamp() } else { header.timestamp_seconds() / 1000 };
+        let timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") {
+            header.timestamp()
+        } else {
+            header.timestamp_seconds() / 1000
+        };
         let blob_params = self.chain_spec().blob_params_at_timestamp(header.timestamp);
         let spec = config::revm_spec(self.chain_spec(), header);
 
@@ -309,12 +313,16 @@ where
 {
     fn evm_env_for_payload(&self, payload: &ExecutionData) -> EvmEnvFor<Self> {
         let timestamp = payload.payload.timestamp();
-        let timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") { timestamp } else { timestamp / 1000 };
+        let timestamp_seconds =
+            if cfg!(feature = "timestamp-in-seconds") { timestamp } else { timestamp / 1000 };
         let block_number = payload.payload.block_number();
 
         let blob_params = self.chain_spec().blob_params_at_timestamp(timestamp_seconds);
-        let spec =
-            revm_spec_by_timestamp_and_block_number(self.chain_spec(), timestamp_seconds, block_number);
+        let spec = revm_spec_by_timestamp_and_block_number(
+            self.chain_spec(),
+            timestamp_seconds,
+            block_number,
+        );
 
         // configure evm env based on parent block
         let mut cfg_env =

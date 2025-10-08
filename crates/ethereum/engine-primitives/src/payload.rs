@@ -370,7 +370,8 @@ impl From<alloc::vec::IntoIter<BlobTransactionSidecarEip7594>> for BlobSidecars 
 }
 
 /// Container type for all components required to build a payload.
-/// NOTE: modified miner such that timestamp is in milliseconds (similar to payload attributes emitted from consensus layer)
+/// NOTE: modified miner such that timestamp is in milliseconds (similar to payload attributes
+/// emitted from consensus layer)
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct EthPayloadBuilderAttributes {
     /// Id of the payload

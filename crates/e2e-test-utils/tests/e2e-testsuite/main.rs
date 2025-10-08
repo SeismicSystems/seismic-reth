@@ -143,10 +143,9 @@ async fn test_testsuite_assert_mine_block() -> Result<()> {
         ))
         .with_network(NetworkSetup::single_node());
 
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
+    let timestamp =
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+            as u64;
 
     let test =
         TestBuilder::new().with_setup(setup).with_action(AssertMineBlock::<EthEngineTypes>::new(
