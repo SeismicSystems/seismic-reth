@@ -57,7 +57,10 @@ where
             ..
         } = input;
 
+        // EVM block env timestamp is in milliseconds when feature is disabled, seconds when enabled
         let timestamp = evm_env.block_env.timestamp.saturating_to();
+
+        // For fork activation checks, we always need seconds
         let timestamp_seconds =
             if cfg!(feature = "timestamp-in-seconds") { timestamp } else { timestamp / 1000 };
 

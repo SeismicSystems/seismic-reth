@@ -9698,6 +9698,7 @@ dependencies = [
  "reth-seismic-forks",
  "reth-seismic-primitives",
  "seismic-alloy-consensus",
+ "seismic-alloy-genesis",
  "seismic-alloy-rpc-types",
  "serde_json",
  "thiserror 2.0.12",
