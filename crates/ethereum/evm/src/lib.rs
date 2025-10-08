@@ -157,13 +157,13 @@ where
     }
 
     fn evm_env(&self, header: &Header) -> EvmEnv {
-        let timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") {
-            header.timestamp()
-        } else {
-            header.timestamp_seconds() / 1000
-        };
-        let blob_params = self.chain_spec().blob_params_at_timestamp(header.timestamp);
-        let spec = config::revm_spec(self.chain_spec(), header);
+        let timestamp_seconds = header.timestamp_seconds();
+        let blob_params = self.chain_spec().blob_params_at_timestamp(timestamp_seconds);
+        let spec = config::revm_spec_by_timestamp_and_block_number(
+            self.chain_spec(),
+            timestamp_seconds,
+            header.number(),
+        );
 
         // configure evm env based on parent block
         let mut cfg_env =
@@ -188,7 +188,7 @@ where
         let block_env = BlockEnv {
             number: U256::from(header.number()),
             beneficiary: header.beneficiary(),
-            timestamp: U256::from(timestamp_seconds),
+            timestamp: U256::from(header.timestamp()),
             difficulty: if spec >= SpecId::MERGE { U256::ZERO } else { header.difficulty() },
             prevrandao: if spec >= SpecId::MERGE { header.mix_hash() } else { None },
             gas_limit: header.gas_limit(),
