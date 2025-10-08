@@ -65,8 +65,11 @@ fn create_database_with_withdrawal_requests_contract() -> CacheDB<EmptyDB> {
 
 #[test]
 fn eip_4788_non_genesis_call() {
+    // When timestamp-in-seconds feature is disabled, timestamps are in milliseconds
+    // Use 1000ms to represent 1 second for Cancun fork activation at timestamp 1
+    let timestamp = if cfg!(feature = "timestamp-in-seconds") { 1 } else { 1000 };
     let mut header =
-        Header { timestamp: 1, number: 1, excess_blob_gas: Some(0), ..Header::default() };
+        Header { timestamp, number: 1, excess_blob_gas: Some(0), ..Header::default() };
 
     let db = create_database_with_beacon_root_contract();
 

@@ -67,7 +67,9 @@ default = ["std"]
 timestamp-in-seconds = [
     "revm/timestamp-in-seconds",
     "seismic-revm/timestamp-in-seconds",
-    "reth-seismic-chainspec/timestamp-in-seconds"
+    "reth-seismic-chainspec/timestamp-in-seconds",
+    "alloy-evm/timestamp-in-seconds",
+    "alloy-seismic-evm/timestamp-in-seconds"
 ]
 std = [
     "reth-consensus/std",

@@ -43,7 +43,7 @@ tokio.workspace = true
 
 [features]
 default = ["std"]
-timestamp-in-seconds = ["revm/timestamp-in-seconds"]
+timestamp-in-seconds = ["revm/timestamp-in-seconds", "reth-evm/timestamp-in-seconds", "alloy-evm/timestamp-in-seconds"]
 std = [
     "alloy-consensus/std",
     "alloy-eips/std",
