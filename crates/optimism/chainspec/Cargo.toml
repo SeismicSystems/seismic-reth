@@ -50,7 +50,7 @@ thiserror = { workspace = true, optional = true }
 op-alloy-consensus.workspace = true
 
 [dev-dependencies]
-reth-chainspec = { workspace = true, features = ["test-utils", "timestamp-in-seconds"] }
+reth-chainspec = { workspace = true, features = ["test-utils"] }
 
 [features]
 default = ["std"]
