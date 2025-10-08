@@ -53,11 +53,7 @@ pub mod test_utils {
                 cmd.arg("--features").arg(features.join(","));
             }
 
-            let mut child = Command::new("cargo")
-                .arg("run")
-                .arg("--bin")
-                .arg("seismic-reth") // Specify the binary name
-                .arg("--")
+            let mut child = cmd
                 .arg("node")
                 .arg("--datadir")
                 .arg(SeismicRethTestCommand::data_dir().to_str().unwrap())
