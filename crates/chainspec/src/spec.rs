@@ -1214,7 +1214,8 @@ Post-merge hard forks (timestamp based):
             .with_fork(EthereumHardfork::Shanghai, ForkCondition::Timestamp(11313123))
             .build();
         let happy_path_head = happy_path_case.satisfy(ForkCondition::Timestamp(11313123));
-        let happy_path_expected = Head { number: 73, timestamp: ts(11313123), ..Default::default() };
+        let happy_path_expected =
+            Head { number: 73, timestamp: ts(11313123), ..Default::default() };
         assert_eq!(
             happy_path_head, happy_path_expected,
             "expected satisfy() to return {happy_path_expected:#?}, but got {happy_path_head:#?} "
@@ -1243,7 +1244,8 @@ Post-merge hard forks (timestamp based):
             .with_fork(EthereumHardfork::Shanghai, ForkCondition::Timestamp(11313123))
             .build();
         let no_block_fork_head = no_block_fork_case.satisfy(ForkCondition::Timestamp(11313123));
-        let no_block_fork_expected = Head { number: 0, timestamp: ts(11313123), ..Default::default() };
+        let no_block_fork_expected =
+            Head { number: 0, timestamp: ts(11313123), ..Default::default() };
         assert_eq!(
             no_block_fork_head, no_block_fork_expected,
             "expected satisfy() to return {no_block_fork_expected:#?}, but got {no_block_fork_head:#?} ",
