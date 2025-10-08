@@ -139,4 +139,5 @@ gas-price-zero = [
     "reth-seismic-payload-builder/gas-price-zero",
     "reth-seismic-txpool/gas-price-zero",
     "reth-node-ethereum/gas-price-zero",
+    "reth-seismic-primitives/gas-price-zero"
 ]
