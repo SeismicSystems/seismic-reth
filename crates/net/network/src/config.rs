@@ -762,7 +762,10 @@ mod tests {
 
     #[test]
     fn test_discv5_fork_id_default() {
+        #[cfg(feature = "timestamp-in-seconds")]
         const GENESIS_TIME: u64 = 151_515;
+        #[cfg(not(feature = "timestamp-in-seconds"))]
+        const GENESIS_TIME: u64 = 151_515_000;
 
         let genesis = Genesis::default().with_timestamp(GENESIS_TIME);
 
