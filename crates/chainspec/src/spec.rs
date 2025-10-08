@@ -524,11 +524,8 @@ impl ChainSpec {
             let genesis_timestamp_seconds = self.genesis_timestamp_seconds();
             cond.as_timestamp().filter(|time| time > &genesis_timestamp_seconds)
         }) {
-            let timestamp_cmp = if cfg!(feature = "timestamp-in-seconds") {
-                timestamp 
-            } else {
-                timestamp * 1000
-            };
+            let timestamp_cmp =
+                if cfg!(feature = "timestamp-in-seconds") { timestamp } else { timestamp * 1000 };
             // MODIFIED:: timestamp is in seconds, not milliseconds
             if head.timestamp >= timestamp_cmp {
                 // skip duplicated hardfork activated at the same timestamp
