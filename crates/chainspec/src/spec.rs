@@ -524,18 +524,23 @@ impl ChainSpec {
             let genesis_timestamp_seconds = self.genesis_timestamp_seconds();
             cond.as_timestamp().filter(|time| time > &genesis_timestamp_seconds)
         }) {
+            let timestamp_cmp = if cfg!(feature = "timestamp-in-seconds") {
+                timestamp 
+            } else {
+                timestamp * 1000
+            };
             // MODIFIED:: timestamp is in seconds, not milliseconds
-            if head.timestamp >= timestamp {
+            if head.timestamp >= timestamp_cmp {
                 // skip duplicated hardfork activated at the same timestamp
                 if timestamp != current_applied {
                     forkhash += timestamp;
-                    current_applied = timestamp;
+                    current_applied = timestamp_cmp;
                 }
             } else {
                 // can safely return here because we have already handled all block forks and
                 // have handled all active timestamp forks, and set the next value to the
                 // timestamp that is known but not active yet
-                return ForkId { hash: forkhash, next: timestamp }
+                return ForkId { hash: forkhash, next: timestamp_cmp }
             }
         }
 
@@ -1293,6 +1298,14 @@ Post-merge hard forks (timestamp based):
         );
     }
 
+    fn ts(timestamp_seconds: u64) -> u64 {
+        if cfg!(feature = "timestamp-in-seconds") {
+            timestamp_seconds
+        } else {
+            1000 * timestamp_seconds
+        }
+    }
+
     #[test]
     fn mainnet_hardfork_fork_ids() {
         test_hardfork_fork_ids(
@@ -1352,15 +1365,15 @@ Post-merge hard forks (timestamp based):
                 ),
                 (
                     EthereumHardfork::GrayGlacier,
-                    ForkId { hash: ForkHash([0xf0, 0xaf, 0xd0, 0xe3]), next: 1681338455 },
+                    ForkId { hash: ForkHash([0xf0, 0xaf, 0xd0, 0xe3]), next: ts(1681338455) },
                 ),
                 (
                     EthereumHardfork::Shanghai,
-                    ForkId { hash: ForkHash([0xdc, 0xe9, 0x6c, 0x2d]), next: 1710338135 },
+                    ForkId { hash: ForkHash([0xdc, 0xe9, 0x6c, 0x2d]), next: ts(1710338135) },
                 ),
                 (
                     EthereumHardfork::Cancun,
-                    ForkId { hash: ForkHash([0x9f, 0x3d, 0x22, 0x54]), next: 1746612311 },
+                    ForkId { hash: ForkHash([0x9f, 0x3d, 0x22, 0x54]), next: ts(1746612311) },
                 ),
                 (
                     EthereumHardfork::Prague,
