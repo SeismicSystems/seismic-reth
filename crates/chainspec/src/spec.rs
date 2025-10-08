@@ -1500,17 +1500,17 @@ Post-merge hard forks (timestamp based):
                 ),
                 (
                     Head { number: 15050000, ..Default::default() },
-                    ForkId { hash: ForkHash([0xf0, 0xaf, 0xd0, 0xe3]), next: 1681338455 },
+                    ForkId { hash: ForkHash([0xf0, 0xaf, 0xd0, 0xe3]), next: ts(1681338455) },
                 ),
                 // First Shanghai block
                 (
                     Head { number: 20000000, timestamp: 1681338455, ..Default::default() },
-                    ForkId { hash: ForkHash([0xdc, 0xe9, 0x6c, 0x2d]), next: 1710338135 },
+                    ForkId { hash: ForkHash([0xdc, 0xe9, 0x6c, 0x2d]), next: ts(1710338135) },
                 ),
                 // First Cancun block
                 (
                     Head { number: 20000001, timestamp: 1710338135, ..Default::default() },
-                    ForkId { hash: ForkHash([0x9f, 0x3d, 0x22, 0x54]), next: 1746612311 },
+                    ForkId { hash: ForkHash([0x9f, 0x3d, 0x22, 0x54]), next: ts(1746612311) },
                 ),
                 // First Prague block
                 (
