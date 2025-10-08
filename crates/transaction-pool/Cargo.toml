@@ -77,6 +77,7 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 futures.workspace = true
 
 [features]
+timestamp-in-seconds = ["revm-interpreter/timestamp-in-seconds", "reth-primitives-traits/timestamp-in-seconds"]
 serde = [
     "reth-execution-types/serde",
     "reth-eth-wire-types/serde",

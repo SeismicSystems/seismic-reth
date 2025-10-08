@@ -35,7 +35,7 @@ tempfile.workspace = true
 
 [features]
 default = ["jemalloc"]
-
+timestamp-in-seconds = []
 dev = ["reth-cli-commands/arbitrary"]
 
 asm-keccak = [

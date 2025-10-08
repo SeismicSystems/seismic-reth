@@ -94,6 +94,12 @@ alloy-rpc-types-engine.workspace = true
 
 [features]
 default = ["client"]
+timestamp-in-seconds = [
+    "revm/timestamp-in-seconds",
+    "seismic-revm/timestamp-in-seconds",
+    "reth-seismic-primitives/timestamp-in-seconds",
+    "reth-seismic-chainspec/timestamp-in-seconds",
+]
 client = [
     "jsonrpsee/client",
     "jsonrpsee/async-client",

@@ -43,6 +43,7 @@ reth-ethereum-forks.workspace = true
 
 [features]
 default = ["std"]
+timestamp-in-seconds = ["revm/timestamp-in-seconds", "seismic-revm/timestamp-in-seconds", "alloy-evm/timestamp-in-seconds"]
 std = [
     "reth-primitives-traits/std",
     "alloy-eips/std",

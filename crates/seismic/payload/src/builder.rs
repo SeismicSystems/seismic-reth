@@ -257,14 +257,14 @@ where
     let BlockBuilderOutcome { execution_result, block, .. } = builder.finish(&state_provider)?;
 
     let requests = chain_spec
-        .is_prague_active_at_timestamp(attributes.timestamp)
+        .is_prague_active_at_timestamp(attributes.timestamp_seconds())
         .then_some(execution_result.requests);
 
     // initialize empty blob sidecars at first. If cancun is active then this will
     let mut blob_sidecars = Vec::new();
 
     // only determine cancun fields when active
-    if chain_spec.is_cancun_active_at_timestamp(attributes.timestamp) {
+    if chain_spec.is_cancun_active_at_timestamp(attributes.timestamp_seconds()) {
         // grab the blob sidecars from the executed txs
         blob_sidecars = pool
             .get_all_blobs_exact(

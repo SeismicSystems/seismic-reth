@@ -51,3 +51,6 @@ reth-execution-errors.workspace = true
 proptest.workspace = true
 proptest-arbitrary-interop.workspace = true
 reth-execution-types.workspace = true
+
+[features]
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]

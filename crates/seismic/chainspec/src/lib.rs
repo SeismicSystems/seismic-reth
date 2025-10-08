@@ -17,6 +17,8 @@ use reth_chainspec::{make_genesis_header, ChainSpec, DEV_HARDFORKS};
 use reth_primitives_traits::{sync::LazyLock, SealedHeader};
 use reth_seismic_forks::{SEISMIC_DEV_HARDFORKS, SEISMIC_MAINNET_HARDFORKS};
 
+use seismic_alloy_genesis::Genesis;
+
 /// Genesis hash for the Seismic mainnet
 /// Calculated by rlp encoding the genesis header and hashing it
 pub const SEISMIC_MAINNET_GENESIS_HASH: B256 =
@@ -30,8 +32,16 @@ pub const SEISMIC_DEV_GENESIS_HASH: B256 =
 
 /// Seismic devnet specification
 pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
-    let genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
+    let mut genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
         .expect("Can't deserialize Dev testnet genesis json");
+
+    // Genesis JSON timestamps are in seconds, but when timestamp-in-seconds feature is disabled,
+    // we store timestamps internally as milliseconds
+    #[cfg(not(feature = "timestamp-in-seconds"))]
+    {
+        genesis.timestamp *= 1000;
+    }
+
     let hardforks = SEISMIC_DEV_HARDFORKS.clone();
     ChainSpec {
         chain: Chain::from_id(5124),
@@ -50,8 +60,16 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 // TODO: remove this once we launch devnet with consensus
 /// Seismic old devnet specification
 pub static SEISMIC_DEV_OLD: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
-    let genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
+    let mut genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
         .expect("Can't deserialize Dev testnet genesis json");
+
+    // Genesis JSON timestamps are in seconds, but when timestamp-in-seconds feature is disabled,
+    // we store timestamps internally as milliseconds
+    #[cfg(not(feature = "timestamp-in-seconds"))]
+    {
+        genesis.timestamp *= 1000;
+    }
+
     let hardforks = SEISMIC_DEV_HARDFORKS.clone();
     ChainSpec {
         chain: Chain::from_id(5124),
@@ -69,8 +87,16 @@ pub static SEISMIC_DEV_OLD: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 
 /// Seismic Mainnet
 pub static SEISMIC_MAINNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
-    let genesis = serde_json::from_str(include_str!("../res/genesis/mainnet.json"))
+    let mut genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/mainnet.json"))
         .expect("Can't deserialize Mainnet genesis json");
+
+    // Genesis JSON timestamps are in seconds, but when timestamp-in-seconds feature is disabled,
+    // we store timestamps internally as milliseconds
+    #[cfg(not(feature = "timestamp-in-seconds"))]
+    {
+        genesis.timestamp *= 1000;
+    }
+
     let hardforks = SEISMIC_MAINNET_HARDFORKS.clone();
     let mut spec = ChainSpec {
         chain: Chain::from_id(5123),

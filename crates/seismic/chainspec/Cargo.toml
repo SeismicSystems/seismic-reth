@@ -33,6 +33,7 @@ alloy-hardforks.workspace = true
 # op
 seismic-alloy-rpc-types.workspace = true
 seismic-alloy-consensus.workspace = true
+seismic-alloy-genesis.workspace = true
 
 # io
 serde_json.workspace = true
@@ -49,6 +50,7 @@ seismic-alloy-rpc-types.workspace = true
 
 [features]
 default = ["std"]
+timestamp-in-seconds = []
 std = [
     "alloy-chains/std",
     "alloy-genesis/std",

@@ -63,6 +63,7 @@ proptest.workspace = true
 proptest-arbitrary-interop.workspace = true
 
 [features]
+timestamp-in-seconds = ["reth-seismic-primitives/timestamp-in-seconds"]
 test-utils = [
     "arbitrary",
     "reth-primitives-traits/test-utils",
