@@ -269,7 +269,7 @@ where
     }
 
     /// Validates that the account balances remain unchanged when value transfers are disabled.
-    pub fn validate_gas_price_zero_balance_unchanged(
+    pub fn validate_balance_unchanged(
         &self,
         _block: &RecoveredBlock<N::Block>,
         output: &BlockExecutionOutput<N::Receipt>,
@@ -493,7 +493,7 @@ where
 
         #[cfg(feature = "no-value-transfers")]
         {
-            if let Err(err) = self.validate_gas_price_zero_balance_unchanged(&block, &output) {
+            if let Err(err) = self.validate_balance_unchanged(&block, &output) {
                 self.on_invalid_block(&parent_block, &block, &output, None, ctx.state_mut());
                 return Err(InsertBlockError::new(block.into_sealed_block(), err.into()).into())
             }
