@@ -129,10 +129,17 @@ where
         let enclave_client = enclave_client_builder.clone().build();
         let request = GetPurposeKeysRequest { epoch: 0 };
 
-        match enclave_client.get_purpose_keys(request) {
-            Ok(response) => Some(response.rng_keypair),
-            Err(_) => None,
-        }
+        let key = match enclave_client.get_purpose_keys(request) {
+            Ok(response) => {
+                println!("Got real key: {}", response.rng_keypair);
+                Some(response.rng_keypair)
+            },
+            Err(_) => {
+                println!("Get purpose keys failed, returning None");
+                None
+            },
+        };
+        None
     }
 
     /// Returns the live RNG key if available
