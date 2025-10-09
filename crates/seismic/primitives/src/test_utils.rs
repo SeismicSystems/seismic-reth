@@ -227,7 +227,7 @@ pub async fn get_signed_seismic_tx_bytes_with_value(
 ) -> Bytes {
     let mut tx = get_unsigned_seismic_tx_request(sk_wallet, nonce, to, chain_id, plaintext).await;
     tx.inner.value = Some(value);
-    
+
     let signed_inner = sign_tx(sk_wallet.clone(), tx).await;
     <SeismicTxEnvelope as Encodable2718>::encoded_2718(&signed_inner).into()
 }

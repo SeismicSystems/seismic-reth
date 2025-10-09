@@ -461,6 +461,14 @@ where
             return Err(InsertBlockError::new(block.into_sealed_block(), err.into()).into())
         }
 
+        #[cfg(feature = "no-value-transfers")]
+        {
+            if let Err(err) = self.validate_gas_price_zero_balance_unchanged(&block, &output) {
+                self.on_invalid_block(&parent_block, &block, &output, None, ctx.state_mut());
+                return Err(InsertBlockError::new(block.into_sealed_block(), err.into()).into())
+            }
+        }
+
         let hashed_state = self.provider.hashed_post_state(&output.state);
 
         if let Err(err) =

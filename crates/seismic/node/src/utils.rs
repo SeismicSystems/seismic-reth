@@ -62,7 +62,7 @@ pub mod test_utils {
                 .arg(SeismicRethTestCommand::data_dir().to_str().unwrap())
                 .arg("--dev")
                 .arg("--dev.block-time")
-                .arg("2s") 
+                .arg("2s")
                 // .arg("--dev.block-max-transactions")
                 // .arg("1")
                 .arg("--enclave.mock-server")

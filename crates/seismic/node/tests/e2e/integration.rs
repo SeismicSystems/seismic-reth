@@ -753,14 +753,14 @@ async fn test_reject_value_transfer() {
             tx_request.inner.to.unwrap(),
             chain_id,
             tx_request.inner.input.input().cloned().unwrap_or_default(),
-            U256::from(1000)
+            U256::from(1000),
         )
         .await
     };
 
     let result =
         EthApiOverrideClient::<Block>::send_raw_transaction(&client, tx_bytes.into()).await;
-    
+
     println!("result: {:?}", result);
 
     // Should fail with value transfer error
