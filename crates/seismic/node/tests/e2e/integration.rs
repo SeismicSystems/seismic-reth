@@ -713,7 +713,7 @@ async fn test_seismic_precompiles_end_to_end() {
 
 #[cfg(feature = "gas-price-zero")]
 async fn test_seismic_gas_price_zero_balance_check() {
-    let reth_rpc_url = SeismicRethTestCommand::url();
+    let reth_rpc_url = SeismicRethTestCommand::url(); // test
     let chain_id = SeismicRethTestCommand::chain_id();
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(&reth_rpc_url).unwrap();
     let wallet = Wallet::default().with_chain_id(chain_id);
