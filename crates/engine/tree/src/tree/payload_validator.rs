@@ -268,6 +268,36 @@ where
         }
     }
 
+    /// Validates that the account balances remain unchanged when value transfers are disabled.
+    pub fn validate_gas_price_zero_balance_unchanged(
+        &self,
+        _block: &RecoveredBlock<N::Block>,
+        output: &BlockExecutionOutput<N::Receipt>,
+    ) -> Result<(), ConsensusError>
+    where
+        N: NodePrimitives,
+    {
+        for (address, bundle_account) in output.state.state().iter() {
+            if let (Some(original_info), Some(current_info)) =
+                (&bundle_account.original_info, &bundle_account.info)
+            {
+                // Check if balance changed
+                if original_info.balance != current_info.balance {
+                    return Err(ConsensusError::Other(
+                        format!(
+                        "No value transfer check failed: account {} balance changed from {} to {}",
+                        address,
+                        original_info.balance,
+                        current_info.balance
+                    )
+                        .into(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Validates a block that has already been converted from a payload.
     ///
     /// This method performs:
