@@ -131,7 +131,7 @@ where
 
         let key = match enclave_client.get_purpose_keys(request) {
             Ok(response) => {
-                println!("Got real key: {}", response.rng_keypair);
+                println!("Got real key: {:?}", response.rng_keypair);
                 Some(response.rng_keypair)
             },
             Err(_) => {
