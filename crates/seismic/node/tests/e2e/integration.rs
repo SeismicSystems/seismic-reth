@@ -21,7 +21,8 @@ use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
 use seismic_alloy_network::{wallet::SeismicWallet, SeismicReth};
 use seismic_alloy_provider::{
-    test_utils::ContractTestContext, SeismicProviderExt, SeismicSignedProvider,
+    provider::SeismicUnsignedProvider, test_utils::ContractTestContext, SeismicProviderExt,
+    SeismicSignedProvider,
 };
 use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicTransactionReceipt, SeismicTransactionRequest, SimBlock,
@@ -75,6 +76,9 @@ async fn integration_test() {
     test_seismic_reth_rpc_with_rust_client().await;
     test_seismic_reth_rpc_simulate_block().await;
     test_seismic_precompiles_end_to_end().await;
+
+    #[cfg(feature = "gas-price-zero")]
+    test_seismic_gas_price_zero_balance_check().await;
 
     if !manual_debug {
         let _ = shutdown_tx_top.unwrap().try_send(()).unwrap();
@@ -705,6 +709,80 @@ async fn test_seismic_precompiles_end_to_end() {
     let decrypted_locally =
         aes_decrypt(aes_key.into(), &ciphertext, nonce).expect("AES decryption failed");
     assert_eq!(decrypted_locally, message);
+}
+
+#[cfg(feature = "gas-price-zero")]
+async fn test_seismic_gas_price_zero_balance_check() {
+    let reth_rpc_url = SeismicRethTestCommand::url();
+    let chain_id = SeismicRethTestCommand::chain_id();
+    let client = jsonrpsee::http_client::HttpClientBuilder::default().build(&reth_rpc_url).unwrap();
+    let wallet = Wallet::default().with_chain_id(chain_id);
+
+    let provider = SeismicUnsignedProvider::<SeismicReth>::new_http(
+        reqwest::Url::parse(&reth_rpc_url).unwrap(),
+    );
+
+    // Get initial balance
+    let initial_balance = provider.get_balance(wallet.inner.address()).await.unwrap();
+
+    println!("Initial balance: {:?}", initial_balance);
+
+    // Deploy contract with gas_price = 0
+    let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
+        &client,
+        get_signed_seismic_tx_bytes(
+            &wallet.inner,
+            get_nonce(&client, wallet.inner.address()).await,
+            TxKind::Create,
+            chain_id,
+            ContractTestContext::get_deploy_input_plaintext(),
+        )
+        .await
+        .into(),
+    )
+    .await
+    .unwrap();
+
+    println!("Contract deployment tx_hash: {:?}", tx_hash);
+    thread::sleep(Duration::from_secs(5));
+
+    let receipt = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::transaction_receipt(&client, tx_hash)
+    .await
+    .unwrap()
+    .unwrap();
+
+    assert_eq!(receipt.status(), true);
+    let contract_addr = receipt.contract_address.unwrap();
+
+    let final_balance = provider.get_balance(wallet.inner.address()).await.unwrap();
+
+    println!("Final balance: {:?}", final_balance);
+
+    // With gas_price = 0, balance should be unchanged (no gas fees deducted)
+    assert_eq!(
+        initial_balance, final_balance,
+        "Balance changed when gas_price = 0. Initial: {:?}, Final: {:?}",
+        initial_balance, final_balance
+    );
+
+    // Verify contract was deployed successfully
+    let code = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::get_code(&client, contract_addr, None)
+    .await
+    .unwrap();
+
+    assert_eq!(ContractTestContext::get_code(), code);
 }
 
 /// Get the deploy input plaintext
