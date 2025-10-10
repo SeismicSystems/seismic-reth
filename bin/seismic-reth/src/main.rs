@@ -63,7 +63,7 @@ fn main() {
 
     if let Err(err) = Cli::<SeismicChainSpecParser, NoArgs>::parse().run(|builder, _| async move {
         // Boot enclave and fetch purpose keys BEFORE building node components
-        let purpose_keys = boot_enclave_and_fetch_keys(builder.config()).await?;
+        let purpose_keys = boot_enclave_and_fetch_keys(builder.config()).await;
 
         // Store purpose keys in global static storage before building the node
         reth_seismic_node::purpose_keys::init_purpose_keys(purpose_keys);
