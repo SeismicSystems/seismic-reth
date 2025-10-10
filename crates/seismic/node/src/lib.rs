@@ -16,6 +16,7 @@ pub mod args;
 pub mod engine;
 
 pub mod node;
+pub mod purpose_keys;
 
 pub use reth_seismic_txpool as txpool;
 
@@ -26,10 +27,12 @@ pub use reth_seismic_payload_builder::SeismicPayloadBuilder;
 pub use reth_seismic_evm::*;
 
 use reth_chainspec::ChainSpec;
-use seismic_enclave::EnclaveClientBuilder;
 use std::sync::Arc;
-type RealSeismicEvmConfig = SeismicEvmConfig<EnclaveClientBuilder>;
-/// Hacky solution to get things compiling, hardcodes the enclave client builder
-pub fn real_seismic_evm_config(spec: Arc<ChainSpec>) -> RealSeismicEvmConfig {
-    SeismicEvmConfig::seismic(spec, EnclaveClientBuilder::default())
+
+/// Creates a Seismic EVM configuration with the given chain spec and purpose keys.
+pub fn seismic_evm_config(
+    spec: Arc<ChainSpec>,
+    purpose_keys: &'static seismic_enclave::keys::GetPurposeKeysResponse,
+) -> SeismicEvmConfig {
+    SeismicEvmConfig::new(spec, purpose_keys)
 }

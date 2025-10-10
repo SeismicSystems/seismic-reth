@@ -36,9 +36,6 @@ revm.workspace = true
 alloy-primitives.workspace = true
 alloy-consensus.workspace = true
 
-# enclave
-seismic-enclave.workspace = true
-
 # misc
 tracing.workspace = true
 

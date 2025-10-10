@@ -264,7 +264,7 @@ dependencies = [
 [[package]]
 name = "alloy-evm"
 version = "0.20.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=ce780eef959623231205fd4cb8de4ed4a1d84842#ce780eef959623231205fd4cb8de4ed4a1d84842"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=5f3fc294b42205b72c529055072ef6d6f0ad5e8e#5f3fc294b42205b72c529055072ef6d6f0ad5e8e"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -697,7 +697,7 @@ dependencies = [
 [[package]]
 name = "alloy-seismic-evm"
 version = "0.20.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=ce780eef959623231205fd4cb8de4ed4a1d84842#ce780eef959623231205fd4cb8de4ed4a1d84842"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=5f3fc294b42205b72c529055072ef6d6f0ad5e8e#5f3fc294b42205b72c529055072ef6d6f0ad5e8e"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -706,7 +706,6 @@ dependencies = [
  "alloy-primitives",
  "auto_impl",
  "revm",
- "schnorrkel",
  "seismic-alloy-consensus",
  "seismic-enclave",
  "seismic-revm",
@@ -2248,7 +2247,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
 dependencies = [
  "lazy_static",
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -4115,7 +4114,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.57.0",
 ]
 
 [[package]]
@@ -5085,7 +5084,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
- "windows-targets 0.53.2",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -9964,7 +9963,6 @@ dependencies = [
  "reth-evm-ethereum",
  "reth-node-api",
  "reth-node-builder",
- "reth-node-core",
  "reth-node-ethereum",
  "reth-payload-builder",
  "reth-primitives",
@@ -11292,7 +11290,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-consensus"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=84dae78acc18792399b83b188e1523d282528427#84dae78acc18792399b83b188e1523d282528427"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=52fff20b9684f18e64e90637bb875a42bec3941f#52fff20b9684f18e64e90637bb875a42bec3941f"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -11317,7 +11315,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-genesis"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=84dae78acc18792399b83b188e1523d282528427#84dae78acc18792399b83b188e1523d282528427"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=52fff20b9684f18e64e90637bb875a42bec3941f#52fff20b9684f18e64e90637bb875a42bec3941f"
 dependencies = [
  "alloy-genesis",
  "alloy-primitives",
@@ -11330,7 +11328,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-network"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=84dae78acc18792399b83b188e1523d282528427#84dae78acc18792399b83b188e1523d282528427"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=52fff20b9684f18e64e90637bb875a42bec3941f#52fff20b9684f18e64e90637bb875a42bec3941f"
 dependencies = [
  "alloy-consensus",
  "alloy-eip7702",
@@ -11353,7 +11351,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-provider"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=84dae78acc18792399b83b188e1523d282528427#84dae78acc18792399b83b188e1523d282528427"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=52fff20b9684f18e64e90637bb875a42bec3941f#52fff20b9684f18e64e90637bb875a42bec3941f"
 dependencies = [
  "alloy-network",
  "alloy-primitives",
@@ -11371,7 +11369,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-rpc-types"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=84dae78acc18792399b83b188e1523d282528427#84dae78acc18792399b83b188e1523d282528427"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=52fff20b9684f18e64e90637bb875a42bec3941f#52fff20b9684f18e64e90637bb875a42bec3941f"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -12748,7 +12746,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69fff37da548239c3bf9e64a12193d261e8b22b660991c6fd2df057c168f435f"
 dependencies = [
  "cc",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -13330,7 +13328,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

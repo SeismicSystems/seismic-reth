@@ -25,7 +25,6 @@ use reth_transaction_pool::{
     PoolTransaction, TransactionPool, ValidPoolTransaction,
 };
 use revm::context_interface::Block as _;
-use seismic_enclave::EnclaveClientBuilder;
 use std::sync::Arc;
 use tracing::{debug, trace, warn};
 
@@ -40,7 +39,7 @@ use super::SeismicBuilderConfig;
 
 /// Seismic payload builder
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SeismicPayloadBuilder<Pool, Client, EvmConfig = SeismicEvmConfig<EnclaveClientBuilder>> {
+pub struct SeismicPayloadBuilder<Pool, Client, EvmConfig = SeismicEvmConfig> {
     /// Client providing access to node state.
     client: Client,
     /// Transaction pool.
