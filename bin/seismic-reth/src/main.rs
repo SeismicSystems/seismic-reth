@@ -17,9 +17,10 @@ use seismic_enclave::{
 
 /// Boot the enclave (or mock server) and fetch purpose keys.
 /// This must be called before building the node components.
+/// Panics if the enclave cannot be booted or purpose keys cannot be fetched.
 async fn boot_enclave_and_fetch_keys<ChainSpec>(
     config: &NodeConfig<ChainSpec>,
-) -> eyre::Result<GetPurposeKeysResponse> {
+) -> GetPurposeKeysResponse {
     let enclave_client = EnclaveClient::builder()
         .ip(config.enclave.enclave_server_addr.to_string())
         .port(config.enclave.enclave_server_port)
@@ -49,7 +50,7 @@ async fn boot_enclave_and_fetch_keys<ChainSpec>(
         .expect("FATAL: Failed to fetch purpose keys from enclave on boot");
 
     info!(target: "reth::cli", "Successfully fetched purpose keys from enclave");
-    Ok(purpose_keys)
+    purpose_keys
 }
 
 fn main() {
