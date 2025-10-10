@@ -46,11 +46,8 @@ use config::revm_spec;
 #[derive(Debug, Clone)]
 pub struct SeismicEvmConfig {
     /// Inner [`SeismicBlockExecutorFactory`].
-    pub executor_factory: SeismicBlockExecutorFactory<
-        SeismicRethReceiptBuilder,
-        Arc<ChainSpec>,
-        SeismicEvmFactory,
-    >,
+    pub executor_factory:
+        SeismicBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, SeismicEvmFactory>,
     /// Seismic block assembler.
     pub block_assembler: SeismicBlockAssembler<ChainSpec>,
 }
@@ -121,11 +118,8 @@ impl ConfigureEvm for SeismicEvmConfig {
     type Primitives = SeismicPrimitives;
     type Error = Infallible;
     type NextBlockEnvCtx = NextBlockEnvAttributes;
-    type BlockExecutorFactory = SeismicBlockExecutorFactory<
-        SeismicRethReceiptBuilder,
-        Arc<ChainSpec>,
-        SeismicEvmFactory,
-    >;
+    type BlockExecutorFactory =
+        SeismicBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, SeismicEvmFactory>;
     type BlockAssembler = SeismicBlockAssembler<ChainSpec>;
 
     fn block_executor_factory(&self) -> &Self::BlockExecutorFactory {
@@ -363,11 +357,8 @@ mod tests {
         let mock_keys = Box::leak(Box::new(seismic_enclave::MockEnclaveServer::get_purpose_keys(
             seismic_enclave::keys::GetPurposeKeysRequest { epoch: 0 },
         )));
-        let EvmEnv { cfg_env, .. } = SeismicEvmConfig::seismic(
-            Arc::new(chain_spec.clone()),
-            mock_keys,
-        )
-        .evm_env(&header);
+        let EvmEnv { cfg_env, .. } =
+            SeismicEvmConfig::seismic(Arc::new(chain_spec.clone()), mock_keys).evm_env(&header);
 
         // Assert that the chain ID in the `cfg_env` is correctly set to the chain ID of the
         // ChainSpec

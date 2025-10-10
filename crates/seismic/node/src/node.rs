@@ -565,8 +565,7 @@ impl SeismicPayloadBuilder {
     }
 }
 
-impl<Node, Pool> PayloadBuilderBuilder<Node, Pool, SeismicEvmConfig>
-    for SeismicPayloadBuilder
+impl<Node, Pool> PayloadBuilderBuilder<Node, Pool, SeismicEvmConfig> for SeismicPayloadBuilder
 where
     Node: FullNodeTypes<
         Types: NodeTypes<
@@ -579,11 +578,8 @@ where
         + Unpin
         + 'static,
 {
-    type PayloadBuilder = reth_seismic_payload_builder::SeismicPayloadBuilder<
-        Pool,
-        Node::Provider,
-        SeismicEvmConfig,
-    >;
+    type PayloadBuilder =
+        reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider, SeismicEvmConfig>;
 
     async fn build_payload_builder(
         self,
