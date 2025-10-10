@@ -16,6 +16,7 @@ use alloy_eips::{eip1559::INITIAL_BASE_FEE, Decodable2718};
 use alloy_evm::eth::EthBlockExecutionCtx;
 use alloy_primitives::{Bytes, U256};
 use alloy_rpc_types_engine::ExecutionData;
+pub use alloy_seismic_evm::{block::SeismicBlockExecutorFactory, SeismicEvm, SeismicEvmFactory};
 use build::SeismicBlockAssembler;
 use core::fmt::Debug;
 use reth_chainspec::{ChainSpec, EthChainSpec};
@@ -31,7 +32,10 @@ use revm::{
     context::{BlockEnv, CfgEnv},
     context_interface::block::BlobExcessGasAndPrice,
 };
-use seismic_enclave::rpc::SyncEnclaveApiClientBuilder;
+use seismic_enclave::{
+    keys::GetPurposeKeysRequest,
+    rpc::{SyncEnclaveApiClient, SyncEnclaveApiClientBuilder},
+};
 use seismic_revm::SeismicSpecId;
 use std::convert::Infallible;
 
@@ -41,8 +45,6 @@ mod build;
 
 pub mod config;
 use config::revm_spec;
-
-pub use alloy_seismic_evm::{block::SeismicBlockExecutorFactory, SeismicEvm, SeismicEvmFactory};
 
 /// Seismic EVM configuration.
 #[derive(Debug, Clone)]
@@ -124,8 +126,6 @@ where
 
     /// Get the live RNG key from the enclave client
     fn get_live_rng_key_from_enclave(enclave_client_builder: &CB) -> Option<schnorrkel::Keypair> {
-        use seismic_enclave::{keys::GetPurposeKeysRequest, rpc::SyncEnclaveApiClient};
-
         let enclave_client = enclave_client_builder.clone().build();
         let request = GetPurposeKeysRequest { epoch: 0 };
 
