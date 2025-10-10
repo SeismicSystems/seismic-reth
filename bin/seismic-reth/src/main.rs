@@ -10,7 +10,8 @@ use reth_seismic_node::node::SeismicNode;
 use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
 use seismic_enclave::{
-    boot_genesis_streamlined_async, keys::GetPurposeKeysRequest, keys::GetPurposeKeysResponse,
+    boot_genesis_streamlined_async,
+    keys::{GetPurposeKeysRequest, GetPurposeKeysResponse},
     rpc::EnclaveApiClient,
 };
 
@@ -37,9 +38,7 @@ async fn boot_enclave_and_fetch_keys<ChainSpec>(
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     } else {
         info!(target: "reth::cli", "Booting enclave");
-        boot_genesis_streamlined_async(&enclave_client)
-            .await
-            .expect("Failed to boot enclave");
+        boot_genesis_streamlined_async(&enclave_client).await.expect("Failed to boot enclave");
     }
 
     // Fetch purpose keys from enclave - this must succeed or we panic
