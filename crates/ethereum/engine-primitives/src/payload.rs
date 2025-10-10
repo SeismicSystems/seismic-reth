@@ -370,6 +370,8 @@ impl From<alloc::vec::IntoIter<BlobTransactionSidecarEip7594>> for BlobSidecars 
 }
 
 /// Container type for all components required to build a payload.
+/// NOTE: modified miner such that timestamp is in milliseconds (similar to payload attributes
+/// emitted from consensus layer)
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct EthPayloadBuilderAttributes {
     /// Id of the payload
@@ -378,7 +380,7 @@ pub struct EthPayloadBuilderAttributes {
     pub parent: B256,
     /// Unix timestamp for the generated payload
     ///
-    /// Number of seconds since the Unix epoch.
+    /// MODIFIED: Number of milliseconds since the Unix epoch instead of seconds.
     pub timestamp: u64,
     /// Address of the recipient for collecting transaction fee
     pub suggested_fee_recipient: Address,
@@ -396,6 +398,15 @@ impl EthPayloadBuilderAttributes {
     /// Returns the identifier of the payload.
     pub const fn payload_id(&self) -> PayloadId {
         self.id
+    }
+
+    /// Returns the timestamp in seconds, assuming the timestamp is in milliseconds.
+    pub fn timestamp_seconds(&self) -> u64 {
+        if cfg!(feature = "timestamp-in-seconds") {
+            self.timestamp
+        } else {
+            self.timestamp / 1000
+        }
     }
 
     /// Creates a new payload builder for the given parent block and the attributes.

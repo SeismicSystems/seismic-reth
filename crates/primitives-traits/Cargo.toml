@@ -78,6 +78,7 @@ test-fuzz.workspace = true
 
 [features]
 default = ["std"]
+timestamp-in-seconds = []
 std = [
     "alloy-consensus/std",
     "alloy-eips/std",
@@ -141,7 +142,6 @@ serde = [
     "bytes/serde",
     "rand/serde",
     "reth-codecs?/serde",
-    "revm-primitives/serde",
     "revm-primitives/serde",
     "op-alloy-consensus?/serde",
     "secp256k1?/serde",

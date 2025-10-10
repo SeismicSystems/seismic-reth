@@ -42,6 +42,7 @@ alloy-rlp = { workspace = true, features = ["arrayvec"] }
 
 [features]
 default = ["std"]
+timestamp-in-seconds = ["reth-primitives-traits/timestamp-in-seconds"]
 std = [
     "alloy-chains/std",
     "alloy-eips/std",

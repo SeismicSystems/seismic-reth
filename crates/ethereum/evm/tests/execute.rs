@@ -65,8 +65,10 @@ fn create_database_with_withdrawal_requests_contract() -> CacheDB<EmptyDB> {
 
 #[test]
 fn eip_4788_non_genesis_call() {
-    let mut header =
-        Header { timestamp: 1, number: 1, excess_blob_gas: Some(0), ..Header::default() };
+    // When timestamp-in-seconds feature is disabled, timestamps are in milliseconds
+    // Use 1000ms (1 second) so TIMESTAMP opcode returns 1, matching the storage index
+    let timestamp = if cfg!(feature = "timestamp-in-seconds") { 1 } else { 1000 };
+    let mut header = Header { timestamp, number: 1, excess_blob_gas: Some(0), ..Header::default() };
 
     let db = create_database_with_beacon_root_contract();
 
@@ -117,14 +119,19 @@ fn eip_4788_non_genesis_call() {
     // * The storage value at header.timestamp % HISTORY_BUFFER_LENGTH + HISTORY_BUFFER_LENGTH //
     //   should be parent_beacon_block_root
     let history_buffer_length = 8191u64;
-    let timestamp_index = header.timestamp % history_buffer_length;
+    let timestamp_for_opcode = if cfg!(feature = "timestamp-in-seconds") {
+        header.timestamp
+    } else {
+        header.timestamp / 1000
+    };
+    let timestamp_index = timestamp_for_opcode % history_buffer_length;
     let parent_beacon_block_root_index =
         timestamp_index % history_buffer_length + history_buffer_length;
 
     let timestamp_storage = executor.with_state_mut(|state| {
         state.storage(BEACON_ROOTS_ADDRESS, U256::from(timestamp_index)).unwrap()
     });
-    assert_eq!(timestamp_storage.value, U256::from(header.timestamp));
+    assert_eq!(timestamp_storage.value, U256::from(timestamp_for_opcode));
 
     // get parent beacon block root storage and compare
     let parent_beacon_block_root_storage = executor.with_state_mut(|state| {
@@ -273,8 +280,11 @@ fn eip_4788_genesis_call() {
 fn eip_4788_high_base_fee() {
     // This test ensures that if we have a base fee, then we don't return an error when the
     // system contract is called, due to the gas price being less than the base fee.
+    // When timestamp-in-seconds feature is disabled, timestamps are in milliseconds
+    // Use 1000ms (1 second) so TIMESTAMP opcode returns 1, matching the storage index
+    let timestamp = if cfg!(feature = "timestamp-in-seconds") { 1 } else { 1000 };
     let header = Header {
-        timestamp: 1,
+        timestamp,
         number: 1,
         parent_beacon_block_root: Some(B256::with_last_byte(0x69)),
         base_fee_per_gas: Some(u64::MAX),
@@ -310,7 +320,12 @@ fn eip_4788_high_base_fee() {
     // * The storage value at header.timestamp % HISTORY_BUFFER_LENGTH + HISTORY_BUFFER_LENGTH //
     //   should be parent_beacon_block_root
     let history_buffer_length = 8191u64;
-    let timestamp_index = header.timestamp % history_buffer_length;
+    let timestamp_for_opcode = if cfg!(feature = "timestamp-in-seconds") {
+        header.timestamp
+    } else {
+        header.timestamp / 1000
+    };
+    let timestamp_index = timestamp_for_opcode % history_buffer_length;
     let parent_beacon_block_root_index =
         timestamp_index % history_buffer_length + history_buffer_length;
 
@@ -318,7 +333,7 @@ fn eip_4788_high_base_fee() {
     let timestamp_storage = executor.with_state_mut(|state| {
         state.storage(BEACON_ROOTS_ADDRESS, U256::from(timestamp_index)).unwrap()
     });
-    assert_eq!(timestamp_storage.value, U256::from(header.timestamp));
+    assert_eq!(timestamp_storage.value, U256::from(timestamp_for_opcode));
 
     // get parent beacon block root storage and compare
     let parent_beacon_block_root_storage = executor.with_state_mut(|state| {
@@ -421,6 +436,7 @@ fn eip_2935_fork_activation_within_window_bounds() {
     let fork_activation_block = (HISTORY_SERVE_WINDOW - 10) as u64;
     let db = create_database_with_block_hashes(fork_activation_block);
 
+    let timestamp = if cfg!(feature = "timestamp-in-seconds") { 1 } else { 1000 };
     let chain_spec = Arc::new(
         ChainSpecBuilder::from(&*MAINNET)
             .shanghai_activated()
@@ -431,7 +447,7 @@ fn eip_2935_fork_activation_within_window_bounds() {
 
     let header = Header {
         parent_hash: B256::random(),
-        timestamp: 1,
+        timestamp,
         number: fork_activation_block,
         requests_hash: Some(EMPTY_REQUESTS_HASH),
         excess_blob_gas: Some(0),

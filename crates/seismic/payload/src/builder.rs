@@ -25,10 +25,10 @@ use reth_transaction_pool::{
     PoolTransaction, TransactionPool, ValidPoolTransaction,
 };
 use revm::context_interface::Block as _;
-use seismic_enclave::EnclaveClientBuilder;
 use std::sync::Arc;
 use tracing::{debug, trace, warn};
 
+use reth_evm::execute::InternalBlockExecutionError;
 use reth_primitives_traits::transaction::error::InvalidTransactionError;
 
 type BestTransactionsIter<Pool> = Box<
@@ -39,7 +39,7 @@ use super::SeismicBuilderConfig;
 
 /// Seismic payload builder
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SeismicPayloadBuilder<Pool, Client, EvmConfig = SeismicEvmConfig<EnclaveClientBuilder>> {
+pub struct SeismicPayloadBuilder<Pool, Client, EvmConfig = SeismicEvmConfig> {
     /// Client providing access to node state.
     client: Client,
     /// Transaction pool.
@@ -222,6 +222,18 @@ where
                 }
                 continue
             }
+            Err(BlockExecutionError::Internal(
+                InternalBlockExecutionError::FailedToDecryptSeismicTx(error),
+            )) => {
+                trace!(target: "payload_builder", %error, ?tx, "skipping seismic tx with wrong encryption");
+                best_txs.mark_invalid(
+                    &pool_tx,
+                    InvalidPoolTransactionError::Consensus(
+                        InvalidTransactionError::FailedToDecryptSeismicTx,
+                    ),
+                );
+                continue
+            }
             // this is an error that we should treat as fatal for this attempt
             Err(err) => return Err(PayloadBuilderError::evm(err)),
         };
@@ -244,14 +256,14 @@ where
     let BlockBuilderOutcome { execution_result, block, .. } = builder.finish(&state_provider)?;
 
     let requests = chain_spec
-        .is_prague_active_at_timestamp(attributes.timestamp)
+        .is_prague_active_at_timestamp(attributes.timestamp_seconds())
         .then_some(execution_result.requests);
 
     // initialize empty blob sidecars at first. If cancun is active then this will
     let mut blob_sidecars = Vec::new();
 
     // only determine cancun fields when active
-    if chain_spec.is_cancun_active_at_timestamp(attributes.timestamp) {
+    if chain_spec.is_cancun_active_at_timestamp(attributes.timestamp_seconds()) {
         // grab the blob sidecars from the executed txs
         blob_sidecars = pool
             .get_all_blobs_exact(

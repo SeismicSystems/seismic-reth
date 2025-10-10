@@ -36,9 +36,6 @@ revm.workspace = true
 alloy-primitives.workspace = true
 alloy-consensus.workspace = true
 
-# enclave
-seismic-enclave.workspace = true
-
 # misc
 tracing.workspace = true
 
@@ -51,3 +48,6 @@ reth-execution-errors.workspace = true
 proptest.workspace = true
 proptest-arbitrary-interop.workspace = true
 reth-execution-types.workspace = true
+
+[features]
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]

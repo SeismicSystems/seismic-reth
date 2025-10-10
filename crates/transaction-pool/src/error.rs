@@ -320,6 +320,7 @@ impl InvalidPoolTransactionError {
                         // settings
                         false
                     }
+                    InvalidTransactionError::FailedToDecryptSeismicTx => false,
                     InvalidTransactionError::OldLegacyChainId |
                     InvalidTransactionError::ChainIdMismatch |
                     InvalidTransactionError::GasUintOverflow |

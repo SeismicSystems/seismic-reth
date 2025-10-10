@@ -105,4 +105,5 @@ rand.workspace = true
 jsonrpsee = { workspace = true, features = ["client"] }
 
 [features]
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]
 js-tracer = ["revm-inspectors/js-tracer", "reth-rpc-eth-types/js-tracer"]

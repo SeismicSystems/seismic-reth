@@ -26,7 +26,6 @@ alloy-dyn-abi.workspace = true
 reth-evm.workspace = true
 reth-node-api.workspace = true
 reth-node-builder.workspace = true
-reth-node-core.workspace = true
 reth-primitives.workspace = true
 reth-primitives-traits.workspace = true
 reth-provider.workspace = true
@@ -94,6 +93,12 @@ alloy-rpc-types-engine.workspace = true
 
 [features]
 default = ["client"]
+timestamp-in-seconds = [
+    "revm/timestamp-in-seconds",
+    "seismic-revm/timestamp-in-seconds",
+    "reth-seismic-primitives/timestamp-in-seconds",
+    "reth-seismic-chainspec/timestamp-in-seconds",
+]
 client = [
     "jsonrpsee/client",
     "jsonrpsee/async-client",

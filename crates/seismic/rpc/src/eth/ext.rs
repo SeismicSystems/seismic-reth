@@ -6,7 +6,7 @@
 //! See that function's docs for more details
 
 use super::api::FullSeismicApi;
-use crate::{error::SeismicEthApiError, utils::convert_seismic_call_to_tx_request};
+use crate::utils::convert_seismic_call_to_tx_request;
 use alloy_dyn_abi::TypedData;
 use alloy_json_rpc::RpcObject;
 use alloy_primitives::{Address, Bytes, B256, U256};
@@ -22,7 +22,6 @@ use jsonrpsee::{
     core::{async_trait, RpcResult},
     proc_macros::rpc,
 };
-use reth_node_core::node_config::NodeConfig;
 use reth_rpc_eth_api::{
     helpers::{EthCall, EthTransactions},
     RpcBlock, RpcTypes,
@@ -34,9 +33,7 @@ use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest,
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
 };
-use seismic_enclave::{
-    keys::GetPurposeKeysRequest, rpc::EnclaveApiClient, EnclaveClient, PublicKey,
-};
+use seismic_enclave::{keys::GetPurposeKeysResponse, PublicKey};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
 /// trait interface for a custom rpc namespace: `seismic`
@@ -51,28 +48,15 @@ pub trait SeismicApi {
 }
 
 /// Implementation of the seismic rpc api
-#[derive(Debug, Default)]
+#[derive(Debug, Clone)]
 pub struct SeismicApi {
-    enclave_client: EnclaveClient,
+    purpose_keys: GetPurposeKeysResponse,
 }
 
 impl SeismicApi {
     /// Creates a new seismic api instance
-    pub fn new<ChainSpec>(config: &NodeConfig<ChainSpec>) -> Self {
-        Self {
-            enclave_client: EnclaveClient::builder()
-                .ip(config.enclave.enclave_server_addr.to_string())
-                .port(config.enclave.enclave_server_port)
-                .timeout(std::time::Duration::from_secs(config.enclave.enclave_timeout))
-                .build()
-                .expect("Failed to build enclave client"),
-        }
-    }
-
-    /// Creates a new seismic api instance with an enclave client
-    pub fn with_enclave_client(mut self, enclave_client: EnclaveClient) -> Self {
-        self.enclave_client = enclave_client;
-        self
+    pub const fn new(purpose_keys: GetPurposeKeysResponse) -> Self {
+        Self { purpose_keys }
     }
 }
 
@@ -80,11 +64,7 @@ impl SeismicApi {
 impl SeismicApiServer for SeismicApi {
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey> {
         trace!(target: "rpc::seismic", "Serving seismic_getTeePublicKey");
-        self.enclave_client
-            .get_purpose_keys(GetPurposeKeysRequest { epoch: 0 })
-            .await
-            .map(|keys| keys.tx_io_pk)
-            .map_err(|e| SeismicEthApiError::EnclaveError(e.to_string()).into())
+        Ok(self.purpose_keys.tx_io_pk)
     }
 }
 
@@ -148,16 +128,16 @@ pub trait EthApiOverride<B: RpcObject> {
 }
 
 /// Implementation of the `eth_` namespace override
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EthApiExt<Eth> {
     eth_api: Eth,
-    enclave_client: EnclaveClient,
+    purpose_keys: GetPurposeKeysResponse,
 }
 
 impl<Eth> EthApiExt<Eth> {
     /// Create a new `EthApiExt` module.
-    pub const fn new(eth_api: Eth, enclave_client: EnclaveClient) -> Self {
-        Self { eth_api, enclave_client }
+    pub const fn new(eth_api: Eth, purpose_keys: GetPurposeKeysResponse) -> Self {
+        Self { eth_api, purpose_keys }
     }
 }
 
@@ -203,7 +183,7 @@ where
             for call in calls {
                 let seismic_tx_request = convert_seismic_call_to_tx_request(call)?;
                 let seismic_tx_request = seismic_tx_request
-                    .plaintext_copy(&self.enclave_client)
+                    .plaintext_copy(&self.purpose_keys.tx_io_sk)
                     .map_err(|e| ext_decryption_error(e.to_string()))?;
                 let tx_request: TransactionRequest = seismic_tx_request.inner;
                 prepared_calls.push(tx_request.into());
@@ -239,7 +219,7 @@ where
                 if let Some(seismic_elements) = seismic_tx_request.seismic_elements {
                     // if there are seismic elements, encrypt the output
                     let encrypted_output = seismic_elements
-                        .server_encrypt(&self.enclave_client, &call_result.return_data)
+                        .encrypt(&self.purpose_keys.tx_io_sk, &call_result.return_data)
                         .map_err(|e| ext_encryption_error(e.to_string()))?;
                     call_result.return_data = encrypted_output;
                 }
@@ -264,7 +244,7 @@ where
 
         // decrypt seismic elements
         let tx_request = seismic_tx_request
-            .plaintext_copy(&self.enclave_client)
+            .plaintext_copy(&self.purpose_keys.tx_io_sk)
             .map_err(|e| ext_decryption_error(e.to_string()))?
             .inner;
 
@@ -279,7 +259,9 @@ where
 
         // encrypt result
         if let Some(seismic_elements) = seismic_tx_request.seismic_elements {
-            return Ok(seismic_elements.server_encrypt(&self.enclave_client, &result).unwrap());
+            return Ok(seismic_elements
+                .encrypt(&self.purpose_keys.tx_io_sk, &result)
+                .map_err(|e| ext_encryption_error(e.to_string()))?);
         } else {
             Ok(result)
         }
@@ -312,7 +294,7 @@ where
         debug!(target: "reth-seismic-rpc::eth", ?request, ?block_number, ?state_override, "serving seismic eth_estimateGas extension");
         // decrypt
         let decrypted_req = request
-            .plaintext_copy(&self.enclave_client)
+            .plaintext_copy(&self.purpose_keys.tx_io_sk)
             .map_err(|e| ext_decryption_error(e.to_string()))?;
 
         // call inner

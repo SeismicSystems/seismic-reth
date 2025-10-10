@@ -107,6 +107,8 @@ pub struct LocalMiner<T: PayloadTypes, B, Pool: TransactionPool + Unpin> {
     /// The payload builder for the engine
     payload_builder: PayloadBuilderHandle<T>,
     /// Timestamp for the next block.
+    /// NOTE: this is in MILLISECONDS when timestamp-in-seconds feature is disabled.
+    /// Different from upstream reth, which holds this in seconds
     last_timestamp: u64,
     /// Stores latest mined blocks.
     last_block_hashes: VecDeque<B256>,
@@ -126,8 +128,10 @@ where
         mode: MiningMode<Pool>,
         payload_builder: PayloadBuilderHandle<T>,
     ) -> Self {
+        // NOTE: header block timestamp should be in milliseconds here
         let latest_header =
             provider.sealed_header(provider.best_block_number().unwrap()).unwrap().unwrap();
+        println!("Initial ts: {}", latest_header.timestamp());
 
         Self {
             payload_attributes_builder,
@@ -192,6 +196,7 @@ where
     /// Generates payload attributes for a new block, passes them to FCU and inserts built payload
     /// through newPayload.
     async fn advance(&mut self) -> eyre::Result<()> {
+        #[cfg(feature = "timestamp-in-seconds")]
         let timestamp = std::cmp::max(
             self.last_timestamp + 1,
             std::time::SystemTime::now()
@@ -199,6 +204,16 @@ where
                 .expect("cannot be earlier than UNIX_EPOCH")
                 .as_secs(),
         );
+        #[cfg(not(feature = "timestamp-in-seconds"))]
+        let timestamp = std::cmp::max(
+            self.last_timestamp + 1000,
+            std::time::SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("cannot be earlier than UNIX_EPOCH")
+                .as_millis() as u64,
+        );
+
+        println!("New timestamp: {}", timestamp);
 
         let res = self
             .to_engine

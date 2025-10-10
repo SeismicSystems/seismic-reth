@@ -49,10 +49,9 @@ use reth_transaction_pool::{
 };
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
-use seismic_enclave::rpc::SyncEnclaveApiClientBuilder;
 use std::{sync::Arc, time::SystemTime};
 
-use crate::{real_seismic_evm_config, RealSeismicEvmConfig};
+use crate::seismic_evm_config;
 
 /// Storage implementation for Seismic.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
@@ -407,10 +406,11 @@ impl<Node> ExecutorBuilder<Node> for SeismicExecutorBuilder
 where
     Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
 {
-    type EVM = RealSeismicEvmConfig;
+    type EVM = SeismicEvmConfig;
 
     async fn build_evm(self, ctx: &BuilderContext<Node>) -> eyre::Result<Self::EVM> {
-        let evm_config = real_seismic_evm_config(ctx.chain_spec());
+        let purpose_keys = crate::purpose_keys::get_purpose_keys();
+        let evm_config = seismic_evm_config(ctx.chain_spec(), purpose_keys);
 
         Ok(evm_config)
     }
@@ -463,8 +463,13 @@ where
             DiskFileBlobStoreConfig::default().with_max_cached_entries(blob_cache_size);
 
         let blob_store = DiskFileBlobStore::open(data_dir.blobstore(), custom_config)?;
+        let head_timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") {
+            ctx.head().timestamp
+        } else {
+            ctx.head().timestamp / 1000
+        };
         let validator = TransactionValidationTaskExecutor::eth_builder(ctx.provider().clone())
-            .with_head_timestamp(ctx.head().timestamp)
+            .with_head_timestamp(head_timestamp_seconds)
             .kzg_settings(ctx.kzg_settings()?)
             .with_local_transactions_config(pool_config.local_transactions_config.clone())
             .with_additional_tasks(ctx.config().txpool.additional_validation_tasks)
@@ -560,8 +565,7 @@ impl SeismicPayloadBuilder {
     }
 }
 
-impl<Node, Pool, CB> PayloadBuilderBuilder<Node, Pool, SeismicEvmConfig<CB>>
-    for SeismicPayloadBuilder
+impl<Node, Pool> PayloadBuilderBuilder<Node, Pool, SeismicEvmConfig> for SeismicPayloadBuilder
 where
     Node: FullNodeTypes<
         Types: NodeTypes<
@@ -573,20 +577,15 @@ where
     Pool: TransactionPool<Transaction: PoolTransaction<Consensus = TxTy<Node::Types>>>
         + Unpin
         + 'static,
-
-    CB: SyncEnclaveApiClientBuilder + 'static,
 {
-    type PayloadBuilder = reth_seismic_payload_builder::SeismicPayloadBuilder<
-        Pool,
-        Node::Provider,
-        SeismicEvmConfig<CB>,
-    >;
+    type PayloadBuilder =
+        reth_seismic_payload_builder::SeismicPayloadBuilder<Pool, Node::Provider, SeismicEvmConfig>;
 
     async fn build_payload_builder(
         self,
         ctx: &BuilderContext<Node>,
         pool: Pool,
-        evm_config: SeismicEvmConfig<CB>,
+        evm_config: SeismicEvmConfig,
     ) -> eyre::Result<Self::PayloadBuilder> {
         let conf = ctx.payload_builder_config();
         let chain = ctx.chain_spec().chain();

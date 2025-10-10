@@ -479,6 +479,8 @@ pub trait ConfigureEvm: Clone + Debug + Send + Sync + Unpin {
 /// - **Execution** (running transactions) - handled by `BlockExecutor`
 /// - **Assembly** (creating the final block) - handled by `BlockAssembler`
 #[derive(Debug, Clone, PartialEq, Eq)]
+// NOTE: this is created in crates/payload/basic/src/lib.rs
+//       => timestamp should be in milliseconds
 pub struct NextBlockEnvAttributes {
     /// The timestamp of the next block.
     pub timestamp: u64,
@@ -492,6 +494,17 @@ pub struct NextBlockEnvAttributes {
     pub parent_beacon_block_root: Option<B256>,
     /// Withdrawals
     pub withdrawals: Option<Withdrawals>,
+}
+
+impl NextBlockEnvAttributes {
+    /// Returns the timestamp in seconds, assuming the timestamp is in milliseconds.
+    pub fn timestamp_seconds(&self) -> u64 {
+        if cfg!(feature = "timestamp-in-seconds") {
+            self.timestamp
+        } else {
+            self.timestamp / 1000
+        }
+    }
 }
 
 /// Abstraction over transaction environment.

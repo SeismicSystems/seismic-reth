@@ -68,7 +68,10 @@ csv.workspace = true
 
 [features]
 default = ["jemalloc"]
-
+timestamp-in-seconds = [
+    "reth-node-api/timestamp-in-seconds",
+    "reth-primitives-traits/timestamp-in-seconds",
+]
 asm-keccak = [
     "reth-node-core/asm-keccak",
     "alloy-primitives/asm-keccak",
