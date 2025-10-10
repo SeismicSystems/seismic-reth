@@ -264,7 +264,7 @@ dependencies = [
 [[package]]
 name = "alloy-evm"
 version = "0.20.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=ce780eef959623231205fd4cb8de4ed4a1d84842#ce780eef959623231205fd4cb8de4ed4a1d84842"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?branch=no-enclave-builder#b594f9003ed5e510881d623b257f9b91a5ef4d03"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -697,7 +697,7 @@ dependencies = [
 [[package]]
 name = "alloy-seismic-evm"
 version = "0.20.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=ce780eef959623231205fd4cb8de4ed4a1d84842#ce780eef959623231205fd4cb8de4ed4a1d84842"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?branch=no-enclave-builder#b594f9003ed5e510881d623b257f9b91a5ef4d03"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -706,7 +706,6 @@ dependencies = [
  "alloy-primitives",
  "auto_impl",
  "revm",
- "schnorrkel",
  "seismic-alloy-consensus",
  "seismic-enclave",
  "seismic-revm",
@@ -11292,7 +11291,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-consensus"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=84dae78acc18792399b83b188e1523d282528427#84dae78acc18792399b83b188e1523d282528427"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=decrypt-with-key-directly#ac52dc502dcb8c38fcdcb247dafc5d3342924b01"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -11317,7 +11316,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-genesis"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=84dae78acc18792399b83b188e1523d282528427#84dae78acc18792399b83b188e1523d282528427"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=decrypt-with-key-directly#ac52dc502dcb8c38fcdcb247dafc5d3342924b01"
 dependencies = [
  "alloy-genesis",
  "alloy-primitives",
@@ -11330,7 +11329,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-network"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=84dae78acc18792399b83b188e1523d282528427#84dae78acc18792399b83b188e1523d282528427"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=decrypt-with-key-directly#ac52dc502dcb8c38fcdcb247dafc5d3342924b01"
 dependencies = [
  "alloy-consensus",
  "alloy-eip7702",
@@ -11353,7 +11352,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-provider"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=84dae78acc18792399b83b188e1523d282528427#84dae78acc18792399b83b188e1523d282528427"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=decrypt-with-key-directly#ac52dc502dcb8c38fcdcb247dafc5d3342924b01"
 dependencies = [
  "alloy-network",
  "alloy-primitives",
@@ -11371,7 +11370,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-rpc-types"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=84dae78acc18792399b83b188e1523d282528427#84dae78acc18792399b83b188e1523d282528427"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=decrypt-with-key-directly#ac52dc502dcb8c38fcdcb247dafc5d3342924b01"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",

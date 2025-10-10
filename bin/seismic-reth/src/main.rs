@@ -8,7 +8,8 @@ use reth_seismic_cli::chainspec::SeismicChainSpecParser;
 use reth_seismic_node::node::SeismicNode;
 use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
-use seismic_enclave::boot_genesis_streamlined_async;
+use seismic_enclave::{boot_genesis_streamlined_async, keys::GetPurposeKeysRequest};
+use std::sync::Arc;
 
 fn main() {
     reth_cli_util::sigsegv_handler::install();
@@ -25,6 +26,12 @@ fn main() {
         let node = builder
             .node(SeismicNode::default())
             .on_node_started(move |ctx| {
+                let enclave_client = EnclaveClient::builder()
+                    .ip(ctx.config.enclave.enclave_server_addr.to_string())
+                    .port(ctx.config.enclave.enclave_server_port)
+                    .build()
+                    .expect("Failed to build enclave client");
+
                 match ctx.config.enclave.mock_server {
                     true => {
                         ctx.task_executor.spawn(async move {
@@ -34,23 +41,37 @@ fn main() {
                             )
                             .await;
                         });
+                        // Give the mock server a moment to start
+                        std::thread::sleep(std::time::Duration::from_millis(100));
                     }
                     false => {
                         // Boots the enclave with random keys (aka enclave genesis boot)
                         // Long term this should be removed and node operators should handle booting
-                        let enclave_client = EnclaveClient::builder()
-                            .ip(ctx.config.enclave.enclave_server_addr.to_string())
-                            .port(ctx.config.enclave.enclave_server_port)
-                            .build()
-                            .expect("Failed to build enclave client");
-
-                        ctx.task_executor.spawn(async move {
-                            boot_genesis_streamlined_async(&enclave_client)
-                                .await
-                                .expect("Failed to boot enclave");
+                        // We block here because we need the enclave ready before fetching keys
+                        tokio::task::block_in_place(|| {
+                            tokio::runtime::Handle::current().block_on(async {
+                                boot_genesis_streamlined_async(&enclave_client)
+                                    .await
+                                    .expect("Failed to boot enclave");
+                            })
                         });
                     }
                 }
+
+                // Fetch purpose keys from enclave - this must succeed or we panic
+                let purpose_keys = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current().block_on(async {
+                        enclave_client
+                            .get_purpose_keys(GetPurposeKeysRequest { epoch: 0 })
+                            .await
+                            .expect("FATAL: Failed to fetch purpose keys from enclave on boot")
+                    })
+                });
+
+                // Store purpose keys in global static storage
+                reth_seismic_node::purpose_keys::init_purpose_keys(purpose_keys);
+                info!(target: "reth::cli", "Successfully fetched and stored purpose keys from enclave");
+
                 Ok(())
             })
             .extend_rpc_modules(move |ctx| {

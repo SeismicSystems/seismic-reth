@@ -54,18 +54,12 @@ where
 {
     /// Inner [`SeismicBlockExecutorFactory`].
     pub executor_factory: SeismicBlockExecutorFactory<
-        CB,
         SeismicRethReceiptBuilder,
         Arc<ChainSpec>,
         SeismicEvmFactory<CB>,
     >,
     /// Seismic block assembler.
     pub block_assembler: SeismicBlockAssembler<ChainSpec>,
-    /// Live RNG key fetched from enclave for Execute mode transactions.
-    pub live_rng_key: Option<schnorrkel::Keypair>,
-    #[allow(unused)]
-    /// Enclave client builder for refreshing RNG keys.
-    enclave_client_builder: CB,
 }
 
 impl<CB> SeismicEvmConfig<CB>
@@ -74,12 +68,10 @@ where
 {
     /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
     pub fn seismic(chain_spec: Arc<ChainSpec>, enclave_client: CB) -> Self {
-        let live_rng_key = Self::get_live_rng_key_from_enclave(&enclave_client);
+        let purpose_keys = Self::get_purpose_keys();
         SeismicEvmConfig::new_with_evm_factory(
             chain_spec,
-            SeismicEvmFactory::<CB>::new_with_rng_key(live_rng_key.clone()),
-            enclave_client,
-            live_rng_key,
+            SeismicEvmFactory::<CB>::new_with_purpose_keys(purpose_keys),
         )
     }
 }
@@ -97,19 +89,16 @@ where
     pub fn new_with_evm_factory(
         chain_spec: Arc<ChainSpec>,
         evm_factory: SeismicEvmFactory<CB>,
-        client_builder: CB,
-        live_rng_key: Option<schnorrkel::Keypair>,
     ) -> Self {
+        let purpose_keys = Self::get_purpose_keys();
         Self {
             block_assembler: SeismicBlockAssembler::new(chain_spec.clone()),
             executor_factory: SeismicBlockExecutorFactory::new(
                 SeismicRethReceiptBuilder::default(),
                 chain_spec,
                 evm_factory,
-                client_builder.clone(),
+                purpose_keys,
             ),
-            live_rng_key,
-            enclave_client_builder: client_builder,
         }
     }
 
@@ -124,23 +113,14 @@ where
         self
     }
 
-    /// Get the live RNG key from the enclave client
-    fn get_live_rng_key_from_enclave(enclave_client_builder: &CB) -> Option<schnorrkel::Keypair> {
-        let enclave_client = enclave_client_builder.clone().build();
-        let request = GetPurposeKeysRequest { epoch: 0 };
-
-        match enclave_client.get_purpose_keys(request) {
-            Ok(response) => Some(response.rng_keypair),
-            Err(_) => None,
-        }
+    /// Get the purpose keys from the global purpose keys store.
+    /// Purpose keys are fetched once during node boot and stored globally.
+    fn get_purpose_keys() -> &'static seismic_enclave::keys::GetPurposeKeysResponse {
+        // Access the global purpose keys that were fetched at boot time
+        reth_seismic_node::purpose_keys::get_purpose_keys()
     }
 
-    /// Returns the live RNG key if available
-    pub fn live_rng_key(&self) -> Option<&schnorrkel::Keypair> {
-        self.live_rng_key.as_ref()
-    }
-
-    /// Creates an EVM with the pre-fetched live RNG key
+    /// Creates an EVM with the pre-fetched purpose keys
     pub fn evm_with_env_and_live_key<DB>(
         &self,
         db: DB,
@@ -149,11 +129,7 @@ where
     where
         DB: alloy_evm::Database,
     {
-        self.executor_factory.evm_factory().create_evm_with_rng_key(
-            db,
-            evm_env,
-            self.live_rng_key.clone(),
-        )
+        self.executor_factory.evm_factory().create_evm(db, evm_env)
     }
 }
 
@@ -165,7 +141,6 @@ where
     type Error = Infallible;
     type NextBlockEnvCtx = NextBlockEnvAttributes;
     type BlockExecutorFactory = SeismicBlockExecutorFactory<
-        CB,
         SeismicRethReceiptBuilder,
         Arc<ChainSpec>,
         SeismicEvmFactory<CB>,
@@ -382,6 +357,17 @@ mod tests {
     use std::sync::Arc;
 
     fn test_evm_config() -> SeismicEvmConfig<MockEnclaveClientBuilder> {
+        use std::sync::Once;
+        static INIT: Once = Once::new();
+
+        // For tests, initialize purpose keys once
+        INIT.call_once(|| {
+            let mock_keys = seismic_enclave::MockEnclaveServer::get_purpose_keys(
+                seismic_enclave::keys::GetPurposeKeysRequest { epoch: 0 },
+            );
+            reth_seismic_node::purpose_keys::init_purpose_keys(mock_keys);
+        });
+
         SeismicEvmConfig::seismic(SEISMIC_MAINNET.clone(), MockEnclaveClientBuilder::new())
     }
 

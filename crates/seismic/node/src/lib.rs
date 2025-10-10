@@ -16,6 +16,7 @@ pub mod args;
 pub mod engine;
 
 pub mod node;
+pub mod purpose_keys;
 
 pub use reth_seismic_txpool as txpool;
 
