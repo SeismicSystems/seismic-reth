@@ -28,18 +28,21 @@ async fn boot_enclave_and_fetch_keys<ChainSpec>(
         .expect("Failed to build enclave client");
 
     // Boot enclave or start mock server
-    if config.enclave.mock_server {
-        info!(target: "reth::cli", "Starting mock enclave server");
-        let addr = config.enclave.enclave_server_addr;
-        let port = config.enclave.enclave_server_port;
-        tokio::spawn(async move {
-            start_blocking_mock_enclave_server(addr, port).await;
-        });
-        // Give the mock server time to start
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-    } else {
-        info!(target: "reth::cli", "Booting enclave");
-        boot_genesis_streamlined_async(&enclave_client).await.expect("Failed to boot enclave");
+    match config.enclave.mock_server {
+        true => {
+            info!(target: "reth::cli", "Starting mock enclave server");
+            let addr = config.enclave.enclave_server_addr;
+            let port = config.enclave.enclave_server_port;
+            tokio::spawn(async move {
+                start_blocking_mock_enclave_server(addr, port).await;
+            });
+            // Give the mock server time to start
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        }
+        false => {
+            info!(target: "reth::cli", "Booting enclave");
+            boot_genesis_streamlined_async(&enclave_client).await.expect("Failed to boot enclave");
+        }
     }
 
     // Fetch purpose keys from enclave - this must succeed or we panic
@@ -54,12 +57,12 @@ async fn boot_enclave_and_fetch_keys<ChainSpec>(
 }
 
 fn main() {
-    reth_cli_util::sigsegv_handler::install();
-
-    // Enable backtraces unless a RUST_BACKTRACE value has already been explicitly provided.
+    // Enable backtraces unless we explicitly set RUST_BACKTRACE
     if std::env::var_os("RUST_BACKTRACE").is_none() {
         std::env::set_var("RUST_BACKTRACE", "1");
     }
+
+    reth_cli_util::sigsegv_handler::install();
 
     if let Err(err) = Cli::<SeismicChainSpecParser, NoArgs>::parse().run(|builder, _| async move {
         // Boot enclave and fetch purpose keys BEFORE building node components
@@ -76,7 +79,7 @@ fn main() {
             .extend_rpc_modules(move |ctx| {
                 // replace eth_ namespace
                 ctx.modules.replace_configured(
-                    EthApiExt::new(ctx.registry.eth_api().clone(), EnclaveClient::default())
+                    EthApiExt::new(ctx.registry.eth_api().clone(), purpose_keys.clone())
                         .into_rpc(),
                 )?;
 
