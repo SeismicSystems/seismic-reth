@@ -9,7 +9,7 @@ use reth_seismic_node::node::SeismicNode;
 use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
 use seismic_enclave::{boot_genesis_streamlined_async, keys::GetPurposeKeysRequest};
-use std::sync::Arc;
+use reth_enclave::SyncEnclaveApiClient;
 
 fn main() {
     reth_cli_util::sigsegv_handler::install();
@@ -59,14 +59,9 @@ fn main() {
                 }
 
                 // Fetch purpose keys from enclave - this must succeed or we panic
-                let purpose_keys = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(async {
-                        enclave_client
-                            .get_purpose_keys(GetPurposeKeysRequest { epoch: 0 })
-                            .await
-                            .expect("FATAL: Failed to fetch purpose keys from enclave on boot")
-                    })
-                });
+                let purpose_keys = enclave_client
+                    .get_purpose_keys(GetPurposeKeysRequest { epoch: 0 })
+                    .expect("FATAL: Failed to fetch purpose keys from enclave on boot");
 
                 // Store purpose keys in global static storage
                 reth_seismic_node::purpose_keys::init_purpose_keys(purpose_keys);
