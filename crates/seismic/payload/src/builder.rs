@@ -40,7 +40,7 @@ use super::SeismicBuilderConfig;
 
 /// Seismic payload builder
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SeismicPayloadBuilder<Pool, Client, EvmConfig = SeismicEvmConfig<EnclaveClientBuilder>> {
+pub struct SeismicPayloadBuilder<Pool, Client, EvmConfig = SeismicEvmConfig> {
     /// Client providing access to node state.
     client: Client,
     /// Transaction pool.

@@ -13,7 +13,7 @@ extern crate alloc;
 use alloc::{borrow::Cow, sync::Arc};
 use alloy_consensus::{BlockHeader, Header};
 use alloy_eips::{eip1559::INITIAL_BASE_FEE, Decodable2718};
-use alloy_evm::eth::EthBlockExecutionCtx;
+use alloy_evm::{eth::EthBlockExecutionCtx, EvmFactory};
 use alloy_primitives::{Bytes, U256};
 use alloy_rpc_types_engine::ExecutionData;
 pub use alloy_seismic_evm::{block::SeismicBlockExecutorFactory, SeismicEvm, SeismicEvmFactory};
@@ -32,10 +32,6 @@ use revm::{
     context::{BlockEnv, CfgEnv},
     context_interface::block::BlobExcessGasAndPrice,
 };
-use seismic_enclave::{
-    keys::GetPurposeKeysRequest,
-    rpc::{SyncEnclaveApiClient, SyncEnclaveApiClientBuilder},
-};
 use seismic_revm::SeismicSpecId;
 use std::convert::Infallible;
 
@@ -48,10 +44,7 @@ use config::revm_spec;
 
 /// Seismic EVM configuration.
 #[derive(Debug, Clone)]
-pub struct SeismicEvmConfig<CB>
-where
-    CB: SyncEnclaveApiClientBuilder,
-{
+pub struct SeismicEvmConfig {
     /// Inner [`SeismicBlockExecutorFactory`].
     pub executor_factory: SeismicBlockExecutorFactory<
         SeismicRethReceiptBuilder,
@@ -62,35 +55,33 @@ where
     pub block_assembler: SeismicBlockAssembler<ChainSpec>,
 }
 
-impl<CB> SeismicEvmConfig<CB>
-where
-    CB: SyncEnclaveApiClientBuilder,
-{
-    /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
-    pub fn seismic(chain_spec: Arc<ChainSpec>, _enclave_client: CB) -> Self {
-        let purpose_keys = Self::get_purpose_keys();
+impl SeismicEvmConfig {
+    /// Creates a new Ethereum EVM configuration with the given chain spec and purpose keys.
+    pub fn seismic(
+        chain_spec: Arc<ChainSpec>,
+        purpose_keys: &'static seismic_enclave::keys::GetPurposeKeysResponse,
+    ) -> Self {
         SeismicEvmConfig::new_with_evm_factory(
             chain_spec,
             SeismicEvmFactory::new_with_purpose_keys(purpose_keys),
+            purpose_keys,
         )
     }
-}
 
-impl<CB> SeismicEvmConfig<CB>
-where
-    CB: SyncEnclaveApiClientBuilder,
-{
-    /// Creates a new Seismic EVM configuration with the given chain spec.
-    pub fn new(chain_spec: Arc<ChainSpec>, enclave_client: CB) -> Self {
-        Self::seismic(chain_spec, enclave_client)
+    /// Creates a new Seismic EVM configuration with the given chain spec and purpose keys.
+    pub fn new(
+        chain_spec: Arc<ChainSpec>,
+        purpose_keys: &'static seismic_enclave::keys::GetPurposeKeysResponse,
+    ) -> Self {
+        Self::seismic(chain_spec, purpose_keys)
     }
 
     /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
     pub fn new_with_evm_factory(
         chain_spec: Arc<ChainSpec>,
         evm_factory: SeismicEvmFactory,
+        purpose_keys: &'static seismic_enclave::keys::GetPurposeKeysResponse,
     ) -> Self {
-        let purpose_keys = Self::get_purpose_keys();
         Self {
             block_assembler: SeismicBlockAssembler::new(chain_spec.clone()),
             executor_factory: SeismicBlockExecutorFactory::new(
@@ -113,13 +104,6 @@ where
         self
     }
 
-    /// Get the purpose keys from the global purpose keys store.
-    /// Purpose keys are fetched once during node boot and stored globally.
-    fn get_purpose_keys() -> &'static seismic_enclave::keys::GetPurposeKeysResponse {
-        // Access the global purpose keys that were fetched at boot time
-        reth_seismic_node::purpose_keys::get_purpose_keys()
-    }
-
     /// Creates an EVM with the pre-fetched purpose keys
     pub fn evm_with_env_and_live_key<DB>(
         &self,
@@ -133,10 +117,7 @@ where
     }
 }
 
-impl<CB> ConfigureEvm for SeismicEvmConfig<CB>
-where
-    CB: SyncEnclaveApiClientBuilder + 'static,
-{
+impl ConfigureEvm for SeismicEvmConfig {
     type Primitives = SeismicPrimitives;
     type Error = Infallible;
     type NextBlockEnvCtx = NextBlockEnvAttributes;
@@ -272,10 +253,7 @@ where
     }
 }
 
-impl<CB> ConfigureEngineEvm<ExecutionData> for SeismicEvmConfig<CB>
-where
-    CB: SyncEnclaveApiClientBuilder + 'static,
-{
+impl ConfigureEngineEvm<ExecutionData> for SeismicEvmConfig {
     fn evm_env_for_payload(&self, payload: &ExecutionData) -> EvmEnvFor<Self> {
         // Create a temporary header with the payload information to determine the spec
         let temp_header = Header {
@@ -356,19 +334,13 @@ mod tests {
     use seismic_enclave::MockEnclaveClientBuilder;
     use std::sync::Arc;
 
-    fn test_evm_config() -> SeismicEvmConfig<MockEnclaveClientBuilder> {
-        use std::sync::Once;
-        static INIT: Once = Once::new();
+    fn test_evm_config() -> SeismicEvmConfig {
+        // Get mock purpose keys for testing
+        let mock_keys = Box::leak(Box::new(seismic_enclave::MockEnclaveServer::get_purpose_keys(
+            seismic_enclave::keys::GetPurposeKeysRequest { epoch: 0 },
+        )));
 
-        // For tests, initialize purpose keys once
-        INIT.call_once(|| {
-            let mock_keys = seismic_enclave::MockEnclaveServer::get_purpose_keys(
-                seismic_enclave::keys::GetPurposeKeysRequest { epoch: 0 },
-            );
-            reth_seismic_node::purpose_keys::init_purpose_keys(mock_keys);
-        });
-
-        SeismicEvmConfig::seismic(SEISMIC_MAINNET.clone(), MockEnclaveClientBuilder::new())
+        SeismicEvmConfig::seismic(SEISMIC_MAINNET.clone(), mock_keys)
     }
 
     #[test]
@@ -388,9 +360,12 @@ mod tests {
 
         // Use the `SeismicEvmConfig` to create the `cfg_env` and `block_env` based on the
         // ChainSpec, Header, and total difficulty
+        let mock_keys = Box::leak(Box::new(seismic_enclave::MockEnclaveServer::get_purpose_keys(
+            seismic_enclave::keys::GetPurposeKeysRequest { epoch: 0 },
+        )));
         let EvmEnv { cfg_env, .. } = SeismicEvmConfig::seismic(
             Arc::new(chain_spec.clone()),
-            MockEnclaveClientBuilder::new(),
+            mock_keys,
         )
         .evm_env(&header);
 
