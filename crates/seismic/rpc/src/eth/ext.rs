@@ -202,8 +202,14 @@ where
 
             for call in calls {
                 let seismic_tx_request = convert_seismic_call_to_tx_request(call)?;
+                // Fetch purpose keys for decryption
+                let purpose_keys = self
+                    .enclave_client
+                    .get_purpose_keys(GetPurposeKeysRequest { epoch: 0 })
+                    .await
+                    .map_err(|e| ext_decryption_error(e.to_string()))?;
                 let seismic_tx_request = seismic_tx_request
-                    .plaintext_copy(&self.enclave_client)
+                    .plaintext_copy(&purpose_keys.tx_io_sk)
                     .map_err(|e| ext_decryption_error(e.to_string()))?;
                 let tx_request: TransactionRequest = seismic_tx_request.inner;
                 prepared_calls.push(tx_request.into());
@@ -263,8 +269,14 @@ where
         let seismic_tx_request = convert_seismic_call_to_tx_request(request)?;
 
         // decrypt seismic elements
+        // Fetch purpose keys for decryption
+        let purpose_keys = self
+            .enclave_client
+            .get_purpose_keys(GetPurposeKeysRequest { epoch: 0 })
+            .await
+            .map_err(|e| ext_decryption_error(e.to_string()))?;
         let tx_request = seismic_tx_request
-            .plaintext_copy(&self.enclave_client)
+            .plaintext_copy(&purpose_keys.tx_io_sk)
             .map_err(|e| ext_decryption_error(e.to_string()))?
             .inner;
 
@@ -311,8 +323,14 @@ where
     ) -> RpcResult<U256> {
         debug!(target: "reth-seismic-rpc::eth", ?request, ?block_number, ?state_override, "serving seismic eth_estimateGas extension");
         // decrypt
+        // Fetch purpose keys for decryption
+        let purpose_keys = self
+            .enclave_client
+            .get_purpose_keys(GetPurposeKeysRequest { epoch: 0 })
+            .await
+            .map_err(|e| ext_decryption_error(e.to_string()))?;
         let decrypted_req = request
-            .plaintext_copy(&self.enclave_client)
+            .plaintext_copy(&purpose_keys.tx_io_sk)
             .map_err(|e| ext_decryption_error(e.to_string()))?;
 
         // call inner
