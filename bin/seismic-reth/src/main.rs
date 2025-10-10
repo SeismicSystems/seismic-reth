@@ -69,10 +69,10 @@ fn main() {
         let purpose_keys = boot_enclave_and_fetch_keys(builder.config()).await;
 
         // Store purpose keys in global static storage before building the node
-        reth_seismic_node::purpose_keys::init_purpose_keys(purpose_keys);
+        reth_seismic_node::purpose_keys::init_purpose_keys(purpose_keys.clone());
 
         // building additional endpoints seismic api
-        let seismic_api = SeismicApi::new(builder.config());
+        let seismic_api = SeismicApi::new(purpose_keys.clone());
 
         let node = builder
             .node(SeismicNode::default())
