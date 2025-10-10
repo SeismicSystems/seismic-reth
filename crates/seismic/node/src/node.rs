@@ -49,7 +49,6 @@ use reth_transaction_pool::{
 };
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
-use seismic_enclave::rpc::SyncEnclaveApiClientBuilder;
 use std::{sync::Arc, time::SystemTime};
 
 use crate::seismic_evm_config;
