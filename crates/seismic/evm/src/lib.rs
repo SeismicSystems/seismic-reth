@@ -325,7 +325,6 @@ mod tests {
         state::AccountInfo,
     };
     use seismic_alloy_genesis::Genesis;
-    use seismic_enclave::MockEnclaveClientBuilder;
     use std::sync::Arc;
 
     fn test_evm_config() -> SeismicEvmConfig {
