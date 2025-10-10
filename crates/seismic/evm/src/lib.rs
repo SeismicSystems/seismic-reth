@@ -53,8 +53,8 @@ pub struct SeismicEvmConfig {
 }
 
 impl SeismicEvmConfig {
-    /// Creates a new Ethereum EVM configuration with the given chain spec and purpose keys.
-    pub fn seismic(
+    /// Creates a new Seismic EVM configuration with the given chain spec and purpose keys.
+    pub fn new(
         chain_spec: Arc<ChainSpec>,
         purpose_keys: &'static seismic_enclave::keys::GetPurposeKeysResponse,
     ) -> Self {
@@ -63,14 +63,6 @@ impl SeismicEvmConfig {
             SeismicEvmFactory::new_with_purpose_keys(purpose_keys),
             purpose_keys,
         )
-    }
-
-    /// Creates a new Seismic EVM configuration with the given chain spec and purpose keys.
-    pub fn new(
-        chain_spec: Arc<ChainSpec>,
-        purpose_keys: &'static seismic_enclave::keys::GetPurposeKeysResponse,
-    ) -> Self {
-        Self::seismic(chain_spec, purpose_keys)
     }
 
     /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
@@ -333,7 +325,7 @@ mod tests {
             seismic_enclave::keys::GetPurposeKeysRequest { epoch: 0 },
         )));
 
-        SeismicEvmConfig::seismic(SEISMIC_MAINNET.clone(), mock_keys)
+        SeismicEvmConfig::new(SEISMIC_MAINNET.clone(), mock_keys)
     }
 
     #[test]
@@ -357,7 +349,7 @@ mod tests {
             seismic_enclave::keys::GetPurposeKeysRequest { epoch: 0 },
         )));
         let EvmEnv { cfg_env, .. } =
-            SeismicEvmConfig::seismic(Arc::new(chain_spec.clone()), mock_keys).evm_env(&header);
+            SeismicEvmConfig::new(Arc::new(chain_spec.clone()), mock_keys).evm_env(&header);
 
         // Assert that the chain ID in the `cfg_env` is correctly set to the chain ID of the
         // ChainSpec

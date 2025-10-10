@@ -34,5 +34,5 @@ pub fn seismic_evm_config(
     spec: Arc<ChainSpec>,
     purpose_keys: &'static seismic_enclave::keys::GetPurposeKeysResponse,
 ) -> SeismicEvmConfig {
-    SeismicEvmConfig::seismic(spec, purpose_keys)
+    SeismicEvmConfig::new(spec, purpose_keys)
 }
