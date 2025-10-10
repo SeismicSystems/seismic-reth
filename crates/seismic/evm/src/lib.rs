@@ -56,7 +56,7 @@ where
     pub executor_factory: SeismicBlockExecutorFactory<
         SeismicRethReceiptBuilder,
         Arc<ChainSpec>,
-        SeismicEvmFactory<CB>,
+        SeismicEvmFactory,
     >,
     /// Seismic block assembler.
     pub block_assembler: SeismicBlockAssembler<ChainSpec>,
@@ -67,11 +67,11 @@ where
     CB: SyncEnclaveApiClientBuilder,
 {
     /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
-    pub fn seismic(chain_spec: Arc<ChainSpec>, enclave_client: CB) -> Self {
+    pub fn seismic(chain_spec: Arc<ChainSpec>, _enclave_client: CB) -> Self {
         let purpose_keys = Self::get_purpose_keys();
         SeismicEvmConfig::new_with_evm_factory(
             chain_spec,
-            SeismicEvmFactory::<CB>::new_with_purpose_keys(purpose_keys),
+            SeismicEvmFactory::new_with_purpose_keys(purpose_keys),
         )
     }
 }
@@ -88,7 +88,7 @@ where
     /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
     pub fn new_with_evm_factory(
         chain_spec: Arc<ChainSpec>,
-        evm_factory: SeismicEvmFactory<CB>,
+        evm_factory: SeismicEvmFactory,
     ) -> Self {
         let purpose_keys = Self::get_purpose_keys();
         Self {
@@ -143,7 +143,7 @@ where
     type BlockExecutorFactory = SeismicBlockExecutorFactory<
         SeismicRethReceiptBuilder,
         Arc<ChainSpec>,
-        SeismicEvmFactory<CB>,
+        SeismicEvmFactory,
     >;
     type BlockAssembler = SeismicBlockAssembler<ChainSpec>;
 
