@@ -79,8 +79,7 @@ fn main() {
             .extend_rpc_modules(move |ctx| {
                 // replace eth_ namespace
                 ctx.modules.replace_configured(
-                    EthApiExt::new(ctx.registry.eth_api().clone(), purpose_keys.clone())
-                        .into_rpc(),
+                    EthApiExt::new(ctx.registry.eth_api().clone(), purpose_keys.clone()).into_rpc(),
                 )?;
 
                 // add seismic_ namespace
