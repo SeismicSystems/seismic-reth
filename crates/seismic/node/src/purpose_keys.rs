@@ -26,18 +26,3 @@ pub fn init_purpose_keys(keys: GetPurposeKeysResponse) {
 pub fn get_purpose_keys() -> &'static GetPurposeKeysResponse {
     PURPOSE_KEYS.get().expect("Purpose keys not initialized")
 }
-
-/// Get the RNG keypair from the purpose keys.
-pub fn get_rng_keypair() -> &'static schnorrkel::Keypair {
-    &get_purpose_keys().rng_keypair
-}
-
-/// Get the transaction I/O public key from the purpose keys.
-pub fn get_tx_io_pk() -> &'static secp256k1::PublicKey {
-    &get_purpose_keys().tx_io_pk
-}
-
-/// Get the transaction I/O secret key from the purpose keys.
-pub fn get_tx_io_sk() -> &'static secp256k1::SecretKey {
-    &get_purpose_keys().tx_io_sk
-}
