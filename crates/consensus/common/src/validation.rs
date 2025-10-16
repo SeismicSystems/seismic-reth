@@ -320,10 +320,10 @@ pub fn validate_against_parent_timestamp<H: BlockHeader>(
     header: &H,
     parent: &H,
 ) -> Result<(), ConsensusError> {
-    if header.timestamp_seconds() <= parent.timestamp_seconds() {
+    if header.timestamp() <= parent.timestamp() {
         return Err(ConsensusError::TimestampIsInPast {
-            parent_timestamp: parent.timestamp_seconds(),
-            timestamp: header.timestamp_seconds(),
+            parent_timestamp: parent.timestamp(),
+            timestamp: header.timestamp(),
         })
     }
     Ok(())
