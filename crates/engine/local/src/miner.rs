@@ -131,7 +131,6 @@ where
         // NOTE: header block timestamp should be in milliseconds here
         let latest_header =
             provider.sealed_header(provider.best_block_number().unwrap()).unwrap().unwrap();
-        println!("Initial ts: {}", latest_header.timestamp());
 
         Self {
             payload_attributes_builder,
@@ -212,8 +211,6 @@ where
                 .expect("cannot be earlier than UNIX_EPOCH")
                 .as_millis() as u64,
         );
-
-        println!("New timestamp: {}", timestamp);
 
         let res = self
             .to_engine
