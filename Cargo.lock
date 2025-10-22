@@ -10680,7 +10680,7 @@ dependencies = [
 [[package]]
 name = "revm-inspectors"
 version = "0.29.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm-inspectors.git?rev=60943c133038e5ea0ac9f1afcb7070491ae97ca5#60943c133038e5ea0ac9f1afcb7070491ae97ca5"
+source = "git+https://github.com/SeismicSystems/seismic-revm-inspectors.git?rev=8f1292523917ce776a8c49f6ebe0ec0bbc6975cf#8f1292523917ce776a8c49f6ebe0ec0bbc6975cf"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-eth",

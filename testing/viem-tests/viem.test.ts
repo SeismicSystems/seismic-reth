@@ -188,7 +188,6 @@ describe("Transaction Trace", async () => {
     test(
         "Seismic Tx removes input from trace",
         async () => {
-            // TODO: do this in foundry too
             await testSeismicTxTrace({ chain, url, account });
         },
         {
