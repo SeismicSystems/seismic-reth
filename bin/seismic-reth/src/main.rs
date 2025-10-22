@@ -51,7 +51,7 @@ async fn boot_enclave_and_fetch_keys<ChainSpec>(
             while tries < ENCLAVE_BOOT_ATTEMPTS {
                 match boot_genesis_streamlined_async(&enclave_client).await {
                     Ok(_) => {
-                        continue;
+                        break;
                     }
                     Err(e) => {
                         if tries + 1 >= ENCLAVE_BOOT_ATTEMPTS {
