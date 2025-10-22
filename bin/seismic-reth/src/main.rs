@@ -1,7 +1,5 @@
 #![allow(missing_docs)]
 
-use std::time::Duration;
-
 use clap::Parser;
 use reth::cli::Cli;
 use reth_cli_commands::node::NoArgs;
@@ -17,9 +15,28 @@ use seismic_enclave::{
     rpc::EnclaveApiClient,
 };
 
-// use exponential backoff for 6 attempts, starting with 3 seconds
-const ENCLAVE_BOOT_ATTEMPTS: u32 = 6;
-const ENCLAVE_BOOT_BACKOFF_START: u64 = 5;
+const ENCLAVE_BOOT_ATTEMPTS: u32 = 100;
+const ENCLAVE_BOOT_BACKOFF_START: u64 = 2;
+
+async fn boot_live_enclave(enclave_client: &EnclaveClient) {
+    let mut tries = 0u32;
+    while tries < ENCLAVE_BOOT_ATTEMPTS {
+        match boot_genesis_streamlined_async(&enclave_client).await {
+            Ok(_) => {
+                return;
+            }
+            Err(e) => {
+                if tries + 1 >= ENCLAVE_BOOT_ATTEMPTS {
+                    panic!("Failed to boot enclave:\n{e:?}");
+                }
+                info!(target: "reth::cli", "Sleeping for {ENCLAVE_BOOT_BACKOFF_START}s because Reth failed to boot Enclave: {e:?}");
+                tokio::time::sleep(tokio::time::Duration::from_secs(ENCLAVE_BOOT_BACKOFF_START))
+                    .await;
+                tries += 1;
+            }
+        };
+    }
+}
 
 /// Boot the enclave (or mock server) and fetch purpose keys.
 /// This must be called before building the node components.
@@ -47,23 +64,7 @@ async fn boot_enclave_and_fetch_keys<ChainSpec>(
         }
         false => {
             info!(target: "reth::cli", "Booting enclave");
-            let mut tries = 0u32;
-            while tries < ENCLAVE_BOOT_ATTEMPTS {
-                match boot_genesis_streamlined_async(&enclave_client).await {
-                    Ok(_) => {
-                        break;
-                    }
-                    Err(e) => {
-                        if tries + 1 >= ENCLAVE_BOOT_ATTEMPTS {
-                            panic!("Failed to boot enclave: {e:?}");
-                        }
-                        let sleep_seconds = ENCLAVE_BOOT_BACKOFF_START * 2u64.pow(tries);
-                        info!(target: "reth::cli", "Sleeping for {sleep_seconds}s because Reth failed to boot Enclave: {e:?}");
-                        std::thread::sleep(Duration::from_secs(sleep_seconds));
-                        tries += 1;
-                    }
-                };
-            }
+            boot_live_enclave(&enclave_client).await;
         }
     }
 
