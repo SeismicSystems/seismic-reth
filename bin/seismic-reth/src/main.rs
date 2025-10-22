@@ -1,5 +1,7 @@
 #![allow(missing_docs)]
 
+use std::time::Duration;
+
 use clap::Parser;
 use reth::cli::Cli;
 use reth_cli_commands::node::NoArgs;
@@ -14,6 +16,10 @@ use seismic_enclave::{
     keys::{GetPurposeKeysRequest, GetPurposeKeysResponse},
     rpc::EnclaveApiClient,
 };
+
+// use exponential backoff for 6 attempts, starting with 3 seconds
+const ENCLAVE_BOOT_ATTEMPTS: u32 = 6;
+const ENCLAVE_BOOT_BACKOFF_START: u64 = 5;
 
 /// Boot the enclave (or mock server) and fetch purpose keys.
 /// This must be called before building the node components.
@@ -41,7 +47,23 @@ async fn boot_enclave_and_fetch_keys<ChainSpec>(
         }
         false => {
             info!(target: "reth::cli", "Booting enclave");
-            boot_genesis_streamlined_async(&enclave_client).await.expect("Failed to boot enclave");
+            let mut tries = 0u32;
+            while tries < ENCLAVE_BOOT_ATTEMPTS {
+                match boot_genesis_streamlined_async(&enclave_client).await {
+                    Ok(_) => {
+                        continue;
+                    }
+                    Err(e) => {
+                        if tries + 1 >= ENCLAVE_BOOT_ATTEMPTS {
+                            panic!("Failed to boot enclave: {e:?}");
+                        }
+                        let sleep_seconds = ENCLAVE_BOOT_BACKOFF_START * 2u64.pow(tries);
+                        info!(target: "reth::cli", "Sleeping for {sleep_seconds}s because Reth failed to boot Enclave: {e:?}");
+                        std::thread::sleep(Duration::from_secs(sleep_seconds));
+                        tries += 1;
+                    }
+                };
+            }
         }
     }
 
