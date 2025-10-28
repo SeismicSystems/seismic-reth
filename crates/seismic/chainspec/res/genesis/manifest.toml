@@ -1,10 +1,10 @@
 [metadata]
 version = "0.1.0"
 description = "Seismic testnet genesis contracts"
-# Optional: defaults to main branch if not specified
-# base_url = "https://raw.githubusercontent.com/SeismicSystems/seismic-contracts/main"
 
-# System contracts - low addresses for easy identification
+# Optional: defaults to main branch if not specified
+base_url = "https://raw.githubusercontent.com/SeismicSystems/seismic-contracts/main"
+
 [contracts.MultisigUpgradeOperator]
 artifact = "artifacts/MultisigUpgradeOperator.json"
 address = "0x2001"
