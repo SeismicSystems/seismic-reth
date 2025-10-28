@@ -13,6 +13,6 @@ address = "0x2001"
 artifact = "artifacts/UpgradeOperator.json"
 address = "0x2002"
 
-[contracts.ShieldedDelegation]
-artifact = "artifacts/ShieldedDelegationContract.json"
+[contracts.ShieldedDelegationAccount]
+artifact = "artifacts/ShieldedDelegationAccount.json"
 address = "0x2003"
