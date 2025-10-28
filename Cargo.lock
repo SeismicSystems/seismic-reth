@@ -3535,6 +3535,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "genesis-builder"
+version = "1.7.0"
+dependencies = [
+ "alloy-primitives",
+ "reqwest",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -187,7 +187,7 @@ members = [
     "testing/ef-tests/",
     "testing/testing-utils",
     "testing/runner",
-    "crates/tracing-otlp",
+    "crates/tracing-otlp", "crates/genesis-builder",
 ]
 default-members = ["bin/seismic-reth"]
 exclude = ["docs/cli"]
