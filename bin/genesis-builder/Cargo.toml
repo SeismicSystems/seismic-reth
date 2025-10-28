@@ -1,0 +1,20 @@
+[package]
+name = "genesis-builder"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+exclude.workspace = true
+
+[[bin]]
+name = "genesis-builder"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true, features = ["derive"] }
+reth-genesis-builder = { workspace = true } 
+
+[lints]
+workspace = true

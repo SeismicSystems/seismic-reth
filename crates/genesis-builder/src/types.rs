@@ -74,7 +74,8 @@ pub struct GenesisAccount {
     /// Balance of the account
     pub balance: String,
     /// Nonce of the account
-    pub nonce: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<String>,
     /// Storage of the account
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub storage: HashMap<String, String>,

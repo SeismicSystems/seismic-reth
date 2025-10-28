@@ -5,14 +5,14 @@ use toml::de::Error as TomlError;
 /// Errors that can occur during genesis building
 #[derive(Debug, Error)]
 pub enum BuilderError {
-    #[error("Manifest not found: {0}")]
     /// Manifest not found
+    #[error("Manifest not found: {}", .0.display())]
     ManifestNotFound(PathBuf),
     /// No contracts defined in manifest
     #[error("No contracts defined in manifest")]
     NoContractsDefined,
     /// Genesis file not found
-    #[error("Genesis file not found: {0}")]
+    #[error("Genesis file not found: {}", .0.display())]
     GenesisNotFound(PathBuf),
     /// Invalid address format
     #[error("Invalid address format: {0}")]

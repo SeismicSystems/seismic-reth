@@ -66,7 +66,7 @@ impl GenesisBuilder {
         let account = GenesisAccount {
             code: Some(format!("0x{}", hex::encode(&artifact.bytecode))),
             balance: "0x0".to_string(),
-            nonce: "0x1".to_string(),
+            nonce: Some("0x1".to_string()),
             storage: Default::default(),
         };
 

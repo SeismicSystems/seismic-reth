@@ -3538,12 +3538,8 @@ dependencies = [
 name = "genesis-builder"
 version = "1.7.0"
 dependencies = [
- "alloy-primitives",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 2.0.12",
- "toml",
+ "clap",
+ "reth-genesis-builder",
 ]
 
 [[package]]
@@ -8372,6 +8368,18 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.12",
+]
+
+[[package]]
+name = "reth-genesis-builder"
+version = "1.7.0"
+dependencies = [
+ "alloy-primitives",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "toml",
 ]
 
 [[package]]
