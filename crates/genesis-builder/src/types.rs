@@ -5,7 +5,7 @@ use std::collections::HashMap;
 /// Default base URL for the manifest which will be
 /// used if a base URL is not provided explicitly
 pub const DEFAULT_BASE_URL: &str =
-    "https://raw.githubusercontent.com/seismic/seismic-contracts/main";
+    "https://raw.githubusercontent.com/SeismicSystems/seismic-contracts/main";
 
 /// Contract configuration from manifest
 #[derive(Debug, Deserialize, Clone)]
