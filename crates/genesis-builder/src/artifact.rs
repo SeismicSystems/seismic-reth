@@ -6,6 +6,9 @@ use alloy_primitives::{hex, Bytes};
 use serde_json::Value;
 use std::time::Duration;
 
+/// Default timeout for loading contract artifacts from remote
+pub const DEFAULT_ARTIFACT_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// Client for loading contract artifacts
 #[derive(Debug, Clone)]
 pub struct ArtifactLoader {
@@ -16,7 +19,7 @@ pub struct ArtifactLoader {
 impl ArtifactLoader {
     /// Create a new artifact loader with default settings
     pub fn new() -> Result<Self> {
-        Self::with_timeout(Duration::from_secs(30))
+        Self::with_timeout(DEFAULT_ARTIFACT_TIMEOUT)
     }
 
     /// Create a new artifact loader with custom timeout
