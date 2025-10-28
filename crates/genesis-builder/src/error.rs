@@ -8,6 +8,9 @@ pub enum BuilderError {
     #[error("Manifest not found: {0}")]
     /// Manifest not found
     ManifestNotFound(PathBuf),
+    /// No contracts defined in manifest
+    #[error("No contracts defined in manifest")]
+    NoContractsDefined,
     /// Genesis file not found
     #[error("Genesis file not found: {0}")]
     GenesisNotFound(PathBuf),
