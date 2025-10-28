@@ -17,6 +17,9 @@ pub enum BuilderError {
     /// Invalid address format
     #[error("Invalid address format: {0}")]
     InvalidAddress(String),
+    /// Invalid hex format
+    #[error("Invalid hex format: {0}")]
+    InvalidHex(String),
     /// Contract bytecode missing or empty
     #[error("Contract bytecode missing or empty: {0}")]
     MissingBytecode(String),

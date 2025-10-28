@@ -1,7 +1,8 @@
-use crate::error::{BuilderError, Result};
-use crate::types::Manifest;
-use std::fs;
-use std::path::Path;
+use crate::{
+    error::{BuilderError, Result},
+    types::Manifest,
+};
+use std::{fs, path::Path};
 
 /// Load and parse the genesis contracts manifest from a TOML file
 pub fn load_manifest(path: &Path) -> Result<Manifest> {

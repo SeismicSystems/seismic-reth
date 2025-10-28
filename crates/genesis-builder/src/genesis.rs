@@ -1,8 +1,8 @@
-
-use crate::error::{BuilderError, Result};
-use crate::types::Genesis;
-use std::fs;
-use std::path::Path;
+use crate::{
+    error::{BuilderError, Result},
+    types::Genesis,
+};
+use std::{fs, path::Path};
 
 /// Load genesis JSON file
 pub fn load_genesis(path: &Path) -> Result<Genesis> {
@@ -20,6 +20,6 @@ pub fn load_genesis(path: &Path) -> Result<Genesis> {
 pub fn write_genesis(genesis: &Genesis, path: &Path) -> Result<()> {
     let json = serde_json::to_string_pretty(genesis)?;
     fs::write(path, json)?;
-    
+
     Ok(())
 }

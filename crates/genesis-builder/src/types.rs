@@ -2,13 +2,13 @@ use alloy_primitives::{Address, Bytes};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Default base URL for the manifest which will be 
+/// Default base URL for the manifest which will be
 /// used if a base URL is not provided explicitly
 pub const DEFAULT_BASE_URL: &str =
     "https://raw.githubusercontent.com/seismic/seismic-contracts/main";
 
 /// Contract configuration from manifest
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ContractConfig {
     /// Relative path to the artifact file
     pub artifact: String,
