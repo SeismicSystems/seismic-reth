@@ -5,6 +5,12 @@ use crate::{
 };
 use alloy_primitives::{hex, Address};
 
+/// Default nonce for the genesis file
+pub const DEFAULT_NONCE: &str = "0x1";
+
+/// Default balance for the genesis file
+pub const DEFAULT_BALANCE: &str = "0x0";
+
 /// Builder for constructing genesis files with contracts
 #[derive(Debug)]
 pub struct GenesisBuilder {
@@ -44,33 +50,27 @@ impl GenesisBuilder {
 
     /// Add a single contract to genesis
     fn add_contract(&mut self, name: &str, config: &crate::types::ContractConfig) -> Result<()> {
-        // Construct full URL from base + relative path
         let url = format!(
             "{}/{}",
             self.manifest.metadata.base_url().trim_end_matches('/'),
             config.artifact.trim_start_matches('/')
         );
 
-        // Load artifact from URL using the loader
         let artifact = self.loader.load_artifact(&url)?;
 
-        // Parse address
         let address = parse_address(&config.address)?;
 
-        // Check for collision
         if self.genesis.alloc.contains_key(&address) {
             return Err(BuilderError::AddressCollision(format!("{} ({})", name, config.address)));
         }
 
-        // Create account entry
         let account = GenesisAccount {
             code: Some(format!("0x{}", hex::encode(&artifact.bytecode))),
-            balance: "0x0".to_string(),
-            nonce: Some("0x1".to_string()),
+            balance: DEFAULT_BALANCE.to_string(),
+            nonce: Some(DEFAULT_NONCE.to_string()),
             storage: Default::default(),
         };
 
-        // Insert into genesis
         self.genesis.alloc.insert(address, account);
         self.contracts_added += 1;
 
@@ -84,14 +84,11 @@ impl GenesisBuilder {
 fn parse_address(hex_str: &str) -> Result<Address> {
     let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
 
-    // Pad to 40 chars if needed (20 bytes = 40 hex chars)
     let padded = if hex_str.len() < 40 { format!("{:0>40}", hex_str) } else { hex_str.to_string() };
 
-    // Decode hex to bytes
     let bytes =
         hex::decode(&padded).map_err(|_| BuilderError::InvalidAddress(hex_str.to_string()))?;
 
-    // Verify it's exactly 20 bytes
     if bytes.len() != 20 {
         return Err(BuilderError::InvalidAddress(hex_str.to_string()));
     }
