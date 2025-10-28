@@ -3,6 +3,7 @@
 use clap::Parser;
 use reth_genesis_builder::{builder::GenesisBuilder, error::BuilderError, genesis, manifest};
 use std::path::PathBuf;
+use tracing::info;
 
 /// Command line arguments
 #[derive(Parser)]
@@ -35,31 +36,23 @@ struct Args {
 fn main() -> Result<(), BuilderError> {
     let args = Args::parse();
 
-    // Load manifest
-    println!("Loading manifest: {}", args.manifest.display());
+    info!("Loading manifest: {}", args.manifest.display());
     let manifest_data = manifest::load_manifest(&args.manifest)?;
-    println!("Found {} contracts to deploy", manifest_data.contracts.len());
-    println!();
+    info!("Found {} contracts to deploy", manifest_data.contracts.len());
 
-    // Load genesis
-    println!("Loading genesis: {}", args.genesis.display());
+    info!("Loading genesis: {}", args.genesis.display());
     let genesis_data = genesis::load_genesis(&args.genesis)?;
-    println!("   Current allocations: {}", genesis_data.alloc.len());
-    println!();
+    info!("   Current allocations: {}", genesis_data.alloc.len());
 
-    // Build genesis with contracts
     let builder = GenesisBuilder::new(manifest_data, genesis_data)?;
     let updated_genesis = builder.build()?;
 
-    // Write output
     let output_path = args.output.unwrap_or(args.genesis.clone());
-    println!();
-    println!("Writing genesis: {}", output_path.display());
+    info!("Writing genesis: {}", output_path.display());
     genesis::write_genesis(&updated_genesis, &output_path)?;
 
-    println!();
-    println!("Genesis build complete!");
-    println!("   Total allocations: {}", updated_genesis.alloc.len());
+    info!("Genesis build complete!");
+    info!("   Total allocations: {}", updated_genesis.alloc.len());
 
     Ok(())
 }

@@ -3540,6 +3540,7 @@ version = "1.7.0"
 dependencies = [
  "clap",
  "reth-genesis-builder",
+ "tracing",
 ]
 
 [[package]]
