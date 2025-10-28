@@ -13,6 +13,8 @@ serde = { workspace = true }
 reqwest = { workspace = true, default-features = false } 
 alloy-primitives = { workspace = true }
 serde_json = { workspace = true }
+thiserror = { workspace = true }
+toml = { workspace = true }
 
 [lints]
 workspace = true
