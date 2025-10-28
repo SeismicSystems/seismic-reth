@@ -5,6 +5,7 @@ use crate::{
 use alloy_primitives::{hex, Bytes};
 use serde_json::Value;
 use std::time::Duration;
+use tracing::info;
 
 /// Default timeout for loading contract artifacts from remote
 pub const DEFAULT_ARTIFACT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -34,7 +35,7 @@ impl ArtifactLoader {
 
     /// Load contract artifact from a remote URL
     pub fn load_artifact(&self, url: &str) -> Result<ContractArtifact> {
-        println!("  Fetching {}", url);
+        info!("Fetching {}", url);
 
         let data = self.fetch_remote(url)?;
 

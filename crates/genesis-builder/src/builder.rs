@@ -4,6 +4,7 @@ use crate::{
     types::{Genesis, GenesisAccount, Manifest},
 };
 use alloy_primitives::{hex, Address};
+use tracing::info;
 
 /// Default nonce for the genesis file
 pub const DEFAULT_NONCE: &str = "0x1";
@@ -34,7 +35,7 @@ impl GenesisBuilder {
 
     /// Execute the build process
     pub fn build(mut self) -> Result<Genesis> {
-        println!(
+        info!(
             "Building genesis with {} contracts from {}",
             self.manifest.contracts.len(),
             self.manifest.metadata.base_url()
@@ -44,7 +45,7 @@ impl GenesisBuilder {
             self.add_contract(name, config)?;
         }
 
-        println!("Added {} contracts to genesis", self.contracts_added);
+        info!("Added {} contracts to genesis", self.contracts_added);
         Ok(self.genesis)
     }
 
@@ -74,7 +75,7 @@ impl GenesisBuilder {
         self.genesis.alloc.insert(address, account);
         self.contracts_added += 1;
 
-        println!("Added {} @ {}", name, config.address);
+        info!("Added {} @ {}", name, config.address);
 
         Ok(())
     }
