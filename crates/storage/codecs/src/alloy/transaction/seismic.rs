@@ -9,9 +9,8 @@ use crate::{
 };
 use alloy_consensus::{
     transaction::{TxEip1559, TxEip2930, TxEip7702, TxLegacy},
-    Signed, TxEip4844Variant,
+    Signed, TxEip4844,
 };
-use alloy_consensus::TxEip4844;
 use alloy_eips::eip2718::{EIP7702_TX_TYPE_ID, EIP4844_TX_TYPE_ID};
 use alloy_primitives::{aliases::U96, Bytes, ChainId, Signature, TxKind, U256};
 use bytes::{Buf, BufMut, BytesMut};
@@ -196,16 +195,7 @@ impl Compact for SeismicTypedTransaction {
             Self::Legacy(tx) => tx.to_compact(out),
             Self::Eip2930(tx) => tx.to_compact(out),
             Self::Eip1559(tx) => tx.to_compact(out),
-            Self::Eip4844(tx) => {
-                match tx {
-                    TxEip4844Variant::TxEip4844(tx) => tx.to_compact(out),
-                    TxEip4844Variant::TxEip4844WithSidecar(tx) => {
-                        // we do not have a way to encode the sidecar, so we just encode the inner
-                        let inner: &TxEip4844 = tx.tx();
-                        inner.to_compact(out)
-                    },
-                }
-            },
+            Self::Eip4844(tx) => tx.to_compact(out),
             Self::Eip7702(tx) => tx.to_compact(out),
             Self::Seismic(tx) => tx.to_compact(out),
         };
@@ -229,7 +219,6 @@ impl Compact for SeismicTypedTransaction {
             }
             SeismicTxType::Eip4844 => {
                 let (tx, buf): (TxEip4844, _) = Compact::from_compact(buf, buf.len());
-                let tx = TxEip4844Variant::TxEip4844(tx);
                 (Self::Eip4844(tx), buf)
             }
             SeismicTxType::Eip7702 => {
@@ -250,14 +239,7 @@ impl ToTxCompact for SeismicTxEnvelope {
             Self::Legacy(tx) => tx.tx().to_compact(buf),
             Self::Eip2930(tx) => tx.tx().to_compact(buf),
             Self::Eip1559(tx) => tx.tx().to_compact(buf),
-            Self::Eip4844(tx) => {
-                match tx.tx() {
-                    TxEip4844Variant::TxEip4844(tx) => tx.to_compact(buf),
-                    TxEip4844Variant::TxEip4844WithSidecar(tx) => {
-                        Compact::to_compact(&tx.tx(), buf)
-                    },
-                }
-            },
+            Self::Eip4844(tx) => tx.tx().to_compact(buf),
             Self::Eip7702(tx) => tx.tx().to_compact(buf),
             Self::Seismic(tx) => tx.tx().to_compact(buf),
         };
@@ -289,17 +271,9 @@ impl FromTxCompact for SeismicTxEnvelope {
                 (Self::Eip1559(tx), buf)
             }
             SeismicTxType::Eip4844 => {
-                let (variant_tag, rest) = buf.split_first().expect("buffer should not be empty");
-            
-                match variant_tag {
-                    0 => {
-                        let (tx, buf) = TxEip4844::from_compact(rest, rest.len());
-                        let tx = Signed::new_unhashed(TxEip4844Variant::TxEip4844(tx), signature);
-                        (Self::Eip4844(tx), buf)
-                    }
-                    1 => unreachable!("seismic does not serialize sidecars yet"),
-                    _ => panic!("Unknown EIP-4844 variant tag: {}", variant_tag),
-                }
+                let (tx, buf) = TxEip4844::from_compact(buf, buf.len());
+                let tx = Signed::new_unhashed(tx, signature);
+                (Self::Eip4844(tx), buf)
             }
             SeismicTxType::Eip7702 => {
                 let (tx, buf) = TxEip7702::from_compact(buf, buf.len());

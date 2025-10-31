@@ -36,7 +36,6 @@ use seismic_alloy_consensus::{
 use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
 
 // Seismic imports, not used by upstream
-use alloy_consensus::TxEip4844Variant;
 use alloy_evm::FromTxWithEncoded;
 
 /// Signed transaction.
@@ -136,7 +135,7 @@ impl_from_signed!(
     TxLegacy,
     TxEip2930,
     TxEip1559,
-    TxEip4844Variant,
+    TxEip4844,
     TxEip7702,
     TxSeismic,
     SeismicTypedTransaction
@@ -255,47 +254,25 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                 tx_hash,
                 rng_mode,
             },
-            SeismicTypedTransaction::Eip4844(tx) => match tx {
-                TxEip4844Variant::TxEip4844(tx) => SeismicTransaction::<TxEnv> {
-                    base: TxEnv {
-                        gas_limit: tx.gas_limit,
-                        gas_price: tx.max_fee_per_gas,
-                        gas_priority_fee: Some(tx.max_priority_fee_per_gas),
-                        kind: TxKind::Call(tx.to),
-                        value: tx.value,
-                        data: tx.input.clone(),
-                        chain_id: Some(tx.chain_id),
-                        nonce: tx.nonce,
-                        access_list: tx.access_list.clone(),
-                        blob_hashes: Default::default(),
-                        max_fee_per_blob_gas: Default::default(),
-                        authorization_list: Default::default(),
-                        tx_type: 4,
-                        caller: sender,
-                    },
-                    tx_hash,
-                    rng_mode,
+            SeismicTypedTransaction::Eip4844(tx) => SeismicTransaction::<TxEnv> {
+                base: TxEnv {
+                    gas_limit: tx.gas_limit,
+                    gas_price: tx.max_fee_per_gas,
+                    gas_priority_fee: Some(tx.max_priority_fee_per_gas),
+                    kind: TxKind::Call(tx.to),
+                    value: tx.value,
+                    data: tx.input.clone(),
+                    chain_id: Some(tx.chain_id),
+                    nonce: tx.nonce,
+                    access_list: tx.access_list.clone(),
+                    blob_hashes: Default::default(),
+                    max_fee_per_blob_gas: Default::default(),
+                    authorization_list: Default::default(),
+                    tx_type: 3,
+                    caller: sender,
                 },
-                TxEip4844Variant::TxEip4844WithSidecar(tx) => SeismicTransaction::<TxEnv> {
-                    base: TxEnv {
-                        gas_limit: tx.tx.gas_limit,
-                        gas_price: tx.tx.max_fee_per_gas,
-                        gas_priority_fee: Some(tx.tx.max_priority_fee_per_gas),
-                        kind: TxKind::Call(tx.tx.to),
-                        value: tx.tx.value,
-                        data: tx.tx.input.clone(),
-                        chain_id: Some(tx.tx.chain_id),
-                        nonce: tx.tx.nonce,
-                        access_list: tx.tx.access_list.clone(),
-                        blob_hashes: Default::default(),
-                        max_fee_per_blob_gas: Default::default(),
-                        authorization_list: Default::default(),
-                        tx_type: 4,
-                        caller: sender,
-                    },
-                    tx_hash,
-                    rng_mode,
-                },
+                tx_hash,
+                rng_mode,
             },
             SeismicTypedTransaction::Eip7702(tx) => SeismicTransaction::<TxEnv> {
                 base: TxEnv {
@@ -457,10 +434,7 @@ impl Decodable2718 for SeismicTransactionSigned {
             }
             seismic_alloy_consensus::SeismicTxType::Eip4844 => {
                 let (tx, signature, hash) = TxEip4844::rlp_decode_signed(buf)?.into_parts();
-                let signed_tx = Self::new_unhashed(
-                    SeismicTypedTransaction::Eip4844(TxEip4844Variant::TxEip4844(tx)),
-                    signature,
-                );
+                let signed_tx = Self::new_unhashed(SeismicTypedTransaction::Eip4844(tx), signature);
                 signed_tx.hash.get_or_init(|| hash);
                 Ok(signed_tx)
             }
@@ -703,10 +677,7 @@ fn signature_hash(tx: &SeismicTypedTransaction) -> B256 {
         SeismicTypedTransaction::Legacy(tx) => tx.signature_hash(),
         SeismicTypedTransaction::Eip2930(tx) => tx.signature_hash(),
         SeismicTypedTransaction::Eip1559(tx) => tx.signature_hash(),
-        SeismicTypedTransaction::Eip4844(tx) => match tx {
-            TxEip4844Variant::TxEip4844(tx) => tx.signature_hash(),
-            TxEip4844Variant::TxEip4844WithSidecar(tx) => tx.tx.signature_hash(),
-        },
+        SeismicTypedTransaction::Eip4844(tx) => tx.signature_hash(),
         SeismicTypedTransaction::Eip7702(tx) => tx.signature_hash(),
         SeismicTypedTransaction::Seismic(tx) => tx.signature_hash(),
     }
@@ -855,7 +826,7 @@ mod tests {
             let expected_len = reth_tx.to_compact(&mut expected_buf);
 
             let mut actual_but  = Vec::<u8>::new();
-            let alloy_tx = SeismicTxEnvelope::from(reth_tx);
+            let alloy_tx = SeismicTxEnvelope::<TxEip4844>::from(reth_tx);
             let actual_len = alloy_tx.to_compact(&mut actual_but);
 
             assert_eq!(actual_but, expected_buf);
@@ -865,16 +836,16 @@ mod tests {
         #[test]
         fn test_roundtrip_compact_decode_envelope(reth_tx in arb::<SeismicTransactionSigned>()) {
             println!("{}", reth_tx.transaction().tx_type());
-            if reth_tx.transaction().tx_type() == SeismicTxType::Eip4844 {
-                // TODO: make this work for eip4844 in seismic-alloy
-                return Ok(())
-            }
+            // if reth_tx.transaction().tx_type() == SeismicTxType::Eip4844 {
+            //     // TODO: make this work for eip4844 in seismic-alloy
+            //     return Ok(())
+            // }
 
             let mut buf = Vec::<u8>::new();
             let len = reth_tx.to_compact(&mut buf);
 
-            let (actual_tx, _) = SeismicTxEnvelope::from_compact(&buf, len);
-            let expected_tx = SeismicTxEnvelope::from(reth_tx);
+            let (actual_tx, _) = SeismicTxEnvelope::<TxEip4844>::from_compact(&buf, len);
+            let expected_tx = SeismicTxEnvelope::<TxEip4844>::from(reth_tx);
 
             assert_eq!(actual_tx, expected_tx);
         }
