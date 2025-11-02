@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SeismicSys - Privacy-Powered Blockchain</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; color: #333; }
+        header { background-color: #1a1a2e; color: white; padding: 20px; text-align: center; }
+        nav { background-color: #16213e; padding: 10px; }
+        nav ul { list-style: none; padding: 0; display: flex; justify-content: center; }
+        nav li { margin: 0 15px; }
+        nav a { color: white; text-decoration: none; }
+        main { max-width: 1200px; margin: 20px auto; padding: 20px; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        section { margin-bottom: 40px; }
+        h1, h2 { color: #0f3460; }
+        footer { background-color: #1a1a2e; color: white; text-align: center; padding: 10px; }
+        .highlight { background-color: #e94560; color: white; padding: 10px; border-radius: 5px; }
+        .btn-testnet { display: inline-block; background-color: #0f3460; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; transition: background-color 0.3s; margin: 10px 0; }
+        .btn-testnet:hover { background-color: #e94560; }
+        pre { background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; font-size: 0.9em; }
+        code { background: #e9ecef; padding: 2px 4px; border-radius: 3px; }
+        .logo { max-width: 150px; height: auto; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="https://pbs.twimg.com/profile_images/1973845579592519680/b4fdyJ1-.jpg" alt="SeismicSys Logo" class="logo">
+        <h1>@SeismicSys</h1>
+        <p>Privacy-Powered Blockchain for Fintech Innovators</p>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="#home">Home</a></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#contact">Get Involved</a></li>
+        </ul>
+    </nav>
+    <main>
+        <section id="home">
+            <h2>Welcome to SeismicSys</h2>
+            <p>Backed by $7M from a16z crypto. Live testnet since March 2025.</p>
+            <div class="highlight">Join Devnet & deploy encrypted contracts in 5 mins!</div>
+            <p><a href="https://discord.gg/6ET8X896" class="btn-testnet" target="_blank">Join Testnet Now</a></p>
+        </section>
+        <section id="about">
+            <h2>About</h2>
+            <p>Founded by Ravi & Rohan. Privacy for salaries, insurance, and DeFi.</p>
+        </section>
+        <section id="features">
+            <h2>Features</h2>
+            <ul>
+                <li>TEE-encrypted transactions</li>
+                <li>Seismic Reth (Reth fork)</li>
+                <li>Summit & Brookwell apps</li>
+            </ul>
+        </section>
+        <section id="contact">
+            <h2>Get Involved</h2>
+            <p><a href="https://docs.seismic.systems/appendix/devnet#funding-your-wallet" class="btn-testnet" target="_blank">Get Faucet ETH</a></p>
+            <h3>Quick Start Guide</h3>
+            <ol>
+                <li><strong>Install Foundry</strong><br>
+                    <pre><code>curl -L -H "Accept: application/vnd.github.v3.raw" "https://api.github.com/repos/SeismicSystems/seismic-foundry/contents/sfoundryup/install?ref=seismic" | bash</code></pre>
+                </li>
+                <li><strong>Clone & Deploy</strong><br>
+                    <pre><code>git clone https://github.com/SeismicSystems/try-devnet.git
+cd try-devnet/packages/contract/
+bash script/deploy.sh</code></pre>
+                </li>
+            </ol>
+            <p><a href="https://x.com/SeismicSys" target="_blank">@SeismicSys on X</a></p>
+        </section>
+    </main>
+    <footer>
+        <p>© 2025 SeismicSys • Built with ❤️ for the community</p>
+    </footer>
+</body>
+</html>
