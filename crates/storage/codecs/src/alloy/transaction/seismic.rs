@@ -173,6 +173,7 @@ impl Compact for SeismicTxType {
                 COMPACT_EXTENDED_IDENTIFIER_FLAG => {
                     let extended_identifier = buf.get_u8();
                     match extended_identifier {
+                        EIP4844_TX_TYPE_ID => Self::Eip4844,
                         EIP7702_TX_TYPE_ID => Self::Eip7702,
                         SEISMIC_TX_TYPE_ID => Self::Seismic,
                         _ => panic!("Unsupported TxType identifier: {extended_identifier}"),
