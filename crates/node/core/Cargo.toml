@@ -11,7 +11,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-seismic-enclave.workspace = true
+seismic-enclave-server.workspace = true
 
 # reth
 reth-chainspec.workspace = true

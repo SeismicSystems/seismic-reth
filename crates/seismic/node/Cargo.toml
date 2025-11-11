@@ -11,7 +11,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-seismic-enclave.workspace = true
+seismic-enclave-server.workspace = true
 
 # seismic-reth
 reth-seismic-payload-builder.workspace = true
@@ -93,7 +93,7 @@ alloy-network = { workspace = true }
 alloy-genesis = { workspace = true }
 seismic-alloy-network = { workspace = true }
 seismic-alloy-provider = { workspace = true }
-reth-enclave.workspace = true
+seismic-enclave-crypto.workspace = true
 alloy-dyn-abi.workspace = true
 alloy-sol-types.workspace = true
 alloy-json-abi.workspace = true

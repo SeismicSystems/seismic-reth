@@ -1,16 +1,18 @@
 //! clap [Args](clap::Args) for RPC related arguments.
 
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr};
 
 use clap::Args;
-use seismic_enclave::{ENCLAVE_DEFAULT_ENDPOINT_IP, ENCLAVE_DEFAULT_ENDPOINT_PORT};
+use seismic_enclave_server::ENCLAVE_DEFAULT_ENDPOINT_PORT;
+
+const ENCLAVE_DEFAULT_ENDPOINT_IP: IpAddr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
 
 /// Parameters for configuring the enclave more granularity via CLI
 #[derive(Debug, Clone, Args, PartialEq, Eq, Copy)]
 #[command(next_help_heading = "Enclave")]
 pub struct EnclaveArgs {
     /// Auth server address to listen on
-    #[arg(long = "enclave.endpoint-addr", default_value_t = ENCLAVE_DEFAULT_ENDPOINT_IP)]
+    #[arg(long = "enclave.endpoint-addr", default_value_t = ENCLAVE_DEFAULT_ENDPOINT_IP.try_into().unwrap())]
     pub enclave_server_addr: IpAddr,
 
     /// Auth server port to listen on

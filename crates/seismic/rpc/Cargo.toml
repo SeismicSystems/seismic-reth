@@ -48,7 +48,8 @@ reth-seismic-primitives = { workspace = true, features = [
     "reth-codec",
     "serde-bincode-compat",
 ] }
-seismic-enclave.workspace = true
+seismic-enclave-server.workspace = true
+seismic-enclave-crypto.workspace = true
 
 seismic-alloy-consensus.workspace = true
 seismic-alloy-network.workspace = true
@@ -76,8 +77,7 @@ reth-evm-ethereum.workspace = true
 reth-ethereum-engine-primitives.workspace = true
 reth-rpc-builder.workspace = true
 reth-rpc-layer.workspace = true
-seismic-enclave.workspace = true
-reth-enclave.workspace = true
+seismic-enclave-server.workspace = true
 reth-payload-builder.workspace = true
 secp256k1.workspace = true
 enr.workspace = true
