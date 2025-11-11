@@ -37,7 +37,7 @@ async fn boot_enclave_and_fetch_keys<ChainSpec>(
     }
     let enclave_client = HttpClientBuilder::default()
         .build(format!(
-            "{}:{}",
+            "http://{}:{}",
             config.enclave.enclave_server_addr, config.enclave.enclave_server_port
         ))
         .expect("Failed to build enclave client");
