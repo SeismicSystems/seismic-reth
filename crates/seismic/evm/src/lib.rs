@@ -317,10 +317,9 @@ mod tests {
         state::AccountInfo,
     };
     use seismic_alloy_genesis::Genesis;
-    use seismic_enclave::GetPurposeKeysResponse;
     use seismic_enclave::{
         get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
-        get_unsecure_sample_secp256k1_sk,
+        get_unsecure_sample_secp256k1_sk, GetPurposeKeysResponse,
     };
     use std::sync::Arc;
 
