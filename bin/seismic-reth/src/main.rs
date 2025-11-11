@@ -12,7 +12,7 @@ use reth_seismic_node::node::SeismicNode;
 use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
 
-use seismic_enclave_server::{
+use seismic_enclave::{
     api::TdxQuoteRpcClient as _, mock::start_mock_server, GetPurposeKeysResponse,
 };
 

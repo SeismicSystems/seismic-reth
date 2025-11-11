@@ -27,7 +27,7 @@ use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicTransactionReceipt, SeismicTransactionRequest, SimBlock,
     SimulatePayload,
 };
-use seismic_enclave_crypto::aes_decrypt;
+use seismic_enclave::aes_decrypt;
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
 

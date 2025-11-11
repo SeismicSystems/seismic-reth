@@ -3,7 +3,7 @@
 //! This module provides thread-safe access to purpose keys that are fetched once
 //! during node startup and then used throughout the application lifetime.
 
-use seismic_enclave_server::GetPurposeKeysResponse;
+use seismic_enclave::GetPurposeKeysResponse;
 use std::sync::OnceLock;
 
 /// Global storage for purpose keys.

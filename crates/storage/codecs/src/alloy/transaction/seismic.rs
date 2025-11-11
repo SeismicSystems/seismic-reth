@@ -90,12 +90,11 @@ impl Compact for TxSeismicElements {
 
     fn from_compact(mut buf: &[u8], _len: usize) -> (Self, &[u8]) {
         let encryption_pubkey_compressed_bytes =
-            &buf[..seismic_enclave_crypto::secp256k1::constants::PUBLIC_KEY_SIZE];
-        let encryption_pubkey = seismic_enclave_crypto::secp256k1::PublicKey::from_slice(
-            encryption_pubkey_compressed_bytes,
-        )
-        .unwrap();
-        buf.advance(seismic_enclave_crypto::secp256k1::constants::PUBLIC_KEY_SIZE);
+            &buf[..seismic_enclave::secp256k1::constants::PUBLIC_KEY_SIZE];
+        let encryption_pubkey =
+            seismic_enclave::secp256k1::PublicKey::from_slice(encryption_pubkey_compressed_bytes)
+                .unwrap();
+        buf.advance(seismic_enclave::secp256k1::constants::PUBLIC_KEY_SIZE);
 
         let (message_version, buf) = (buf[0], &buf[1..]);
 
@@ -371,7 +370,7 @@ mod tests {
     use super::*;
     use alloy_primitives::{hex, Bytes, TxKind};
     use bytes::BytesMut;
-    use seismic_enclave_crypto::secp256k1::PublicKey;
+    use seismic_enclave::secp256k1::PublicKey;
 
     #[test]
     fn test_seismic_tx_compact_roundtrip() {

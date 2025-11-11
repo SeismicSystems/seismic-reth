@@ -56,7 +56,7 @@ impl SeismicEvmConfig {
     /// Creates a new Seismic EVM configuration with the given chain spec and purpose keys.
     pub fn new(
         chain_spec: Arc<ChainSpec>,
-        purpose_keys: &'static seismic_enclave_server::GetPurposeKeysResponse,
+        purpose_keys: &'static seismic_enclave::GetPurposeKeysResponse,
     ) -> Self {
         SeismicEvmConfig::new_with_evm_factory(
             chain_spec,
@@ -69,7 +69,7 @@ impl SeismicEvmConfig {
     pub fn new_with_evm_factory(
         chain_spec: Arc<ChainSpec>,
         evm_factory: SeismicEvmFactory,
-        purpose_keys: &'static seismic_enclave_server::GetPurposeKeysResponse,
+        purpose_keys: &'static seismic_enclave::GetPurposeKeysResponse,
     ) -> Self {
         Self {
             block_assembler: SeismicBlockAssembler::new(chain_spec.clone()),
@@ -317,11 +317,11 @@ mod tests {
         state::AccountInfo,
     };
     use seismic_alloy_genesis::Genesis;
-    use seismic_enclave_crypto::{
+    use seismic_enclave::GetPurposeKeysResponse;
+    use seismic_enclave::{
         get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
         get_unsecure_sample_secp256k1_sk,
     };
-    use seismic_enclave_server::GetPurposeKeysResponse;
     use std::sync::Arc;
 
     fn test_evm_config() -> SeismicEvmConfig {

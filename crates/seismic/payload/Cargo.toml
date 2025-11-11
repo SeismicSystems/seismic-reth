@@ -40,7 +40,7 @@ alloy-consensus.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-seismic-enclave-server.workspace = true
+seismic-enclave.workspace = true
 reth-trie-common.workspace = true
 alloy-evm.workspace = true
 reth-storage-errors.workspace = true

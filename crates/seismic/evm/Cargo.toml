@@ -12,8 +12,7 @@ workspace = true
 
 [dependencies]
 # seismic
-seismic-enclave-crypto.workspace = true
-seismic-enclave-server.workspace = true
+seismic-enclave.workspace = true
 seismic-alloy-genesis.workspace = true
 
 # Reth

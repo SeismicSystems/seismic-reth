@@ -12,7 +12,7 @@ workspace = true
 
 [dependencies]
 # enclave
-seismic-enclave-crypto.workspace = true
+seismic-enclave.workspace = true
 seismic-alloy-consensus = { workspace = true, default-features = false, features = ["arbitrary", "serde"] }
 seismic-alloy-genesis.workspace = true
 

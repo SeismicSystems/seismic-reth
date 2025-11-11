@@ -3,8 +3,8 @@
 use std::net::{IpAddr, Ipv4Addr};
 
 use clap::Args;
-use seismic_enclave_server::ENCLAVE_DEFAULT_ENDPOINT_PORT;
 
+const ENCLAVE_DEFAULT_ENDPOINT_PORT: u16 = 7878;
 const ENCLAVE_DEFAULT_ENDPOINT_IP: IpAddr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
 
 /// Parameters for configuring the enclave more granularity via CLI
