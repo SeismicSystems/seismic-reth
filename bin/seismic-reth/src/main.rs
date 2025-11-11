@@ -12,9 +12,9 @@ use reth_seismic_node::node::SeismicNode;
 use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
 
-use seismic_enclave_server::api::TdxQuoteRpcClient as _;
-use seismic_enclave_server::mock::start_mock_server;
-use seismic_enclave_server::GetPurposeKeysResponse;
+use seismic_enclave_server::{
+    api::TdxQuoteRpcClient as _, mock::start_mock_server, GetPurposeKeysResponse,
+};
 
 /// Boot the enclave (or mock server) and fetch purpose keys.
 /// This must be called before building the node components.
