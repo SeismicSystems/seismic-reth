@@ -19,6 +19,14 @@ pub struct EnclaveArgs {
     #[arg(long = "enclave.endpoint-port", default_value_t = ENCLAVE_DEFAULT_ENDPOINT_PORT)]
     pub enclave_server_port: u16,
 
+    /// How many failures to tolerate before we panic
+    #[arg(long = "enclave.retries", default_value_t = 0)]
+    pub retries: u32,
+
+    /// How many seconds to pause between retries
+    #[arg(long = "enclave.retry-seconds", default_value_t = 30)]
+    pub retry_seconds: u16,
+
     /// Spin up mock server for testing purpose
     #[arg(long = "enclave.mock-server", action = clap::ArgAction::SetTrue)]
     pub mock_server: bool,
@@ -35,6 +43,8 @@ impl Default for EnclaveArgs {
             enclave_server_port: ENCLAVE_DEFAULT_ENDPOINT_PORT,
             mock_server: false,
             enclave_timeout: 5,
+            retries: 0,
+            retry_seconds: 30,
         }
     }
 }
