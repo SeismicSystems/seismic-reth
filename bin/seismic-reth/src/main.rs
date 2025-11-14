@@ -53,7 +53,10 @@ async fn boot_enclave_and_fetch_keys<ChainSpec>(
             }
             Err(e) => {
                 warn!(target: "reth::cli", "Failure to fetch purpose keys {}/{}: {}", failures, config.enclave.retries, e);
-                tokio::time::sleep(tokio::time::Duration::from_secs(config.enclave.retry_seconds.into())).await;
+                tokio::time::sleep(tokio::time::Duration::from_secs(
+                    config.enclave.retry_seconds.into(),
+                ))
+                .await;
                 failures += 1;
             }
         }
