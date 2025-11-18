@@ -44,13 +44,24 @@ async fn boot_enclave_and_fetch_keys<ChainSpec>(
 
     // Fetch purpose keys from enclave - this must succeed or we panic
     info!(target: "reth::cli", "Fetching purpose keys from enclave");
-    let purpose_keys = enclave_client
-        .get_purpose_keys(0)
-        .await
-        .expect("FATAL: Failed to fetch purpose keys from enclave on boot");
-
-    info!(target: "reth::cli", "Successfully fetched purpose keys from enclave");
-    purpose_keys
+    let mut failures = 0;
+    while failures <= config.enclave.retries {
+        match enclave_client.get_purpose_keys(0).await {
+            Ok(purpose_keys) => {
+                info!(target: "reth::cli", "Successfully fetched purpose keys from enclave");
+                return purpose_keys;
+            }
+            Err(e) => {
+                warn!(target: "reth::cli", "Failure to fetch purpose keys {}/{}: {}", failures, config.enclave.retries, e);
+                tokio::time::sleep(tokio::time::Duration::from_secs(
+                    config.enclave.retry_seconds.into(),
+                ))
+                .await;
+                failures += 1;
+            }
+        }
+    }
+    panic!("FATAL: Failed to fetch purpose keys from enclave on boot after {} failures", failures);
 }
 
 fn main() {
