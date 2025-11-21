@@ -28,7 +28,7 @@ pub const SEISMIC_MAINNET_GENESIS_HASH: B256 =
 /// Calculated by rlp encoding the genesis header and hashing it
 /// Currently matches the mainnet genesis hash because they have matching hardforks
 pub const SEISMIC_DEV_GENESIS_HASH: B256 =
-    b256!("0xd9e1aa836f4c56454176276f86a3a132c53cc0a7ce4d7b39726e022c7ee2c30a");
+    b256!("0x026f940c8dea6ff01d96e6463a69d9a0771a01b8f1fe9a66ce894b7069fe82fe");
 
 /// Seismic devnet specification
 pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
