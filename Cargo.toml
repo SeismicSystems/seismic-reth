@@ -766,13 +766,13 @@ vergen-git2 = "1.0.5"
 seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "c6bc2ae15b619af1d0ec5e739a90b6f51dd7eb84" }
 
 # seismic-alloy-core
-alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
-alloy-json-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
-alloy-sol-macro-expander = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
-alloy-sol-macro-input = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
-alloy-sol-types = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
-alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
-alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fa63d477d6aa01e7203b677632c31cb3eba00640" }
+alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "68313cb636365501a699c47865807158544eace1" }
+alloy-json-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "68313cb636365501a699c47865807158544eace1" }
+alloy-sol-macro-expander = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "68313cb636365501a699c47865807158544eace1" }
+alloy-sol-macro-input = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "68313cb636365501a699c47865807158544eace1" }
+alloy-sol-types = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "68313cb636365501a699c47865807158544eace1" }
+alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "68313cb636365501a699c47865807158544eace1" }
+alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "68313cb636365501a699c47865807158544eace1" }
 
 alloy-trie = { git = "https://github.com/SeismicSystems/seismic-trie.git", rev = "d8425918ced1d62043c3a64b382d6fa1d8c25518" }
 
