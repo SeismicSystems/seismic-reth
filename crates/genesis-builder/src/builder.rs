@@ -64,7 +64,7 @@ impl GenesisBuilder {
         let address = parse_address(&config.address)?;
 
         if self.genesis.alloc.contains_key(&address) {
-            if !prompt_overwrite(name, &config.address)? {
+            if !overwrite_address(name, &config.address)? {
                 return Err(BuilderError::AddressCollision(format!(
                     "{} ({})",
                     name, config.address
@@ -106,7 +106,7 @@ fn parse_address(hex_str: &str) -> Result<Address> {
 }
 
 /// Prompt the user to confirm overwriting an existing contract
-fn prompt_overwrite(name: &str, address: &str) -> Result<bool> {
+fn overwrite_address(name: &str, address: &str) -> Result<bool> {
     print!(
         "Address collision: {} ({}) already exists in genesis. Overwrite? [y/N]: ",
         name, address
