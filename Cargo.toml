@@ -22,6 +22,7 @@ members = [
     "crates/seismic/rpc/",
     "crates/seismic/txpool/",
     "crates/seismic/hardforks",
+    "crates/genesis-builder",
 
     "bin/reth-bench/",
     "bin/reth/",
@@ -188,7 +189,7 @@ members = [
     "testing/ef-tests/",
     "testing/testing-utils",
     "testing/runner",
-    "crates/tracing-otlp", "crates/genesis-builder"
+    "crates/tracing-otlp",
 ]
 default-members = ["bin/seismic-reth", "bin/genesis-builder"]
 exclude = ["docs/cli"]

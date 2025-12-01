@@ -3,7 +3,7 @@ version = "0.1.0"
 description = "Seismic testnet genesis contracts"
 
 # Optional: defaults to main branch if not specified
-base_url = "https://raw.githubusercontent.com/SeismicSystems/seismic-contracts/main"
+base_url = "https://raw.githubusercontent.com/SeismicSystems/seismic-contracts/intelligence-contract"
 
 [contracts.MultisigUpgradeOperator]
 artifact = "artifacts/MultisigUpgradeOperator.json"
@@ -16,3 +16,21 @@ address = "0x2002"
 [contracts.ShieldedDelegationAccount]
 artifact = "artifacts/ShieldedDelegationAccount.json"
 address = "0x2003"
+
+[contracts.Deposit]
+artifact = "artifacts/DepositContract.json"
+address = "0x00000000219ab540356cbb839cbe05303d7705fa"
+
+# TODO: do we need what was in 0x1...01 and 0x1...02?
+
+[contracts.AESLib]
+artifact = "artifacts/AESLib.json"
+address = "0x1000000000000000000000000000000000000003"
+
+[contracts.Directory]
+artifact = "artifacts/Directory.json"
+address = "0x1000000000000000000000000000000000000004"
+
+[contracts.Intelligence]
+artifact = "artifacts/Intelligence.json"
+address = "0x1000000000000000000000000000000000000005"
