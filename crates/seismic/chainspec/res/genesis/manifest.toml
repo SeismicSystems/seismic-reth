@@ -5,24 +5,25 @@ description = "Seismic testnet genesis contracts"
 # Optional: defaults to main branch if not specified
 base_url = "https://raw.githubusercontent.com/SeismicSystems/seismic-contracts/intelligence-contracts"
 
-[contracts.MultisigUpgradeOperator]
-artifact = "artifacts/MultisigUpgradeOperator.json"
-address = "0x2001"
-
-[contracts.UpgradeOperator]
-artifact = "artifacts/UpgradeOperator.json"
-address = "0x2002"
-
-[contracts.ShieldedDelegationAccount]
-artifact = "artifacts/ShieldedDelegationAccount.json"
-address = "0x2003"
-
 # NOTE: withdrawal contract is hardcoded in genesis,
 # but our deposit contract is NOT stock ETH bytecode,
 # which is why we have this here.
 [contracts.Deposit]
 artifact = "artifacts/DepositContract.json"
 address = "0x00000000219ab540356cbb839cbe05303d7705fa"
+
+[contracts.ShieldedDelegationAccount]
+artifact = "artifacts/ShieldedDelegationAccount.json"
+address = "0x2001"
+
+[contracts.UpgradeOperator]
+artifact = "artifacts/UpgradeOperator.json"
+address = "0x1000000000000000000000000000000000000001"
+
+# TODO: this has anvil keys hard-coded
+[contracts.MultisigUpgradeOperator]
+artifact = "artifacts/MultisigUpgradeOperator.json"
+address = "0x1000000000000000000000000000000000000002"
 
 [contracts.AesLib]
 artifact = "artifacts/AesLib.json"
