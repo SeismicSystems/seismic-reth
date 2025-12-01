@@ -5,7 +5,7 @@ use crate::{
 };
 use alloy_primitives::{hex, Address};
 use std::io::{self, Write};
-use tracing::info;
+use tracing::{info, warn};
 
 /// Default nonce for the genesis file
 pub const DEFAULT_NONCE: &str = "0x1";
@@ -70,7 +70,7 @@ impl GenesisBuilder {
                     name, config.address
                 )));
             }
-            println!("Overwriting existing contract at {}", config.address);
+            warn!("Overwriting existing contract at {}", config.address);
         }
 
         let account = GenesisAccount {
