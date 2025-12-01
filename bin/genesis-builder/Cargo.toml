@@ -14,8 +14,9 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
-reth-genesis-builder = { workspace = true } 
-tracing =  { workspace = true }
+reth-genesis-builder = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [lints]
 workspace = true

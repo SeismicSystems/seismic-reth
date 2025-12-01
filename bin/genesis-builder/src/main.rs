@@ -4,6 +4,7 @@ use clap::Parser;
 use reth_genesis_builder::{builder::GenesisBuilder, error::BuilderError, genesis, manifest};
 use std::path::PathBuf;
 use tracing::info;
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 /// Command line arguments
 #[derive(Parser)]
@@ -34,6 +35,12 @@ struct Args {
 
 /// Main function for building genesis files
 fn main() -> Result<(), BuilderError> {
+    // Initialize tracing subscriber to read RUST_LOG env variable
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(EnvFilter::from_default_env())
+        .init();
+
     let args = Args::parse();
 
     info!("Loading manifest: {}", args.manifest.display());

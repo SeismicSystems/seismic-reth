@@ -83,7 +83,7 @@ impl GenesisBuilder {
         self.genesis.alloc.insert(address, account);
         self.contracts_added += 1;
 
-        println!("Added {} @ {}", name, config.address);
+        info!("Added {} @ {}", name, config.address);
 
         Ok(())
     }
