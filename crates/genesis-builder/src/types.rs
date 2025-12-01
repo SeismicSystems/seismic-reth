@@ -50,7 +50,7 @@ pub struct ContractArtifact {
     /// Name of the contract
     pub name: String,
     /// Bytecode of the contract
-    pub bytecode: Bytes,
+    pub deployed_bytecode: Bytes,
 }
 
 /// Genesis file structure

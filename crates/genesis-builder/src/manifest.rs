@@ -14,7 +14,6 @@ pub fn load_manifest(path: &Path) -> Result<Manifest> {
     let manifest: Manifest = toml::from_str(&content)?;
 
     validate_manifest(&manifest)?;
-
     Ok(manifest)
 }
 
