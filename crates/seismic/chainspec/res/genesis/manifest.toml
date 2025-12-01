@@ -17,11 +17,13 @@ address = "0x2002"
 artifact = "artifacts/ShieldedDelegationAccount.json"
 address = "0x2003"
 
+# NOTE: withdrawal contract is hardcoded in genesis,
+# but our deposit contract is NOT stock ETH bytecode,
+# which is why we have this here.
 [contracts.Deposit]
 artifact = "artifacts/DepositContract.json"
 address = "0x00000000219ab540356cbb839cbe05303d7705fa"
 
-# TODO: do we need what was in 0x1...01 and 0x1...02?
 [contracts.AesLib]
 artifact = "artifacts/AesLib.json"
 address = "0x1000000000000000000000000000000000000003"
