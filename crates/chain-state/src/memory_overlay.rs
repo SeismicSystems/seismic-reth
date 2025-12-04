@@ -40,7 +40,7 @@ impl<'a, N: NodePrimitives> MemoryOverlayStateProviderRef<'a, N> {
     ///
     /// ## Arguments
     ///
-    /// - `in_memory` - the collection of executed ancestor blocks in reverse.
+    /// - `in_memory` - the collection of executed ancestor blocks, ordered from newest to oldest.
     /// - `historical` - a historical state provider for the latest ancestor block stored in the
     ///   database.
     pub fn new(
@@ -95,8 +95,8 @@ impl<N: NodePrimitives> BlockHashReader for MemoryOverlayStateProviderRef<'_, N>
             }
         }
 
-        // `self.in_memory` stores executed blocks in ascending order (oldest to newest).
-        // However, `in_memory_hashes` should be constructed in descending order (newest to oldest),
+        // `self.in_memory` stores executed blocks in descending order (newest to oldest).
+        // However, `in_memory_hashes` should be constructed in ascending order (oldest to newest),
         // so we reverse the vector after collecting the hashes.
         in_memory_hashes.reverse();
 
