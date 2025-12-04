@@ -11,6 +11,7 @@ exclude = [".github/"]
 members = [
     # Seismic crates
     "bin/seismic-reth/",
+    "bin/genesis-builder/",
     "crates/seismic/chainspec",
     "crates/seismic/cli",
     "crates/seismic/evm/",
@@ -21,6 +22,7 @@ members = [
     "crates/seismic/rpc/",
     "crates/seismic/txpool/",
     "crates/seismic/hardforks",
+    "crates/genesis-builder",
 
     "bin/reth-bench/",
     "bin/reth/",
@@ -188,7 +190,7 @@ members = [
     "testing/runner",
     "crates/tracing-otlp",
 ]
-default-members = ["bin/seismic-reth"]
+default-members = ["bin/seismic-reth", "bin/genesis-builder"]
 exclude = ["docs/cli"]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
@@ -428,6 +430,7 @@ reth-exex = { path = "crates/exex/exex" }
 reth-exex-test-utils = { path = "crates/exex/test-utils" }
 reth-exex-types = { path = "crates/exex/types" }
 reth-fs-util = { path = "crates/fs-util" }
+reth-genesis-builder = { path = "crates/genesis-builder" }
 reth-invalid-block-hooks = { path = "crates/engine/invalid-block-hooks" }
 reth-ipc = { path = "crates/rpc/ipc" }
 reth-libmdbx = { path = "crates/storage/libmdbx-rs" }

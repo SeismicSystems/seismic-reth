@@ -1,0 +1,21 @@
+[package]
+name = "reth-genesis-builder"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+exclude.workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+reqwest = { workspace = true, default-features = false, features = ["blocking"] } 
+alloy-primitives = { workspace = true, features = ["serde"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

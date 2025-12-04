@@ -3531,6 +3531,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "genesis-builder"
+version = "1.7.0"
+dependencies = [
+ "clap",
+ "reth-genesis-builder",
+ "tracing",
+ "tracing-subscriber 0.3.19",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8202,6 +8212,19 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.12",
+]
+
+[[package]]
+name = "reth-genesis-builder"
+version = "1.7.0"
+dependencies = [
+ "alloy-primitives",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "toml",
+ "tracing",
 ]
 
 [[package]]
