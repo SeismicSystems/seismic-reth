@@ -4,7 +4,8 @@ use crate::{
     types::{Genesis, GenesisAccount, Manifest},
 };
 use alloy_primitives::{hex, Address};
-use tracing::info;
+use std::io::{self, Write};
+use tracing::{info, warn};
 
 /// Default nonce for the genesis file
 pub const DEFAULT_NONCE: &str = "0x1";
@@ -56,19 +57,26 @@ impl GenesisBuilder {
             self.manifest.metadata.base_url().trim_end_matches('/'),
             config.artifact.trim_start_matches('/')
         );
+        println!("Url: {}", url);
 
         let artifact = self.loader.load_artifact(&url)?;
 
         let address = parse_address(&config.address)?;
 
         if self.genesis.alloc.contains_key(&address) {
-            return Err(BuilderError::AddressCollision(format!("{} ({})", name, config.address)));
+            if !overwrite_address(name, &config.address)? {
+                return Err(BuilderError::AddressCollision(format!(
+                    "{} ({})",
+                    name, config.address
+                )));
+            }
+            warn!("Overwriting existing contract at {}", config.address);
         }
 
         let account = GenesisAccount {
-            code: Some(format!("0x{}", hex::encode(&artifact.bytecode))),
+            code: Some(format!("0x{}", hex::encode(&artifact.deployed_bytecode))),
             balance: DEFAULT_BALANCE.to_string(),
-            nonce: Some(DEFAULT_NONCE.to_string()),
+            nonce: None,
             storage: Default::default(),
         };
 
@@ -95,4 +103,19 @@ fn parse_address(hex_str: &str) -> Result<Address> {
     }
 
     Ok(Address::from_slice(&bytes))
+}
+
+/// Prompt the user to confirm overwriting an existing contract
+fn overwrite_address(name: &str, address: &str) -> Result<bool> {
+    print!(
+        "Address collision: {} ({}) already exists in genesis. Overwrite? [y/N]: ",
+        name, address
+    );
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    let input = input.trim().to_lowercase();
+    Ok(input == "y" || input == "yes")
 }

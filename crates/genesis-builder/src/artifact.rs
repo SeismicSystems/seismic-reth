@@ -41,11 +41,11 @@ impl ArtifactLoader {
 
         let json: Value = serde_json::from_slice(&data)?;
 
-        let bytecode = Self::extract_bytecode(&json, url)?;
+        let deployed_bytecode = Self::extract_bytecode(&json, url)?;
 
         let name = Self::extract_name(&json, url);
 
-        Ok(ContractArtifact { name, bytecode })
+        Ok(ContractArtifact { name, deployed_bytecode })
     }
 
     /// Fetch artifact from GitHub via HTTP
