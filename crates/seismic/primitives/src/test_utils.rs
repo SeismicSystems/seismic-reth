@@ -11,18 +11,17 @@ use alloy_signer_local::PrivateKeySigner;
 use core::str::FromStr;
 use enr::EnrKey;
 use k256::ecdsa::SigningKey;
-use reth_enclave::MockEnclaveServer;
+use seismic_enclave::get_unsecure_sample_secp256k1_pk;
+
 use secp256k1::{PublicKey, SecretKey};
 use seismic_alloy_consensus::{
     SeismicTxEnvelope, SeismicTypedTransaction, TxSeismic, TxSeismicElements, TypedDataRequest,
 };
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
-use seismic_enclave::keys::GetPurposeKeysRequest;
 
 /// Get the network public key
 pub fn get_network_public_key() -> PublicKey {
-    let purpose_keys = MockEnclaveServer::get_purpose_keys(GetPurposeKeysRequest { epoch: 0 });
-    purpose_keys.tx_io_pk
+    get_unsecure_sample_secp256k1_pk()
 }
 
 /// Get the client's sk for tx io

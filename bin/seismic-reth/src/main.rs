@@ -1,42 +1,20 @@
 #![allow(missing_docs)]
 
+use std::net::SocketAddr;
+
 use clap::Parser;
+use jsonrpsee_http_client::HttpClientBuilder;
 use reth::cli::Cli;
 use reth_cli_commands::node::NoArgs;
-use reth_enclave::{start_blocking_mock_enclave_server, EnclaveClient};
 use reth_node_core::node_config::NodeConfig;
 use reth_seismic_cli::chainspec::SeismicChainSpecParser;
 use reth_seismic_node::node::SeismicNode;
 use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
+
 use seismic_enclave::{
-    boot_genesis_streamlined_async,
-    keys::{GetPurposeKeysRequest, GetPurposeKeysResponse},
-    rpc::EnclaveApiClient,
+    api::TdxQuoteRpcClient as _, mock::start_mock_server, GetPurposeKeysResponse,
 };
-
-const ENCLAVE_BOOT_ATTEMPTS: u32 = 100;
-const ENCLAVE_BOOT_BACKOFF_START: u64 = 2;
-
-async fn boot_live_enclave(enclave_client: &EnclaveClient) {
-    let mut tries = 0u32;
-    while tries < ENCLAVE_BOOT_ATTEMPTS {
-        match boot_genesis_streamlined_async(&enclave_client).await {
-            Ok(_) => {
-                return;
-            }
-            Err(e) => {
-                if tries + 1 >= ENCLAVE_BOOT_ATTEMPTS {
-                    panic!("Failed to boot enclave:\n{e:?}");
-                }
-                info!(target: "reth::cli", "Sleeping for {ENCLAVE_BOOT_BACKOFF_START}s because Reth failed to boot Enclave: {e:?}");
-                tokio::time::sleep(tokio::time::Duration::from_secs(ENCLAVE_BOOT_BACKOFF_START))
-                    .await;
-                tries += 1;
-            }
-        };
-    }
-}
 
 /// Boot the enclave (or mock server) and fetch purpose keys.
 /// This must be called before building the node components.
@@ -44,39 +22,46 @@ async fn boot_live_enclave(enclave_client: &EnclaveClient) {
 async fn boot_enclave_and_fetch_keys<ChainSpec>(
     config: &NodeConfig<ChainSpec>,
 ) -> GetPurposeKeysResponse {
-    let enclave_client = EnclaveClient::builder()
-        .ip(config.enclave.enclave_server_addr.to_string())
-        .port(config.enclave.enclave_server_port)
-        .build()
-        .expect("Failed to build enclave client");
-
     // Boot enclave or start mock server
-    match config.enclave.mock_server {
-        true => {
-            info!(target: "reth::cli", "Starting mock enclave server");
-            let addr = config.enclave.enclave_server_addr;
-            let port = config.enclave.enclave_server_port;
-            tokio::spawn(async move {
-                start_blocking_mock_enclave_server(addr, port).await;
-            });
-            // Give the mock server time to start
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        }
-        false => {
-            info!(target: "reth::cli", "Booting enclave");
-            boot_live_enclave(&enclave_client).await;
-        }
+    if config.enclave.mock_server {
+        info!(target: "reth::cli", "Starting mock enclave server");
+        let addr = config.enclave.enclave_server_addr;
+        let port = config.enclave.enclave_server_port;
+        tokio::spawn(async move {
+            start_mock_server(SocketAddr::new(addr, port))
+                .await
+                .expect("Failed to start mock enclave server");
+        });
+        // Give the mock server time to start
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     }
+    let enclave_client = HttpClientBuilder::default()
+        .build(format!(
+            "http://{}:{}",
+            config.enclave.enclave_server_addr, config.enclave.enclave_server_port
+        ))
+        .expect("Failed to build enclave client");
 
     // Fetch purpose keys from enclave - this must succeed or we panic
     info!(target: "reth::cli", "Fetching purpose keys from enclave");
-    let purpose_keys = enclave_client
-        .get_purpose_keys(GetPurposeKeysRequest { epoch: 0 })
-        .await
-        .expect("FATAL: Failed to fetch purpose keys from enclave on boot");
-
-    info!(target: "reth::cli", "Successfully fetched purpose keys from enclave");
-    purpose_keys
+    let mut failures = 0;
+    while failures <= config.enclave.retries {
+        match enclave_client.get_purpose_keys(0).await {
+            Ok(purpose_keys) => {
+                info!(target: "reth::cli", "Successfully fetched purpose keys from enclave");
+                return purpose_keys;
+            }
+            Err(e) => {
+                warn!(target: "reth::cli", "Failure to fetch purpose keys {}/{}: {}", failures, config.enclave.retries, e);
+                tokio::time::sleep(tokio::time::Duration::from_secs(
+                    config.enclave.retry_seconds.into(),
+                ))
+                .await;
+                failures += 1;
+            }
+        }
+    }
+    panic!("FATAL: Failed to fetch purpose keys from enclave on boot after {} failures", failures);
 }
 
 fn main() {

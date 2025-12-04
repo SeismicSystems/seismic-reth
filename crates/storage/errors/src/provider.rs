@@ -3,7 +3,6 @@ use alloc::{boxed::Box, string::String};
 use alloy_eips::{BlockHashOrNumber, HashOrNumber};
 use alloy_primitives::{Address, BlockHash, BlockNumber, TxNumber, B256};
 use derive_more::Display;
-use reth_enclave::EnclaveError;
 use reth_primitives_traits::{transaction::signed::RecoveryError, GotExpected};
 use reth_prune_types::PruneSegmentError;
 use reth_static_file_types::StaticFileSegment;
@@ -144,6 +143,19 @@ pub enum ProviderError {
     /// Any other error type wrapped into a cloneable [`AnyError`].
     #[error(transparent)]
     Other(#[from] AnyError),
+}
+
+/// Custom error type for reth error handling.
+#[derive(Clone, Debug, Eq, PartialEq, Display)]
+pub enum EnclaveError {
+    /// enclave encryption fails
+    EncryptionError,
+    /// enclave decryption fails
+    DecryptionError,
+    /// Ephemeral keypair generation fails
+    EphRngKeypairGenerationError(String),
+    /// Custom error.
+    Custom(&'static str),
 }
 
 impl From<EnclaveError> for ProviderError {

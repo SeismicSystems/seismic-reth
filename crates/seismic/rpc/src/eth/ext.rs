@@ -33,7 +33,7 @@ use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest,
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
 };
-use seismic_enclave::{keys::GetPurposeKeysResponse, PublicKey};
+use seismic_enclave::{secp256k1::PublicKey, GetPurposeKeysResponse};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
 /// trait interface for a custom rpc namespace: `seismic`
