@@ -31,15 +31,16 @@ struct Args {
     /// Optional output path (defaults to modifying input genesis file in-place)
     #[arg(long, value_name = "FILE")]
     output: Option<PathBuf>,
+
+    /// say "yes" to every overwrite question
+    #[arg(short = 'y', long)]
+    yes_overwrite: bool,
 }
 
 /// Main function for building genesis files
 fn main() -> Result<(), BuilderError> {
     // Initialize tracing subscriber to read RUST_LOG env variable
-    tracing_subscriber::registry()
-        .with(fmt::layer())
-        .with(EnvFilter::from_default_env())
-        .init();
+    tracing_subscriber::registry().with(fmt::layer()).with(EnvFilter::from_default_env()).init();
 
     let args = Args::parse();
 
@@ -51,7 +52,7 @@ fn main() -> Result<(), BuilderError> {
     let genesis_data = genesis::load_genesis(&args.genesis)?;
     info!("   Current allocations: {}", genesis_data.alloc.len());
 
-    let builder = GenesisBuilder::new(manifest_data, genesis_data)?;
+    let builder = GenesisBuilder::new(manifest_data, genesis_data, args.yes_overwrite)?;
     let updated_genesis = builder.build()?;
 
     let output_path = args.output.unwrap_or(args.genesis.clone());

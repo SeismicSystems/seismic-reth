@@ -24,14 +24,16 @@ pub struct GenesisBuilder {
     loader: ArtifactLoader,
     /// Number of contracts added to the genesis file
     contracts_added: usize,
+    /// Say "yes" to every overwrite question
+    yes_overwrite: bool,
 }
 
 impl GenesisBuilder {
     /// Create a new genesis builder
-    pub fn new(manifest: Manifest, genesis: Genesis) -> Result<Self> {
+    pub fn new(manifest: Manifest, genesis: Genesis, yes_overwrite: bool) -> Result<Self> {
         let loader = ArtifactLoader::new()?;
 
-        Ok(Self { manifest, genesis, loader, contracts_added: 0 })
+        Ok(Self { manifest, genesis, loader, contracts_added: 0, yes_overwrite })
     }
 
     /// Execute the build process
@@ -64,7 +66,7 @@ impl GenesisBuilder {
         let address = parse_address(&config.address)?;
 
         if self.genesis.alloc.contains_key(&address) {
-            if !overwrite_address(name, &config.address)? {
+            if !self.yes_overwrite && !overwrite_address(name, &config.address)? {
                 return Err(BuilderError::AddressCollision(format!(
                     "{} ({})",
                     name, config.address
