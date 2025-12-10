@@ -99,8 +99,8 @@ pub trait EthState: LoadState + SpawnBlocking {
                 .unwrap_or_default();
 
             match storage_value.is_public() {
-                true => Ok(FlaggedStorage::new(storage_value.value, false)), /* public storage
-                                                                               * value */
+                true => Ok(FlaggedStorage::new(storage_value.value, false)), /* public storage */
+                // value
                 false => Ok(FlaggedStorage::new(U256::ZERO, true)), /* return 0x000...000 for
                                                                      * private storage value */
             }
