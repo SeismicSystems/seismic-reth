@@ -5,7 +5,7 @@ use super::{EthApiSpec, LoadPendingBlock, SpawnBlocking};
 use crate::{EthApiTypes, FromEthApiError, RpcNodeCore, RpcNodeCoreExt};
 use alloy_consensus::constants::KECCAK_EMPTY;
 use alloy_eips::BlockId;
-use alloy_primitives::{Address, Bytes, B256, FlaggedStorage, U256};
+use alloy_primitives::{Address, Bytes, FlaggedStorage, B256, U256};
 use alloy_rpc_types_eth::{Account, AccountInfo, EIP1186AccountProofResponse};
 use alloy_serde::JsonStorageKey;
 use futures::Future;
@@ -99,8 +99,10 @@ pub trait EthState: LoadState + SpawnBlocking {
                 .unwrap_or_default();
 
             match storage_value.is_public() {
-                true => Ok(FlaggedStorage::new(storage_value.value, false)), // public storage value
-                false => Ok(FlaggedStorage::new(U256::ZERO, true)), // return 0x000...000 for private storage value
+                true => Ok(FlaggedStorage::new(storage_value.value, false)), /* public storage
+                                                                               * value */
+                false => Ok(FlaggedStorage::new(U256::ZERO, true)), /* return 0x000...000 for
+                                                                     * private storage value */
             }
         })
     }

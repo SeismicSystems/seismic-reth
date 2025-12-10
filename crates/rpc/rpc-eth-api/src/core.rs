@@ -7,7 +7,7 @@ use crate::{
 use alloy_dyn_abi::TypedData;
 use alloy_eips::{eip2930::AccessListResult, BlockId, BlockNumberOrTag};
 use alloy_json_rpc::RpcObject;
-use alloy_primitives::{Address, Bytes, B256, B64, FlaggedStorage, U256, U64};
+use alloy_primitives::{Address, Bytes, FlaggedStorage, B256, B64, U256, U64};
 use alloy_rpc_types_eth::{
     simulate::{SimulatePayload, SimulatedBlock},
     state::{EvmOverrides, StateOverride},
@@ -189,9 +189,10 @@ pub trait EthApi<TxReq: RpcObject, T: RpcObject, B: RpcObject, R: RpcObject, H: 
         block_number: Option<BlockId>,
     ) -> RpcResult<B256>;
 
-    /// Returns the value from a storage position at a given address, including the `is_private` flag. 
-    /// Returns `0x000...000` as the value and `true` for the `is_private` flag for private storage slots.
-    /// Returns the value and `false` for the `is_public` flag for public storage slots.
+    /// Returns the value from a storage position at a given address, including the `is_private`
+    /// flag. Returns `0x000...000` as the value and `true` for the `is_private` flag for
+    /// private storage slots. Returns the value and `false` for the `is_public` flag for public
+    /// storage slots.
     #[method(name = "getFlaggedStorageAt")]
     async fn flagged_storage_at(
         &self,
