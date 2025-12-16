@@ -1,7 +1,8 @@
 //! Engine tree configuration.
 
 /// Triggers persistence when the number of canonical blocks in memory exceeds this threshold.
-pub const DEFAULT_PERSISTENCE_THRESHOLD: u64 = 0; // todo(dalton): Maybe feature flag this? We need this so archive nodes can get an accurate snapshot. benchmarks dont signal this is of great cost to us
+pub const DEFAULT_PERSISTENCE_THRESHOLD: u64 = 0; // todo(dalton): Maybe feature flag this? We need this so archive nodes can get an accurate
+                                                  // snapshot. benchmarks dont signal this is of great cost to us
 
 /// How close to the canonical head we persist blocks.
 pub const DEFAULT_MEMORY_BLOCK_BUFFER_TARGET: u64 = 0;
