@@ -40,7 +40,7 @@ pub use reth_engine_primitives::{
 };
 
 /// Triggers persistence when the number of canonical blocks in memory exceeds this threshold.
-pub const DEFAULT_PERSISTENCE_THRESHOLD: u64 = 2;
+pub const DEFAULT_PERSISTENCE_THRESHOLD: u64 = 0; // todo(dalton): Maybe feature flag this? We need this so archive nodes can get an accurate snapshot. benchmarks dont signal this is of great cost to us
 
 /// Default size of cross-block cache in megabytes.
 pub const DEFAULT_CROSS_BLOCK_CACHE_SIZE_MB: u64 = 4 * 1024;
@@ -383,7 +383,7 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
         // try to look up the header in the database
         if let Some(header) = header {
             info!(target: "reth::cli", ?tip, "Successfully looked up tip block in the database");
-            return Ok(header.number())
+            return Ok(header.number());
         }
 
         Ok(self.fetch_tip_from_network(client, tip.into()).await.number())
@@ -406,7 +406,7 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
             match get_single_header(&client, tip).await {
                 Ok(tip_header) => {
                     info!(target: "reth::cli", ?tip, "Successfully fetched tip");
-                    return tip_header
+                    return tip_header;
                 }
                 Err(error) => {
                     fetch_failures += 1;
