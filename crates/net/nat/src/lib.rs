@@ -25,7 +25,7 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
-use tracing::{debug, error};
+use tracing::debug;
 
 use crate::net_if::resolve_net_if_ip;
 #[cfg(feature = "serde")]
@@ -109,7 +109,7 @@ impl FromStr for NatResolver {
                 let Some(ip) = s.strip_prefix("extip:") else {
                     return Err(ParseNatResolverError::UnknownVariant(format!(
                         "Unknown Nat Resolver: {s}"
-                    )))
+                    )));
                 };
                 Self::ExternalIp(ip.parse()?)
             }
