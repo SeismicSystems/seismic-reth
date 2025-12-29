@@ -18,7 +18,7 @@ use reth_seismic_node::args::EnclaveArgs;
 use std::{ffi::OsString, fmt, sync::Arc};
 
 use chainspec::SeismicChainSpecParser;
-use clap::{command, value_parser, Parser, Subcommand};
+use clap::{value_parser, Parser, Subcommand};
 use futures_util::Future;
 use reth_chainspec::EthChainSpec;
 use reth_cli::chainspec::ChainSpecParser;
