@@ -260,22 +260,22 @@ impl<N: NetworkPrimitives> ActiveSession<N> {
             EthMessage::PooledTransactions(resp) => {
                 on_response!(resp, GetPooledTransactions)
             }
-            EthMessage::GetNodeData(_req) => {
+            EthMessage::GetNodeData(req) => {
                 // GetNodeData is disabled to prevent privacy leaks - treat as bad message
-                return OnIncomingMessageOutcome::BadMessage { 
+                return OnIncomingMessageOutcome::BadMessage {
                     error: EthStreamError::InvalidMessage(MessageError::Other(
-                        "GetNodeData message is disabled to prevent privacy leaks".to_string()
-                    )), 
-                    message: msg 
+                        "GetNodeData message is disabled to prevent privacy leaks".to_string(),
+                    )),
+                    message: EthMessage::GetNodeData(req),
                 }
             }
-            EthMessage::NodeData(_resp) => {
+            EthMessage::NodeData(resp) => {
                 // NodeData is disabled to prevent privacy leaks - treat as bad message
-                return OnIncomingMessageOutcome::BadMessage { 
+                return OnIncomingMessageOutcome::BadMessage {
                     error: EthStreamError::InvalidMessage(MessageError::Other(
-                        "NodeData message is disabled to prevent privacy leaks".to_string()
-                    )), 
-                    message: msg 
+                        "NodeData message is disabled to prevent privacy leaks".to_string(),
+                    )),
+                    message: EthMessage::NodeData(resp),
                 }
             }
             EthMessage::GetReceipts(req) => {
