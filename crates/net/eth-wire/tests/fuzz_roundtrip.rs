@@ -156,8 +156,9 @@ pub mod fuzz_rlp {
     fuzz_type_and_name!(NewPooledTransactionHashes68, fuzz_NewPooledTransactionHashes68);
     fuzz_type_and_name!(GetPooledTransactions, fuzz_GetPooledTransactions);
     fuzz_type_and_name!(PooledTransactions, fuzz_PooledTransactions);
-    fuzz_type_and_name!(GetNodeData, fuzz_GetNodeData);
-    fuzz_type_and_name!(NodeData, fuzz_NodeData);
+    // GetNodeData and NodeData are disabled for privacy - skip fuzz tests
+    // fuzz_type_and_name!(GetNodeData, fuzz_GetNodeData);
+    // fuzz_type_and_name!(NodeData, fuzz_NodeData);
     fuzz_type_and_name!(GetReceipts, fuzz_GetReceipts);
     fuzz_type_and_name!(Receipts, fuzz_Receipts);
 }
