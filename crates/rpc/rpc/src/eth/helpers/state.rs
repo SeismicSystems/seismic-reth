@@ -16,6 +16,10 @@ where
     fn max_proof_window(&self) -> u64 {
         self.inner.eth_proof_window()
     }
+
+    fn storage_apis_enabled(&self) -> bool {
+        self.inner.storage_apis_enabled()
+    }
 }
 
 impl<N, Rpc> LoadState for EthApi<N, Rpc>
@@ -53,7 +57,9 @@ mod tests {
         let pool = testing_pool();
         let evm_config = EthEvmConfig::mainnet();
 
-        EthApi::builder(provider, pool, NoopNetwork::default(), evm_config).build()
+        EthApi::builder(provider, pool, NoopNetwork::default(), evm_config)
+            .enable_storage_apis(true) // Enable storage APIs for tests
+            .build()
     }
 
     fn mock_eth_api(
@@ -68,7 +74,9 @@ mod tests {
         let evm_config = EthEvmConfig::new(mock_provider.chain_spec());
         mock_provider.extend_accounts(accounts);
 
-        EthApi::builder(mock_provider, pool, NoopNetwork::default(), evm_config).build()
+        EthApi::builder(mock_provider, pool, NoopNetwork::default(), evm_config)
+            .enable_storage_apis(true) // Enable storage APIs for tests
+            .build()
     }
 
     #[tokio::test]

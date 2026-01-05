@@ -28,6 +28,7 @@ use std::sync::Arc;
 pub struct EthApiBuilder<N: RpcNodeCore, Rpc, NextEnv = ()> {
     components: N,
     rpc_converter: Rpc,
+    enable_storage_apis: bool,
     gas_cap: GasCap,
     max_simulate_blocks: u64,
     eth_proof_window: u64,
@@ -84,6 +85,7 @@ impl<N: RpcNodeCore, Rpc, NextEnv> EthApiBuilder<N, Rpc, NextEnv> {
             max_batch_size,
             pending_block_kind,
             raw_tx_forwarder,
+            enable_storage_apis,
         } = self;
         EthApiBuilder {
             components,
@@ -103,6 +105,7 @@ impl<N: RpcNodeCore, Rpc, NextEnv> EthApiBuilder<N, Rpc, NextEnv> {
             max_batch_size,
             pending_block_kind,
             raw_tx_forwarder,
+            enable_storage_apis,
         }
     }
 }
@@ -133,6 +136,7 @@ where
             max_batch_size: 1,
             pending_block_kind: PendingBlockKind::Full,
             raw_tx_forwarder: ForwardConfig::default(),
+            enable_storage_apis: false,
         }
     }
 }
@@ -170,6 +174,7 @@ where
             max_batch_size,
             pending_block_kind,
             raw_tx_forwarder,
+            enable_storage_apis,
         } = self;
         EthApiBuilder {
             components,
@@ -189,6 +194,7 @@ where
             max_batch_size,
             pending_block_kind,
             raw_tx_forwarder,
+            enable_storage_apis,
         }
     }
 
@@ -215,6 +221,7 @@ where
             max_batch_size,
             pending_block_kind,
             raw_tx_forwarder,
+            enable_storage_apis,
         } = self;
         EthApiBuilder {
             components,
@@ -234,6 +241,7 @@ where
             max_batch_size,
             pending_block_kind,
             raw_tx_forwarder,
+            enable_storage_apis,
         }
     }
 
@@ -323,6 +331,13 @@ where
         self
     }
 
+    /// Enables or disables storage APIs (eth_getStorageAt, eth_getFlaggedStorageAt).
+    /// Disabled by default to protect private storage information.
+    pub const fn enable_storage_apis(mut self, enable: bool) -> Self {
+        self.enable_storage_apis = enable;
+        self
+    }
+
     /// Builds the [`EthApiInner`] instance.
     ///
     /// If not configured, this will spawn the cache backend: [`EthStateCache::spawn`].
@@ -354,6 +369,7 @@ where
             max_batch_size,
             pending_block_kind,
             raw_tx_forwarder,
+            enable_storage_apis,
         } = self;
 
         let provider = components.provider().clone();
@@ -393,6 +409,7 @@ where
             max_batch_size,
             pending_block_kind,
             raw_tx_forwarder.forwarder_client(),
+            enable_storage_apis,
         )
     }
 
