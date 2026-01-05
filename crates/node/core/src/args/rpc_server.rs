@@ -234,7 +234,8 @@ pub struct RpcServerArgs {
 
     /// Enable storage APIs (eth_getStorageAt, eth_getFlaggedStorageAt).
     /// Disabled by default to protect private storage information.
-    #[arg(long = "rpc.enable-storage-apis", default_value_t = false)]
+    /// Automatically enabled in dev mode.
+    #[arg(long = "rpc.enable-storage-apis", default_value_if("dev", "true", "true"), default_value_t = false)]
     pub rpc_enable_storage_apis: bool,
 
     /// Path to file containing disallowed addresses, json-encoded list of strings. Block
