@@ -94,6 +94,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_flagged_storage() {
+        // Noop - should return zero value with is_private = false
+        let eth_api = noop_eth_api();
+        let address = Address::random();
+        let result = eth_api.flagged_storage_at(address, U256::ZERO.into(), None).await.unwrap();
+        assert_eq!(result.value, U256::ZERO);
+        assert!(!result.is_private);
+
+        // Mock with public storage
+        let public_storage_value = FlaggedStorage::new(U256::from(1337), false);
+        let storage_key = StorageKey::random();
+        let storage = HashMap::from([(storage_key, public_storage_value)]);
+
+        let accounts =
+            HashMap::from([(address, ExtendedAccount::new(0, U256::ZERO).extend_storage(storage))]);
+        let eth_api = mock_eth_api(accounts);
+
+        let storage_key_u256: U256 = storage_key.into();
+        let result =
+            eth_api.flagged_storage_at(address, storage_key_u256.into(), None).await.unwrap();
+
+        // Public storage should return the actual value with is_private = false
+        assert_eq!(result.value, public_storage_value.value);
+        assert!(!result.is_private);
+
+        // Mock with private storage
+        let address2 = Address::random();
+        let private_storage_value = FlaggedStorage::new(U256::from(9999), true);
+        let storage_key2 = StorageKey::random();
+        let storage2 = HashMap::from([(storage_key2, private_storage_value)]);
+
+        let accounts2 = HashMap::from([(
+            address2,
+            ExtendedAccount::new(0, U256::ZERO).extend_storage(storage2),
+        )]);
+        let eth_api2 = mock_eth_api(accounts2);
+
+        let storage_key2_u256: U256 = storage_key2.into();
+        let result2 =
+            eth_api2.flagged_storage_at(address2, storage_key2_u256.into(), None).await.unwrap();
+
+        // Private storage should return 0x0 value with is_private = true
+        assert_eq!(result2.value, U256::ZERO);
+        assert!(result2.is_private);
+    }
+
+    #[tokio::test]
     async fn test_get_account_missing() {
         let eth_api = noop_eth_api();
         let address = Address::random();
