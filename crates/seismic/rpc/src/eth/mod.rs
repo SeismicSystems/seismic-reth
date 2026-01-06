@@ -16,6 +16,7 @@ use crate::{
     eth::transaction::{SeismicRpcTxConverter, SeismicSimTxConverter},
     SeismicEthApiError,
 };
+use alloy_consensus::TxEip4844;
 use alloy_primitives::U256;
 use reth_evm::ConfigureEvm;
 use reth_node_api::{FullNodeComponents, HeaderTy};
@@ -122,7 +123,7 @@ impl SignableTxRequest<reth_seismic_primitives::SeismicTransactionSigned>
 
         let signature = Signature::new(U256::ZERO, U256::ZERO, false);
         let signed_tx = Signed::new_unchecked(tx, signature, B256::ZERO);
-        let envelope = SeismicTxEnvelope::Legacy(signed_tx);
+        let envelope = SeismicTxEnvelope::<TxEip4844>::Legacy(signed_tx);
         let seismic_signed = SeismicTransactionSigned::from(envelope);
 
         Ok(seismic_signed)
