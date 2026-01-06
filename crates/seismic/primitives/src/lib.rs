@@ -19,6 +19,10 @@ pub use transaction::{signed::SeismicTransactionSigned, tx_type::SeismicTxType};
 
 mod receipt;
 pub use receipt::SeismicReceipt;
+
+pub mod validation;
+pub use validation::{SeismicTransactionValidator, SeismicValidationError, ValidateSeismicTransaction};
+
 pub mod test_utils;
 
 /// Seismic-specific block type.

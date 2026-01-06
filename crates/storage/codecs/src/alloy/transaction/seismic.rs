@@ -85,6 +85,13 @@ impl Compact for TxSeismicElements {
         buf.put_slice(&cache);
         len += nonce_len + 1;
 
+        // Add new security fields
+        len += self.recent_block_hash.to_compact(buf);
+        len += self.expires_at_block.to_compact(buf);
+        
+        buf.put_u8(if self.signed_read { 1 } else { 0 });
+        len += core::mem::size_of::<u8>();
+
         len
     }
 
@@ -100,7 +107,21 @@ impl Compact for TxSeismicElements {
 
         let (nonce_len, buf) = (buf[0], &buf[1..]);
         let (encryption_nonce, buf) = U96::from_compact(buf, nonce_len as usize);
-        (Self { encryption_pubkey, encryption_nonce, message_version }, buf)
+        
+        // Decode new security fields
+        let (recent_block_hash, buf) = <alloy_primitives::B256>::from_compact(buf, 32);
+        let (expires_at_block, buf) = u64::from_compact(buf, 8);
+        let (signed_read_byte, buf) = (buf[0], &buf[1..]);
+        let signed_read = signed_read_byte != 0;
+        
+        (Self { 
+            encryption_pubkey, 
+            encryption_nonce, 
+            message_version,
+            recent_block_hash,
+            expires_at_block,
+            signed_read,
+        }, buf)
     }
 }
 
@@ -396,6 +417,9 @@ mod tests {
                 .unwrap(),
                 encryption_nonce: U96::from_str_radix("11856476099097235301", 10).unwrap(),
                 message_version: 85,
+                recent_block_hash: alloy_primitives::B256::from([1u8; 32]),
+                expires_at_block: 1000000,
+                signed_read: false,
             },
             input: Bytes::from_static(&[0x24]),
         };
@@ -428,6 +452,18 @@ mod tests {
         assert_eq!(
             tx.seismic_elements.message_version,
             decoded_tx.seismic_elements.message_version
+        );
+        assert_eq!(
+            tx.seismic_elements.recent_block_hash,
+            decoded_tx.seismic_elements.recent_block_hash
+        );
+        assert_eq!(
+            tx.seismic_elements.expires_at_block,
+            decoded_tx.seismic_elements.expires_at_block
+        );
+        assert_eq!(
+            tx.seismic_elements.signed_read,
+            decoded_tx.seismic_elements.signed_read
         );
     }
 }

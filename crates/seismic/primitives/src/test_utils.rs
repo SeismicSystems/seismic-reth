@@ -58,6 +58,9 @@ pub fn get_seismic_elements() -> TxSeismicElements {
         encryption_pubkey: get_client_io_sk().public(),
         encryption_nonce: get_encryption_nonce(),
         message_version: 0,
+        recent_block_hash: alloy_primitives::B256::from([1u8; 32]),
+        expires_at_block: 1000000,
+        signed_read: false,
     }
 }
 

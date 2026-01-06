@@ -18,6 +18,8 @@ seismic-enclave.workspace = true
 reth-primitives-traits = { workspace = true, features = ["serde"] }
 reth-codecs = { workspace = true, optional = true }
 reth-zstd-compressors = { workspace = true, optional = true }
+reth-chainspec.workspace = true
+# reth-seismic-chainspec = { workspace = true, optional = true }  # Circular dependency
 revm-context.workspace = true
 
 # ethereum
@@ -26,6 +28,7 @@ alloy-primitives = { workspace = true, features = ["serde"] }
 alloy-consensus.workspace = true
 alloy-rlp.workspace = true
 alloy-eips = { workspace = true, features = ["k256"] }
+alloy-genesis.workspace = true
 
 # op
 seismic-alloy-consensus.workspace = true
@@ -51,6 +54,7 @@ derive_more = { workspace = true, features = [
 secp256k1 = { workspace = true, features = ["rand", "std", "global-context", "recovery"]}
 num-traits = { workspace = true, optional = true }
 anyhow.workspace = true
+thiserror.workspace = true
 tracing.workspace = true
 
 # test

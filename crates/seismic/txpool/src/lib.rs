@@ -21,3 +21,6 @@ pub type SeismicTransactionPool<Client, S, T = SeismicPooledTransaction> = Pool<
 
 mod transaction;
 pub use transaction::SeismicPooledTransaction;
+
+mod validator;
+pub use validator::{SeismicTxValidator, SeismicTransactionValidation};
