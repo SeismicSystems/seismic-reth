@@ -155,4 +155,45 @@ mod tests {
         let account = eth_api.get_account(address, Default::default()).await.unwrap();
         assert!(account.is_none());
     }
+
+    fn noop_eth_api_storage_disabled() -> EthApi<
+        RpcNodeCoreAdapter<NoopProvider, TestPool, NoopNetwork, EthEvmConfig>,
+        EthRpcConverter<ChainSpec>,
+    > {
+        let provider = NoopProvider::default();
+        let pool = testing_pool();
+        let evm_config = EthEvmConfig::mainnet();
+
+        EthApi::builder(provider, pool, NoopNetwork::default(), evm_config).build()
+    }
+
+    #[tokio::test]
+    async fn test_storage_disabled() {
+        let eth_api = noop_eth_api_storage_disabled();
+        let address = Address::random();
+        let result = eth_api.storage_at(address, U256::ZERO.into(), None).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("Storage APIs are disabled"),
+            "Expected error about disabled storage APIs, got: {}",
+            err
+        );
+    }
+
+    #[tokio::test]
+    async fn test_flagged_storage_disabled() {
+        let eth_api = noop_eth_api_storage_disabled();
+        let address = Address::random();
+        let result = eth_api.flagged_storage_at(address, U256::ZERO.into(), None).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("Storage APIs are disabled"),
+            "Expected error about disabled storage APIs, got: {}",
+            err
+        );
+    }
 }

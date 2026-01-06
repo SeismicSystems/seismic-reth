@@ -125,7 +125,7 @@ pub enum EthApiError {
     #[error("transaction not found")]
     TransactionNotFound,
     /// Some feature is unsupported
-    #[error("unsupported")]
+    #[error("unsupported: {0}")]
     Unsupported(&'static str),
     /// General purpose error for invalid params
     #[error("{0}")]
