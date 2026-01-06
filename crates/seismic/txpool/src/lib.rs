@@ -23,4 +23,4 @@ mod transaction;
 pub use transaction::SeismicPooledTransaction;
 
 mod validator;
-pub use validator::{SeismicTxValidator, SeismicTransactionValidation};
+pub use validator::{SeismicTransactionValidation, SeismicTxValidator};

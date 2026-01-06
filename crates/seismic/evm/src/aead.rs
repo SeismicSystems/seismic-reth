@@ -1,11 +1,12 @@
 //! AEAD (Authenticated Encryption with Additional Data) support for Seismic transactions.
 
-use alloy_primitives::{Bytes, ChainId};
-use alloy_rlp::Encodable;
+use alloy_primitives::{Bytes, ChainId, TxKind, U256};
 use seismic_alloy_consensus::{TxSeismicElements, TxSeismicMetadata};
-use seismic_enclave::{ecdh_encrypt_aead, ecdh_decrypt_aead, Nonce};
-use secp256k1::{PublicKey, SecretKey};
-use std::fmt;
+use seismic_enclave::{
+    ecdh_decrypt_aead, ecdh_encrypt_aead,
+    secp256k1::{PublicKey, SecretKey},
+    Nonce,
+};
 
 /// Errors that can occur during AEAD encryption/decryption.
 #[derive(Debug, Clone, thiserror::Error)]
@@ -32,14 +33,12 @@ pub struct AeadConfig {
 
 impl Default for AeadConfig {
     fn default() -> Self {
-        Self {
-            enforce_aead: true,
-            validate_metadata: true,
-        }
+        Self { enforce_aead: true, validate_metadata: true }
     }
 }
 
 /// AEAD encryption engine for Seismic transactions.
+#[derive(Debug, Clone)]
 pub struct SeismicAeadEngine {
     config: AeadConfig,
 }
@@ -55,7 +54,8 @@ impl SeismicAeadEngine {
         Self::new(AeadConfig::default())
     }
 
-    /// Encrypts seismic transaction calldata using AEAD with transaction metadata as additional authenticated data.
+    /// Encrypts seismic transaction calldata using AEAD with transaction metadata as additional
+    /// authenticated data.
     ///
     /// This function provides authenticated encryption where the transaction metadata is
     /// cryptographically bound to the encrypted calldata, preventing tampering and replay attacks.
@@ -119,8 +119,9 @@ impl SeismicAeadEngine {
         };
 
         // Perform AEAD decryption
-        let decrypted_data = ecdh_decrypt_aead(public_key, secret_key, encrypted_calldata, nonce, &aad)
-            .map_err(|e| AeadError::DecryptionFailed(e.to_string()))?;
+        let decrypted_data =
+            ecdh_decrypt_aead(public_key, secret_key, encrypted_calldata, nonce, &aad)
+                .map_err(|e| AeadError::DecryptionFailed(e.to_string()))?;
 
         Ok(Bytes::from(decrypted_data))
     }
@@ -137,9 +138,18 @@ impl SeismicAeadEngine {
     /// * `Ok(Vec<u8>)` - The RLP-encoded metadata
     /// * `Err(AeadError)` - If encoding fails
     fn encode_metadata_aad(&self, metadata: &TxSeismicMetadata) -> Result<Vec<u8>, AeadError> {
-        let mut buf = Vec::new();
-        metadata.encode(&mut buf);
-        Ok(buf)
+        // For now, use a simple serialization approach
+        // In a production environment, this should use a proper encoding scheme
+        let encoded = format!(
+            "{}:{}:{}:{}:{:?}:{}",
+            metadata.chain_id,
+            metadata.nonce,
+            metadata.gas_price,
+            metadata.gas_limit,
+            metadata.to,
+            metadata.value
+        );
+        Ok(encoded.into_bytes())
     }
 
     /// Creates seismic metadata from transaction components for AEAD authentication.
@@ -150,6 +160,10 @@ impl SeismicAeadEngine {
     /// # Arguments
     /// * `chain_id` - The chain ID of the transaction
     /// * `nonce` - The transaction nonce
+    /// * `gas_price` - The gas price of the transaction
+    /// * `gas_limit` - The gas limit of the transaction
+    /// * `to` - The transaction recipient
+    /// * `value` - The transaction value
     /// * `seismic_elements` - The seismic-specific transaction elements
     ///
     /// # Returns
@@ -158,13 +172,13 @@ impl SeismicAeadEngine {
         &self,
         chain_id: ChainId,
         nonce: u64,
+        gas_price: u128,
+        gas_limit: u64,
+        to: TxKind,
+        value: U256,
         seismic_elements: TxSeismicElements,
     ) -> TxSeismicMetadata {
-        TxSeismicMetadata {
-            chain_id,
-            nonce,
-            seismic_elements,
-        }
+        TxSeismicMetadata { chain_id, nonce, gas_price, gas_limit, to, value, seismic_elements }
     }
 
     /// Returns the current AEAD configuration.
@@ -183,19 +197,11 @@ impl SeismicAeadEngine {
     }
 }
 
-impl fmt::Debug for SeismicAeadEngine {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SeismicAeadEngine")
-            .field("config", &self.config)
-            .finish()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use alloy_primitives::aliases::U96;
-    use secp256k1::{Secp256k1, PublicKey};
+    use secp256k1::{PublicKey, Secp256k1};
     use seismic_enclave::{get_unsecure_sample_secp256k1_pk, get_unsecure_sample_secp256k1_sk};
     use std::str::FromStr;
 
@@ -217,7 +223,7 @@ mod tests {
     #[test]
     fn test_aead_encrypt_decrypt_roundtrip() {
         let engine = SeismicAeadEngine::with_defaults();
-        
+
         let public_key = get_unsecure_sample_secp256k1_pk();
         let secret_key = get_unsecure_sample_secp256k1_sk();
         let calldata = b"test calldata";
@@ -225,22 +231,14 @@ mod tests {
         let metadata = create_test_metadata();
 
         // Encrypt
-        let encrypted = engine.encrypt_calldata(
-            &public_key,
-            &secret_key,
-            calldata,
-            nonce.clone(),
-            &metadata,
-        ).expect("Encryption should succeed");
+        let encrypted = engine
+            .encrypt_calldata(&public_key, &secret_key, calldata, nonce.clone(), &metadata)
+            .expect("Encryption should succeed");
 
         // Decrypt
-        let decrypted = engine.decrypt_calldata(
-            &public_key,
-            &secret_key,
-            &encrypted,
-            nonce,
-            &metadata,
-        ).expect("Decryption should succeed");
+        let decrypted = engine
+            .decrypt_calldata(&public_key, &secret_key, &encrypted, nonce, &metadata)
+            .expect("Decryption should succeed");
 
         assert_eq!(decrypted.as_ref(), calldata);
     }
@@ -248,7 +246,7 @@ mod tests {
     #[test]
     fn test_aead_metadata_tampering_detection() {
         let engine = SeismicAeadEngine::with_defaults();
-        
+
         let public_key = get_unsecure_sample_secp256k1_pk();
         let secret_key = get_unsecure_sample_secp256k1_sk();
         let calldata = b"test calldata";
@@ -256,13 +254,9 @@ mod tests {
         let original_metadata = create_test_metadata();
 
         // Encrypt with original metadata
-        let encrypted = engine.encrypt_calldata(
-            &public_key,
-            &secret_key,
-            calldata,
-            nonce.clone(),
-            &original_metadata,
-        ).expect("Encryption should succeed");
+        let encrypted = engine
+            .encrypt_calldata(&public_key, &secret_key, calldata, nonce.clone(), &original_metadata)
+            .expect("Encryption should succeed");
 
         // Create tampered metadata
         let mut tampered_metadata = original_metadata.clone();
@@ -288,12 +282,9 @@ mod tests {
 
     #[test]
     fn test_aead_with_disabled_metadata_validation() {
-        let config = AeadConfig {
-            enforce_aead: true,
-            validate_metadata: false,
-        };
+        let config = AeadConfig { enforce_aead: true, validate_metadata: false };
         let engine = SeismicAeadEngine::new(config);
-        
+
         let public_key = get_unsecure_sample_secp256k1_pk();
         let secret_key = get_unsecure_sample_secp256k1_sk();
         let calldata = b"test calldata";
@@ -301,26 +292,18 @@ mod tests {
         let original_metadata = create_test_metadata();
 
         // Encrypt with original metadata
-        let encrypted = engine.encrypt_calldata(
-            &public_key,
-            &secret_key,
-            calldata,
-            nonce.clone(),
-            &original_metadata,
-        ).expect("Encryption should succeed");
+        let encrypted = engine
+            .encrypt_calldata(&public_key, &secret_key, calldata, nonce.clone(), &original_metadata)
+            .expect("Encryption should succeed");
 
         // Create different metadata
         let mut different_metadata = original_metadata.clone();
         different_metadata.nonce = 999;
 
         // Decrypt with different metadata should succeed when validation is disabled
-        let decrypted = engine.decrypt_calldata(
-            &public_key,
-            &secret_key,
-            &encrypted,
-            nonce,
-            &different_metadata,
-        ).expect("Decryption should succeed with disabled validation");
+        let decrypted = engine
+            .decrypt_calldata(&public_key, &secret_key, &encrypted, nonce, &different_metadata)
+            .expect("Decryption should succeed with disabled validation");
 
         assert_eq!(decrypted.as_ref(), calldata);
     }
@@ -339,14 +322,15 @@ mod tests {
         // Different metadata should produce different AAD
         let mut different_metadata = metadata.clone();
         different_metadata.nonce = 999;
-        let aad3 = engine.encode_metadata_aad(&different_metadata).expect("Encoding should succeed");
+        let aad3 =
+            engine.encode_metadata_aad(&different_metadata).expect("Encoding should succeed");
         assert_ne!(aad1, aad3);
     }
 
     #[test]
     fn test_create_metadata() {
         let engine = SeismicAeadEngine::with_defaults();
-        
+
         let chain_id = 1;
         let nonce = 42;
         let seismic_elements = TxSeismicElements {
@@ -367,10 +351,7 @@ mod tests {
 
     #[test]
     fn test_aead_config() {
-        let config = AeadConfig {
-            enforce_aead: false,
-            validate_metadata: true,
-        };
+        let config = AeadConfig { enforce_aead: false, validate_metadata: true };
         let engine = SeismicAeadEngine::new(config.clone());
 
         assert_eq!(engine.config().enforce_aead, config.enforce_aead);

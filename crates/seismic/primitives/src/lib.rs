@@ -21,7 +21,9 @@ mod receipt;
 pub use receipt::SeismicReceipt;
 
 pub mod validation;
-pub use validation::{SeismicTransactionValidator, SeismicValidationError, ValidateSeismicTransaction};
+pub use validation::{
+    SeismicTransactionValidator, SeismicValidationError, ValidateSeismicTransaction,
+};
 
 pub mod test_utils;
 

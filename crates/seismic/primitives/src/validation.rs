@@ -11,7 +11,9 @@ use std::{string::ToString, sync::Arc};
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum SeismicValidationError {
     /// Transaction has expired based on block number.
-    #[error("Transaction expired: current block {current_block} >= expiry block {expires_at_block}")]
+    #[error(
+        "Transaction expired: current block {current_block} >= expiry block {expires_at_block}"
+    )]
     TransactionExpired {
         /// Current block number
         current_block: u64,
@@ -20,9 +22,9 @@ pub enum SeismicValidationError {
     },
     /// Recent block hash doesn't match any recent block.
     #[error("Invalid recent block hash: {recent_block_hash}")]
-    InvalidRecentBlockHash { 
+    InvalidRecentBlockHash {
         /// The invalid block hash
-        recent_block_hash: B256 
+        recent_block_hash: B256,
     },
     /// Transaction is missing seismic elements required for validation.
     #[error("Missing seismic elements for validation")]
@@ -57,11 +59,11 @@ impl SeismicTransactionValidator {
     }
 
     /// Creates a new validator with custom recent block age limit.
-    pub fn new_with_recent_block_age(chain_spec: Arc<ChainSpec>, max_recent_block_age: u64) -> Self {
-        Self {
-            chain_spec,
-            max_recent_block_age,
-        }
+    pub fn new_with_recent_block_age(
+        chain_spec: Arc<ChainSpec>,
+        max_recent_block_age: u64,
+    ) -> Self {
+        Self { chain_spec, max_recent_block_age }
     }
 
     /// Validates a seismic transaction against security constraints.
@@ -92,20 +94,25 @@ impl SeismicTransactionValidator {
             .get_decryption_elements()
             .map_err(|e| SeismicValidationError::DecryptionElementsError(e.to_string()))?;
 
-        self.validate_block_constraints(&seismic_elements, current_block_number, recent_block_provider)
+        self.validate_block_constraints(
+            &seismic_elements,
+            current_block_number,
+            recent_block_provider,
+        )
     }
 
     /// Validates block-related security constraints for seismic transactions.
     ///
     /// This function enforces:
     /// 1. Transaction expiration: transactions must not have passed their expiry block
-    /// 2. Recent block hash validation: if enabled, the referenced recent block hash
-    ///    must match a known recent block
+    /// 2. Recent block hash validation: if enabled, the referenced recent block hash must match a
+    ///    known recent block
     ///
     /// # Arguments
     /// * `seismic_elements` - The seismic transaction elements containing security fields
     /// * `current_block_number` - Current block number for validation
-    /// * `recent_block_provider` - Optional provider function that returns block hash for a given block number
+    /// * `recent_block_provider` - Optional provider function that returns block hash for a given
+    ///   block number
     ///
     /// # Returns
     /// * `Ok(())` if all constraints are satisfied
@@ -131,7 +138,7 @@ impl SeismicTransactionValidator {
         if let Some(provider) = recent_block_provider {
             // Find which block number this recent_block_hash corresponds to
             let mut found_matching_block = false;
-            
+
             // Check recent blocks within the allowed age limit
             let start_block = current_block_number.saturating_sub(self.max_recent_block_age);
             for block_num in start_block..current_block_number {
@@ -165,7 +172,7 @@ impl SeismicTransactionValidator {
 
     /// Validates that an incoming seismic transaction is NOT marked as signed_read.
     ///
-    /// Incoming seismic transactions (regular transactions submitted to the mempool) 
+    /// Incoming seismic transactions (regular transactions submitted to the mempool)
     /// should never be signed_read transactions, as signed_read is only for read-only calls.
     ///
     /// # Arguments
@@ -173,7 +180,8 @@ impl SeismicTransactionValidator {
     ///
     /// # Returns
     /// * `Ok(())` if transaction is valid (not signed_read)
-    /// * `Err(SeismicValidationError::IncomingTransactionCannotBeSignedRead)` if transaction is signed_read
+    /// * `Err(SeismicValidationError::IncomingTransactionCannotBeSignedRead)` if transaction is
+    ///   signed_read
     pub fn validate_incoming_not_signed_read(
         &self,
         tx: &SeismicTransactionSigned,
@@ -191,7 +199,7 @@ impl SeismicTransactionValidator {
 
     /// Validates that a signed read call is properly marked as signed_read.
     ///
-    /// When performing read-only operations (eth_call), the transaction should be 
+    /// When performing read-only operations (eth_call), the transaction should be
     /// marked as signed_read to indicate it's a read operation and won't modify state.
     ///
     /// # Arguments
@@ -229,9 +237,9 @@ pub trait ValidateSeismicTransaction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{Address, TxKind, U256, aliases::U96};
+    use alloy_primitives::{aliases::U96, Address, TxKind, U256};
     use seismic_alloy_genesis::Genesis;
-    
+
     fn create_test_chain_spec() -> Arc<ChainSpec> {
         let genesis = Genesis {
             config: Default::default(),
@@ -248,12 +256,10 @@ mod tests {
             parent_hash: Some(Default::default()),
             base_fee_per_gas: Some(7),
         };
-        
-        Arc::new(ChainSpec::builder()
-            .chain(1u64.into())
-            .genesis(genesis)
-            .shanghai_activated()
-            .build())
+
+        Arc::new(
+            ChainSpec::builder().chain(1u64.into()).genesis(genesis).shanghai_activated().build(),
+        )
     }
     use secp256k1::PublicKey;
     use seismic_alloy_consensus::{SeismicTypedTransaction, TxSeismic};
@@ -269,11 +275,16 @@ mod tests {
             nonce: 1,
             gas_price: 21000,
             gas_limit: 21000,
-            to: TxKind::Call(Address::from_str("0x0000000000000000000000000000000000000001").unwrap()),
+            to: TxKind::Call(
+                Address::from_str("0x0000000000000000000000000000000000000001").unwrap(),
+            ),
             value: U256::from(1000),
             input: Default::default(),
             seismic_elements: TxSeismicElements {
-                encryption_pubkey: PublicKey::from_str("028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0").unwrap(),
+                encryption_pubkey: PublicKey::from_str(
+                    "028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0",
+                )
+                .unwrap(),
                 encryption_nonce: U96::from(12345u64),
                 message_version: 1,
                 recent_block_hash,
@@ -283,16 +294,21 @@ mod tests {
         };
 
         let typed_tx = SeismicTypedTransaction::Seismic(tx);
-        SeismicTransactionSigned::new_unhashed(typed_tx, alloy_primitives::Signature::from_bytes_and_parity(&[1u8; 64], false))
+        SeismicTransactionSigned::new_unhashed(
+            typed_tx,
+            alloy_primitives::Signature::from_bytes_and_parity(&[1u8; 64], false),
+        )
     }
 
     #[test]
     fn test_transaction_validation_success() {
         let validator = SeismicTransactionValidator::new(create_test_chain_spec());
-        
-        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
+
+        let recent_block_hash =
+            B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234")
+                .unwrap();
         let tx = create_test_seismic_tx(recent_block_hash, 1000, false);
-        
+
         let current_block = 500;
         let block_provider = |block_num: u64| {
             if block_num == 400 {
@@ -309,16 +325,22 @@ mod tests {
     #[test]
     fn test_transaction_expired() {
         let validator = SeismicTransactionValidator::new(create_test_chain_spec());
-        
-        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
+
+        let recent_block_hash =
+            B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234")
+                .unwrap();
         let tx = create_test_seismic_tx(recent_block_hash, 500, false);
-        
+
         let current_block = 500; // Transaction expires at block 500, so current block 500 should fail
-        
-        let result = validator.validate_transaction(&tx, current_block, None::<fn(u64) -> Option<B256>>);
-        
+
+        let result =
+            validator.validate_transaction(&tx, current_block, None::<fn(u64) -> Option<B256>>);
+
         match result {
-            Err(SeismicValidationError::TransactionExpired { current_block: cb, expires_at_block: eb }) => {
+            Err(SeismicValidationError::TransactionExpired {
+                current_block: cb,
+                expires_at_block: eb,
+            }) => {
                 assert_eq!(cb, 500);
                 assert_eq!(eb, 500);
             }
@@ -329,18 +351,22 @@ mod tests {
     #[test]
     fn test_invalid_recent_block_hash() {
         let validator = SeismicTransactionValidator::new(create_test_chain_spec());
-        
-        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
-        let wrong_hash = B256::from_str("0x9999999999999999999999999999999999999999999999999999999999999999").unwrap();
+
+        let recent_block_hash =
+            B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234")
+                .unwrap();
+        let wrong_hash =
+            B256::from_str("0x9999999999999999999999999999999999999999999999999999999999999999")
+                .unwrap();
         let tx = create_test_seismic_tx(recent_block_hash, 1000, false);
-        
+
         let current_block = 500;
         let block_provider = |_block_num: u64| {
             Some(wrong_hash) // Always return wrong hash
         };
 
         let result = validator.validate_transaction(&tx, current_block, Some(block_provider));
-        
+
         match result {
             Err(SeismicValidationError::InvalidRecentBlockHash { recent_block_hash: rbh }) => {
                 assert_eq!(rbh, recent_block_hash);
@@ -352,37 +378,49 @@ mod tests {
     #[test]
     fn test_validation_without_block_provider() {
         let validator = SeismicTransactionValidator::new(create_test_chain_spec());
-        
-        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
+
+        let recent_block_hash =
+            B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234")
+                .unwrap();
         let tx = create_test_seismic_tx(recent_block_hash, 1000, false);
-        
+
         let current_block = 500;
-        
+
         // Should succeed when no block provider is given (skips recent block hash validation)
-        let result = validator.validate_transaction(&tx, current_block, None::<fn(u64) -> Option<B256>>);
+        let result =
+            validator.validate_transaction(&tx, current_block, None::<fn(u64) -> Option<B256>>);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_read_transaction_validation() {
         let validator = SeismicTransactionValidator::new(create_test_chain_spec());
-        
-        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
+
+        let recent_block_hash =
+            B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234")
+                .unwrap();
         let tx = create_test_seismic_tx(recent_block_hash, 1000, true); // signed_read = true
-        
+
         let current_block = 500;
-        
-        let result = validator.validate_transaction(&tx, current_block, None::<fn(u64) -> Option<B256>>);
+
+        let result =
+            validator.validate_transaction(&tx, current_block, None::<fn(u64) -> Option<B256>>);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_block_constraints_validation() {
-        let validator = SeismicTransactionValidator::new_with_recent_block_age(create_test_chain_spec(), 10);
-        
-        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
+        let validator =
+            SeismicTransactionValidator::new_with_recent_block_age(create_test_chain_spec(), 10);
+
+        let recent_block_hash =
+            B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234")
+                .unwrap();
         let seismic_elements = TxSeismicElements {
-            encryption_pubkey: PublicKey::from_str("028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0").unwrap(),
+            encryption_pubkey: PublicKey::from_str(
+                "028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0",
+            )
+            .unwrap(),
             encryption_nonce: U96::from(12345u64),
             message_version: 1,
             recent_block_hash,
@@ -392,7 +430,8 @@ mod tests {
 
         let current_block = 500;
         let block_provider = |block_num: u64| {
-            if block_num >= 490 && block_num < 500 { // Within recent block age limit
+            if block_num >= 490 && block_num < 500 {
+                // Within recent block age limit
                 if block_num == 495 {
                     Some(recent_block_hash)
                 } else {
@@ -403,17 +442,27 @@ mod tests {
             }
         };
 
-        let result = validator.validate_block_constraints(&seismic_elements, current_block, Some(block_provider));
+        let result = validator.validate_block_constraints(
+            &seismic_elements,
+            current_block,
+            Some(block_provider),
+        );
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_recent_block_too_old() {
-        let validator = SeismicTransactionValidator::new_with_recent_block_age(create_test_chain_spec(), 10);
-        
-        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
+        let validator =
+            SeismicTransactionValidator::new_with_recent_block_age(create_test_chain_spec(), 10);
+
+        let recent_block_hash =
+            B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234")
+                .unwrap();
         let seismic_elements = TxSeismicElements {
-            encryption_pubkey: PublicKey::from_str("028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0").unwrap(),
+            encryption_pubkey: PublicKey::from_str(
+                "028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0",
+            )
+            .unwrap(),
             encryption_nonce: U96::from(12345u64),
             message_version: 1,
             recent_block_hash,
@@ -423,15 +472,20 @@ mod tests {
 
         let current_block = 500;
         let block_provider = |block_num: u64| {
-            if block_num == 480 { // Too old (more than 10 blocks)
+            if block_num == 480 {
+                // Too old (more than 10 blocks)
                 Some(recent_block_hash)
             } else {
                 Some(B256::from([block_num as u8; 32]))
             }
         };
 
-        let result = validator.validate_block_constraints(&seismic_elements, current_block, Some(block_provider));
-        
+        let result = validator.validate_block_constraints(
+            &seismic_elements,
+            current_block,
+            Some(block_provider),
+        );
+
         match result {
             Err(SeismicValidationError::InvalidRecentBlockHash { .. }) => {
                 // Expected - recent block hash is too old
@@ -443,10 +497,12 @@ mod tests {
     #[test]
     fn test_incoming_transaction_not_signed_read_success() {
         let validator = SeismicTransactionValidator::new(create_test_chain_spec());
-        
-        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
+
+        let recent_block_hash =
+            B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234")
+                .unwrap();
         let tx = create_test_seismic_tx(recent_block_hash, 1000, false); // signed_read = false
-        
+
         let result = validator.validate_incoming_not_signed_read(&tx);
         assert!(result.is_ok());
     }
@@ -454,12 +510,14 @@ mod tests {
     #[test]
     fn test_incoming_transaction_signed_read_fails() {
         let validator = SeismicTransactionValidator::new(create_test_chain_spec());
-        
-        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
+
+        let recent_block_hash =
+            B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234")
+                .unwrap();
         let tx = create_test_seismic_tx(recent_block_hash, 1000, true); // signed_read = true
-        
+
         let result = validator.validate_incoming_not_signed_read(&tx);
-        
+
         match result {
             Err(SeismicValidationError::IncomingTransactionCannotBeSignedRead) => {
                 // Expected
@@ -471,10 +529,12 @@ mod tests {
     #[test]
     fn test_signed_read_call_marked_success() {
         let validator = SeismicTransactionValidator::new(create_test_chain_spec());
-        
-        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
+
+        let recent_block_hash =
+            B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234")
+                .unwrap();
         let tx = create_test_seismic_tx(recent_block_hash, 1000, true); // signed_read = true
-        
+
         let result = validator.validate_signed_read_call_marked(&tx);
         assert!(result.is_ok());
     }
@@ -482,12 +542,14 @@ mod tests {
     #[test]
     fn test_signed_read_call_not_marked_fails() {
         let validator = SeismicTransactionValidator::new(create_test_chain_spec());
-        
-        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
+
+        let recent_block_hash =
+            B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234")
+                .unwrap();
         let tx = create_test_seismic_tx(recent_block_hash, 1000, false); // signed_read = false
-        
+
         let result = validator.validate_signed_read_call_marked(&tx);
-        
+
         match result {
             Err(SeismicValidationError::SignedReadCallNotMarked) => {
                 // Expected
