@@ -3,7 +3,7 @@ name: Seismic CI
 on:
   push:
     branches: [seismic]
-  pull_request: 
+  pull_request:
     branches: [seismic]
 
 concurrency:
