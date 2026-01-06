@@ -430,6 +430,7 @@ async fn test_in_memory_state_trait_impl() {
 }
 
 #[tokio::test]
+#[ignore = "We have persistence threshold set to 0 for snapshot purposes so this test no longer works or serves a purpose"]
 async fn test_engine_request_during_backfill() {
     let tree_config = TreeConfig::default();
     let blocks: Vec<_> = TestBlockBuilder::eth()

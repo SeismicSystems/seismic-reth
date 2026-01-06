@@ -56,7 +56,7 @@ impl SeismicEvmConfig {
     /// Creates a new Seismic EVM configuration with the given chain spec and purpose keys.
     pub fn new(
         chain_spec: Arc<ChainSpec>,
-        purpose_keys: &'static seismic_enclave::keys::GetPurposeKeysResponse,
+        purpose_keys: &'static seismic_enclave::GetPurposeKeysResponse,
     ) -> Self {
         SeismicEvmConfig::new_with_evm_factory(
             chain_spec,
@@ -69,7 +69,7 @@ impl SeismicEvmConfig {
     pub fn new_with_evm_factory(
         chain_spec: Arc<ChainSpec>,
         evm_factory: SeismicEvmFactory,
-        purpose_keys: &'static seismic_enclave::keys::GetPurposeKeysResponse,
+        purpose_keys: &'static seismic_enclave::GetPurposeKeysResponse,
     ) -> Self {
         Self {
             block_assembler: SeismicBlockAssembler::new(chain_spec.clone()),
@@ -317,15 +317,26 @@ mod tests {
         state::AccountInfo,
     };
     use seismic_alloy_genesis::Genesis;
+    use seismic_enclave::{
+        get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
+        get_unsecure_sample_secp256k1_sk, GetPurposeKeysResponse,
+    };
     use std::sync::Arc;
 
     fn test_evm_config() -> SeismicEvmConfig {
         // Get mock purpose keys for testing
-        let mock_keys = Box::leak(Box::new(seismic_enclave::MockEnclaveServer::get_purpose_keys(
-            seismic_enclave::keys::GetPurposeKeysRequest { epoch: 0 },
-        )));
+        let mock_keys = Box::leak(Box::new(get_mock_keys()));
 
         SeismicEvmConfig::new(SEISMIC_MAINNET.clone(), mock_keys)
+    }
+
+    fn get_mock_keys() -> GetPurposeKeysResponse {
+        GetPurposeKeysResponse {
+            tx_io_sk: get_unsecure_sample_secp256k1_sk(),
+            tx_io_pk: get_unsecure_sample_secp256k1_pk(),
+            snapshot_key_bytes: [0u8; 32],
+            rng_keypair: get_unsecure_sample_schnorrkel_keypair(),
+        }
     }
 
     #[test]
@@ -345,9 +356,7 @@ mod tests {
 
         // Use the `SeismicEvmConfig` to create the `cfg_env` and `block_env` based on the
         // ChainSpec, Header, and total difficulty
-        let mock_keys = Box::leak(Box::new(seismic_enclave::MockEnclaveServer::get_purpose_keys(
-            seismic_enclave::keys::GetPurposeKeysRequest { epoch: 0 },
-        )));
+        let mock_keys = Box::leak(Box::new(get_mock_keys()));
         let EvmEnv { cfg_env, .. } =
             SeismicEvmConfig::new(Arc::new(chain_spec.clone()), mock_keys).evm_env(&header);
 

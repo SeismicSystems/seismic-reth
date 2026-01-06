@@ -89,10 +89,11 @@ impl Compact for TxSeismicElements {
 
     fn from_compact(mut buf: &[u8], _len: usize) -> (Self, &[u8]) {
         let encryption_pubkey_compressed_bytes =
-            &buf[..seismic_enclave::constants::PUBLIC_KEY_SIZE];
+            &buf[..seismic_enclave::secp256k1::constants::PUBLIC_KEY_SIZE];
         let encryption_pubkey =
-            seismic_enclave::PublicKey::from_slice(encryption_pubkey_compressed_bytes).unwrap();
-        buf.advance(seismic_enclave::constants::PUBLIC_KEY_SIZE);
+            seismic_enclave::secp256k1::PublicKey::from_slice(encryption_pubkey_compressed_bytes)
+                .unwrap();
+        buf.advance(seismic_enclave::secp256k1::constants::PUBLIC_KEY_SIZE);
 
         let (message_version, buf) = (buf[0], &buf[1..]);
 
@@ -250,11 +251,7 @@ impl ToTxCompact for SeismicTxEnvelope {
 impl FromTxCompact for SeismicTxEnvelope {
     type TxType = SeismicTxType;
 
-    fn from_tx_compact(
-        buf: &[u8],
-        tx_type: SeismicTxType,
-        signature: Signature,
-    ) -> (Self, &[u8]) {
+    fn from_tx_compact(buf: &[u8], tx_type: SeismicTxType, signature: Signature) -> (Self, &[u8]) {
         match tx_type {
             SeismicTxType::Legacy => {
                 let (tx, buf) = TxLegacy::from_compact(buf, buf.len());
@@ -325,8 +322,8 @@ impl Compact for SeismicTxEnvelope {
 mod seismic_typed_transaction_tests {
     use super::*;
     use crate::Compact;
-    use proptest_arbitrary_interop::arb;
     use proptest::prelude::*;
+    use proptest_arbitrary_interop::arb;
 
     #[test]
     fn proptest() {
@@ -338,7 +335,7 @@ mod seismic_typed_transaction_tests {
                 SeismicTypedTransaction::Eip4844(_) => return Ok(()),
                 _ => {}
             }
-            
+
             let mut buf = vec![];
             let len = field.clone().to_compact(&mut buf);
             let (decoded, _): (SeismicTypedTransaction, _) = Compact::from_compact(&buf, len);
@@ -352,7 +349,7 @@ mod tests {
     use super::*;
     use alloy_primitives::{hex, Bytes, TxKind};
     use bytes::BytesMut;
-    use seismic_enclave::PublicKey;
+    use seismic_enclave::secp256k1::PublicKey;
 
     #[test]
     fn test_seismic_tx_compact_roundtrip() {
