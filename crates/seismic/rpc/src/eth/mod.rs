@@ -301,6 +301,11 @@ where
     fn max_proof_window(&self) -> u64 {
         self.inner.eth_proof_window()
     }
+
+    #[inline]
+    fn storage_apis_enabled(&self) -> bool {
+        self.inner.storage_apis_enabled()
+    }
 }
 
 impl<N, Rpc> EthFees for SeismicEthApi<N, Rpc>
