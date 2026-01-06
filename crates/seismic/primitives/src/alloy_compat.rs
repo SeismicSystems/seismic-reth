@@ -3,7 +3,7 @@
 use crate::SeismicTransactionSigned;
 use alloy_consensus::TxEnvelope;
 use alloy_network::{AnyRpcTransaction, AnyTxEnvelope};
-use alloy_primitives::PrimitiveSignature;
+use alloy_primitives::Signature;
 use alloy_rpc_types_eth::{ConversionError, Transaction as AlloyRpcTransaction};
 use alloy_serde::WithOtherFields;
 use num_traits::Num;
@@ -53,7 +53,7 @@ impl TryFrom<AnyRpcTransaction> for SeismicTransactionSigned {
                 let fields = inner.fields;
 
                 let y_parity: String = get_field!(fields, "yParity");
-                let signature = PrimitiveSignature::new(
+                let signature = Signature::new(
                     get_field!(fields, "r"),
                     get_field!(fields, "s"),
                     y_parity == "0x0",

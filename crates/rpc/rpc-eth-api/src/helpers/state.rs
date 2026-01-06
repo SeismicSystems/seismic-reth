@@ -5,7 +5,7 @@ use super::{EthApiSpec, LoadPendingBlock, SpawnBlocking};
 use crate::{EthApiTypes, FromEthApiError, RpcNodeCore, RpcNodeCoreExt};
 use alloy_consensus::constants::KECCAK_EMPTY;
 use alloy_eips::BlockId;
-use alloy_primitives::{Address, Bytes, B256, U256};
+use alloy_primitives::{Address, Bytes, FlaggedStorage, B256, U256};
 use alloy_rpc_types_eth::{Account, AccountInfo, EIP1186AccountProofResponse};
 use alloy_serde::JsonStorageKey;
 use futures::Future;
@@ -24,6 +24,10 @@ use reth_transaction_pool::TransactionPool;
 pub trait EthState: LoadState + SpawnBlocking {
     /// Returns the maximum number of blocks into the past for generating state proofs.
     fn max_proof_window(&self) -> u64;
+
+    /// Returns whether storage APIs (eth_getStorageAt, eth_getFlaggedStorageAt) are enabled.
+    /// Disabled by default to protect private storage information.
+    fn storage_apis_enabled(&self) -> bool;
 
     /// Returns the number of transactions sent from an address at the given block identifier.
     ///
@@ -63,24 +67,72 @@ pub trait EthState: LoadState + SpawnBlocking {
     }
 
     /// Returns values stored of given account, at given blocknumber.
+    ///
+    /// Returns an error if storage APIs are disabled (to protect private storage information).
     fn storage_at(
         &self,
         address: Address,
         index: JsonStorageKey,
         block_id: Option<BlockId>,
     ) -> impl Future<Output = Result<B256, Self::Error>> + Send {
-        self.spawn_blocking_io_fut(move |this| async move {
-            let storage_value = this
-                .state_at_block_id_or_latest(block_id)
-                .await?
-                .storage(address, index.as_b256())
-                .map_err(Self::Error::from_eth_err)?
-                .unwrap_or_default();
-            match storage_value.is_public() {
-                true => Ok(B256::new(storage_value.value.to_be_bytes())),
-                false => Ok(B256::ZERO),
+        async move {
+            if !self.storage_apis_enabled() {
+                return Err(EthApiError::Unsupported(
+                    "Storage APIs are disabled. Use --enable-storage-apis to enable.",
+                )
+                .into());
             }
-        })
+
+            self.spawn_blocking_io_fut(move |this| async move {
+                let storage_value = this
+                    .state_at_block_id_or_latest(block_id)
+                    .await?
+                    .storage(address, index.as_b256())
+                    .map_err(Self::Error::from_eth_err)?
+                    .unwrap_or_default();
+                match storage_value.is_public() {
+                    true => Ok(B256::new(storage_value.value.to_be_bytes())),
+                    false => Ok(B256::ZERO),
+                }
+            })
+            .await
+        }
+    }
+
+    /// Returns storage value with privacy flag at given address and block.
+    ///
+    /// Returns an error if storage APIs are disabled (to protect private storage information).
+    fn flagged_storage_at(
+        &self,
+        address: Address,
+        index: JsonStorageKey,
+        block_id: Option<BlockId>,
+    ) -> impl Future<Output = Result<FlaggedStorage, Self::Error>> + Send {
+        async move {
+            if !self.storage_apis_enabled() {
+                return Err(EthApiError::Unsupported(
+                    "Storage APIs are disabled. Use --enable-storage-apis to enable.",
+                )
+                .into());
+            }
+
+            self.spawn_blocking_io_fut(move |this| async move {
+                let storage_value = this
+                    .state_at_block_id_or_latest(block_id)
+                    .await?
+                    .storage(address, index.as_b256())
+                    .map_err(Self::Error::from_eth_err)?
+                    .unwrap_or_default();
+
+                match storage_value.is_public() {
+                    true => Ok(FlaggedStorage::new(storage_value.value, false)), /* public storage */
+                    // value
+                    false => Ok(FlaggedStorage::new(U256::ZERO, true)), /* return 0x000...000 for
+                                                                         * private storage value */
+                }
+            })
+            .await
+        }
     }
 
     /// Returns values stored of given account, with Merkle-proof, at given blocknumber.

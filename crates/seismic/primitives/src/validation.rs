@@ -5,7 +5,7 @@ use alloy_primitives::B256;
 use reth_chainspec::ChainSpec;
 use reth_primitives_traits::BlockHeader;
 use seismic_alloy_consensus::{InputDecryptionElements, TxSeismicElements};
-use std::sync::Arc;
+use std::{string::ToString, sync::Arc};
 
 /// Validation errors for Seismic transactions.
 #[derive(Debug, Clone, thiserror::Error)]
@@ -30,6 +30,12 @@ pub enum SeismicValidationError {
     /// Error getting decryption elements from transaction.
     #[error("Failed to get decryption elements: {0}")]
     DecryptionElementsError(String),
+    /// Incoming seismic transaction cannot be signed_read.
+    #[error("Incoming seismic transaction cannot be signed_read")]
+    IncomingTransactionCannotBeSignedRead,
+    /// Signed read call must be marked as signed_read transaction.
+    #[error("Signed read call must be marked as signed_read transaction")]
+    SignedReadCallNotMarked,
 }
 
 /// Validator for Seismic transaction security constraints.
@@ -155,6 +161,58 @@ impl SeismicTransactionValidator {
     /// Returns the maximum recent block age configured for this validator.
     pub fn max_recent_block_age(&self) -> u64 {
         self.max_recent_block_age
+    }
+
+    /// Validates that an incoming seismic transaction is NOT marked as signed_read.
+    ///
+    /// Incoming seismic transactions (regular transactions submitted to the mempool) 
+    /// should never be signed_read transactions, as signed_read is only for read-only calls.
+    ///
+    /// # Arguments
+    /// * `tx` - The seismic transaction to validate
+    ///
+    /// # Returns
+    /// * `Ok(())` if transaction is valid (not signed_read)
+    /// * `Err(SeismicValidationError::IncomingTransactionCannotBeSignedRead)` if transaction is signed_read
+    pub fn validate_incoming_not_signed_read(
+        &self,
+        tx: &SeismicTransactionSigned,
+    ) -> Result<(), SeismicValidationError> {
+        let seismic_elements = tx
+            .get_decryption_elements()
+            .map_err(|e| SeismicValidationError::DecryptionElementsError(e.to_string()))?;
+
+        if seismic_elements.signed_read {
+            return Err(SeismicValidationError::IncomingTransactionCannotBeSignedRead);
+        }
+
+        Ok(())
+    }
+
+    /// Validates that a signed read call is properly marked as signed_read.
+    ///
+    /// When performing read-only operations (eth_call), the transaction should be 
+    /// marked as signed_read to indicate it's a read operation and won't modify state.
+    ///
+    /// # Arguments
+    /// * `tx` - The seismic transaction to validate
+    ///
+    /// # Returns
+    /// * `Ok(())` if transaction is valid (marked as signed_read)
+    /// * `Err(SeismicValidationError::SignedReadCallNotMarked)` if transaction is not signed_read
+    pub fn validate_signed_read_call_marked(
+        &self,
+        tx: &SeismicTransactionSigned,
+    ) -> Result<(), SeismicValidationError> {
+        let seismic_elements = tx
+            .get_decryption_elements()
+            .map_err(|e| SeismicValidationError::DecryptionElementsError(e.to_string()))?;
+
+        if !seismic_elements.signed_read {
+            return Err(SeismicValidationError::SignedReadCallNotMarked);
+        }
+
+        Ok(())
     }
 }
 
@@ -379,6 +437,62 @@ mod tests {
                 // Expected - recent block hash is too old
             }
             _ => panic!("Expected InvalidRecentBlockHash error for too old block"),
+        }
+    }
+
+    #[test]
+    fn test_incoming_transaction_not_signed_read_success() {
+        let validator = SeismicTransactionValidator::new(create_test_chain_spec());
+        
+        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
+        let tx = create_test_seismic_tx(recent_block_hash, 1000, false); // signed_read = false
+        
+        let result = validator.validate_incoming_not_signed_read(&tx);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_incoming_transaction_signed_read_fails() {
+        let validator = SeismicTransactionValidator::new(create_test_chain_spec());
+        
+        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
+        let tx = create_test_seismic_tx(recent_block_hash, 1000, true); // signed_read = true
+        
+        let result = validator.validate_incoming_not_signed_read(&tx);
+        
+        match result {
+            Err(SeismicValidationError::IncomingTransactionCannotBeSignedRead) => {
+                // Expected
+            }
+            _ => panic!("Expected IncomingTransactionCannotBeSignedRead error"),
+        }
+    }
+
+    #[test]
+    fn test_signed_read_call_marked_success() {
+        let validator = SeismicTransactionValidator::new(create_test_chain_spec());
+        
+        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
+        let tx = create_test_seismic_tx(recent_block_hash, 1000, true); // signed_read = true
+        
+        let result = validator.validate_signed_read_call_marked(&tx);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_signed_read_call_not_marked_fails() {
+        let validator = SeismicTransactionValidator::new(create_test_chain_spec());
+        
+        let recent_block_hash = B256::from_str("0x1234567890123456789012345678901234567890123456789012345678901234").unwrap();
+        let tx = create_test_seismic_tx(recent_block_hash, 1000, false); // signed_read = false
+        
+        let result = validator.validate_signed_read_call_marked(&tx);
+        
+        match result {
+            Err(SeismicValidationError::SignedReadCallNotMarked) => {
+                // Expected
+            }
+            _ => panic!("Expected SignedReadCallNotMarked error"),
         }
     }
 }

@@ -11141,7 +11141,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-consensus"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=e5c7d06#e5c7d066228225f57d1979fcb7ac6049c55abba6"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#990b9cf065e191a307d9c5614b205afb08363d6a"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -11168,7 +11168,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-genesis"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=e5c7d06#e5c7d066228225f57d1979fcb7ac6049c55abba6"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#990b9cf065e191a307d9c5614b205afb08363d6a"
 dependencies = [
  "alloy-genesis",
  "alloy-primitives",
@@ -11181,7 +11181,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-network"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=e5c7d06#e5c7d066228225f57d1979fcb7ac6049c55abba6"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#990b9cf065e191a307d9c5614b205afb08363d6a"
 dependencies = [
  "alloy-consensus",
  "alloy-eip7702",
@@ -11204,7 +11204,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-provider"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=e5c7d06#e5c7d066228225f57d1979fcb7ac6049c55abba6"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#990b9cf065e191a307d9c5614b205afb08363d6a"
 dependencies = [
  "alloy-network",
  "alloy-primitives",
@@ -11222,7 +11222,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-rpc-types"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?rev=e5c7d06#e5c7d066228225f57d1979fcb7ac6049c55abba6"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#990b9cf065e191a307d9c5614b205afb08363d6a"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
