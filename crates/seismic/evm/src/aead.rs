@@ -122,8 +122,6 @@ impl SeismicAeadEngine {
         Ok(Bytes::from(decrypted_data))
     }
 
-
-
     /// Returns the current AEAD configuration.
     pub fn config(&self) -> &AeadConfig {
         &self.config
