@@ -252,9 +252,9 @@ mod tests {
             coinbase: Default::default(),
             alloc: Default::default(),
             number: Some(0),
-            gas_used: Some(0),
-            parent_hash: Some(Default::default()),
             base_fee_per_gas: Some(7),
+            excess_blob_gas: Some(0),
+            blob_gas_used: Some(0),
         };
 
         Arc::new(

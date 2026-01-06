@@ -128,8 +128,8 @@ impl SeismicAeadEngine {
 
     /// Encodes transaction metadata as additional authenticated data for AEAD.
     ///
-    /// This function serializes the transaction metadata using RLP encoding to create
-    /// a deterministic byte representation that can be used as AAD.
+    /// This function uses the proper RLP encoding implementation from TxSeismicMetadata
+    /// to create a deterministic byte representation for AEAD.
     ///
     /// # Arguments
     /// * `metadata` - The transaction metadata to encode
@@ -138,18 +138,8 @@ impl SeismicAeadEngine {
     /// * `Ok(Vec<u8>)` - The RLP-encoded metadata
     /// * `Err(AeadError)` - If encoding fails
     fn encode_metadata_aad(&self, metadata: &TxSeismicMetadata) -> Result<Vec<u8>, AeadError> {
-        // For now, use a simple serialization approach
-        // In a production environment, this should use a proper encoding scheme
-        let encoded = format!(
-            "{}:{}:{}:{}:{:?}:{}",
-            metadata.chain_id,
-            metadata.nonce,
-            metadata.gas_price,
-            metadata.gas_limit,
-            metadata.to,
-            metadata.value
-        );
-        Ok(encoded.into_bytes())
+        // Use the proper RLP encoding implementation from seismic-alloy
+        Ok(metadata.encode_as_aad())
     }
 
     /// Creates seismic metadata from transaction components for AEAD authentication.
@@ -201,14 +191,16 @@ impl SeismicAeadEngine {
 mod tests {
     use super::*;
     use alloy_primitives::aliases::U96;
-    use secp256k1::{PublicKey, Secp256k1};
     use seismic_enclave::{get_unsecure_sample_secp256k1_pk, get_unsecure_sample_secp256k1_sk};
-    use std::str::FromStr;
 
     fn create_test_metadata() -> TxSeismicMetadata {
         TxSeismicMetadata {
             chain_id: 1,
             nonce: 42,
+            gas_price: 20_000_000_000u128, // 20 gwei
+            gas_limit: 21_000u64,
+            to: TxKind::Call(alloy_primitives::Address::ZERO),
+            value: alloy_primitives::U256::ZERO,
             seismic_elements: TxSeismicElements {
                 encryption_pubkey: get_unsecure_sample_secp256k1_pk(),
                 encryption_nonce: U96::from(12345u64),
@@ -342,7 +334,15 @@ mod tests {
             signed_read: true,
         };
 
-        let metadata = engine.create_metadata(chain_id, nonce, seismic_elements.clone());
+        let metadata = engine.create_metadata(
+            chain_id,
+            nonce,
+            20_000_000_000u128, // gas_price: 20 gwei
+            21_000u64,          // gas_limit
+            TxKind::Call(alloy_primitives::Address::ZERO), // to
+            alloy_primitives::U256::ZERO, // value
+            seismic_elements.clone(),
+        );
 
         assert_eq!(metadata.chain_id, chain_id);
         assert_eq!(metadata.nonce, nonce);
