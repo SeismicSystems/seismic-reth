@@ -115,8 +115,8 @@ pub fn sign_seismic_tx(tx: &TxSeismic, signing_sk: &SigningKey) -> Signature {
     let _signature = _signature.0;
 
     let signature = Signature::new(
-        U256::from_be_slice(_signature.r().to_bytes().as_slice()),
-        U256::from_be_slice(_signature.s().to_bytes().as_slice()),
+        U256::from_be_slice(_signature.r().to_bytes().as_ref()),
+        U256::from_be_slice(_signature.s().to_bytes().as_ref()),
         recoverid.is_y_odd(),
     );
 
@@ -133,8 +133,8 @@ pub fn sign_seismic_typed_tx(
     let recoverid = sig.1;
 
     let signature = Signature::new(
-        U256::from_be_slice(sig.0.r().to_bytes().as_slice()),
-        U256::from_be_slice(sig.0.s().to_bytes().as_slice()),
+        U256::from_be_slice(sig.0.r().to_bytes().as_ref()),
+        U256::from_be_slice(sig.0.s().to_bytes().as_ref()),
         recoverid.is_y_odd(),
     );
     signature
