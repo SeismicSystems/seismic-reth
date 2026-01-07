@@ -28,7 +28,7 @@ use reth_rpc_eth_api::{
 };
 use reth_rpc_eth_types::EthApiError;
 use reth_tracing::tracing::*;
-use seismic_alloy_consensus::{InputDecryptionElements, TypedDataRequest};
+use seismic_alloy_consensus::TypedDataRequest;
 use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest,
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
@@ -182,10 +182,9 @@ where
 
             for call in calls {
                 let seismic_tx_request = convert_seismic_call_to_tx_request(call)?;
-                let seismic_tx_request = seismic_tx_request
-                    .plaintext_copy(&self.purpose_keys.tx_io_sk)
+                let tx_request = seismic_tx_request
+                    .to_transaction_request(&self.purpose_keys.tx_io_sk)
                     .map_err(|e| ext_decryption_error(e.to_string()))?;
-                let tx_request: TransactionRequest = seismic_tx_request.inner;
                 prepared_calls.push(tx_request.into());
             }
 
@@ -218,10 +217,15 @@ where
 
                 if let Some(seismic_elements) = seismic_tx_request.seismic_elements {
                     // if there are seismic elements, encrypt the output
-                    let encrypted_output = seismic_elements
-                        .encrypt(&self.purpose_keys.tx_io_sk, &call_result.return_data)
-                        .map_err(|e| ext_encryption_error(e.to_string()))?;
-                    call_result.return_data = encrypted_output;
+                    if let Ok(typed_tx) = seismic_tx_request.build_typed_tx() {
+                        if let seismic_alloy_consensus::SeismicTypedTransaction::Seismic(tx) = typed_tx {
+                            let metadata = tx.create_metadata();
+                            let encrypted_output = seismic_elements
+                                .encrypt(&self.purpose_keys.tx_io_sk, &call_result.return_data, &metadata)
+                                .map_err(|e| ext_encryption_error(e.to_string()))?;
+                            call_result.return_data = encrypted_output;
+                        }
+                    }
                 }
             }
         }
@@ -244,9 +248,8 @@ where
 
         // decrypt seismic elements
         let tx_request = seismic_tx_request
-            .plaintext_copy(&self.purpose_keys.tx_io_sk)
-            .map_err(|e| ext_decryption_error(e.to_string()))?
-            .inner;
+            .to_transaction_request(&self.purpose_keys.tx_io_sk)
+            .map_err(|e| ext_decryption_error(e.to_string()))?;
 
         // call inner
         let result = EthCall::call(
@@ -259,12 +262,16 @@ where
 
         // encrypt result
         if let Some(seismic_elements) = seismic_tx_request.seismic_elements {
-            return Ok(seismic_elements
-                .encrypt(&self.purpose_keys.tx_io_sk, &result)
-                .map_err(|e| ext_encryption_error(e.to_string()))?);
-        } else {
-            Ok(result)
+            if let Ok(typed_tx) = seismic_tx_request.build_typed_tx() {
+                if let seismic_alloy_consensus::SeismicTypedTransaction::Seismic(tx) = typed_tx {
+                    let metadata = tx.create_metadata();
+                    return Ok(seismic_elements
+                        .encrypt(&self.purpose_keys.tx_io_sk, &result, &metadata)
+                        .map_err(|e| ext_encryption_error(e.to_string()))?);
+                }
+            }
         }
+        Ok(result)
     }
 
     /// Handler for: `eth_sendRawTransaction`
@@ -293,9 +300,10 @@ where
     ) -> RpcResult<U256> {
         debug!(target: "reth-seismic-rpc::eth", ?request, ?block_number, ?state_override, "serving seismic eth_estimateGas extension");
         // decrypt
-        let decrypted_req = request
-            .plaintext_copy(&self.purpose_keys.tx_io_sk)
+        let decrypted_tx_request = request
+            .to_transaction_request(&self.purpose_keys.tx_io_sk)
             .map_err(|e| ext_decryption_error(e.to_string()))?;
+        let decrypted_req: SeismicTransactionRequest = decrypted_tx_request.into();
 
         // call inner
         Ok(EthCall::estimate_gas_at(

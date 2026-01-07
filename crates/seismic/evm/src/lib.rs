@@ -42,8 +42,6 @@ mod build;
 pub mod config;
 use config::revm_spec;
 
-pub mod aead;
-pub use aead::{AeadConfig, AeadError, SeismicAeadEngine};
 
 /// Seismic EVM configuration.
 #[derive(Debug, Clone)]
@@ -53,8 +51,6 @@ pub struct SeismicEvmConfig {
         SeismicBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, SeismicEvmFactory>,
     /// Seismic block assembler.
     pub block_assembler: SeismicBlockAssembler<ChainSpec>,
-    /// AEAD engine for seismic transaction encryption.
-    pub aead_engine: SeismicAeadEngine,
 }
 
 impl SeismicEvmConfig {
@@ -70,18 +66,7 @@ impl SeismicEvmConfig {
         )
     }
 
-    /// Creates a new Seismic EVM configuration with custom AEAD config.
-    pub fn new_with_aead_config(
-        chain_spec: Arc<ChainSpec>,
-        purpose_keys: &'static seismic_enclave::GetPurposeKeysResponse,
-        aead_config: AeadConfig,
-    ) -> Self {
-        let mut config = Self::new(chain_spec, purpose_keys);
-        config.aead_engine = SeismicAeadEngine::new(aead_config);
-        config
-    }
-
-    /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
+    /// Creates a new Seismic EVM configuration with the given chain spec and EVM factory.
     pub fn new_with_evm_factory(
         chain_spec: Arc<ChainSpec>,
         evm_factory: SeismicEvmFactory,
@@ -95,7 +80,6 @@ impl SeismicEvmConfig {
                 evm_factory,
                 purpose_keys,
             ),
-            aead_engine: SeismicAeadEngine::with_defaults(),
         }
     }
 
@@ -108,16 +92,6 @@ impl SeismicEvmConfig {
     pub fn with_extra_data(mut self, extra_data: Bytes) -> Self {
         self.block_assembler.extra_data = extra_data;
         self
-    }
-
-    /// Returns a reference to the AEAD engine.
-    pub fn aead_engine(&self) -> &SeismicAeadEngine {
-        &self.aead_engine
-    }
-
-    /// Returns a mutable reference to the AEAD engine.
-    pub fn aead_engine_mut(&mut self) -> &mut SeismicAeadEngine {
-        &mut self.aead_engine
     }
 
     /// Creates an EVM with the pre-fetched purpose keys

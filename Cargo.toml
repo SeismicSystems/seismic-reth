@@ -796,11 +796,11 @@ seismic-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev
 revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "9e26c0a55f522ad7d8cf4716d9df9d79b8116d52" }
 
 # Seismic alloy
-seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", branch = "audit-seismic-tx" }
-seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-alloy.git", branch = "audit-seismic-tx" }
-seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-alloy.git", branch = "audit-seismic-tx" }
-seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-alloy.git", branch = "audit-seismic-tx" }
-seismic-alloy-genesis = { git = "https://github.com/SeismicSystems/seismic-alloy.git", branch = "audit-seismic-tx" }
+seismic-alloy-consensus = { path = "../seismic-alloy/crates/consensus" }
+seismic-alloy-rpc-types = { path = "../seismic-alloy/crates/rpc-types" }
+seismic-alloy-network = { path = "../seismic-alloy/crates/network" }
+seismic-alloy-provider = { path = "../seismic-alloy/crates/provider" }
+seismic-alloy-genesis = { path = "../seismic-alloy/crates/genesis" }
 
 # alloy-evm
 alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "db34d7185e62c57f7fa4ac67f169113b14097a99" }

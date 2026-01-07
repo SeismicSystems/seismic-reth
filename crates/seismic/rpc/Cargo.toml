@@ -58,6 +58,8 @@ seismic-revm.workspace = true
 # async
 tokio.workspace = true
 
+# error handling
+
 # rpc
 jsonrpsee-types.workspace = true
 jsonrpsee.workspace = true

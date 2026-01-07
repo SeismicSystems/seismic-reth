@@ -11292,7 +11292,6 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-consensus"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#a9f1189ecf3385cc6e616adb2580df9710f231bd"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -11319,7 +11318,6 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-genesis"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#a9f1189ecf3385cc6e616adb2580df9710f231bd"
 dependencies = [
  "alloy-genesis",
  "alloy-primitives",
@@ -11332,7 +11330,6 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-network"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#a9f1189ecf3385cc6e616adb2580df9710f231bd"
 dependencies = [
  "alloy-consensus",
  "alloy-eip7702",
@@ -11355,7 +11352,6 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-provider"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#a9f1189ecf3385cc6e616adb2580df9710f231bd"
 dependencies = [
  "alloy-network",
  "alloy-primitives",
@@ -11373,7 +11369,6 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-rpc-types"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#a9f1189ecf3385cc6e616adb2580df9710f231bd"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",

@@ -71,7 +71,7 @@ mod test {
     use alloy_primitives::{
         aliases::U96,
         hex::{self, FromHex},
-        Address, Bytes, FixedBytes, Signature, U256,
+        Address, B256, Bytes, FixedBytes, Signature, U256,
     };
     use reth_primitives_traits::SignedTransaction;
     use reth_seismic_primitives::SeismicTransactionSigned;
@@ -114,6 +114,9 @@ mod test {
                 encryption_pubkey: PublicKey::from_str("028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0").unwrap(),
                 encryption_nonce: U96::from_str("0x7da3a99bf0f90d56551d99ea").unwrap(),
                 message_version: 2,
+                recent_block_hash: B256::ZERO,
+                expires_at_block: 0,
+                signed_read: false,
             }
         };
 
