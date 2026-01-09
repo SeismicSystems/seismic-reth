@@ -597,12 +597,27 @@ impl reth_codecs::Compact for SeismicTransactionSigned {
             } else {
                 let mut compressor = reth_zstd_compressors::create_tx_compressor();
                 let tx_bits = self.transaction.to_compact(&mut tmp);
-                buf.put_slice(&compressor.compress(&tmp).expect("zstd compression with static dictionary should never fail"));
+                buf.put_slice(
+                    &compressor
+                        .compress(&tmp)
+                        .expect("zstd compression with static dictionary should never fail"),
+                );
                 tx_bits as u8
             }
         } else {
             self.transaction.to_compact(buf) as u8
         };
+
+        // The `Compact` trait does not support fallible encoding.
+        // Compression failure indicates a catastrophic system error like OOM/corruption.
+        // Panicking here is intentional since silently corrupting the data by returning a
+        // placeholder/wrong value would be worse. Matches upstream behaviour in
+        // `ethereum/primitives` and `optimism/primitives`.
+        debug_assert!(
+            start < buf.as_mut().len(),
+            "buffer invariant violated: start index {start} >= buffer length {}",
+            buf.as_mut().len()
+        );
 
         // Replace bitflags with the actual values
         buf.as_mut()[start] = sig_bit | (tx_bits << 1) | ((zstd_bit as u8) << 3);
