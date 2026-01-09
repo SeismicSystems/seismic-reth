@@ -31,7 +31,7 @@ use reth_primitives_traits::{
 use revm_context::{either::Either, TxEnv};
 use seismic_alloy_consensus::{
     InputDecryptionElements, InputDecryptionElementsError, SeismicTxEnvelope,
-    SeismicTypedTransaction, TxSeismic, TxSeismicElements,
+    SeismicTypedTransaction, TxLegacyFields, TxSeismic, TxSeismicElements, TxSeismicMetadata,
 };
 use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
 
@@ -547,6 +547,15 @@ impl InputDecryptionElements for SeismicTransactionSigned {
     fn set_input(&mut self, input: Bytes) -> Result<(), InputDecryptionElementsError> {
         self.transaction.set_input(input)
     }
+
+    fn metadata(&self, sender: Address) -> Result<TxSeismicMetadata, InputDecryptionElementsError> {
+        match &self.transaction {
+            SeismicTypedTransaction::Seismic(tx) => tx.metadata(sender),
+            _ => {
+                Err(InputDecryptionElementsError::UnsupportedTxType(format!("{}", self.tx_type())))
+            }
+        }
+    }
 }
 
 impl Typed2718 for SeismicTransactionSigned {
@@ -780,7 +789,7 @@ mod tests {
     use crate::test_utils::{get_signed_seismic_tx, get_signing_private_key};
 
     use super::*;
-    use alloy_primitives::{aliases::U96, U256};
+    use alloy_primitives::{aliases::U96, hex, U256};
     use proptest::proptest;
     use proptest_arbitrary_interop::arb;
     use reth_codecs::Compact;
@@ -866,6 +875,9 @@ mod tests {
                 encryption_pubkey: PublicKey::from_str("028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0").unwrap(),
                 encryption_nonce: U96::from_str("38883482092810179043846363626").unwrap(),
                 message_version: 2,
+                recent_block_hash: alloy_primitives::B256::from_slice(&hex::decode("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef").unwrap()),
+                expires_at_block: 1000000,
+                signed_read: false,
             },
         };
 

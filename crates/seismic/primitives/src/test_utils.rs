@@ -15,7 +15,7 @@ use seismic_enclave::get_unsecure_sample_secp256k1_pk;
 
 use secp256k1::{PublicKey, SecretKey};
 use seismic_alloy_consensus::{
-    SeismicTxEnvelope, SeismicTypedTransaction, TxSeismic, TxSeismicElements, TypedDataRequest,
+    SeismicTxEnvelope, SeismicTypedTransaction, TxLegacyFields, TxSeismic, TxSeismicElements, TxSeismicMetadata, TypedDataRequest
 };
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
 
@@ -58,6 +58,9 @@ pub fn get_seismic_elements() -> TxSeismicElements {
         encryption_pubkey: get_client_io_sk().public(),
         encryption_nonce: get_encryption_nonce(),
         message_version: 0,
+        recent_block_hash: alloy_primitives::B256::from_slice(&hex::decode("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef").unwrap()),
+        expires_at_block: 1000000,
+        signed_read: false,
     }
 }
 
@@ -157,6 +160,43 @@ pub fn get_signed_seismic_tx_encoding() -> Vec<u8> {
     encoding
 }
 
+fn get_plaintext_tx_request(
+    sk_wallet: &PrivateKeySigner,
+    nonce: u64,
+    to: TxKind,
+    chain_id: u64,
+    plaintext: &Bytes,
+) -> TransactionRequest {
+    TransactionRequest {
+        from: Some(sk_wallet.address()),
+        nonce: Some(nonce),
+        value: Some(U256::from(0)),
+        to: Some(to),
+        gas: Some(6000000),
+        gas_price: Some(20e9 as u128),
+        chain_id: Some(chain_id),
+        input: TransactionInput {
+            input: Some(plaintext.clone()),
+            data: None,
+        },
+        transaction_type: Some(TxSeismic::TX_TYPE),
+        ..Default::default()
+    }
+}
+
+fn get_metadata(plaintext_req: &TransactionRequest) -> TxSeismicMetadata {
+    TxSeismicMetadata {
+        sender: plaintext_req.from.unwrap(),
+        legacy_fields: TxLegacyFields {
+            chain_id: plaintext_req.chain_id.unwrap(),
+            nonce: plaintext_req.nonce.unwrap(),
+            to: plaintext_req.to.unwrap(),
+            value: plaintext_req.value.unwrap(),
+        },
+        seismic_elements: get_seismic_elements(),
+    }
+}
+
 /// Get an unsigned seismic transaction request
 pub async fn get_unsigned_seismic_tx_request(
     sk_wallet: &PrivateKeySigner,
@@ -165,23 +205,13 @@ pub async fn get_unsigned_seismic_tx_request(
     chain_id: u64,
     plaintext: Bytes,
 ) -> SeismicTransactionRequest {
+    let mut plaintext_req = get_plaintext_tx_request(sk_wallet, nonce, to, chain_id, &plaintext);
+    let metadata = get_metadata(&plaintext_req);
+    let ciphertext = metadata.encrypt(&get_client_io_sk(), &plaintext).unwrap();
+    plaintext_req.input = TransactionInput { input: Some(ciphertext), data: None };
     SeismicTransactionRequest {
-        inner: TransactionRequest {
-            from: Some(sk_wallet.address()),
-            nonce: Some(nonce),
-            value: Some(U256::from(0)),
-            to: Some(to),
-            gas: Some(6000000),
-            gas_price: Some(20e9 as u128),
-            chain_id: Some(chain_id),
-            input: TransactionInput {
-                input: Some(client_encrypt(&plaintext).unwrap()),
-                data: None,
-            },
-            transaction_type: Some(TxSeismic::TX_TYPE),
-            ..Default::default()
-        },
-        seismic_elements: Some(get_seismic_elements()),
+        inner: plaintext_req,
+        seismic_elements: Some(metadata.seismic_elements),
     }
 }
 
