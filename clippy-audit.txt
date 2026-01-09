@@ -4464,25 +4464,6 @@ warning: `reth-dns-discovery` (lib) generated 2 warnings
 warning: `reth-cli-util` (lib) generated 7 warnings
 warning: `reth-engine-local` (lib) generated 9 warnings (run `cargo clippy --fix --lib -p reth-engine-local` to apply 2 suggestions)
 warning: `reth-static-file` (lib) generated 3 warnings
-warning: used `unwrap()` on a `Result` value
-  --> crates/node/core/build.rs:39:19
-   |
-39 |     let out_dir = env::var("OUT_DIR").unwrap();
-   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = note: if this value is an `Err`, it will panic
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
-   = note: requested on the command line with `-W clippy::unwrap-used`
-
-warning: used `unwrap()` on an `Option` value
-  --> crates/node/core/build.rs:40:19
-   |
-40 |     let profile = out_dir.rsplit(std::path::MAIN_SEPARATOR).nth(3).unwrap();
-   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = note: if this value is `None`, it will panic
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
-
 warning: used `expect()` on a `Result` value
    --> crates/net/network/src/config.rs:649:41
     |
@@ -4614,6 +4595,25 @@ warning: used `expect()` on an `Option` value
     = note: if this value is `None`, it will panic
     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
 
+warning: used `unwrap()` on a `Result` value
+  --> crates/node/core/build.rs:39:19
+   |
+39 |     let out_dir = env::var("OUT_DIR").unwrap();
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is an `Err`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+   = note: requested on the command line with `-W clippy::unwrap-used`
+
+warning: used `unwrap()` on an `Option` value
+  --> crates/node/core/build.rs:40:19
+   |
+40 |     let profile = out_dir.rsplit(std::path::MAIN_SEPARATOR).nth(3).unwrap();
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: if this value is `None`, it will panic
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
 warning: used `unwrap()` on an `Option` value
   --> crates/prune/prune/src/segments/static_file/headers.rs:82:13
    |
@@ -4645,8 +4645,8 @@ warning: used `unwrap()` on an `Option` value
    = note: if this value is `None`, it will panic
    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
 
-warning: `reth-node-core` (build script) generated 2 warnings
 warning: `reth-network` (lib) generated 11 warnings (run `cargo clippy --fix --lib -p reth-network` to apply 2 suggestions)
+warning: `reth-node-core` (build script) generated 2 warnings
 warning: `reth-prune` (lib) generated 3 warnings
    Compiling reth-node-core v1.7.0 (/Users/ameyadeshmukh/Desktop/Seismic/seismic-reth/crates/node/core)
 warning: unnecessary structure name repetition
@@ -6499,6 +6499,8 @@ help: make the function `const`
 39 |     pub const fn new(incoming: Receiver<BackupAction>, data_dir: ChainPath<DataDirPath>) -> Self {
    |         +++++
 
+warning: `reth-exex` (lib) generated 6 warnings
+    Checking reth-stages v1.7.0 (/Users/ameyadeshmukh/Desktop/Seismic/seismic-reth/crates/stages/stages)
 warning: unnecessary structure name repetition
   --> crates/engine/tree/src/backup.rs:69:9
    |
@@ -6508,8 +6510,6 @@ warning: unnecessary structure name repetition
    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#use_self
    = note: requested on the command line with `-W clippy::use-self`
 
-warning: `reth-exex` (lib) generated 6 warnings
-    Checking reth-stages v1.7.0 (/Users/ameyadeshmukh/Desktop/Seismic/seismic-reth/crates/stages/stages)
 warning: used `expect()` on a `Result` value
    --> crates/engine/tree/src/backup.rs:100:24
     |
@@ -7018,6 +7018,25 @@ warning: used `expect()` on an `Option` value
    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
    = note: requested on the command line with `-W clippy::expect-used`
 
+warning: used `expect()` on an `Option` value
+   --> crates/stages/stages/src/stages/utils.rs:214:32
+    |
+214 |             let mut highest = *chunk.last().expect("at least one index");
+    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
+
+warning: indexing may panic
+   --> crates/rpc/rpc-eth-api/src/helpers/fee.rs:115:51
+    |
+115 |                 if percentiles.windows(2).any(|w| w[0] > w[1] || w[0] > 100.) {
+    |                                                   ^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+    = note: requested on the command line with `-W clippy::indexing-slicing`
+
 warning: unneeded `return` statement
     --> crates/engine/tree/src/tree/mod.rs:1630:9
      |
@@ -7031,42 +7050,6 @@ help: remove `return`
 1630 -         return false;
 1630 +         false
      |
-
-warning: used `expect()` on an `Option` value
-   --> crates/stages/stages/src/stages/utils.rs:214:32
-    |
-214 |             let mut highest = *chunk.last().expect("at least one index");
-    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = note: if this value is `None`, it will panic
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
-
-warning: used `expect()` on an `Option` value
-    --> crates/engine/tree/src/tree/mod.rs:1726:36
-     |
-1726 |               let tree_state_block = self
-     |  ____________________________________^
-1727 | |                 .state
-1728 | |                 .tree_state
-1729 | |                 .blocks_by_hash
-1730 | |                 .get_mut(&block.recovered_block().hash())
-1731 | |                 .expect("blocks to persist are constructed from tree state blocks");
-     | |___________________________________________________________________________________^
-     |
-     = note: if this value is `None`, it will panic
-     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
-
-warning: `reth-stages` (lib) generated 6 warnings
-    Checking reth-node-events v1.7.0 (/Users/ameyadeshmukh/Desktop/Seismic/seismic-reth/crates/node/events)
-warning: indexing may panic
-   --> crates/rpc/rpc-eth-api/src/helpers/fee.rs:115:51
-    |
-115 |                 if percentiles.windows(2).any(|w| w[0] > w[1] || w[0] > 100.) {
-    |                                                   ^^^^
-    |
-    = help: consider using `.get(n)` or `.get_mut(n)` instead
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
-    = note: requested on the command line with `-W clippy::indexing-slicing`
 
 warning: indexing may panic
    --> crates/rpc/rpc-eth-api/src/helpers/fee.rs:115:58
@@ -7105,14 +7088,20 @@ warning: used `expect()` on an `Option` value
     = note: if this value is `None`, it will panic
     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
 
-warning: used `unwrap()` on an `Option` value
-    --> crates/engine/tree/src/tree/mod.rs:2525:61
+warning: used `expect()` on an `Option` value
+    --> crates/engine/tree/src/tree/mod.rs:1726:36
      |
-2525 |             .ok_or_else(|| ProviderError::BlockHashNotFound(historical.as_hash().unwrap()))?;
-     |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1726 |               let tree_state_block = self
+     |  ____________________________________^
+1727 | |                 .state
+1728 | |                 .tree_state
+1729 | |                 .blocks_by_hash
+1730 | |                 .get_mut(&block.recovered_block().hash())
+1731 | |                 .expect("blocks to persist are constructed from tree state blocks");
+     | |___________________________________________________________________________________^
      |
      = note: if this value is `None`, it will panic
-     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
 
 warning: used `unwrap()` on an `Option` value
   --> crates/rpc/rpc-eth-api/src/helpers/receipt.rs:55:16
@@ -7158,6 +7147,17 @@ help: try
 28 +     /// Returns whether storage APIs (eth_getStorageAt, `eth_getFlaggedStorageAt`) are enabled.
    |
 
+warning: `reth-stages` (lib) generated 6 warnings
+    Checking reth-node-events v1.7.0 (/Users/ameyadeshmukh/Desktop/Seismic/seismic-reth/crates/node/events)
+warning: used `unwrap()` on an `Option` value
+    --> crates/engine/tree/src/tree/mod.rs:2525:61
+     |
+2525 |             .ok_or_else(|| ProviderError::BlockHashNotFound(historical.as_hash().unwrap()))?;
+     |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: if this value is `None`, it will panic
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
+
 warning: this argument is a mutable reference, but not used mutably
    --> crates/engine/tree/src/tree/payload_validator.rs:650:9
     |
@@ -7167,11 +7167,11 @@ warning: this argument is a mutable reference, but not used mutably
     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_pass_by_ref_mut
     = note: requested on the command line with `-W clippy::needless-pass-by-ref-mut`
 
-warning: `reth-engine-tree` (lib) generated 47 warnings (run `cargo clippy --fix --lib -p reth-engine-tree` to apply 20 suggestions)
-    Checking reth-engine-service v1.7.0 (/Users/ameyadeshmukh/Desktop/Seismic/seismic-reth/crates/engine/service)
-    Checking reth-engine-util v1.7.0 (/Users/ameyadeshmukh/Desktop/Seismic/seismic-reth/crates/engine/util)
 warning: `reth-rpc-eth-api` (lib) generated 8 warnings (run `cargo clippy --fix --lib -p reth-rpc-eth-api` to apply 2 suggestions)
     Checking reth-rpc-api v1.7.0 (/Users/ameyadeshmukh/Desktop/Seismic/seismic-reth/crates/rpc/rpc-api)
+warning: `reth-engine-tree` (lib) generated 47 warnings (run `cargo clippy --fix --lib -p reth-engine-tree` to apply 20 suggestions)
+    Checking reth-engine-util v1.7.0 (/Users/ameyadeshmukh/Desktop/Seismic/seismic-reth/crates/engine/util)
+    Checking reth-engine-service v1.7.0 (/Users/ameyadeshmukh/Desktop/Seismic/seismic-reth/crates/engine/service)
 warning: used `unwrap()` on a `Result` value
   --> crates/engine/util/src/engine_store.rs:63:25
    |
@@ -7902,42 +7902,6 @@ warning: used `expect()` on an `Option` value
     = note: requested on the command line with `-W clippy::expect-used`
 
 warning: used `expect()` on a `Result` value
-   --> crates/cli/commands/src/db/diff.rs:191:9
-    |
-191 |         primary_tx.cursor_read::<T>().expect("Was not able to obtain a cursor.");
-    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = note: if this value is an `Err`, it will panic
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
-
-warning: used `expect()` on a `Result` value
-   --> crates/cli/commands/src/db/diff.rs:195:9
-    |
-195 |         secondary_tx.cursor_read::<T>().expect("Was not able to obtain a cursor.");
-    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = note: if this value is an `Err`, it will panic
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
-
-warning: used `expect()` on a `Result` value
-   --> crates/cli/commands/src/db/diff.rs:201:9
-    |
-201 |         primary_tx.cursor_read::<T>().expect("Was not able to obtain a cursor.");
-    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = note: if this value is an `Err`, it will panic
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
-
-warning: used `expect()` on a `Result` value
-   --> crates/cli/commands/src/db/diff.rs:204:9
-    |
-204 |         secondary_tx.cursor_read::<T>().expect("Was not able to obtain a cursor.");
-    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = note: if this value is an `Err`, it will panic
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
-
-warning: used `expect()` on a `Result` value
   --> crates/seismic/node/src/purpose_keys.rs:19:5
    |
 19 |     PURPOSE_KEYS.set(keys).expect("Purpose keys already initialized");
@@ -8033,25 +7997,6 @@ warning: unnecessary structure name repetition
    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#use_self
    = note: requested on the command line with `-W clippy::use-self`
 
-warning: indexing may panic
-  --> crates/cli/commands/src/db/get.rs:95:66
-   |
-95 | ...                   println!("{}", hex::encode_prefixed(&content[0]));
-   |                                                            ^^^^^^^^^^
-   |
-   = help: consider using `.get(n)` or `.get_mut(n)` instead
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
-   = note: requested on the command line with `-W clippy::indexing-slicing`
-
-warning: indexing may panic
-  --> crates/cli/commands/src/db/get.rs:99:69
-   |
-99 | ...                   let header = Header::decompress(content[0].as_slice())?;
-   |                                                       ^^^^^^^^^^
-   |
-   = help: consider using `.get(n)` or `.get_mut(n)` instead
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
-
 warning: used `expect()` on an `Option` value
   --> crates/seismic/node/src/utils.rs:65:30
    |
@@ -8061,15 +8006,6 @@ warning: used `expect()` on an `Option` value
    = note: if this value is `None`, it will panic
    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
 
-warning: indexing may panic
-   --> crates/cli/commands/src/db/get.rs:100:76
-    |
-100 | ...                   let block_hash = BlockHash::decompress(content[1].as_slice())?;
-    |                                                              ^^^^^^^^^^
-    |
-    = help: consider using `.get(n)` or `.get_mut(n)` instead
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
-
 warning: used `expect()` on an `Option` value
   --> crates/seismic/node/src/utils.rs:66:30
    |
@@ -8078,24 +8014,6 @@ warning: used `expect()` on an `Option` value
    |
    = note: if this value is `None`, it will panic
    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
-
-warning: indexing may panic
-   --> crates/cli/commands/src/db/get.rs:109:41
-    |
-109 | ...                   content[0].as_slice(),
-    |                       ^^^^^^^^^^
-    |
-    = help: consider using `.get(n)` or `.get_mut(n)` instead
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
-
-warning: indexing may panic
-   --> crates/cli/commands/src/db/get.rs:115:41
-    |
-115 | ...                   content[0].as_slice(),
-    |                       ^^^^^^^^^^
-    |
-    = help: consider using `.get(n)` or `.get_mut(n)` instead
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
 
 warning: used `unwrap()` on a `Result` value
   --> crates/seismic/node/src/utils.rs:79:32
@@ -8167,6 +8085,89 @@ warning: used `unwrap()` on a `Result` value
     = note: if this value is an `Err`, it will panic
     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
 
+warning: used `expect()` on a `Result` value
+   --> crates/cli/commands/src/db/diff.rs:191:9
+    |
+191 |         primary_tx.cursor_read::<T>().expect("Was not able to obtain a cursor.");
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
+
+warning: used `expect()` on a `Result` value
+   --> crates/cli/commands/src/db/diff.rs:195:9
+    |
+195 |         secondary_tx.cursor_read::<T>().expect("Was not able to obtain a cursor.");
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
+
+warning: used `expect()` on a `Result` value
+   --> crates/cli/commands/src/db/diff.rs:201:9
+    |
+201 |         primary_tx.cursor_read::<T>().expect("Was not able to obtain a cursor.");
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
+
+warning: used `expect()` on a `Result` value
+   --> crates/cli/commands/src/db/diff.rs:204:9
+    |
+204 |         secondary_tx.cursor_read::<T>().expect("Was not able to obtain a cursor.");
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
+
+warning: indexing may panic
+  --> crates/cli/commands/src/db/get.rs:95:66
+   |
+95 | ...                   println!("{}", hex::encode_prefixed(&content[0]));
+   |                                                            ^^^^^^^^^^
+   |
+   = help: consider using `.get(n)` or `.get_mut(n)` instead
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+   = note: requested on the command line with `-W clippy::indexing-slicing`
+
+warning: indexing may panic
+  --> crates/cli/commands/src/db/get.rs:99:69
+   |
+99 | ...                   let header = Header::decompress(content[0].as_slice())?;
+   |                                                       ^^^^^^^^^^
+   |
+   = help: consider using `.get(n)` or `.get_mut(n)` instead
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: indexing may panic
+   --> crates/cli/commands/src/db/get.rs:100:76
+    |
+100 | ...                   let block_hash = BlockHash::decompress(content[1].as_slice())?;
+    |                                                              ^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: indexing may panic
+   --> crates/cli/commands/src/db/get.rs:109:41
+    |
+109 | ...                   content[0].as_slice(),
+    |                       ^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: indexing may panic
+   --> crates/cli/commands/src/db/get.rs:115:41
+    |
+115 | ...                   content[0].as_slice(),
+    |                       ^^^^^^^^^^
+    |
+    = help: consider using `.get(n)` or `.get_mut(n)` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
+
+warning: `reth-seismic-node` (lib) generated 18 warnings (run `cargo clippy --fix --lib -p reth-seismic-node` to apply 2 suggestions)
 warning: used `unwrap()` on a `Result` value
   --> crates/cli/commands/src/db/list.rs:70:28
    |
@@ -8213,7 +8214,6 @@ warning: used `unwrap()` on a `Result` value
     = note: if this value is an `Err`, it will panic
     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unwrap_used
 
-warning: `reth-seismic-node` (lib) generated 18 warnings (run `cargo clippy --fix --lib -p reth-seismic-node` to apply 2 suggestions)
 warning: indexing may panic
    --> crates/cli/commands/src/db/tui.rs:346:20
     |
@@ -8558,6 +8558,6 @@ warning: used `expect()` on a `Result` value
    = note: if this value is an `Err`, it will panic
    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#expect_used
 
-warning: `seismic-reth` (bin "seismic-reth" test) generated 2 warnings (2 duplicates)
 warning: `seismic-reth` (bin "seismic-reth") generated 2 warnings
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.98s
+warning: `seismic-reth` (bin "seismic-reth" test) generated 2 warnings (2 duplicates)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 9.02s
