@@ -114,6 +114,9 @@ mod test {
                 encryption_pubkey: PublicKey::from_str("028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0").unwrap(),
                 encryption_nonce: U96::from_str("0x7da3a99bf0f90d56551d99ea").unwrap(),
                 message_version: 2,
+                recent_block_hash: alloy_primitives::B256::from_slice(&hex::decode("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef").unwrap()),
+                expires_at_block: 1000000,
+                signed_read: false,
             }
         };
 

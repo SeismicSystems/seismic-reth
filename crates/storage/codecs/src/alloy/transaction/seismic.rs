@@ -74,35 +74,39 @@ impl Compact for TxSeismicElements {
     {
         let mut len = 0;
 
-        // 1. encryption_pubkey
+        // 1. encryption_pubkey (fixed size: 33 bytes)
         len += self.encryption_pubkey.serialize().to_compact(buf);
 
-        // 2. encryption_nonce
+        // 2. encryption_nonce (variable size: store length + data)
         let mut cache = BytesMut::new();
         let nonce_len = self.encryption_nonce.to_compact(&mut cache);
         buf.put_u8(nonce_len as u8);
         buf.put_slice(&cache);
         len += nonce_len + 1;
 
-        // 3. message_version
+        // 3. message_version (fixed size: 1 byte)
         buf.put_u8(self.message_version);
-        len += core::mem::size_of::<u8>();
+        len += 1;
 
-        // 4. recent_block_hash
+        // 4. recent_block_hash (fixed size: 32 bytes)
         len += self.recent_block_hash.to_compact(buf);
 
-        // 5. expires_at_block
-        len += self.expires_at_block.to_compact(buf);
+        // 5. expires_at_block (variable size: store length + data)
+        let mut cache = BytesMut::new();
+        let expires_len = self.expires_at_block.to_compact(&mut cache);
+        buf.put_u8(expires_len as u8);
+        buf.put_slice(&cache);
+        len += expires_len + 1;
 
-        // 6. signed_read
+        // 6. signed_read (fixed size: 1 byte)
         buf.put_u8(self.signed_read as u8);
-        len += core::mem::size_of::<u8>();
+        len += 1;
 
         len
     }
 
     fn from_compact(mut buf: &[u8], _len: usize) -> (Self, &[u8]) {
-        // 1. encryption_pubkey
+        // 1. encryption_pubkey (fixed size: 33 bytes)
         let encryption_pubkey_compressed_bytes =
             &buf[..seismic_enclave::secp256k1::constants::PUBLIC_KEY_SIZE];
         let encryption_pubkey =
@@ -110,20 +114,21 @@ impl Compact for TxSeismicElements {
                 .unwrap();
         buf.advance(seismic_enclave::secp256k1::constants::PUBLIC_KEY_SIZE);
 
-        // 2. encryption_nonce
+        // 2. encryption_nonce (variable size: read length then data)
         let (nonce_len, buf) = (buf[0], &buf[1..]);
         let (encryption_nonce, buf) = U96::from_compact(buf, nonce_len as usize);
 
-        // 3. message_version
+        // 3. message_version (fixed size: 1 byte)
         let (message_version, buf) = (buf[0], &buf[1..]);
 
-        // 4. recent_block_hash
+        // 4. recent_block_hash (fixed size: 32 bytes)
         let (recent_block_hash, buf) = alloy_primitives::B256::from_compact(buf, 32);
 
-        // 5. expires_at_block
-        let (expires_at_block, buf) = u64::from_compact(buf, 8);
+        // 5. expires_at_block (variable size: read length then data)
+        let (expires_len, buf) = (buf[0], &buf[1..]);
+        let (expires_at_block, buf) = u64::from_compact(buf, expires_len as usize);
 
-        // 6. signed_read
+        // 6. signed_read (fixed size: 1 byte)
         let (signed_read, buf) = (buf[0] != 0, &buf[1..]);
 
         (
