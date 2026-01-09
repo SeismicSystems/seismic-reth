@@ -1,4 +1,4 @@
-//! Test utils for seismic primitives, e.g. SeismicTransactionSigned
+//! Test utils for seismic primitives, e.g. `SeismicTransactionSigned`
 
 use crate::SeismicTransactionSigned;
 use alloy_consensus::SignableTransaction;

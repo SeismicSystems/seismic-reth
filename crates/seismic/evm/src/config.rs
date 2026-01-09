@@ -1,4 +1,4 @@
-//! Helpers for configuring the SeismicSpecId for the evm
+//! Helpers for configuring the `SeismicSpecId` for the evm
 
 use crate::Header;
 use alloy_consensus::BlockHeader;

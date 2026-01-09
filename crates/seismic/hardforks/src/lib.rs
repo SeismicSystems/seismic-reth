@@ -22,7 +22,7 @@ impl Hardfork for SeismicHardfork {
 }
 
 /// Mainnet hardforks
-/// Based off EthereumHardfork::mainnet(),
+/// Based off [`EthereumHardfork::mainnet()`]
 /// with existing eth hardforks activated at block 0
 pub static SEISMIC_MAINNET_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
     ChainHardforks::new(vec![

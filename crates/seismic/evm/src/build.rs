@@ -1,4 +1,4 @@
-//! The SeismicBlockAssembler. Nearly identical to the EthBlockAssembler, except with seismic types
+//! The `SeismicBlockAssembler`. Nearly identical to the `EthBlockAssembler`, except with seismic types
 
 use alloc::sync::Arc;
 use alloy_consensus::{
