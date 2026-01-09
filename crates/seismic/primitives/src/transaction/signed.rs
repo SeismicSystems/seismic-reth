@@ -597,7 +597,7 @@ impl reth_codecs::Compact for SeismicTransactionSigned {
             } else {
                 let mut compressor = reth_zstd_compressors::create_tx_compressor();
                 let tx_bits = self.transaction.to_compact(&mut tmp);
-                buf.put_slice(&compressor.compress(&tmp).expect("Failed to compress"));
+                buf.put_slice(&compressor.compress(&tmp).expect("zstd compression with static dictionary should never fail"));
                 tx_bits as u8
             }
         } else {
