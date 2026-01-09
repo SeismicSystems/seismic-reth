@@ -262,9 +262,8 @@ where
             return Ok(seismic_elements
                 .encrypt(&self.purpose_keys.tx_io_sk, &result)
                 .map_err(|e| ext_encryption_error(e.to_string()))?);
-        } else {
-            Ok(result)
         }
+        Ok(result)
     }
 
     /// Handler for: `eth_sendRawTransaction`
