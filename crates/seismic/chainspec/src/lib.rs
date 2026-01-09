@@ -31,7 +31,7 @@ pub const SEISMIC_DEV_GENESIS_HASH: B256 =
     b256!("0xdea362cf26069ee018e8a37b514c1e64d9e2d07f833728c86e19e88678c09b98");
 
 /// Seismic devnet specification
-/// 
+///
 /// # Panics
 /// Panics if the embedded `dev.json` genesis file cannot be deserialized.
 /// Indicates a build error, not a runtime issue.
@@ -63,7 +63,7 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 
 // TODO: remove this once we launch devnet with consensus
 /// Seismic old devnet specification
-/// 
+///
 /// # Panics
 /// Panics if the embedded `dev.json` genesis file cannot be deserialized.
 /// Indicates a build error, not a runtime issue.
@@ -94,7 +94,7 @@ pub static SEISMIC_DEV_OLD: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 });
 
 /// Seismic Mainnet
-/// 
+///
 /// # Panics
 /// Panics if the embedded `mainnet.json` genesis file cannot be deserialized.
 /// Indicates a build issue, not a runtime issue.
