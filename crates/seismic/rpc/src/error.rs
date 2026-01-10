@@ -56,10 +56,10 @@ impl FromEvmHalt<SeismicHaltReason> for SeismicEthApiError {
     fn from_evm_halt(halt: SeismicHaltReason, gas_limit: u64) -> Self {
         match halt {
             SeismicHaltReason::InvalidPrivateStorageAccess => {
-                SeismicEthApiError::InvalidPrivateStorageAccess
+                Self::InvalidPrivateStorageAccess
             }
             SeismicHaltReason::InvalidPublicStorageAccess => {
-                SeismicEthApiError::InvalidPublicStorageAccess
+                Self::InvalidPublicStorageAccess
             }
             SeismicHaltReason::Base(halt) => EthApiError::from_evm_halt(halt, gas_limit).into(),
         }

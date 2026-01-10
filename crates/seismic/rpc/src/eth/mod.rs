@@ -360,14 +360,14 @@ pub struct SeismicEthApiBuilder<NetworkT> {
 
 impl<NetworkT> Default for SeismicEthApiBuilder<NetworkT> {
     fn default() -> Self {
-        SeismicEthApiBuilder { _nt: PhantomData }
+        Self { _nt: PhantomData }
     }
 }
 
 impl<NetworkT> SeismicEthApiBuilder<NetworkT> {
     /// Creates a [`SeismicEthApiBuilder`] instance from core components.
     pub const fn new() -> Self {
-        SeismicEthApiBuilder { _nt: PhantomData }
+        Self { _nt: PhantomData }
     }
 }
 

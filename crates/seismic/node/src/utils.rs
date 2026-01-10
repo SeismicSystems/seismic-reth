@@ -48,7 +48,7 @@ pub mod test_utils {
                 .arg("--")
                 .arg("node")
                 .arg("--datadir")
-                .arg(SeismicRethTestCommand::data_dir().to_str().unwrap())
+                .arg(Self::data_dir().to_str().unwrap())
                 .arg("--dev")
                 .arg("--dev.block-max-transactions")
                 .arg("1")
@@ -127,7 +127,7 @@ pub mod test_utils {
 
         /// Get the url for the seismic reth test command
         pub fn url() -> String {
-            format!("http://127.0.0.1:8545")
+            "http://127.0.0.1:8545".to_string()
         }
     }
 
