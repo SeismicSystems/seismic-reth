@@ -53,10 +53,9 @@ impl<N, Rpc> SeismicTransaction for SeismicEthApi<N, Rpc>
 where
     Self: LoadTransaction<Provider: BlockReaderIdExt>,
     // N: RpcNodeCore,
-    N: SeismicNodeCore<
-        Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>
-    >,
-    <<<Self as RpcNodeCore>::Pool as TransactionPool>::Transaction as PoolTransaction>::Pooled: Decodable712,
+    N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
+    <<<Self as RpcNodeCore>::Pool as TransactionPool>::Transaction as PoolTransaction>::Pooled:
+        Decodable712,
     Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
 {
     async fn send_typed_data_transaction(&self, tx: TypedDataRequest) -> Result<B256, Self::Error> {
