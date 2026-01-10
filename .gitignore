@@ -78,3 +78,6 @@ __pycache__/
 # direnv
 .envrc
 .direnv/
+
+# clippy audit output
+clippy-audit.txt
