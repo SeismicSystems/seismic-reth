@@ -28,7 +28,7 @@ use reth_rpc_eth_api::{
 };
 use reth_rpc_eth_types::EthApiError;
 use reth_tracing::tracing::*;
-use seismic_alloy_consensus::{InputDecryptionElements, TypedDataRequest};
+use seismic_alloy_consensus::{InputDecryptionElements, TxSeismicMetadata, TypedDataRequest};
 use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest,
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
@@ -139,6 +139,33 @@ impl<Eth> EthApiExt<Eth> {
     pub const fn new(eth_api: Eth, purpose_keys: GetPurposeKeysResponse) -> Self {
         Self { eth_api, purpose_keys }
     }
+
+    /// Get the sender address from a seismic transaction request.
+    /// Returns an error if the sender is missing.
+    fn get_sender(request: &SeismicTransactionRequest) -> Result<Address, EthApiError> {
+        request.inner.from.ok_or_else(|| {
+            EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+                -32602,
+                "Missing 'from' field for seismic transaction",
+                None::<String>,
+            )))
+        })
+    }
+
+    /// Build transaction metadata for encryption/decryption.
+    /// Returns an error if required fields are missing.
+    fn build_metadata(
+        request: &SeismicTransactionRequest,
+        sender: Address,
+    ) -> Result<TxSeismicMetadata, EthApiError> {
+        request.metadata(sender).map_err(|e| {
+            EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+                -32602,
+                format!("Failed to build seismic metadata: {}", e),
+                None::<String>,
+            )))
+        })
+    }
 }
 
 #[async_trait]
@@ -182,8 +209,9 @@ where
 
             for call in calls {
                 let seismic_tx_request = convert_seismic_call_to_tx_request(call)?;
+                let sender = Self::get_sender(&seismic_tx_request)?;
                 let seismic_tx_request = seismic_tx_request
-                    .plaintext_copy(&self.purpose_keys.tx_io_sk)
+                    .plaintext_copy(&self.purpose_keys.tx_io_sk, sender)
                     .map_err(|e| ext_decryption_error(e.to_string()))?;
                 let tx_request: TransactionRequest = seismic_tx_request.inner;
                 prepared_calls.push(tx_request.into());
@@ -218,8 +246,10 @@ where
 
                 if let Some(seismic_elements) = seismic_tx_request.seismic_elements {
                     // if there are seismic elements, encrypt the output
+                    let sender = Self::get_sender(&seismic_tx_request)?;
+                    let metadata = Self::build_metadata(&seismic_tx_request, sender)?;
                     let encrypted_output = seismic_elements
-                        .encrypt(&self.purpose_keys.tx_io_sk, &call_result.return_data)
+                        .encrypt(&self.purpose_keys.tx_io_sk, &call_result.return_data, &metadata)
                         .map_err(|e| ext_encryption_error(e.to_string()))?;
                     call_result.return_data = encrypted_output;
                 }
@@ -243,8 +273,9 @@ where
         let seismic_tx_request = convert_seismic_call_to_tx_request(request)?;
 
         // decrypt seismic elements
+        let sender = Self::get_sender(&seismic_tx_request)?;
         let tx_request = seismic_tx_request
-            .plaintext_copy(&self.purpose_keys.tx_io_sk)
+            .plaintext_copy(&self.purpose_keys.tx_io_sk, sender)
             .map_err(|e| ext_decryption_error(e.to_string()))?
             .inner;
 
@@ -259,8 +290,9 @@ where
 
         // encrypt result
         if let Some(seismic_elements) = seismic_tx_request.seismic_elements {
+            let metadata = Self::build_metadata(&seismic_tx_request, sender)?;
             return Ok(seismic_elements
-                .encrypt(&self.purpose_keys.tx_io_sk, &result)
+                .encrypt(&self.purpose_keys.tx_io_sk, &result, &metadata)
                 .map_err(|e| ext_encryption_error(e.to_string()))?);
         } else {
             Ok(result)
@@ -293,8 +325,9 @@ where
     ) -> RpcResult<U256> {
         debug!(target: "reth-seismic-rpc::eth", ?request, ?block_number, ?state_override, "serving seismic eth_estimateGas extension");
         // decrypt
+        let sender = Self::get_sender(&request)?;
         let decrypted_req = request
-            .plaintext_copy(&self.purpose_keys.tx_io_sk)
+            .plaintext_copy(&self.purpose_keys.tx_io_sk, sender)
             .map_err(|e| ext_decryption_error(e.to_string()))?;
 
         // call inner
