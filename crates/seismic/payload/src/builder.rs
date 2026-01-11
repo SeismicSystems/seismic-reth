@@ -229,7 +229,7 @@ where
                 best_txs.mark_invalid(
                     &pool_tx,
                     InvalidPoolTransactionError::Consensus(
-                        InvalidTransactionError::FailedToDecryptSeismicTx,
+                        InvalidTransactionError::SeismicTx("failed to decrypt seismic transaction".to_string()),
                     ),
                 );
                 continue

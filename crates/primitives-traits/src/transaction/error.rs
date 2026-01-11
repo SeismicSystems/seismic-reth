@@ -64,9 +64,9 @@ pub enum InvalidTransactionError {
     /// Thrown post Osaka if gas limit is too high.
     #[error("gas limit too high")]
     GasLimitTooHigh,
-    /// Failed to decrypt calldata of seismic tx
-    #[error("Failed to decrypt seismic tx")]
-    FailedToDecryptSeismicTx,
+    /// Seismic transaction error
+    #[error("seismic transaction error: {0}")]
+    SeismicTx(String),
 }
 
 /// Represents error variants that can happen when trying to convert a transaction to pooled

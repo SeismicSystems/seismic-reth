@@ -643,9 +643,9 @@ pub enum RpcInvalidTransactionError {
         /// Minimum required priority fee.
         minimum_priority_fee: u128,
     },
-    /// Failed to decrypt calldata of seismic tx
-    #[error("Failed to decrypt seismic tx")]
-    FailedToDecryptSeismicTx,
+    /// Seismic transaction error
+    #[error("Seismic transaction error: {0}")]
+    SeismicTx(String),
     /// Any other error
     #[error("{0}")]
     Other(Box<dyn ToRpcError>),
@@ -799,8 +799,8 @@ impl From<InvalidTransactionError> for RpcInvalidTransactionError {
             InvalidTransactionError::Eip2930Disabled |
             InvalidTransactionError::Eip1559Disabled |
             InvalidTransactionError::Eip4844Disabled |
-            InvalidTransactionError::Eip7702Disabled |
-            InvalidTransactionError::FailedToDecryptSeismicTx => Self::FailedToDecryptSeismicTx,
+            InvalidTransactionError::Eip7702Disabled => Self::TxTypeNotSupported,
+            InvalidTransactionError::SeismicTx(msg) => Self::SeismicTx(msg),
             InvalidTransactionError::TxTypeNotSupported => Self::TxTypeNotSupported,
             InvalidTransactionError::GasUintOverflow => Self::GasUintOverflow,
             InvalidTransactionError::GasTooLow => Self::GasTooLow,

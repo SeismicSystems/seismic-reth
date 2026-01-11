@@ -10007,6 +10007,7 @@ dependencies = [
  "alloy-primitives",
  "c-kzg",
  "derive_more 2.1.1",
+ "reth-chainspec",
  "reth-primitives-traits",
  "reth-provider",
  "reth-seismic-chainspec",

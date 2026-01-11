@@ -8,16 +8,17 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-use reth_transaction_pool::{
-    CoinbaseTipOrdering, EthTransactionValidator, Pool, TransactionValidationTaskExecutor,
-};
+use reth_transaction_pool::{CoinbaseTipOrdering, Pool, TransactionValidationTaskExecutor};
+
+mod transaction;
+mod validator;
+
+pub use transaction::SeismicPooledTransaction;
+pub use validator::{SeismicTransactionValidator, SEISMIC_TX_RECENT_BLOCK_LOOKBACK};
 
 /// Type alias for default seismic transaction pool
 pub type SeismicTransactionPool<Client, S, T = SeismicPooledTransaction> = Pool<
-    TransactionValidationTaskExecutor<EthTransactionValidator<Client, T>>,
+    TransactionValidationTaskExecutor<SeismicTransactionValidator<Client, T>>,
     CoinbaseTipOrdering<T>,
     S,
 >;
-
-mod transaction;
-pub use transaction::SeismicPooledTransaction;
