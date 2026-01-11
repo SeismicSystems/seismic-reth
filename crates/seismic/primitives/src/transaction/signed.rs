@@ -31,7 +31,7 @@ use reth_primitives_traits::{
 use revm_context::{either::Either, TxEnv};
 use seismic_alloy_consensus::{
     InputDecryptionElements, InputDecryptionElementsError, SeismicTxEnvelope,
-    SeismicTypedTransaction, TxLegacyFields, TxSeismic, TxSeismicElements, TxSeismicMetadata,
+    SeismicTypedTransaction, TxSeismic, TxSeismicElements, TxSeismicMetadata,
 };
 use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
 
