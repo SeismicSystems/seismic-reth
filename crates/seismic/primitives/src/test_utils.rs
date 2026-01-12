@@ -61,10 +61,7 @@ pub fn get_seismic_elements() -> TxSeismicElements {
         encryption_pubkey: get_client_io_sk().public(),
         encryption_nonce: get_encryption_nonce(),
         message_version: 0,
-        recent_block_hash: B256::from_slice(
-            &hex::decode("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
-                .unwrap(),
-        ),
+        recent_block_hash: reth_seismic_chainspec::SEISMIC_DEV_GENESIS_HASH,
         expires_at_block: 1000000,
         signed_read: false,
     }

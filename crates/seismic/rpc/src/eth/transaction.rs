@@ -257,12 +257,7 @@ mod test {
                 encryption_pubkey: network_pubkey,
                 encryption_nonce: U96::from_str("0x7da3a99bf0f90d56551d99ea").unwrap(),
                 message_version: 2,
-                recent_block_hash: B256::from_slice(
-                    &hex::decode(
-                        "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                    )
-                    .unwrap(),
-                ),
+                recent_block_hash: reth_seismic_chainspec::SEISMIC_DEV_GENESIS_HASH,
                 expires_at_block: 1000000,
                 signed_read: false,
             },
