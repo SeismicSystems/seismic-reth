@@ -81,3 +81,4 @@ __pycache__/
 
 # clippy audit output
 clippy-audit.txt
+seismic-clippy.txt
