@@ -37,7 +37,7 @@ pub fn get_client_io_sk() -> SecretKey {
 pub fn get_signing_private_key() -> SigningKey {
     let private_key_bytes =
         hex_literal::hex!("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
-    
+
     SigningKey::from_bytes(&private_key_bytes.into()).expect("Invalid private key")
 }
 

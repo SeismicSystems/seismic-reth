@@ -694,8 +694,8 @@ async fn test_seismic_precompiles_end_to_end() {
         TxKind::Call(contract_addr),
     );
     let decrypted_output = provider.seismic_call(SendableTx::Builder(req)).await.unwrap();
-    let result_bytes = PlaintextType::abi_decode(&decrypted_output)
-        .expect("failed to decode the bytes");
+    let result_bytes =
+        PlaintextType::abi_decode(&decrypted_output).expect("failed to decode the bytes");
     let final_string =
         String::from_utf8(result_bytes.to_vec()).expect("invalid utf8 in decrypted bytes");
     assert_eq!(final_string, raw_message);
