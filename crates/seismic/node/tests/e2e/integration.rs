@@ -26,8 +26,7 @@ use reth_seismic_primitives::{
 };
 use reth_seismic_rpc::ext::EthApiOverrideClient;
 use seismic_alloy_network::{
-    foundry::builder::SeismicTransactionBuilderExt, reth::builder::seismic_reth_tx_builder,
-    wallet::SeismicWallet, SeismicReth,
+    reth::builder::seismic_reth_tx_builder, wallet::SeismicWallet, SeismicReth,
 };
 use seismic_alloy_provider::{
     test_utils::ContractTestContext, SeismicProviderExt, SeismicSignedProvider,
