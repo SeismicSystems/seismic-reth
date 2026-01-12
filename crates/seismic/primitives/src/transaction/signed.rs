@@ -191,10 +191,10 @@ impl From<SeismicTransactionSigned> for Signed<SeismicTypedTransaction> {
 // (SeismicTransaction<TxEnv>)
 impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
     fn from_recovered_tx(tx: &SeismicTransactionSigned, sender: Address) -> Self {
-        let tx_hash = tx.tx_hash().clone();
+        let tx_hash = *tx.tx_hash();
         let rng_mode = RngMode::Execution; // TODO WARNING: chose a default value
         let tx = match &tx.transaction {
-            SeismicTypedTransaction::Legacy(tx) => SeismicTransaction::<TxEnv> {
+            SeismicTypedTransaction::Legacy(tx) => Self {
                 base: TxEnv {
                     gas_limit: tx.gas_limit,
                     gas_price: tx.gas_price,
@@ -214,7 +214,7 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                 tx_hash,
                 rng_mode,
             },
-            SeismicTypedTransaction::Eip2930(tx) => SeismicTransaction::<TxEnv> {
+            SeismicTypedTransaction::Eip2930(tx) => Self {
                 base: TxEnv {
                     gas_limit: tx.gas_limit,
                     gas_price: tx.gas_price,
@@ -234,7 +234,7 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                 tx_hash,
                 rng_mode,
             },
-            SeismicTypedTransaction::Eip1559(tx) => SeismicTransaction::<TxEnv> {
+            SeismicTypedTransaction::Eip1559(tx) => Self {
                 base: TxEnv {
                     gas_limit: tx.gas_limit,
                     gas_price: tx.max_fee_per_gas,
@@ -254,7 +254,7 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                 tx_hash,
                 rng_mode,
             },
-            SeismicTypedTransaction::Eip4844(tx) => SeismicTransaction::<TxEnv> {
+            SeismicTypedTransaction::Eip4844(tx) => Self {
                 base: TxEnv {
                     gas_limit: tx.gas_limit,
                     gas_price: tx.max_fee_per_gas,
@@ -274,7 +274,7 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                 tx_hash,
                 rng_mode,
             },
-            SeismicTypedTransaction::Eip7702(tx) => SeismicTransaction::<TxEnv> {
+            SeismicTypedTransaction::Eip7702(tx) => Self {
                 base: TxEnv {
                     gas_limit: tx.gas_limit,
                     gas_price: tx.max_fee_per_gas,
@@ -298,7 +298,7 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                 tx_hash,
                 rng_mode,
             },
-            SeismicTypedTransaction::Seismic(tx) => SeismicTransaction::<TxEnv> {
+            SeismicTypedTransaction::Seismic(tx) => Self {
                 base: TxEnv {
                     gas_limit: tx.gas_limit,
                     gas_price: tx.gas_price,
@@ -326,7 +326,7 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
 
 impl FromTxWithEncoded<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
     fn from_encoded_tx(tx: &SeismicTransactionSigned, sender: Address, _encoded: Bytes) -> Self {
-        let tx_env = SeismicTransaction::<TxEnv>::from_recovered_tx(tx, sender);
+        let tx_env = Self::from_recovered_tx(tx, sender);
         Self { base: tx_env.base, tx_hash: tx_env.tx_hash, rng_mode: RngMode::Execution }
     }
 }
@@ -594,6 +594,10 @@ impl reth_codecs::Compact for SeismicTransactionSigned {
         let sig_bit = self.signature.to_compact(buf) as u8;
         let zstd_bit = self.transaction.input().len() >= 32;
 
+        // The `Compact` trait does not support fallible encoding.
+        // Compression failure indicates a catastrophic system error like OOM/corruption.
+        // Panicking here is intentional since silently corrupting data would be worse.
+        #[allow(clippy::expect_used)]
         let tx_bits = if zstd_bit {
             let mut tmp = Vec::with_capacity(256);
             if cfg!(feature = "std") {
@@ -606,15 +610,29 @@ impl reth_codecs::Compact for SeismicTransactionSigned {
             } else {
                 let mut compressor = reth_zstd_compressors::create_tx_compressor();
                 let tx_bits = self.transaction.to_compact(&mut tmp);
-                buf.put_slice(&compressor.compress(&tmp).expect("Failed to compress"));
+                buf.put_slice(
+                    &compressor
+                        .compress(&tmp)
+                        .expect("zstd compression with static dictionary should never fail"),
+                );
                 tx_bits as u8
             }
         } else {
             self.transaction.to_compact(buf) as u8
         };
 
+        debug_assert!(
+            start < buf.as_mut().len(),
+            "buffer invariant violated: start index {start} >= buffer length {}",
+            buf.as_mut().len()
+        );
+
         // Replace bitflags with the actual values
-        buf.as_mut()[start] = sig_bit | (tx_bits << 1) | ((zstd_bit as u8) << 3);
+        // SAFETY: debug_assert above verifies start < len, and we reserved space at line 583
+        #[allow(clippy::indexing_slicing)]
+        {
+            buf.as_mut()[start] = sig_bit | (tx_bits << 1) | ((zstd_bit as u8) << 3);
+        }
 
         buf.as_mut().len() - start
     }
@@ -664,6 +682,7 @@ impl reth_codecs::Compact for SeismicTransactionSigned {
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl<'a> arbitrary::Arbitrary<'a> for SeismicTransactionSigned {
+    #[allow(clippy::unwrap_used)] // Test/arbitrary code - panic on failure is acceptable
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         #[allow(unused_mut)]
         let mut transaction = SeismicTypedTransaction::arbitrary(u)?;

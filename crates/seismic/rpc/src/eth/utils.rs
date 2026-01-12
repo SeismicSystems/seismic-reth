@@ -13,17 +13,17 @@ use seismic_alloy_consensus::InputDecryptionElements;
 use seismic_enclave::secp256k1::SecretKey;
 
 /// Override the request for seismic calls
-pub fn seismic_override_call_request(request: &mut SeismicTransactionRequest) {
+pub const fn seismic_override_call_request(request: &mut SeismicTransactionRequest) {
     // If user calls with the standard (unsigned) eth_call,
     // then disregard whatever they put in the from field
     // They will still be able to read public contract functions,
     // but they will not be able to spoof msg.sender in these calls
-    request.from = None;
-    request.gas_price = None; // preventing InsufficientFunds error
-    request.max_fee_per_gas = None; // preventing InsufficientFunds error
-    request.max_priority_fee_per_gas = None; // preventing InsufficientFunds error
-    request.max_fee_per_blob_gas = None; // preventing InsufficientFunds error
-    request.value = None; // preventing InsufficientFunds error
+    request.inner.from = None;
+    request.inner.gas_price = None; // preventing InsufficientFunds error
+    request.inner.max_fee_per_gas = None; // preventing InsufficientFunds error
+    request.inner.max_priority_fee_per_gas = None; // preventing InsufficientFunds error
+    request.inner.max_fee_per_blob_gas = None; // preventing InsufficientFunds error
+    request.inner.value = None; // preventing InsufficientFunds error
     request.seismic_elements = None; // zero out seismic elements
 }
 
@@ -34,10 +34,10 @@ pub fn seismic_override_call_request(request: &mut SeismicTransactionRequest) {
 ///
 /// See [`alloy_eips::eip2718::Decodable2718::decode_2718`]
 pub fn recover_typed_data_request<T: SignedTransaction + Decodable712>(
-    mut data: &TypedDataRequest,
+    data: &TypedDataRequest,
 ) -> EthResult<Recovered<T>> {
     let transaction =
-        T::decode_712(&mut data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
+        T::decode_712(data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
 
     SignedTransaction::try_into_recovered(transaction)
         .or(Err(EthApiError::InvalidTransactionSignature))
@@ -105,6 +105,7 @@ pub fn signed_read_to_plaintext_tx(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 mod test {
     use crate::utils::recover_typed_data_request;
     use alloy_primitives::{

@@ -105,7 +105,9 @@ impl Compact for TxSeismicElements {
         len
     }
 
+    #[allow(clippy::indexing_slicing, clippy::unwrap_used)]
     fn from_compact(mut buf: &[u8], _len: usize) -> (Self, &[u8]) {
+        // Codec format is fixed by to_compact; malformed data indicates corruption and should panic
         // 1. encryption_pubkey (fixed size: 33 bytes)
         let encryption_pubkey_compressed_bytes =
             &buf[..seismic_enclave::secp256k1::constants::PUBLIC_KEY_SIZE];

@@ -119,7 +119,7 @@ where
                 max_fee_per_blob_gas.map(U256::from),
                 evm_env.block_env.blob_gasprice().map(U256::from),
             )
-            .map_err(|e| EthTxEnvError::CallFees(e))?;
+            .map_err(EthTxEnvError::CallFees)?;
 
         let gas_limit = gas.unwrap_or(
             // Use maximum allowed gas limit. The reason for this

@@ -45,14 +45,13 @@ use std::{fmt, marker::PhantomData, sync::Arc};
 use reth_rpc_convert::transaction::{EthTxEnvError, TryIntoTxEnv};
 use revm_context::{BlockEnv, CfgEnv, TxEnv};
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
-use seismic_revm;
 
 // Additional imports for SignableTxRequest wrapper
 use alloy_primitives::Signature;
 use reth_rpc_convert::SignTxRequestError;
 use seismic_alloy_network::TxSigner;
 
-/// Newtype wrapper around SeismicTransactionRequest to implement SignableTxRequest
+/// Newtype wrapper around `SeismicTransactionRequest` to implement `SignableTxRequest`
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SignableSeismicTransactionRequest(pub SeismicTransactionRequest);
 
@@ -130,7 +129,7 @@ impl SignableTxRequest<reth_seismic_primitives::SeismicTransactionSigned>
     }
 }
 
-/// Wrapper network type that uses SignableSeismicTransactionRequest
+/// Wrapper network type that uses `SignableSeismicTransactionRequest`
 #[derive(Debug, Clone)]
 pub struct SeismicRethWithSignable;
 
@@ -361,14 +360,14 @@ pub struct SeismicEthApiBuilder<NetworkT> {
 
 impl<NetworkT> Default for SeismicEthApiBuilder<NetworkT> {
     fn default() -> Self {
-        SeismicEthApiBuilder { _nt: PhantomData }
+        Self { _nt: PhantomData }
     }
 }
 
 impl<NetworkT> SeismicEthApiBuilder<NetworkT> {
     /// Creates a [`SeismicEthApiBuilder`] instance from core components.
     pub const fn new() -> Self {
-        SeismicEthApiBuilder { _nt: PhantomData }
+        Self { _nt: PhantomData }
     }
 }
 

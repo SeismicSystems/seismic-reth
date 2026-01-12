@@ -239,6 +239,7 @@ where
         };
 
         // update add to total fees
+        #[allow(clippy::expect_used)] // Fee is always valid after successful execution
         let miner_fee =
             tx.effective_tip_per_gas(base_fee).expect("fee is always valid; execution succeeded");
         total_fees += U256::from(miner_fee) * U256::from(gas_used);
