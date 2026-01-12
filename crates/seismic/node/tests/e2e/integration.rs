@@ -389,7 +389,9 @@ async fn test_seismic_reth_rpc_with_rust_client() {
     let _wallet = Wallet::default().with_chain_id(chain_id);
     let wallet: SeismicWallet<SeismicReth> = SeismicWallet::from(_wallet.inner);
 
-    let provider = SeismicSignedProvider::new(wallet, reqwest::Url::parse(&reth_rpc_url).unwrap()).await.unwrap();
+    let provider = SeismicSignedProvider::new(wallet, reqwest::Url::parse(&reth_rpc_url).unwrap())
+        .await
+        .unwrap();
 
     let req = TransactionBuilder::<SeismicReth>::with_kind(
         TransactionBuilder::<SeismicReth>::with_input(
@@ -590,7 +592,9 @@ async fn test_seismic_precompiles_end_to_end() {
     let _wallet = Wallet::default().with_chain_id(chain_id);
     let wallet: SeismicWallet<SeismicReth> = SeismicWallet::from(_wallet.inner);
 
-    let provider = SeismicSignedProvider::new(wallet, reqwest::Url::parse(&reth_rpc_url).unwrap()).await.unwrap();
+    let provider = SeismicSignedProvider::new(wallet, reqwest::Url::parse(&reth_rpc_url).unwrap())
+        .await
+        .unwrap();
     let req = TransactionBuilder::<SeismicReth>::with_kind(
         TransactionBuilder::<SeismicReth>::with_input(
             SeismicTransactionRequest::default(),

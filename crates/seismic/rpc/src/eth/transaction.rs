@@ -214,7 +214,8 @@ mod test {
     /// Kept here for future use if the protocol changes and test data needs regeneration.
     ///
     /// Uses:
-    /// - First Anvil private key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+    /// - First Anvil private key:
+    ///   0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
     /// - Sender address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
     /// - Network public key from seismic-enclave (insecure sample key)
     #[allow(dead_code)]
