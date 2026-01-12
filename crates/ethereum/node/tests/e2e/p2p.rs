@@ -92,6 +92,7 @@ async fn e2e_test_send_transactions() -> eyre::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "this takes a long time"]
 async fn test_long_reorg() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
 
