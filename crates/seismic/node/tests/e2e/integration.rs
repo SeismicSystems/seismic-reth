@@ -67,7 +67,8 @@ async fn integration_test() {
         shutdown_tx_top = Some(shutdown_tx);
 
         SeismicRethTestCommand::run(tx, shutdown_rx).await;
-        rx.recv().await.unwrap();
+        let url = rx.recv().await.unwrap();
+        SeismicRethTestCommand::set_url(url);
     }
 
     test_seismic_reth_rpc().await;

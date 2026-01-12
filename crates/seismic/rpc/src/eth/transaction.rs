@@ -222,7 +222,7 @@ mod test {
     fn generate_test_raw_tx() -> (Bytes, FixedBytes<32>) {
         use alloy_consensus::SignableTransaction;
         use alloy_eips::eip2718::Encodable2718;
-        use alloy_primitives::{aliases::U96, hex, Address, TxKind, B256, U256};
+        use alloy_primitives::{aliases::U96, hex, Address, TxKind, U256};
         use k256::ecdsa::SigningKey;
         use secp256k1::PublicKey;
         use seismic_alloy_consensus::{TxSeismic, TxSeismicElements};
@@ -289,11 +289,20 @@ mod test {
     }
 
     #[test]
+    #[ignore]
+    fn test_generate_raw_tx() {
+        use alloy_primitives::hex;
+        let (raw_bytes, hash) = generate_test_raw_tx();
+        println!("Raw bytes: 0x{}", hex::encode(&raw_bytes));
+        println!("Hash: {}", hash);
+    }
+
+    #[test]
     fn test_recover_raw_tx() {
-        let raw_tx = Bytes::from_str("0x4af8e9821403018504a817c80083033450943ab946eec2553114040de82d2e18798a51cf1e1487038d7ea4c68000a1028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a08c7da3a99bf0f90d56551d99ea02a01234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef830f424080a44e69e56c3bb999b8c98772ebb32aebcbd43b33e9e65a46333dfe6636f37f3009e93bad3301a0da7f5d88daa3fc0581040d43c85cadc1b6f9d49122bea841fb52f7bcb66d5676a03537c25df47c46a53648a8d96203eb3eceb87d06186a071e35a4c6b2007bae1c").unwrap();
+        let raw_tx = Bytes::from_str("0x4af8e9821403018504a817c80083033450943ab946eec2553114040de82d2e18798a51cf1e1487038d7ea4c68000a1028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a08c7da3a99bf0f90d56551d99ea02a0dea362cf26069ee018e8a37b514c1e64d9e2d07f833728c86e19e88678c09b98830f424080a44e69e56c3bb999b8c98772ebb32aebcbd43b33e9e65a46333dfe6636f37f3009e93bad3380a04885f323d8d63c0b63d90430ceec96ffe392e3782b039b8b8d579f0fe155d796a00bc6fda2b50bd95819c70fc8f8a3c6c79030ffc3cf9dc3bc4d5094043ad59796").unwrap();
         let recovered = recover_raw_transaction::<SeismicTransactionSigned>(&raw_tx).unwrap();
         let expected = FixedBytes::<32>::from_str(
-            "24e67060cf0788f8fbfe10a389f08cb071a76ff38a98c31c0803cf50fc8f2e29",
+            "5851a99fa362b48fc0cc4cb543555c6afbe3fc826b67395877bf3ba02abb5b0a",
         )
         .unwrap();
         assert_eq!(recovered.tx_hash(), &expected);

@@ -9,12 +9,14 @@ pub mod test_utils {
     use reth_seismic_chainspec::SEISMIC_DEV;
     use seismic_alloy_rpc_types::SeismicTransactionRequest;
     use serde_json::Value;
-    use std::{path::PathBuf, process::Stdio};
+    use std::{path::PathBuf, process::Stdio, sync::OnceLock};
     use tokio::{
         io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
         process::Command,
         sync::mpsc,
     };
+
+    static HTTP_RPC_URL: OnceLock<String> = OnceLock::new();
 
     pub use reth_seismic_primitives::test_utils::{
         client_decrypt, client_encrypt, get_ciphertext, get_client_io_sk, get_encryption_nonce,
@@ -31,7 +33,7 @@ pub mod test_utils {
     pub struct SeismicRethTestCommand();
     impl SeismicRethTestCommand {
         /// Run the seismic reth test command
-        pub async fn run(tx: mpsc::Sender<()>, mut shutdown_rx: mpsc::Receiver<()>) {
+        pub async fn run(tx: mpsc::Sender<String>, mut shutdown_rx: mpsc::Receiver<()>) {
             let output = Command::new("cargo")
                 .arg("metadata")
                 .arg("--format-version=1")
@@ -56,6 +58,12 @@ pub mod test_utils {
                 .arg("--enclave.mock-server")
                 .arg("-vvvv")
                 .arg("--disable-discovery")
+                .arg("--port")
+                .arg("0")
+                .arg("--authrpc.port")
+                .arg("0")
+                .arg("--http.port")
+                .arg("0")
                 .current_dir(workspace_root)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -70,6 +78,7 @@ pub mod test_utils {
                 let mut stdout_line = String::new();
                 let mut stderr_line = String::new();
                 let mut sent = false;
+                let mut http_rpc_url: Option<String> = None;
                 std::panic::set_hook(Box::new(|info| {
                     eprintln!("❌ PANIC DETECTED: {:?}", info);
                 }));
@@ -83,9 +92,9 @@ pub mod test_utils {
                             }
                             eprint!("{}", stdout_line);
 
-                            if stdout_line.contains("Starting consensus engine") && !sent {
+                            if stdout_line.contains("Starting consensus engine") && !sent && http_rpc_url.is_some() {
                                 eprintln!("🚀 Reth server is ready!");
-                                let _ = tx.send(()).await;
+                                let _ = tx.send(format!("http://{}", http_rpc_url.clone().unwrap())).await;
                                 sent = true;
                             }
                             stdout_line.clear();
@@ -98,6 +107,16 @@ pub mod test_utils {
                                 break;
                             }
                             eprint!("{}", stderr_line);
+
+                            // Extract HTTP RPC URL from log line
+                            if stderr_line.contains("RPC HTTP server started url=") {
+                                if let Some(url_start) = stderr_line.find("url=") {
+                                    let url = stderr_line[url_start + 4..].trim().to_string();
+                                    eprintln!("📡 Captured HTTP RPC URL: {}", url);
+                                    http_rpc_url = Some(url);
+                                }
+                            }
+
                             stderr_line.clear();
                         }
 
@@ -126,9 +145,17 @@ pub mod test_utils {
             SEISMIC_DEV.chain().into()
         }
 
+        /// Set the HTTP RPC URL for tests
+        pub fn set_url(url: String) {
+            HTTP_RPC_URL.set(url).expect("HTTP_RPC_URL already set");
+        }
+
         /// Get the url for the seismic reth test command
         pub fn url() -> String {
-            format!("http://127.0.0.1:8545")
+            HTTP_RPC_URL
+                .get()
+                .cloned()
+                .unwrap_or_else(|| "http://127.0.0.1:8545".to_string())
         }
     }
 
