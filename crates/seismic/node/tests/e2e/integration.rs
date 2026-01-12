@@ -104,7 +104,7 @@ async fn get_signed_deploy_tx_bytes(
 async fn integration_test() {
     // set this to true when you want to spin up a node
     // outside the test to see logs more easily
-    let manual_debug = true;
+    let manual_debug = false;
 
     let mut shutdown_tx_top: Option<mpsc::Sender<()>> = None;
     if !manual_debug {
