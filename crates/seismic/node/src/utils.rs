@@ -20,7 +20,7 @@ pub mod test_utils {
 
     pub use reth_seismic_primitives::test_utils::{
         client_decrypt, client_encrypt, get_ciphertext, get_client_io_sk, get_encryption_nonce,
-        get_network_public_key, get_plaintext, get_seismic_elements, get_seismic_tx,
+        get_network_public_key, get_plaintext, get_seismic_metadata, get_seismic_elements, get_seismic_tx,
         get_signed_seismic_tx, get_signed_seismic_tx_bytes, get_signed_seismic_tx_encoding,
         get_signed_seismic_tx_typed_data, get_signing_private_key, get_unsigned_seismic_tx_request,
         get_unsigned_seismic_tx_typed_data, get_wrong_private_key, sign_seismic_tx, sign_tx,
