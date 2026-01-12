@@ -2265,7 +2265,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
 dependencies = [
  "lazy_static",
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4127,7 +4127,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.6.1",
  "tokio",
  "tower-service",
  "tracing",
@@ -4145,7 +4145,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.57.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -6615,7 +6615,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.1.1",
  "rustls",
- "socket2 0.5.10",
+ "socket2 0.6.1",
  "thiserror 2.0.17",
  "tokio",
  "tracing",
@@ -6652,7 +6652,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.10",
+ "socket2 0.6.1",
  "tracing",
  "windows-sys 0.60.2",
 ]
@@ -11290,7 +11290,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-consensus"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#307a6b27c1c75953cb5119549a60c4e3314ac7e3"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#c9cb8892b887318032cfc4b6431eb7794f7cb4b5"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -11317,7 +11317,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-genesis"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#307a6b27c1c75953cb5119549a60c4e3314ac7e3"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#c9cb8892b887318032cfc4b6431eb7794f7cb4b5"
 dependencies = [
  "alloy-genesis",
  "alloy-primitives",
@@ -11330,7 +11330,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-network"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#307a6b27c1c75953cb5119549a60c4e3314ac7e3"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#c9cb8892b887318032cfc4b6431eb7794f7cb4b5"
 dependencies = [
  "alloy-consensus",
  "alloy-eip7702",
@@ -11357,7 +11357,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-provider"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#307a6b27c1c75953cb5119549a60c4e3314ac7e3"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#c9cb8892b887318032cfc4b6431eb7794f7cb4b5"
 dependencies = [
  "alloy-network",
  "alloy-primitives",
@@ -11376,7 +11376,7 @@ dependencies = [
 [[package]]
 name = "seismic-alloy-rpc-types"
 version = "0.0.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#307a6b27c1c75953cb5119549a60c4e3314ac7e3"
+source = "git+https://github.com/SeismicSystems/seismic-alloy.git?branch=audit-seismic-tx#c9cb8892b887318032cfc4b6431eb7794f7cb4b5"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -12762,7 +12762,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5f7c95348f20c1c913d72157b3c6dee6ea3e30b3d19502c5a7f6d3f160dacbf"
 dependencies = [
  "cc",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -13284,7 +13284,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
