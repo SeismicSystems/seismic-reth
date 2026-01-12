@@ -20,6 +20,7 @@ use seismic_enclave::{
 /// This must be called before building the node components.
 /// Panics if the enclave cannot be booted or purpose keys cannot be fetched.
 #[allow(clippy::expect_used)] // Intentional panic on startup failure - enclave is required
+#[allow(clippy::panic)] // Intentional panic on fetching keys failure - enclave keys are required
 async fn boot_enclave_and_fetch_keys<ChainSpec>(
     config: &NodeConfig<ChainSpec>,
 ) -> GetPurposeKeysResponse {
