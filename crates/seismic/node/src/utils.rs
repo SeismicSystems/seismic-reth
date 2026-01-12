@@ -73,6 +73,7 @@ pub mod test_utils {
                 let mut stderr_line = String::new();
                 let mut sent = false;
                 let mut http_rpc_url: Option<String> = None;
+                let mut consensus_engine_started = false;
                 std::panic::set_hook(Box::new(|info| {
                     eprintln!("❌ PANIC DETECTED: {:?}", info);
                 }));
@@ -86,11 +87,18 @@ pub mod test_utils {
                             }
                             eprint!("{}", stdout_line);
 
-                            if stdout_line.contains("Starting consensus engine") && !sent && http_rpc_url.is_some() {
+                            if stdout_line.contains("Starting consensus engine") {
+                                eprintln!("✅ Consensus engine started");
+                                consensus_engine_started = true;
+                            }
+
+                            // Send URL once both conditions are met
+                            if !sent && consensus_engine_started && http_rpc_url.is_some() {
                                 eprintln!("🚀 Reth server is ready!");
                                 let _ = tx.send(format!("http://{}", http_rpc_url.clone().unwrap())).await;
                                 sent = true;
                             }
+
                             stdout_line.clear();
                             tokio::io::stdout().flush().await.unwrap();
                         }
@@ -109,6 +117,13 @@ pub mod test_utils {
                                     eprintln!("📡 Captured HTTP RPC URL: {}", url);
                                     http_rpc_url = Some(url);
                                 }
+                            }
+
+                            // Send URL once both conditions are met
+                            if !sent && consensus_engine_started && http_rpc_url.is_some() {
+                                eprintln!("🚀 Reth server is ready!");
+                                let _ = tx.send(format!("http://{}", http_rpc_url.clone().unwrap())).await;
+                                sent = true;
                             }
 
                             stderr_line.clear();

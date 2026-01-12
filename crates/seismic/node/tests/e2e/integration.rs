@@ -122,21 +122,14 @@ async fn integration_test() {
         SeismicRethTestCommand::set_url(url);
     }
 
-    println!("Testing rpc");
     test_seismic_reth_rpc().await;
-
-    println!("Testing typeddata");
     test_seismic_reth_rpc_with_typed_data().await;
-
-    println!("Testing reth rpc alloy");
     test_seismic_reth_rpc_with_rust_client().await;
+    test_seismic_precompiles_end_to_end().await;
 
     /*
      * test_seismic_reth_rpc_simulate_block().await;
      */
-
-    println!("Testing precompiles");
-    test_seismic_precompiles_end_to_end().await;
 
     if !manual_debug {
         let _ = shutdown_tx_top.unwrap().try_send(()).unwrap();
