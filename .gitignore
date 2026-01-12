@@ -79,6 +79,3 @@ __pycache__/
 .envrc
 .direnv/
 
-# clippy audit output
-clippy-audit.txt
-seismic-clippy.txt
