@@ -13,8 +13,8 @@
         "typescript": "^5"
     },
     "dependencies": {
-        "seismic-viem": "latest",
-        "seismic-viem-tests": "latest",
+        "seismic-viem": "^1.1.0",
+        "seismic-viem-tests": "^1.1.0",
         "viem": "2.x"
     }
 }
