@@ -135,14 +135,14 @@ mod test {
         let recovered_sighash = recovered.signature_hash();
 
         let expected_tx_hash = FixedBytes::<32>::from_hex(
-            "d578c4f5e787b2994749e68e44860692480ace52b219bbc0119919561cbc29ea",
+            "a9c1c87a4fa27002f9487ade27b5eb77ab3c82b284bc384609572f1eb8e171dc",
         )
         .unwrap();
         assert_eq!(signed_hash, expected_tx_hash);
         assert_eq!(recovered_hash, expected_tx_hash);
 
         let expected_sighash = FixedBytes::<32>::from_hex(
-            "2886e254cbaa8b07a578dec42d3d71a8d4374b607bafe4e4b1c7fd4a8cb50911",
+            "74a89cf115c2813a5b811dbd946f53184fa4d3a37248224f1ff72b4ba2832c2a",
         )
         .unwrap();
         assert_eq!(signed_sighash, expected_sighash);

@@ -14,8 +14,8 @@ use alloy_sol_types::{sol, SolCall, SolValue};
 use reth_e2e_test_utils::wallet::Wallet;
 use reth_rpc_eth_api::EthApiClient;
 use reth_seismic_node::utils::test_utils::{
-    client_decrypt, get_nonce, get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
-    get_unsigned_seismic_tx_request, SeismicRethTestCommand,
+    client_decrypt, get_nonce, get_seismic_metadata, get_signed_seismic_tx_bytes,
+    get_signed_seismic_tx_typed_data, get_unsigned_seismic_tx_request, SeismicRethTestCommand,
 };
 use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
@@ -141,12 +141,14 @@ async fn test_seismic_reth_rpc() {
     println!("eth_getCode getting contract deployment code: {:?}", code);
 
     // eth_call to check the parity. Should be 0
+    let nonce = get_nonce(&client, wallet.inner.address()).await;
+    let to = TxKind::Call(contract_addr);
     let output = EthApiOverrideClient::<Block>::call(
         &client,
         get_signed_seismic_tx_bytes(
             &wallet.inner,
-            get_nonce(&client, wallet.inner.address()).await,
-            TxKind::Call(contract_addr),
+            nonce,
+            to,
             chain_id,
             ContractTestContext::get_is_odd_input_plaintext(),
         )
@@ -158,7 +160,8 @@ async fn test_seismic_reth_rpc() {
     )
     .await
     .unwrap();
-    let decrypted_output = client_decrypt(&output).unwrap();
+    let metadata = get_seismic_metadata(wallet.inner.address(), chain_id, nonce, to, U256::ZERO);
+    let decrypted_output = client_decrypt(metadata, &output).unwrap();
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 
@@ -201,12 +204,14 @@ async fn test_seismic_reth_rpc() {
     assert_eq!(receipt.status(), true);
 
     // Final eth_call to check the parity. Should be 1
+    let nonce = get_nonce(&client, wallet.inner.address()).await;
+    let to = TxKind::Call(contract_addr);
     let output = EthApiOverrideClient::<SeismicBlock>::call(
         &client,
         get_signed_seismic_tx_bytes(
             &wallet.inner,
-            get_nonce(&client, wallet.inner.address()).await,
-            TxKind::Call(contract_addr),
+            nonce,
+            to,
             chain_id,
             ContractTestContext::get_is_odd_input_plaintext(),
         )
@@ -218,7 +223,8 @@ async fn test_seismic_reth_rpc() {
     )
     .await
     .unwrap();
-    let decrypted_output = client_decrypt(&output).unwrap();
+    let metadata = get_seismic_metadata(wallet.inner.address(), chain_id, nonce, to, U256::ZERO);
+    let decrypted_output = client_decrypt(metadata, &output).unwrap();
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::from(1));
 
@@ -349,12 +355,14 @@ async fn test_seismic_reth_rpc_with_typed_data() {
     println!("eth_getCode getting contract deployment code: {:?}", code);
 
     // eth_call to check the parity. Should be 0
+    let nonce = get_nonce(&client, wallet.inner.address()).await;
+    let to = TxKind::Call(contract_addr);
     let output = EthApiOverrideClient::<Block>::call(
         &client,
         get_signed_seismic_tx_typed_data(
             &wallet.inner,
-            get_nonce(&client, wallet.inner.address()).await,
-            TxKind::Call(contract_addr),
+            nonce,
+            to,
             chain_id,
             ContractTestContext::get_is_odd_input_plaintext(),
         )
@@ -366,7 +374,8 @@ async fn test_seismic_reth_rpc_with_typed_data() {
     )
     .await
     .unwrap();
-    let decrypted_output = client_decrypt(&output).unwrap();
+    let metadata = get_seismic_metadata(wallet.inner.address(), chain_id, nonce, to, U256::ZERO);
+    let decrypted_output = client_decrypt(metadata, &output).unwrap();
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 }
@@ -562,9 +571,12 @@ async fn test_seismic_reth_rpc_simulate_block() {
     let result =
         EthApiOverrideClient::<Block>::simulate_v1(&client, simulate_payload, None).await.unwrap();
 
+    // Create metadata for decryption (all calls use same params except nonce)
+    let metadata = get_seismic_metadata(wallet.inner.address(), chain_id, nonce, TxKind::Create, U256::ZERO);
+
     for block_result in result {
         for call in block_result.calls {
-            let decrypted_output = client_decrypt(&call.return_data).unwrap();
+            let decrypted_output = client_decrypt(metadata.clone(), &call.return_data).unwrap();
             println!("decrypted_output: {:?}", decrypted_output);
             assert_eq!(decrypted_output, ContractTestContext::get_code());
         }

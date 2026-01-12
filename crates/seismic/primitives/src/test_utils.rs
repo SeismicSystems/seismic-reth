@@ -206,6 +206,21 @@ fn get_metadata(plaintext_req: &TransactionRequest) -> TxSeismicMetadata {
     }
 }
 
+/// Get seismic transaction metadata for testing
+pub fn get_seismic_metadata(
+    sender: Address,
+    chain_id: u64,
+    nonce: u64,
+    to: TxKind,
+    value: U256,
+) -> TxSeismicMetadata {
+    TxSeismicMetadata {
+        sender,
+        legacy_fields: TxLegacyFields { chain_id, nonce, to, value },
+        seismic_elements: get_seismic_elements(),
+    }
+}
+
 /// Get an unsigned seismic transaction request
 pub async fn get_unsigned_seismic_tx_request(
     sk_wallet: &PrivateKeySigner,
