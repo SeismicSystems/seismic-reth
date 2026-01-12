@@ -35,6 +35,7 @@ pub const SEISMIC_DEV_GENESIS_HASH: B256 =
 /// # Panics
 /// Panics if the embedded `dev.json` genesis file cannot be deserialized.
 /// Indicates a build error, not a runtime issue.
+#[allow(clippy::expect_used)] // Documented panic - genesis deserialization is required
 pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     let mut genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
         .expect("FATAL: Can't deserialize Dev testnet genesis json");
@@ -67,6 +68,7 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 /// # Panics
 /// Panics if the embedded `dev.json` genesis file cannot be deserialized.
 /// Indicates a build error, not a runtime issue.
+#[allow(clippy::expect_used)] // Documented panic - genesis deserialization is required
 pub static SEISMIC_DEV_OLD: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     let mut genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
         .expect("FATAL: Can't deserialize Dev testnet genesis json");
@@ -98,6 +100,7 @@ pub static SEISMIC_DEV_OLD: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 /// # Panics
 /// Panics if the embedded `mainnet.json` genesis file cannot be deserialized.
 /// Indicates a build issue, not a runtime issue.
+#[allow(clippy::expect_used)] // Documented panic - genesis deserialization is required
 pub static SEISMIC_MAINNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     let mut genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/mainnet.json"))
         .expect("FATAL: Can't deserialize Mainnet genesis json"); //

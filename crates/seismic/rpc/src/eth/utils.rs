@@ -66,6 +66,7 @@ pub fn convert_seismic_call_to_tx_request(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 mod test {
     use crate::utils::recover_typed_data_request;
     use alloy_primitives::{

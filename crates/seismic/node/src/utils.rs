@@ -1,5 +1,7 @@
 //! test utils for the e2e tests
 
+#![allow(clippy::unwrap_used, clippy::expect_used)] // Test utilities - panics are acceptable
+
 /// Test utils for the seismic rpc api
 pub mod test_utils {
     use alloy_primitives::Address;

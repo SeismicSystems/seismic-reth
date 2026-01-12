@@ -58,7 +58,7 @@ impl SeismicEvmConfig {
         chain_spec: Arc<ChainSpec>,
         purpose_keys: &'static seismic_enclave::GetPurposeKeysResponse,
     ) -> Self {
-        SeismicEvmConfig::new_with_evm_factory(
+        Self::new_with_evm_factory(
             chain_spec,
             SeismicEvmFactory::new_with_purpose_keys(purpose_keys),
             purpose_keys,

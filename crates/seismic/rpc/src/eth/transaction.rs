@@ -214,6 +214,7 @@ impl SimTxConverter<SignableSeismicTransactionRequest, SeismicTransactionSigned>
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod test {
     use alloy_primitives::{Bytes, FixedBytes};
     use reth_primitives_traits::SignedTransaction;
