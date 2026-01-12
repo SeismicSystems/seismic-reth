@@ -15,6 +15,7 @@ static PURPOSE_KEYS: OnceLock<GetPurposeKeysResponse> = OnceLock::new();
 ///
 /// # Panics
 /// Panics if called more than once.
+#[allow(clippy::expect_used)] // Documented panic behavior
 pub fn init_purpose_keys(keys: GetPurposeKeysResponse) {
     PURPOSE_KEYS.set(keys).expect("Purpose keys already initialized");
 }
@@ -23,6 +24,7 @@ pub fn init_purpose_keys(keys: GetPurposeKeysResponse) {
 ///
 /// # Panics
 /// Panics if the keys haven't been initialized yet.
+#[allow(clippy::expect_used)] // Documented panic behavior
 pub fn get_purpose_keys() -> &'static GetPurposeKeysResponse {
     PURPOSE_KEYS.get().expect("Purpose keys not initialized")
 }

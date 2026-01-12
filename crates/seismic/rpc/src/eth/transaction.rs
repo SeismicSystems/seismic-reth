@@ -53,10 +53,9 @@ impl<N, Rpc> SeismicTransaction for SeismicEthApi<N, Rpc>
 where
     Self: LoadTransaction<Provider: BlockReaderIdExt>,
     // N: RpcNodeCore,
-    N: SeismicNodeCore<
-        Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>
-    >,
-    <<<SeismicEthApi<N, Rpc> as RpcNodeCore>::Pool as TransactionPool>::Transaction as PoolTransaction>::Pooled: Decodable712,
+    N: SeismicNodeCore<Provider: BlockReader<Transaction = ProviderTx<Self::Provider>>>,
+    <<<Self as RpcNodeCore>::Pool as TransactionPool>::Transaction as PoolTransaction>::Pooled:
+        Decodable712,
     Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
 {
     async fn send_typed_data_transaction(&self, tx: TypedDataRequest) -> Result<B256, Self::Error> {
@@ -92,6 +91,12 @@ where
 #[derive(Clone, Debug)]
 pub struct SeismicRpcTxConverter;
 
+impl Default for SeismicRpcTxConverter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SeismicRpcTxConverter {
     /// Creates a new converter
     pub const fn new() -> Self {
@@ -102,6 +107,12 @@ impl SeismicRpcTxConverter {
 /// Seismic simulation transaction converter that implements Debug
 #[derive(Clone, Debug)]
 pub struct SeismicSimTxConverter;
+
+impl Default for SeismicSimTxConverter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl SeismicSimTxConverter {
     /// Creates a new converter
@@ -203,6 +214,7 @@ impl SimTxConverter<SignableSeismicTransactionRequest, SeismicTransactionSigned>
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod test {
     use alloy_primitives::{Bytes, FixedBytes};
     use reth_primitives_traits::SignedTransaction;

@@ -58,6 +58,6 @@ mod tests {
 
         assert_eq!(port, 7878);
         assert_eq!(addr, IpAddr::V4(Ipv4Addr::UNSPECIFIED));
-        assert_eq!(mock, false);
+        assert!(!mock);
     }
 }

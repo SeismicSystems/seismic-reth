@@ -1,4 +1,6 @@
-//! Test utils for seismic primitives, e.g. SeismicTransactionSigned
+//! Test utils for seismic primitives, e.g. `SeismicTransactionSigned`
+
+#![allow(clippy::unwrap_used, clippy::expect_used)] // Test utilities - panics are acceptable
 
 use crate::SeismicTransactionSigned;
 use alloy_consensus::SignableTransaction;
@@ -35,9 +37,8 @@ pub fn get_client_io_sk() -> SecretKey {
 pub fn get_signing_private_key() -> SigningKey {
     let private_key_bytes =
         hex_literal::hex!("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
-    let signing_key =
-        SigningKey::from_bytes(&private_key_bytes.into()).expect("Invalid private key");
-    signing_key
+
+    SigningKey::from_bytes(&private_key_bytes.into()).expect("Invalid private key")
 }
 
 /// Get a wrong private secp256k1 key
@@ -48,7 +49,7 @@ pub fn get_wrong_private_key() -> SecretKey {
 }
 
 /// Get the encryption nonce
-pub fn get_encryption_nonce() -> U96 {
+pub const fn get_encryption_nonce() -> U96 {
     U96::MAX
 }
 
@@ -83,8 +84,7 @@ pub fn get_plaintext() -> Bytes {
 
 /// Encrypt plaintext using network public key and client private key
 pub fn get_ciphertext() -> Bytes {
-    let encrypted_data = client_encrypt(&get_plaintext()).unwrap();
-    encrypted_data
+    client_encrypt(&get_plaintext()).unwrap()
 }
 
 /// Get a seismic transaction
@@ -129,7 +129,7 @@ pub fn sign_seismic_typed_tx(
     signing_sk: &SigningKey,
 ) -> Signature {
     let sig_hash = typed_data.signature_hash();
-    let sig = signing_sk.sign_prehash_recoverable(&sig_hash.as_slice()).unwrap();
+    let sig = signing_sk.sign_prehash_recoverable(sig_hash.as_slice()).unwrap();
     let recoverid = sig.1;
 
     let signature = Signature::new(

@@ -53,6 +53,12 @@ impl SeismicReceiptBuilder {
 #[derive(Debug, Clone)]
 pub struct SeismicReceiptConverter;
 
+impl Default for SeismicReceiptConverter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SeismicReceiptConverter {
     /// Creates a new seismic receipt converter.
     pub const fn new() -> Self {

@@ -9,7 +9,7 @@ use seismic_alloy_network::{SeismicReth, TransactionBuilder};
 use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
 
 /// Override the request for seismic calls
-pub fn seismic_override_call_request(request: &mut TransactionRequest) {
+pub const fn seismic_override_call_request(request: &mut TransactionRequest) {
     // If user calls with the standard (unsigned) eth_call,
     // then disregard whatever they put in the from field
     // They will still be able to read public contract functions,
@@ -29,10 +29,10 @@ pub fn seismic_override_call_request(request: &mut TransactionRequest) {
 ///
 /// See [`alloy_eips::eip2718::Decodable2718::decode_2718`]
 pub fn recover_typed_data_request<T: SignedTransaction + Decodable712>(
-    mut data: &TypedDataRequest,
+    data: &TypedDataRequest,
 ) -> EthResult<Recovered<T>> {
     let transaction =
-        T::decode_712(&mut data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
+        T::decode_712(data).map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
 
     SignedTransaction::try_into_recovered(transaction)
         .or(Err(EthApiError::InvalidTransactionSignature))
@@ -66,6 +66,7 @@ pub fn convert_seismic_call_to_tx_request(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 mod test {
     use crate::utils::recover_typed_data_request;
     use alloy_primitives::{

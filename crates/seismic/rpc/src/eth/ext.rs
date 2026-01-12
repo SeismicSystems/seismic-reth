@@ -262,9 +262,8 @@ where
             return Ok(seismic_elements
                 .encrypt(&self.purpose_keys.tx_io_sk, &result)
                 .map_err(|e| ext_encryption_error(e.to_string()))?);
-        } else {
-            Ok(result)
         }
+        Ok(result)
     }
 
     /// Handler for: `eth_sendRawTransaction`
@@ -308,7 +307,7 @@ where
     }
 }
 
-/// Creates a EthApiError that says that seismic decryption failed
+/// Creates an [`EthApiError`] that says that seismic decryption failed
 pub fn ext_decryption_error(e_str: String) -> EthApiError {
     EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
         -32000, // TODO: pick a better error code?
@@ -317,7 +316,7 @@ pub fn ext_decryption_error(e_str: String) -> EthApiError {
     )))
 }
 
-/// Creates a EthApiError that says that seismic encryption failed
+/// Creates an [`EthApiError`] that says that seismic encryption failed
 pub fn ext_encryption_error(e_str: String) -> EthApiError {
     EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
         -32000, // TODO: pick a better error code?
