@@ -5,9 +5,7 @@ use alloy_consensus::SignableTransaction;
 use alloy_dyn_abi::TypedData;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_network::{EthereumWallet, TransactionBuilder};
-use alloy_primitives::{
-    aliases::U96, hex_literal, Address, Bytes, Signature, TxKind, B256, U256,
-};
+use alloy_primitives::{aliases::U96, hex_literal, Address, Bytes, Signature, TxKind, B256, U256};
 use alloy_rpc_types::{TransactionInput, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
 use core::str::FromStr;
@@ -80,7 +78,8 @@ pub fn client_decrypt(
     metadata: TxSeismicMetadata,
     ciphertext: &Bytes,
 ) -> Result<Bytes, anyhow::Error> {
-    let plaintext = metadata.client_decrypt(&ciphertext, &get_network_public_key(), &get_client_io_sk())?;
+    let plaintext =
+        metadata.client_decrypt(&ciphertext, &get_network_public_key(), &get_client_io_sk())?;
     Ok(Bytes::from(plaintext))
 }
 
@@ -92,7 +91,9 @@ pub fn get_plaintext() -> Bytes {
 
 /// Encrypt plaintext using network public key and client private key
 pub fn get_ciphertext(metadata: &TxSeismicMetadata) -> Bytes {
-    let encrypted_data = metadata.client_encrypt(&get_plaintext(), &get_network_public_key(), &get_client_io_sk()).unwrap();
+    let encrypted_data = metadata
+        .client_encrypt(&get_plaintext(), &get_network_public_key(), &get_client_io_sk())
+        .unwrap();
     encrypted_data
 }
 
@@ -230,7 +231,9 @@ pub async fn get_unsigned_seismic_tx_request(
 ) -> SeismicTransactionRequest {
     let mut plaintext_req = get_plaintext_tx_request(sk_wallet, nonce, to, chain_id, &plaintext);
     let metadata = get_metadata(&plaintext_req, recent_block_hash);
-    let ciphertext = metadata.client_encrypt(&plaintext, &get_network_public_key(), &get_client_io_sk()).unwrap();
+    let ciphertext = metadata
+        .client_encrypt(&plaintext, &get_network_public_key(), &get_client_io_sk())
+        .unwrap();
     plaintext_req.input = TransactionInput { input: Some(ciphertext), data: None };
     SeismicTransactionRequest {
         inner: plaintext_req,
@@ -248,10 +251,7 @@ pub async fn get_unsigned_legacy_tx_request(
 ) -> SeismicTransactionRequest {
     let mut plaintext_req = get_plaintext_tx_request(sk_wallet, nonce, to, chain_id, &plaintext);
     plaintext_req.transaction_type = None;
-    SeismicTransactionRequest {
-        inner: plaintext_req,
-        seismic_elements: None,
-    }
+    SeismicTransactionRequest { inner: plaintext_req, seismic_elements: None }
 }
 
 /// Signs an arbitrary [`TransactionRequest`] using the provided wallet

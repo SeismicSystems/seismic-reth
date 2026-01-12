@@ -21,9 +21,14 @@ use reth_seismic_node::utils::test_utils::{
     client_decrypt, get_nonce, get_seismic_metadata, get_signed_seismic_tx_bytes,
     get_signed_seismic_tx_typed_data, get_unsigned_seismic_tx_request, SeismicRethTestCommand,
 };
-use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned, test_utils::get_unsigned_legacy_tx_request};
+use reth_seismic_primitives::{
+    test_utils::get_unsigned_legacy_tx_request, SeismicBlock, SeismicTransactionSigned,
+};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
-use seismic_alloy_network::{SeismicReth, foundry::builder::SeismicTransactionBuilderExt, reth::builder::seismic_reth_tx_builder, wallet::SeismicWallet};
+use seismic_alloy_network::{
+    foundry::builder::SeismicTransactionBuilderExt, reth::builder::seismic_reth_tx_builder,
+    wallet::SeismicWallet, SeismicReth,
+};
 use seismic_alloy_provider::{
     test_utils::ContractTestContext, SeismicProviderExt, SeismicSignedProvider,
 };
@@ -63,8 +68,8 @@ async fn get_signed_deploy_tx_bytes(
 ) -> Bytes {
     // Create an EIP-1559 transaction for deployment (non-seismic)
     let tx = TransactionRequest {
-        from: None, // Will be set by the wallet
-        to: Some(TxKind::Create),   // None for contract creation
+        from: None,               // Will be set by the wallet
+        to: Some(TxKind::Create), // None for contract creation
         gas: Some(6000000),
         max_fee_per_gas: Some(20e9 as u128),
         max_priority_fee_per_gas: Some(1e9 as u128),
@@ -128,8 +133,8 @@ async fn integration_test() {
     test_seismic_reth_rpc_with_rust_client().await;
 
     /*
-    // test_seismic_reth_rpc_simulate_block().await;
-    */
+     * test_seismic_reth_rpc_simulate_block().await;
+     */
 
     println!("Testing precompiles");
     test_seismic_precompiles_end_to_end().await;
@@ -536,12 +541,12 @@ async fn test_seismic_reth_rpc_with_rust_client() {
     println!("eth_call decrypted output: {:?}", output);
     assert_eq!(U256::from_be_slice(&output), U256::ZERO);
 
-    let set_num_tx = seismic_reth_tx_builder().with_input(ContractTestContext::get_set_number_input_plaintext()).with_to(contract_addr).into();
+    let set_num_tx = seismic_reth_tx_builder()
+        .with_input(ContractTestContext::get_set_number_input_plaintext())
+        .with_to(contract_addr)
+        .into();
     // Send transaction to set suint
-    let pending_transaction = provider
-        .send_transaction(set_num_tx)
-        .await
-        .unwrap();
+    let pending_transaction = provider.send_transaction(set_num_tx).await.unwrap();
     let tx_hash = pending_transaction.tx_hash();
     println!("eth_sendRawTransaction setting number transaction tx_hash: {:?}", tx_hash);
     thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
