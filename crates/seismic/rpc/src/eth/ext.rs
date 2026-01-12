@@ -6,7 +6,9 @@
 //! See that function's docs for more details
 
 use super::api::FullSeismicApi;
-use crate::utils::convert_seismic_call_to_tx_request;
+use crate::utils::{
+    convert_seismic_call_to_tx_request, parse_request_sender, signed_read_to_plaintext_tx,
+};
 use alloy_dyn_abi::TypedData;
 use alloy_json_rpc::RpcObject;
 use alloy_primitives::{Address, Bytes, B256, U256};
@@ -140,18 +142,6 @@ impl<Eth> EthApiExt<Eth> {
         Self { eth_api, purpose_keys }
     }
 
-    /// Get the sender address from a seismic transaction request.
-    /// Returns an error if the sender is missing.
-    fn get_sender(request: &SeismicTransactionRequest) -> Result<Address, EthApiError> {
-        request.inner.from.ok_or_else(|| {
-            EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
-                -32602,
-                "Missing 'from' field for seismic transaction",
-                None::<String>,
-            )))
-        })
-    }
-
     /// Build transaction metadata for encryption/decryption.
     /// Returns an error if required fields are missing.
     fn build_metadata(
@@ -208,12 +198,10 @@ where
             let mut prepared_calls = Vec::with_capacity(calls.len());
 
             for call in calls {
-                let seismic_tx_request = convert_seismic_call_to_tx_request(call)?;
-                let sender = Self::get_sender(&seismic_tx_request)?;
-                let seismic_tx_request = seismic_tx_request
-                    .plaintext_copy(&self.purpose_keys.tx_io_sk, sender)
-                    .map_err(|e| ext_decryption_error(e.to_string()))?;
-                let tx_request: TransactionRequest = seismic_tx_request.inner;
+                let tx_req = convert_seismic_call_to_tx_request(call)?;
+                let plaintext_tx_req =
+                    signed_read_to_plaintext_tx(tx_req, &self.purpose_keys.tx_io_sk)?;
+                let tx_request: TransactionRequest = plaintext_tx_req.inner;
                 prepared_calls.push(tx_request.into());
             }
 
@@ -242,14 +230,14 @@ where
             let SimulatedBlock { calls: call_results, .. } = result;
 
             for (call_result, call) in call_results.iter_mut().zip(calls.iter()) {
-                let seismic_tx_request = convert_seismic_call_to_tx_request(call.clone())?;
-
-                if let Some(seismic_elements) = seismic_tx_request.seismic_elements {
+                let (seismic_tx_request, signed_read) =
+                    convert_seismic_call_to_tx_request(call.clone())?;
+                if signed_read {
                     // if there are seismic elements, encrypt the output
-                    let sender = Self::get_sender(&seismic_tx_request)?;
+                    let sender = parse_request_sender(&seismic_tx_request)?;
                     let metadata = Self::build_metadata(&seismic_tx_request, sender)?;
-                    let encrypted_output = seismic_elements
-                        .encrypt(&self.purpose_keys.tx_io_sk, &call_result.return_data, &metadata)
+                    let encrypted_output = metadata
+                        .encrypt(&self.purpose_keys.tx_io_sk, &call_result.return_data)
                         .map_err(|e| ext_encryption_error(e.to_string()))?;
                     call_result.return_data = encrypted_output;
                 }
@@ -270,33 +258,33 @@ where
         debug!(target: "reth-seismic-rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving seismic eth_call extension");
 
         // process different CallRequest types
-        let seismic_tx_request = convert_seismic_call_to_tx_request(request)?;
-
-        // decrypt seismic elements
-        let sender = Self::get_sender(&seismic_tx_request)?;
-        let tx_request = seismic_tx_request
-            .plaintext_copy(&self.purpose_keys.tx_io_sk, sender)
-            .map_err(|e| ext_decryption_error(e.to_string()))?
-            .inner;
+        let (seismic_tx_request, signed_read) = convert_seismic_call_to_tx_request(request)?;
+        let plaintext_tx_req = signed_read_to_plaintext_tx(
+            (seismic_tx_request.clone(), signed_read),
+            &self.purpose_keys.tx_io_sk,
+        )?;
 
         // call inner
         let result = EthCall::call(
             &self.eth_api,
-            tx_request.into(),
+            plaintext_tx_req.inner.into(),
             block_number,
             EvmOverrides::new(state_overrides, block_overrides),
         )
         .await?;
 
-        // encrypt result
-        if let Some(seismic_elements) = seismic_tx_request.seismic_elements {
-            let metadata = Self::build_metadata(&seismic_tx_request, sender)?;
-            return Ok(seismic_elements
-                .encrypt(&self.purpose_keys.tx_io_sk, &result, &metadata)
-                .map_err(|e| ext_encryption_error(e.to_string()))?);
-        } else {
-            Ok(result)
+        // encrypt result - only for signed reads with seismic elements
+        if signed_read {
+            if let Some(seismic_elements) = seismic_tx_request.seismic_elements {
+                let sender = parse_request_sender(&seismic_tx_request)?;
+                let metadata = Self::build_metadata(&seismic_tx_request, sender)?;
+                return Ok(seismic_elements
+                    .encrypt(&self.purpose_keys.tx_io_sk, &result, &metadata)
+                    .map_err(|e| ext_encryption_error(e.to_string()))?);
+            }
         }
+
+        Ok(result)
     }
 
     /// Handler for: `eth_sendRawTransaction`
@@ -324,11 +312,11 @@ where
         state_override: Option<StateOverride>,
     ) -> RpcResult<U256> {
         debug!(target: "reth-seismic-rpc::eth", ?request, ?block_number, ?state_override, "serving seismic eth_estimateGas extension");
-        // decrypt
-        let sender = Self::get_sender(&request)?;
-        let decrypted_req = request
-            .plaintext_copy(&self.purpose_keys.tx_io_sk, sender)
-            .map_err(|e| ext_decryption_error(e.to_string()))?;
+
+        // Decrypt if this is a seismic transaction
+        let is_seismic = request.seismic_elements.is_some();
+        let decrypted_req =
+            signed_read_to_plaintext_tx((request, is_seismic), &self.purpose_keys.tx_io_sk)?;
 
         // call inner
         Ok(EthCall::estimate_gas_at(

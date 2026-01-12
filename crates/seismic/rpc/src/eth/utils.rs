@@ -1,6 +1,6 @@
 //! Utils for testing the seismic rpc api
 
-use alloy_rpc_types::TransactionRequest;
+use alloy_primitives::Address;
 use reth_primitives::Recovered;
 use reth_primitives_traits::SignedTransaction;
 use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError, EthResult};
@@ -8,8 +8,12 @@ use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest}
 use seismic_alloy_network::{SeismicReth, TransactionBuilder};
 use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
 
+use crate::ext::ext_decryption_error;
+use seismic_alloy_consensus::InputDecryptionElements;
+use seismic_enclave::secp256k1::SecretKey;
+
 /// Override the request for seismic calls
-pub fn seismic_override_call_request(request: &mut TransactionRequest) {
+pub fn seismic_override_call_request(request: &mut SeismicTransactionRequest) {
     // If user calls with the standard (unsigned) eth_call,
     // then disregard whatever they put in the from field
     // They will still be able to read public contract functions,
@@ -20,6 +24,7 @@ pub fn seismic_override_call_request(request: &mut TransactionRequest) {
     request.max_priority_fee_per_gas = None; // preventing InsufficientFunds error
     request.max_fee_per_blob_gas = None; // preventing InsufficientFunds error
     request.value = None; // preventing InsufficientFunds error
+    request.seismic_elements = None; // zero out seismic elements
 }
 
 /// Recovers a [`SignedTransaction`] from a typed data request.
@@ -44,23 +49,57 @@ pub fn recover_typed_data_request<T: SignedTransaction + Decodable712>(
 /// we null out the fields that may reveal sensitive information.
 pub fn convert_seismic_call_to_tx_request(
     request: SeismicCallRequest,
-) -> Result<SeismicTransactionRequest, EthApiError> {
+) -> Result<(SeismicTransactionRequest, bool), EthApiError> {
     match request {
         SeismicCallRequest::TransactionRequest(mut tx_request) => {
-            seismic_override_call_request(&mut tx_request.inner); // null fields that may reveal sensitive information
-            Ok(tx_request)
+            seismic_override_call_request(&mut tx_request); // null fields that may reveal sensitive information
+            Ok((tx_request, false))
         }
 
         SeismicCallRequest::TypedData(typed_request) => {
-            SeismicTransactionRequest::decode_712(&typed_request)
-                .map_err(|_e| EthApiError::FailedToDecodeSignedTransaction)
+            let req = SeismicTransactionRequest::decode_712(&typed_request)
+                .map_err(|_e| EthApiError::FailedToDecodeSignedTransaction)?;
+            Ok((req, true))
         }
 
         SeismicCallRequest::Bytes(bytes) => {
             let tx = recover_raw_transaction::<SeismicTxEnvelope>(&bytes)?;
             let mut req: SeismicTransactionRequest = tx.inner().clone().into();
             TransactionBuilder::<SeismicReth>::set_from(&mut req, tx.signer());
-            Ok(req)
+            Ok((req, true))
+        }
+    }
+}
+
+/// Get the sender address from a seismic transaction request.
+/// Returns an error if the sender is missing.
+pub fn parse_request_sender(request: &SeismicTransactionRequest) -> Result<Address, EthApiError> {
+    request.inner.from.ok_or_else(|| {
+        EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+            -32602,
+            "Missing 'from' field for seismic transaction",
+            None::<String>,
+        )))
+    })
+}
+
+/// Conditionally decrypt a seismic transaction request based on whether it's a signed read.
+///
+/// For non-seismic transactions (`signed_read = false`), returns the request unchanged.
+/// For seismic transactions (`signed_read = true`), decrypts the request using the provided secret
+/// key.
+pub fn signed_read_to_plaintext_tx(
+    (seismic_tx_request, signed_read): (SeismicTransactionRequest, bool),
+    secret_key: &SecretKey,
+) -> Result<SeismicTransactionRequest, EthApiError> {
+    match signed_read {
+        false => Ok(seismic_tx_request),
+        true => {
+            let sender = parse_request_sender(&seismic_tx_request)?;
+            let seismic_tx_request = seismic_tx_request
+                .plaintext_copy(secret_key, sender)
+                .map_err(|e| ext_decryption_error(e.to_string()))?;
+            Ok(seismic_tx_request)
         }
     }
 }
