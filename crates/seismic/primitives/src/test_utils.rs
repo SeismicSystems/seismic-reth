@@ -209,6 +209,7 @@ pub async fn get_signed_seismic_tx_bytes(
 }
 
 /// Get an unsigned seismic transaction typed data
+#[allow(clippy::panic)] // Test util function - panic on failure is acceptable
 pub async fn get_unsigned_seismic_tx_typed_data(
     sk_wallet: &PrivateKeySigner,
     nonce: u64,
@@ -226,6 +227,7 @@ pub async fn get_unsigned_seismic_tx_typed_data(
 }
 
 /// Create a seismic transaction with typed data
+#[allow(clippy::panic)] // Test util function - panic on failure is acceptable
 pub async fn get_signed_seismic_tx_typed_data(
     sk_wallet: &PrivateKeySigner,
     nonce: u64,

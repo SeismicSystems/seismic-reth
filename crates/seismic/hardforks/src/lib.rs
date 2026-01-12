@@ -88,6 +88,7 @@ pub static SEISMIC_DEV_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
 });
 
 #[cfg(test)]
+#[allow(clippy::panic)]
 mod tests {
     use super::*;
     use core::panic;

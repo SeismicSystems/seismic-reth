@@ -35,8 +35,7 @@ impl SeismicReceiptBuilder {
             SeismicReceipt::Eip1559(_) => SeismicReceiptEnvelope::Eip1559(receipt_with_bloom),
             SeismicReceipt::Eip7702(_) => SeismicReceiptEnvelope::Eip7702(receipt_with_bloom),
             SeismicReceipt::Seismic(_) => SeismicReceiptEnvelope::Seismic(receipt_with_bloom),
-            #[allow(unreachable_patterns)]
-            _ => unreachable!(),
+            SeismicReceipt::Eip4844(_) => SeismicReceiptEnvelope::Eip4844(receipt_with_bloom)
         });
 
         Ok(Self { base })

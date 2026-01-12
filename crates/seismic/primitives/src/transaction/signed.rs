@@ -706,8 +706,9 @@ fn signature_hash(tx: &SeismicTypedTransaction) -> B256 {
 #[cfg(feature = "serde-bincode-compat")]
 pub mod serde_bincode_compat {
     use alloy_consensus::transaction::serde_bincode_compat::{
-        TxEip1559, TxEip2930, TxEip7702, TxLegacy,
+        TxEip1559, TxEip2930, TxEip7702, TxLegacy
     };
+    use alloy_consensus::TxEip4844;
     use alloy_primitives::{Signature, TxHash};
     use reth_primitives_traits::{serde_bincode_compat::SerdeBincodeCompat, SignedTransaction};
     use seismic_alloy_consensus::serde_bincode_compat::TxSeismic;
@@ -722,6 +723,7 @@ pub mod serde_bincode_compat {
         Eip1559(TxEip1559<'a>),
         Eip7702(TxEip7702<'a>),
         Seismic(seismic_alloy_consensus::serde_bincode_compat::TxSeismic<'a>),
+        Eip4844(TxEip4844),
     }
 
     impl<'a> From<&'a super::SeismicTypedTransaction> for SeismicTypedTransaction<'a> {
@@ -730,9 +732,7 @@ pub mod serde_bincode_compat {
                 super::SeismicTypedTransaction::Legacy(tx) => Self::Legacy(TxLegacy::from(tx)),
                 super::SeismicTypedTransaction::Eip2930(tx) => Self::Eip2930(TxEip2930::from(tx)),
                 super::SeismicTypedTransaction::Eip1559(tx) => Self::Eip1559(TxEip1559::from(tx)),
-                super::SeismicTypedTransaction::Eip4844(_tx) => {
-                    todo!("seismic upstream merge:Eip4844 not supported")
-                }
+                super::SeismicTypedTransaction::Eip4844(tx) => Self::Eip4844(tx.clone()),
                 super::SeismicTypedTransaction::Eip7702(tx) => Self::Eip7702(TxEip7702::from(tx)),
                 super::SeismicTypedTransaction::Seismic(tx) => Self::Seismic(TxSeismic::from(tx)),
             }
@@ -747,6 +747,7 @@ pub mod serde_bincode_compat {
                 SeismicTypedTransaction::Eip1559(tx) => Self::Eip1559(tx.into()),
                 SeismicTypedTransaction::Eip7702(tx) => Self::Eip7702(tx.into()),
                 SeismicTypedTransaction::Seismic(tx) => Self::Seismic(tx.into()),
+                SeismicTypedTransaction::Eip4844(tx) => Self::Eip4844(tx),
             }
         }
     }
@@ -793,6 +794,9 @@ pub mod serde_bincode_compat {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)] // Test code - expect on failure is acceptable
+#[allow(clippy::unwrap_used)] // Test code - unwrap on failure is acceptable
+#[allow(clippy::panic)] // Test code - panic on failure is acceptable
 mod tests {
     use core::str::FromStr;
 
