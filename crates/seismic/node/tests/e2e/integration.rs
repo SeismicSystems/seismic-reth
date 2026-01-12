@@ -572,7 +572,8 @@ async fn test_seismic_reth_rpc_simulate_block() {
         EthApiOverrideClient::<Block>::simulate_v1(&client, simulate_payload, None).await.unwrap();
 
     // Create metadata for decryption (all calls use same params except nonce)
-    let metadata = get_seismic_metadata(wallet.inner.address(), chain_id, nonce, TxKind::Create, U256::ZERO);
+    let metadata =
+        get_seismic_metadata(wallet.inner.address(), chain_id, nonce, TxKind::Create, U256::ZERO);
 
     for block_result in result {
         for call in block_result.calls {
