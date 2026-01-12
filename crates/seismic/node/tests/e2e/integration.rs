@@ -1,5 +1,6 @@
 //! This file is used to test the seismic node.
 use alloy_dyn_abi::EventExt;
+use alloy_eips::BlockNumberOrTag;
 use alloy_json_abi::{Event, EventParam};
 use alloy_network::{ReceiptResponse, TransactionBuilder};
 use alloy_primitives::{
@@ -34,6 +35,23 @@ use tokio::sync::mpsc;
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
 const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessage(bytes)
 
+/// Helper function to get a recent block hash from the client
+async fn get_recent_block_hash(client: &jsonrpsee::http_client::HttpClient) -> B256 {
+    use alloy_consensus::Sealable;
+
+    let block = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::block_by_number(client, BlockNumberOrTag::Latest, false)
+    .await
+    .expect("Failed to get latest block")
+    .expect("Latest block not found");
+    block.header.seal_slow().seal()
+}
+
 // #[tokio::test(flavor = "multi_thread")]
 // async fn unit_test() {
 //     let reth_rpc_url = SeismicRethTestCommand::url();
@@ -57,7 +75,7 @@ const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessa
 async fn integration_test() {
     // set this to true when you want to spin up a node
     // outside the test to see logs more easily
-    let manual_debug = false;
+    let manual_debug = true;
 
     let mut shutdown_tx_top: Option<mpsc::Sender<()>> = None;
     if !manual_debug {
@@ -71,10 +89,17 @@ async fn integration_test() {
         SeismicRethTestCommand::set_url(url);
     }
 
+    println!("Testing rpc");
     test_seismic_reth_rpc().await;
+
+    println!("Testing typeddata");
     test_seismic_reth_rpc_with_typed_data().await;
+
+    println!("Testing reth rpc alloy");
     test_seismic_reth_rpc_with_rust_client().await;
+    println!("Testing sim block");
     test_seismic_reth_rpc_simulate_block().await;
+    println!("Testing precompiles");
     test_seismic_precompiles_end_to_end().await;
 
     if !manual_debug {
@@ -92,6 +117,8 @@ async fn test_seismic_reth_rpc() {
     let wallet = Wallet::default().with_chain_id(chain_id);
     println!("wallet: {:?}", wallet);
 
+    let recent_block_hash = get_recent_block_hash(&client).await;
+
     let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
         &client,
         get_signed_seismic_tx_bytes(
@@ -100,6 +127,7 @@ async fn test_seismic_reth_rpc() {
             TxKind::Create,
             chain_id,
             ContractTestContext::get_deploy_input_plaintext(),
+            recent_block_hash,
         )
         .await
         .into(),
@@ -152,6 +180,7 @@ async fn test_seismic_reth_rpc() {
             to,
             chain_id,
             ContractTestContext::get_is_odd_input_plaintext(),
+            recent_block_hash,
         )
         .await
         .into(),
@@ -161,7 +190,14 @@ async fn test_seismic_reth_rpc() {
     )
     .await
     .unwrap();
-    let metadata = get_seismic_metadata(wallet.inner.address(), chain_id, nonce, to, U256::ZERO);
+    let metadata = get_seismic_metadata(
+        wallet.inner.address(),
+        chain_id,
+        nonce,
+        to,
+        U256::ZERO,
+        recent_block_hash,
+    );
     let decrypted_output = client_decrypt(metadata, &output).unwrap();
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
@@ -181,6 +217,7 @@ async fn test_seismic_reth_rpc() {
             TxKind::Call(contract_addr),
             chain_id,
             ContractTestContext::get_set_number_input_plaintext(),
+            recent_block_hash,
         )
         .await
         .into(),
@@ -215,6 +252,7 @@ async fn test_seismic_reth_rpc() {
             to,
             chain_id,
             ContractTestContext::get_is_odd_input_plaintext(),
+            recent_block_hash,
         )
         .await
         .into(),
@@ -224,7 +262,14 @@ async fn test_seismic_reth_rpc() {
     )
     .await
     .unwrap();
-    let metadata = get_seismic_metadata(wallet.inner.address(), chain_id, nonce, to, U256::ZERO);
+    let metadata = get_seismic_metadata(
+        wallet.inner.address(),
+        chain_id,
+        nonce,
+        to,
+        U256::ZERO,
+        recent_block_hash,
+    );
     let decrypted_output = client_decrypt(metadata, &output).unwrap();
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::from(1));
@@ -235,6 +280,7 @@ async fn test_seismic_reth_rpc() {
         TxKind::Call(contract_addr),
         chain_id,
         ContractTestContext::get_is_odd_input_plaintext(),
+        recent_block_hash,
     )
     .await;
 
@@ -305,6 +351,8 @@ async fn test_seismic_reth_rpc_with_typed_data() {
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
     let wallet = Wallet::default().with_chain_id(chain_id);
 
+    let recent_block_hash = get_recent_block_hash(&client).await;
+
     let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
         &client,
         get_signed_seismic_tx_typed_data(
@@ -313,6 +361,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
             TxKind::Create,
             chain_id,
             ContractTestContext::get_deploy_input_plaintext(),
+            recent_block_hash,
         )
         .await
         .into(),
@@ -366,6 +415,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
             to,
             chain_id,
             ContractTestContext::get_is_odd_input_plaintext(),
+            recent_block_hash,
         )
         .await
         .into(),
@@ -375,7 +425,14 @@ async fn test_seismic_reth_rpc_with_typed_data() {
     )
     .await
     .unwrap();
-    let metadata = get_seismic_metadata(wallet.inner.address(), chain_id, nonce, to, U256::ZERO);
+    let metadata = get_seismic_metadata(
+        wallet.inner.address(),
+        chain_id,
+        nonce,
+        to,
+        U256::ZERO,
+        recent_block_hash,
+    );
     let decrypted_output = client_decrypt(metadata, &output).unwrap();
     println!("eth_call decrypted output: {:?}", decrypted_output);
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
@@ -482,6 +539,8 @@ async fn test_seismic_reth_rpc_simulate_block() {
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
     let wallet = Wallet::default().with_chain_id(chain_id);
 
+    let recent_block_hash = get_recent_block_hash(&client).await;
+
     let nonce = get_nonce(&client, wallet.inner.address()).await;
     let tx_bytes = get_signed_seismic_tx_bytes(
         &wallet.inner,
@@ -489,6 +548,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
         TxKind::Create,
         chain_id,
         ContractTestContext::get_deploy_input_plaintext(),
+        recent_block_hash,
     )
     .await;
 
@@ -498,6 +558,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
         TxKind::Create,
         chain_id,
         ContractTestContext::get_deploy_input_plaintext(),
+        recent_block_hash,
     )
     .await;
 
@@ -516,6 +577,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
         TxKind::Create,
         chain_id,
         ContractTestContext::get_deploy_input_plaintext(),
+        recent_block_hash,
     )
     .await;
 
@@ -525,6 +587,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
         TxKind::Create,
         chain_id,
         ContractTestContext::get_deploy_input_plaintext(),
+        recent_block_hash,
     )
     .await;
 
@@ -543,6 +606,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
         TxKind::Create,
         chain_id,
         ContractTestContext::get_deploy_input_plaintext(),
+        recent_block_hash,
     )
     .await;
 
@@ -552,6 +616,7 @@ async fn test_seismic_reth_rpc_simulate_block() {
         TxKind::Create,
         chain_id,
         ContractTestContext::get_deploy_input_plaintext(),
+        recent_block_hash,
     )
     .await;
 
@@ -575,8 +640,14 @@ async fn test_seismic_reth_rpc_simulate_block() {
         EthApiOverrideClient::<Block>::simulate_v1(&client, simulate_payload, None).await.unwrap();
 
     // Create metadata for decryption (all calls use same params except nonce)
-    let metadata =
-        get_seismic_metadata(wallet.inner.address(), chain_id, nonce, TxKind::Create, U256::ZERO);
+    let metadata = get_seismic_metadata(
+        wallet.inner.address(),
+        chain_id,
+        nonce,
+        TxKind::Create,
+        U256::ZERO,
+        recent_block_hash,
+    );
 
     for block_result in result {
         for call in block_result.calls {
