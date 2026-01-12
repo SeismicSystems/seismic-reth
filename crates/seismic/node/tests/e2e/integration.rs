@@ -1,8 +1,9 @@
 //! This file is used to test the seismic node.
+use alloy_consensus::TxEnvelope;
 use alloy_dyn_abi::EventExt;
-use alloy_eips::BlockNumberOrTag;
+use alloy_eips::eip2718::Encodable2718;
 use alloy_json_abi::{Event, EventParam};
-use alloy_network::{ReceiptResponse, TransactionBuilder};
+use alloy_network::{EthereumWallet, ReceiptResponse, TransactionBuilder};
 use alloy_primitives::{
     aliases::{B96, U96},
     hex,
@@ -12,15 +13,17 @@ use alloy_primitives::{
 use alloy_provider::{PendingTransactionBuilder, Provider, SendableTx};
 use alloy_rpc_types::{Block, Header, TransactionInput, TransactionRequest};
 use alloy_sol_types::{sol, SolCall, SolValue};
+use core::str::FromStr;
+use jsonrpsee::{core::client::ClientT, rpc_params};
 use reth_e2e_test_utils::wallet::Wallet;
 use reth_rpc_eth_api::EthApiClient;
 use reth_seismic_node::utils::test_utils::{
     client_decrypt, get_nonce, get_seismic_metadata, get_signed_seismic_tx_bytes,
     get_signed_seismic_tx_typed_data, get_unsigned_seismic_tx_request, SeismicRethTestCommand,
 };
-use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
+use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned, test_utils::get_unsigned_legacy_tx_request};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
-use seismic_alloy_network::{wallet::SeismicWallet, SeismicReth};
+use seismic_alloy_network::{SeismicReth, foundry::builder::SeismicTransactionBuilderExt, reth::builder::seismic_reth_tx_builder, wallet::SeismicWallet};
 use seismic_alloy_provider::{
     test_utils::ContractTestContext, SeismicProviderExt, SeismicSignedProvider,
 };
@@ -32,24 +35,50 @@ use seismic_enclave::aes_decrypt;
 use std::{thread, time::Duration};
 use tokio::sync::mpsc;
 
+const WAIT_FOR_RECEIPT_SECONDS: u64 = 1;
+
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
 const PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR: &str = "28696e36"; // submitMessage(bytes)
 
 /// Helper function to get a recent block hash from the client
 async fn get_recent_block_hash(client: &jsonrpsee::http_client::HttpClient) -> B256 {
-    use alloy_consensus::Sealable;
+    // Use raw JSON-RPC to get the latest block hash
+    let result: serde_json::Value = client
+        .request("eth_getBlockByNumber", rpc_params!["latest", false])
+        .await
+        .expect("Failed to get latest block");
 
-    let block = EthApiClient::<
-        SeismicTransactionRequest,
-        SeismicTransactionSigned,
-        SeismicBlock,
-        SeismicTransactionReceipt,
-        Header,
-    >::block_by_number(client, BlockNumberOrTag::Latest, false)
-    .await
-    .expect("Failed to get latest block")
-    .expect("Latest block not found");
-    block.header.seal_slow().seal()
+    // Extract the hash field from the block
+    let hash_str = result["hash"].as_str().expect("Block hash not found in response");
+
+    B256::from_str(hash_str).expect("Failed to parse block hash")
+}
+
+/// Helper function to create a regular (non-seismic) deployment transaction
+async fn get_signed_deploy_tx_bytes(
+    wallet: impl Into<EthereumWallet> + Clone,
+    nonce: u64,
+    chain_id: u64,
+    deploy_bytecode: Bytes,
+) -> Bytes {
+    // Create an EIP-1559 transaction for deployment (non-seismic)
+    let tx = TransactionRequest {
+        from: None, // Will be set by the wallet
+        to: Some(TxKind::Create),   // None for contract creation
+        gas: Some(6000000),
+        max_fee_per_gas: Some(20e9 as u128),
+        max_priority_fee_per_gas: Some(1e9 as u128),
+        value: Some(U256::ZERO),
+        input: TransactionInput { input: Some(deploy_bytecode), data: None },
+        nonce: Some(nonce),
+        chain_id: Some(chain_id),
+        ..Default::default()
+    };
+
+    let eth_wallet: EthereumWallet = wallet.into();
+    let tx_envelope = tx.build(&eth_wallet).await.expect("Failed to build transaction");
+
+    TxEnvelope::encoded_2718(&tx_envelope).into()
 }
 
 // #[tokio::test(flavor = "multi_thread")]
@@ -97,15 +126,18 @@ async fn integration_test() {
 
     println!("Testing reth rpc alloy");
     test_seismic_reth_rpc_with_rust_client().await;
-    println!("Testing sim block");
-    test_seismic_reth_rpc_simulate_block().await;
+
+    /*
+    // test_seismic_reth_rpc_simulate_block().await;
+    */
+
     println!("Testing precompiles");
     test_seismic_precompiles_end_to_end().await;
 
     if !manual_debug {
         let _ = shutdown_tx_top.unwrap().try_send(()).unwrap();
         println!("shutdown signal sent");
-        thread::sleep(Duration::from_secs(1));
+        thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
     }
 }
 
@@ -117,17 +149,13 @@ async fn test_seismic_reth_rpc() {
     let wallet = Wallet::default().with_chain_id(chain_id);
     println!("wallet: {:?}", wallet);
 
-    let recent_block_hash = get_recent_block_hash(&client).await;
-
     let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
         &client,
-        get_signed_seismic_tx_bytes(
-            &wallet.inner,
+        get_signed_deploy_tx_bytes(
+            wallet.inner.clone(),
             get_nonce(&client, wallet.inner.address()).await,
-            TxKind::Create,
             chain_id,
             ContractTestContext::get_deploy_input_plaintext(),
-            recent_block_hash,
         )
         .await
         .into(),
@@ -135,7 +163,7 @@ async fn test_seismic_reth_rpc() {
     .await
     .unwrap();
     // assert_eq!(tx_hash, itx.tx_hashes[0]);
-    thread::sleep(Duration::from_secs(3));
+    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
     println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
 
     // Get the transaction receipt
@@ -168,6 +196,9 @@ async fn test_seismic_reth_rpc() {
     .unwrap();
     assert_eq!(ContractTestContext::get_code(), code);
     println!("eth_getCode getting contract deployment code: {:?}", code);
+
+    // Get fresh block hash after deployment for seismic calls
+    let recent_block_hash = get_recent_block_hash(&client).await;
 
     // eth_call to check the parity. Should be 0
     let nonce = get_nonce(&client, wallet.inner.address()).await;
@@ -225,7 +256,7 @@ async fn test_seismic_reth_rpc() {
     .await
     .unwrap();
     println!("eth_sendRawTransaction setting number transaction tx_hash: {:?}", tx_hash);
-    thread::sleep(Duration::from_secs(1));
+    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
 
     // Get the transaction receipt
     let receipt = EthApiClient::<
@@ -296,6 +327,7 @@ async fn test_seismic_reth_rpc() {
     println!("eth_estimateGas for is_odd() gas: {:?}", gas);
     assert!(gas > U256::ZERO);
 
+    // TODO: should remove this functionality from seismic tx (audit)
     let access_list =
         EthApiClient::<
             SeismicTransactionRequest,
@@ -308,10 +340,19 @@ async fn test_seismic_reth_rpc() {
         .unwrap();
     println!("eth_createAccessList for is_odd() access_list: {:?}", access_list);
 
+    let is_odd_tx_request = get_unsigned_legacy_tx_request(
+        &wallet.inner,
+        get_nonce(&client, wallet.inner.address()).await,
+        TxKind::Call(contract_addr),
+        chain_id,
+        ContractTestContext::get_is_odd_input_plaintext(),
+    )
+    .await;
+
     // test call
     let output = EthApiOverrideClient::<Block>::call(
         &client,
-        simulate_tx_request.clone().into(),
+        is_odd_tx_request.clone().into(),
         None,
         None,
         None,
@@ -355,13 +396,11 @@ async fn test_seismic_reth_rpc_with_typed_data() {
 
     let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
         &client,
-        get_signed_seismic_tx_typed_data(
-            &wallet.inner,
+        get_signed_deploy_tx_bytes(
+            wallet.inner.clone(),
             get_nonce(&client, wallet.inner.address()).await,
-            TxKind::Create,
             chain_id,
             ContractTestContext::get_deploy_input_plaintext(),
-            recent_block_hash,
         )
         .await
         .into(),
@@ -369,7 +408,7 @@ async fn test_seismic_reth_rpc_with_typed_data() {
     .await
     .unwrap();
     // assert_eq!(tx_hash, itx.tx_hashes[0]);
-    thread::sleep(Duration::from_secs(1));
+    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
     println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
 
     // Get the transaction receipt
@@ -444,6 +483,9 @@ async fn test_seismic_reth_rpc_with_typed_data() {
 async fn test_seismic_reth_rpc_with_rust_client() {
     let reth_rpc_url = SeismicRethTestCommand::url();
     let chain_id = SeismicRethTestCommand::chain_id();
+
+    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
+
     let _wallet = Wallet::default().with_chain_id(chain_id);
     let wallet: SeismicWallet<SeismicReth> = SeismicWallet::from(_wallet.inner);
 
@@ -463,7 +505,7 @@ async fn test_seismic_reth_rpc_with_rust_client() {
 
     let tx_hash = pending_transaction.tx_hash();
     // assert_eq!(tx_hash, itx.tx_hashes[0]);
-    thread::sleep(Duration::from_secs(1));
+    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
     println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
 
     // Get the transaction receipt
@@ -494,20 +536,15 @@ async fn test_seismic_reth_rpc_with_rust_client() {
     println!("eth_call decrypted output: {:?}", output);
     assert_eq!(U256::from_be_slice(&output), U256::ZERO);
 
+    let set_num_tx = seismic_reth_tx_builder().with_input(ContractTestContext::get_set_number_input_plaintext()).with_to(contract_addr).into();
     // Send transaction to set suint
     let pending_transaction = provider
-        .send_transaction(TransactionBuilder::<SeismicReth>::with_to(
-            TransactionBuilder::<SeismicReth>::with_input(
-                SeismicTransactionRequest::default(),
-                ContractTestContext::get_set_number_input_plaintext(),
-            ),
-            contract_addr,
-        ))
+        .send_transaction(set_num_tx)
         .await
         .unwrap();
     let tx_hash = pending_transaction.tx_hash();
     println!("eth_sendRawTransaction setting number transaction tx_hash: {:?}", tx_hash);
-    thread::sleep(Duration::from_secs(1));
+    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
 
     // Get the transaction receipt
     let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
@@ -533,100 +570,80 @@ async fn test_seismic_reth_rpc_with_rust_client() {
     // // rust client also does not support Eip712::typed data requests
 }
 
+#[allow(dead_code)]
 async fn test_seismic_reth_rpc_simulate_block() {
+    // NOTE: we no longer allow signed calls to be anything besides seismic txs,
+    // and we no longer allow seismic tx's to be TxKind::Create
     let reth_rpc_url = SeismicRethTestCommand::url();
     let chain_id = SeismicRethTestCommand::chain_id();
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
     let wallet = Wallet::default().with_chain_id(chain_id);
 
-    let recent_block_hash = get_recent_block_hash(&client).await;
-
     let nonce = get_nonce(&client, wallet.inner.address()).await;
-    let tx_bytes = get_signed_seismic_tx_bytes(
-        &wallet.inner,
+    let tx_bytes_1 = get_signed_deploy_tx_bytes(
+        wallet.inner.clone(),
         nonce,
-        TxKind::Create,
         chain_id,
         ContractTestContext::get_deploy_input_plaintext(),
-        recent_block_hash,
     )
     .await;
 
-    let tx_typed_data = get_signed_seismic_tx_typed_data(
-        &wallet.inner,
+    let tx_bytes_2 = get_signed_deploy_tx_bytes(
+        wallet.inner.clone(),
         nonce + 1,
-        TxKind::Create,
         chain_id,
         ContractTestContext::get_deploy_input_plaintext(),
-        recent_block_hash,
     )
     .await;
 
     let block_1 = SimBlock {
         block_overrides: None,
         state_overrides: None,
-        calls: vec![
-            SeismicCallRequest::Bytes(tx_bytes),
-            SeismicCallRequest::TypedData(tx_typed_data),
-        ],
+        calls: vec![SeismicCallRequest::Bytes(tx_bytes_1), SeismicCallRequest::Bytes(tx_bytes_2)],
     };
 
-    let tx_bytes = get_signed_seismic_tx_bytes(
-        &wallet.inner,
+    let tx_bytes_3 = get_signed_deploy_tx_bytes(
+        wallet.inner.clone(),
         nonce + 2,
-        TxKind::Create,
         chain_id,
         ContractTestContext::get_deploy_input_plaintext(),
-        recent_block_hash,
     )
     .await;
 
-    let tx_typed_data = get_signed_seismic_tx_typed_data(
-        &wallet.inner,
+    let tx_bytes_4 = get_signed_deploy_tx_bytes(
+        wallet.inner.clone(),
         nonce + 3,
-        TxKind::Create,
         chain_id,
         ContractTestContext::get_deploy_input_plaintext(),
-        recent_block_hash,
     )
     .await;
 
     let block_2 = SimBlock {
         block_overrides: None,
         state_overrides: None,
-        calls: vec![
-            SeismicCallRequest::Bytes(tx_bytes),
-            SeismicCallRequest::TypedData(tx_typed_data),
-        ],
+        calls: vec![SeismicCallRequest::Bytes(tx_bytes_3), SeismicCallRequest::Bytes(tx_bytes_4)],
     };
 
-    let tx_bytes = get_signed_seismic_tx_bytes(
-        &wallet.inner,
+    let tx_bytes_5 = get_signed_deploy_tx_bytes(
+        wallet.inner.clone(),
         nonce + 4,
-        TxKind::Create,
         chain_id,
         ContractTestContext::get_deploy_input_plaintext(),
-        recent_block_hash,
     )
     .await;
 
-    let tx_typed_data = get_signed_seismic_tx_typed_data(
-        &wallet.inner,
+    let tx_bytes_6 = get_signed_deploy_tx_bytes(
+        wallet.inner.clone(),
         nonce + 5,
-        TxKind::Create,
         chain_id,
         ContractTestContext::get_deploy_input_plaintext(),
-        recent_block_hash,
     )
     .await;
 
     let block_3 = SimBlock {
         block_overrides: None,
         state_overrides: None,
-        calls: vec![
-            SeismicCallRequest::Bytes(tx_bytes),
-            SeismicCallRequest::TypedData(tx_typed_data),
-        ],
+        calls: vec![SeismicCallRequest::Bytes(tx_bytes_5), SeismicCallRequest::Bytes(tx_bytes_6)],
     };
 
     let simulate_payload = SimulatePayload::<SeismicCallRequest> {
@@ -639,21 +656,11 @@ async fn test_seismic_reth_rpc_simulate_block() {
     let result =
         EthApiOverrideClient::<Block>::simulate_v1(&client, simulate_payload, None).await.unwrap();
 
-    // Create metadata for decryption (all calls use same params except nonce)
-    let metadata = get_seismic_metadata(
-        wallet.inner.address(),
-        chain_id,
-        nonce,
-        TxKind::Create,
-        U256::ZERO,
-        recent_block_hash,
-    );
-
+    // For regular (non-seismic) deployments, the return data should be the deployed contract code
     for block_result in result {
         for call in block_result.calls {
-            let decrypted_output = client_decrypt(metadata.clone(), &call.return_data).unwrap();
-            println!("decrypted_output: {:?}", decrypted_output);
-            assert_eq!(decrypted_output, ContractTestContext::get_code());
+            println!("return_data: {:?}", call.return_data);
+            assert_eq!(call.return_data, ContractTestContext::get_code());
         }
     }
 }
@@ -676,7 +683,7 @@ async fn test_seismic_precompiles_end_to_end() {
     );
     let pending_transaction = provider.send_transaction(req).await.unwrap();
     let tx_hash = pending_transaction.tx_hash();
-    thread::sleep(Duration::from_secs(1));
+    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
 
     // Get the transaction receipt
     let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
@@ -703,7 +710,7 @@ async fn test_seismic_precompiles_end_to_end() {
     );
     let pending_transaction = provider.send_transaction(req).await.unwrap();
     let tx_hash = pending_transaction.tx_hash();
-    thread::sleep(Duration::from_secs(1));
+    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
 
     // Get the transaction receipt
     let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
@@ -729,7 +736,7 @@ async fn test_seismic_precompiles_end_to_end() {
     );
     let pending_transaction = provider.send_transaction(req).await.unwrap();
     let tx_hash = pending_transaction.tx_hash();
-    thread::sleep(Duration::from_secs(1));
+    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
 
     // Get the transaction receipt
     let receipt = provider.get_transaction_receipt(tx_hash.clone()).await.unwrap().unwrap();
