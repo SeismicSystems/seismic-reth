@@ -4,9 +4,7 @@ use alloy_primitives::{Sealable, TxKind, B256};
 use reth_chainspec::ChainSpecProvider;
 use reth_primitives_traits::{transaction::error::InvalidTransactionError, Block};
 use reth_provider::{BlockReaderIdExt, StateProviderFactory};
-use reth_seismic_primitives::{
-    transaction::error::SeismicTxError, SeismicTransactionSigned,
-};
+use reth_seismic_primitives::{transaction::error::SeismicTxError, SeismicTransactionSigned};
 use reth_transaction_pool::{
     error::InvalidPoolTransactionError,
     validate::{TransactionValidationOutcome, TransactionValidator},
@@ -18,7 +16,8 @@ use std::{fmt, marker::PhantomData, sync::Arc};
 /// Maximum number of blocks to look back for recent_block_hash validation
 pub const SEISMIC_TX_RECENT_BLOCK_LOOKBACK: u64 = 100;
 
-/// Seismic transaction validator that adds seismic-specific validation on top of Ethereum validation.
+/// Seismic transaction validator that adds seismic-specific validation on top of Ethereum
+/// validation.
 pub struct SeismicTransactionValidator<Client, T> {
     /// Inner Ethereum transaction validator
     inner: Arc<EthTransactionValidator<Client, T>>,
@@ -48,7 +47,11 @@ impl<Client, T> SeismicTransactionValidator<Client, T> {
 
 impl<Client, Tx> TransactionValidator for SeismicTransactionValidator<Client, Tx>
 where
-    Client: StateProviderFactory + BlockReaderIdExt + ChainSpecProvider<ChainSpec: reth_chainspec::EthereumHardforks> + Clone + 'static,
+    Client: StateProviderFactory
+        + BlockReaderIdExt
+        + ChainSpecProvider<ChainSpec: reth_chainspec::EthereumHardforks>
+        + Clone
+        + 'static,
     Tx: EthPoolTransaction<Consensus = SeismicTransactionSigned> + fmt::Debug,
 {
     type Transaction = Tx;
@@ -86,14 +89,20 @@ where
                         if let Err(err) =
                             self.validate_recent_block_hash(seismic_elements.recent_block_hash)
                         {
-                            return TransactionValidationOutcome::Invalid(valid_tx.into_transaction(), err);
+                            return TransactionValidationOutcome::Invalid(
+                                valid_tx.into_transaction(),
+                                err,
+                            );
                         }
 
                         // Validate expires_at_block is not in the past
                         if let Err(err) =
                             self.validate_expiration(seismic_elements.expires_at_block)
                         {
-                            return TransactionValidationOutcome::Invalid(valid_tx.into_transaction(), err);
+                            return TransactionValidationOutcome::Invalid(
+                                valid_tx.into_transaction(),
+                                err,
+                            );
                         }
 
                         // Validate signed_read for write transactions
@@ -101,7 +110,10 @@ where
                             seismic_tx.to,
                             seismic_elements.signed_read,
                         ) {
-                            return TransactionValidationOutcome::Invalid(valid_tx.into_transaction(), err);
+                            return TransactionValidationOutcome::Invalid(
+                                valid_tx.into_transaction(),
+                                err,
+                            );
                         }
                     }
                 }
@@ -189,7 +201,8 @@ where
         Ok(())
     }
 
-    /// Validates that signed_read is false for write transactions (transactions with a `to` address)
+    /// Validates that signed_read is false for write transactions (transactions with a `to`
+    /// address)
     fn validate_signed_read_for_write(
         to: TxKind,
         signed_read: bool,

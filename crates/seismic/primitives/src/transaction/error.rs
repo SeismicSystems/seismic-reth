@@ -14,7 +14,9 @@ pub enum SeismicTxError {
         lookback: u64,
     },
     /// The transaction has expired based on expires_at_block
-    #[display("transaction expired: current block {current_block} > expires_at_block {expires_at_block}")]
+    #[display(
+        "transaction expired: current block {current_block} > expires_at_block {expires_at_block}"
+    )]
     TransactionExpired {
         /// Current block number
         current_block: u64,
