@@ -818,7 +818,7 @@ mod tests {
 
     #[test]
     fn recover_signer_test() {
-        let signed_tx = get_signed_seismic_tx();
+        let signed_tx = get_signed_seismic_tx(B256::ZERO);
         let recovered_signer = signed_tx.recover_signer().expect("Failed to recover signer");
 
         let expected_signer = Address::from_private_key(&get_signing_private_key());
