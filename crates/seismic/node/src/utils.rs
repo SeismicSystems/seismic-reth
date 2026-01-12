@@ -152,10 +152,7 @@ pub mod test_utils {
 
         /// Get the url for the seismic reth test command
         pub fn url() -> String {
-            HTTP_RPC_URL
-                .get()
-                .cloned()
-                .unwrap_or_else(|| "http://127.0.0.1:8545".to_string())
+            HTTP_RPC_URL.get().cloned().unwrap_or_else(|| "http://127.0.0.1:8545".to_string())
         }
     }
 
