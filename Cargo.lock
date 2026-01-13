@@ -9468,6 +9468,7 @@ dependencies = [
  "reth-rpc-eth-types",
  "reth-rpc-layer",
  "reth-rpc-server-types",
+ "reth-seismic-rpc",
  "reth-storage-api",
  "reth-tasks",
  "reth-tracing",
