@@ -71,7 +71,7 @@ pub fn client_encrypt(
     metadata: &TxSeismicMetadata,
     plaintext: &Bytes,
 ) -> Result<Bytes, anyhow::Error> {
-    metadata.client_encrypt(&plaintext, &get_network_public_key(), &get_client_io_sk())
+    metadata.client_encrypt(plaintext, &get_network_public_key(), &get_client_io_sk())
 }
 
 /// Decrypt ciphertext using network public key and client private key
@@ -80,8 +80,8 @@ pub fn client_decrypt(
     ciphertext: &Bytes,
 ) -> Result<Bytes, anyhow::Error> {
     let plaintext =
-        metadata.client_decrypt(&ciphertext, &get_network_public_key(), &get_client_io_sk())?;
-    Ok(Bytes::from(plaintext))
+        metadata.client_decrypt(ciphertext, &get_network_public_key(), &get_client_io_sk())?;
+    Ok(plaintext)
 }
 
 /// Get the plaintext for a seismic transaction
@@ -92,10 +92,9 @@ pub fn get_plaintext() -> Bytes {
 
 /// Encrypt plaintext using network public key and client private key
 pub fn get_ciphertext(metadata: &TxSeismicMetadata) -> Bytes {
-    let encrypted_data = metadata
+    metadata
         .client_encrypt(&get_plaintext(), &get_network_public_key(), &get_client_io_sk())
-        .unwrap();
-    encrypted_data
+        .unwrap()
 }
 
 /// Get a seismic transaction
@@ -156,7 +155,7 @@ pub fn sign_seismic_typed_tx(
 /// Get a signed seismic transaction
 pub fn get_signed_seismic_tx(recent_block_hash: B256) -> SeismicTransactionSigned {
     let signing_sk = get_signing_private_key();
-    let sender = Address::from_public_key(&signing_sk.verifying_key());
+    let sender = Address::from_public_key(signing_sk.verifying_key());
     let tx = get_seismic_tx(sender, recent_block_hash);
     let signature = sign_seismic_tx(&tx, &signing_sk);
     SignableTransaction::into_signed(tx, signature).into()
