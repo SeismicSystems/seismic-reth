@@ -153,7 +153,7 @@ impl Default for RateLimitConfig {
         Self {
             requests_per_second: 100,
             burst_size: 50,
-            limited_methods: vec![], // empty = limit all methods
+            limited_methods: None,
             exempt_methods: vec![
                 "eth_chainId".to_string(),
                 "eth_blockNumber".to_string(),
