@@ -12,9 +12,7 @@
 
 use dashmap::DashMap;
 use governor::{
-    clock::DefaultClock,
-    state::{InMemoryState, NotKeyed},
-    Quota, RateLimiter,
+    NotUntil, Quota, RateLimiter, clock::{DefaultClock, QuantaInstant}, state::{InMemoryState, NotKeyed}
 };
 use http::{Request, Response};
 use jsonrpsee::{
@@ -22,7 +20,7 @@ use jsonrpsee::{
 };
 use std::{
     future::Future,
-    net::IpAddr,
+    net::{IpAddr, Ipv4Addr},
     num::NonZeroU32,
     sync::Arc,
     task::{Context, Poll},
@@ -118,7 +116,7 @@ fn extract_client_ip_from_headers<B>(req: &Request<B>) -> IpAddr {
 
     // Fallback - this shouldn't happen if nginx is configured correctly
     // Using 0.0.0.0 makes it obvious something is wrong
-    "0.0.0.0".parse().unwrap()
+    IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0))
 }
 
 // ============================================================================
@@ -255,7 +253,7 @@ impl SeismicRateLimiter {
     /// Check if a request should be allowed.
     ///
     /// Returns `Ok(())` if allowed, `Err(())` if rate limited.
-    pub fn check(&self, ip: IpAddr, method: &str) -> Result<(), ()> {
+    pub fn check(&self, ip: IpAddr, method: &str) -> Result<(), NotUntil<QuantaInstant>> {
         // Check exemptions
         if self.is_ip_exempt(ip) || !self.should_limit_method(method) {
             return Ok(());
@@ -265,7 +263,7 @@ impl SeismicRateLimiter {
         let limiter = self.get_limiter(ip);
 
         // Try to acquire a token
-        limiter.check().map_err(|_| ())
+        limiter.check()
     }
 
     /// Get the number of currently tracked IPs.
@@ -276,7 +274,7 @@ impl SeismicRateLimiter {
 
     /// Clear old entries from the limiter map.
     /// Call this periodically to prevent memory growth.
-    pub fn cleanup_stale_entries(&self) {
+    pub const fn cleanup_stale_entries(&self) {
         // For now, we don't have TTL tracking on entries.
         // In production, you might want to add timestamps and prune old entries.
         // The governor crate handles token refill automatically.
@@ -323,7 +321,7 @@ where
             .extensions()
             .get::<ClientIp>()
             .map(|c| c.0)
-            .unwrap_or_else(|| "0.0.0.0".parse().unwrap());
+            .unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
 
         let method_name = req.method_name();
 

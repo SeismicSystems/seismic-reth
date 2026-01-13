@@ -240,7 +240,7 @@ where
     /// Sets the RPC middleware stack for processing RPC requests.
     ///
     /// This method configures a custom middleware stack that will be applied to all RPC requests
-    /// across HTTP, WebSocket, and IPC transports.
+    /// across HTTP, `WebSocket`, and IPC transports.
     pub fn with_rpc_middleware<T>(self, rpc_middleware: T) -> SeismicAddOns<N, EthB, PVB, EB, EVB, T>
     {
         SeismicAddOns { inner: self.inner.with_rpc_middleware(rpc_middleware) }
