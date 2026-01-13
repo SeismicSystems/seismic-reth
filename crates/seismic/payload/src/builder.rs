@@ -228,9 +228,9 @@ where
                 trace!(target: "payload_builder", %error, ?tx, "skipping seismic tx with wrong encryption");
                 best_txs.mark_invalid(
                     &pool_tx,
-                    InvalidPoolTransactionError::Consensus(
-                        InvalidTransactionError::FailedToDecryptSeismicTx,
-                    ),
+                    InvalidPoolTransactionError::Consensus(InvalidTransactionError::SeismicTx(
+                        "failed to decrypt seismic transaction".to_string(),
+                    )),
                 );
                 continue
             }
