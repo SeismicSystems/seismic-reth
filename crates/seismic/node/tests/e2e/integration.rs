@@ -705,7 +705,6 @@ async fn test_seismic_precompiles_end_to_end() {
                 .with_from(from)
                 .with_to(contract_addr)
                 .with_input(unencrypted_aes_key)
-                .into()
                 .into(),
         )
         .await
@@ -731,7 +730,6 @@ async fn test_seismic_precompiles_end_to_end() {
                 .with_from(from)
                 .with_to(contract_addr)
                 .with_input(unencrypted_input)
-                .into()
                 .into(),
         )
         .await
@@ -786,7 +784,7 @@ async fn test_seismic_precompiles_end_to_end() {
         .into()
         .seismic();
 
-    let output = provider.seismic_call(SendableTx::Builder(tx_req.into())).await.unwrap();
+    let output = provider.seismic_call(SendableTx::Builder(tx_req)).await.unwrap();
 
     //
     // 5. Locally decrypt to cross-check
@@ -800,8 +798,7 @@ async fn test_seismic_precompiles_end_to_end() {
     assert_eq!(decrypted_locally, message);
 
     // 5b. Decrypt the "output" from the read call
-    let result_bytes =
-        PlaintextType::abi_decode(&Bytes::from(output)).expect("failed to decode the bytes");
+    let result_bytes = PlaintextType::abi_decode(&output).expect("failed to decode the bytes");
     let final_string =
         String::from_utf8(result_bytes.to_vec()).expect("invalid utf8 in decrypted bytes");
 
