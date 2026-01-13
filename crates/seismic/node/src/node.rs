@@ -14,7 +14,7 @@ use reth_evm::{
     ConfigureEngineEvm, ConfigureEvm, EvmFactory, EvmFactoryFor, NextBlockEnvAttributes,
 };
 use reth_network::{NetworkHandle, NetworkPrimitives};
-use reth_node_api::{AddOnsContext, FullNodeComponents, NodeAddOns, PrimitivesTy, TxTy};
+use reth_node_api::{AddOnsContext, FullNodeComponents, HeaderTy, NodeAddOns, PrimitivesTy, TxTy};
 use reth_node_builder::{
     components::{
         BasicPayloadServiceBuilder, ComponentsBuilder, ConsensusBuilder, ExecutorBuilder,
@@ -23,8 +23,9 @@ use reth_node_builder::{
     node::{FullNodeTypes, NodeTypes},
     rpc::{
         BasicEngineApiBuilder, BasicEngineValidator, BasicEngineValidatorBuilder, EngineApiBuilder,
-        EngineValidatorAddOn, EngineValidatorBuilder, EthApiBuilder, PayloadValidatorBuilder,
-        RethRpcAddOns, RethRpcMiddleware, RpcAddOns, RpcHandle, RpcModuleContainer,
+        EngineValidatorAddOn, EngineValidatorBuilder, EthApiBuilder, EthApiCtx,
+        PayloadValidatorBuilder, RethRpcAddOns, RethRpcMiddleware, RpcAddOns, RpcHandle,
+        RpcModuleContainer,
     },
     BuilderContext, DebugNode, Node, NodeAdapter, NodeComponentsBuilder, PayloadBuilderConfig,
 };
@@ -34,6 +35,10 @@ use reth_provider::{providers::ProviderFactoryBuilder, CanonStateSubscriptions, 
 use reth_rpc::ValidationApi;
 use reth_rpc_api::BlockSubmissionValidationApiServer;
 use reth_rpc_builder::{config::RethRpcServerConfig, Identity};
+use reth_rpc_eth_api::{
+    helpers::{pending_block::BuildPendingEnv, AddDevSigners},
+    FullEthApiServer, RpcConvert, RpcConverter, RpcTypes,
+};
 use reth_rpc_eth_types::{
     error::{api::FromEvmHalt, FromEvmError},
     EthApiError,
@@ -42,14 +47,17 @@ use reth_rpc_server_types::RethRpcModule;
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
-use reth_seismic_rpc::{SeismicEthApiBuilder, SeismicEthApiError, SeismicRethWithSignable};
+use reth_seismic_rpc::{
+    SeismicEthApi, SeismicEthApiError, SeismicReceiptConverter, SeismicRethWithSignable,
+    SeismicRpcConvert, SeismicRpcTxConverter, SeismicSimTxConverter,
+};
 use reth_transaction_pool::{
     blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},
     CoinbaseTipOrdering, PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
 };
 use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
-use std::{sync::Arc, time::SystemTime};
+use std::{marker::PhantomData, sync::Arc, time::SystemTime};
 
 use crate::seismic_evm_config;
 
@@ -227,6 +235,15 @@ where
     /// Build a [`SeismicAddOns`] using [`SeismicAddOnsBuilder`].
     pub fn builder() -> SeismicAddOnsBuilder {
         SeismicAddOnsBuilder::default()
+    }
+
+    /// Sets the RPC middleware stack for processing RPC requests.
+    ///
+    /// This method configures a custom middleware stack that will be applied to all RPC requests
+    /// across HTTP, WebSocket, and IPC transports.
+    pub fn with_rpc_middleware<T>(self, rpc_middleware: T) -> SeismicAddOns<N, EthB, PVB, EB, EVB, T>
+    {
+        SeismicAddOns { inner: self.inner.with_rpc_middleware(rpc_middleware) }
     }
 }
 
@@ -712,4 +729,50 @@ impl NetworkPrimitives for SeismicNetworkPrimitives {
     type PooledTransaction = SeismicTxEnvelope;
     type Receipt = SeismicReceipt;
     type NewBlockPayload = NewBlock<Self::Block>;
+}
+
+/// Builds [`SeismicEthApi`].
+#[derive(Debug)]
+pub struct SeismicEthApiBuilder<NetworkT> {
+    _nt: PhantomData<NetworkT>,
+}
+
+impl<NetworkT> Default for SeismicEthApiBuilder<NetworkT> {
+    fn default() -> Self {
+        Self { _nt: PhantomData }
+    }
+}
+
+impl<NetworkT> SeismicEthApiBuilder<NetworkT> {
+    /// Creates a [`SeismicEthApiBuilder`] instance.
+    pub const fn new() -> Self {
+        Self { _nt: PhantomData }
+    }
+}
+
+impl<N, NetworkT> EthApiBuilder<N> for SeismicEthApiBuilder<NetworkT>
+where
+    N: FullNodeComponents<
+        Evm: ConfigureEvm<
+            NextBlockEnvCtx: BuildPendingEnv<HeaderTy<N::Types>> + Unpin,
+        >,
+    >,
+    NetworkT: RpcTypes,
+    SeismicRpcConvert<N, NetworkT>: RpcConvert<Network = NetworkT>,
+    SeismicEthApi<N, SeismicRpcConvert<N, NetworkT>>:
+        FullEthApiServer<Provider = N::Provider, Pool = N::Pool> + AddDevSigners,
+{
+    type EthApi = SeismicEthApi<N, SeismicRpcConvert<N, NetworkT>>;
+
+    async fn build_eth_api(self, ctx: EthApiCtx<'_, N>) -> eyre::Result<Self::EthApi> {
+        let receipt_converter = SeismicReceiptConverter::new();
+
+        let rpc_converter: SeismicRpcConvert<N, NetworkT> = RpcConverter::new(receipt_converter)
+            .with_sim_tx_converter(SeismicSimTxConverter::new())
+            .with_rpc_tx_converter(SeismicRpcTxConverter::new());
+
+        let eth_api = ctx.eth_api_builder().with_rpc_converter(rpc_converter).build_inner();
+
+        Ok(SeismicEthApi { inner: Arc::new(eth_api) })
+    }
 }

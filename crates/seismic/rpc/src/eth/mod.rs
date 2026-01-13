@@ -7,31 +7,27 @@ pub mod transaction;
 pub mod utils;
 
 pub use receipt::SeismicReceiptConverter;
+pub use transaction::{SeismicRpcTxConverter, SeismicSimTxConverter};
 
 mod block;
 mod call;
 mod pending_block;
 
-use crate::{
-    eth::transaction::{SeismicRpcTxConverter, SeismicSimTxConverter},
-    SeismicEthApiError,
-};
+use crate::SeismicEthApiError;
 use alloy_consensus::TxEip4844;
 use alloy_primitives::U256;
-use reth_evm::ConfigureEvm;
-use reth_node_api::{FullNodeComponents, HeaderTy};
-use reth_node_builder::rpc::{EthApiBuilder, EthApiCtx};
+use reth_node_api::FullNodeComponents;
 use reth_rpc::{
     eth::{core::EthApiInner, DevSigner},
     RpcTypes,
 };
 use reth_rpc_eth_api::{
     helpers::{
-        pending_block::BuildPendingEnv, spec::SignersForApi, AddDevSigners, EthApiSpec, EthFees,
-        EthState, LoadFee, LoadPendingBlock, LoadState, SpawnBlocking, Trace,
+        spec::SignersForApi, AddDevSigners, EthApiSpec, EthFees, EthState, LoadFee,
+        LoadPendingBlock, LoadState, SpawnBlocking, Trace,
     },
-    EthApiTypes, FromEvmError, FullEthApiServer, RpcConvert, RpcConverter, RpcNodeCore,
-    RpcNodeCoreExt, SignableTxRequest,
+    EthApiTypes, FromEvmError, RpcConvert, RpcConverter, RpcNodeCore, RpcNodeCoreExt,
+    SignableTxRequest,
 };
 use reth_rpc_eth_types::{EthStateCache, FeeHistoryCache, GasPriceOracle};
 use reth_storage_api::{BlockReader, ProviderHeader, ProviderTx};
@@ -40,7 +36,7 @@ use reth_tasks::{
     TaskSpawner,
 };
 use seismic_alloy_network::SeismicReth;
-use std::{fmt, marker::PhantomData, sync::Arc};
+use std::{fmt, sync::Arc};
 
 use reth_rpc_convert::transaction::{EthTxEnvError, TryIntoTxEnv};
 use revm_context::{BlockEnv, CfgEnv, TxEnv};
@@ -158,11 +154,6 @@ impl<N: RpcNodeCore, Rpc: RpcConvert> SeismicEthApi<N, Rpc> {
     /// Returns a reference to the [`EthApiNodeBackend`].
     pub fn eth_api(&self) -> &EthApiNodeBackend<N, Rpc> {
         &self.inner
-    }
-
-    /// Build a [`SeismicEthApi`] using [`SeismicEthApiBuilder`].
-    pub const fn builder() -> SeismicEthApiBuilder<Rpc> {
-        SeismicEthApiBuilder::new()
     }
 }
 
@@ -352,50 +343,3 @@ pub type SeismicRpcConvert<N, NetworkT> = RpcConverter<
     crate::eth::transaction::SeismicRpcTxConverter,
 >;
 
-/// Builds [`SeismicEthApi`] for Optimism.
-#[derive(Debug)]
-pub struct SeismicEthApiBuilder<NetworkT> {
-    _nt: PhantomData<NetworkT>,
-}
-
-impl<NetworkT> Default for SeismicEthApiBuilder<NetworkT> {
-    fn default() -> Self {
-        Self { _nt: PhantomData }
-    }
-}
-
-impl<NetworkT> SeismicEthApiBuilder<NetworkT> {
-    /// Creates a [`SeismicEthApiBuilder`] instance from core components.
-    pub const fn new() -> Self {
-        Self { _nt: PhantomData }
-    }
-}
-
-impl<N, NetworkT> EthApiBuilder<N> for SeismicEthApiBuilder<NetworkT>
-where
-    N: FullNodeComponents<
-        Evm: ConfigureEvm<
-            NextBlockEnvCtx: BuildPendingEnv<HeaderTy<N::Types>>
-                                 // + From<ExecutionPayloadBaseV1>
-                                 + Unpin,
-        >,
-    >,
-    NetworkT: RpcTypes,
-    SeismicRpcConvert<N, NetworkT>: RpcConvert<Network = NetworkT>,
-    SeismicEthApi<N, SeismicRpcConvert<N, NetworkT>>:
-        FullEthApiServer<Provider = N::Provider, Pool = N::Pool> + AddDevSigners,
-{
-    type EthApi = SeismicEthApi<N, SeismicRpcConvert<N, NetworkT>>;
-
-    async fn build_eth_api(self, ctx: EthApiCtx<'_, N>) -> eyre::Result<Self::EthApi> {
-        let receipt_converter = SeismicReceiptConverter::new();
-
-        let rpc_converter: SeismicRpcConvert<N, NetworkT> = RpcConverter::new(receipt_converter)
-            .with_sim_tx_converter(SeismicSimTxConverter::new())
-            .with_rpc_tx_converter(SeismicRpcTxConverter::new());
-
-        let eth_api = ctx.eth_api_builder().with_rpc_converter(rpc_converter).build_inner();
-
-        Ok(SeismicEthApi { inner: Arc::new(eth_api) })
-    }
-}

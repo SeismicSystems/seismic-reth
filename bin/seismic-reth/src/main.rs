@@ -106,11 +106,10 @@ fn main() {
             ],
         });
 
-        info!(target: "reth::cli", "Rate limiting configured: {} req/s, burst {}", 
-           &RateLimitConfig::requests_per_second, &RateLimitConfig::burst_size);
+        info!(target: "reth::cli", "Rate limiting configured: 100 req/s, burst 50");
 
         let seismic_node = SeismicNode::default();
-        let add_ons = seismic_node.add_ons().layer_rpc_middleware(rate_limiter);
+        let add_ons = seismic_node.add_ons().with_rpc_middleware(rate_limiter);
 
         let node = builder
             .with_types::<SeismicNode>()

@@ -227,13 +227,18 @@ impl SeismicRateLimiter {
             }
         }
 
-        // If no limited_methods specified, limit all (except exempt)
-        if self.config.limited_methods.is_empty() {
+        // If no limited_methods specified (None), limit all (except exempt)
+        let Some(limited_methods) = &self.config.limited_methods else {
+            return true;
+        };
+
+        // If limited_methods is empty, limit all (except exempt)
+        if limited_methods.is_empty() {
             return true;
         }
 
         // Check if method matches any limited prefix
-        for limited in &self.config.limited_methods {
+        for limited in limited_methods {
             if method == limited || method.starts_with(limited) {
                 return true;
             }
@@ -376,7 +381,7 @@ mod tests {
         assert!(config.exempt_methods.contains(&"eth_blockNumber".to_string()));
         assert!(config.exempt_methods.contains(&"net_version".to_string()));
         assert!(config.exempt_methods.contains(&"web3_clientVersion".to_string()));
-        assert!(config.limited_methods.is_empty());
+        assert!(config.limited_methods.is_none());
         assert!(config.exempt_ips.is_empty());
     }
 
@@ -385,13 +390,13 @@ mod tests {
         let config = RateLimitConfig {
             requests_per_second: 50,
             burst_size: 10,
-            limited_methods: vec!["eth_call".to_string()],
+            limited_methods: Some(vec!["eth_call".to_string()]),
             exempt_methods: vec!["eth_chainId".to_string()],
             exempt_ips: vec!["127.0.0.1".parse().unwrap()],
         };
         assert_eq!(config.requests_per_second, 50);
         assert_eq!(config.burst_size, 10);
-        assert_eq!(config.limited_methods.len(), 1);
+        assert_eq!(config.limited_methods.as_ref().unwrap().len(), 1);
         assert_eq!(config.exempt_methods.len(), 1);
         assert_eq!(config.exempt_ips.len(), 1);
     }
@@ -484,7 +489,7 @@ mod tests {
     #[test]
     fn test_should_limit_method_with_specific_methods() {
         let config = RateLimitConfig {
-            limited_methods: vec!["eth_call".to_string(), "eth_send".to_string()],
+            limited_methods: Some(vec!["eth_call".to_string(), "eth_send".to_string()]),
             exempt_methods: vec!["eth_chainId".to_string()],
             ..Default::default()
         };
@@ -509,7 +514,7 @@ mod tests {
     #[test]
     fn test_should_limit_method_empty_limited_methods_limits_all() {
         let config = RateLimitConfig {
-            limited_methods: vec![], // empty = limit all
+            limited_methods: Some(vec![]), // empty vec = limit all
             exempt_methods: vec!["eth_chainId".to_string()],
             ..Default::default()
         };
@@ -528,7 +533,7 @@ mod tests {
     #[test]
     fn test_should_limit_method_exempt_takes_priority() {
         let config = RateLimitConfig {
-            limited_methods: vec!["eth_".to_string()], // All eth_ methods
+            limited_methods: Some(vec!["eth_".to_string()]), // All eth_ methods
             exempt_methods: vec!["eth_chainId".to_string(), "eth_blockNumber".to_string()],
             ..Default::default()
         };
@@ -546,7 +551,7 @@ mod tests {
     #[test]
     fn test_should_limit_method_prefix_matching() {
         let config = RateLimitConfig {
-            limited_methods: vec!["debug_".to_string(), "trace_".to_string()],
+            limited_methods: Some(vec!["debug_".to_string(), "trace_".to_string()]),
             exempt_methods: vec![],
             ..Default::default()
         };
@@ -618,7 +623,7 @@ mod tests {
         let config = RateLimitConfig {
             requests_per_second: 2,
             burst_size: 2,
-            limited_methods: vec![],
+            limited_methods: None,
             exempt_methods: vec![],
             exempt_ips: vec![],
         };
@@ -638,7 +643,7 @@ mod tests {
         let config = RateLimitConfig {
             requests_per_second: 2,
             burst_size: 2,
-            limited_methods: vec![],
+            limited_methods: None,
             exempt_methods: vec![],
             exempt_ips: vec![],
         };
@@ -662,7 +667,7 @@ mod tests {
         let config = RateLimitConfig {
             requests_per_second: 1,
             burst_size: 1,
-            limited_methods: vec![],
+            limited_methods: None,
             exempt_methods: vec![],
             exempt_ips: vec!["192.168.1.1".parse().unwrap()],
         };
@@ -685,7 +690,7 @@ mod tests {
         let config = RateLimitConfig {
             requests_per_second: 1,
             burst_size: 1,
-            limited_methods: vec![],
+            limited_methods: None,
             exempt_methods: vec!["eth_chainId".to_string()],
             exempt_ips: vec![],
         };
@@ -707,7 +712,7 @@ mod tests {
         let config = RateLimitConfig {
             requests_per_second: 2,
             burst_size: 2,
-            limited_methods: vec![],
+            limited_methods: None,
             exempt_methods: vec![],
             exempt_ips: vec![],
         };
@@ -725,7 +730,7 @@ mod tests {
         let config = RateLimitConfig {
             requests_per_second: 10,
             burst_size: 5,
-            limited_methods: vec![],
+            limited_methods: None,
             exempt_methods: vec![],
             exempt_ips: vec![],
         };
@@ -861,7 +866,7 @@ mod tests {
         let config = RateLimitConfig {
             requests_per_second: 10, // 10 per second = 1 token every 100ms
             burst_size: 1,
-            limited_methods: vec![],
+            limited_methods: None,
             exempt_methods: vec![],
             exempt_ips: vec![],
         };
@@ -884,7 +889,7 @@ mod tests {
         let config = RateLimitConfig {
             requests_per_second: 20, // 20 per second = 1 token every 50ms
             burst_size: 1,
-            limited_methods: vec![],
+            limited_methods: None,
             exempt_methods: vec![],
             exempt_ips: vec![],
         };
@@ -907,7 +912,7 @@ mod tests {
         let config = RateLimitConfig {
             requests_per_second: 10,
             burst_size: 5,
-            limited_methods: vec!["eth_call".to_string(), "eth_send".to_string()],
+            limited_methods: Some(vec!["eth_call".to_string(), "eth_send".to_string()]),
             exempt_methods: vec!["eth_chainId".to_string()],
             exempt_ips: vec!["127.0.0.1".parse().unwrap()],
         };
