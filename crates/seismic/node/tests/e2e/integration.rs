@@ -666,6 +666,7 @@ async fn test_seismic_precompiles_end_to_end() {
     let reth_rpc_url = SeismicRethTestCommand::url();
     let chain_id = SeismicRethTestCommand::chain_id();
     let _wallet = Wallet::default().with_chain_id(chain_id);
+    let from = _wallet.inner.address();
     let wallet: SeismicWallet<SeismicReth> = SeismicWallet::from(_wallet.inner);
 
     let provider = SeismicSignedProvider::new(wallet, reqwest::Url::parse(&reth_rpc_url).unwrap())
@@ -698,20 +699,20 @@ async fn test_seismic_precompiles_end_to_end() {
     // 2. Tx #1: Set AES key in the contract
     //
     let unencrypted_aes_key = get_input_data(PRECOMPILES_TEST_SET_AES_KEY_SELECTOR, private_key);
-    let req = TransactionBuilder::<SeismicReth>::with_kind(
-        TransactionBuilder::<SeismicReth>::with_input(
-            SeismicTransactionRequest::default(),
-            unencrypted_aes_key,
-        ),
-        TxKind::Call(contract_addr),
-    );
-    let pending_transaction = provider.send_transaction(req).await.unwrap();
-    let tx_hash = pending_transaction.tx_hash();
-    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
-
-    // Get the transaction receipt
-    let receipt = provider.get_transaction_receipt(*tx_hash).await.unwrap().unwrap();
-    assert!(receipt.status());
+    provider
+        .send_transaction(
+            seismic_reth_tx_builder()
+                .with_from(from)
+                .with_to(contract_addr)
+                .with_input(unencrypted_aes_key)
+                .into()
+                .into(),
+        )
+        .await
+        .unwrap()
+        .get_receipt()
+        .await
+        .unwrap();
 
     //
     // 3. Tx #2: Encrypt & send "hello world"
@@ -724,20 +725,20 @@ async fn test_seismic_precompiles_end_to_end() {
     let unencrypted_input =
         concat_input_data(PRECOMPILES_TEST_ENCRYPTED_LOG_SELECTOR, encoded_message.into());
 
-    let req = TransactionBuilder::<SeismicReth>::with_kind(
-        TransactionBuilder::<SeismicReth>::with_input(
-            SeismicTransactionRequest::default(),
-            unencrypted_input,
-        ),
-        TxKind::Call(contract_addr),
-    );
-    let pending_transaction = provider.send_transaction(req).await.unwrap();
-    let tx_hash = pending_transaction.tx_hash();
-    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
-
-    // Get the transaction receipt
-    let receipt = provider.get_transaction_receipt(*tx_hash).await.unwrap().unwrap();
-    assert!(receipt.status());
+    let receipt = provider
+        .send_transaction(
+            seismic_reth_tx_builder()
+                .with_from(from)
+                .with_to(contract_addr)
+                .with_input(unencrypted_input)
+                .into()
+                .into(),
+        )
+        .await
+        .unwrap()
+        .get_receipt()
+        .await
+        .unwrap();
 
     //
     // 4. Tx #3: On-chain decrypt
@@ -775,29 +776,36 @@ async fn test_seismic_precompiles_end_to_end() {
     let ciphertext = Bytes::from(decoded.body[0].abi_encode_packed());
 
     let call = Encryption::decryptCall { nonce, ciphertext: ciphertext.clone() };
-    let unencrypted_decrypt_call: Bytes = call.abi_encode().into();
+    let unencrypted_decrypt_call = Bytes::from(call.abi_encode());
 
-    let req = TransactionBuilder::<SeismicReth>::with_kind(
-        TransactionBuilder::<SeismicReth>::with_input(
-            SeismicTransactionRequest::default(),
-            unencrypted_decrypt_call,
-        ),
-        TxKind::Call(contract_addr),
-    );
-    let decrypted_output = provider.seismic_call(SendableTx::Builder(req)).await.unwrap();
-    let result_bytes =
-        PlaintextType::abi_decode(&decrypted_output).expect("failed to decode the bytes");
-    let final_string =
-        String::from_utf8(result_bytes.to_vec()).expect("invalid utf8 in decrypted bytes");
-    assert_eq!(final_string, raw_message);
+    // Create a seismic read call - provider will handle seismic_elements and metadata
+    let tx_req = seismic_reth_tx_builder()
+        .with_from(from)
+        .with_to(contract_addr)
+        .with_input(unencrypted_decrypt_call)
+        .into()
+        .seismic();
 
-    // Local Decrypt
+    let output = provider.seismic_call(SendableTx::Builder(tx_req.into())).await.unwrap();
+
+    //
+    // 5. Locally decrypt to cross-check
+    //
+    // 5a. AES decryption with your local private key
     let secp_private = secp256k1::SecretKey::from_slice(private_key.as_ref()).unwrap();
     let aes_key: &[u8; 32] = &secp_private.secret_bytes()[0..32].try_into().unwrap();
     let nonce: [u8; 12] = decoded.indexed[0].abi_encode_packed().try_into().unwrap();
     let decrypted_locally =
         aes_decrypt(aes_key.into(), &ciphertext, nonce).expect("AES decryption failed");
     assert_eq!(decrypted_locally, message);
+
+    // 5b. Decrypt the "output" from the read call
+    let result_bytes =
+        PlaintextType::abi_decode(&Bytes::from(output)).expect("failed to decode the bytes");
+    let final_string =
+        String::from_utf8(result_bytes.to_vec()).expect("invalid utf8 in decrypted bytes");
+
+    assert_eq!(final_string, raw_message);
 }
 
 /// Get the deploy input plaintext
