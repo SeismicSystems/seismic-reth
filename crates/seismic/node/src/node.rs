@@ -508,12 +508,15 @@ where
         } else {
             ctx.head().timestamp / 1000
         };
-        let validator = TransactionValidationTaskExecutor::eth_builder(ctx.provider().clone())
+        let eth_validator = TransactionValidationTaskExecutor::eth_builder(ctx.provider().clone())
             .with_head_timestamp(head_timestamp_seconds)
             .kzg_settings(ctx.kzg_settings()?)
             .with_local_transactions_config(pool_config.local_transactions_config.clone())
             .with_additional_tasks(ctx.config().txpool.additional_validation_tasks)
             .build_with_tasks(ctx.task_executor().clone(), blob_store.clone());
+
+        // Wrap the eth validator with seismic-specific validation
+        let validator = eth_validator.map(reth_seismic_txpool::SeismicTransactionValidator::new);
 
         let transaction_pool = reth_transaction_pool::Pool::new(
             validator,

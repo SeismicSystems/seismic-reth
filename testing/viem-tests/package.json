@@ -10,11 +10,11 @@
         "@types/bun": "latest"
     },
     "peerDependencies": {
-        "typescript": "^5"
+        "typescript": "^5.8.2"
     },
     "dependencies": {
-        "seismic-viem": "latest",
-        "seismic-viem-tests": "latest",
-        "viem": "2.x"
+        "seismic-viem": "^1.1.0",
+        "seismic-viem-tests": "^0.1.2",
+        "viem": "^2.44.1"
     }
 }

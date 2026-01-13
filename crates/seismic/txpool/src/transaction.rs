@@ -181,10 +181,14 @@ where
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)] // Test code - expect on failure is acceptable
+#[allow(clippy::unwrap_used)] // Test code - unwrap on failure is acceptable
+#[allow(clippy::panic)] // Test code - panic on failure is acceptable
 mod tests {
     use crate::SeismicPooledTransaction;
     use alloy_consensus::transaction::Recovered;
     use alloy_eips::eip2718::Encodable2718;
+    use alloy_primitives::B256;
     use reth_primitives_traits::transaction::error::InvalidTransactionError;
     use reth_provider::test_utils::MockEthProvider;
     use reth_seismic_chainspec::SEISMIC_MAINNET;
@@ -206,7 +210,7 @@ mod tests {
         // check that a SeismicTypedTransaction::Seismic is valid
         let origin = TransactionOrigin::External;
         let signer = Default::default();
-        let signed_seismic_tx = get_signed_seismic_tx();
+        let signed_seismic_tx = get_signed_seismic_tx(B256::ZERO);
         let signed_recovered = Recovered::new_unchecked(signed_seismic_tx, signer);
         let len = signed_recovered.encode_2718_len();
         let pooled_tx: SeismicPooledTransaction =

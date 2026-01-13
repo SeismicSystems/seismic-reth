@@ -53,6 +53,39 @@ jobs:
       - name: cargo check warnings
         run: RUSTFLAGS="-D warnings" cargo check
 
+  clippy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "clippy-cache"
+      - name: Clippy (seismic crates)
+        run: |
+          cargo clippy \
+            -p reth-seismic-primitives \
+            -p reth-seismic-chainspec \
+            -p reth-seismic-evm \
+            -p reth-seismic-payload-builder \
+            -p reth-seismic-node \
+            -p reth-seismic-rpc \
+            -p reth-seismic-cli \
+            -p reth-seismic-txpool \
+            -p reth-seismic-forks \
+            -p seismic-reth \
+            --lib --tests --no-deps \
+            -- -D warnings \
+            -W clippy::unwrap_used \
+            -W clippy::expect_used \
+            -W clippy::indexing_slicing \
+            -W clippy::panic \
+            -W clippy::unreachable \
+            -W clippy::todo
+
   unit-test:
     runs-on: large-github-runner
     timeout-minutes: 30

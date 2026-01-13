@@ -366,7 +366,7 @@ pub mod test_utils {
 
     /// Get the encoding of a signed seismic transaction
     pub fn get_signed_seismic_tx_encoding() -> Vec<u8> {
-        let signed_tx = get_signed_seismic_tx();
+        let signed_tx = get_signed_seismic_tx(B256::ZERO);
         let mut encoding = Vec::new();
 
         signed_tx.encode_2718(&mut encoding);
@@ -392,11 +392,4 @@ pub mod test_utils {
         signature
     }
 
-    /// Get a signed seismic transaction
-    pub fn get_signed_seismic_tx() -> SeismicTransactionSigned {
-        let tx = get_seismic_tx();
-        let signature = sign_seismic_tx(&tx);
-        SignableTransaction::into_signed(tx, signature).into()
-    }
-    
 }

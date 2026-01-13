@@ -73,16 +73,34 @@ impl Compact for TxSeismicElements {
         B: bytes::BufMut + AsMut<[u8]>,
     {
         let mut len = 0;
+
+        // 1. encryption_pubkey (fixed size: 33 bytes)
         len += self.encryption_pubkey.serialize().to_compact(buf);
 
-        buf.put_u8(self.message_version);
-        len += core::mem::size_of::<u8>();
-
+        // 2. encryption_nonce (variable size: store length + data)
         let mut cache = BytesMut::new();
         let nonce_len = self.encryption_nonce.to_compact(&mut cache);
         buf.put_u8(nonce_len as u8);
         buf.put_slice(&cache);
         len += nonce_len + 1;
+
+        // 3. message_version (fixed size: 1 byte)
+        buf.put_u8(self.message_version);
+        len += 1;
+
+        // 4. recent_block_hash (fixed size: 32 bytes)
+        len += self.recent_block_hash.to_compact(buf);
+
+        // 5. expires_at_block (variable size: store length + data)
+        let mut cache = BytesMut::new();
+        let expires_len = self.expires_at_block.to_compact(&mut cache);
+        buf.put_u8(expires_len as u8);
+        buf.put_slice(&cache);
+        len += expires_len + 1;
+
+        // 6. signed_read (fixed size: 1 byte)
+        buf.put_u8(self.signed_read as u8);
+        len += 1;
 
         len
     }
@@ -90,6 +108,7 @@ impl Compact for TxSeismicElements {
     #[allow(clippy::indexing_slicing, clippy::unwrap_used)]
     fn from_compact(mut buf: &[u8], _len: usize) -> (Self, &[u8]) {
         // Codec format is fixed by to_compact; malformed data indicates corruption and should panic
+        // 1. encryption_pubkey (fixed size: 33 bytes)
         let encryption_pubkey_compressed_bytes =
             &buf[..seismic_enclave::secp256k1::constants::PUBLIC_KEY_SIZE];
         let encryption_pubkey =
@@ -97,11 +116,34 @@ impl Compact for TxSeismicElements {
                 .unwrap();
         buf.advance(seismic_enclave::secp256k1::constants::PUBLIC_KEY_SIZE);
 
-        let (message_version, buf) = (buf[0], &buf[1..]);
-
+        // 2. encryption_nonce (variable size: read length then data)
         let (nonce_len, buf) = (buf[0], &buf[1..]);
         let (encryption_nonce, buf) = U96::from_compact(buf, nonce_len as usize);
-        (Self { encryption_pubkey, encryption_nonce, message_version }, buf)
+
+        // 3. message_version (fixed size: 1 byte)
+        let (message_version, buf) = (buf[0], &buf[1..]);
+
+        // 4. recent_block_hash (fixed size: 32 bytes)
+        let (recent_block_hash, buf) = alloy_primitives::B256::from_compact(buf, 32);
+
+        // 5. expires_at_block (variable size: read length then data)
+        let (expires_len, buf) = (buf[0], &buf[1..]);
+        let (expires_at_block, buf) = u64::from_compact(buf, expires_len as usize);
+
+        // 6. signed_read (fixed size: 1 byte)
+        let (signed_read, buf) = (buf[0] != 0, &buf[1..]);
+
+        (
+            Self {
+                encryption_pubkey,
+                encryption_nonce,
+                message_version,
+                recent_block_hash,
+                expires_at_block,
+                signed_read,
+            },
+            buf,
+        )
     }
 }
 
@@ -377,6 +419,14 @@ mod tests {
                 .unwrap(),
                 encryption_nonce: U96::from_str_radix("11856476099097235301", 10).unwrap(),
                 message_version: 85,
+                recent_block_hash: alloy_primitives::B256::from_slice(
+                    &hex::decode(
+                        "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                    )
+                    .unwrap(),
+                ),
+                expires_at_block: 1000000,
+                signed_read: false,
             },
             input: Bytes::from_static(&[0x24]),
         };
@@ -409,6 +459,18 @@ mod tests {
         assert_eq!(
             tx.seismic_elements.message_version,
             decoded_tx.seismic_elements.message_version
+        );
+        assert_eq!(
+            tx.seismic_elements.recent_block_hash,
+            decoded_tx.seismic_elements.recent_block_hash
+        );
+        assert_eq!(
+            tx.seismic_elements.expires_at_block,
+            decoded_tx.seismic_elements.expires_at_block
+        );
+        assert_eq!(
+            tx.seismic_elements.signed_read,
+            decoded_tx.seismic_elements.signed_read
         );
     }
 }
