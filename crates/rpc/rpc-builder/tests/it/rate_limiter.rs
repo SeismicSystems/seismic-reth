@@ -22,7 +22,7 @@ async fn test_rate_limiter_integration() {
     let rate_limiter = SeismicRateLimiter::new(RateLimitConfig {
         requests_per_second: 2,
         burst_size: 2,
-        limited_methods: vec![], // limit all
+        limited_methods: None, // limit all
         exempt_methods: vec![],  // no exemptions
         exempt_ips: vec![],
     });
@@ -81,7 +81,7 @@ async fn test_rate_limiter_exempt_methods() {
     let rate_limiter = SeismicRateLimiter::new(RateLimitConfig {
         requests_per_second: 1,
         burst_size: 1,
-        limited_methods: vec![],
+        limited_methods: None,
         exempt_methods: vec!["eth_protocolVersion".to_string()],
         exempt_ips: vec![],
     });
@@ -117,7 +117,7 @@ async fn test_rate_limiter_specific_methods() {
     let rate_limiter = SeismicRateLimiter::new(RateLimitConfig {
         requests_per_second: 1,
         burst_size: 1,
-        limited_methods: vec!["eth_chainId".to_string()],
+        limited_methods: Some(vec!["eth_chainId".to_string()]),
         exempt_methods: vec![],
         exempt_ips: vec![],
     });
@@ -197,7 +197,7 @@ async fn test_rate_limiter_token_refill() {
     let rate_limiter = SeismicRateLimiter::new(RateLimitConfig {
         requests_per_second: 10,
         burst_size: 1,
-        limited_methods: vec![],
+        limited_methods: None,
         exempt_methods: vec![],
         exempt_ips: vec![],
     });
