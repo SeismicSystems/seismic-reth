@@ -13,7 +13,7 @@ use reth_transaction_pool::{
 use seismic_alloy_consensus::SeismicTxType;
 use std::{fmt, marker::PhantomData, sync::Arc};
 
-/// Maximum number of blocks to look back for recent_block_hash validation
+/// Maximum number of blocks to look back for `recent_block_hash` validation
 pub const SEISMIC_TX_RECENT_BLOCK_LOOKBACK: u64 = 100;
 
 /// Seismic transaction validator that adds seismic-specific validation on top of Ethereum
@@ -145,7 +145,8 @@ impl<Client, Tx> SeismicTransactionValidator<Client, Tx>
 where
     Client: BlockReaderIdExt,
 {
-    /// Validates that the recent_block_hash is in the last SEISMIC_TX_RECENT_BLOCK_LOOKBACK blocks
+    /// Validates that the `recent_block_hash` is in the last `SEISMIC_TX_RECENT_BLOCK_LOOKBACK`
+    /// blocks
     fn validate_recent_block_hash(
         &self,
         recent_block_hash: B256,
@@ -201,7 +202,7 @@ where
         Ok(())
     }
 
-    /// Validates that signed_read is false for write transactions (transactions with a `to`
+    /// Validates that `signed_read` is false for write transactions (transactions with a `to`
     /// address)
     fn validate_signed_read_for_write(
         to: TxKind,
