@@ -27,6 +27,7 @@ import {
     testWsConnection,
     buildNode,
     testLegacyTxTrace,
+    setupRethNode,
 } from "seismic-viem-tests";
 
 const TIMEOUT_MS = 20_000;
@@ -59,15 +60,16 @@ beforeAll(async () => {
     }
     await buildNode(chain);
     const debug = false;
+    const baseArgs = { port, ws: true, devBlockTimeSeconds: 1 }
     const rethArgs = debug
-        ? { port, ws: true, silent: false, verbosity: 4 }
-        : { port, ws: true };
+        ? { silent: false, verbosity: 4, ...baseArgs }
+        : baseArgs
 
-    const node = await setupNode(chain, rethArgs);
-    pcParams = { chain, url: node.url };
+    const node = await setupRethNode(rethArgs)
+    pcParams = { chain, url: node.url }
     exitProcess = node.exitProcess;
-    url = node.url;
-    wsUrl = `ws://localhost:${port}`;
+    url = node.url
+    wsUrl = `ws://localhost:${port}`
 });
 
 describe("Seismic Contract", async () => {
