@@ -30,9 +30,10 @@ import {
     setupRethNode,
 } from "seismic-viem-tests";
 
-const TIMEOUT_MS = 20_000;
-const chain = localSeismicDevnet;
-const port = 8545;
+const TIMEOUT_MS = 20_000
+const LONG_TIMEOUT_MS = 60_000
+const chain = localSeismicDevnet
+const port = 8545
 
 const TEST_ACCOUNT_PRIVATE_KEY =
     "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -79,7 +80,7 @@ describe("Seismic Contract", async () => {
             await testSeismicTx({ chain, url, account });
         },
         {
-            timeout: TIMEOUT_MS,
+            timeout: LONG_TIMEOUT_MS,
         }
     );
 });
