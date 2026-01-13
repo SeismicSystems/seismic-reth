@@ -62,6 +62,12 @@ tokio.workspace = true
 jsonrpsee-types.workspace = true
 jsonrpsee.workspace = true
 futures.workspace = true
+http = "1"
+
+# rate limiter
+governor = "0.6"    # Token bucket rate limiting
+dashmap = "6"       # Concurrent hashmap for per-IP state
+nonzero_ext = "0.3"
 
 # misc
 eyre.workspace = true
