@@ -14,7 +14,7 @@
     },
     "dependencies": {
         "seismic-viem": "^1.1.0",
-        "seismic-viem-tests": "^0.1.1",
+        "seismic-viem-tests": "^0.1.2",
         "viem": "^2.44.1"
     }
 }
