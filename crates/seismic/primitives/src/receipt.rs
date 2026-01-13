@@ -533,6 +533,9 @@ pub(super) mod serde_bincode_compat {
     }
 
     #[cfg(test)]
+    #[allow(clippy::expect_used)] // Test code - expect on failure is acceptable
+    #[allow(clippy::unwrap_used)] // Test code - unwrap on failure is acceptable
+    #[allow(clippy::panic)] // Test code - panic on failure is acceptable
     mod tests {
         use crate::{receipt::serde_bincode_compat, SeismicReceipt};
         use arbitrary::Arbitrary;
@@ -567,6 +570,9 @@ pub(super) mod serde_bincode_compat {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)] // Test code - expect on failure is acceptable
+#[allow(clippy::unwrap_used)] // Test code - unwrap on failure is acceptable
+#[allow(clippy::panic)] // Test code - panic on failure is acceptable
 mod tests {
     use super::*;
     use alloy_eips::eip2718::Encodable2718;

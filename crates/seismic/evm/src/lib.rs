@@ -293,6 +293,9 @@ impl ConfigureEngineEvm<ExecutionData> for SeismicEvmConfig {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)] // Test code - expect on failure is acceptable
+#[allow(clippy::unwrap_used)] // Test code - unwrap on failure is acceptable
+#[allow(clippy::panic)] // Test code - panic on failure is acceptable
 mod tests {
     use super::*;
     use alloy_consensus::{Header, Receipt};

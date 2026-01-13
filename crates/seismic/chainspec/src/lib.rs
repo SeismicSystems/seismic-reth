@@ -134,6 +134,9 @@ pub fn is_chain_seismic(chain: &Chain) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)] // Test code - expect on failure is acceptable
+#[allow(clippy::unwrap_used)] // Test code - unwrap on failure is acceptable
+#[allow(clippy::panic)] // Test code - panic on failure is acceptable
 mod tests {
     use crate::*;
     use alloy_consensus::constants::MAINNET_GENESIS_HASH;
