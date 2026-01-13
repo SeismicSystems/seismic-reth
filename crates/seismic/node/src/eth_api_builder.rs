@@ -8,8 +8,8 @@ use reth_rpc::RpcTypes;
 use reth_rpc_eth_api::{helpers::AddDevSigners, FullEthApiServer, RpcConvert, RpcConverter};
 use reth_seismic_primitives::SeismicPrimitives;
 use reth_seismic_rpc::{
-    SeismicEthApi, SeismicReceiptConverter, SeismicRpcConvert,
-    SeismicRpcTxConverter, SeismicSimTxConverter,
+    SeismicEthApi, SeismicReceiptConverter, SeismicRpcConvert, SeismicRpcTxConverter,
+    SeismicSimTxConverter,
 };
 use std::{marker::PhantomData, sync::Arc};
 
@@ -34,10 +34,13 @@ impl<NetworkT> SeismicEthApiBuilder<NetworkT> {
 
 impl<N, NetworkT> EthApiBuilder<N> for SeismicEthApiBuilder<NetworkT>
 where
-    N: FullNodeComponents<Evm: ConfigureEvm<
-            NextBlockEnvCtx: reth_rpc_eth_api::helpers::pending_block::BuildPendingEnv<HeaderTy<N::Types>>
-                                 + Unpin,
-        >>,
+    N: FullNodeComponents<
+        Evm: ConfigureEvm<
+            NextBlockEnvCtx: reth_rpc_eth_api::helpers::pending_block::BuildPendingEnv<
+                HeaderTy<N::Types>,
+            > + Unpin,
+        >,
+    >,
     N::Types: NodeTypesForProvider<Primitives = SeismicPrimitives>,
     NetworkT: RpcTypes,
     SeismicRpcConvert<N, NetworkT>: RpcConvert<Network = NetworkT>,

@@ -1,5 +1,6 @@
 //! Seismic Node types config.
 
+use crate::eth_api_builder::SeismicEthApiBuilder;
 use crate::{
     engine::{SeismicEngineTypes, SeismicEngineValidator},
     txpool::SeismicTransactionPool,
@@ -43,7 +44,6 @@ use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
 use reth_seismic_rpc::{SeismicEthApiError, SeismicRethWithSignable};
-use crate::eth_api_builder::SeismicEthApiBuilder;
 use reth_transaction_pool::{
     blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},
     CoinbaseTipOrdering, PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
@@ -231,10 +231,11 @@ where
     }
 
     /// Sets the RPC middleware stack for processing RPC requests.
-    pub fn with_rpc_middleware<T>(self, rpc_middleware: T) -> SeismicAddOns<N, EthB, PVB, EB, EVB, T> {
-        SeismicAddOns {
-            inner: self.inner.with_rpc_middleware(rpc_middleware),
-        }
+    pub fn with_rpc_middleware<T>(
+        self,
+        rpc_middleware: T,
+    ) -> SeismicAddOns<N, EthB, PVB, EB, EVB, T> {
+        SeismicAddOns { inner: self.inner.with_rpc_middleware(rpc_middleware) }
     }
 
     /// Add a new layer `T` to the configured RPC middleware.
@@ -242,31 +243,30 @@ where
         self,
         layer: T,
     ) -> SeismicAddOns<N, EthB, PVB, EB, EVB, reth_rpc_builder::Stack<RpcMiddleware, T>> {
-        SeismicAddOns {
-            inner: self.inner.layer_rpc_middleware(layer),
-        }
+        SeismicAddOns { inner: self.inner.layer_rpc_middleware(layer) }
     }
 
     /// Sets the hook that is run once the rpc server is started.
     pub fn on_rpc_started<F>(self, hook: F) -> Self
     where
-        F: FnOnce(reth_node_builder::rpc::RpcContext<'_, N, EthB::EthApi>, reth_node_builder::rpc::RethRpcServerHandles) -> eyre::Result<()>
+        F: FnOnce(
+                reth_node_builder::rpc::RpcContext<'_, N, EthB::EthApi>,
+                reth_node_builder::rpc::RethRpcServerHandles,
+            ) -> eyre::Result<()>
             + Send
             + 'static,
     {
-        Self {
-            inner: self.inner.on_rpc_started(hook),
-        }
+        Self { inner: self.inner.on_rpc_started(hook) }
     }
 
     /// Sets the hook that is run to configure the rpc modules.
     pub fn extend_rpc_modules<F>(self, hook: F) -> Self
     where
-        F: FnOnce(reth_node_builder::rpc::RpcContext<'_, N, EthB::EthApi>) -> eyre::Result<()> + Send + 'static,
+        F: FnOnce(reth_node_builder::rpc::RpcContext<'_, N, EthB::EthApi>) -> eyre::Result<()>
+            + Send
+            + 'static,
     {
-        Self {
-            inner: self.inner.extend_rpc_modules(hook),
-        }
+        Self { inner: self.inner.extend_rpc_modules(hook) }
     }
 }
 

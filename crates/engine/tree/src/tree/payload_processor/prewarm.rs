@@ -138,7 +138,7 @@ where
             self.ctx.cache_metrics.clone(),
         );
         if cache.cache().insert_state(&state).is_err() {
-            return
+            return;
         }
 
         cache.update_metrics();
@@ -180,7 +180,7 @@ where
 
                     if finished_execution {
                         // all tasks are done, we can exit, which will save caches and exit
-                        break
+                        break;
                     }
                 }
                 PrewarmTaskEvent::FinishedTxExecution { executed_transactions } => {
@@ -192,7 +192,7 @@ where
 
                     if final_block_output.is_some() {
                         // all tasks are done, we can exit, which will save caches and exit
-                        break
+                        break;
                     }
                 }
             }
@@ -257,7 +257,7 @@ where
                     %err,
                     "Failed to build state provider in prewarm thread"
                 );
-                return None
+                return None;
             }
         };
 
@@ -321,7 +321,7 @@ where
             // and exit.
             if terminate_execution.load(Ordering::Relaxed) {
                 let _ = sender.send(PrewarmTaskEvent::Outcome { proof_targets: None });
-                break
+                break;
             }
 
             // create the tx env
@@ -336,7 +336,7 @@ where
                         sender=%tx.signer(),
                         "Error when executing prewarm transaction",
                     );
-                    return
+                    return;
                 }
             };
             metrics.execution_duration.record(start.elapsed());
@@ -367,7 +367,7 @@ fn multiproof_targets_from_state(state: EvmState) -> (MultiProofTargets, usize) 
         //
         // See: https://eips.ethereum.org/EIPS/eip-6780
         if !account.is_touched() || account.is_selfdestructed() {
-            continue
+            continue;
         }
 
         let mut storage_set =
@@ -375,7 +375,7 @@ fn multiproof_targets_from_state(state: EvmState) -> (MultiProofTargets, usize) 
         for (key, slot) in account.storage {
             // do nothing if unchanged
             if !slot.is_changed() {
-                continue
+                continue;
             }
 
             storage_set.insert(keccak256(B256::new(key.to_be_bytes())));

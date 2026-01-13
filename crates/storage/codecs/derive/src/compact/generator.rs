@@ -153,7 +153,7 @@ fn generate_from_compact(
                     let ident = format_ident!("{}", field.name);
                     return Some(quote! {
                         #ident: #ident,
-                    })
+                    });
                 }
                 None
             });

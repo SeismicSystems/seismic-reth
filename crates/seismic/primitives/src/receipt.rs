@@ -50,60 +50,60 @@ impl SeismicReceipt {
     /// Returns inner [`Receipt`],
     pub const fn as_receipt(&self) -> &Receipt {
         match self {
-            Self::Legacy(receipt) |
-            Self::Eip2930(receipt) |
-            Self::Eip1559(receipt) |
-            Self::Eip4844(receipt) |
-            Self::Eip7702(receipt) |
-            Self::Seismic(receipt) => receipt,
+            Self::Legacy(receipt)
+            | Self::Eip2930(receipt)
+            | Self::Eip1559(receipt)
+            | Self::Eip4844(receipt)
+            | Self::Eip7702(receipt)
+            | Self::Seismic(receipt) => receipt,
         }
     }
 
     /// Returns a mutable reference to the inner [`Receipt`],
     pub const fn as_receipt_mut(&mut self) -> &mut Receipt {
         match self {
-            Self::Legacy(receipt) |
-            Self::Eip2930(receipt) |
-            Self::Eip1559(receipt) |
-            Self::Eip4844(receipt) |
-            Self::Eip7702(receipt) |
-            Self::Seismic(receipt) => receipt,
+            Self::Legacy(receipt)
+            | Self::Eip2930(receipt)
+            | Self::Eip1559(receipt)
+            | Self::Eip4844(receipt)
+            | Self::Eip7702(receipt)
+            | Self::Seismic(receipt) => receipt,
         }
     }
 
     /// Consumes this and returns the inner [`Receipt`].
     pub fn into_receipt(self) -> Receipt {
         match self {
-            Self::Legacy(receipt) |
-            Self::Eip2930(receipt) |
-            Self::Eip1559(receipt) |
-            Self::Eip4844(receipt) |
-            Self::Eip7702(receipt) |
-            Self::Seismic(receipt) => receipt,
+            Self::Legacy(receipt)
+            | Self::Eip2930(receipt)
+            | Self::Eip1559(receipt)
+            | Self::Eip4844(receipt)
+            | Self::Eip7702(receipt)
+            | Self::Seismic(receipt) => receipt,
         }
     }
 
     /// Returns length of RLP-encoded receipt fields with the given [`Bloom`] without an RLP header.
     pub fn rlp_encoded_fields_length(&self, bloom: &Bloom) -> usize {
         match self {
-            Self::Legacy(receipt) |
-            Self::Eip2930(receipt) |
-            Self::Eip1559(receipt) |
-            Self::Eip4844(receipt) |
-            Self::Eip7702(receipt) |
-            Self::Seismic(receipt) => receipt.rlp_encoded_fields_length_with_bloom(bloom),
+            Self::Legacy(receipt)
+            | Self::Eip2930(receipt)
+            | Self::Eip1559(receipt)
+            | Self::Eip4844(receipt)
+            | Self::Eip7702(receipt)
+            | Self::Seismic(receipt) => receipt.rlp_encoded_fields_length_with_bloom(bloom),
         }
     }
 
     /// RLP-encodes receipt fields with the given [`Bloom`] without an RLP header.
     pub fn rlp_encode_fields(&self, bloom: &Bloom, out: &mut dyn BufMut) {
         match self {
-            Self::Legacy(receipt) |
-            Self::Eip2930(receipt) |
-            Self::Eip1559(receipt) |
-            Self::Eip4844(receipt) |
-            Self::Eip7702(receipt) |
-            Self::Seismic(receipt) => receipt.rlp_encode_fields_with_bloom(bloom, out),
+            Self::Legacy(receipt)
+            | Self::Eip2930(receipt)
+            | Self::Eip1559(receipt)
+            | Self::Eip4844(receipt)
+            | Self::Eip7702(receipt)
+            | Self::Seismic(receipt) => receipt.rlp_encode_fields_with_bloom(bloom, out),
         }
     }
 
@@ -160,12 +160,12 @@ impl SeismicReceipt {
     /// RLP-encodes receipt fields without an RLP header.
     pub fn rlp_encode_fields_without_bloom(&self, out: &mut dyn BufMut) {
         match self {
-            Self::Legacy(receipt) |
-            Self::Eip2930(receipt) |
-            Self::Eip1559(receipt) |
-            Self::Eip4844(receipt) |
-            Self::Eip7702(receipt) |
-            Self::Seismic(receipt) => {
+            Self::Legacy(receipt)
+            | Self::Eip2930(receipt)
+            | Self::Eip1559(receipt)
+            | Self::Eip4844(receipt)
+            | Self::Eip7702(receipt)
+            | Self::Seismic(receipt) => {
                 receipt.status.encode(out);
                 receipt.cumulative_gas_used.encode(out);
                 receipt.logs.encode(out);
@@ -176,15 +176,15 @@ impl SeismicReceipt {
     /// Returns length of RLP-encoded receipt fields without an RLP header.
     pub fn rlp_encoded_fields_length_without_bloom(&self) -> usize {
         match self {
-            Self::Legacy(receipt) |
-            Self::Eip2930(receipt) |
-            Self::Eip1559(receipt) |
-            Self::Eip4844(receipt) |
-            Self::Eip7702(receipt) |
-            Self::Seismic(receipt) => {
-                receipt.status.length() +
-                    receipt.cumulative_gas_used.length() +
-                    receipt.logs.length()
+            Self::Legacy(receipt)
+            | Self::Eip2930(receipt)
+            | Self::Eip1559(receipt)
+            | Self::Eip4844(receipt)
+            | Self::Eip7702(receipt)
+            | Self::Seismic(receipt) => {
+                receipt.status.length()
+                    + receipt.cumulative_gas_used.length()
+                    + receipt.logs.length()
             }
         }
     }
@@ -282,7 +282,7 @@ impl RlpDecodableReceipt for SeismicReceipt {
 
         // Legacy receipt, reuse initial buffer without advancing
         if header.list {
-            return Self::rlp_decode_inner(buf, SeismicTxType::Legacy)
+            return Self::rlp_decode_inner(buf, SeismicTxType::Legacy);
         }
 
         // Otherwise, advance the buffer and try decoding type flag followed by receipt
@@ -302,8 +302,8 @@ impl RlpDecodableReceipt for SeismicReceipt {
 
 impl Encodable2718 for SeismicReceipt {
     fn encode_2718_len(&self) -> usize {
-        !self.tx_type().is_legacy() as usize +
-            self.rlp_header_inner_without_bloom().length_with_payload()
+        !self.tx_type().is_legacy() as usize
+            + self.rlp_header_inner_without_bloom().length_with_payload()
     }
 
     fn encode_2718(&self, out: &mut dyn BufMut) {

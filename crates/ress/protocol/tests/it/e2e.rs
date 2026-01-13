@@ -67,7 +67,7 @@ async fn disconnect_on_stateful_pair() {
             peer0_event_listener.next().await.unwrap()
         {
             assert_eq!(peer_id, *handle.peers()[1].peer_id());
-            break
+            break;
         }
     }
 
@@ -77,7 +77,7 @@ async fn disconnect_on_stateful_pair() {
             peer1_event_listener.next().await.unwrap()
         {
             assert_eq!(peer_id, *handle.peers()[0].peer_id());
-            break
+            break;
         }
     }
 }

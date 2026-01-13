@@ -93,7 +93,7 @@ where
 
         // Short-circuit if Cancun is not active.
         if !chain_spec.is_cancun_active_at_timestamp(latest.timestamp()) {
-            return Err(RethError::msg("cancun has not been activated"))
+            return Err(RethError::msg("cancun has not been activated"));
         }
 
         /*

@@ -101,11 +101,11 @@ impl<N: NetworkPrimitives> ProtocolMessage<N> {
             }
             EthMessageID::GetNodeData => {
                 // GetNodeData is disabled in all versions to prevent privacy leaks
-                return Err(MessageError::Invalid(version, EthMessageID::GetNodeData))
+                return Err(MessageError::Invalid(version, EthMessageID::GetNodeData));
             }
             EthMessageID::NodeData => {
                 // NodeData is disabled in all versions to prevent privacy leaks
-                return Err(MessageError::Invalid(version, EthMessageID::NodeData))
+                return Err(MessageError::Invalid(version, EthMessageID::NodeData));
             }
             EthMessageID::GetReceipts => EthMessage::GetReceipts(RequestPair::decode(buf)?),
             EthMessageID::Receipts => {
@@ -118,7 +118,7 @@ impl<N: NetworkPrimitives> ProtocolMessage<N> {
             }
             EthMessageID::BlockRangeUpdate => {
                 if version < EthVersion::Eth69 {
-                    return Err(MessageError::Invalid(version, EthMessageID::BlockRangeUpdate))
+                    return Err(MessageError::Invalid(version, EthMessageID::BlockRangeUpdate));
                 }
                 EthMessage::BlockRangeUpdate(BlockRangeUpdate::decode(buf)?)
             }
@@ -307,11 +307,11 @@ impl<N: NetworkPrimitives> EthMessage<N> {
     pub const fn is_request(&self) -> bool {
         matches!(
             self,
-            Self::GetBlockBodies(_) |
-                Self::GetBlockHeaders(_) |
-                Self::GetReceipts(_) |
-                Self::GetPooledTransactions(_) |
-                Self::GetNodeData(_)
+            Self::GetBlockBodies(_)
+                | Self::GetBlockHeaders(_)
+                | Self::GetReceipts(_)
+                | Self::GetPooledTransactions(_)
+                | Self::GetNodeData(_)
         )
     }
 
@@ -319,12 +319,12 @@ impl<N: NetworkPrimitives> EthMessage<N> {
     pub const fn is_response(&self) -> bool {
         matches!(
             self,
-            Self::PooledTransactions(_) |
-                Self::Receipts(_) |
-                Self::Receipts69(_) |
-                Self::BlockHeaders(_) |
-                Self::BlockBodies(_) |
-                Self::NodeData(_)
+            Self::PooledTransactions(_)
+                | Self::Receipts(_)
+                | Self::Receipts69(_)
+                | Self::BlockHeaders(_)
+                | Self::BlockBodies(_)
+                | Self::NodeData(_)
         )
     }
 }
@@ -632,7 +632,7 @@ where
         // RequestPair
         let consumed_len = initial_length - buf.len();
         if consumed_len != header.payload_length {
-            return Err(alloy_rlp::Error::UnexpectedLength)
+            return Err(alloy_rlp::Error::UnexpectedLength);
         }
 
         Ok(Self { request_id, message })

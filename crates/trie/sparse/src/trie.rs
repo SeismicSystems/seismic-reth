@@ -464,8 +464,8 @@ impl SparseTrieInterface for SerialSparseTrie {
                                 // node.
                                 hash: Some(*hash),
                                 store_in_db_trie: Some(
-                                    masks.hash_mask.is_some_and(|mask| !mask.is_empty()) ||
-                                        masks.tree_mask.is_some_and(|mask| !mask.is_empty()),
+                                    masks.hash_mask.is_some_and(|mask| !mask.is_empty())
+                                        || masks.tree_mask.is_some_and(|mask| !mask.is_empty()),
                                 ),
                             });
                         }
@@ -538,9 +538,9 @@ impl SparseTrieInterface for SerialSparseTrie {
                     // Left node already exists.
                     SparseNode::Leaf { .. } => {}
                     // All other node types can't be handled.
-                    node @ (SparseNode::Empty |
-                    SparseNode::Extension { .. } |
-                    SparseNode::Branch { .. }) => {
+                    node @ (SparseNode::Empty
+                    | SparseNode::Extension { .. }
+                    | SparseNode::Branch { .. }) => {
                         return Err(SparseTrieErrorKind::Reveal {
                             path: *entry.key(),
                             node: Box::new(node.clone()),
@@ -581,7 +581,7 @@ impl SparseTrieInterface for SerialSparseTrie {
         let existing = self.values.insert(full_path, value);
         if existing.is_some() {
             // trie structure unchanged, return immediately
-            return Ok(())
+            return Ok(());
         }
 
         let mut current = Nibbles::default();
@@ -589,7 +589,7 @@ impl SparseTrieInterface for SerialSparseTrie {
             match node {
                 SparseNode::Empty => {
                     *node = SparseNode::new_leaf(full_path, is_private);
-                    break
+                    break;
                 }
                 &mut SparseNode::Hash(hash) => {
                     return Err(SparseTrieErrorKind::BlindedNode { path: current, hash }.into())
@@ -722,12 +722,12 @@ impl SparseTrieInterface for SerialSparseTrie {
         if self.values.remove(full_path).is_none() {
             if let Some(&SparseNode::Hash(hash)) = self.nodes.get(full_path) {
                 // Leaf is present in the trie, but it's blinded.
-                return Err(SparseTrieErrorKind::BlindedNode { path: *full_path, hash }.into())
+                return Err(SparseTrieErrorKind::BlindedNode { path: *full_path, hash }.into());
             }
 
             trace!(target: "trie::sparse", ?full_path, "Leaf node is not present in the trie");
             // Leaf is not present in the trie.
-            return Ok(())
+            return Ok(());
         }
         self.prefix_set.insert(*full_path);
 
@@ -751,7 +751,7 @@ impl SparseTrieInterface for SerialSparseTrie {
             debug_assert!(self.nodes.is_empty());
             self.nodes.insert(Nibbles::default(), SparseNode::Empty);
 
-            return Ok(())
+            return Ok(());
         }
 
         // Walk the stack of removed nodes from the back and re-insert them back into the trie,
@@ -1548,10 +1548,11 @@ impl SerialSparseTrie {
                                     store_in_db_trie
                                 } else {
                                     // A blinded node has the tree mask bit set
-                                    child_node_type.is_hash() &&
-                                        self.branch_node_tree_masks.get(&path).is_some_and(
-                                            |mask| mask.is_bit_set(last_child_nibble),
-                                        )
+                                    child_node_type.is_hash()
+                                        && self
+                                            .branch_node_tree_masks
+                                            .get(&path)
+                                            .is_some_and(|mask| mask.is_bit_set(last_child_nibble))
                                 };
                                 if should_set_tree_mask_bit {
                                     tree_mask.set_bit(last_child_nibble);
@@ -1561,13 +1562,11 @@ impl SerialSparseTrie {
                                 // is a blinded node that has its hash mask bit set according to the
                                 // database, set the hash mask bit and save the hash.
                                 let hash = child.as_hash().filter(|_| {
-                                    child_node_type.is_branch() ||
-                                        (child_node_type.is_hash() &&
-                                            self.branch_node_hash_masks
-                                                .get(&path)
-                                                .is_some_and(|mask| {
-                                                    mask.is_bit_set(last_child_nibble)
-                                                }))
+                                    child_node_type.is_branch()
+                                        || (child_node_type.is_hash()
+                                            && self.branch_node_hash_masks.get(&path).is_some_and(
+                                                |mask| mask.is_bit_set(last_child_nibble),
+                                            ))
                                 });
                                 if let Some(hash) = hash {
                                     hash_mask.set_bit(last_child_nibble);
@@ -1634,8 +1633,9 @@ impl SerialSparseTrie {
                         } else if self
                             .branch_node_tree_masks
                             .get(&path)
-                            .is_some_and(|mask| !mask.is_empty()) ||
-                            self.branch_node_hash_masks
+                            .is_some_and(|mask| !mask.is_empty())
+                            || self
+                                .branch_node_hash_masks
                                 .get(&path)
                                 .is_some_and(|mask| !mask.is_empty())
                         {
@@ -1647,8 +1647,9 @@ impl SerialSparseTrie {
                         } else if self
                             .branch_node_tree_masks
                             .get(&path)
-                            .is_none_or(|mask| mask.is_empty()) &&
-                            self.branch_node_hash_masks
+                            .is_none_or(|mask| mask.is_empty())
+                            && self
+                                .branch_node_hash_masks
                                 .get(&path)
                                 .is_none_or(|mask| mask.is_empty())
                         {

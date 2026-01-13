@@ -127,14 +127,14 @@ fn verify_and_repair<N: NodeTypesWithDB>(provider_factory: ProviderFactory<N>) -
                     storage_trie_cursor.delete_current()?;
                 }
             }
-            Output::AccountWrong { path, expected: node, .. } |
-            Output::AccountMissing(path, node) => {
+            Output::AccountWrong { path, expected: node, .. }
+            | Output::AccountMissing(path, node) => {
                 // Wrong/missing account node value, upsert it
                 let nibbles = StoredNibbles(path);
                 account_trie_cursor.upsert(nibbles, &node)?;
             }
-            Output::StorageWrong { account, path, expected: node, .. } |
-            Output::StorageMissing(account, path, node) => {
+            Output::StorageWrong { account, path, expected: node, .. }
+            | Output::StorageMissing(account, path, node) => {
                 // Wrong/missing storage node value, upsert it
                 let nibbles = StoredNibblesSubKey(path);
                 let entry = StorageTrieEntry { nibbles, node };
