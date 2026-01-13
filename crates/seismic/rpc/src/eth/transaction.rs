@@ -277,7 +277,7 @@ mod test {
 
         // Sign the transaction
         let sig_hash = tx.signature_hash();
-        let sig = signing_key.sign_prehash_recoverable(&sig_hash.as_slice()).unwrap();
+        let sig = signing_key.sign_prehash_recoverable(sig_hash.as_slice()).unwrap();
         let recoverid = sig.1;
 
         let signature = alloy_primitives::Signature::new(
