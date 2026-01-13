@@ -25,7 +25,6 @@ alloy-dyn-abi.workspace = true
 # reth
 reth-evm.workspace = true
 reth-node-api.workspace = true
-reth-node-builder.workspace = true
 reth-primitives.workspace = true
 reth-primitives-traits.workspace = true
 reth-provider.workspace = true
@@ -62,6 +61,13 @@ tokio.workspace = true
 jsonrpsee-types.workspace = true
 jsonrpsee.workspace = true
 futures.workspace = true
+http = "1"
+
+# rate limiter
+governor = "0.6"
+dashmap = "6"
+nonzero_ext = "0.3"
+tower.workspace = true
 
 # misc
 eyre.workspace = true
