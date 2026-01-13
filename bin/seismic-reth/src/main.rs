@@ -6,10 +6,14 @@ use clap::Parser;
 use jsonrpsee_http_client::HttpClientBuilder;
 use reth::cli::Cli;
 use reth_cli_commands::node::NoArgs;
+use reth_node_builder::Node;
 use reth_node_core::node_config::NodeConfig;
 use reth_seismic_cli::chainspec::SeismicChainSpecParser;
 use reth_seismic_node::node::SeismicNode;
-use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
+use reth_seismic_rpc::{
+    ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer},
+    rate_limiter::{RateLimitConfig, SeismicRateLimiter}, // ADD THIS
+};
 use reth_tracing::tracing::*;
 
 use seismic_enclave::{
@@ -83,8 +87,34 @@ fn main() {
         // building additional endpoints seismic api
         let seismic_api = SeismicApi::new(purpose_keys.clone());
 
+        // Configure rate limiting
+        let rate_limiter = SeismicRateLimiter::new(RateLimitConfig {
+            requests_per_second: 100, // 100 requests per second per IP
+            burst_size: 50,           // Allow bursts of up to 50 requests
+            limited_methods: vec![],  // Empty = limit all methods (except exempt)
+            exempt_methods: vec![
+                "eth_chainId".to_string(),
+                "eth_blockNumber".to_string(),
+                "net_version".to_string(),
+                "web3_clientVersion".to_string(),
+                "seismic_getTeePublicKey".to_string(),
+            ],
+            exempt_ips: vec![
+                // Add internal service IPs here if needed
+                // "127.0.0.1".parse().unwrap(),
+            ],
+        });
+
+        info!(target: "reth::cli", "Rate limiting configured: {} req/s, burst {}", 
+            100, 50);
+
+        let seismic_node = SeismicNode::default();
+        let add_ons = seismic_node.add_ons().layer_rpc_middleware(rate_limiter);
+
         let node = builder
-            .node(SeismicNode::default())
+            .with_types::<SeismicNode>()
+            .with_components(seismic_node.components_builder())
+            .with_add_ons(add_ons)
             .extend_rpc_modules(move |ctx| {
                 // replace eth_ namespace
                 ctx.modules.replace_configured(

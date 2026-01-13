@@ -42,7 +42,8 @@ use reth_rpc_server_types::RethRpcModule;
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
-use reth_seismic_rpc::{SeismicEthApiBuilder, SeismicEthApiError, SeismicRethWithSignable};
+use reth_seismic_rpc::{SeismicEthApiError, SeismicRethWithSignable};
+use crate::eth_api_builder::SeismicEthApiBuilder;
 use reth_transaction_pool::{
     blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},
     CoinbaseTipOrdering, PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
@@ -227,6 +228,45 @@ where
     /// Build a [`SeismicAddOns`] using [`SeismicAddOnsBuilder`].
     pub fn builder() -> SeismicAddOnsBuilder {
         SeismicAddOnsBuilder::default()
+    }
+
+    /// Sets the RPC middleware stack for processing RPC requests.
+    pub fn with_rpc_middleware<T>(self, rpc_middleware: T) -> SeismicAddOns<N, EthB, PVB, EB, EVB, T> {
+        SeismicAddOns {
+            inner: self.inner.with_rpc_middleware(rpc_middleware),
+        }
+    }
+
+    /// Add a new layer `T` to the configured RPC middleware.
+    pub fn layer_rpc_middleware<T>(
+        self,
+        layer: T,
+    ) -> SeismicAddOns<N, EthB, PVB, EB, EVB, reth_rpc_builder::Stack<RpcMiddleware, T>> {
+        SeismicAddOns {
+            inner: self.inner.layer_rpc_middleware(layer),
+        }
+    }
+
+    /// Sets the hook that is run once the rpc server is started.
+    pub fn on_rpc_started<F>(self, hook: F) -> Self
+    where
+        F: FnOnce(reth_node_builder::rpc::RpcContext<'_, N, EthB::EthApi>, reth_node_builder::rpc::RethRpcServerHandles) -> eyre::Result<()>
+            + Send
+            + 'static,
+    {
+        Self {
+            inner: self.inner.on_rpc_started(hook),
+        }
+    }
+
+    /// Sets the hook that is run to configure the rpc modules.
+    pub fn extend_rpc_modules<F>(self, hook: F) -> Self
+    where
+        F: FnOnce(reth_node_builder::rpc::RpcContext<'_, N, EthB::EthApi>) -> eyre::Result<()> + Send + 'static,
+    {
+        Self {
+            inner: self.inner.extend_rpc_modules(hook),
+        }
     }
 }
 

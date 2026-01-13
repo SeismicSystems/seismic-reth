@@ -9468,6 +9468,7 @@ dependencies = [
  "reth-rpc-eth-types",
  "reth-rpc-layer",
  "reth-rpc-server-types",
+ "reth-seismic-rpc",
  "reth-storage-api",
  "reth-tasks",
  "reth-tracing",
@@ -9998,7 +9999,6 @@ dependencies = [
  "reth-evm",
  "reth-evm-ethereum",
  "reth-node-api",
- "reth-node-builder",
  "reth-node-ethereum",
  "reth-payload-builder",
  "reth-primitives",
@@ -10031,6 +10031,7 @@ dependencies = [
  "serde",
  "thiserror 2.0.17",
  "tokio",
+ "tower 0.5.2",
  "tracing",
 ]
 

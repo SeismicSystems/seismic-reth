@@ -14,7 +14,7 @@
 
 pub mod args;
 pub mod engine;
-
+pub mod eth_api_builder;
 pub mod node;
 pub mod purpose_keys;
 
