@@ -137,7 +137,7 @@ pub struct RateLimitConfig {
 
     /// Methods to rate limit. If empty, all methods are rate limited.
     /// Prefix matching is used, e.g., "eth_" matches all eth_ methods.
-    pub limited_methods: Vec<String>,
+    pub limited_methods: Option<Vec<String>>,
 
     /// Methods to exempt from rate limiting.
     /// These are never rate limited regardless of `limited_methods`.

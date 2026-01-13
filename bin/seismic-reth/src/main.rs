@@ -12,7 +12,7 @@ use reth_seismic_cli::chainspec::SeismicChainSpecParser;
 use reth_seismic_node::node::SeismicNode;
 use reth_seismic_rpc::{
     ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer},
-    rate_limiter::{RateLimitConfig, SeismicRateLimiter}, // ADD THIS
+    rate_limiter::{RateLimitConfig, SeismicRateLimiter},
 };
 use reth_tracing::tracing::*;
 
@@ -92,7 +92,7 @@ fn main() {
         let rate_limiter = SeismicRateLimiter::new(RateLimitConfig {
             requests_per_second: 100, // 100 requests per second per IP
             burst_size: 50,           // Allow bursts of up to 50 requests
-            limited_methods: vec![],  // Empty = limit all methods (except exempt)
+            limited_methods: None,    // Empty = limit all methods (except exempt)
             exempt_methods: vec![
                 "eth_chainId".to_string(),
                 "eth_blockNumber".to_string(),
@@ -107,7 +107,7 @@ fn main() {
         });
 
         info!(target: "reth::cli", "Rate limiting configured: {} req/s, burst {}", 
-            100, 50);
+           &RateLimitConfig::requests_per_second, &RateLimitConfig::burst_size);
 
         let seismic_node = SeismicNode::default();
         let add_ons = seismic_node.add_ons().layer_rpc_middleware(rate_limiter);
