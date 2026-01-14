@@ -101,6 +101,8 @@ seismic-alloy-rpc-types.workspace = true
 reth-exex.workspace = true
 reqwest.workspace = true
 secp256k1.workspace = true
+reth-codecs.workspace = true
+k256.workspace = true
 
 [features]
 default = ["reth-codec"]
