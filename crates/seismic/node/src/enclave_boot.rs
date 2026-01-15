@@ -2,7 +2,9 @@
 
 use crate::args::EnclaveArgs;
 use jsonrpsee_http_client::HttpClientBuilder;
-use seismic_enclave::{api::TdxQuoteRpcClient as _, mock::start_mock_server, GetPurposeKeysResponse};
+use seismic_enclave::{
+    api::TdxQuoteRpcClient as _, mock::start_mock_server, GetPurposeKeysResponse,
+};
 use std::net::SocketAddr;
 use tracing::{info, warn};
 
@@ -59,8 +61,5 @@ where
             }
         }
     }
-    panic!(
-        "FATAL: Failed to fetch purpose keys from enclave on boot after {} failures",
-        failures
-    );
+    panic!("FATAL: Failed to fetch purpose keys from enclave on boot after {} failures", failures);
 }

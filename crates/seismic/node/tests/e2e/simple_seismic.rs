@@ -3,7 +3,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 
 use alloy_network::{ReceiptResponse, TransactionBuilder};
-use alloy_primitives::{Bytes, SU256, TxKind, U256, Uint, aliases::SUInt, hex};
+use alloy_primitives::{aliases::SUInt, hex, Bytes, TxKind, Uint, SU256, U256};
 use alloy_provider::Provider;
 use alloy_sol_types::{sol, SolCall};
 use reth_e2e_test_utils::wallet::Wallet;
@@ -92,7 +92,8 @@ async fn test_simple_seismic_transaction() {
 
     // Get current block info
     let latest_block_num = provider.get_block_number().await.unwrap();
-    let latest_block = provider.get_block_by_number(latest_block_num.into()).await.unwrap().unwrap();
+    let latest_block =
+        provider.get_block_by_number(latest_block_num.into()).await.unwrap().unwrap();
     let latest_block_hash = latest_block.header.hash;
 
     println!("3. Sending ONE seismic transaction (setNumber(42))...");
@@ -155,10 +156,17 @@ async fn test_simple_seismic_transaction() {
 
     if !receipt.status() {
         eprintln!("\n   ❌ TRANSACTION REVERTED!");
-        eprintln!("   This means the seismic transaction reached the chain but the contract rejected it.");
-        eprintln!("   With only {} gas used (base tx cost is 21000), it reverted almost immediately.", receipt.gas_used);
+        eprintln!(
+            "   This means the seismic transaction reached the chain but the contract rejected it."
+        );
+        eprintln!(
+            "   With only {} gas used (base tx cost is 21000), it reverted almost immediately.",
+            receipt.gas_used
+        );
         eprintln!("\n   Possible reasons:");
-        eprintln!("   - Owner check failing (owner stored during deployment vs msg.sender during tx)");
+        eprintln!(
+            "   - Owner check failing (owner stored during deployment vs msg.sender during tx)"
+        );
         eprintln!("   - Seismic transaction validation failing before contract execution");
         eprintln!("   - Contract state not being read correctly with seismic opcodes");
 
@@ -206,7 +214,10 @@ async fn test_vanilla_call_is_odd() {
     println!("   Wallet address: {:?}", wallet_address);
 
     // Deploy contract with regular transaction
-    let deploy_req = seismic_reth_tx_builder().with_input(get_deploy_bytecode()).with_kind(TxKind::Create).into();
+    let deploy_req = seismic_reth_tx_builder()
+        .with_input(get_deploy_bytecode())
+        .with_kind(TxKind::Create)
+        .into();
 
     let pending_tx = provider.send_transaction(deploy_req).await.unwrap();
     let deploy_tx_hash = pending_tx.tx_hash();
@@ -228,10 +239,7 @@ async fn test_vanilla_call_is_odd() {
     println!("   Call data: {:?}", call_data);
 
     // Make eth_call using TransactionRequest
-    let call_tx = seismic_reth_tx_builder()
-        .with_to(contract_addr)
-        .with_input(call_data)
-        .into();
+    let call_tx = seismic_reth_tx_builder().with_to(contract_addr).with_input(call_data).into();
 
     let call_result = provider.call(call_tx).await.unwrap();
 

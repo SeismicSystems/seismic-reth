@@ -26,7 +26,7 @@ pub struct EnclaveArgs {
 
     /// Number of retries for fetching purpose keys from enclave
     #[arg(long = "enclave.retries", default_value_t = 3)]
-    pub retries: u16,
+    pub retries: u32,
 
     /// Seconds to wait between retry attempts
     #[arg(long = "enclave.retry-seconds", default_value_t = 5)]

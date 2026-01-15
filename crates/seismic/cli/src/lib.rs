@@ -15,10 +15,12 @@ use reth_chainspec::ChainSpec;
 use reth_cli_commands::{launcher::FnLauncher, node, stage};
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_seismic_evm::SeismicEvmConfig;
-use reth_seismic_node::args::EnclaveArgs;
-use reth_seismic_node::enclave_boot::boot_enclave_and_fetch_keys;
-use reth_seismic_node::node::SeismicNode;
-use reth_seismic_node::purpose_keys::{get_purpose_keys, init_purpose_keys};
+use reth_seismic_node::{
+    args::EnclaveArgs,
+    enclave_boot::boot_enclave_and_fetch_keys,
+    node::SeismicNode,
+    purpose_keys::{get_purpose_keys, init_purpose_keys},
+};
 
 use std::{ffi::OsString, fmt, sync::Arc};
 
@@ -162,7 +164,10 @@ where
                     // Create components with the initialized purpose keys
                     let components = |spec: Arc<C::ChainSpec>| {
                         let purpose_keys = get_purpose_keys();
-                        (SeismicEvmConfig::new(spec.clone(), purpose_keys), EthBeaconConsensus::new(spec))
+                        (
+                            SeismicEvmConfig::new(spec.clone(), purpose_keys),
+                            EthBeaconConsensus::new(spec),
+                        )
                     };
 
                     // Execute the stage command

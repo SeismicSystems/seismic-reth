@@ -10,7 +10,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)] // Test file - panics are acceptable
 
 use alloy_network::{ReceiptResponse, TransactionBuilder};
-use alloy_primitives::{Bytes, TxKind, U256, aliases::SUInt, hex};
+use alloy_primitives::{aliases::SUInt, hex, Bytes, TxKind, U256};
 use alloy_provider::Provider;
 use alloy_sol_types::{sol, SolCall};
 use reth_e2e_test_utils::wallet::Wallet;
@@ -167,7 +167,8 @@ async fn test_unwind_seismic_transactions() {
     for i in 1..=5 {
         // Check current block before sending transaction
         let latest_block_num = provider.get_block_number().await.unwrap();
-        let latest_block = provider.get_block_by_number(latest_block_num.into()).await.unwrap().unwrap();
+        let latest_block =
+            provider.get_block_by_number(latest_block_num.into()).await.unwrap().unwrap();
         let latest_block_hash = latest_block.header.hash;
 
         eprintln!("\nDEBUG ===== Transaction {} =====", i);
@@ -213,7 +214,12 @@ async fn test_unwind_seismic_transactions() {
             }
         };
 
-        eprintln!("DEBUG: Receipt for tx {}: status={}, gas_used={:?}", i, receipt.status(), receipt.gas_used);
+        eprintln!(
+            "DEBUG: Receipt for tx {}: status={}, gas_used={:?}",
+            i,
+            receipt.status(),
+            receipt.gas_used
+        );
         if !receipt.status() {
             eprintln!("❌ Transaction {} reverted!", i);
             eprintln!("❌ Gas used: {}", receipt.gas_used);
@@ -244,7 +250,11 @@ async fn test_unwind_seismic_transactions() {
 
     println!("\n4. Verifying final state (should be 5)...");
 
-    let get_number_tx = seismic_reth_tx_builder().with_to(contract_addr).with_input(get_get_number_calldata()).into().seismic();
+    let get_number_tx = seismic_reth_tx_builder()
+        .with_to(contract_addr)
+        .with_input(get_get_number_calldata())
+        .into()
+        .seismic();
 
     // Verify state is 5
     let output = provider
