@@ -14,14 +14,17 @@ use tracing::{info, warn};
 /// Panics if the enclave cannot be booted or purpose keys cannot be fetched.
 #[allow(clippy::expect_used)] // Intentional panic on startup failure - enclave is required
 #[allow(clippy::panic)] // Intentional panic on fetching keys failure - enclave keys are required
-pub async fn boot_enclave_and_fetch_keys(
-    config: &EnclaveArgs,
-) -> GetPurposeKeysResponse {
+pub async fn boot_enclave_and_fetch_keys<T>(
+    config: &T,
+) -> GetPurposeKeysResponse 
+where T: AsRef<EnclaveArgs>,
+{
+    let args = config.as_ref();
     // Boot enclave or start mock server
-    if config.mock_server {
+    if args.mock_server {
         info!(target: "reth::cli", "Starting mock enclave server");
-        let addr = config.enclave_server_addr;
-        let port = config.enclave_server_port;
+        let addr = args.enclave_server_addr;
+        let port = args.enclave_server_port;
         tokio::spawn(async move {
             start_mock_server(SocketAddr::new(addr, port))
                 .await
@@ -33,23 +36,23 @@ pub async fn boot_enclave_and_fetch_keys(
     let enclave_client = HttpClientBuilder::default()
         .build(format!(
             "http://{}:{}",
-            config.enclave_server_addr, config.enclave_server_port
+            args.enclave_server_addr, args.enclave_server_port
         ))
         .expect("Failed to build enclave client");
 
     // Fetch purpose keys from enclave - this must succeed or we panic
     info!(target: "reth::cli", "Fetching purpose keys from enclave");
     let mut failures = 0;
-    while failures <= config.retries {
+    while failures <= args.retries {
         match enclave_client.get_purpose_keys(0).await {
             Ok(purpose_keys) => {
                 info!(target: "reth::cli", "Successfully fetched purpose keys from enclave");
                 return purpose_keys;
             }
             Err(e) => {
-                warn!(target: "reth::cli", "Failure to fetch purpose keys {}/{}: {}", failures, config.retries, e);
+                warn!(target: "reth::cli", "Failure to fetch purpose keys {}/{}: {}", failures, args.retries, e);
                 tokio::time::sleep(tokio::time::Duration::from_secs(
-                    config.retry_seconds.into(),
+                    args.retry_seconds.into(),
                 ))
                 .await;
                 failures += 1;

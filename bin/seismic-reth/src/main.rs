@@ -1,11 +1,8 @@
 #![allow(missing_docs)]
 
 use clap::Parser;
-use reth::cli::Cli;
-use reth_cli_commands::node::NoArgs;
-use reth_seismic_cli::chainspec::SeismicChainSpecParser;
-use reth_seismic_node::node::SeismicNode;
-use reth_seismic_node::enclave::boot_enclave_and_fetch_keys;
+use reth_seismic_cli::{chainspec::SeismicChainSpecParser, Cli};
+use reth_seismic_node::{enclave::boot_enclave_and_fetch_keys, node::SeismicNode};
 use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
 
@@ -17,9 +14,9 @@ fn main() {
 
     reth_cli_util::sigsegv_handler::install();
 
-    if let Err(err) = Cli::<SeismicChainSpecParser, NoArgs>::parse().run(|builder, _| async move {
+    if let Err(err) = Cli::<SeismicChainSpecParser>::parse().run(|builder, enclave_args| async move {
         // Boot enclave and fetch purpose keys BEFORE building node components
-        let purpose_keys = boot_enclave_and_fetch_keys(&builder.config().enclave).await;
+        let purpose_keys = boot_enclave_and_fetch_keys(&enclave_args).await;
 
         // Store purpose keys in global static storage before building the node
         reth_seismic_node::purpose_keys::init_purpose_keys(purpose_keys.clone());
