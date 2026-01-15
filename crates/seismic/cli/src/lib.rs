@@ -16,7 +16,7 @@ use clap::{value_parser, Parser, Subcommand};
 use futures_util::Future;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_cli::chainspec::ChainSpecParser;
-use reth_cli_commands::{launcher::FnLauncher, node, stage, prune, init_state, db, dump_genesis, config_cmd, init_cmd};
+use reth_cli_commands::{launcher::FnLauncher, node, stage, prune, init_state, db, dump_genesis, config_cmd, init_cmd, p2p};
 use reth_cli_runner::CliRunner;
 use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
@@ -188,6 +188,9 @@ where
             Commands::Config(command) => {
                 runner.run_until_ctrl_c(command.execute())
             },
+            Commands::P2P(command) => {
+                runner.run_until_ctrl_c(command.execute::<SeismicNode>())
+            },
         }
     }
 
@@ -227,7 +230,10 @@ pub enum Commands<C: ChainSpecParser, Ext: clap::Args + fmt::Debug> {
     Config(config_cmd::Command),
     /// not sure yet
     #[command(name = "init_cmd")]
-    Init(init_cmd::InitCommand<C>)
+    Init(init_cmd::InitCommand<C>),
+    /// not sure yet
+    #[command(name = "p2p")]
+    P2P(p2p::Command<C>)
 
 }
 
