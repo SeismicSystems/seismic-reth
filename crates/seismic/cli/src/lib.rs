@@ -16,7 +16,7 @@ use clap::{value_parser, Parser, Subcommand};
 use futures_util::Future;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_cli::chainspec::ChainSpecParser;
-use reth_cli_commands::{launcher::FnLauncher, node, stage};
+use reth_cli_commands::{launcher::FnLauncher, node, stage, prune};
 use reth_cli_runner::CliRunner;
 use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
@@ -169,7 +169,10 @@ where
                     // Execute the stage command
                     command.execute::<SeismicNode, _>(ctx, components).await
                 })
-            }
+            },
+            Commands::Prune(command) => {
+                runner.run_until_ctrl_c(command.execute::<SeismicNode>())
+            },
         }
     }
 
@@ -192,6 +195,9 @@ pub enum Commands<C: ChainSpecParser, Ext: clap::Args + fmt::Debug> {
     /// Manipulate individual stages.
     #[command(name = "stage")]
     Stage(stage::Command<C>),
+    /// Prune according to the configuration without any limits
+    #[command(name = "prune")]
+    Prune(prune::PruneCommand<C>),
 }
 
 #[cfg(test)]
