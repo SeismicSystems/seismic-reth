@@ -27,6 +27,10 @@ reth-node-metrics.workspace = true
 ## seismic
 reth-seismic-chainspec.workspace = true
 reth-seismic-node.workspace = true
+reth-seismic-evm.workspace = true
+
+# consensus
+reth-node-ethereum.workspace = true
 
 # misc
 futures-util.workspace = true

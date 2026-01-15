@@ -63,9 +63,11 @@ seismic-revm = { workspace = true }
 clap.workspace = true
 serde.workspace = true
 eyre.workspace = true
+tracing.workspace = true
 
 # rpc
 serde_json.workspace = true
+jsonrpsee-http-client.workspace = true
 
 # test-utils dependencies
 alloy-rpc-types = { workspace = true }

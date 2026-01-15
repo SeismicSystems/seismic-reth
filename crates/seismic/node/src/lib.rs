@@ -13,6 +13,7 @@
 // #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod args;
+pub mod enclave_boot;
 pub mod engine;
 
 pub mod node;

@@ -48,9 +48,17 @@ let wsUrl: string
 let exitProcess: () => Promise<void>;
 let pcParams: { chain: Chain; url: string };
 
-const HOST: string | null = null  // "node-2.seismicdev.net";
+const HOST: string | null = "http://localhost:8545"  // "node-2.seismicdev.net";
 
 beforeAll(async () => {
+    if (HOST === "http://localhost:8545") {
+        url = HOST;
+        wsUrl = "ws://localhost:8546";
+        exitProcess = async () => {
+            process.exit(0);
+        }
+        return
+    }
     if (HOST !== null) {
         url = `https://${HOST}/rpc`;
         wsUrl = `wss://${HOST}/ws`;

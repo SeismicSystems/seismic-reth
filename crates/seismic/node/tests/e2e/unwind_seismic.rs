@@ -58,16 +58,21 @@ fn get_get_number_calldata() -> Bytes {
 
 /// Helper function to run the seismic-reth unwind command
 ///
-/// This executes `cargo run --bin seismic-reth -- stage unwind --datadir <datadir> to-block
-/// <target>` and handles errors by printing full stdout/stderr for debugging.
+/// This executes the seismic-reth binary with `stage unwind --datadir <datadir> to-block <target>`
+/// and handles errors by printing full stdout/stderr for debugging.
 fn run_unwind_command(data_dir: &std::path::Path, target_block: u64) {
     println!("      Running: seismic-reth stage unwind to-block {}", target_block);
 
-    let unwind_output = StdCommand::new("cargo")
-        .arg("run")
-        .arg("--bin")
-        .arg("seismic-reth")
-        .arg("--")
+    // Get the path to the seismic-reth binary
+    let binary_path = std::env::current_exe()
+        .expect("Failed to get current executable path")
+        .parent()
+        .expect("Failed to get parent directory")
+        .parent()
+        .expect("Failed to get parent directory")
+        .join("seismic-reth");
+
+    let unwind_output = StdCommand::new(&binary_path)
         .arg("stage")
         .arg("unwind")
         .arg("--datadir")
@@ -243,7 +248,7 @@ async fn test_unwind_seismic_transactions() {
 
     // Verify state is 5
     let output = provider
-        .seismic_call(get_number_tx.into())
+        .seismic_call(alloy_provider::SendableTx::Builder(get_number_tx.into()))
         .await
         .unwrap();
 

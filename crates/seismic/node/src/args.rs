@@ -23,6 +23,14 @@ pub struct EnclaveArgs {
     /// Enclave client timeout
     #[arg(long = "enclave.timeout", default_value_t = 5)]
     pub enclave_timeout: u64,
+
+    /// Number of retries for fetching purpose keys from enclave
+    #[arg(long = "enclave.retries", default_value_t = 3)]
+    pub retries: u16,
+
+    /// Seconds to wait between retry attempts
+    #[arg(long = "enclave.retry-seconds", default_value_t = 5)]
+    pub retry_seconds: u16,
 }
 
 impl Default for EnclaveArgs {
@@ -32,7 +40,15 @@ impl Default for EnclaveArgs {
             enclave_server_port: 7878,
             mock_server: false,
             enclave_timeout: 5,
+            retries: 3,
+            retry_seconds: 5,
         }
+    }
+}
+
+impl AsRef<EnclaveArgs> for EnclaveArgs {
+    fn as_ref(&self) -> &EnclaveArgs {
+        self
     }
 }
 

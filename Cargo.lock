@@ -9722,8 +9722,10 @@ dependencies = [
  "reth-db-common",
  "reth-node-builder",
  "reth-node-core",
+ "reth-node-ethereum",
  "reth-node-metrics",
  "reth-seismic-chainspec",
+ "reth-seismic-evm",
  "reth-seismic-node",
  "reth-stages",
  "reth-tracing",
@@ -9805,6 +9807,7 @@ dependencies = [
  "eyre",
  "futures",
  "jsonrpsee 0.26.0",
+ "jsonrpsee-http-client 0.26.0",
  "k256",
  "once_cell",
  "reqwest",
@@ -9858,6 +9861,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
