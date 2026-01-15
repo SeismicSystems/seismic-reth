@@ -13,20 +13,23 @@ pub mod chainspec;
 
 use chainspec::SeismicChainSpecParser;
 use clap::{value_parser, Parser, Subcommand};
-use reth_chainspec::ChainSpec;
-use reth_cli_commands::{launcher::FnLauncher, node, stage};
-use reth_node_core::args::EnclaveArgs;
 use futures_util::Future;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_cli::chainspec::ChainSpecParser;
-use reth_cli_commands::{launcher::FnLauncher, node};
+use reth_cli_commands::{launcher::FnLauncher, node, stage};
 use reth_cli_runner::CliRunner;
 use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
-use reth_node_core::{args::LogArgs, version::version_metadata};
+use reth_node_core::{
+    args::{EnclaveArgs, LogArgs},
+    version::version_metadata,
+};
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_seismic_node::{
-    SeismicEvmConfig, enclave::boot_enclave_and_fetch_keys, node::SeismicNode, purpose_keys::{get_purpose_keys, init_purpose_keys}
+    enclave::boot_enclave_and_fetch_keys,
+    node::SeismicNode,
+    purpose_keys::{get_purpose_keys, init_purpose_keys},
+    SeismicEvmConfig,
 };
 use reth_tracing::FileWorkerGuard;
 // This allows us to manually enable node metrics features, required for proper jemalloc metric
