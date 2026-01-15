@@ -257,7 +257,7 @@ pub enum Commands<C: ChainSpecParser, Ext: clap::Args + fmt::Debug> {
     Init(init_cmd::InitCommand<C>),
     /// P2P debugging utilities
     #[command(name = "p2p")]
-    P2P(p2p::Command<C>), 
+    P2P(Box<p2p::Command<C>>), 
       /// Command that re-executes blocks in parallel 
     #[command(name = "re_execute")]
     ReExecute(re_execute::Command<C>),
