@@ -1,6 +1,6 @@
 //! clap [Args](clap::Args) for RPC related arguments.
-use std::net::{IpAddr, Ipv4Addr};
 use clap::Args;
+use std::net::{IpAddr, Ipv4Addr};
 
 const ENCLAVE_DEFAULT_ENDPOINT_PORT: u16 = 7878;
 const ENCLAVE_DEFAULT_ENDPOINT_IP: IpAddr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);

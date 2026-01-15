@@ -1,13 +1,12 @@
 //! Tools to communicate with the seismic-enclave-server's RPC
 use std::net::SocketAddr;
 
-use reth_node_core::args::EnclaveArgs;
 use jsonrpsee_http_client::HttpClientBuilder;
+use reth_node_core::args::EnclaveArgs;
 use seismic_enclave::{
     api::TdxQuoteRpcClient as _, mock::start_mock_server, GetPurposeKeysResponse,
 };
 use tracing::{info, warn};
-
 
 /// Boot the enclave (or mock server) and fetch purpose keys.
 /// This must be called before building the node components.
