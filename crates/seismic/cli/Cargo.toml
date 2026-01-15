@@ -27,7 +27,7 @@ reth-node-metrics.workspace = true
 
 ## seismic
 reth-seismic-chainspec.workspace = true
-# reth-seismic-node.workspace = true
+reth-seismic-node.workspace = true
 
 # misc
 futures-util.workspace = true
@@ -46,7 +46,7 @@ proptest.workspace = true
 [features]
 asm-keccak = [
     "reth-node-core/asm-keccak",
-    # "reth-seismic-node/asm-keccak",
+    "reth-seismic-node/asm-keccak",
 ]
 
 # Jemalloc feature for vergen to generate correct env vars
