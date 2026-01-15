@@ -1,8 +1,6 @@
 //! clap [Args](clap::Args) for RPC related arguments.
-
-use std::net::{IpAddr, Ipv4Addr};
-
 use clap::Args;
+use std::net::{IpAddr, Ipv4Addr};
 
 const ENCLAVE_DEFAULT_ENDPOINT_PORT: u16 = 7878;
 const ENCLAVE_DEFAULT_ENDPOINT_IP: IpAddr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
@@ -43,7 +41,7 @@ impl Default for EnclaveArgs {
             enclave_server_port: ENCLAVE_DEFAULT_ENDPOINT_PORT,
             mock_server: false,
             enclave_timeout: 5,
-            retries: 0,
+            retries: 5,
             retry_seconds: 30,
         }
     }
@@ -52,7 +50,6 @@ impl Default for EnclaveArgs {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::args::enclave::EnclaveArgs;
     use clap::{Args, Parser};
 
     /// A helper type to parse Args more easily
