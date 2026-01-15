@@ -147,7 +147,6 @@ where
     pub async fn execute<L>(self, ctx: CliContext, launcher: L) -> eyre::Result<()>
     where
         L: Launcher<C, Ext>,
-        Ext: AsRef<reth_node_core::args::EnclaveArgs>,
     {
         tracing::info!(target: "reth::cli", version = ?version::version_metadata().short_version, "Starting reth");
 
@@ -173,7 +172,7 @@ where
 
         // set up node config
         let mut node_config = NodeConfig {
-            enclave: *ext.as_ref(),
+            enclave: reth_node_core::args::EnclaveArgs::default(),
             datadir,
             config,
             chain,
