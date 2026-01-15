@@ -16,7 +16,7 @@ use clap::{value_parser, Parser, Subcommand};
 use futures_util::Future;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_cli::chainspec::ChainSpecParser;
-use reth_cli_commands::{launcher::FnLauncher, node, stage, prune, init_state, db, dump_genesis, config_cmd, init_cmd, p2p, re_execute};
+use reth_cli_commands::{launcher::FnLauncher, node, stage, prune, init_state, db, dump_genesis, config_cmd, init_cmd, p2p, re_execute, recover};
 use reth_cli_runner::CliRunner;
 use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
@@ -212,6 +212,9 @@ where
                     command.execute::<SeismicNode>(components).await
                 })
             },
+            Commands::Recover(command) => {
+                runner.run_command_until_exit(|ctx| command.execute::<SeismicNode>(ctx))
+            },
         }
     }
 
@@ -254,10 +257,13 @@ pub enum Commands<C: ChainSpecParser, Ext: clap::Args + fmt::Debug> {
     Init(init_cmd::InitCommand<C>),
     /// not sure yet
     #[command(name = "p2p")]
-    P2P(p2p::Command<C>),   /// not sure yet
+    P2P(p2p::Command<C>), 
+      /// not sure yet
     #[command(name = "re_execute")]
-    ReExecute(re_execute::Command<C>)
-
+    ReExecute(re_execute::Command<C>),
+    /// not sure yet
+    #[command(name = "recover")]
+    Recover(recover::Command<C>)
 }
 
 #[cfg(test)]
