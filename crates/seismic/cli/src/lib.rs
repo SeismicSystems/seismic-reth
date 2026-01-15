@@ -16,7 +16,7 @@ use clap::{value_parser, Parser, Subcommand};
 use futures_util::Future;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_cli::chainspec::ChainSpecParser;
-use reth_cli_commands::{launcher::FnLauncher, node, stage, prune, init_state, db, dump_genesis};
+use reth_cli_commands::{launcher::FnLauncher, node, stage, prune, init_state, db, dump_genesis, config_cmd};
 use reth_cli_runner::CliRunner;
 use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
@@ -179,6 +179,12 @@ where
             Commands::Db(command) => {
                 runner.run_until_ctrl_c(command.execute::<SeismicNode>())
             },
+            Commands::DumpGenesis(command) => {
+                runner.run_until_ctrl_c(command.execute())
+            },
+            Commands::Config(command) => {
+                runner.run_until_ctrl_c(command.execute())
+            },
         }
     }
 
@@ -212,7 +218,10 @@ pub enum Commands<C: ChainSpecParser, Ext: clap::Args + fmt::Debug> {
     Db(db::Command<C>),
     /// not sure yet
     #[command(name = "dump_genesis")]
-    DumpGenesis(dump_genesis::DumpGenesisCommand<C>)
+    DumpGenesis(dump_genesis::DumpGenesisCommand<C>),
+    /// not sure yet
+    #[command(name = "config_cmd")]
+    Config(config_cmd::Command)
 
 }
 
