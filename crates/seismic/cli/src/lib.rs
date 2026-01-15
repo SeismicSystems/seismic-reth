@@ -16,7 +16,7 @@ use clap::{value_parser, Parser, Subcommand};
 use futures_util::Future;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_cli::chainspec::ChainSpecParser;
-use reth_cli_commands::{launcher::FnLauncher, node, stage, prune, init_state};
+use reth_cli_commands::{launcher::FnLauncher, node, stage, prune, init_state, db};
 use reth_cli_runner::CliRunner;
 use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
@@ -176,6 +176,9 @@ where
             Commands::InitState(command) => {
                 runner.run_until_ctrl_c(command.execute::<SeismicNode>())
             },
+            Commands::Db(command) => {
+                runner.run_until_ctrl_c(command.execute::<SeismicNode>())
+            },
         }
     }
 
@@ -204,6 +207,9 @@ pub enum Commands<C: ChainSpecParser, Ext: clap::Args + fmt::Debug> {
     /// not sure yet
     #[command(name = "init_state")]
     InitState(init_state::InitStateCommand<C>),
+    /// not sure yet
+    #[command(name = "db")]
+    Db(db::Command<C>)
 
 }
 
