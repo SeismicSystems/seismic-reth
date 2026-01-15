@@ -17,12 +17,12 @@ pub async fn boot_enclave_and_fetch_keys<T>(config: &T) -> GetPurposeKeysRespons
 where
     T: AsRef<EnclaveArgs>,
 {
-    let args = config.as_ref();
+    let config = config.as_ref();
     // Boot enclave or start mock server
-    if args.mock_server {
+    if config.mock_server {
         info!(target: "reth::cli", "Starting mock enclave server");
-        let addr = args.enclave_server_addr;
-        let port = args.enclave_server_port;
+        let addr = config.enclave_server_addr;
+        let port = config.enclave_server_port;
         tokio::spawn(async move {
             start_mock_server(SocketAddr::new(addr, port))
                 .await
@@ -32,21 +32,21 @@ where
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     }
     let enclave_client = HttpClientBuilder::default()
-        .build(format!("http://{}:{}", args.enclave_server_addr, args.enclave_server_port))
+        .build(format!("http://{}:{}", config.enclave_server_addr, config.enclave_server_port))
         .expect("Failed to build enclave client");
 
     // Fetch purpose keys from enclave - this must succeed or we panic
     info!(target: "reth::cli", "Fetching purpose keys from enclave");
     let mut failures = 0;
-    while failures <= args.retries {
+    while failures <= config.retries {
         match enclave_client.get_purpose_keys(0).await {
             Ok(purpose_keys) => {
                 info!(target: "reth::cli", "Successfully fetched purpose keys from enclave");
                 return purpose_keys;
             }
             Err(e) => {
-                warn!(target: "reth::cli", "Failure to fetch purpose keys {}/{}: {}", failures, args.retries, e);
-                tokio::time::sleep(tokio::time::Duration::from_secs(args.retry_seconds.into()))
+                warn!(target: "reth::cli", "Failure to fetch purpose keys {}/{}: {}", failures, config.retries, e);
+                tokio::time::sleep(tokio::time::Duration::from_secs(config.retry_seconds.into()))
                     .await;
                 failures += 1;
             }
