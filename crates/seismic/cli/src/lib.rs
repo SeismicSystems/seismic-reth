@@ -16,7 +16,7 @@ use clap::{value_parser, Parser, Subcommand};
 use futures_util::Future;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_cli::chainspec::ChainSpecParser;
-use reth_cli_commands::{launcher::FnLauncher, node, stage, prune, init_state, db};
+use reth_cli_commands::{launcher::FnLauncher, node, stage, prune, init_state, db, dump_genesis};
 use reth_cli_runner::CliRunner;
 use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
@@ -209,7 +209,10 @@ pub enum Commands<C: ChainSpecParser, Ext: clap::Args + fmt::Debug> {
     InitState(init_state::InitStateCommand<C>),
     /// not sure yet
     #[command(name = "db")]
-    Db(db::Command<C>)
+    Db(db::Command<C>),
+    /// not sure yet
+    #[command(name = "dump_genesis")]
+    DumpGenesis(dump_genesis::DumpGenesisCommand<C>)
 
 }
 
