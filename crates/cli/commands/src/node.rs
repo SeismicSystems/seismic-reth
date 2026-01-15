@@ -18,8 +18,6 @@ use reth_node_core::{
 };
 use std::{ffi::OsString, fmt, net::SocketAddr, path::PathBuf, sync::Arc};
 
-use reth_node_core::args::EnclaveArgs;
-
 /// Start the node
 #[derive(Debug, Parser)]
 pub struct NodeCommand<C: ChainSpecParser, Ext: clap::Args + fmt::Debug = NoArgs> {
@@ -118,10 +116,6 @@ pub struct NodeCommand<C: ChainSpecParser, Ext: clap::Args + fmt::Debug = NoArgs
     /// Additional cli arguments
     #[command(flatten, next_help_heading = "Extension")]
     pub ext: Ext,
-
-    /// All enclave related arguments
-    #[command(flatten)]
-    pub enclave: EnclaveArgs,
 }
 
 impl<C: ChainSpecParser> NodeCommand<C> {
@@ -157,7 +151,6 @@ where
         tracing::info!(target: "reth::cli", version = ?version::version_metadata().short_version, "Starting reth");
 
         let Self {
-            enclave,
             datadir,
             config,
             chain,
@@ -179,7 +172,7 @@ where
 
         // set up node config
         let mut node_config = NodeConfig {
-            enclave,
+            enclave: reth_node_core::args::EnclaveArgs::default(),
             datadir,
             config,
             chain,

@@ -16,13 +16,20 @@ use clap::{value_parser, Parser, Subcommand};
 use futures_util::Future;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_cli::chainspec::ChainSpecParser;
-use reth_cli_commands::{launcher::FnLauncher, node};
+use reth_cli_commands::{launcher::FnLauncher, node, stage};
 use reth_cli_runner::CliRunner;
 use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
 use reth_node_core::{
     args::{EnclaveArgs, LogArgs},
     version::version_metadata,
+};
+use reth_node_ethereum::consensus::EthBeaconConsensus;
+use reth_seismic_node::{
+    enclave::boot_enclave_and_fetch_keys,
+    node::SeismicNode,
+    purpose_keys::{get_purpose_keys, init_purpose_keys},
+    SeismicEvmConfig,
 };
 use reth_tracing::FileWorkerGuard;
 // This allows us to manually enable node metrics features, required for proper jemalloc metric
@@ -77,6 +84,10 @@ pub struct Cli<
     /// The logging configuration for the CLI.
     #[command(flatten)]
     pub logs: LogArgs,
+
+    /// Enclave configuration for Seismic.
+    #[command(flatten)]
+    pub enclave: Ext,
 }
 
 impl Cli {
@@ -98,7 +109,7 @@ impl Cli {
 impl<C, Ext> Cli<C, Ext>
 where
     C: ChainSpecParser<ChainSpec = ChainSpec>,
-    Ext: clap::Args + fmt::Debug,
+    Ext: clap::Args + fmt::Debug + AsRef<EnclaveArgs>,
 {
     /// Execute the configured cli command.
     ///
@@ -127,6 +138,7 @@ where
 
         // Install the prometheus recorder to be sure to record all metrics
         let _ = install_prometheus_recorder();
+        let enclave_args = self.enclave;
 
         match self.command {
             Commands::Node(command) => runner.run_command_until_exit(|ctx| {
@@ -137,6 +149,27 @@ where
                     }),
                 )
             }),
+            Commands::Stage(command) => {
+                runner.run_command_until_exit(|ctx| async move {
+                    // For Stage commands, boot the enclave and fetch purpose keys first
+                    let purpose_keys_response = boot_enclave_and_fetch_keys(&enclave_args).await;
+
+                    // Initialize purpose keys in global storage
+                    init_purpose_keys(purpose_keys_response);
+
+                    // Create components with the initialized purpose keys
+                    let components = |spec: Arc<C::ChainSpec>| {
+                        let purpose_keys = get_purpose_keys();
+                        (
+                            SeismicEvmConfig::new(spec.clone(), purpose_keys),
+                            EthBeaconConsensus::new(spec),
+                        )
+                    };
+
+                    // Execute the stage command
+                    command.execute::<SeismicNode, _>(ctx, components).await
+                })
+            }
         }
     }
 
@@ -156,6 +189,9 @@ pub enum Commands<C: ChainSpecParser, Ext: clap::Args + fmt::Debug> {
     /// Start the node
     #[command(name = "node")]
     Node(Box<node::NodeCommand<C, Ext>>),
+    /// Manipulate individual stages.
+    #[command(name = "stage")]
+    Stage(stage::Command<C>),
 }
 
 #[cfg(test)]

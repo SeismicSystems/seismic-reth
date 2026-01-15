@@ -13,7 +13,11 @@ use tracing::{info, warn};
 /// Panics if the enclave cannot be booted or purpose keys cannot be fetched.
 #[allow(clippy::expect_used)] // Intentional panic on startup failure - enclave is required
 #[allow(clippy::panic)] // Intentional panic on fetching keys failure - enclave keys are required
-pub async fn boot_enclave_and_fetch_keys(config: &EnclaveArgs) -> GetPurposeKeysResponse {
+pub async fn boot_enclave_and_fetch_keys<T>(config: &T) -> GetPurposeKeysResponse
+where
+    T: AsRef<EnclaveArgs>,
+{
+    let config = config.as_ref();
     // Boot enclave or start mock server
     if config.mock_server {
         info!(target: "reth::cli", "Starting mock enclave server");

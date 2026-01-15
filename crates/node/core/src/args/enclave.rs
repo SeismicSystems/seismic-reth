@@ -47,6 +47,12 @@ impl Default for EnclaveArgs {
     }
 }
 
+impl AsRef<EnclaveArgs> for EnclaveArgs {
+    fn as_ref(&self) -> &EnclaveArgs {
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
