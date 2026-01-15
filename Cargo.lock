@@ -9724,7 +9724,6 @@ dependencies = [
  "reth-node-core",
  "reth-node-metrics",
  "reth-seismic-chainspec",
- "reth-seismic-node",
  "reth-stages",
  "reth-tracing",
  "seismic-alloy-consensus",
@@ -9801,10 +9800,11 @@ dependencies = [
  "alloy-rpc-types-engine",
  "alloy-rpc-types-eth",
  "alloy-sol-types",
- "clap",
  "eyre",
  "futures",
  "jsonrpsee 0.26.0",
+ "jsonrpsee-http-client 0.26.0",
+ "k256",
  "once_cell",
  "reqwest",
  "reth-chainspec",
@@ -9856,6 +9856,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

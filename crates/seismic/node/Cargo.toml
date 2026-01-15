@@ -25,8 +25,10 @@ reth-seismic-primitives = { workspace = true, features = ["serde", "serde-bincod
 reth-chainspec.workspace = true
 reth-primitives-traits.workspace = true
 reth-payload-builder.workspace = true
+# reth-codecs.workspace = true
 reth-consensus.workspace = true
 reth-node-api.workspace = true
+reth-node-core.workspace = true
 reth-node-builder.workspace = true
 reth-provider.workspace = true
 reth-transaction-pool.workspace = true
@@ -60,12 +62,13 @@ seismic-alloy-rpc-types.workspace = true
 seismic-revm = { workspace = true }
 
 # misc
-clap.workspace = true
 serde.workspace = true
 eyre.workspace = true
+tracing.workspace = true
 
 # rpc
 serde_json.workspace = true
+jsonrpsee-http-client.workspace = true
 
 # test-utils dependencies
 alloy-rpc-types = { workspace = true }
@@ -101,6 +104,7 @@ seismic-alloy-rpc-types.workspace = true
 reth-exex.workspace = true
 reqwest.workspace = true
 secp256k1.workspace = true
+k256.workspace = true
 
 [features]
 default = ["reth-codec"]

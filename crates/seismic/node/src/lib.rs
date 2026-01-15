@@ -12,14 +12,11 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 // #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod args;
 pub mod engine;
-
 pub mod node;
 pub mod purpose_keys;
-
+pub mod enclave;
 pub use reth_seismic_txpool as txpool;
-
 pub mod utils;
 
 pub use reth_seismic_payload_builder::SeismicPayloadBuilder;

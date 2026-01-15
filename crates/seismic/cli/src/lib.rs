@@ -11,14 +11,11 @@
 /// Seismic chain specification parser.
 pub mod chainspec;
 
-use reth_chainspec::ChainSpec;
-use reth_cli_commands::{launcher::FnLauncher, node};
-use reth_seismic_node::args::EnclaveArgs;
-
-use std::{ffi::OsString, fmt, sync::Arc};
-
 use chainspec::SeismicChainSpecParser;
 use clap::{value_parser, Parser, Subcommand};
+use reth_chainspec::ChainSpec;
+use reth_cli_commands::{launcher::FnLauncher, node};
+use reth_node_core::args::EnclaveArgs;
 use futures_util::Future;
 use reth_chainspec::EthChainSpec;
 use reth_cli::chainspec::ChainSpecParser;
@@ -27,12 +24,12 @@ use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
 use reth_node_core::{args::LogArgs, version::version_metadata};
 use reth_tracing::FileWorkerGuard;
-use tracing::info;
-
 // This allows us to manually enable node metrics features, required for proper jemalloc metric
 // reporting
 use reth_node_metrics as _;
 use reth_node_metrics::recorder::install_prometheus_recorder;
+use std::{ffi::OsString, fmt, sync::Arc};
+use tracing::info;
 
 /// The main seismic-reth cli interface.
 ///
