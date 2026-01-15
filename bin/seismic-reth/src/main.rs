@@ -4,8 +4,7 @@ use clap::Parser;
 use reth::cli::Cli;
 use reth_cli_commands::node::NoArgs;
 use reth_seismic_cli::chainspec::SeismicChainSpecParser;
-use reth_seismic_node::node::SeismicNode;
-use reth_seismic_node::enclave::boot_enclave_and_fetch_keys;
+use reth_seismic_node::{enclave::boot_enclave_and_fetch_keys, node::SeismicNode};
 use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
 use reth_tracing::tracing::*;
 

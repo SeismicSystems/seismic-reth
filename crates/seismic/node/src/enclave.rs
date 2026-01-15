@@ -1,22 +1,19 @@
 //! Tools to communicate with the seismic-enclave-server's RPC
 use std::net::SocketAddr;
 
-use reth_node_core::args::EnclaveArgs;
 use jsonrpsee_http_client::HttpClientBuilder;
+use reth_node_core::args::EnclaveArgs;
 use seismic_enclave::{
     api::TdxQuoteRpcClient as _, mock::start_mock_server, GetPurposeKeysResponse,
 };
 use tracing::{info, warn};
-
 
 /// Boot the enclave (or mock server) and fetch purpose keys.
 /// This must be called before building the node components.
 /// Panics if the enclave cannot be booted or purpose keys cannot be fetched.
 #[allow(clippy::expect_used)] // Intentional panic on startup failure - enclave is required
 #[allow(clippy::panic)] // Intentional panic on fetching keys failure - enclave keys are required
-pub async fn boot_enclave_and_fetch_keys(
-    config: &EnclaveArgs,
-) -> GetPurposeKeysResponse {
+pub async fn boot_enclave_and_fetch_keys(config: &EnclaveArgs) -> GetPurposeKeysResponse {
     // Boot enclave or start mock server
     if config.mock_server {
         info!(target: "reth::cli", "Starting mock enclave server");
@@ -31,10 +28,7 @@ pub async fn boot_enclave_and_fetch_keys(
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     }
     let enclave_client = HttpClientBuilder::default()
-        .build(format!(
-            "http://{}:{}",
-            config.enclave_server_addr, config.enclave_server_port
-        ))
+        .build(format!("http://{}:{}", config.enclave_server_addr, config.enclave_server_port))
         .expect("Failed to build enclave client");
 
     // Fetch purpose keys from enclave - this must succeed or we panic
@@ -48,10 +42,8 @@ pub async fn boot_enclave_and_fetch_keys(
             }
             Err(e) => {
                 warn!(target: "reth::cli", "Failure to fetch purpose keys {}/{}: {}", failures, config.retries, e);
-                tokio::time::sleep(tokio::time::Duration::from_secs(
-                    config.retry_seconds.into(),
-                ))
-                .await;
+                tokio::time::sleep(tokio::time::Duration::from_secs(config.retry_seconds.into()))
+                    .await;
                 failures += 1;
             }
         }

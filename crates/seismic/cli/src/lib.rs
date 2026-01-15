@@ -13,16 +13,17 @@ pub mod chainspec;
 
 use chainspec::SeismicChainSpecParser;
 use clap::{value_parser, Parser, Subcommand};
-use reth_chainspec::ChainSpec;
-use reth_cli_commands::{launcher::FnLauncher, node};
-use reth_node_core::args::EnclaveArgs;
 use futures_util::Future;
-use reth_chainspec::EthChainSpec;
+use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_cli::chainspec::ChainSpecParser;
+use reth_cli_commands::{launcher::FnLauncher, node};
 use reth_cli_runner::CliRunner;
 use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
-use reth_node_core::{args::LogArgs, version::version_metadata};
+use reth_node_core::{
+    args::{EnclaveArgs, LogArgs},
+    version::version_metadata,
+};
 use reth_tracing::FileWorkerGuard;
 // This allows us to manually enable node metrics features, required for proper jemalloc metric
 // reporting
