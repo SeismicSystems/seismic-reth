@@ -240,28 +240,28 @@ pub enum Commands<C: ChainSpecParser, Ext: clap::Args + fmt::Debug> {
     /// Prune according to the configuration without any limits
     #[command(name = "prune")]
     Prune(prune::PruneCommand<C>),
-    /// not sure yet
+    /// Command that initializes a node from the genesis file.
     #[command(name = "init_state")]
     InitState(init_state::InitStateCommand<C>),
-    /// not sure yet
+    /// Database debugging utilities and operations
     #[command(name = "db")]
     Db(db::Command<C>),
-    /// not sure yet
+    /// Command that dumps genesis block JSON configuration to stdout.
     #[command(name = "dump_genesis")]
     DumpGenesis(dump_genesis::DumpGenesisCommand<C>),
-    /// not sure yet
+    /// Command that shows configs
     #[command(name = "config_cmd")]
     Config(config_cmd::Command),
-    /// not sure yet
+    /// Command that initializes a node from the genesis file.
     #[command(name = "init_cmd")]
     Init(init_cmd::InitCommand<C>),
-    /// not sure yet
+    /// P2P debugging utilities
     #[command(name = "p2p")]
     P2P(p2p::Command<C>), 
-      /// not sure yet
+      /// Command that re-executes blocks in parallel 
     #[command(name = "re_execute")]
     ReExecute(re_execute::Command<C>),
-    /// not sure yet
+    /// Reth recover command
     #[command(name = "recover")]
     Recover(recover::Command<C>)
 }
