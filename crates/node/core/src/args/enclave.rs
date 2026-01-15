@@ -67,8 +67,8 @@ mod tests {
         let port = args.enclave_server_port;
         let mock = args.mock_server;
 
-        assert_eq!(port, 7878);
-        assert_eq!(addr, IpAddr::V4(Ipv4Addr::UNSPECIFIED));
-        assert!(!mock);
+        assert_eq!(port, ENCLAVE_DEFAULT_ENDPOINT_PORT);
+        assert_eq!(addr, ENCLAVE_DEFAULT_ENDPOINT_IP);
+        assert_eq!(mock, false);
     }
 }
