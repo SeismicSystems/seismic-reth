@@ -257,7 +257,7 @@ dependencies = [
 [[package]]
 name = "alloy-evm"
 version = "0.20.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=039d51496b9b9a0cb4fea6d606e472211b462073#039d51496b9b9a0cb4fea6d606e472211b462073"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=2d6f9d1c02324f235afbc3a62fbf0f76f1f3ec74#2d6f9d1c02324f235afbc3a62fbf0f76f1f3ec74"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -691,7 +691,7 @@ dependencies = [
 [[package]]
 name = "alloy-seismic-evm"
 version = "0.20.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=039d51496b9b9a0cb4fea6d606e472211b462073#039d51496b9b9a0cb4fea6d606e472211b462073"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=2d6f9d1c02324f235afbc3a62fbf0f76f1f3ec74#2d6f9d1c02324f235afbc3a62fbf0f76f1f3ec74"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
