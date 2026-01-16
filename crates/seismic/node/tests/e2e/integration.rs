@@ -1171,3 +1171,214 @@ async fn test_eth_call_allows_cload_on_private_storage() {
         thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
     }
 }
+
+/// Test that Solidity-level readPublicSload() succeeds
+/// (compiler uses regular SLOAD on public slot - should work)
+#[tokio::test(flavor = "multi_thread")]
+async fn test_solidity_read_public_sload_succeeds() {
+    let manual_debug = false;
+    let mut shutdown_tx_top: Option<mpsc::Sender<()>> = None;
+    if !manual_debug {
+        let (tx, mut rx) = mpsc::channel(1);
+        let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
+        shutdown_tx_top = Some(shutdown_tx);
+        SeismicRethTestCommand::run(tx, shutdown_rx).await;
+        rx.recv().await.unwrap();
+    }
+
+    let reth_rpc_url = SeismicRethTestCommand::url();
+    let chain_id = SeismicRethTestCommand::chain_id();
+    let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
+    let wallet = Wallet::default().with_chain_id(chain_id);
+
+    // Deploy contract
+    let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
+        &client,
+        get_signed_deploy_tx_bytes(
+            wallet.inner.clone(),
+            get_nonce(&client, wallet.inner.address()).await,
+            chain_id,
+            Bytes::from_static(PRIVACY_TEST_BYTECODE),
+        )
+        .await
+        .into(),
+    )
+    .await
+    .unwrap();
+    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
+
+    let receipt = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::transaction_receipt(&client, tx_hash)
+    .await
+    .unwrap()
+    .unwrap();
+    let contract_addr = receipt.contract_address.unwrap();
+    assert!(receipt.status());
+
+    // Write to public storage: setPublic(123)
+    let block_hash = get_recent_block_hash(&client).await;
+    let set_public_data = get_input_data(PRIVACY_SET_PUBLIC_SELECTOR, B256::from(U256::from(123)));
+    let _tx_hash = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::send_raw_transaction(
+        &client,
+        get_signed_seismic_tx_bytes(
+            &wallet.inner,
+            get_nonce(&client, wallet.inner.address()).await,
+            TxKind::Call(contract_addr),
+            chain_id,
+            set_public_data,
+            block_hash,
+        )
+        .await,
+    )
+    .await
+    .unwrap();
+    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
+
+    // Read public storage via Solidity-level readPublicSload() - should succeed
+    let read_calldata: Bytes = hex::decode(PRIVACY_READ_PUBLIC_SLOAD_SELECTOR).unwrap().into();
+    let result = EthApiOverrideClient::<Block>::call(
+        &client,
+        SeismicTransactionRequest {
+            inner: TransactionRequest {
+                from: Some(wallet.inner.address()),
+                to: Some(TxKind::Call(contract_addr)),
+                input: TransactionInput { data: Some(read_calldata), ..Default::default() },
+                ..Default::default()
+            },
+            seismic_elements: None,
+        }
+        .into(),
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("Solidity readPublicSload() should succeed");
+
+    // Verify the value is correct (123 = 0x7b)
+    let expected = U256::from(123);
+    let actual = U256::from_be_slice(&result);
+    assert_eq!(actual, expected, "readPublicSload() should return 123");
+
+    if !manual_debug {
+        shutdown_tx_top.unwrap().try_send(()).unwrap();
+        thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
+    }
+}
+
+/// Test that Solidity-level readPrivateSload() succeeds
+/// (compiler uses CLOAD internally for suint256 types, so this passes)
+#[tokio::test(flavor = "multi_thread")]
+async fn test_solidity_read_private_succeeds() {
+    let manual_debug = false;
+    let mut shutdown_tx_top: Option<mpsc::Sender<()>> = None;
+    if !manual_debug {
+        let (tx, mut rx) = mpsc::channel(1);
+        let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
+        shutdown_tx_top = Some(shutdown_tx);
+        SeismicRethTestCommand::run(tx, shutdown_rx).await;
+        rx.recv().await.unwrap();
+    }
+
+    let reth_rpc_url = SeismicRethTestCommand::url();
+    let chain_id = SeismicRethTestCommand::chain_id();
+    let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
+    let wallet = Wallet::default().with_chain_id(chain_id);
+
+    // Deploy contract
+    let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
+        &client,
+        get_signed_deploy_tx_bytes(
+            wallet.inner.clone(),
+            get_nonce(&client, wallet.inner.address()).await,
+            chain_id,
+            Bytes::from_static(PRIVACY_TEST_BYTECODE),
+        )
+        .await
+        .into(),
+    )
+    .await
+    .unwrap();
+    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
+
+    let receipt = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::transaction_receipt(&client, tx_hash)
+    .await
+    .unwrap()
+    .unwrap();
+    let contract_addr = receipt.contract_address.unwrap();
+    assert!(receipt.status());
+
+    // Write to private storage: setPrivate(42)
+    let block_hash = get_recent_block_hash(&client).await;
+    let set_private_data = get_input_data(PRIVACY_SET_PRIVATE_SELECTOR, B256::from(U256::from(42)));
+    let _tx_hash = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::send_raw_transaction(
+        &client,
+        get_signed_seismic_tx_bytes(
+            &wallet.inner,
+            get_nonce(&client, wallet.inner.address()).await,
+            TxKind::Call(contract_addr),
+            chain_id,
+            set_private_data,
+            block_hash,
+        )
+        .await,
+    )
+    .await
+    .unwrap();
+    thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
+
+    // Read private storage via Solidity-level readPrivateSload() - should succeed
+    // (compiler uses CLOAD internally for suint256, so it works)
+    let read_calldata: Bytes = hex::decode(PRIVACY_READ_PRIVATE_SLOAD_SELECTOR).unwrap().into();
+    let result = EthApiOverrideClient::<Block>::call(
+        &client,
+        SeismicTransactionRequest {
+            inner: TransactionRequest {
+                from: Some(wallet.inner.address()),
+                to: Some(TxKind::Call(contract_addr)),
+                input: TransactionInput { data: Some(read_calldata), ..Default::default() },
+                ..Default::default()
+            },
+            seismic_elements: None,
+        }
+        .into(),
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("Solidity readPrivateSload() should succeed (compiler uses CLOAD)");
+
+    // Verify the value is correct (42 = 0x2a)
+    let expected = U256::from(42);
+    let actual = U256::from_be_slice(&result);
+    assert_eq!(actual, expected, "readPrivateSload() should return 42");
+
+    if !manual_debug {
+        shutdown_tx_top.unwrap().try_send(()).unwrap();
+        thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
+    }
+}
