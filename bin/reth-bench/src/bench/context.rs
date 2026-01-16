@@ -53,6 +53,8 @@ impl BenchContext {
         let block_provider = RootProvider::<AnyNetwork>::new(client);
 
         // Check if this is an OP chain by checking code at a predeploy address.
+        // 0x420000000000000000000000000000000000000F is the GasPriceOracle predeploy contract.
+        // deployed on all OP Stack chains.
         let is_optimism = !block_provider
             .get_code_at(address!("0x420000000000000000000000000000000000000F"))
             .await?
@@ -107,7 +109,7 @@ impl BenchContext {
         let first_block = match benchmark_mode {
             BenchMode::Continuous => {
                 // fetch Latest block
-                block_provider.get_block_by_number(BlockNumberOrTag::Latest).full().await?.unwrap()
+                block_provider.get_block_by_number(BlockNumberOrTag::Latest).full().await?.ok_or_else(|| eyre::eyre!("Failed to fetch latest block"))?
             }
             BenchMode::Range(ref mut range) => {
                 match range.next() {
@@ -117,7 +119,7 @@ impl BenchContext {
                             .get_block_by_number(block_number.into())
                             .full()
                             .await?
-                            .unwrap()
+                            .ok_or_else(|| eyre::eyre!("Failed to fetch latest block"))?
                     }
                     None => {
                         return Err(eyre::eyre!(
