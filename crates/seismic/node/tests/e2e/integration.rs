@@ -854,7 +854,6 @@ const PRIVACY_READ_PRIVATE_SLOAD_RAW_SELECTOR: &str = "4e0d898c"; // readPrivate
 const PRIVACY_READ_PRIVATE_CLOAD_SELECTOR: &str = "9ad95ef8"; // readPrivateCload()
 const PRIVACY_READ_PUBLIC_CLOAD_SELECTOR: &str = "94193f11"; // readPublicCload()
 
-/// SLOAD on private storage must fail with InvalidPrivateStorageAccess
 #[tokio::test(flavor = "multi_thread")]
 async fn test_eth_call_rejects_sload_on_private_storage() {
     let manual_debug = false;
@@ -872,7 +871,6 @@ async fn test_eth_call_rejects_sload_on_private_storage() {
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
     let wallet = Wallet::default().with_chain_id(chain_id);
 
-    // Deploy privacy test contract
     let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
         &client,
         get_signed_deploy_tx_bytes(
@@ -968,7 +966,6 @@ async fn test_eth_call_rejects_sload_on_private_storage() {
     }
 }
 
-/// CRITICAL: CLOAD on public storage must fail with InvalidPublicStorageAccess
 #[tokio::test(flavor = "multi_thread")]
 async fn test_eth_call_rejects_cload_on_public_storage() {
     let manual_debug = false;
@@ -1040,7 +1037,7 @@ async fn test_eth_call_rejects_cload_on_public_storage() {
     .unwrap();
     thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
 
-    // Try CLOAD on public storage via seismic eth_call - should FAIL
+    // Try CLOAD on public storage via seismic eth_call - should fail
     let block_hash = get_recent_block_hash(&client).await;
     let read_calldata: Bytes = hex::decode(PRIVACY_READ_PUBLIC_CLOAD_SELECTOR).unwrap().into();
     let nonce = get_nonce(&client, wallet.inner.address()).await;
@@ -1076,7 +1073,6 @@ async fn test_eth_call_rejects_cload_on_public_storage() {
     }
 }
 
-/// IMPORTANT: CLOAD on private storage must succeed and return correct value
 #[tokio::test(flavor = "multi_thread")]
 async fn test_eth_call_allows_cload_on_private_storage() {
     let manual_debug = false;
@@ -1094,7 +1090,6 @@ async fn test_eth_call_allows_cload_on_private_storage() {
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
     let wallet = Wallet::default().with_chain_id(chain_id);
 
-    // Deploy privacy test contract
     let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
         &client,
         get_signed_deploy_tx_bytes(
@@ -1148,7 +1143,7 @@ async fn test_eth_call_allows_cload_on_private_storage() {
     .unwrap();
     thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
 
-    // Read private storage via CLOAD - should SUCCEED
+    // Read private storage via CLOAD
     let block_hash = get_recent_block_hash(&client).await;
     let read_calldata: Bytes = hex::decode(PRIVACY_READ_PRIVATE_CLOAD_SELECTOR).unwrap().into();
     let nonce = get_nonce(&client, wallet.inner.address()).await;
