@@ -850,6 +850,7 @@ const PRIVACY_SET_PUBLIC_SELECTOR: &str = "31845f7d"; // setPublic(uint256)
 const PRIVACY_SET_PRIVATE_SELECTOR: &str = "420f38f8"; // setPrivate(suint256)
 const PRIVACY_READ_PUBLIC_SLOAD_SELECTOR: &str = "717d5de3"; // readPublicSload()
 const PRIVACY_READ_PRIVATE_SLOAD_SELECTOR: &str = "ef561792"; // readPrivateSload()
+const PRIVACY_READ_PRIVATE_SLOAD_RAW_SELECTOR: &str = "4e0d898c"; // readPrivateSloadRaw()
 const PRIVACY_READ_PRIVATE_CLOAD_SELECTOR: &str = "9ad95ef8"; // readPrivateCload()
 const PRIVACY_READ_PUBLIC_CLOAD_SELECTOR: &str = "94193f11"; // readPublicCload()
 
@@ -926,8 +927,8 @@ async fn test_eth_call_rejects_sload_on_private_storage() {
     .unwrap_or_else(|e| panic!("setPrivate send_raw_transaction failed: {:?}", e));
     thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
 
-    // Try SLOAD on private storage via regular eth_call - should FAIL
-    let read_calldata: Bytes = hex::decode(PRIVACY_READ_PRIVATE_SLOAD_SELECTOR).unwrap().into();
+    // Try calling function which uses raw SLOAD on private storage via regular eth_call - should FAIL
+    let read_calldata: Bytes = hex::decode(PRIVACY_READ_PRIVATE_SLOAD_RAW_SELECTOR).unwrap().into();
     let result = EthApiOverrideClient::<Block>::call(
         &client,
         SeismicTransactionRequest {
