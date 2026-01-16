@@ -119,7 +119,7 @@ impl BenchContext {
                             .get_block_by_number(block_number.into())
                             .full()
                             .await?
-                            .ok_or_else(|| eyre::eyre!("Failed to fetch latest block"))?
+                            .ok_or_else(|| eyre::eyre!("Failed to fetch block {}", block_number))?
                     }
                     None => {
                         return Err(eyre::eyre!(
