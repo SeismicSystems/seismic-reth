@@ -1,5 +1,5 @@
 //! This file is used to test the seismic node.
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)] // Test file - panics are acceptable
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic)] // Test file - panics are acceptable
 
 use alloy_consensus::TxEnvelope;
 use alloy_dyn_abi::EventExt;
