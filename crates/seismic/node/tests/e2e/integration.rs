@@ -946,6 +946,9 @@ async fn test_eth_call_rejects_sload_on_private_storage() {
     )
     .await;
 
+    println!("readPrivateSload eth_call result: {:?}", result);
+
+    println!("readPrivateSload eth_call result: {:?}", result);
     match &result {
         Ok(output) => panic!("SLOAD on private storage should fail, but got Ok: {:?}", output),
         Err(e) => {
