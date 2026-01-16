@@ -55,7 +55,7 @@ fn main() -> Result<(), BuilderError> {
     let builder = GenesisBuilder::new(manifest_data, genesis_data, args.yes_overwrite)?;
     let updated_genesis = builder.build()?;
 
-    let output_path = args.output.unwrap_or(args.genesis.clone());
+    let output_path = args.output.unwrap_or(args.genesis);
     info!("Writing genesis: {}", output_path.display());
     genesis::write_genesis(&updated_genesis, &output_path)?;
 

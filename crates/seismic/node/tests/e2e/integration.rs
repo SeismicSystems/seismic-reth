@@ -1172,7 +1172,7 @@ async fn test_eth_call_allows_cload_on_private_storage() {
     }
 }
 
-/// Test that Solidity-level readPublicSload() succeeds
+/// Test that Solidity-level `readPublicSload()` succeeds
 /// (compiler uses regular SLOAD on public slot - should work)
 #[tokio::test(flavor = "multi_thread")]
 async fn test_solidity_read_public_sload_succeeds() {
@@ -1277,7 +1277,7 @@ async fn test_solidity_read_public_sload_succeeds() {
     }
 }
 
-/// Test that Solidity-level readPrivateSload() succeeds
+/// Test that Solidity-level `readPrivateSload()` succeeds
 /// (compiler uses CLOAD internally for suint256 types, so this passes)
 #[tokio::test(flavor = "multi_thread")]
 async fn test_solidity_read_private_succeeds() {
