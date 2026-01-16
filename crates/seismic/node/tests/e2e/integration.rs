@@ -946,13 +946,17 @@ async fn test_eth_call_rejects_sload_on_private_storage() {
     )
     .await;
 
-    assert!(result.is_err(), "SLOAD on private storage should fail");
-    let err_msg = result.unwrap_err().to_string().to_lowercase();
-    assert!(
-        err_msg.contains("invalid private storage access"),
-        "Expected 'invalid private storage access', got: {}",
-        err_msg
-    );
+    match &result {
+        Ok(output) => panic!("SLOAD on private storage should fail, but got Ok: {:?}", output),
+        Err(e) => {
+            let err_msg = e.to_string().to_lowercase();
+            assert!(
+                err_msg.contains("invalid private storage access"),
+                "Expected 'invalid private storage access', got: {}",
+                err_msg
+            );
+        }
+    }
 
     if !manual_debug {
         shutdown_tx_top.unwrap().try_send(()).unwrap();
