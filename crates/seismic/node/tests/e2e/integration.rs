@@ -923,7 +923,7 @@ async fn test_eth_call_rejects_sload_on_private_storage() {
         .await,
     )
     .await
-    .unwrap();
+    .unwrap_or_else(|e| panic!("setPrivate send_raw_transaction failed: {:?}", e));
     thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
 
     // Try SLOAD on private storage via regular eth_call - should FAIL
