@@ -925,7 +925,8 @@ async fn test_eth_call_rejects_sload_on_private_storage() {
     .unwrap_or_else(|e| panic!("setPrivate send_raw_transaction failed: {:?}", e));
     thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
 
-    // Try calling function which uses raw SLOAD on private storage via regular eth_call - should FAIL
+    // Try calling function which uses raw SLOAD on private storage via regular eth_call - should
+    // FAIL
     let read_calldata: Bytes = hex::decode(PRIVACY_READ_PRIVATE_SLOAD_RAW_SELECTOR).unwrap().into();
     let result = EthApiOverrideClient::<Block>::call(
         &client,
