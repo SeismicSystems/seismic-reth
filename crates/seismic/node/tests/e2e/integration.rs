@@ -898,6 +898,7 @@ async fn test_eth_call_rejects_sload_on_private_storage() {
     .unwrap()
     .unwrap();
     let contract_addr = receipt.contract_address.unwrap();
+    println!("contract_addr: {:?}", contract_addr);
     assert!(receipt.status());
 
     // Write to private storage: setPrivate(42)
