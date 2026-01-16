@@ -119,62 +119,11 @@ impl FromEvmHalt<HaltReason> for SeismicEthApiError {
 #[cfg(test)]
 mod tests {
     use crate::error::SeismicEthApiError;
-    use reth_rpc_eth_types::error::api::FromEvmHalt;
-    use seismic_revm::SeismicHaltReason;
 
     #[test]
     fn enclave_error_message() {
         let err: jsonrpsee::types::error::ErrorObject<'static> =
             SeismicEthApiError::EnclaveError("test".to_string()).into();
         assert_eq!(err.message(), "enclave error: test");
-    }
-
-    #[test]
-    fn test_invalid_private_storage_error_conversion() {
-        let halt = SeismicHaltReason::InvalidPrivateStorageAccess;
-        let err = SeismicEthApiError::from_evm_halt(halt, 1000000);
-        let rpc_err: jsonrpsee::types::error::ErrorObject<'static> = err.into();
-        assert!(
-            rpc_err.message().contains("invalid private storage access"),
-            "Expected error message to contain 'invalid private storage access', got: {}",
-            rpc_err.message()
-        );
-    }
-
-    #[test]
-    fn test_invalid_public_storage_error_conversion() {
-        let halt = SeismicHaltReason::InvalidPublicStorageAccess;
-        let err = SeismicEthApiError::from_evm_halt(halt, 1000000);
-        let rpc_err: jsonrpsee::types::error::ErrorObject<'static> = err.into();
-        assert!(
-            rpc_err.message().contains("invalid public storage access"),
-            "Expected error message to contain 'invalid public storage access', got: {}",
-            rpc_err.message()
-        );
-    }
-
-    #[test]
-    fn test_invalid_private_storage_direct_conversion() {
-        let err = SeismicEthApiError::InvalidPrivateStorageAccess;
-        let rpc_err: jsonrpsee::types::error::ErrorObject<'static> = err.into();
-        assert_eq!(rpc_err.message(), "invalid private storage access");
-    }
-
-    #[test]
-    fn test_invalid_public_storage_direct_conversion() {
-        let err = SeismicEthApiError::InvalidPublicStorageAccess;
-        let rpc_err: jsonrpsee::types::error::ErrorObject<'static> = err.into();
-        assert_eq!(rpc_err.message(), "invalid public storage access");
-    }
-
-    #[test]
-    fn test_base_halt_reason_conversion() {
-        use revm_context::result::HaltReason;
-        let halt = SeismicHaltReason::Base(HaltReason::OutOfGas(
-            revm_context::result::OutOfGasError::BasicOutOfGas,
-        ));
-        let err = SeismicEthApiError::from_evm_halt(halt, 1000000);
-        // Should convert to an Eth error, not a direct privacy error
-        matches!(err, SeismicEthApiError::Eth(_));
     }
 }
