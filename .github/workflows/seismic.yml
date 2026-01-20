@@ -109,6 +109,8 @@ jobs:
       SEISMIC_CI: 1
     steps:
       - uses: actions/checkout@v4
+      - name: Print public IP
+        run: curl -s https://ifconfig.me
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
