@@ -132,6 +132,13 @@ async fn integration_test() {
      * test_seismic_reth_rpc_simulate_block().await;
      */
 
+    // Storage privacy tests (flagged storage)
+    test_eth_call_rejects_sload_on_private_storage_inner().await;
+    test_eth_call_rejects_cload_on_public_storage_inner().await;
+    test_eth_call_allows_cload_on_private_storage_inner().await;
+    test_solidity_read_public_sload_succeeds_inner().await;
+    test_solidity_read_private_succeeds_inner().await;
+
     if !manual_debug {
         shutdown_tx_top.unwrap().try_send(()).unwrap();
         println!("shutdown signal sent");
@@ -854,18 +861,7 @@ const PRIVACY_READ_PRIVATE_SLOAD_RAW_SELECTOR: &str = "4e0d898c"; // readPrivate
 const PRIVACY_READ_PRIVATE_CLOAD_SELECTOR: &str = "9ad95ef8"; // readPrivateCload()
 const PRIVACY_READ_PUBLIC_CLOAD_SELECTOR: &str = "94193f11"; // readPublicCload()
 
-#[tokio::test(flavor = "multi_thread")]
-async fn test_eth_call_rejects_sload_on_private_storage() {
-    let manual_debug = false;
-    let mut shutdown_tx_top: Option<mpsc::Sender<()>> = None;
-    if !manual_debug {
-        let (tx, mut rx) = mpsc::channel(1);
-        let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
-        shutdown_tx_top = Some(shutdown_tx);
-        SeismicRethTestCommand::run(tx, shutdown_rx).await;
-        rx.recv().await.unwrap();
-    }
-
+async fn test_eth_call_rejects_sload_on_private_storage_inner() {
     let reth_rpc_url = SeismicRethTestCommand::url();
     let chain_id = SeismicRethTestCommand::chain_id();
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
@@ -960,25 +956,9 @@ async fn test_eth_call_rejects_sload_on_private_storage() {
             );
         }
     }
-
-    if !manual_debug {
-        shutdown_tx_top.unwrap().try_send(()).unwrap();
-        thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
-    }
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn test_eth_call_rejects_cload_on_public_storage() {
-    let manual_debug = false;
-    let mut shutdown_tx_top: Option<mpsc::Sender<()>> = None;
-    if !manual_debug {
-        let (tx, mut rx) = mpsc::channel(1);
-        let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
-        shutdown_tx_top = Some(shutdown_tx);
-        SeismicRethTestCommand::run(tx, shutdown_rx).await;
-        rx.recv().await.unwrap();
-    }
-
+async fn test_eth_call_rejects_cload_on_public_storage_inner() {
     let reth_rpc_url = SeismicRethTestCommand::url();
     let chain_id = SeismicRethTestCommand::chain_id();
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
@@ -1067,25 +1047,9 @@ async fn test_eth_call_rejects_cload_on_public_storage() {
         "Expected 'invalid public storage access', got: {}",
         err_msg
     );
-
-    if !manual_debug {
-        shutdown_tx_top.unwrap().try_send(()).unwrap();
-        thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
-    }
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn test_eth_call_allows_cload_on_private_storage() {
-    let manual_debug = false;
-    let mut shutdown_tx_top: Option<mpsc::Sender<()>> = None;
-    if !manual_debug {
-        let (tx, mut rx) = mpsc::channel(1);
-        let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
-        shutdown_tx_top = Some(shutdown_tx);
-        SeismicRethTestCommand::run(tx, shutdown_rx).await;
-        rx.recv().await.unwrap();
-    }
-
+async fn test_eth_call_allows_cload_on_private_storage_inner() {
     let reth_rpc_url = SeismicRethTestCommand::url();
     let chain_id = SeismicRethTestCommand::chain_id();
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
@@ -1165,27 +1129,11 @@ async fn test_eth_call_allows_cload_on_private_storage() {
         get_seismic_metadata(wallet.inner.address(), chain_id, nonce, to, U256::ZERO, block_hash);
     let decrypted = client_decrypt(metadata, &output).unwrap();
     assert_eq!(U256::from_be_slice(&decrypted), U256::from(42));
-
-    if !manual_debug {
-        shutdown_tx_top.unwrap().try_send(()).unwrap();
-        thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
-    }
 }
 
 /// Test that Solidity-level `readPublicSload()` succeeds
 /// (compiler uses regular SLOAD on public slot - should work)
-#[tokio::test(flavor = "multi_thread")]
-async fn test_solidity_read_public_sload_succeeds() {
-    let manual_debug = false;
-    let mut shutdown_tx_top: Option<mpsc::Sender<()>> = None;
-    if !manual_debug {
-        let (tx, mut rx) = mpsc::channel(1);
-        let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
-        shutdown_tx_top = Some(shutdown_tx);
-        SeismicRethTestCommand::run(tx, shutdown_rx).await;
-        rx.recv().await.unwrap();
-    }
-
+async fn test_solidity_read_public_sload_succeeds_inner() {
     let reth_rpc_url = SeismicRethTestCommand::url();
     let chain_id = SeismicRethTestCommand::chain_id();
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
@@ -1270,27 +1218,11 @@ async fn test_solidity_read_public_sload_succeeds() {
     let expected = U256::from(123);
     let actual = U256::from_be_slice(&result);
     assert_eq!(actual, expected, "readPublicSload() should return 123");
-
-    if !manual_debug {
-        shutdown_tx_top.unwrap().try_send(()).unwrap();
-        thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
-    }
 }
 
 /// Test that Solidity-level `readPrivateSload()` succeeds
 /// (compiler uses CLOAD internally for suint256 types, so this passes)
-#[tokio::test(flavor = "multi_thread")]
-async fn test_solidity_read_private_succeeds() {
-    let manual_debug = false;
-    let mut shutdown_tx_top: Option<mpsc::Sender<()>> = None;
-    if !manual_debug {
-        let (tx, mut rx) = mpsc::channel(1);
-        let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
-        shutdown_tx_top = Some(shutdown_tx);
-        SeismicRethTestCommand::run(tx, shutdown_rx).await;
-        rx.recv().await.unwrap();
-    }
-
+async fn test_solidity_read_private_succeeds_inner() {
     let reth_rpc_url = SeismicRethTestCommand::url();
     let chain_id = SeismicRethTestCommand::chain_id();
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
@@ -1376,9 +1308,4 @@ async fn test_solidity_read_private_succeeds() {
     let expected = U256::from(42);
     let actual = U256::from_be_slice(&result);
     assert_eq!(actual, expected, "readPrivateSload() should return 42");
-
-    if !manual_debug {
-        shutdown_tx_top.unwrap().try_send(()).unwrap();
-        thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
-    }
 }
