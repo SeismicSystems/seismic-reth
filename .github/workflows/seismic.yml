@@ -109,15 +109,11 @@ jobs:
       SEISMIC_CI: 1
     steps:
       - uses: actions/checkout@v4
-      - name: Print public IP
-        run: curl -s https://ifconfig.me
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "integration-test-cache"
-      - name: Kill any processes on port 8545
-        run: lsof -ti:8545 | xargs kill -9 2>/dev/null || true
       - name: seismic-node test
         # see profile.default in .config/nextest.toml for filtered tests
         run: cargo nextest run --workspace -E 'kind(test)' --no-fail-fast
