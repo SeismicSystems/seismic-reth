@@ -851,73 +851,53 @@ fn concat_input_data(selector: &str, value: Bytes) -> Bytes {
     input_data.into()
 }
 
-/// FlaggedStorageTestContract - tests Seismic flagged storage access rules
-///
-/// This contract demonstrates the distinction between public and private storage in Seismic:
-/// - Public storage (slot 0): accessible via SLOAD
-/// - Private storage (slot 1): accessible via CLOAD, but NOT via SLOAD
-///
-/// The contract provides functions to test various access patterns:
-/// - Valid accesses: SLOAD on public, CLOAD on private
-/// - Invalid accesses: SLOAD on private, CLOAD on public
-///
-/// Solidity source code:
-/// ```solidity
+// FlaggedStorageTestContract - tests Seismic flagged storage access rules
+//
+// This contract demonstrates the distinction between public and private storage in Seismic:
+// - Public storage (slot 0): accessible via SLOAD
+// - Private storage (slot 1): accessible via CLOAD, but NOT via SLOAD
+//
+// The contract provides functions to test various access patterns:
+// - Valid accesses: SLOAD on public, CLOAD on private
+// - Invalid accesses: SLOAD on private, CLOAD on public
+//
+// Solidity source code:
+//
 // SPDX-License-Identifier: MIT
 // pragma solidity ^0.8.13;
-
-// /// @title FlaggedStorageTestContract
-// /// @notice Test contract for verifying Seismic flagged storage access rules
+//
 // contract FlaggedStorageTestContract {
-//     uint256 public publicSlot; // slot 0 - public storage
+//     uint256 public publicSlot;    // slot 0 - public storage
 //     suint256 private privateSlot; // slot 1 - private storage
 //
-//     function setPublic(uint256 v) external {
-//         publicSlot = v;
-//     }
+//     function setPublic(uint256 v) external { publicSlot = v; }
+//     function setPrivate(suint256 v) external { privateSlot = v; }
 //
-//     function setPrivate(suint256 v) external {
-//         privateSlot = v;
-//     }
-//
-//     /// @notice Read public storage via SLOAD - SHOULD SUCCEED
+//     // Read public storage via SLOAD - SHOULD SUCCEED
 //     function readPublicSload() external view returns (uint256 x) {
-//         assembly {
-//             x := sload(0)
-//         }
+//         assembly { x := sload(0) }
 //     }
 //
-//     /// @notice Read private storage via Solidity (compiler uses CLOAD) - SHOULD SUCCEED
+//     // Read private storage via Solidity (compiler uses CLOAD) - SHOULD SUCCEED
 //     function readPrivateSload() external view returns (uint256) {
 //         return uint256(privateSlot);
 //     }
 //
-//     /// @notice Read private storage via CLOAD - SHOULD SUCCEED
+//     // Read private storage via CLOAD - SHOULD SUCCEED
 //     function readPrivateCload() external view returns (uint256) {
-//         assembly {
-//             let val := cload(1)
-//             mstore(0, val)
-//             return(0, 32)
-//         }
+//         assembly { let val := cload(1) mstore(0, val) return(0, 32) }
 //     }
 //
-//     /// @notice Raw SLOAD on private slot - SHOULD FAIL (invalid private storage access)
+//     // Raw SLOAD on private slot - SHOULD FAIL (invalid private storage access)
 //     function readPrivateSloadRaw() external view returns (uint256 x) {
-//         assembly {
-//             x := sload(1)
-//         }
+//         assembly { x := sload(1) }
 //     }
 //
-//     /// @notice CLOAD on public slot - SHOULD FAIL (invalid public storage access)
+//     // CLOAD on public slot - SHOULD FAIL (invalid public storage access)
 //     function readPublicCload() external view returns (uint256) {
-//         assembly {
-//             let val := cload(0)
-//             mstore(0, val)
-//             return(0, 32)
-//         }
+//         assembly { let val := cload(0) mstore(0, val) return(0, 32) }
 //     }
 // }
-/// ```
 const FLAGGED_STORAGE_TEST_BYTECODE: &[u8] = &hex!("6080604052348015600e575f5ffd5b506103048061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610086575f3560e01c8063717d5de311610059578063717d5de3146100fe57806394193f111461011c5780639ad95ef81461013a578063ef5617921461015857610086565b806331845f7d1461008a578063420f38f8146100a65780634e0d898c146100c25780635d5b397f146100e0575b5f5ffd5b6100a4600480360381019061009f91906101f6565b610176565b005b6100c060048036038101906100bb9190610254565b61017f565b005b6100ca610189565b6040516100d7919061028e565b60405180910390f35b6100e8610192565b6040516100f5919061028e565b60405180910390f35b610106610197565b604051610113919061028e565b60405180910390f35b61012461019f565b604051610131919061028e565b60405180910390f35b6101426101aa565b60405161014f919061028e565b60405180910390f35b6101606101b6565b60405161016d919061028e565b60405180910390f35b805f8190555050565b8060018190b15050565b5f600154905090565b5f5481565b5f5f54905090565b5f5fb0805f5260205ff35b5f6001b0805f5260205ff35b5f6001b0905090565b5f5ffd5b5f819050919050565b6101d5816101c3565b81146101df575f5ffd5b50565b5f813590506101f0816101cc565b92915050565b5f6020828403121561020b5761020a6101bf565b5b5f610218848285016101e2565b91505092915050565b5f819050919050565b61023381610221565b811461023d575f5ffd5b50565b5f8135905061024e8161022a565b92915050565b5f60208284031215610269576102686101bf565b5b5f61027684828501610240565b91505092915050565b610288816101c3565b82525050565b5f6020820190506102a15f83018461027f565b9291505056fea2646970667358221220bed26217d42178260b773a5edf5b427f93dde38ce69f366f5ac8ace37b09e4fd64736f6c637829302e382e33312d646576656c6f702e323032352e31312e31322b636f6d6d69742e3637366264656363005a");
 
 // FlaggedStorageTestContract function selectors
