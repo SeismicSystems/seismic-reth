@@ -132,7 +132,7 @@ async fn integration_test() {
      * test_seismic_reth_rpc_simulate_block().await;
      */
 
-    // Storage privacy tests (flagged storage)
+    // Flagged storage tests
     test_eth_call_rejects_sload_on_private_storage_inner().await;
     test_eth_call_rejects_cload_on_public_storage_inner().await;
     test_eth_call_allows_cload_on_private_storage_inner().await;
@@ -851,15 +851,49 @@ fn concat_input_data(selector: &str, value: Bytes) -> Bytes {
     input_data.into()
 }
 
-const PRIVACY_TEST_BYTECODE: &[u8] = &hex!("6080604052348015600e575f5ffd5b506103048061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610086575f3560e01c8063717d5de311610059578063717d5de3146100fe57806394193f111461011c5780639ad95ef81461013a578063ef5617921461015857610086565b806331845f7d1461008a578063420f38f8146100a65780634e0d898c146100c25780635d5b397f146100e0575b5f5ffd5b6100a4600480360381019061009f91906101f6565b610176565b005b6100c060048036038101906100bb9190610254565b61017f565b005b6100ca610189565b6040516100d7919061028e565b60405180910390f35b6100e8610192565b6040516100f5919061028e565b60405180910390f35b610106610197565b604051610113919061028e565b60405180910390f35b61012461019f565b604051610131919061028e565b60405180910390f35b6101426101aa565b60405161014f919061028e565b60405180910390f35b6101606101b6565b60405161016d919061028e565b60405180910390f35b805f8190555050565b8060018190b15050565b5f600154905090565b5f5481565b5f5f54905090565b5f5fb0805f5260205ff35b5f6001b0805f5260205ff35b5f6001b0905090565b5f5ffd5b5f819050919050565b6101d5816101c3565b81146101df575f5ffd5b50565b5f813590506101f0816101cc565b92915050565b5f6020828403121561020b5761020a6101bf565b5b5f610218848285016101e2565b91505092915050565b5f819050919050565b61023381610221565b811461023d575f5ffd5b50565b5f8135905061024e8161022a565b92915050565b5f60208284031215610269576102686101bf565b5b5f61027684828501610240565b91505092915050565b610288816101c3565b82525050565b5f6020820190506102a15f83018461027f565b9291505056fea2646970667358221220bed26217d42178260b773a5edf5b427f93dde38ce69f366f5ac8ace37b09e4fd64736f6c637829302e382e33312d646576656c6f702e323032352e31312e31322b636f6d6d69742e3637366264656363005a");
+/// FlaggedStorageTestContract - tests Seismic flagged storage access rules
+///
+/// ```solidity
+/// // SPDX-License-Identifier: MIT
+/// pragma solidity ^0.8.13;
+///
+/// contract FlaggedStorageTestContract {
+///     uint256 public publicSlot;    // slot 0 - public storage
+///     suint256 private privateSlot; // slot 1 - private storage
+///
+///     function setPublic(uint256 v) external { publicSlot = v; }
+///     function setPrivate(suint256 v) external { privateSlot = v; }
+///
+///     // Valid readers
+///     function readPublicSload() external view returns (uint256 x) {
+///         assembly { x := sload(0) }
+///     }
+///     function readPrivateSload() external view returns (uint256) {
+///         return uint256(privateSlot); // compiler uses CLOAD
+///     }
+///     function readPrivateCload() external view returns (uint256) {
+///         assembly { let val := cload(1) mstore(0, val) return(0, 32) }
+///     }
+///
+///     // Invalid readers (should fail)
+///     function readPrivateSloadRaw() external view returns (uint256 x) {
+///         assembly { x := sload(1) } // SLOAD on private - FAILS
+///     }
+///     function readPublicCload() external view returns (uint256) {
+///         assembly { let val := cload(0) mstore(0, val) return(0, 32) } // CLOAD on public - FAILS
+///     }
+/// }
+/// ```
+const FLAGGED_STORAGE_TEST_BYTECODE: &[u8] = &hex!("6080604052348015600e575f5ffd5b506103048061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610086575f3560e01c8063717d5de311610059578063717d5de3146100fe57806394193f111461011c5780639ad95ef81461013a578063ef5617921461015857610086565b806331845f7d1461008a578063420f38f8146100a65780634e0d898c146100c25780635d5b397f146100e0575b5f5ffd5b6100a4600480360381019061009f91906101f6565b610176565b005b6100c060048036038101906100bb9190610254565b61017f565b005b6100ca610189565b6040516100d7919061028e565b60405180910390f35b6100e8610192565b6040516100f5919061028e565b60405180910390f35b610106610197565b604051610113919061028e565b60405180910390f35b61012461019f565b604051610131919061028e565b60405180910390f35b6101426101aa565b60405161014f919061028e565b60405180910390f35b6101606101b6565b60405161016d919061028e565b60405180910390f35b805f8190555050565b8060018190b15050565b5f600154905090565b5f5481565b5f5f54905090565b5f5fb0805f5260205ff35b5f6001b0805f5260205ff35b5f6001b0905090565b5f5ffd5b5f819050919050565b6101d5816101c3565b81146101df575f5ffd5b50565b5f813590506101f0816101cc565b92915050565b5f6020828403121561020b5761020a6101bf565b5b5f610218848285016101e2565b91505092915050565b5f819050919050565b61023381610221565b811461023d575f5ffd5b50565b5f8135905061024e8161022a565b92915050565b5f60208284031215610269576102686101bf565b5b5f61027684828501610240565b91505092915050565b610288816101c3565b82525050565b5f6020820190506102a15f83018461027f565b9291505056fea2646970667358221220bed26217d42178260b773a5edf5b427f93dde38ce69f366f5ac8ace37b09e4fd64736f6c637829302e382e33312d646576656c6f702e323032352e31312e31322b636f6d6d69742e3637366264656363005a");
 
-const PRIVACY_SET_PUBLIC_SELECTOR: &str = "31845f7d"; // setPublic(uint256)
-const PRIVACY_SET_PRIVATE_SELECTOR: &str = "420f38f8"; // setPrivate(suint256)
-const PRIVACY_READ_PUBLIC_SLOAD_SELECTOR: &str = "717d5de3"; // readPublicSload()
-const PRIVACY_READ_PRIVATE_SLOAD_SELECTOR: &str = "ef561792"; // readPrivateSload()
-const PRIVACY_READ_PRIVATE_SLOAD_RAW_SELECTOR: &str = "4e0d898c"; // readPrivateSloadRaw()
-const PRIVACY_READ_PRIVATE_CLOAD_SELECTOR: &str = "9ad95ef8"; // readPrivateCload()
-const PRIVACY_READ_PUBLIC_CLOAD_SELECTOR: &str = "94193f11"; // readPublicCload()
+// FlaggedStorageTestContract function selectors
+const FLAGGED_STORAGE_SET_PUBLIC: &str = "31845f7d"; // setPublic(uint256)
+const FLAGGED_STORAGE_SET_PRIVATE: &str = "420f38f8"; // setPrivate(suint256)
+const FLAGGED_STORAGE_READ_PUBLIC_SLOAD: &str = "717d5de3"; // readPublicSload()
+const FLAGGED_STORAGE_READ_PRIVATE_SLOAD: &str = "ef561792"; // readPrivateSload()
+const FLAGGED_STORAGE_READ_PRIVATE_SLOAD_RAW: &str = "4e0d898c"; // readPrivateSloadRaw()
+const FLAGGED_STORAGE_READ_PRIVATE_CLOAD: &str = "9ad95ef8"; // readPrivateCload()
+const FLAGGED_STORAGE_READ_PUBLIC_CLOAD: &str = "94193f11"; // readPublicCload()
 
 async fn test_eth_call_rejects_sload_on_private_storage_inner() {
     let reth_rpc_url = SeismicRethTestCommand::url();
@@ -873,7 +907,7 @@ async fn test_eth_call_rejects_sload_on_private_storage_inner() {
             wallet.inner.clone(),
             get_nonce(&client, wallet.inner.address()).await,
             chain_id,
-            Bytes::from_static(PRIVACY_TEST_BYTECODE),
+            Bytes::from_static(FLAGGED_STORAGE_TEST_BYTECODE),
         )
         .await
         .into(),
@@ -898,7 +932,7 @@ async fn test_eth_call_rejects_sload_on_private_storage_inner() {
 
     // Write to private storage: setPrivate(42)
     let block_hash = get_recent_block_hash(&client).await;
-    let set_private_data = get_input_data(PRIVACY_SET_PRIVATE_SELECTOR, B256::from(U256::from(42)));
+    let set_private_data = get_input_data(FLAGGED_STORAGE_SET_PRIVATE, B256::from(U256::from(42)));
     let _tx_hash = EthApiClient::<
         SeismicTransactionRequest,
         SeismicTransactionSigned,
@@ -923,7 +957,7 @@ async fn test_eth_call_rejects_sload_on_private_storage_inner() {
 
     // Try calling function which uses raw SLOAD on private storage via regular eth_call - should
     // FAIL
-    let read_calldata: Bytes = hex::decode(PRIVACY_READ_PRIVATE_SLOAD_RAW_SELECTOR).unwrap().into();
+    let read_calldata: Bytes = hex::decode(FLAGGED_STORAGE_READ_PRIVATE_SLOAD_RAW).unwrap().into();
     let result = EthApiOverrideClient::<Block>::call(
         &client,
         SeismicTransactionRequest {
@@ -971,7 +1005,7 @@ async fn test_eth_call_rejects_cload_on_public_storage_inner() {
             wallet.inner.clone(),
             get_nonce(&client, wallet.inner.address()).await,
             chain_id,
-            Bytes::from_static(PRIVACY_TEST_BYTECODE),
+            Bytes::from_static(FLAGGED_STORAGE_TEST_BYTECODE),
         )
         .await
         .into(),
@@ -995,7 +1029,7 @@ async fn test_eth_call_rejects_cload_on_public_storage_inner() {
 
     // Write to public storage: setPublic(123)
     let block_hash = get_recent_block_hash(&client).await;
-    let set_public_data = get_input_data(PRIVACY_SET_PUBLIC_SELECTOR, B256::from(U256::from(123)));
+    let set_public_data = get_input_data(FLAGGED_STORAGE_SET_PUBLIC, B256::from(U256::from(123)));
     let _tx_hash = EthApiClient::<
         SeismicTransactionRequest,
         SeismicTransactionSigned,
@@ -1020,7 +1054,7 @@ async fn test_eth_call_rejects_cload_on_public_storage_inner() {
 
     // Try CLOAD on public storage via seismic eth_call - should fail
     let block_hash = get_recent_block_hash(&client).await;
-    let read_calldata: Bytes = hex::decode(PRIVACY_READ_PUBLIC_CLOAD_SELECTOR).unwrap().into();
+    let read_calldata: Bytes = hex::decode(FLAGGED_STORAGE_READ_PUBLIC_CLOAD).unwrap().into();
     let nonce = get_nonce(&client, wallet.inner.address()).await;
     let result = EthApiOverrideClient::<Block>::call(
         &client,
@@ -1061,7 +1095,7 @@ async fn test_eth_call_allows_cload_on_private_storage_inner() {
             wallet.inner.clone(),
             get_nonce(&client, wallet.inner.address()).await,
             chain_id,
-            Bytes::from_static(PRIVACY_TEST_BYTECODE),
+            Bytes::from_static(FLAGGED_STORAGE_TEST_BYTECODE),
         )
         .await
         .into(),
@@ -1085,7 +1119,7 @@ async fn test_eth_call_allows_cload_on_private_storage_inner() {
 
     // Write to private storage: setPrivate(42)
     let block_hash = get_recent_block_hash(&client).await;
-    let set_private_data = get_input_data(PRIVACY_SET_PRIVATE_SELECTOR, B256::from(U256::from(42)));
+    let set_private_data = get_input_data(FLAGGED_STORAGE_SET_PRIVATE, B256::from(U256::from(42)));
     let _tx_hash = EthApiClient::<
         SeismicTransactionRequest,
         SeismicTransactionSigned,
@@ -1110,7 +1144,7 @@ async fn test_eth_call_allows_cload_on_private_storage_inner() {
 
     // Read private storage via CLOAD
     let block_hash = get_recent_block_hash(&client).await;
-    let read_calldata: Bytes = hex::decode(PRIVACY_READ_PRIVATE_CLOAD_SELECTOR).unwrap().into();
+    let read_calldata: Bytes = hex::decode(FLAGGED_STORAGE_READ_PRIVATE_CLOAD).unwrap().into();
     let nonce = get_nonce(&client, wallet.inner.address()).await;
     let to = TxKind::Call(contract_addr);
     let output = EthApiOverrideClient::<Block>::call(
@@ -1146,7 +1180,7 @@ async fn test_solidity_read_public_sload_succeeds_inner() {
             wallet.inner.clone(),
             get_nonce(&client, wallet.inner.address()).await,
             chain_id,
-            Bytes::from_static(PRIVACY_TEST_BYTECODE),
+            Bytes::from_static(FLAGGED_STORAGE_TEST_BYTECODE),
         )
         .await
         .into(),
@@ -1170,7 +1204,7 @@ async fn test_solidity_read_public_sload_succeeds_inner() {
 
     // Write to public storage: setPublic(123)
     let block_hash = get_recent_block_hash(&client).await;
-    let set_public_data = get_input_data(PRIVACY_SET_PUBLIC_SELECTOR, B256::from(U256::from(123)));
+    let set_public_data = get_input_data(FLAGGED_STORAGE_SET_PUBLIC, B256::from(U256::from(123)));
     let _tx_hash = EthApiClient::<
         SeismicTransactionRequest,
         SeismicTransactionSigned,
@@ -1194,7 +1228,7 @@ async fn test_solidity_read_public_sload_succeeds_inner() {
     thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
 
     // Read public storage via Solidity-level readPublicSload() - should succeed
-    let read_calldata: Bytes = hex::decode(PRIVACY_READ_PUBLIC_SLOAD_SELECTOR).unwrap().into();
+    let read_calldata: Bytes = hex::decode(FLAGGED_STORAGE_READ_PUBLIC_SLOAD).unwrap().into();
     let result = EthApiOverrideClient::<Block>::call(
         &client,
         SeismicTransactionRequest {
@@ -1235,7 +1269,7 @@ async fn test_solidity_read_private_succeeds_inner() {
             wallet.inner.clone(),
             get_nonce(&client, wallet.inner.address()).await,
             chain_id,
-            Bytes::from_static(PRIVACY_TEST_BYTECODE),
+            Bytes::from_static(FLAGGED_STORAGE_TEST_BYTECODE),
         )
         .await
         .into(),
@@ -1259,7 +1293,7 @@ async fn test_solidity_read_private_succeeds_inner() {
 
     // Write to private storage: setPrivate(42)
     let block_hash = get_recent_block_hash(&client).await;
-    let set_private_data = get_input_data(PRIVACY_SET_PRIVATE_SELECTOR, B256::from(U256::from(42)));
+    let set_private_data = get_input_data(FLAGGED_STORAGE_SET_PRIVATE, B256::from(U256::from(42)));
     let _tx_hash = EthApiClient::<
         SeismicTransactionRequest,
         SeismicTransactionSigned,
@@ -1284,7 +1318,7 @@ async fn test_solidity_read_private_succeeds_inner() {
 
     // Read private storage via Solidity-level readPrivateSload() - should succeed
     // (compiler uses CLOAD internally for suint256, so it works)
-    let read_calldata: Bytes = hex::decode(PRIVACY_READ_PRIVATE_SLOAD_SELECTOR).unwrap().into();
+    let read_calldata: Bytes = hex::decode(FLAGGED_STORAGE_READ_PRIVATE_SLOAD).unwrap().into();
     let result = EthApiOverrideClient::<Block>::call(
         &client,
         SeismicTransactionRequest {
