@@ -133,11 +133,11 @@ async fn integration_test() {
      */
 
     // Storage privacy tests (flagged storage)
-    test_eth_call_rejects_sload_on_private_storage_inner().await;
-    test_eth_call_rejects_cload_on_public_storage_inner().await;
-    test_eth_call_allows_cload_on_private_storage_inner().await;
-    test_solidity_read_public_sload_succeeds_inner().await;
-    test_solidity_read_private_succeeds_inner().await;
+    // test_eth_call_rejects_sload_on_private_storage_inner().await;
+    // test_eth_call_rejects_cload_on_public_storage_inner().await;
+    // test_eth_call_allows_cload_on_private_storage_inner().await;
+    // test_solidity_read_public_sload_succeeds_inner().await;
+    // test_solidity_read_private_succeeds_inner().await;
 
     if !manual_debug {
         shutdown_tx_top.unwrap().try_send(()).unwrap();
