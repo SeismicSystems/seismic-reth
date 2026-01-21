@@ -102,7 +102,7 @@ where
                 // Spawn the hashing task onto the global rayon pool
                 rayon::spawn(move || {
                     for (address, slot) in chunk {
-                        let mut addr_key_is_private = Vec::with_capacity(64);
+                        let mut addr_key_is_private = Vec::with_capacity(65);
                         addr_key_is_private.put_slice(keccak256(address).as_slice());
                         addr_key_is_private.put_slice(keccak256(slot.key).as_slice());
                         addr_key_is_private.put_u8(slot.value.is_private as u8);
