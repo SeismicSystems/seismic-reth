@@ -257,7 +257,7 @@ dependencies = [
 [[package]]
 name = "alloy-evm"
 version = "0.20.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=039d51496b9b9a0cb4fea6d606e472211b462073#039d51496b9b9a0cb4fea6d606e472211b462073"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=a183d1be5769f8fc7cc4de689a6eb69f3e8f7061#a183d1be5769f8fc7cc4de689a6eb69f3e8f7061"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -691,7 +691,7 @@ dependencies = [
 [[package]]
 name = "alloy-seismic-evm"
 version = "0.20.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=039d51496b9b9a0cb4fea6d606e472211b462073#039d51496b9b9a0cb4fea6d606e472211b462073"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=a183d1be5769f8fc7cc4de689a6eb69f3e8f7061#a183d1be5769f8fc7cc4de689a6eb69f3e8f7061"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -14039,3 +14039,8 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "alloy-tx-macros"
+version = "1.1.0"
+source = "git+https://github.com/alloy-rs/alloy.git?tag=v1.1.0#78b254e4d47fca0690a4141e0f42031da8b32a09"

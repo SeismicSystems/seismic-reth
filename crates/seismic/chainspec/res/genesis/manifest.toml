@@ -12,6 +12,10 @@ description = "Seismic testnet genesis contracts"
 artifact = "artifacts/DepositContract.json"
 address = "0x00000000219ab540356cbb839cbe05303d7705fa"
 
+[contracts.ProtocolParams]
+artifact = "artifacts/ProtocolParams.json"
+address = "0x0000000000000000000000000000506172616D73"
+
 [contracts.ShieldedDelegationAccount]
 artifact = "artifacts/ShieldedDelegationAccount.json"
 address = "0x2001"
