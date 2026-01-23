@@ -806,4 +806,3 @@ seismic-alloy-genesis = { git = "https://github.com/SeismicSystems/seismic-alloy
 alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "a183d1be5769f8fc7cc4de689a6eb69f3e8f7061" }
 alloy-seismic-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "a183d1be5769f8fc7cc4de689a6eb69f3e8f7061" }
 
-alloy-tx-macros = { git = "https://github.com/alloy-rs/alloy.git", tag = "v1.1.0" }
