@@ -14039,3 +14039,8 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "alloy-tx-macros"
+version = "1.1.0"
+source = "git+https://github.com/alloy-rs/alloy.git?tag=v1.1.0#78b254e4d47fca0690a4141e0f42031da8b32a09"
