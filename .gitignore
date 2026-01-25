@@ -78,3 +78,6 @@ __pycache__/
 # direnv
 .envrc
 .direnv/
+
+# forkdiff output
+index.html
