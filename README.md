@@ -1,6 +1,6 @@
 # Seismic Reth
 
-[![book](https://github.com/SeismicSystems/seismic-reth/actions/workflows/book.yml/badge.svg?branch=seismic)](https://github.com/SeismicSystems/seismic-reth/actions/workflows/book.yml)
+[![forkdiff](https://github.com/SeismicSystems/seismic-reth/actions/workflows/gh-pages.yml/badge.svg?branch=seismic)](https://seismicsystems.github.io/seismic-reth/)
 [![CI Status](https://github.com/SeismicSystems/seismic-reth/actions/workflows/seismic.yml/badge.svg?branch=seismic)](https://github.com/SeismicSystems/seismic-reth/actions/workflows/seismic.yml)
 [![Chat on Telegram](https://img.shields.io/badge/chat-Join%20Us-blue?logo=telegram)](https://t.me/+xpzfNO4pmRoyM2Ux)
 

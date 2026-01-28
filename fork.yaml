@@ -5,7 +5,7 @@
 title: "SeismicSystems/seismic-reth" # Define the HTML page title
 logo: "logo.png"
 footer: | # define the footer with markdown
-  SeismicSystems' [seismic-solidity](https://github.com/SeismicSystems/seismic-solidity) fork overview - created with [Forkdiff](https://github.com/protolambda/forkdiff)
+  SeismicSystems' [seismic-reth](https://github.com/SeismicSystems/seismic-reth) fork overview - created with [Forkdiff](https://github.com/protolambda/forkdiff)
 # We compare the fork against the base branch, which matches the upstream repo's main branch
 # at the point where the fork was created.
 base:
@@ -17,10 +17,10 @@ fork:
   url: https://github.com/SeismicSystems/seismic-reth
   ref: refs/remotes/origin/seismic
 def:
-  title: "Seismic-Solidity fork diff"
+  title: "Seismic-Reth fork diff"
   description: | # description in markdown
-    - Original solidity codebase: [`https://github.com/argotorg/solidity/`](https://github.com/argotorg/solidity/).
-    - Seismic solidity fork: [`https://github.com/SeismicSystems/seismic-solidity`](https://github.com/SeismicSystems/seismic-solidity).
+    - Original reth codebase: [`https://github.com/paradigmxyz/reth`](https://github.com/paradigmxyz/reth).
+    - Seismic reth fork: [`https://github.com/SeismicSystems/seismic-reth`](https://github.com/SeismicSystems/seismic-reth).
   sub:
     - title: "Seismic crate"
       description: |
