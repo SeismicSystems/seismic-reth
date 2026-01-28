@@ -17,24 +17,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          fetch-depth: 1000 # make sure to fetch the old commit we diff against
+          fetch-depth: 0
 
       - name: Build forkdiff
         uses: "docker://protolambda/forkdiff:0.1.0"
         with:
           args: -repo=/github/workspace -fork=/github/workspace/fork.yaml -out=/github/workspace/index.html
 
-      # TODO(samlaf): this was part of the gh-action I copied from, but doesn't seem necessary...
-      # if we are successful in pushing to gh-pages, then just delete these comments
-
-      # - name: Setup Pages
-      #   uses: actions/configure-pages@v5
-
-      # - name: Build with Jekyll
-      #   uses: actions/jekyll-build-pages@v1
-      #   with:
-      #     source: ./
-      #     destination: ./_site
+      # upload-pages-artifact action requires the files to be in a _site folder
+      - name: Prepare for deployment
+        run: |
+          mkdir -p _site
+          mv index.html _site/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
