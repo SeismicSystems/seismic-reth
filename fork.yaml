@@ -6,6 +6,8 @@ title: "SeismicSystems/seismic-reth" # Define the HTML page title
 logo: "logo.png"
 footer: | # define the footer with markdown
   SeismicSystems' [seismic-solidity](https://github.com/SeismicSystems/seismic-solidity) fork overview - created with [Forkdiff](https://github.com/protolambda/forkdiff)
+# We compare the fork against the base branch, which matches the upstream repo's main branch
+# at the point where the fork was created.
 base:
   name: reth
   url: https://github.com/SeismicSystems/seismic-reth
@@ -13,7 +15,7 @@ base:
 fork:
   name: seismic-reth
   url: https://github.com/SeismicSystems/seismic-reth
-  ref: refs/heads/seismic
+  ref: refs/remotes/origin/seismic
 def:
   title: "Seismic-Solidity fork diff"
   description: | # description in markdown
