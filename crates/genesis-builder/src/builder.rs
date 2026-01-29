@@ -75,9 +75,9 @@ impl GenesisBuilder {
 
         let account = GenesisAccount {
             code: Some(format!("0x{}", hex::encode(&artifact.deployed_bytecode))),
-            balance: DEFAULT_BALANCE.to_string(),
-            nonce: None,
-            storage: Default::default(),
+            balance: config.balance.clone().unwrap_or_else(|| DEFAULT_BALANCE.to_string()),
+            nonce: config.nonce.clone(),
+            storage: config.storage.clone(),
         };
 
         self.genesis.alloc.insert(address, account);

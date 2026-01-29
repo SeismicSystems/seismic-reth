@@ -16,6 +16,9 @@ address = "0x00000000219ab540356cbb839cbe05303d7705fa"
 artifact = "artifacts/ProtocolParams.json"
 address = "0x0000000000000000000000000000506172616D73"
 
+[contracts.ProtocolParams.storage]
+"0x0000000000000000000000000000000000000000000000000000000000000000" = "0xd412c5ecd343e264381ff15afc0ad78a67b79f35"
+
 [contracts.ShieldedDelegationAccount]
 artifact = "artifacts/ShieldedDelegationAccount.json"
 address = "0x2001"
