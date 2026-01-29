@@ -14,6 +14,9 @@ pub struct ContractConfig {
     pub artifact: String,
     /// Address where the contract will be deployed
     pub address: String,
+    /// Optional storage to initialize at the contract address
+    #[serde(default)]
+    pub storage: HashMap<String, String>,
 }
 
 /// Full manifest structure
