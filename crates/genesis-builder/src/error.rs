@@ -23,9 +23,6 @@ pub enum BuilderError {
     /// Contract bytecode missing or empty
     #[error("Contract bytecode missing or empty: {0}")]
     MissingBytecode(String),
-    /// Address collision between contracts
-    #[error("Address collision: {0} already exists in genesis")]
-    AddressCollision(String),
     /// Failed to fetch artifact from remote source
     #[error("Failed to fetch artifact from {0}: {1}")]
     RemoteFetchFailed(String, String),
