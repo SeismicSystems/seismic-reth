@@ -14,6 +14,8 @@ pub struct ContractConfig {
     pub artifact: String,
     /// Address where the contract will be deployed
     pub address: String,
+    /// Optional balance for the contract (defaults to "0x0")
+    pub balance: Option<String>,
     /// Optional nonce for the contract
     pub nonce: Option<String>,
     /// Optional storage to initialize at the contract address
