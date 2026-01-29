@@ -67,10 +67,8 @@ impl GenesisBuilder {
 
         if self.genesis.alloc.contains_key(&address) {
             if !self.yes_overwrite && !overwrite_address(name, &config.address)? {
-                return Err(BuilderError::AddressCollision(format!(
-                    "{} ({})",
-                    name, config.address
-                )));
+                info!("Skipping {} @ {} (user declined overwrite)", name, config.address);
+                return Ok(());
             }
             warn!("Overwriting existing contract at {}", config.address);
         }
