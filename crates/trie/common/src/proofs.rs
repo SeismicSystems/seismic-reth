@@ -776,12 +776,27 @@ impl StorageProof {
 
 #[cfg(feature = "eip1186")]
 impl StorageProof {
-    /// Convert into an EIP-1186 storage proof
+    /// Convert into an EIP-1186 storage proof.
+    ///
+    /// For private storage slots, returns a zeroed value and empty proof to avoid leaking
+    /// private storage information, matching the behavior of `eth_getStorageAt`.
     pub fn into_eip1186_proof(
         self,
         slot: alloy_serde::JsonStorageKey,
     ) -> alloy_rpc_types_eth::EIP1186StorageProof {
-        alloy_rpc_types_eth::EIP1186StorageProof { key: slot, value: self.value, proof: self.proof }
+        if self.is_private {
+            alloy_rpc_types_eth::EIP1186StorageProof {
+                key: slot,
+                value: U256::ZERO,
+                proof: vec![],
+            }
+        } else {
+            alloy_rpc_types_eth::EIP1186StorageProof {
+                key: slot,
+                value: self.value,
+                proof: self.proof,
+            }
+        }
     }
 
     /// Convert from an
