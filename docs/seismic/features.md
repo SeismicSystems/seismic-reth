@@ -1,36 +1,42 @@
+# Shielded Enhancements for Seismic Reth <!-- omit in toc -->
+
+### Introduction <!-- omit in toc -->
+
+Welcome to the documentation for the shielded enhancements added to **Seismic Reth**, the execution layer of the Seismic blockchain. These enhancements introduce shielded storage and transaction capabilities, enabling developers to handle sensitive data securely within smart contracts and transactions. By building upon the existing Reth infrastructure, we've implemented changes to ensure ease of adoption and maintain compatibility.
+
 This documentation highlights the differences and new features introduced, with a focus on the modifications that make Reth shielded. We recommend familiarizing yourself with the standard Reth documentation alongside this guide.
 
 ---
 
-### Table of Contents
+### Table of Contents <!-- omit in toc -->
 
-1. Overall Changes
-2. Shielded Storage
-    - 2.1 Shielded Storage Flag
-    - 2.2 State Root Calculation
-    - 2.3 `eth_storageAt` RPC Modification
-    - 2.4 Storage Hashing Parallelization
-3. Shielded Transactions
-    - 3.1 Shielded Transaction Flow
-    - 3.2 TEE Client and Arguments
-    - 3.3 `TxSeismic` Transaction Type
-    - 3.4 `ConfigureEvmEnv` and `EthEvmConfig` Changes
-    - 3.5 RPC Method Changes
-4. Support for `seismic-revm`'s `Mercury` Specification
-    - 4.1 Seismic Chain Spec
-5. RPC Modifications
-    - 5.1 Summary of Modified Endpoints
-6. Backup Mechanism
-7. Performance Testing
-8. Testing
-    - 8.1 Running Tests
-    - 8.2 Modifications of Existing Tests
-    - 8.3 Ethereum Package Testing
-9. Future Considerations
-    - 9.1 Witness Auditing
-    - 9.2 State Root Inclusion of `is_private` Flag
-    - 9.3 RPC Method Enhancements
-
+- [1. Overall Changes](#1-overall-changes)
+- [2. Shielded Storage](#2-shielded-storage)
+  - [2.1 Shielded Storage Flag](#21-shielded-storage-flag)
+  - [2.2 State Root Calculation](#22-state-root-calculation)
+  - [2.3 `eth_storageAt` RPC Modification](#23-eth_storageat-rpc-modification)
+  - [2.4 Storage Hashing Parallelization](#24-storage-hashing-parallelization)
+- [3. Shielded Transactions](#3-shielded-transactions)
+  - [3.1 Transaction Flow Overview](#31-transaction-flow-overview)
+    - [_eth\_sendRawTransaction_ Flow](#eth_sendrawtransaction-flow)
+    - [_eth\_call_ Flow](#eth_call-flow)
+  - [3.2 Cryptography Client and Arguments](#32-cryptography-client-and-arguments)
+  - [3.3 `TxSeismic` Transaction Type](#33-txseismic-transaction-type)
+  - [3.4 `ConfigureEvmEnv` and `EthEvmConfig` Changes](#34-configureevmenv-and-ethevmconfig-changes)
+  - [3.5 RPC Method Changes](#35-rpc-method-changes)
+- [4. Support for `seismic-revm`'s `Mercury` Specification](#4-support-for-seismic-revms-mercury-specification)
+  - [4.1 Seismic Chain Spec](#41-seismic-chain-spec)
+  - [4.2 `rng_mode` Initialization](#42-rng_mode-initialization)
+- [5. RPC Modifications](#5-rpc-modifications)
+  - [5.1 Summary of Modified Endpoints](#51-summary-of-modified-endpoints)
+- [6. Backup Mechanism](#6-backup-mechanism)
+- [7. Performance Testing](#7-performance-testing)
+- [8. Testing](#8-testing)
+  - [8.1 Running Tests](#81-running-tests)
+  - [8.2 Modifications of existing tests](#82-modifications-of-existing-tests)
+  - [8.3 Integration Testing](#83-integration-testing)
+  - [8.4 Ethereum Package Testing](#84-ethereum-package-testing)
+- [9. Future Considerations](#9-future-considerations)
 ---
 
 ### 1. Overall Changes
@@ -229,7 +235,13 @@ To ensure the integrity of the shielded enhancements, you can run end-to-end tes
 cargo nextest run --workspace
 ```
 
-#### 8.1 Modifications of existing tests
+For the backup-specific e2e test:
+
+```bash
+RUST_BACKTRACE=1 RUST_LOG=trace cargo test --package reth-node-ethereum --test e2e -- backup::backup --exact --show-output --nocapture
+```
+
+#### 8.2 Modifications of existing tests
 
 **Note**: We ignore certain tests by default in `nextest.toml`:
 
@@ -246,11 +258,11 @@ For shielded storage, we've modified:
 
 Because we have a decryption call for `TxSeismic` call, `#[tokio::test(flavor = "multi_thread")]` replaces `#[tokio::test]` to provide runtime async support.
 
-#### 8.2 Integration Testing
+#### 8.3 Integration Testing
 
 See the `crates/seismic/node/tests/integration.rs` examples of integration testing using seismic transactions.
 
-#### 8.3 Ethereum Package Testing
+#### 8.4 Ethereum Package Testing
 
 We added a `TxSeismic` spammer for Ethereum Package testing. For specific instruction see this [PR](https://github.com/SeismicSystems/seismic-reth/pull/49)
 
@@ -265,11 +277,7 @@ There are several areas that require attention and potential future development:
     - **Action**: The `witness()` function needs to be audited to ensure it correctly handles private data.
     - **Importance**: To prevent potential leaks or mishandling of confidential information.
 
-2. **State Root Inclusion of `is_private` Flag**:
-
-    - **Consideration**: Including the `is_private` flag in the state root calculation may be necessary to accurately represent the state where storage slots can transition between public and private.
-
-3. **RPC Method Enhancements**:
+2. **RPC Method Enhancements**:
     - **Encrypted Events and Data**: Future improvements may include supporting encrypted events, enabling the emission of shielded data without compromising confidentiality.
     - **_eth_simulate_v1_**: support endpoint for shielded transactions
     - **_debug\_\*_ _trace\_\*_**: support endpoints for shielded data with redaction

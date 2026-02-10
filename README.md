@@ -23,7 +23,7 @@ Seismic Reth extends [Reth](https://github.com/paradigmxyz/reth) with shielded t
 
 ## Seismic features
 
-See [seismic-features](./seismic-features.md) for a detailed overview of Seismic Reth's new features.
+See [seismic-features](./docs/seismic/features.md) for a detailed overview of Seismic Reth's new features.
 
 ## For Users
 
