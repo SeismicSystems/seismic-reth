@@ -320,10 +320,8 @@ impl Discv5 {
             return None
         }
 
-        // todo: extend for all network stacks in reth-network rlpx logic
-        let fork_id = (self.fork_key == Some(NetworkStackId::ETH))
-            .then(|| self.get_fork_id(enr).ok())
-            .flatten();
+        let fork_id = self.fork_key
+            .and_then(|_| self.get_fork_id(enr).ok());
 
         trace!(target: "net::discv5",
             ?fork_id,
