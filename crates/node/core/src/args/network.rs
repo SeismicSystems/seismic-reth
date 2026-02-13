@@ -34,7 +34,7 @@ use reth_network::{
     },
     HelloMessageWithProtocols, NetworkConfigBuilder, NetworkPrimitives, SessionsConfig,
 };
-use reth_network_peers::{mainnet_nodes, TrustedPeer};
+use reth_network_peers::TrustedPeer;
 use secp256k1::SecretKey;
 use tracing::error;
 
@@ -244,7 +244,7 @@ impl NetworkArgs {
         let addr = self.resolved_addr();
         let chain_bootnodes = self
             .resolved_bootnodes()
-            .unwrap_or_else(|| chain_spec.bootnodes().unwrap_or_else(mainnet_nodes));
+            .unwrap_or_else(|| chain_spec.bootnodes().unwrap_or_default());
         let peers_file = self.peers_file.clone().unwrap_or(default_peers_file);
 
         // Configure peer connections
