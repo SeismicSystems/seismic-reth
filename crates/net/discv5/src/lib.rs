@@ -27,7 +27,7 @@ use reth_ethereum_forks::{EnrForkIdEntry, ForkId};
 use reth_network_peers::{NodeRecord, PeerId};
 use secp256k1::SecretKey;
 use tokio::{sync::mpsc, task};
-use tracing::{debug, error, trace};
+use tracing::{debug, error, info, trace};
 
 pub mod config;
 pub mod enr;
@@ -168,9 +168,9 @@ impl Discv5 {
         //
         let (enr, bc_enr, fork_key, rlpx_ip_mode) = build_local_enr(sk, &discv5_config);
 
-        trace!(target: "net::discv5",
+        info!(target: "net::discv5",
             ?enr,
-            "local ENR"
+            "start: local ENR passed to discv5::Discv5::new"
         );
 
         //
@@ -228,7 +228,14 @@ impl Discv5 {
     pub fn on_discv5_update(&self, update: discv5::Event) -> Option<DiscoveredPeer> {
         #[expect(clippy::match_same_arms)]
         match update {
-            discv5::Event::SocketUpdated(_) | discv5::Event::TalkRequest(_) |
+            discv5::Event::SocketUpdated(new_socket) => {
+                info!(target: "net::discv5",
+                    %new_socket,
+                    "discv5 event: SocketUpdated"
+                );
+                None
+            }
+            discv5::Event::TalkRequest(_) |
             // `Discovered` not unique discovered peers
             discv5::Event::Discovered(_) => None,
             discv5::Event::NodeInserted { replaced: _, .. } => {
@@ -239,9 +246,20 @@ impl Discv5 {
 
                 self.metrics.discovered_peers.increment_kbucket_insertions(1);
 
+                info!(target: "net::discv5",
+                    "discv5 event: NodeInserted into kbuckets"
+                );
+
                 None
             }
             discv5::Event::SessionEstablished(enr, remote_socket) => {
+                info!(target: "net::discv5",
+                    enr_node_id = %enr.node_id(),
+                    enr_ip4 = ?enr.ip4(),
+                    enr_udp4 = ?enr.udp4(),
+                    %remote_socket,
+                    "discv5 event: SessionEstablished"
+                );
                 // this branch is semantically similar to branches of
                 // `reth_discv4::DiscoveryUpdate`: `DiscoveryUpdate::Added(_)` and
                 // `DiscoveryUpdate::DiscoveredAtCapacity(_)
@@ -272,10 +290,11 @@ impl Discv5 {
                 // to them over RLPx, to be compatible with EL discv5 implementations that don't
                 // enforce this security measure.
 
-                trace!(target: "net::discv5",
-                    ?enr,
+                info!(target: "net::discv5",
+                    enr_ip4 = ?enr.ip4(),
+                    enr_udp4 = ?enr.udp4(),
                     %socket,
-                    "discovered unverifiable enr, source socket doesn't match socket advertised in ENR"
+                    "discv5 event: UnverifiableEnr - source socket doesn't match ENR"
                 );
 
                 self.metrics.discovered_peers.increment_unverifiable_enrs_raw_total(1);
@@ -442,22 +461,46 @@ pub fn build_local_enr(
 
     let Config { discv5_config, fork, tcp_socket, other_enr_kv_pairs, .. } = config;
 
+    info!(target: "net::discv5",
+        ?tcp_socket,
+        listen_config = ?discv5_config.listen_config,
+        "build_local_enr: inputs"
+    );
+
     let socket = match discv5_config.listen_config {
         ListenConfig::Ipv4 { ip, port } => {
-            if ip != Ipv4Addr::UNSPECIFIED {
+            let setting_ip4 = ip != Ipv4Addr::UNSPECIFIED;
+            if setting_ip4 {
                 builder.ip4(ip);
             }
             builder.udp4(port);
             builder.tcp4(tcp_socket.port());
 
+            info!(target: "net::discv5",
+                listen_ip = %ip,
+                %port,
+                tcp_port = tcp_socket.port(),
+                setting_ip4_in_enr = setting_ip4,
+                "build_local_enr: Ipv4 branch"
+            );
+
             (ip, port).into()
         }
         ListenConfig::Ipv6 { ip, port } => {
-            if ip != Ipv6Addr::UNSPECIFIED {
+            let setting_ip6 = ip != Ipv6Addr::UNSPECIFIED;
+            if setting_ip6 {
                 builder.ip6(ip);
             }
             builder.udp6(port);
             builder.tcp6(tcp_socket.port());
+
+            info!(target: "net::discv5",
+                listen_ip = %ip,
+                %port,
+                tcp_port = tcp_socket.port(),
+                setting_ip6_in_enr = setting_ip6,
+                "build_local_enr: Ipv6 branch"
+            );
 
             (ip, port).into()
         }
@@ -494,6 +537,15 @@ pub fn build_local_enr(
     // discovery
     let enr = builder.build(sk).expect("should build enr v4");
 
+    info!(target: "net::discv5",
+        enr = %enr,
+        enr_ip4 = ?enr.ip4(),
+        enr_udp4 = ?enr.udp4(),
+        enr_tcp4 = ?enr.tcp4(),
+        enr_seq = enr.seq(),
+        "build_local_enr: final ENR"
+    );
+
     // backwards compatible enr
     let bc_enr = NodeRecord::from_secret_key(socket, sk);
 
@@ -505,36 +557,76 @@ pub async fn bootstrap(
     bootstrap_nodes: HashSet<BootNode>,
     discv5: &Arc<discv5::Discv5>,
 ) -> Result<(), Error> {
-    trace!(target: "net::discv5",
+    info!(target: "net::discv5",
+        num_bootstrap_nodes = bootstrap_nodes.len(),
         ?bootstrap_nodes,
-        "adding bootstrap nodes .."
+        "bootstrap: adding boot nodes"
     );
 
     let mut enr_requests = vec![];
     for node in bootstrap_nodes {
         match node {
             BootNode::Enr(node) => {
+                info!(target: "net::discv5",
+                    enr_node_id = %node.node_id(),
+                    enr_ip4 = ?node.ip4(),
+                    enr_udp4 = ?node.udp4(),
+                    "bootstrap: adding signed ENR boot node"
+                );
                 if let Err(err) = discv5.add_enr(node) {
                     return Err(Error::AddNodeFailed(err))
                 }
             }
             BootNode::Enode(enode) => {
+                info!(target: "net::discv5",
+                    %enode,
+                    "bootstrap: requesting ENR for enode boot node"
+                );
                 let discv5 = discv5.clone();
                 enr_requests.push(async move {
-                    if let Err(err) = discv5.request_enr(enode.to_string()).await {
-                        debug!(target: "net::discv5",
-                            ?enode,
-                            %err,
-                            "failed adding boot node"
-                        );
+                    match discv5.request_enr(enode.to_string()).await {
+                        Ok(enr) => {
+                            info!(target: "net::discv5",
+                                ?enode,
+                                enr_ip4 = ?enr.ip4(),
+                                enr_udp4 = ?enr.udp4(),
+                                enr_tcp4 = ?enr.tcp4(),
+                                enr_node_id = %enr.node_id(),
+                                "bootstrap: got ENR from enode"
+                            );
+                        }
+                        Err(err) => {
+                            info!(target: "net::discv5",
+                                ?enode,
+                                %err,
+                                "bootstrap: FAILED to get ENR from enode"
+                            );
+                        }
                     }
                 })
             }
         }
     }
 
+    info!(target: "net::discv5",
+        num_enr_requests = enr_requests.len(),
+        "bootstrap: waiting for ENR requests to complete"
+    );
+
     // If a session is established, the ENR is added straight away to discv5 kbuckets
-    Ok(_ = join_all(enr_requests).await)
+    let _ = join_all(enr_requests).await;
+
+    // Log kbuckets state after bootstrap
+    let local_enr = discv5.local_enr();
+    let table_entries = discv5.table_entries_id();
+    info!(target: "net::discv5",
+        local_enr_ip4 = ?local_enr.ip4(),
+        local_enr_udp4 = ?local_enr.udp4(),
+        kbucket_entries = table_entries.len(),
+        "bootstrap: complete"
+    );
+
+    Ok(())
 }
 
 /// Backgrounds regular look up queries, in order to keep kbuckets populated.

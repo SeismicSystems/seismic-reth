@@ -14,7 +14,7 @@ use discv5::{
 };
 use reth_ethereum_forks::{EnrForkIdEntry, ForkId};
 use reth_network_peers::NodeRecord;
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::{enr::discv4_id_to_multiaddr_id, filter::MustNotIncludeKeys, NetworkStackId};
 
@@ -232,8 +232,16 @@ impl ConfigBuilder {
             discv5::ConfigBuilder::new(DEFAULT_DISCOVERY_V5_LISTEN_CONFIG).build()
         });
 
+        let listen_config_before = format!("{:?}", discv5_config.listen_config);
         discv5_config.listen_config =
             amend_listen_config_wrt_rlpx(&discv5_config.listen_config, tcp_socket.ip());
+
+        info!(target: "net::discv5",
+            %tcp_socket,
+            listen_config_before,
+            listen_config_after = ?discv5_config.listen_config,
+            "discv5 config built: tcp_socket and listen_config after amend_listen_config_wrt_rlpx"
+        );
 
         let fork = fork.map(|(key, fork_id)| (key, fork_id.into()));
 

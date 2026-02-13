@@ -277,7 +277,13 @@ impl NetworkArgs {
             })
             // apply discovery settings
             .apply(|builder| {
-                let rlpx_socket = (addr, self.port).into();
+                let rlpx_socket: SocketAddr = (addr, self.port).into();
+                tracing::info!(target: "net::discv5",
+                    %rlpx_socket,
+                    nat = ?self.nat,
+                    nat_external_ip = ?self.nat.as_external_ip(),
+                    "network_config: rlpx_socket passed to discv5"
+                );
                 self.discovery.apply_to_builder(builder, rlpx_socket, chain_bootnodes)
             })
             .listener_addr(SocketAddr::new(
