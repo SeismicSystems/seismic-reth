@@ -359,7 +359,7 @@ mod tests {
     }
 
     use reth_discv4::Discv4ConfigBuilder;
-    use reth_discv5::{enr::EnrCombinedKeyWrapper, enr_to_discv4_id};
+    use reth_discv5::{NetworkStackId, enr::EnrCombinedKeyWrapper, enr_to_discv4_id};
     use tracing::trace;
 
     async fn start_discovery_node(udp_port_discv4: u16, udp_port_discv5: u16) -> Discovery {
@@ -373,7 +373,7 @@ mod tests {
 
         let discv5_listen_config = discv5::ListenConfig::from(discv5_addr);
         let discv5_config = reth_discv5::Config::builder(discv5_addr)
-            .discv5_config(discv5::ConfigBuilder::new(discv5_listen_config).build())
+            .discv5_config(discv5::ConfigBuilder::new(discv5_listen_config).table_filter(|enr| enr.get_raw_rlp(NetworkStackId::SEISMIC).is_some()).build())
             .build();
 
         Discovery::new(
