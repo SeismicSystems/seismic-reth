@@ -1,314 +1,245 @@
-# Reth Development Guide for AI Agents
+# Seismic Reth
 
-This guide provides comprehensive instructions for AI agents working on the Reth codebase. It covers the architecture, development workflows, and critical guidelines for effective contributions.
+Fork of [Reth](https://github.com/paradigmxyz/reth) (Ethereum execution client in Rust) that adds **shielded storage and transactions** to the EVM. Seismic Reth enables smart contracts to handle sensitive data privately on-chain via encrypted calldata and confidential storage slots, running inside a Trusted Execution Environment (TEE). Upstream is tracked from `paradigmxyz/reth`.
 
-## Project Overview
+## What This Does
 
-Reth is a high-performance Ethereum execution client written in Rust, focusing on modularity, performance, and contributor-friendliness. The codebase is organized into well-defined crates with clear boundaries and responsibilities.
+Standard EVM storage is publicly readable. Seismic extends Reth with:
 
-## Architecture Overview
+- **Shielded Storage**: Storage values use `FlaggedStorage` (wraps `U256` + `is_private` flag). Private slots use `CSTORE`/`CLOAD` opcodes and return `0` from `eth_getStorageAt`.
+- **Shielded Transactions**: A new `TxSeismic` transaction type with encrypted `input` field. Encryption uses ECDH between client ephemeral keys and the network's TEE public key. Decryption happens inside the TEE before EVM execution.
+- **Seismic Chain Specs**: `SEISMIC_MAINNET` (chain ID 5123) and `SEISMIC_DEV` (chain ID 5124) use the `Mercury` EVM spec from `seismic-revm`.
+- **Custom RPC**: Modified `eth_sendRawTransaction`, `eth_call`, `eth_estimateGas` for shielded tx support. Added `seismic_getTeePublicKey` endpoint.
 
-### Core Components
+## Build
 
-1. **Consensus (`crates/consensus/`)**: Validates blocks according to Ethereum consensus rules
-2. **Storage (`crates/storage/`)**: Hybrid database using MDBX + static files for optimal performance
-3. **Networking (`crates/net/`)**: P2P networking stack with discovery, sync, and transaction propagation
-4. **RPC (`crates/rpc/`)**: JSON-RPC server supporting all standard Ethereum APIs
-5. **Execution (`crates/evm/`, `crates/ethereum/`)**: Transaction execution and state transitions
-6. **Pipeline (`crates/stages/`)**: Staged sync architecture for blockchain synchronization
-7. **Trie (`crates/trie/`)**: Merkle Patricia Trie implementation with parallel state root computation
-8. **Node Builder (`crates/node/`)**: High-level node orchestration and configuration
-9  **The Consensus Engine (`crates/engine/`)**: Handles processing blocks received from the consensus layer with the Engine API (newPayload, forkchoiceUpdated)
+Rust workspace with ~150 crates. MSRV is **1.88.0**. Requires **stable** + **nightly** (for `rustfmt`). Output binaries: `seismic-reth` and `genesis-builder`.
 
-### Key Design Principles
-
-- **Modularity**: Each crate can be used as a standalone library
-- **Performance**: Extensive use of parallelism, memory-mapped I/O, and optimized data structures
-- **Extensibility**: Traits and generic types allow for different implementations (Ethereum, Optimism, etc.)
-- **Type Safety**: Strong typing throughout with minimal use of dynamic dispatch
-
-## Development Workflow
-
-### Code Style and Standards
-
-1. **Formatting**: Always use nightly rustfmt
-   ```bash
-   cargo +nightly fmt --all
-   ```
-
-2. **Linting**: Run clippy with all features
-   ```bash
-   RUSTFLAGS="-D warnings" cargo +nightly clippy --workspace --lib --examples --tests --benches --all-features --locked
-   ```
-
-3. **Testing**: Use nextest for faster test execution
-   ```bash
-   cargo nextest run --workspace
-   ```
-
-### Common Contribution Types
-
-Based on actual recent PRs, here are typical contribution patterns:
-
-#### 1. Small Bug Fixes (1-10 lines)
-Real example: Fixing beacon block root handling ([#16767](https://github.com/paradigmxyz/reth/pull/16767))
-```rust
-// Changed a single line to fix logic error
-- parent_beacon_block_root: parent.parent_beacon_block_root(),
-+ parent_beacon_block_root: parent.parent_beacon_block_root().map(|_| B256::ZERO),
-```
-
-#### 2. Integration with Upstream Changes
-Real example: Integrating revm updates ([#16752](https://github.com/paradigmxyz/reth/pull/16752))
-```rust
-// Update code to use new APIs from dependencies
-- if self.fork_tracker.is_shanghai_activated() {
--     if let Err(err) = transaction.ensure_max_init_code_size(MAX_INIT_CODE_BYTE_SIZE) {
-+ if let Some(init_code_size_limit) = self.fork_tracker.max_initcode_size() {
-+     if let Err(err) = transaction.ensure_max_init_code_size(init_code_size_limit) {
-```
-
-#### 3. Adding Comprehensive Tests
-Real example: ETH69 protocol tests ([#16759](https://github.com/paradigmxyz/reth/pull/16759))
-```rust
-#[tokio::test(flavor = "multi_thread")]
-async fn test_eth69_peers_can_connect() {
-    // Create test network with specific protocol versions
-    let p0 = PeerConfig::with_protocols(NoopProvider::default(), Some(EthVersion::Eth69.into()));
-    // Test connection and version negotiation
-}
-```
-
-#### 4. Making Components Generic
-Real example: Making EthEvmConfig generic over chainspec ([#16758](https://github.com/paradigmxyz/reth/pull/16758))
-```rust
-// Before: Hardcoded to ChainSpec
-- pub struct EthEvmConfig<EvmFactory = EthEvmFactory> {
--     pub executor_factory: EthBlockExecutorFactory<RethReceiptBuilder, Arc<ChainSpec>, EvmFactory>,
-
-// After: Generic over any chain spec type
-+ pub struct EthEvmConfig<C = ChainSpec, EvmFactory = EthEvmFactory>
-+ where
-+     C: EthereumHardforks,
-+ {
-+     pub executor_factory: EthBlockExecutorFactory<RethReceiptBuilder, Arc<C>, EvmFactory>,
-```
-
-#### 5. Resource Management Improvements
-Real example: ETL directory cleanup ([#16770](https://github.com/paradigmxyz/reth/pull/16770))
-```rust
-// Add cleanup logic on startup
-+ if let Err(err) = fs::remove_dir_all(&etl_path) {
-+     warn!(target: "reth::cli", ?etl_path, %err, "Failed to remove ETL path on launch");
-+ }
-```
-
-#### 6. Feature Additions
-Real example: Sharded mempool support ([#16756](https://github.com/paradigmxyz/reth/pull/16756))
-```rust
-// Add new filtering policies for transaction announcements
-pub struct ShardedMempoolAnnouncementFilter<T> {
-    pub inner: T,
-    pub shard_bits: u8,
-    pub node_id: Option<B256>,
-}
-```
-
-### Testing Guidelines
-
-1. **Unit Tests**: Test individual functions and components
-2. **Integration Tests**: Test interactions between components
-3. **Benchmarks**: For performance-critical code
-4. **Fuzz Tests**: For parsing and serialization code
-5. **Property Tests**: For checking component correctness on a wide variety of inputs
-
-Example test structure:
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_component_behavior() {
-        // Arrange
-        let component = Component::new();
-        
-        // Act
-        let result = component.operation();
-        
-        // Assert
-        assert_eq!(result, expected);
-    }
-}
-```
-
-### Performance Considerations
-
-1. **Avoid Allocations in Hot Paths**: Use references and borrowing
-2. **Parallel Processing**: Use rayon for CPU-bound parallel work
-3. **Async/Await**: Use tokio for I/O-bound operations
-4. **File Operations**: Use `reth_fs_util` instead of `std::fs` for better error handling
-
-### Common Pitfalls
-
-1. **Don't Block Async Tasks**: Use `spawn_blocking` for CPU-intensive work or work with lots of blocking I/O
-2. **Handle Errors Properly**: Use `?` operator and proper error types
-
-### What to Avoid
-
-Based on PR patterns, avoid:
-
-1. **Large, sweeping changes**: Keep PRs focused and reviewable
-2. **Mixing unrelated changes**: One logical change per PR
-3. **Ignoring CI failures**: All checks must pass
-4. **Incomplete implementations**: Finish features before submitting
-5. **Modifying libmdbx sources**: Never modify files in `crates/storage/libmdbx-rs/mdbx-sys/libmdbx/` - this is vendored third-party code
-
-### CI Requirements
-
-Before submitting changes, ensure:
-
-1. **Format Check**: `cargo +nightly fmt --all --check`
-2. **Clippy**: No warnings with `RUSTFLAGS="-D warnings"`
-3. **Tests Pass**: All unit and integration tests
-4. **Documentation**: Update relevant docs and add doc comments with `cargo docs --document-private-items`
-5. **Commit Messages**: Follow conventional format (feat:, fix:, chore:, etc.)
-
-
-### Opening PRs against <https://github.com/paradigmxyz/reth>
-
-Label PRs appropriately, first check the available labels and then apply the relevant ones:
-* when changes are RPC related, add A-rpc label
-* when changes are docs related, add C-docs label
-* when changes are optimism related (e.g. new feature or exclusive changes to crates/optimism), add A-op-reth label
-* ... and so on, check the available labels for more options.
-* if being tasked to open a pr, ensure that all changes are properly formatted: `cargo +nightly fmt --all`
-
-If changes in reth include changes to dependencies, run commands `zepter` and `make lint-toml` before finalizing the pr. Assume `zepter` binary is installed.
-
-### Debugging Tips
-
-1. **Logging**: Use `tracing` crate with appropriate levels
-   ```rust
-   tracing::debug!(target: "reth::component", ?value, "description");
-   ```
-
-2. **Metrics**: Add metrics for monitoring
-   ```rust
-   metrics::counter!("reth_component_operations").increment(1);
-   ```
-
-3. **Test Isolation**: Use separate test databases/directories
-
-### Finding Where to Contribute
-
-1. **Check Issues**: Look for issues labeled `good-first-issue` or `help-wanted`
-2. **Review TODOs**: Search for `TODO` comments in the codebase
-3. **Improve Tests**: Areas with low test coverage are good targets
-4. **Documentation**: Improve code comments and documentation
-5. **Performance**: Profile and optimize hot paths (with benchmarks)
-
-### Common PR Patterns
-
-#### Small, Focused Changes
-Most PRs change only 1-5 files. Examples:
-- Single-line bug fixes
-- Adding a missing trait implementation
-- Updating error messages
-- Adding test cases for edge conditions
-
-#### Integration Work
-When dependencies update (especially revm), code needs updating:
-- Check for breaking API changes
-- Update to use new features (like EIP implementations)
-- Ensure compatibility with new versions
-
-#### Test Improvements
-Tests often need expansion for:
-- New protocol versions (ETH68, ETH69)
-- Edge cases in state transitions
-- Network behavior under specific conditions
-- Concurrent operations
-
-#### Making Code More Generic
-Common refactoring pattern:
-- Replace concrete types with generics
-- Add trait bounds for flexibility
-- Enable reuse across different chain types (Ethereum, Optimism)
-
-### Example Contribution Workflow
-
-Let's say you want to fix a bug where external IP resolution fails on startup:
-
-1. **Create a branch**:
-   ```bash
-   git checkout -b fix-external-ip-resolution
-   ```
-
-2. **Find the relevant code**:
-   ```bash
-   # Search for IP resolution code
-   rg "external.*ip" --type rust
-   ```
-
-3. **Reason about the problem, when the problem is identified, make the fix**:
-   ```rust
-   // In crates/net/discv4/src/lib.rs
-   pub fn resolve_external_ip() -> Option<IpAddr> {
-       // Add fallback mechanism
-       nat::external_ip()
-           .or_else(|| nat::external_ip_from_stun())
-           .or_else(|| Some(DEFAULT_IP))
-   }
-   ```
-
-4. **Add a test**:
-   ```rust
-   #[test]
-   fn test_external_ip_fallback() {
-       // Test that resolution has proper fallbacks
-   }
-   ```
-
-5. **Run checks**:
-   ```bash
-   cargo +nightly fmt --all
-   cargo clippy --all-features
-   cargo test -p reth-discv4
-   ```
-
-6. **Commit with clear message**:
-   ```bash
-   git commit -m "fix: add fallback for external IP resolution
-
-   Previously, node startup could fail if external IP resolution
-   failed. This adds fallback mechanisms to ensure the node can
-   always start with a reasonable default."
-   ```
-
-## Quick Reference
-
-### Essential Commands
+### macOS (arm64/x86_64)
 
 ```bash
-# Format code
-cargo +nightly fmt --all
+# Prerequisites: Rust stable >= 1.88, Rust nightly, cargo-nextest
+rustup toolchain install stable nightly
+cargo install cargo-nextest --locked
 
-# Run lints
-RUSTFLAGS="-D warnings" cargo +nightly clippy --workspace --all-features --locked
+# Build (debug)
+cargo build --bin seismic-reth
+cargo build --bin genesis-builder
 
-# Run tests
-cargo nextest run --workspace
-
-# Run specific benchmark
-cargo bench --bench bench_name
-
-# Build optimized binary
-cargo build --release --features "jemalloc asm-keccak"
-
-# Check compilation for all features
-cargo check --workspace --all-features
-
-# Check documentation
-cargo docs --document-private-items 
+# Build (release, with jemalloc + asm-keccak)
+cargo build --bin seismic-reth --release --features "jemalloc asm-keccak"
 ```
+
+### Linux (Ubuntu)
+
+```bash
+# System dependencies
+sudo apt-get update
+sudo apt-get install -y build-essential pkg-config libssl-dev libclang-dev
+
+# Prerequisites: Rust stable >= 1.88, Rust nightly, cargo-nextest
+rustup toolchain install stable nightly
+cargo install cargo-nextest --locked
+
+# Build (debug)
+cargo build --bin seismic-reth
+cargo build --bin genesis-builder
+
+# Build (release, with jemalloc + asm-keccak)
+cargo build --bin seismic-reth --release --features "jemalloc asm-keccak"
+```
+
+### Verify
+
+```bash
+target/debug/seismic-reth --version
+# Expected: reth-seismic-cli Version: 1.7.0
+# Commit SHA: ...
+# Build Features: jemalloc
+```
+
+## Test
+
+Tests use `cargo-nextest`. Some tests are filtered out by default in `.config/nextest.toml`.
+
+### Unit tests (~2012 tests)
+
+```bash
+cargo nextest run --workspace -E '!kind(test)' --no-fail-fast
+```
+
+### Integration tests (~318 tests)
+
+```bash
+cargo nextest run --workspace -E 'kind(test)' --no-fail-fast
+```
+
+### All tests (unit + integration)
+
+```bash
+cargo nextest run --workspace --no-fail-fast
+```
+
+### Test a specific crate
+
+```bash
+cargo nextest run -p reth-seismic-node
+cargo nextest run -p reth-seismic-evm
+```
+
+### Ethereum Foundation tests (requires download)
+
+```bash
+make ef-tests
+```
+
+### Viem integration tests (requires bun)
+
+```bash
+bun install
+bun viem:test
+```
+
+## Lint
+
+### Format (nightly rustfmt required)
+
+```bash
+cargo +nightly fmt --all          # format
+cargo +nightly fmt --all --check  # check only
+```
+
+### Clippy — seismic crates (matches CI)
+
+```bash
+cargo clippy \
+  -p reth-seismic-primitives -p reth-seismic-chainspec -p reth-seismic-evm \
+  -p reth-seismic-payload-builder -p reth-seismic-node -p reth-seismic-rpc \
+  -p reth-seismic-cli -p reth-seismic-txpool -p reth-seismic-forks -p seismic-reth \
+  --lib --tests --no-deps \
+  -- -D warnings \
+  -W clippy::unwrap_used -W clippy::expect_used -W clippy::indexing_slicing \
+  -W clippy::panic -W clippy::unreachable -W clippy::todo
+```
+
+### Warnings check (matches CI)
+
+```bash
+RUSTFLAGS="-D warnings" cargo check
+```
+
+### TOML formatting (if changing Cargo.toml files)
+
+```bash
+# Requires: cargo install --locked dprint
+dprint fmt
+```
+
+## Project Layout
+
+```
+bin/
+  seismic-reth/          Main binary — Seismic node entry point
+  genesis-builder/       Genesis block builder tool
+  reth/                  Upstream reth binary (not default-built)
+crates/
+  seismic/               ★ Seismic-specific crates
+    chainspec/           Seismic chain specs (mainnet 5123, dev 5124)
+    cli/                 Seismic CLI extensions
+    evm/                 Seismic EVM config (TxSeismic decryption, Mercury spec)
+    hardforks/           Seismic hardfork definitions
+    node/                Seismic node builder + integration tests
+    payload/             Seismic payload builder (shielded tx handling)
+    primitives/          TxSeismic type, FlaggedStorage, shielded types
+    reth/                Re-exports of seismic crates
+    rpc/                 Seismic RPC extensions (seismic_getTeePublicKey, etc.)
+    txpool/              Seismic transaction pool (TxSeismic validation)
+  consensus/             Block validation (Ethereum consensus rules)
+  engine/                Consensus engine (Engine API: newPayload, forkchoiceUpdated)
+  ethereum/              Ethereum-specific: hardforks, EVM, node, primitives, payload
+  evm/                   Generic EVM execution traits and types
+  net/                   P2P networking (discv4/v5, eth-wire, ecies, downloaders)
+  node/                  Node builder, core config, events, metrics
+  rpc/                   JSON-RPC server, API definitions, engine API
+  stages/                Staged sync pipeline
+  storage/               MDBX database, codecs, static files, nippy-jar
+  trie/                  Merkle Patricia Trie (parallel state root computation)
+  genesis-builder/       Genesis builder library
+testing/
+  ef-tests/              Ethereum Foundation test runner
+  viem-tests/            Viem integration tests (TypeScript/bun)
+```
+
+## Key Seismic Modifications
+
+Shielded features are layered on top of upstream Reth:
+
+- **TxSeismic type**: `crates/seismic/primitives/` — new transaction type with encrypted `input`, `encryption_pubkey`, `message_version`
+- **FlaggedStorage**: `seismic-revm` (external) — storage values carry `is_private` flag; `CSTORE`/`CLOAD` opcodes
+- **EVM config**: `crates/seismic/evm/` — decrypts `TxSeismic` input before execution via TEE cryptography server
+- **Chain specs**: `crates/seismic/chainspec/` — SEISMIC_MAINNET (5123), SEISMIC_DEV (5124) with Mercury spec
+- **RPC extensions**: `crates/seismic/rpc/` — modified eth_call/sendRawTransaction, added seismic_getTeePublicKey
+- **State root**: `is_private` flag excluded from state root calculation (storage hashing includes it as key metadata)
+
+## Dependencies (Seismic forks)
+
+All patched via `[patch.crates-io]` in root `Cargo.toml`:
+
+| Dependency                  | Seismic Fork                             |
+| --------------------------- | ---------------------------------------- |
+| `revm` (+ sub-crates)       | `SeismicSystems/seismic-revm`            |
+| `alloy-primitives` (+ core) | `SeismicSystems/seismic-alloy-core`      |
+| `alloy-trie`                | `SeismicSystems/seismic-trie`            |
+| `alloy-evm`                 | `SeismicSystems/seismic-evm`             |
+| `revm-inspectors`           | `SeismicSystems/seismic-revm-inspectors` |
+| `seismic-alloy-*`           | `SeismicSystems/seismic-alloy`           |
+| `seismic-enclave`           | `SeismicSystems/enclave`                 |
+
+## Code Style
+
+- **Nightly rustfmt** with config in `rustfmt.toml` (reorder imports, crate-level granularity, max heuristics, trailing comma vertical)
+- **Clippy**: Seismic crates enforce `-W clippy::unwrap_used`, `expect_used`, `indexing_slicing`, `panic`, `unreachable`, `todo`
+- **Logging**: Use `tracing` crate — `tracing::debug!(target: "reth::component", ?value, "description");`
+- **File I/O**: Use `reth_fs_util` instead of `std::fs`
+- **Async tests**: Use `#[tokio::test(flavor = "multi_thread")]` (required for shielded tx tests that call decryption)
+- **Commit messages**: Conventional format (`feat:`, `fix:`, `chore:`, `docs:`)
+
+## CI
+
+GitHub Actions (`.github/workflows/seismic.yml`):
+
+| Job                | What it does                                             |
+| ------------------ | -------------------------------------------------------- |
+| `rustfmt`          | `cargo fmt --all --check` (nightly)                      |
+| `warnings`         | `RUSTFLAGS="-D warnings" cargo check`                    |
+| `clippy`           | Clippy on all seismic crates with strict lints           |
+| `unit-test`        | `cargo nextest run --workspace -E '!kind(test)'`         |
+| `integration-test` | `cargo nextest run --workspace -E 'kind(test)'`          |
+| `viem`             | Builds seismic-reth, runs viem integration tests via bun |
+
+## Branches
+
+- `seismic` — main branch (PR target)
+- Upstream tracking via periodic merges from `paradigmxyz/reth`
+
+## Important Rules
+
+- **Never modify** files in `crates/storage/libmdbx-rs/mdbx-sys/libmdbx/` — vendored third-party code
+- **Nextest filters**: `.config/nextest.toml` excludes flaky tests (`test_header_truncation`, `test_tx_based_truncation`, `eth::core::tests`)
+- **Default members**: Only `bin/seismic-reth` and `bin/genesis-builder` build by default (`cargo build` without `--workspace`)
+- **Optimism crates**: Commented out of workspace — do not re-enable
+- **Seismic-specific crate naming**: All seismic crates use `reth-seismic-*` prefix
+
+## Troubleshooting
+
+| Problem                                 | Fix                                                                                                                           |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `cargo build` compiles all crates       | Default members are `seismic-reth` and `genesis-builder`. Use `cargo build --bin seismic-reth` to build only the main binary. |
+| `cargo fmt` uses wrong edition features | Must use nightly: `cargo +nightly fmt --all`                                                                                  |
+| `cargo-nextest` not found               | `cargo install cargo-nextest --locked`                                                                                        |
+| libmdbx build fails on Linux            | Install `libclang-dev`: `sudo apt-get install libclang-dev`                                                                   |
+| Tests filtered/skipped unexpectedly     | Check `.config/nextest.toml` for default filter exclusions                                                                    |
+| Clippy warnings in seismic crates       | CI uses strict lints (`unwrap_used`, `expect_used`, etc.) — use `.ok()`, `get()`, `if let` instead                            |
+| Integration tests need async runtime    | Use `#[tokio::test(flavor = "multi_thread")]` not `#[tokio::test]` for tests involving TxSeismic                              |
+| TOML format check fails                 | Install and run `dprint fmt` (requires `cargo install --locked dprint`)                                                       |
+| Dependency changes in Cargo.toml        | Run `dprint fmt` before committing to fix TOML formatting                                                                     |
