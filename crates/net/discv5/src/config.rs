@@ -85,6 +85,8 @@ pub struct ConfigBuilder {
     /// Custom filter rules to apply to a discovered peer in order to determine if it should be
     /// passed up to rlpx or dropped.
     discovered_peer_filter: Option<MustNotIncludeKeys>,
+    /// External IP to advertise in the ENR (e.g. from `--nat extip:<IP>`).
+    external_ip: Option<IpAddr>,
 }
 
 impl ConfigBuilder {
@@ -100,6 +102,7 @@ impl ConfigBuilder {
             bootstrap_lookup_interval,
             bootstrap_lookup_countdown,
             discovered_peer_filter,
+            external_ip,
         } = discv5_config;
 
         Self {
@@ -112,6 +115,7 @@ impl ConfigBuilder {
             bootstrap_lookup_interval: Some(bootstrap_lookup_interval),
             bootstrap_lookup_countdown: Some(bootstrap_lookup_countdown),
             discovered_peer_filter: Some(discovered_peer_filter),
+            external_ip,
         }
     }
 
@@ -214,6 +218,12 @@ impl ConfigBuilder {
         self
     }
 
+    /// Sets the external IP to advertise in the ENR (e.g. from `--nat extip:<IP>`).
+    pub fn external_ip(mut self, ip: Option<IpAddr>) -> Self {
+        self.external_ip = ip;
+        self
+    }
+
     /// Returns a new [`Config`].
     pub fn build(self) -> Config {
         let Self {
@@ -226,6 +236,7 @@ impl ConfigBuilder {
             bootstrap_lookup_interval,
             bootstrap_lookup_countdown,
             discovered_peer_filter,
+            external_ip,
         } = self;
 
         let mut discv5_config = discv5_config.unwrap_or_else(|| {
@@ -264,6 +275,7 @@ impl ConfigBuilder {
             bootstrap_lookup_interval,
             bootstrap_lookup_countdown,
             discovered_peer_filter,
+            external_ip,
         }
     }
 }
@@ -297,6 +309,8 @@ pub struct Config {
     /// Custom filter rules to apply to a discovered peer in order to determine if it should be
     /// passed up to rlpx or dropped.
     pub(super) discovered_peer_filter: MustNotIncludeKeys,
+    /// External IP to advertise in the ENR (e.g. from `--nat extip:<IP>`).
+    pub(super) external_ip: Option<IpAddr>,
 }
 
 impl Config {
@@ -313,6 +327,7 @@ impl Config {
             bootstrap_lookup_interval: None,
             bootstrap_lookup_countdown: None,
             discovered_peer_filter: None,
+            external_ip: None,
         }
     }
 

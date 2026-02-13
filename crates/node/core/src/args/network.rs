@@ -277,15 +277,14 @@ impl NetworkArgs {
             })
             // apply discovery settings
             .apply(|builder| {
-                let rlpx_ip = self.nat.as_external_ip().unwrap_or(addr.into());
-                let rlpx_socket = SocketAddr::new(rlpx_ip, self.port);
+                let rlpx_socket: SocketAddr = (addr, self.port).into();
                 tracing::info!(target: "net::discv5",
                     %rlpx_socket,
                     nat = ?self.nat,
                     nat_external_ip = ?self.nat.as_external_ip(),
                     "network_config: rlpx_socket passed to discv5"
                 );
-                self.discovery.apply_to_builder(builder, rlpx_socket, chain_bootnodes)
+                self.discovery.apply_to_builder(builder, rlpx_socket, chain_bootnodes, self.nat.as_external_ip())
             })
             .listener_addr(SocketAddr::new(
                 addr, // set discovery port based on instance number
@@ -451,6 +450,7 @@ impl DiscoveryArgs {
         mut network_config_builder: NetworkConfigBuilder<N>,
         rlpx_tcp_socket: SocketAddr,
         boot_nodes: impl IntoIterator<Item = NodeRecord>,
+        external_ip: Option<IpAddr>,
     ) -> NetworkConfigBuilder<N>
     where
         N: NetworkPrimitives,
@@ -470,7 +470,7 @@ impl DiscoveryArgs {
 
         if self.should_enable_discv5() {
             network_config_builder = network_config_builder
-                .discovery_v5(self.discovery_v5_builder(rlpx_tcp_socket, boot_nodes));
+                .discovery_v5(self.discovery_v5_builder(rlpx_tcp_socket, boot_nodes, external_ip));
         }
 
         network_config_builder
@@ -481,6 +481,7 @@ impl DiscoveryArgs {
         &self,
         rlpx_tcp_socket: SocketAddr,
         boot_nodes: impl IntoIterator<Item = NodeRecord>,
+        external_ip: Option<IpAddr>,
     ) -> reth_discv5::ConfigBuilder {
         let Self {
             discv5_addr,
@@ -515,6 +516,7 @@ impl DiscoveryArgs {
             .lookup_interval(*discv5_lookup_interval)
             .bootstrap_lookup_interval(*discv5_bootstrap_lookup_interval)
             .bootstrap_lookup_countdown(*discv5_bootstrap_lookup_countdown)
+            .external_ip(external_ip)
     }
 
     /// Returns true if discv5 discovery should be configured

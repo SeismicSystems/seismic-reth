@@ -459,18 +459,25 @@ pub fn build_local_enr(
 ) -> (Enr<SecretKey>, NodeRecord, Option<&'static [u8]>, IpMode) {
     let mut builder = discv5::enr::Enr::builder();
 
-    let Config { discv5_config, fork, tcp_socket, other_enr_kv_pairs, .. } = config;
+    let Config { discv5_config, fork, tcp_socket, other_enr_kv_pairs, external_ip, .. } = config;
 
     info!(target: "net::discv5",
         ?tcp_socket,
+        ?external_ip,
         listen_config = ?discv5_config.listen_config,
         "build_local_enr: inputs"
     );
 
     let socket = match discv5_config.listen_config {
         ListenConfig::Ipv4 { ip, port } => {
-            let setting_ip4 = ip != Ipv4Addr::UNSPECIFIED;
-            if setting_ip4 {
+            let enr_ip = if ip != Ipv4Addr::UNSPECIFIED {
+                Some(ip)
+            } else if let Some(IpAddr::V4(ext)) = external_ip {
+                Some(*ext)
+            } else {
+                None
+            };
+            if let Some(ip) = enr_ip {
                 builder.ip4(ip);
             }
             builder.udp4(port);
@@ -480,7 +487,7 @@ pub fn build_local_enr(
                 listen_ip = %ip,
                 %port,
                 tcp_port = tcp_socket.port(),
-                setting_ip4_in_enr = setting_ip4,
+                enr_ip = ?enr_ip,
                 "build_local_enr: Ipv4 branch"
             );
 
