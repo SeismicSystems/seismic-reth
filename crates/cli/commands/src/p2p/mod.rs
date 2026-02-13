@@ -198,7 +198,7 @@ impl<C: ChainSpecParser> DownloadArgs<C> {
                     builder,
                     rlpx_socket,
                     boot_nodes,
-                    self.network.nat.as_external_ip(),
+                    self.network.nat,
                 )
             })
             .build_with_noop_provider(self.chain.clone())

@@ -164,9 +164,11 @@ impl Discv5 {
         discv5_config: Config,
     ) -> Result<(Self, mpsc::Receiver<discv5::Event>, NodeRecord), Error> {
         //
-        // 1. make local enr from listen config
+        // 1. resolve external IP via NAT and make local enr from listen config
         //
-        let (enr, bc_enr, fork_key, rlpx_ip_mode) = build_local_enr(sk, &discv5_config);
+        let external_ip = discv5_config.nat.external_addr().await;
+        let (enr, bc_enr, fork_key, rlpx_ip_mode) =
+            build_local_enr(sk, &discv5_config, external_ip);
 
         trace!(target: "net::discv5",
             ?enr,
@@ -436,17 +438,18 @@ pub struct DiscoveredPeer {
 pub fn build_local_enr(
     sk: &SecretKey,
     config: &Config,
+    external_ip: Option<IpAddr>,
 ) -> (Enr<SecretKey>, NodeRecord, Option<&'static [u8]>, IpMode) {
     let mut builder = discv5::enr::Enr::builder();
 
-    let Config { discv5_config, fork, tcp_socket, other_enr_kv_pairs, external_ip, .. } = config;
+    let Config { discv5_config, fork, tcp_socket, other_enr_kv_pairs, .. } = config;
 
     let socket = match discv5_config.listen_config {
         ListenConfig::Ipv4 { ip, port } => {
             let enr_ip = if ip != Ipv4Addr::UNSPECIFIED {
                 Some(ip)
             } else if let Some(IpAddr::V4(ext)) = external_ip {
-                Some(*ext)
+                Some(ext)
             } else {
                 None
             };
@@ -894,7 +897,7 @@ mod test {
             .build();
 
         let sk = SecretKey::new(&mut thread_rng());
-        let (enr, _, _, _) = build_local_enr(&sk, &config);
+        let (enr, _, _, _) = build_local_enr(&sk, &config, None);
 
         let decoded_fork_id = enr
             .get_decodable::<EnrForkIdEntry>(NetworkStackId::ETH)

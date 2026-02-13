@@ -7517,6 +7517,7 @@ dependencies = [
  "reth-chainspec",
  "reth-ethereum-forks",
  "reth-metrics",
+ "reth-net-nat",
  "reth-network-peers",
  "reth-tracing",
  "secp256k1 0.30.0",

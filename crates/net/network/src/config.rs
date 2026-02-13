@@ -807,6 +807,7 @@ mod tests {
         let (local_enr, _, _, _) = build_local_enr(
             &config.secret_key,
             &config.discovery_v5_config.expect("should build config"),
+            None,
         );
 
         // peers on the odyssey network will check discovered enrs for the 'odyssey' key and
