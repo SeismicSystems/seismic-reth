@@ -240,7 +240,10 @@ impl ConfigBuilder {
         } = self;
 
         let mut discv5_config = discv5_config.unwrap_or_else(|| {
-            discv5::ConfigBuilder::new(DEFAULT_DISCOVERY_V5_LISTEN_CONFIG).build()
+            let mut builder =discv5::ConfigBuilder::new(DEFAULT_DISCOVERY_V5_LISTEN_CONFIG);
+            builder.table_filter(|enr| enr.get_raw_rlp(NetworkStackId::SEISMIC).is_some());
+
+            builder.build()
         });
 
         let listen_config_before = format!("{:?}", discv5_config.listen_config);
