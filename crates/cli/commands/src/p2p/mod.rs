@@ -194,7 +194,12 @@ impl<C: ChainSpecParser> DownloadArgs<C> {
             .external_ip_resolver(self.network.nat)
             .boot_nodes(boot_nodes.clone())
             .apply(|builder| {
-                self.network.discovery.apply_to_builder(builder, rlpx_socket, boot_nodes, self.network.nat.as_external_ip())
+                self.network.discovery.apply_to_builder(
+                    builder,
+                    rlpx_socket,
+                    boot_nodes,
+                    self.network.nat.as_external_ip(),
+                )
             })
             .build_with_noop_provider(self.chain.clone())
             .manager()

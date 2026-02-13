@@ -278,7 +278,12 @@ impl NetworkArgs {
             // apply discovery settings
             .apply(|builder| {
                 let rlpx_socket = (addr, self.port).into();
-                self.discovery.apply_to_builder(builder, rlpx_socket, chain_bootnodes, self.nat.as_external_ip())
+                self.discovery.apply_to_builder(
+                    builder,
+                    rlpx_socket,
+                    chain_bootnodes,
+                    self.nat.as_external_ip(),
+                )
             })
             .listener_addr(SocketAddr::new(
                 addr, // set discovery port based on instance number

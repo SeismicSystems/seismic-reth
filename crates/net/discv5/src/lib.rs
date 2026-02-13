@@ -320,8 +320,7 @@ impl Discv5 {
             return None
         }
 
-        let fork_id = self.fork_key
-            .and_then(|_| self.get_fork_id(enr).ok());
+        let fork_id = self.fork_key.and_then(|_| self.get_fork_id(enr).ok());
 
         trace!(target: "net::discv5",
             ?fork_id,

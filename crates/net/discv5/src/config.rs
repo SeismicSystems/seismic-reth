@@ -244,8 +244,7 @@ impl ConfigBuilder {
         });
 
         // Always set the table filter to only allow seismic nodes into kbuckets
-        discv5_config.table_filter =
-            |enr| enr.get_raw_rlp(NetworkStackId::SEISMIC).is_some();
+        discv5_config.table_filter = |enr| enr.get_raw_rlp(NetworkStackId::SEISMIC).is_some();
 
         discv5_config.listen_config =
             amend_listen_config_wrt_rlpx(&discv5_config.listen_config, tcp_socket.ip());
