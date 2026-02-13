@@ -505,14 +505,13 @@ impl DiscoveryArgs {
         });
 
         reth_discv5::Config::builder(rlpx_tcp_socket)
-            .discv5_config({
-                let mut builder = reth_discv5::discv5::ConfigBuilder::new(ListenConfig::from_two_sockets(
+            .discv5_config(
+                reth_discv5::discv5::ConfigBuilder::new(ListenConfig::from_two_sockets(
                     discv5_addr_ipv4.map(|addr| SocketAddrV4::new(addr, *discv5_port)),
                     discv5_addr_ipv6.map(|addr| SocketAddrV6::new(addr, *discv5_port_ipv6, 0, 0)),
-                ));
-                builder.table_filter(|enr| enr.get_raw_rlp(reth_discv5::NetworkStackId::SEISMIC).is_some());
-                builder.build()
-            })
+                ))
+                .build(),
+            )
             .add_unsigned_boot_nodes(boot_nodes)
             .lookup_interval(*discv5_lookup_interval)
             .bootstrap_lookup_interval(*discv5_bootstrap_lookup_interval)
