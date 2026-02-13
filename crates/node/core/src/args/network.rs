@@ -34,7 +34,7 @@ use reth_network::{
     },
     HelloMessageWithProtocols, NetworkConfigBuilder, NetworkPrimitives, SessionsConfig,
 };
-use reth_network_peers::TrustedPeer;
+use reth_network_peers::{mainnet_nodes, TrustedPeer};
 use secp256k1::SecretKey;
 use tracing::error;
 
@@ -244,7 +244,7 @@ impl NetworkArgs {
         let addr = self.resolved_addr();
         let chain_bootnodes = self
             .resolved_bootnodes()
-            .unwrap_or_else(|| chain_spec.bootnodes().unwrap_or_default());
+            .unwrap_or_else(|| chain_spec.bootnodes().unwrap_or_else(mainnet_nodes));
         let peers_file = self.peers_file.clone().unwrap_or(default_peers_file);
 
         // Configure peer connections
@@ -277,13 +277,7 @@ impl NetworkArgs {
             })
             // apply discovery settings
             .apply(|builder| {
-                let rlpx_socket: SocketAddr = (addr, self.port).into();
-                tracing::info!(target: "net::discv5",
-                    %rlpx_socket,
-                    nat = ?self.nat,
-                    nat_external_ip = ?self.nat.as_external_ip(),
-                    "network_config: rlpx_socket passed to discv5"
-                );
+                let rlpx_socket = (addr, self.port).into();
                 self.discovery.apply_to_builder(builder, rlpx_socket, chain_bootnodes, self.nat.as_external_ip())
             })
             .listener_addr(SocketAddr::new(
