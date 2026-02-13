@@ -277,7 +277,8 @@ impl NetworkArgs {
             })
             // apply discovery settings
             .apply(|builder| {
-                let rlpx_socket: SocketAddr = (addr, self.port).into();
+                let rlpx_ip = self.nat.as_external_ip().unwrap_or(addr.into());
+                let rlpx_socket = SocketAddr::new(rlpx_ip, self.port);
                 tracing::info!(target: "net::discv5",
                     %rlpx_socket,
                     nat = ?self.nat,
