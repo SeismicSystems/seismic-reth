@@ -1,6 +1,6 @@
 use alloy_primitives::{Address, Bytes};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Default base URL for the manifest which will be
 /// used if a base URL is not provided explicitly
@@ -20,7 +20,7 @@ pub struct ContractConfig {
     pub nonce: Option<String>,
     /// Optional storage to initialize at the contract address
     #[serde(default)]
-    pub storage: HashMap<String, String>,
+    pub storage: BTreeMap<String, String>,
 }
 
 /// Full manifest structure
@@ -66,24 +66,24 @@ pub struct Genesis {
     /// Configuration of the genesis file
     pub config: serde_json::Value,
     /// Allocations of the genesis file
-    pub alloc: HashMap<Address, GenesisAccount>,
+    pub alloc: BTreeMap<Address, GenesisAccount>,
     /// Other fields of the genesis file
     #[serde(flatten)]
-    pub other: HashMap<String, serde_json::Value>,
+    pub other: BTreeMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 /// Account in the genesis file
 pub struct GenesisAccount {
+    /// Balance of the account
+    pub balance: String,
     /// Code of the account
     #[serde(skip_serializing_if = "Option::is_none")]
     pub code: Option<String>,
-    /// Balance of the account
-    pub balance: String,
     /// Nonce of the account
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nonce: Option<String>,
     /// Storage of the account
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub storage: HashMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub storage: BTreeMap<String, String>,
 }
