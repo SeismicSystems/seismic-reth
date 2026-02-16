@@ -676,6 +676,7 @@ mod test {
     use ::enr::{CombinedKey, EnrKey};
     use rand_08::thread_rng;
     use reth_chainspec::MAINNET;
+    use reth_ethereum_forks::{ForkHash, ForkId};
     use tracing::trace;
 
     fn discv5_noop() -> Discv5 {
@@ -707,6 +708,7 @@ mod test {
         let discv5_listen_config = ListenConfig::from(discv5_addr);
         let discv5_config = Config::builder(rlpx_addr)
             .discv5_config(discv5::ConfigBuilder::new(discv5_listen_config).build())
+            .fork(NetworkStackId::SEISMIC, ForkId { hash: ForkHash([0; 4]), next: 0 })
             .build();
 
         Discv5::start(&secret_key, discv5_config).await.expect("should build discv5")
