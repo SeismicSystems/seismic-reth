@@ -27,7 +27,7 @@ use reth_ethereum_forks::{EnrForkIdEntry, ForkId};
 use reth_network_peers::{NodeRecord, PeerId};
 use secp256k1::SecretKey;
 use tokio::{sync::mpsc, task};
-use tracing::{debug, error, trace};
+use tracing::{debug, error, info, trace};
 
 pub mod config;
 pub mod enr;
@@ -167,12 +167,28 @@ impl Discv5 {
         // 1. resolve external IP via NAT and make local enr from listen config
         //
         let external_ip = discv5_config.nat.external_addr().await;
+
+        info!(target: "net::discv5",
+            ?external_ip,
+            nat=?discv5_config.nat,
+            listen_config=?discv5_config.discv5_config.listen_config,
+            has_fork=discv5_config.fork.is_some(),
+            tcp_socket=%discv5_config.tcp_socket,
+            "discv5 startup: resolved NAT, building ENR"
+        );
+
         let (enr, bc_enr, fork_key, rlpx_ip_mode) =
             build_local_enr(sk, &discv5_config, external_ip);
 
-        trace!(target: "net::discv5",
-            ?enr,
-            "local ENR"
+        info!(target: "net::discv5",
+            enr=%enr,
+            ?fork_key,
+            ?rlpx_ip_mode,
+            has_seismic_key=enr.get_raw_rlp(b"seismic").is_some(),
+            enr_ip4=?enr.ip4(),
+            enr_udp4=?enr.udp4(),
+            enr_tcp4=?enr.tcp4(),
+            "discv5 startup: local ENR built"
         );
 
         //
@@ -188,6 +204,12 @@ impl Discv5 {
             ..
         } = discv5_config;
 
+        info!(target: "net::discv5",
+            listen_config=?discv5_config.listen_config,
+            num_bootstrap_nodes=bootstrap_nodes.len(),
+            "discv5 startup: creating discv5 instance with listen config"
+        );
+
         let EnrCombinedKeyWrapper(enr) = enr.into();
         let sk = discv5::enr::CombinedKey::secp256k1_from_bytes(&mut sk.secret_bytes()).unwrap();
         let mut discv5 = match discv5::Discv5::new(enr, sk, discv5_config) {
@@ -195,6 +217,7 @@ impl Discv5 {
             Err(err) => return Err(Error::InitFailure(err)),
         };
         discv5.start().await.map_err(Error::Discv5Error)?;
+        info!(target: "net::discv5", "discv5 startup: discv5 started successfully");
 
         // start discv5 updates stream
         let discv5_updates = discv5.event_stream().await.map_err(Error::Discv5Error)?;
@@ -250,6 +273,14 @@ impl Discv5 {
 
                 // peer has been discovered as part of query, or, by incoming session (peer has
                 // discovered us)
+
+                info!(target: "net::discv5",
+                    enr_node_id=?enr.node_id(),
+                    %remote_socket,
+                    has_seismic_key=enr.get_raw_rlp(b"seismic").is_some(),
+                    enr_ip4=?enr.ip4(),
+                    "session established with peer"
+                );
 
                 self.metrics.discovered_peers.increment_established_sessions_raw(1);
 
@@ -311,7 +342,7 @@ impl Discv5 {
             }
         };
         if let FilterOutcome::Ignore { reason } = self.filter_discovered_peer(enr) {
-            trace!(target: "net::discv5",
+            info!(target: "net::discv5",
                 ?enr,
                 reason,
                 "filtered out discovered peer"
@@ -324,10 +355,10 @@ impl Discv5 {
 
         let fork_id = self.fork_key.and_then(|_| self.get_fork_id(enr).ok());
 
-        trace!(target: "net::discv5",
+        info!(target: "net::discv5",
             ?fork_id,
             ?enr,
-            "discovered peer"
+            "discovered peer passed filters"
         );
 
         Some(DiscoveredPeer { node_record, fork_id })
@@ -514,7 +545,8 @@ pub async fn bootstrap(
     bootstrap_nodes: HashSet<BootNode>,
     discv5: &Arc<discv5::Discv5>,
 ) -> Result<(), Error> {
-    trace!(target: "net::discv5",
+    info!(target: "net::discv5",
+        num_bootstrap_nodes=bootstrap_nodes.len(),
         ?bootstrap_nodes,
         "adding bootstrap nodes .."
     );
@@ -523,19 +555,37 @@ pub async fn bootstrap(
     for node in bootstrap_nodes {
         match node {
             BootNode::Enr(node) => {
+                info!(target: "net::discv5",
+                    node_id=?node.node_id(),
+                    "adding ENR boot node"
+                );
                 if let Err(err) = discv5.add_enr(node) {
                     return Err(Error::AddNodeFailed(err))
                 }
             }
             BootNode::Enode(enode) => {
+                info!(target: "net::discv5",
+                    %enode,
+                    "requesting ENR from enode boot node"
+                );
                 let discv5 = discv5.clone();
                 enr_requests.push(async move {
-                    if let Err(err) = discv5.request_enr(enode.to_string()).await {
-                        debug!(target: "net::discv5",
-                            ?enode,
-                            %err,
-                            "failed adding boot node"
-                        );
+                    match discv5.request_enr(enode.to_string()).await {
+                        Ok(enr) => {
+                            info!(target: "net::discv5",
+                                ?enode,
+                                node_id=?enr.node_id(),
+                                has_seismic_key=enr.get_raw_rlp(b"seismic").is_some(),
+                                "successfully added boot node ENR"
+                            );
+                        }
+                        Err(err) => {
+                            info!(target: "net::discv5",
+                                ?enode,
+                                %err,
+                                "failed adding boot node"
+                            );
+                        }
                     }
                 })
             }

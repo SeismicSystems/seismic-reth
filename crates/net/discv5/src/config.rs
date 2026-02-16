@@ -245,7 +245,17 @@ impl ConfigBuilder {
         });
 
         // Always set the table filter to only allow seismic nodes into kbuckets
-        discv5_config.table_filter = |enr| enr.get_raw_rlp(NetworkStackId::SEISMIC).is_some();
+        discv5_config.table_filter = |enr| {
+            let has_seismic = enr.get_raw_rlp(NetworkStackId::SEISMIC).is_some();
+            if !has_seismic {
+                tracing::debug!(target: "net::discv5",
+                    node_id=?enr.node_id(),
+                    ip4=?enr.ip4(),
+                    "table_filter: rejected ENR missing 'seismic' key"
+                );
+            }
+            has_seismic
+        };
 
         discv5_config.listen_config =
             amend_listen_config_wrt_rlpx(&discv5_config.listen_config, tcp_socket.ip());
