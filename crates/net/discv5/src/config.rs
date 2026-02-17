@@ -13,6 +13,7 @@ use discv5::{
     ListenConfig,
 };
 use reth_ethereum_forks::{EnrForkIdEntry, ForkId};
+use reth_net_nat::NatResolver;
 use reth_network_peers::NodeRecord;
 use tracing::debug;
 
@@ -85,6 +86,8 @@ pub struct ConfigBuilder {
     /// Custom filter rules to apply to a discovered peer in order to determine if it should be
     /// passed up to rlpx or dropped.
     discovered_peer_filter: Option<MustNotIncludeKeys>,
+    /// NAT resolver for determining external IP to advertise in the ENR.
+    nat: NatResolver,
 }
 
 impl ConfigBuilder {
@@ -100,6 +103,7 @@ impl ConfigBuilder {
             bootstrap_lookup_interval,
             bootstrap_lookup_countdown,
             discovered_peer_filter,
+            nat,
         } = discv5_config;
 
         Self {
@@ -112,6 +116,7 @@ impl ConfigBuilder {
             bootstrap_lookup_interval: Some(bootstrap_lookup_interval),
             bootstrap_lookup_countdown: Some(bootstrap_lookup_countdown),
             discovered_peer_filter: Some(discovered_peer_filter),
+            nat,
         }
     }
 
@@ -214,6 +219,12 @@ impl ConfigBuilder {
         self
     }
 
+    /// Sets the NAT resolver for determining the external IP to advertise in the ENR.
+    pub fn nat(mut self, nat: NatResolver) -> Self {
+        self.nat = nat;
+        self
+    }
+
     /// Returns a new [`Config`].
     pub fn build(self) -> Config {
         let Self {
@@ -226,11 +237,15 @@ impl ConfigBuilder {
             bootstrap_lookup_interval,
             bootstrap_lookup_countdown,
             discovered_peer_filter,
+            nat,
         } = self;
 
         let mut discv5_config = discv5_config.unwrap_or_else(|| {
             discv5::ConfigBuilder::new(DEFAULT_DISCOVERY_V5_LISTEN_CONFIG).build()
         });
+
+        // Always set the table filter to only allow seismic nodes into kbuckets
+        discv5_config.table_filter = |enr| enr.get_raw_rlp(NetworkStackId::SEISMIC).is_some();
 
         discv5_config.listen_config =
             amend_listen_config_wrt_rlpx(&discv5_config.listen_config, tcp_socket.ip());
@@ -256,6 +271,7 @@ impl ConfigBuilder {
             bootstrap_lookup_interval,
             bootstrap_lookup_countdown,
             discovered_peer_filter,
+            nat,
         }
     }
 }
@@ -289,6 +305,8 @@ pub struct Config {
     /// Custom filter rules to apply to a discovered peer in order to determine if it should be
     /// passed up to rlpx or dropped.
     pub(super) discovered_peer_filter: MustNotIncludeKeys,
+    /// NAT resolver for determining external IP to advertise in the ENR.
+    pub(super) nat: NatResolver,
 }
 
 impl Config {
@@ -305,6 +323,7 @@ impl Config {
             bootstrap_lookup_interval: None,
             bootstrap_lookup_countdown: None,
             discovered_peer_filter: None,
+            nat: NatResolver::None,
         }
     }
 

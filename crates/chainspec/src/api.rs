@@ -62,6 +62,12 @@ pub trait EthChainSpec: Send + Sync + Unpin + Debug {
         self.chain().is_ethereum()
     }
 
+    /// Returns `true` if this chain is a Seismic chain.
+    fn is_seismic(&self) -> bool {
+        let id = self.chain().id();
+        id == 5123 || id == 5124
+    }
+
     /// Returns the final total difficulty if the Paris hardfork is known.
     fn final_paris_total_difficulty(&self) -> Option<U256>;
 

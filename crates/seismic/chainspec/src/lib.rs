@@ -13,7 +13,7 @@ use std::sync::Arc;
 use alloy_chains::Chain;
 use alloy_consensus::constants::DEV_GENESIS_HASH;
 use alloy_primitives::{b256, B256, U256};
-use reth_chainspec::{make_genesis_header, ChainSpec, DEV_HARDFORKS};
+use reth_chainspec::{make_genesis_header, ChainSpec};
 use reth_primitives_traits::{sync::LazyLock, SealedHeader};
 use reth_seismic_forks::{SEISMIC_DEV_HARDFORKS, SEISMIC_MAINNET_HARDFORKS};
 
@@ -56,7 +56,7 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
         ),
         genesis,
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
-        hardforks: DEV_HARDFORKS.clone(),
+        hardforks,
         ..Default::default()
     }
     .into()
@@ -89,7 +89,7 @@ pub static SEISMIC_DEV_OLD: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
         ),
         genesis,
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
-        hardforks: DEV_HARDFORKS.clone(),
+        hardforks,
         ..Default::default()
     }
     .into()
