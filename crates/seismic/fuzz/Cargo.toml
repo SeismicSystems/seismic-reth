@@ -1,0 +1,41 @@
+[package]
+name = "reth-seismic-fuzz"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Adversarial fuzzing framework for seismic-reth privacy features"
+
+[lints]
+workspace = true
+
+[dependencies]
+# seismic
+seismic-enclave.workspace = true
+seismic-revm.workspace = true
+alloy-seismic-evm.workspace = true
+seismic-alloy-consensus.workspace = true
+
+# reth
+reth-seismic-primitives = { workspace = true, features = ["arbitrary", "reth-codec"] }
+reth-seismic-evm.workspace = true
+reth-seismic-chainspec.workspace = true
+reth-primitives-traits.workspace = true
+reth-codecs = { workspace = true, features = ["test-utils"] }
+
+# alloy / revm
+alloy-primitives.workspace = true
+alloy-eips.workspace = true
+alloy-consensus.workspace = true
+alloy-rlp.workspace = true
+alloy-evm.workspace = true
+revm.workspace = true
+
+# misc
+arbitrary = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+proptest.workspace = true
+proptest-arbitrary-interop.workspace = true

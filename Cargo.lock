@@ -9788,6 +9788,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "reth-seismic-fuzz"
+version = "1.7.0"
+dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-evm",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-seismic-evm",
+ "arbitrary",
+ "proptest",
+ "proptest-arbitrary-interop",
+ "reth-codecs",
+ "reth-primitives-traits",
+ "reth-seismic-chainspec",
+ "reth-seismic-evm",
+ "reth-seismic-primitives",
+ "revm",
+ "seismic-alloy-consensus",
+ "seismic-enclave",
+ "seismic-revm",
+]
+
+[[package]]
 name = "reth-seismic-node"
 version = "1.7.0"
 dependencies = [
