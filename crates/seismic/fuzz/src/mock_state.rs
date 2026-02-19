@@ -46,6 +46,7 @@ pub fn seed_default_accounts(db: &mut CacheDB<EmptyDBTyped<core::convert::Infall
     }
 }
 
+/// Pre-seeded database with default accounts.
 pub fn new_seeded_db() -> CacheDB<EmptyDBTyped<core::convert::Infallible>> {
     let mut db = CacheDB::new(EmptyDBTyped::default());
     seed_default_accounts(&mut db);

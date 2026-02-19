@@ -11,20 +11,32 @@ use seismic_revm::transaction::abstraction::{RngMode, SeismicTransaction};
 /// Fields are bounded to prevent trivial rejections (e.g. gas too low)
 /// while still allowing the fuzzer to explore interesting states.
 #[derive(Arbitrary, Debug, Clone)]
+/// Fuzzer input that produces well-typed `SeismicTransaction<TxEnv>`.
 pub struct FuzzSeismicTx {
+    /// The caller address.
     pub caller: [u8; 20],
+    /// Whether to create a new contract.
     pub to_create: bool,
+    /// The to address.
     pub to_address: [u8; 20],
+    /// The value in wei.
     pub value_low: u64,
+    /// The data.
     pub data: Vec<u8>,
+    /// The gas limit.
     pub gas_limit: u32,
+    /// The gas price.
     pub gas_price: u32,
+    /// The nonce.
     pub nonce: u64,
+    /// The tx type selector.
     pub tx_type_selector: u8,
+    /// Whether to use execution mode for RNG.
     pub rng_mode_execution: bool,
 }
 
 impl FuzzSeismicTx {
+    /// Converts the fuzzer input into a `SeismicTransaction<TxEnv>`.
     pub fn into_seismic_tx(self) -> SeismicTransaction<TxEnv> {
         let kind = if self.to_create {
             TxKind::Create

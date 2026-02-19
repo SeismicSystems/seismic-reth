@@ -4,31 +4,51 @@
 //! enabling attribution of crashes to specific dependencies.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// Seismic dependency identifiers.
 pub enum SeismicDep {
+    /// `seismic-alloy-consensus`
     SeismicAlloyConsensus,
+    /// `seismic-alloy-core`
     SeismicAlloyCore,
+    /// `seismic-revm`
     SeismicRevm,
+    /// `seismic-evm`
     AlloySeismicEvm,
+    /// `enclave`
     SeismicEnclave,
+    /// `seismic-trie`
     SeismicTrie,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// Crash category for classification
 pub enum CrashCategory {
+    /// Encoding/decoding
     EncodingDecoding,
+    /// EVM execution
     EvmExecution,
+    /// Precompiles
     Precompile,
+    /// Flagged storage
     FlaggedStorage,
+    /// Tx validation
     TxValidation,
+    /// Differential
     Differential,
 }
 
+/// Metadata for a fuzz target.
+#[derive(Debug)]
 pub struct FuzzTargetMeta {
+    /// The name of the fuzz target.
     pub name: &'static str,
+    /// The dependencies exercised by the fuzz target.
     pub deps: &'static [SeismicDep],
+    /// The crash category of the fuzz target.
     pub crash_category: CrashCategory,
 }
 
+/// Registry of all fuzz targets and their dependency metadata.
 pub const FUZZ_TARGETS: &[FuzzTargetMeta] = &[
     // Encoding/decoding
     FuzzTargetMeta {
