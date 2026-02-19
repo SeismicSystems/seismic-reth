@@ -1,5 +1,7 @@
 //! Seismic transaction validator
 
+use crate::recent_block_cache::RecentBlockCache;
+use alloy_consensus::BlockHeader;
 use alloy_primitives::{Sealable, TxKind, B256};
 use reth_chainspec::ChainSpecProvider;
 use reth_primitives_traits::{transaction::error::InvalidTransactionError, Block};
@@ -11,16 +13,19 @@ use reth_transaction_pool::{
     EthPoolTransaction, EthTransactionValidator, TransactionOrigin,
 };
 use seismic_alloy_consensus::SeismicTxType;
-use std::{fmt, marker::PhantomData, sync::Arc};
-
-/// Maximum number of blocks to look back for `recent_block_hash` validation
-pub const SEISMIC_TX_RECENT_BLOCK_LOOKBACK: u64 = 100;
+use std::{
+    fmt,
+    marker::PhantomData,
+    sync::{Arc, RwLock},
+};
 
 /// Seismic transaction validator that adds seismic-specific validation on top of Ethereum
 /// validation.
 pub struct SeismicTransactionValidator<Client, T> {
     /// Inner Ethereum transaction validator
     inner: Arc<EthTransactionValidator<Client, T>>,
+    /// Cache of recent block hashes for O(1) validation
+    recent_blocks: RwLock<RecentBlockCache>,
     /// Phantom data for transaction type
     _pd: PhantomData<T>,
 }
@@ -29,14 +34,30 @@ impl<Client, T> fmt::Debug for SeismicTransactionValidator<Client, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SeismicTransactionValidator")
             .field("inner", &"EthTransactionValidator")
+            .field("recent_blocks", &"RwLock<RecentBlockCache>")
             .finish()
     }
 }
 
-impl<Client, T> SeismicTransactionValidator<Client, T> {
-    /// Creates a new seismic transaction validator wrapping an Ethereum validator
+impl<Client, T> SeismicTransactionValidator<Client, T>
+where
+    Client: BlockReaderIdExt,
+{
+    /// Creates a new seismic transaction validator wrapping an Ethereum validator.
+    ///
+    /// Pre-populates the recent block hash cache from the client so that validation
+    /// works immediately without a cold-start fallback.
     pub fn new(inner: EthTransactionValidator<Client, T>) -> Self {
-        Self { inner: Arc::new(inner), _pd: PhantomData }
+        let mut cache = RecentBlockCache::default();
+
+        // Populate cache from the current canonical chain
+        if let Ok(tip) = inner.client().best_block_number() {
+            cache.rebuild_to_tip(tip, |n| {
+                inner.client().header_by_number(n).ok()?.map(|h| h.hash_slow())
+            });
+        }
+
+        Self { inner: Arc::new(inner), recent_blocks: RwLock::new(cache), _pd: PhantomData }
     }
 
     /// Get a reference to the inner validator
@@ -137,60 +158,48 @@ where
     where
         B: Block,
     {
-        self.inner.on_new_head_block(new_tip_block)
+        self.inner.on_new_head_block(new_tip_block);
+
+        let mut cache = self.recent_blocks.write().unwrap_or_else(|e| e.into_inner());
+        cache.update(new_tip_block.hash(), new_tip_block.header().number(), |n| {
+            self.inner.client().header_by_number(n).ok()?.map(|h| h.hash_slow())
+        });
     }
 }
 
-impl<Client, Tx> SeismicTransactionValidator<Client, Tx>
-where
-    Client: BlockReaderIdExt,
-{
-    /// Validates that the `recent_block_hash` is in the last `SEISMIC_TX_RECENT_BLOCK_LOOKBACK`
-    /// blocks
+impl<Client, Tx> SeismicTransactionValidator<Client, Tx> {
+    /// Validates that the `recent_block_hash` field provided in a Seismic tx
+    /// is in the last `SEISMIC_TX_RECENT_BLOCK_LOOKBACK` blocks.
+    ///
+    /// Uses an in-memory cache populated at startup and updated via `on_new_head_block`
+    /// for O(1) lookup.
     fn validate_recent_block_hash(
         &self,
         recent_block_hash: B256,
     ) -> Result<(), InvalidPoolTransactionError> {
-        // Get the current block number
-        let current_block_num = self
-            .inner
-            .client()
-            .last_block_number()
-            .map_err(|_| InvalidTransactionError::OldLegacyChainId)?;
-
-        // Calculate the earliest acceptable block number
-        let earliest_block = current_block_num.saturating_sub(SEISMIC_TX_RECENT_BLOCK_LOOKBACK);
-
-        // Check if the recent_block_hash exists in the last N blocks
-        for block_num in earliest_block..=current_block_num {
-            if let Ok(Some(header)) = self.inner.client().header_by_number(block_num) {
-                if header.hash_slow() == recent_block_hash {
-                    return Ok(());
-                }
-            }
+        let cache = self.recent_blocks.read().unwrap_or_else(|e| e.into_inner());
+        if cache.contains(&recent_block_hash) {
+            return Ok(());
         }
 
-        // If we get here, the recent_block_hash was not found in the last N blocks
         let err = SeismicTxError::RecentBlockHashNotFound {
             hash: recent_block_hash,
-            lookback: SEISMIC_TX_RECENT_BLOCK_LOOKBACK,
+            lookback: crate::SEISMIC_TX_RECENT_BLOCK_LOOKBACK,
         };
         Err(InvalidTransactionError::SeismicTx(err.to_string()).into())
     }
 
-    /// Validates that the transaction has not expired
+    /// Validates that the transaction has not expired.
+    ///
+    /// Uses the cache's `current_block_number` (updated via `on_new_head_block`) so that
+    /// both hash validation and expiration check use the same consensus-driven source.
     fn validate_expiration(
         &self,
         expires_at_block: u64,
     ) -> Result<(), InvalidPoolTransactionError> {
-        // Get the current block number
-        let current_block_num = self
-            .inner
-            .client()
-            .last_block_number()
-            .map_err(|_| InvalidTransactionError::OldLegacyChainId)?;
+        let current_block_num =
+            self.recent_blocks.read().unwrap_or_else(|e| e.into_inner()).current_block_number();
 
-        // Check if the transaction has expired
         if current_block_num > expires_at_block {
             let err = SeismicTxError::TransactionExpired {
                 current_block: current_block_num,
