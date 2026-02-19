@@ -130,8 +130,14 @@ proptest! {
                     );
                 }
             }
-            (Err(_), Err(_)) => {
-                // Both failed — acceptable
+            (Err(seismic_err), Err(eth_err)) => {
+                let seismic_dbg = format!("{seismic_err:?}");
+                let eth_dbg = format!("{eth_err:?}");
+                // Both should fail with the same reason
+                prop_assert_eq!(
+                    seismic_dbg, eth_dbg,
+                    "Both EVMs rejected the tx, but for different reasons"
+                );
             }
             _ => {
                 prop_assert!(
