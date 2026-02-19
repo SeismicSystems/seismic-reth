@@ -1,9 +1,8 @@
 //! Crash triage and dependency tagging for fuzz targets.
 //!
-//! Each fuzz target is tagged with the seismic dependency subset (D') it exercises,
+//! Each fuzz target is tagged with the seismic dependency subset it exercises,
 //! enabling attribution of crashes to specific dependencies.
 
-/// Seismic dependency identifiers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SeismicDep {
     SeismicAlloyConsensus,
@@ -14,7 +13,6 @@ pub enum SeismicDep {
     SeismicTrie,
 }
 
-/// Crash category for classification.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CrashCategory {
     EncodingDecoding,
@@ -25,16 +23,14 @@ pub enum CrashCategory {
     Differential,
 }
 
-/// Metadata for a fuzz target.
 pub struct FuzzTargetMeta {
     pub name: &'static str,
     pub deps: &'static [SeismicDep],
     pub crash_category: CrashCategory,
 }
 
-/// Registry of all fuzz targets and their dependency metadata.
 pub const FUZZ_TARGETS: &[FuzzTargetMeta] = &[
-    // Primitives targets
+    // Encoding/decoding
     FuzzTargetMeta {
         name: "tx_decode_arbitrary_bytes",
         deps: &[SeismicDep::SeismicAlloyConsensus, SeismicDep::SeismicAlloyCore],
@@ -55,7 +51,7 @@ pub const FUZZ_TARGETS: &[FuzzTargetMeta] = &[
         deps: &[SeismicDep::SeismicAlloyConsensus, SeismicDep::SeismicAlloyCore],
         crash_category: CrashCategory::EncodingDecoding,
     },
-    // Precompile targets
+    // Precompiles
     FuzzTargetMeta {
         name: "precompile_ecdh",
         deps: &[SeismicDep::SeismicRevm, SeismicDep::SeismicEnclave],
@@ -86,13 +82,13 @@ pub const FUZZ_TARGETS: &[FuzzTargetMeta] = &[
         deps: &[SeismicDep::SeismicRevm],
         crash_category: CrashCategory::Precompile,
     },
-    // Storage target
+    // Flagged storage
     FuzzTargetMeta {
         name: "storage_access_control",
         deps: &[SeismicDep::SeismicRevm],
         crash_category: CrashCategory::FlaggedStorage,
     },
-    // EVM execution targets
+    // EVM execution
     FuzzTargetMeta {
         name: "evm_transact",
         deps: &[SeismicDep::SeismicRevm, SeismicDep::AlloySeismicEvm, SeismicDep::SeismicEnclave],
@@ -103,13 +99,13 @@ pub const FUZZ_TARGETS: &[FuzzTargetMeta] = &[
         deps: &[SeismicDep::SeismicRevm, SeismicDep::AlloySeismicEvm, SeismicDep::SeismicEnclave],
         crash_category: CrashCategory::EvmExecution,
     },
-    // Differential target
+    // Differential
     FuzzTargetMeta {
         name: "differential_eth_vs_seismic",
         deps: &[SeismicDep::SeismicRevm, SeismicDep::AlloySeismicEvm],
         crash_category: CrashCategory::Differential,
     },
-    // Tx validation target
+    // Tx validation
     FuzzTargetMeta {
         name: "validate_seismic_tx",
         deps: &[SeismicDep::SeismicAlloyConsensus],

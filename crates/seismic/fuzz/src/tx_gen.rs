@@ -8,8 +8,6 @@ use arbitrary::Arbitrary;
 use revm::context::TxEnv;
 use seismic_revm::transaction::abstraction::{RngMode, SeismicTransaction};
 
-/// Structured fuzzer input that produces well-typed `SeismicTransaction<TxEnv>`.
-///
 /// Fields are bounded to prevent trivial rejections (e.g. gas too low)
 /// while still allowing the fuzzer to explore interesting states.
 #[derive(Arbitrary, Debug, Clone)]
@@ -27,7 +25,6 @@ pub struct FuzzSeismicTx {
 }
 
 impl FuzzSeismicTx {
-    /// Convert to a `SeismicTransaction<TxEnv>` suitable for EVM execution.
     pub fn into_seismic_tx(self) -> SeismicTransaction<TxEnv> {
         let kind = if self.to_create {
             TxKind::Create
@@ -35,7 +32,7 @@ impl FuzzSeismicTx {
             TxKind::Call(Address::from(self.to_address))
         };
 
-        // Map selector to valid tx types: 0 (legacy), 1 (EIP-2930), 2 (EIP-1559), 0x4A (seismic)
+        // 0=Legacy, 1=EIP-2930, 2=EIP-1559, 3=Seismic (0x4A)
         let tx_type = match self.tx_type_selector % 4 {
             0 => 0u8,
             1 => 1,
@@ -69,9 +66,8 @@ impl FuzzSeismicTx {
         }
     }
 
-    /// Convert to a non-seismic `SeismicTransaction<TxEnv>` (for differential testing).
+    /// Forces tx_type to non-seismic (Legacy/EIP-2930/EIP-1559) for differential testing.
     pub fn into_eth_compatible_tx(mut self) -> SeismicTransaction<TxEnv> {
-        // Force non-seismic tx type
         self.tx_type_selector = self.tx_type_selector % 3;
         self.into_seismic_tx()
     }

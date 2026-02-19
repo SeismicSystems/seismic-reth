@@ -10,24 +10,25 @@ use revm::{
     state::{AccountInfo, Bytecode},
 };
 
-/// Seed a `CacheDB` with standard test accounts for fuzzing.
-///
-/// Creates:
-/// - A richly funded account at `Address::with_last_byte(1)`
-/// - A contract account at `Address::with_last_byte(2)` with simple identity bytecode
-/// - Additional funded accounts at bytes 3-10 for interaction targets
+/// 1M ETH in wei
+const FUZZ_BALANCE: u128 = 10u128.pow(18) * 1_000_000;
+
+fn funded_account() -> AccountInfo {
+    AccountInfo {
+        balance: U256::from(FUZZ_BALANCE),
+        nonce: 0,
+        code_hash: Default::default(),
+        code: None,
+    }
+}
+
+/// Seeds accounts at addresses 0x01..0x0A:
+/// - 0x01 and 0x03-0x0A: funded EOAs
+/// - 0x02: identity contract (copies calldata to output)
 pub fn seed_default_accounts(db: &mut CacheDB<EmptyDBTyped<core::convert::Infallible>>) {
-    let balance = U256::from(10u128.pow(18) * 1_000_000);
+    db.insert_account_info(Address::with_last_byte(1), funded_account());
 
-    // Primary funded account
-    db.insert_account_info(
-        Address::with_last_byte(1),
-        AccountInfo { balance, nonce: 0, code_hash: Default::default(), code: None },
-    );
-
-    // Contract with identity bytecode (copies input to output)
     // CALLDATASIZE PUSH1 0 PUSH1 0 CALLDATACOPY CALLDATASIZE PUSH1 0 RETURN
-    // 36 60 00 60 00 37 36 60 00 F3
     let identity_code =
         Bytes::from(vec![0x36, 0x60, 0x00, 0x60, 0x00, 0x37, 0x36, 0x60, 0x00, 0xF3]);
     db.insert_account_info(
@@ -40,16 +41,11 @@ pub fn seed_default_accounts(db: &mut CacheDB<EmptyDBTyped<core::convert::Infall
         },
     );
 
-    // Additional funded accounts for interaction targets
     for i in 3..=10 {
-        db.insert_account_info(
-            Address::with_last_byte(i),
-            AccountInfo { balance, nonce: 0, code_hash: Default::default(), code: None },
-        );
+        db.insert_account_info(Address::with_last_byte(i), funded_account());
     }
 }
 
-/// Create a fresh `CacheDB` pre-seeded with default accounts.
 pub fn new_seeded_db() -> CacheDB<EmptyDBTyped<core::convert::Infallible>> {
     let mut db = CacheDB::new(EmptyDBTyped::default());
     seed_default_accounts(&mut db);
