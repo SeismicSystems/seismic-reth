@@ -15,9 +15,7 @@ pub fn fuzz_evm_factory() -> SeismicEvmFactory {
 /// Default EVM environment for fuzzing (chain_id=5123, MERCURY spec).
 pub fn fuzz_evm_env() -> EvmEnv<SeismicSpecId> {
     EvmEnv {
-        cfg_env: CfgEnv::new()
-            .with_chain_id(5123)
-            .with_spec(SeismicSpecId::MERCURY),
+        cfg_env: CfgEnv::new().with_chain_id(5123).with_spec(SeismicSpecId::MERCURY),
         ..Default::default()
     }
 }

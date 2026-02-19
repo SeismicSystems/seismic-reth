@@ -10,8 +10,9 @@
 
 use proptest::prelude::*;
 use seismic_revm::precompiles::{
-    aes::aes_gcm_dec::precompile_decrypt, aes::aes_gcm_enc::precompile_encrypt,
-    ecdh_derive_sym_key::derive_symmetric_key, hkdf_derive_sym_key::hkdf_derive_symmetric_key,
+    aes::{aes_gcm_dec::precompile_decrypt, aes_gcm_enc::precompile_encrypt},
+    ecdh_derive_sym_key::derive_symmetric_key,
+    hkdf_derive_sym_key::hkdf_derive_symmetric_key,
     secp256k1_sign::secp256k1_sign_ecdsa_recoverable,
 };
 

@@ -11,6 +11,10 @@ use alloy_evm::{Evm, EvmFactory};
 use alloy_primitives::{Address, U256};
 use proptest::prelude::*;
 use proptest_arbitrary_interop::arb;
+use reth_seismic_fuzz::{
+    mock_evm::{fuzz_evm_env, fuzz_evm_factory},
+    tx_gen::FuzzSeismicTx,
+};
 use revm::{
     context::TxEnv,
     database::CacheDB,
@@ -18,16 +22,10 @@ use revm::{
     handler::{ExecuteEvm, MainBuilder, MainnetContext},
     state::AccountInfo,
 };
-use reth_seismic_fuzz::{
-    mock_evm::{fuzz_evm_env, fuzz_evm_factory},
-    tx_gen::FuzzSeismicTx,
-};
 use seismic_revm::SeismicSpecId;
 
 /// Seed a CacheDB with a funded caller.
-fn seeded_db_with_caller(
-    caller: Address,
-) -> CacheDB<EmptyDBTyped<core::convert::Infallible>> {
+fn seeded_db_with_caller(caller: Address) -> CacheDB<EmptyDBTyped<core::convert::Infallible>> {
     let mut db = CacheDB::new(EmptyDBTyped::default());
     db.insert_account_info(
         caller,

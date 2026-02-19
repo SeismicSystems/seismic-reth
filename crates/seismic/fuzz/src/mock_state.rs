@@ -22,18 +22,14 @@ pub fn seed_default_accounts(db: &mut CacheDB<EmptyDBTyped<core::convert::Infall
     // Primary funded account
     db.insert_account_info(
         Address::with_last_byte(1),
-        AccountInfo {
-            balance,
-            nonce: 0,
-            code_hash: Default::default(),
-            code: None,
-        },
+        AccountInfo { balance, nonce: 0, code_hash: Default::default(), code: None },
     );
 
     // Contract with identity bytecode (copies input to output)
     // CALLDATASIZE PUSH1 0 PUSH1 0 CALLDATACOPY CALLDATASIZE PUSH1 0 RETURN
     // 36 60 00 60 00 37 36 60 00 F3
-    let identity_code = Bytes::from(vec![0x36, 0x60, 0x00, 0x60, 0x00, 0x37, 0x36, 0x60, 0x00, 0xF3]);
+    let identity_code =
+        Bytes::from(vec![0x36, 0x60, 0x00, 0x60, 0x00, 0x37, 0x36, 0x60, 0x00, 0xF3]);
     db.insert_account_info(
         Address::with_last_byte(2),
         AccountInfo {
@@ -48,12 +44,7 @@ pub fn seed_default_accounts(db: &mut CacheDB<EmptyDBTyped<core::convert::Infall
     for i in 3..=10 {
         db.insert_account_info(
             Address::with_last_byte(i),
-            AccountInfo {
-                balance,
-                nonce: 0,
-                code_hash: Default::default(),
-                code: None,
-            },
+            AccountInfo { balance, nonce: 0, code_hash: Default::default(), code: None },
         );
     }
 }
