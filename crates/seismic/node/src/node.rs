@@ -510,6 +510,10 @@ where
             .kzg_settings(ctx.kzg_settings()?)
             .with_local_transactions_config(pool_config.local_transactions_config.clone())
             .with_additional_tasks(ctx.config().txpool.additional_validation_tasks)
+            // Gas is paid in USDC on Seismic, not native ETH. Disable the native balance check
+            // so transactions from accounts with zero ETH are not rejected. Actual gas payment
+            // is enforced by the Seismic revm implementation at execution time.
+            .disable_balance_check()
             .build_with_tasks(ctx.task_executor().clone(), blob_store.clone());
 
         // Wrap the eth validator with seismic-specific validation
