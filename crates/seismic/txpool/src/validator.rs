@@ -2,7 +2,7 @@
 
 use crate::recent_block_cache::RecentBlockCache;
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{Sealable, TxKind, B256};
+use alloy_primitives::{Sealable, TxKind, B256, U256};
 use reth_chainspec::ChainSpecProvider;
 use reth_primitives_traits::{transaction::error::InvalidTransactionError, Block};
 use reth_provider::{BlockReaderIdExt, StateProviderFactory};
@@ -139,9 +139,14 @@ where
                     }
                 }
 
-                // All validations passed, return valid
+                // All validations passed, return valid.
+                // Report U256::MAX as the sender balance so the pool sets ENOUGH_BALANCE and
+                // promotes the transaction to the pending sub-pool. Gas on Seismic is paid in
+                // USDC (not native ETH), so the native balance is irrelevant for ordering;
+                // the actual USDC deduction is enforced by the Seismic revm at execution time.
+                let _ = balance;
                 TransactionValidationOutcome::Valid {
-                    balance,
+                    balance: U256::MAX,
                     state_nonce,
                     transaction: valid_tx,
                     propagate,
