@@ -10,11 +10,13 @@
 
 use reth_transaction_pool::{CoinbaseTipOrdering, Pool, TransactionValidationTaskExecutor};
 
+mod recent_block_cache;
 mod transaction;
 mod validator;
 
+pub use recent_block_cache::{RecentBlockCache, SEISMIC_TX_RECENT_BLOCK_LOOKBACK};
 pub use transaction::SeismicPooledTransaction;
-pub use validator::{SeismicTransactionValidator, SEISMIC_TX_RECENT_BLOCK_LOOKBACK};
+pub use validator::SeismicTransactionValidator;
 
 /// Type alias for default seismic transaction pool
 pub type SeismicTransactionPool<Client, S, T = SeismicPooledTransaction> = Pool<
