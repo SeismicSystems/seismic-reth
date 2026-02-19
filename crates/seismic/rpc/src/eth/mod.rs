@@ -18,8 +18,11 @@ use crate::{
     SeismicEthApiError,
 };
 use alloy_consensus::TxEip4844;
-use alloy_primitives::U256;
-use reth_evm::ConfigureEvm;
+use alloy_eips::BlockId;
+use alloy_primitives::{Address, Bytes, U256};
+use futures::Future;
+use reth_evm::{ConfigureEvm, SpecFor, TxEnvFor};
+use seismic_revm::SeismicTransaction;
 use reth_node_api::{FullNodeComponents, HeaderTy};
 use reth_node_builder::rpc::{EthApiBuilder, EthApiCtx};
 use reth_rpc::{
@@ -28,8 +31,8 @@ use reth_rpc::{
 };
 use reth_rpc_eth_api::{
     helpers::{
-        pending_block::BuildPendingEnv, spec::SignersForApi, AddDevSigners, EthApiSpec, EthFees,
-        EthState, LoadFee, LoadPendingBlock, LoadState, SpawnBlocking, Trace,
+        pending_block::BuildPendingEnv, spec::SignersForApi, AddDevSigners, EthApiSpec, EthCall,
+        EthFees, EthState, LoadFee, LoadPendingBlock, LoadState, SpawnBlocking, Trace,
     },
     EthApiTypes, FromEvmError, FullEthApiServer, RpcConvert, RpcConverter, RpcNodeCore,
     RpcNodeCoreExt, SignableTxRequest,
@@ -297,8 +300,18 @@ where
 impl<N, Rpc> EthState for SeismicEthApi<N, Rpc>
 where
     N: RpcNodeCore,
-    Rpc: RpcConvert<Primitives = N::Primitives>,
-    Self: LoadPendingBlock,
+    SeismicEthApiError: FromEvmError<N::Evm>,
+    TxEnvFor<N::Evm>: From<SeismicTransaction<TxEnv>>,
+    SeismicTransaction<TxEnv>: Into<TxEnvFor<N::Evm>>,
+    Rpc: RpcConvert<
+        Primitives = N::Primitives,
+        Error = SeismicEthApiError,
+        TxEnv = TxEnvFor<N::Evm>,
+        Spec = SpecFor<N::Evm>,
+    >,
+    <<SeismicEthApi<N, Rpc> as EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest:
+        From<alloy_rpc_types_eth::TransactionRequest>,
+    Self: LoadPendingBlock + EthCall,
 {
     #[inline]
     fn max_proof_window(&self) -> u64 {
@@ -308,6 +321,54 @@ where
     #[inline]
     fn storage_apis_enabled(&self) -> bool {
         self.inner.storage_apis_enabled()
+    }
+
+    /// Returns the ERC-20 balance of `address` on the USDC predeploy instead of the native
+    /// ETH balance.
+    fn balance(
+        &self,
+        address: Address,
+        block_id: Option<BlockId>,
+    ) -> impl Future<Output = Result<U256, Self::Error>> + Send {
+        use alloy_primitives::TxKind;
+        use alloy_rpc_types_eth::{state::EvmOverrides, TransactionInput, TransactionRequest};
+
+        /// USDC predeploy address on Seismic.
+        const USDC_CONTRACT: Address =
+            alloy_primitives::address!("215dfD51D1e6C05C1f7e322c0f9ddc607300e053");
+
+        // Build `balanceOf(address)` calldata.
+        // Selector: keccak256("balanceOf(address)")[0:4] = 0x70a08231
+        // ABI-encoded argument: address left-padded to 32 bytes (right-aligned).
+        let mut calldata = vec![0u8; 36];
+        calldata[0..4].copy_from_slice(&[0x70, 0xa0, 0x82, 0x31]);
+        calldata[16..36].copy_from_slice(address.as_slice());
+
+        let request = TransactionRequest {
+            to: Some(TxKind::Call(USDC_CONTRACT)),
+            input: TransactionInput { input: Some(Bytes::from(calldata)), data: None },
+            ..Default::default()
+        };
+
+        let tx_req =
+            <<Self as EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest::from(request);
+
+        let call_fut = EthCall::call(self, tx_req, block_id, EvmOverrides::new(None, None));
+
+        async move {
+            match call_fut.await {
+                Ok(result) => {
+                    // Decode the ABI-encoded uint256 return value (32 bytes, big-endian).
+                    if result.len() >= 32 {
+                        Ok(U256::from_be_slice(&result[..32]))
+                    } else {
+                        Ok(U256::ZERO)
+                    }
+                }
+                // If the call fails (e.g. contract not deployed), return zero.
+                Err(_) => Ok(U256::ZERO),
+            }
+        }
     }
 }
 
