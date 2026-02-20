@@ -91,7 +91,7 @@ proptest! {
     /// See db_corruption.rs for the production path test.
     #[test]
     #[should_panic]
-    fn tx_compact_decode_arbitrary_bytes_never_panics(data in proptest::collection::vec(any::<u8>(), 0..4096)) {
+    fn tx_compact_decode_arbitrary_bytes_panics_on_corrupt_data(data in proptest::collection::vec(any::<u8>(), 0..4096)) {
         let result = std::panic::catch_unwind(|| {
             // Use an arbitrary length value for the identifier
             for len in [0, 1, 2, 3, 0x4A] {

@@ -10,10 +10,14 @@ use revm::{
     state::{AccountInfo, Bytecode},
 };
 
-/// 1M ETH in wei
-const FUZZ_BALANCE: u128 = 10u128.pow(18) * 1_000_000;
+/// Chain ID used across all fuzz targets.
+pub const FUZZ_CHAIN_ID: u64 = 5123;
 
-fn funded_account() -> AccountInfo {
+/// 1M ETH in wei.
+pub const FUZZ_BALANCE: u128 = 10u128.pow(18) * 1_000_000;
+
+/// Creates a new funded account with the default balance.
+pub fn funded_account() -> AccountInfo {
     AccountInfo {
         balance: U256::from(FUZZ_BALANCE),
         nonce: 0,
@@ -45,8 +49,7 @@ pub fn seed_default_accounts(db: &mut CacheDB<EmptyDBTyped<core::convert::Infall
         db.insert_account_info(Address::with_last_byte(i), funded_account());
     }
 }
-
-/// Pre-seeded database with default accounts.
+/// Creates a new seeded database with the default accounts seeded.
 pub fn new_seeded_db() -> CacheDB<EmptyDBTyped<core::convert::Infallible>> {
     let mut db = CacheDB::new(EmptyDBTyped::default());
     seed_default_accounts(&mut db);

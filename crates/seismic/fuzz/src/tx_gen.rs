@@ -8,6 +8,8 @@ use arbitrary::Arbitrary;
 use revm::context::TxEnv;
 use seismic_revm::transaction::abstraction::{RngMode, SeismicTransaction};
 
+use crate::mock_state::FUZZ_CHAIN_ID;
+
 /// Fields are bounded to prevent trivial rejections (e.g. gas too low)
 /// while still allowing the fuzzer to explore interesting states.
 #[derive(Arbitrary, Debug, Clone)]
@@ -61,7 +63,7 @@ impl FuzzSeismicTx {
                 kind,
                 value: U256::from(self.value_low),
                 data: Bytes::from(self.data),
-                chain_id: Some(5123),
+                chain_id: Some(FUZZ_CHAIN_ID),
                 nonce: self.nonce,
                 access_list: Default::default(),
                 blob_hashes: Default::default(),

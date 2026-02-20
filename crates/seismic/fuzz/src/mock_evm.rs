@@ -6,16 +6,19 @@ use revm::context::CfgEnv;
 use seismic_revm::SeismicSpecId;
 
 use crate::mock_keys::get_static_mock_keys;
+use crate::mock_state::FUZZ_CHAIN_ID;
 
-/// Seismic EVM factory configured with mock purpose keys.
+/// Creates a new SeismicEvmFactory with the static mock keys.
 pub fn fuzz_evm_factory() -> SeismicEvmFactory {
     SeismicEvmFactory::new_with_purpose_keys(get_static_mock_keys())
 }
 
-/// Chain ID 5123, MERCURY spec.
+/// MERCURY spec with [`FUZZ_CHAIN_ID`].
 pub fn fuzz_evm_env() -> EvmEnv<SeismicSpecId> {
     EvmEnv {
-        cfg_env: CfgEnv::new().with_chain_id(5123).with_spec(SeismicSpecId::MERCURY),
+        cfg_env: CfgEnv::new()
+            .with_chain_id(FUZZ_CHAIN_ID)
+            .with_spec(SeismicSpecId::MERCURY),
         ..Default::default()
     }
 }

@@ -62,15 +62,14 @@ fn corrupt_db_entry_returns_decode_error() {
     //   byte 0:       flags — bit 0: sig high bit, bits 1-2: tx type, bit 3: zstd flag
     //   bytes 1-64:   signature (r: 32 bytes, s: 32 bytes)
     //   bytes 65+:    transaction body (zstd compressed if bit 3 is set)
-    //
-    // 0x08 = zstd flag set. 64 bytes fake signature. Remaining bytes are
-    // garbage that the zstd decompressor will reject.
+    const ZSTD_FLAG: u8 = 0b0000_1000;
+    const SIGNATURE_LEN: usize = 64;
     {
         let rw_tx = db.tx_mut().expect("failed to open write tx");
         let key = RawKey::<u64>::new(tx_num);
 
-        let mut corrupt_bytes = vec![0x08];
-        corrupt_bytes.extend_from_slice(&[0x01; 64]);
+        let mut corrupt_bytes = vec![ZSTD_FLAG];
+        corrupt_bytes.extend_from_slice(&[0x01; SIGNATURE_LEN]);
         corrupt_bytes.extend_from_slice(&[0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01]);
         let corrupt_value = RawValue::<<TxTable as Table>::Value>::from_vec(corrupt_bytes);
 
