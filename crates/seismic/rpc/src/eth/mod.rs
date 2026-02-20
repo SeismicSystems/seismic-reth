@@ -34,7 +34,7 @@ use reth_rpc_eth_api::{
         pending_block::BuildPendingEnv, spec::SignersForApi, AddDevSigners, EthApiSpec, EthCall,
         EthFees, EthState, LoadFee, LoadPendingBlock, LoadState, SpawnBlocking, Trace,
     },
-    EthApiTypes, FromEvmError, FullEthApiServer, RpcConvert, RpcConverter, RpcNodeCore,
+    EthApiTypes, FromEthApiError, FromEvmError, FullEthApiServer, RpcConvert, RpcConverter, RpcNodeCore,
     RpcNodeCoreExt, SignableTxRequest,
 };
 use reth_rpc_eth_types::{EthStateCache, FeeHistoryCache, GasPriceOracle};
@@ -323,8 +323,9 @@ where
         self.inner.storage_apis_enabled()
     }
 
-    /// Returns the ERC-20 balance of `address` on the USDC predeploy instead of the native
-    /// ETH balance.
+    /// Returns the higher of the native balance or the USDC predeploy balance (scaled to 18
+    /// decimals) for `address`. USDC uses 6 decimals; we multiply by 10^12 so both balances
+    /// are comparable in 18-decimal wei units.
     fn balance(
         &self,
         address: Address,
@@ -336,6 +337,9 @@ where
         /// USDC predeploy address on Seismic.
         const USDC_CONTRACT: Address =
             alloy_primitives::address!("215dfD51D1e6C05C1f7e322c0f9ddc607300e053");
+
+        /// Scale factor to convert USDC (6 decimals) to 18 decimals: 10^12.
+        const USDC_DECIMAL_SCALE: U256 = U256::from_limbs([1_000_000_000_000u64, 0, 0, 0]);
 
         // Build `balanceOf(address)` calldata.
         // Selector: keccak256("balanceOf(address)")[0:4] = 0x70a08231
@@ -353,21 +357,31 @@ where
         let tx_req =
             <<Self as EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest::from(request);
 
-        let call_fut = EthCall::call(self, tx_req, block_id, EvmOverrides::new(None, None));
+        // Create futures for both balance lookups.
+        let usdc_fut = EthCall::call(self, tx_req, block_id, EvmOverrides::new(None, None));
+        let native_fut = self.spawn_blocking_io_fut(move |this| async move {
+            Ok(this
+                .state_at_block_id_or_latest(block_id)
+                .await?
+                .account_balance(&address)
+                .map_err(Self::Error::from_eth_err)?
+                .unwrap_or_default())
+        });
 
         async move {
-            match call_fut.await {
-                Ok(result) => {
-                    // Decode the ABI-encoded uint256 return value (32 bytes, big-endian).
-                    if result.len() >= 32 {
-                        Ok(U256::from_be_slice(&result[..32]))
-                    } else {
-                        Ok(U256::ZERO)
-                    }
+            // Get USDC balance and scale from 6 to 18 decimals.
+            let usdc_balance = match usdc_fut.await {
+                Ok(result) if result.len() >= 32 => {
+                    U256::from_be_slice(&result[..32]).saturating_mul(USDC_DECIMAL_SCALE)
                 }
-                // If the call fails (e.g. contract not deployed), return zero.
-                Err(_) => Ok(U256::ZERO),
-            }
+                _ => U256::ZERO,
+            };
+
+            // Get native balance (already 18 decimals).
+            let native_balance = native_fut.await?;
+
+            // Return whichever is higher.
+            Ok(std::cmp::max(native_balance, usdc_balance))
         }
     }
 }
