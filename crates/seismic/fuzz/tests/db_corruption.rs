@@ -74,9 +74,7 @@ fn corrupt_db_entry_returns_decode_error() {
         corrupt_bytes.extend_from_slice(&[0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01]);
         let corrupt_value = RawValue::<<TxTable as Table>::Value>::from_vec(corrupt_bytes);
 
-        let mut cursor = rw_tx
-            .cursor_write::<RawTable<TxTable>>()
-            .expect("failed to open cursor");
+        let mut cursor = rw_tx.cursor_write::<RawTable<TxTable>>().expect("failed to open cursor");
         cursor.upsert(key, &corrupt_value).expect("failed to write corrupt data");
         rw_tx.commit().expect("failed to commit corrupt data");
     }
@@ -95,7 +93,8 @@ fn corrupt_db_entry_returns_decode_error() {
 
     // Read through the normal production path — should get DatabaseError::Decode, not a panic
     let ro_tx = db.tx().expect("failed to open read tx");
-    let result: Result<Option<SeismicTransactionSigned>, DatabaseError> = ro_tx.get::<TxTable>(tx_num);
+    let result: Result<Option<SeismicTransactionSigned>, DatabaseError> =
+        ro_tx.get::<TxTable>(tx_num);
 
     std::panic::set_hook(prev_hook);
 
