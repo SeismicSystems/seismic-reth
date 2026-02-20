@@ -1,0 +1,88 @@
+//! Structured transaction generator for fuzz targets.
+//!
+//! Provides `Arbitrary`-derivable input types that convert to
+//! `SeismicTransaction<TxEnv>` for EVM execution fuzzing.
+
+use alloy_primitives::{Address, Bytes, TxKind, U256};
+use arbitrary::Arbitrary;
+use revm::context::TxEnv;
+use seismic_revm::transaction::abstraction::{RngMode, SeismicTransaction};
+
+use crate::mock_state::FUZZ_CHAIN_ID;
+
+/// Fields are bounded to prevent trivial rejections (e.g. gas too low)
+/// while still allowing the fuzzer to explore interesting states.
+#[derive(Arbitrary, Debug, Clone)]
+/// Fuzzer input that produces well-typed `SeismicTransaction<TxEnv>`.
+pub struct FuzzSeismicTx {
+    /// The caller address.
+    pub caller: [u8; 20],
+    /// Whether to create a new contract.
+    pub to_create: bool,
+    /// The to address.
+    pub to_address: [u8; 20],
+    /// The value in wei.
+    pub value_low: u64,
+    /// The data.
+    pub data: Vec<u8>,
+    /// The gas limit.
+    pub gas_limit: u32,
+    /// The gas price.
+    pub gas_price: u32,
+    /// The nonce.
+    pub nonce: u64,
+    /// The tx type selector.
+    pub tx_type_selector: u8,
+    /// Whether to use execution mode for RNG.
+    pub rng_mode_execution: bool,
+}
+
+impl FuzzSeismicTx {
+    /// Converts the fuzzer input into a `SeismicTransaction<TxEnv>`.
+    pub fn into_seismic_tx(self) -> SeismicTransaction<TxEnv> {
+        let kind = if self.to_create {
+            TxKind::Create
+        } else {
+            TxKind::Call(Address::from(self.to_address))
+        };
+
+        // 0=Legacy, 1=EIP-2930, 2=EIP-1559, 3=Seismic (0x4A)
+        let tx_type = match self.tx_type_selector % 4 {
+            0 => 0u8,
+            1 => 1,
+            2 => 2,
+            _ => 0x4A,
+        };
+
+        SeismicTransaction {
+            base: TxEnv {
+                caller: Address::from(self.caller),
+                gas_limit: (self.gas_limit as u64).max(21_000),
+                gas_price: self.gas_price as u128,
+                gas_priority_fee: None,
+                kind,
+                value: U256::from(self.value_low),
+                data: Bytes::from(self.data),
+                chain_id: Some(FUZZ_CHAIN_ID),
+                nonce: self.nonce,
+                access_list: Default::default(),
+                blob_hashes: Default::default(),
+                max_fee_per_blob_gas: Default::default(),
+                authorization_list: Default::default(),
+                tx_type,
+            },
+            tx_hash: Default::default(),
+            rng_mode: if self.rng_mode_execution {
+                RngMode::Execution
+            } else {
+                RngMode::Simulation
+            },
+        }
+    }
+
+    /// Forces tx_type to non-seismic (Legacy/EIP-2930/EIP-1559) for differential testing.
+    pub fn into_eth_compatible_tx(mut self) -> SeismicTransaction<TxEnv> {
+        self.tx_type_selector = self.tx_type_selector % 3;
+        self.into_seismic_tx()
+    }
+}
