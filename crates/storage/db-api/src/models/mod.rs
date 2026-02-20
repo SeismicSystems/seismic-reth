@@ -269,8 +269,14 @@ macro_rules! impl_compression_fixed_compact {
 
             impl Decompress for $name {
                 fn decompress(value: &[u8]) -> Result<$name, $crate::DatabaseError> {
-                    let (obj, _) = Compact::from_compact(&value, value.len());
-                    Ok(obj)
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        let (obj, _) = Compact::from_compact(&value, value.len());
+                        obj
+                    }));
+                    match result {
+                        Ok(obj) => Ok(obj),
+                        Err(_) => Err($crate::DatabaseError::Decode),
+                    }
                 }
             }
 
