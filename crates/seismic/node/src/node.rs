@@ -519,6 +519,11 @@ where
         // Wrap the eth validator with seismic-specific validation
         let validator = eth_validator.map(reth_seismic_txpool::SeismicTransactionValidator::new);
 
+        // Disable native balance checks in the pool so that transactions from senders with
+        // zero ETH but sufficient USDC are not demoted to the queued sub-pool when the pool
+        // re-evaluates balances on new blocks.
+        let pool_config = pool_config.with_disabled_balance_check();
+
         let transaction_pool = reth_transaction_pool::Pool::new(
             validator,
             CoinbaseTipOrdering::default(),
