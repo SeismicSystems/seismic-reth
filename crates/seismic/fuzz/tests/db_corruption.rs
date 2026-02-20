@@ -20,6 +20,11 @@ use reth_db_api::{
 use reth_seismic_primitives::SeismicTransactionSigned;
 use seismic_alloy_consensus::SeismicTypedTransaction;
 
+/// The zstd flag is set in the first byte of the transaction.
+const ZSTD_FLAG: u8 = 0b0000_1000;
+/// The length of the signature in the transaction.
+const SIGNATURE_LEN: usize = 64;
+
 type TxTable = tables::Transactions<SeismicTransactionSigned>;
 
 fn valid_test_tx() -> SeismicTransactionSigned {
@@ -62,8 +67,6 @@ fn corrupt_db_entry_returns_decode_error() {
     //   byte 0:       flags — bit 0: sig high bit, bits 1-2: tx type, bit 3: zstd flag
     //   bytes 1-64:   signature (r: 32 bytes, s: 32 bytes)
     //   bytes 65+:    transaction body (zstd compressed if bit 3 is set)
-    const ZSTD_FLAG: u8 = 0b0000_1000;
-    const SIGNATURE_LEN: usize = 64;
     {
         let rw_tx = db.tx_mut().expect("failed to open write tx");
         let key = RawKey::<u64>::new(tx_num);
