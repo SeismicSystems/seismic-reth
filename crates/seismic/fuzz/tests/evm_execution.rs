@@ -1,10 +1,10 @@
-//! Fuzz tests for full SeismicEvm transaction execution.
+//! Fuzz tests for full `SeismicEvm` transaction execution.
 //!
-//! DEPENDENCIES EXERCISED: [seismic-revm, alloy-seismic-evm, seismic-enclave]
+//! DEPENDENCIES EXERCISED: [`seismic-revm`, `alloy-seismic-evm`, `seismic-enclave`]
 //! CRASH CATEGORY: evm_execution
 //!
 //! This is the highest-priority fuzz target. It exercises the full
-//! SeismicEvm.transact() path with arbitrary transactions. Any panic
+//! `SeismicEvm.transact()` path with arbitrary transactions. Any panic
 //! here means a malicious transaction could crash a node.
 
 use alloy_evm::{Evm, EvmFactory};

@@ -1,10 +1,10 @@
-//! Integration test: corrupt database entries return DatabaseError::Decode.
+//! Integration test: corrupt database entries return `DatabaseError::Decode`.
 //!
 //! Validates the full production code path:
-//!   MDBX read → decode_one → Decompress::decompress → catch_unwind(from_compact) → DatabaseError
+//!   MDBX read → `decode_one` → `Decompress::decompress` → `catch_unwind(from_compact)` → `DatabaseError`
 //!
-//! The zstd decompressor panics on malformed data, but Decompress::decompress
-//! catches it and converts to DatabaseError::Decode. This prevents the node from
+//! The zstd decompressor panics on malformed data, but `Decompress::decompress`
+//! catches it and converts to `DatabaseError::Decode`. This prevents the node from
 //! crashing on corrupt DB entries (see: github.com/paradigmxyz/reth/issues/16052).
 
 use alloy_consensus::TxLegacy;
@@ -20,9 +20,9 @@ use reth_db_api::{
 use reth_seismic_primitives::SeismicTransactionSigned;
 use seismic_alloy_consensus::SeismicTypedTransaction;
 
-/// The zstd flag is set in the first byte of the transaction.
+/// The zstd flag in the first byte of a compact-encoded transaction.
 const ZSTD_FLAG: u8 = 0b0000_1000;
-/// The length of the signature in the transaction.
+/// Length of the signature (r + s) in a compact-encoded transaction.
 const SIGNATURE_LEN: usize = 64;
 
 type TxTable = tables::Transactions<SeismicTransactionSigned>;
@@ -63,7 +63,7 @@ fn corrupt_db_entry_returns_decode_error() {
 
     // Overwrite with corrupt bytes that have the zstd flag set.
     //
-    // Compact layout of SeismicTransactionSigned:
+    // `Compact` layout of `SeismicTransactionSigned`:
     //   byte 0:       flags — bit 0: sig high bit, bits 1-2: tx type, bit 3: zstd flag
     //   bytes 1-64:   signature (r: 32 bytes, s: 32 bytes)
     //   bytes 65+:    transaction body (zstd compressed if bit 3 is set)
@@ -81,7 +81,7 @@ fn corrupt_db_entry_returns_decode_error() {
         rw_tx.commit().expect("failed to commit corrupt data");
     }
 
-    // Capture the internal panic message to verify zstd decompressor fired
+    // Capture the internal panic message to verify the zstd decompressor fired
     let panic_msg = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
     let panic_msg_clone = panic_msg.clone();
     let prev_hook = std::panic::take_hook();
@@ -93,7 +93,7 @@ fn corrupt_db_entry_returns_decode_error() {
         }
     }));
 
-    // Read through the normal production path — should get DatabaseError::Decode, not a panic
+    // Read through the production path — should get `DatabaseError::Decode`, not a panic
     let ro_tx = db.tx().expect("failed to open read tx");
     let result: Result<Option<SeismicTransactionSigned>, DatabaseError> =
         ro_tx.get::<TxTable>(tx_num);
@@ -107,7 +107,7 @@ fn corrupt_db_entry_returns_decode_error() {
         result,
     );
 
-    // Verify the zstd decompressor panic actually fired inside catch_unwind
+    // Verify the zstd decompressor panic actually fired inside `catch_unwind`
     let captured = panic_msg.lock().unwrap();
     assert!(
         captured.contains("Failed to decompress"),

@@ -1,6 +1,6 @@
-//! Fuzz tests for flagged storage access control (SLOAD/CLOAD/SSTORE/CSTORE).
+//! Fuzz tests for flagged storage access control (`SLOAD`/`CLOAD`/`SSTORE`/`CSTORE`).
 //!
-//! DEPENDENCIES EXERCISED: [seismic-revm]
+//! DEPENDENCIES EXERCISED: [`seismic-revm`]
 //! CRASH CATEGORY: flagged_storage
 //!
 //! Tests the privacy boundary enforcement between public and private storage.

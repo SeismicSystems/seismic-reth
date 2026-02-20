@@ -1,12 +1,12 @@
 //! Fuzz tests for seismic precompiles.
 //!
-//! DEPENDENCIES EXERCISED: [seismic-revm, seismic-enclave]
+//! DEPENDENCIES EXERCISED: [`seismic-revm`, `seismic-enclave`]
 //! CRASH CATEGORY: precompile
 //!
 //! All stateless precompiles have signature `fn(&[u8], u64) -> PrecompileResult`.
 //! We feed arbitrary bytes with arbitrary gas limits to verify no panics.
 //! The `.expect("must be 12 bytes")` calls in AES precompiles are theoretically
-//! guarded by `validate_nonce_length`, but the fuzzer should confirm this.
+//! guarded by `validate_nonce_length`, but the fuzzer confirms this.
 
 use proptest::prelude::*;
 use seismic_revm::precompiles::{

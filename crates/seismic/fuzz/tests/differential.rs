@@ -1,10 +1,10 @@
-//! Differential fuzz tests: plain revm vs Seismic EVM.
+//! Differential fuzz tests: plain `revm` vs `SeismicEvm`.
 //!
-//! DEPENDENCIES EXERCISED: [seismic-revm, alloy-seismic-evm]
+//! DEPENDENCIES EXERCISED: [`seismic-revm`, `alloy-seismic-evm`]
 //! CRASH CATEGORY: differential
 //!
 //! For non-seismic transaction types (Legacy, EIP-2930, EIP-1559), the
-//! SeismicEvm should produce identical results to plain revm.
+//! `SeismicEvm` should produce identical results to plain `revm`.
 //! Any divergence is a regression bug. Any panic is a security bug.
 
 use alloy_evm::{Evm, EvmFactory};

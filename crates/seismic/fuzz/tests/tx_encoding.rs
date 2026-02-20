@@ -1,6 +1,6 @@
-//! Fuzz tests for SeismicTransactionSigned encoding/decoding.
+//! Fuzz tests for `SeismicTransactionSigned` encoding/decoding.
 //!
-//! DEPENDENCIES EXERCISED: [seismic-alloy-consensus, seismic-alloy-core]
+//! DEPENDENCIES EXERCISED: [`seismic-alloy-consensus`, `seismic-alloy-core`]
 //! CRASH CATEGORY: encoding_decoding
 //!
 //! Any panic here indicates a security bug — a malformed transaction from
@@ -58,7 +58,7 @@ proptest! {
         }
     }
 
-    /// Roundtrip through Compact codec (exercises zstd compression).
+    /// Roundtrip through `Compact` codec (exercises zstd compression).
     #[test]
     fn tx_roundtrip_compact(tx in arb::<SeismicTransactionSigned>()) {
         // Skip EIP-4844 (blob transactions have known encoding limitations)
@@ -83,12 +83,12 @@ proptest! {
         }
     }
 
-    /// Feed arbitrary bytes into Compact decoder via direct from_compact call.
-    /// Panics on malformed zstd frames (zstd-compressors/src/lib.rs:109) and
-    /// short signatures (signature.rs:18). This direct call isn't used in
-    /// production — every DB read goes through Decompress::decompress which
-    /// wraps from_compact in catch_unwind and returns DatabaseError::Decode.
-    /// See db_corruption.rs for the production path test.
+    /// Feed arbitrary bytes into `Compact` decoder via direct `from_compact` call.
+    /// Panics on malformed zstd frames (`zstd-compressors/src/lib.rs:109`) and
+    /// short signatures (`signature.rs:18`). This direct call isn't used in
+    /// production — every DB read goes through `Decompress::decompress` which
+    /// wraps `from_compact` in `catch_unwind` and returns `DatabaseError::Decode`.
+    /// See `db_corruption.rs` for the production path test.
     #[test]
     #[should_panic]
     fn tx_compact_decode_arbitrary_bytes_panics_on_corrupt_data(data in proptest::collection::vec(any::<u8>(), 0..4096)) {
