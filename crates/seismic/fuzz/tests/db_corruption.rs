@@ -1,7 +1,8 @@
 //! Integration test: corrupt database entries return `DatabaseError::Decode`.
 //!
 //! Validates the full production code path:
-//!   MDBX read → `decode_one` → `Decompress::decompress` → `catch_unwind(from_compact)` → `DatabaseError`
+//!   MDBX read → `decode_one` → `Decompress::decompress` → `catch_unwind(from_compact)` →
+//! `DatabaseError`
 //!
 //! The zstd decompressor panics on malformed data, but `Decompress::decompress`
 //! catches it and converts to `DatabaseError::Decode`. This prevents the node from
