@@ -39,3 +39,5 @@ arbitrary = { workspace = true, features = ["derive"] }
 [dev-dependencies]
 proptest.workspace = true
 proptest-arbitrary-interop.workspace = true
+reth-db = { workspace = true, features = ["test-utils"] }
+reth-db-api.workspace = true

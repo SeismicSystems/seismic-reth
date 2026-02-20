@@ -9801,6 +9801,8 @@ dependencies = [
  "proptest",
  "proptest-arbitrary-interop",
  "reth-codecs",
+ "reth-db",
+ "reth-db-api",
  "reth-primitives-traits",
  "reth-seismic-chainspec",
  "reth-seismic-evm",
