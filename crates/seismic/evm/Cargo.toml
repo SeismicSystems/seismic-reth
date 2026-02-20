@@ -41,7 +41,7 @@ reth-seismic-primitives = { workspace = true }
 reth-ethereum-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"]}
 
 # revm
-revm = { workspace = true, features = ["optional_balance_check"] }
+revm = { workspace = true}
 seismic-revm.workspace = true
 
 # misc
