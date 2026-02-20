@@ -127,7 +127,10 @@ impl ConfigureEvm for SeismicEvmConfig {
         let spec = SeismicSpecId::MERCURY;
 
         // configure evm env based on parent block
-        let cfg_env = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
+        let mut cfg_env =
+            CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
+        // Gas is paid in USDC on Seismic, not native ETH.
+        cfg_env.disable_balance_check = true;
 
         let block_env = BlockEnv {
             number: U256::from(header.number()),
@@ -155,7 +158,10 @@ impl ConfigureEvm for SeismicEvmConfig {
         let spec_id = revm_spec(self.chain_spec(), parent);
 
         // configure evm env based on parent block
-        let cfg = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
+        let mut cfg =
+            CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
+        // Gas is paid in USDC on Seismic, not native ETH.
+        cfg.disable_balance_check = true;
 
         // if the parent block did not have excess blob gas (i.e. it was pre-cancun), but it is
         // cancun now, we need to set the excess blob gas to the default value(0)
@@ -251,8 +257,10 @@ impl ConfigureEngineEvm<ExecutionData> for SeismicEvmConfig {
         };
         let spec_id = revm_spec(self.chain_spec(), &temp_header);
 
-        let cfg_env =
+        let mut cfg_env =
             CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
+        // Gas is paid in USDC on Seismic, not native ETH.
+        cfg_env.disable_balance_check = true;
 
         let blob_excess_gas_and_price = payload
             .payload
