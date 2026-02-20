@@ -202,8 +202,13 @@ macro_rules! impl_compression_for_compact {
 
             impl$(<$($generic: core::fmt::Debug + Send + Sync + Compact),*>)? Decompress for $name$(<$($generic),*>)? {
                 fn decompress(value: &[u8]) -> Result<$name$(<$($generic),*>)?, $crate::DatabaseError> {
-                    let (obj, _) = Compact::from_compact(value, value.len());
-                    Ok(obj)
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        Compact::from_compact(value, value.len())
+                    }));
+                    match result {
+                        Ok((obj, _)) => Ok(obj),
+                        Err(_) => Err($crate::DatabaseError::Decode),
+                    }
                 }
             }
         )+

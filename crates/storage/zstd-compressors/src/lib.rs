@@ -106,11 +106,11 @@ impl ReusableDecompressor {
         let mut reserved_upper_bound = false;
         while let Err(err) = self.decompressor.decompress_to_buffer(src, &mut self.buf) {
             let err = err.to_string();
-            // TODO: this panics on malformed/corrupt data (e.g. "Unknown frame descriptor").
-            // Ideally `decompress` should return `Result<&[u8], DecompressError>` so callers
-            // can handle corrupt database entries gracefully instead of crash-looping.
-            // This requires changing `from_compact` to propagate errors — a large cross-crate
-            // refactor. See: tx_compact_decode_arbitrary_bytes_never_panics fuzz test.
+            // This panics on malformed/corrupt data (e.g. "Unknown frame descriptor",
+            // "Dictionary mismatch"). In production this is fine — every DB read goes through
+            // Decompress::decompress (db-api/src/models/mod.rs) which wraps from_compact in
+            // catch_unwind and converts the panic to DatabaseError::Decode.
+            // See: db_corruption fuzz test for validation of this path.
             assert!(
                 err.contains("Destination buffer is too small"),
                 "Failed to decompress {} bytes: {err}",

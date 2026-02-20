@@ -83,11 +83,12 @@ proptest! {
         }
     }
 
-    /// Feed arbitrary bytes into Compact decoder — must never panic.
-    /// Known failure: zstd decompressor panics on malformed frames
-    /// (zstd-compressors/src/lib.rs:109). Compact codec is only used for local
-    /// database storage, not network input, so this is a DB corruption issue
-    /// rather than a remote attack vector. See TODO in zstd-compressors.
+    /// Feed arbitrary bytes into Compact decoder via direct from_compact call.
+    /// Panics on malformed zstd frames (zstd-compressors/src/lib.rs:109) and
+    /// short signatures (signature.rs:18). This direct call isn't used in
+    /// production — every DB read goes through Decompress::decompress which
+    /// wraps from_compact in catch_unwind and returns DatabaseError::Decode.
+    /// See db_corruption.rs for the production path test.
     #[test]
     #[should_panic]
     fn tx_compact_decode_arbitrary_bytes_never_panics(data in proptest::collection::vec(any::<u8>(), 0..4096)) {
