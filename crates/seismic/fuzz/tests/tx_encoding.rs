@@ -61,10 +61,12 @@ proptest! {
     /// Roundtrip through `Compact` codec (exercises zstd compression).
     #[test]
     fn tx_roundtrip_compact(tx in arb::<SeismicTransactionSigned>()) {
-        // Skip EIP-4844 (blob transactions have known encoding limitations)
-        if tx.tx_type() == SeismicTxType::Eip4844 as u8 {
-            return Ok(());
-        }
+        // Skip EIP-4844
+        // TODO: Fuzz EIP-4844 transactions 
+        // if tx.tx_type() == SeismicTxType::Eip4844 as u8 {
+        //     return Ok(());
+        // }
+        println!("tx_type: {}", tx.tx_type());
 
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let mut buf = Vec::new();
