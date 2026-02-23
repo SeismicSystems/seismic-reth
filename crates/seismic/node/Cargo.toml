@@ -105,6 +105,7 @@ reth-exex.workspace = true
 reqwest.workspace = true
 secp256k1.workspace = true
 k256.workspace = true
+rand.workspace = true
 
 [features]
 default = ["reth-codec"]
