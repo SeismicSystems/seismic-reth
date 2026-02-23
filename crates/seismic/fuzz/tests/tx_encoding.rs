@@ -11,7 +11,6 @@ use proptest::prelude::*;
 use proptest_arbitrary_interop::arb;
 use reth_codecs::Compact;
 use reth_seismic_primitives::SeismicTransactionSigned;
-use seismic_alloy_consensus::SeismicTxType;
 
 proptest! {
     #![proptest_config(ProptestConfig {
@@ -22,7 +21,6 @@ proptest! {
     /// Feed arbitrary bytes into `Decodable2718` — must never panic.
     #[test]
     fn tx_decode_arbitrary_bytes_never_panics(data in proptest::collection::vec(any::<u8>(), 0..4096)) {
-        // Must not panic regardless of input
         let result = std::panic::catch_unwind(|| {
             let _ = SeismicTransactionSigned::decode_2718(&mut &data[..]);
         });
@@ -30,13 +28,9 @@ proptest! {
     }
 
     /// Roundtrip through EIP-2718 encoding: encode then decode must match.
+    /// Covers all tx types including EIP-4844.
     #[test]
     fn tx_roundtrip_2718(tx in arb::<SeismicTransactionSigned>()) {
-        // Skip EIP-4844 (blob transactions have known encoding limitations)
-        if tx.tx_type() == SeismicTxType::Eip4844 as u8 {
-            return Ok(());
-        }
-
         let mut encoded = Vec::new();
         tx.encode_2718(&mut encoded);
 
@@ -49,7 +43,6 @@ proptest! {
                 prop_assert_eq!(&decoded, &tx, "2718 roundtrip mismatch");
             }
             Ok(Err(e)) => {
-                // Decode error on our own encoding is a bug
                 prop_assert!(false, "Failed to decode our own encoding: {e}");
             }
             Err(_) => {
@@ -59,15 +52,9 @@ proptest! {
     }
 
     /// Roundtrip through `Compact` codec (exercises zstd compression).
+    /// Covers all tx types including EIP-4844.
     #[test]
     fn tx_roundtrip_compact(tx in arb::<SeismicTransactionSigned>()) {
-        // Skip EIP-4844
-        // TODO: Fuzz EIP-4844 transactions 
-        // if tx.tx_type() == SeismicTxType::Eip4844 as u8 {
-        //     return Ok(());
-        // }
-        println!("tx_type: {}", tx.tx_type());
-
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let mut buf = Vec::new();
             let len = tx.to_compact(&mut buf);
@@ -95,7 +82,6 @@ proptest! {
     #[should_panic]
     fn tx_compact_decode_arbitrary_bytes_panics_on_corrupt_data(data in proptest::collection::vec(any::<u8>(), 0..4096)) {
         let result = std::panic::catch_unwind(|| {
-            // Use an arbitrary length value for the identifier
             for len in [0, 1, 2, 3, 0x4A] {
                 let _ = SeismicTransactionSigned::from_compact(&data, len);
             }
