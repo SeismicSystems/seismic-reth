@@ -3,7 +3,7 @@
 //! Provides `Arbitrary`-derivable input types that convert to
 //! `SeismicTransaction<TxEnv>` for EVM execution fuzzing.
 
-use alloy_primitives::{Address, Bytes, TxKind, U256};
+use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use arbitrary::Arbitrary;
 use revm::context::TxEnv;
 use seismic_revm::transaction::abstraction::{RngMode, SeismicTransaction};
@@ -35,6 +35,12 @@ pub struct FuzzSeismicTx {
     pub tx_type_selector: u8,
     /// Whether to use execution mode for RNG.
     pub rng_mode_execution: bool,
+    /// Number of blob hashes (0-6) for EIP-4844 txs.
+    pub blob_hash_count: u8,
+    /// Seed for generating blob hash bytes.
+    pub blob_hash_seed: [u8; 32],
+    /// Max fee per blob gas for EIP-4844 txs.
+    pub max_fee_per_blob_gas: u32,
 }
 
 impl FuzzSeismicTx {
@@ -46,12 +52,28 @@ impl FuzzSeismicTx {
             TxKind::Call(Address::from(self.to_address))
         };
 
-        // 0=Legacy, 1=EIP-2930, 2=EIP-1559, 3=Seismic (0x4A)
-        let tx_type = match self.tx_type_selector % 4 {
+        // 0=Legacy, 1=EIP-2930, 2=EIP-1559, 3=EIP-4844, 4=Seismic (0x4A)
+        let tx_type = match self.tx_type_selector % 5 {
             0 => 0u8,
             1 => 1,
             2 => 2,
+            3 => 3,
             _ => 0x4A,
+        };
+
+        // Populate blob fields when tx_type is EIP-4844
+        let (blob_hashes, max_fee_per_blob_gas) = if tx_type == 3 {
+            let count = (self.blob_hash_count % 7).max(1) as usize; // 1-6 blobs
+            let hashes: Vec<B256> = (0..count)
+                .map(|i| {
+                    let mut hash = self.blob_hash_seed;
+                    hash[0] = i as u8; // vary each hash
+                    B256::from(hash)
+                })
+                .collect();
+            (hashes, self.max_fee_per_blob_gas as u128)
+        } else {
+            (Vec::new(), 0)
         };
 
         SeismicTransaction {
@@ -66,8 +88,8 @@ impl FuzzSeismicTx {
                 chain_id: Some(FUZZ_CHAIN_ID),
                 nonce: self.nonce,
                 access_list: Default::default(),
-                blob_hashes: Default::default(),
-                max_fee_per_blob_gas: Default::default(),
+                blob_hashes,
+                max_fee_per_blob_gas,
                 authorization_list: Default::default(),
                 tx_type,
             },
@@ -80,9 +102,9 @@ impl FuzzSeismicTx {
         }
     }
 
-    /// Forces tx_type to non-seismic (Legacy/EIP-2930/EIP-1559) for differential testing.
+    /// Forces tx_type to non-seismic (Legacy/EIP-2930/EIP-1559/EIP-4844) for differential testing.
     pub fn into_eth_compatible_tx(mut self) -> SeismicTransaction<TxEnv> {
-        self.tx_type_selector = self.tx_type_selector % 3;
+        self.tx_type_selector = self.tx_type_selector % 4;
         self.into_seismic_tx()
     }
 }
