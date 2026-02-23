@@ -265,12 +265,120 @@ async fn fuzz_adversarial_transactions() {
     println!("Node alive after batch F");
 
     // =========================================================================
+    // Batch G: Signature-corrupted transactions
+    //
+    // Structurally valid RLP that passes decoding but has a garbage signature.
+    // Tests the `ecrecover` / signer recovery path.
+    // =========================================================================
+    println!("\n=== Batch G: Signature-corrupted txs ===");
+
+    let nonce = get_nonce(&client, addr).await;
+
+    // Build a valid signed tx, then corrupt different parts of the signature
+    let valid_raw = build_signed_1559(&eth_wallet, nonce, chain_id, Default::default()).await;
+    let valid_bytes = valid_raw.to_vec();
+
+    // Corrupt the last byte (part of the signature s value)
+    {
+        let mut corrupted = valid_bytes.clone();
+        let len = corrupted.len();
+        corrupted[len - 1] ^= 0xFF;
+        send_raw(&client, Bytes::from(corrupted), "EIP-1559 corrupted sig (last byte)").await;
+    }
+
+    // Corrupt the last 32 bytes (entire s value)
+    {
+        let mut corrupted = valid_bytes.clone();
+        let len = corrupted.len();
+        for i in (len - 32)..len {
+            corrupted[i] = rng.gen();
+        }
+        send_raw(&client, Bytes::from(corrupted), "EIP-1559 corrupted sig (s value)").await;
+    }
+
+    // Corrupt the last 64 bytes (entire r + s)
+    {
+        let mut corrupted = valid_bytes.clone();
+        let len = corrupted.len();
+        for i in (len - 64)..len {
+            corrupted[i] = rng.gen();
+        }
+        send_raw(&client, Bytes::from(corrupted), "EIP-1559 corrupted sig (r+s)").await;
+    }
+
+    // Zero out the signature entirely
+    {
+        let mut corrupted = valid_bytes.clone();
+        let len = corrupted.len();
+        for i in (len - 65)..len {
+            corrupted[i] = 0x00;
+        }
+        send_raw(&client, Bytes::from(corrupted), "EIP-1559 zero signature").await;
+    }
+
+    // All 0xFF signature
+    {
+        let mut corrupted = valid_bytes.clone();
+        let len = corrupted.len();
+        for i in (len - 65)..len {
+            corrupted[i] = 0xFF;
+        }
+        send_raw(&client, Bytes::from(corrupted), "EIP-1559 0xFF signature").await;
+    }
+
+    // Same for a seismic tx
+    let seismic_raw = get_signed_seismic_tx_bytes(
+        &wallet.inner,
+        nonce,
+        TxKind::Call(Address::ZERO),
+        chain_id,
+        Bytes::from(vec![0x01]),
+        recent_block_hash,
+    ).await;
+    let seismic_bytes = seismic_raw.to_vec();
+
+    // Corrupt last byte of seismic tx signature
+    {
+        let mut corrupted = seismic_bytes.clone();
+        let len = corrupted.len();
+        corrupted[len - 1] ^= 0xFF;
+        send_raw(&client, Bytes::from(corrupted), "seismic corrupted sig (last byte)").await;
+    }
+
+    // Corrupt last 64 bytes of seismic tx
+    {
+        let mut corrupted = seismic_bytes.clone();
+        let len = corrupted.len();
+        for i in (len - 64)..len {
+            corrupted[i] = rng.gen();
+        }
+        send_raw(&client, Bytes::from(corrupted), "seismic corrupted sig (r+s)").await;
+    }
+
+    // Random signature corruption on random txs
+    for i in 0..RANDOM_CASES {
+        let raw = build_signed_1559(
+            &eth_wallet, rng.gen(), chain_id, Default::default(),
+        ).await;
+        let mut bytes = raw.to_vec();
+        // Corrupt a random byte in the last 65 bytes (signature region)
+        let len = bytes.len();
+        let offset = rng.gen_range(len.saturating_sub(65)..len);
+        bytes[offset] = rng.gen();
+        send_raw(&client, Bytes::from(bytes), &format!("random-bad-sig#{i}")).await;
+    }
+
+    assert_node_alive(&client, addr).await;
+    println!("Node alive after batch G");
+
+    // =========================================================================
     // Final health check
     // =========================================================================
     println!("\n=== Final health check ===");
     assert_node_alive(&client, addr).await;
+    let total = 8 + RANDOM_CASES + 6 + RANDOM_CASES + 6 + RANDOM_CASES + 7 + RANDOM_CASES;
     println!("Node alive after all batches — test passed");
-    println!("Total payloads sent: {}", 8 + RANDOM_CASES + 6 + RANDOM_CASES + 6 + RANDOM_CASES);
+    println!("Total payloads sent: {total}");
 
     shutdown_tx.try_send(()).unwrap();
     thread::sleep(Duration::from_secs(WAIT));
