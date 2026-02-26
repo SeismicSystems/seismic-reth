@@ -38,11 +38,7 @@ async fn assert_node_alive(client: &jsonrpsee::http_client::HttpClient, wallet_a
     let _ = get_nonce(client, wallet_addr).await;
 }
 
-async fn send_raw(
-    client: &jsonrpsee::http_client::HttpClient,
-    raw: Bytes,
-    label: &str,
-) {
+async fn send_raw(client: &jsonrpsee::http_client::HttpClient, raw: Bytes, label: &str) {
     let result = EthApiOverrideClient::<Block>::send_raw_transaction(client, raw.into()).await;
     match result {
         Err(_) => println!("[OK] {label}: rejected"),
@@ -68,12 +64,24 @@ async fn build_signed_1559(
         ..Default::default()
     };
 
-    if overrides.gas.is_some() { tx.gas = overrides.gas; }
-    if overrides.max_fee_per_gas.is_some() { tx.max_fee_per_gas = overrides.max_fee_per_gas; }
-    if overrides.max_priority_fee_per_gas.is_some() { tx.max_priority_fee_per_gas = overrides.max_priority_fee_per_gas; }
-    if overrides.to.is_some() { tx.to = overrides.to; }
-    if overrides.value.is_some() { tx.value = overrides.value; }
-    if overrides.input.input.is_some() { tx.input = overrides.input; }
+    if overrides.gas.is_some() {
+        tx.gas = overrides.gas;
+    }
+    if overrides.max_fee_per_gas.is_some() {
+        tx.max_fee_per_gas = overrides.max_fee_per_gas;
+    }
+    if overrides.max_priority_fee_per_gas.is_some() {
+        tx.max_priority_fee_per_gas = overrides.max_priority_fee_per_gas;
+    }
+    if overrides.to.is_some() {
+        tx.to = overrides.to;
+    }
+    if overrides.value.is_some() {
+        tx.value = overrides.value;
+    }
+    if overrides.input.input.is_some() {
+        tx.input = overrides.input;
+    }
 
     let envelope = tx.build(wallet).await.expect("Failed to build tx");
     TxEnvelope::encoded_2718(&envelope).into()
@@ -104,7 +112,12 @@ async fn fuzz_adversarial_transactions() {
     send_raw(&client, Bytes::from(vec![0x4A]), "0x4A (Seismic prefix)").await;
     send_raw(&client, Bytes::from(vec![0xFF; 1024]), "1KB of 0xFF").await;
     send_raw(&client, Bytes::from(vec![0x02, 0xF8, 0x50, 0x01]), "truncated EIP-1559 RLP").await;
-    send_raw(&client, Bytes::from(vec![0x03, 0xF8, 0x50, 0x01, 0x02, 0x03]), "truncated EIP-4844 RLP").await;
+    send_raw(
+        &client,
+        Bytes::from(vec![0x03, 0xF8, 0x50, 0x01, 0x02, 0x03]),
+        "truncated EIP-4844 RLP",
+    )
+    .await;
     send_raw(&client, Bytes::from(vec![0x4A, 0xF8, 0x50, 0x01]), "truncated Seismic RLP").await;
     send_raw(&client, Bytes::from((0u8..=255).collect::<Vec<u8>>()), "256 sequential bytes").await;
 
@@ -141,20 +154,29 @@ async fn fuzz_adversarial_transactions() {
 
     let cases: Vec<(&str, TransactionRequest)> = vec![
         ("gas_limit=0", TransactionRequest { gas: Some(0), ..Default::default() }),
-        ("priority_fee > max_fee", TransactionRequest {
-            max_fee_per_gas: Some(1_000),
-            max_priority_fee_per_gas: Some(1_000_000),
-            ..Default::default()
-        }),
-        ("value > balance", TransactionRequest {
-            value: Some(U256::from(10u128.pow(30))),
-            ..Default::default()
-        }),
-        ("128KB input", TransactionRequest {
-            gas: Some(30_000_000),
-            input: TransactionInput { input: Some(Bytes::from(vec![0xDE; 128_000])), data: None },
-            ..Default::default()
-        }),
+        (
+            "priority_fee > max_fee",
+            TransactionRequest {
+                max_fee_per_gas: Some(1_000),
+                max_priority_fee_per_gas: Some(1_000_000),
+                ..Default::default()
+            },
+        ),
+        (
+            "value > balance",
+            TransactionRequest { value: Some(U256::from(10u128.pow(30))), ..Default::default() },
+        ),
+        (
+            "128KB input",
+            TransactionRequest {
+                gas: Some(30_000_000),
+                input: TransactionInput {
+                    input: Some(Bytes::from(vec![0xDE; 128_000])),
+                    data: None,
+                },
+                ..Default::default()
+            },
+        ),
     ];
 
     for (label, overrides) in cases {
@@ -184,7 +206,7 @@ async fn fuzz_adversarial_transactions() {
             value: Some(U256::from(rng.gen::<u128>())),
             input: TransactionInput {
                 input: Some(Bytes::from(
-                    (0..rng.gen_range(0..1024)).map(|_| rng.gen::<u8>()).collect::<Vec<u8>>()
+                    (0..rng.gen_range(0..1024)).map(|_| rng.gen::<u8>()).collect::<Vec<u8>>(),
                 )),
                 data: None,
             },
@@ -205,12 +227,32 @@ async fn fuzz_adversarial_transactions() {
     let recent_block_hash = get_recent_block_hash(&client).await;
 
     let seismic_cases: Vec<(&str, TxKind, Bytes, B256)> = vec![
-        ("garbage calldata", TxKind::Call(Address::ZERO), Bytes::from(vec![0xDE, 0xAD, 0xBE, 0xEF]), recent_block_hash),
+        (
+            "garbage calldata",
+            TxKind::Call(Address::ZERO),
+            Bytes::from(vec![0xDE, 0xAD, 0xBE, 0xEF]),
+            recent_block_hash,
+        ),
         ("zero block hash", TxKind::Call(Address::ZERO), Bytes::from(vec![0x01]), B256::ZERO),
-        ("random block hash", TxKind::Call(Address::ZERO), Bytes::from(vec![0x01]), B256::from([0xFF; 32])),
-        ("create tx", TxKind::Create, Bytes::from(vec![0x60, 0x00, 0x60, 0x00, 0xF3]), recent_block_hash),
+        (
+            "random block hash",
+            TxKind::Call(Address::ZERO),
+            Bytes::from(vec![0x01]),
+            B256::from([0xFF; 32]),
+        ),
+        (
+            "create tx",
+            TxKind::Create,
+            Bytes::from(vec![0x60, 0x00, 0x60, 0x00, 0xF3]),
+            recent_block_hash,
+        ),
         ("empty calldata", TxKind::Call(Address::ZERO), Bytes::new(), recent_block_hash),
-        ("64KB calldata", TxKind::Call(Address::ZERO), Bytes::from(vec![0xAB; 64_000]), recent_block_hash),
+        (
+            "64KB calldata",
+            TxKind::Call(Address::ZERO),
+            Bytes::from(vec![0xAB; 64_000]),
+            recent_block_hash,
+        ),
     ];
 
     for (label, to, calldata, block_hash) in seismic_cases {
@@ -221,7 +263,8 @@ async fn fuzz_adversarial_transactions() {
             chain_id,
             calldata,
             block_hash,
-        ).await;
+        )
+        .await;
         send_raw(&client, raw, &format!("seismic {label}")).await;
     }
 
@@ -257,7 +300,8 @@ async fn fuzz_adversarial_transactions() {
             chain_id,
             calldata,
             block_hash,
-        ).await;
+        )
+        .await;
         send_raw(&client, raw, &format!("random-seismic#{i}")).await;
     }
 
@@ -334,7 +378,8 @@ async fn fuzz_adversarial_transactions() {
         chain_id,
         Bytes::from(vec![0x01]),
         recent_block_hash,
-    ).await;
+    )
+    .await;
     let seismic_bytes = seismic_raw.to_vec();
 
     // Corrupt last byte of seismic tx signature
@@ -357,9 +402,7 @@ async fn fuzz_adversarial_transactions() {
 
     // Random signature corruption on random txs
     for i in 0..RANDOM_CASES {
-        let raw = build_signed_1559(
-            &eth_wallet, rng.gen(), chain_id, Default::default(),
-        ).await;
+        let raw = build_signed_1559(&eth_wallet, rng.gen(), chain_id, Default::default()).await;
         let mut bytes = raw.to_vec();
         // Corrupt a random byte in the last 65 bytes (signature region)
         let len = bytes.len();
