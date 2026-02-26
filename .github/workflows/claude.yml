@@ -3,7 +3,7 @@
 # Prompt injection: the action sanitizes untrusted PR content (strips HTML comments,
 # invisible chars, hidden attributes). Tools are restricted to read-only as a second layer.
 
-name: Claude Code
+name: Claude Code PR Review
 
 on:
   pull_request:
