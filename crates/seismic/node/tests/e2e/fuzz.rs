@@ -90,9 +90,8 @@ async fn build_signed_1559(
 /// Replaces the last `n` bytes of `src` using a per-byte transform.
 fn corrupt_last_n(src: &[u8], n: usize, f: impl Fn(u8) -> u8) -> Bytes {
     let mut buf = src.to_vec();
-    let len = buf.len();
-    for i in (len - n)..len {
-        buf[i] = f(buf[i]);
+    for b in buf.iter_mut().rev().take(n) {
+        *b = f(*b);
     }
     Bytes::from(buf)
 }
@@ -100,9 +99,8 @@ fn corrupt_last_n(src: &[u8], n: usize, f: impl Fn(u8) -> u8) -> Bytes {
 /// Replaces the last `n` bytes of `src` with random values.
 fn corrupt_tail_random(src: &[u8], n: usize, rng: &mut impl Rng) -> Bytes {
     let mut buf = src.to_vec();
-    let len = buf.len();
-    for i in (len - n)..len {
-        buf[i] = rng.random();
+    for b in buf.iter_mut().rev().take(n) {
+        *b = rng.random();
     }
     Bytes::from(buf)
 }
@@ -239,7 +237,8 @@ async fn send_adversarial_eip1559_txs(
             },
             ..Default::default()
         };
-        send_raw(client, build_signed_1559(eth_wallet, rng.random(), chain_id, overrides).await).await;
+        send_raw(client, build_signed_1559(eth_wallet, rng.random(), chain_id, overrides).await)
+            .await;
     }
 
     assert_node_alive(client, addr).await;
@@ -349,7 +348,8 @@ async fn send_adversarial_seismic_txs(
     let mut rng = rand::rng();
     for _ in 0..RANDOM_CASES {
         let calldata_len = rng.random_range(0..4096);
-        let calldata = Bytes::from((0..calldata_len).map(|_| rng.random::<u8>()).collect::<Vec<u8>>());
+        let calldata =
+            Bytes::from((0..calldata_len).map(|_| rng.random::<u8>()).collect::<Vec<u8>>());
 
         let block_hash = match rng.random_range(0..3) {
             0 => recent_block_hash,
