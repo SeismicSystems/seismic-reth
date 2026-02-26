@@ -1,10 +1,15 @@
 # Requires ANTHROPIC_API_KEY secret in repo Settings > Secrets and variables > Actions.
+#
+# Note: PR diffs are attacker-controlled content. The allowedTools scope is
+# restricted to read-only operations to limit impact of prompt injection.
 
 name: Claude Code
 
 on:
   pull_request:
     types: [opened, synchronize]
+  # issue_comment covers PR conversation comments; pull_request_review_comment
+  # covers inline code review comments. These are distinct events and do not overlap.
   issue_comment:
     types: [created]
   pull_request_review_comment:
@@ -14,34 +19,36 @@ jobs:
   claude:
     if: >
       github.event_name == 'pull_request' ||
-      contains(github.event.comment.body, '@claude')
+      (contains(github.event.comment.body, '@claude') &&
+       github.event.issue.pull_request &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
       issues: write
-      id-token: write
 
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
-      - uses: anthropics/claude-code-action@v1
+      # Pin to commit SHA for supply chain safety. Tag: v1.
+      - uses: anthropics/claude-code-action@273fe825408ddced56cb02b228a74c72bed8241e
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           claude_args: |
-            --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git:*)"
+            --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
           prompt: |
             REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.pull_request.number }}
+            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
 
             You are a PR reviewer. ONLY review the files changed in this PR.
             Use gh pr diff to see what changed. Do NOT review unchanged files.
 
             After your review, post your findings as a single PR comment using:
-            gh pr comment ${{ github.event.pull_request.number }} --body "your review"
+            gh pr comment ${{ github.event.pull_request.number || github.event.issue.number }} --body "your review"
 
             Only post GitHub comments - do not submit review text as messages.
 
