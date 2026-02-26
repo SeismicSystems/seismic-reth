@@ -102,12 +102,12 @@ fn corrupt_tail_random(src: &[u8], n: usize, rng: &mut impl Rng) -> Bytes {
     let mut buf = src.to_vec();
     let len = buf.len();
     for i in (len - n)..len {
-        buf[i] = rng.gen();
+        buf[i] = rng.random();
     }
     Bytes::from(buf)
 }
 
-// Sends hardcoded and randomly-generated malformed raw byte payloads.
+// Sends hardcoded and randomly-randomerated malformed raw byte payloads.
 // Exercises the RLP decoder and EIP-2718 type-prefix handling.
 async fn send_malformed_raw_bytes(client: &jsonrpsee::http_client::HttpClient, addr: Address) {
     // empty payload
@@ -128,14 +128,14 @@ async fn send_malformed_raw_bytes(client: &jsonrpsee::http_client::HttpClient, a
     send_raw(client, Bytes::from((0u8..=255).collect::<Vec<u8>>())).await;
 
     let type_prefixes: &[u8] = &[0x00, 0x01, 0x02, 0x03, 0x04, 0x4A, 0x7F, 0x80, 0xFE, 0xFF];
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     for _ in 0..RANDOM_CASES {
-        let len = rng.gen_range(1..4096);
-        let mut bytes: Vec<u8> = (0..len).map(|_| rng.gen()).collect();
+        let len = rng.random_range(1..4096);
+        let mut bytes: Vec<u8> = (0..len).map(|_| rng.random()).collect();
         // 50% chance of using a real type prefix
-        if rng.gen_bool(0.5) {
-            bytes[0] = type_prefixes[rng.gen_range(0..type_prefixes.len())];
+        if rng.random_bool(0.5) {
+            bytes[0] = type_prefixes[rng.random_range(0..type_prefixes.len())];
         }
         send_raw(client, Bytes::from(bytes)).await;
     }
@@ -144,7 +144,7 @@ async fn send_malformed_raw_bytes(client: &jsonrpsee::http_client::HttpClient, a
     println!("Node alive after malformed raw bytes (8 hardcoded + {RANDOM_CASES} random)");
 }
 
-// Sends hardcoded and randomly-generated adversarial EIP-1559 transactions.
+// Sends hardcoded and randomly-randomerated adversarial EIP-1559 transactions.
 // Tests validation of gas limits, fee parameters, value, and nonce bounds.
 async fn send_adversarial_eip1559_txs(
     client: &jsonrpsee::http_client::HttpClient,
@@ -224,29 +224,29 @@ async fn send_adversarial_eip1559_txs(
     // wrong chain_id
     send_raw(client, build_signed_1559(eth_wallet, nonce, 999999, Default::default()).await).await;
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     for _ in 0..RANDOM_CASES {
         let overrides = TransactionRequest {
-            gas: Some(rng.gen_range(0..30_000_000)),
-            max_fee_per_gas: Some(rng.gen_range(0..u128::from(u64::MAX))),
-            max_priority_fee_per_gas: Some(rng.gen_range(0..u128::from(u64::MAX))),
-            value: Some(U256::from(rng.gen::<u128>())),
+            gas: Some(rng.random_range(0..30_000_000)),
+            max_fee_per_gas: Some(rng.random_range(0..u128::from(u64::MAX))),
+            max_priority_fee_per_gas: Some(rng.random_range(0..u128::from(u64::MAX))),
+            value: Some(U256::from(rng.random::<u128>())),
             input: TransactionInput {
                 input: Some(Bytes::from(
-                    (0..rng.gen_range(0..1024)).map(|_| rng.gen::<u8>()).collect::<Vec<u8>>(),
+                    (0..rng.random_range(0..1024)).map(|_| rng.random::<u8>()).collect::<Vec<u8>>(),
                 )),
                 data: None,
             },
             ..Default::default()
         };
-        send_raw(client, build_signed_1559(eth_wallet, rng.gen(), chain_id, overrides).await).await;
+        send_raw(client, build_signed_1559(eth_wallet, rng.random(), chain_id, overrides).await).await;
     }
 
     assert_node_alive(client, addr).await;
     println!("Node alive after adversarial EIP-1559 txs (6 hardcoded + {RANDOM_CASES} random)");
 }
 
-// Sends hardcoded and randomly-generated adversarial seismic transactions.
+// Sends hardcoded and randomly-randomerated adversarial seismic transactions.
 // Tests encryption metadata, block-hash validation, and calldata handling.
 async fn send_adversarial_seismic_txs(
     client: &jsonrpsee::http_client::HttpClient,
@@ -346,21 +346,21 @@ async fn send_adversarial_seismic_txs(
     )
     .await;
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     for _ in 0..RANDOM_CASES {
-        let calldata_len = rng.gen_range(0..4096);
-        let calldata = Bytes::from((0..calldata_len).map(|_| rng.gen::<u8>()).collect::<Vec<u8>>());
+        let calldata_len = rng.random_range(0..4096);
+        let calldata = Bytes::from((0..calldata_len).map(|_| rng.random::<u8>()).collect::<Vec<u8>>());
 
-        let block_hash = match rng.gen_range(0..3) {
+        let block_hash = match rng.random_range(0..3) {
             0 => recent_block_hash,
             1 => B256::ZERO,
-            _ => B256::from(rng.gen::<[u8; 32]>()),
+            _ => B256::from(rng.random::<[u8; 32]>()),
         };
 
-        let to = if rng.gen_bool(0.2) {
+        let to = if rng.random_bool(0.2) {
             TxKind::Create
         } else {
-            TxKind::Call(Address::from(rng.gen::<[u8; 20]>()))
+            TxKind::Call(Address::from(rng.random::<[u8; 20]>()))
         };
 
         send_raw(
@@ -393,7 +393,7 @@ async fn send_signature_corrupted_txs(
 ) {
     let nonce = get_nonce(client, addr).await;
     let recent_block_hash = get_recent_block_hash(client).await;
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let valid_bytes =
         build_signed_1559(eth_wallet, nonce, chain_id, Default::default()).await.to_vec();
@@ -427,11 +427,11 @@ async fn send_signature_corrupted_txs(
 
     // random single-byte signature corruption across many txs
     for _ in 0..RANDOM_CASES {
-        let raw = build_signed_1559(eth_wallet, rng.gen(), chain_id, Default::default()).await;
+        let raw = build_signed_1559(eth_wallet, rng.random(), chain_id, Default::default()).await;
         let mut bytes = raw.to_vec();
         let len = bytes.len();
-        let offset = rng.gen_range(len.saturating_sub(65)..len);
-        bytes[offset] = rng.gen();
+        let offset = rng.random_range(len.saturating_sub(65)..len);
+        bytes[offset] = rng.random();
         send_raw(client, Bytes::from(bytes)).await;
     }
 
