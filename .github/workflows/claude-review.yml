@@ -1,7 +1,7 @@
 # Requires ANTHROPIC_API_KEY secret in repo Settings > Secrets and variables > Actions.
 #
-# Note: PR diffs are attacker-controlled content. The allowedTools scope is
-# restricted to read-only operations to limit impact of prompt injection.
+# Prompt injection: the action sanitizes untrusted PR content (strips HTML comments,
+# invisible chars, hidden attributes). Tools are restricted to read-only as a second layer.
 
 name: Claude Code
 
