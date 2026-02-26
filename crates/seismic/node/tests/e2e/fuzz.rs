@@ -107,10 +107,8 @@ fn corrupt_tail_random(src: &[u8], n: usize, rng: &mut impl Rng) -> Bytes {
     Bytes::from(buf)
 }
 
-/*
- * Sends hardcoded and randomly-generated malformed raw byte payloads.
- * Exercises the RLP decoder and EIP-2718 type-prefix handling.
- */
+// Sends hardcoded and randomly-generated malformed raw byte payloads.
+// Exercises the RLP decoder and EIP-2718 type-prefix handling.
 async fn send_malformed_raw_bytes(client: &jsonrpsee::http_client::HttpClient, addr: Address) {
     // empty payload
     send_raw(client, Bytes::new()).await;
@@ -146,10 +144,8 @@ async fn send_malformed_raw_bytes(client: &jsonrpsee::http_client::HttpClient, a
     println!("Node alive after malformed raw bytes (8 hardcoded + {RANDOM_CASES} random)");
 }
 
-/*
- * Sends hardcoded and randomly-generated adversarial EIP-1559 transactions.
- * Tests validation of gas limits, fee parameters, value, and nonce bounds.
- */
+// Sends hardcoded and randomly-generated adversarial EIP-1559 transactions.
+// Tests validation of gas limits, fee parameters, value, and nonce bounds.
 async fn send_adversarial_eip1559_txs(
     client: &jsonrpsee::http_client::HttpClient,
     eth_wallet: &EthereumWallet,
@@ -250,10 +246,8 @@ async fn send_adversarial_eip1559_txs(
     println!("Node alive after adversarial EIP-1559 txs (6 hardcoded + {RANDOM_CASES} random)");
 }
 
-/*
- * Sends hardcoded and randomly-generated adversarial seismic transactions.
- * Tests encryption metadata, block-hash validation, and calldata handling.
- */
+// Sends hardcoded and randomly-generated adversarial seismic transactions.
+// Tests encryption metadata, block-hash validation, and calldata handling.
 async fn send_adversarial_seismic_txs(
     client: &jsonrpsee::http_client::HttpClient,
     signer: &PrivateKeySigner,
@@ -388,10 +382,8 @@ async fn send_adversarial_seismic_txs(
     println!("Node alive after adversarial seismic txs (6 hardcoded + {RANDOM_CASES} random)");
 }
 
-/*
- * Builds valid signed transactions, then corrupts parts of their signatures.
- * Tests ecrecover / signer-recovery resilience for both EIP-1559 and seismic txs.
- */
+// Builds valid signed transactions, then corrupts parts of their signatures.
+// Tests ecrecover / signer-recovery resilience for both EIP-1559 and seismic txs.
 async fn send_signature_corrupted_txs(
     client: &jsonrpsee::http_client::HttpClient,
     eth_wallet: &EthereumWallet,
