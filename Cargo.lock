@@ -11425,7 +11425,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=ac5e28dac1ee8ec0e3922b010e6da072d6e784aa#ac5e28dac1ee8ec0e3922b010e6da072d6e784aa"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=f90b02f38a6190e8b2ff2d051d9043f3480cd3ac#f90b02f38a6190e8b2ff2d051d9043f3480cd3ac"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -11436,6 +11436,7 @@ dependencies = [
  "secp256k1 0.30.0",
  "serde",
  "sha2",
+ "tracing",
 ]
 
 [[package]]
