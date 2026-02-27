@@ -449,19 +449,23 @@ async fn fuzz_adversarial_transactions() {
     let (tx, mut rx) = mpsc::channel(1);
     let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
     SeismicRethTestCommand::run(tx, shutdown_rx).await;
-    tokio::time::timeout(Duration::from_secs(120), rx.recv())
-        .await
-        .expect("Timed out waiting for node to become ready")
-        .expect("Node readiness channel closed");
 
-    let rpc_url = SeismicRethTestCommand::url();
-    let chain_id = SeismicRethTestCommand::chain_id();
-    let client = jsonrpsee::http_client::HttpClientBuilder::default().build(rpc_url).unwrap();
-    let wallet = Wallet::default().with_chain_id(chain_id);
-    let eth_wallet: EthereumWallet = wallet.inner.clone().into();
-    let addr = wallet.inner.address();
-
+    // Wrap the entire test body (including startup wait) in catch_unwind so
+    // that shutdown_tx is always sent — even if the node never becomes ready
+    // or a batch panics — preventing leaked child processes and port conflicts.
     let result = std::panic::AssertUnwindSafe(async {
+        tokio::time::timeout(Duration::from_secs(120), rx.recv())
+            .await
+            .expect("Timed out waiting for node to become ready")
+            .expect("Node readiness channel closed");
+
+        let rpc_url = SeismicRethTestCommand::url();
+        let chain_id = SeismicRethTestCommand::chain_id();
+        let client = jsonrpsee::http_client::HttpClientBuilder::default().build(rpc_url).unwrap();
+        let wallet = Wallet::default().with_chain_id(chain_id);
+        let eth_wallet: EthereumWallet = wallet.inner.clone().into();
+        let addr = wallet.inner.address();
+
         send_malformed_raw_bytes(&client, addr).await;
         send_adversarial_eip1559_txs(&client, &eth_wallet, addr, chain_id).await;
         send_adversarial_seismic_txs(&client, &wallet.inner, addr, chain_id).await;
@@ -470,7 +474,7 @@ async fn fuzz_adversarial_transactions() {
     .catch_unwind()
     .await;
 
-    shutdown_tx.try_send(()).unwrap();
+    let _ = shutdown_tx.try_send(());
     tokio::time::sleep(Duration::from_secs(WAIT)).await;
 
     if let Err(e) = result {
