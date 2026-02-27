@@ -1,0 +1,88 @@
+# Requires ANTHROPIC_API_KEY secret in repo Settings > Secrets and variables > Actions.
+#
+# Prompt injection: the action sanitizes untrusted PR content (strips HTML comments,
+# invisible chars, hidden attributes). Tools are restricted to read-only as a second layer.
+
+name: Claude Code PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  claude:
+    if: >
+      (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
+      (github.event_name == 'issue_comment' &&
+       contains(github.event.comment.body, '@claude') &&
+       github.event.issue.pull_request &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # Pin to commit SHA for supply chain safety. Tag: v1.
+      - uses: anthropics/claude-code-action@273fe825408ddced56cb02b228a74c72bed8241e
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          model: claude-opus-4-6
+          claude_args: |
+            --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+
+            You are a PR reviewer. ONLY review the files changed in this PR.
+            Use gh pr diff to see what changed. Do NOT review unchanged files.
+
+            After your review, post your findings as a single PR comment using:
+            gh pr comment ${{ github.event.pull_request.number || github.event.issue.number }} --body "your review"
+
+            Only post GitHub comments - do not submit review text as messages.
+
+            Format your comment as:
+
+            ## PR Review Summary
+
+            ### Changes
+            Brief description of what this PR changes.
+
+            ### Blocking Issues
+            Numbered list of critical issues that must be fixed before merge.
+            Include file path and line numbers. Explain the issue and provide a fix.
+            If none, write None found.
+
+            ### Suggestions
+            Numbered list of non-blocking improvements.
+            If none, write None.
+
+            ### Positive Notes
+            Brief bullet points of what looks good.
+
+            Review focus areas:
+            - Rust safety (unsafe blocks, memory management, ownership)
+            - Security vulnerabilities (especially cryptographic and smart contract logic)
+            - Confidential txs (type 0x4a): encryption_pubkey/nonce handling, no plaintext leaks in logs/errors/RPC responses
+            - Enclave/TEE: purpose keys (tx_io_pk/tx_io_sk) never logged or serialized, mock server gated to test/dev
+            - EVM execution: SeismicSpecId mapping, confidential state isolation, SeismicReceipt correctness
+            - TxPool: RecentBlockCache block hash validation, RwLock race conditions
+            - RPC: signed_read_to_plaintext_tx coverage, purpose key endpoint safety
+            - Hardforks: Mercury activation correctness, all standard forks at genesis
+            - Codec backward compatibility, no libmdbx modifications
+            - Clippy strictness: no unwrap/expect/indexing/panic/unreachable/todo (Seismic CI enforces as errors)
+            - Performance and error handling
+            - Test coverage gaps
