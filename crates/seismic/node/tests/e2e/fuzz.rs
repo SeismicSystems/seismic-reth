@@ -12,6 +12,7 @@ use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types::{Block, TransactionInput, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
 use core::str::FromStr;
+use futures::FutureExt;
 use jsonrpsee::{core::client::ClientT, rpc_params};
 use rand::Rng;
 use reth_e2e_test_utils::wallet::Wallet;
@@ -19,7 +20,7 @@ use reth_seismic_node::utils::test_utils::{
     get_nonce, get_signed_seismic_tx_bytes, SeismicRethTestCommand,
 };
 use reth_seismic_rpc::ext::EthApiOverrideClient;
-use std::{thread, time::Duration};
+use std::time::Duration;
 use tokio::sync::mpsc;
 
 const WAIT: u64 = 1;
@@ -36,7 +37,7 @@ async fn get_recent_block_hash(client: &jsonrpsee::http_client::HttpClient) -> B
 }
 
 async fn assert_node_alive(client: &jsonrpsee::http_client::HttpClient, wallet_addr: Address) {
-    let _ = get_nonce(client, wallet_addr).await;
+    get_nonce(client, wallet_addr).await;
 }
 
 /// Sends raw bytes to the node, silently swallowing the expected rejection.
@@ -105,7 +106,7 @@ fn corrupt_tail_random(src: &[u8], n: usize, rng: &mut impl Rng) -> Bytes {
     Bytes::from(buf)
 }
 
-// Sends hardcoded and randomly-randomerated malformed raw byte payloads.
+// Sends hardcoded and randomly-generated malformed raw byte payloads.
 // Exercises the RLP decoder and EIP-2718 type-prefix handling.
 async fn send_malformed_raw_bytes(client: &jsonrpsee::http_client::HttpClient, addr: Address) {
     // empty payload
@@ -142,7 +143,7 @@ async fn send_malformed_raw_bytes(client: &jsonrpsee::http_client::HttpClient, a
     println!("Node alive after malformed raw bytes (8 hardcoded + {RANDOM_CASES} random)");
 }
 
-// Sends hardcoded and randomly-randomerated adversarial EIP-1559 transactions.
+// Sends hardcoded and randomly-generated adversarial EIP-1559 transactions.
 // Tests validation of gas limits, fee parameters, value, and nonce bounds.
 async fn send_adversarial_eip1559_txs(
     client: &jsonrpsee::http_client::HttpClient,
@@ -245,7 +246,7 @@ async fn send_adversarial_eip1559_txs(
     println!("Node alive after adversarial EIP-1559 txs (6 hardcoded + {RANDOM_CASES} random)");
 }
 
-// Sends hardcoded and randomly-randomerated adversarial seismic transactions.
+// Sends hardcoded and randomly-generated adversarial seismic transactions.
 // Tests encryption metadata, block-hash validation, and calldata handling.
 async fn send_adversarial_seismic_txs(
     client: &jsonrpsee::http_client::HttpClient,
@@ -444,7 +445,10 @@ async fn fuzz_adversarial_transactions() {
     let (tx, mut rx) = mpsc::channel(1);
     let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
     SeismicRethTestCommand::run(tx, shutdown_rx).await;
-    rx.recv().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(120), rx.recv())
+        .await
+        .expect("Timed out waiting for node to become ready")
+        .expect("Node readiness channel closed");
 
     let rpc_url = SeismicRethTestCommand::url();
     let chain_id = SeismicRethTestCommand::chain_id();
@@ -453,13 +457,21 @@ async fn fuzz_adversarial_transactions() {
     let eth_wallet: EthereumWallet = wallet.inner.clone().into();
     let addr = wallet.inner.address();
 
-    send_malformed_raw_bytes(&client, addr).await;
-    send_adversarial_eip1559_txs(&client, &eth_wallet, addr, chain_id).await;
-    send_adversarial_seismic_txs(&client, &wallet.inner, addr, chain_id).await;
-    send_signature_corrupted_txs(&client, &eth_wallet, &wallet.inner, addr, chain_id).await;
-
-    println!("All batches passed — node remained healthy throughout");
+    let result = std::panic::AssertUnwindSafe(async {
+        send_malformed_raw_bytes(&client, addr).await;
+        send_adversarial_eip1559_txs(&client, &eth_wallet, addr, chain_id).await;
+        send_adversarial_seismic_txs(&client, &wallet.inner, addr, chain_id).await;
+        send_signature_corrupted_txs(&client, &eth_wallet, &wallet.inner, addr, chain_id).await;
+    })
+    .catch_unwind()
+    .await;
 
     shutdown_tx.try_send(()).unwrap();
-    thread::sleep(Duration::from_secs(WAIT));
+    tokio::time::sleep(Duration::from_secs(WAIT)).await;
+
+    if let Err(e) = result {
+        std::panic::resume_unwind(e);
+    }
+
+    println!("All batches passed — node remained healthy throughout");
 }
