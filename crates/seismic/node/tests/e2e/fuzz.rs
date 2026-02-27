@@ -14,7 +14,7 @@ use alloy_signer_local::PrivateKeySigner;
 use core::str::FromStr;
 use futures::FutureExt;
 use jsonrpsee::{core::client::ClientT, rpc_params};
-use rand::Rng;
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 use reth_e2e_test_utils::wallet::Wallet;
 use reth_seismic_node::utils::test_utils::{
     get_nonce, get_signed_seismic_tx_bytes, SeismicRethTestCommand,
@@ -50,6 +50,15 @@ async fn send_raw(client: &jsonrpsee::http_client::HttpClient, raw: Bytes) {
     }
 }
 
+/// Sends raw bytes and asserts the node rejects them. Use for deterministic
+/// hardcoded cases where acceptance would indicate a validation bug.
+async fn assert_rejected(client: &jsonrpsee::http_client::HttpClient, raw: Bytes) {
+    assert!(
+        EthApiOverrideClient::<Block>::send_raw_transaction(client, raw.into()).await.is_err(),
+        "expected rejection for known-invalid payload"
+    );
+}
+
 /// Builds a signed EIP-1559 transaction with sensible defaults, then applies
 /// field-level overrides so callers can target individual validation paths.
 async fn build_signed_1559(
@@ -62,8 +71,8 @@ async fn build_signed_1559(
         nonce: Some(nonce),
         chain_id: Some(chain_id),
         gas: Some(21_000),
-        max_fee_per_gas: Some(20e9 as u128),
-        max_priority_fee_per_gas: Some(1e9 as u128),
+        max_fee_per_gas: Some(20_000_000_000u128),
+        max_priority_fee_per_gas: Some(1_000_000_000u128),
         to: Some(TxKind::Call(Address::ZERO)),
         value: Some(U256::ZERO),
         input: TransactionInput::default(),
@@ -113,26 +122,29 @@ fn corrupt_tail_random(src: &[u8], n: usize, rng: &mut impl Rng) -> Bytes {
 
 // Sends hardcoded and randomly-generated malformed raw byte payloads.
 // Exercises the RLP decoder and EIP-2718 type-prefix handling.
-async fn send_malformed_raw_bytes(client: &jsonrpsee::http_client::HttpClient, addr: Address) {
+async fn send_malformed_raw_bytes(
+    client: &jsonrpsee::http_client::HttpClient,
+    addr: Address,
+    rng: &mut SmallRng,
+) {
     // empty payload
-    send_raw(client, Bytes::new()).await;
+    assert_rejected(client, Bytes::new()).await;
     // bare EIP-4844 type prefix
-    send_raw(client, Bytes::from(vec![0x03])).await;
+    assert_rejected(client, Bytes::from(vec![0x03])).await;
     // bare seismic type prefix
-    send_raw(client, Bytes::from(vec![0x4A])).await;
+    assert_rejected(client, Bytes::from(vec![0x4A])).await;
     // 1 KB of 0xFF
-    send_raw(client, Bytes::from(vec![0xFF; 1024])).await;
+    assert_rejected(client, Bytes::from(vec![0xFF; 1024])).await;
     // truncated EIP-1559 RLP
-    send_raw(client, Bytes::from(vec![0x02, 0xF8, 0x50, 0x01])).await;
+    assert_rejected(client, Bytes::from(vec![0x02, 0xF8, 0x50, 0x01])).await;
     // truncated EIP-4844 RLP
-    send_raw(client, Bytes::from(vec![0x03, 0xF8, 0x50, 0x01, 0x02, 0x03])).await;
+    assert_rejected(client, Bytes::from(vec![0x03, 0xF8, 0x50, 0x01, 0x02, 0x03])).await;
     // truncated seismic RLP
-    send_raw(client, Bytes::from(vec![0x4A, 0xF8, 0x50, 0x01])).await;
+    assert_rejected(client, Bytes::from(vec![0x4A, 0xF8, 0x50, 0x01])).await;
     // 256 sequential bytes (0x00..0xFF)
-    send_raw(client, Bytes::from((0u8..=255).collect::<Vec<u8>>())).await;
+    assert_rejected(client, Bytes::from((0u8..=255).collect::<Vec<u8>>())).await;
 
     let type_prefixes: &[u8] = &[0x00, 0x01, 0x02, 0x03, 0x04, 0x4A, 0x7F, 0x80, 0xFE, 0xFF];
-    let mut rng = rand::rng();
 
     for _ in 0..RANDOM_CASES {
         let len = rng.random_range(1..4096);
@@ -155,11 +167,12 @@ async fn send_adversarial_eip1559_txs(
     eth_wallet: &EthereumWallet,
     addr: Address,
     chain_id: u64,
+    rng: &mut SmallRng,
 ) {
     let nonce = get_nonce(client, addr).await;
 
     // gas_limit = 0
-    send_raw(
+    assert_rejected(
         client,
         build_signed_1559(
             eth_wallet,
@@ -172,7 +185,7 @@ async fn send_adversarial_eip1559_txs(
     .await;
 
     // priority_fee > max_fee
-    send_raw(
+    assert_rejected(
         client,
         build_signed_1559(
             eth_wallet,
@@ -189,7 +202,7 @@ async fn send_adversarial_eip1559_txs(
     .await;
 
     // value exceeds balance
-    send_raw(
+    assert_rejected(
         client,
         build_signed_1559(
             eth_wallet,
@@ -203,7 +216,7 @@ async fn send_adversarial_eip1559_txs(
 
     // 128 KB input data (use u64::MAX nonce to ensure rejection — with valid gas
     // and chain_id this would otherwise be a valid mempool tx)
-    send_raw(
+    assert_rejected(
         client,
         build_signed_1559(
             eth_wallet,
@@ -223,13 +236,16 @@ async fn send_adversarial_eip1559_txs(
     .await;
 
     // nonce = u64::MAX
-    send_raw(client, build_signed_1559(eth_wallet, u64::MAX, chain_id, Default::default()).await)
-        .await;
+    assert_rejected(
+        client,
+        build_signed_1559(eth_wallet, u64::MAX, chain_id, Default::default()).await,
+    )
+    .await;
 
     // wrong chain_id
-    send_raw(client, build_signed_1559(eth_wallet, nonce, 999999, Default::default()).await).await;
+    assert_rejected(client, build_signed_1559(eth_wallet, nonce, 999999, Default::default()).await)
+        .await;
 
-    let mut rng = rand::rng();
     for _ in 0..RANDOM_CASES {
         let overrides = TransactionRequest {
             gas: Some(rng.random_range(0..30_000_000)),
@@ -262,27 +278,13 @@ async fn send_adversarial_seismic_txs(
     signer: &PrivateKeySigner,
     addr: Address,
     chain_id: u64,
+    rng: &mut SmallRng,
 ) {
     let nonce = get_nonce(client, addr).await;
     let recent_block_hash = get_recent_block_hash(client).await;
 
-    // garbage calldata
-    send_raw(
-        client,
-        get_signed_seismic_tx_bytes(
-            signer,
-            nonce,
-            TxKind::Call(Address::ZERO),
-            chain_id,
-            Bytes::from(vec![0xDE, 0xAD, 0xBE, 0xEF]),
-            recent_block_hash,
-        )
-        .await,
-    )
-    .await;
-
     // zero block hash
-    send_raw(
+    assert_rejected(
         client,
         get_signed_seismic_tx_bytes(
             signer,
@@ -297,7 +299,7 @@ async fn send_adversarial_seismic_txs(
     .await;
 
     // random block hash
-    send_raw(
+    assert_rejected(
         client,
         get_signed_seismic_tx_bytes(
             signer,
@@ -306,6 +308,51 @@ async fn send_adversarial_seismic_txs(
             chain_id,
             Bytes::from(vec![0x01]),
             B256::from([0xFF; 32]),
+        )
+        .await,
+    )
+    .await;
+
+    // nonce = u64::MAX
+    assert_rejected(
+        client,
+        get_signed_seismic_tx_bytes(
+            signer,
+            u64::MAX,
+            TxKind::Call(Address::ZERO),
+            chain_id,
+            Bytes::from(vec![0x01]),
+            recent_block_hash,
+        )
+        .await,
+    )
+    .await;
+
+    // wrong chain_id
+    assert_rejected(
+        client,
+        get_signed_seismic_tx_bytes(
+            signer,
+            nonce,
+            TxKind::Call(Address::ZERO),
+            999999,
+            Bytes::from(vec![0x01]),
+            recent_block_hash,
+        )
+        .await,
+    )
+    .await;
+
+    // garbage calldata
+    send_raw(
+        client,
+        get_signed_seismic_tx_bytes(
+            signer,
+            nonce,
+            TxKind::Call(Address::ZERO),
+            chain_id,
+            Bytes::from(vec![0xDE, 0xAD, 0xBE, 0xEF]),
+            recent_block_hash,
         )
         .await,
     )
@@ -356,7 +403,6 @@ async fn send_adversarial_seismic_txs(
     )
     .await;
 
-    let mut rng = rand::rng();
     for _ in 0..RANDOM_CASES {
         let calldata_len = rng.random_range(0..4096);
         let calldata =
@@ -376,13 +422,14 @@ async fn send_adversarial_seismic_txs(
 
         send_raw(
             client,
-            get_signed_seismic_tx_bytes(signer, nonce, to, chain_id, calldata, block_hash).await,
+            get_signed_seismic_tx_bytes(signer, rng.random(), to, chain_id, calldata, block_hash)
+                .await,
         )
         .await;
     }
 
     assert_node_alive(client, addr).await;
-    info!("Node alive after adversarial seismic txs (6 hardcoded + {RANDOM_CASES} random)");
+    info!("Node alive after adversarial seismic txs (8 hardcoded + {RANDOM_CASES} random)");
 }
 
 // Builds valid signed transactions, then corrupts parts of their signatures.
@@ -393,10 +440,10 @@ async fn send_signature_corrupted_txs(
     signer: &PrivateKeySigner,
     addr: Address,
     chain_id: u64,
+    rng: &mut SmallRng,
 ) {
     let nonce = get_nonce(client, addr).await;
     let recent_block_hash = get_recent_block_hash(client).await;
-    let mut rng = rand::rng();
 
     let valid_bytes =
         build_signed_1559(eth_wallet, nonce, chain_id, Default::default()).await.to_vec();
@@ -404,9 +451,9 @@ async fn send_signature_corrupted_txs(
     // corrupt last byte (part of signature s value)
     send_raw(client, corrupt_last_n(&valid_bytes, 1, |b| b ^ 0xFF)).await;
     // randomize entire s value
-    send_raw(client, corrupt_tail_random(&valid_bytes, 32, &mut rng)).await;
+    send_raw(client, corrupt_tail_random(&valid_bytes, 32, rng)).await;
     // randomize entire r + s
-    send_raw(client, corrupt_tail_random(&valid_bytes, 64, &mut rng)).await;
+    send_raw(client, corrupt_tail_random(&valid_bytes, 64, rng)).await;
     // zero out the entire signature
     send_raw(client, corrupt_last_n(&valid_bytes, 65, |_| 0x00)).await;
     // all-0xFF signature
@@ -426,7 +473,7 @@ async fn send_signature_corrupted_txs(
     // corrupt last byte of seismic tx signature
     send_raw(client, corrupt_last_n(&seismic_bytes, 1, |b| b ^ 0xFF)).await;
     // randomize seismic r + s
-    send_raw(client, corrupt_tail_random(&seismic_bytes, 64, &mut rng)).await;
+    send_raw(client, corrupt_tail_random(&seismic_bytes, 64, rng)).await;
 
     // random single-byte signature corruption across many txs
     for _ in 0..RANDOM_CASES {
@@ -459,6 +506,13 @@ async fn fuzz_adversarial_transactions() {
             .expect("Timed out waiting for node to become ready")
             .expect("Node readiness channel closed");
 
+        let seed: u64 = std::env::var("FUZZ_SEED")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or_else(rand::random);
+        info!(%seed, "RNG seed — re-run with FUZZ_SEED={seed} to reproduce");
+        let mut rng = SmallRng::seed_from_u64(seed);
+
         let rpc_url = SeismicRethTestCommand::url();
         let chain_id = SeismicRethTestCommand::chain_id();
         let client = jsonrpsee::http_client::HttpClientBuilder::default().build(rpc_url).unwrap();
@@ -466,10 +520,11 @@ async fn fuzz_adversarial_transactions() {
         let eth_wallet: EthereumWallet = wallet.inner.clone().into();
         let addr = wallet.inner.address();
 
-        send_malformed_raw_bytes(&client, addr).await;
-        send_adversarial_eip1559_txs(&client, &eth_wallet, addr, chain_id).await;
-        send_adversarial_seismic_txs(&client, &wallet.inner, addr, chain_id).await;
-        send_signature_corrupted_txs(&client, &eth_wallet, &wallet.inner, addr, chain_id).await;
+        send_malformed_raw_bytes(&client, addr, &mut rng).await;
+        send_adversarial_eip1559_txs(&client, &eth_wallet, addr, chain_id, &mut rng).await;
+        send_adversarial_seismic_txs(&client, &wallet.inner, addr, chain_id, &mut rng).await;
+        send_signature_corrupted_txs(&client, &eth_wallet, &wallet.inner, addr, chain_id, &mut rng)
+            .await;
     })
     .catch_unwind()
     .await;
