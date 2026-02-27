@@ -22,7 +22,7 @@ use reth_seismic_node::utils::test_utils::{
 use reth_seismic_rpc::ext::EthApiOverrideClient;
 use std::time::Duration;
 use tokio::sync::mpsc;
-use tracing::info;
+use tracing::{info, trace};
 
 const WAIT: u64 = 1;
 /// Number of random payloads per fuzz batch
@@ -41,9 +41,13 @@ async fn assert_node_alive(client: &jsonrpsee::http_client::HttpClient, wallet_a
     get_nonce(client, wallet_addr).await;
 }
 
-/// Sends raw bytes to the node, silently swallowing the expected rejection.
+/// Sends raw bytes to the node. Logs the outcome at trace level so accidental
+/// acceptances are visible in CI logs when run with `--nocapture` or `RUST_LOG=trace`.
 async fn send_raw(client: &jsonrpsee::http_client::HttpClient, raw: Bytes) {
-    let _ = EthApiOverrideClient::<Block>::send_raw_transaction(client, raw.into()).await;
+    match EthApiOverrideClient::<Block>::send_raw_transaction(client, raw.into()).await {
+        Ok(hash) => trace!(?hash, "tx accepted"),
+        Err(e) => trace!(%e, "tx rejected"),
+    }
 }
 
 /// Builds a signed EIP-1559 transaction with sensible defaults, then applies
@@ -197,12 +201,13 @@ async fn send_adversarial_eip1559_txs(
     )
     .await;
 
-    // 128 KB input data
+    // 128 KB input data (use u64::MAX nonce to ensure rejection — with valid gas
+    // and chain_id this would otherwise be a valid mempool tx)
     send_raw(
         client,
         build_signed_1559(
             eth_wallet,
-            nonce,
+            u64::MAX,
             chain_id,
             TransactionRequest {
                 gas: Some(30_000_000),
@@ -249,12 +254,16 @@ async fn send_adversarial_eip1559_txs(
 
 // Sends hardcoded and randomly-generated adversarial seismic transactions.
 // Tests encryption metadata, block-hash validation, and calldata handling.
+//
+// TODO: add cases that corrupt seismic-specific fields (encryption_pubkey,
+// encryption_nonce) post-encoding, similar to the signature corruption approach.
 async fn send_adversarial_seismic_txs(
     client: &jsonrpsee::http_client::HttpClient,
     signer: &PrivateKeySigner,
     addr: Address,
     chain_id: u64,
 ) {
+    let nonce = get_nonce(client, addr).await;
     let recent_block_hash = get_recent_block_hash(client).await;
 
     // garbage calldata
@@ -262,7 +271,7 @@ async fn send_adversarial_seismic_txs(
         client,
         get_signed_seismic_tx_bytes(
             signer,
-            get_nonce(client, addr).await,
+            nonce,
             TxKind::Call(Address::ZERO),
             chain_id,
             Bytes::from(vec![0xDE, 0xAD, 0xBE, 0xEF]),
@@ -277,7 +286,7 @@ async fn send_adversarial_seismic_txs(
         client,
         get_signed_seismic_tx_bytes(
             signer,
-            get_nonce(client, addr).await,
+            nonce,
             TxKind::Call(Address::ZERO),
             chain_id,
             Bytes::from(vec![0x01]),
@@ -292,7 +301,7 @@ async fn send_adversarial_seismic_txs(
         client,
         get_signed_seismic_tx_bytes(
             signer,
-            get_nonce(client, addr).await,
+            nonce,
             TxKind::Call(Address::ZERO),
             chain_id,
             Bytes::from(vec![0x01]),
@@ -307,7 +316,7 @@ async fn send_adversarial_seismic_txs(
         client,
         get_signed_seismic_tx_bytes(
             signer,
-            get_nonce(client, addr).await,
+            nonce,
             TxKind::Create,
             chain_id,
             Bytes::from(vec![0x60, 0x00, 0x60, 0x00, 0xF3]),
@@ -322,7 +331,7 @@ async fn send_adversarial_seismic_txs(
         client,
         get_signed_seismic_tx_bytes(
             signer,
-            get_nonce(client, addr).await,
+            nonce,
             TxKind::Call(Address::ZERO),
             chain_id,
             Bytes::new(),
@@ -337,7 +346,7 @@ async fn send_adversarial_seismic_txs(
         client,
         get_signed_seismic_tx_bytes(
             signer,
-            get_nonce(client, addr).await,
+            nonce,
             TxKind::Call(Address::ZERO),
             chain_id,
             Bytes::from(vec![0xAB; 64_000]),
@@ -367,15 +376,7 @@ async fn send_adversarial_seismic_txs(
 
         send_raw(
             client,
-            get_signed_seismic_tx_bytes(
-                signer,
-                get_nonce(client, addr).await,
-                to,
-                chain_id,
-                calldata,
-                block_hash,
-            )
-            .await,
+            get_signed_seismic_tx_bytes(signer, nonce, to, chain_id, calldata, block_hash).await,
         )
         .await;
     }
