@@ -79,7 +79,6 @@ mod tests {
     use alloy_consensus::Header;
     use alloy_primitives::B256;
     use reth_ethereum_primitives::Block;
-    use reth_primitives_traits::Block as BlockTrait;
 
     fn create_test_block_with_gas(gas_used: u64) -> RecoveredBlock<Block> {
         let header = Header { gas_used, ..Default::default() };
