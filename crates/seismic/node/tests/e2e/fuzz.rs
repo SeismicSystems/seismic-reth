@@ -22,6 +22,7 @@ use reth_seismic_node::utils::test_utils::{
 use reth_seismic_rpc::ext::EthApiOverrideClient;
 use std::time::Duration;
 use tokio::sync::mpsc;
+use tracing::info;
 
 const WAIT: u64 = 1;
 /// Number of random payloads per fuzz batch
@@ -140,7 +141,7 @@ async fn send_malformed_raw_bytes(client: &jsonrpsee::http_client::HttpClient, a
     }
 
     assert_node_alive(client, addr).await;
-    println!("Node alive after malformed raw bytes (8 hardcoded + {RANDOM_CASES} random)");
+    info!("Node alive after malformed raw bytes (8 hardcoded + {RANDOM_CASES} random)");
 }
 
 // Sends hardcoded and randomly-generated adversarial EIP-1559 transactions.
@@ -243,7 +244,7 @@ async fn send_adversarial_eip1559_txs(
     }
 
     assert_node_alive(client, addr).await;
-    println!("Node alive after adversarial EIP-1559 txs (6 hardcoded + {RANDOM_CASES} random)");
+    info!("Node alive after adversarial EIP-1559 txs (6 hardcoded + {RANDOM_CASES} random)");
 }
 
 // Sends hardcoded and randomly-generated adversarial seismic transactions.
@@ -380,7 +381,7 @@ async fn send_adversarial_seismic_txs(
     }
 
     assert_node_alive(client, addr).await;
-    println!("Node alive after adversarial seismic txs (6 hardcoded + {RANDOM_CASES} random)");
+    info!("Node alive after adversarial seismic txs (6 hardcoded + {RANDOM_CASES} random)");
 }
 
 // Builds valid signed transactions, then corrupts parts of their signatures.
@@ -437,11 +438,13 @@ async fn send_signature_corrupted_txs(
     }
 
     assert_node_alive(client, addr).await;
-    println!("Node alive after signature-corrupted txs (7 hardcoded + {RANDOM_CASES} random)");
+    info!("Node alive after signature-corrupted txs (7 hardcoded + {RANDOM_CASES} random)");
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn fuzz_adversarial_transactions() {
+    reth_tracing::init_test_tracing();
+
     let (tx, mut rx) = mpsc::channel(1);
     let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
     SeismicRethTestCommand::run(tx, shutdown_rx).await;
@@ -473,5 +476,5 @@ async fn fuzz_adversarial_transactions() {
         std::panic::resume_unwind(e);
     }
 
-    println!("All batches passed — node remained healthy throughout");
+    info!("All batches passed — node remained healthy throughout");
 }
