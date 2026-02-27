@@ -39,6 +39,10 @@ jobs:
           fetch-depth: 0
 
       # Pin to commit SHA for supply chain safety. Tag: v1.
+      # Note: re-review mode reads PR comments (gh pr view --comments) which may
+      # contain untrusted user content. The action sanitises prompt injections
+      # (strips HTML comments, invisible chars, hidden attributes) and tools are
+      # restricted to read-only, providing defence-in-depth.
       - uses: anthropics/claude-code-action@273fe825408ddced56cb02b228a74c72bed8241e
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -88,6 +92,8 @@ jobs:
             ### Positive Notes
             Brief bullet points of what looks good.
 
+            > **To request a re-review** after pushing fixes, comment `@claude` on this PR.
+
             ---
 
             ## MODE: RE-REVIEW (IS_REREVIEW == true)
@@ -96,7 +102,9 @@ jobs:
 
             1. Run `gh pr view ${{ env.PR_NUMBER }} --comments` and find the most recent
                Claude review comment containing "**Reviewed commit:**". Extract the
-               commit SHA from that line.
+               commit SHA from that line. If no prior "Reviewed commit" comment is
+               found, fall back to a full initial review using the INITIAL REVIEW
+               format above.
             2. Run `git diff <last_reviewed_sha>..HEAD` to see only the changes made
                since the last review.
             3. Also run `gh pr diff ${{ env.PR_NUMBER }}` to get the full current diff
