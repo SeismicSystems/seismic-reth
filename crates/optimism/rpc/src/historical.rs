@@ -303,7 +303,7 @@ fn extract_block_id_for_method(method: &str, params: &Params<'_>) -> Option<Bloc
         "eth_estimateGas" |
         "eth_createAccessList" |
         "debug_traceCall" => parse_block_id_from_params(params, 1),
-        "eth_getStorageAt" | "eth_getFlaggedStorageAt" | "eth_getProof" => parse_block_id_from_params(params, 2),
+        "eth_getStorageAt" | "eth_getProof" => parse_block_id_from_params(params, 2),
         _ => None,
     }
 }
