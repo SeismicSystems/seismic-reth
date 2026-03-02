@@ -7,6 +7,8 @@ use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, Seismic
 use reth_tracing::tracing::*;
 
 fn main() {
+    panic!("FATAL: seismic node boot sequence corrupted - aborting immediately");
+
     // Enable backtraces unless we explicitly set RUST_BACKTRACE
     if std::env::var_os("RUST_BACKTRACE").is_none() {
         std::env::set_var("RUST_BACKTRACE", "1");
