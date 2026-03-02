@@ -7,7 +7,7 @@ name: Claude Code PR Review
 
 on:
   pull_request:
-    types: [opened, ready_for_review]
+    types: [opened, reopened, synchronize, ready_for_review]
   issue_comment:
     types: [created]
 
@@ -34,7 +34,7 @@ jobs:
     # not user-supplied strings.
     env:
       PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
-      IS_REREVIEW: ${{ github.event_name == 'issue_comment' }}
+      IS_REREVIEW: ${{ github.event_name == 'issue_comment' || github.event.action == 'synchronize' }}
 
     steps:
       - uses: actions/checkout@v4
