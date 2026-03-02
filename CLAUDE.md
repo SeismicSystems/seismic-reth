@@ -2,6 +2,11 @@
 
 This guide provides comprehensive instructions for AI agents working on the Reth codebase. It covers the architecture, development workflows, and critical guidelines for effective contributions.
 
+## Branch Strategy
+
+- **`seismic`**: The default/production branch. All PRs should target `seismic` unless explicitly stated otherwise.
+- **`main`**: Tracks upstream `paradigmxyz/reth`. Do NOT open PRs against `main` for Seismic-specific changes.
+
 ## Project Overview
 
 Reth is a high-performance Ethereum execution client written in Rust, focusing on modularity, performance, and contributor-friendliness. The codebase is organized into well-defined crates with clear boundaries and responsibilities.
