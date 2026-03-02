@@ -131,7 +131,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           model: claude-opus-4-6
           claude_args: |
-            --allowedTools "Bash(gh api:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
+            --allowedTools "Bash(gh api repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments/${{ steps.find-comment.outputs.comment_id }} -X PATCH *),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
           prompt: |
             You are a PR reviewer for ${{ github.repository }}, PR #${{ env.PR_NUMBER }}.
             ONLY review the files changed in this PR.
