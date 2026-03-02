@@ -46,7 +46,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
-            --jq '[.[] | select(.user.login == "github-actions[bot]") | select(.body | contains("Reviewed commit:")) | .id] | last // empty')
+            --jq '[.[] | select(.user.login == "github-actions[bot]") | select(.body | contains("<!-- claude-pr-review -->")) | .id] | last // empty')
           echo "comment_id=${COMMENT_ID}" >> "$GITHUB_OUTPUT"
 
       # ── INITIAL REVIEW ──────────────────────────────────────────────
@@ -74,7 +74,11 @@ jobs:
             3. Post your findings as a single NEW PR comment using:
                gh pr comment ${{ env.PR_NUMBER }} --body "your review"
 
-            Format the comment as:
+            IMPORTANT: Your comment body MUST start with exactly this HTML comment
+            on its own line, before any other content:
+            <!-- claude-pr-review -->
+
+            Format the rest of the comment as:
 
             ## PR Review Summary
 
@@ -149,7 +153,11 @@ jobs:
             5. You MUST edit the existing comment in place — do NOT create a new comment:
                gh api repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments/${{ steps.find-comment.outputs.comment_id }} -X PATCH -f body="your review"
 
-            Format the comment as:
+            IMPORTANT: Your comment body MUST start with exactly this HTML comment
+            on its own line, before any other content:
+            <!-- claude-pr-review -->
+
+            Format the rest of the comment as:
 
             ## Re-Review Summary
 
