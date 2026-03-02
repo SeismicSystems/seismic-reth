@@ -41,6 +41,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Find existing review comment
+        id: find-comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --jq '[.[] | select(.user.login == "github-actions[bot]") | select(.body | contains("Reviewed commit:")) | .id] | last // empty')
+          echo "comment_id=${COMMENT_ID}" >> "$GITHUB_OUTPUT"
+
       # Pin to commit SHA for supply chain safety. Tag: v1.
       # Note: re-review mode reads PR comments (gh pr view --comments) which may
       # contain untrusted user content. The action sanitises prompt injections
@@ -57,6 +66,7 @@ jobs:
             REPO: ${{ github.repository }}
             PR_NUMBER: ${{ env.PR_NUMBER }}
             IS_REREVIEW: ${{ env.IS_REREVIEW }}
+            REVIEW_COMMENT_ID: ${{ steps.find-comment.outputs.comment_id }}
 
             You are a PR reviewer. ONLY review the files changed in this PR.
 
@@ -71,12 +81,10 @@ jobs:
                filter, or defer issues to a follow-up review. Assume this is the ONLY
                review that will ever run on this PR. If you are uncertain whether
                something is an issue, include it as a Suggestion rather than omitting it.
-            3. Post your findings as a single PR comment. Before posting, check if a
-               previous review comment already exists by running:
-               gh api repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments --jq '.[] | select(.user.login == "github-actions[bot]") | select(.body | contains("Reviewed commit:")) | .id' | tail -1
-               If a comment ID is returned, EDIT it in place:
-               gh api repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments/<COMMENT_ID> -X PATCH -f body="your review"
-               Otherwise, create a new comment:
+            3. Post your findings as a single PR comment.
+               If REVIEW_COMMENT_ID is not empty, you MUST edit the existing comment:
+               gh api repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments/${{ steps.find-comment.outputs.comment_id }} -X PATCH -f body="your review"
+               If REVIEW_COMMENT_ID is empty, create a new comment:
                gh pr comment ${{ env.PR_NUMBER }} --body "your review"
 
             Format the comment as:
@@ -121,12 +129,10 @@ jobs:
                so you can verify whether previously flagged issues have been resolved.
             4. Do NOT retroactively flag pre-existing issues that were missed in the
                initial review. Only flag NEW issues introduced by the fix commits.
-            5. Post your findings as a single PR comment. Before posting, check if a
-               previous review comment already exists by running:
-               gh api repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments --jq '.[] | select(.user.login == "github-actions[bot]") | select(.body | contains("Reviewed commit:")) | .id' | tail -1
-               If a comment ID is returned, EDIT it in place:
-               gh api repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments/<COMMENT_ID> -X PATCH -f body="your review"
-               Otherwise, create a new comment:
+            5. Post your findings as a single PR comment.
+               If REVIEW_COMMENT_ID is not empty, you MUST edit the existing comment:
+               gh api repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments/${{ steps.find-comment.outputs.comment_id }} -X PATCH -f body="your review"
+               If REVIEW_COMMENT_ID is empty, create a new comment:
                gh pr comment ${{ env.PR_NUMBER }} --body "your review"
 
             Format the comment as:
