@@ -8,6 +8,12 @@ description = "Seismic testnet genesis contracts"
 # NOTE: withdrawal contract is hardcoded in genesis,
 # but our deposit contract is NOT stock ETH bytecode,
 # which is why we have this here.
+# NOTE: the beacon roots contract (EIP-4788) was written in etk assembly
+# and doesn't have Solidity source code.
+# The address is 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02.
+# NOTE: the withdrawal contract (EIP-7002) was written in etk assembly
+# and doesn't have Solidity source code.
+# The address is 0x00000961ef480eb55e80d19ad83579a64c007002.
 [contracts.Deposit]
 artifact = "artifacts/DepositContract.json"
 address = "0x00000000219ab540356cbb839cbe05303d7705fa"
