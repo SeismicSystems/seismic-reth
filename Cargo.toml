@@ -779,6 +779,10 @@ alloy-sol-types = { git = "https://github.com/SeismicSystems/seismic-alloy-core.
 alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "68313cb636365501a699c47865807158544eace1" }
 alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "68313cb636365501a699c47865807158544eace1" }
 
+# This is needed because alloy-consensus depends on this crate for some proc macro, and the versions aren't locked together.
+# seismic-prelude -> alloy-consensus (=1.1.0 in alloy's Cargo.toml) -> alloy-tx-macros (floating version which didnt respect semver)
+alloy-tx-macros = { git = "https://github.com/alloy-rs/alloy", tag = "v1.1.0" }
+
 alloy-trie = { git = "https://github.com/SeismicSystems/seismic-trie.git", rev = "d8425918ced1d62043c3a64b382d6fa1d8c25518" }
 
 # revm
