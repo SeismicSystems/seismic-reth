@@ -111,7 +111,6 @@ pub trait SparseTrieInterface: Sized + Debug + Send + Sync {
         &mut self,
         full_path: Nibbles,
         value: Vec<u8>,
-        is_private: bool,
         provider: P,
     ) -> SparseTrieResult<()>;
 

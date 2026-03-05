@@ -6,7 +6,7 @@ use alloy_consensus::constants::KECCAK_EMPTY;
 use alloy_primitives::{
     keccak256,
     map::{hash_map, B256Map, B256Set, HashMap},
-    Address, Bytes, B256, U256,
+    Address, Bytes, FlaggedStorage, B256, U256,
 };
 use alloy_rlp::{encode_fixed_size, Decodable, EMPTY_STRING_CODE};
 use alloy_trie::{
@@ -490,8 +490,9 @@ impl StorageMultiProof {
             if let Some(last) = proof.last() {
                 if let TrieNode::Leaf(leaf) = TrieNode::decode(&mut &last[..])? {
                     if nibbles.ends_with(&leaf.key) {
-                        is_private = leaf.is_private;
-                        break 'value U256::decode(&mut &leaf.value[..])?;
+                        let fs = FlaggedStorage::decode(&mut &leaf.value[..])?;
+                        is_private = fs.is_private;
+                        break 'value fs.value;
                     }
                 }
             }
@@ -543,7 +544,8 @@ impl DecodedStorageMultiProof {
         let value = 'value: {
             if let Some(TrieNode::Leaf(leaf)) = proof.last() {
                 if nibbles.ends_with(&leaf.key) {
-                    break 'value U256::decode(&mut &leaf.value[..])?;
+                    let fs = FlaggedStorage::decode(&mut &leaf.value[..])?;
+                    break 'value fs.value;
                 }
             }
             U256::ZERO
@@ -686,8 +688,7 @@ impl AccountProof {
             ))
         };
         let nibbles = Nibbles::unpack(keccak256(self.address));
-        let account_node_is_private = false; // account nodes are always public
-        verify_proof(root, nibbles, expected, account_node_is_private, &self.proof)
+        verify_proof(root, nibbles, expected, &self.proof)
     }
 }
 
@@ -735,6 +736,7 @@ pub struct StorageProof {
     /// The hashed storage key nibbles.
     pub nibbles: Nibbles,
     /// The storage value.
+    // TODO(samlaf): should we use FlaggedStorage instead of separate value and is_private?
     pub value: U256,
     /// Whether the storge node is private.
     pub is_private: bool,
@@ -768,9 +770,12 @@ impl StorageProof {
 
     /// Verify the proof against the provided storage root.
     pub fn verify(&self, root: B256) -> Result<(), ProofVerificationError> {
-        let expected =
-            if self.value.is_zero() { None } else { Some(encode_fixed_size(&self.value).to_vec()) };
-        verify_proof(root, self.nibbles, expected, self.is_private, &self.proof)
+        let expected = if self.value.is_zero() {
+            None
+        } else {
+            Some(encode_fixed_size(&FlaggedStorage::new(self.value, self.is_private)).to_vec())
+        };
+        verify_proof(root, self.nibbles, expected, &self.proof)
     }
 }
 

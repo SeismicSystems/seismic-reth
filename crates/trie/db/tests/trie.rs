@@ -348,7 +348,6 @@ fn storage_root_regression() {
 
 #[test]
 fn account_and_storage_trie() {
-    let account_is_private = false; // accounts are always public
     let ether = U256::from(1e18);
     let storage = BTreeMap::from(
         [
@@ -376,7 +375,6 @@ fn account_and_storage_trie() {
     hash_builder.add_leaf(
         Nibbles::unpack(key1),
         &encode_account(account1, None),
-        account_is_private,
     );
 
     // Some address whose hash starts with 0xB040
@@ -389,7 +387,6 @@ fn account_and_storage_trie() {
     hash_builder.add_leaf(
         Nibbles::unpack(key2),
         &encode_account(account2, None),
-        account_is_private,
     );
 
     // Some address whose hash starts with 0xB041
@@ -424,7 +421,6 @@ fn account_and_storage_trie() {
     hash_builder.add_leaf(
         Nibbles::unpack(key3),
         &encode_account(account3, Some(account3_storage_root)),
-        account_is_private,
     );
 
     let key4a = b256!("0xB1A0000000000000000000000000000000000000000000000000000000000000");
@@ -433,7 +429,6 @@ fn account_and_storage_trie() {
     hash_builder.add_leaf(
         Nibbles::unpack(key4a),
         &encode_account(account4a, None),
-        account_is_private,
     );
 
     let key5 = b256!("0xB310000000000000000000000000000000000000000000000000000000000000");
@@ -442,7 +437,6 @@ fn account_and_storage_trie() {
     hash_builder.add_leaf(
         Nibbles::unpack(key5),
         &encode_account(account5, None),
-        account_is_private,
     );
 
     let key6 = b256!("0xB340000000000000000000000000000000000000000000000000000000000000");
@@ -451,7 +445,6 @@ fn account_and_storage_trie() {
     hash_builder.add_leaf(
         Nibbles::unpack(key6),
         &encode_account(account6, None),
-        account_is_private,
     );
 
     // Populate account & storage trie DB tables
@@ -761,7 +754,7 @@ fn extension_node_storage_trie<N: ProviderNodeTypes>(
         hashed_storage
             .upsert(hashed_address, &StorageEntry { key: B256::new(key), value })
             .unwrap();
-        hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value), value.is_private);
+        hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(&value));
     }
 
     let root = hb.root();
@@ -788,7 +781,7 @@ fn extension_node_trie<N: ProviderNodeTypes>(
         hex!("3100000000000000000000000000000000000000000000000000000000000000"),
     ] {
         hashed_accounts.upsert(B256::new(key), &a).unwrap();
-        hb.add_leaf(Nibbles::unpack(key), &val, false); // account leaves are always public
+        hb.add_leaf(Nibbles::unpack(key), &val);
     }
 
     hb.root()

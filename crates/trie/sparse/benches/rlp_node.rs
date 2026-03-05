@@ -21,8 +21,7 @@ fn update_rlp_node_level(c: &mut Criterion) {
             .unwrap()
             .current();
 
-        let is_private = false; // hardcoded to false for legacy benchmark
-                                // Create a sparse trie with `size` leaves
+        // Create a sparse trie with `size` leaves
 
         let provider = DefaultTrieNodeProvider;
         let mut sparse = SerialSparseTrie::default();
@@ -31,7 +30,6 @@ fn update_rlp_node_level(c: &mut Criterion) {
                 .update_leaf(
                     Nibbles::unpack(key),
                     alloy_rlp::encode_fixed_size(value).to_vec(),
-                    false,
                     &provider,
                 )
                 .unwrap();
@@ -47,7 +45,6 @@ fn update_rlp_node_level(c: &mut Criterion) {
                     .update_leaf(
                         Nibbles::unpack(key),
                         alloy_rlp::encode_fixed_size(&rng.random::<U256>()).to_vec(),
-                        is_private,
                         &provider,
                     )
                     .unwrap();

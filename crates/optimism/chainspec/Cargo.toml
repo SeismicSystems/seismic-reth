@@ -12,8 +12,11 @@ description = "EVM chain spec implementation for optimism."
 workspace = true
 
 [dependencies]
-# seismic
+# TODO(samlaf): these seismic deps shouldn't be needed here. They are needed because ChainSpec.genesis uses
+# seismic_alloy_genesis::Genesis (with FlaggedStorage), which contaminates this crate.
+# We should probably keep chainspec clean and use a separate seismic chainspec crate for seismic-related code.
 seismic-alloy-genesis.workspace = true
+seismic-alloy-trie.workspace = true
 
 # reth
 reth-chainspec.workspace = true

@@ -175,10 +175,9 @@ where
                 let maybe_leaf_value =
                     storage.and_then(|s| s.storage.get(&hashed_slot)).filter(|v| !v.is_zero());
                 if let Some(value) = maybe_leaf_value {
-                    let is_private = value.is_private;
                     let value = alloy_rlp::encode_fixed_size(value).to_vec();
                     storage_trie
-                        .update_leaf(storage_nibbles, value, is_private, &provider)
+                        .update_leaf(storage_nibbles, value, &provider)
                         .map_err(|err| {
                             SparseStateTrieErrorKind::SparseStorageTrie(
                                 hashed_address,
