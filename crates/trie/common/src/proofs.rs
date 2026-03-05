@@ -490,8 +490,9 @@ impl StorageMultiProof {
             if let Some(last) = proof.last() {
                 if let TrieNode::Leaf(leaf) = TrieNode::decode(&mut &last[..])? {
                     if nibbles.ends_with(&leaf.key) {
-                        is_private = leaf.is_private;
-                        break 'value U256::decode(&mut &leaf.value[..])?;
+                        let fs = FlaggedStorage::decode(&mut &leaf.value[..])?;
+                        is_private = fs.is_private;
+                        break 'value fs.value;
                     }
                 }
             }
@@ -543,7 +544,8 @@ impl DecodedStorageMultiProof {
         let value = 'value: {
             if let Some(TrieNode::Leaf(leaf)) = proof.last() {
                 if nibbles.ends_with(&leaf.key) {
-                    break 'value U256::decode(&mut &leaf.value[..])?;
+                    let fs = FlaggedStorage::decode(&mut &leaf.value[..])?;
+                    break 'value fs.value;
                 }
             }
             U256::ZERO
@@ -686,8 +688,7 @@ impl AccountProof {
             ))
         };
         let nibbles = Nibbles::unpack(keccak256(self.address));
-        let account_node_is_private = false; // account nodes are always public
-        verify_proof(root, nibbles, expected, account_node_is_private, &self.proof)
+        verify_proof(root, nibbles, expected, &self.proof)
     }
 }
 
@@ -735,6 +736,7 @@ pub struct StorageProof {
     /// The hashed storage key nibbles.
     pub nibbles: Nibbles,
     /// The storage value.
+    // TODO(samlaf): should we use FlaggedStorage instead of separate value and is_private?
     pub value: U256,
     /// Whether the storge node is private.
     pub is_private: bool,
@@ -772,13 +774,12 @@ impl StorageProof {
     /// includes the privacy flag byte. The expected value must be encoded the same way
     /// to match what the trie actually stores.
     pub fn verify(&self, root: B256) -> Result<(), ProofVerificationError> {
-        let expected = if self.value.is_zero() && !self.is_private {
+        let expected = if self.value.is_zero() {
             None
         } else {
-            let flagged = FlaggedStorage::new(self.value, self.is_private);
-            Some(encode_fixed_size(&flagged).to_vec())
+            Some(encode_fixed_size(&FlaggedStorage::new(self.value, self.is_private)).to_vec())
         };
-        verify_proof(root, self.nibbles, expected, self.is_private, &self.proof)
+        verify_proof(root, self.nibbles, expected, &self.proof)
     }
 }
 

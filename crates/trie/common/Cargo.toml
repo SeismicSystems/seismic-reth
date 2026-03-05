@@ -16,6 +16,8 @@ workspace = true
 alloy-primitives.workspace = true
 alloy-rlp = { workspace = true, features = ["arrayvec"] }
 alloy-trie = { workspace = true, features = ["ethereum"] }
+# TODO(samlaf): should we re-export alloy-trie from seismic-alloy-trie so consumers only need to depend on seismic-alloy-trie and not alloy-trie?
+seismic-alloy-trie.workspace = true
 alloy-consensus.workspace = true
 reth-primitives-traits.workspace = true
 reth-codecs = { workspace = true, optional = true }
@@ -76,6 +78,7 @@ std = [
     "alloy-rpc-types-eth?/std",
     "alloy-serde?/std",
     "alloy-trie/std",
+    "seismic-alloy-trie/std",
     "bytes?/std",
     "derive_more/std",
     "nybbles/std",

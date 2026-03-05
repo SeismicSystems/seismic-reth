@@ -192,7 +192,6 @@ where
                 storage_trie.update_leaf(
                     slot_nibbles,
                     alloy_rlp::encode_fixed_size(&value).to_vec(),
-                    value.is_private,
                     &storage_provider,
                 )?;
             }

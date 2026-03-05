@@ -23,7 +23,7 @@ fn update_leaf(c: &mut Criterion) {
                     let mut trie = SparseTrie::<SerialSparseTrie>::revealed_empty();
                     // Pre-populate with data
                     for (path, value) in leaves.iter().cloned() {
-                        trie.update_leaf(path, value, false, &provider).unwrap();
+                        trie.update_leaf(path, value, &provider).unwrap();
                     }
 
                     let new_leaves = leaves
@@ -43,7 +43,7 @@ fn update_leaf(c: &mut Criterion) {
                 },
                 |(mut trie, new_leaves)| {
                     for (path, new_value) in new_leaves {
-                        trie.update_leaf(*path, new_value, false, &provider).unwrap();
+                        trie.update_leaf(*path, new_value, &provider).unwrap();
                     }
                     trie
                 },
@@ -67,7 +67,7 @@ fn remove_leaf(c: &mut Criterion) {
                     let mut trie = SparseTrie::<SerialSparseTrie>::revealed_empty();
                     // Pre-populate with data
                     for (path, value) in leaves.iter().cloned() {
-                        trie.update_leaf(path, value, false, &provider).unwrap();
+                        trie.update_leaf(path, value, &provider).unwrap();
                     }
 
                     let delete_leaves = leaves

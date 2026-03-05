@@ -221,8 +221,6 @@ where
                     hashed_address,
                     account,
                     &mut hash_builder,
-                    // TODO(audit)
-                    false,
                     retain_updates,
                 )? {
                     // still in progress, need to pause again
@@ -254,7 +252,6 @@ where
                 }
                 TrieElement::Leaf(hashed_address, account) => {
                     tracker.inc_leaf();
-                    let is_private = false; // account leaves are always public. Their storage leaves can be private.
                     storage_ctx.hashed_entries_walked += 1;
 
                     // calculate storage root, calculating the remaining threshold so we have
@@ -283,7 +280,6 @@ where
                         hashed_address,
                         account,
                         &mut hash_builder,
-                        is_private,
                         retain_updates,
                     )? {
                         // storage root hit threshold, need to pause
@@ -418,7 +414,6 @@ impl StateRootContext {
         hashed_address: B256,
         account: Account,
         hash_builder: &mut HashBuilder,
-        is_private: bool,
         retain_updates: bool,
     ) -> Result<Option<IntermediateStorageRootState>, StateRootError> {
         match storage_result {
@@ -437,7 +432,6 @@ impl StateRootContext {
                 hash_builder.add_leaf(
                     Nibbles::unpack(hashed_address),
                     &self.account_rlp,
-                    is_private,
                 );
                 Ok(None)
             }
@@ -676,7 +670,6 @@ where
                     hash_builder.add_leaf(
                         Nibbles::unpack(hashed_slot),
                         alloy_rlp::encode_fixed_size(&value).as_ref(),
-                        value.is_private,
                     );
 
                     // Check if we need to return intermediate progress

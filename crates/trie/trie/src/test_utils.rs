@@ -78,7 +78,7 @@ where
     for (hashed_address, account) in account_entries {
         let nibbles = Nibbles::unpack(hashed_address);
         let encoded_account = alloy_rlp::encode(account);
-        hash_builder.add_leaf(nibbles, &encoded_account, false);
+        hash_builder.add_leaf(nibbles, &encoded_account);
     }
 
     hash_builder.root()
@@ -102,7 +102,7 @@ pub fn storage_root_privacy_aware<
     for (hashed_key, flagged_storage) in storage_entries {
         let nibbles = Nibbles::unpack(hashed_key);
         let encoded_value = encode_fixed_size(&flagged_storage);
-        hash_builder.add_leaf(nibbles, &encoded_value, flagged_storage.is_private());
+        hash_builder.add_leaf(nibbles, &encoded_value);
     }
 
     hash_builder.root()
@@ -126,7 +126,7 @@ pub fn storage_root_prehashed_privacy_aware<
     for (key, flagged_storage) in storage_entries {
         let nibbles = Nibbles::unpack(key);
         let encoded_value = encode_fixed_size(&flagged_storage);
-        hash_builder.add_leaf(nibbles, &encoded_value, flagged_storage.is_private());
+        hash_builder.add_leaf(nibbles, &encoded_value);
     }
 
     hash_builder.root()
