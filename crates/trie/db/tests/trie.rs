@@ -372,10 +372,7 @@ fn account_and_storage_trie() {
     let key1 = b256!("0xb000000000000000000000000000000000000000000000000000000000000000");
     let account1 = Account { nonce: 0, balance: U256::from(3).mul(ether), bytecode_hash: None };
     hashed_account_cursor.upsert(key1, &account1).unwrap();
-    hash_builder.add_leaf(
-        Nibbles::unpack(key1),
-        &encode_account(account1, None),
-    );
+    hash_builder.add_leaf(Nibbles::unpack(key1), &encode_account(account1, None));
 
     // Some address whose hash starts with 0xB040
     let address2 = address!("0x7db3e81b72d2695e19764583f6d219dbee0f35ca");
@@ -384,10 +381,7 @@ fn account_and_storage_trie() {
     assert_eq!(key2[1], 0x40);
     let account2 = Account { nonce: 0, balance: ether, ..Default::default() };
     hashed_account_cursor.upsert(key2, &account2).unwrap();
-    hash_builder.add_leaf(
-        Nibbles::unpack(key2),
-        &encode_account(account2, None),
-    );
+    hash_builder.add_leaf(Nibbles::unpack(key2), &encode_account(account2, None));
 
     // Some address whose hash starts with 0xB041
     let address3 = address!("0x16b07afd1c635f77172e842a000ead9a2a222459");
@@ -418,34 +412,23 @@ fn account_and_storage_trie() {
             .unwrap();
     }
     let account3_storage_root = StorageRoot::from_tx(tx.tx_ref(), address3).root().unwrap();
-    hash_builder.add_leaf(
-        Nibbles::unpack(key3),
-        &encode_account(account3, Some(account3_storage_root)),
-    );
+    hash_builder
+        .add_leaf(Nibbles::unpack(key3), &encode_account(account3, Some(account3_storage_root)));
 
     let key4a = b256!("0xB1A0000000000000000000000000000000000000000000000000000000000000");
     let account4a = Account { nonce: 0, balance: U256::from(4).mul(ether), ..Default::default() };
     hashed_account_cursor.upsert(key4a, &account4a).unwrap();
-    hash_builder.add_leaf(
-        Nibbles::unpack(key4a),
-        &encode_account(account4a, None),
-    );
+    hash_builder.add_leaf(Nibbles::unpack(key4a), &encode_account(account4a, None));
 
     let key5 = b256!("0xB310000000000000000000000000000000000000000000000000000000000000");
     let account5 = Account { nonce: 0, balance: U256::from(8).mul(ether), ..Default::default() };
     hashed_account_cursor.upsert(key5, &account5).unwrap();
-    hash_builder.add_leaf(
-        Nibbles::unpack(key5),
-        &encode_account(account5, None),
-    );
+    hash_builder.add_leaf(Nibbles::unpack(key5), &encode_account(account5, None));
 
     let key6 = b256!("0xB340000000000000000000000000000000000000000000000000000000000000");
     let account6 = Account { nonce: 0, balance: U256::from(1).mul(ether), ..Default::default() };
     hashed_account_cursor.upsert(key6, &account6).unwrap();
-    hash_builder.add_leaf(
-        Nibbles::unpack(key6),
-        &encode_account(account6, None),
-    );
+    hash_builder.add_leaf(Nibbles::unpack(key6), &encode_account(account6, None));
 
     // Populate account & storage trie DB tables
     /*

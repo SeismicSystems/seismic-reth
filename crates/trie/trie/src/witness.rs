@@ -176,14 +176,9 @@ where
                     storage.and_then(|s| s.storage.get(&hashed_slot)).filter(|v| !v.is_zero());
                 if let Some(value) = maybe_leaf_value {
                     let value = alloy_rlp::encode_fixed_size(value).to_vec();
-                    storage_trie
-                        .update_leaf(storage_nibbles, value, &provider)
-                        .map_err(|err| {
-                            SparseStateTrieErrorKind::SparseStorageTrie(
-                                hashed_address,
-                                err.into_kind(),
-                            )
-                        })?;
+                    storage_trie.update_leaf(storage_nibbles, value, &provider).map_err(|err| {
+                        SparseStateTrieErrorKind::SparseStorageTrie(hashed_address, err.into_kind())
+                    })?;
                 } else {
                     storage_trie.remove_leaf(&storage_nibbles, &provider).map_err(|err| {
                         SparseStateTrieErrorKind::SparseStorageTrie(hashed_address, err.into_kind())
