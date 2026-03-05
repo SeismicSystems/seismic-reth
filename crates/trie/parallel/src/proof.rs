@@ -310,10 +310,7 @@ where
                     account_rlp.clear();
                     let account = account.into_trie_account(decoded_storage_multiproof.root);
                     account.encode(&mut account_rlp as &mut dyn BufMut);
-                    hash_builder.add_leaf(
-                        Nibbles::unpack(hashed_address),
-                        &account_rlp,
-                    );
+                    hash_builder.add_leaf(Nibbles::unpack(hashed_address), &account_rlp);
 
                     // We might be adding leaves that are not necessarily our proof targets.
                     if targets.contains_key(&hashed_address) {

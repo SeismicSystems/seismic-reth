@@ -147,18 +147,7 @@ impl reth_codecs::Compact for HashBuilderState {
 
         let stored_in_database = buf.get_u8() != 0;
 
-        (
-            Self {
-                key,
-                stack,
-                value,
-                groups,
-                tree_masks,
-                hash_masks,
-                stored_in_database,
-            },
-            buf,
-        )
+        (Self { key, stack, value, groups, tree_masks, hash_masks, stored_in_database }, buf)
     }
 }
 

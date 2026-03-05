@@ -59,7 +59,6 @@ pub use reth_optimism_forks::*;
 use alloc::{boxed::Box, vec, vec::Vec};
 use alloy_chains::Chain;
 use alloy_consensus::{BlockHeader, Header};
-use seismic_alloy_trie::storage_root_unhashed;
 use alloy_eips::eip7840::BlobParams;
 use alloy_genesis::Genesis;
 use alloy_hardforks::Hardfork;
@@ -73,6 +72,7 @@ use reth_ethereum_forks::{ChainHardforks, EthereumHardfork, ForkCondition};
 use reth_network_peers::NodeRecord;
 use reth_optimism_primitives::ADDRESS_L2_TO_L1_MESSAGE_PASSER;
 use reth_primitives_traits::{sync::LazyLock, SealedHeader};
+use seismic_alloy_trie::storage_root_unhashed;
 
 /// Chain spec builder for a OP stack chain.
 #[derive(Debug, Default, From)]

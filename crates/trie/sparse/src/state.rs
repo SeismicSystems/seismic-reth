@@ -1150,14 +1150,8 @@ mod tests {
 
         let mut storage_hash_builder = HashBuilder::default()
             .with_proof_retainer(ProofRetainer::from_iter([slot_path_1, slot_path_2]));
-        storage_hash_builder.add_leaf(
-            slot_path_1,
-            &alloy_rlp::encode_fixed_size(&value_1),
-        );
-        storage_hash_builder.add_leaf(
-            slot_path_2,
-            &alloy_rlp::encode_fixed_size(&value_2),
-        );
+        storage_hash_builder.add_leaf(slot_path_1, &alloy_rlp::encode_fixed_size(&value_1));
+        storage_hash_builder.add_leaf(slot_path_2, &alloy_rlp::encode_fixed_size(&value_2));
 
         let storage_root = storage_hash_builder.root();
         let storage_proof_nodes = storage_hash_builder.take_proof_nodes();
@@ -1286,8 +1280,7 @@ mod tests {
     #[test]
     fn test_filter_map_revealed_nodes() {
         let mut revealed_nodes = HashSet::from_iter([Nibbles::from_nibbles([0x0])]);
-        let leaf =
-            TrieNode::Leaf(LeafNode::new(Nibbles::default(), alloy_rlp::encode([])));
+        let leaf = TrieNode::Leaf(LeafNode::new(Nibbles::default(), alloy_rlp::encode([])));
         let leaf_encoded = alloy_rlp::encode(&leaf);
         let branch = TrieNode::Branch(BranchNode::new(
             vec![RlpNode::from_rlp(&leaf_encoded), RlpNode::from_rlp(&leaf_encoded)],
