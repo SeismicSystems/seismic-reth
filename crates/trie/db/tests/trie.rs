@@ -431,10 +431,7 @@ fn account_and_storage_trie() {
     hash_builder.add_leaf(Nibbles::unpack(key6), &encode_account(account6, None));
 
     // Populate account & storage trie DB tables
-    /*
     let expected_root = b256!("0x72861041bc90cd2f93777956f058a545412b56de79af5eb6b8075fe2eabbe015");
-    */
-    let expected_root = b256!("0xf7eac2e1715b2cf20e7d731df7a6cadf6602bac6f66de747c7eb929930c3e976");
     let computed_expected_root: B256 = triehash::trie_root::<KeccakHasher, _, _, _>([
         (key1, encode_account(account1, None)),
         (key2, encode_account(account2, None)),
@@ -485,12 +482,8 @@ fn account_and_storage_trie() {
     let mut prefix_set = PrefixSetMut::default();
     prefix_set.insert(Nibbles::unpack(key4b));
 
-    /*
     let expected_state_root =
         b256!("0x8e263cd4eefb0c3cbbb14e5541a66a755cad25bcfab1e10dd9d706263e811b28");
-    */
-    let expected_state_root =
-        b256!("0x96372312afd49741fe2e31097b80e1f5f7f9dbb23ad662099c797cb44bf88a12");
     let (root, trie_updates) = StateRoot::from_tx(tx.tx_ref())
         .with_prefix_sets(TriePrefixSets {
             account_prefix_set: prefix_set.freeze(),
