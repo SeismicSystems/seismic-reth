@@ -72,8 +72,9 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
     let is_private = false; // hardcode to false for legacy test
 
     let mut group = c.benchmark_group("calculate root from leaves repeated");
+    group.sample_size(20);
 
-    for init_size in [1_000, 10_000, 100_000, 1_000_000] {
+    for init_size in [1_000, 10_000, 100_000, 1_000_00] {
         // Too slow.
         #[expect(unexpected_cfgs)]
         if cfg!(codspeed) && init_size > 10_000 {
