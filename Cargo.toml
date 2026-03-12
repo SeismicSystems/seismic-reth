@@ -606,6 +606,7 @@ nybbles = { version = "0.4.2", default-features = false }
 once_cell = { version = "1.19", default-features = false, features = ["critical-section"] }
 parking_lot = "0.12"
 paste = "1.0"
+prost = "0.13"
 rand = "0.9"
 rayon = "1.7"
 rustc-hash = { version = "2.0", default-features = false }
@@ -659,6 +660,7 @@ hyper-util = "0.1.5"
 pin-project = "1.0.12"
 reqwest = { version = "0.12", default-features = false }
 tracing-futures = "0.2"
+tonic = { version = "0.12", default-features = false }
 tower = "0.5"
 tower-http = "0.6"
 

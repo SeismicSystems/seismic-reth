@@ -20,6 +20,7 @@ seismic-alloy-consensus.workspace = true
 
 # reth
 reth-chainspec.workspace = true
+reth-metrics.workspace = true
 reth-primitives-traits.workspace = true
 reth-provider.workspace = true
 reth-transaction-pool = {workspace = true, features = ["serde", "reth-codec", "serde-bincode-compat"]}
@@ -27,11 +28,34 @@ reth-transaction-pool = {workspace = true, features = ["serde", "reth-codec", "s
 # seismic
 reth-seismic-primitives = {workspace = true, features = ["serde", "reth-codec", "serde-bincode-compat"]}
 
+# grpc
+prost.workspace = true
+tonic = { workspace = true, features = ["transport", "codegen", "prost", "channel"] }
+
+# async
+futures-util.workspace = true
+tokio = { workspace = true, features = ["sync", "time"] }
+
 # misc
 c-kzg.workspace = true
 derive_more.workspace = true
+metrics.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 reth-seismic-chainspec.workspace = true
 reth-provider = { workspace = true, features = ["test-utils"] }
-tokio.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }
+criterion.workspace = true
+tokio-stream.workspace = true
+
+[build-dependencies]
+tonic-build = "0.12"
+
+[[bench]]
+name = "calldata_extraction"
+harness = false
+
+[[bench]]
+name = "screening"
+harness = false

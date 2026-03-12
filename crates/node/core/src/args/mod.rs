@@ -3,6 +3,10 @@
 mod enclave;
 pub use enclave::EnclaveArgs;
 
+/// ScreeningArgs struct for configuring address screening
+mod screening;
+pub use screening::ScreeningArgs;
+
 /// NetworkArg struct for configuring the network
 mod network;
 pub use network::{DiscoveryArgs, NetworkArgs};

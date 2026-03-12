@@ -1,0 +1,27 @@
+syntax = "proto3";
+package ai.cipherowl.ecsd.v1;
+
+service ECSd {
+  rpc BatchCheckAddresses(BatchCheckRequest) returns (BatchCheckResponse);
+  rpc Health(ExtendedHealthRequest) returns (ExtendedHealthResponse);
+}
+
+message ExtendedHealthRequest { string service = 1; }
+
+message ExtendedHealthResponse {
+  int32 status = 1;
+  string message = 2;
+  string filter = 3;
+}
+
+message BatchCheckRequest {
+  repeated string addresses = 1;
+  optional int32 hops = 2;
+}
+
+message BatchCheckResponse {
+  repeated string found = 1;
+  repeated string not_found = 2;
+  int32 found_count = 3;
+  int32 not_found_count = 4;
+}
