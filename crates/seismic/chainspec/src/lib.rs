@@ -49,7 +49,7 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 
     let hardforks = SEISMIC_DEV_HARDFORKS.clone();
     ChainSpec {
-        chain: Chain::from_id(5124),
+        chain: Chain::from_id(16807),
         genesis_header: SealedHeader::new(
             make_genesis_header(&genesis, &hardforks),
             SEISMIC_DEV_GENESIS_HASH,
