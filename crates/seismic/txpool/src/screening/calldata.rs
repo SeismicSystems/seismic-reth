@@ -85,6 +85,7 @@ pub fn extract_calldata_addresses(input: &Bytes, addrs: &mut Vec<Address>) {
         return;
     }
 
+    #[allow(clippy::expect_used)]
     let selector: [u8; 4] = input[..4].try_into().expect("checked length");
     let params = &input[4..];
 

@@ -500,13 +500,14 @@ where
         // for uniform type: Left = no screening, Right = with screening
         let validator = match &self.screening_args {
             Some(args) if args.enable => {
+                #[allow(clippy::expect_used)]
                 let screening_client =
                     reth_seismic_txpool::screening::ScreeningClientBuilder::new(&args.endpoint)
                         .timeout(std::time::Duration::from_millis(args.timeout_ms))
                         .fail_mode(
-                            args.fail_mode.parse().expect(
-                                "fail_mode validated by clap to be 'open' or 'closed'",
-                            ),
+                            args.fail_mode
+                                .parse()
+                                .expect("fail_mode validated by clap to be 'open' or 'closed'"),
                         )
                         .build()?;
                 tracing::info!(
