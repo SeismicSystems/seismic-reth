@@ -46,8 +46,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -60,8 +58,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -97,8 +93,6 @@ jobs:
       SEISMIC_CI: 1
     steps:
       - uses: actions/checkout@v4
-      - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
@@ -115,8 +109,6 @@ jobs:
       SEISMIC_CI: 1
     steps:
       - uses: actions/checkout@v4
-      - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
@@ -135,8 +127,6 @@ jobs:
       RETH_STATIC_FILES: /home/runner/work/.seismic-reth/static_files
     steps:
       - uses: actions/checkout@v4
-      - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.2.5

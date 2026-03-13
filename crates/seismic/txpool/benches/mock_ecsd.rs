@@ -6,13 +6,8 @@
 use reth_seismic_txpool::screening::{ScreeningClient, ScreeningClientBuilder, ScreeningFailMode};
 use std::time::Duration;
 
-/// Generated proto types from the same proto file used by the production client.
-#[allow(unreachable_pub, clippy::doc_markdown)]
-pub mod proto {
-    tonic::include_proto!("ai.cipherowl.ecsd.v1");
-}
-
-use proto::{
+// Re-use the checked-in generated proto types
+use reth_seismic_txpool::screening::proto::{
     ec_sd_server::{EcSd, EcSdServer},
     BatchCheckRequest, BatchCheckResponse, ExtendedHealthRequest, ExtendedHealthResponse,
 };

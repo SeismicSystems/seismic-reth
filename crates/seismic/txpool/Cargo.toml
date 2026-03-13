@@ -49,9 +49,6 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }
 criterion.workspace = true
 tokio-stream.workspace = true
 
-[build-dependencies]
-tonic-build = "0.12"
-
 [[bench]]
 name = "calldata_extraction"
 harness = false

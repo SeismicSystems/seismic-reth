@@ -5,13 +5,7 @@
 
 use std::{fmt, str::FromStr, sync::Arc, time::Duration};
 
-/// Generated protobuf types from `proto/ecsd.proto`.
-#[allow(unreachable_pub, clippy::doc_markdown)]
-pub mod proto {
-    tonic::include_proto!("ai.cipherowl.ecsd.v1");
-}
-
-use proto::{ec_sd_client::EcSdClient, BatchCheckRequest};
+use super::proto::{ec_sd_client::EcSdClient, BatchCheckRequest, BatchCheckResponse};
 
 /// Behavior when the ECSD sidecar is unreachable or returns an error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -98,7 +92,7 @@ impl ScreeningClient {
         let request = tonic::Request::new(BatchCheckRequest { addresses, hops: None });
 
         let result: Result<
-            Result<tonic::Response<proto::BatchCheckResponse>, tonic::Status>,
+            Result<tonic::Response<BatchCheckResponse>, tonic::Status>,
             tokio::time::error::Elapsed,
         > = {
             let mut client = self.inner.client.lock().await;
