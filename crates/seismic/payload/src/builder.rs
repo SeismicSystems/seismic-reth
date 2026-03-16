@@ -28,7 +28,6 @@ use reth_transaction_pool::{
 };
 use revm::context_interface::Block as _;
 use seismic_alloy_consensus::SeismicTypedTransaction;
-use seismic_enclave::EnclaveClientBuilder;
 use std::path::Path;
 use std::sync::Arc;
 use std::{fs, time::Instant};
