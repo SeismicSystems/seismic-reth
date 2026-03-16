@@ -273,6 +273,7 @@ mod test {
                 expires_at_block: 1000000,
                 signed_read: false,
             },
+            authorization_list: vec![],
         };
 
         // Sign the transaction

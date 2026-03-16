@@ -14,6 +14,7 @@ use alloy_consensus::{
 use alloy_eips::eip2718::{EIP7702_TX_TYPE_ID, EIP4844_TX_TYPE_ID};
 use alloy_primitives::{aliases::U96, Bytes, ChainId, Signature, TxKind, U256};
 use bytes::{Buf, BufMut, BytesMut};
+use alloy_eips::eip7702::SignedAuthorization;
 use seismic_alloy_consensus::{
     transaction::TxSeismicElements, SeismicTxEnvelope, SeismicTxType, SeismicTypedTransaction,
     TxSeismic as AlloyTxSeismic, SEISMIC_TX_TYPE_ID,
@@ -59,6 +60,8 @@ pub(crate) struct TxSeismic {
     value: U256,
     /// seismic elements
     seismic_elements: TxSeismicElements,
+    /// Optional list of EIP-7702 authorization tuples
+    authorization_list: Vec<SignedAuthorization>,
     /// Input has two uses depending if transaction is Create or Call (if `to` field is None or
     /// Some). pub init: An unlimited size byte array specifying the
     /// EVM-code for the account initialisation procedure CREATE,
@@ -161,6 +164,7 @@ impl Compact for AlloyTxSeismic {
             value: self.value,
             seismic_elements: self.seismic_elements,
             input: self.input.clone(),
+            authorization_list: self.authorization_list.clone(),
         };
 
         tx.to_compact(buf)
@@ -178,6 +182,7 @@ impl Compact for AlloyTxSeismic {
             value: tx.value,
             seismic_elements: tx.seismic_elements,
             input: tx.input,
+            authorization_list: tx.authorization_list,
         };
 
         (alloy_tx, buf)
@@ -429,6 +434,7 @@ mod tests {
                 signed_read: false,
             },
             input: Bytes::from_static(&[0x24]),
+            authorization_list: vec![],
         };
 
         // Encode to compact format

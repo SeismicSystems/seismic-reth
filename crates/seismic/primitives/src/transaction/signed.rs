@@ -311,7 +311,11 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                     access_list: Default::default(),
                     blob_hashes: Default::default(),
                     max_fee_per_blob_gas: Default::default(),
-                    authorization_list: Default::default(),
+                    authorization_list: tx
+                        .authorization_list
+                        .iter()
+                        .map(|auth| Either::Left(auth.clone()))
+                        .collect(),
                     tx_type: TxSeismic::TX_TYPE,
                     caller: sender,
                 },
@@ -902,6 +906,7 @@ mod tests {
                 expires_at_block: 1000000,
                 signed_read: false,
             },
+            authorization_list: vec![],
         };
 
         let signed =

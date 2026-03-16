@@ -157,7 +157,8 @@ mod test {
                 recent_block_hash: alloy_primitives::B256::from_slice(&hex::decode("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef").unwrap()),
                 expires_at_block: 1000000,
                 signed_read: false,
-            }
+            },
+            authorization_list: vec![],
         };
 
         let signed = SeismicTransactionSigned::new_unhashed(

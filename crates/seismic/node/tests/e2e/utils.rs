@@ -361,6 +361,7 @@ pub mod test_utils {
             value: U256::ZERO,
             input: Bytes::copy_from_slice(&ciphertext),
             seismic_elements: get_seismic_elements(),
+            authorization_list: vec![],
         }
     }
 
