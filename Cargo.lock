@@ -753,25 +753,25 @@ dependencies = [
 
 [[package]]
 name = "alloy-sol-macro"
-version = "1.4.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=68313cb636365501a699c47865807158544eace1#68313cb636365501a699c47865807158544eace1"
-dependencies = [
- "alloy-sol-macro-expander 1.1.2",
- "alloy-sol-macro-input 1.1.2",
- "proc-macro-error2",
- "proc-macro2",
- "quote",
- "syn 2.0.101",
-]
-
-[[package]]
-name = "alloy-sol-macro"
 version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d20d867dcf42019d4779519a1ceb55eba8d7f3d0e4f0a89bcba82b8f9eb01e48"
 dependencies = [
- "alloy-sol-macro-expander 1.3.1",
- "alloy-sol-macro-input 1.3.1",
+ "alloy-sol-macro-expander",
+ "alloy-sol-macro-input",
+ "proc-macro-error2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.113",
+]
+
+[[package]]
+name = "alloy-sol-macro"
+version = "1.4.1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=68313cb636365501a699c47865807158544eace1#68313cb636365501a699c47865807158544eace1"
+dependencies = [
+ "alloy-sol-macro-expander",
+ "alloy-sol-macro-input",
  "proc-macro-error2",
  "proc-macro2",
  "quote",
@@ -783,7 +783,7 @@ name = "alloy-sol-macro-expander"
 version = "1.4.1"
 source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=68313cb636365501a699c47865807158544eace1#68313cb636365501a699c47865807158544eace1"
 dependencies = [
- "alloy-sol-macro-input 1.1.2",
+ "alloy-sol-macro-input",
  "const-hex",
  "heck",
  "indexmap 2.12.1",
@@ -792,8 +792,6 @@ dependencies = [
  "quote",
  "syn 2.0.113",
  "syn-solidity",
- "syn 2.0.101",
- "syn-solidity 1.1.2",
  "tiny-keccak",
 ]
 
@@ -811,8 +809,6 @@ dependencies = [
  "quote",
  "syn 2.0.113",
  "syn-solidity",
- "syn 2.0.101",
- "syn-solidity 1.1.2",
 ]
 
 [[package]]
@@ -831,7 +827,7 @@ source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=68313
 dependencies = [
  "alloy-json-abi",
  "alloy-primitives",
- "alloy-sol-macro 1.1.2",
+ "alloy-sol-macro 1.4.1",
  "arbitrary",
  "serde",
 ]
@@ -12129,18 +12125,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.113",
-]
-
-[[package]]
-name = "syn-solidity"
-version = "1.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0b198d366dbec045acfcd97295eb653a7a2b40e4dc764ef1e79aafcad439d3c"
-dependencies = [
- "paste",
- "proc-macro2",
- "quote",
- "syn 2.0.101",
 ]
 
 [[package]]
