@@ -1,0 +1,82 @@
+//! Tests that Seismic hardfork configuration (Mercury) is correctly reported via RPC.
+//!
+//! This is the Seismic equivalent of `test_eth_config` in `crates/ethereum/node/tests/e2e/rpc.rs`,
+//! which was disabled with `#[ignore = "We disabled fork activations"]`.
+//!
+//! Instead of testing fork scheduling (past/current/next at different timestamps), we verify
+//! that the Seismic chain spec with Mercury hardfork active at genesis is correctly reflected
+//! in the `eth_config` RPC response.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
+use alloy_eips::eip7910::EthConfig;
+use alloy_primitives::{Address, B256};
+use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
+use alloy_rpc_types_engine::PayloadAttributes;
+use alloy_rpc_types_eth::TransactionRequest;
+use reth_chainspec::EthChainSpec;
+use reth_e2e_test_utils::setup;
+use reth_node_ethereum::EthereumNode;
+use reth_payload_builder::EthPayloadBuilderAttributes;
+use reth_seismic_chainspec::SEISMIC_DEV;
+
+/// Helper function to create a new eth payload attributes
+fn eth_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
+    let attributes = PayloadAttributes {
+        timestamp,
+        prev_randao: B256::ZERO,
+        suggested_fee_recipient: Address::ZERO,
+        withdrawals: Some(vec![]),
+        parent_beacon_block_root: Some(B256::ZERO),
+    };
+    EthPayloadBuilderAttributes::new(B256::ZERO, attributes)
+}
+
+/// Validates that the Mercury hardfork is correctly configured and reported via `eth_config` RPC.
+///
+/// This test:
+/// 1. Starts a node with the Seismic dev chain spec (all forks including Mercury at timestamp 0)
+/// 2. Advances a block so the node has chain state
+/// 3. Calls `eth_config` RPC ([EIP-7910](https://eips.ethereum.org/EIPS/eip-7910)) and verifies the
+///    response
+/// 4. Asserts that the current fork `activation_time` is 0 (Mercury active at genesis)
+/// 5. Asserts that the `chain_id` matches the Seismic dev chain
+/// 6. Asserts there is no next fork scheduled
+#[tokio::test(flavor = "multi_thread")]
+async fn test_mercury_hardfork_config() -> eyre::Result<()> {
+    reth_tracing::init_test_tracing();
+
+    let chain_spec = SEISMIC_DEV.clone();
+
+    let (mut nodes, _tasks, wallet) =
+        setup::<EthereumNode>(1, chain_spec.clone(), false, eth_payload_attributes).await?;
+    let mut node = nodes.pop().unwrap();
+    let provider = ProviderBuilder::new()
+        .wallet(EthereumWallet::new(wallet.wallet_gen().swap_remove(0)))
+        .connect_http(node.rpc_url());
+
+    // Send a transaction and advance a block so the node has chain state beyond genesis
+    let _ = provider.send_transaction(TransactionRequest::default().to(Address::ZERO)).await?;
+    node.advance_block().await?;
+
+    // Query the eth_config RPC endpoint (EIP-7910)
+    let config: EthConfig = provider.client().request_noparams::<EthConfig>("eth_config").await?;
+
+    // All Seismic forks (including Mercury) are activated at timestamp 0, so the current fork
+    // should have activation_time = 0.
+    assert_eq!(
+        config.current.activation_time, 0,
+        "Mercury hardfork should be active at timestamp 0"
+    );
+
+    // The chain_id in the config should match the Seismic dev chain id
+    assert_eq!(
+        config.current.chain_id,
+        chain_spec.chain().id(),
+        "chain_id should match Seismic dev chain"
+    );
+
+    // Since all forks are at timestamp 0, there should be no next fork scheduled
+    assert!(config.next.is_none(), "no next fork should be scheduled");
+
+    Ok(())
+}
