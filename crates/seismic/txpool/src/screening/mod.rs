@@ -7,7 +7,7 @@
 pub(crate) mod calldata;
 mod client;
 mod metrics;
-pub(crate) mod proto;
+pub mod proto;
 mod validator;
 
 pub use calldata::{extract_addresses, extract_calldata_addresses};
