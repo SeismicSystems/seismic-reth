@@ -434,7 +434,18 @@ mod tests {
                 signed_read: false,
             },
             input: Bytes::from_static(&[0x24]),
-            authorization_list: vec![],
+            authorization_list: vec![
+                alloy_eips::eip7702::Authorization {
+                    chain_id: U256::from(1),
+                    address: alloy_primitives::address!("0xdac17f958d2ee523a2206206994597c13d831ec7"),
+                    nonce: 1,
+                }
+                .into_signed(Signature::new(
+                    alloy_primitives::b256!("0x1fd474b1f9404c0c5df43b7620119ffbc3a1c3f942c73b6e14e9f55255ed9b1d").into(),
+                    alloy_primitives::b256!("0x29aca24813279a901ec13b5f7bb53385fa1fc627b946592221417ff74a49600d").into(),
+                    false,
+                )),
+            ],
         };
 
         // Encode to compact format
@@ -452,6 +463,7 @@ mod tests {
         assert_eq!(tx.to, decoded_tx.to);
         assert_eq!(tx.value, decoded_tx.value);
         assert_eq!(tx.input, decoded_tx.input);
+        assert_eq!(tx.authorization_list, decoded_tx.authorization_list);
 
         // Check seismic elements
         assert_eq!(
