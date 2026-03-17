@@ -104,7 +104,7 @@ fn bench_calldata_extraction(c: &mut Criterion) {
 
     group.bench_function("unknown_selector_4kb", |b| {
         let mut data = vec![0xde, 0xad, 0xbe, 0xef];
-        data.extend(std::iter::repeat(0u8).take(4096));
+        data.extend(std::iter::repeat_n(0u8, 4096));
         let input = Bytes::from(data);
         b.iter(|| {
             let mut addrs = Vec::new();

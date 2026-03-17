@@ -87,26 +87,38 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "invalid value 'close'")]
     fn test_screening_args_invalid_fail_mode() {
         // Typo: "close" instead of "closed" should fail fast
-        let _args = CommandParser::<ScreeningArgs>::try_parse_from([
+        let result = CommandParser::<ScreeningArgs>::try_parse_from([
             "reth node",
             "--screening.fail-mode",
             "close",
-        ])
-        .unwrap();
+        ]);
+
+        assert!(result.is_err(), "Expected parsing to fail for invalid value 'close'");
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("invalid value 'close'"),
+            "Error message should mention the invalid value: {}",
+            err
+        );
     }
 
     #[test]
-    #[should_panic(expected = "invalid value 'permissive'")]
     fn test_screening_args_invalid_fail_mode_permissive() {
         // Invalid value should fail fast
-        let _args = CommandParser::<ScreeningArgs>::try_parse_from([
+        let result = CommandParser::<ScreeningArgs>::try_parse_from([
             "reth node",
             "--screening.fail-mode",
             "permissive",
-        ])
-        .unwrap();
+        ]);
+
+        assert!(result.is_err(), "Expected parsing to fail for invalid value 'permissive'");
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("invalid value 'permissive'"),
+            "Error message should mention the invalid value: {}",
+            err
+        );
     }
 }

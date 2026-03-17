@@ -37,9 +37,9 @@ const ERC1155_SAFE_BATCH_TRANSFER_FROM: [u8; 4] = [0x2e, 0xb2, 0xc2, 0xd6];
 /// 5. ERC-20/ERC-721/ERC-1155 calldata addresses
 ///
 /// Returns a deduplicated, sorted vector of addresses.
-pub fn extract_addresses<T: PoolTransaction>(tx: &T) -> Vec<Address>
+pub fn extract_addresses<T>(tx: &T) -> Vec<Address>
 where
-    T: alloy_consensus::Transaction,
+    T: PoolTransaction + alloy_consensus::Transaction,
 {
     let mut addrs = Vec::new();
 
@@ -85,8 +85,9 @@ pub fn extract_calldata_addresses(input: &Bytes, addrs: &mut Vec<Address>) {
         return;
     }
 
-    #[allow(clippy::expect_used)]
+    #[allow(clippy::expect_used, clippy::indexing_slicing)]
     let selector: [u8; 4] = input[..4].try_into().expect("checked length");
+    #[allow(clippy::indexing_slicing)]
     let params = &input[4..];
 
     match selector {
@@ -130,12 +131,15 @@ fn decode_address_word(data: &[u8], word_index: usize) -> Option<Address> {
         return None;
     }
 
+    #[allow(clippy::indexing_slicing)]
     let word = &data[start..end];
     // Upper 12 bytes must be zero for a valid ABI-encoded address
+    #[allow(clippy::indexing_slicing)]
     if word[..12] != [0u8; 12] {
         return None;
     }
 
+    #[allow(clippy::indexing_slicing)]
     Some(Address::from_slice(&word[12..32]))
 }
 
