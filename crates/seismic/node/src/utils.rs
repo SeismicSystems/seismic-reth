@@ -59,8 +59,8 @@ pub mod test_utils {
                 .arg("-vvvv")
                 .arg("--disable-discovery")
                 // Use OS-assigned random ports for p2p (default 30303) and auth RPC (default 8551)
-                // to avoid "address already in use" errors on nextest retries. The test only talks to the
-                // HTTP RPC port (8545), so these ports don't matter.
+                // to avoid "address already in use" errors on nextest retries. The test only talks
+                // to the HTTP RPC port (8545), so these ports don't matter.
                 .arg("--port")
                 .arg("0")
                 .arg("--authrpc.port")
