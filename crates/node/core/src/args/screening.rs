@@ -94,7 +94,7 @@ mod tests {
             "reth node",
             "--screening.fail-mode",
             "close",
-        ])
+        ]).map_err(|e| e.to_string())
         .unwrap();
     }
 
@@ -106,7 +106,7 @@ mod tests {
             "reth node",
             "--screening.fail-mode",
             "permissive",
-        ])
+        ]).map_err(|e| e.to_string())
         .unwrap();
     }
 }
