@@ -37,8 +37,7 @@ const ERC1155_SAFE_BATCH_TRANSFER_FROM: [u8; 4] = [0x2e, 0xb2, 0xc2, 0xd6];
 /// 5. ERC-20/ERC-721/ERC-1155 calldata addresses
 ///
 /// Returns a deduplicated, sorted vector of addresses.
-pub fn extract_addresses<T: PoolTransaction>(tx: &T) -> Vec<Address>
-{
+pub fn extract_addresses<T: PoolTransaction>(tx: &T) -> Vec<Address> {
     let mut addrs = Vec::new();
 
     // 1. Sender
@@ -136,7 +135,7 @@ fn decode_address_word(data: &[u8], word_index: usize) -> Option<Address> {
     if word[..12] != [0u8; 12] {
         return None;
     }
-    
+
     #[allow(clippy::indexing_slicing)]
     Some(Address::from_slice(&word[12..32]))
 }
