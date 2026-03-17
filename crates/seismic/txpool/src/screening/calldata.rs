@@ -38,8 +38,6 @@ const ERC1155_SAFE_BATCH_TRANSFER_FROM: [u8; 4] = [0x2e, 0xb2, 0xc2, 0xd6];
 ///
 /// Returns a deduplicated, sorted vector of addresses.
 pub fn extract_addresses<T: PoolTransaction>(tx: &T) -> Vec<Address>
-where
-    T: alloy_consensus::Transaction,
 {
     let mut addrs = Vec::new();
 
@@ -85,8 +83,9 @@ pub fn extract_calldata_addresses(input: &Bytes, addrs: &mut Vec<Address>) {
         return;
     }
 
-    #[allow(clippy::expect_used)]
+    #[allow(clippy::expect_used, clippy::indexing_slicing)]
     let selector: [u8; 4] = input[..4].try_into().expect("checked length");
+    #[allow(clippy::indexing_slicing)]
     let params = &input[4..];
 
     match selector {
@@ -124,18 +123,21 @@ pub fn extract_calldata_addresses(input: &Bytes, addrs: &mut Vec<Address>) {
 /// Returns `None` if the data is too short or the upper 12 bytes are not zero
 /// (malformed ABI encoding).
 fn decode_address_word(data: &[u8], word_index: usize) -> Option<Address> {
-    let start = word_index * 32;
-    let end = start + 32;
+    let start = word_index.checked_mul(32)?;
+    let end = start.checked_add(32)?;
     if data.len() < end {
         return None;
     }
 
+    #[allow(clippy::indexing_slicing)]
     let word = &data[start..end];
     // Upper 12 bytes must be zero for a valid ABI-encoded address
+    #[allow(clippy::indexing_slicing)]
     if word[..12] != [0u8; 12] {
         return None;
     }
-
+    
+    #[allow(clippy::indexing_slicing)]
     Some(Address::from_slice(&word[12..32]))
 }
 

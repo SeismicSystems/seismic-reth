@@ -144,13 +144,13 @@ impl ScreeningClientBuilder {
     }
 
     /// Sets the request timeout.
-    pub fn timeout(mut self, timeout: Duration) -> Self {
+    pub const fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
     }
 
     /// Sets the fail mode.
-    pub fn fail_mode(mut self, fail_mode: ScreeningFailMode) -> Self {
+    pub const fn fail_mode(mut self, fail_mode: ScreeningFailMode) -> Self {
         self.fail_mode = fail_mode;
         self
     }
@@ -177,6 +177,7 @@ impl ScreeningClientBuilder {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
