@@ -3,6 +3,6 @@
 mod hardfork_config;
 mod integration;
 // mod p2p;
-// mod testsuite;
+mod testsuite;
 
 const fn main() {}
