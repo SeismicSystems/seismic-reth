@@ -65,7 +65,6 @@ Do NOT commit code that fails these checks. If checks fail, fix the issues and r
 
 - **Never amend or force-push commits** that have already been pushed. If fixes are needed, create a new commit.
 - **Always sign commits** — do not use `-c commit.gpgsign=false`.
-- **Do not include AI co-author lines** in commit messages (no `Co-Authored-By: Claude ...`).
 - **Pull latest before pushing** — always `git pull` before `git push` to avoid conflicts.
 
 ### Common Contribution Types
