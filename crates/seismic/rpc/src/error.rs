@@ -9,7 +9,6 @@ use reth_rpc_eth_types::{error::api::FromEvmHalt, EthApiError};
 use reth_rpc_server_types::result::internal_rpc_err;
 use revm::context_interface::result::EVMError;
 use revm_context::result::HaltReason;
-use seismic_revm::SeismicHaltReason;
 
 #[derive(Debug, thiserror::Error)]
 /// Seismic API error
@@ -20,12 +19,6 @@ pub enum SeismicEthApiError {
     /// Enclave error
     #[error("enclave error: {0}")]
     EnclaveError(String),
-    /// Attempting to access public storage with cload
-    #[error("invalid public storage access")]
-    InvalidPublicStorageAccess,
-    /// Attempting to access private storage with sload
-    #[error("invalid private storage access")]
-    InvalidPrivateStorageAccess,
 }
 
 impl AsEthApiError for SeismicEthApiError {
@@ -42,22 +35,6 @@ impl From<SeismicEthApiError> for jsonrpsee::types::error::ErrorObject<'static> 
         match error {
             SeismicEthApiError::Eth(e) => e.into(),
             SeismicEthApiError::EnclaveError(e) => internal_rpc_err(format!("enclave error: {e}")),
-            SeismicEthApiError::InvalidPrivateStorageAccess => {
-                internal_rpc_err("invalid private storage access")
-            }
-            SeismicEthApiError::InvalidPublicStorageAccess => {
-                internal_rpc_err("invalid public storage access")
-            }
-        }
-    }
-}
-
-impl FromEvmHalt<SeismicHaltReason> for SeismicEthApiError {
-    fn from_evm_halt(halt: SeismicHaltReason, gas_limit: u64) -> Self {
-        match halt {
-            SeismicHaltReason::InvalidPrivateStorageAccess => Self::InvalidPrivateStorageAccess,
-            SeismicHaltReason::InvalidPublicStorageAccess => Self::InvalidPublicStorageAccess,
-            SeismicHaltReason::Base(halt) => EthApiError::from_evm_halt(halt, gas_limit).into(),
         }
     }
 }
