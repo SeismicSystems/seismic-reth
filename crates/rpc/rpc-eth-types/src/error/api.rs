@@ -5,7 +5,6 @@ use crate::EthApiError;
 use reth_errors::ProviderError;
 use reth_evm::{ConfigureEvm, EvmErrorFor, HaltReasonFor};
 use revm::context_interface::result::HaltReason;
-use seismic_revm::SeismicHaltReason;
 
 use super::RpcInvalidTransactionError;
 
@@ -111,16 +110,3 @@ impl FromEvmHalt<HaltReason> for EthApiError {
     }
 }
 
-impl FromEvmHalt<SeismicHaltReason> for EthApiError {
-    fn from_evm_halt(halt: SeismicHaltReason, gas_limit: u64) -> Self {
-        match halt {
-            SeismicHaltReason::Base(reason) => EthApiError::from_evm_halt(reason, gas_limit),
-            SeismicHaltReason::InvalidPrivateStorageAccess => {
-                EthApiError::EvmCustom("Invalid Private Storage Access".to_string())
-            }
-            SeismicHaltReason::InvalidPublicStorageAccess => {
-                EthApiError::EvmCustom("Invalid Public Storage Access".to_string())
-            }
-        }
-    }
-}
