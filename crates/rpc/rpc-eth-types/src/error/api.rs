@@ -109,4 +109,3 @@ impl FromEvmHalt<HaltReason> for EthApiError {
         RpcInvalidTransactionError::halt(halt, gas_limit).into()
     }
 }
-
