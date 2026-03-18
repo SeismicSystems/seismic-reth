@@ -12,7 +12,7 @@ use alloy_primitives::{Address, B256};
 use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
 use alloy_rpc_types_engine::PayloadAttributes;
 use alloy_rpc_types_eth::TransactionRequest;
-use reth_chainspec::EthChainSpec;
+use reth_chainspec::{EthChainSpec, Hardforks, Head};
 use reth_e2e_test_utils::setup;
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use reth_seismic_chainspec::SEISMIC_DEV;
@@ -76,6 +76,15 @@ async fn test_mercury_hardfork_config() -> eyre::Result<()> {
     let _ = provider.send_transaction(TransactionRequest::default().to(Address::ZERO)).await?;
     node.advance_block().await?;
 
+    // Get the latest block timestamp for fork_id verification
+    let latest_block = provider.get_block_number().await?;
+    let latest_timestamp = provider
+        .get_block_by_number(latest_block.into())
+        .await?
+        .expect("latest block should exist")
+        .header
+        .timestamp;
+
     // Query the eth_config RPC endpoint (EIP-7910)
     let config: EthConfig = provider.client().request_noparams::<EthConfig>("eth_config").await?;
 
@@ -91,6 +100,24 @@ async fn test_mercury_hardfork_config() -> eyre::Result<()> {
         config.current.chain_id,
         chain_spec.chain().id(),
         "chain_id should match Seismic dev chain"
+    );
+
+    // The fork_id should be non-empty and match the Seismic dev chain's fork hash,
+    // which is derived from the genesis hash and all fork block/timestamp activations.
+    // This is a stronger check than just activation_time — it proves the full fork
+    // schedule is Seismic-specific.
+    assert!(!config.current.fork_id.is_empty(), "fork_id should be set");
+
+    // Verify the fork_id matches what we compute from the chain spec directly.
+    // The fork_id is derived from genesis hash + all fork activations, so this proves
+    // the node is running with the correct Seismic fork schedule.
+    let fork_id = chain_spec.fork_id(&Head { timestamp: latest_timestamp, ..Default::default() });
+    let expected_fork_hash = fork_id.hash.0;
+    let reported_fork_hash = config.current.fork_id.get(..4);
+    assert_eq!(
+        reported_fork_hash,
+        Some(expected_fork_hash.as_slice()),
+        "fork_id should match the Seismic dev chain fork hash"
     );
 
     // Since all forks are at timestamp 0, there should be no next fork scheduled
