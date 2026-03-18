@@ -6,7 +6,6 @@
 //! Instead of testing fork scheduling (past/current/next at different timestamps), we verify
 //! that the Seismic chain spec with Mercury hardfork active at genesis is correctly reflected
 //! in the `eth_config` RPC response.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use alloy_eips::eip7910::EthConfig;
 use alloy_primitives::{Address, B256};
@@ -15,9 +14,27 @@ use alloy_rpc_types_engine::PayloadAttributes;
 use alloy_rpc_types_eth::TransactionRequest;
 use reth_chainspec::EthChainSpec;
 use reth_e2e_test_utils::setup;
-use reth_node_ethereum::EthereumNode;
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use reth_seismic_chainspec::SEISMIC_DEV;
+use reth_seismic_node::{node::SeismicNode, purpose_keys::init_purpose_keys};
+use seismic_enclave::{
+    get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
+    get_unsecure_sample_secp256k1_sk, GetPurposeKeysResponse,
+};
+use std::sync::Once;
+
+/// Ensure mock purpose keys are initialized exactly once per test binary.
+static INIT_KEYS: Once = Once::new();
+fn ensure_mock_purpose_keys() {
+    INIT_KEYS.call_once(|| {
+        init_purpose_keys(GetPurposeKeysResponse {
+            tx_io_sk: get_unsecure_sample_secp256k1_sk(),
+            tx_io_pk: get_unsecure_sample_secp256k1_pk(),
+            snapshot_key_bytes: [0u8; 32],
+            rng_keypair: get_unsecure_sample_schnorrkel_keypair(),
+        });
+    });
+}
 
 /// Helper function to create a new eth payload attributes
 fn eth_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
@@ -34,7 +51,7 @@ fn eth_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
 /// Validates that the Mercury hardfork is correctly configured and reported via `eth_config` RPC.
 ///
 /// This test:
-/// 1. Starts a node with the Seismic dev chain spec (all forks including Mercury at timestamp 0)
+/// 1. Starts a Seismic node with the dev chain spec (all forks including Mercury at timestamp 0)
 /// 2. Advances a block so the node has chain state
 /// 3. Calls `eth_config` RPC ([EIP-7910](https://eips.ethereum.org/EIPS/eip-7910)) and verifies the
 ///    response
@@ -44,11 +61,12 @@ fn eth_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_mercury_hardfork_config() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
+    ensure_mock_purpose_keys();
 
     let chain_spec = SEISMIC_DEV.clone();
 
     let (mut nodes, _tasks, wallet) =
-        setup::<EthereumNode>(1, chain_spec.clone(), false, eth_payload_attributes).await?;
+        setup::<SeismicNode>(1, chain_spec.clone(), false, eth_payload_attributes).await?;
     let mut node = nodes.pop().unwrap();
     let provider = ProviderBuilder::new()
         .wallet(EthereumWallet::new(wallet.wallet_gen().swap_remove(0)))
