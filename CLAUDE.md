@@ -46,6 +46,21 @@ Reth is a high-performance Ethereum execution client written in Rust, focusing o
    cargo nextest run --workspace
    ```
 
+### Pre-commit Checks (MANDATORY)
+
+Before every commit, you MUST run these checks and fix any failures:
+
+1. `cargo +nightly fmt --all` — fix formatting
+2. `cargo clippy -p <affected-crate> --tests --no-deps -- -D warnings` — fix lint errors
+3. If touching seismic crates, also run the stricter seismic clippy:
+   ```bash
+   cargo clippy -p <affected-seismic-crate> --lib --tests --no-deps -- -D warnings \
+     -W clippy::unwrap_used -W clippy::expect_used -W clippy::indexing_slicing \
+     -W clippy::panic -W clippy::unreachable -W clippy::todo
+   ```
+
+Do NOT commit code that fails these checks. If checks fail, fix the issues and re-run before committing.
+
 ### Common Contribution Types
 
 Based on actual recent PRs, here are typical contribution patterns:
