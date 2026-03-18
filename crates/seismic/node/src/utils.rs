@@ -58,9 +58,19 @@ pub mod test_utils {
                 .arg("--enclave.mock-server")
                 .arg("-vvvv")
                 .arg("--disable-discovery")
+                // Use OS-assigned random ports for p2p (default 30303) and auth RPC (default 8551)
+                // to avoid "address already in use" errors on nextest retries. The test only talks
+                // to the HTTP RPC port (8545), so these ports don't matter.
+                .arg("--port")
+                .arg("0")
+                .arg("--authrpc.port")
+                .arg("0")
                 .current_dir(workspace_root)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
+                // Ensure the child process is killed when dropped (e.g. on test panic/timeout).
+                // Without this, a test failure leaves an orphaned reth process holding ports.
+                .kill_on_drop(true)
                 .spawn()
                 .expect("Failed to start the binary");
 
@@ -72,9 +82,6 @@ pub mod test_utils {
                 let mut stdout_line = String::new();
                 let mut stderr_line = String::new();
                 let mut sent = false;
-                std::panic::set_hook(Box::new(|info| {
-                    eprintln!("❌ PANIC DETECTED: {:?}", info);
-                }));
 
                 loop {
                     tokio::select! {
@@ -109,9 +116,9 @@ pub mod test_utils {
                         }
                     }
                 }
-                println!("✅ Exiting loop.");
-
-                child.kill().await.unwrap();
+                // kill_on_drop handles cleanup, but we explicitly kill here for a clean
+                // shutdown on the happy path (avoids waiting for drop).
+                let _ = child.kill().await;
                 println!("✅ Killed child process.");
             });
         }
