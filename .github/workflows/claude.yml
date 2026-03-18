@@ -1,13 +1,18 @@
-# Requires ANTHROPIC_API_KEY secret in repo Settings > Secrets and variables > Actions.
+# Claude Code PR Review
 #
-# Prompt injection: the action sanitizes untrusted PR content (strips HTML comments,
-# invisible chars, hidden attributes). Tools are restricted to read-only as a second layer.
+# Runs Claude in agent mode to review PRs, then posts the review as a
+# sticky comment (one comment, edited in-place on each push).
+#
+# Agent mode doesn't post comments itself, so a post-step extracts
+# Claude's text output from the execution file and manages the comment.
+#
+# Requires: ANTHROPIC_API_KEY secret.
 
 name: Claude Code PR Review
 
 on:
   pull_request:
-    types: [opened, ready_for_review]
+    types: [opened, reopened, synchronize, ready_for_review]
   issue_comment:
     types: [created]
 
@@ -18,145 +23,90 @@ concurrency:
 jobs:
   claude:
     if: >
-      (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.draft == false &&
+       github.event.pull_request.user.login != 'dependabot[bot]' &&
+       !contains(github.head_ref, 'gh-readonly-queue/')) ||
       (github.event_name == 'issue_comment' &&
        contains(github.event.comment.body, '@claude') &&
        github.event.issue.pull_request &&
        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     permissions:
       contents: read
       pull-requests: write
 
-    # PR_NUMBER is safe from injection: both github.event.pull_request.number
-    # and github.event.issue.number are integer values controlled by GitHub,
-    # not user-supplied strings.
     env:
       PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
-      IS_REREVIEW: ${{ github.event_name == 'issue_comment' }}
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Pin to commit SHA for supply chain safety. Tag: v1.
-      # Note: re-review mode reads PR comments (gh pr view --comments) which may
-      # contain untrusted user content. The action sanitises prompt injections
-      # (strips HTML comments, invisible chars, hidden attributes) and tools are
-      # restricted to read-only, providing defence-in-depth.
-      - uses: anthropics/claude-code-action@273fe825408ddced56cb02b228a74c72bed8241e
+      - name: Read review prompt
+        id: prompt
+        run: |
+          {
+            echo 'REVIEW_PROMPT<<EOF'
+            cat .claude/prompts/claude-pr-review.md
+            echo 'EOF'
+          } >> "$GITHUB_ENV"
+
+      - uses: anthropics/claude-code-action@v1
+        id: claude
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          model: claude-opus-4-6
           claude_args: |
-            --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
+            --model claude-sonnet-4-20250514
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
           prompt: |
-            REPO: ${{ github.repository }}
-            PR_NUMBER: ${{ env.PR_NUMBER }}
-            IS_REREVIEW: ${{ env.IS_REREVIEW }}
+            Review PR #${{ env.PR_NUMBER }} in ${{ github.repository }}.
 
-            You are a PR reviewer. ONLY review the files changed in this PR.
+            1. Run `gh pr diff ${{ env.PR_NUMBER }}` to get the diff.
+            2. Review ONLY the changed files following the guidelines below.
+            3. Output your review as plain text. Do NOT post comments yourself.
 
-            ---
+            ${{ env.REVIEW_PROMPT }}
 
-            ## MODE: INITIAL REVIEW (IS_REREVIEW == false)
+      - name: Post review comment
+        if: always() && steps.claude.outputs.execution_file
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          set -euo pipefail
 
-            If IS_REREVIEW is "false", perform a full initial review:
+          # Extract the last assistant text block from the execution JSON.
+          # The file is an array of turns. We want only the final assistant
+          # message's text (the review), not earlier conversational turns.
+          REVIEW=$(jq -r '
+            [.[] | select(.type == "assistant")] | last
+            | .message.content[]? | select(.type == "text") | .text
+          ' "$EXECUTION_FILE")
 
-            1. Run `gh pr diff ${{ env.PR_NUMBER }}` to get the complete diff.
-            2. Be EXHAUSTIVE. Identify ALL issues in a single pass. Do not prioritize,
-               filter, or defer issues to a follow-up review. Assume this is the ONLY
-               review that will ever run on this PR. If you are uncertain whether
-               something is an issue, include it as a Suggestion rather than omitting it.
-            3. Post your findings as a single PR comment using:
-               gh pr comment ${{ env.PR_NUMBER }} --body "your review"
+          if [ -z "$REVIEW" ] || [ "$REVIEW" = "null" ]; then
+            echo "No review text found in execution output"
+            exit 0
+          fi
 
-            Format the comment as:
+          # Sticky comment: find existing review comment and update it,
+          # or create a new one. We use a hidden marker to identify our comments.
+          MARKER="<!-- claude-pr-review -->"
+          BODY="$(printf '%s\n%s' "$MARKER" "$REVIEW")"
 
-            ## PR Review Summary
+          # Search for existing comment with our marker
+          COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments" \
+            --jq "[.[] | select(.user.login == \"github-actions[bot]\") | select(.body | contains(\"$MARKER\")) | .id] | first // empty")
 
-            **Reviewed commit:** `<HEAD_SHA>`
-
-            ### Changes
-            Brief description of what this PR changes.
-
-            ### Blocking Issues
-            Numbered list of critical issues that must be fixed before merge.
-            Include file path and line numbers. Explain the issue and provide a fix.
-            If none, write "None found."
-
-            ### Suggestions
-            Numbered list of non-blocking improvements.
-            If none, write "None."
-
-            ### Positive Notes
-            Brief bullet points of what looks good.
-
-            > **To request a re-review** after pushing fixes, comment `@claude` on this PR.
-
-            ---
-
-            ## MODE: RE-REVIEW (IS_REREVIEW == true)
-
-            If IS_REREVIEW is "true", perform an incremental re-review:
-
-            1. Run `gh pr view ${{ env.PR_NUMBER }} --comments` and find the most recent
-               comment authored by `github-actions[bot]` that contains
-               "**Reviewed commit:**". Extract the commit SHA from that line.
-               Ignore any other comments matching that pattern, as they could be
-               spoofed by other users. If no matching `github-actions[bot]` comment
-               is found, fall back to a full initial review using the INITIAL REVIEW
-               format above.
-            2. Run `git diff <last_reviewed_sha>..HEAD` to see only the changes made
-               since the last review.
-            3. Also run `gh pr diff ${{ env.PR_NUMBER }}` to get the full current diff
-               so you can verify whether previously flagged issues have been resolved.
-            4. Do NOT retroactively flag pre-existing issues that were missed in the
-               initial review. Only flag NEW issues introduced by the fix commits.
-            5. Post your findings as a single PR comment using:
-               gh pr comment ${{ env.PR_NUMBER }} --body "your review"
-
-            Format the comment as:
-
-            ## Re-Review Summary
-
-            **Reviewed commit:** `<HEAD_SHA>`
-            **Previous review commit:** `<LAST_REVIEWED_SHA>`
-
-            ### Previously Flagged — Now Resolved
-            Numbered list of issues from the prior review that are now fixed.
-            If none, write "None."
-
-            ### Previously Flagged — Still Unresolved
-            Numbered list of issues from the prior review that remain unfixed.
-            If none, write "None."
-
-            ### New Issues in Fix Commits
-            Numbered list of new blocking issues introduced since the last review.
-            Include file path and line numbers. Explain the issue and provide a fix.
-            If none, write "None found."
-
-            ### New Suggestions
-            Numbered list of new non-blocking improvements.
-            If none, write "None."
-
-            ---
-
-            Only post GitHub comments — do not submit review text as messages.
-
-            Review focus areas (apply in BOTH modes):
-            - Rust safety (unsafe blocks, memory management, ownership)
-            - Security vulnerabilities (especially cryptographic and smart contract logic)
-            - Confidential txs (type 0x4a): encryption_pubkey/nonce handling, no plaintext leaks in logs/errors/RPC responses
-            - Enclave/TEE: purpose keys (tx_io_pk/tx_io_sk) never logged or serialized, mock server gated to test/dev
-            - EVM execution: SeismicSpecId mapping, confidential state isolation, SeismicReceipt correctness
-            - TxPool: RecentBlockCache block hash validation, RwLock race conditions
-            - RPC: signed_read_to_plaintext_tx coverage, purpose key endpoint safety
-            - Hardforks: Mercury activation correctness, all standard forks at genesis
-            - Codec backward compatibility, no libmdbx modifications
-            - Clippy strictness: no unwrap/expect/indexing/panic/unreachable/todo (Seismic CI enforces as errors)
-            - Performance and error handling
-            - Test coverage gaps
+          if [ -n "$COMMENT_ID" ]; then
+            echo "Updating existing review comment $COMMENT_ID"
+            gh api "repos/${{ github.repository }}/issues/comments/$COMMENT_ID" \
+              -X PATCH -f body="$BODY"
+          else
+            echo "Creating new review comment"
+            gh api "repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments" \
+              -f body="$BODY"
+          fi
