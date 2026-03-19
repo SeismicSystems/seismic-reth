@@ -76,6 +76,9 @@ tokio = { workspace = true }
 jsonrpsee = { workspace = true }
 tempfile = { workspace = true }
 once_cell.workspace = true
+reth-e2e-test-utils = { workspace = true, optional = true }
+reth-tasks = { workspace = true, optional = true }
+seismic-alloy-genesis = { workspace = true, optional = true }
 
 [dev-dependencies]
 reth-seismic-node = { workspace = true, features = ["test-utils"] }
@@ -128,7 +131,9 @@ js-tracer = [
     "reth-node-builder/js-tracer",
 ]
 test-utils = [
-    # "reth-tasks",
+    "reth-tasks",
+    "reth-e2e-test-utils",
+    "seismic-alloy-genesis",
     "reth-node-builder/test-utils",
     "reth-chainspec/test-utils",
     "reth-consensus/test-utils",

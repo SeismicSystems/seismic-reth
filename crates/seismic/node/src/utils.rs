@@ -2,6 +2,95 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)] // Test utilities - panics are acceptable
 
+#[cfg(feature = "test-utils")]
+use crate::node::SeismicNode;
+#[cfg(feature = "test-utils")]
+use alloy_primitives::{Address, B256};
+#[cfg(feature = "test-utils")]
+use alloy_rpc_types_engine::PayloadAttributes;
+#[cfg(feature = "test-utils")]
+use reth_chainspec::{ChainSpecBuilder, MAINNET};
+#[cfg(feature = "test-utils")]
+use reth_e2e_test_utils::{transaction::TransactionTestContext, wallet::Wallet, NodeHelperType};
+#[cfg(feature = "test-utils")]
+use reth_node_api::NodeTypesWithDBAdapter;
+#[cfg(feature = "test-utils")]
+use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
+#[cfg(feature = "test-utils")]
+use reth_provider::providers::BlockchainProvider;
+#[cfg(feature = "test-utils")]
+use reth_seismic_primitives::SeismicPrimitives;
+#[cfg(feature = "test-utils")]
+use reth_tasks::TaskManager;
+#[cfg(feature = "test-utils")]
+use seismic_alloy_genesis::Genesis;
+#[cfg(feature = "test-utils")]
+use std::sync::Arc;
+#[cfg(feature = "test-utils")]
+use tokio::sync::Mutex;
+
+#[cfg(feature = "test-utils")]
+use reth_e2e_test_utils::TmpDB;
+
+/// Seismic Node Helper type
+#[cfg(feature = "test-utils")]
+pub type SeismicTestNode =
+    NodeHelperType<SeismicNode, BlockchainProvider<NodeTypesWithDBAdapter<SeismicNode, TmpDB>>>;
+
+/// Creates the initial setup with `num_nodes` of the seismic node config, started and connected.
+#[cfg(feature = "test-utils")]
+pub async fn setup(num_nodes: usize) -> eyre::Result<(Vec<SeismicTestNode>, TaskManager, Wallet)> {
+    let genesis: Genesis =
+        serde_json::from_str(include_str!("../tests/assets/genesis.json")).unwrap();
+    reth_e2e_test_utils::setup_engine(
+        num_nodes,
+        Arc::new(
+            ChainSpecBuilder::default()
+                .chain(MAINNET.chain)
+                .genesis(genesis)
+                .cancun_activated()
+                .build(),
+        ),
+        false,
+        Default::default(),
+        seismic_payload_attributes,
+    )
+    .await
+}
+
+/// Advance the chain with sequential payloads returning them in the end.
+#[cfg(feature = "test-utils")]
+pub async fn advance_chain(
+    length: usize,
+    node: &mut SeismicTestNode,
+    wallet: Arc<Mutex<Wallet>>,
+) -> eyre::Result<Vec<EthBuiltPayload<SeismicPrimitives>>> {
+    node.advance(length as u64, |_| {
+        let wallet = wallet.clone();
+        Box::pin(async move {
+            let mut wallet = wallet.lock().await;
+            let tx_fut =
+                TransactionTestContext::transfer_tx_bytes(wallet.chain_id, wallet.inner.clone());
+            wallet.inner_nonce += 1;
+            tx_fut.await
+        })
+    })
+    .await
+}
+
+/// Helper function to create a new eth payload attributes for seismic
+#[cfg(feature = "test-utils")]
+pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
+    let attributes = PayloadAttributes {
+        timestamp,
+        prev_randao: B256::ZERO,
+        suggested_fee_recipient: Address::ZERO,
+        withdrawals: Some(vec![]),
+        parent_beacon_block_root: Some(B256::ZERO),
+    };
+    EthPayloadBuilderAttributes::new(B256::ZERO, attributes)
+}
+
 /// Test utils for the seismic rpc api
 pub mod test_utils {
     use alloy_primitives::Address;

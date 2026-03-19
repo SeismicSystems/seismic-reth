@@ -1,11 +1,31 @@
 use futures::StreamExt;
-use reth_seismic_node::utils::{advance_chain, setup};
-use std::sync::Arc;
+use reth_seismic_node::{
+    purpose_keys::init_purpose_keys,
+    utils::{advance_chain, setup},
+};
+use seismic_enclave::{
+    get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
+    get_unsecure_sample_secp256k1_sk, GetPurposeKeysResponse,
+};
+use std::sync::{Arc, Once};
 use tokio::sync::Mutex;
+
+static INIT_KEYS: Once = Once::new();
+fn ensure_mock_purpose_keys() {
+    INIT_KEYS.call_once(|| {
+        init_purpose_keys(GetPurposeKeysResponse {
+            tx_io_sk: get_unsecure_sample_secp256k1_sk(),
+            tx_io_pk: get_unsecure_sample_secp256k1_pk(),
+            snapshot_key_bytes: [0u8; 32],
+            rng_keypair: get_unsecure_sample_schnorrkel_keypair(),
+        });
+    });
+}
 
 #[tokio::test]
 async fn can_sync() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
+    ensure_mock_purpose_keys();
 
     let (mut nodes, _tasks, wallet) = setup(3).await?;
     let wallet = Arc::new(Mutex::new(wallet));
