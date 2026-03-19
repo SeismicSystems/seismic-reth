@@ -134,7 +134,7 @@ async fn integration_test() {
 
     // Flagged storage tests
     test_eth_call_rejects_sload_on_private_storage_inner().await;
-    test_eth_call_rejects_cload_on_public_storage_inner().await;
+    test_eth_call_allows_cload_on_public_storage_inner().await;
     test_eth_call_allows_cload_on_private_storage_inner().await;
     test_solidity_read_public_sload_succeeds_inner().await;
     test_solidity_read_private_succeeds_inner().await;
@@ -991,22 +991,20 @@ async fn test_eth_call_rejects_sload_on_private_storage_inner() {
     .await;
 
     println!("readPrivateSload eth_call result: {:?}", result);
-
-    println!("readPrivateSload eth_call result: {:?}", result);
     match &result {
         Ok(output) => panic!("SLOAD on private storage should fail, but got Ok: {:?}", output),
         Err(e) => {
             let err_msg = e.to_string().to_lowercase();
             assert!(
-                err_msg.contains("invalid private storage access"),
-                "Expected 'invalid private storage access', got: {}",
+                err_msg.contains("invalidprivatestorageaccess"),
+                "Expected 'InvalidPrivateStorageAccess' revert, got: {}",
                 err_msg
             );
         }
     }
 }
 
-async fn test_eth_call_rejects_cload_on_public_storage_inner() {
+async fn test_eth_call_allows_cload_on_public_storage_inner() {
     let reth_rpc_url = SeismicRethTestCommand::url();
     let chain_id = SeismicRethTestCommand::chain_id();
     let client = jsonrpsee::http_client::HttpClientBuilder::default().build(reth_rpc_url).unwrap();
@@ -1066,7 +1064,9 @@ async fn test_eth_call_rejects_cload_on_public_storage_inner() {
     .unwrap();
     thread::sleep(Duration::from_secs(WAIT_FOR_RECEIPT_SECONDS));
 
-    // Try CLOAD on public storage via seismic eth_call - should fail
+    // Try CLOAD on public storage via seismic eth_call - should succeed
+    // (CLOAD can read both private and public storage; SLOAD should be preferred
+    // for public storage since CLOAD charges constant gas)
     let block_hash = get_recent_block_hash(&client).await;
     let read_calldata: Bytes = hex::decode(FLAGGED_STORAGE_READ_PUBLIC_CLOAD).unwrap().into();
     let nonce = get_nonce(&client, wallet.inner.address()).await;
@@ -1088,13 +1088,7 @@ async fn test_eth_call_rejects_cload_on_public_storage_inner() {
     )
     .await;
 
-    assert!(result.is_err(), "CLOAD on public storage should fail");
-    let err_msg = result.unwrap_err().to_string().to_lowercase();
-    assert!(
-        err_msg.contains("invalid public storage access"),
-        "Expected 'invalid public storage access', got: {}",
-        err_msg
-    );
+    assert!(result.is_ok(), "CLOAD on public storage should succeed, got: {:?}", result.err());
 }
 
 async fn test_eth_call_allows_cload_on_private_storage_inner() {
