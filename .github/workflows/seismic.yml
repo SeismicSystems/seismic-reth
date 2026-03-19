@@ -34,12 +34,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "build-cache"
-      # Removing this because build --bin seismic-reth runs in integration-test
-      # and this is very slow right now.
-      # TODO: eventually uncomment it when we open source,
-      # so we know other crates build correctly
-      # - name: cargo build
-      #   run: cargo build
+      - name: cargo check (workspace)
+        run: cargo check --workspace
 
   warnings:
     runs-on: ubuntu-latest
@@ -85,6 +81,24 @@ jobs:
             -W clippy::panic \
             -W clippy::unreachable \
             -W clippy::todo
+
+  clippy-workspace:
+    runs-on: large-github-runner
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "clippy-workspace-cache"
+      - name: Clippy (workspace)
+        run: |
+          cargo clippy \
+            --workspace \
+            --lib --tests --no-deps \
+            -- -D warnings
 
   unit-test:
     runs-on: large-github-runner
