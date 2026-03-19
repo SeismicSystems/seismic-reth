@@ -69,10 +69,20 @@ pub async fn advance_chain(
         let wallet = wallet.clone();
         Box::pin(async move {
             let mut wallet = wallet.lock().await;
-            let tx_fut =
-                TransactionTestContext::transfer_tx_bytes(wallet.chain_id, wallet.inner.clone());
+            let nonce = wallet.inner_nonce;
             wallet.inner_nonce += 1;
-            tx_fut.await
+            let tx = alloy_rpc_types_eth::TransactionRequest {
+                nonce: Some(nonce),
+                value: Some(alloy_primitives::U256::from(100)),
+                to: Some(alloy_primitives::TxKind::Call(Address::random())),
+                gas: Some(21000),
+                max_fee_per_gas: Some(20e9 as u128),
+                max_priority_fee_per_gas: Some(20e9 as u128),
+                chain_id: Some(wallet.chain_id),
+                ..Default::default()
+            };
+            let signed = TransactionTestContext::sign_tx(wallet.inner.clone(), tx).await;
+            alloy_eips::eip2718::Encodable2718::encoded_2718(&signed).into()
         })
     })
     .await
