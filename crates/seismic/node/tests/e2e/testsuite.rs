@@ -54,7 +54,9 @@ async fn test_testsuite_seismic_assert_mine_block() -> Result<()> {
             prev_randao: B256::random(),
             suggested_fee_recipient: Address::random(),
             withdrawals: Some(vec![]),
-            parent_beacon_block_root: Some(B256::ZERO),
+            // Must be None because AssertMineBlock uses forkchoiceUpdatedV2
+            // which rejects parent_beacon_block_root
+            parent_beacon_block_root: None,
         },
     ));
 
