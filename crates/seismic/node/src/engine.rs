@@ -84,29 +84,8 @@ impl PayloadTypes for SeismicPayloadTypes {
             <<Self::BuiltPayload as BuiltPayload>::Primitives as NodePrimitives>::Block,
         >,
     ) -> Self::ExecutionData {
-        // DEBUG: log the original block header before conversion
-        let original_hash = block.hash();
-        let header = block.header();
-        tracing::debug!(
-            target: "seismic::engine",
-            ?original_hash,
-            state_root = ?header.state_root,
-            requests_hash = ?header.requests_hash,
-            number = header.number,
-            "block_to_payload: original block header BEFORE ExecutionPayload conversion"
-        );
-
         let (payload, sidecar) =
             ExecutionPayload::from_block_unchecked(block.hash(), &block.into_block());
-
-        // DEBUG: log what survived the conversion
-        tracing::debug!(
-            target: "seismic::engine",
-            payload_block_hash = ?payload.block_hash(),
-            payload_has_requests = sidecar.requests().is_some(),
-            "block_to_payload: ExecutionPayload AFTER conversion"
-        );
-
         ExecutionData { payload, sidecar }
     }
 }
@@ -137,29 +116,7 @@ impl PayloadValidator<SeismicEngineTypes> for SeismicEngineValidator {
         &self,
         payload: ExecutionData,
     ) -> Result<RecoveredBlock<Self::Block>, NewPayloadError> {
-        // DEBUG: log the incoming payload's block_hash and key header fields
-        let incoming_hash = payload.block_hash();
-        let incoming_requests_hash = payload.sidecar.requests();
-        tracing::debug!(
-            target: "seismic::engine",
-            ?incoming_hash,
-            has_requests_in_sidecar = incoming_requests_hash.is_some(),
-            "ensure_well_formed_payload: incoming ExecutionData"
-        );
-
         let sealed_block = self.inner.ensure_well_formed_payload(payload)?;
-
-        // DEBUG: log the reconstructed block's header fields
-        let header = sealed_block.header();
-        tracing::debug!(
-            target: "seismic::engine",
-            reconstructed_hash = ?sealed_block.hash(),
-            state_root = ?header.state_root,
-            requests_hash = ?header.requests_hash,
-            number = header.number,
-            "ensure_well_formed_payload: reconstructed block header"
-        );
-
         sealed_block.try_recover().map_err(|e| NewPayloadError::Other(e.into()))
     }
 }

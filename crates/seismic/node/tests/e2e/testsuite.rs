@@ -13,7 +13,6 @@ use seismic_enclave::{
 };
 use std::sync::Once;
 
-/// Ensure mock purpose keys are initialized exactly once per test binary.
 static INIT_KEYS: Once = Once::new();
 fn ensure_mock_purpose_keys() {
     INIT_KEYS.call_once(|| {
@@ -26,12 +25,11 @@ fn ensure_mock_purpose_keys() {
     });
 }
 
+// Seismic uses millisecond timestamps internally, so we multiply the
+// framework-provided seconds value by 1000.
 fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
-    // Seismic uses millisecond timestamps internally (when timestamp-in-seconds feature is
-    // disabled)
-    let timestamp = timestamp * 1000;
     let attributes = PayloadAttributes {
-        timestamp,
+        timestamp: timestamp * 1000,
         prev_randao: B256::ZERO,
         suggested_fee_recipient: Address::ZERO,
         withdrawals: Some(vec![]),
@@ -40,16 +38,13 @@ fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
     EthPayloadBuilderAttributes::new(B256::ZERO, attributes)
 }
 
-/// Test that a Seismic node can produce and finalize blocks.
-///
-/// Inlines the `advance_block` logic with debug tracing at each step
-/// to diagnose where the test hangs in CI.
+// Produces a single block on a Seismic node using the internal engine channel
+// (not the JSON-RPC engine API, which loses Prague-era fields in V3 payloads).
 #[tokio::test(flavor = "multi_thread")]
 async fn test_seismic_produce_blocks() -> Result<()> {
     reth_tracing::init_test_tracing();
     ensure_mock_purpose_keys();
 
-    tracing::info!(target: "seismic::testsuite", "setting up node");
     let (mut nodes, _tasks, wallet) = setup_engine::<SeismicNode>(
         1,
         SEISMIC_DEV.clone(),
@@ -59,9 +54,7 @@ async fn test_seismic_produce_blocks() -> Result<()> {
     )
     .await?;
     let mut node = nodes.pop().unwrap();
-    tracing::info!(target: "seismic::testsuite", chain_id = wallet.chain_id, "node ready");
 
-    // Build and inject a single transfer tx
     let tx = TransactionRequest {
         nonce: Some(0),
         value: Some(U256::from(100)),
@@ -75,40 +68,9 @@ async fn test_seismic_produce_blocks() -> Result<()> {
     let signed = TransactionTestContext::sign_tx(wallet.inner.clone(), tx).await;
     let raw_tx: alloy_primitives::Bytes = signed.encoded_2718().into();
 
-    tracing::info!(target: "seismic::testsuite", "injecting tx");
     let tx_hash = node.rpc.inject_tx(raw_tx).await?;
-    tracing::info!(target: "seismic::testsuite", ?tx_hash, "tx injected");
-
-    // Step 1: trigger payload building via new_payload
-    // This calls: payload.new_payload() → expect_attr_event → wait_for_built_payload →
-    // expect_built_payload
-    tracing::info!(target: "seismic::testsuite", "triggering payload build (new_payload)");
-    let eth_attr = node.payload.new_payload().await.unwrap();
-    tracing::info!(target: "seismic::testsuite", payload_id = ?eth_attr.payload_id(), "payload attributes created, waiting for attr event");
-
-    node.payload.expect_attr_event(eth_attr.clone()).await?;
-    tracing::info!(target: "seismic::testsuite", "attr event received, waiting for built payload");
-
-    node.payload.wait_for_built_payload(eth_attr.payload_id()).await;
-    tracing::info!(target: "seismic::testsuite", "built payload ready, expecting built payload event");
-
-    let payload = node.payload.expect_built_payload().await?;
-    tracing::info!(target: "seismic::testsuite", block_number = payload.block().number, block_hash = ?payload.block().hash(), "payload built");
-
-    // Step 2: submit payload to engine
-    tracing::info!(target: "seismic::testsuite", "submitting payload");
-    node.submit_payload(payload.clone()).await?;
-    tracing::info!(target: "seismic::testsuite", "payload submitted");
-
-    // Step 3: update forkchoice
-    tracing::info!(target: "seismic::testsuite", "updating forkchoice");
-    node.update_forkchoice(payload.block().hash(), payload.block().hash()).await?;
-    tracing::info!(target: "seismic::testsuite", "forkchoice updated");
-
-    // Step 4: verify
-    tracing::info!(target: "seismic::testsuite", "verifying block");
+    let payload = node.advance_block().await?;
     node.assert_new_block(tx_hash, payload.block().hash(), payload.block().number).await?;
-    tracing::info!(target: "seismic::testsuite", "PASS - block 1 produced and verified");
 
     Ok(())
 }
