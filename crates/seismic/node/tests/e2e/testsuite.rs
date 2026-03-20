@@ -4,7 +4,7 @@ use alloy_primitives::{Address, B256, U256};
 use alloy_rpc_types_engine::PayloadAttributes;
 use alloy_rpc_types_eth::TransactionRequest;
 use eyre::Result;
-use reth_e2e_test_utils::{setup, transaction::TransactionTestContext};
+use reth_e2e_test_utils::{setup_engine, transaction::TransactionTestContext};
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use reth_seismic_chainspec::SEISMIC_DEV;
 use reth_seismic_node::{node::SeismicNode, purpose_keys::init_purpose_keys};
@@ -44,20 +44,19 @@ fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
 /// Uses `setup` + `advance_block` (internal engine channel) rather than the
 /// testsuite `ProduceBlocks` action, which goes through JSON-RPC `new_payload_v3`
 /// and loses `requests_hash` (Prague field) during the V3 round-trip.
-///
-/// Currently ignored: `advance_block` → `wait_for_built_payload` hangs after
-/// the first block is built. The payload builder correctly seals a block with
-/// the tx included (`gas_used`: 21000) but `best_payload` never resolves.
-/// Root cause TBD — may be related to how `SEISMIC_DEV` interacts with the
-/// payload resolver or the `setup` (non-engine) path.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "advance_block hangs in wait_for_built_payload — payload builds correctly but resolver doesn't complete"]
 async fn test_seismic_produce_blocks() -> Result<()> {
     reth_tracing::init_test_tracing();
     ensure_mock_purpose_keys();
 
-    let (mut nodes, _tasks, wallet) =
-        setup::<SeismicNode>(1, SEISMIC_DEV.clone(), false, seismic_payload_attributes).await?;
+    let (mut nodes, _tasks, wallet) = setup_engine::<SeismicNode>(
+        1,
+        SEISMIC_DEV.clone(),
+        false,
+        Default::default(),
+        seismic_payload_attributes,
+    )
+    .await?;
     let mut node = nodes.pop().unwrap();
 
     // Produce 3 blocks, each with a transfer tx at incrementing nonces.
