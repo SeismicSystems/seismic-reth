@@ -1,13 +1,13 @@
+use alloy_consensus::BlockHeader;
+use alloy_eips::eip2718::Encodable2718;
+use alloy_primitives::{Address, B256, U256};
+use alloy_rpc_types_engine::PayloadAttributes;
+use alloy_rpc_types_eth::TransactionRequest;
 use eyre::Result;
-use reth_e2e_test_utils::testsuite::{
-    actions::ProduceBlocks,
-    setup::{NetworkSetup, Setup},
-    TestBuilder,
-};
-use reth_seismic_chainspec::SEISMIC_MAINNET;
-use reth_seismic_node::{
-    engine::SeismicEngineTypes, node::SeismicNode, purpose_keys::init_purpose_keys,
-};
+use reth_e2e_test_utils::{setup, transaction::TransactionTestContext};
+use reth_payload_builder::EthPayloadBuilderAttributes;
+use reth_seismic_chainspec::SEISMIC_DEV;
+use reth_seismic_node::{node::SeismicNode, purpose_keys::init_purpose_keys};
 use seismic_enclave::{
     get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
     get_unsecure_sample_secp256k1_sk, GetPurposeKeysResponse,
@@ -28,53 +28,66 @@ fn ensure_mock_purpose_keys() {
     });
 }
 
-/// Test that the Seismic node can produce blocks via the testsuite framework.
+fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
+    let attributes = PayloadAttributes {
+        timestamp,
+        prev_randao: B256::ZERO,
+        suggested_fee_recipient: Address::ZERO,
+        withdrawals: Some(vec![]),
+        parent_beacon_block_root: Some(B256::ZERO),
+    };
+    EthPayloadBuilderAttributes::new(B256::ZERO, attributes)
+}
+
+/// Test that a Seismic node can produce and finalize blocks.
 ///
-/// Uses `ProduceBlocks` (V3 engine API) which is compatible with Cancun-active
-/// chain specs like `SEISMIC_MAINNET`.
-#[tokio::test]
-#[ignore = "block hash mismatch in new_payload_v3 — debug codepath documented below"]
-// DEBUG CODEPATH for block hash mismatch:
-//
-// 1. PAYLOAD BUILD: get_payload_v3 returns an ExecutionPayloadEnvelopeV3 with block_hash computed
-//    by the Seismic payload builder. File: crates/seismic/payload/src/builder.rs → The Seismic
-//    builder seals the block with state_root from flagged storage trie
-//
-// 2. PAYLOAD BROADCAST: new_payload_v3 receives the ExecutionPayload File:
-//    crates/rpc/rpc-engine-api/src/engine_api.rs:873-889 → Wraps payload into ExecutionData and
-//    calls new_payload_v3_metered
-//
-// 3. ENGINE TREE VALIDATION: on_new_payload processes the ExecutionData File:
-//    crates/engine/tree/src/tree/mod.rs:516-600 → Calls insert_payload which re-executes the block
-//    and recomputes state_root → Seals the block header from the execution result → Compares
-//    computed block_hash against payload.block_hash → If mismatch →
-//    NewPayloadError::Eth(PayloadError::BlockHash { ... })
-//
-// 4. WHERE THE MISMATCH LIKELY OCCURS: The ExecutionPayload round-trip goes: SeismicBlock →
-//    ExecutionPayloadV3 (get_payload_v3) → ExecutionData → Block (new_payload) The block_hash in
-//    step 2 was computed from the original SeismicBlock header. In step 3, the engine rebuilds a
-//    header from ExecutionPayload fields. If any field is lost/transformed in the conversion (e.g.
-//    Seismic-specific header fields), the rebuilt header will hash differently.
-//
-// TO DEBUG: Run with RUST_LOG=engine::tree=debug,rpc::engine=debug,payload=debug
-//   cargo nextest run -p reth-seismic-node -E 'test(testsuite)' --no-fail-fast
-// --ignore-default-filter Look for:
-//   - "Invalid payload" log in engine::tree (shows the error details)
-//   - Compare block_hash from get_payload_v3 response vs what new_payload_v3 computes
-//   - Check if state_root differs (flagged storage) or if header encoding differs
-async fn test_testsuite_seismic_produce_blocks() -> Result<()> {
+/// Uses `setup` + `advance_block` (internal engine channel) rather than the
+/// testsuite `ProduceBlocks` action, which goes through JSON-RPC `new_payload_v3`
+/// and loses `requests_hash` (Prague field) during the V3 round-trip.
+///
+/// Currently ignored: `advance_block` → `wait_for_built_payload` hangs after
+/// the first block is built. The payload builder correctly seals a block with
+/// the tx included (`gas_used`: 21000) but `best_payload` never resolves.
+/// Root cause TBD — may be related to how `SEISMIC_DEV` interacts with the
+/// payload resolver or the `setup` (non-engine) path.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "advance_block hangs in wait_for_built_payload — payload builds correctly but resolver doesn't complete"]
+async fn test_seismic_produce_blocks() -> Result<()> {
     reth_tracing::init_test_tracing();
     ensure_mock_purpose_keys();
 
-    let setup = Setup::default()
-        .with_chain_spec(SEISMIC_MAINNET.clone())
-        .with_network(NetworkSetup::single_node());
+    let (mut nodes, _tasks, wallet) =
+        setup::<SeismicNode>(1, SEISMIC_DEV.clone(), false, seismic_payload_attributes).await?;
+    let mut node = nodes.pop().unwrap();
 
-    let test = TestBuilder::new()
-        .with_setup(setup)
-        .with_action(ProduceBlocks::<SeismicEngineTypes>::new(3));
+    // Produce 3 blocks, each with a transfer tx at incrementing nonces.
+    // advance() passes the block index (0, 1, 2) as the nonce argument.
+    let chain_id = wallet.chain_id;
+    let signer = wallet.inner;
+    let chain = node
+        .advance(3, |nonce| {
+            let w = signer.clone();
+            Box::pin(async move {
+                let tx = TransactionRequest {
+                    nonce: Some(nonce),
+                    value: Some(U256::from(100)),
+                    to: Some(alloy_primitives::TxKind::Call(Address::random())),
+                    gas: Some(21000),
+                    max_fee_per_gas: Some(20e9 as u128),
+                    max_priority_fee_per_gas: Some(20e9 as u128),
+                    chain_id: Some(chain_id),
+                    ..Default::default()
+                };
+                let signed = TransactionTestContext::sign_tx(w, tx).await;
+                signed.encoded_2718().into()
+            })
+        })
+        .await?;
 
-    test.run::<SeismicNode>().await?;
+    assert_eq!(chain.len(), 3, "should have produced 3 blocks");
+    for (i, payload) in chain.iter().enumerate() {
+        assert_eq!(payload.block().number(), (i + 1) as u64, "block number should match");
+    }
 
     Ok(())
 }
