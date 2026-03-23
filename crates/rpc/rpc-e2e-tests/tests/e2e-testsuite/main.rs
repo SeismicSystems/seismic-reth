@@ -211,18 +211,18 @@ async fn test_execution_apis_compat() -> Result<()> {
 fn test_rpc_compat_test_data_is_well_formed() {
     let test_data_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("testdata/rpc-compat");
 
-    // ---- Required top-level files exist ----
+    // Required top-level files exist
     assert!(test_data_path.exists(), "testdata/rpc-compat directory missing");
     assert!(test_data_path.join("chain.rlp").exists(), "chain.rlp missing");
     assert!(test_data_path.join("genesis.json").exists(), "genesis.json missing");
     assert!(test_data_path.join("headfcu.json").exists(), "headfcu.json missing");
 
-    // ---- chain.rlp is non-empty ----
+    // chain.rlp is non-empty
     let chain_rlp_meta =
         std::fs::metadata(test_data_path.join("chain.rlp")).expect("failed to stat chain.rlp");
     assert!(chain_rlp_meta.len() > 0, "chain.rlp is empty");
 
-    // ---- genesis.json parses into a valid Genesis / ChainSpec ----
+    // genesis.json parses into a valid Genesis / ChainSpec
     let genesis_json =
         std::fs::read_to_string(test_data_path.join("genesis.json")).expect("read genesis.json");
     let genesis: Genesis =
@@ -230,7 +230,7 @@ fn test_rpc_compat_test_data_is_well_formed() {
     let chain_spec: ChainSpec = genesis.into();
     assert!(chain_spec.chain().id() > 0, "chain ID should be non-zero");
 
-    // ---- headfcu.json has valid structure ----
+    // headfcu.json has valid structure
     let fcu_json =
         std::fs::read_to_string(test_data_path.join("headfcu.json")).expect("read headfcu.json");
     let fcu: serde_json::Value =
@@ -256,7 +256,7 @@ fn test_rpc_compat_test_data_is_well_formed() {
         "headfcu.json params[0] missing finalizedBlockHash"
     );
 
-    // ---- At least one RPC method directory with .io test files ----
+    // At least one RPC method directory with .io test files
     let mut method_dirs: Vec<String> = Vec::new();
     for entry in std::fs::read_dir(&test_data_path).expect("read testdata dir") {
         let entry = entry.expect("read dir entry");
@@ -270,7 +270,7 @@ fn test_rpc_compat_test_data_is_well_formed() {
     }
     assert!(!method_dirs.is_empty(), "no RPC method directories (with '_') found");
 
-    // ---- Each method directory contains at least one well-formed .io file ----
+    // Each method directory contains at least one well-formed .io file
     for method in &method_dirs {
         let method_dir = test_data_path.join(method);
         let mut io_count = 0u32;
