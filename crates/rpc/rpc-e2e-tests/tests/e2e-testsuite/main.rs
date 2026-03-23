@@ -1,28 +1,7 @@
 //! RPC compatibility tests using execution-apis test data.
 //!
-//! # Current Status
-//!
-//! The main test `test_local_rpc_tests_compat` is **ignored** because the test data
-//! (chain.rlp, genesis.json, headfcu.json) was generated from an upstream Ethereum
-//! execution-apis test suite that uses standard (non-flagged) storage. Seismic's trie
-//! implementation hashes storage values as `FlaggedStorage` (a `U256` value plus a
-//! one-byte privacy flag), which produces different state roots than standard Ethereum.
-//! When the node imports blocks from chain.rlp and recomputes state roots, the computed
-//! roots will not match the block headers, causing the import to fail.
-//!
-//! # What Needs to Change to Re-enable
-//!
-//! New test data must be generated from a running Seismic node so that the block headers
-//! contain state roots computed with flagged storage. Steps:
-//!
-//! 1. Run a local Seismic devnet (e.g. `cargo run -- node --dev --dev.block-time 1s`)
-//! 2. Deploy contracts and submit transactions that exercise storage (SSTORE/SLOAD) and emit logs
-//!    to cover the `eth_getLogs` test cases
-//! 3. Export the chain using `reth db export-chain <output.rlp> --to <block_number>`
-//! 4. Capture the genesis.json from the devnet configuration
-//! 5. Record the head forkchoice state as headfcu.json
-//! 6. Write new `.io` test case files with the correct expected RPC responses
-//! 7. Replace the files in `testdata/rpc-compat/` and remove the `#[ignore]` annotation
+//! TODO: Regenerate test data from a Seismic devnet — current data uses upstream Ethereum
+//! state roots which don't match Seismic's FlaggedStorage trie hashing.
 
 use eyre::Result;
 use reth_chainspec::ChainSpec;
@@ -38,16 +17,7 @@ use std::{env, path::PathBuf, sync::Arc};
 use tracing::{debug, info};
 
 /// Test repo-local RPC method compatibility with execution-apis test data.
-///
-/// This test is currently ignored because the bundled test data contains blocks whose
-/// state roots were computed using standard Ethereum storage hashing. Seismic uses
-/// `FlaggedStorage` in its trie cursors (see `crates/trie/trie/src/hashed_cursor/mod.rs`),
-/// which prepends a privacy flag byte to each storage value before hashing. This means
-/// state roots produced by a Seismic node will differ from those in the test data, and
-/// block import will fail with a state root mismatch.
-///
-/// To re-enable this test, regenerate the test data from a Seismic devnet. See the
-/// module-level documentation for step-by-step instructions.
+/// Ignored until test data is regenerated from a Seismic devnet (see module TODO).
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "Test data has state roots from standard Ethereum storage hashing; Seismic uses FlaggedStorage which produces different roots. Regenerate test data from a Seismic devnet to fix."]
 async fn test_local_rpc_tests_compat() -> Result<()> {
