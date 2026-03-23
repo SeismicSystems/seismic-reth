@@ -25,11 +25,11 @@ fn ensure_mock_purpose_keys() {
     });
 }
 
-// Seismic uses millisecond timestamps internally, so we multiply the
-// framework-provided seconds value by 1000.
+const SEISMIC_TIMESTAMP_MULTIPLIER: u64 = 1000; // Seismic returns times in milliseconds
+
 fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
     let attributes = PayloadAttributes {
-        timestamp: timestamp * 1000,
+        timestamp: timestamp * SEISMIC_TIMESTAMP_MULTIPLIER,
         prev_randao: B256::ZERO,
         suggested_fee_recipient: Address::ZERO,
         withdrawals: Some(vec![]),
