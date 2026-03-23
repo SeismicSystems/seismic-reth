@@ -332,8 +332,8 @@ where
 /// Creates an [`EthApiError`] that says that seismic decryption failed
 pub fn ext_decryption_error(e_str: String) -> EthApiError {
     EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
-        -32000, // TODO: pick a better error code?
-        "Error Decrypting in Seismic EthApiExt",
+        jsonrpsee_types::error::INVALID_PARAMS_CODE,
+        "failed to decrypt seismic request payload",
         Some(e_str),
     )))
 }
@@ -341,8 +341,42 @@ pub fn ext_decryption_error(e_str: String) -> EthApiError {
 /// Creates an [`EthApiError`] that says that seismic encryption failed
 pub fn ext_encryption_error(e_str: String) -> EthApiError {
     EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
-        -32000, // TODO: pick a better error code?
-        "Error Encrypting in Seismic EthApiExt",
+        jsonrpsee_types::error::INTERNAL_ERROR_CODE,
+        "failed to encrypt seismic response payload",
         Some(e_str),
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ext_decryption_error, ext_encryption_error};
+
+    #[track_caller]
+    fn ensure_ext_rpc_error(
+        code: i32,
+        message: &str,
+        err: impl Into<jsonrpsee_types::error::ErrorObject<'static>>,
+    ) {
+        let err = err.into();
+        assert_eq!(err.code(), code);
+        assert_eq!(err.message(), message);
+    }
+
+    #[test]
+    fn decryption_errors_use_invalid_params() {
+        ensure_ext_rpc_error(
+            jsonrpsee_types::error::INVALID_PARAMS_CODE,
+            "failed to decrypt seismic request payload",
+            ext_decryption_error("invalid ciphertext".to_string()),
+        );
+    }
+
+    #[test]
+    fn encryption_errors_use_internal_error() {
+        ensure_ext_rpc_error(
+            jsonrpsee_types::error::INTERNAL_ERROR_CODE,
+            "failed to encrypt seismic response payload",
+            ext_encryption_error("failed to seal response".to_string()),
+        );
+    }
 }
