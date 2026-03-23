@@ -1,54 +1,76 @@
-use alloy_primitives::{Address, B256};
-use eyre::Result;
+use alloy_eips::eip2718::Encodable2718;
+use alloy_primitives::{Address, B256, U256};
 use alloy_rpc_types_engine::PayloadAttributes;
-use reth_e2e_test_utils::testsuite::{
-    actions::AssertMineBlock,
-    setup::{NetworkSetup, Setup},
-    TestBuilder,
+use alloy_rpc_types_eth::TransactionRequest;
+use eyre::Result;
+use reth_e2e_test_utils::{setup_engine, transaction::TransactionTestContext};
+use reth_payload_builder::EthPayloadBuilderAttributes;
+use reth_seismic_chainspec::SEISMIC_DEV;
+use reth_seismic_node::{node::SeismicNode, purpose_keys::init_purpose_keys};
+use seismic_enclave::{
+    get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
+    get_unsecure_sample_secp256k1_sk, GetPurposeKeysResponse,
 };
-use reth_chainspec::{ChainSpecBuilder, SEISMIC_MAINNET};
-use reth_seismic_node::{SeismicEngineTypes, SeismicNode};
-use std::sync::Arc;
+use std::sync::Once;
 
-#[tokio::test]
-async fn test_testsuite_op_assert_mine_block() -> Result<()> {
+static INIT_KEYS: Once = Once::new();
+fn ensure_mock_purpose_keys() {
+    INIT_KEYS.call_once(|| {
+        init_purpose_keys(GetPurposeKeysResponse {
+            tx_io_sk: get_unsecure_sample_secp256k1_sk(),
+            tx_io_pk: get_unsecure_sample_secp256k1_pk(),
+            snapshot_key_bytes: [0u8; 32],
+            rng_keypair: get_unsecure_sample_schnorrkel_keypair(),
+        });
+    });
+}
+
+const SEISMIC_TIMESTAMP_MULTIPLIER: u64 = 1000; // Seismic returns times in milliseconds
+
+fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
+    let attributes = PayloadAttributes {
+        timestamp: timestamp * SEISMIC_TIMESTAMP_MULTIPLIER,
+        prev_randao: B256::ZERO,
+        suggested_fee_recipient: Address::ZERO,
+        withdrawals: Some(vec![]),
+        parent_beacon_block_root: Some(B256::ZERO),
+    };
+    EthPayloadBuilderAttributes::new(B256::ZERO, attributes)
+}
+
+// Produces a single block on a Seismic node using the internal engine channel
+// (not the JSON-RPC engine API, which loses Prague-era fields in V3 payloads).
+#[tokio::test(flavor = "multi_thread")]
+async fn test_seismic_produce_blocks() -> Result<()> {
     reth_tracing::init_test_tracing();
+    ensure_mock_purpose_keys();
 
-    let setup = Setup::default()
-        .with_chain_spec(Arc::new(
-            ChainSpecBuilder::default()
-                .chain(SEISMIC_MAINNET.chain)
-                .genesis(serde_json::from_str(include_str!("../assets/genesis.json")).unwrap())
-                .build()
-                .into(),
-        ))
-        .with_network(NetworkSetup::single_node());
+    let (mut nodes, _tasks, wallet) = setup_engine::<SeismicNode>(
+        1,
+        SEISMIC_DEV.clone(),
+        false,
+        Default::default(),
+        seismic_payload_attributes,
+    )
+    .await?;
+    let mut node = nodes.pop().unwrap();
 
-    let test =
-        TestBuilder::new().with_setup(setup).with_action(AssertMineBlock::<SeismicEngineTypes>::new(
-            0,
-            vec![],
-            Some(B256::ZERO),
-            // TODO: refactor once we have actions to generate payload attributes.
-            PayloadAttributes {
-                payload_attributes: alloy_rpc_types_engine::PayloadAttributes {
-                    timestamp: std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_millis() as u64,
-                    prev_randao: B256::random(),
-                    suggested_fee_recipient: Address::random(),
-                    withdrawals: None,
-                    parent_beacon_block_root: None,
-                },
-                transactions: None,
-                no_tx_pool: None,
-                eip_1559_params: None,
-                gas_limit: Some(30_000_000),
-            },
-        ));
+    let tx = TransactionRequest {
+        nonce: Some(0),
+        value: Some(U256::from(100)),
+        to: Some(alloy_primitives::TxKind::Call(Address::random())),
+        gas: Some(21000),
+        max_fee_per_gas: Some(20e9 as u128),
+        max_priority_fee_per_gas: Some(20e9 as u128),
+        chain_id: Some(wallet.chain_id),
+        ..Default::default()
+    };
+    let signed = TransactionTestContext::sign_tx(wallet.inner.clone(), tx).await;
+    let raw_tx: alloy_primitives::Bytes = signed.encoded_2718().into();
 
-    test.run::<SeismicNode>().await?;
+    let tx_hash = node.rpc.inject_tx(raw_tx).await?;
+    let payload = node.advance_block().await?;
+    node.assert_new_block(tx_hash, payload.block().hash(), payload.block().number).await?;
 
     Ok(())
 }
