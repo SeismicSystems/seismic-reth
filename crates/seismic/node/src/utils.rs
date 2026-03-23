@@ -5,11 +5,11 @@
 #[cfg(feature = "test-utils")]
 use crate::node::SeismicNode;
 #[cfg(feature = "test-utils")]
+use crate::purpose_keys::init_purpose_keys;
+#[cfg(feature = "test-utils")]
 use alloy_primitives::{Address, B256};
 #[cfg(feature = "test-utils")]
 use alloy_rpc_types_engine::PayloadAttributes;
-#[cfg(feature = "test-utils")]
-use reth_chainspec::{ChainSpecBuilder, MAINNET};
 #[cfg(feature = "test-utils")]
 use reth_e2e_test_utils::{transaction::TransactionTestContext, wallet::Wallet, NodeHelperType};
 #[cfg(feature = "test-utils")]
@@ -19,18 +19,43 @@ use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
 #[cfg(feature = "test-utils")]
 use reth_provider::providers::BlockchainProvider;
 #[cfg(feature = "test-utils")]
+use reth_seismic_chainspec::SEISMIC_DEV;
+#[cfg(feature = "test-utils")]
 use reth_seismic_primitives::SeismicPrimitives;
 #[cfg(feature = "test-utils")]
 use reth_tasks::TaskManager;
 #[cfg(feature = "test-utils")]
-use seismic_alloy_genesis::Genesis;
+use seismic_enclave::{
+    get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
+    get_unsecure_sample_secp256k1_sk, GetPurposeKeysResponse,
+};
 #[cfg(feature = "test-utils")]
-use std::sync::Arc;
+use std::sync::{Arc, Once};
 #[cfg(feature = "test-utils")]
 use tokio::sync::Mutex;
 
 #[cfg(feature = "test-utils")]
 use reth_e2e_test_utils::TmpDB;
+
+/// Seismic returns times in milliseconds
+#[cfg(feature = "test-utils")]
+pub const SEISMIC_TIMESTAMP_MULTIPLIER: u64 = 1000;
+
+#[cfg(feature = "test-utils")]
+static INIT_KEYS: Once = Once::new();
+
+/// Initializes mock purpose keys for tests. Safe to call multiple times.
+#[cfg(feature = "test-utils")]
+pub fn ensure_mock_purpose_keys() {
+    INIT_KEYS.call_once(|| {
+        init_purpose_keys(GetPurposeKeysResponse {
+            tx_io_sk: get_unsecure_sample_secp256k1_sk(),
+            tx_io_pk: get_unsecure_sample_secp256k1_pk(),
+            snapshot_key_bytes: [0u8; 32],
+            rng_keypair: get_unsecure_sample_schnorrkel_keypair(),
+        });
+    });
+}
 
 /// Seismic Node Helper type
 #[cfg(feature = "test-utils")]
@@ -40,17 +65,9 @@ pub type SeismicTestNode =
 /// Creates the initial setup with `num_nodes` of the seismic node config, started and connected.
 #[cfg(feature = "test-utils")]
 pub async fn setup(num_nodes: usize) -> eyre::Result<(Vec<SeismicTestNode>, TaskManager, Wallet)> {
-    let genesis: Genesis =
-        serde_json::from_str(include_str!("../tests/assets/genesis.json")).unwrap();
     reth_e2e_test_utils::setup_engine(
         num_nodes,
-        Arc::new(
-            ChainSpecBuilder::default()
-                .chain(MAINNET.chain)
-                .genesis(genesis)
-                .cancun_activated()
-                .build(),
-        ),
+        SEISMIC_DEV.clone(),
         false,
         Default::default(),
         seismic_payload_attributes,
@@ -92,7 +109,7 @@ pub async fn advance_chain(
 #[cfg(feature = "test-utils")]
 pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
     let attributes = PayloadAttributes {
-        timestamp,
+        timestamp: timestamp * SEISMIC_TIMESTAMP_MULTIPLIER,
         prev_randao: B256::ZERO,
         suggested_fee_recipient: Address::ZERO,
         withdrawals: Some(vec![]),

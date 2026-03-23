@@ -133,7 +133,6 @@ js-tracer = [
 test-utils = [
     "reth-tasks",
     "reth-e2e-test-utils",
-    "seismic-alloy-genesis",
     "reth-node-builder/test-utils",
     "reth-chainspec/test-utils",
     "reth-consensus/test-utils",
