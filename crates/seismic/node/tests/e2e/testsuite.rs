@@ -3,7 +3,7 @@ use alloy_primitives::{Address, U256};
 use alloy_rpc_types_eth::TransactionRequest;
 use eyre::Result;
 use reth_e2e_test_utils::transaction::TransactionTestContext;
-use reth_seismic_node::utils::ensure_mock_purpose_keys;
+use reth_seismic_node::utils::e2e::ensure_mock_purpose_keys;
 
 // Produces a single block on a Seismic node using the internal engine channel
 // (not the JSON-RPC engine API, which loses Prague-era fields in V3 payloads).
@@ -12,7 +12,7 @@ async fn test_seismic_produce_blocks() -> Result<()> {
     reth_tracing::init_test_tracing();
     ensure_mock_purpose_keys();
 
-    let (mut nodes, _tasks, wallet) = reth_seismic_node::utils::setup(1).await?;
+    let (mut nodes, _tasks, wallet) = reth_seismic_node::utils::e2e::setup(1).await?;
     let mut node = nodes.pop().unwrap();
 
     let tx = TransactionRequest {
