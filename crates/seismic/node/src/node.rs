@@ -34,6 +34,7 @@ use reth_provider::{providers::ProviderFactoryBuilder, CanonStateSubscriptions, 
 use reth_rpc::ValidationApi;
 use reth_rpc_api::BlockSubmissionValidationApiServer;
 use reth_rpc_builder::{config::RethRpcServerConfig, Identity};
+use reth_rpc_eth_api::helpers::config::{EthConfigApiServer, EthConfigHandler};
 use reth_rpc_eth_types::{
     error::{api::FromEvmHalt, FromEvmError},
     EthApiError,
@@ -329,6 +330,9 @@ where
             Arc::new(SeismicEngineValidator::new(ctx.config.chain.clone())),
         );
 
+        let eth_config =
+            EthConfigHandler::new(ctx.node.provider().clone(), ctx.node.evm_config().clone());
+
         self.inner
             .launch_add_ons_with(ctx, move |container| {
                 let RpcModuleContainer { modules, .. } = container;
@@ -336,6 +340,8 @@ where
                     RethRpcModule::Flashbots,
                     validation_api.into_rpc(),
                 )?;
+
+                modules.merge_if_module_configured(RethRpcModule::Eth, eth_config.into_rpc())?;
 
                 Ok(())
             })

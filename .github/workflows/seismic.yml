@@ -34,12 +34,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "build-cache"
-      # Removing this because build --bin seismic-reth runs in integration-test
-      # and this is very slow right now.
-      # TODO: eventually uncomment it when we open source,
-      # so we know other crates build correctly
-      # - name: cargo build
-      #   run: cargo build
+      - name: cargo check (workspace)
+        run: cargo check --workspace
 
   warnings:
     runs-on: ubuntu-latest

@@ -1,5 +1,4 @@
 [profile.default]
-default-filter = '!(test(providers::static_file::tests::test_header_truncation) or test(providers::static_file::tests::test_tx_based_truncation) or test(eth::core::tests))'
 retries = { backoff = "exponential", count = 3, delay = "5s", jitter = true, max-delay = "30s" }
 slow-timeout = { period = "300s", terminate-after = 6 }
 
@@ -16,3 +15,10 @@ slow-timeout = { period = "2m", terminate-after = 10 }
 [[profile.default.overrides]]
 filter = "binary(e2e_testsuite)"
 slow-timeout = { period = "2m", terminate-after = 3 }
+
+# Seismic e2e integration test spawns a full reth node with hardcoded port 8545.
+# Retrying just causes port conflicts and wastes minutes.
+# For now just assuming the test is not flaky, but if it becomes flaky we can add a retry strategy that doesn't cause port conflicts.
+[[profile.default.overrides]]
+filter = "package(reth-seismic-node) & test(integration::integration_test)"
+retries = 0
