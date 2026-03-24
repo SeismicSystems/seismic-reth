@@ -9489,6 +9489,8 @@ dependencies = [
  "reth-node-api",
  "reth-node-ethereum",
  "reth-rpc-api",
+ "reth-seismic-chainspec",
+ "reth-seismic-node",
  "reth-tracing",
  "seismic-alloy-genesis",
  "serde_json",
