@@ -34,8 +34,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "build-cache"
-      - name: cargo check (workspace)
-        run: cargo check --workspace
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
+      - name: cargo hack check (workspace)
+        run: cargo hack check --workspace
 
   warnings:
     runs-on: ubuntu-latest
