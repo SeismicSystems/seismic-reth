@@ -1,11 +1,12 @@
 use futures::StreamExt;
-use reth_seismic_node::utils::{advance_chain, setup};
+use reth_seismic_node::utils::e2e::{advance_chain, ensure_mock_purpose_keys, setup};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 #[tokio::test]
 async fn can_sync() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
+    ensure_mock_purpose_keys();
 
     let (mut nodes, _tasks, wallet) = setup(3).await?;
     let wallet = Arc::new(Mutex::new(wallet));

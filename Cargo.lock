@@ -9875,6 +9875,7 @@ dependencies = [
  "revm",
  "secp256k1 0.30.0",
  "seismic-alloy-consensus",
+ "seismic-alloy-genesis",
  "seismic-alloy-network",
  "seismic-alloy-provider",
  "seismic-alloy-rpc-types",

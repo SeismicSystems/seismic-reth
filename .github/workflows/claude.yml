@@ -61,13 +61,14 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           claude_args: |
             --model claude-sonnet-4-20250514
-            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
+            --allowedTools "Read,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
           prompt: |
             Review PR #${{ env.PR_NUMBER }} in ${{ github.repository }}.
 
             1. Run `gh pr diff ${{ env.PR_NUMBER }}` to get the diff.
             2. Review ONLY the changed files following the guidelines below.
             3. Output your review as plain text. Do NOT post comments yourself.
+            4. If the diff touches files in `crates/seismic/`, use Read and Grep to follow key imports and verify semantic correctness (e.g., check that setup functions use Seismic chain specs, not vanilla Ethereum ones).
 
             ${{ env.REVIEW_PROMPT }}
 
