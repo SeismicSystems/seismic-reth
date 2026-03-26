@@ -55,12 +55,15 @@ impl ThresholdState {
 #[expect(missing_debug_implementations)]
 pub struct ThresholdAuthLayer<S: SignatureScheme> {
     config: ThresholdConfig<S>,
+    /// Shared state across all service instances — must be created once in the layer
+    /// so that all connections share the same pending request tracker.
+    state: Arc<Mutex<ThresholdState>>,
 }
 
 impl<S: SignatureScheme> ThresholdAuthLayer<S> {
     /// Creates a new threshold auth layer.
     pub fn new(config: ThresholdConfig<S>) -> Self {
-        Self { config }
+        Self { config, state: Arc::new(Mutex::new(ThresholdState::new())) }
     }
 }
 
@@ -73,7 +76,7 @@ where
     fn layer(&self, inner: Svc) -> Self::Service {
         ThresholdAuthService {
             config: self.config.clone(),
-            state: Arc::new(Mutex::new(ThresholdState::new())),
+            state: self.state.clone(),
             inner,
         }
     }
