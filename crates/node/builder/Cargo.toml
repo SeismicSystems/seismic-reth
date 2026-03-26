@@ -48,8 +48,9 @@ reth-rpc-api.workspace = true
 reth-rpc-builder.workspace = true
 reth-rpc-engine-api.workspace = true
 reth-rpc-eth-types.workspace = true
-reth-rpc-layer.workspace = true
+reth-rpc-layer = { workspace = true, features = ["ed25519"] }
 reth-stages.workspace = true
+reth-storage-api.workspace = true
 reth-static-file.workspace = true
 reth-tasks.workspace = true
 reth-tokio-util.workspace = true
