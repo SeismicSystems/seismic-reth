@@ -24,11 +24,15 @@ use reth_node_core::{
 };
 use reth_payload_builder::{PayloadBuilderHandle, PayloadStore};
 use reth_rpc::eth::{core::EthRpcConverterFor, EthApiTypes, FullEthApiServer};
-use reth_rpc_api::{eth::helpers::AddDevSigners, IntoEngineApiRpcModule};
+use reth_rpc_api::{eth::helpers::AddDevSigners, IntoEngineApiRpcModule, OpsApiServer};
 use reth_rpc_builder::{
     auth::{AuthRpcModule, AuthServerHandle},
+    body_auth::{BodyAuthRpcModule, BodyAuthServerConfig, BodyAuthServerHandle},
     config::RethRpcServerConfig,
     RpcModuleBuilder, RpcRegistryInner, RpcServerConfig, RpcServerHandle, TransportRpcModules,
+};
+use reth_rpc_layer::{
+    signature_scheme::ed25519::Ed25519, SignatureScheme, ThresholdConfig,
 };
 use reth_rpc_engine_api::{capabilities::EngineCapabilities, EngineApi};
 use reth_rpc_eth_types::{cache::cache_new_blocks_task, EthConfig, EthStateCache};
@@ -38,6 +42,7 @@ use std::{
     fmt::{self, Debug},
     future::Future,
     ops::{Deref, DerefMut},
+    sync::Arc,
 };
 
 /// Contains the handles to the spawned RPC servers.
@@ -49,6 +54,8 @@ pub struct RethRpcServerHandles {
     pub rpc: RpcServerHandle,
     /// The handle to the auth server (engine API)
     pub auth: AuthServerHandle,
+    /// The handle to the ops threshold-auth server, if enabled.
+    pub ops: Option<reth_rpc_builder::body_auth::BodyAuthServerHandle>,
 }
 
 /// Contains hooks that are called during the rpc setup.
@@ -837,7 +844,7 @@ where
         let rpc_server_handle = Self::launch_rpc_server_internal(server_config, &modules).await?;
 
         let handles =
-            RethRpcServerHandles { rpc: rpc_server_handle.clone(), auth: AuthServerHandle::noop() };
+            RethRpcServerHandles { rpc: rpc_server_handle.clone(), auth: AuthServerHandle::noop(), ops: None };
         Self::finalize_rpc_setup(
             &mut registry,
             &mut modules,
@@ -921,7 +928,15 @@ where
             (rpc, auth)
         };
 
-        let handles = RethRpcServerHandles { rpc, auth };
+        // Launch the ops threshold-auth server if enabled.
+        let ops = Self::maybe_launch_ops_server(
+            config,
+            node.provider().clone(),
+            Box::new(node.task_executor().clone()),
+        )
+        .await?;
+
+        let handles = RethRpcServerHandles { rpc, auth, ops };
 
         Self::finalize_rpc_setup(
             &mut registry,
@@ -1064,6 +1079,84 @@ where
                     info!(target: "reth::cli", url=%addr, "RPC auth server started");
                 }
             })
+    }
+
+    /// Helper to launch the ops threshold-auth server if enabled.
+    async fn maybe_launch_ops_server<P>(
+        config: &NodeConfig<<N::Types as NodeTypes>::ChainSpec>,
+        provider: P,
+        task_spawner: Box<dyn reth_tasks::TaskSpawner>,
+    ) -> eyre::Result<Option<BodyAuthServerHandle>>
+    where
+        P: reth_storage_api::StateProviderFactory + reth_storage_api::BlockIdReader + 'static,
+    {
+        if !config.rpc.ops_enable {
+            return Ok(None);
+        }
+
+        let keys_path = config.rpc.ops_signer_keys.as_ref()
+            .ok_or_else(|| eyre::eyre!("--ops.signer-keys is required when --ops.enable is set"))?;
+
+        // Read public keys from file, one hex-encoded key per line.
+        let keys_content = std::fs::read_to_string(keys_path)
+            .map_err(|e| eyre::eyre!("failed to read ops signer keys file: {e}"))?;
+
+        let mut public_keys = Vec::new();
+        for (i, line) in keys_content.lines().enumerate() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let hex = line.strip_prefix("0x").unwrap_or(line);
+            let bytes = alloy_primitives::hex::decode(hex)
+                .map_err(|e| eyre::eyre!("invalid hex on line {}: {e}", i + 1))?;
+            let key = <Ed25519 as SignatureScheme>::parse_public_key(&bytes)
+                .map_err(|e| eyre::eyre!("invalid ed25519 public key on line {}: {e}", i + 1))?;
+            public_keys.push(key);
+        }
+
+        if public_keys.is_empty() {
+            return Err(eyre::eyre!("ops signer keys file is empty"));
+        }
+
+        let threshold = config.rpc.ops_threshold;
+        if threshold == 0 || threshold > public_keys.len() {
+            return Err(eyre::eyre!(
+                "ops threshold ({threshold}) must be between 1 and {} (number of keys)",
+                public_keys.len()
+            ));
+        }
+
+        let ttl = std::time::Duration::from_secs(config.rpc.ops_ttl);
+        let threshold_config = ThresholdConfig::<Ed25519>::new(public_keys, threshold, ttl);
+
+        // Create the OpsApi handler.
+        let ops_api = reth_rpc::OpsApi::new(
+            Arc::new(provider),
+            threshold_config.clone(),
+            task_spawner,
+        );
+
+        // Register it in a module.
+        let mut module = BodyAuthRpcModule::empty();
+        module.merge_methods(ops_api.into_rpc())
+            .map_err(|e| eyre::eyre!("failed to register ops methods: {e}"))?;
+
+        // Build and start the server.
+        let addr = std::net::SocketAddr::new(
+            std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+            config.rpc.ops_port,
+        );
+        let server_config = BodyAuthServerConfig::builder(threshold_config)
+            .socket_addr(addr)
+            .build();
+
+        let handle = server_config.start(module).await
+            .map_err(|e| eyre::eyre!("failed to start ops server: {e}"))?;
+
+        info!(target: "reth::cli", url=%handle.local_addr(), "RPC ops threshold-auth server started");
+
+        Ok(Some(handle))
     }
 
     /// Helper to finalize RPC setup by creating context and calling hooks
