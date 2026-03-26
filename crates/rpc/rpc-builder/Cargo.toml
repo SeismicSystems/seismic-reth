@@ -73,3 +73,10 @@ alloy-rpc-types-engine.workspace = true
 
 serde_json.workspace = true
 clap = { workspace = true, features = ["derive"] }
+reqwest.workspace = true
+ed25519-dalek = { workspace = true, features = ["rand_core"] }
+rand = "0.8"
+reth-rpc = { workspace = true }
+reth-rpc-layer = { workspace = true, features = ["ed25519"] }
+reth-storage-api.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
