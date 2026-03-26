@@ -15,15 +15,15 @@ mod auth_client_layer;
 mod auth_layer;
 mod compression_layer;
 mod jwt_validator;
-/// Pluggable signature scheme trait and implementations (ed25519, secp256k1).
-pub mod signature_scheme;
-/// Threshold signature authentication middleware requiring K-of-N valid signatures.
-pub mod threshold_auth_layer;
+/// Single-signature authentication middleware using secp256k1 / Ethereum addresses.
+pub mod signature_auth_layer;
 
 pub use auth_layer::{AuthService, ResponseFuture};
 pub use compression_layer::CompressionLayer;
-pub use signature_scheme::{SignatureError, SignatureScheme};
-pub use threshold_auth_layer::{ThresholdAuthLayer, ThresholdAuthService, ThresholdConfig};
+pub use signature_auth_layer::{
+    SignatureAuthConfig, SignatureAuthLayer, SignatureAuthService, Whitelist, NONCE_HEADER,
+    SIGNATURE_HEADER,
+};
 
 // Export alloy JWT types
 pub use alloy_rpc_types_engine::{Claims, JwtError, JwtSecret};

@@ -10,29 +10,24 @@ repository.workspace = true
 [lints]
 workspace = true
 
-[features]
-default = []
-ed25519 = ["dep:ed25519-dalek"]
-secp256k1 = ["dep:k256"]
-
 [dependencies]
+alloy-consensus.workspace = true
+alloy-primitives.workspace = true
 alloy-rpc-types-engine = { workspace = true, features = ["jwt", "serde"] }
 
-bytes.workspace = true
-ed25519-dalek = { workspace = true, optional = true }
 http.workspace = true
 http-body-util.workspace = true
 jsonrpsee-http-client.workspace = true
-k256 = { workspace = true, optional = true }
 pin-project.workspace = true
-thiserror.workspace = true
+reth-storage-api.workspace = true
 tower.workspace = true
 tower-http = { workspace = true, features = ["full"] }
 tracing.workspace = true
 
 [dev-dependencies]
-ed25519-dalek = { workspace = true, features = ["rand_core"] }
-rand = "0.8"
+alloy-signer.workspace = true
+alloy-signer-local.workspace = true
 reqwest.workspace = true
 tokio = { workspace = true, features = ["macros", "time"] }
 jsonrpsee = { workspace = true, features = ["server"] }
+reth-provider = { workspace = true, features = ["test-utils"] }

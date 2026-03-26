@@ -1,54 +1,58 @@
 use std::sync::Arc;
 
 use alloy_eips::BlockId;
-use alloy_primitives::{Address, Bytes, B256};
+use alloy_primitives::{Address, B256};
 use alloy_serde::JsonStorageKey;
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use reth_rpc_api::OpsApiServer;
-use reth_rpc_layer::{SignatureScheme, ThresholdConfig};
+use reth_rpc_layer::Whitelist;
 use reth_storage_api::{BlockIdReader, StateProviderFactory};
 use reth_tasks::TaskSpawner;
 use tokio::sync::oneshot;
 
 /// `ops` API implementation.
 ///
-/// Provides privileged operations protected by threshold signature authentication.
+/// Provides privileged storage read operations protected by signature authentication.
+/// - `ops_whitelistKey`: admin-only, adds an address to the whitelist with a TTL
+/// - `ops_getStorageAt`: whitelist-only, reads storage
 #[derive(Clone)]
-pub struct OpsApi<Provider, S: SignatureScheme> {
-    inner: Arc<OpsApiInner<Provider, S>>,
+pub struct OpsApi<Provider> {
+    inner: Arc<OpsApiInner<Provider>>,
 }
 
-struct OpsApiInner<Provider, S: SignatureScheme> {
+struct OpsApiInner<Provider> {
     /// State provider for storage reads.
     provider: Provider,
-    /// Shared threshold config for runtime key management.
-    threshold_config: ThresholdConfig<S>,
     /// Task spawner for blocking IO tasks.
     task_spawner: Box<dyn TaskSpawner>,
+    /// Shared whitelist for temporarily authorized addresses.
+    whitelist: Whitelist,
 }
 
-impl<Provider, S: SignatureScheme> OpsApi<Provider, S> {
+impl<Provider> OpsApi<Provider> {
     /// Creates a new instance of `OpsApi`.
     pub fn new(
         provider: Provider,
-        threshold_config: ThresholdConfig<S>,
         task_spawner: Box<dyn TaskSpawner>,
+        whitelist: Whitelist,
     ) -> Self {
-        let inner = Arc::new(OpsApiInner { provider, threshold_config, task_spawner });
+        let inner = Arc::new(OpsApiInner { provider, task_spawner, whitelist });
         Self { inner }
     }
 }
 
-impl<Provider, S> OpsApi<Provider, S>
+impl<Provider> OpsApi<Provider>
 where
     Provider: StateProviderFactory + BlockIdReader + 'static,
-    S: SignatureScheme,
 {
     /// Executes a blocking IO task via the managed task spawner.
-    async fn spawn_blocking_io<F, R>(&self, f: F) -> Result<R, jsonrpsee::types::ErrorObject<'static>>
+    async fn spawn_blocking_io<F, R>(
+        &self,
+        f: F,
+    ) -> Result<R, jsonrpsee::types::ErrorObject<'static>>
     where
-        F: FnOnce(Arc<OpsApiInner<Provider, S>>) -> Result<R, jsonrpsee::types::ErrorObject<'static>>
+        F: FnOnce(Arc<OpsApiInner<Provider>>) -> Result<R, jsonrpsee::types::ErrorObject<'static>>
             + Send
             + 'static,
         R: Send + 'static,
@@ -64,11 +68,9 @@ where
 }
 
 #[async_trait]
-impl<Provider, S> OpsApiServer for OpsApi<Provider, S>
+impl<Provider> OpsApiServer for OpsApi<Provider>
 where
     Provider: StateProviderFactory + BlockIdReader + 'static,
-    S: SignatureScheme,
-    S::PublicKey: PartialEq,
 {
     async fn get_storage_at(
         &self,
@@ -78,7 +80,10 @@ where
     ) -> RpcResult<B256> {
         self.spawn_blocking_io(move |inner| {
             let state = if let Some(block_id) = block_number {
-                inner.provider.state_by_block_id(block_id).map_err(|e| internal_err(e.to_string()))?
+                inner
+                    .provider
+                    .state_by_block_id(block_id)
+                    .map_err(|e| internal_err(e.to_string()))?
             } else {
                 inner.provider.latest().map_err(|e| internal_err(e.to_string()))?
             };
@@ -93,20 +98,18 @@ where
         .await
     }
 
-    async fn add_signer_key(&self, public_key: Bytes) -> RpcResult<bool> {
-        let key = S::parse_public_key(&public_key)
-            .map_err(|e| internal_err(format!("invalid public key: {e}")))?;
-        Ok(self.inner.threshold_config.add_key(key))
+    async fn whitelist_key(&self, address: Address, ttl_seconds: u64) -> RpcResult<bool> {
+        let ttl = std::time::Duration::from_secs(ttl_seconds);
+        self.inner.whitelist.add(address, ttl);
+        Ok(true)
     }
 
-    async fn remove_signer_key(&self, public_key: Bytes) -> RpcResult<bool> {
-        let key = S::parse_public_key(&public_key)
-            .map_err(|e| internal_err(format!("invalid public key: {e}")))?;
-        Ok(self.inner.threshold_config.remove_key(&key))
+    async fn revoke_key(&self, address: Address) -> RpcResult<bool> {
+        Ok(self.inner.whitelist.remove(&address))
     }
 }
 
-impl<Provider, S: SignatureScheme> std::fmt::Debug for OpsApi<Provider, S> {
+impl<Provider> std::fmt::Debug for OpsApi<Provider> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OpsApi").finish_non_exhaustive()
     }
