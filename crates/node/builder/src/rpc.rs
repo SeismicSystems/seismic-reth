@@ -31,9 +31,7 @@ use reth_rpc_builder::{
     config::RethRpcServerConfig,
     RpcModuleBuilder, RpcRegistryInner, RpcServerConfig, RpcServerHandle, TransportRpcModules,
 };
-use reth_rpc_layer::{
-    signature_scheme::ed25519::Ed25519, SignatureScheme, ThresholdConfig,
-};
+use reth_rpc_layer::{SignatureAuthConfig, Whitelist};
 use reth_rpc_engine_api::{capabilities::EngineCapabilities, EngineApi};
 use reth_rpc_eth_types::{cache::cache_new_blocks_task, EthConfig, EthStateCache};
 use reth_tokio_util::EventSender;
@@ -1081,7 +1079,9 @@ where
             })
     }
 
-    /// Helper to launch the ops threshold-auth server if enabled.
+    /// Helper to launch the ops signature-auth server if enabled.
+    ///
+    /// The authorized signer address is read from a contract storage slot on every request.
     async fn maybe_launch_ops_server<P>(
         config: &NodeConfig<<N::Types as NodeTypes>::ChainSpec>,
         provider: P,
@@ -1090,52 +1090,30 @@ where
     where
         P: reth_storage_api::StateProviderFactory + reth_storage_api::BlockIdReader + 'static,
     {
+        use alloy_primitives::{address, b256};
+
+        /// The Params contract address holding the authorized signer.
+        const OPS_AUTH_CONTRACT: alloy_primitives::Address =
+            address!("0x0000000000000000000000000000506172616d73");
+        /// Storage slot 0 in the Params contract contains the admin address.
+        const OPS_AUTH_SLOT: alloy_primitives::B256 =
+            b256!("0x0000000000000000000000000000000000000000000000000000000000000000");
+
         if !config.rpc.ops_enable {
             return Ok(None);
         }
 
-        let keys_path = config.rpc.ops_signer_keys.as_ref()
-            .ok_or_else(|| eyre::eyre!("--ops.signer-keys is required when --ops.enable is set"))?;
-
-        // Read public keys from file, one hex-encoded key per line.
-        let keys_content = std::fs::read_to_string(keys_path)
-            .map_err(|e| eyre::eyre!("failed to read ops signer keys file: {e}"))?;
-
-        let mut public_keys = Vec::new();
-        for (i, line) in keys_content.lines().enumerate() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with('#') {
-                continue;
-            }
-            let hex = line.strip_prefix("0x").unwrap_or(line);
-            let bytes = alloy_primitives::hex::decode(hex)
-                .map_err(|e| eyre::eyre!("invalid hex on line {}: {e}", i + 1))?;
-            let key = <Ed25519 as SignatureScheme>::parse_public_key(&bytes)
-                .map_err(|e| eyre::eyre!("invalid ed25519 public key on line {}: {e}", i + 1))?;
-            public_keys.push(key);
-        }
-
-        if public_keys.is_empty() {
-            return Err(eyre::eyre!("ops signer keys file is empty"));
-        }
-
-        let threshold = config.rpc.ops_threshold;
-        if threshold == 0 || threshold > public_keys.len() {
-            return Err(eyre::eyre!(
-                "ops threshold ({threshold}) must be between 1 and {} (number of keys)",
-                public_keys.len()
-            ));
-        }
-
-        let ttl = std::time::Duration::from_secs(config.rpc.ops_ttl);
-        let threshold_config = ThresholdConfig::<Ed25519>::new(public_keys, threshold, ttl);
+        let provider = Arc::new(provider);
+        let whitelist = Whitelist::new();
+        let auth_config = SignatureAuthConfig::new(
+            provider.clone(),
+            OPS_AUTH_CONTRACT,
+            OPS_AUTH_SLOT,
+            whitelist.clone(),
+        );
 
         // Create the OpsApi handler.
-        let ops_api = reth_rpc::OpsApi::new(
-            Arc::new(provider),
-            threshold_config.clone(),
-            task_spawner,
-        );
+        let ops_api = reth_rpc::OpsApi::new(provider, task_spawner, whitelist);
 
         // Register it in a module.
         let mut module = BodyAuthRpcModule::empty();
@@ -1147,14 +1125,14 @@ where
             std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
             config.rpc.ops_port,
         );
-        let server_config = BodyAuthServerConfig::builder(threshold_config)
+        let server_config = BodyAuthServerConfig::builder(auth_config)
             .socket_addr(addr)
             .build();
 
         let handle = server_config.start(module).await
             .map_err(|e| eyre::eyre!("failed to start ops server: {e}"))?;
 
-        info!(target: "reth::cli", url=%handle.local_addr(), "RPC ops threshold-auth server started");
+        info!(target: "reth::cli", url=%handle.local_addr(), "RPC ops signature-auth server started");
 
         Ok(Some(handle))
     }

@@ -9,61 +9,61 @@ use jsonrpsee::{
     Methods,
 };
 use reth_rpc_eth_types::EthSubscriptionIdProvider;
-use reth_rpc_layer::{SignatureScheme, ThresholdAuthLayer, ThresholdConfig};
+use reth_rpc_layer::{SignatureAuthConfig, SignatureAuthLayer};
+use reth_storage_api::StateProviderFactory;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tower::layer::util::Identity;
 
 pub use jsonrpsee::server::ServerBuilder;
 
-/// Default port for the threshold-auth RPC server.
+/// Default port for the ops RPC server.
 pub const DEFAULT_BODY_AUTH_PORT: u16 = 8552;
 
-/// Server configuration for an RPC server authenticated via threshold signatures.
+/// Server configuration for an RPC server authenticated via secp256k1 signatures.
 ///
-/// Requires K-of-N valid signatures before forwarding a request. Generic over the
-/// [`SignatureScheme`] `S`.
+/// The authorized signer address is read from a contract storage slot on every request.
 #[derive(Debug)]
-pub struct BodyAuthServerConfig<S: SignatureScheme, RpcMiddleware = Identity> {
+pub struct BodyAuthServerConfig<P, RpcMiddleware = Identity> {
     /// Where the server should listen.
     pub(crate) socket_addr: SocketAddr,
-    /// Threshold authentication configuration.
-    pub(crate) threshold_config: ThresholdConfig<S>,
+    /// Signature authentication configuration.
+    pub(crate) auth_config: SignatureAuthConfig<P>,
     /// Configs for JSON-RPC Http.
     pub(crate) server_config: ServerConfigBuilder,
     /// Configurable RPC middleware.
     pub(crate) rpc_middleware: RpcMiddleware,
 }
 
-impl<S: SignatureScheme> BodyAuthServerConfig<S> {
+impl<P> BodyAuthServerConfig<P> {
     /// Convenience function to create a new builder.
-    pub fn builder(threshold_config: ThresholdConfig<S>) -> BodyAuthServerConfigBuilder<S> {
-        BodyAuthServerConfigBuilder::new(threshold_config)
+    pub fn builder(auth_config: SignatureAuthConfig<P>) -> BodyAuthServerConfigBuilder<P> {
+        BodyAuthServerConfigBuilder::new(auth_config)
     }
 }
 
-impl<S: SignatureScheme, RpcMiddleware> BodyAuthServerConfig<S, RpcMiddleware> {
+impl<P, RpcMiddleware> BodyAuthServerConfig<P, RpcMiddleware> {
     /// Returns the address the server will listen on.
     pub const fn address(&self) -> SocketAddr {
         self.socket_addr
     }
 
     /// Configures the rpc middleware.
-    pub fn with_rpc_middleware<T>(self, rpc_middleware: T) -> BodyAuthServerConfig<S, T> {
-        let Self { socket_addr, threshold_config, server_config, .. } = self;
-        BodyAuthServerConfig { socket_addr, threshold_config, server_config, rpc_middleware }
+    pub fn with_rpc_middleware<T>(self, rpc_middleware: T) -> BodyAuthServerConfig<P, T> {
+        let Self { socket_addr, auth_config, server_config, .. } = self;
+        BodyAuthServerConfig { socket_addr, auth_config, server_config, rpc_middleware }
     }
 
     /// Convenience function to start a server in one step.
     pub async fn start(self, module: BodyAuthRpcModule) -> Result<BodyAuthServerHandle, RpcError>
     where
-        S: SignatureScheme,
+        P: StateProviderFactory + 'static,
         RpcMiddleware: RethRpcMiddleware,
     {
-        let Self { socket_addr, threshold_config, server_config, rpc_middleware } = self;
+        let Self { socket_addr, auth_config, server_config, rpc_middleware } = self;
 
-        // Create threshold-auth middleware.
+        // Create signature-auth middleware.
         let middleware =
-            tower::ServiceBuilder::new().layer(ThresholdAuthLayer::new(threshold_config));
+            tower::ServiceBuilder::new().layer(SignatureAuthLayer::new(auth_config));
 
         let rpc_middleware = RpcServiceBuilder::default().layer(rpc_middleware);
 
@@ -87,33 +87,33 @@ impl<S: SignatureScheme, RpcMiddleware> BodyAuthServerConfig<S, RpcMiddleware> {
 
 /// Builder type for configuring a [`BodyAuthServerConfig`].
 #[derive(Debug)]
-pub struct BodyAuthServerConfigBuilder<S: SignatureScheme, RpcMiddleware = Identity> {
+pub struct BodyAuthServerConfigBuilder<P, RpcMiddleware = Identity> {
     socket_addr: Option<SocketAddr>,
-    threshold_config: ThresholdConfig<S>,
+    auth_config: SignatureAuthConfig<P>,
     server_config: Option<ServerConfigBuilder>,
     rpc_middleware: RpcMiddleware,
 }
 
-impl<S: SignatureScheme> BodyAuthServerConfigBuilder<S> {
-    /// Create a new builder with the given threshold configuration.
-    pub fn new(threshold_config: ThresholdConfig<S>) -> Self {
+impl<P> BodyAuthServerConfigBuilder<P> {
+    /// Create a new builder with the given auth configuration.
+    pub fn new(auth_config: SignatureAuthConfig<P>) -> Self {
         Self {
             socket_addr: None,
-            threshold_config,
+            auth_config,
             server_config: None,
             rpc_middleware: Identity::new(),
         }
     }
 }
 
-impl<S: SignatureScheme, RpcMiddleware> BodyAuthServerConfigBuilder<S, RpcMiddleware> {
+impl<P, RpcMiddleware> BodyAuthServerConfigBuilder<P, RpcMiddleware> {
     /// Configures the rpc middleware.
     pub fn with_rpc_middleware<T>(
         self,
         rpc_middleware: T,
-    ) -> BodyAuthServerConfigBuilder<S, T> {
-        let Self { socket_addr, threshold_config, server_config, .. } = self;
-        BodyAuthServerConfigBuilder { socket_addr, threshold_config, server_config, rpc_middleware }
+    ) -> BodyAuthServerConfigBuilder<P, T> {
+        let Self { socket_addr, auth_config, server_config, .. } = self;
+        BodyAuthServerConfigBuilder { socket_addr, auth_config, server_config, rpc_middleware }
     }
 
     /// Set the socket address for the server.
@@ -138,12 +138,12 @@ impl<S: SignatureScheme, RpcMiddleware> BodyAuthServerConfigBuilder<S, RpcMiddle
     }
 
     /// Build the [`BodyAuthServerConfig`].
-    pub fn build(self) -> BodyAuthServerConfig<S, RpcMiddleware> {
+    pub fn build(self) -> BodyAuthServerConfig<P, RpcMiddleware> {
         BodyAuthServerConfig {
             socket_addr: self.socket_addr.unwrap_or_else(|| {
                 SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_BODY_AUTH_PORT)
             }),
-            threshold_config: self.threshold_config,
+            auth_config: self.auth_config,
             server_config: self.server_config.unwrap_or_else(|| {
                 ServerConfig::builder()
                     .max_response_body_size(128 * 1024 * 1024)
@@ -156,7 +156,7 @@ impl<S: SignatureScheme, RpcMiddleware> BodyAuthServerConfigBuilder<S, RpcMiddle
     }
 }
 
-/// Holds installed modules for the threshold-auth server.
+/// Holds installed modules for the ops server.
 #[derive(Debug, Clone)]
 pub struct BodyAuthRpcModule {
     pub(crate) inner: RpcModule<()>,
@@ -213,15 +213,15 @@ impl BodyAuthRpcModule {
     }
 
     /// Convenience function for starting a server.
-    pub async fn start_server<S: SignatureScheme, RpcMiddleware: RethRpcMiddleware>(
+    pub async fn start_server<P: StateProviderFactory + 'static, RpcMiddleware: RethRpcMiddleware>(
         self,
-        config: BodyAuthServerConfig<S, RpcMiddleware>,
+        config: BodyAuthServerConfig<P, RpcMiddleware>,
     ) -> Result<BodyAuthServerHandle, RpcError> {
         config.start(self).await
     }
 }
 
-/// A handle to the spawned threshold-auth server.
+/// A handle to the spawned ops server.
 ///
 /// When this type is dropped or [`BodyAuthServerHandle::stop`] has been called the server will be
 /// stopped.

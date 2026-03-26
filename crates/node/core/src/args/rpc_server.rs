@@ -242,26 +242,13 @@ pub struct RpcServerArgs {
     )]
     pub rpc_enable_storage_apis: bool,
 
-    /// Enable the ops threshold-auth RPC server.
+    /// Enable the ops signature-auth RPC server.
     #[arg(long = "ops.enable", default_value_t = false)]
     pub ops_enable: bool,
 
-    /// Path to file containing hex-encoded public keys for the ops threshold-auth server,
-    /// one key per line. Required when --ops.enable is set.
-    #[arg(long = "ops.signer-keys", value_name = "PATH", required_if_eq("ops_enable", "true"))]
-    pub ops_signer_keys: Option<PathBuf>,
-
-    /// Number of required signatures for ops threshold auth. Defaults to 1.
-    #[arg(long = "ops.threshold", value_name = "NUM", default_value_t = 1)]
-    pub ops_threshold: usize,
-
-    /// Port for the ops threshold-auth RPC server. Defaults to 8552.
+    /// Port for the ops signature-auth RPC server. Defaults to 8552.
     #[arg(long = "ops.port", value_name = "PORT", default_value_t = 8552)]
     pub ops_port: u16,
-
-    /// TTL in seconds for pending ops threshold request groups. Defaults to 43200 (12 hours).
-    #[arg(long = "ops.ttl", value_name = "SECONDS", default_value_t = 43200)]
-    pub ops_ttl: u64,
 
     /// Path to file containing disallowed addresses, json-encoded list of strings. Block
     /// validation API will reject blocks containing transactions from these addresses.
@@ -435,10 +422,7 @@ impl Default for RpcServerArgs {
             rpc_forwarder: None,
             rpc_enable_storage_apis: false,
             ops_enable: false,
-            ops_signer_keys: None,
-            ops_threshold: 1,
             ops_port: 8552,
-            ops_ttl: 43200,
             builder_disallow: Default::default(),
         }
     }
