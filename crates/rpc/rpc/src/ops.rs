@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::RwLock;
 
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256};
@@ -28,6 +30,8 @@ struct OpsApiInner<Provider> {
     task_spawner: Box<dyn TaskSpawner>,
     /// Shared whitelist for temporarily authorized addresses.
     whitelist: Whitelist,
+    /// Shared in-memory next expected nonce per whitelisted signer.
+    nonces: Arc<RwLock<HashMap<Address, u64>>>,
 }
 
 impl<Provider> OpsApi<Provider> {
@@ -36,8 +40,14 @@ impl<Provider> OpsApi<Provider> {
         provider: Provider,
         task_spawner: Box<dyn TaskSpawner>,
         whitelist: Whitelist,
+        nonces: Arc<RwLock<HashMap<Address, u64>>>,
     ) -> Self {
-        let inner = Arc::new(OpsApiInner { provider, task_spawner, whitelist });
+        let inner = Arc::new(OpsApiInner {
+            provider,
+            task_spawner,
+            whitelist,
+            nonces,
+        });
         Self { inner }
     }
 }
@@ -94,6 +104,20 @@ where
                 .unwrap_or_default();
 
             Ok(B256::new(value.value.to_be_bytes()))
+        })
+        .await
+    }
+
+    async fn get_nonce(&self, address: Address) -> RpcResult<u64> {
+        self.spawn_blocking_io(move |inner| {
+            let nonce = inner
+                .nonces
+                .read()
+                .map_err(|_| internal_err("nonce lock poisoned".to_string()))?
+                .get(&address)
+                .copied()
+                .unwrap_or(0);
+            Ok(nonce)
         })
         .await
     }

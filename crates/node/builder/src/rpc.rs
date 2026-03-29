@@ -926,11 +926,13 @@ where
             (rpc, auth)
         };
 
-        // Launch the ops threshold-auth server if enabled.
+        // Launch the ops signature-auth server if enabled.
+        let chain_id = node.provider().chain_spec().chain().id();
         let ops = Self::maybe_launch_ops_server(
             config,
             node.provider().clone(),
             Box::new(node.task_executor().clone()),
+            chain_id,
         )
         .await?;
 
@@ -1086,6 +1088,7 @@ where
         config: &NodeConfig<<N::Types as NodeTypes>::ChainSpec>,
         provider: P,
         task_spawner: Box<dyn reth_tasks::TaskSpawner>,
+        chain_id: u64,
     ) -> eyre::Result<Option<BodyAuthServerHandle>>
     where
         P: reth_storage_api::StateProviderFactory + reth_storage_api::BlockIdReader + 'static,
@@ -1105,15 +1108,18 @@ where
 
         let provider = Arc::new(provider);
         let whitelist = Whitelist::new();
-        let auth_config = SignatureAuthConfig::new(
+        let nonces = Arc::new(std::sync::RwLock::new(std::collections::HashMap::new()));
+        let mut auth_config = SignatureAuthConfig::new(
             provider.clone(),
             OPS_AUTH_CONTRACT,
             OPS_AUTH_SLOT,
             whitelist.clone(),
+            chain_id,
         );
+        auth_config.nonces = nonces.clone();
 
         // Create the OpsApi handler.
-        let ops_api = reth_rpc::OpsApi::new(provider, task_spawner, whitelist);
+        let ops_api = reth_rpc::OpsApi::new(provider, task_spawner, whitelist, nonces);
 
         // Register it in a module.
         let mut module = BodyAuthRpcModule::empty();

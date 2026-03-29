@@ -9,6 +9,9 @@ use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 pub trait OpsApi {
     /// Returns the value from a storage position at a given address, bypassing the storage API
     /// gate. Requires a whitelisted key.
+    ///
+    /// This endpoint uses incrementing nonce protection. The nonce must match the current expected
+    /// nonce for the authenticated signer.
     #[method(name = "getStorageAt")]
     async fn get_storage_at(
         &self,
@@ -16,6 +19,12 @@ pub trait OpsApi {
         index: JsonStorageKey,
         block_number: Option<BlockId>,
     ) -> RpcResult<B256>;
+
+    /// Returns the next expected nonce for a whitelisted key.
+    ///
+    /// The request must be authenticated by the same whitelisted address passed in `address`.
+    #[method(name = "getNonce")]
+    async fn get_nonce(&self, address: Address) -> RpcResult<u64>;
 
     /// Adds an address to the whitelist with a TTL in seconds.
     /// Only the admin key (from the contract storage slot) can call this.
