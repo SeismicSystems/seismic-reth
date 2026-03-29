@@ -1,4 +1,5 @@
-use alloy_primitives::{keccak256, Address, B256, Signature};
+use alloy_primitives::{Address, B256, Signature};
+use alloy_sol_types::{eip712_domain, sol, SolStruct};
 use http::{HeaderMap, Response, StatusCode};
 use http_body_util::BodyExt;
 use jsonrpsee_http_client::{HttpBody, HttpRequest, HttpResponse};
@@ -12,6 +13,15 @@ use std::{
     time::{Duration, Instant},
 };
 use tower::{Layer, Service};
+
+// EIP-712 typed data definition for ops requests.
+sol! {
+    #[derive(Debug)]
+    struct OpsRequest {
+        bytes body;
+        string nonce;
+    }
+}
 
 /// Header name for the hex-encoded secp256k1 signature.
 pub const SIGNATURE_HEADER: &str = "X-Signature";
@@ -64,10 +74,17 @@ impl Default for Whitelist {
     }
 }
 
+/// The EIP-712 domain name for ops requests.
+pub const EIP712_DOMAIN_NAME: &str = "SeismicOps";
+
+/// The EIP-712 domain version for ops requests.
+pub const EIP712_DOMAIN_VERSION: &str = "1";
+
 /// Configuration for the signature authentication layer.
 ///
 /// The admin address is read from a contract storage slot. A shared whitelist holds
 /// temporarily authorized addresses for data endpoints.
+/// Signatures use EIP-712 typed data with the SeismicOps domain.
 #[derive(Debug)]
 pub struct SignatureAuthConfig<P> {
     /// The state provider for reading contract storage.
@@ -78,6 +95,10 @@ pub struct SignatureAuthConfig<P> {
     pub storage_slot: B256,
     /// Shared whitelist of temporarily authorized addresses.
     pub whitelist: Whitelist,
+    /// In-memory next expected nonce per whitelisted signer.
+    pub nonces: Arc<RwLock<HashMap<Address, u64>>>,
+    /// The chain ID for the EIP-712 domain separator.
+    pub chain_id: u64,
 }
 
 impl<P> Clone for SignatureAuthConfig<P> {
@@ -87,6 +108,8 @@ impl<P> Clone for SignatureAuthConfig<P> {
             contract_address: self.contract_address,
             storage_slot: self.storage_slot,
             whitelist: self.whitelist.clone(),
+            nonces: self.nonces.clone(),
+            chain_id: self.chain_id,
         }
     }
 }
@@ -98,9 +121,30 @@ impl<P> SignatureAuthConfig<P> {
         contract_address: Address,
         storage_slot: B256,
         whitelist: Whitelist,
+        chain_id: u64,
     ) -> Self {
-        Self { provider, contract_address, storage_slot, whitelist }
+        Self {
+            provider,
+            contract_address,
+            storage_slot,
+            whitelist,
+            nonces: Arc::new(RwLock::new(HashMap::new())),
+            chain_id,
+        }
     }
+}
+
+/// Compute the EIP-712 signing hash for an ops request.
+pub fn eip712_signing_hash(body: &[u8], nonce: &str, chain_id: u64) -> B256 {
+    let domain = eip712_domain! {
+        name: EIP712_DOMAIN_NAME,
+        version: EIP712_DOMAIN_VERSION,
+        chain_id: chain_id,
+    };
+
+    let request = OpsRequest { body: body.to_vec().into(), nonce: nonce.to_string() };
+
+    request.eip712_signing_hash(&domain)
 }
 
 /// Tower layer for single-signature authentication using secp256k1 / Ethereum addresses.
@@ -191,21 +235,24 @@ where
                 }
             };
 
-            let nonce = match extract_header(&parts.headers, NONCE_HEADER) {
-                Some(n) => n.to_string(),
-                None => {
-                    return Ok(error_response(
-                        StatusCode::BAD_REQUEST,
-                        "Missing X-Nonce header",
-                    ))
+            let needs_nonce = requires_nonce(&body_bytes);
+            let nonce = if needs_nonce {
+                match extract_header(&parts.headers, NONCE_HEADER) {
+                    Some(n) => Some(n.to_string()),
+                    None => {
+                        return Ok(error_response(
+                            StatusCode::BAD_REQUEST,
+                            "Missing X-Nonce header",
+                        ))
+                    }
                 }
+            } else {
+                None
             };
 
-            // Hash the message: keccak256(body || nonce).
-            let mut message = Vec::with_capacity(body_bytes.len() + nonce.len());
-            message.extend_from_slice(&body_bytes);
-            message.extend_from_slice(nonce.as_bytes());
-            let hash = keccak256(&message);
+            // Compute the EIP-712 signing hash.
+            let signing_nonce = nonce.as_deref().unwrap_or("");
+            let hash = eip712_signing_hash(&body_bytes, signing_nonce, config.chain_id);
 
             // Parse the signature.
             let sig_hex = sig_hex.strip_prefix("0x").unwrap_or(&sig_hex);
@@ -243,6 +290,7 @@ where
 
             // Determine which auth check to apply based on the JSON-RPC method name.
             let is_admin_method = is_admin_only_method(&body_bytes);
+            let is_get_nonce_method = is_get_nonce_method(&body_bytes);
 
             if is_admin_method {
                 // Admin-only methods (e.g. ops_whitelistKey): require admin address from contract.
@@ -263,12 +311,52 @@ where
                 if recovered_address != admin_address {
                     return Ok(error_response(StatusCode::UNAUTHORIZED, "Admin key required"));
                 }
+            } else if is_get_nonce_method {
+                config.whitelist.evict_expired();
+                if !config.whitelist.is_authorized(&recovered_address) {
+                    return Ok(error_response(StatusCode::UNAUTHORIZED, "Key not whitelisted"));
+                }
+
+                let requested_address = match requested_nonce_address(&body_bytes) {
+                    Ok(address) => address,
+                    Err(err) => return Ok(error_response(StatusCode::BAD_REQUEST, &err)),
+                };
+
+                if requested_address != recovered_address {
+                    return Ok(error_response(
+                        StatusCode::UNAUTHORIZED,
+                        "Can only query your own nonce",
+                    ));
+                }
             } else {
                 // Data methods (e.g. ops_getStorageAt): require whitelisted address.
                 config.whitelist.evict_expired();
                 if !config.whitelist.is_authorized(&recovered_address) {
                     return Ok(error_response(StatusCode::UNAUTHORIZED, "Key not whitelisted"));
                 }
+            }
+
+            if needs_nonce {
+                let nonce = nonce.expect("nonce is required when needs_nonce is true");
+                let nonce_value = match nonce.parse::<u64>() {
+                    Ok(value) => value,
+                    Err(_) => {
+                        return Ok(error_response(
+                            StatusCode::BAD_REQUEST,
+                            "Nonce must be a valid u64",
+                        ))
+                    }
+                };
+
+                let mut nonces = config.nonces.write().expect("nonce lock poisoned");
+                let expected = nonces.get(&recovered_address).copied().unwrap_or(0);
+                if nonce_value != expected {
+                    return Ok(error_response(
+                        StatusCode::UNAUTHORIZED,
+                        &format!("Invalid nonce: expected {expected}"),
+                    ));
+                }
+                nonces.insert(recovered_address, expected + 1);
             }
 
             // Forward the request.
@@ -301,6 +389,29 @@ fn is_admin_only_method(body: &[u8]) -> bool {
     // This is safe because we only need to distinguish between known method names.
     let body_str = std::str::from_utf8(body).unwrap_or("");
     body_str.contains("\"ops_whitelistKey\"") || body_str.contains("\"ops_revokeKey\"")
+}
+
+fn is_get_nonce_method(body: &[u8]) -> bool {
+    let body_str = std::str::from_utf8(body).unwrap_or("");
+    body_str.contains("\"ops_getNonce\"")
+}
+
+fn requires_nonce(body: &[u8]) -> bool {
+    let body_str = std::str::from_utf8(body).unwrap_or("");
+    body_str.contains("\"ops_getStorageAt\"")
+}
+
+fn requested_nonce_address(body: &[u8]) -> Result<Address, String> {
+    let body_str = std::str::from_utf8(body).map_err(|e| e.to_string())?;
+    let params_idx = body_str.find("\"params\"").ok_or_else(|| "Missing params".to_string())?;
+    let params_str = &body_str[params_idx..];
+    let start = params_str.find('[').ok_or_else(|| "Invalid params".to_string())?;
+    let after_bracket = &params_str[start + 1..];
+    let first_quote = after_bracket.find('"').ok_or_else(|| "Missing address".to_string())?;
+    let rest = &after_bracket[first_quote + 1..];
+    let end_quote = rest.find('"').ok_or_else(|| "Invalid address".to_string())?;
+    let addr_str = &rest[..end_quote];
+    addr_str.parse::<Address>().map_err(|e| e.to_string())
 }
 
 fn extract_header<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
