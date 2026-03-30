@@ -29,8 +29,7 @@ use std::time::Instant;
 ///
 /// For Seismic transactions with encrypted calldata, the validator attempts
 /// decryption before extracting addresses. If decryption fails, screening is
-/// skipped (the tx enters the pool unscreened and will be caught by the block
-/// executor which charges gas for failed decryption).
+/// skipped (the tx enters the pool unscreened).
 ///
 /// The validation chain is:
 /// ```text
@@ -97,8 +96,7 @@ where
             } => {
                 let extraction_start = Instant::now();
 
-                // For non-Seismic txs, calldata is already plaintext — extract
-                // addresses directly without cloning or decryption.
+                // For non-Seismic txs, calldata is already plaintext — extract.
                 // For Seismic txs, decrypt first so we can screen real calldata.
                 let addresses = if valid_tx.transaction().ty() != SeismicTxType::Seismic as u8 {
                     extract_addresses(valid_tx.transaction())
@@ -112,8 +110,7 @@ where
                         ),
                         Err(err) => {
                             // Decryption failed — skip screening entirely.
-                            // The tx enters the pool unscreened; the block
-                            // executor will catch it and charge gas.
+                            // The tx enters the pool unscreened.
                             tracing::debug!(
                                 target: "txpool::screening",
                                 tx_hash = %valid_tx.hash(),
