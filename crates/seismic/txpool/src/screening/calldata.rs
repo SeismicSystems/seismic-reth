@@ -47,7 +47,10 @@ where
 /// Like [`extract_addresses`] but uses a provided `input` for calldata parsing
 /// instead of `tx.input()`. This allows screening decrypted calldata while still
 /// extracting sender/recipient/access-list addresses from the original tx.
-pub fn extract_addresses_with_input<T: PoolTransaction>(tx: &T, input: &Bytes) -> Vec<Address>
+pub(crate) fn extract_addresses_with_input<T: PoolTransaction>(
+    tx: &T,
+    input: &Bytes,
+) -> Vec<Address>
 where
     T: alloy_consensus::Transaction,
 {
