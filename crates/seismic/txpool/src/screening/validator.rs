@@ -72,8 +72,9 @@ impl<V> ScreeningTransactionValidator<V> {
 impl<V> TransactionValidator for ScreeningTransactionValidator<V>
 where
     V: TransactionValidator,
-    V::Transaction:
-        PoolTransaction<Consensus: InputDecryptionElements> + alloy_consensus::Transaction + Typed2718,
+    V::Transaction: PoolTransaction<Consensus: InputDecryptionElements>
+        + alloy_consensus::Transaction
+        + Typed2718,
 {
     type Transaction = V::Transaction;
 
@@ -99,41 +100,37 @@ where
                 // For non-Seismic txs, calldata is already plaintext — extract
                 // addresses directly without cloning or decryption.
                 // For Seismic txs, decrypt first so we can screen real calldata.
-                let addresses =
-                    if valid_tx.transaction().ty() != SeismicTxType::Seismic as u8 {
-                        extract_addresses(valid_tx.transaction())
-                    } else {
-                        let consensus_tx = valid_tx.transaction().clone_into_consensus();
-                        let sender = *consensus_tx.signer_ref();
-                        match consensus_tx
-                            .inner()
-                            .plaintext_copy(&self.purpose_keys.tx_io_sk, sender)
-                        {
-                            Ok(plaintext_tx) => extract_addresses_with_input(
-                                valid_tx.transaction(),
-                                plaintext_tx.input(),
-                            ),
-                            Err(err) => {
-                                // Decryption failed — skip screening entirely.
-                                // The tx enters the pool unscreened; the block
-                                // executor will catch it and charge gas.
-                                tracing::debug!(
-                                    target: "txpool::screening",
-                                    tx_hash = %valid_tx.hash(),
-                                    %err,
-                                    "skipping screening: calldata decryption failed"
-                                );
-                                return TransactionValidationOutcome::Valid {
-                                    balance,
-                                    state_nonce,
-                                    transaction: valid_tx,
-                                    propagate,
-                                    bytecode_hash,
-                                    authorities,
-                                };
-                            }
+                let addresses = if valid_tx.transaction().ty() != SeismicTxType::Seismic as u8 {
+                    extract_addresses(valid_tx.transaction())
+                } else {
+                    let consensus_tx = valid_tx.transaction().clone_into_consensus();
+                    let sender = *consensus_tx.signer_ref();
+                    match consensus_tx.inner().plaintext_copy(&self.purpose_keys.tx_io_sk, sender) {
+                        Ok(plaintext_tx) => extract_addresses_with_input(
+                            valid_tx.transaction(),
+                            plaintext_tx.input(),
+                        ),
+                        Err(err) => {
+                            // Decryption failed — skip screening entirely.
+                            // The tx enters the pool unscreened; the block
+                            // executor will catch it and charge gas.
+                            tracing::debug!(
+                                target: "txpool::screening",
+                                tx_hash = %valid_tx.hash(),
+                                %err,
+                                "skipping screening: calldata decryption failed"
+                            );
+                            return TransactionValidationOutcome::Valid {
+                                balance,
+                                state_nonce,
+                                transaction: valid_tx,
+                                propagate,
+                                bytecode_hash,
+                                authorities,
+                            };
                         }
-                    };
+                    }
+                };
 
                 self.metrics
                     .address_extraction_duration
