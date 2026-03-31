@@ -16,7 +16,7 @@ use tokio::sync::oneshot;
 /// `ops` API implementation.
 ///
 /// Provides privileged storage read operations protected by signature authentication.
-/// - `ops_whitelistKey`: admin-only, adds an address to the whitelist with a TTL
+/// - `ops_whitelistKey`: admin-only, adds an address to the whitelist until an absolute expiry
 /// - `ops_getStorageAt`: whitelist-only, reads storage
 #[derive(Clone)]
 pub struct OpsApi<Provider> {
@@ -122,9 +122,16 @@ where
         .await
     }
 
-    async fn whitelist_key(&self, address: Address, ttl_seconds: u64) -> RpcResult<bool> {
-        let ttl = std::time::Duration::from_secs(ttl_seconds);
-        self.inner.whitelist.add(address, ttl);
+    async fn whitelist_key(&self, address: Address, expires_at: u64) -> RpcResult<bool> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| internal_err("system clock before unix epoch".to_string()))?
+            .as_secs();
+        if expires_at <= now {
+            return Err(invalid_params_err("Expiry timestamp must be in the future".to_string()));
+        }
+
+        self.inner.whitelist.add(address, expires_at);
         Ok(true)
     }
 
@@ -142,6 +149,14 @@ impl<Provider> std::fmt::Debug for OpsApi<Provider> {
 fn internal_err(msg: String) -> jsonrpsee::types::ErrorObject<'static> {
     jsonrpsee::types::ErrorObject::owned(
         jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+        msg,
+        None::<()>,
+    )
+}
+
+fn invalid_params_err(msg: String) -> jsonrpsee::types::ErrorObject<'static> {
+    jsonrpsee::types::ErrorObject::owned(
+        jsonrpsee::types::error::INVALID_PARAMS_CODE,
         msg,
         None::<()>,
     )
