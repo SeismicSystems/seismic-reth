@@ -1,47 +1,67 @@
-//! RPC compatibility tests using execution-apis test data.
-//!
-//! TODO: Regenerate test data from a Seismic devnet — current data uses upstream Ethereum
-//! state roots which don't match Seismic's FlaggedStorage trie hashing.
+//! RPC compatibility tests using execution-apis test data
 
 use eyre::Result;
+use reth_chainspec::ChainSpec;
 use reth_e2e_test_utils::testsuite::{
     actions::{MakeCanonical, UpdateBlockInfo},
     setup::{NetworkSetup, Setup},
     TestBuilder,
 };
+use reth_node_ethereum::{EthEngineTypes, EthereumNode};
 use reth_rpc_e2e_tests::rpc_compat::{InitializeFromExecutionApis, RunRpcCompatTests};
-use reth_seismic_chainspec::SEISMIC_DEV;
-use reth_seismic_evm::SeismicEvmConfig;
-use reth_seismic_node::{
-    engine::SeismicEngineTypes, node::SeismicNode, purpose_keys::get_purpose_keys,
-};
-use std::{env, path::PathBuf};
+use seismic_alloy_genesis::Genesis;
+use std::{env, path::PathBuf, sync::Arc};
 use tracing::{debug, info};
 
-/// Test repo-local RPC method compatibility with execution-apis test data.
-/// Uses Seismic test data generated from a Summit testnet running with SEISMIC_DEV chain spec.
+/// Test repo-local RPC method compatibility with execution-apis test data
+///
+/// This test:
+/// 1. Initializes a node with chain data from testdata (chain.rlp)
+/// 2. Applies the forkchoice state from headfcu.json
+/// 3. Runs tests cases in the local repository, some of which are execution-api tests
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "Imports blocks with non-flagged storage state root"]
 async fn test_local_rpc_tests_compat() -> Result<()> {
     reth_tracing::init_test_tracing();
-    reth_seismic_node::utils::e2e::ensure_mock_purpose_keys();
 
+    // Use local test data
     let test_data_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("testdata/rpc-compat");
+
     assert!(test_data_path.exists(), "Test data path does not exist: {}", test_data_path.display());
+
     info!("Using test data from: {}", test_data_path.display());
 
+    // Paths to test files
     let chain_rlp_path = test_data_path.join("chain.rlp");
     let fcu_json_path = test_data_path.join("headfcu.json");
+    let genesis_path = test_data_path.join("genesis.json");
 
-    assert!(chain_rlp_path.exists(), "chain.rlp not found");
-    assert!(fcu_json_path.exists(), "headfcu.json not found");
+    // Verify required files exist
+    if !chain_rlp_path.exists() {
+        return Err(eyre::eyre!("chain.rlp not found at {}", chain_rlp_path.display()));
+    }
+    if !fcu_json_path.exists() {
+        return Err(eyre::eyre!("headfcu.json not found at {}", fcu_json_path.display()));
+    }
+    if !genesis_path.exists() {
+        return Err(eyre::eyre!("genesis.json not found at {}", genesis_path.display()));
+    }
 
-    // Use SEISMIC_DEV directly — Summit testnet runs `seismic-reth` with default
-    // `--chain dev` which is SEISMIC_DEV. This includes the timestamp*1000 adjustment
-    // and all system contract allocs that a raw genesis.json parse would miss.
-    let setup = Setup::<SeismicEngineTypes>::default()
-        .with_chain_spec(SEISMIC_DEV.clone())
+    // Load genesis from test data
+    let genesis_json = std::fs::read_to_string(&genesis_path)?;
+
+    // Parse the Genesis struct from JSON and convert it to ChainSpec
+    // This properly handles all the hardfork configuration from the config section
+    let genesis: Genesis = serde_json::from_str(&genesis_json)?;
+    let chain_spec: ChainSpec = genesis.into();
+    let chain_spec = Arc::new(chain_spec);
+
+    // Create test setup with imported chain
+    let setup = Setup::<EthEngineTypes>::default()
+        .with_chain_spec(chain_spec)
         .with_network(NetworkSetup::single_node());
 
+    // Build and run the test
     let test = TestBuilder::new()
         .with_setup_and_import(setup, chain_rlp_path)
         .with_action(UpdateBlockInfo::default())
@@ -54,8 +74,7 @@ async fn test_local_rpc_tests_compat() -> Result<()> {
             test_data_path.to_string_lossy(),
         ));
 
-    let evm_config = SeismicEvmConfig::new(SEISMIC_DEV.clone(), get_purpose_keys());
-    test.run_with_evm::<SeismicNode>(evm_config).await?;
+    test.run::<EthereumNode>().await?;
 
     Ok(())
 }
@@ -128,12 +147,18 @@ async fn test_execution_apis_compat() -> Result<()> {
         return Err(eyre::eyre!("genesis.json not found at {}", genesis_path.display()));
     }
 
-    reth_seismic_node::utils::e2e::ensure_mock_purpose_keys();
+    // Load genesis from test data
+    let genesis_json = std::fs::read_to_string(&genesis_path)?;
+    let genesis: Genesis = serde_json::from_str(&genesis_json)?;
+    let chain_spec: ChainSpec = genesis.into();
+    let chain_spec = Arc::new(chain_spec);
 
-    let setup = Setup::<SeismicEngineTypes>::default()
-        .with_chain_spec(SEISMIC_DEV.clone())
+    // Create test setup with imported chain
+    let setup = Setup::<EthEngineTypes>::default()
+        .with_chain_spec(chain_spec)
         .with_network(NetworkSetup::single_node());
 
+    // Build and run the test with all discovered methods
     let test = TestBuilder::new()
         .with_setup_and_import(setup, chain_rlp_path)
         .with_action(UpdateBlockInfo::default())
@@ -143,8 +168,7 @@ async fn test_execution_apis_compat() -> Result<()> {
         .with_action(MakeCanonical::new())
         .with_action(RunRpcCompatTests::new(rpc_methods, test_data_path.to_string_lossy()));
 
-    let evm_config = SeismicEvmConfig::new(SEISMIC_DEV.clone(), get_purpose_keys());
-    test.run_with_evm::<SeismicNode>(evm_config).await?;
+    test.run::<EthereumNode>().await?;
 
     Ok(())
 }
