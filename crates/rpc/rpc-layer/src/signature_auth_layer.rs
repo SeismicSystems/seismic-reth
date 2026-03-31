@@ -10,7 +10,7 @@ use std::{
     pin::Pin,
     sync::{Arc, RwLock},
     task::{Context, Poll},
-    time::{Duration, Instant},
+    time::{SystemTime, UNIX_EPOCH},
 };
 use tower::{Layer, Service};
 
@@ -32,7 +32,7 @@ pub const NONCE_HEADER: &str = "X-Nonce";
 /// Shared whitelist of temporarily authorized addresses with expiration times.
 #[derive(Debug, Clone)]
 pub struct Whitelist {
-    inner: Arc<RwLock<HashMap<Address, Instant>>>,
+    inner: Arc<RwLock<HashMap<Address, u64>>>,
 }
 
 impl Whitelist {
@@ -41,17 +41,16 @@ impl Whitelist {
         Self { inner: Arc::new(RwLock::new(HashMap::new())) }
     }
 
-    /// Adds an address to the whitelist with the given TTL.
-    pub fn add(&self, address: Address, ttl: Duration) {
-        let expiry = Instant::now() + ttl;
-        self.inner.write().expect("whitelist lock poisoned").insert(address, expiry);
+    /// Adds an address to the whitelist until the given Unix timestamp in seconds.
+    pub fn add(&self, address: Address, expires_at: u64) {
+        self.inner.write().expect("whitelist lock poisoned").insert(address, expires_at);
     }
 
     /// Returns `true` if the address is whitelisted and not expired.
     pub fn is_authorized(&self, address: &Address) -> bool {
         let map = self.inner.read().expect("whitelist lock poisoned");
         match map.get(address) {
-            Some(expiry) => Instant::now() < *expiry,
+            Some(expiry) => current_unix_timestamp() < *expiry,
             None => false,
         }
     }
@@ -63,7 +62,7 @@ impl Whitelist {
 
     /// Removes expired entries.
     pub fn evict_expired(&self) {
-        let now = Instant::now();
+        let now = current_unix_timestamp();
         self.inner.write().expect("whitelist lock poisoned").retain(|_, expiry| now < *expiry);
     }
 }
@@ -423,4 +422,11 @@ fn error_response(status: StatusCode, message: &str) -> HttpResponse {
         .status(status)
         .body(HttpBody::new(message.to_string()))
         .expect("building error response should not fail")
+}
+
+fn current_unix_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock before unix epoch")
+        .as_secs()
 }
