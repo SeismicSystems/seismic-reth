@@ -4,7 +4,6 @@
 //! state roots which don't match Seismic's FlaggedStorage trie hashing.
 
 use eyre::Result;
-use reth_chainspec::ChainSpec;
 use reth_e2e_test_utils::testsuite::{
     actions::{MakeCanonical, UpdateBlockInfo},
     setup::{NetworkSetup, Setup},
@@ -12,7 +11,10 @@ use reth_e2e_test_utils::testsuite::{
 };
 use reth_rpc_e2e_tests::rpc_compat::{InitializeFromExecutionApis, RunRpcCompatTests};
 use reth_seismic_chainspec::SEISMIC_DEV;
-use reth_seismic_node::{engine::SeismicEngineTypes, node::SeismicNode};
+use reth_seismic_evm::SeismicEvmConfig;
+use reth_seismic_node::{
+    engine::SeismicEngineTypes, node::SeismicNode, purpose_keys::get_purpose_keys,
+};
 use std::{env, path::PathBuf};
 use tracing::{debug, info};
 
@@ -52,7 +54,8 @@ async fn test_local_rpc_tests_compat() -> Result<()> {
             test_data_path.to_string_lossy(),
         ));
 
-    test.run::<SeismicNode>().await?;
+    let evm_config = SeismicEvmConfig::new(SEISMIC_DEV.clone(), get_purpose_keys());
+    test.run_with_evm::<SeismicNode>(evm_config).await?;
 
     Ok(())
 }
@@ -140,7 +143,8 @@ async fn test_execution_apis_compat() -> Result<()> {
         .with_action(MakeCanonical::new())
         .with_action(RunRpcCompatTests::new(rpc_methods, test_data_path.to_string_lossy()));
 
-    test.run::<SeismicNode>().await?;
+    let evm_config = SeismicEvmConfig::new(SEISMIC_DEV.clone(), get_purpose_keys());
+    test.run_with_evm::<SeismicNode>(evm_config).await?;
 
     Ok(())
 }

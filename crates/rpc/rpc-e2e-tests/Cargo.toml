@@ -38,6 +38,7 @@ reth-chainspec.workspace = true
 reth-node-ethereum.workspace = true
 reth-seismic-node = { workspace = true, features = ["test-utils"] }
 reth-seismic-chainspec.workspace = true
+reth-seismic-evm.workspace = true
 alloy-genesis.workspace = true
 seismic-alloy-genesis.workspace = true
 
