@@ -26,6 +26,7 @@ sol! {
 
     interface OpsWhitelistTxAuth {
         function whitelistKey(address target, uint64 expiresAt) external;
+        function revokeKey(address target) external;
     }
 }
 
@@ -161,10 +162,11 @@ pub fn eip712_signing_hash(body: &[u8], nonce: &str, chain_id: u64) -> B256 {
 /// Tower layer for ops authentication using a mix of EIP-712 request signatures and signed
 /// Ethereum transactions.
 ///
-/// `ops_getStorageAt`, `ops_getNonce`, and `ops_revokeKey` continue to use `X-Signature`.
+/// `ops_getStorageAt` and `ops_getNonce` continue to use `X-Signature`.
 /// `ops_getStorageAt` also requires `X-Nonce`.
-/// `ops_whitelistKey` instead requires `X-Signed-Tx`, containing a raw signed transaction whose
-/// sender must be the configured governance address and whose calldata must match the RPC params.
+/// `ops_whitelistKey` and `ops_revokeKey` instead require `X-Signed-Tx`, containing a raw signed
+/// transaction whose sender must be the configured governance address and whose calldata must
+/// match the RPC params.
 #[expect(missing_debug_implementations)]
 pub struct SignatureAuthLayer<P> {
     config: SignatureAuthConfig<P>,
@@ -236,8 +238,7 @@ where
             };
 
             let needs_nonce = requires_nonce(&body_bytes);
-            let is_whitelist_method = is_whitelist_method(&body_bytes);
-            let is_governance_method = is_governance_only_method(&body_bytes);
+            let is_governance_tx_method = is_governance_tx_method(&body_bytes);
             let is_get_nonce_method = is_get_nonce_method(&body_bytes);
             let nonce = if needs_nonce {
                 match extract_header(&parts.headers, NONCE_HEADER) {
@@ -253,7 +254,7 @@ where
                 None
             };
 
-            let recovered_address = if is_whitelist_method {
+            let recovered_address = if is_governance_tx_method {
                 let signed_tx_hex = match extract_header(&parts.headers, SIGNED_TX_HEADER) {
                     Some(s) => s,
                     None => {
@@ -278,7 +279,7 @@ where
                     }
                 };
 
-                match validate_whitelist_governance_tx(
+                match validate_governance_tx(
                     signed_tx_hex,
                     &body_bytes,
                     governance_address,
@@ -336,27 +337,8 @@ where
                 }
             };
 
-            if is_whitelist_method {
-                // `ops_whitelistKey` is fully authenticated by the signed transaction above.
-            } else if is_governance_method {
-                // Governance-only methods (e.g. ops_whitelistKey): require governance address from contract.
-                let governance_address = match read_authorized_address(
-                    &config.provider,
-                    config.contract_address,
-                    config.storage_slot,
-                ) {
-                    Ok(addr) => addr,
-                    Err(e) => {
-                        return Ok(error_response(
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            &format!("Failed to read governance address from contract: {e}"),
-                        ))
-                    }
-                };
-
-                if recovered_address != governance_address {
-                    return Ok(error_response(StatusCode::UNAUTHORIZED, "Governance key required"));
-                }
+            if is_governance_tx_method {
+                // Governance tx methods are fully authenticated by the signed transaction above.
             } else if is_get_nonce_method {
                 config.whitelist.evict_expired();
                 if !config.whitelist.is_authorized(&recovered_address) {
@@ -427,19 +409,14 @@ fn read_authorized_address<P: StateProviderFactory>(
     Ok(Address::from_slice(&bytes[12..]))
 }
 
-/// Check if the JSON-RPC method in the body is a governance-only method.
-/// Governance methods require the governance key from the contract storage.
-/// All other methods require a whitelisted key.
-fn is_governance_only_method(body: &[u8]) -> bool {
-    // Quick check: look for the method name in the JSON body without full parsing.
-    // This is safe because we only need to distinguish between known method names.
-    let body_str = std::str::from_utf8(body).unwrap_or("");
-    body_str.contains("\"ops_whitelistKey\"") || body_str.contains("\"ops_revokeKey\"")
-}
-
 fn is_whitelist_method(body: &[u8]) -> bool {
     let body_str = std::str::from_utf8(body).unwrap_or("");
     body_str.contains("\"ops_whitelistKey\"")
+}
+
+fn is_governance_tx_method(body: &[u8]) -> bool {
+    let body_str = std::str::from_utf8(body).unwrap_or("");
+    body_str.contains("\"ops_whitelistKey\"") || body_str.contains("\"ops_revokeKey\"")
 }
 
 fn is_get_nonce_method(body: &[u8]) -> bool {
@@ -491,6 +468,19 @@ fn requested_whitelist_params(body: &[u8]) -> Result<(Address, u64), String> {
     Ok((address, expires_at))
 }
 
+fn requested_revoke_address(body: &[u8]) -> Result<Address, String> {
+    let body_str = std::str::from_utf8(body).map_err(|e| e.to_string())?;
+    let params_idx = body_str.find("\"params\"").ok_or_else(|| "Missing params".to_string())?;
+    let params_str = &body_str[params_idx..];
+    let start = params_str.find('[').ok_or_else(|| "Invalid params".to_string())?;
+    let after_bracket = &params_str[start + 1..];
+    let first_quote = after_bracket.find('"').ok_or_else(|| "Missing address".to_string())?;
+    let rest = &after_bracket[first_quote + 1..];
+    let end_quote = rest.find('"').ok_or_else(|| "Invalid address".to_string())?;
+    let addr_str = &rest[..end_quote];
+    addr_str.parse::<Address>().map_err(|e| e.to_string())
+}
+
 fn extract_header<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
     headers.get(name).and_then(|v| v.to_str().ok())
 }
@@ -509,7 +499,7 @@ fn current_unix_timestamp() -> u64 {
         .as_secs()
 }
 
-fn validate_whitelist_governance_tx(
+fn validate_governance_tx(
     signed_tx_hex: &str,
     body: &[u8],
     governance_address: Address,
@@ -543,28 +533,46 @@ fn validate_whitelist_governance_tx(
         return Err((StatusCode::UNAUTHORIZED, "Signed transaction value must be 0".to_string()));
     }
 
-    let call = OpsWhitelistTxAuth::whitelistKeyCall::abi_decode(tx.input()).map_err(|e| {
-        (
-            StatusCode::BAD_REQUEST,
-            format!("Signed transaction calldata is not whitelistKey(address,uint64): {e}"),
-        )
-    })?;
+    if is_whitelist_method(body) {
+        let call = OpsWhitelistTxAuth::whitelistKeyCall::abi_decode(tx.input()).map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                format!("Signed transaction calldata is not whitelistKey(address,uint64): {e}"),
+            )
+        })?;
 
-    let (requested_target, requested_expires_at) = requested_whitelist_params(body)
-        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid whitelist request params: {e}")))?;
+        let (requested_target, requested_expires_at) = requested_whitelist_params(body).map_err(
+            |e| (StatusCode::BAD_REQUEST, format!("Invalid whitelist request params: {e}")),
+        )?;
 
-    if call.target != requested_target || call.expiresAt != requested_expires_at {
-        return Err((
-            StatusCode::UNAUTHORIZED,
-            "Signed transaction calldata does not match RPC params".to_string(),
-        ));
-    }
+        if call.target != requested_target || call.expiresAt != requested_expires_at {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                "Signed transaction calldata does not match RPC params".to_string(),
+            ));
+        }
 
-    if requested_expires_at <= current_unix_timestamp() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Expiry timestamp must be in the future".to_string(),
-        ));
+        if requested_expires_at <= current_unix_timestamp() {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Expiry timestamp must be in the future".to_string(),
+            ));
+        }
+    } else {
+        let call = OpsWhitelistTxAuth::revokeKeyCall::abi_decode(tx.input()).map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                format!("Signed transaction calldata is not revokeKey(address): {e}"),
+            )
+        })?;
+        let requested_target = requested_revoke_address(body)
+            .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid revoke request params: {e}")))?;
+        if call.target != requested_target {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                "Signed transaction calldata does not match RPC params".to_string(),
+            ));
+        }
     }
 
     Ok(recovered)
