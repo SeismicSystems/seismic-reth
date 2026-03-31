@@ -26,11 +26,12 @@ pub trait OpsApi {
     #[method(name = "getNonce")]
     async fn get_nonce(&self, address: Address) -> RpcResult<u64>;
 
-    /// Adds an address to the whitelist with a TTL in seconds.
+    /// Adds an address to the whitelist until the given Unix timestamp in seconds.
     /// Only the admin key (from the contract storage slot) can call this.
-    /// Once whitelisted, the address can authenticate `ops_getStorageAt` until the TTL expires.
+    /// Once whitelisted, the address can authenticate `ops_getStorageAt` until the timestamp is
+    /// reached.
     #[method(name = "whitelistKey")]
-    async fn whitelist_key(&self, address: Address, ttl_seconds: u64) -> RpcResult<bool>;
+    async fn whitelist_key(&self, address: Address, expires_at: u64) -> RpcResult<bool>;
 
     /// Removes an address from the whitelist.
     /// Only the admin key (from the contract storage slot) can call this.

@@ -73,11 +73,11 @@ fn get_storage_request(address: Address, index: B256, id: u64) -> String {
     .to_string()
 }
 
-fn whitelist_key_request(address: Address, ttl_seconds: u64, id: u64) -> String {
+fn whitelist_key_request(address: Address, expires_at: u64, id: u64) -> String {
     serde_json::json!({
         "jsonrpc": "2.0",
         "method": "ops_whitelistKey",
-        "params": [format!("{address:?}"), ttl_seconds],
+        "params": [format!("{address:?}"), expires_at],
         "id": id
     })
     .to_string()
@@ -123,6 +123,13 @@ async fn send_signed_request(
         req = req.header("X-Nonce", nonce);
     }
     req.body(body.to_string()).send().await.unwrap()
+}
+
+fn current_unix_timestamp() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system clock before unix epoch")
+        .as_secs()
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -171,7 +178,7 @@ async fn test_ops_whitelist_key_requires_admin() {
     let target = PrivateKeySigner::random();
 
     // Non-admin should NOT be able to whitelist
-    let body = whitelist_key_request(target.address(), 3600, 1);
+    let body = whitelist_key_request(target.address(), current_unix_timestamp() + 3600, 1);
     let resp = send_signed_request(&url, &body, &target, None).await;
     assert_eq!(resp.status(), reqwest::StatusCode::UNAUTHORIZED);
 
@@ -196,7 +203,7 @@ async fn test_ops_whitelisted_key_can_read_storage() {
     assert_eq!(resp.status(), reqwest::StatusCode::UNAUTHORIZED);
 
     // Admin whitelists the reader (1 hour TTL)
-    let wl_body = whitelist_key_request(reader.address(), 3600, 2);
+    let wl_body = whitelist_key_request(reader.address(), current_unix_timestamp() + 3600, 2);
     let resp = send_signed_request(&url, &wl_body, &admin, None).await;
     assert_eq!(resp.status(), reqwest::StatusCode::OK);
 
@@ -223,8 +230,8 @@ async fn test_ops_whitelist_expires() {
     let (handle, _) = launch_ops_with_admin(admin.address()).await;
     let url = handle.http_url();
 
-    // Admin whitelists reader with 1 second TTL
-    let wl_body = whitelist_key_request(reader.address(), 1, 1);
+    // Admin whitelists reader until one second from now.
+    let wl_body = whitelist_key_request(reader.address(), current_unix_timestamp() + 1, 1);
     let resp = send_signed_request(&url, &wl_body, &admin, None).await;
     assert_eq!(resp.status(), reqwest::StatusCode::OK);
 
@@ -242,6 +249,23 @@ async fn test_ops_whitelist_expires() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn test_ops_whitelist_key_rejects_expired_timestamp() {
+    reth_tracing::init_test_tracing();
+    let admin = PrivateKeySigner::random();
+    let target = PrivateKeySigner::random();
+    let (handle, _) = launch_ops_with_admin(admin.address()).await;
+    let url = handle.http_url();
+
+    let body = whitelist_key_request(target.address(), current_unix_timestamp() - 1, 1);
+    let resp = send_signed_request(&url, &body, &admin, None).await;
+    assert_eq!(resp.status(), reqwest::StatusCode::OK);
+
+    let json: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(json["error"]["code"], -32602);
+    assert_eq!(json["error"]["message"], "Expiry timestamp must be in the future");
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn test_ops_revoke_key() {
     reth_tracing::init_test_tracing();
     let admin = PrivateKeySigner::random();
@@ -250,7 +274,7 @@ async fn test_ops_revoke_key() {
     let url = handle.http_url();
 
     // Admin whitelists reader
-    let wl_body = whitelist_key_request(reader.address(), 3600, 1);
+    let wl_body = whitelist_key_request(reader.address(), current_unix_timestamp() + 3600, 1);
     let resp = send_signed_request(&url, &wl_body, &admin, None).await;
     assert_eq!(resp.status(), reqwest::StatusCode::OK);
 
@@ -299,12 +323,12 @@ async fn test_ops_expired_whitelist_cannot_read_storage() {
     let (handle, _) = launch_ops_with_admin(admin.address()).await;
     let url = handle.http_url();
 
-    // Admin whitelists reader with very short TTL
-    let wl_body = whitelist_key_request(reader.address(), 1, 1);
+    // Admin whitelists reader until one second from now.
+    let wl_body = whitelist_key_request(reader.address(), current_unix_timestamp() + 1, 1);
     let resp = send_signed_request(&url, &wl_body, &admin, None).await;
     assert_eq!(resp.status(), reqwest::StatusCode::OK);
 
-    // Wait for TTL to expire
+    // Wait for the whitelist entry to expire.
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
     // Reader should be rejected — whitelist expired
@@ -312,8 +336,8 @@ async fn test_ops_expired_whitelist_cannot_read_storage() {
     let resp = send_signed_request(&url, &read_body, &reader, Some("0")).await;
     assert_eq!(resp.status(), reqwest::StatusCode::UNAUTHORIZED);
 
-    // Re-whitelist with longer TTL
-    let wl_body = whitelist_key_request(reader.address(), 3600, 3);
+    // Re-whitelist with a longer absolute expiry.
+    let wl_body = whitelist_key_request(reader.address(), current_unix_timestamp() + 3600, 3);
     let resp = send_signed_request(&url, &wl_body, &admin, None).await;
     assert_eq!(resp.status(), reqwest::StatusCode::OK);
 
@@ -330,7 +354,7 @@ async fn test_ops_get_nonce_for_whitelisted_key() {
     let (handle, _) = launch_ops_with_admin(admin.address()).await;
     let url = handle.http_url();
 
-    let wl_body = whitelist_key_request(reader.address(), 3600, 1);
+    let wl_body = whitelist_key_request(reader.address(), current_unix_timestamp() + 3600, 1);
     let resp = send_signed_request(&url, &wl_body, &admin, None).await;
     assert_eq!(resp.status(), reqwest::StatusCode::OK);
 
@@ -350,7 +374,7 @@ async fn test_ops_get_nonce_rejects_other_address() {
     let (handle, _) = launch_ops_with_admin(admin.address()).await;
     let url = handle.http_url();
 
-    let wl_body = whitelist_key_request(reader.address(), 3600, 1);
+    let wl_body = whitelist_key_request(reader.address(), current_unix_timestamp() + 3600, 1);
     let resp = send_signed_request(&url, &wl_body, &admin, None).await;
     assert_eq!(resp.status(), reqwest::StatusCode::OK);
 
