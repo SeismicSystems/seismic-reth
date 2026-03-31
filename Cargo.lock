@@ -8852,6 +8852,7 @@ dependencies = [
 name = "reth-rpc-builder"
 version = "1.7.0"
 dependencies = [
+ "alloy-consensus",
  "alloy-eips",
  "alloy-network",
  "alloy-primitives",
@@ -8861,6 +8862,7 @@ dependencies = [
  "alloy-rpc-types-trace",
  "alloy-signer",
  "alloy-signer-local",
+ "alloy-sol-types",
  "clap",
  "http",
  "jsonrpsee 0.26.0",
@@ -9080,6 +9082,7 @@ version = "1.7.0"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
+ "alloy-eips",
  "alloy-primitives",
  "alloy-rpc-types-engine",
  "alloy-signer",

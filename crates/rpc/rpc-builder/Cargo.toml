@@ -66,6 +66,8 @@ reth-engine-primitives.workspace = true
 reth-node-ethereum.workspace = true
 
 alloy-primitives.workspace = true
+alloy-consensus.workspace = true
+alloy-sol-types.workspace = true
 alloy-rpc-types-eth.workspace = true
 alloy-rpc-types-trace.workspace = true
 alloy-eips.workspace = true
