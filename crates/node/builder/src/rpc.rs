@@ -1096,7 +1096,7 @@ where
     where
         P: reth_storage_api::StateProviderFactory + reth_storage_api::BlockIdReader + 'static,
     {
-        use alloy_primitives::{address, b256};
+        use alloy_primitives::{address, b256, Address};
 
         /// The Params contract address holding the authorized signer.
         const OPS_AUTH_CONTRACT: alloy_primitives::Address =
@@ -1110,6 +1110,22 @@ where
         }
 
         let provider = Arc::new(provider);
+        let governance_address = {
+            let state = provider.latest().map_err(|e| {
+                eyre::eyre!("failed to read latest state for ops governance validation: {e}")
+            })?;
+            let value = state
+                .storage(OPS_AUTH_CONTRACT, OPS_AUTH_SLOT)
+                .map_err(|e| eyre::eyre!("failed to read ops governance slot: {e}"))?
+                .ok_or_else(|| eyre::eyre!("ops governance slot is unset"))?;
+            let bytes = value.value.to_be_bytes::<32>();
+            let address = Address::from_slice(&bytes[12..]);
+            if address.is_zero() {
+                return Err(eyre::eyre!("ops governance address resolved to zero address"));
+            }
+            address
+        };
+
         let whitelist = Whitelist::new();
         let nonces = Arc::new(std::sync::RwLock::new(std::collections::HashMap::new()));
         let mut auth_config = SignatureAuthConfig::new(
@@ -1139,7 +1155,12 @@ where
             .await
             .map_err(|e| eyre::eyre!("failed to start ops server: {e}"))?;
 
-        info!(target: "reth::cli", url=%handle.local_addr(), "RPC ops signature-auth server started");
+        info!(
+            target: "reth::cli",
+            url=%handle.local_addr(),
+            governance_address=%governance_address,
+            "RPC ops signature-auth server started"
+        );
 
         Ok(Some(handle))
     }
