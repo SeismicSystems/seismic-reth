@@ -31,9 +31,9 @@ use reth_rpc_builder::{
     config::RethRpcServerConfig,
     RpcModuleBuilder, RpcRegistryInner, RpcServerConfig, RpcServerHandle, TransportRpcModules,
 };
-use reth_rpc_layer::{SignatureAuthConfig, Whitelist};
 use reth_rpc_engine_api::{capabilities::EngineCapabilities, EngineApi};
 use reth_rpc_eth_types::{cache::cache_new_blocks_task, EthConfig, EthStateCache};
+use reth_rpc_layer::{SignatureAuthConfig, Whitelist};
 use reth_tokio_util::EventSender;
 use reth_tracing::tracing::{debug, info};
 use std::{
@@ -841,8 +841,11 @@ where
             .with_tokio_runtime(tokio_runtime);
         let rpc_server_handle = Self::launch_rpc_server_internal(server_config, &modules).await?;
 
-        let handles =
-            RethRpcServerHandles { rpc: rpc_server_handle.clone(), auth: AuthServerHandle::noop(), ops: None };
+        let handles = RethRpcServerHandles {
+            rpc: rpc_server_handle.clone(),
+            auth: AuthServerHandle::noop(),
+            ops: None,
+        };
         Self::finalize_rpc_setup(
             &mut registry,
             &mut modules,
@@ -1123,7 +1126,8 @@ where
 
         // Register it in a module.
         let mut module = BodyAuthRpcModule::empty();
-        module.merge_methods(ops_api.into_rpc())
+        module
+            .merge_methods(ops_api.into_rpc())
             .map_err(|e| eyre::eyre!("failed to register ops methods: {e}"))?;
 
         // Build and start the server.
@@ -1131,11 +1135,11 @@ where
             std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
             config.rpc.ops_port,
         );
-        let server_config = BodyAuthServerConfig::builder(auth_config)
-            .socket_addr(addr)
-            .build();
+        let server_config = BodyAuthServerConfig::builder(auth_config).socket_addr(addr).build();
 
-        let handle = server_config.start(module).await
+        let handle = server_config
+            .start(module)
+            .await
             .map_err(|e| eyre::eyre!("failed to start ops server: {e}"))?;
 
         info!(target: "reth::cli", url=%handle.local_addr(), "RPC ops signature-auth server started");

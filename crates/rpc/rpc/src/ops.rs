@@ -1,6 +1,7 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::RwLock;
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256};
@@ -42,12 +43,7 @@ impl<Provider> OpsApi<Provider> {
         whitelist: Whitelist,
         nonces: Arc<RwLock<HashMap<Address, u64>>>,
     ) -> Self {
-        let inner = Arc::new(OpsApiInner {
-            provider,
-            task_spawner,
-            whitelist,
-            nonces,
-        });
+        let inner = Arc::new(OpsApiInner { provider, task_spawner, whitelist, nonces });
         Self { inner }
     }
 }

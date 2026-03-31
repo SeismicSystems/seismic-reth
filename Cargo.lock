@@ -9096,6 +9096,8 @@ dependencies = [
  "reqwest",
  "reth-provider",
  "reth-storage-api",
+ "serde",
+ "serde_json",
  "tokio",
  "tower 0.5.2",
  "tower-http",
