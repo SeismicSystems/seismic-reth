@@ -39,7 +39,7 @@ pub const NONCE_HEADER: &str = "X-Nonce";
 pub const SIGNED_TX_HEADER: &str = "X-Signed-Tx";
 
 /// Sentinel address that `ops_whitelistKey` admin auth transactions must target.
-pub const WHITELIST_TX_SENTINEL: Address = address!("0000000000000000000000000000000000000001");
+pub const WHITELIST_TX_SENTINEL: Address = address!("1000000000000000000000000000000000000006");
 
 /// Shared whitelist of temporarily authorized addresses with expiration times.
 #[derive(Debug, Clone)]
