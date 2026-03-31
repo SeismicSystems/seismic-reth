@@ -1,5 +1,7 @@
-use alloy_primitives::{Address, B256, Signature};
-use alloy_sol_types::{eip712_domain, sol, SolStruct};
+use alloy_consensus::{transaction::SignerRecoverable, Transaction, TxEnvelope};
+use alloy_eips::Decodable2718;
+use alloy_primitives::{address, Address, B256, Signature};
+use alloy_sol_types::{eip712_domain, sol, SolCall, SolStruct};
 use http::{HeaderMap, Response, StatusCode};
 use http_body_util::BodyExt;
 use jsonrpsee_http_client::{HttpBody, HttpRequest, HttpResponse};
@@ -21,6 +23,10 @@ sol! {
         bytes body;
         string nonce;
     }
+
+    interface OpsWhitelistTxAuth {
+        function whitelistKey(address target, uint64 expiresAt) external;
+    }
 }
 
 /// Header name for the hex-encoded secp256k1 signature.
@@ -28,6 +34,12 @@ pub const SIGNATURE_HEADER: &str = "X-Signature";
 
 /// Header name for the nonce (replay protection).
 pub const NONCE_HEADER: &str = "X-Nonce";
+
+/// Header name for a raw signed Ethereum transaction used to authorize admin whitelist requests.
+pub const SIGNED_TX_HEADER: &str = "X-Signed-Tx";
+
+/// Sentinel address that `ops_whitelistKey` admin auth transactions must target.
+pub const WHITELIST_TX_SENTINEL: Address = address!("0000000000000000000000000000000000000001");
 
 /// Shared whitelist of temporarily authorized addresses with expiration times.
 #[derive(Debug, Clone)]
@@ -146,13 +158,13 @@ pub fn eip712_signing_hash(body: &[u8], nonce: &str, chain_id: u64) -> B256 {
     request.eip712_signing_hash(&domain)
 }
 
-/// Tower layer for single-signature authentication using secp256k1 / Ethereum addresses.
+/// Tower layer for ops authentication using a mix of EIP-712 request signatures and signed
+/// Ethereum transactions.
 ///
-/// Each request must include `X-Signature` and `X-Nonce` headers. The middleware:
-/// 1. Hashes `keccak256(body || nonce)`
-/// 2. Recovers the signer address from the signature
-/// 3. Reads the authorized address from a contract storage slot
-/// 4. Forwards the request if the addresses match
+/// `ops_getStorageAt`, `ops_getNonce`, and `ops_revokeKey` continue to use `X-Signature`.
+/// `ops_getStorageAt` also requires `X-Nonce`.
+/// `ops_whitelistKey` instead requires `X-Signed-Tx`, containing a raw signed transaction whose
+/// sender must be the configured admin and whose calldata must match the RPC params.
 #[expect(missing_debug_implementations)]
 pub struct SignatureAuthLayer<P> {
     config: SignatureAuthConfig<P>,
@@ -223,18 +235,10 @@ where
                 }
             };
 
-            // Extract required headers.
-            let sig_hex = match extract_header(&parts.headers, SIGNATURE_HEADER) {
-                Some(s) => s.to_string(),
-                None => {
-                    return Ok(error_response(
-                        StatusCode::BAD_REQUEST,
-                        "Missing X-Signature header",
-                    ))
-                }
-            };
-
             let needs_nonce = requires_nonce(&body_bytes);
+            let is_whitelist_method = is_whitelist_method(&body_bytes);
+            let is_admin_method = is_admin_only_method(&body_bytes);
+            let is_get_nonce_method = is_get_nonce_method(&body_bytes);
             let nonce = if needs_nonce {
                 match extract_header(&parts.headers, NONCE_HEADER) {
                     Some(n) => Some(n.to_string()),
@@ -249,34 +253,78 @@ where
                 None
             };
 
-            // Compute the EIP-712 signing hash.
-            let signing_nonce = nonce.as_deref().unwrap_or("");
-            let hash = eip712_signing_hash(&body_bytes, signing_nonce, config.chain_id);
+            let recovered_address = if is_whitelist_method {
+                let signed_tx_hex = match extract_header(&parts.headers, SIGNED_TX_HEADER) {
+                    Some(s) => s,
+                    None => {
+                        return Ok(error_response(
+                            StatusCode::BAD_REQUEST,
+                            "Missing X-Signed-Tx header",
+                        ))
+                    }
+                };
 
-            // Parse the signature.
-            let sig_hex = sig_hex.strip_prefix("0x").unwrap_or(&sig_hex);
-            let sig_bytes = match alloy_primitives::hex::decode(sig_hex) {
-                Ok(b) => b,
-                Err(e) => {
-                    return Ok(error_response(
-                        StatusCode::BAD_REQUEST,
-                        &format!("Invalid signature hex: {e}"),
-                    ))
+                let admin_address = match read_authorized_address(
+                    &config.provider,
+                    config.contract_address,
+                    config.storage_slot,
+                ) {
+                    Ok(addr) => addr,
+                    Err(e) => {
+                        return Ok(error_response(
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            &format!("Failed to read admin address from contract: {e}"),
+                        ))
+                    }
+                };
+
+                match validate_whitelist_admin_tx(
+                    signed_tx_hex,
+                    &body_bytes,
+                    admin_address,
+                    config.chain_id,
+                ) {
+                    Ok(addr) => addr,
+                    Err(err) => return Ok(error_response(err.0, &err.1)),
                 }
-            };
+            } else {
+                let sig_hex = match extract_header(&parts.headers, SIGNATURE_HEADER) {
+                    Some(s) => s.to_string(),
+                    None => {
+                        return Ok(error_response(
+                            StatusCode::BAD_REQUEST,
+                            "Missing X-Signature header",
+                        ))
+                    }
+                };
 
-            let signature = match Signature::try_from(sig_bytes.as_slice()) {
-                Ok(s) => s,
-                Err(e) => {
-                    return Ok(error_response(
-                        StatusCode::BAD_REQUEST,
-                        &format!("Invalid signature: {e}"),
-                    ))
-                }
-            };
+                // Compute the EIP-712 signing hash.
+                let signing_nonce = nonce.as_deref().unwrap_or("");
+                let hash = eip712_signing_hash(&body_bytes, signing_nonce, config.chain_id);
 
-            // Recover the signer address.
-            let recovered_address =
+                // Parse the signature.
+                let sig_hex = sig_hex.strip_prefix("0x").unwrap_or(&sig_hex);
+                let sig_bytes = match alloy_primitives::hex::decode(sig_hex) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        return Ok(error_response(
+                            StatusCode::BAD_REQUEST,
+                            &format!("Invalid signature hex: {e}"),
+                        ))
+                    }
+                };
+
+                let signature = match Signature::try_from(sig_bytes.as_slice()) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        return Ok(error_response(
+                            StatusCode::BAD_REQUEST,
+                            &format!("Invalid signature: {e}"),
+                        ))
+                    }
+                };
+
+                // Recover the signer address.
                 match alloy_consensus::crypto::secp256k1::recover_signer(&signature, hash) {
                     Ok(addr) => addr,
                     Err(e) => {
@@ -285,13 +333,12 @@ where
                             &format!("Signature recovery failed: {e}"),
                         ))
                     }
-                };
+                }
+            };
 
-            // Determine which auth check to apply based on the JSON-RPC method name.
-            let is_admin_method = is_admin_only_method(&body_bytes);
-            let is_get_nonce_method = is_get_nonce_method(&body_bytes);
-
-            if is_admin_method {
+            if is_whitelist_method {
+                // `ops_whitelistKey` is fully authenticated by the signed transaction above.
+            } else if is_admin_method {
                 // Admin-only methods (e.g. ops_whitelistKey): require admin address from contract.
                 let admin_address = match read_authorized_address(
                     &config.provider,
@@ -390,6 +437,11 @@ fn is_admin_only_method(body: &[u8]) -> bool {
     body_str.contains("\"ops_whitelistKey\"") || body_str.contains("\"ops_revokeKey\"")
 }
 
+fn is_whitelist_method(body: &[u8]) -> bool {
+    let body_str = std::str::from_utf8(body).unwrap_or("");
+    body_str.contains("\"ops_whitelistKey\"")
+}
+
 fn is_get_nonce_method(body: &[u8]) -> bool {
     let body_str = std::str::from_utf8(body).unwrap_or("");
     body_str.contains("\"ops_getNonce\"")
@@ -413,6 +465,32 @@ fn requested_nonce_address(body: &[u8]) -> Result<Address, String> {
     addr_str.parse::<Address>().map_err(|e| e.to_string())
 }
 
+fn requested_whitelist_params(body: &[u8]) -> Result<(Address, u64), String> {
+    let body_str = std::str::from_utf8(body).map_err(|e| e.to_string())?;
+    let params_idx = body_str.find("\"params\"").ok_or_else(|| "Missing params".to_string())?;
+    let params_str = &body_str[params_idx..];
+    let start = params_str.find('[').ok_or_else(|| "Invalid params".to_string())?;
+    let end = params_str[start + 1..]
+        .find(']')
+        .map(|idx| start + 1 + idx)
+        .ok_or_else(|| "Invalid params".to_string())?;
+    let params_inner = &params_str[start + 1..end];
+    let mut parts = params_inner.splitn(2, ',');
+
+    let address_part = parts.next().ok_or_else(|| "Missing address".to_string())?.trim();
+    let expires_part =
+        parts.next().ok_or_else(|| "Missing expiry timestamp".to_string())?.trim();
+
+    let address_str = address_part
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .ok_or_else(|| "Invalid address".to_string())?;
+    let address = address_str.parse::<Address>().map_err(|e| e.to_string())?;
+    let expires_at = expires_part.parse::<u64>().map_err(|e| e.to_string())?;
+
+    Ok((address, expires_at))
+}
+
 fn extract_header<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
     headers.get(name).and_then(|v| v.to_str().ok())
 }
@@ -429,4 +507,65 @@ fn current_unix_timestamp() -> u64 {
         .duration_since(UNIX_EPOCH)
         .expect("system clock before unix epoch")
         .as_secs()
+}
+
+fn validate_whitelist_admin_tx(
+    signed_tx_hex: &str,
+    body: &[u8],
+    admin_address: Address,
+    expected_chain_id: u64,
+) -> Result<Address, (StatusCode, String)> {
+    let tx_hex = signed_tx_hex.strip_prefix("0x").unwrap_or(signed_tx_hex);
+    let tx_bytes = alloy_primitives::hex::decode(tx_hex)
+        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid signed tx hex: {e}")))?;
+    let tx = TxEnvelope::decode_2718(&mut tx_bytes.as_slice())
+        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid signed tx: {e}")))?;
+
+    let recovered = tx
+        .recover_signer()
+        .map_err(|e| (StatusCode::UNAUTHORIZED, format!("Transaction signer recovery failed: {e}")))?;
+    if recovered != admin_address {
+        return Err((StatusCode::UNAUTHORIZED, "Admin key required".to_string()));
+    }
+
+    if tx.chain_id() != Some(expected_chain_id) {
+        return Err((StatusCode::UNAUTHORIZED, "Signed transaction chain ID mismatch".to_string()));
+    }
+
+    if tx.to() != Some(WHITELIST_TX_SENTINEL) {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            format!("Signed transaction must target {WHITELIST_TX_SENTINEL}"),
+        ));
+    }
+
+    if !tx.value().is_zero() {
+        return Err((StatusCode::UNAUTHORIZED, "Signed transaction value must be 0".to_string()));
+    }
+
+    let call = OpsWhitelistTxAuth::whitelistKeyCall::abi_decode(tx.input()).map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("Signed transaction calldata is not whitelistKey(address,uint64): {e}"),
+        )
+    })?;
+
+    let (requested_target, requested_expires_at) = requested_whitelist_params(body)
+        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid whitelist request params: {e}")))?;
+
+    if call.target != requested_target || call.expiresAt != requested_expires_at {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "Signed transaction calldata does not match RPC params".to_string(),
+        ));
+    }
+
+    if requested_expires_at <= current_unix_timestamp() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Expiry timestamp must be in the future".to_string(),
+        ));
+    }
+
+    Ok(recovered)
 }
