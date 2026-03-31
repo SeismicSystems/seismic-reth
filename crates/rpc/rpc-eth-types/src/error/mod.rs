@@ -115,6 +115,9 @@ pub enum EthApiError {
     /// Thrown when an `AccountOverride` contains conflicting `state` and `stateDiff` fields
     #[error("account {0:?} has both 'state' and 'stateDiff'")]
     BothStateAndStateDiffInOverride(Address),
+    /// Thrown when an `AccountOverride` contains a code override (not permitted on Seismic)
+    #[error("Code overrides are not permitted on Seismic (account: {0:?})")]
+    CodeOverrideNotPermitted(Address),
     /// Other internal error
     #[error(transparent)]
     Internal(RethError),
@@ -254,6 +257,7 @@ impl From<EthApiError> for jsonrpsee_types::error::ErrorObject<'static> {
             EthApiError::ConflictingFeeFieldsInRequest |
             EthApiError::Signing(_) |
             EthApiError::BothStateAndStateDiffInOverride(_) |
+            EthApiError::CodeOverrideNotPermitted(_) |
             EthApiError::InvalidTracerConfig |
             EthApiError::TransactionConversionError |
             EthApiError::InvalidRewardPercentiles |
@@ -348,6 +352,9 @@ where
             }
             StateOverrideError::BothStateAndStateDiff(address) => {
                 Self::BothStateAndStateDiffInOverride(address)
+            }
+            StateOverrideError::CodeOverrideNotPermitted(address) => {
+                Self::CodeOverrideNotPermitted(address)
             }
             StateOverrideError::Database(err) => err.into(),
         }

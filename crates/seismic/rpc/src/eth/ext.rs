@@ -195,6 +195,7 @@ where
         > = Vec::with_capacity(payload.block_state_calls.len());
         for block in payload.block_state_calls {
             let SeismicSimBlock { block_overrides, state_overrides, calls } = block;
+
             let mut prepared_calls = Vec::with_capacity(calls.len());
 
             for call in calls {
