@@ -9,7 +9,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 mod eth;
-pub use eth::*;
+pub use eth::{api::FullSeismicApi, *};
 
 mod error;
 pub use error::*;
