@@ -1,11 +1,12 @@
 use alloy_consensus::{transaction::SignerRecoverable, Transaction, TxEnvelope};
 use alloy_eips::Decodable2718;
-use alloy_primitives::{address, Address, B256, Signature};
+use alloy_primitives::{address, Address, Signature, B256};
 use alloy_sol_types::{eip712_domain, sol, SolCall, SolStruct};
 use http::{HeaderMap, Response, StatusCode};
 use http_body_util::BodyExt;
 use jsonrpsee_http_client::{HttpBody, HttpRequest, HttpResponse};
 use reth_storage_api::StateProviderFactory;
+use serde::Deserialize;
 use std::{
     collections::HashMap,
     future::Future,
@@ -36,7 +37,8 @@ pub const SIGNATURE_HEADER: &str = "X-Signature";
 /// Header name for the nonce (replay protection).
 pub const NONCE_HEADER: &str = "X-Nonce";
 
-/// Header name for a raw signed Ethereum transaction used to authorize governance whitelist requests.
+/// Header name for a raw signed Ethereum transaction used to authorize governance whitelist
+/// requests.
 pub const SIGNED_TX_HEADER: &str = "X-Signed-Tx";
 
 /// Sentinel address that `ops_whitelistKey` governance auth transactions must target.
@@ -56,12 +58,12 @@ impl Whitelist {
 
     /// Adds an address to the whitelist until the given Unix timestamp in seconds.
     pub fn add(&self, address: Address, expires_at: u64) {
-        self.inner.write().expect("whitelist lock poisoned").insert(address, expires_at);
+        write_unpoisoned(&self.inner).insert(address, expires_at);
     }
 
     /// Returns `true` if the address is whitelisted and not expired.
     pub fn is_authorized(&self, address: &Address) -> bool {
-        let map = self.inner.read().expect("whitelist lock poisoned");
+        let map = read_unpoisoned(&self.inner);
         match map.get(address) {
             Some(expiry) => current_unix_timestamp() < *expiry,
             None => false,
@@ -70,13 +72,13 @@ impl Whitelist {
 
     /// Removes an address from the whitelist. Returns `true` if it was present.
     pub fn remove(&self, address: &Address) -> bool {
-        self.inner.write().expect("whitelist lock poisoned").remove(address).is_some()
+        write_unpoisoned(&self.inner).remove(address).is_some()
     }
 
     /// Removes expired entries.
     pub fn evict_expired(&self) {
         let now = current_unix_timestamp();
-        self.inner.write().expect("whitelist lock poisoned").retain(|_, expiry| now < *expiry);
+        write_unpoisoned(&self.inner).retain(|_, expiry| now < *expiry);
     }
 }
 
@@ -244,10 +246,7 @@ where
                 match extract_header(&parts.headers, NONCE_HEADER) {
                     Some(n) => Some(n.to_string()),
                     None => {
-                        return Ok(error_response(
-                            StatusCode::BAD_REQUEST,
-                            "Missing X-Nonce header",
-                        ))
+                        return Ok(error_response(StatusCode::BAD_REQUEST, "Missing X-Nonce header"))
                     }
                 }
             } else {
@@ -376,7 +375,7 @@ where
                     }
                 };
 
-                let mut nonces = config.nonces.write().expect("nonce lock poisoned");
+                let mut nonces = write_unpoisoned(&config.nonces);
                 let expected = nonces.get(&recovered_address).copied().unwrap_or(0);
                 if nonce_value != expected {
                     return Ok(error_response(
@@ -430,55 +429,24 @@ fn requires_nonce(body: &[u8]) -> bool {
 }
 
 fn requested_nonce_address(body: &[u8]) -> Result<Address, String> {
-    let body_str = std::str::from_utf8(body).map_err(|e| e.to_string())?;
-    let params_idx = body_str.find("\"params\"").ok_or_else(|| "Missing params".to_string())?;
-    let params_str = &body_str[params_idx..];
-    let start = params_str.find('[').ok_or_else(|| "Invalid params".to_string())?;
-    let after_bracket = &params_str[start + 1..];
-    let first_quote = after_bracket.find('"').ok_or_else(|| "Missing address".to_string())?;
-    let rest = &after_bracket[first_quote + 1..];
-    let end_quote = rest.find('"').ok_or_else(|| "Invalid address".to_string())?;
-    let addr_str = &rest[..end_quote];
-    addr_str.parse::<Address>().map_err(|e| e.to_string())
+    match parse_ops_request(body)? {
+        ParsedOpsRequest::GetNonce { address } => Ok(address),
+        _ => Err("Expected ops_getNonce request".to_string()),
+    }
 }
 
 fn requested_whitelist_params(body: &[u8]) -> Result<(Address, u64), String> {
-    let body_str = std::str::from_utf8(body).map_err(|e| e.to_string())?;
-    let params_idx = body_str.find("\"params\"").ok_or_else(|| "Missing params".to_string())?;
-    let params_str = &body_str[params_idx..];
-    let start = params_str.find('[').ok_or_else(|| "Invalid params".to_string())?;
-    let end = params_str[start + 1..]
-        .find(']')
-        .map(|idx| start + 1 + idx)
-        .ok_or_else(|| "Invalid params".to_string())?;
-    let params_inner = &params_str[start + 1..end];
-    let mut parts = params_inner.splitn(2, ',');
-
-    let address_part = parts.next().ok_or_else(|| "Missing address".to_string())?.trim();
-    let expires_part =
-        parts.next().ok_or_else(|| "Missing expiry timestamp".to_string())?.trim();
-
-    let address_str = address_part
-        .strip_prefix('"')
-        .and_then(|s| s.strip_suffix('"'))
-        .ok_or_else(|| "Invalid address".to_string())?;
-    let address = address_str.parse::<Address>().map_err(|e| e.to_string())?;
-    let expires_at = expires_part.parse::<u64>().map_err(|e| e.to_string())?;
-
-    Ok((address, expires_at))
+    match parse_ops_request(body)? {
+        ParsedOpsRequest::WhitelistKey { target, expires_at } => Ok((target, expires_at)),
+        _ => Err("Expected ops_whitelistKey request".to_string()),
+    }
 }
 
 fn requested_revoke_address(body: &[u8]) -> Result<Address, String> {
-    let body_str = std::str::from_utf8(body).map_err(|e| e.to_string())?;
-    let params_idx = body_str.find("\"params\"").ok_or_else(|| "Missing params".to_string())?;
-    let params_str = &body_str[params_idx..];
-    let start = params_str.find('[').ok_or_else(|| "Invalid params".to_string())?;
-    let after_bracket = &params_str[start + 1..];
-    let first_quote = after_bracket.find('"').ok_or_else(|| "Missing address".to_string())?;
-    let rest = &after_bracket[first_quote + 1..];
-    let end_quote = rest.find('"').ok_or_else(|| "Invalid address".to_string())?;
-    let addr_str = &rest[..end_quote];
-    addr_str.parse::<Address>().map_err(|e| e.to_string())
+    match parse_ops_request(body)? {
+        ParsedOpsRequest::RevokeKey { target } => Ok(target),
+        _ => Err("Expected ops_revokeKey request".to_string()),
+    }
 }
 
 fn extract_header<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
@@ -493,10 +461,58 @@ fn error_response(status: StatusCode, message: &str) -> HttpResponse {
 }
 
 fn current_unix_timestamp() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system clock before unix epoch")
-        .as_secs()
+    SystemTime::now().duration_since(UNIX_EPOCH).expect("system clock before unix epoch").as_secs()
+}
+
+fn read_unpoisoned<T>(lock: &RwLock<T>) -> std::sync::RwLockReadGuard<'_, T> {
+    lock.read().unwrap_or_else(|err| err.into_inner())
+}
+
+fn write_unpoisoned<T>(lock: &RwLock<T>) -> std::sync::RwLockWriteGuard<'_, T> {
+    lock.write().unwrap_or_else(|err| err.into_inner())
+}
+
+#[derive(Deserialize)]
+struct RpcRequest {
+    method: String,
+    params: Vec<serde_json::Value>,
+}
+
+enum ParsedOpsRequest {
+    GetNonce { address: Address },
+    WhitelistKey { target: Address, expires_at: u64 },
+    RevokeKey { target: Address },
+}
+
+fn parse_ops_request(body: &[u8]) -> Result<ParsedOpsRequest, String> {
+    let request: RpcRequest = serde_json::from_slice(body).map_err(|e| e.to_string())?;
+    match request.method.as_str() {
+        "ops_getNonce" => {
+            let address = parse_address_param(request.params.first(), "address")?;
+            Ok(ParsedOpsRequest::GetNonce { address })
+        }
+        "ops_whitelistKey" => {
+            let target = parse_address_param(request.params.first(), "address")?;
+            let expires_at = parse_u64_param(request.params.get(1), "expiry timestamp")?;
+            Ok(ParsedOpsRequest::WhitelistKey { target, expires_at })
+        }
+        "ops_revokeKey" => {
+            let target = parse_address_param(request.params.first(), "address")?;
+            Ok(ParsedOpsRequest::RevokeKey { target })
+        }
+        method => Err(format!("Unexpected method: {method}")),
+    }
+}
+
+fn parse_address_param(value: Option<&serde_json::Value>, field: &str) -> Result<Address, String> {
+    let value = value.ok_or_else(|| format!("Missing {field}"))?;
+    let addr = value.as_str().ok_or_else(|| format!("Invalid {field}"))?;
+    addr.parse::<Address>().map_err(|e| e.to_string())
+}
+
+fn parse_u64_param(value: Option<&serde_json::Value>, field: &str) -> Result<u64, String> {
+    let value = value.ok_or_else(|| format!("Missing {field}"))?;
+    value.as_u64().ok_or_else(|| format!("Invalid {field}"))
 }
 
 fn validate_governance_tx(
@@ -511,9 +527,9 @@ fn validate_governance_tx(
     let tx = TxEnvelope::decode_2718(&mut tx_bytes.as_slice())
         .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid signed tx: {e}")))?;
 
-    let recovered = tx
-        .recover_signer()
-        .map_err(|e| (StatusCode::UNAUTHORIZED, format!("Transaction signer recovery failed: {e}")))?;
+    let recovered = tx.recover_signer().map_err(|e| {
+        (StatusCode::UNAUTHORIZED, format!("Transaction signer recovery failed: {e}"))
+    })?;
     if recovered != governance_address {
         return Err((StatusCode::UNAUTHORIZED, "Governance key required".to_string()));
     }
@@ -541,9 +557,10 @@ fn validate_governance_tx(
             )
         })?;
 
-        let (requested_target, requested_expires_at) = requested_whitelist_params(body).map_err(
-            |e| (StatusCode::BAD_REQUEST, format!("Invalid whitelist request params: {e}")),
-        )?;
+        let (requested_target, requested_expires_at) =
+            requested_whitelist_params(body).map_err(|e| {
+                (StatusCode::BAD_REQUEST, format!("Invalid whitelist request params: {e}"))
+            })?;
 
         if call.target != requested_target || call.expiresAt != requested_expires_at {
             return Err((
@@ -565,8 +582,9 @@ fn validate_governance_tx(
                 format!("Signed transaction calldata is not revokeKey(address): {e}"),
             )
         })?;
-        let requested_target = requested_revoke_address(body)
-            .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid revoke request params: {e}")))?;
+        let requested_target = requested_revoke_address(body).map_err(|e| {
+            (StatusCode::BAD_REQUEST, format!("Invalid revoke request params: {e}"))
+        })?;
         if call.target != requested_target {
             return Err((
                 StatusCode::UNAUTHORIZED,
