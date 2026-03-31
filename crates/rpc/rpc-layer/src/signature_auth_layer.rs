@@ -35,10 +35,10 @@ pub const SIGNATURE_HEADER: &str = "X-Signature";
 /// Header name for the nonce (replay protection).
 pub const NONCE_HEADER: &str = "X-Nonce";
 
-/// Header name for a raw signed Ethereum transaction used to authorize admin whitelist requests.
+/// Header name for a raw signed Ethereum transaction used to authorize governance whitelist requests.
 pub const SIGNED_TX_HEADER: &str = "X-Signed-Tx";
 
-/// Sentinel address that `ops_whitelistKey` admin auth transactions must target.
+/// Sentinel address that `ops_whitelistKey` governance auth transactions must target.
 pub const WHITELIST_TX_SENTINEL: Address = address!("1000000000000000000000000000000000000006");
 
 /// Shared whitelist of temporarily authorized addresses with expiration times.
@@ -93,16 +93,16 @@ pub const EIP712_DOMAIN_VERSION: &str = "1";
 
 /// Configuration for the signature authentication layer.
 ///
-/// The admin address is read from a contract storage slot. A shared whitelist holds
+/// The governance address is read from a contract storage slot. A shared whitelist holds
 /// temporarily authorized addresses for data endpoints.
 /// Signatures use EIP-712 typed data with the SeismicOps domain.
 #[derive(Debug)]
 pub struct SignatureAuthConfig<P> {
     /// The state provider for reading contract storage.
     pub provider: Arc<P>,
-    /// The contract address holding the admin address.
+    /// The contract address holding the governance address.
     pub contract_address: Address,
-    /// The storage slot containing the admin address.
+    /// The storage slot containing the governance address.
     pub storage_slot: B256,
     /// Shared whitelist of temporarily authorized addresses.
     pub whitelist: Whitelist,
@@ -164,7 +164,7 @@ pub fn eip712_signing_hash(body: &[u8], nonce: &str, chain_id: u64) -> B256 {
 /// `ops_getStorageAt`, `ops_getNonce`, and `ops_revokeKey` continue to use `X-Signature`.
 /// `ops_getStorageAt` also requires `X-Nonce`.
 /// `ops_whitelistKey` instead requires `X-Signed-Tx`, containing a raw signed transaction whose
-/// sender must be the configured admin and whose calldata must match the RPC params.
+/// sender must be the configured governance address and whose calldata must match the RPC params.
 #[expect(missing_debug_implementations)]
 pub struct SignatureAuthLayer<P> {
     config: SignatureAuthConfig<P>,
@@ -237,7 +237,7 @@ where
 
             let needs_nonce = requires_nonce(&body_bytes);
             let is_whitelist_method = is_whitelist_method(&body_bytes);
-            let is_admin_method = is_admin_only_method(&body_bytes);
+            let is_governance_method = is_governance_only_method(&body_bytes);
             let is_get_nonce_method = is_get_nonce_method(&body_bytes);
             let nonce = if needs_nonce {
                 match extract_header(&parts.headers, NONCE_HEADER) {
@@ -264,7 +264,7 @@ where
                     }
                 };
 
-                let admin_address = match read_authorized_address(
+                let governance_address = match read_authorized_address(
                     &config.provider,
                     config.contract_address,
                     config.storage_slot,
@@ -273,15 +273,15 @@ where
                     Err(e) => {
                         return Ok(error_response(
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            &format!("Failed to read admin address from contract: {e}"),
+                            &format!("Failed to read governance address from contract: {e}"),
                         ))
                     }
                 };
 
-                match validate_whitelist_admin_tx(
+                match validate_whitelist_governance_tx(
                     signed_tx_hex,
                     &body_bytes,
-                    admin_address,
+                    governance_address,
                     config.chain_id,
                 ) {
                     Ok(addr) => addr,
@@ -338,9 +338,9 @@ where
 
             if is_whitelist_method {
                 // `ops_whitelistKey` is fully authenticated by the signed transaction above.
-            } else if is_admin_method {
-                // Admin-only methods (e.g. ops_whitelistKey): require admin address from contract.
-                let admin_address = match read_authorized_address(
+            } else if is_governance_method {
+                // Governance-only methods (e.g. ops_whitelistKey): require governance address from contract.
+                let governance_address = match read_authorized_address(
                     &config.provider,
                     config.contract_address,
                     config.storage_slot,
@@ -349,13 +349,13 @@ where
                     Err(e) => {
                         return Ok(error_response(
                             StatusCode::INTERNAL_SERVER_ERROR,
-                            &format!("Failed to read admin address from contract: {e}"),
+                            &format!("Failed to read governance address from contract: {e}"),
                         ))
                     }
                 };
 
-                if recovered_address != admin_address {
-                    return Ok(error_response(StatusCode::UNAUTHORIZED, "Admin key required"));
+                if recovered_address != governance_address {
+                    return Ok(error_response(StatusCode::UNAUTHORIZED, "Governance key required"));
                 }
             } else if is_get_nonce_method {
                 config.whitelist.evict_expired();
@@ -427,10 +427,10 @@ fn read_authorized_address<P: StateProviderFactory>(
     Ok(Address::from_slice(&bytes[12..]))
 }
 
-/// Check if the JSON-RPC method in the body is an admin-only method.
-/// Admin methods require the admin key from the contract storage.
+/// Check if the JSON-RPC method in the body is a governance-only method.
+/// Governance methods require the governance key from the contract storage.
 /// All other methods require a whitelisted key.
-fn is_admin_only_method(body: &[u8]) -> bool {
+fn is_governance_only_method(body: &[u8]) -> bool {
     // Quick check: look for the method name in the JSON body without full parsing.
     // This is safe because we only need to distinguish between known method names.
     let body_str = std::str::from_utf8(body).unwrap_or("");
@@ -509,10 +509,10 @@ fn current_unix_timestamp() -> u64 {
         .as_secs()
 }
 
-fn validate_whitelist_admin_tx(
+fn validate_whitelist_governance_tx(
     signed_tx_hex: &str,
     body: &[u8],
-    admin_address: Address,
+    governance_address: Address,
     expected_chain_id: u64,
 ) -> Result<Address, (StatusCode, String)> {
     let tx_hex = signed_tx_hex.strip_prefix("0x").unwrap_or(signed_tx_hex);
@@ -524,8 +524,8 @@ fn validate_whitelist_admin_tx(
     let recovered = tx
         .recover_signer()
         .map_err(|e| (StatusCode::UNAUTHORIZED, format!("Transaction signer recovery failed: {e}")))?;
-    if recovered != admin_address {
-        return Err((StatusCode::UNAUTHORIZED, "Admin key required".to_string()));
+    if recovered != governance_address {
+        return Err((StatusCode::UNAUTHORIZED, "Governance key required".to_string()));
     }
 
     if tx.chain_id() != Some(expected_chain_id) {

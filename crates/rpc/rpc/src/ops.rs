@@ -16,7 +16,7 @@ use tokio::sync::oneshot;
 /// `ops` API implementation.
 ///
 /// Provides privileged storage read operations protected by signature authentication.
-/// - `ops_whitelistKey`: admin-only, adds an address to the whitelist until an absolute expiry
+/// - `ops_whitelistKey`: governance-only, adds an address to the whitelist until an absolute expiry
 /// - `ops_getStorageAt`: whitelist-only, reads storage
 #[derive(Clone)]
 pub struct OpsApi<Provider> {
