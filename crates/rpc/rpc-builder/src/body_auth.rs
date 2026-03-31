@@ -62,8 +62,7 @@ impl<P, RpcMiddleware> BodyAuthServerConfig<P, RpcMiddleware> {
         let Self { socket_addr, auth_config, server_config, rpc_middleware } = self;
 
         // Create signature-auth middleware.
-        let middleware =
-            tower::ServiceBuilder::new().layer(SignatureAuthLayer::new(auth_config));
+        let middleware = tower::ServiceBuilder::new().layer(SignatureAuthLayer::new(auth_config));
 
         let rpc_middleware = RpcServiceBuilder::default().layer(rpc_middleware);
 
@@ -108,10 +107,7 @@ impl<P> BodyAuthServerConfigBuilder<P> {
 
 impl<P, RpcMiddleware> BodyAuthServerConfigBuilder<P, RpcMiddleware> {
     /// Configures the rpc middleware.
-    pub fn with_rpc_middleware<T>(
-        self,
-        rpc_middleware: T,
-    ) -> BodyAuthServerConfigBuilder<P, T> {
+    pub fn with_rpc_middleware<T>(self, rpc_middleware: T) -> BodyAuthServerConfigBuilder<P, T> {
         let Self { socket_addr, auth_config, server_config, .. } = self;
         BodyAuthServerConfigBuilder { socket_addr, auth_config, server_config, rpc_middleware }
     }
@@ -213,7 +209,10 @@ impl BodyAuthRpcModule {
     }
 
     /// Convenience function for starting a server.
-    pub async fn start_server<P: StateProviderFactory + 'static, RpcMiddleware: RethRpcMiddleware>(
+    pub async fn start_server<
+        P: StateProviderFactory + 'static,
+        RpcMiddleware: RethRpcMiddleware,
+    >(
         self,
         config: BodyAuthServerConfig<P, RpcMiddleware>,
     ) -> Result<BodyAuthServerHandle, RpcError> {
