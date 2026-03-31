@@ -1131,10 +1131,7 @@ where
             .map_err(|e| eyre::eyre!("failed to register ops methods: {e}"))?;
 
         // Build and start the server.
-        let addr = std::net::SocketAddr::new(
-            std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
-            config.rpc.ops_port,
-        );
+        let addr = std::net::SocketAddr::new(config.rpc.ops_addr, config.rpc.ops_port);
         let server_config = BodyAuthServerConfig::builder(auth_config).socket_addr(addr).build();
 
         let handle = server_config
