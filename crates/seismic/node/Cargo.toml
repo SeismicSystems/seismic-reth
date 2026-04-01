@@ -74,8 +74,6 @@ jsonrpsee-http-client.workspace = true
 alloy-rpc-types = { workspace = true }
 tokio = { workspace = true }
 jsonrpsee = { workspace = true }
-tempfile = { workspace = true }
-once_cell.workspace = true
 reth-e2e-test-utils = { workspace = true, optional = true }
 reth-tasks = { workspace = true, optional = true }
 seismic-alloy-genesis = { workspace = true, optional = true }
