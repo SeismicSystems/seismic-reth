@@ -99,6 +99,7 @@ impl FuzzSeismicTx {
             } else {
                 RngMode::Simulation
             },
+            decryption_failed: false,
         }
     }
 
