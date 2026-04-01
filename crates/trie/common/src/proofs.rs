@@ -6,7 +6,7 @@ use alloy_consensus::constants::KECCAK_EMPTY;
 use alloy_primitives::{
     keccak256,
     map::{hash_map, B256Map, B256Set, HashMap},
-    Address, Bytes, B256, U256,
+    Address, Bytes, FlaggedStorage, B256, U256,
 };
 use alloy_rlp::{encode_fixed_size, Decodable, EMPTY_STRING_CODE};
 use alloy_trie::{
@@ -767,9 +767,17 @@ impl StorageProof {
     }
 
     /// Verify the proof against the provided storage root.
+    ///
+    /// In Seismic, storage values in the trie are encoded as [`FlaggedStorage`] which
+    /// includes the privacy flag byte. The expected value must be encoded the same way
+    /// to match what the trie actually stores.
     pub fn verify(&self, root: B256) -> Result<(), ProofVerificationError> {
-        let expected =
-            if self.value.is_zero() { None } else { Some(encode_fixed_size(&self.value).to_vec()) };
+        let expected = if self.value.is_zero() && !self.is_private {
+            None
+        } else {
+            let flagged = FlaggedStorage::new(self.value, self.is_private);
+            Some(encode_fixed_size(&flagged).to_vec())
+        };
         verify_proof(root, self.nibbles, expected, self.is_private, &self.proof)
     }
 }
