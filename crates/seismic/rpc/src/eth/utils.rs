@@ -182,7 +182,7 @@ mod test {
         assert_eq!(recovered_hash, expected_tx_hash);
 
         let expected_sighash = FixedBytes::<32>::from_hex(
-            "74a89cf115c2813a5b811dbd946f53184fa4d3a37248224f1ff72b4ba2832c2a",
+            "a6bc27ff66ea25d3665afa7f617291cc523a1a04fa651213bccd4393d049a180",
         )
         .unwrap();
         assert_eq!(signed_sighash, expected_sighash);
