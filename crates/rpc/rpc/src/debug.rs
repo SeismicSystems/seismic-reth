@@ -1,3 +1,4 @@
+use revm_inspectors::tracing::trace_sanitizer::{sanitize_geth_trace, sanitize_trace_results_vec};
 use alloy_consensus::{transaction::SignerRecoverable, BlockHeader};
 use alloy_eips::{eip2718::Encodable2718, BlockId, BlockNumberOrTag};
 use alloy_genesis::ChainConfig;
@@ -903,6 +904,11 @@ where
     }
 }
 
+// Seismic: every handler that returns trace data calls a `sanitize_*` function from
+// `revm_inspectors::tracing::trace_sanitizer` before returning to the caller. This strips
+// calldata, return data, stack, memory, VM trace payloads, and function selectors.
+// Storage filtering is handled separately in the trace builders via `filter_private_storage`.
+// See the seismic-revm-inspectors README for the full architecture.
 #[async_trait]
 impl<Eth> DebugApiServer<RpcTxReq<Eth::NetworkTypes>> for DebugApi<Eth>
 where
@@ -999,6 +1005,7 @@ where
         let _permit = self.acquire_trace_permit().await;
         Self::debug_trace_raw_block(self, rlp_block, opts.unwrap_or_default())
             .await
+            .map(|results| sanitize_trace_results_vec(results))
             .map_err(Into::into)
     }
 
@@ -1011,6 +1018,7 @@ where
         let _permit = self.acquire_trace_permit().await;
         Self::debug_trace_block(self, block.into(), opts.unwrap_or_default())
             .await
+            .map(|results| sanitize_trace_results_vec(results))
             .map_err(Into::into)
     }
 
@@ -1023,6 +1031,7 @@ where
         let _permit = self.acquire_trace_permit().await;
         Self::debug_trace_block(self, block.into(), opts.unwrap_or_default())
             .await
+            .map(|results| sanitize_trace_results_vec(results))
             .map_err(Into::into)
     }
 
@@ -1035,6 +1044,7 @@ where
         let _permit = self.acquire_trace_permit().await;
         Self::debug_trace_transaction(self, tx_hash, opts.unwrap_or_default())
             .await
+            .map(sanitize_geth_trace)
             .map_err(Into::into)
     }
 
@@ -1048,6 +1058,7 @@ where
         let _permit = self.acquire_trace_permit().await;
         Self::debug_trace_call(self, request, block_id, opts.unwrap_or_default())
             .await
+            .map(sanitize_geth_trace)
             .map_err(Into::into)
     }
 
@@ -1058,7 +1069,15 @@ where
         opts: Option<GethDebugTracingCallOptions>,
     ) -> RpcResult<Vec<Vec<GethTrace>>> {
         let _permit = self.acquire_trace_permit().await;
-        Self::debug_trace_call_many(self, bundles, state_context, opts).await.map_err(Into::into)
+        Self::debug_trace_call_many(self, bundles, state_context, opts)
+            .await
+            .map(|bundles| {
+                bundles
+                    .into_iter()
+                    .map(|traces| traces.into_iter().map(sanitize_geth_trace).collect())
+                    .collect()
+            })
+            .map_err(Into::into)
     }
 
     /// Handler for `debug_executionWitness`
