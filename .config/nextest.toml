@@ -16,7 +16,3 @@ slow-timeout = { period = "2m", terminate-after = 10 }
 filter = "binary(e2e_testsuite)"
 slow-timeout = { period = "2m", terminate-after = 3 }
 
-# Seismic e2e integration tests spawn in-process nodes with deep async call stacks
-# (node builder -> engine -> RPC -> EVM). Default 2MB thread stack overflows.
-# Set RUST_MIN_STACK=8388608 when running these tests.
-# Each test gets its own node on random ports, so retries are safe.
