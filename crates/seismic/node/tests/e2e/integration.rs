@@ -358,47 +358,8 @@ async fn test_seismic_reth_rpc() -> eyre::Result<()> {
 async fn test_seismic_reth_rpc_with_typed_data() -> eyre::Result<()> {
     let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
 
-    let recent_block_hash = get_recent_block_hash(&client).await;
-
-    let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
-        &client,
-        get_signed_deploy_tx_bytes(
-            wallet.inner.clone(),
-            get_nonce(&client, wallet.inner.address()).await,
-            chain_id,
-            ContractTestContext::get_deploy_input_plaintext(),
-        )
-        .await
-        .into(),
-    )
-    .await
-    .unwrap();
-    node.advance_block().await?;
-    println!("eth_sendRawTransaction deploying contract tx_hash: {:?}", tx_hash);
-
-    let receipt = EthApiClient::<
-        SeismicTransactionRequest,
-        SeismicTransactionSigned,
-        SeismicBlock,
-        SeismicTransactionReceipt,
-        Header,
-    >::transaction_receipt(&client, tx_hash)
-    .await
-    .unwrap()
-    .unwrap();
-    let contract_addr = receipt.contract_address.unwrap();
-    assert!(receipt.status());
-
-    let code = EthApiClient::<
-        SeismicTransactionRequest,
-        SeismicTransactionSigned,
-        SeismicBlock,
-        SeismicTransactionReceipt,
-        Header,
-    >::get_code(&client, contract_addr, None)
-    .await
-    .unwrap();
-    assert_eq!(ContractTestContext::get_code(), code);
+    let (contract_addr, recent_block_hash) =
+        rpc_test_deploy_contract(&mut node, &client, chain_id, &wallet).await?;
 
     let nonce = get_nonce(&client, wallet.inner.address()).await;
     let to = TxKind::Call(contract_addr);
@@ -638,58 +599,15 @@ async fn test_seismic_precompiles_end_to_end() -> eyre::Result<()> {
 async fn test_eth_call_rejects_sload_on_private_storage() -> eyre::Result<()> {
     let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
 
-    let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
+    let contract_addr = flagged_storage_deploy_and_write(
+        &mut node,
         &client,
-        get_signed_deploy_tx_bytes(
-            wallet.inner.clone(),
-            get_nonce(&client, wallet.inner.address()).await,
-            chain_id,
-            Bytes::from_static(FLAGGED_STORAGE_TEST_BYTECODE),
-        )
-        .await
-        .into(),
+        chain_id,
+        &wallet,
+        FLAGGED_STORAGE_SET_PRIVATE,
+        U256::from(42),
     )
-    .await
-    .unwrap();
-    node.advance_block().await?;
-
-    let receipt = EthApiClient::<
-        SeismicTransactionRequest,
-        SeismicTransactionSigned,
-        SeismicBlock,
-        SeismicTransactionReceipt,
-        Header,
-    >::transaction_receipt(&client, tx_hash)
-    .await
-    .unwrap()
-    .unwrap();
-    let contract_addr = receipt.contract_address.unwrap();
-    assert!(receipt.status());
-
-    // Write to private storage: setPrivate(42)
-    let block_hash = get_recent_block_hash(&client).await;
-    let set_private_data = get_input_data(FLAGGED_STORAGE_SET_PRIVATE, B256::from(U256::from(42)));
-    EthApiClient::<
-        SeismicTransactionRequest,
-        SeismicTransactionSigned,
-        SeismicBlock,
-        SeismicTransactionReceipt,
-        Header,
-    >::send_raw_transaction(
-        &client,
-        get_signed_seismic_tx_bytes(
-            &wallet.inner,
-            get_nonce(&client, wallet.inner.address()).await,
-            TxKind::Call(contract_addr),
-            chain_id,
-            set_private_data,
-            block_hash,
-        )
-        .await,
-    )
-    .await
-    .unwrap_or_else(|e| panic!("setPrivate send_raw_transaction failed: {:?}", e));
-    node.advance_block().await?;
+    .await?;
 
     // Raw SLOAD on private storage via eth_call - should FAIL
     let read_calldata: Bytes = hex::decode(FLAGGED_STORAGE_READ_PRIVATE_SLOAD_RAW).unwrap().into();
@@ -873,57 +791,15 @@ async fn test_eth_call_allows_cload_on_private_storage() -> eyre::Result<()> {
 async fn test_solidity_read_public_sload_succeeds() -> eyre::Result<()> {
     let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
 
-    let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
+    let contract_addr = flagged_storage_deploy_and_write(
+        &mut node,
         &client,
-        get_signed_deploy_tx_bytes(
-            wallet.inner.clone(),
-            get_nonce(&client, wallet.inner.address()).await,
-            chain_id,
-            Bytes::from_static(FLAGGED_STORAGE_TEST_BYTECODE),
-        )
-        .await
-        .into(),
+        chain_id,
+        &wallet,
+        FLAGGED_STORAGE_SET_PUBLIC,
+        U256::from(123),
     )
-    .await
-    .unwrap();
-    node.advance_block().await?;
-
-    let receipt = EthApiClient::<
-        SeismicTransactionRequest,
-        SeismicTransactionSigned,
-        SeismicBlock,
-        SeismicTransactionReceipt,
-        Header,
-    >::transaction_receipt(&client, tx_hash)
-    .await
-    .unwrap()
-    .unwrap();
-    let contract_addr = receipt.contract_address.unwrap();
-    assert!(receipt.status());
-
-    let block_hash = get_recent_block_hash(&client).await;
-    let set_public_data = get_input_data(FLAGGED_STORAGE_SET_PUBLIC, B256::from(U256::from(123)));
-    EthApiClient::<
-        SeismicTransactionRequest,
-        SeismicTransactionSigned,
-        SeismicBlock,
-        SeismicTransactionReceipt,
-        Header,
-    >::send_raw_transaction(
-        &client,
-        get_signed_seismic_tx_bytes(
-            &wallet.inner,
-            get_nonce(&client, wallet.inner.address()).await,
-            TxKind::Call(contract_addr),
-            chain_id,
-            set_public_data,
-            block_hash,
-        )
-        .await,
-    )
-    .await
-    .unwrap();
-    node.advance_block().await?;
+    .await?;
 
     let read_calldata: Bytes = hex::decode(FLAGGED_STORAGE_READ_PUBLIC_SLOAD).unwrap().into();
     let result = EthApiOverrideClient::<Block>::call(
@@ -959,57 +835,15 @@ async fn test_solidity_read_public_sload_succeeds() -> eyre::Result<()> {
 async fn test_solidity_read_private_succeeds() -> eyre::Result<()> {
     let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
 
-    let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
+    let contract_addr = flagged_storage_deploy_and_write(
+        &mut node,
         &client,
-        get_signed_deploy_tx_bytes(
-            wallet.inner.clone(),
-            get_nonce(&client, wallet.inner.address()).await,
-            chain_id,
-            Bytes::from_static(FLAGGED_STORAGE_TEST_BYTECODE),
-        )
-        .await
-        .into(),
+        chain_id,
+        &wallet,
+        FLAGGED_STORAGE_SET_PRIVATE,
+        U256::from(42),
     )
-    .await
-    .unwrap();
-    node.advance_block().await?;
-
-    let receipt = EthApiClient::<
-        SeismicTransactionRequest,
-        SeismicTransactionSigned,
-        SeismicBlock,
-        SeismicTransactionReceipt,
-        Header,
-    >::transaction_receipt(&client, tx_hash)
-    .await
-    .unwrap()
-    .unwrap();
-    let contract_addr = receipt.contract_address.unwrap();
-    assert!(receipt.status());
-
-    let block_hash = get_recent_block_hash(&client).await;
-    let set_private_data = get_input_data(FLAGGED_STORAGE_SET_PRIVATE, B256::from(U256::from(42)));
-    EthApiClient::<
-        SeismicTransactionRequest,
-        SeismicTransactionSigned,
-        SeismicBlock,
-        SeismicTransactionReceipt,
-        Header,
-    >::send_raw_transaction(
-        &client,
-        get_signed_seismic_tx_bytes(
-            &wallet.inner,
-            get_nonce(&client, wallet.inner.address()).await,
-            TxKind::Call(contract_addr),
-            chain_id,
-            set_private_data,
-            block_hash,
-        )
-        .await,
-    )
-    .await
-    .unwrap();
-    node.advance_block().await?;
+    .await?;
 
     let read_calldata: Bytes = hex::decode(FLAGGED_STORAGE_READ_PRIVATE_SLOAD).unwrap().into();
     let result = EthApiOverrideClient::<Block>::call(
