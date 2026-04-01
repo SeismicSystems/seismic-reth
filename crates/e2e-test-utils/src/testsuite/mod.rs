@@ -320,13 +320,14 @@ where
         self
     }
 
-    /// Run the test scenario
+    /// Run the test scenario using the default EthEvmConfig for chain imports.
     pub async fn run<N>(mut self) -> Result<()>
     where
         N: NodeBuilderHelper,
         LocalPayloadAttributesBuilder<N::ChainSpec>: PayloadAttributesBuilder<
             <<N as NodeTypes>::Payload as PayloadTypes>::PayloadAttributes,
         >,
+        reth_node_ethereum::EthEvmConfig: reth_evm::ConfigureEvm<Primitives = N::Primitives>,
     {
         let mut setup = self.setup.take();
 
@@ -340,8 +341,41 @@ where
             action.execute(&mut self.env).await?;
         }
 
-        // explicitly drop the setup to shutdown the nodes
-        // after all actions have completed
+        drop(setup);
+
+        Ok(())
+    }
+
+    /// Run the test scenario with a custom EVM config for chain imports.
+    /// Use this when the node type requires a non-Ethereum EVM config (e.g., SeismicNode).
+    pub async fn run_with_evm<N>(
+        mut self,
+        evm_config: impl reth_evm::ConfigureEvm<Primitives = N::Primitives> + Clone + 'static,
+    ) -> Result<()>
+    where
+        N: NodeBuilderHelper,
+        LocalPayloadAttributesBuilder<N::ChainSpec>: PayloadAttributesBuilder<
+            <<N as NodeTypes>::Payload as PayloadTypes>::PayloadAttributes,
+        >,
+    {
+        let mut setup = self.setup.take();
+
+        if let Some(ref mut s) = setup {
+            if let Some(rlp_path) = s.import_rlp_path.take() {
+                s.apply_with_import_and_evm::<N>(&mut self.env, &rlp_path, evm_config).await?;
+            } else {
+                // No import path — this shouldn't need a custom EVM config,
+                // but we still need to set up the nodes
+                return Err(eyre::eyre!("run_with_evm requires with_setup_and_import to be called"));
+            }
+        }
+
+        let actions = std::mem::take(&mut self.actions);
+
+        for action in actions {
+            action.execute(&mut self.env).await?;
+        }
+
         drop(setup);
 
         Ok(())
