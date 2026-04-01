@@ -95,6 +95,9 @@ seismic-alloy-consensus.workspace = true
 alloy-consensus.workspace = true
 futures.workspace = true
 reth-e2e-test-utils = { workspace = true }
+reth-rpc-e2e-tests.workspace = true
+reth-seismic-evm.workspace = true
+reth-seismic-chainspec.workspace = true
 alloy-network = { workspace = true }
 alloy-genesis = { workspace = true }
 seismic-alloy-network = { workspace = true }
