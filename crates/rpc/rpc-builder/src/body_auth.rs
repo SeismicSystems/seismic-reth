@@ -66,8 +66,11 @@ impl<P, RpcMiddleware> BodyAuthServerConfig<P, RpcMiddleware> {
 
         let rpc_middleware = RpcServiceBuilder::default().layer(rpc_middleware);
 
+        // Disable WebSocket — the ops server is HTTP-only. The auth middleware
+        // inspects per-request HTTP bodies and would not re-run on individual
+        // WebSocket frames after upgrade, bypassing authorization.
         let server = ServerBuilder::new()
-            .set_config(server_config.build())
+            .set_config(server_config.http_only().build())
             .set_http_middleware(middleware)
             .set_rpc_middleware(rpc_middleware)
             .build(socket_addr)

@@ -239,9 +239,16 @@ where
                 }
             };
 
-            let needs_nonce = requires_nonce(&body_bytes);
-            let is_governance_tx_method = is_governance_tx_method(&body_bytes);
-            let is_get_nonce_method = is_get_nonce_method(&body_bytes);
+            // Parse the method name from the JSON body to avoid substring-matching
+            // bypasses via Unicode escapes (e.g. \u006f for 'o').
+            let method = serde_json::from_slice::<RpcRequest>(&body_bytes)
+                .map(|r| r.method)
+                .unwrap_or_default();
+
+            let needs_nonce = method == "ops_getStorageAt";
+            let is_governance_tx_method = method == "ops_whitelistKey" || method == "ops_revokeKey";
+            let is_get_nonce_method = method == "ops_getNonce";
+            let is_whitelist_method = method == "ops_whitelistKey";
             let nonce = if needs_nonce {
                 match extract_header(&parts.headers, NONCE_HEADER) {
                     Some(n) => Some(n.to_string()),
@@ -283,6 +290,7 @@ where
                     &body_bytes,
                     governance_address,
                     config.chain_id,
+                    is_whitelist_method,
                 ) {
                     Ok(addr) => addr,
                     Err(err) => return Ok(error_response(err.0, &err.1)),
@@ -355,12 +363,17 @@ where
                         "Can only query your own nonce",
                     ));
                 }
-            } else {
-                // Data methods (e.g. ops_getStorageAt): require whitelisted address.
+            } else if needs_nonce {
+                // ops_getStorageAt: require whitelisted address.
                 config.whitelist.evict_expired();
                 if !config.whitelist.is_authorized(&recovered_address) {
                     return Ok(error_response(StatusCode::UNAUTHORIZED, "Key not whitelisted"));
                 }
+            } else {
+                return Ok(error_response(
+                    StatusCode::BAD_REQUEST,
+                    "Unknown or unsupported ops method",
+                ));
             }
 
             if needs_nonce {
@@ -406,26 +419,6 @@ fn read_authorized_address<P: StateProviderFactory>(
     // Address is stored in the lower 20 bytes of the 32-byte storage slot.
     let bytes = storage_value.value.to_be_bytes::<32>();
     Ok(Address::from_slice(&bytes[12..]))
-}
-
-fn is_whitelist_method(body: &[u8]) -> bool {
-    let body_str = std::str::from_utf8(body).unwrap_or("");
-    body_str.contains("\"ops_whitelistKey\"")
-}
-
-fn is_governance_tx_method(body: &[u8]) -> bool {
-    let body_str = std::str::from_utf8(body).unwrap_or("");
-    body_str.contains("\"ops_whitelistKey\"") || body_str.contains("\"ops_revokeKey\"")
-}
-
-fn is_get_nonce_method(body: &[u8]) -> bool {
-    let body_str = std::str::from_utf8(body).unwrap_or("");
-    body_str.contains("\"ops_getNonce\"")
-}
-
-fn requires_nonce(body: &[u8]) -> bool {
-    let body_str = std::str::from_utf8(body).unwrap_or("");
-    body_str.contains("\"ops_getStorageAt\"")
 }
 
 fn requested_nonce_address(body: &[u8]) -> Result<Address, String> {
@@ -520,6 +513,7 @@ fn validate_governance_tx(
     body: &[u8],
     governance_address: Address,
     expected_chain_id: u64,
+    is_whitelist: bool,
 ) -> Result<Address, (StatusCode, String)> {
     let tx_hex = signed_tx_hex.strip_prefix("0x").unwrap_or(signed_tx_hex);
     let tx_bytes = alloy_primitives::hex::decode(tx_hex)
@@ -549,7 +543,7 @@ fn validate_governance_tx(
         return Err((StatusCode::UNAUTHORIZED, "Signed transaction value must be 0".to_string()));
     }
 
-    if is_whitelist_method(body) {
+    if is_whitelist {
         let call = OpsWhitelistTxAuth::whitelistKeyCall::abi_decode(tx.input()).map_err(|e| {
             (
                 StatusCode::BAD_REQUEST,
