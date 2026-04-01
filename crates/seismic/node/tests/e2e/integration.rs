@@ -86,7 +86,7 @@ async fn get_signed_deploy_tx_bytes(
 }
 
 /// Sets up a single in-process Seismic node for testing and returns the node,
-/// an HTTP RPC client, chain_id, wallet, and task manager.
+/// an HTTP RPC client, `chain_id`, wallet, and task manager.
 ///
 /// The `TaskManager` must be held alive for the test duration — dropping it
 /// cancels background tasks that power the node.
