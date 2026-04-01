@@ -31,7 +31,7 @@ use seismic_alloy_network::{
     reth::builder::seismic_reth_tx_builder, wallet::SeismicWallet, SeismicReth,
 };
 use seismic_alloy_provider::{
-    test_utils::ContractTestContext, SeismicProviderBuilder, SeismicProviderExt, SignedProviderExt,
+    test_utils::ContractTestContext, SeismicProviderBuilder, SignedProviderExt,
 };
 use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicTransactionReceipt, SeismicTransactionRequest, SimBlock,
