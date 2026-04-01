@@ -505,3 +505,80 @@ async fn test_ops_get_nonce_rejects_other_address() {
     let resp = send_signed_request(&url, &nonce_body, &reader, None).await;
     assert_eq!(resp.status(), reqwest::StatusCode::UNAUTHORIZED);
 }
+
+/// A whitelisted reader should NOT be able to call governance methods by using Unicode escapes
+/// in the method name (e.g. `\u006fps_whitelistKey` instead of `ops_whitelistKey`).
+/// The JSON spec decodes these to the same string, but a raw substring check would miss them.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_ops_unicode_escape_cannot_bypass_governance_auth() {
+    reth_tracing::init_test_tracing();
+    let admin = PrivateKeySigner::random();
+    let reader = PrivateKeySigner::random();
+    let attacker_target = PrivateKeySigner::random();
+    let (handle, _) = launch_ops_with_admin(admin.address()).await;
+    let url = handle.http_url();
+
+    // Admin whitelists the reader so they have a valid whitelist entry.
+    let expires_at = current_unix_timestamp() + 3600;
+    let wl_body = whitelist_key_request(reader.address(), expires_at, 1);
+    let resp = send_governance_request(
+        &url,
+        &wl_body,
+        &admin,
+        whitelist_calldata(reader.address(), expires_at),
+    )
+    .await;
+    assert_eq!(resp.status(), reqwest::StatusCode::OK);
+
+    // Reader attempts to whitelist attacker_target using a Unicode-escaped method name.
+    // In JSON, \u006f decodes to 'o', so "\u006fps_whitelistKey" parses to
+    // "ops_whitelistKey". But the raw bytes don't contain the literal substring
+    // "ops_whitelistKey", bypassing the contains() check in the auth layer.
+    let malicious_expires = current_unix_timestamp() + 7200;
+
+    // Build the JSON by hand so the raw bytes contain \u006f (a valid JSON Unicode
+    // escape for 'o') rather than the decoded character. serde_json would normalize
+    // the escape on serialization, so we must construct this manually.
+    // In a raw string r#"..."#, \u006f is the literal 6 characters \ u 0 0 6 f,
+    // which is a valid JSON Unicode escape that any JSON parser decodes to 'o'.
+    let raw_escaped_body = format!(
+        r#"{{"jsonrpc":"2.0","method":"\u006fps_whitelistKey","params":["{:?}",{}],"id":2}}"#,
+        attacker_target.address(),
+        malicious_expires,
+    );
+
+    // Sanity-check: the raw bytes must contain the escape sequence, not the decoded
+    // form. We look for the 6-char sequence \u006f in the raw string.
+    assert!(
+        raw_escaped_body.contains(r"\u006f"),
+        "raw body must contain the JSON unicode escape \\u006f"
+    );
+    assert!(
+        !raw_escaped_body.contains("\"ops_whitelistKey\""),
+        "raw body must not contain the literal method name"
+    );
+
+    // Sign the escaped body with the reader's key and NO nonce.
+    // The server won't require a nonce (because `requires_nonce` won't match the
+    // escaped method), so both client and server use an empty signing nonce —
+    // making the EIP-712 signature valid.
+    let resp = send_signed_request(&url, &raw_escaped_body, &reader, None).await;
+
+    // This MUST be rejected. If the server returns 200 OK, the auth bypass succeeded
+    // and the reader was able to call the governance-only whitelist_key handler.
+    assert_ne!(
+        resp.status(),
+        reqwest::StatusCode::OK,
+        "Unicode-escaped method name must not bypass governance auth"
+    );
+
+    // If the bypass succeeded, attacker_target is now whitelisted and can read
+    // private storage — demonstrate the full impact.
+    let read_body = get_storage_request(CONTRACT_ADDRESS, STORAGE_SLOT, 3);
+    let resp = send_signed_request(&url, &read_body, &attacker_target, Some("0")).await;
+    assert_ne!(
+        resp.status(),
+        reqwest::StatusCode::OK,
+        "attacker_target must not be able to read storage via illegitimate whitelist entry"
+    );
+}
