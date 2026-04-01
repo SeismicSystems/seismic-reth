@@ -35,7 +35,7 @@ fn mock_provider_with_admin(admin_address: Address) -> Arc<MockEthProvider> {
     let provider = MockEthProvider::default();
     let mut value = [0u8; 32];
     value[12..].copy_from_slice(admin_address.as_slice());
-    let storage_value = FlaggedStorage::new_from_value(U256::from_be_bytes(value));
+    let storage_value = FlaggedStorage::public(U256::from_be_bytes(value));
     let account =
         ExtendedAccount::new(0, U256::ZERO).extend_storage([(STORAGE_SLOT, storage_value)]);
     provider.add_account(CONTRACT_ADDRESS, account);
