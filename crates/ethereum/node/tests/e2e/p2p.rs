@@ -148,10 +148,7 @@ async fn test_long_reorg() -> eyre::Result<()> {
     Ok(())
 }
 
-// Skipped: seismic-revm ignores access lists (veridise-843), which causes gas estimation
-// mismatches when the test generates random transactions with access lists.
 #[tokio::test]
-#[ignore]
 async fn test_reorg_through_backfill() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
 
