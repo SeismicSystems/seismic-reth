@@ -1,4 +1,3 @@
-use revm_inspectors::tracing::trace_sanitizer::{sanitize_geth_trace, sanitize_trace_results_vec};
 use alloy_consensus::{transaction::SignerRecoverable, BlockHeader};
 use alloy_eips::{eip2718::Encodable2718, BlockId, BlockNumberOrTag};
 use alloy_genesis::ChainConfig;
@@ -41,6 +40,7 @@ use reth_tasks::pool::BlockingTaskGuard;
 use reth_trie_common::{updates::TrieUpdates, HashedPostState};
 use revm::{context_interface::Transaction, state::EvmState, DatabaseCommit};
 use revm_inspectors::tracing::{
+    trace_sanitizer::{sanitize_geth_trace, sanitize_trace_results_vec},
     FourByteInspector, MuxInspector, TracingInspector, TracingInspectorConfig, TransactionContext,
 };
 use std::sync::Arc;
