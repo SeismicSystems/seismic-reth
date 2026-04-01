@@ -18,7 +18,7 @@ reth-seismic-payload-builder.workspace = true
 reth-seismic-evm.workspace = true
 reth-seismic-rpc.workspace = true
 reth-seismic-txpool.workspace = true
-reth-seismic-chainspec.workspace = true
+reth-seismic-chainspec = { workspace = true, optional = true }
 reth-seismic-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
 
 # reth
@@ -67,7 +67,6 @@ eyre.workspace = true
 tracing.workspace = true
 
 # rpc
-serde_json.workspace = true
 jsonrpsee-http-client.workspace = true
 
 # test-utils dependencies
@@ -80,6 +79,7 @@ seismic-alloy-genesis = { workspace = true, optional = true }
 
 [dev-dependencies]
 reth-seismic-node = { workspace = true, features = ["test-utils"] }
+serde_json.workspace = true
 reth-db.workspace = true
 reth-node-core.workspace = true
 reth-node-builder = { workspace = true, features = ["test-utils"] }
@@ -134,6 +134,7 @@ js-tracer = [
 test-utils = [
     "reth-tasks",
     "reth-e2e-test-utils",
+    "reth-seismic-chainspec",
     "reth-node-builder/test-utils",
     "reth-chainspec/test-utils",
     "reth-consensus/test-utils",

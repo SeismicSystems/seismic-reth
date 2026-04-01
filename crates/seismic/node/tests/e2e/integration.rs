@@ -157,7 +157,7 @@ async fn rpc_test_deploy_contract(
     Ok((contract_addr, recent_block_hash))
 }
 
-/// Verify parity via encrypted eth_call, returning the decrypted result as U256.
+/// Verify parity via encrypted `eth_call`, returning the decrypted result as `U256`.
 async fn rpc_test_check_parity(
     client: &jsonrpsee::http_client::HttpClient,
     chain_id: u64,
@@ -197,7 +197,7 @@ async fn rpc_test_check_parity(
     Ok(U256::from_be_slice(&decrypted))
 }
 
-/// Send set_number transaction and advance block.
+/// Send `set_number` transaction and advance block.
 async fn rpc_test_set_number(
     node: &mut SeismicTestNode,
     client: &jsonrpsee::http_client::HttpClient,
