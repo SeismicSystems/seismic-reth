@@ -7128,7 +7128,6 @@ dependencies = [
  "reth-ethereum-forks",
  "reth-network-peers",
  "reth-primitives-traits",
- "seismic-alloy-genesis",
  "serde_json",
 ]
 
@@ -7136,11 +7135,11 @@ dependencies = [
 name = "reth-cli"
 version = "1.7.0"
 dependencies = [
+ "alloy-genesis",
  "clap",
  "eyre",
  "reth-cli-runner",
  "reth-db",
- "seismic-alloy-genesis",
  "serde_json",
  "shellexpand",
 ]
@@ -7216,6 +7215,7 @@ dependencies = [
  "reth-trie-common",
  "reth-trie-db",
  "secp256k1 0.30.0",
+ "seismic-alloy-genesis",
  "serde",
  "serde_json",
  "tar",
@@ -7430,6 +7430,7 @@ name = "reth-db-common"
 version = "1.7.0"
 dependencies = [
  "alloy-consensus",
+ "alloy-genesis",
  "alloy-primitives",
  "boyer-moore-magiclen",
  "eyre",
@@ -8929,7 +8930,6 @@ dependencies = [
  "reth-optimism-forks",
  "reth-optimism-primitives",
  "reth-primitives-traits",
- "seismic-alloy-genesis",
  "serde",
  "serde_json",
  "tar-no-std",
@@ -9700,7 +9700,6 @@ dependencies = [
  "reth-seismic-forks",
  "reth-seismic-primitives",
  "seismic-alloy-consensus",
- "seismic-alloy-genesis",
  "seismic-alloy-rpc-types",
  "serde_json",
  "thiserror 2.0.17",

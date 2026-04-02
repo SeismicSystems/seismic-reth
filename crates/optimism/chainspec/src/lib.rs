@@ -112,7 +112,7 @@ impl OpChainSpecBuilder {
 
     /// Set the genesis block.
     pub fn genesis(mut self, genesis: Genesis) -> Self {
-        self.inner = self.inner.genesis(genesis.into());
+        self.inner = self.inner.genesis(genesis);
         self
     }
 
@@ -276,7 +276,7 @@ impl EthChainSpec for OpChainSpec {
         self.inner.genesis_header()
     }
 
-    fn genesis(&self) -> &seismic_alloy_genesis::Genesis {
+    fn genesis(&self) -> &Genesis {
         self.inner.genesis()
     }
 
@@ -418,14 +418,13 @@ impl From<Genesis> for OpChainSpec {
         ordered_hardforks.append(&mut block_hardforks);
 
         let hardforks = ChainHardforks::new(ordered_hardforks);
-        let genesis_header =
-            SealedHeader::seal_slow(make_op_genesis_header(&genesis.clone().into(), &hardforks));
+        let genesis_header = SealedHeader::seal_slow(make_op_genesis_header(&genesis, &hardforks));
 
         Self {
             inner: ChainSpec {
                 chain: genesis.config.chain_id.into(),
                 genesis_header,
-                genesis: genesis.into(),
+                genesis,
                 hardforks,
                 // We assume no OP network merges, and set the paris block and total difficulty to
                 // zero
@@ -492,11 +491,8 @@ impl OpGenesisInfo {
 }
 
 /// Helper method building a [`Header`] given [`Genesis`] and [`ChainHardforks`].
-pub fn make_op_genesis_header(
-    genesis: &seismic_alloy_genesis::Genesis,
-    hardforks: &ChainHardforks,
-) -> Header {
-    let mut header = reth_chainspec::make_genesis_header(&genesis.clone().into(), hardforks);
+pub fn make_op_genesis_header(genesis: &Genesis, hardforks: &ChainHardforks) -> Header {
+    let mut header = reth_chainspec::make_genesis_header(genesis, hardforks);
 
     // If Isthmus is active, overwrite the withdrawals root with the storage root of predeploy
     // `L2ToL1MessagePasser.sol`
@@ -508,7 +504,7 @@ pub fn make_op_genesis_header(
                         if v.is_zero() {
                             None
                         } else {
-                            Some((*k, *v))
+                            Some((*k, U256::from_be_bytes(v.0)))
                         }
                     })));
             }
