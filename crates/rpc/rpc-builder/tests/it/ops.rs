@@ -300,8 +300,8 @@ async fn test_ops_whitelist_expires() {
     let (handle, _) = launch_ops_with_admin(admin.address()).await;
     let url = handle.http_url();
 
-    // Admin whitelists reader until one second from now.
-    let expires_at = current_unix_timestamp() + 1;
+    // Admin whitelists reader with a short TTL (5 seconds is enough margin for CI).
+    let expires_at = current_unix_timestamp() + 5;
     let wl_body = whitelist_key_request(reader.address(), expires_at, 1);
     let resp = send_governance_request(
         &url,
@@ -318,7 +318,7 @@ async fn test_ops_whitelist_expires() {
     assert_eq!(resp.status(), reqwest::StatusCode::OK);
 
     // Wait for TTL to expire
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
 
     // Reader can no longer read
     let resp = send_signed_request(&url, &read_body, &reader, Some("1")).await;
@@ -418,8 +418,8 @@ async fn test_ops_expired_whitelist_cannot_read_storage() {
     let (handle, _) = launch_ops_with_admin(admin.address()).await;
     let url = handle.http_url();
 
-    // Admin whitelists reader until one second from now.
-    let expires_at = current_unix_timestamp() + 1;
+    // Admin whitelists reader with a short TTL (5 seconds is enough margin for CI).
+    let expires_at = current_unix_timestamp() + 5;
     let wl_body = whitelist_key_request(reader.address(), expires_at, 1);
     let resp = send_governance_request(
         &url,
@@ -431,7 +431,7 @@ async fn test_ops_expired_whitelist_cannot_read_storage() {
     assert_eq!(resp.status(), reqwest::StatusCode::OK);
 
     // Wait for the whitelist entry to expire.
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
 
     // Reader should be rejected — whitelist expired
     let read_body = get_storage_request(CONTRACT_ADDRESS, STORAGE_SLOT, 2);
