@@ -39,7 +39,7 @@ use seismic_alloy_network::{
     reth::builder::seismic_reth_tx_builder, wallet::SeismicWallet, SeismicReth,
 };
 use seismic_alloy_provider::{
-    test_utils::ContractTestContext, SeismicProviderExt, SeismicSignedProvider,
+    test_utils::ContractTestContext, SeismicProviderBuilder, SignedProviderExt,
 };
 use seismic_alloy_rpc_types::{SeismicTransactionReceipt, SeismicTransactionRequest};
 use seismic_enclave::aes_decrypt;
@@ -403,7 +403,9 @@ async fn test_seismic_reth_rpc_with_rust_client() -> eyre::Result<()> {
     let _wallet = Wallet::default().with_chain_id(chain_id);
     let wallet: SeismicWallet<SeismicReth> = SeismicWallet::from(_wallet.inner);
 
-    let provider = SeismicSignedProvider::new(wallet, reqwest::Url::parse(&reth_rpc_url).unwrap())
+    let provider = SeismicProviderBuilder::new()
+        .wallet(wallet)
+        .connect_http(reqwest::Url::parse(&reth_rpc_url).unwrap())
         .await
         .unwrap();
 
@@ -426,7 +428,7 @@ async fn test_seismic_reth_rpc_with_rust_client() -> eyre::Result<()> {
     assert_eq!(ContractTestContext::get_code(), code);
 
     let output = provider
-        .seismic_call(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
+        .seismic_call_raw(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
             TransactionBuilder::<SeismicReth>::with_input(
                 SeismicTransactionRequest::default(),
                 ContractTestContext::get_is_odd_input_plaintext(),
@@ -449,7 +451,7 @@ async fn test_seismic_reth_rpc_with_rust_client() -> eyre::Result<()> {
     assert!(receipt.status());
 
     let output = provider
-        .seismic_call(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
+        .seismic_call_raw(SendableTx::Builder(TransactionBuilder::<SeismicReth>::with_to(
             TransactionBuilder::<SeismicReth>::with_input(
                 SeismicTransactionRequest::default(),
                 ContractTestContext::get_is_odd_input_plaintext(),
@@ -472,7 +474,9 @@ async fn test_seismic_precompiles_end_to_end() -> eyre::Result<()> {
     let from = _wallet.inner.address();
     let wallet: SeismicWallet<SeismicReth> = SeismicWallet::from(_wallet.inner);
 
-    let provider = SeismicSignedProvider::new(wallet, reqwest::Url::parse(&reth_rpc_url).unwrap())
+    let provider = SeismicProviderBuilder::new()
+        .wallet(wallet)
+        .connect_http(reqwest::Url::parse(&reth_rpc_url).unwrap())
         .await
         .unwrap();
     let req = TransactionBuilder::<SeismicReth>::with_kind(
@@ -577,7 +581,7 @@ async fn test_seismic_precompiles_end_to_end() -> eyre::Result<()> {
         .into()
         .seismic();
 
-    let output = provider.seismic_call(SendableTx::Builder(tx_req)).await.unwrap();
+    let output = provider.seismic_call_raw(SendableTx::Builder(tx_req)).await.unwrap();
 
     // Locally decrypt to cross-check
     let secp_private = secp256k1::SecretKey::from_slice(private_key.as_ref()).unwrap();

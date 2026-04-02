@@ -207,10 +207,7 @@ fn block1(
             .revert_account_info(number, account2, Some(None))
             .state_storage(
                 account1,
-                HashMap::from_iter([(
-                    slot,
-                    (FlaggedStorage::ZERO, FlaggedStorage::new_from_value(10)),
-                )]),
+                HashMap::from_iter([(slot, (FlaggedStorage::ZERO, FlaggedStorage::public(10)))]),
             )
             .build(),
         vec![vec![Receipt {
@@ -261,21 +258,14 @@ fn block2(
             )
             .state_storage(
                 account,
-                HashMap::from_iter([(
-                    slot,
-                    (FlaggedStorage::ZERO, FlaggedStorage::new_from_value(15)),
-                )]),
+                HashMap::from_iter([(slot, (FlaggedStorage::ZERO, FlaggedStorage::public(15)))]),
             )
             .revert_account_info(
                 number,
                 account,
                 Some(Some(AccountInfo { nonce: 1, balance: U256::from(10), ..Default::default() })),
             )
-            .revert_storage(
-                number,
-                account,
-                Vec::from([(slot, FlaggedStorage::new_from_value(10))]),
-            )
+            .revert_storage(number, account, Vec::from([(slot, FlaggedStorage::public(10))]))
             .build(),
         vec![vec![Receipt {
             tx_type: TxType::Eip1559,
@@ -331,7 +321,7 @@ fn block3(
             .state_storage(
                 address,
                 HashMap::from_iter(slot_range.clone().map(|slot| {
-                    (U256::from(slot), (FlaggedStorage::ZERO, FlaggedStorage::new_from_value(slot)))
+                    (U256::from(slot), (FlaggedStorage::ZERO, FlaggedStorage::public(slot)))
                 })),
             )
             .revert_account_info(number, address, Some(None))
@@ -392,10 +382,7 @@ fn block4(
                     HashMap::from_iter(slot_range.clone().map(|slot| {
                         (
                             U256::from(slot),
-                            (
-                                FlaggedStorage::new_from_value(slot),
-                                FlaggedStorage::new_from_value(slot * 2),
-                            ),
+                            (FlaggedStorage::public(slot), FlaggedStorage::public(slot * 2)),
                         )
                     })),
                 )
@@ -403,7 +390,7 @@ fn block4(
             bundle_state_builder.state_address(address).state_storage(
                 address,
                 HashMap::from_iter(slot_range.clone().map(|slot| {
-                    (U256::from(slot), (FlaggedStorage::new_from_value(slot), FlaggedStorage::ZERO))
+                    (U256::from(slot), (FlaggedStorage::public(slot), FlaggedStorage::ZERO))
                 })),
             )
         };
@@ -422,9 +409,7 @@ fn block4(
                 number,
                 address,
                 Vec::from_iter(
-                    slot_range
-                        .clone()
-                        .map(|slot| (U256::from(slot), FlaggedStorage::new_from_value(slot))),
+                    slot_range.clone().map(|slot| (U256::from(slot), FlaggedStorage::public(slot))),
                 ),
             );
     }
@@ -482,10 +467,7 @@ fn block5(
                 HashMap::from_iter(slot_range.clone().take(50).map(|slot| {
                     (
                         U256::from(slot),
-                        (
-                            FlaggedStorage::new_from_value(slot),
-                            FlaggedStorage::new_from_value(slot * 4),
-                        ),
+                        (FlaggedStorage::public(slot), FlaggedStorage::public(slot * 4)),
                     )
                 })),
             );
@@ -505,7 +487,7 @@ fn block5(
                     address,
                     slot_range
                         .clone()
-                        .map(|slot| (U256::from(slot), FlaggedStorage::new_from_value(slot * 2)))
+                        .map(|slot| (U256::from(slot), FlaggedStorage::public(slot * 2)))
                         .collect(),
                 )
         } else {

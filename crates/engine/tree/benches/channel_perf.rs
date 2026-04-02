@@ -21,7 +21,7 @@ fn create_bench_state(num_accounts: usize) -> EvmState {
     for i in 0..num_accounts {
         let storage = EvmStorage::from_iter([(
             U256::from(i),
-            EvmStorageSlot::new(FlaggedStorage::new_from_value(i + 1), 0),
+            EvmStorageSlot::new(FlaggedStorage::public(i + 1), 0),
         )]);
 
         let account = Account {

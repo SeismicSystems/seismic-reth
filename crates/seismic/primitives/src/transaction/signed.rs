@@ -216,7 +216,7 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
                 ..Default::default()
             },
         };
-        let tx = Self { base, tx_hash, rng_mode };
+        let tx = Self { base, tx_hash, rng_mode, decryption_failed: false };
         tracing::debug!("from_recovered_tx: tx: {:?}", tx);
         tx
     }
@@ -225,7 +225,12 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
 impl FromTxWithEncoded<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
     fn from_encoded_tx(tx: &SeismicTransactionSigned, sender: Address, _encoded: Bytes) -> Self {
         let tx_env = Self::from_recovered_tx(tx, sender);
-        Self { base: tx_env.base, tx_hash: tx_env.tx_hash, rng_mode: RngMode::Execution }
+        Self {
+            base: tx_env.base,
+            tx_hash: tx_env.tx_hash,
+            rng_mode: RngMode::Execution,
+            decryption_failed: false,
+        }
     }
 }
 
@@ -438,7 +443,7 @@ impl InputDecryptionElements for SeismicTransactionSigned {
         self.transaction.get_decryption_elements()
     }
 
-    fn get_input(&self) -> Bytes {
+    fn get_input(&self) -> Result<Bytes, InputDecryptionElementsError> {
         self.transaction.get_input()
     }
 
