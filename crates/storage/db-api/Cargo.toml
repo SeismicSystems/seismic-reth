@@ -31,7 +31,9 @@ alloy-primitives.workspace = true
 alloy-consensus.workspace = true
 
 # optimism
-reth-optimism-primitives = { workspace = true, optional = true }
+# seismic: remove this dep to avoid pulling them optimism crates that don't compile implicitly by cargo/lsp/etc.
+# The optimism crates don't compile because of type changes we made that affects them, such as FlaggedStorage.
+# reth-optimism-primitives = { workspace = true, optional = true }
 
 # codecs
 modular-bitfield.workspace = true
@@ -86,11 +88,13 @@ arbitrary = [
     "reth-prune-types/arbitrary",
     "reth-stages-types/arbitrary",
     "alloy-consensus/arbitrary",
-    "reth-optimism-primitives?/arbitrary",
+    # seismic: remove this dep to avoid pulling them optimism crates that don't compile implicitly by cargo/lsp/etc.
+    # The optimism crates don't compile because of type changes we made that affects them, such as FlaggedStorage.
+    # "reth-optimism-primitives?/arbitrary",
     "reth-ethereum-primitives/arbitrary",
 ]
 op = [
-    "dep:reth-optimism-primitives",
+    # "dep:reth-optimism-primitives",
     "reth-codecs/op",
     "reth-primitives-traits/op",
 ]
