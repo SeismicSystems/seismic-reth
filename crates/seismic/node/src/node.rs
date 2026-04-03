@@ -63,12 +63,38 @@ use crate::{purpose_keys::get_purpose_keys, seismic_evm_config};
 /// Storage implementation for Seismic.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
 
-#[derive(Debug, Default, Clone)]
-#[non_exhaustive]
+#[derive(Debug, Clone)]
 /// Type configuration for a regular Seismic node.
-pub struct SeismicNode;
+///
+/// Purpose keys can be injected via [`SeismicNode::new`] so they flow through
+/// the node builder lifecycle instead of being read from a global side-channel.
+/// When constructed via [`Default`] (e.g. in tests), the executor builder will
+/// fall back to the global [`crate::purpose_keys::get_purpose_keys`].
+pub struct SeismicNode {
+    /// Structurally-injected purpose keys.  `None` means "use global fallback".
+    purpose_keys: Option<&'static seismic_enclave::GetPurposeKeysResponse>,
+}
+
+impl Default for SeismicNode {
+    fn default() -> Self {
+        Self { purpose_keys: None }
+    }
+}
 
 impl SeismicNode {
+    /// Create a new [`SeismicNode`] with structurally-injected purpose keys.
+    ///
+    /// The keys are leaked onto the heap so they live for `'static`, which is
+    /// required by the EVM configuration layer.
+    pub fn new(purpose_keys: seismic_enclave::GetPurposeKeysResponse) -> Self {
+        Self { purpose_keys: Some(crate::purpose_keys::leak_purpose_keys(purpose_keys)) }
+    }
+
+    /// Returns the injected purpose keys, if any.
+    pub fn purpose_keys(&self) -> Option<&'static seismic_enclave::GetPurposeKeysResponse> {
+        self.purpose_keys
+    }
+
     /// Returns the components for the given [`EnclaveArgs`].
     pub fn components<Node>(
         &self,
@@ -89,10 +115,11 @@ impl SeismicNode {
             >,
         >,
     {
+        let executor = SeismicExecutorBuilder { purpose_keys: self.purpose_keys };
         ComponentsBuilder::default()
             .node_types::<Node>()
             .pool(SeismicPoolBuilder::default())
-            .executor(SeismicExecutorBuilder::default())
+            .executor(executor)
             .payload(BasicPayloadServiceBuilder::<SeismicPayloadBuilder>::default())
             .network(SeismicNetworkBuilder::default())
             .consensus(SeismicConsensusBuilder::default())
@@ -470,9 +497,14 @@ where
 }
 
 /// A regular seismic evm and executor builder.
-#[derive(Debug, Default, Clone, Copy)]
-#[non_exhaustive]
-pub struct SeismicExecutorBuilder;
+///
+/// When `purpose_keys` is `Some`, uses the injected keys directly.
+/// When `None`, falls back to the global [`crate::purpose_keys::get_purpose_keys`].
+#[derive(Debug, Default, Clone)]
+pub struct SeismicExecutorBuilder {
+    /// Structurally-injected purpose keys, or `None` for global fallback.
+    purpose_keys: Option<&'static seismic_enclave::GetPurposeKeysResponse>,
+}
 
 impl<Node> ExecutorBuilder<Node> for SeismicExecutorBuilder
 where
@@ -481,7 +513,8 @@ where
     type EVM = SeismicEvmConfig;
 
     async fn build_evm(self, ctx: &BuilderContext<Node>) -> eyre::Result<Self::EVM> {
-        let purpose_keys = crate::purpose_keys::get_purpose_keys();
+        let purpose_keys =
+            self.purpose_keys.unwrap_or_else(|| crate::purpose_keys::get_purpose_keys());
         let evm_config = seismic_evm_config(ctx.chain_spec(), purpose_keys);
 
         Ok(evm_config)
