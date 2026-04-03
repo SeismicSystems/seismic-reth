@@ -43,7 +43,10 @@ use reth_rpc_server_types::RethRpcModule;
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
-use reth_seismic_rpc::{SeismicEthApiBuilder, SeismicEthApiError, SeismicRethWithSignable};
+use reth_seismic_rpc::{
+    ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer},
+    SeismicEthApiBuilder, SeismicEthApiError, SeismicRethWithSignable,
+};
 use reth_transaction_pool::{
     blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},
     CoinbaseTipOrdering, PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
@@ -52,7 +55,7 @@ use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
 use std::{sync::Arc, time::SystemTime};
 
-use crate::seismic_evm_config;
+use crate::{purpose_keys::get_purpose_keys, seismic_evm_config};
 
 /// Storage implementation for Seismic.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
@@ -306,6 +309,16 @@ where
         Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
     >,
     EthB: EthApiBuilder<N>,
+    EthB::EthApi: reth_seismic_rpc::FullSeismicApi + Send + Sync + 'static,
+    <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
+    jsonrpsee::types::ErrorObject<'static>:
+        From<<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error>,
+    <<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest:
+        From<alloy_rpc_types::TransactionRequest>
+            + AsRef<alloy_rpc_types::TransactionRequest>
+            + Send
+            + Sync
+            + 'static,
     PVB: PayloadValidatorBuilder<N>,
     EB: EngineApiBuilder<N>,
     EVB: EngineValidatorBuilder<N>,
@@ -333,15 +346,25 @@ where
         let eth_config =
             EthConfigHandler::new(ctx.node.provider().clone(), ctx.node.evm_config().clone());
 
+        let purpose_keys = get_purpose_keys().clone();
+
         self.inner
             .launch_add_ons_with(ctx, move |container| {
-                let RpcModuleContainer { modules, .. } = container;
+                let RpcModuleContainer { modules, registry, .. } = container;
                 modules.merge_if_module_configured(
                     RethRpcModule::Flashbots,
                     validation_api.into_rpc(),
                 )?;
 
                 modules.merge_if_module_configured(RethRpcModule::Eth, eth_config.into_rpc())?;
+
+                // Register Seismic eth_ overrides (sendRawTransaction, call, estimateGas, etc.)
+                modules.replace_configured(
+                    EthApiExt::new(registry.eth_api().clone(), purpose_keys.clone()).into_rpc(),
+                )?;
+
+                // Register seismic_ namespace (getTeePublicKey)
+                modules.merge_configured(SeismicApi::new(purpose_keys).into_rpc())?;
 
                 Ok(())
             })
@@ -362,6 +385,16 @@ where
         Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
     >,
     EthB: EthApiBuilder<N>,
+    EthB::EthApi: reth_seismic_rpc::FullSeismicApi + Send + Sync + 'static,
+    <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
+    jsonrpsee::types::ErrorObject<'static>:
+        From<<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error>,
+    <<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest:
+        From<alloy_rpc_types::TransactionRequest>
+            + AsRef<alloy_rpc_types::TransactionRequest>
+            + Send
+            + Sync
+            + 'static,
     PVB: PayloadValidatorBuilder<N>,
     EB: EngineApiBuilder<N>,
     EVB: EngineValidatorBuilder<N>,
@@ -391,6 +424,16 @@ where
                  + ConfigureEngineEvm<ExecutionData>,
     >,
     EthB: EthApiBuilder<N>,
+    EthB::EthApi: reth_seismic_rpc::FullSeismicApi + Send + Sync + 'static,
+    <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
+    jsonrpsee::types::ErrorObject<'static>:
+        From<<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error>,
+    <<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest:
+        From<alloy_rpc_types::TransactionRequest>
+            + AsRef<alloy_rpc_types::TransactionRequest>
+            + Send
+            + Sync
+            + 'static,
     PVB: PayloadValidatorBuilder<N>,
     EB: EngineApiBuilder<N>,
     EVB: EngineValidatorBuilder<N> + Send,
