@@ -99,7 +99,11 @@ async fn setup_test_node() -> eyre::Result<(
 )> {
     reth_tracing::init_test_tracing();
     ensure_mock_purpose_keys();
-    let (mut nodes, tasks, wallet) = setup(1).await?;
+    // Spawn node setup on a separate task to move the large async state machine
+    // (node + engine + RPC + EVM) onto the heap, avoiding stack overflow on
+    // x86_64 CI where stack frames are larger than on ARM64.
+    let (mut nodes, tasks, wallet) =
+        tokio::spawn(setup(1)).await.expect("node setup task panicked")?;
     let node = nodes.pop().unwrap();
     let rpc_url = node.rpc_url().to_string();
     let chain_id = wallet.chain_id;

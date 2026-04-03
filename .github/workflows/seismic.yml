@@ -103,9 +103,6 @@ jobs:
     timeout-minutes: 30
     env:
       SEISMIC_CI: 1
-      # In-process e2e tests have large async futures (node + engine + RPC + EVM).
-      # x86_64 stack frames are larger than ARM64; default 2MB overflows on CI.
-      RUST_MIN_STACK: 8388608
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
