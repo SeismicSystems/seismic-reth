@@ -210,6 +210,35 @@ where
     }
 }
 
+/// Helper trait alias that bundles the common `FullNodeComponents` bounds required by Seismic
+/// add-ons. This avoids repeating the verbose `NodeTypes` and `Evm` constraints across every
+/// `impl` block.
+pub trait SeismicFullNode:
+    FullNodeComponents<
+    Types: NodeTypes<
+        ChainSpec = ChainSpec,
+        Primitives = SeismicPrimitives,
+        Storage = SeismicStorage,
+        Payload = SeismicEngineTypes,
+    >,
+    Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
+>
+{
+}
+
+impl<N> SeismicFullNode for N where
+    N: FullNodeComponents<
+        Types: NodeTypes<
+            ChainSpec = ChainSpec,
+            Primitives = SeismicPrimitives,
+            Storage = SeismicStorage,
+            Payload = SeismicEngineTypes,
+        >,
+        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
+    >
+{
+}
+
 /// Add-ons w.r.t. seismic
 #[derive(Debug)]
 pub struct SeismicAddOns<
@@ -225,7 +254,7 @@ pub struct SeismicAddOns<
 
 impl<N, EthB, PVB, EB, EVB, RpcMiddleware> SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
 where
-    N: FullNodeComponents,
+    N: SeismicFullNode,
     EthB: EthApiBuilder<N>,
 {
     /// Build a [`SeismicAddOns`] using [`SeismicAddOnsBuilder`].
@@ -244,15 +273,7 @@ impl SeismicAddOnsBuilder {
         self,
     ) -> SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
     where
-        N: FullNodeComponents<
-            Types: NodeTypes<
-                ChainSpec = ChainSpec,
-                Primitives = SeismicPrimitives,
-                Storage = SeismicStorage,
-                Payload = SeismicEngineTypes,
-            >,
-            Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
-        >,
+        N: SeismicFullNode,
         EthB: EthApiBuilder<N> + Default,
         PVB: Default,
         EB: Default,
@@ -273,15 +294,7 @@ impl SeismicAddOnsBuilder {
 
 impl<N> Default for SeismicAddOns<N>
 where
-    N: FullNodeComponents<
-        Types: NodeTypes<
-            ChainSpec = ChainSpec,
-            Primitives = SeismicPrimitives,
-            Storage = SeismicStorage,
-            Payload = SeismicEngineTypes,
-        >,
-        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
-    >,
+    N: SeismicFullNode,
     SeismicEthApiBuilder<SeismicRethWithSignable>: EthApiBuilder<N>,
 {
     fn default() -> Self {
@@ -299,15 +312,7 @@ where
 impl<N, EthB, PVB, EB, EVB, RpcMiddleware> NodeAddOns<N>
     for SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
 where
-    N: FullNodeComponents<
-        Types: NodeTypes<
-            ChainSpec = ChainSpec,
-            Primitives = SeismicPrimitives,
-            Storage = SeismicStorage,
-            Payload = SeismicEngineTypes,
-        >,
-        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
-    >,
+    N: SeismicFullNode,
     EthB: EthApiBuilder<N>,
     EthB::EthApi: reth_seismic_rpc::FullSeismicApi + Send + Sync + 'static,
     <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
@@ -375,15 +380,7 @@ where
 impl<N, EthB, PVB, EB, EVB, RpcMiddleware> RethRpcAddOns<N>
     for SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
 where
-    N: FullNodeComponents<
-        Types: NodeTypes<
-            ChainSpec = ChainSpec,
-            Primitives = SeismicPrimitives,
-            Storage = SeismicStorage,
-            Payload = SeismicEngineTypes,
-        >,
-        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
-    >,
+    N: SeismicFullNode,
     EthB: EthApiBuilder<N>,
     EthB::EthApi: reth_seismic_rpc::FullSeismicApi + Send + Sync + 'static,
     <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
@@ -413,16 +410,7 @@ where
 impl<N, EthB, PVB, EB, EVB, RpcMiddleware> EngineValidatorAddOn<N>
     for SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
 where
-    N: FullNodeComponents<
-        Types: NodeTypes<
-            ChainSpec = ChainSpec,
-            Primitives = SeismicPrimitives,
-            Storage = SeismicStorage,
-            Payload = SeismicEngineTypes,
-        >,
-        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>
-                 + ConfigureEngineEvm<ExecutionData>,
-    >,
+    N: SeismicFullNode<Evm: ConfigureEngineEvm<ExecutionData>>,
     EthB: EthApiBuilder<N>,
     EthB::EthApi: reth_seismic_rpc::FullSeismicApi + Send + Sync + 'static,
     <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
