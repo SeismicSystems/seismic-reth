@@ -9410,7 +9410,6 @@ dependencies = [
  "reth-node-ethereum",
  "reth-rpc-api",
  "reth-tracing",
- "seismic-alloy-genesis",
  "serde_json",
  "tokio",
  "tracing",
