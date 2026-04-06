@@ -9752,7 +9752,6 @@ dependencies = [
  "jsonrpsee 0.26.0",
  "jsonrpsee-http-client 0.26.0",
  "k256",
- "once_cell",
  "reqwest",
  "reth-chainspec",
  "reth-consensus",
@@ -9803,7 +9802,6 @@ dependencies = [
  "seismic-revm",
  "serde",
  "serde_json",
- "tempfile",
  "tokio",
  "tracing",
 ]

@@ -3,8 +3,6 @@
 use clap::Parser;
 use reth_seismic_cli::{chainspec::SeismicChainSpecParser, Cli};
 use reth_seismic_node::{enclave::boot_enclave_and_fetch_keys, node::SeismicNode};
-use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
-use reth_tracing::tracing::*;
 
 fn main() {
     // Enable backtraces unless we explicitly set RUST_BACKTRACE
@@ -18,27 +16,12 @@ fn main() {
         // Boot enclave and fetch purpose keys BEFORE building node components
         let purpose_keys = boot_enclave_and_fetch_keys(&encl).await;
 
-        // Store purpose keys in global static storage before building the node
-        reth_seismic_node::purpose_keys::init_purpose_keys(purpose_keys.clone());
+        // Store purpose keys in global static storage before building the node.
+        // Seismic RPC modules (seismic_ namespace + eth_ overrides) are registered
+        // in SeismicAddOns::launch_add_ons, which reads keys via get_purpose_keys().
+        reth_seismic_node::purpose_keys::init_purpose_keys(purpose_keys);
 
-        // building additional endpoints seismic api
-        let seismic_api = SeismicApi::new(purpose_keys.clone());
-
-        let node = builder
-            .node(SeismicNode::default())
-            .extend_rpc_modules(move |ctx| {
-                // replace eth_ namespace
-                ctx.modules.replace_configured(
-                    EthApiExt::new(ctx.registry.eth_api().clone(), purpose_keys.clone()).into_rpc(),
-                )?;
-
-                // add seismic_ namespace
-                ctx.modules.merge_configured(seismic_api.into_rpc())?;
-                info!(target: "reth::cli", "seismic api configured");
-                Ok(())
-            })
-            .launch_with_debug_capabilities()
-            .await?;
+        let node = builder.node(SeismicNode::default()).launch_with_debug_capabilities().await?;
         node.node_exit_future.await
     }) {
         eprintln!("Error: {err:?}");
