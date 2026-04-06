@@ -504,7 +504,7 @@ pub fn make_op_genesis_header(genesis: &Genesis, hardforks: &ChainHardforks) -> 
                         if v.is_zero() {
                             None
                         } else {
-                            Some((*k, U256::from_be_bytes(v.0)))
+                            Some((*k, (*v).into()))
                         }
                     })));
             }
