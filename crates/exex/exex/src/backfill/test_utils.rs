@@ -18,7 +18,7 @@ use reth_provider::{
 use reth_revm::database::StateProviderDatabase;
 use reth_testing_utils::generators::sign_tx_with_key_pair;
 use secp256k1::Keypair;
-use seismic_alloy_genesis::{Genesis, GenesisAccount};
+use alloy_genesis::{Genesis, GenesisAccount};
 
 pub(crate) fn to_execution_outcome(
     block_number: u64,
