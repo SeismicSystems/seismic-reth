@@ -70,15 +70,10 @@ pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
 /// the node builder lifecycle instead of being read from a global side-channel.
 /// When constructed via [`Default`] (e.g. in tests), the executor builder will
 /// fall back to the global [`crate::purpose_keys::get_purpose_keys`].
+#[derive(Default)]
 pub struct SeismicNode {
     /// Structurally-injected purpose keys.  `None` means "use global fallback".
     purpose_keys: Option<&'static seismic_enclave::GetPurposeKeysResponse>,
-}
-
-impl Default for SeismicNode {
-    fn default() -> Self {
-        Self { purpose_keys: None }
-    }
 }
 
 impl SeismicNode {
@@ -91,7 +86,7 @@ impl SeismicNode {
     }
 
     /// Returns the injected purpose keys, if any.
-    pub fn purpose_keys(&self) -> Option<&'static seismic_enclave::GetPurposeKeysResponse> {
+    pub const fn purpose_keys(&self) -> Option<&'static seismic_enclave::GetPurposeKeysResponse> {
         self.purpose_keys
     }
 
