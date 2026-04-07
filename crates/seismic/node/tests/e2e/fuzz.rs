@@ -12,19 +12,15 @@ use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types::{Block, TransactionInput, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
 use core::str::FromStr;
-use futures::FutureExt;
-use jsonrpsee::{core::client::ClientT, rpc_params};
+use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
-use reth_e2e_test_utils::wallet::Wallet;
-use reth_seismic_node::utils::test_utils::{
-    get_nonce, get_signed_seismic_tx_bytes, SeismicRethTestCommand,
+use reth_seismic_node::utils::{
+    e2e::{ensure_mock_purpose_keys, setup},
+    test_utils::{get_nonce, get_signed_seismic_tx_bytes},
 };
 use reth_seismic_rpc::ext::EthApiOverrideClient;
-use std::time::Duration;
-use tokio::sync::mpsc;
 use tracing::{info, trace};
 
-const WAIT: u64 = 1;
 /// Number of random payloads per fuzz batch
 const RANDOM_CASES: usize = 50;
 
@@ -492,49 +488,32 @@ async fn send_signature_corrupted_txs(
 #[tokio::test(flavor = "multi_thread")]
 async fn fuzz_adversarial_transactions() {
     reth_tracing::init_test_tracing();
+    ensure_mock_purpose_keys();
 
-    let (tx, mut rx) = mpsc::channel(1);
-    let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
-    SeismicRethTestCommand::run(tx, shutdown_rx).await;
+    let (mut nodes, _tasks, wallet) =
+        tokio::spawn(setup(1)).await.expect("node setup task panicked").expect("setup failed");
+    let mut node = nodes.pop().unwrap();
+    let rpc_url = node.rpc_url().to_string();
+    let chain_id = wallet.chain_id;
+    let client = HttpClientBuilder::default().build(&rpc_url).unwrap();
 
-    // Wrap the entire test body (including startup wait) in catch_unwind so
-    // that shutdown_tx is always sent — even if the node never becomes ready
-    // or a batch panics — preventing leaked child processes and port conflicts.
-    let result = std::panic::AssertUnwindSafe(async {
-        tokio::time::timeout(Duration::from_secs(120), rx.recv())
-            .await
-            .expect("Timed out waiting for node to become ready")
-            .expect("Node readiness channel closed");
+    // Advance one block so that `get_recent_block_hash` returns a real hash
+    // for seismic tx tests that require a valid recent block hash.
+    node.advance_block().await.expect("failed to advance initial block");
 
-        let seed: u64 = std::env::var("FUZZ_SEED")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or_else(rand::random);
-        info!(%seed, "RNG seed — re-run with FUZZ_SEED={seed} to reproduce");
-        let mut rng = SmallRng::seed_from_u64(seed);
+    let seed: u64 =
+        std::env::var("FUZZ_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or_else(rand::random);
+    info!(%seed, "RNG seed — re-run with FUZZ_SEED={seed} to reproduce");
+    let mut rng = SmallRng::seed_from_u64(seed);
 
-        let rpc_url = SeismicRethTestCommand::url();
-        let chain_id = SeismicRethTestCommand::chain_id();
-        let client = jsonrpsee::http_client::HttpClientBuilder::default().build(rpc_url).unwrap();
-        let wallet = Wallet::default().with_chain_id(chain_id);
-        let eth_wallet: EthereumWallet = wallet.inner.clone().into();
-        let addr = wallet.inner.address();
+    let eth_wallet: EthereumWallet = wallet.inner.clone().into();
+    let addr = wallet.inner.address();
 
-        send_malformed_raw_bytes(&client, addr, &mut rng).await;
-        send_adversarial_eip1559_txs(&client, &eth_wallet, addr, chain_id, &mut rng).await;
-        send_adversarial_seismic_txs(&client, &wallet.inner, addr, chain_id, &mut rng).await;
-        send_signature_corrupted_txs(&client, &eth_wallet, &wallet.inner, addr, chain_id, &mut rng)
-            .await;
-    })
-    .catch_unwind()
-    .await;
-
-    let _ = shutdown_tx.try_send(());
-    tokio::time::sleep(Duration::from_secs(WAIT)).await;
-
-    if let Err(e) = result {
-        std::panic::resume_unwind(e);
-    }
+    send_malformed_raw_bytes(&client, addr, &mut rng).await;
+    send_adversarial_eip1559_txs(&client, &eth_wallet, addr, chain_id, &mut rng).await;
+    send_adversarial_seismic_txs(&client, &wallet.inner, addr, chain_id, &mut rng).await;
+    send_signature_corrupted_txs(&client, &eth_wallet, &wallet.inner, addr, chain_id, &mut rng)
+        .await;
 
     info!("All batches passed — node remained healthy throughout");
 }
