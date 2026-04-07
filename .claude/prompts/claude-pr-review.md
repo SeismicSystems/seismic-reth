@@ -107,6 +107,20 @@ These patterns are always bugs in Seismic code. Flag them immediately:
 - Duplicated `ensure_mock_purpose_keys()` — should use the shared helper from `utils.rs`
 - `EthereumNode` used where `SeismicNode` is expected in Seismic E2E tests
 
+## External Dependencies & Trait Impls
+
+Many critical types come from **external git dependencies** (patched via `[patch]` in the workspace `Cargo.toml`). You cannot read these crates' source code — they are not checked out in this repo. The key ones:
+
+| Crate | Provides | Notable `From` impls you can't see |
+|-------|----------|-----------------------------------|
+| `seismic-alloy-genesis` | `Genesis`, `GenesisAccount` (with `FlaggedStorage`) | `From<alloy_genesis::Genesis>`, `From<alloy_genesis::GenesisAccount>` (marks all storage as public) |
+| `seismic-alloy-consensus` | `SeismicTransactionSigned`, `TxSeismic` | Various `From` conversions between alloy and seismic tx types |
+| `seismic-revm` | Custom opcodes (CLOAD/CSTORE), flagged storage enforcement | — |
+| `seismic-enclave` | `GetPurposeKeysResponse`, mock server | — |
+| `alloy-seismic-evm` | `SeismicHardfork`, `SeismicHardforks` trait | — |
+
+**Rule:** When you see `.into()` or `From` conversions targeting types from these external crates, **do not flag them as missing impls**. You cannot verify whether the impl exists, and these crates are maintained alongside this repo with the necessary conversions. Only flag a conversion as broken if you can prove from in-repo code that no impl exists.
+
 ## Review Priorities
 
 ### Phase 1: Critical Issues
