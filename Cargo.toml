@@ -25,8 +25,8 @@ members = [
     "crates/seismic/fuzz",
     "crates/genesis-builder",
 
-    "bin/reth-bench/",
-    "bin/reth/",
+    # "bin/reth-bench/",
+    # "bin/reth/",
     "crates/storage/rpc-provider/",
     "crates/chain-state/",
     "crates/chainspec/",
@@ -782,7 +782,7 @@ revm-database-interface = { git = "https://github.com/SeismicSystems/seismic-rev
 op-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "e2915bad927dc3e6239498716241ed41ea91de4c" }
 seismic-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "e2915bad927dc3e6239498716241ed41ea91de4c" }
 
-revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "f0037c290e6e2b1f418111e8d0430277758fa050" }
+revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "e75adca2bed85c68ebecf1b130decd08693f2f0b" }
 
 # Seismic alloy
 seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "2ad2e5893ba8a6af45806ea09df58e5c00bdf16d" }
