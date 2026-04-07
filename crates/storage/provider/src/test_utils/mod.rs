@@ -2,7 +2,7 @@ use crate::{
     providers::{ProviderNodeTypes, StaticFileProvider},
     HashingWriter, ProviderFactory, TrieWriter,
 };
-use alloy_primitives::B256;
+use alloy_primitives::{FlaggedStorage, B256, U256};
 use reth_chainspec::{ChainSpec, MAINNET};
 use reth_db::{
     test_utils::{create_test_rw_db, create_test_static_files_dir, TempDatabase},
@@ -82,7 +82,7 @@ pub fn insert_genesis<N: ProviderNodeTypes<ChainSpec = ChainSpec>>(
                 addr,
                 storage.into_iter().map(|(key, value)| StorageEntry {
                     key,
-                    value: value.into(),
+                    value: FlaggedStorage::public(U256::from_be_bytes(value.0)),
                     ..Default::default()
                 }),
             )

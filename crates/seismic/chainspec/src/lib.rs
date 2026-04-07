@@ -12,12 +12,11 @@ use std::sync::Arc;
 
 use alloy_chains::Chain;
 use alloy_consensus::constants::DEV_GENESIS_HASH;
+use alloy_genesis::Genesis;
 use alloy_primitives::{b256, B256, U256};
 use reth_chainspec::{make_genesis_header, ChainSpec};
 use reth_primitives_traits::{sync::LazyLock, SealedHeader};
 use reth_seismic_forks::{SEISMIC_DEV_HARDFORKS, SEISMIC_MAINNET_HARDFORKS};
-
-use seismic_alloy_genesis::Genesis;
 
 /// Genesis hash for the Seismic mainnet
 /// Calculated by rlp encoding the genesis header and hashing it
