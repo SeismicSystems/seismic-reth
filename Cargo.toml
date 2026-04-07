@@ -792,7 +792,6 @@ seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-allo
 seismic-alloy-genesis = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "2ad2e5893ba8a6af45806ea09df58e5c00bdf16d" }
 
 # alloy-evm
-# WARN: pointing to h/disable-code-overrides branch — change to rev on main before merge
-alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", branch = "h/disable-code-overrides" }
-alloy-seismic-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", branch = "h/disable-code-overrides" }
+alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "4607075bb120f9727137887f67280506d806c59a" }
+alloy-seismic-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "4607075bb120f9727137887f67280506d806c59a" }
 
