@@ -41,6 +41,7 @@ fn call_tx(caller: Address, contract_addr: Address, gas_limit: u32) -> SeismicTr
         },
         tx_hash: Default::default(),
         rng_mode: RngMode::Execution,
+        decryption_failed: false,
     }
 }
 

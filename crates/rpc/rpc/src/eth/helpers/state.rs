@@ -88,7 +88,7 @@ mod tests {
         assert_eq!(storage, U256::ZERO.to_be_bytes());
 
         // === Mock ===
-        let storage_value = FlaggedStorage::new_from_value(1337);
+        let storage_value = FlaggedStorage::public(1337);
         let storage_key = StorageKey::random();
         let storage = HashMap::from([(storage_key, storage_value)]);
 

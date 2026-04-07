@@ -33,8 +33,6 @@ alloy-hardforks.workspace = true
 # op
 seismic-alloy-rpc-types.workspace = true
 seismic-alloy-consensus.workspace = true
-seismic-alloy-genesis.workspace = true
-
 # io
 serde_json.workspace = true
 

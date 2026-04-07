@@ -289,17 +289,11 @@ mod tests {
             .state_present_account_info(address2, account2)
             .state_storage(
                 address1,
-                HashMap::from_iter([(
-                    slot1,
-                    (FlaggedStorage::ZERO, FlaggedStorage::new_from_value(10)),
-                )]),
+                HashMap::from_iter([(slot1, (FlaggedStorage::ZERO, FlaggedStorage::public(10)))]),
             )
             .state_storage(
                 address2,
-                HashMap::from_iter([(
-                    slot2,
-                    (FlaggedStorage::ZERO, FlaggedStorage::new_from_value(20)),
-                )]),
+                HashMap::from_iter([(slot2, (FlaggedStorage::ZERO, FlaggedStorage::public(20)))]),
             )
             .build();
         assert_eq!(bundle_state.reverts.len(), 1);

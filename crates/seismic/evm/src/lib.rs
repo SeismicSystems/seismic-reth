@@ -301,6 +301,7 @@ mod tests {
     use alloy_consensus::{Header, Receipt};
     use alloy_eips::eip7685::Requests;
     use alloy_evm::Evm;
+    use alloy_genesis::Genesis;
     use alloy_primitives::{bytes, map::HashMap, Address, LogData, B256};
     use reth_chainspec::ChainSpec;
     use reth_evm::execute::ProviderError;
@@ -319,7 +320,6 @@ mod tests {
         primitives::Log,
         state::AccountInfo,
     };
-    use seismic_alloy_genesis::Genesis;
     use seismic_enclave::{
         get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
         get_unsecure_sample_secp256k1_sk, GetPurposeKeysResponse,

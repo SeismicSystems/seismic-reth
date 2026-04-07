@@ -36,6 +36,7 @@ reth-stages-types.workspace = true
 reth-network-peers.workspace = true
 reth-engine-local.workspace = true
 reth-tasks.workspace = true
+reth-evm.workspace = true
 reth-node-ethereum.workspace = true
 reth-ethereum-primitives.workspace = true
 reth-cli-commands.workspace = true

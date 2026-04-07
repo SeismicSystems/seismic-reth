@@ -71,9 +71,6 @@ test-utils = [
 
 full = ["evm", "node", "provider", "rpc", "trie"]
 
-alloy-compat = [
-    "reth-seismic-primitives/alloy-compat",
-]
 cli = ["dep:reth-seismic-cli"]
 evm = ["dep:reth-evm", "dep:reth-seismic-evm"]
 node-api = ["dep:reth-node-api"]

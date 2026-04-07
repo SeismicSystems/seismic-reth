@@ -178,6 +178,7 @@ where
             base: env,
             tx_hash: Default::default(),
             rng_mode: RngMode::Simulation,
+            decryption_failed: false,
         }
         .into())
     }
