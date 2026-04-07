@@ -15,6 +15,7 @@ workspace = true
 # seimsic
 seismic-alloy-consensus = { workspace = true, features = ["k256", "serde"] }
 seismic-alloy-genesis.workspace = true
+alloy-genesis.workspace = true
 
 # reth
 reth-codecs = { workspace = true, optional = true }
@@ -57,7 +58,6 @@ rayon = { workspace = true, optional = true }
 alloy-rpc-types-eth = { workspace = true, optional = true }
 
 [dev-dependencies]
-alloy-genesis.workspace = true
 reth-codecs.workspace = true
 reth-chainspec = { workspace = true, features = ["arbitrary"] }
 

@@ -6,6 +6,7 @@ pub mod receipt;
 pub mod transaction;
 pub mod utils;
 
+pub use api::FullSeismicApi;
 pub use receipt::SeismicReceiptConverter;
 
 mod block;

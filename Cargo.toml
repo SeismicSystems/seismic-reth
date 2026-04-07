@@ -87,6 +87,7 @@ members = [
     "crates/node/events/",
     "crates/node/metrics",
     "crates/node/types",
+    # seismic: these crates don't compile because of type changes we made that affects them, such as FlaggedStorage.
     # "crates/optimism/bin",
     # "crates/optimism/chainspec",
     # "crates/optimism/cli",
@@ -376,7 +377,6 @@ seismic-alloy-flz = { version = "0.0.1", default-features = false }
 alloy-json-abi = { version = "1.1.2", default-features = false } # only used by seismic rn
 
 # reth
-op-reth = { path = "crates/optimism/bin" }
 reth = { path = "bin/reth" }
 reth-storage-rpc-provider = { path = "crates/storage/rpc-provider" }
 reth-basic-payload-builder = { path = "crates/payload/basic" }
@@ -424,7 +424,6 @@ reth-ethereum = { path = "crates/ethereum/reth" }
 reth-etl = { path = "crates/etl" }
 reth-evm = { path = "crates/evm/evm", default-features = false }
 reth-evm-ethereum = { path = "crates/ethereum/evm", default-features = false }
-reth-optimism-evm = { path = "crates/optimism/evm", default-features = false }
 reth-execution-errors = { path = "crates/evm/execution-errors", default-features = false }
 reth-execution-types = { path = "crates/evm/execution-types", default-features = false }
 reth-exex = { path = "crates/exex/exex" }
@@ -452,18 +451,7 @@ reth-node-ethereum = { path = "crates/ethereum/node" }
 reth-node-ethstats = { path = "crates/node/ethstats" }
 reth-node-events = { path = "crates/node/events" }
 reth-node-metrics = { path = "crates/node/metrics" }
-reth-optimism-node = { path = "crates/optimism/node" }
 reth-node-types = { path = "crates/node/types" }
-reth-op = { path = "crates/optimism/reth", default-features = false }
-reth-optimism-chainspec = { path = "crates/optimism/chainspec", default-features = false }
-reth-optimism-cli = { path = "crates/optimism/cli" }
-reth-optimism-consensus = { path = "crates/optimism/consensus", default-features = false }
-reth-optimism-forks = { path = "crates/optimism/hardforks", default-features = false }
-reth-optimism-payload-builder = { path = "crates/optimism/payload" }
-reth-optimism-primitives = { path = "crates/optimism/primitives", default-features = false }
-reth-optimism-rpc = { path = "crates/optimism/rpc" }
-reth-optimism-storage = { path = "crates/optimism/storage" }
-reth-optimism-txpool = { path = "crates/optimism/txpool" }
 reth-payload-builder = { path = "crates/payload/builder" }
 reth-payload-builder-primitives = { path = "crates/payload/builder-primitives" }
 reth-payload-primitives = { path = "crates/payload/primitives" }
@@ -484,7 +472,6 @@ reth-rpc-engine-api = { path = "crates/rpc/rpc-engine-api" }
 reth-rpc-eth-api = { path = "crates/rpc/rpc-eth-api" }
 reth-rpc-eth-types = { path = "crates/rpc/rpc-eth-types", default-features = false }
 reth-rpc-layer = { path = "crates/rpc/rpc-layer" }
-reth-optimism-flashblocks = { path = "crates/optimism/flashblocks" }
 reth-rpc-server-types = { path = "crates/rpc/rpc-server-types" }
 reth-rpc-convert = { path = "crates/rpc/rpc-convert" }
 reth-stages = { path = "crates/stages/stages" }

@@ -12,9 +12,6 @@ description = "EVM chain spec implementation for optimism."
 workspace = true
 
 [dependencies]
-# seismic
-seismic-alloy-genesis.workspace = true
-
 # reth
 reth-chainspec.workspace = true
 reth-ethereum-forks.workspace = true
@@ -50,12 +47,11 @@ thiserror = { workspace = true, optional = true }
 op-alloy-consensus.workspace = true
 
 [dev-dependencies]
-# timestamp-in-seconds to make some tests we don't care about pass
-reth-chainspec = { workspace = true, features = ["test-utils", "timestamp-in-seconds"] }
+reth-chainspec = { workspace = true, features = ["test-utils"] }
 
 [features]
 default = ["std"]
-superchain-configs = ["miniz_oxide", "paste", "tar-no-std", "thiserror", "dep:serde"]
+superchain-configs = ["miniz_oxide", "paste", "tar-no-std", "thiserror", "thiserror", "dep:serde"]
 std = [
     "alloy-chains/std",
     "alloy-genesis/std",
