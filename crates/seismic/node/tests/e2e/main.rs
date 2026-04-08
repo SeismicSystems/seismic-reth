@@ -2,6 +2,7 @@
 
 mod hardfork_config;
 mod integration;
+mod ops;
 mod p2p;
 mod rpc_compat;
 mod testsuite;
