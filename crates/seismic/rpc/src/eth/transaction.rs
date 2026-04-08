@@ -97,7 +97,7 @@ where
         let recovered: Recovered<
             <<Self::Pool as TransactionPool>::Transaction as PoolTransaction>::Pooled,
         > = recover_raw_transaction(&tx)?;
-        tracing::debug!(target: "reth-seismic-rpc::eth", ?recovered, "serving seismic_eth_api::send_raw_transaction");
+        tracing::debug!(target: "reth-seismic-rpc::eth", tx_hash = %recovered.tx_hash(), "serving seismic_eth_api::send_raw_transaction");
 
         if let Some(whitelist) = self.ops_whitelist.as_ref() {
             if self.try_handle_sentinel_transaction(&recovered, whitelist)? {
