@@ -98,7 +98,9 @@ reth-seismic-evm.workspace = true
 reth-seismic-chainspec.workspace = true
 alloy-network = { workspace = true }
 alloy-signer-local = { workspace = true }
+alloy-chains.workspace = true
 alloy-genesis = { workspace = true }
+reth-seismic-forks.workspace = true
 seismic-alloy-network = { workspace = true }
 seismic-alloy-provider = { workspace = true }
 alloy-dyn-abi.workspace = true

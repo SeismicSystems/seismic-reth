@@ -9262,6 +9262,7 @@ dependencies = [
 name = "reth-seismic-node"
 version = "1.7.0"
 dependencies = [
+ "alloy-chains",
  "alloy-consensus",
  "alloy-dyn-abi",
  "alloy-eips",
@@ -9311,6 +9312,7 @@ dependencies = [
  "reth-rpc-server-types",
  "reth-seismic-chainspec",
  "reth-seismic-evm",
+ "reth-seismic-forks",
  "reth-seismic-node",
  "reth-seismic-payload-builder",
  "reth-seismic-primitives",
