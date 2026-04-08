@@ -270,16 +270,63 @@ async fn rpc_test_gas_and_call_variants(
     )
     .await;
 
-    // test eth_estimateGas
+    // test eth_estimateGas with signed bytes (unsigned requests have `from` sanitized)
     let gas = EthApiOverrideClient::<Block>::estimate_gas(
         client,
-        simulate_tx_request.clone(),
+        get_signed_seismic_tx_bytes(
+            &wallet.inner,
+            get_nonce(client, wallet.inner.address()).await,
+            TxKind::Call(contract_addr),
+            chain_id,
+            ContractTestContext::get_is_odd_input_plaintext(),
+            recent_block_hash,
+        )
+        .await
+        .into(),
         None,
         None,
     )
     .await
     .unwrap();
     assert!(gas > U256::ZERO);
+
+    // test eth_estimateGas sanitizes unsigned seismic requests (clears `from` and
+    // seismic_elements to prevent caller spoofing, same as eth_call)
+    let unsigned_seismic_result = EthApiOverrideClient::<Block>::estimate_gas(
+        client,
+        SeismicCallRequest::TransactionRequest(simulate_tx_request.clone()),
+        None,
+        None,
+    )
+    .await;
+    // Sanitized request simulates ciphertext as address(0) — expected to fail
+    assert!(
+        unsigned_seismic_result.is_err(),
+        "unsigned seismic estimateGas should fail after sanitization"
+    );
+
+    // test eth_estimateGas works for plain unsigned requests (standard Ethereum behavior)
+    let plain_unsigned_result = EthApiOverrideClient::<Block>::estimate_gas(
+        client,
+        SeismicCallRequest::TransactionRequest(SeismicTransactionRequest {
+            inner: TransactionRequest {
+                from: Some(wallet.inner.address()),
+                to: Some(TxKind::Call(contract_addr)),
+                input: TransactionInput {
+                    data: Some(ContractTestContext::get_is_odd_input_plaintext()),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            seismic_elements: None,
+        }),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    println!("eth_estimateGas for plain unsigned is_odd() gas: {:?}", plain_unsigned_result);
+    assert!(plain_unsigned_result > U256::ZERO);
 
     // TODO: should remove this functionality from seismic tx (audit)
     let _access_list =
@@ -985,7 +1032,7 @@ async fn test_eth_estimate_gas_rejects_code_override() -> eyre::Result<()> {
 
     let result = EthApiOverrideClient::<Block>::estimate_gas(
         &client,
-        SeismicTransactionRequest {
+        SeismicCallRequest::TransactionRequest(SeismicTransactionRequest {
             inner: TransactionRequest {
                 from: Some(wallet.inner.address()),
                 to: Some(TxKind::Call(victim_addr)),
@@ -994,7 +1041,7 @@ async fn test_eth_estimate_gas_rejects_code_override() -> eyre::Result<()> {
                 ..Default::default()
             },
             seismic_elements: None,
-        },
+        }),
         None,
         Some(state_overrides),
     )
