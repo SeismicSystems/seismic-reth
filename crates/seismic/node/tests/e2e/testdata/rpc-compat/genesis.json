@@ -77,63 +77,6 @@
     },
     "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266": {
       "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0x1a642f0e3c3af545e7acbd38b07251b3990914f1": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0x5050a4f4b3f9338c3472dcc01a87c76a144b3c9c": {
-      "balance": "0x14D1120D7B160000"
-    },
-    "0x3325a78425f17a7e487eb5666b2bfd93abb06c70": {
-      "balance": "0x14D1120D7B160000"
-    },
-    "0x15d34aaf54267db7d7c367839aaf71a00a2c6a65": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0x9965507d1a55bcc2695c58ba16fb37d819b0a4dc": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0x976ea74026e726554db657fa54763abd0c3a0aa9": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0x14dc79964da2c08b23698b3d3cc7ca32193d9955": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0x23618e81e3f5cdf7f54c3d65f7fbc0abf5b21e8f": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0xa0ee7a142d267c1f36714e4a8f75612f20a79720": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0xbcd4042de499d14e55001ccbb24a551f3b954096": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0x71be63f3384f5fb98995898a86b02fb2426c5788": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0xfabb0ac9d68b0b445fb7357272ff202c5651694a": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0x1cbd3b2770909d4e10f157cabc84c7264073c9ec": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0xdf3e18d64bc6a983f673ab319ccae4f1a57c7097": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0xcd3b766ccdd6ae721141f452c550ca635964ce71": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0x2546bcd3c84621e976d8185a91a922ae77ecec30": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0xbda5747bfd65f08deb54cb465eb87d40e51b197e": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0xdd2fd4581271e230360230f9337d5c0430bf44c0": {
-      "balance": "0xD3C21BCECCEDA1000000"
-    },
-    "0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199": {
-      "balance": "0xD3C21BCECCEDA1000000"
     }
   },
   "coinbase": "0x0000000000000000000000000000000000000000",
