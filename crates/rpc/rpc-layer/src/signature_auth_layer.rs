@@ -96,7 +96,7 @@ pub const EIP712_DOMAIN_VERSION: &str = "1";
 /// Configuration for the signature authentication layer.
 ///
 /// A shared whitelist holds temporarily authorized addresses for data endpoints.
-/// Signatures use EIP-712 typed data with the SeismicOps domain.
+/// Signatures use EIP-712 typed data with the `SeismicOps` domain.
 #[derive(Debug, Clone)]
 pub struct SignatureAuthConfig {
     /// Shared whitelist of temporarily authorized addresses.
@@ -138,7 +138,7 @@ pub struct SignatureAuthLayer {
 
 impl SignatureAuthLayer {
     /// Creates a new signature auth layer.
-    pub fn new(config: SignatureAuthConfig) -> Self {
+    pub const fn new(config: SignatureAuthConfig) -> Self {
         Self { config }
     }
 }
