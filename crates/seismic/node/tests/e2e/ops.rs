@@ -33,7 +33,7 @@ const PARAMS_CONTRACT: Address = address!("0x00000000000000000000000000005061726
 
 /// Build a Seismic dev chain spec with a custom governance address in the Params contract.
 fn dev_chain_spec_with_governance(governance_address: Address) -> Arc<ChainSpec> {
-    let mut genesis: seismic_alloy_genesis::Genesis =
+    let mut genesis: alloy_genesis::Genesis =
         serde_json::from_str(include_str!("../../../chainspec/res/genesis/dev.json"))
             .expect("deserialize dev genesis");
 
@@ -47,10 +47,7 @@ fn dev_chain_spec_with_governance(governance_address: Address) -> Arc<ChainSpec>
     value[12..].copy_from_slice(governance_address.as_slice());
     if let Some(account) = genesis.alloc.get_mut(&PARAMS_CONTRACT) {
         if let Some(ref mut storage) = account.storage {
-            storage.insert(
-                alloy_primitives::B256::ZERO,
-                alloy_primitives::FlaggedStorage::public(U256::from_be_bytes(value)),
-            );
+            storage.insert(alloy_primitives::B256::ZERO, alloy_primitives::B256::from(value));
         }
     }
 
