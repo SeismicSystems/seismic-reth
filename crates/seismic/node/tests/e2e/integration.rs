@@ -1032,8 +1032,7 @@ async fn test_eth_estimate_gas_rejects_code_override() -> eyre::Result<()> {
 
     let result = EthApiOverrideClient::<Block>::estimate_gas(
         &client,
-        SeismicCallRequest::TransactionRequest(
-        SeismicTransactionRequest {
+        SeismicCallRequest::TransactionRequest(SeismicTransactionRequest {
             inner: TransactionRequest {
                 from: Some(wallet.inner.address()),
                 to: Some(TxKind::Call(victim_addr)),
