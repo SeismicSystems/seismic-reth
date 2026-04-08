@@ -959,7 +959,7 @@ async fn test_eth_call_rejects_code_override() -> eyre::Result<()> {
         Err(e) => {
             let err_msg = e.to_string();
             assert!(
-                err_msg.contains("Code overrides are not permitted"),
+                err_msg.to_lowercase().contains("code overrides are not permitted"),
                 "Expected code override rejection error, got: {}",
                 err_msg
             );
@@ -1007,7 +1007,7 @@ async fn test_eth_estimate_gas_rejects_code_override() -> eyre::Result<()> {
         Err(e) => {
             let err_msg = e.to_string();
             assert!(
-                err_msg.contains("Code overrides are not permitted"),
+                err_msg.to_lowercase().contains("code overrides are not permitted"),
                 "Expected code override rejection error, got: {}",
                 err_msg
             );
@@ -1060,7 +1060,7 @@ async fn test_eth_simulate_v1_rejects_code_override() -> eyre::Result<()> {
         Err(e) => {
             let err_msg = e.to_string();
             assert!(
-                err_msg.contains("Code overrides are not permitted"),
+                err_msg.to_lowercase().contains("code overrides are not permitted"),
                 "Expected code override rejection error, got: {}",
                 err_msg
             );
