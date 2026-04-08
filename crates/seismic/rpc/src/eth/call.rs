@@ -12,7 +12,7 @@ use reth_rpc_eth_api::{
 use reth_rpc_eth_types::{EthApiError, RpcInvalidTransactionError};
 use revm::{context::TxEnv, context_interface::Block, Database};
 use seismic_alloy_consensus::SeismicTxType;
-use seismic_revm::{self, transaction::abstraction::RngMode, SeismicTransaction};
+use seismic_revm::{self, SeismicTransaction};
 
 impl<N, Rpc> EthCall for SeismicEthApi<N, Rpc>
 where
@@ -174,12 +174,7 @@ where
 
         tracing::debug!("reth-seismic-rpc::eth create_txn_env {:?}", env);
 
-        Ok(SeismicTransaction {
-            base: env,
-            tx_hash: Default::default(),
-            rng_mode: RngMode::Simulation,
-            decryption_failed: false,
-        }
-        .into())
+        Ok(SeismicTransaction { base: env, tx_hash: Default::default(), decryption_failed: false }
+            .into())
     }
 }
