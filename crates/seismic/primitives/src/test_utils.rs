@@ -110,6 +110,7 @@ pub fn get_seismic_tx(sender: Address, recent_block_hash: B256) -> TxSeismic {
         value: U256::ZERO,
         input: Bytes::new(),
         seismic_elements: get_seismic_elements(recent_block_hash),
+        authorization_list: vec![],
     };
     let ciphertext = get_ciphertext(&tx.metadata(sender).unwrap());
     tx.input = ciphertext;

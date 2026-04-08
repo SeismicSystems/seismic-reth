@@ -14,6 +14,7 @@ use alloy_consensus::{
 use alloy_eips::eip2718::{EIP7702_TX_TYPE_ID, EIP4844_TX_TYPE_ID};
 use alloy_primitives::{aliases::U96, Bytes, ChainId, Signature, TxKind, U256};
 use bytes::{Buf, BufMut, BytesMut};
+use alloy_eips::eip7702::SignedAuthorization;
 use seismic_alloy_consensus::{
     transaction::TxSeismicElements, SeismicTxEnvelope, SeismicTxType, SeismicTypedTransaction,
     TxSeismic as AlloyTxSeismic, SEISMIC_TX_TYPE_ID,
@@ -59,6 +60,8 @@ pub(crate) struct TxSeismic {
     value: U256,
     /// seismic elements
     seismic_elements: TxSeismicElements,
+    /// Optional list of EIP-7702 authorization tuples
+    authorization_list: Vec<SignedAuthorization>,
     /// Input has two uses depending if transaction is Create or Call (if `to` field is None or
     /// Some). pub init: An unlimited size byte array specifying the
     /// EVM-code for the account initialisation procedure CREATE,
@@ -161,6 +164,7 @@ impl Compact for AlloyTxSeismic {
             value: self.value,
             seismic_elements: self.seismic_elements,
             input: self.input.clone(),
+            authorization_list: self.authorization_list.clone(),
         };
 
         tx.to_compact(buf)
@@ -178,6 +182,7 @@ impl Compact for AlloyTxSeismic {
             value: tx.value,
             seismic_elements: tx.seismic_elements,
             input: tx.input,
+            authorization_list: tx.authorization_list,
         };
 
         (alloy_tx, buf)
@@ -429,6 +434,18 @@ mod tests {
                 signed_read: false,
             },
             input: Bytes::from_static(&[0x24]),
+            authorization_list: vec![
+                alloy_eips::eip7702::Authorization {
+                    chain_id: U256::from(1),
+                    address: alloy_primitives::address!("0xdac17f958d2ee523a2206206994597c13d831ec7"),
+                    nonce: 1,
+                }
+                .into_signed(Signature::new(
+                    alloy_primitives::b256!("0x1fd474b1f9404c0c5df43b7620119ffbc3a1c3f942c73b6e14e9f55255ed9b1d").into(),
+                    alloy_primitives::b256!("0x29aca24813279a901ec13b5f7bb53385fa1fc627b946592221417ff74a49600d").into(),
+                    false,
+                )),
+            ],
         };
 
         // Encode to compact format
@@ -446,6 +463,7 @@ mod tests {
         assert_eq!(tx.to, decoded_tx.to);
         assert_eq!(tx.value, decoded_tx.value);
         assert_eq!(tx.input, decoded_tx.input);
+        assert_eq!(tx.authorization_list, decoded_tx.authorization_list);
 
         // Check seismic elements
         assert_eq!(

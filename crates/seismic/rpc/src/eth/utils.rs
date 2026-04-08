@@ -157,7 +157,8 @@ mod test {
                 recent_block_hash: alloy_primitives::B256::from_slice(&hex::decode("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef").unwrap()),
                 expires_at_block: 1000000,
                 signed_read: false,
-            }
+            },
+            authorization_list: vec![],
         };
 
         let signed = SeismicTransactionSigned::new_unhashed(
@@ -175,7 +176,7 @@ mod test {
         let recovered_sighash = recovered.signature_hash();
 
         let expected_tx_hash = FixedBytes::<32>::from_hex(
-            "a9c1c87a4fa27002f9487ade27b5eb77ab3c82b284bc384609572f1eb8e171dc",
+            "0xe82f9ce621da07a8ae10d330383275402ff9430dbe4b8b10cd0038ede3ef3718",
         )
         .unwrap();
         assert_eq!(signed_hash, expected_tx_hash);
