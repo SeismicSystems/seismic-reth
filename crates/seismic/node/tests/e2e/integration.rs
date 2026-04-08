@@ -15,10 +15,13 @@ use alloy_primitives::{
     aliases::{B96, U96},
     hex,
     hex::FromHex,
-    Bytes, IntoLogData, TxKind, B256, U256,
+    Address, Bytes, IntoLogData, TxKind, B256, U256,
 };
 use alloy_provider::{Provider, SendableTx};
-use alloy_rpc_types::{Block, Header, TransactionInput, TransactionRequest};
+use alloy_rpc_types::{
+    state::{AccountOverride, StateOverride},
+    Block, Header, TransactionInput, TransactionRequest,
+};
 use alloy_sol_types::{sol, SolCall, SolValue};
 use core::str::FromStr;
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
@@ -41,7 +44,10 @@ use seismic_alloy_network::{
 use seismic_alloy_provider::{
     test_utils::ContractTestContext, SeismicProviderBuilder, SignedProviderExt,
 };
-use seismic_alloy_rpc_types::{SeismicTransactionReceipt, SeismicTransactionRequest};
+use seismic_alloy_rpc_types::{
+    SeismicCallRequest, SeismicTransactionReceipt, SeismicTransactionRequest, SimBlock,
+    SimulatePayload,
+};
 use seismic_enclave::aes_decrypt;
 
 const PRECOMPILES_TEST_SET_AES_KEY_SELECTOR: &str = "a0619040"; // setAESKey(suint256)
@@ -907,4 +913,158 @@ fn concat_input_data(selector: &str, value: Bytes) -> Bytes {
     input_data.extend_from_slice(&selector_bytes);
     input_data.extend_from_slice(&value_bytes);
     input_data.into()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_call_rejects_code_override() -> eyre::Result<()> {
+    let (_node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let victim_addr = Address::from_hex("0x0000000000000000000000000000000000001234").unwrap();
+
+    let mut state_overrides = StateOverride::default();
+    state_overrides.insert(
+        victim_addr,
+        AccountOverride {
+            code: Some(Bytes::from_static(&hex!(
+                "7f0000000000000000000000000000000000000000000000000000000000000001b060005260206000f3"
+            ))),
+            ..Default::default()
+        },
+    );
+
+    let result = EthApiOverrideClient::<Block>::call(
+        &client,
+        SeismicTransactionRequest {
+            inner: TransactionRequest {
+                from: Some(wallet.inner.address()),
+                to: Some(TxKind::Call(victim_addr)),
+                gas: Some(1_000_000),
+                chain_id: Some(chain_id),
+                ..Default::default()
+            },
+            seismic_elements: None,
+        }
+        .into(),
+        None,
+        Some(state_overrides),
+        None,
+    )
+    .await;
+
+    match &result {
+        Ok(output) => panic!(
+            "eth_call with code override should be rejected, but got Ok: 0x{}",
+            hex::encode(output)
+        ),
+        Err(e) => {
+            let err_msg = e.to_string();
+            assert!(
+                err_msg.contains("Code overrides are not permitted"),
+                "Expected code override rejection error, got: {}",
+                err_msg
+            );
+        }
+    }
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_estimate_gas_rejects_code_override() -> eyre::Result<()> {
+    let (_node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let victim_addr = Address::from_hex("0x0000000000000000000000000000000000001234").unwrap();
+
+    let mut state_overrides = StateOverride::default();
+    state_overrides.insert(
+        victim_addr,
+        AccountOverride {
+            code: Some(Bytes::from_static(&hex!("6001b060005260206000f3"))),
+            ..Default::default()
+        },
+    );
+
+    let result = EthApiOverrideClient::<Block>::estimate_gas(
+        &client,
+        SeismicTransactionRequest {
+            inner: TransactionRequest {
+                from: Some(wallet.inner.address()),
+                to: Some(TxKind::Call(victim_addr)),
+                gas: Some(1_000_000),
+                chain_id: Some(chain_id),
+                ..Default::default()
+            },
+            seismic_elements: None,
+        },
+        None,
+        Some(state_overrides),
+    )
+    .await;
+
+    match &result {
+        Ok(gas) => {
+            panic!("eth_estimateGas with code override should be rejected, but got Ok: {}", gas)
+        }
+        Err(e) => {
+            let err_msg = e.to_string();
+            assert!(
+                err_msg.contains("Code overrides are not permitted"),
+                "Expected code override rejection error, got: {}",
+                err_msg
+            );
+        }
+    }
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_simulate_v1_rejects_code_override() -> eyre::Result<()> {
+    let (_node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let victim_addr = Address::from_hex("0x0000000000000000000000000000000000001234").unwrap();
+
+    let mut state_overrides = StateOverride::default();
+    state_overrides.insert(
+        victim_addr,
+        AccountOverride {
+            code: Some(Bytes::from_static(&hex!("6001b060005260206000f3"))),
+            ..Default::default()
+        },
+    );
+
+    let nonce = get_nonce(&client, wallet.inner.address()).await;
+    let tx_bytes = get_signed_deploy_tx_bytes(
+        wallet.inner.clone(),
+        nonce,
+        chain_id,
+        ContractTestContext::get_deploy_input_plaintext(),
+    )
+    .await;
+
+    let block_with_code_override = SimBlock {
+        block_overrides: None,
+        state_overrides: Some(state_overrides),
+        calls: vec![SeismicCallRequest::Bytes(tx_bytes)],
+    };
+
+    let simulate_payload = SimulatePayload::<SeismicCallRequest> {
+        block_state_calls: vec![block_with_code_override],
+        trace_transfers: false,
+        validation: false,
+        return_full_transactions: false,
+    };
+
+    let result = EthApiOverrideClient::<Block>::simulate_v1(&client, simulate_payload, None).await;
+
+    match &result {
+        Ok(_) => panic!("eth_simulateV1 with code override should be rejected"),
+        Err(e) => {
+            let err_msg = e.to_string();
+            assert!(
+                err_msg.contains("Code overrides are not permitted"),
+                "Expected code override rejection error, got: {}",
+                err_msg
+            );
+        }
+    }
+    Ok(())
 }
