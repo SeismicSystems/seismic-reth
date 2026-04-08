@@ -113,6 +113,18 @@ reqwest.workspace = true
 secp256k1.workspace = true
 k256.workspace = true
 rand.workspace = true
+alloy-signer.workspace = true
+alloy-signer-local.workspace = true
+alloy-eips.workspace = true
+reth-chainspec.workspace = true
+reth-rpc-layer.workspace = true
+reth-rpc-builder.workspace = true
+reth-seismic-forks.workspace = true
+reth-payload-builder.workspace = true
+reth-primitives-traits.workspace = true
+seismic-alloy-genesis.workspace = true
+alloy-rpc-types-engine.workspace = true
+>>>>>>> 7f50dbad9 (test: add e2e tests)
 
 [features]
 default = ["reth-codec"]
