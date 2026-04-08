@@ -15,9 +15,16 @@ mod auth_client_layer;
 mod auth_layer;
 mod compression_layer;
 mod jwt_validator;
+/// Single-signature authentication middleware using secp256k1 / Ethereum addresses.
+pub mod signature_auth_layer;
 
 pub use auth_layer::{AuthService, ResponseFuture};
 pub use compression_layer::CompressionLayer;
+pub use signature_auth_layer::{
+    eip712_signing_hash, OpsWhitelistTxAuth, SignatureAuthConfig, SignatureAuthLayer,
+    SignatureAuthService, Whitelist, EIP712_DOMAIN_NAME, EIP712_DOMAIN_VERSION, NONCE_HEADER,
+    OPS_AUTH_CONTRACT, OPS_AUTH_SLOT, SIGNATURE_HEADER, WHITELIST_TX_SENTINEL,
+};
 
 // Export alloy JWT types
 pub use alloy_rpc_types_engine::{Claims, JwtError, JwtSecret};

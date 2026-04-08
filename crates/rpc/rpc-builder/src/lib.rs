@@ -80,6 +80,9 @@ pub use tower::layer::util::{Identity, Stack};
 /// Auth server utilities.
 pub mod auth;
 
+/// Body-auth server utilities for signature-based authentication.
+pub mod body_auth;
+
 /// RPC server utilities.
 pub mod config;
 

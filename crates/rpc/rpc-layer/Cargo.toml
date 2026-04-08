@@ -11,17 +11,26 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+alloy-consensus.workspace = true
+alloy-primitives.workspace = true
 alloy-rpc-types-engine = { workspace = true, features = ["jwt", "serde"] }
+alloy-sol-types.workspace = true
 
 http.workspace = true
+http-body-util.workspace = true
 jsonrpsee-http-client.workspace = true
 pin-project.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 tower.workspace = true
 tower-http = { workspace = true, features = ["full"] }
 tracing.workspace = true
 
 [dev-dependencies]
+alloy-dyn-abi.workspace = true
+alloy-signer.workspace = true
+alloy-signer-local.workspace = true
 reqwest.workspace = true
-tokio = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, features = ["macros", "time"] }
 jsonrpsee = { workspace = true, features = ["server"] }
-http-body-util.workspace = true
+reth-provider = { workspace = true, features = ["test-utils"] }

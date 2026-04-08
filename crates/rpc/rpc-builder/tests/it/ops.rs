@@ -1,0 +1,256 @@
+//! Ops signature-auth server tests
+
+use crate::utils::test_address;
+use alloy_primitives::{Address, FlaggedStorage, B256, U256};
+use alloy_signer::Signer;
+use alloy_signer_local::PrivateKeySigner;
+use reth_provider::test_utils::{ExtendedAccount, MockEthProvider};
+use reth_rpc::OpsApi;
+use reth_rpc_api::OpsApiServer;
+use reth_rpc_builder::body_auth::{BodyAuthRpcModule, BodyAuthServerConfig, BodyAuthServerHandle};
+use reth_rpc_layer::{eip712_signing_hash, SignatureAuthConfig, Whitelist};
+use reth_tasks::TokioTaskExecutor;
+use std::sync::Arc;
+
+/// Fixed contract address, slot, and chain ID for tests.
+const CONTRACT_ADDRESS: Address = Address::ZERO;
+const STORAGE_SLOT: B256 = B256::ZERO;
+const TEST_CHAIN_ID: u64 = 1;
+
+/// Create a mock provider with a specific admin address stored at the contract slot.
+fn mock_provider_with_admin(admin_address: Address) -> Arc<MockEthProvider> {
+    let provider = MockEthProvider::default();
+    let mut value = [0u8; 32];
+    value[12..].copy_from_slice(admin_address.as_slice());
+    let storage_value = FlaggedStorage::public(U256::from_be_bytes(value));
+    let account =
+        ExtendedAccount::new(0, U256::ZERO).extend_storage([(STORAGE_SLOT, storage_value)]);
+    provider.add_account(CONTRACT_ADDRESS, account);
+    Arc::new(provider)
+}
+
+/// Launch an ops server with the given admin address.
+async fn launch_ops_with_admin(admin_address: Address) -> (BodyAuthServerHandle, Whitelist) {
+    let provider = mock_provider_with_admin(admin_address);
+    let whitelist = Whitelist::new();
+    let nonces = Arc::new(std::sync::RwLock::new(std::collections::HashMap::new()));
+    let mut auth_config = SignatureAuthConfig::new(whitelist.clone(), TEST_CHAIN_ID);
+    auth_config.nonces = nonces.clone();
+
+    let ops_api = OpsApi::new(provider, Box::new(TokioTaskExecutor::default()), nonces);
+
+    let mut module = BodyAuthRpcModule::empty();
+    module.merge_methods(ops_api.into_rpc()).unwrap();
+
+    let server_config =
+        BodyAuthServerConfig::builder(auth_config).socket_addr(test_address()).build();
+
+    let handle = server_config.start(module).await.unwrap();
+    (handle, whitelist)
+}
+
+fn get_storage_request(address: Address, index: B256, id: u64) -> String {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "ops_getStorageAt",
+        "params": [format!("{address:?}"), format!("{index:?}"), "latest"],
+        "id": id
+    })
+    .to_string()
+}
+
+fn get_nonce_request(address: Address, id: u64) -> String {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "ops_getNonce",
+        "params": [format!("{address:?}")],
+        "id": id
+    })
+    .to_string()
+}
+
+async fn send_signed_request(
+    url: &str,
+    body: &str,
+    signer: &PrivateKeySigner,
+    nonce: Option<&str>,
+) -> reqwest::Response {
+    let signing_nonce = nonce.unwrap_or("");
+    let hash = eip712_signing_hash(body.as_bytes(), signing_nonce, TEST_CHAIN_ID);
+
+    let signature = signer.sign_hash(&hash).await.unwrap();
+    let sig_hex = alloy_primitives::hex::encode(signature.as_bytes());
+
+    let mut req = reqwest::Client::new()
+        .post(url)
+        .header("Content-Type", "application/json")
+        .header("X-Signature", &sig_hex);
+    if let Some(nonce) = nonce {
+        req = req.header("X-Nonce", nonce);
+    }
+    req.body(body.to_string()).send().await.unwrap()
+}
+
+fn current_unix_timestamp() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system clock before unix epoch")
+        .as_secs()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_ops_request_without_signature_is_rejected() {
+    reth_tracing::init_test_tracing();
+    let admin = PrivateKeySigner::random();
+    let (handle, _) = launch_ops_with_admin(admin.address()).await;
+
+    let body = get_storage_request(Address::ZERO, B256::ZERO, 1);
+    let resp = reqwest::Client::new()
+        .post(&handle.http_url())
+        .header("Content-Type", "application/json")
+        .body(body)
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), reqwest::StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_ops_get_storage_at_requires_whitelisted_key() {
+    reth_tracing::init_test_tracing();
+    let admin = PrivateKeySigner::random();
+    let (handle, _) = launch_ops_with_admin(admin.address()).await;
+    let url = handle.http_url();
+
+    // Admin key should NOT be able to call getStorageAt
+    let body = get_storage_request(Address::ZERO, B256::ZERO, 1);
+    let resp = send_signed_request(&url, &body, &admin, Some("0")).await;
+    assert_eq!(resp.status(), reqwest::StatusCode::UNAUTHORIZED);
+
+    // Random key should NOT be able to call getStorageAt
+    let random = PrivateKeySigner::random();
+    let resp = send_signed_request(&url, &body, &random, Some("0")).await;
+    assert_eq!(resp.status(), reqwest::StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_ops_whitelisted_key_can_read_storage() {
+    reth_tracing::init_test_tracing();
+    let admin = PrivateKeySigner::random();
+    let reader = PrivateKeySigner::random();
+    let (handle, whitelist) = launch_ops_with_admin(admin.address()).await;
+    let url = handle.http_url();
+
+    // Reader can't read yet
+    let read_body = get_storage_request(CONTRACT_ADDRESS, STORAGE_SLOT, 1);
+    let resp = send_signed_request(&url, &read_body, &reader, Some("0")).await;
+    assert_eq!(resp.status(), reqwest::StatusCode::UNAUTHORIZED);
+
+    // Whitelist the reader directly (1 hour TTL)
+    let expires_at = current_unix_timestamp() + 3600;
+    whitelist.add(reader.address(), expires_at);
+
+    // Now reader can read
+    let resp = send_signed_request(&url, &read_body, &reader, Some("0")).await;
+    assert_eq!(resp.status(), reqwest::StatusCode::OK);
+    let json: serde_json::Value = resp.json().await.unwrap();
+    assert!(json["result"].is_string());
+
+    // Reusing the same nonce should fail
+    let resp = send_signed_request(&url, &read_body, &reader, Some("0")).await;
+    assert_eq!(resp.status(), reqwest::StatusCode::UNAUTHORIZED);
+
+    // The next nonce should succeed
+    let resp = send_signed_request(&url, &read_body, &reader, Some("1")).await;
+    assert_eq!(resp.status(), reqwest::StatusCode::OK);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_ops_whitelist_expires() {
+    reth_tracing::init_test_tracing();
+    let admin = PrivateKeySigner::random();
+    let reader = PrivateKeySigner::random();
+    let (handle, whitelist) = launch_ops_with_admin(admin.address()).await;
+    let url = handle.http_url();
+
+    // Whitelist reader with a short TTL (5 seconds is enough margin for CI).
+    let expires_at = current_unix_timestamp() + 5;
+    whitelist.add(reader.address(), expires_at);
+
+    // Reader can read immediately
+    let read_body = get_storage_request(CONTRACT_ADDRESS, STORAGE_SLOT, 2);
+    let resp = send_signed_request(&url, &read_body, &reader, Some("0")).await;
+    assert_eq!(resp.status(), reqwest::StatusCode::OK);
+
+    // Wait for TTL to expire
+    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+
+    // Reader can no longer read
+    let resp = send_signed_request(&url, &read_body, &reader, Some("1")).await;
+    assert_eq!(resp.status(), reqwest::StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_ops_expired_whitelist_cannot_read_storage() {
+    reth_tracing::init_test_tracing();
+    let admin = PrivateKeySigner::random();
+    let reader = PrivateKeySigner::random();
+    let (handle, whitelist) = launch_ops_with_admin(admin.address()).await;
+    let url = handle.http_url();
+
+    // Whitelist reader with a short TTL (5 seconds is enough margin for CI).
+    let expires_at = current_unix_timestamp() + 5;
+    whitelist.add(reader.address(), expires_at);
+
+    // Wait for the whitelist entry to expire.
+    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+
+    // Reader should be rejected — whitelist expired
+    let read_body = get_storage_request(CONTRACT_ADDRESS, STORAGE_SLOT, 2);
+    let resp = send_signed_request(&url, &read_body, &reader, Some("0")).await;
+    assert_eq!(resp.status(), reqwest::StatusCode::UNAUTHORIZED);
+
+    // Re-whitelist with a longer absolute expiry.
+    let expires_at = current_unix_timestamp() + 3600;
+    whitelist.add(reader.address(), expires_at);
+
+    // Reader can read again
+    let resp = send_signed_request(&url, &read_body, &reader, Some("0")).await;
+    assert_eq!(resp.status(), reqwest::StatusCode::OK);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_ops_get_nonce_for_whitelisted_key() {
+    reth_tracing::init_test_tracing();
+    let admin = PrivateKeySigner::random();
+    let reader = PrivateKeySigner::random();
+    let (handle, whitelist) = launch_ops_with_admin(admin.address()).await;
+    let url = handle.http_url();
+
+    let expires_at = current_unix_timestamp() + 3600;
+    whitelist.add(reader.address(), expires_at);
+
+    let nonce_body = get_nonce_request(reader.address(), 2);
+    let resp = send_signed_request(&url, &nonce_body, &reader, None).await;
+    assert_eq!(resp.status(), reqwest::StatusCode::OK);
+    let json: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(json["result"], 0);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_ops_get_nonce_rejects_other_address() {
+    reth_tracing::init_test_tracing();
+    let admin = PrivateKeySigner::random();
+    let reader = PrivateKeySigner::random();
+    let other = PrivateKeySigner::random();
+    let (handle, whitelist) = launch_ops_with_admin(admin.address()).await;
+    let url = handle.http_url();
+
+    let expires_at = current_unix_timestamp() + 3600;
+    whitelist.add(reader.address(), expires_at);
+
+    let nonce_body = get_nonce_request(other.address(), 2);
+    let resp = send_signed_request(&url, &nonce_body, &reader, None).await;
+    assert_eq!(resp.status(), reqwest::StatusCode::UNAUTHORIZED);
+}
