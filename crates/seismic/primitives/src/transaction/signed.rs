@@ -33,7 +33,7 @@ use seismic_alloy_consensus::{
     InputDecryptionElements, InputDecryptionElementsError, SeismicTxEnvelope,
     SeismicTypedTransaction, TxSeismic, TxSeismicElements, TxSeismicMetadata,
 };
-use seismic_revm::{transaction::abstraction::RngMode, SeismicTransaction};
+use seismic_revm::SeismicTransaction;
 
 // Seismic imports, not used by upstream
 use alloy_evm::FromTxWithEncoded;
@@ -192,31 +192,15 @@ impl From<SeismicTransactionSigned> for Signed<SeismicTypedTransaction> {
 impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
     fn from_recovered_tx(tx: &SeismicTransactionSigned, sender: Address) -> Self {
         let tx_hash = *tx.tx_hash();
-        // TODO: rng_mode should be derived from context (simulation vs block execution)
-        let rng_mode = RngMode::Execution;
         let base = match &tx.transaction {
             SeismicTypedTransaction::Legacy(tx) => TxEnv::from_recovered_tx(tx, sender),
             SeismicTypedTransaction::Eip2930(tx) => TxEnv::from_recovered_tx(tx, sender),
             SeismicTypedTransaction::Eip1559(tx) => TxEnv::from_recovered_tx(tx, sender),
             SeismicTypedTransaction::Eip4844(tx) => TxEnv::from_recovered_tx(tx, sender),
             SeismicTypedTransaction::Eip7702(tx) => TxEnv::from_recovered_tx(tx, sender),
-            // TODO: delegate to TxEnv::from_recovered_tx(tx, sender) once seismic-evm
-            // rev is bumped to include the FromRecoveredTx<TxSeismic> impl.
-            // See https://github.com/SeismicSystems/seismic-evm/pull/42
-            SeismicTypedTransaction::Seismic(tx) => TxEnv {
-                tx_type: TxSeismic::TX_TYPE,
-                caller: sender,
-                gas_limit: tx.gas_limit,
-                gas_price: tx.gas_price,
-                kind: tx.to,
-                value: tx.value,
-                data: tx.input.clone(),
-                chain_id: Some(tx.chain_id),
-                nonce: tx.nonce,
-                ..Default::default()
-            },
+            SeismicTypedTransaction::Seismic(tx) => TxEnv::from_recovered_tx(tx, sender),
         };
-        let tx = Self { base, tx_hash, rng_mode, decryption_failed: false };
+        let tx = Self { base, tx_hash, decryption_failed: false };
         tracing::debug!("from_recovered_tx: tx: {:?}", tx);
         tx
     }
@@ -225,12 +209,7 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
 impl FromTxWithEncoded<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
     fn from_encoded_tx(tx: &SeismicTransactionSigned, sender: Address, _encoded: Bytes) -> Self {
         let tx_env = Self::from_recovered_tx(tx, sender);
-        Self {
-            base: tx_env.base,
-            tx_hash: tx_env.tx_hash,
-            rng_mode: RngMode::Execution,
-            decryption_failed: false,
-        }
+        Self { base: tx_env.base, tx_hash: tx_env.tx_hash, decryption_failed: false }
     }
 }
 
@@ -805,6 +784,7 @@ mod tests {
                 expires_at_block: 1000000,
                 signed_read: false,
             },
+            authorization_list: vec![],
         };
 
         let signed =

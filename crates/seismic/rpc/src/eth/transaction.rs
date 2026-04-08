@@ -273,6 +273,7 @@ mod test {
                 expires_at_block: 1000000,
                 signed_read: false,
             },
+            authorization_list: vec![],
         };
 
         // Sign the transaction
@@ -301,22 +302,9 @@ mod test {
     }
 
     #[test]
-    #[ignore]
-    fn test_generate_raw_tx() {
-        use alloy_primitives::hex;
+    fn test_generate_and_recover_raw_tx() {
         let (raw_bytes, hash) = generate_test_raw_tx();
-        println!("Raw bytes: 0x{}", hex::encode(&raw_bytes));
-        println!("Hash: {}", hash);
-    }
-
-    #[test]
-    fn test_recover_raw_tx() {
-        let raw_tx = Bytes::from_str("0x4af8e9821403018504a817c80083033450943ab946eec2553114040de82d2e18798a51cf1e1487038d7ea4c68000a1028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a08c7da3a99bf0f90d56551d99ea02a0dea362cf26069ee018e8a37b514c1e64d9e2d07f833728c86e19e88678c09b98830f424080a44e69e56c3bb999b8c98772ebb32aebcbd43b33e9e65a46333dfe6636f37f3009e93bad3380a04885f323d8d63c0b63d90430ceec96ffe392e3782b039b8b8d579f0fe155d796a00bc6fda2b50bd95819c70fc8f8a3c6c79030ffc3cf9dc3bc4d5094043ad59796").unwrap();
-        let recovered = recover_raw_transaction::<SeismicTransactionSigned>(&raw_tx).unwrap();
-        let expected = FixedBytes::<32>::from_str(
-            "5851a99fa362b48fc0cc4cb543555c6afbe3fc826b67395877bf3ba02abb5b0a",
-        )
-        .unwrap();
-        assert_eq!(recovered.tx_hash(), &expected);
+        let recovered = recover_raw_transaction::<SeismicTransactionSigned>(&raw_bytes).unwrap();
+        assert_eq!(recovered.tx_hash(), &hash);
     }
 }

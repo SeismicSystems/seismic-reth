@@ -19,7 +19,7 @@ use revm::{
     database_interface::EmptyDBTyped,
     state::{AccountInfo, Bytecode},
 };
-use seismic_revm::transaction::abstraction::{RngMode, SeismicTransaction};
+use seismic_revm::transaction::abstraction::SeismicTransaction;
 
 fn call_tx(caller: Address, contract_addr: Address, gas_limit: u32) -> SeismicTransaction<TxEnv> {
     SeismicTransaction {
@@ -40,7 +40,6 @@ fn call_tx(caller: Address, contract_addr: Address, gas_limit: u32) -> SeismicTr
             tx_type: 0,
         },
         tx_hash: Default::default(),
-        rng_mode: RngMode::Execution,
         decryption_failed: false,
     }
 }
