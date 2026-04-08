@@ -56,7 +56,7 @@ where
 
         match action {
             SentinelAction::Whitelist { target, expires_at } => {
-                if expires_at <= current_unix_timestamp() {
+                if expires_at <= current_unix_timestamp()? {
                     return Err(rpc_error("ops whitelist expiry must be in the future"));
                 }
                 whitelist.add(target, expires_at);
@@ -189,8 +189,11 @@ where
     Err(rpc_error("unknown ops whitelist sentinel selector"))
 }
 
-fn current_unix_timestamp() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).expect("system clock before unix epoch").as_secs()
+fn current_unix_timestamp() -> Result<u64, SeismicEthApiError> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .map_err(|_| rpc_error("system clock before unix epoch"))
 }
 
 fn rpc_error(message: &'static str) -> SeismicEthApiError {
