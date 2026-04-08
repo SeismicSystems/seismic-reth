@@ -249,10 +249,10 @@ where
             let recovered_address =
                 match alloy_consensus::crypto::secp256k1::recover_signer(&signature, hash) {
                     Ok(addr) => addr,
-                    Err(e) => {
+                    Err(_) => {
                         return Ok(error_response(
                             StatusCode::UNAUTHORIZED,
-                            &format!("Signature recovery failed: {e}"),
+                            "Signature recovery failed",
                         ))
                     }
                 };
