@@ -9,7 +9,6 @@ use alloy_serde::JsonStorageKey;
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use reth_rpc_api::OpsApiServer;
-use reth_rpc_layer::Whitelist;
 use reth_storage_api::{BlockIdReader, StateProviderFactory};
 use reth_tasks::TaskSpawner;
 use tokio::sync::oneshot;
@@ -17,8 +16,8 @@ use tokio::sync::oneshot;
 /// `ops` API implementation.
 ///
 /// Provides privileged storage read operations protected by signature authentication.
-/// - `ops_whitelistKey`: governance-only, adds an address to the whitelist until an absolute expiry
 /// - `ops_getStorageAt`: whitelist-only, reads storage
+/// - `ops_getNonce`: whitelist-only, returns the next expected nonce
 #[derive(Clone)]
 pub struct OpsApi<Provider> {
     inner: Arc<OpsApiInner<Provider>>,
@@ -29,8 +28,6 @@ struct OpsApiInner<Provider> {
     provider: Provider,
     /// Task spawner for blocking IO tasks.
     task_spawner: Box<dyn TaskSpawner>,
-    /// Shared whitelist for temporarily authorized addresses.
-    whitelist: Whitelist,
     /// Shared in-memory next expected nonce per whitelisted signer.
     nonces: Arc<RwLock<HashMap<Address, u64>>>,
 }
@@ -40,10 +37,9 @@ impl<Provider> OpsApi<Provider> {
     pub fn new(
         provider: Provider,
         task_spawner: Box<dyn TaskSpawner>,
-        whitelist: Whitelist,
         nonces: Arc<RwLock<HashMap<Address, u64>>>,
     ) -> Self {
-        let inner = Arc::new(OpsApiInner { provider, task_spawner, whitelist, nonces });
+        let inner = Arc::new(OpsApiInner { provider, task_spawner, nonces });
         Self { inner }
     }
 }
@@ -117,23 +113,6 @@ where
         })
         .await
     }
-
-    async fn whitelist_key(&self, address: Address, expires_at: u64) -> RpcResult<bool> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|_| internal_err("system clock before unix epoch".to_string()))?
-            .as_secs();
-        if expires_at <= now {
-            return Err(invalid_params_err("Expiry timestamp must be in the future".to_string()));
-        }
-
-        self.inner.whitelist.add(address, expires_at);
-        Ok(true)
-    }
-
-    async fn revoke_key(&self, address: Address) -> RpcResult<bool> {
-        Ok(self.inner.whitelist.remove(&address))
-    }
 }
 
 impl<Provider> std::fmt::Debug for OpsApi<Provider> {
@@ -145,14 +124,6 @@ impl<Provider> std::fmt::Debug for OpsApi<Provider> {
 fn internal_err(msg: String) -> jsonrpsee::types::ErrorObject<'static> {
     jsonrpsee::types::ErrorObject::owned(
         jsonrpsee::types::error::INTERNAL_ERROR_CODE,
-        msg,
-        None::<()>,
-    )
-}
-
-fn invalid_params_err(msg: String) -> jsonrpsee::types::ErrorObject<'static> {
-    jsonrpsee::types::ErrorObject::owned(
-        jsonrpsee::types::error::INVALID_PARAMS_CODE,
         msg,
         None::<()>,
     )
