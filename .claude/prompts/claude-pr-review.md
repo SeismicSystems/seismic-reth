@@ -97,6 +97,16 @@ Key seismic-specific endpoints in `crates/seismic/rpc/src/eth/ext.rs`:
 
 Seismic CI enforces `clippy::unwrap_used`, `clippy::expect_used`, `clippy::panic`, `clippy::unreachable`, `clippy::todo` as **errors** in non-test code. Existing `expect()`/`panic!()` calls in production code use explicit `#[allow(...)]` with documented justifications (startup panics in enclave.rs, genesis deserialization in chainspec). New code must follow this pattern.
 
+## Known Antipatterns
+
+These patterns are always bugs in Seismic code. Flag them immediately:
+
+- `ChainSpecBuilder::default()...cancun_activated()` used with `SeismicNode` — must use `SEISMIC_DEV` or `SEISMIC_MAINNET`
+- `MAINNET` chain ID in Seismic test code — Seismic has its own chain IDs (mainnet=5123, dev=5124)
+- Raw `timestamp` in payload attributes without multiplying by `SEISMIC_TIMESTAMP_MULTIPLIER` (1000) — Seismic uses millisecond timestamps
+- Duplicated `ensure_mock_purpose_keys()` — should use the shared helper from `utils.rs`
+- `EthereumNode` used where `SeismicNode` is expected in Seismic E2E tests
+
 ## Review Priorities
 
 ### Phase 1: Critical Issues
@@ -113,6 +123,9 @@ Problems that would cause immediate harm:
 - Race conditions in `RwLock<RecentBlockCache>` or other shared state
 - Breaking API changes not flagged in the PR description
 - **Mock enclave accessible in production** — `--enclave.mock-server` path reachable without the flag
+- **Wrong chain spec for node type** — `ChainSpecBuilder::default()...cancun_activated()` or `MAINNET` used with `SeismicNode`. Seismic nodes must use `SEISMIC_DEV` or `SEISMIC_MAINNET` chain specs.
+- **Missing timestamp multiplier** — Seismic uses millisecond timestamps. Payload attributes must multiply timestamps by 1000 (use `SEISMIC_TIMESTAMP_MULTIPLIER`).
+- **Semantic mismatch** — code that claims to test or set up Seismic functionality but actually uses vanilla Ethereum configuration (wrong chain spec, wrong node type, missing Seismic-specific parameters)
 
 ### Phase 2: Patterns & Principles
 

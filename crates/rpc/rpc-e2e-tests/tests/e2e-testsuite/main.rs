@@ -1,5 +1,6 @@
 //! RPC compatibility tests using execution-apis test data
 
+use alloy_genesis::Genesis;
 use eyre::Result;
 use reth_chainspec::ChainSpec;
 use reth_e2e_test_utils::testsuite::{
@@ -9,7 +10,6 @@ use reth_e2e_test_utils::testsuite::{
 };
 use reth_node_ethereum::{EthEngineTypes, EthereumNode};
 use reth_rpc_e2e_tests::rpc_compat::{InitializeFromExecutionApis, RunRpcCompatTests};
-use seismic_alloy_genesis::Genesis;
 use std::{env, path::PathBuf, sync::Arc};
 use tracing::{debug, info};
 
@@ -20,7 +20,7 @@ use tracing::{debug, info};
 /// 2. Applies the forkchoice state from headfcu.json
 /// 3. Runs tests cases in the local repository, some of which are execution-api tests
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "Imports blocks with non-flagged storage state root"]
+#[ignore = "Seismic FlaggedStorage incompatible — see crates/seismic/node/tests/e2e/rpc_compat.rs"]
 async fn test_local_rpc_tests_compat() -> Result<()> {
     reth_tracing::init_test_tracing();
 

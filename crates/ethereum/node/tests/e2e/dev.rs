@@ -113,6 +113,5 @@ fn custom_chain() -> Arc<ChainSpec> {
 }
 "#;
     let genesis: Genesis = serde_json::from_str(custom_genesis).unwrap();
-    let genesis = seismic_alloy_genesis::Genesis::from(genesis);
     Arc::new(genesis.into())
 }

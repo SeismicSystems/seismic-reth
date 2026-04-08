@@ -723,7 +723,7 @@ mod tests {
         let mut storage = StorageWithOriginalValues::default();
         storage.insert(
             U256::from(1),
-            StorageSlot { present_value: FlaggedStorage::new_from_value(4), ..Default::default() },
+            StorageSlot { present_value: FlaggedStorage::public(4), ..Default::default() },
         );
 
         // Create a `BundleAccount` struct to represent the account and its storage.
@@ -949,8 +949,8 @@ mod tests {
         // don't add the account to state.accounts (simulating unmodified account)
         // but add storage updates for this account
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, FlaggedStorage::new_from_value(1));
-        storage.storage.insert(slot2, FlaggedStorage::new_from_value(2));
+        storage.storage.insert(slot1, FlaggedStorage::public(1));
+        storage.storage.insert(slot2, FlaggedStorage::public(2));
         state.storages.insert(addr, storage);
 
         assert!(!state.accounts.contains_key(&addr));
@@ -985,7 +985,7 @@ mod tests {
                     wiped: true,
                     storage: B256Map::from_iter([
                         (slot1, FlaggedStorage::ZERO),
-                        (slot2, FlaggedStorage::new_from_value(1)),
+                        (slot2, FlaggedStorage::public(1)),
                     ]),
                 },
             )]),
@@ -1016,7 +1016,7 @@ mod tests {
                     addr1,
                     HashedStorage {
                         wiped: false,
-                        storage: B256Map::from_iter([(slot2, FlaggedStorage::new_from_value(1))])
+                        storage: B256Map::from_iter([(slot2, FlaggedStorage::public(1))])
                     }
                 )]),
             }
@@ -1041,7 +1041,7 @@ mod tests {
                     wiped: true,
                     storage: B256Map::from_iter([
                         (slot1, FlaggedStorage::ZERO),
-                        (slot2, FlaggedStorage::new_from_value(1)),
+                        (slot2, FlaggedStorage::public(1)),
                     ]),
                 },
             )]),
@@ -1065,7 +1065,7 @@ mod tests {
                         wiped: false,
                         storage: B256Map::from_iter([
                             (slot1, FlaggedStorage::ZERO),
-                            (slot2, FlaggedStorage::new_from_value(1)),
+                            (slot2, FlaggedStorage::public(1)),
                         ]),
                     },
                 )])
