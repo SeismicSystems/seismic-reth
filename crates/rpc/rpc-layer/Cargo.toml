@@ -12,7 +12,6 @@ workspace = true
 
 [dependencies]
 alloy-consensus.workspace = true
-alloy-eips.workspace = true
 alloy-primitives.workspace = true
 alloy-rpc-types-engine = { workspace = true, features = ["jwt", "serde"] }
 alloy-sol-types.workspace = true
@@ -21,7 +20,6 @@ http.workspace = true
 http-body-util.workspace = true
 jsonrpsee-http-client.workspace = true
 pin-project.workspace = true
-reth-storage-api.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tower.workspace = true

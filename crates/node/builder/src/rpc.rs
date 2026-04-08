@@ -476,6 +476,7 @@ struct RpcSetupContext<'a, Node: FullNodeComponents, EthApi: EthApiTypes> {
     on_rpc_started: Box<dyn OnRpcStarted<Node, EthApi>>,
     engine_events: EventSender<ConsensusEngineEvent<<Node::Types as NodeTypes>::Primitives>>,
     engine_handle: ConsensusEngineHandle<<Node::Types as NodeTypes>::Payload>,
+    ops_whitelist: Option<Whitelist>,
 }
 
 /// Node add-ons containing RPC server configuration, with customizable eth API handler.
@@ -513,6 +514,8 @@ pub struct RpcAddOns<
     rpc_middleware: RpcMiddleware,
     /// Optional custom tokio runtime for the RPC server.
     tokio_runtime: Option<tokio::runtime::Handle>,
+    /// Pre-created ops whitelist shared with the eth API for sentinel tx interception.
+    pub ops_whitelist: Option<Whitelist>,
 }
 
 impl<Node, EthB, PVB, EB, EVB, RpcMiddleware> Debug
@@ -557,6 +560,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime: None,
+            ops_whitelist: None,
         }
     }
 
@@ -572,6 +576,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
             ..
         } = self;
         RpcAddOns {
@@ -582,6 +587,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
         }
     }
 
@@ -597,6 +603,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
             ..
         } = self;
         RpcAddOns {
@@ -607,6 +614,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
         }
     }
 
@@ -622,6 +630,7 @@ where
             engine_api_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
             ..
         } = self;
         RpcAddOns {
@@ -632,6 +641,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
         }
     }
 
@@ -684,6 +694,7 @@ where
             engine_api_builder,
             engine_validator_builder,
             tokio_runtime,
+            ops_whitelist,
             ..
         } = self;
         RpcAddOns {
@@ -694,6 +705,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
         }
     }
 
@@ -708,6 +720,7 @@ where
             engine_validator_builder,
             engine_api_builder,
             rpc_middleware,
+            ops_whitelist,
             ..
         } = self;
         Self {
@@ -718,6 +731,7 @@ where
             engine_api_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
         }
     }
 
@@ -734,6 +748,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
         } = self;
         let rpc_middleware = Stack::new(rpc_middleware, layer);
         RpcAddOns {
@@ -744,6 +759,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
         }
     }
 
@@ -832,6 +848,7 @@ where
             on_rpc_started,
             engine_events,
             engine_handle,
+            ops_whitelist: _,
         } = setup_ctx;
 
         let server_config = config
@@ -906,6 +923,7 @@ where
             on_rpc_started,
             engine_events,
             engine_handle,
+            ops_whitelist,
         } = setup_ctx;
 
         let server_config = config
@@ -936,6 +954,7 @@ where
             node.provider().clone(),
             Box::new(node.task_executor().clone()),
             chain_id,
+            ops_whitelist,
         )
         .await?;
 
@@ -968,7 +987,7 @@ where
     where
         F: FnOnce(RpcModuleContainer<'_, N, EthB::EthApi>) -> eyre::Result<()>,
     {
-        let Self { eth_api_builder, engine_api_builder, hooks, .. } = self;
+        let Self { eth_api_builder, engine_api_builder, hooks, ops_whitelist, .. } = self;
 
         let engine_api = engine_api_builder.build_engine_api(&ctx).await?;
         let AddOnsContext { node, config, beacon_engine_handle, jwt_secret, engine_events } = ctx;
@@ -991,7 +1010,13 @@ where
         );
 
         let eth_config = config.rpc.eth_config().max_batch_size(config.txpool.max_batch_size());
-        let ctx = EthApiCtx { components: &node, config: eth_config, cache };
+        let ops_whitelist = ops_whitelist.or_else(|| config.rpc.ops_enable.then(Whitelist::new));
+        let ctx = EthApiCtx {
+            components: &node,
+            config: eth_config,
+            cache,
+            ops_whitelist: ops_whitelist.clone(),
+        };
         let eth_api = eth_api_builder.build_eth_api(ctx).await?;
 
         let auth_config = config.rpc.auth_server_config(jwt_secret)?;
@@ -1040,6 +1065,7 @@ where
             on_rpc_started,
             engine_events,
             engine_handle: beacon_engine_handle,
+            ops_whitelist,
         })
     }
 
@@ -1085,31 +1111,25 @@ where
     }
 
     /// Helper to launch the ops signature-auth server if enabled.
-    ///
-    /// The authorized signer address is read from a contract storage slot on every request.
     async fn maybe_launch_ops_server<P>(
         config: &NodeConfig<<N::Types as NodeTypes>::ChainSpec>,
         provider: P,
         task_spawner: Box<dyn reth_tasks::TaskSpawner>,
         chain_id: u64,
+        whitelist: Option<Whitelist>,
     ) -> eyre::Result<Option<BodyAuthServerHandle>>
     where
         P: reth_storage_api::StateProviderFactory + reth_storage_api::BlockIdReader + 'static,
     {
-        use alloy_primitives::{address, b256, Address};
-
-        /// The Params contract address holding the authorized signer.
-        const OPS_AUTH_CONTRACT: alloy_primitives::Address =
-            address!("0x0000000000000000000000000000506172616d73");
-        /// Storage slot 0 in the Params contract contains the admin address.
-        const OPS_AUTH_SLOT: alloy_primitives::B256 =
-            b256!("0x0000000000000000000000000000000000000000000000000000000000000000");
+        use reth_rpc_layer::{OPS_AUTH_CONTRACT, OPS_AUTH_SLOT};
 
         if !config.rpc.ops_enable {
             return Ok(None);
         }
 
         let provider = Arc::new(provider);
+
+        // Read governance address for startup validation and logging.
         let governance_address = {
             let state = provider.latest().map_err(|e| {
                 eyre::eyre!("failed to read latest state for ops governance validation: {e}")
@@ -1119,26 +1139,20 @@ where
                 .map_err(|e| eyre::eyre!("failed to read ops governance slot: {e}"))?
                 .ok_or_else(|| eyre::eyre!("ops governance slot is unset"))?;
             let bytes = value.value.to_be_bytes::<32>();
-            let address = Address::from_slice(&bytes[12..]);
+            let address = alloy_primitives::Address::from_slice(&bytes[12..]);
             if address.is_zero() {
                 return Err(eyre::eyre!("ops governance address resolved to zero address"));
             }
             address
         };
 
-        let whitelist = Whitelist::new();
+        let whitelist = whitelist.unwrap_or_default();
+        let mut auth_config = SignatureAuthConfig::new(whitelist, chain_id);
         let nonces = Arc::new(std::sync::RwLock::new(std::collections::HashMap::new()));
-        let mut auth_config = SignatureAuthConfig::new(
-            provider.clone(),
-            OPS_AUTH_CONTRACT,
-            OPS_AUTH_SLOT,
-            whitelist.clone(),
-            chain_id,
-        );
         auth_config.nonces = nonces.clone();
 
         // Create the OpsApi handler.
-        let ops_api = reth_rpc::OpsApi::new(provider, task_spawner, whitelist, nonces);
+        let ops_api = reth_rpc::OpsApi::new(provider, task_spawner, nonces);
 
         // Register it in a module.
         let mut module = BodyAuthRpcModule::empty();
@@ -1235,6 +1249,8 @@ pub struct EthApiCtx<'a, N: FullNodeTypes> {
     pub config: EthConfig,
     /// Cache for eth state
     pub cache: EthStateCache<PrimitivesTy<N::Types>>,
+    /// Shared ops whitelist used by specialized eth APIs.
+    pub ops_whitelist: Option<Whitelist>,
 }
 
 impl<'a, N: FullNodeComponents<Types: NodeTypes<ChainSpec: Hardforks + EthereumHardforks>>>

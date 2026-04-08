@@ -10,7 +10,6 @@ use jsonrpsee::{
 };
 use reth_rpc_eth_types::EthSubscriptionIdProvider;
 use reth_rpc_layer::{SignatureAuthConfig, SignatureAuthLayer};
-use reth_storage_api::StateProviderFactory;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tower::layer::util::Identity;
 
@@ -20,35 +19,33 @@ pub use jsonrpsee::server::ServerBuilder;
 pub const DEFAULT_BODY_AUTH_PORT: u16 = 8552;
 
 /// Server configuration for an RPC server authenticated via secp256k1 signatures.
-///
-/// The authorized signer address is read from a contract storage slot on every request.
 #[derive(Debug)]
-pub struct BodyAuthServerConfig<P, RpcMiddleware = Identity> {
+pub struct BodyAuthServerConfig<RpcMiddleware = Identity> {
     /// Where the server should listen.
     pub(crate) socket_addr: SocketAddr,
     /// Signature authentication configuration.
-    pub(crate) auth_config: SignatureAuthConfig<P>,
+    pub(crate) auth_config: SignatureAuthConfig,
     /// Configs for JSON-RPC Http.
     pub(crate) server_config: ServerConfigBuilder,
     /// Configurable RPC middleware.
     pub(crate) rpc_middleware: RpcMiddleware,
 }
 
-impl<P> BodyAuthServerConfig<P> {
+impl BodyAuthServerConfig {
     /// Convenience function to create a new builder.
-    pub fn builder(auth_config: SignatureAuthConfig<P>) -> BodyAuthServerConfigBuilder<P> {
+    pub fn builder(auth_config: SignatureAuthConfig) -> BodyAuthServerConfigBuilder {
         BodyAuthServerConfigBuilder::new(auth_config)
     }
 }
 
-impl<P, RpcMiddleware> BodyAuthServerConfig<P, RpcMiddleware> {
+impl<RpcMiddleware> BodyAuthServerConfig<RpcMiddleware> {
     /// Returns the address the server will listen on.
     pub const fn address(&self) -> SocketAddr {
         self.socket_addr
     }
 
     /// Configures the rpc middleware.
-    pub fn with_rpc_middleware<T>(self, rpc_middleware: T) -> BodyAuthServerConfig<P, T> {
+    pub fn with_rpc_middleware<T>(self, rpc_middleware: T) -> BodyAuthServerConfig<T> {
         let Self { socket_addr, auth_config, server_config, .. } = self;
         BodyAuthServerConfig { socket_addr, auth_config, server_config, rpc_middleware }
     }
@@ -56,7 +53,6 @@ impl<P, RpcMiddleware> BodyAuthServerConfig<P, RpcMiddleware> {
     /// Convenience function to start a server in one step.
     pub async fn start(self, module: BodyAuthRpcModule) -> Result<BodyAuthServerHandle, RpcError>
     where
-        P: StateProviderFactory + 'static,
         RpcMiddleware: RethRpcMiddleware,
     {
         let Self { socket_addr, auth_config, server_config, rpc_middleware } = self;
@@ -89,16 +85,16 @@ impl<P, RpcMiddleware> BodyAuthServerConfig<P, RpcMiddleware> {
 
 /// Builder type for configuring a [`BodyAuthServerConfig`].
 #[derive(Debug)]
-pub struct BodyAuthServerConfigBuilder<P, RpcMiddleware = Identity> {
+pub struct BodyAuthServerConfigBuilder<RpcMiddleware = Identity> {
     socket_addr: Option<SocketAddr>,
-    auth_config: SignatureAuthConfig<P>,
+    auth_config: SignatureAuthConfig,
     server_config: Option<ServerConfigBuilder>,
     rpc_middleware: RpcMiddleware,
 }
 
-impl<P> BodyAuthServerConfigBuilder<P> {
+impl BodyAuthServerConfigBuilder {
     /// Create a new builder with the given auth configuration.
-    pub fn new(auth_config: SignatureAuthConfig<P>) -> Self {
+    pub fn new(auth_config: SignatureAuthConfig) -> Self {
         Self {
             socket_addr: None,
             auth_config,
@@ -108,9 +104,9 @@ impl<P> BodyAuthServerConfigBuilder<P> {
     }
 }
 
-impl<P, RpcMiddleware> BodyAuthServerConfigBuilder<P, RpcMiddleware> {
+impl<RpcMiddleware> BodyAuthServerConfigBuilder<RpcMiddleware> {
     /// Configures the rpc middleware.
-    pub fn with_rpc_middleware<T>(self, rpc_middleware: T) -> BodyAuthServerConfigBuilder<P, T> {
+    pub fn with_rpc_middleware<T>(self, rpc_middleware: T) -> BodyAuthServerConfigBuilder<T> {
         let Self { socket_addr, auth_config, server_config, .. } = self;
         BodyAuthServerConfigBuilder { socket_addr, auth_config, server_config, rpc_middleware }
     }
@@ -137,7 +133,7 @@ impl<P, RpcMiddleware> BodyAuthServerConfigBuilder<P, RpcMiddleware> {
     }
 
     /// Build the [`BodyAuthServerConfig`].
-    pub fn build(self) -> BodyAuthServerConfig<P, RpcMiddleware> {
+    pub fn build(self) -> BodyAuthServerConfig<RpcMiddleware> {
         BodyAuthServerConfig {
             socket_addr: self.socket_addr.unwrap_or_else(|| {
                 SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_BODY_AUTH_PORT)
@@ -212,12 +208,9 @@ impl BodyAuthRpcModule {
     }
 
     /// Convenience function for starting a server.
-    pub async fn start_server<
-        P: StateProviderFactory + 'static,
-        RpcMiddleware: RethRpcMiddleware,
-    >(
+    pub async fn start_server<RpcMiddleware: RethRpcMiddleware>(
         self,
-        config: BodyAuthServerConfig<P, RpcMiddleware>,
+        config: BodyAuthServerConfig<RpcMiddleware>,
     ) -> Result<BodyAuthServerHandle, RpcError> {
         config.start(self).await
     }

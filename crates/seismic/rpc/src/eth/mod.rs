@@ -34,6 +34,7 @@ use reth_rpc_eth_api::{
     RpcNodeCoreExt, SignableTxRequest,
 };
 use reth_rpc_eth_types::{EthStateCache, FeeHistoryCache, GasPriceOracle};
+use reth_rpc_layer::Whitelist;
 use reth_storage_api::{BlockReader, ProviderHeader, ProviderTx};
 use reth_tasks::{
     pool::{BlockingTaskGuard, BlockingTaskPool},
@@ -152,6 +153,8 @@ impl<T> SeismicNodeCore for T where T: RpcNodeCore<Provider: BlockReader> {}
 pub struct SeismicEthApi<N: SeismicNodeCore, Rpc: RpcConvert> {
     /// Inner `Eth` API implementation.
     pub inner: Arc<EthApiInner<N, Rpc>>,
+    /// Shared ops whitelist used to intercept sentinel transactions.
+    pub ops_whitelist: Option<Whitelist>,
 }
 
 impl<N: RpcNodeCore, Rpc: RpcConvert> SeismicEthApi<N, Rpc> {
@@ -388,6 +391,7 @@ where
     type EthApi = SeismicEthApi<N, SeismicRpcConvert<N, NetworkT>>;
 
     async fn build_eth_api(self, ctx: EthApiCtx<'_, N>) -> eyre::Result<Self::EthApi> {
+        let ops_whitelist = ctx.ops_whitelist.clone();
         let receipt_converter = SeismicReceiptConverter::new();
 
         let rpc_converter: SeismicRpcConvert<N, NetworkT> = RpcConverter::new(receipt_converter)
@@ -396,6 +400,6 @@ where
 
         let eth_api = ctx.eth_api_builder().with_rpc_converter(rpc_converter).build_inner();
 
-        Ok(SeismicEthApi { inner: Arc::new(eth_api) })
+        Ok(SeismicEthApi { inner: Arc::new(eth_api), ops_whitelist })
     }
 }
