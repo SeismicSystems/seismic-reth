@@ -519,11 +519,6 @@ where
         // Wrap the eth validator with seismic-specific validation
         let validator = eth_validator.map(reth_seismic_txpool::SeismicTransactionValidator::new);
 
-        // Disable native balance checks in the pool so that transactions from senders with
-        // zero ETH but sufficient USDC are not demoted to the queued sub-pool when the pool
-        // re-evaluates balances on new blocks.
-        let pool_config = pool_config.with_disabled_balance_check();
-
         let transaction_pool = reth_transaction_pool::Pool::new(
             validator,
             CoinbaseTipOrdering::default(),
@@ -553,10 +548,12 @@ reth_transaction_pool::maintain::LocalTransactionBackupConfig::with_local_txs_ba
                 },
             );
 
-            // spawn the maintenance task
+            // spawn the maintenance task with USDC balance augmentation
+            let balance_hook =
+                reth_seismic_txpool::SeismicBalanceHook::new(client.clone());
             ctx.task_executor().spawn_critical(
                 "txpool maintenance task",
-                reth_transaction_pool::maintain::maintain_transaction_pool_future(
+                reth_transaction_pool::maintain::maintain_transaction_pool_future_with_hook(
                     client,
                     pool,
                     chain_events,
@@ -565,6 +562,7 @@ reth_transaction_pool::maintain::LocalTransactionBackupConfig::with_local_txs_ba
                         max_tx_lifetime: transaction_pool.config().max_queued_lifetime,
                         ..Default::default()
                     },
+                    balance_hook,
                 ),
             );
             // debug!(target: "reth::cli", "Spawned txpool maintenance task");

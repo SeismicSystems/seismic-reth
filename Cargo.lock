@@ -9502,6 +9502,7 @@ dependencies = [
  "c-kzg",
  "derive_more 2.1.1",
  "reth-chainspec",
+ "reth-execution-types",
  "reth-primitives-traits",
  "reth-provider",
  "reth-seismic-chainspec",
@@ -9509,6 +9510,7 @@ dependencies = [
  "reth-transaction-pool",
  "seismic-alloy-consensus",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

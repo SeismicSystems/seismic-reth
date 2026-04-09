@@ -2,9 +2,11 @@
 
 use crate::recent_block_cache::RecentBlockCache;
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{Sealable, TxKind, B256, U256};
+use alloy_primitives::{Sealable, TxKind, B256};
 use reth_chainspec::ChainSpecProvider;
-use reth_primitives_traits::{transaction::error::InvalidTransactionError, Block};
+use reth_primitives_traits::{
+    transaction::error::InvalidTransactionError, Block, GotExpected,
+};
 use reth_provider::{BlockReaderIdExt, StateProviderFactory};
 use reth_seismic_primitives::{transaction::error::SeismicTxError, SeismicTransactionSigned};
 use reth_transaction_pool::{
@@ -139,14 +141,32 @@ where
                     }
                 }
 
-                // All validations passed, return valid.
-                // Report U256::MAX as the sender balance so the pool sets ENOUGH_BALANCE and
-                // promotes the transaction to the pending sub-pool. Gas on Seismic is paid in
-                // USDC (not native ETH), so the native balance is irrelevant for ordering;
-                // the actual USDC deduction is enforced by the Seismic revm at execution time.
-                let _ = balance;
+                // Compute the effective balance: max(native, usdc_scaled).
+                // Gas on Seismic can be paid in either native token or USDC, so
+                // we consider both when deciding pool admission.
+                let sender = *valid_tx.transaction().sender_ref();
+                let cost = *valid_tx.transaction().cost();
+                let eff_balance = match self.inner.client().latest() {
+                    Ok(state) => {
+                        crate::usdc::effective_balance(&*state, &sender, balance)
+                    }
+                    // If we can't read state, fall back to native balance only.
+                    Err(_) => balance,
+                };
+
+                // Reject if the sender cannot afford the transaction with either token.
+                if cost > eff_balance {
+                    return TransactionValidationOutcome::Invalid(
+                        valid_tx.into_transaction(),
+                        InvalidTransactionError::InsufficientFunds(
+                            GotExpected { got: eff_balance, expected: cost }.into(),
+                        )
+                        .into(),
+                    );
+                }
+
                 TransactionValidationOutcome::Valid {
-                    balance: U256::MAX,
+                    balance: eff_balance,
                     state_nonce,
                     transaction: valid_tx,
                     propagate,

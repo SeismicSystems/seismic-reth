@@ -91,6 +91,22 @@ impl LocalTransactionBackupConfig {
     }
 }
 
+/// Hook to transform changed accounts before they are passed to the pool.
+///
+/// This is used by Seismic to augment native balances with USDC balances so that
+/// the pool can make accurate demotion decisions for accounts paying gas in USDC.
+pub trait ChangedAccountsHook: Send + Sync + 'static {
+    /// Transforms the changed accounts list in place.  Implementations may read
+    /// additional state (e.g. ERC-20 storage) and adjust the `balance` field of
+    /// each [`ChangedAccount`].
+    fn transform(&self, accounts: &mut Vec<ChangedAccount>);
+}
+
+/// No-op implementation for chains that don't need balance augmentation.
+impl ChangedAccountsHook for () {
+    fn transform(&self, _accounts: &mut Vec<ChangedAccount>) {}
+}
+
 /// Returns a spawnable future for maintaining the state of the transaction pool.
 pub fn maintain_transaction_pool_future<N, Client, P, St, Tasks>(
     client: Client,
@@ -110,8 +126,33 @@ where
     St: Stream<Item = CanonStateNotification<N>> + Send + Unpin + 'static,
     Tasks: TaskSpawner + 'static,
 {
+    maintain_transaction_pool_future_with_hook(client, pool, events, task_spawner, config, ())
+}
+
+/// Like [`maintain_transaction_pool_future`] but accepts a [`ChangedAccountsHook`]
+/// that can transform account balances before the pool processes them.
+pub fn maintain_transaction_pool_future_with_hook<N, Client, P, St, Tasks, H>(
+    client: Client,
+    pool: P,
+    events: St,
+    task_spawner: Tasks,
+    config: MaintainPoolConfig,
+    hook: H,
+) -> BoxFuture<'static, ()>
+where
+    N: NodePrimitives,
+    Client: StateProviderFactory
+        + BlockReaderIdExt<Header = N::BlockHeader>
+        + ChainSpecProvider<ChainSpec: EthChainSpec<Header = N::BlockHeader>>
+        + Clone
+        + 'static,
+    P: TransactionPoolExt<Transaction: PoolTransaction<Consensus = N::SignedTx>> + 'static,
+    St: Stream<Item = CanonStateNotification<N>> + Send + Unpin + 'static,
+    Tasks: TaskSpawner + 'static,
+    H: ChangedAccountsHook,
+{
     async move {
-        maintain_transaction_pool(client, pool, events, task_spawner, config).await;
+        maintain_transaction_pool_with_hook(client, pool, events, task_spawner, config, hook).await;
     }
     .boxed()
 }
@@ -122,7 +163,7 @@ where
 pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
     client: Client,
     pool: P,
-    mut events: St,
+    events: St,
     task_spawner: Tasks,
     config: MaintainPoolConfig,
 ) where
@@ -135,6 +176,30 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
     P: TransactionPoolExt<Transaction: PoolTransaction<Consensus = N::SignedTx>> + 'static,
     St: Stream<Item = CanonStateNotification<N>> + Send + Unpin + 'static,
     Tasks: TaskSpawner + 'static,
+{
+    maintain_transaction_pool_with_hook(client, pool, events, task_spawner, config, ()).await
+}
+
+/// Like [`maintain_transaction_pool`] but accepts a [`ChangedAccountsHook`] that
+/// can transform account balances before the pool processes them.
+pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
+    client: Client,
+    pool: P,
+    mut events: St,
+    task_spawner: Tasks,
+    config: MaintainPoolConfig,
+    hook: H,
+) where
+    N: NodePrimitives,
+    Client: StateProviderFactory
+        + BlockReaderIdExt<Header = N::BlockHeader>
+        + ChainSpecProvider<ChainSpec: EthChainSpec<Header = N::BlockHeader>>
+        + Clone
+        + 'static,
+    P: TransactionPoolExt<Transaction: PoolTransaction<Consensus = N::SignedTx>> + 'static,
+    St: Stream<Item = CanonStateNotification<N>> + Send + Unpin + 'static,
+    Tasks: TaskSpawner + 'static,
+    H: ChangedAccountsHook,
 {
     let metrics = MaintainPoolMetrics::default();
     let MaintainPoolConfig { max_update_depth, max_reload_accounts, .. } = config;
@@ -286,10 +351,11 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
         }
         // handle the result of the account reload
         match reloaded {
-            Some(Ok(Ok(LoadedAccounts { accounts, failed_to_load }))) => {
+            Some(Ok(Ok(LoadedAccounts { mut accounts, failed_to_load }))) => {
                 // reloaded accounts successfully
                 // extend accounts we failed to load from database
                 dirty_addresses.extend(failed_to_load);
+                hook.transform(&mut accounts);
                 // update the pool with the loaded accounts
                 pool.update_accounts(accounts);
             }
@@ -369,6 +435,7 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
                 // also include all accounts from new chain
                 // we can use extend here because they are unique
                 changed_accounts.extend(new_changed_accounts.into_iter().map(|entry| entry.0));
+                hook.transform(&mut changed_accounts);
 
                 // all transactions mined in the new chain
                 let new_mined_transactions: HashSet<_> = new_blocks.transaction_hashes().collect();
@@ -473,6 +540,7 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
                     dirty_addresses.remove(&acc.address);
                     changed_accounts.push(acc);
                 }
+                hook.transform(&mut changed_accounts);
 
                 let mined_transactions = blocks.transaction_hashes().collect();
 
