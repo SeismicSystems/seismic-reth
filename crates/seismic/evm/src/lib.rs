@@ -127,8 +127,7 @@ impl ConfigureEvm for SeismicEvmConfig {
         let spec = SeismicSpecId::MERCURY;
 
         // configure evm env based on parent block
-        let mut cfg_env =
-            CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
+        let cfg_env = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
 
         let block_env = BlockEnv {
             number: U256::from(header.number()),
@@ -156,8 +155,7 @@ impl ConfigureEvm for SeismicEvmConfig {
         let spec_id = revm_spec(self.chain_spec(), parent);
 
         // configure evm env based on parent block
-        let mut cfg =
-            CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
+        let cfg = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
 
         // if the parent block did not have excess blob gas (i.e. it was pre-cancun), but it is
         // cancun now, we need to set the excess blob gas to the default value(0)
@@ -253,7 +251,7 @@ impl ConfigureEngineEvm<ExecutionData> for SeismicEvmConfig {
         };
         let spec_id = revm_spec(self.chain_spec(), &temp_header);
 
-        let mut cfg_env =
+        let cfg_env =
             CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
 
         let blob_excess_gas_and_price = payload

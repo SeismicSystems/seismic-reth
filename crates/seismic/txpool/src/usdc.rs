@@ -27,6 +27,7 @@ fn usdc_balance_storage_key(address: &Address) -> B256 {
     // address is 20 bytes, right-aligned in the first 32-byte word
     buf[12..32].copy_from_slice(address.as_slice());
     // second 32-byte word: slot number (0) — already zeroed
+    #[allow(clippy::indexing_slicing)]
     BALANCES_MAPPING_SLOT.to_be_bytes::<32>().iter().enumerate().for_each(|(i, &b)| {
         buf[32 + i] = b;
     });

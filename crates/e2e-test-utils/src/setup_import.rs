@@ -11,7 +11,7 @@ use reth_db::DatabaseEnv;
 use reth_engine_local::LocalPayloadAttributesBuilder;
 use reth_evm::ConfigureEvm;
 use reth_node_api::{NodeTypes, NodeTypesWithDBAdapter, PayloadTypes, TreeConfig};
-use reth_node_builder::{EngineNodeLauncher, Node, NodeBuilder, NodeConfig, NodeHandle};
+use reth_node_builder::{EngineNodeLauncher, NodeBuilder, NodeConfig, NodeHandle};
 use reth_node_core::args::{DiscoveryArgs, NetworkArgs, RpcServerArgs};
 use reth_node_ethereum::EthereumNode;
 use reth_provider::{

@@ -22,7 +22,6 @@ use alloy_eips::BlockId;
 use alloy_primitives::{Address, Bytes, U256};
 use futures::Future;
 use reth_evm::{ConfigureEvm, SpecFor, TxEnvFor};
-use seismic_revm::SeismicTransaction;
 use reth_node_api::{FullNodeComponents, HeaderTy};
 use reth_node_builder::rpc::{EthApiBuilder, EthApiCtx};
 use reth_rpc::{
@@ -34,8 +33,8 @@ use reth_rpc_eth_api::{
         pending_block::BuildPendingEnv, spec::SignersForApi, AddDevSigners, EthApiSpec, EthCall,
         EthFees, EthState, LoadFee, LoadPendingBlock, LoadState, SpawnBlocking, Trace,
     },
-    EthApiTypes, FromEthApiError, FromEvmError, FullEthApiServer, RpcConvert, RpcConverter, RpcNodeCore,
-    RpcNodeCoreExt, SignableTxRequest,
+    EthApiTypes, FromEthApiError, FromEvmError, FullEthApiServer, RpcConvert, RpcConverter,
+    RpcNodeCore, RpcNodeCoreExt, SignableTxRequest,
 };
 use reth_rpc_eth_types::{EthStateCache, FeeHistoryCache, GasPriceOracle};
 use reth_rpc_layer::Whitelist;
@@ -45,6 +44,7 @@ use reth_tasks::{
     TaskSpawner,
 };
 use seismic_alloy_network::SeismicReth;
+use seismic_revm::SeismicTransaction;
 use std::{fmt, marker::PhantomData, sync::Arc};
 
 use reth_rpc_convert::transaction::{EthTxEnvError, TryIntoTxEnv};
@@ -309,7 +309,7 @@ where
         TxEnv = TxEnvFor<N::Evm>,
         Spec = SpecFor<N::Evm>,
     >,
-    <<SeismicEthApi<N, Rpc> as EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest:
+    <<Self as EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest:
         From<alloy_rpc_types_eth::TransactionRequest>,
     Self: LoadPendingBlock + EthCall,
 {
@@ -345,7 +345,9 @@ where
         // Selector: keccak256("balanceOf(address)")[0:4] = 0x70a08231
         // ABI-encoded argument: address left-padded to 32 bytes (right-aligned).
         let mut calldata = vec![0u8; 36];
+        #[allow(clippy::indexing_slicing)]
         calldata[0..4].copy_from_slice(&[0x70, 0xa0, 0x82, 0x31]);
+        #[allow(clippy::indexing_slicing)]
         calldata[16..36].copy_from_slice(address.as_slice());
 
         let request = TransactionRequest {
@@ -371,7 +373,9 @@ where
         async move {
             // Get USDC balance and scale from 6 to 18 decimals.
             let usdc_balance = match usdc_fut.await {
-                Ok(result) if result.len() >= 32 => {
+                Ok(result) if result.len() >= 32 =>
+                {
+                    #[allow(clippy::indexing_slicing)]
                     U256::from_be_slice(&result[..32]).saturating_mul(USDC_DECIMAL_SCALE)
                 }
                 _ => U256::ZERO,

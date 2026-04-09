@@ -4,9 +4,7 @@ use crate::recent_block_cache::RecentBlockCache;
 use alloy_consensus::BlockHeader;
 use alloy_primitives::{Sealable, TxKind, B256};
 use reth_chainspec::ChainSpecProvider;
-use reth_primitives_traits::{
-    transaction::error::InvalidTransactionError, Block, GotExpected,
-};
+use reth_primitives_traits::{transaction::error::InvalidTransactionError, Block, GotExpected};
 use reth_provider::{BlockReaderIdExt, StateProviderFactory};
 use reth_seismic_primitives::{transaction::error::SeismicTxError, SeismicTransactionSigned};
 use reth_transaction_pool::{
@@ -147,9 +145,7 @@ where
                 let sender = *valid_tx.transaction().sender_ref();
                 let cost = *valid_tx.transaction().cost();
                 let eff_balance = match self.inner.client().latest() {
-                    Ok(state) => {
-                        crate::usdc::effective_balance(&*state, &sender, balance)
-                    }
+                    Ok(state) => crate::usdc::effective_balance(&*state, &sender, balance),
                     // If we can't read state, fall back to native balance only.
                     Err(_) => balance,
                 };
