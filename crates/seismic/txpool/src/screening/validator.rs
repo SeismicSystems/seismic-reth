@@ -5,19 +5,31 @@
 //! protocol invariants enforced by
 //! [`SeismicTransactionValidator`](crate::SeismicTransactionValidator).
 
-use super::{calldata::extract_addresses, client::ScreeningClient, metrics::ScreeningMetrics};
+use super::{
+    calldata::{extract_addresses, extract_addresses_with_input},
+    client::ScreeningClient,
+    metrics::ScreeningMetrics,
+};
+use alloy_consensus::Transaction;
+use alloy_eips::eip2718::Typed2718;
 use reth_primitives_traits::{transaction::error::InvalidTransactionError, Block};
 use reth_transaction_pool::{
     error::InvalidPoolTransactionError,
     validate::{TransactionValidationOutcome, TransactionValidator},
     PoolTransaction, TransactionOrigin,
 };
+use seismic_alloy_consensus::{InputDecryptionElements, SeismicTxType};
+use seismic_enclave::GetPurposeKeysResponse;
 use std::time::Instant;
 
 /// Wraps any `TransactionValidator` and adds ECSD address screening.
 ///
 /// This is an **operator-policy** layer, not a protocol invariant.
 /// Validators opt in to screening by enabling it via CLI flags.
+///
+/// For Seismic transactions with encrypted calldata, the validator attempts
+/// decryption before extracting addresses. If decryption fails, screening is
+/// skipped (the tx enters the pool unscreened).
 ///
 /// The validation chain is:
 /// ```text
@@ -30,6 +42,8 @@ pub struct ScreeningTransactionValidator<V> {
     inner: V,
     /// gRPC client for the ECSD sidecar.
     client: ScreeningClient,
+    /// Purpose keys for decrypting Seismic transaction calldata before screening.
+    purpose_keys: &'static GetPurposeKeysResponse,
     /// Runtime metrics.
     metrics: ScreeningMetrics,
 }
@@ -45,15 +59,21 @@ impl<V: std::fmt::Debug> std::fmt::Debug for ScreeningTransactionValidator<V> {
 
 impl<V> ScreeningTransactionValidator<V> {
     /// Creates a new screening validator wrapping the given inner validator.
-    pub fn new(inner: V, client: ScreeningClient) -> Self {
-        Self { inner, client, metrics: ScreeningMetrics::default() }
+    pub fn new(
+        inner: V,
+        client: ScreeningClient,
+        purpose_keys: &'static GetPurposeKeysResponse,
+    ) -> Self {
+        Self { inner, client, purpose_keys, metrics: ScreeningMetrics::default() }
     }
 }
 
 impl<V> TransactionValidator for ScreeningTransactionValidator<V>
 where
     V: TransactionValidator,
-    V::Transaction: PoolTransaction + alloy_consensus::Transaction,
+    V::Transaction: PoolTransaction<Consensus: InputDecryptionElements>
+        + alloy_consensus::Transaction
+        + Typed2718,
 {
     type Transaction = V::Transaction;
 
@@ -74,11 +94,44 @@ where
                 bytecode_hash,
                 authorities,
             } => {
-                // Extract all screenable addresses
                 let extraction_start = Instant::now();
-                let addresses = extract_addresses(valid_tx.transaction());
-                let extraction_duration = extraction_start.elapsed();
-                self.metrics.address_extraction_duration.record(extraction_duration.as_secs_f64());
+
+                // For non-Seismic txs, calldata is already plaintext — extract.
+                // For Seismic txs, decrypt first so we can screen real calldata.
+                let addresses = if valid_tx.transaction().ty() != SeismicTxType::Seismic as u8 {
+                    extract_addresses(valid_tx.transaction())
+                } else {
+                    let consensus_tx = valid_tx.transaction().clone_into_consensus();
+                    let sender = *consensus_tx.signer_ref();
+                    match consensus_tx.inner().plaintext_copy(&self.purpose_keys.tx_io_sk, sender) {
+                        Ok(plaintext_tx) => extract_addresses_with_input(
+                            valid_tx.transaction(),
+                            plaintext_tx.input(),
+                        ),
+                        Err(err) => {
+                            // Decryption failed — skip screening entirely.
+                            // The tx enters the pool unscreened.
+                            tracing::debug!(
+                                target: "txpool::screening",
+                                tx_hash = %valid_tx.hash(),
+                                %err,
+                                "skipping screening: calldata decryption failed"
+                            );
+                            return TransactionValidationOutcome::Valid {
+                                balance,
+                                state_nonce,
+                                transaction: valid_tx,
+                                propagate,
+                                bytecode_hash,
+                                authorities,
+                            };
+                        }
+                    }
+                };
+
+                self.metrics
+                    .address_extraction_duration
+                    .record(extraction_start.elapsed().as_secs_f64());
                 self.metrics.addresses_per_request.record(addresses.len() as f64);
 
                 // Format for gRPC

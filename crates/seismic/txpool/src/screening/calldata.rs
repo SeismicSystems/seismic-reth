@@ -41,6 +41,19 @@ pub fn extract_addresses<T>(tx: &T) -> Vec<Address>
 where
     T: PoolTransaction + alloy_consensus::Transaction,
 {
+    extract_addresses_with_input(tx, tx.input())
+}
+
+/// Like [`extract_addresses`] but uses a provided `input` for calldata parsing
+/// instead of `tx.input()`. This allows screening decrypted calldata while still
+/// extracting sender/recipient/access-list addresses from the original tx.
+pub(crate) fn extract_addresses_with_input<T: PoolTransaction>(
+    tx: &T,
+    input: &Bytes,
+) -> Vec<Address>
+where
+    T: alloy_consensus::Transaction,
+{
     let mut addrs = Vec::new();
 
     // 1. Sender
@@ -66,7 +79,7 @@ where
     }
 
     // 5. ERC-20/ERC-721/ERC-1155 calldata addresses
-    extract_calldata_addresses(tx.input(), &mut addrs);
+    extract_calldata_addresses(input, &mut addrs);
 
     // Deduplicate
     addrs.sort_unstable();

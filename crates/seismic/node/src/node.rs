@@ -517,11 +517,13 @@ where
                     fail_mode = %args.fail_mode,
                     "Address screening enabled via ECSD sidecar"
                 );
+                let purpose_keys = crate::purpose_keys::get_purpose_keys();
                 seismic_validator.map(|inner| {
                     futures_util::future::Either::Right(
                         reth_seismic_txpool::ScreeningTransactionValidator::new(
                             inner,
                             screening_client.clone(),
+                            purpose_keys,
                         ),
                     )
                 })
