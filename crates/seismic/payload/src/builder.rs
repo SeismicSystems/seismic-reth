@@ -168,11 +168,17 @@ where
     let block_gas_limit: u64 = builder.evm_mut().block().gas_limit;
     let base_fee = builder.evm_mut().block().basefee;
 
-    let mut best_txs = best_txs(BestTransactionsAttributes::new(
+    let blob_gasprice = builder.evm_mut().block().blob_gasprice().map(|gasprice| gasprice as u64);
+    debug!(
+        target: "payload_builder",
+        id=%attributes.id,
         base_fee,
-        builder.evm_mut().block().blob_gasprice().map(|gasprice| gasprice as u64),
-    ));
+        ?blob_gasprice,
+        "requesting best transactions from pool"
+    );
+    let mut best_txs = best_txs(BestTransactionsAttributes::new(base_fee, blob_gasprice));
     let mut total_fees = U256::ZERO;
+    let mut considered_count: usize = 0;
 
     builder.apply_pre_execution_changes().map_err(|err| {
         warn!(target: "payload_builder", %err, "failed to apply pre-execution changes");
@@ -180,6 +186,16 @@ where
     })?;
 
     while let Some(pool_tx) = best_txs.next() {
+        considered_count += 1;
+        debug!(
+            target: "payload_builder",
+            id=%attributes.id,
+            tx_hash=%pool_tx.hash(),
+            sender=%pool_tx.sender(),
+            tx_nonce=pool_tx.nonce(),
+            max_fee_per_gas=pool_tx.max_fee_per_gas(),
+            "considering pooled tx for inclusion"
+        );
         // ensure we still have capacity for this transaction
         if cumulative_gas_used + pool_tx.gas_limit() > block_gas_limit {
             // we can't fit this transaction into the block, so we need to mark it as invalid
@@ -245,6 +261,14 @@ where
         total_fees += U256::from(miner_fee) * U256::from(gas_used);
         cumulative_gas_used += gas_used;
     }
+
+    debug!(
+        target: "payload_builder",
+        id=%attributes.id,
+        considered_count,
+        cumulative_gas_used,
+        "finished iterating best transactions"
+    );
 
     // check if we have a better block
     if !is_better_payload(best_payload.as_ref(), total_fees) {

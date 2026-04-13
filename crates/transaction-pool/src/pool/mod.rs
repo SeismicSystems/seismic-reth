@@ -511,8 +511,18 @@ where
                 let added = pool.add_transaction(tx, balance, state_nonce, bytecode_hash)?;
                 let hash = *added.hash();
                 let subpool = added.subpool();
+                // Logged under both `txpool` and `seismic::txpool` so it is visible whether
+                // operators filter for the generic pool target or the seismic one.
                 debug!(
                     target: "txpool",
+                    tx_hash = %hash,
+                    ?subpool,
+                    reported_balance = %balance,
+                    state_nonce,
+                    "transaction added to pool"
+                );
+                debug!(
+                    target: "seismic::txpool",
                     tx_hash = %hash,
                     ?subpool,
                     reported_balance = %balance,

@@ -165,6 +165,8 @@ where
                     target: "seismic::txpool",
                     %sender,
                     tx_hash = %valid_tx.hash(),
+                    tx_nonce = valid_tx.nonce(),
+                    state_nonce,
                     native_balance = %balance,
                     usdc_scaled_balance = %usdc_raw,
                     effective_balance = %eff_balance,
