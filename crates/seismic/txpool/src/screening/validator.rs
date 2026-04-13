@@ -159,6 +159,9 @@ where
                     }
                     Ok(flagged) => {
                         self.metrics.flagged_transactions.increment(1);
+                        // Log flagged addresses server-side for operator visibility,
+                        // but return a generic error to the caller to avoid leaking
+                        // which specific addresses are on the blocklist.
                         tracing::info!(
                             target: "txpool::screening",
                             tx_hash = %valid_tx.hash(),
@@ -168,9 +171,9 @@ where
                         TransactionValidationOutcome::Invalid(
                             valid_tx.into_transaction(),
                             InvalidPoolTransactionError::Consensus(
-                                InvalidTransactionError::SeismicTx(format!(
-                                    "address screening: flagged addresses {flagged:?}"
-                                )),
+                                InvalidTransactionError::SeismicTx(
+                                    "transaction rejected by address screening".to_string(),
+                                ),
                             ),
                         )
                     }

@@ -63,7 +63,7 @@ pub struct ScreeningClient {
 }
 
 struct ScreeningClientInner {
-    client: tokio::sync::Mutex<EcSdClient<tonic::transport::Channel>>,
+    client: EcSdClient<tonic::transport::Channel>,
     fail_mode: ScreeningFailMode,
     timeout: Duration,
 }
@@ -91,13 +91,11 @@ impl ScreeningClient {
     ) -> Result<Vec<String>, ScreeningError> {
         let request = tonic::Request::new(BatchCheckRequest { addresses, hops: None });
 
+        let mut client = self.inner.client.clone();
         let result: Result<
             Result<tonic::Response<BatchCheckResponse>, tonic::Status>,
             tokio::time::error::Elapsed,
-        > = {
-            let mut client = self.inner.client.lock().await;
-            tokio::time::timeout(self.inner.timeout, client.batch_check_addresses(request)).await
-        };
+        > = tokio::time::timeout(self.inner.timeout, client.batch_check_addresses(request)).await;
 
         match result {
             Ok(Ok(response)) => Ok(response.into_inner().found),
@@ -168,7 +166,7 @@ impl ScreeningClientBuilder {
 
         Ok(ScreeningClient {
             inner: Arc::new(ScreeningClientInner {
-                client: tokio::sync::Mutex::new(client),
+                client,
                 fail_mode: self.fail_mode,
                 timeout: self.timeout,
             }),
