@@ -1,7 +1,7 @@
 //! Utilities for reading USDC balances from contract storage.
 //!
-//! The Seismic USDC predeploy is a standard `OpenZeppelin` ERC20 whose `_balances`
-//! mapping lives at storage slot 0.  We read balances directly from storage
+//! The Seismic USDC predeploy stores its `_balances` mapping at storage slot 3.
+//! We read balances directly from storage
 //! (cheap) rather than executing an EVM `balanceOf` call (expensive).
 
 use alloy_primitives::{keccak256, Address, B256, U256};
@@ -14,8 +14,8 @@ pub const USDC_CONTRACT: Address =
 /// Scale factor to convert USDC (6 decimals) to 18 decimals: 10^12.
 pub const USDC_DECIMAL_SCALE: U256 = U256::from_limbs([1_000_000_000_000u64, 0, 0, 0]);
 
-/// Storage slot of the `_balances` mapping (`OpenZeppelin` ERC20, first state variable).
-const BALANCES_MAPPING_SLOT: U256 = U256::ZERO;
+/// Storage slot of the `_balances` mapping in the USDC predeploy contract.
+const BALANCES_MAPPING_SLOT: U256 = U256::from_limbs([3, 0, 0, 0]);
 
 /// Computes the storage key for `_balances[address]`.
 ///
