@@ -7,6 +7,7 @@
 pub(crate) mod calldata;
 mod client;
 mod metrics;
+#[allow(clippy::derive_partial_eq_without_eq, clippy::missing_const_for_fn, clippy::doc_markdown)]
 pub mod proto;
 mod validator;
 

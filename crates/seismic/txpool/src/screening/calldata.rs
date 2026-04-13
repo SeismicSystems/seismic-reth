@@ -138,8 +138,8 @@ pub fn extract_calldata_addresses(input: &Bytes, addrs: &mut Vec<Address>) {
 /// Returns `None` if the data is too short or the upper 12 bytes are not zero
 /// (malformed ABI encoding).
 fn decode_address_word(data: &[u8], word_index: usize) -> Option<Address> {
-    let start = word_index * 32;
-    let end = start + 32;
+    let start = word_index.checked_mul(32)?;
+    let end = start.checked_add(32)?;
     if data.len() < end {
         return None;
     }

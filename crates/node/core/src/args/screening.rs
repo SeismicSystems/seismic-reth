@@ -50,7 +50,7 @@ mod tests {
     use clap::{Args, Parser};
 
     /// A helper type to parse Args more easily
-    #[derive(Parser)]
+    #[derive(Debug, Parser)]
     struct CommandParser<T: Args> {
         #[command(flatten)]
         args: T,

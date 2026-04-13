@@ -56,7 +56,7 @@ use crate::seismic_evm_config;
 /// Storage implementation for Seismic.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 /// Type configuration for a regular Seismic node.
 pub struct SeismicNode {
@@ -64,15 +64,9 @@ pub struct SeismicNode {
     pub screening_args: Option<reth_node_core::args::ScreeningArgs>,
 }
 
-impl Default for SeismicNode {
-    fn default() -> Self {
-        Self { screening_args: None }
-    }
-}
-
 impl SeismicNode {
     /// Creates a new `SeismicNode` with optional address screening configuration.
-    pub fn new(screening_args: Option<reth_node_core::args::ScreeningArgs>) -> Self {
+    pub const fn new(screening_args: Option<reth_node_core::args::ScreeningArgs>) -> Self {
         Self { screening_args }
     }
 
