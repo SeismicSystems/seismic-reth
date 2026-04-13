@@ -24,20 +24,23 @@ use reth_node_core::{
 };
 use reth_payload_builder::{PayloadBuilderHandle, PayloadStore};
 use reth_rpc::eth::{core::EthRpcConverterFor, EthApiTypes, FullEthApiServer};
-use reth_rpc_api::{eth::helpers::AddDevSigners, IntoEngineApiRpcModule};
+use reth_rpc_api::{eth::helpers::AddDevSigners, IntoEngineApiRpcModule, OpsApiServer};
 use reth_rpc_builder::{
     auth::{AuthRpcModule, AuthServerHandle},
+    body_auth::{BodyAuthRpcModule, BodyAuthServerConfig, BodyAuthServerHandle},
     config::RethRpcServerConfig,
     RpcModuleBuilder, RpcRegistryInner, RpcServerConfig, RpcServerHandle, TransportRpcModules,
 };
 use reth_rpc_engine_api::{capabilities::EngineCapabilities, EngineApi};
 use reth_rpc_eth_types::{cache::cache_new_blocks_task, EthConfig, EthStateCache};
+use reth_rpc_layer::{SignatureAuthConfig, Whitelist};
 use reth_tokio_util::EventSender;
 use reth_tracing::tracing::{debug, info};
 use std::{
     fmt::{self, Debug},
     future::Future,
     ops::{Deref, DerefMut},
+    sync::Arc,
 };
 
 /// Contains the handles to the spawned RPC servers.
@@ -49,6 +52,8 @@ pub struct RethRpcServerHandles {
     pub rpc: RpcServerHandle,
     /// The handle to the auth server (engine API)
     pub auth: AuthServerHandle,
+    /// The handle to the ops threshold-auth server, if enabled.
+    pub ops: Option<reth_rpc_builder::body_auth::BodyAuthServerHandle>,
 }
 
 /// Contains hooks that are called during the rpc setup.
@@ -471,6 +476,7 @@ struct RpcSetupContext<'a, Node: FullNodeComponents, EthApi: EthApiTypes> {
     on_rpc_started: Box<dyn OnRpcStarted<Node, EthApi>>,
     engine_events: EventSender<ConsensusEngineEvent<<Node::Types as NodeTypes>::Primitives>>,
     engine_handle: ConsensusEngineHandle<<Node::Types as NodeTypes>::Payload>,
+    ops_whitelist: Option<Whitelist>,
 }
 
 /// Node add-ons containing RPC server configuration, with customizable eth API handler.
@@ -508,6 +514,8 @@ pub struct RpcAddOns<
     rpc_middleware: RpcMiddleware,
     /// Optional custom tokio runtime for the RPC server.
     tokio_runtime: Option<tokio::runtime::Handle>,
+    /// Pre-created ops whitelist shared with the eth API for sentinel tx interception.
+    pub ops_whitelist: Option<Whitelist>,
 }
 
 impl<Node, EthB, PVB, EB, EVB, RpcMiddleware> Debug
@@ -552,6 +560,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime: None,
+            ops_whitelist: None,
         }
     }
 
@@ -567,6 +576,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
             ..
         } = self;
         RpcAddOns {
@@ -577,6 +587,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
         }
     }
 
@@ -592,6 +603,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
             ..
         } = self;
         RpcAddOns {
@@ -602,6 +614,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
         }
     }
 
@@ -617,6 +630,7 @@ where
             engine_api_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
             ..
         } = self;
         RpcAddOns {
@@ -627,6 +641,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
         }
     }
 
@@ -679,6 +694,7 @@ where
             engine_api_builder,
             engine_validator_builder,
             tokio_runtime,
+            ops_whitelist,
             ..
         } = self;
         RpcAddOns {
@@ -689,6 +705,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
         }
     }
 
@@ -703,6 +720,7 @@ where
             engine_validator_builder,
             engine_api_builder,
             rpc_middleware,
+            ops_whitelist,
             ..
         } = self;
         Self {
@@ -713,6 +731,7 @@ where
             engine_api_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
         }
     }
 
@@ -729,6 +748,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
         } = self;
         let rpc_middleware = Stack::new(rpc_middleware, layer);
         RpcAddOns {
@@ -739,6 +759,7 @@ where
             engine_validator_builder,
             rpc_middleware,
             tokio_runtime,
+            ops_whitelist,
         }
     }
 
@@ -827,6 +848,7 @@ where
             on_rpc_started,
             engine_events,
             engine_handle,
+            ops_whitelist: _,
         } = setup_ctx;
 
         let server_config = config
@@ -836,8 +858,11 @@ where
             .with_tokio_runtime(tokio_runtime);
         let rpc_server_handle = Self::launch_rpc_server_internal(server_config, &modules).await?;
 
-        let handles =
-            RethRpcServerHandles { rpc: rpc_server_handle.clone(), auth: AuthServerHandle::noop() };
+        let handles = RethRpcServerHandles {
+            rpc: rpc_server_handle.clone(),
+            auth: AuthServerHandle::noop(),
+            ops: None,
+        };
         Self::finalize_rpc_setup(
             &mut registry,
             &mut modules,
@@ -898,6 +923,7 @@ where
             on_rpc_started,
             engine_events,
             engine_handle,
+            ops_whitelist,
         } = setup_ctx;
 
         let server_config = config
@@ -921,7 +947,18 @@ where
             (rpc, auth)
         };
 
-        let handles = RethRpcServerHandles { rpc, auth };
+        // Launch the ops signature-auth server if enabled.
+        let chain_id = node.provider().chain_spec().chain().id();
+        let ops = Self::maybe_launch_ops_server(
+            config,
+            node.provider().clone(),
+            Box::new(node.task_executor().clone()),
+            chain_id,
+            ops_whitelist,
+        )
+        .await?;
+
+        let handles = RethRpcServerHandles { rpc, auth, ops };
 
         Self::finalize_rpc_setup(
             &mut registry,
@@ -950,7 +987,7 @@ where
     where
         F: FnOnce(RpcModuleContainer<'_, N, EthB::EthApi>) -> eyre::Result<()>,
     {
-        let Self { eth_api_builder, engine_api_builder, hooks, .. } = self;
+        let Self { eth_api_builder, engine_api_builder, hooks, ops_whitelist, .. } = self;
 
         let engine_api = engine_api_builder.build_engine_api(&ctx).await?;
         let AddOnsContext { node, config, beacon_engine_handle, jwt_secret, engine_events } = ctx;
@@ -973,7 +1010,13 @@ where
         );
 
         let eth_config = config.rpc.eth_config().max_batch_size(config.txpool.max_batch_size());
-        let ctx = EthApiCtx { components: &node, config: eth_config, cache };
+        let ops_whitelist = ops_whitelist.or_else(|| config.rpc.ops_enable.then(Whitelist::new));
+        let ctx = EthApiCtx {
+            components: &node,
+            config: eth_config,
+            cache,
+            ops_whitelist: ops_whitelist.clone(),
+        };
         let eth_api = eth_api_builder.build_eth_api(ctx).await?;
 
         let auth_config = config.rpc.auth_server_config(jwt_secret)?;
@@ -1022,6 +1065,7 @@ where
             on_rpc_started,
             engine_events,
             engine_handle: beacon_engine_handle,
+            ops_whitelist,
         })
     }
 
@@ -1064,6 +1108,75 @@ where
                     info!(target: "reth::cli", url=%addr, "RPC auth server started");
                 }
             })
+    }
+
+    /// Helper to launch the ops signature-auth server if enabled.
+    async fn maybe_launch_ops_server<P>(
+        config: &NodeConfig<<N::Types as NodeTypes>::ChainSpec>,
+        provider: P,
+        task_spawner: Box<dyn reth_tasks::TaskSpawner>,
+        chain_id: u64,
+        whitelist: Option<Whitelist>,
+    ) -> eyre::Result<Option<BodyAuthServerHandle>>
+    where
+        P: reth_storage_api::StateProviderFactory + reth_storage_api::BlockIdReader + 'static,
+    {
+        use reth_rpc_layer::{OPS_AUTH_CONTRACT, OPS_AUTH_SLOT};
+
+        if !config.rpc.ops_enable {
+            return Ok(None);
+        }
+
+        let provider = Arc::new(provider);
+
+        // Read governance address for startup validation and logging.
+        let governance_address = {
+            let state = provider.latest().map_err(|e| {
+                eyre::eyre!("failed to read latest state for ops governance validation: {e}")
+            })?;
+            let value = state
+                .storage(OPS_AUTH_CONTRACT, OPS_AUTH_SLOT)
+                .map_err(|e| eyre::eyre!("failed to read ops governance slot: {e}"))?
+                .ok_or_else(|| eyre::eyre!("ops governance slot is unset"))?;
+            let bytes = value.value.to_be_bytes::<32>();
+            let address = alloy_primitives::Address::from_slice(&bytes[12..]);
+            if address.is_zero() {
+                return Err(eyre::eyre!("ops governance address resolved to zero address"));
+            }
+            address
+        };
+
+        let whitelist = whitelist.unwrap_or_default();
+        let mut auth_config = SignatureAuthConfig::new(whitelist, chain_id);
+        let nonces = Arc::new(std::sync::RwLock::new(std::collections::HashMap::new()));
+        auth_config.nonces = nonces.clone();
+
+        // Create the OpsApi handler.
+        let ops_api = reth_rpc::OpsApi::new(provider, task_spawner, nonces);
+
+        // Register it in a module.
+        let mut module = BodyAuthRpcModule::empty();
+        module
+            .merge_methods(ops_api.into_rpc())
+            .map_err(|e| eyre::eyre!("failed to register ops methods: {e}"))?;
+
+        // Build and start the server.
+        let addr = std::net::SocketAddr::new(config.rpc.ops_addr, config.rpc.ops_port);
+        let server_config = BodyAuthServerConfig::builder(auth_config).socket_addr(addr).build();
+
+        let handle = server_config
+            .start(module)
+            .await
+            .map_err(|e| eyre::eyre!("failed to start ops server: {e}"))?;
+
+        info!(
+            target: "reth::cli",
+            url=%handle.local_addr(),
+            governance_address=%governance_address,
+            "RPC ops signature-auth server started"
+        );
+
+        Ok(Some(handle))
     }
 
     /// Helper to finalize RPC setup by creating context and calling hooks
@@ -1136,6 +1249,8 @@ pub struct EthApiCtx<'a, N: FullNodeTypes> {
     pub config: EthConfig,
     /// Cache for eth state
     pub cache: EthStateCache<PrimitivesTy<N::Types>>,
+    /// Shared ops whitelist used by specialized eth APIs.
+    pub ops_whitelist: Option<Whitelist>,
 }
 
 impl<'a, N: FullNodeComponents<Types: NodeTypes<ChainSpec: Hardforks + EthereumHardforks>>>

@@ -18,7 +18,7 @@ reth-seismic-payload-builder.workspace = true
 reth-seismic-evm.workspace = true
 reth-seismic-rpc.workspace = true
 reth-seismic-txpool.workspace = true
-reth-seismic-chainspec.workspace = true
+reth-seismic-chainspec = { workspace = true, optional = true }
 reth-seismic-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
 
 # reth
@@ -68,18 +68,19 @@ eyre.workspace = true
 tracing.workspace = true
 
 # rpc
-serde_json.workspace = true
 jsonrpsee-http-client.workspace = true
 
 # test-utils dependencies
 alloy-rpc-types = { workspace = true }
 tokio = { workspace = true }
 jsonrpsee = { workspace = true }
-tempfile = { workspace = true }
-once_cell.workspace = true
+reth-e2e-test-utils = { workspace = true, optional = true }
+reth-tasks = { workspace = true, optional = true }
+seismic-alloy-genesis = { workspace = true, optional = true }
 
 [dev-dependencies]
 reth-seismic-node = { workspace = true, features = ["test-utils"] }
+serde_json.workspace = true
 reth-db.workspace = true
 reth-node-core.workspace = true
 reth-node-builder = { workspace = true, features = ["test-utils"] }
@@ -93,8 +94,14 @@ seismic-alloy-consensus.workspace = true
 alloy-consensus.workspace = true
 futures.workspace = true
 reth-e2e-test-utils = { workspace = true }
+reth-rpc-e2e-tests.workspace = true
+reth-seismic-evm.workspace = true
+reth-seismic-chainspec.workspace = true
 alloy-network = { workspace = true }
+alloy-chains.workspace = true
+alloy-signer-local = { workspace = true }
 alloy-genesis = { workspace = true }
+reth-seismic-forks.workspace = true
 seismic-alloy-network = { workspace = true }
 seismic-alloy-provider = { workspace = true }
 alloy-dyn-abi.workspace = true
@@ -106,6 +113,15 @@ reth-exex.workspace = true
 reqwest.workspace = true
 secp256k1.workspace = true
 k256.workspace = true
+rand.workspace = true
+alloy-signer.workspace = true
+alloy-eips.workspace = true
+reth-chainspec.workspace = true
+reth-rpc-layer.workspace = true
+reth-rpc-builder.workspace = true
+reth-payload-builder.workspace = true
+reth-primitives-traits.workspace = true
+alloy-rpc-types-engine.workspace = true
 
 [features]
 default = ["reth-codec"]
@@ -129,7 +145,9 @@ js-tracer = [
     "reth-node-builder/js-tracer",
 ]
 test-utils = [
-    # "reth-tasks",
+    "reth-tasks",
+    "reth-e2e-test-utils",
+    "reth-seismic-chainspec",
     "reth-node-builder/test-utils",
     "reth-chainspec/test-utils",
     "reth-consensus/test-utils",

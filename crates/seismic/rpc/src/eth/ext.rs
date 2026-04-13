@@ -123,7 +123,7 @@ pub trait EthApiOverride<B: RpcObject> {
     #[method(name = "estimateGas")]
     async fn estimate_gas(
         &self,
-        request: SeismicTransactionRequest,
+        request: SeismicCallRequest,
         block_number: Option<BlockId>,
         state_override: Option<StateOverride>,
     ) -> RpcResult<U256>;
@@ -307,16 +307,21 @@ where
 
     async fn estimate_gas(
         &self,
-        request: SeismicTransactionRequest,
+        request: SeismicCallRequest,
         block_number: Option<BlockId>,
         state_override: Option<StateOverride>,
     ) -> RpcResult<U256> {
         debug!(target: "reth-seismic-rpc::eth", ?request, ?block_number, ?state_override, "serving seismic eth_estimateGas extension");
 
-        // Decrypt if this is a seismic transaction
-        let is_seismic = request.seismic_elements.is_some();
-        let decrypted_req =
-            signed_read_to_plaintext_tx((request, is_seismic), &self.purpose_keys.tx_io_sk)?;
+        // Same sanitization as eth_call: unsigned requests have `from`,
+        // gas/value fields, and seismic_elements cleared to prevent caller
+        // spoofing that could leak private state. Signed requests (TypedData/Bytes)
+        // authenticate the sender cryptographically and are processed normally.
+        let (seismic_tx_request, signed_read) = convert_seismic_call_to_tx_request(request)?;
+        let decrypted_req = signed_read_to_plaintext_tx(
+            (seismic_tx_request, signed_read),
+            &self.purpose_keys.tx_io_sk,
+        )?;
 
         // call inner
         Ok(EthCall::estimate_gas_at(

@@ -34,6 +34,7 @@ use reth_provider::{providers::ProviderFactoryBuilder, CanonStateSubscriptions, 
 use reth_rpc::ValidationApi;
 use reth_rpc_api::BlockSubmissionValidationApiServer;
 use reth_rpc_builder::{config::RethRpcServerConfig, Identity};
+use reth_rpc_eth_api::helpers::config::{EthConfigApiServer, EthConfigHandler};
 use reth_rpc_eth_types::{
     error::{api::FromEvmHalt, FromEvmError},
     EthApiError,
@@ -42,7 +43,10 @@ use reth_rpc_server_types::RethRpcModule;
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
-use reth_seismic_rpc::{SeismicEthApiBuilder, SeismicEthApiError, SeismicRethWithSignable};
+use reth_seismic_rpc::{
+    ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer},
+    SeismicEthApiBuilder, SeismicEthApiError, SeismicRethWithSignable,
+};
 use reth_transaction_pool::{
     blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},
     CoinbaseTipOrdering, PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
@@ -51,7 +55,7 @@ use revm::context::TxEnv;
 use seismic_alloy_consensus::SeismicTxEnvelope;
 use std::{sync::Arc, time::SystemTime};
 
-use crate::seismic_evm_config;
+use crate::{purpose_keys::get_purpose_keys, seismic_evm_config};
 
 /// Storage implementation for Seismic.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
@@ -214,6 +218,35 @@ where
     }
 }
 
+/// Helper trait alias that bundles the common `FullNodeComponents` bounds required by Seismic
+/// add-ons. This avoids repeating the verbose `NodeTypes` and `Evm` constraints across every
+/// `impl` block.
+pub trait SeismicFullNode:
+    FullNodeComponents<
+    Types: NodeTypes<
+        ChainSpec = ChainSpec,
+        Primitives = SeismicPrimitives,
+        Storage = SeismicStorage,
+        Payload = SeismicEngineTypes,
+    >,
+    Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
+>
+{
+}
+
+impl<N> SeismicFullNode for N where
+    N: FullNodeComponents<
+        Types: NodeTypes<
+            ChainSpec = ChainSpec,
+            Primitives = SeismicPrimitives,
+            Storage = SeismicStorage,
+            Payload = SeismicEngineTypes,
+        >,
+        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
+    >
+{
+}
+
 /// Add-ons w.r.t. seismic
 #[derive(Debug)]
 pub struct SeismicAddOns<
@@ -229,7 +262,7 @@ pub struct SeismicAddOns<
 
 impl<N, EthB, PVB, EB, EVB, RpcMiddleware> SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
 where
-    N: FullNodeComponents,
+    N: SeismicFullNode,
     EthB: EthApiBuilder<N>,
 {
     /// Build a [`SeismicAddOns`] using [`SeismicAddOnsBuilder`].
@@ -248,15 +281,7 @@ impl SeismicAddOnsBuilder {
         self,
     ) -> SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
     where
-        N: FullNodeComponents<
-            Types: NodeTypes<
-                ChainSpec = ChainSpec,
-                Primitives = SeismicPrimitives,
-                Storage = SeismicStorage,
-                Payload = SeismicEngineTypes,
-            >,
-            Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
-        >,
+        N: SeismicFullNode,
         EthB: EthApiBuilder<N> + Default,
         PVB: Default,
         EB: Default,
@@ -277,15 +302,7 @@ impl SeismicAddOnsBuilder {
 
 impl<N> Default for SeismicAddOns<N>
 where
-    N: FullNodeComponents<
-        Types: NodeTypes<
-            ChainSpec = ChainSpec,
-            Primitives = SeismicPrimitives,
-            Storage = SeismicStorage,
-            Payload = SeismicEngineTypes,
-        >,
-        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
-    >,
+    N: SeismicFullNode,
     SeismicEthApiBuilder<SeismicRethWithSignable>: EthApiBuilder<N>,
 {
     fn default() -> Self {
@@ -303,16 +320,18 @@ where
 impl<N, EthB, PVB, EB, EVB, RpcMiddleware> NodeAddOns<N>
     for SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
 where
-    N: FullNodeComponents<
-        Types: NodeTypes<
-            ChainSpec = ChainSpec,
-            Primitives = SeismicPrimitives,
-            Storage = SeismicStorage,
-            Payload = SeismicEngineTypes,
-        >,
-        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
-    >,
+    N: SeismicFullNode,
     EthB: EthApiBuilder<N>,
+    EthB::EthApi: reth_seismic_rpc::FullSeismicApi + Send + Sync + 'static,
+    <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
+    jsonrpsee::types::ErrorObject<'static>:
+        From<<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error>,
+    <<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest:
+        From<alloy_rpc_types::TransactionRequest>
+            + AsRef<alloy_rpc_types::TransactionRequest>
+            + Send
+            + Sync
+            + 'static,
     PVB: PayloadValidatorBuilder<N>,
     EB: EngineApiBuilder<N>,
     EVB: EngineValidatorBuilder<N>,
@@ -337,13 +356,28 @@ where
             Arc::new(SeismicEngineValidator::new(ctx.config.chain.clone())),
         );
 
+        let eth_config =
+            EthConfigHandler::new(ctx.node.provider().clone(), ctx.node.evm_config().clone());
+
+        let purpose_keys = get_purpose_keys().clone();
+
         self.inner
             .launch_add_ons_with(ctx, move |container| {
-                let RpcModuleContainer { modules, .. } = container;
+                let RpcModuleContainer { modules, registry, .. } = container;
                 modules.merge_if_module_configured(
                     RethRpcModule::Flashbots,
                     validation_api.into_rpc(),
                 )?;
+
+                modules.merge_if_module_configured(RethRpcModule::Eth, eth_config.into_rpc())?;
+
+                // Register Seismic eth_ overrides (sendRawTransaction, call, estimateGas, etc.)
+                modules.replace_configured(
+                    EthApiExt::new(registry.eth_api().clone(), purpose_keys.clone()).into_rpc(),
+                )?;
+
+                // Register seismic_ namespace (getTeePublicKey)
+                modules.merge_configured(SeismicApi::new(purpose_keys).into_rpc())?;
 
                 Ok(())
             })
@@ -354,16 +388,18 @@ where
 impl<N, EthB, PVB, EB, EVB, RpcMiddleware> RethRpcAddOns<N>
     for SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
 where
-    N: FullNodeComponents<
-        Types: NodeTypes<
-            ChainSpec = ChainSpec,
-            Primitives = SeismicPrimitives,
-            Storage = SeismicStorage,
-            Payload = SeismicEngineTypes,
-        >,
-        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>,
-    >,
+    N: SeismicFullNode,
     EthB: EthApiBuilder<N>,
+    EthB::EthApi: reth_seismic_rpc::FullSeismicApi + Send + Sync + 'static,
+    <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
+    jsonrpsee::types::ErrorObject<'static>:
+        From<<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error>,
+    <<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest:
+        From<alloy_rpc_types::TransactionRequest>
+            + AsRef<alloy_rpc_types::TransactionRequest>
+            + Send
+            + Sync
+            + 'static,
     PVB: PayloadValidatorBuilder<N>,
     EB: EngineApiBuilder<N>,
     EVB: EngineValidatorBuilder<N>,
@@ -382,17 +418,18 @@ where
 impl<N, EthB, PVB, EB, EVB, RpcMiddleware> EngineValidatorAddOn<N>
     for SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
 where
-    N: FullNodeComponents<
-        Types: NodeTypes<
-            ChainSpec = ChainSpec,
-            Primitives = SeismicPrimitives,
-            Storage = SeismicStorage,
-            Payload = SeismicEngineTypes,
-        >,
-        Evm: ConfigureEvm<NextBlockEnvCtx = NextBlockEnvAttributes>
-                 + ConfigureEngineEvm<ExecutionData>,
-    >,
+    N: SeismicFullNode<Evm: ConfigureEngineEvm<ExecutionData>>,
     EthB: EthApiBuilder<N>,
+    EthB::EthApi: reth_seismic_rpc::FullSeismicApi + Send + Sync + 'static,
+    <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
+    jsonrpsee::types::ErrorObject<'static>:
+        From<<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error>,
+    <<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest:
+        From<alloy_rpc_types::TransactionRequest>
+            + AsRef<alloy_rpc_types::TransactionRequest>
+            + Send
+            + Sync
+            + 'static,
     PVB: PayloadValidatorBuilder<N>,
     EB: EngineApiBuilder<N>,
     EVB: EngineValidatorBuilder<N> + Send,

@@ -1,5 +1,4 @@
 [profile.default]
-default-filter = '!(test(providers::static_file::tests::test_header_truncation) or test(providers::static_file::tests::test_tx_based_truncation) or test(eth::core::tests))'
 retries = { backoff = "exponential", count = 3, delay = "5s", jitter = true, max-delay = "30s" }
 slow-timeout = { period = "300s", terminate-after = 6 }
 
@@ -16,3 +15,4 @@ slow-timeout = { period = "2m", terminate-after = 10 }
 [[profile.default.overrides]]
 filter = "binary(e2e_testsuite)"
 slow-timeout = { period = "2m", terminate-after = 3 }
+

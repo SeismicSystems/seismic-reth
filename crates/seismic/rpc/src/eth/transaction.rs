@@ -7,21 +7,82 @@ use crate::{
     SeismicEthApi, SeismicEthApiError,
 };
 use alloy_consensus::{transaction::Recovered, Transaction as _};
-use alloy_primitives::{Bytes, Signature, B256};
+use alloy_primitives::{Address, Bytes, Signature, B256};
 use alloy_rpc_types_eth::{Transaction, TransactionInfo};
+use alloy_sol_types::SolCall;
+use reth_primitives_traits::SignedTransaction;
 use reth_rpc_convert::transaction::{RpcTxConverter, SimTxConverter};
 use reth_rpc_eth_api::{
     helpers::{spec::SignersForRpc, EthTransactions, LoadTransaction},
     FromEthApiError, RpcConvert, RpcNodeCore,
 };
 use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
+use reth_rpc_layer::{
+    OpsWhitelistTxAuth, Whitelist, OPS_AUTH_CONTRACT, OPS_AUTH_SLOT, WHITELIST_TX_SENTINEL,
+};
 use reth_seismic_primitives::SeismicTransactionSigned;
-use reth_storage_api::{BlockReader, BlockReaderIdExt, ProviderTx};
+use reth_storage_api::{BlockReader, BlockReaderIdExt, ProviderTx, StateProviderFactory};
 use reth_transaction_pool::{
     AddedTransactionOutcome, PoolTransaction, TransactionOrigin, TransactionPool,
 };
 use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+enum SentinelAction {
+    Whitelist { target: Address, expires_at: u64 },
+    Revoke { target: Address },
+}
+
+impl<N, Rpc> SeismicEthApi<N, Rpc>
+where
+    N: RpcNodeCore,
+    Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
+{
+    fn try_handle_sentinel_transaction<T>(
+        &self,
+        recovered: &Recovered<T>,
+        whitelist: &Whitelist,
+    ) -> Result<bool, SeismicEthApiError>
+    where
+        T: alloy_consensus::Transaction,
+    {
+        let Some(action) = parse_sentinel_action(recovered)? else { return Ok(false) };
+
+        let governance_address = self.ops_governance_address()?;
+        if recovered.signer() != governance_address {
+            return Err(rpc_error("unauthorized ops whitelist sentinel signer"));
+        }
+
+        match action {
+            SentinelAction::Whitelist { target, expires_at } => {
+                if expires_at <= current_unix_timestamp()? {
+                    return Err(rpc_error("ops whitelist expiry must be in the future"));
+                }
+                whitelist.add(target, expires_at);
+            }
+            SentinelAction::Revoke { target } => {
+                whitelist.remove(&target);
+            }
+        }
+
+        Ok(true)
+    }
+
+    fn ops_governance_address(&self) -> Result<Address, SeismicEthApiError> {
+        let state = self.provider().latest().map_err(SeismicEthApiError::from)?;
+        let value = state
+            .storage(OPS_AUTH_CONTRACT, OPS_AUTH_SLOT)
+            .map_err(SeismicEthApiError::from)?
+            .ok_or_else(|| rpc_error("ops governance slot is unset"))?;
+        let bytes = value.value.to_be_bytes::<32>();
+        let address = Address::from_slice(&bytes[12..]);
+        if address.is_zero() {
+            return Err(rpc_error("ops governance address resolved to zero address"));
+        }
+        Ok(address)
+    }
+}
 
 impl<N, Rpc> EthTransactions for SeismicEthApi<N, Rpc>
 where
@@ -33,8 +94,16 @@ where
     }
 
     async fn send_raw_transaction(&self, tx: Bytes) -> Result<B256, Self::Error> {
-        let recovered = recover_raw_transaction(&tx)?;
-        tracing::debug!(target: "reth-seismic-rpc::eth", ?recovered, "serving seismic_eth_api::send_raw_transaction");
+        let recovered: Recovered<
+            <<Self::Pool as TransactionPool>::Transaction as PoolTransaction>::Pooled,
+        > = recover_raw_transaction(&tx)?;
+        tracing::debug!(target: "reth-seismic-rpc::eth", tx_hash = %recovered.tx_hash(), "serving seismic_eth_api::send_raw_transaction");
+
+        if let Some(whitelist) = self.ops_whitelist.as_ref() {
+            if self.try_handle_sentinel_transaction(&recovered, whitelist)? {
+                return Ok(B256::from(*recovered.tx_hash()))
+            }
+        }
 
         let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
 
@@ -85,6 +154,52 @@ where
     N: RpcNodeCore,
     Rpc: RpcConvert<Primitives = N::Primitives, Error = SeismicEthApiError>,
 {
+}
+
+fn parse_sentinel_action<T>(
+    recovered: &Recovered<T>,
+) -> Result<Option<SentinelAction>, SeismicEthApiError>
+where
+    T: alloy_consensus::Transaction,
+{
+    if recovered.to() != Some(WHITELIST_TX_SENTINEL) {
+        return Ok(None)
+    }
+
+    let input = recovered.input();
+    let selector = input
+        .get(..4)
+        .ok_or_else(|| rpc_error("ops whitelist sentinel calldata is missing selector"))?;
+
+    if selector == OpsWhitelistTxAuth::whitelistKeyCall::SELECTOR {
+        let call = OpsWhitelistTxAuth::whitelistKeyCall::abi_decode(input)
+            .map_err(|_| rpc_error("failed to decode ops whitelist calldata"))?;
+        return Ok(Some(SentinelAction::Whitelist {
+            target: call.target,
+            expires_at: call.expiresAt,
+        }))
+    }
+
+    if selector == OpsWhitelistTxAuth::revokeKeyCall::SELECTOR {
+        let call = OpsWhitelistTxAuth::revokeKeyCall::abi_decode(input)
+            .map_err(|_| rpc_error("failed to decode ops revoke calldata"))?;
+        return Ok(Some(SentinelAction::Revoke { target: call.target }))
+    }
+
+    Err(rpc_error("unknown ops whitelist sentinel selector"))
+}
+
+fn current_unix_timestamp() -> Result<u64, SeismicEthApiError> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .map_err(|_| rpc_error("system clock before unix epoch"))
+}
+
+fn rpc_error(message: &'static str) -> SeismicEthApiError {
+    SeismicEthApiError::Eth(EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+        -32000, message, None::<()>,
+    ))))
 }
 
 /// Seismic RPC transaction converter that implements Debug
@@ -273,6 +388,7 @@ mod test {
                 expires_at_block: 1000000,
                 signed_read: false,
             },
+            authorization_list: vec![],
         };
 
         // Sign the transaction
@@ -301,22 +417,9 @@ mod test {
     }
 
     #[test]
-    #[ignore]
-    fn test_generate_raw_tx() {
-        use alloy_primitives::hex;
+    fn test_generate_and_recover_raw_tx() {
         let (raw_bytes, hash) = generate_test_raw_tx();
-        println!("Raw bytes: 0x{}", hex::encode(&raw_bytes));
-        println!("Hash: {}", hash);
-    }
-
-    #[test]
-    fn test_recover_raw_tx() {
-        let raw_tx = Bytes::from_str("0x4af8e9821403018504a817c80083033450943ab946eec2553114040de82d2e18798a51cf1e1487038d7ea4c68000a1028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a08c7da3a99bf0f90d56551d99ea02a0dea362cf26069ee018e8a37b514c1e64d9e2d07f833728c86e19e88678c09b98830f424080a44e69e56c3bb999b8c98772ebb32aebcbd43b33e9e65a46333dfe6636f37f3009e93bad3380a04885f323d8d63c0b63d90430ceec96ffe392e3782b039b8b8d579f0fe155d796a00bc6fda2b50bd95819c70fc8f8a3c6c79030ffc3cf9dc3bc4d5094043ad59796").unwrap();
-        let recovered = recover_raw_transaction::<SeismicTransactionSigned>(&raw_tx).unwrap();
-        let expected = FixedBytes::<32>::from_str(
-            "5851a99fa362b48fc0cc4cb543555c6afbe3fc826b67395877bf3ba02abb5b0a",
-        )
-        .unwrap();
-        assert_eq!(recovered.tx_hash(), &expected);
+        let recovered = recover_raw_transaction::<SeismicTransactionSigned>(&raw_bytes).unwrap();
+        assert_eq!(recovered.tx_hash(), &hash);
     }
 }

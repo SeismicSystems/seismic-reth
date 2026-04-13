@@ -207,5 +207,5 @@ describe("Transaction Trace", async () => {
 });
 
 afterAll(async () => {
-    await exitProcess();
+    await exitProcess?.();
 });

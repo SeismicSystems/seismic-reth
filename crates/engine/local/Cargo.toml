@@ -39,7 +39,9 @@ eyre.workspace = true
 tracing.workspace = true
 
 op-alloy-rpc-types-engine = { workspace = true, optional = true }
-reth-optimism-chainspec = { workspace = true, optional = true }
+# seismic: remove this dep to avoid pulling them optimism crates that don't compile implicitly by cargo/lsp/etc.
+# The optimism crates don't compile because of type changes we made that affects them, such as FlaggedStorage.
+# reth-optimism-chainspec = { workspace = true, optional = true }
 
 [lints]
 workspace = true
@@ -48,6 +50,8 @@ workspace = true
 timestamp-in-seconds = []
 op = [
     "dep:op-alloy-rpc-types-engine",
-    "dep:reth-optimism-chainspec",
+    # seismic: remove this dep to avoid pulling them optimism crates that don't compile implicitly by cargo/lsp/etc.
+    # The optimism crates don't compile because of type changes we made that affects them, such as FlaggedStorage.
+    # "dep:reth-optimism-chainspec",
     "reth-payload-primitives/op",
 ]

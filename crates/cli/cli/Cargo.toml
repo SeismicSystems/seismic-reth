@@ -11,8 +11,8 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-# seismic
-seismic-alloy-genesis.workspace = true
+# ethereum
+alloy-genesis.workspace = true
 
 # reth
 reth-cli-runner.workspace = true

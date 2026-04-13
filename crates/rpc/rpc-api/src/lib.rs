@@ -22,6 +22,7 @@ mod hardhat;
 mod mev;
 mod miner;
 mod net;
+mod ops;
 mod otterscan;
 mod reth;
 mod rpc;
@@ -42,6 +43,7 @@ pub mod servers {
         mev::{MevFullApiServer, MevSimApiServer},
         miner::MinerApiServer,
         net::NetApiServer,
+        ops::OpsApiServer,
         otterscan::OtterscanServer,
         reth::RethApiServer,
         rpc::RpcApiServer,
@@ -72,6 +74,7 @@ pub mod clients {
         mev::{MevFullApiClient, MevSimApiClient},
         miner::MinerApiClient,
         net::NetApiClient,
+        ops::OpsApiClient,
         otterscan::OtterscanClient,
         reth::RethApiClient,
         rpc::RpcApiServer,

@@ -135,7 +135,10 @@ where
 
     debug!("Writing genesis block.");
 
-    let alloc = &genesis.alloc;
+    // Convert alloy_genesis accounts to seismic accounts for DB storage (adds FlaggedStorage).
+    // This is lossless: all genesis storage is marked as public.
+    let alloc: std::collections::BTreeMap<Address, GenesisAccount> =
+        genesis.alloc.iter().map(|(addr, account)| (*addr, account.clone().into())).collect();
 
     // use transaction to insert genesis header
     let provider_rw = factory.database_provider_rw()?;
@@ -674,6 +677,7 @@ mod tests {
     use alloy_consensus::constants::{
         HOLESKY_GENESIS_HASH, MAINNET_GENESIS_HASH, SEPOLIA_GENESIS_HASH,
     };
+    use alloy_genesis::{Genesis, GenesisAccount};
     use reth_chainspec::{Chain, ChainSpec, HOLESKY, MAINNET, SEPOLIA};
     use reth_db::DatabaseEnv;
     use reth_db_api::{
@@ -687,7 +691,6 @@ mod tests {
         test_utils::{create_test_provider_factory_with_chain_spec, MockNodeTypesWithDB},
         ProviderFactory,
     };
-    use seismic_alloy_genesis::Genesis;
     use std::{collections::BTreeMap, sync::Arc};
 
     fn collect_table_entries<DB, T>(
@@ -765,11 +768,7 @@ mod tests {
                     (
                         address_with_storage,
                         GenesisAccount {
-                            storage: Some(
-                                seismic_alloy_genesis::convert_fixedbytes_map_to_flagged_storage(
-                                    BTreeMap::from([(storage_key, B256::random())]),
-                                ),
-                            ),
+                            storage: Some(BTreeMap::from([(storage_key, B256::random())])),
                             ..Default::default()
                         },
                     ),

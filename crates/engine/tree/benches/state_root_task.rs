@@ -80,7 +80,7 @@ fn create_bench_state_updates(params: &BenchParams) -> Vec<EvmState> {
                                 U256::from(rng.random::<u64>()),
                                 EvmStorageSlot::new_changed(
                                     FlaggedStorage::ZERO,
-                                    FlaggedStorage::new_from_value(rng.random::<u64>()),
+                                    FlaggedStorage::public(rng.random::<u64>()),
                                     0,
                                 ),
                             )

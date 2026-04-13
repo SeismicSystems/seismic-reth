@@ -6,7 +6,7 @@
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use arbitrary::Arbitrary;
 use revm::context::TxEnv;
-use seismic_revm::transaction::abstraction::{RngMode, SeismicTransaction};
+use seismic_revm::transaction::abstraction::SeismicTransaction;
 
 use crate::mock_state::FUZZ_CHAIN_ID;
 
@@ -94,11 +94,7 @@ impl FuzzSeismicTx {
                 tx_type,
             },
             tx_hash: Default::default(),
-            rng_mode: if self.rng_mode_execution {
-                RngMode::Execution
-            } else {
-                RngMode::Simulation
-            },
+            decryption_failed: false,
         }
     }
 

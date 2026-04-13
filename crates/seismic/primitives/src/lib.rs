@@ -11,9 +11,6 @@
 
 extern crate alloc;
 
-#[cfg(feature = "alloy-compat")]
-mod alloy_compat;
-
 pub mod transaction;
 pub use transaction::{signed::SeismicTransactionSigned, tx_type::SeismicTxType};
 
