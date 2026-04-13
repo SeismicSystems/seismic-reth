@@ -19,7 +19,7 @@ use crate::{
 };
 use alloy_consensus::TxEip4844;
 use alloy_eips::BlockId;
-use alloy_primitives::{Address, Bytes, U256};
+use alloy_primitives::{Address, U256};
 use futures::Future;
 use reth_evm::{ConfigureEvm, SpecFor, TxEnvFor};
 use reth_node_api::{FullNodeComponents, HeaderTy};
@@ -326,13 +326,17 @@ where
     /// Returns the higher of the native balance or the USDC predeploy balance (scaled to 18
     /// decimals) for `address`. USDC uses 6 decimals; we multiply by 10^12 so both balances
     /// are comparable in 18-decimal wei units.
+    ///
+    /// The USDC predeploy on Seismic is a bytecode-less account whose `_balances` mapping
+    /// (slot 3) is read/written directly by the seismic-revm handler.  We therefore read
+    /// the balance from raw storage instead of executing a `balanceOf` call (which would
+    /// return empty bytes since there is no contract code).
     fn balance(
         &self,
         address: Address,
         block_id: Option<BlockId>,
     ) -> impl Future<Output = Result<U256, Self::Error>> + Send {
-        use alloy_primitives::TxKind;
-        use alloy_rpc_types_eth::{state::EvmOverrides, TransactionInput, TransactionRequest};
+        use alloy_primitives::keccak256;
 
         /// USDC predeploy address on Seismic.
         const USDC_CONTRACT: Address =
@@ -341,52 +345,39 @@ where
         /// Scale factor to convert USDC (6 decimals) to 18 decimals: 10^12.
         const USDC_DECIMAL_SCALE: U256 = U256::from_limbs([1_000_000_000_000u64, 0, 0, 0]);
 
-        // Build `balanceOf(address)` calldata.
-        // Selector: keccak256("balanceOf(address)")[0:4] = 0x70a08231
-        // ABI-encoded argument: address left-padded to 32 bytes (right-aligned).
-        let mut calldata = vec![0u8; 36];
+        /// Storage slot of the `_balances` mapping in the USDC predeploy.
+        const BALANCES_SLOT: u8 = 3;
+
+        // Compute storage key: keccak256(abi.encode(address, uint256(BALANCES_SLOT))).
+        // The address is left-padded to 32 bytes; the slot occupies the last byte of the
+        // second word.
+        let mut buf = [0u8; 64];
         #[allow(clippy::indexing_slicing)]
-        calldata[0..4].copy_from_slice(&[0x70, 0xa0, 0x82, 0x31]);
+        buf[12..32].copy_from_slice(address.as_slice());
         #[allow(clippy::indexing_slicing)]
-        calldata[16..36].copy_from_slice(address.as_slice());
+        {
+            buf[63] = BALANCES_SLOT;
+        }
+        let storage_key = keccak256(buf);
 
-        let request = TransactionRequest {
-            to: Some(TxKind::Call(USDC_CONTRACT)),
-            input: TransactionInput { input: Some(Bytes::from(calldata)), data: None },
-            ..Default::default()
-        };
+        self.spawn_blocking_io_fut(move |this| async move {
+            let state = this.state_at_block_id_or_latest(block_id).await?;
 
-        let tx_req =
-            <<Self as EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest::from(request);
-
-        // Create futures for both balance lookups.
-        let usdc_fut = EthCall::call(self, tx_req, block_id, EvmOverrides::new(None, None));
-        let native_fut = self.spawn_blocking_io_fut(move |this| async move {
-            Ok(this
-                .state_at_block_id_or_latest(block_id)
-                .await?
+            // Read native balance.
+            let native_balance = state
                 .account_balance(&address)
                 .map_err(Self::Error::from_eth_err)?
-                .unwrap_or_default())
-        });
+                .unwrap_or_default();
 
-        async move {
-            // Get USDC balance and scale from 6 to 18 decimals.
-            let usdc_balance = match usdc_fut.await {
-                Ok(result) if result.len() >= 32 =>
-                {
-                    #[allow(clippy::indexing_slicing)]
-                    U256::from_be_slice(&result[..32]).saturating_mul(USDC_DECIMAL_SCALE)
-                }
-                _ => U256::ZERO,
-            };
+            // Read USDC balance from contract storage and scale 6→18 decimals.
+            let usdc_balance = state
+                .storage(USDC_CONTRACT, storage_key)
+                .map_err(Self::Error::from_eth_err)?
+                .map(|s| s.value.saturating_mul(USDC_DECIMAL_SCALE))
+                .unwrap_or_default();
 
-            // Get native balance (already 18 decimals).
-            let native_balance = native_fut.await?;
-
-            // Return whichever is higher.
             Ok(std::cmp::max(native_balance, usdc_balance))
-        }
+        })
     }
 }
 

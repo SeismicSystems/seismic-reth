@@ -77,4 +77,22 @@ mod tests {
         let b = alloy_primitives::address!("0000000000000000000000000000000000000002");
         assert_ne!(usdc_balance_storage_key(&a), usdc_balance_storage_key(&b));
     }
+
+    /// Replicates the seismic-revm `erc_address_storage` computation byte-for-byte
+    /// to confirm we read the same slot the EVM writes to.
+    #[test]
+    fn storage_key_matches_seismic_revm() {
+        let addr = alloy_primitives::address!("0123456789abcdef0123456789abcdef01234567");
+
+        // seismic-revm erc_address_storage(addr):
+        //   buf[12..32] = addr
+        //   buf[63] = 3
+        //   keccak256(buf)
+        let mut expected_buf = [0u8; 64];
+        expected_buf[12..32].copy_from_slice(addr.as_slice());
+        expected_buf[63] = 3;
+        let expected = keccak256(expected_buf);
+
+        assert_eq!(usdc_balance_storage_key(&addr), expected);
+    }
 }
