@@ -9,7 +9,7 @@ use reth_provider::StateProvider;
 
 /// USDC predeploy address on Seismic.
 pub const USDC_CONTRACT: Address =
-    alloy_primitives::address!("215dfD51D1e6C05C1f7e322c0f9ddc607300e053");
+    alloy_primitives::address!("0x790701048922E265105fd6a4467a2901c2201C43");
 
 /// Scale factor to convert USDC (6 decimals) to 18 decimals: 10^12.
 pub const USDC_DECIMAL_SCALE: U256 = U256::from_limbs([1_000_000_000_000u64, 0, 0, 0]);
