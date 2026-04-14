@@ -549,7 +549,7 @@ reth_transaction_pool::maintain::LocalTransactionBackupConfig::with_local_txs_ba
             );
 
             // spawn the maintenance task with USDC balance augmentation
-            let balance_hook = reth_seismic_txpool::SeismicBalanceHook::new(client.clone());
+            let balance_hook = reth_seismic_txpool::SeismicBalanceHook;
             ctx.task_executor().spawn_critical(
                 "txpool maintenance task",
                 reth_transaction_pool::maintain::maintain_transaction_pool_future_with_hook(
