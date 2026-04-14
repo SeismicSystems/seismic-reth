@@ -44,6 +44,7 @@ use reth_tasks::{
     TaskSpawner,
 };
 use seismic_alloy_network::SeismicReth;
+use reth_seismic_txpool::usdc::{usdc_balance_storage_key, USDC_CONTRACT, USDC_DECIMAL_SCALE};
 use seismic_revm::SeismicTransaction;
 use std::{fmt, marker::PhantomData, sync::Arc};
 
@@ -336,29 +337,7 @@ where
         address: Address,
         block_id: Option<BlockId>,
     ) -> impl Future<Output = Result<U256, Self::Error>> + Send {
-        use alloy_primitives::keccak256;
-
-        /// USDC predeploy address on Seismic.
-        const USDC_CONTRACT: Address =
-            alloy_primitives::address!("0x790701048922E265105fd6a4467a2901c2201C43");
-
-        /// Scale factor to convert USDC (6 decimals) to 18 decimals: 10^12.
-        const USDC_DECIMAL_SCALE: U256 = U256::from_limbs([1_000_000_000_000u64, 0, 0, 0]);
-
-        /// Storage slot of the `_balances` mapping in the USDC predeploy.
-        const BALANCES_SLOT: u8 = 3;
-
-        // Compute storage key: keccak256(abi.encode(address, uint256(BALANCES_SLOT))).
-        // The address is left-padded to 32 bytes; the slot occupies the last byte of the
-        // second word.
-        let mut buf = [0u8; 64];
-        #[allow(clippy::indexing_slicing)]
-        buf[12..32].copy_from_slice(address.as_slice());
-        #[allow(clippy::indexing_slicing)]
-        {
-            buf[63] = BALANCES_SLOT;
-        }
-        let storage_key = keccak256(buf);
+        let storage_key = usdc_balance_storage_key(&address);
 
         self.spawn_blocking_io_fut(move |this| async move {
             let state = this.state_at_block_id_or_latest(block_id).await?;
