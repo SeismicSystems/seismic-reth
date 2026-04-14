@@ -22,7 +22,7 @@ const BALANCES_MAPPING_SLOT: U256 = U256::from_limbs([3, 0, 0, 0]);
 /// For a Solidity `mapping(address => uint256)` at slot `s`, the value for key
 /// `k` is stored at `keccak256(abi.encode(k, s))` — i.e. `k` left-padded to 32
 /// bytes concatenated with `s` as a 32-byte big-endian integer.
-fn usdc_balance_storage_key(address: &Address) -> B256 {
+pub fn usdc_balance_storage_key(address: &Address) -> B256 {
     let mut buf = [0u8; 64];
     // address is 20 bytes, right-aligned in the first 32-byte word
     buf[12..32].copy_from_slice(address.as_slice());
