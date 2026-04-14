@@ -17,7 +17,7 @@ use futures_util::{
 };
 use reth_chain_state::CanonStateNotification;
 use reth_chainspec::{ChainSpecProvider, EthChainSpec};
-use reth_execution_types::ChangedAccount;
+use reth_execution_types::{ChangedAccount, ExecutionOutcome};
 use reth_fs_util::FsPathError;
 use reth_primitives_traits::{
     transaction::signed::SignedTransaction, NodePrimitives, SealedHeader,
@@ -106,6 +106,17 @@ pub trait ChangedAccountsHook: Send + Sync + 'static {
     /// load native balance/nonce, so implementations always see a consistent
     /// view of the chain.
     fn transform(&self, state: &dyn StateProvider, accounts: &mut Vec<ChangedAccount>);
+
+    /// Extends the dirty set with queued senders whose executability may have
+    /// changed due to off-account state updates in the canonical update.
+    fn extend_reload_queued_senders<R>(
+        &self,
+        _queued_senders: &HashSet<Address>,
+        _old: Option<&ExecutionOutcome<R>>,
+        _new: &ExecutionOutcome<R>,
+        _dirty_addresses: &mut HashSet<Address>,
+    ) {
+    }
 }
 
 /// No-op implementation for chains that don't need balance augmentation.
@@ -498,6 +509,14 @@ pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
                 metrics.inc_reinserted_transactions(pruned_old_transactions.len());
                 let _ = pool.add_external_transactions(pruned_old_transactions).await;
 
+                let queued_senders = queued_senders(&pool);
+                hook.extend_reload_queued_senders(
+                    &queued_senders,
+                    Some(old_state),
+                    new_state,
+                    &mut dirty_addresses,
+                );
+
                 // keep track of new mined blob transactions
                 blob_store_tracker.add_new_chain_blocks(&new_blocks);
             }
@@ -574,6 +593,14 @@ pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
                     update_kind: PoolUpdateKind::Commit,
                 };
                 pool.on_canonical_state_change(update);
+
+                let queued_senders = queued_senders(&pool);
+                hook.extend_reload_queued_senders(
+                    &queued_senders,
+                    None,
+                    state,
+                    &mut dirty_addresses,
+                );
 
                 // keep track of mined blob transactions
                 blob_store_tracker.add_new_chain_blocks(&blocks);
@@ -681,6 +708,10 @@ where
         }
     }
     Ok(res)
+}
+
+fn queued_senders<P: TransactionPool>(pool: &P) -> HashSet<Address> {
+    pool.queued_transactions().into_iter().map(|tx| tx.sender()).collect()
 }
 
 /// Loads transactions from a file, decodes them from the JSON or RLP format, and
