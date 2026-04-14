@@ -44,6 +44,7 @@ use reth_tasks::{
     TaskSpawner,
 };
 use seismic_alloy_network::SeismicReth;
+use reth_seismic_txpool::usdc::{usdc_balance_storage_key, USDC_CONTRACT, USDC_DECIMAL_SCALE};
 use seismic_revm::SeismicTransaction;
 use std::{fmt, marker::PhantomData, sync::Arc};
 
@@ -336,10 +337,6 @@ where
         address: Address,
         block_id: Option<BlockId>,
     ) -> impl Future<Output = Result<U256, Self::Error>> + Send {
-        use reth_seismic_txpool::usdc::{
-            usdc_balance_storage_key, USDC_CONTRACT, USDC_DECIMAL_SCALE,
-        };
-
         let storage_key = usdc_balance_storage_key(&address);
 
         self.spawn_blocking_io_fut(move |this| async move {
