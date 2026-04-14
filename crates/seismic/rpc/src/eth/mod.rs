@@ -18,8 +18,10 @@ use crate::{
     SeismicEthApiError,
 };
 use alloy_consensus::TxEip4844;
-use alloy_primitives::U256;
-use reth_evm::ConfigureEvm;
+use alloy_eips::BlockId;
+use alloy_primitives::{Address, U256};
+use futures::Future;
+use reth_evm::{ConfigureEvm, SpecFor, TxEnvFor};
 use reth_node_api::{FullNodeComponents, HeaderTy};
 use reth_node_builder::rpc::{EthApiBuilder, EthApiCtx};
 use reth_rpc::{
@@ -28,20 +30,22 @@ use reth_rpc::{
 };
 use reth_rpc_eth_api::{
     helpers::{
-        pending_block::BuildPendingEnv, spec::SignersForApi, AddDevSigners, EthApiSpec, EthFees,
-        EthState, LoadFee, LoadPendingBlock, LoadState, SpawnBlocking, Trace,
+        pending_block::BuildPendingEnv, spec::SignersForApi, AddDevSigners, EthApiSpec, EthCall,
+        EthFees, EthState, LoadFee, LoadPendingBlock, LoadState, SpawnBlocking, Trace,
     },
-    EthApiTypes, FromEvmError, FullEthApiServer, RpcConvert, RpcConverter, RpcNodeCore,
-    RpcNodeCoreExt, SignableTxRequest,
+    EthApiTypes, FromEthApiError, FromEvmError, FullEthApiServer, RpcConvert, RpcConverter,
+    RpcNodeCore, RpcNodeCoreExt, SignableTxRequest,
 };
 use reth_rpc_eth_types::{EthStateCache, FeeHistoryCache, GasPriceOracle};
 use reth_rpc_layer::Whitelist;
+use reth_seismic_txpool::usdc::{usdc_balance_storage_key, USDC_CONTRACT, USDC_DECIMAL_SCALE};
 use reth_storage_api::{BlockReader, ProviderHeader, ProviderTx};
 use reth_tasks::{
     pool::{BlockingTaskGuard, BlockingTaskPool},
     TaskSpawner,
 };
 use seismic_alloy_network::SeismicReth;
+use seismic_revm::SeismicTransaction;
 use std::{fmt, marker::PhantomData, sync::Arc};
 
 use reth_rpc_convert::transaction::{EthTxEnvError, TryIntoTxEnv};
@@ -297,8 +301,18 @@ where
 impl<N, Rpc> EthState for SeismicEthApi<N, Rpc>
 where
     N: RpcNodeCore,
-    Rpc: RpcConvert<Primitives = N::Primitives>,
-    Self: LoadPendingBlock,
+    SeismicEthApiError: FromEvmError<N::Evm>,
+    TxEnvFor<N::Evm>: From<SeismicTransaction<TxEnv>>,
+    SeismicTransaction<TxEnv>: Into<TxEnvFor<N::Evm>>,
+    Rpc: RpcConvert<
+        Primitives = N::Primitives,
+        Error = SeismicEthApiError,
+        TxEnv = TxEnvFor<N::Evm>,
+        Spec = SpecFor<N::Evm>,
+    >,
+    <<Self as EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest:
+        From<alloy_rpc_types_eth::TransactionRequest>,
+    Self: LoadPendingBlock + EthCall,
 {
     #[inline]
     fn max_proof_window(&self) -> u64 {
@@ -308,6 +322,41 @@ where
     #[inline]
     fn storage_apis_enabled(&self) -> bool {
         self.inner.storage_apis_enabled()
+    }
+
+    /// Returns the higher of the native balance or the USDC predeploy balance (scaled to 18
+    /// decimals) for `address`. USDC uses 6 decimals; we multiply by 10^12 so both balances
+    /// are comparable in 18-decimal wei units.
+    ///
+    /// The USDC predeploy on Seismic is a bytecode-less account whose `_balances` mapping
+    /// (slot 3) is read/written directly by the seismic-revm handler.  We therefore read
+    /// the balance from raw storage instead of executing a `balanceOf` call (which would
+    /// return empty bytes since there is no contract code).
+    fn balance(
+        &self,
+        address: Address,
+        block_id: Option<BlockId>,
+    ) -> impl Future<Output = Result<U256, Self::Error>> + Send {
+        let storage_key = usdc_balance_storage_key(&address);
+
+        self.spawn_blocking_io_fut(move |this| async move {
+            let state = this.state_at_block_id_or_latest(block_id).await?;
+
+            // Read native balance.
+            let native_balance = state
+                .account_balance(&address)
+                .map_err(Self::Error::from_eth_err)?
+                .unwrap_or_default();
+
+            // Read USDC balance from contract storage and scale 6→18 decimals.
+            let usdc_balance = state
+                .storage(USDC_CONTRACT, storage_key)
+                .map_err(Self::Error::from_eth_err)?
+                .map(|s| s.value.saturating_mul(USDC_DECIMAL_SCALE))
+                .unwrap_or_default();
+
+            Ok(std::cmp::max(native_balance, usdc_balance))
+        })
     }
 }
 

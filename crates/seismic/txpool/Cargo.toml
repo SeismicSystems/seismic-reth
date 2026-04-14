@@ -20,6 +20,7 @@ seismic-alloy-consensus.workspace = true
 
 # reth
 reth-chainspec.workspace = true
+reth-execution-types.workspace = true
 reth-primitives-traits.workspace = true
 reth-provider.workspace = true
 reth-transaction-pool = {workspace = true, features = ["serde", "reth-codec", "serde-bincode-compat"]}
@@ -30,6 +31,7 @@ reth-seismic-primitives = {workspace = true, features = ["serde", "reth-codec", 
 # misc
 c-kzg.workspace = true
 derive_more.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 reth-seismic-chainspec.workspace = true

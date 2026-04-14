@@ -2,9 +2,9 @@
 
 use crate::recent_block_cache::RecentBlockCache;
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{Sealable, TxKind, B256};
+use alloy_primitives::{Sealable, TxKind, B256, U256};
 use reth_chainspec::ChainSpecProvider;
-use reth_primitives_traits::{transaction::error::InvalidTransactionError, Block};
+use reth_primitives_traits::{transaction::error::InvalidTransactionError, Block, GotExpected};
 use reth_provider::{BlockReaderIdExt, StateProviderFactory};
 use reth_seismic_primitives::{transaction::error::SeismicTxError, SeismicTransactionSigned};
 use reth_transaction_pool::{
@@ -139,9 +139,60 @@ where
                     }
                 }
 
-                // All validations passed, return valid
+                // Compute the effective balance: max(native, usdc_scaled).
+                // Gas on Seismic can be paid in either native token or USDC, so
+                // we consider both when deciding pool admission.
+                let sender = *valid_tx.transaction().sender_ref();
+                let cost = *valid_tx.transaction().cost();
+                let (eff_balance, usdc_raw) = match self.inner.client().latest() {
+                    Ok(state) => {
+                        let usdc = crate::usdc::read_usdc_balance(&*state, &sender);
+                        (std::cmp::max(balance, usdc), usdc)
+                    }
+                    // If we can't read state, fall back to native balance only.
+                    Err(err) => {
+                        tracing::warn!(
+                            target: "seismic::txpool",
+                            %err,
+                            %sender,
+                            "failed to read state for USDC balance check"
+                        );
+                        (balance, U256::ZERO)
+                    }
+                };
+
+                tracing::debug!(
+                    target: "seismic::txpool",
+                    %sender,
+                    tx_hash = %valid_tx.hash(),
+                    native_balance = %balance,
+                    usdc_scaled_balance = %usdc_raw,
+                    effective_balance = %eff_balance,
+                    cost = %cost,
+                    "seismic validator effective balance check"
+                );
+
+                // Reject if the sender cannot afford the transaction with either token.
+                if cost > eff_balance {
+                    tracing::debug!(
+                        target: "seismic::txpool",
+                        %sender,
+                        tx_hash = %valid_tx.hash(),
+                        effective_balance = %eff_balance,
+                        cost = %cost,
+                        "rejecting tx: effective balance insufficient for cost"
+                    );
+                    return TransactionValidationOutcome::Invalid(
+                        valid_tx.into_transaction(),
+                        InvalidTransactionError::InsufficientFunds(
+                            GotExpected { got: eff_balance, expected: cost }.into(),
+                        )
+                        .into(),
+                    );
+                }
+
                 TransactionValidationOutcome::Valid {
-                    balance,
+                    balance: eff_balance,
                     state_nonce,
                     transaction: valid_tx,
                     propagate,

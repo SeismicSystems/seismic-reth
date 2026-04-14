@@ -10,10 +10,13 @@
 
 use reth_transaction_pool::{CoinbaseTipOrdering, Pool, TransactionValidationTaskExecutor};
 
+mod maintain;
 mod recent_block_cache;
 mod transaction;
+pub mod usdc;
 mod validator;
 
+pub use maintain::SeismicBalanceHook;
 pub use recent_block_cache::{RecentBlockCache, SEISMIC_TX_RECENT_BLOCK_LOOKBACK};
 pub use transaction::SeismicPooledTransaction;
 pub use validator::SeismicTransactionValidator;
