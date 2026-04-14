@@ -22,7 +22,9 @@ use reth_fs_util::FsPathError;
 use reth_primitives_traits::{
     transaction::signed::SignedTransaction, NodePrimitives, SealedHeader,
 };
-use reth_storage_api::{errors::provider::ProviderError, BlockReaderIdExt, StateProviderFactory};
+use reth_storage_api::{
+    errors::provider::ProviderError, BlockReaderIdExt, StateProvider, StateProviderFactory,
+};
 use reth_tasks::TaskSpawner;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -99,12 +101,16 @@ pub trait ChangedAccountsHook: Send + Sync + 'static {
     /// Transforms the changed accounts list in place.  Implementations may read
     /// additional state (e.g. ERC-20 storage) and adjust the `balance` field of
     /// each [`ChangedAccount`].
-    fn transform(&self, accounts: &mut Vec<ChangedAccount>);
+    ///
+    /// The [`StateProvider`] is the same snapshot the maintenance loop used to
+    /// load native balance/nonce, so implementations always see a consistent
+    /// view of the chain.
+    fn transform(&self, state: &dyn StateProvider, accounts: &mut Vec<ChangedAccount>);
 }
 
 /// No-op implementation for chains that don't need balance augmentation.
 impl ChangedAccountsHook for () {
-    fn transform(&self, _accounts: &mut Vec<ChangedAccount>) {}
+    fn transform(&self, _state: &dyn StateProvider, _accounts: &mut Vec<ChangedAccount>) {}
 }
 
 /// Returns a spawnable future for maintaining the state of the transaction pool.
@@ -355,7 +361,9 @@ pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
                 // reloaded accounts successfully
                 // extend accounts we failed to load from database
                 dirty_addresses.extend(failed_to_load);
-                hook.transform(&mut accounts);
+                if let Ok(state) = client.history_by_block_hash(pool_info.last_seen_block_hash) {
+                    hook.transform(&*state, &mut accounts);
+                }
                 // update the pool with the loaded accounts
                 pool.update_accounts(accounts);
             }
@@ -435,7 +443,9 @@ pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
                 // also include all accounts from new chain
                 // we can use extend here because they are unique
                 changed_accounts.extend(new_changed_accounts.into_iter().map(|entry| entry.0));
-                hook.transform(&mut changed_accounts);
+                if let Ok(state) = client.history_by_block_hash(new_tip.hash()) {
+                    hook.transform(&*state, &mut changed_accounts);
+                }
 
                 // all transactions mined in the new chain
                 let new_mined_transactions: HashSet<_> = new_blocks.transaction_hashes().collect();
@@ -540,7 +550,9 @@ pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
                     dirty_addresses.remove(&acc.address);
                     changed_accounts.push(acc);
                 }
-                hook.transform(&mut changed_accounts);
+                if let Ok(tip_state) = client.history_by_block_hash(tip.hash()) {
+                    hook.transform(&*tip_state, &mut changed_accounts);
+                }
 
                 let mined_transactions = blocks.transaction_hashes().collect();
 
