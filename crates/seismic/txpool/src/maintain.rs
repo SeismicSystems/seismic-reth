@@ -73,3 +73,85 @@ fn changed_usdc_storage_slots<R>(state: &ExecutionOutcome<R>) -> impl Iterator<I
             })
         })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_primitives::{map::HashMap, FlaggedStorage, U256};
+    use reth_execution_types::{BundleStateInit, RevertsInit};
+
+    #[test]
+    fn reloads_only_queued_senders_with_changed_usdc_slots() {
+        let affected = alloy_primitives::address!("000000000000000000000000000000000000000a");
+        let unaffected = alloy_primitives::address!("000000000000000000000000000000000000000b");
+        let queued_senders = HashSet::from([affected, unaffected]);
+        let state = ExecutionOutcome::<()>::new_init(
+            {
+                let mut init = BundleStateInit::default();
+                init.insert(
+                    crate::usdc::USDC_CONTRACT,
+                    (
+                        None,
+                        None,
+                        HashMap::from_iter([(
+                            crate::usdc::usdc_balance_storage_key(&affected),
+                            (FlaggedStorage::ZERO, FlaggedStorage::from(U256::from(1))),
+                        )]),
+                    ),
+                );
+                init
+            },
+            RevertsInit::default(),
+            [],
+            vec![],
+            0,
+            vec![],
+        );
+
+        let dirty = queued_senders_with_changed_usdc_slots(&queued_senders, None, &state)
+            .collect::<HashSet<_>>();
+
+        assert_eq!(dirty, HashSet::from([affected]));
+    }
+
+    #[test]
+    fn includes_changed_slots_from_old_and_new_state() {
+        let queued_sender = alloy_primitives::address!("000000000000000000000000000000000000000a");
+        let queued_senders = HashSet::from([queued_sender]);
+        let old = ExecutionOutcome::<()>::new_init(
+            {
+                let mut init = BundleStateInit::default();
+                init.insert(
+                    crate::usdc::USDC_CONTRACT,
+                    (
+                        None,
+                        None,
+                        HashMap::from_iter([(
+                            crate::usdc::usdc_balance_storage_key(&queued_sender),
+                            (FlaggedStorage::ZERO, FlaggedStorage::from(U256::from(1))),
+                        )]),
+                    ),
+                );
+                init
+            },
+            RevertsInit::default(),
+            [],
+            vec![],
+            0,
+            vec![],
+        );
+        let new = ExecutionOutcome::<()>::new_init(
+            BundleStateInit::default(),
+            RevertsInit::default(),
+            [],
+            vec![],
+            0,
+            vec![],
+        );
+
+        let dirty = queued_senders_with_changed_usdc_slots(&queued_senders, Some(&old), &new)
+            .collect::<HashSet<_>>();
+
+        assert_eq!(dirty, HashSet::from([queued_sender]));
+    }
+}
