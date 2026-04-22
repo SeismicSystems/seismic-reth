@@ -8,22 +8,34 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
+use futures_util::future::Either;
 use reth_transaction_pool::{CoinbaseTipOrdering, Pool, TransactionValidationTaskExecutor};
 
 mod maintain;
 mod recent_block_cache;
+pub mod screening;
 mod transaction;
 pub mod usdc;
 mod validator;
 
 pub use maintain::SeismicBalanceHook;
 pub use recent_block_cache::{RecentBlockCache, SEISMIC_TX_RECENT_BLOCK_LOOKBACK};
+pub use screening::ScreeningTransactionValidator;
 pub use transaction::SeismicPooledTransaction;
 pub use validator::SeismicTransactionValidator;
 
-/// Type alias for default seismic transaction pool
+/// Type alias for default seismic transaction pool.
+///
+/// Uses `Either` to transparently support optional address screening:
+/// - `Left` = `SeismicTransactionValidator` (no screening)
+/// - `Right` = `ScreeningTransactionValidator<SeismicTransactionValidator>` (with screening)
 pub type SeismicTransactionPool<Client, S, T = SeismicPooledTransaction> = Pool<
-    TransactionValidationTaskExecutor<SeismicTransactionValidator<Client, T>>,
+    TransactionValidationTaskExecutor<
+        Either<
+            SeismicTransactionValidator<Client, T>,
+            ScreeningTransactionValidator<SeismicTransactionValidator<Client, T>>,
+        >,
+    >,
     CoinbaseTipOrdering<T>,
     S,
 >;

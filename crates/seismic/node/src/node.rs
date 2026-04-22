@@ -60,12 +60,20 @@ use crate::{purpose_keys::get_purpose_keys, seismic_evm_config};
 /// Storage implementation for Seismic.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 /// Type configuration for a regular Seismic node.
-pub struct SeismicNode;
+pub struct SeismicNode {
+    /// Optional screening args for address screening via ECSD sidecar.
+    pub screening_args: Option<reth_node_core::args::ScreeningArgs>,
+}
 
 impl SeismicNode {
+    /// Creates a new `SeismicNode` with optional address screening configuration.
+    pub const fn new(screening_args: Option<reth_node_core::args::ScreeningArgs>) -> Self {
+        Self { screening_args }
+    }
+
     /// Returns the components for the given [`EnclaveArgs`].
     pub fn components<Node>(
         &self,
@@ -88,7 +96,7 @@ impl SeismicNode {
     {
         ComponentsBuilder::default()
             .node_types::<Node>()
-            .pool(SeismicPoolBuilder::default())
+            .pool(SeismicPoolBuilder { screening_args: self.screening_args.clone() })
             .executor(SeismicExecutorBuilder::default())
             .payload(BasicPayloadServiceBuilder::<SeismicPayloadBuilder>::default())
             .network(SeismicNetworkBuilder::default())
@@ -457,9 +465,12 @@ where
 ///
 /// This contains various settings that can be configured and take precedence over the node's
 /// config.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 #[non_exhaustive]
-pub struct SeismicPoolBuilder;
+pub struct SeismicPoolBuilder {
+    /// Optional screening args for ECSD address screening.
+    pub screening_args: Option<reth_node_core::args::ScreeningArgs>,
+}
 
 impl<Node> PoolBuilder<Node> for SeismicPoolBuilder
 where
@@ -516,8 +527,44 @@ where
             .disable_balance_check()
             .build_with_tasks(ctx.task_executor().clone(), blob_store.clone());
 
-        // Wrap the eth validator with seismic-specific validation
-        let validator = eth_validator.map(reth_seismic_txpool::SeismicTransactionValidator::new);
+        // Wrap the eth validator with seismic-specific validation (protocol invariants)
+        let seismic_validator =
+            eth_validator.map(reth_seismic_txpool::SeismicTransactionValidator::new);
+
+        // Conditionally wrap with address screening (operator policy), using Either
+        // for uniform type: Left = no screening, Right = with screening
+        let validator = match &self.screening_args {
+            Some(args) if args.enable => {
+                #[allow(clippy::expect_used)]
+                let screening_client =
+                    reth_seismic_txpool::screening::ScreeningClientBuilder::new(&args.endpoint)
+                        .timeout(std::time::Duration::from_millis(args.timeout_ms))
+                        .fail_mode(
+                            args.fail_mode
+                                .parse()
+                                .expect("fail_mode validated by clap to be 'open' or 'closed'"),
+                        )
+                        .build()?;
+                tracing::info!(
+                    target: "reth::cli",
+                    endpoint = %args.endpoint,
+                    timeout_ms = %args.timeout_ms,
+                    fail_mode = %args.fail_mode,
+                    "Address screening enabled via ECSD sidecar"
+                );
+                let purpose_keys = crate::purpose_keys::get_purpose_keys();
+                seismic_validator.map(|inner| {
+                    futures_util::future::Either::Right(
+                        reth_seismic_txpool::ScreeningTransactionValidator::new(
+                            inner,
+                            screening_client.clone(),
+                            purpose_keys,
+                        ),
+                    )
+                })
+            }
+            _ => seismic_validator.map(futures_util::future::Either::Left),
+        };
 
         let transaction_pool = reth_transaction_pool::Pool::new(
             validator,

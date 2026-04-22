@@ -490,8 +490,8 @@ pub(super) mod serde_bincode_compat {
 mod compact {
     use super::*;
     use reth_codecs::{
-        __private::{modular_bitfield::prelude::*, Buf},
         Compact,
+        __private::{modular_bitfield::prelude::*, Buf},
     };
 
     impl Receipt {

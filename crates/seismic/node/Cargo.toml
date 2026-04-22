@@ -62,6 +62,7 @@ seismic-alloy-rpc-types.workspace = true
 seismic-revm = { workspace = true }
 
 # misc
+futures-util.workspace = true
 serde.workspace = true
 eyre.workspace = true
 tracing.workspace = true
