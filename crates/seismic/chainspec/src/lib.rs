@@ -27,7 +27,7 @@ pub const SEISMIC_MAINNET_GENESIS_HASH: B256 =
 /// Calculated by rlp encoding the genesis header and hashing it
 /// Currently matches the mainnet genesis hash because they have matching hardforks
 pub const SEISMIC_DEV_GENESIS_HASH: B256 =
-    b256!("0x78ab9057bb67f95a6182969c5d755ac02802c98c0d2f0d8daeb52f4bddc60be5");
+    b256!("0x79b52ea2cc4088327fca3a7591ced55f29d13aa05c33fa7cc02e936db799727f");
 
 /// Seismic devnet specification
 ///

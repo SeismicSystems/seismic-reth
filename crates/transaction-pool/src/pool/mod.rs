@@ -510,7 +510,16 @@ where
 
                 let added = pool.add_transaction(tx, balance, state_nonce, bytecode_hash)?;
                 let hash = *added.hash();
-                let state = match added.subpool() {
+                let subpool = added.subpool();
+                debug!(
+                    target: "txpool",
+                    tx_hash = %hash,
+                    ?subpool,
+                    reported_balance = %balance,
+                    state_nonce,
+                    "transaction added to pool"
+                );
+                let state = match subpool {
                     SubPool::Pending => AddedTransactionState::Pending,
                     _ => AddedTransactionState::Queued,
                 };
