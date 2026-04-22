@@ -3,7 +3,7 @@
 use alloy_primitives::Address;
 use reth_primitives::Recovered;
 use reth_primitives_traits::SignedTransaction;
-use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError, EthResult};
+use reth_rpc_eth_types::{EthApiError, EthResult};
 use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
 use seismic_alloy_network::{SeismicReth, TransactionBuilder};
 use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
@@ -57,18 +57,43 @@ pub fn convert_seismic_call_to_tx_request(
         }
 
         SeismicCallRequest::TypedData(typed_request) => {
+            // TODO(samlaf): this arm exists because `SeismicCallRequest::TypedData` is redundant
+            // with the `Bytes` variant below — clients could submit the same
+            // EIP-712-signed payload as RLP bytes (with `message_version = 2`).
+            // Once we have updated our clients and are sure no one is submitting via this path,
+            // we can delete this arm and the `TypedData` variant entirely.
             let req = SeismicTransactionRequest::decode_712(&typed_request)
                 .map_err(|_e| EthApiError::FailedToDecodeSignedTransaction)?;
             Ok((req, true))
         }
 
         SeismicCallRequest::Bytes(bytes) => {
-            let tx = recover_raw_transaction::<SeismicTxEnvelope>(&bytes)?;
+            let tx = recover_raw_seismic_call_tx(&bytes)?;
             let mut req: SeismicTransactionRequest = tx.inner().clone().into();
             TransactionBuilder::<SeismicReth>::set_from(&mut req, tx.signer());
             Ok((req, true))
         }
     }
+}
+
+/// Decode a raw EIP-2718 transaction submitted via the `eth_call` bytes path
+/// and recover its signer.
+///
+/// This is the `eth_call` counterpart of
+/// [`reth_rpc_eth_types::utils::recover_raw_transaction`]. It uses
+/// [`SeismicTxEnvelope::decode_2718_permit_seismic_calls`] so that signed
+/// seismic read requests (`signed_read = true`) are accepted. Those payloads
+/// are rejected on block / mempool / p2p / `eth_sendRawTransaction` paths to
+/// prevent replay as state-changing transactions.
+fn recover_raw_seismic_call_tx(data: &[u8]) -> EthResult<Recovered<SeismicTxEnvelope>> {
+    if data.is_empty() {
+        return Err(EthApiError::EmptyRawTransactionData);
+    }
+    let mut buf: &[u8] = data;
+    let transaction = SeismicTxEnvelope::decode_2718_permit_seismic_calls(&mut buf)
+        .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
+    SignedTransaction::try_into_recovered(transaction)
+        .or(Err(EthApiError::InvalidTransactionSignature))
 }
 
 /// Get the sender address from a seismic transaction request.
@@ -107,19 +132,81 @@ pub fn signed_read_to_plaintext_tx(
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 mod test {
-    use crate::utils::recover_typed_data_request;
+    use crate::utils::{recover_typed_data_request, seismic_override_call_request};
     use alloy_primitives::{
         aliases::U96,
         hex::{self, FromHex},
-        Address, Bytes, FixedBytes, Signature, U256,
+        Address, Bytes, FixedBytes, Signature, B256, U256,
     };
+    use alloy_rpc_types::TransactionRequest;
     use reth_primitives_traits::SignedTransaction;
     use reth_seismic_primitives::SeismicTransactionSigned;
     use secp256k1::PublicKey;
     use seismic_alloy_consensus::{
         SeismicTxEnvelope, TxSeismic, TxSeismicElements, TypedDataRequest,
     };
+    use seismic_alloy_rpc_types::SeismicTransactionRequest;
     use std::str::FromStr;
+
+    fn dummy_seismic_elements() -> TxSeismicElements {
+        TxSeismicElements {
+            encryption_pubkey: PublicKey::from_str(
+                "028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0",
+            )
+            .unwrap(),
+            encryption_nonce: U96::from_str("0x7da3a99bf0f90d56551d99ea").unwrap(),
+            message_version: 2,
+            recent_block_hash: B256::ZERO,
+            expires_at_block: 1,
+            signed_read: false,
+        }
+    }
+
+    fn spoofed_request(seismic_elements: Option<TxSeismicElements>) -> SeismicTransactionRequest {
+        let victim = Address::from([0xaa; 20]);
+        SeismicTransactionRequest {
+            inner: TransactionRequest {
+                from: Some(victim),
+                nonce: Some(7),
+                gas_price: Some(100),
+                max_fee_per_gas: Some(200),
+                max_priority_fee_per_gas: Some(50),
+                max_fee_per_blob_gas: Some(10),
+                value: Some(U256::from(1_000u64)),
+                ..Default::default()
+            },
+            seismic_elements,
+        }
+    }
+
+    fn assert_sanitized(req: &SeismicTransactionRequest) {
+        assert_eq!(req.inner.from, None, "from must be cleared");
+        assert_eq!(req.inner.gas_price, None);
+        assert_eq!(req.inner.max_fee_per_gas, None);
+        assert_eq!(req.inner.max_priority_fee_per_gas, None);
+        assert_eq!(req.inner.max_fee_per_blob_gas, None);
+        assert_eq!(req.inner.value, None);
+        assert!(req.seismic_elements.is_none());
+    }
+
+    #[test]
+    fn seismic_override_clears_from_with_seismic_elements() {
+        let mut req = spoofed_request(Some(dummy_seismic_elements()));
+        seismic_override_call_request(&mut req);
+        assert_sanitized(&req);
+    }
+
+    /// Regression test: a previous change gated sanitization on
+    /// `seismic_elements.is_some()`. That would have let an unsigned, plain
+    /// (non-seismic) `eth_call` spoof `from` and have the contract execute
+    /// `CLOAD` against a slot gated on `msg.sender == victim`. The sanitizer
+    /// must clear `from` unconditionally for every unsigned `TransactionRequest`.
+    #[test]
+    fn seismic_override_clears_from_without_seismic_elements() {
+        let mut req = spoofed_request(None);
+        seismic_override_call_request(&mut req);
+        assert_sanitized(&req);
+    }
 
     #[test]
     fn test_typed_data_tx_hash() {
