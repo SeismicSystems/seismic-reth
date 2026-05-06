@@ -189,8 +189,11 @@ where
 
             for call in calls {
                 let tx_req = convert_seismic_call_to_tx_request(call)?;
-                let plaintext_tx_req =
-                    signed_read_to_plaintext_tx(tx_req, &self.purpose_keys.tx_io_sk)?;
+                let plaintext_tx_req = signed_read_to_plaintext_tx(
+                    tx_req,
+                    &self.purpose_keys.tx_io_sk,
+                    self.eth_api.provider(),
+                )?;
                 let tx_request: TransactionRequest = plaintext_tx_req.inner;
                 prepared_calls.push(tx_request.into());
             }
@@ -252,6 +255,7 @@ where
         let plaintext_tx_req = signed_read_to_plaintext_tx(
             (seismic_tx_request.clone(), signed_read),
             &self.purpose_keys.tx_io_sk,
+            self.eth_api.provider(),
         )?;
 
         // call inner
@@ -319,6 +323,7 @@ where
         let decrypted_req = signed_read_to_plaintext_tx(
             (seismic_tx_request, signed_read),
             &self.purpose_keys.tx_io_sk,
+            self.eth_api.provider(),
         )?;
 
         // call inner

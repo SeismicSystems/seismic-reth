@@ -12,7 +12,9 @@
 extern crate alloc;
 
 pub mod transaction;
-pub use transaction::{signed::SeismicTransactionSigned, tx_type::SeismicTxType};
+pub use transaction::{
+    signed::SeismicTransactionSigned, tx_type::SeismicTxType, SEISMIC_TX_RECENT_BLOCK_LOOKBACK,
+};
 
 mod receipt;
 pub use receipt::SeismicReceipt;
