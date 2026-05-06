@@ -3,14 +3,19 @@ use alloy_consensus::transaction::Either;
 use alloy_eips::eip7702::{RecoveredAuthorization, SignedAuthorization};
 use alloy_primitives::{TxKind, U256};
 use alloy_rpc_types_eth::transaction::TransactionRequest;
-use reth_evm::{EvmEnv, SpecFor, TxEnvFor};
+use reth_evm::{EvmEnv, EvmEnvFor, SpecFor, TxEnvFor};
 use reth_rpc_eth_api::{
     helpers::{estimate::EstimateCall, Call, EthCall},
     CallFees, EthTxEnvError, FromEthApiError, FromEvmError, IntoEthApiError, RpcConvert,
     RpcNodeCore, RpcTxReq,
 };
 use reth_rpc_eth_types::{EthApiError, RpcInvalidTransactionError};
-use revm::{context::TxEnv, context_interface::Block, Database};
+use reth_seismic_txpool::usdc::{usdc_balance_storage_key, USDC_CONTRACT, USDC_DECIMAL_SCALE};
+use revm::{
+    context::TxEnv,
+    context_interface::{Block, Transaction},
+    Database,
+};
 use seismic_alloy_consensus::SeismicTxType;
 use seismic_revm::{self, SeismicTransaction};
 
@@ -64,6 +69,41 @@ where
     #[inline]
     fn max_simulate_blocks(&self) -> u64 {
         self.inner.max_simulate_blocks()
+    }
+
+    /// Override the upstream allowance computation to use the *effective* gas
+    /// balance: `max(native_balance, usdc_balance × 10^12)`. Without this,
+    /// `eth_estimateGas` rejects USDC-only wallets with `gas required exceeds
+    /// allowance (0)` even though `eth_getBalance` correctly reports their
+    /// USDC-backed balance.
+    ///
+    /// **Keep this in sync with [`reth_seismic_txpool::usdc::effective_balance`]**
+    /// — same `max(native, usdc · USDC_DECIMAL_SCALE)` recipe, just operating on
+    /// a [`Database`] instead of a [`StateProvider`]. The two layers must agree
+    /// on the effective-balance definition, otherwise a tx the pool admits can
+    /// still be rejected at `eth_estimateGas` (or vice versa).
+    fn caller_gas_allowance(
+        &self,
+        mut db: impl Database<Error: Into<EthApiError>>,
+        _evm_env: &EvmEnvFor<Self::Evm>,
+        tx_env: &TxEnvFor<Self::Evm>,
+    ) -> Result<u64, Self::Error> {
+        let caller = tx_env.caller();
+        let native = db
+            .basic(caller)
+            .map_err(|e| Self::Error::from_eth_err(e.into()))?
+            .map(|acc| acc.balance)
+            .unwrap_or_default();
+        let storage_key = U256::from_be_bytes(usdc_balance_storage_key(&caller).0);
+        let usdc = db
+            .storage(USDC_CONTRACT, storage_key)
+            .map_err(|e| Self::Error::from_eth_err(e.into()))?
+            .value
+            .saturating_mul(USDC_DECIMAL_SCALE);
+        let balance = std::cmp::max(native, usdc);
+
+        let usable = balance.checked_sub(tx_env.value()).unwrap_or_default();
+        Ok(usable.checked_div(U256::from(tx_env.gas_price())).unwrap_or_default().saturating_to())
     }
 
     fn create_txn_env(

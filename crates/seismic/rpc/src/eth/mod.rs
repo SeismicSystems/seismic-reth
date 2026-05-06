@@ -38,7 +38,7 @@ use reth_rpc_eth_api::{
 };
 use reth_rpc_eth_types::{EthStateCache, FeeHistoryCache, GasPriceOracle};
 use reth_rpc_layer::Whitelist;
-use reth_seismic_txpool::usdc::{usdc_balance_storage_key, USDC_CONTRACT, USDC_DECIMAL_SCALE};
+use reth_seismic_txpool::usdc::effective_balance;
 use reth_storage_api::{BlockReader, ProviderHeader, ProviderTx};
 use reth_tasks::{
     pool::{BlockingTaskGuard, BlockingTaskPool},
@@ -337,25 +337,13 @@ where
         address: Address,
         block_id: Option<BlockId>,
     ) -> impl Future<Output = Result<U256, Self::Error>> + Send {
-        let storage_key = usdc_balance_storage_key(&address);
-
         self.spawn_blocking_io_fut(move |this| async move {
             let state = this.state_at_block_id_or_latest(block_id).await?;
-
-            // Read native balance.
             let native_balance = state
                 .account_balance(&address)
                 .map_err(Self::Error::from_eth_err)?
                 .unwrap_or_default();
-
-            // Read USDC balance from contract storage and scale 6→18 decimals.
-            let usdc_balance = state
-                .storage(USDC_CONTRACT, storage_key)
-                .map_err(Self::Error::from_eth_err)?
-                .map(|s| s.value.saturating_mul(USDC_DECIMAL_SCALE))
-                .unwrap_or_default();
-
-            Ok(std::cmp::max(native_balance, usdc_balance))
+            Ok(effective_balance(&*state, &address, native_balance))
         })
     }
 }
