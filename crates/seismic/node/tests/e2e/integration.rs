@@ -22,6 +22,7 @@ use alloy_rpc_types::{
     state::{AccountOverride, StateOverride},
     Block, Header, TransactionInput, TransactionRequest,
 };
+use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::{sol, SolCall, SolValue};
 use core::str::FromStr;
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
@@ -289,6 +290,38 @@ async fn rpc_test_gas_and_call_variants(
     .await
     .unwrap();
     assert!(gas > U256::ZERO);
+
+    // Regression test for the stablecoin-gas allowance gap. PR #378 routed
+    // eth_getBalance through max(native, usdc_balance) but `caller_gas_allowance`
+    // (used by eth_estimateGas) still reads only native. A wallet with 0 native
+    // and nonzero USDC must still get a >0 allowance.
+    //
+    // Fixture: anvil acct #6, allocated in dev.json with 0 native and 1000 USDC
+    // at the predeploy's `_balances[addr]` storage slot.
+    let usdc_only_signer: PrivateKeySigner =
+        "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e".parse().unwrap();
+    let usdc_gas = EthApiOverrideClient::<Block>::estimate_gas(
+        client,
+        get_signed_seismic_tx_bytes(
+            &usdc_only_signer,
+            get_nonce(client, usdc_only_signer.address()).await,
+            TxKind::Call(contract_addr),
+            chain_id,
+            ContractTestContext::get_is_odd_input_plaintext(),
+            recent_block_hash,
+        )
+        .await
+        .into(),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    assert!(
+        usdc_gas > U256::ZERO,
+        "eth_estimateGas must honor USDC balance for caller_gas_allowance \
+         (got 0 allowance for a USDC-only wallet)"
+    );
 
     // test eth_estimateGas sanitizes unsigned seismic requests (clears `from` and
     // seismic_elements to prevent caller spoofing, same as eth_call)
