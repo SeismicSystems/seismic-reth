@@ -367,8 +367,8 @@ mod test {
         /// Minimal in-memory provider that implements just the chain-tip / hash-lookup surface
         /// `validate_seismic_freshness` exercises.
         ///
-        /// `canonical` maps block_number -> the canonical hash at that height.
-        /// `headers` maps block_hash -> block_number, including hashes for forked-out blocks
+        /// `canonical` maps `block_number` -> the canonical hash at that height.
+        /// `headers` maps `block_hash` -> `block_number`, including hashes for forked-out blocks
         /// (which are intentionally absent from `canonical`).
         #[derive(Default)]
         struct MockProvider {
