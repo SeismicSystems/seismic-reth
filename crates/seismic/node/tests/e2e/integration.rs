@@ -22,6 +22,7 @@ use alloy_rpc_types::{
     state::{AccountOverride, StateOverride},
     Block, Header, TransactionInput, TransactionRequest,
 };
+use alloy_rpc_types_eth::Bundle;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::{sol, SolCall, SolValue};
 use core::str::FromStr;
@@ -1530,6 +1531,157 @@ async fn test_eth_simulate_v1_rejects_storage_override() -> eyre::Result<()> {
             assert!(
                 err_msg.to_lowercase().contains("storage overrides are not permitted"),
                 "Expected storage override rejection error, got: {}",
+                err_msg
+            );
+        }
+    }
+    Ok(())
+}
+
+/// `eth_callMany` with an unsigned bundled call must apply the same `from`/fee/value/seismic
+/// sanitization as `eth_call`. Mirrors `test_eth_call_rejects_sload_on_private_storage`: a raw
+/// SLOAD on private storage must revert because the unsigned override clears `from`, leaving
+/// the EVM with no caller authority for the private-storage access.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_call_many_rejects_unsigned_sload_on_private_storage() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let contract_addr = flagged_storage_deploy_and_write(
+        &mut node,
+        &client,
+        chain_id,
+        &wallet,
+        FLAGGED_STORAGE_SET_PRIVATE,
+        U256::from(42),
+    )
+    .await?;
+
+    let read_calldata: Bytes = hex::decode(FLAGGED_STORAGE_READ_PRIVATE_SLOAD_RAW).unwrap().into();
+    let bundle =
+        Bundle::from(vec![SeismicCallRequest::TransactionRequest(SeismicTransactionRequest {
+            inner: TransactionRequest {
+                from: Some(wallet.inner.address()),
+                to: Some(TxKind::Call(contract_addr)),
+                input: TransactionInput { data: Some(read_calldata), ..Default::default() },
+                ..Default::default()
+            },
+            seismic_elements: None,
+        })]);
+
+    let mut results = EthApiOverrideClient::<Block>::call_many(&client, vec![bundle], None, None)
+        .await
+        .expect("callMany RPC call should return per-call results, not a top-level error");
+
+    assert_eq!(results.len(), 1, "expected one bundle result");
+    let mut bundle_results = results.remove(0);
+    assert_eq!(bundle_results.len(), 1, "expected one call result");
+    let call_result = bundle_results.remove(0);
+
+    assert!(
+        call_result.value.is_none(),
+        "private SLOAD via callMany should not return a value, got {:?}",
+        call_result.value
+    );
+    let err_msg = call_result
+        .error
+        .expect("private SLOAD via callMany should produce a per-call error")
+        .to_lowercase();
+    assert!(
+        err_msg.contains("invalidprivatestorageaccess"),
+        "expected 'InvalidPrivateStorageAccess' revert, got: {}",
+        err_msg
+    );
+    Ok(())
+}
+
+/// `eth_callMany` with a signed Bytes request must run the full signed-read pipeline:
+/// signature recovery, freshness validation, calldata decryption, execution, and response
+/// encryption. Mirrors `test_eth_call_allows_cload_on_private_storage` but through the bundled
+/// path.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_call_many_allows_signed_cload_on_private_storage() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let contract_addr = flagged_storage_deploy_and_write(
+        &mut node,
+        &client,
+        chain_id,
+        &wallet,
+        FLAGGED_STORAGE_SET_PRIVATE,
+        U256::from(42),
+    )
+    .await?;
+
+    let block_hash = get_recent_block_hash(&client).await;
+    let read_calldata: Bytes = hex::decode(FLAGGED_STORAGE_READ_PRIVATE_CLOAD).unwrap().into();
+    let nonce = get_nonce(&client, wallet.inner.address()).await;
+    let to = TxKind::Call(contract_addr);
+
+    let signed_bytes =
+        get_signed_seismic_tx_bytes(&wallet.inner, nonce, to, chain_id, read_calldata, block_hash)
+            .await;
+
+    let bundle = Bundle::from(vec![SeismicCallRequest::Bytes(signed_bytes)]);
+    let mut results = EthApiOverrideClient::<Block>::call_many(&client, vec![bundle], None, None)
+        .await
+        .expect("CLOAD on private storage via callMany should succeed");
+
+    assert_eq!(results.len(), 1, "expected one bundle result");
+    let mut bundle_results = results.remove(0);
+    assert_eq!(bundle_results.len(), 1, "expected one call result");
+    let call_result = bundle_results.remove(0);
+    let value = call_result.value.expect("call should have produced a value");
+
+    let metadata =
+        get_seismic_metadata(wallet.inner.address(), chain_id, nonce, to, U256::ZERO, block_hash);
+    let decrypted = client_decrypt(metadata, &value).unwrap();
+    assert_eq!(U256::from_be_slice(&decrypted), U256::from(42));
+    Ok(())
+}
+
+/// Freshness validation (`recent_block_hash` lookback) must apply on the bundled signed-read
+/// path too.`eth_callMany` shouldn't be a backdoor for replaying signed reads with stale
+/// anchors.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_call_many_rejects_signed_read_with_stale_recent_block_hash() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let contract_addr = flagged_storage_deploy_and_write(
+        &mut node,
+        &client,
+        chain_id,
+        &wallet,
+        FLAGGED_STORAGE_SET_PRIVATE,
+        U256::from(42),
+    )
+    .await?;
+
+    // Deliberately use a hash that cannot be on the canonical chain.
+    let stale_block_hash = B256::ZERO;
+    let read_calldata: Bytes = hex::decode(FLAGGED_STORAGE_READ_PRIVATE_CLOAD).unwrap().into();
+    let nonce = get_nonce(&client, wallet.inner.address()).await;
+    let signed_bytes = get_signed_seismic_tx_bytes(
+        &wallet.inner,
+        nonce,
+        TxKind::Call(contract_addr),
+        chain_id,
+        read_calldata,
+        stale_block_hash,
+    )
+    .await;
+
+    let bundle = Bundle::from(vec![SeismicCallRequest::Bytes(signed_bytes)]);
+    let result = EthApiOverrideClient::<Block>::call_many(&client, vec![bundle], None, None).await;
+
+    match &result {
+        Ok(output) => {
+            panic!("callMany with stale recent_block_hash should be rejected, got Ok: {:?}", output)
+        }
+        Err(e) => {
+            let err_msg = e.to_string().to_lowercase();
+            assert!(
+                err_msg.contains("recent_block_hash"),
+                "expected RecentBlockHashNotFound error, got: {}",
                 err_msg
             );
         }
