@@ -3,7 +3,10 @@
 use clap::Parser;
 use reth_seismic_cli::{chainspec::SeismicChainSpecParser, Cli};
 use reth_seismic_node::{enclave::boot_enclave_and_fetch_keys, node::SeismicNode};
-use reth_seismic_rpc::ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer};
+use reth_seismic_rpc::{
+    ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer},
+    DebugWitnessDisabled, DebugWitnessOverrideServer,
+};
 use reth_tracing::tracing::*;
 
 fn main() {
@@ -34,6 +37,12 @@ fn main() {
 
                 // add seismic_ namespace
                 ctx.modules.merge_configured(seismic_api.into_rpc())?;
+
+                // Disable `debug_executionWitness*` — the witness exposes preimages of
+                // every storage trie leaf the block touched, including shielded slot
+                // values, and cannot be redacted without breaking witness verifiability.
+                ctx.modules.merge_configured(DebugWitnessDisabled.into_rpc())?;
+
                 info!(target: "reth::cli", "seismic api configured");
                 Ok(())
             })
