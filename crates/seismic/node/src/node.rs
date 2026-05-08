@@ -45,7 +45,8 @@ use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
 use reth_seismic_rpc::{
     ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer},
-    SeismicEthApiBuilder, SeismicEthApiError, SeismicRethWithSignable,
+    DebugWitnessDisabled, DebugWitnessOverrideServer, SeismicEthApiBuilder, SeismicEthApiError,
+    SeismicRethWithSignable,
 };
 use reth_transaction_pool::{
     blobstore::{DiskFileBlobStore, DiskFileBlobStoreConfig},
@@ -370,6 +371,11 @@ where
 
                 // Register seismic_ namespace (getTeePublicKey)
                 modules.merge_configured(SeismicApi::new(purpose_keys).into_rpc())?;
+
+                // Disable `debug_executionWitness*` — the witness exposes preimages of
+                // every storage trie leaf the block touched, including shielded slot
+                // values, and cannot be redacted without breaking witness verifiability.
+                modules.merge_configured(DebugWitnessDisabled.into_rpc())?;
 
                 Ok(())
             })

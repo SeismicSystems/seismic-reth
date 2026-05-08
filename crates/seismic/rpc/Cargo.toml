@@ -17,6 +17,7 @@ workspace = true
 alloy-eips.workspace = true
 alloy-primitives.workspace = true
 alloy-rpc-types.workspace = true
+alloy-rpc-types-debug.workspace = true
 alloy-rpc-types-eth.workspace = true
 alloy-consensus.workspace = true
 alloy-json-rpc.workspace = true

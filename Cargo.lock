@@ -9439,6 +9439,7 @@ dependencies = [
  "alloy-json-rpc",
  "alloy-primitives",
  "alloy-rpc-types",
+ "alloy-rpc-types-debug",
  "alloy-rpc-types-engine",
  "alloy-rpc-types-eth",
  "alloy-signer-local",
