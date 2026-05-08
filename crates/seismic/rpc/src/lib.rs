@@ -11,5 +11,8 @@
 mod eth;
 pub use eth::*;
 
+mod debug;
+pub use debug::*;
+
 mod error;
 pub use error::*;
