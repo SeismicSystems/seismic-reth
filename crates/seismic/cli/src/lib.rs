@@ -16,7 +16,7 @@ use clap::{value_parser, Parser, Subcommand};
 use futures_util::Future;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_cli::chainspec::ChainSpecParser;
-use reth_cli_commands::{launcher::FnLauncher, node, stage};
+use reth_cli_commands::{launcher::FnLauncher, node, stage, prune, init_state, db, dump_genesis, config_cmd, init_cmd, p2p, re_execute, recover};
 use reth_cli_runner::CliRunner;
 use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
@@ -169,7 +169,52 @@ where
                     // Execute the stage command
                     command.execute::<SeismicNode, _>(ctx, components).await
                 })
-            }
+            },
+            Commands::Prune(command) => {
+                runner.run_until_ctrl_c(command.execute::<SeismicNode>())
+            },
+            Commands::InitState(command) => {
+                runner.run_until_ctrl_c(command.execute::<SeismicNode>())
+            },
+            Commands::Init(command) => {
+                runner.run_until_ctrl_c(command.execute::<SeismicNode>())
+            },
+            Commands::Db(command) => {
+                runner.run_until_ctrl_c(command.execute::<SeismicNode>())
+            },
+            Commands::DumpGenesis(command) => {
+                runner.run_until_ctrl_c(command.execute())
+            },
+            Commands::Config(command) => {
+                runner.run_until_ctrl_c(command.execute())
+            },
+            Commands::P2P(command) => {
+                runner.run_until_ctrl_c(command.execute::<SeismicNode>())
+            },
+            Commands::ReExecute(command) => {
+                runner.run_command_until_exit(|_ctx| async move {
+                    // For ReExecute commands, boot the enclave and fetch purpose keys first
+                    let purpose_keys_response = boot_enclave_and_fetch_keys(&enclave_args).await;
+
+                    // Initialize purpose keys in global storage
+                    init_purpose_keys(purpose_keys_response);
+
+                    // Create components with the initialized purpose keys
+                    let components = |spec: Arc<C::ChainSpec>| {
+                        let purpose_keys = get_purpose_keys();
+                        (
+                            SeismicEvmConfig::new(spec.clone(), purpose_keys),
+                            EthBeaconConsensus::new(spec),
+                        )
+                    };
+
+                    // Execute the re-execute command
+                    command.execute::<SeismicNode>(components).await
+                })
+            },
+            Commands::Recover(command) => {
+                runner.run_command_until_exit(|ctx| command.execute::<SeismicNode>(ctx))
+            },
         }
     }
 
@@ -192,6 +237,33 @@ pub enum Commands<C: ChainSpecParser, Ext: clap::Args + fmt::Debug> {
     /// Manipulate individual stages.
     #[command(name = "stage")]
     Stage(stage::Command<C>),
+    /// Prune according to the configuration without any limits
+    #[command(name = "prune")]
+    Prune(prune::PruneCommand<C>),
+    /// Command that initializes a node from the genesis file.
+    #[command(name = "init_state")]
+    InitState(init_state::InitStateCommand<C>),
+    /// Database debugging utilities and operations
+    #[command(name = "db")]
+    Db(db::Command<C>),
+    /// Command that dumps genesis block JSON configuration to stdout.
+    #[command(name = "dump_genesis")]
+    DumpGenesis(dump_genesis::DumpGenesisCommand<C>),
+    /// Command that shows configs
+    #[command(name = "config_cmd")]
+    Config(config_cmd::Command),
+    /// Command that initializes a node from the genesis file.
+    #[command(name = "init_cmd")]
+    Init(init_cmd::InitCommand<C>),
+    /// P2P debugging utilities
+    #[command(name = "p2p")]
+    P2P(Box<p2p::Command<C>>), 
+      /// Command that re-executes blocks in parallel 
+    #[command(name = "re_execute")]
+    ReExecute(re_execute::Command<C>),
+    /// Reth recover command
+    #[command(name = "recover")]
+    Recover(recover::Command<C>)
 }
 
 #[cfg(test)]
