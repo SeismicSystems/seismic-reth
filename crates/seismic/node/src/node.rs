@@ -375,7 +375,9 @@ where
                 // Disable `debug_executionWitness*` — the witness exposes preimages of
                 // every storage trie leaf the block touched, including shielded slot
                 // values, and cannot be redacted without breaking witness verifiability.
-                modules.merge_configured(DebugWitnessDisabled.into_rpc())?;
+                // Use `replace_configured` because the upstream debug namespace already
+                // registers these method names.
+                modules.replace_configured(DebugWitnessDisabled.into_rpc())?;
 
                 Ok(())
             })
