@@ -371,6 +371,15 @@ where
                 // Register seismic_ namespace (getTeePublicKey)
                 modules.merge_configured(SeismicApi::new(purpose_keys).into_rpc())?;
 
+                // Disable the entire `debug_*` namespace.
+                let debug_methods: Vec<&'static str> = modules
+                    .methods_by_module::<fn(&str) -> bool>(RethRpcModule::Debug)
+                    .method_names()
+                    .collect();
+                for name in debug_methods {
+                    modules.remove_method_from_configured(name);
+                }
+
                 Ok(())
             })
             .await
