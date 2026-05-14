@@ -1373,3 +1373,80 @@ async fn test_usdc_only_insufficient_balance_high_gas_price() -> eyre::Result<()
     );
     Ok(())
 }
+
+/// End-to-end mirror of the seismic-viem repro reported by Sedona: a fresh
+/// USDC-only wallet performs a shielded SUSDC `transfer` against the USDC
+/// predeploy through the full viem flow — `eth_estimateGas` on signed bytes,
+/// then `eth_sendRawTransaction`, then receipt. The estimate step is what
+/// failed in production with `gas required exceeds allowance (0)`.
+///
+/// Note: dev.json's USDC predeploy has the `_balances` storage slot but no
+/// runtime bytecode, so the transfer is a no-op at the EVM level (success
+/// with no state change). What this test asserts is the *flow* the user's
+/// SDK exercised — the bug halted that flow at the estimate step before any
+/// contract code ever ran.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
+    let (mut node, client, chain_id, _wallet, _tasks) = setup_test_node().await?;
+
+    let signer = usdc_only_signer();
+    let recipient = Address::from_hex("0xaFD9e07a4955cB2E27a6DB7E2b55b05B4D928BD8").unwrap();
+    let usdc = Address::from_hex("0x790701048922E265105fd6a4467a2901c2201C43").unwrap();
+
+    // transfer(address,uint256) selector + 32-byte recipient + 1 SUSDC (6 dec raw).
+    let mut calldata = vec![0xa9, 0x05, 0x9c, 0xbb];
+    let mut recipient_word = [0u8; 32];
+    recipient_word[12..].copy_from_slice(recipient.as_slice());
+    calldata.extend_from_slice(&recipient_word);
+    calldata.extend_from_slice(&U256::from(1_000_000u64).to_be_bytes::<32>());
+    let plaintext = Bytes::from(calldata);
+
+    // Advance one block so there's a non-genesis "recent" hash for the
+    // seismic validator (which requires a hash from the last 100 blocks).
+    node.advance_block().await?;
+    let recent = get_recent_block_hash(&client).await;
+    let nonce = get_nonce(&client, signer.address()).await;
+
+    // 1) Sign the tx and ask for a gas estimate — the SDK does this via its SeismicGasFiller before
+    //    submission. Pre-fix this returns an error.
+    let signed_bytes = get_signed_seismic_tx_bytes(
+        &signer,
+        nonce,
+        TxKind::Call(usdc),
+        chain_id,
+        plaintext,
+        recent,
+    )
+    .await;
+    let estimate = EthApiOverrideClient::<Block>::estimate_gas(
+        &client,
+        signed_bytes.clone().into(),
+        None,
+        None,
+    )
+    .await
+    .expect("eth_estimateGas must succeed for USDC-only wallet");
+    assert!(estimate > U256::ZERO, "estimate must be positive");
+
+    // 2) Submit the same signed bytes. seismic-revm's caller-deduct override charges gas in USDC if
+    //    native is insufficient, so this works independently of PR #387 — but the user's flow never
+    //    reached it because step 1 failed first.
+    let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(&client, signed_bytes.into())
+        .await
+        .expect("eth_sendRawTransaction must succeed for USDC-only wallet");
+    node.advance_block().await?;
+
+    // 3) Receipt confirms the tx was included with status=success.
+    let receipt = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::transaction_receipt(&client, tx_hash)
+    .await
+    .unwrap()
+    .unwrap();
+    assert!(receipt.status(), "SUSDC transfer flow must complete end-to-end");
+    Ok(())
+}
