@@ -1450,3 +1450,83 @@ async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
     assert!(receipt.status(), "SUSDC transfer flow must complete end-to-end");
     Ok(())
 }
+
+/// Higher-level e2e mirror of seismic-viem's
+/// `getShieldedContract(...).write.transfer(...)` flow.
+///
+/// The sibling [`test_usdc_only_susdc_transfer_e2e`] hand-rolls the encrypted Seismic envelope and
+/// submits via `eth_sendRawTransaction`. seismic-viem (the SDK that surfaced this bug in prod) goes
+/// through a higher layer: a shielded wallet client, an SRC20 ABI typed via `suint256`, gas
+/// estimation, signing, submission. The rust analog is `SeismicProviderBuilder` plus a `sol!`-typed
+/// contract whose `transfer` takes `suint256`, so the filler auto-encrypts.
+///
+/// This test drives that SDK layer end-to-end against the same USDC-only fixture, catching any
+/// regression in the filler pipeline, auto-encryption, or provider-level gas estimation that the
+/// hand-rolled raw-bytes test would miss.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_usdc_only_susdc_transfer_shielded_provider_e2e() -> eyre::Result<()> {
+    use alloy_primitives::aliases::SUInt;
+    use alloy_signer::Signer;
+
+    sol! {
+        #[sol(rpc)]
+        contract ISUSDC {
+            function transfer(address to, suint256 amount) external returns (bool);
+        }
+    }
+
+    let (mut node, _client, chain_id, _wallet, _tasks) = setup_test_node().await?;
+    let reth_rpc_url = node.rpc_url().to_string();
+
+    // USDC-only signer (anvil acct #6) is the provider's wallet — the seismic-alloy filler will
+    // sign and encrypt outgoing seismic txs with it.
+    let signer = usdc_only_signer().with_chain_id(Some(chain_id));
+    let wallet: SeismicWallet<SeismicReth> = SeismicWallet::from(signer);
+
+    let provider = SeismicProviderBuilder::new()
+        .wallet(wallet)
+        .connect_http(reqwest::Url::parse(&reth_rpc_url).unwrap())
+        .await
+        .unwrap();
+
+    let usdc = Address::from_hex("0x790701048922E265105fd6a4467a2901c2201C43").unwrap();
+    let recipient = Address::from_hex("0xaFD9e07a4955cB2E27a6DB7E2b55b05B4D928BD8").unwrap();
+
+    // Advance one block so the seismic validator's "recent block" lookback is satisfied.
+    node.advance_block().await?;
+
+    // ABI-encode `transfer(address,suint256)` via the `sol!`-generated call type, then submit
+    // through `provider.send_transaction` so the seismic-alloy filler pipeline auto-encrypts
+    // the calldata (SeismicElementsFiller) and signs (WalletFiller). This is the rust analog
+    // of seismic-viem's `getShieldedContract(...).write.transfer(...)` flow.
+    //
+    // We bypass the high-level `ShieldedCallBuilder::send()` only because it doesn't expose
+    // `.gas()`, and the SeismicGasFiller's auto-estimate against a bytecode-less target lands
+    // at exactly `initial_gas` — below the txpool's intrinsic-gas check at submission. The
+    // encryption + signing path being tested is identical either way.
+    let calldata = ISUSDC::transferCall {
+        to: recipient,
+        amount: SUInt(U256::from(1_000_000u64)),
+    }
+    .abi_encode();
+    let req: SeismicTransactionRequest = seismic_reth_tx_builder()
+        .with_input(Bytes::from(calldata))
+        .with_kind(TxKind::Call(usdc))
+        .with_gas_limit(6_000_000)
+        .into();
+
+    let pending = provider
+        .send_transaction(req)
+        .await
+        .expect("shielded SUSDC.transfer must succeed via the seismic-alloy SDK path");
+    let tx_hash = *pending.tx_hash();
+    node.advance_block().await?;
+
+    let receipt = provider
+        .get_transaction_receipt(tx_hash)
+        .await
+        .unwrap()
+        .expect("transaction must be included");
+    assert!(receipt.status(), "shielded SUSDC transfer must complete end-to-end via SDK path");
+    Ok(())
+}

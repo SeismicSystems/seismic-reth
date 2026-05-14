@@ -106,6 +106,7 @@ seismic-alloy-provider = { workspace = true }
 alloy-dyn-abi.workspace = true
 alloy-sol-types.workspace = true
 alloy-json-abi.workspace = true
+alloy-contract.workspace = true
 alloy-provider.workspace = true
 seismic-alloy-rpc-types.workspace = true
 reth-exex.workspace = true
