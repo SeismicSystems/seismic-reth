@@ -22,6 +22,7 @@ use alloy_rpc_types::{
     state::{AccountOverride, StateOverride},
     Block, Header, TransactionInput, TransactionRequest,
 };
+use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::{sol, SolCall, SolValue};
 use core::str::FromStr;
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
@@ -35,9 +36,11 @@ use reth_seismic_node::utils::{
     },
 };
 use reth_seismic_primitives::{
-    test_utils::get_unsigned_legacy_tx_request, SeismicBlock, SeismicTransactionSigned,
+    test_utils::{get_unsigned_legacy_tx_request, sign_tx},
+    SeismicBlock, SeismicTransactionSigned,
 };
 use reth_seismic_rpc::ext::EthApiOverrideClient;
+use seismic_alloy_consensus::SeismicTxEnvelope;
 use seismic_alloy_network::{
     reth::builder::seismic_reth_tx_builder, wallet::SeismicWallet, SeismicReth,
 };
@@ -289,6 +292,38 @@ async fn rpc_test_gas_and_call_variants(
     .await
     .unwrap();
     assert!(gas > U256::ZERO);
+
+    // Regression test for the stablecoin-gas allowance gap. PR #378 routed
+    // eth_getBalance through max(native, usdc_balance) but `caller_gas_allowance`
+    // (used by eth_estimateGas) still reads only native. A wallet with 0 native
+    // and nonzero USDC must still get a >0 allowance.
+    //
+    // Fixture: anvil acct #6, allocated in dev.json with 0 native and 1000 USDC
+    // at the predeploy's `_balances[addr]` storage slot.
+    let usdc_only_signer: PrivateKeySigner =
+        "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e".parse().unwrap();
+    let usdc_gas = EthApiOverrideClient::<Block>::estimate_gas(
+        client,
+        get_signed_seismic_tx_bytes(
+            &usdc_only_signer,
+            get_nonce(client, usdc_only_signer.address()).await,
+            TxKind::Call(contract_addr),
+            chain_id,
+            ContractTestContext::get_is_odd_input_plaintext(),
+            recent_block_hash,
+        )
+        .await
+        .into(),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    assert!(
+        usdc_gas > U256::ZERO,
+        "eth_estimateGas must honor USDC balance for caller_gas_allowance \
+         (got 0 allowance for a USDC-only wallet)"
+    );
 
     // test eth_estimateGas sanitizes unsigned seismic requests (clears `from` and
     // seismic_elements to prevent caller spoofing, same as eth_call)
@@ -1113,5 +1148,245 @@ async fn test_eth_simulate_v1_rejects_code_override() -> eyre::Result<()> {
             );
         }
     }
+    Ok(())
+}
+
+/// Anvil acct #6 — dev.json seeds 0 native + 1000 USDC at the predeploy's `_balances[addr]` slot.
+fn usdc_only_signer() -> PrivateKeySigner {
+    "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e".parse().unwrap()
+}
+
+/// gas_price is not part of the seismic-encrypted envelope, so mutating it post-encryption is safe.
+async fn get_signed_seismic_tx_bytes_with_gas_price(
+    sk_wallet: &PrivateKeySigner,
+    nonce: u64,
+    to: TxKind,
+    chain_id: u64,
+    plaintext: Bytes,
+    recent_block_hash: B256,
+    gas_price: u128,
+) -> Bytes {
+    let mut tx = get_unsigned_seismic_tx_request(
+        sk_wallet,
+        nonce,
+        to,
+        chain_id,
+        plaintext,
+        recent_block_hash,
+    )
+    .await;
+    tx.inner.gas_price = Some(gas_price);
+    let signed = sign_tx(sk_wallet.clone(), tx).await;
+    <SeismicTxEnvelope as Encodable2718>::encoded_2718(&signed).into()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_usdc_only_eth_call_signed_bytes() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+    let (contract_addr, recent_block_hash) =
+        rpc_test_deploy_contract(&mut node, &client, chain_id, &wallet).await?;
+
+    let signer = usdc_only_signer();
+    let output = EthApiOverrideClient::<Block>::call(
+        &client,
+        get_signed_seismic_tx_bytes(
+            &signer,
+            get_nonce(&client, signer.address()).await,
+            TxKind::Call(contract_addr),
+            chain_id,
+            ContractTestContext::get_is_odd_input_plaintext(),
+            recent_block_hash,
+        )
+        .await
+        .into(),
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("eth_call must honor USDC balance for caller_gas_allowance");
+
+    assert!(!output.is_empty());
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_usdc_only_eth_create_access_list() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+    let (contract_addr, recent_block_hash) =
+        rpc_test_deploy_contract(&mut node, &client, chain_id, &wallet).await?;
+    let _ = recent_block_hash;
+
+    let signer = usdc_only_signer();
+    let req = TransactionRequest {
+        from: Some(signer.address()),
+        to: Some(TxKind::Call(contract_addr)),
+        gas_price: Some(20e9 as u128),
+        input: TransactionInput {
+            input: Some(ContractTestContext::get_is_odd_input_plaintext()),
+            data: None,
+        },
+        chain_id: Some(chain_id),
+        ..Default::default()
+    };
+
+    let access_list = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::create_access_list(&client, req.into(), None, None)
+    .await
+    .expect("create_access_list must honor USDC balance for caller_gas_allowance");
+
+    assert!(access_list.gas_used > U256::ZERO, "got {:?}", access_list);
+    Ok(())
+}
+
+/// simulateV1 does not route through `caller_gas_allowance`; seismic-revm's caller-deduct charges
+/// in USDC at execution time instead. Locks in that routing.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_usdc_only_eth_simulate_v1() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+    let (contract_addr, recent_block_hash) =
+        rpc_test_deploy_contract(&mut node, &client, chain_id, &wallet).await?;
+
+    let signer = usdc_only_signer();
+    let tx_bytes = get_signed_seismic_tx_bytes(
+        &signer,
+        get_nonce(&client, signer.address()).await,
+        TxKind::Call(contract_addr),
+        chain_id,
+        ContractTestContext::get_is_odd_input_plaintext(),
+        recent_block_hash,
+    )
+    .await;
+
+    let payload = SimulatePayload::<SeismicCallRequest> {
+        block_state_calls: vec![SimBlock {
+            block_overrides: None,
+            state_overrides: None,
+            calls: vec![SeismicCallRequest::Bytes(tx_bytes)],
+        }],
+        trace_transfers: false,
+        validation: false,
+        return_full_transactions: false,
+    };
+
+    let result = EthApiOverrideClient::<Block>::simulate_v1(&client, payload, None)
+        .await
+        .expect("simulate_v1 must succeed for USDC-only wallet");
+    assert!(!result.is_empty());
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_usdc_only_eth_estimate_gas_typed_data() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+    let (contract_addr, recent_block_hash) =
+        rpc_test_deploy_contract(&mut node, &client, chain_id, &wallet).await?;
+
+    let signer = usdc_only_signer();
+    let typed = get_signed_seismic_tx_typed_data(
+        &signer,
+        get_nonce(&client, signer.address()).await,
+        TxKind::Call(contract_addr),
+        chain_id,
+        ContractTestContext::get_is_odd_input_plaintext(),
+        recent_block_hash,
+    )
+    .await;
+
+    let gas = EthApiOverrideClient::<Block>::estimate_gas(&client, typed.into(), None, None)
+        .await
+        .expect("estimate_gas via typed-data must honor USDC balance");
+    assert!(gas > U256::ZERO);
+    Ok(())
+}
+
+/// 1000 USDC × 10^12 = 10^21 wei cap; gas_price = 10^18 → allowance 1000 gas, below 21000 floor.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_usdc_only_insufficient_balance_high_gas_price() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+    let (contract_addr, recent_block_hash) =
+        rpc_test_deploy_contract(&mut node, &client, chain_id, &wallet).await?;
+
+    let signer = usdc_only_signer();
+    let bytes = get_signed_seismic_tx_bytes_with_gas_price(
+        &signer,
+        get_nonce(&client, signer.address()).await,
+        TxKind::Call(contract_addr),
+        chain_id,
+        ContractTestContext::get_is_odd_input_plaintext(),
+        recent_block_hash,
+        1_000_000_000_000_000_000u128,
+    )
+    .await;
+
+    let result =
+        EthApiOverrideClient::<Block>::estimate_gas(&client, bytes.into(), None, None).await;
+    assert!(result.is_err(), "got {:?}", result);
+    Ok(())
+}
+
+/// dev.json's USDC predeploy has no runtime bytecode, so the transfer is a no-op at the EVM
+/// level — this asserts the estimateGas → sendRawTransaction → receipt flow, not balance movement.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
+    let (mut node, client, chain_id, _wallet, _tasks) = setup_test_node().await?;
+
+    let signer = usdc_only_signer();
+    let recipient = Address::from_hex("0xaFD9e07a4955cB2E27a6DB7E2b55b05B4D928BD8").unwrap();
+    let usdc = Address::from_hex("0x790701048922E265105fd6a4467a2901c2201C43").unwrap();
+
+    // transfer(address,uint256) selector + 32-byte recipient + 1 SUSDC (6 dec raw).
+    let mut calldata = vec![0xa9, 0x05, 0x9c, 0xbb];
+    let mut recipient_word = [0u8; 32];
+    recipient_word[12..].copy_from_slice(recipient.as_slice());
+    calldata.extend_from_slice(&recipient_word);
+    calldata.extend_from_slice(&U256::from(1_000_000u64).to_be_bytes::<32>());
+    let plaintext = Bytes::from(calldata);
+
+    // Seismic validator requires a recent block hash from the last 100 blocks.
+    node.advance_block().await?;
+    let recent = get_recent_block_hash(&client).await;
+    let nonce = get_nonce(&client, signer.address()).await;
+
+    let signed_bytes = get_signed_seismic_tx_bytes(
+        &signer,
+        nonce,
+        TxKind::Call(usdc),
+        chain_id,
+        plaintext,
+        recent,
+    )
+    .await;
+    let estimate = EthApiOverrideClient::<Block>::estimate_gas(
+        &client,
+        signed_bytes.clone().into(),
+        None,
+        None,
+    )
+    .await
+    .expect("eth_estimateGas must succeed for USDC-only wallet");
+    assert!(estimate > U256::ZERO);
+
+    let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(&client, signed_bytes.into())
+        .await
+        .expect("eth_sendRawTransaction must succeed for USDC-only wallet");
+    node.advance_block().await?;
+
+    let receipt = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::transaction_receipt(&client, tx_hash)
+    .await
+    .unwrap()
+    .unwrap();
+    assert!(receipt.status());
     Ok(())
 }

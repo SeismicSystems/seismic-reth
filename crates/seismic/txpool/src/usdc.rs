@@ -50,6 +50,12 @@ pub fn read_usdc_balance(state: &dyn StateProvider, address: &Address) -> U256 {
 /// This is used as the balance for transaction pool ordering and demotion
 /// decisions so that accounts paying gas in USDC are treated equivalently to
 /// accounts paying in native token.
+///
+/// **Keep in sync with `SeismicEthApi::caller_gas_allowance`** in
+/// `reth-seismic-rpc::eth::call` — that's the `Database`-flavored mirror used
+/// by `eth_estimateGas`. Both layers must agree on the effective-balance
+/// definition (currently `max(native, usdc · USDC_DECIMAL_SCALE)`), otherwise
+/// a tx the pool admits can be rejected by `eth_estimateGas` or vice versa.
 pub fn effective_balance(
     state: &dyn StateProvider,
     address: &Address,
