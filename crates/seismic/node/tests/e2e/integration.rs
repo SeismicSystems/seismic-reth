@@ -1151,29 +1151,14 @@ async fn test_eth_simulate_v1_rejects_code_override() -> eyre::Result<()> {
     Ok(())
 }
 
-// ============================================================================
-// Veridise-1091 / PR #387 — USDC-only wallet allowance coverage.
-//
-// PR #387 overrides `Call::caller_gas_allowance` for seismic so that signed
-// requests on a USDC-only wallet see `max(native, usdc · 10^12)` instead of
-// native-only. The PR exercises one path (eth_estimateGas via signed bytes).
-// These tests cover the remaining signed-call surfaces it claims to fix, plus
-// the path it claims is unaffected (eth_simulateV1) and a negative case.
-//
-// Fixture is anvil acct #6, seeded in dev.json with 0 native + 1000 USDC at
-// the predeploy's `_balances[addr]` storage slot. No bytecode is needed at
-// the predeploy: both the txpool's `effective_balance` and the new RPC
-// `caller_gas_allowance` read storage directly.
-// ============================================================================
+// PR #387 — USDC-only wallet allowance coverage. Fixture: anvil acct #6, dev.json seeds 0 native
+// + 1000 USDC at the predeploy's `_balances[addr]` slot.
 
-/// Anvil account #6 — 0 native, 1000 USDC in dev.json genesis.
 fn usdc_only_signer() -> PrivateKeySigner {
     "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e".parse().unwrap()
 }
 
-/// Like `get_signed_seismic_tx_bytes` but with a custom gas_price.
-/// gas_price isn't bound into the seismic encryption (only chain_id/nonce/to/value are),
-/// so we can mutate it post-encryption and before signing.
+/// gas_price isn't bound into the seismic encryption, so we mutate it post-encryption.
 async fn get_signed_seismic_tx_bytes_with_gas_price(
     sk_wallet: &PrivateKeySigner,
     nonce: u64,
@@ -1197,9 +1182,6 @@ async fn get_signed_seismic_tx_bytes_with_gas_price(
     <SeismicTxEnvelope as Encodable2718>::encoded_2718(&signed).into()
 }
 
-/// `eth_call` on a USDC-only wallet via signed bytes. Without PR #387's
-/// override the call would fail at the upstream `caller_gas_allowance` check
-/// even though the wallet has 1000 USDC available for gas.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_usdc_only_eth_call_signed_bytes() -> eyre::Result<()> {
     let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
@@ -1226,14 +1208,10 @@ async fn test_usdc_only_eth_call_signed_bytes() -> eyre::Result<()> {
     .await
     .expect("eth_call must honor USDC balance for caller_gas_allowance");
 
-    // is_odd of 0 is false; the result is encrypted so just sanity-check non-empty.
-    assert!(!output.is_empty(), "eth_call should return encrypted output bytes");
+    assert!(!output.is_empty());
     Ok(())
 }
 
-/// `eth_createAccessList` on a USDC-only wallet. This API takes an unsigned
-/// `TransactionRequest` (no seismic sanitization applies), but still routes
-/// through `caller_gas_allowance`. PR body lists it as a fixed path.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_usdc_only_eth_create_access_list() -> eyre::Result<()> {
     let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
@@ -1245,7 +1223,7 @@ async fn test_usdc_only_eth_create_access_list() -> eyre::Result<()> {
     let req = TransactionRequest {
         from: Some(signer.address()),
         to: Some(TxKind::Call(contract_addr)),
-        gas_price: Some(20e9 as u128), // matches the regression test's gas price
+        gas_price: Some(20e9 as u128),
         input: TransactionInput {
             input: Some(ContractTestContext::get_is_odd_input_plaintext()),
             data: None,
@@ -1264,19 +1242,12 @@ async fn test_usdc_only_eth_create_access_list() -> eyre::Result<()> {
     .await
     .expect("create_access_list must honor USDC balance for caller_gas_allowance");
 
-    assert!(
-        access_list.gas_used > U256::ZERO,
-        "createAccessList should report gas used for USDC-only wallet, got {:?}",
-        access_list,
-    );
+    assert!(access_list.gas_used > U256::ZERO, "got {:?}", access_list);
     Ok(())
 }
 
-/// `eth_simulateV1` on a USDC-only wallet. PR body explicitly says this path
-/// does NOT go through `caller_gas_allowance` (it routes through
-/// `simulate::execute_transactions` and seismic-revm's caller-deduct
-/// override charges in USDC at execution time). This test locks in that
-/// claim — if that path ever regresses, this fails.
+/// simulateV1 does NOT go through `caller_gas_allowance` — seismic-revm's caller-deduct override
+/// charges in USDC at execution time. Locks in that claim against future routing changes.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_usdc_only_eth_simulate_v1() -> eyre::Result<()> {
     let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
@@ -1308,13 +1279,10 @@ async fn test_usdc_only_eth_simulate_v1() -> eyre::Result<()> {
     let result = EthApiOverrideClient::<Block>::simulate_v1(&client, payload, None)
         .await
         .expect("simulate_v1 must succeed for USDC-only wallet");
-    assert!(!result.is_empty(), "simulate_v1 should return at least one simulated block");
+    assert!(!result.is_empty());
     Ok(())
 }
 
-/// `eth_estimateGas` via EIP-712 typed-data on a USDC-only wallet. Exercises
-/// the third signed-call branch in `convert_seismic_call_to_tx_request`
-/// (typed data, distinct from signed bytes).
 #[tokio::test(flavor = "multi_thread")]
 async fn test_usdc_only_eth_estimate_gas_typed_data() -> eyre::Result<()> {
     let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
@@ -1335,17 +1303,13 @@ async fn test_usdc_only_eth_estimate_gas_typed_data() -> eyre::Result<()> {
     let gas = EthApiOverrideClient::<Block>::estimate_gas(&client, typed.into(), None, None)
         .await
         .expect("estimate_gas via typed-data must honor USDC balance");
-    assert!(gas > U256::ZERO, "typed-data USDC-only estimateGas returned 0");
+    assert!(gas > U256::ZERO);
     Ok(())
 }
 
-/// Negative test: even with USDC backing the allowance, a high enough
-/// gas_price drives the cap below the gas required and `eth_estimateGas`
-/// must still reject. Locks in that the override doesn't "always pass."
-///
-/// USDC balance scaled to 18 decimals = 10^21 wei. At gas_price = 10^18,
-/// caller_gas_allowance returns 10^21 / 10^18 = 1000 gas — below the 21000
-/// floor for any call.
+/// Negative control: 1000 USDC × 10^12 = 10^21 wei allowance cap. At gas_price = 10^18 wei the
+/// override returns 10^21 / 10^18 = 1000 gas — below the 21000 intrinsic floor, so estimateGas
+/// must still reject. Locks in that the override isn't an unconditional "always pass."
 #[tokio::test(flavor = "multi_thread")]
 async fn test_usdc_only_insufficient_balance_high_gas_price() -> eyre::Result<()> {
     let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
@@ -1360,31 +1324,21 @@ async fn test_usdc_only_insufficient_balance_high_gas_price() -> eyre::Result<()
         chain_id,
         ContractTestContext::get_is_odd_input_plaintext(),
         recent_block_hash,
-        1_000_000_000_000_000_000u128, // 10^18 wei = 10^9 gwei
+        1_000_000_000_000_000_000u128,
     )
     .await;
 
     let result =
         EthApiOverrideClient::<Block>::estimate_gas(&client, bytes.into(), None, None).await;
-    assert!(
-        result.is_err(),
-        "USDC-only estimateGas at extreme gas_price must fail, got {:?}",
-        result
-    );
+    assert!(result.is_err(), "got {:?}", result);
     Ok(())
 }
 
-/// End-to-end mirror of the seismic-viem repro reported by Sedona: a fresh
-/// USDC-only wallet performs a shielded SUSDC `transfer` against the USDC
-/// predeploy through the full viem flow — `eth_estimateGas` on signed bytes,
-/// then `eth_sendRawTransaction`, then receipt. The estimate step is what
-/// failed in production with `gas required exceeds allowance (0)`.
+/// Mirrors the seismic-viem repro: USDC-only wallet does estimateGas → sendRawTransaction on a
+/// shielded transfer to the USDC predeploy. The estimate step is the one that failed in prod.
 ///
-/// Note: dev.json's USDC predeploy has the `_balances` storage slot but no
-/// runtime bytecode, so the transfer is a no-op at the EVM level (success
-/// with no state change). What this test asserts is the *flow* the user's
-/// SDK exercised — the bug halted that flow at the estimate step before any
-/// contract code ever ran.
+/// dev.json's USDC predeploy has no runtime bytecode, so the transfer itself is a no-op — what
+/// this asserts is the SDK flow, which halted at estimate before any contract code ran.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
     let (mut node, client, chain_id, _wallet, _tasks) = setup_test_node().await?;
@@ -1401,14 +1355,11 @@ async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
     calldata.extend_from_slice(&U256::from(1_000_000u64).to_be_bytes::<32>());
     let plaintext = Bytes::from(calldata);
 
-    // Advance one block so there's a non-genesis "recent" hash for the
-    // seismic validator (which requires a hash from the last 100 blocks).
+    // Seismic validator requires a recent block hash from the last 100 blocks.
     node.advance_block().await?;
     let recent = get_recent_block_hash(&client).await;
     let nonce = get_nonce(&client, signer.address()).await;
 
-    // 1) Sign the tx and ask for a gas estimate — the SDK does this via its SeismicGasFiller before
-    //    submission. Pre-fix this returns an error.
     let signed_bytes = get_signed_seismic_tx_bytes(
         &signer,
         nonce,
@@ -1426,17 +1377,13 @@ async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
     )
     .await
     .expect("eth_estimateGas must succeed for USDC-only wallet");
-    assert!(estimate > U256::ZERO, "estimate must be positive");
+    assert!(estimate > U256::ZERO);
 
-    // 2) Submit the same signed bytes. seismic-revm's caller-deduct override charges gas in USDC if
-    //    native is insufficient, so this works independently of PR #387 — but the user's flow never
-    //    reached it because step 1 failed first.
     let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(&client, signed_bytes.into())
         .await
         .expect("eth_sendRawTransaction must succeed for USDC-only wallet");
     node.advance_block().await?;
 
-    // 3) Receipt confirms the tx was included with status=success.
     let receipt = EthApiClient::<
         SeismicTransactionRequest,
         SeismicTransactionSigned,
@@ -1447,22 +1394,12 @@ async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
     .await
     .unwrap()
     .unwrap();
-    assert!(receipt.status(), "SUSDC transfer flow must complete end-to-end");
+    assert!(receipt.status());
     Ok(())
 }
 
-/// Higher-level e2e mirror of seismic-viem's
-/// `getShieldedContract(...).write.transfer(...)` flow.
-///
-/// The sibling [`test_usdc_only_susdc_transfer_e2e`] hand-rolls the encrypted Seismic envelope and
-/// submits via `eth_sendRawTransaction`. seismic-viem (the SDK that surfaced this bug in prod) goes
-/// through a higher layer: a shielded wallet client, an SRC20 ABI typed via `suint256`, gas
-/// estimation, signing, submission. The rust analog is `SeismicProviderBuilder` plus a `sol!`-typed
-/// contract whose `transfer` takes `suint256`, so the filler auto-encrypts.
-///
-/// This test drives that SDK layer end-to-end against the same USDC-only fixture, catching any
-/// regression in the filler pipeline, auto-encryption, or provider-level gas estimation that the
-/// hand-rolled raw-bytes test would miss.
+/// SDK-path mirror of `test_usdc_only_susdc_transfer_e2e`: drives the seismic-alloy filler stack
+/// (SeismicElementsFiller auto-encrypts, WalletFiller signs) instead of hand-rolling the envelope.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_usdc_only_susdc_transfer_shielded_provider_e2e() -> eyre::Result<()> {
     use alloy_primitives::aliases::SUInt;
@@ -1478,8 +1415,6 @@ async fn test_usdc_only_susdc_transfer_shielded_provider_e2e() -> eyre::Result<(
     let (mut node, _client, chain_id, _wallet, _tasks) = setup_test_node().await?;
     let reth_rpc_url = node.rpc_url().to_string();
 
-    // USDC-only signer (anvil acct #6) is the provider's wallet — the seismic-alloy filler will
-    // sign and encrypt outgoing seismic txs with it.
     let signer = usdc_only_signer().with_chain_id(Some(chain_id));
     let wallet: SeismicWallet<SeismicReth> = SeismicWallet::from(signer);
 
@@ -1492,18 +1427,11 @@ async fn test_usdc_only_susdc_transfer_shielded_provider_e2e() -> eyre::Result<(
     let usdc = Address::from_hex("0x790701048922E265105fd6a4467a2901c2201C43").unwrap();
     let recipient = Address::from_hex("0xaFD9e07a4955cB2E27a6DB7E2b55b05B4D928BD8").unwrap();
 
-    // Advance one block so the seismic validator's "recent block" lookback is satisfied.
     node.advance_block().await?;
 
-    // ABI-encode `transfer(address,suint256)` via the `sol!`-generated call type, then submit
-    // through `provider.send_transaction` so the seismic-alloy filler pipeline auto-encrypts
-    // the calldata (SeismicElementsFiller) and signs (WalletFiller). This is the rust analog
-    // of seismic-viem's `getShieldedContract(...).write.transfer(...)` flow.
-    //
-    // We bypass the high-level `ShieldedCallBuilder::send()` only because it doesn't expose
-    // `.gas()`, and the SeismicGasFiller's auto-estimate against a bytecode-less target lands
-    // at exactly `initial_gas` — below the txpool's intrinsic-gas check at submission. The
-    // encryption + signing path being tested is identical either way.
+    // Bypass ShieldedCallBuilder::send because it has no .gas() — the auto-estimate against the
+    // bytecode-less target lands exactly at initial_gas, failing the txpool intrinsic-gas check.
+    // provider.send_transaction still runs the full filler pipeline (encryption + signing).
     let calldata = ISUSDC::transferCall {
         to: recipient,
         amount: SUInt(U256::from(1_000_000u64)),
@@ -1515,18 +1443,11 @@ async fn test_usdc_only_susdc_transfer_shielded_provider_e2e() -> eyre::Result<(
         .with_gas_limit(6_000_000)
         .into();
 
-    let pending = provider
-        .send_transaction(req)
-        .await
-        .expect("shielded SUSDC.transfer must succeed via the seismic-alloy SDK path");
+    let pending = provider.send_transaction(req).await.unwrap();
     let tx_hash = *pending.tx_hash();
     node.advance_block().await?;
 
-    let receipt = provider
-        .get_transaction_receipt(tx_hash)
-        .await
-        .unwrap()
-        .expect("transaction must be included");
-    assert!(receipt.status(), "shielded SUSDC transfer must complete end-to-end via SDK path");
+    let receipt = provider.get_transaction_receipt(tx_hash).await.unwrap().unwrap();
+    assert!(receipt.status());
     Ok(())
 }
