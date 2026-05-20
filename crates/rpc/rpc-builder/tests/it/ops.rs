@@ -37,7 +37,8 @@ async fn launch_ops_with_admin(admin_address: Address) -> (BodyAuthServerHandle,
     let mut auth_config = SignatureAuthConfig::new(whitelist.clone(), TEST_CHAIN_ID);
     auth_config.nonces = nonces.clone();
 
-    let ops_api = OpsApi::new(provider, Box::new(TokioTaskExecutor::default()), nonces);
+    let ops_api =
+        OpsApi::new(provider, Box::new(TokioTaskExecutor::default()), nonces, whitelist.clone());
 
     let mut module = BodyAuthRpcModule::empty();
     module.merge_methods(ops_api.into_rpc()).unwrap();

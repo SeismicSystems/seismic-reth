@@ -24,6 +24,19 @@ use seismic_alloy_consensus::SeismicTxEnvelope;
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Maximum span (in blocks) between `recent_block_hash` and `expires_at_block`.
+/// Bounds both how stale the reference may be and how far ahead the replay
+/// window may extend. Matches the EVM `BLOCKHASH` opcode lookback.
+const MAX_SENTINEL_BLOCK_RANGE: u64 = 256;
+
+struct SentinelEnvelope {
+    action: SentinelAction,
+    recent_block_hash: B256,
+    expires_at_block: u64,
+    validator_id: B256,
+    nonce: u64,
+}
+
 enum SentinelAction {
     Whitelist { target: Address, expires_at: u64 },
     Revoke { target: Address },
@@ -42,21 +55,60 @@ where
     where
         T: alloy_consensus::Transaction,
     {
-        let Some(action) = parse_sentinel_action(recovered)? else { return Ok(false) };
+        let Some(envelope) = parse_sentinel_action(recovered)? else { return Ok(false) };
 
+        // 1. signer must be the configured governance address.
         let governance_address = self.ops_governance_address()?;
         if recovered.signer() != governance_address {
             return Err(rpc_error("unauthorized ops whitelist sentinel signer"));
         }
 
-        match action {
+        // 2. payload must be bound to this validator's session.
+        if envelope.validator_id != whitelist.validator_id() {
+            return Err(rpc_error("ops sentinel validator_id mismatch"));
+        }
+
+        // 3. recent_block_hash must be on this node's canonical chain, and the [reference,
+        //    expires_at_block] window must satisfy the range bound.
+        let provider = self.provider();
+        let reference_block_number = provider
+            .block_number(envelope.recent_block_hash)
+            .map_err(SeismicEthApiError::from)?
+            .ok_or_else(|| rpc_error("ops sentinel recent_block_hash not on canonical chain"))?;
+        if envelope.expires_at_block < reference_block_number {
+            return Err(rpc_error("ops sentinel expires_at_block precedes reference block"));
+        }
+        if envelope.expires_at_block.saturating_sub(reference_block_number)
+            > MAX_SENTINEL_BLOCK_RANGE
+        {
+            return Err(rpc_error("ops sentinel block range exceeds bound"));
+        }
+
+        // 4. tx must not have expired against the current canonical head.
+        let current_block = provider.best_block_number().map_err(SeismicEthApiError::from)?;
+        if current_block > envelope.expires_at_block {
+            return Err(rpc_error("ops sentinel has expired"));
+        }
+
+        // 5. nonce must be strictly greater than the last consumed nonce; advance it.
+        //    Strict-greater so out-of-order delivery silently drops older payloads rather than
+        //    blocking later ones. Advanced *after* the action-specific check below so that an
+        //    envelope rejected for an action-level reason (e.g. stale expires_at) doesn't burn a
+        //    nonce that governance can otherwise reuse.
+        match envelope.action {
             SentinelAction::Whitelist { target, expires_at } => {
                 if expires_at <= current_unix_timestamp()? {
                     return Err(rpc_error("ops whitelist expiry must be in the future"));
                 }
+                if !whitelist.try_advance_admin_nonce(envelope.nonce) {
+                    return Err(rpc_error("ops sentinel nonce has already been consumed"));
+                }
                 whitelist.add(target, expires_at);
             }
             SentinelAction::Revoke { target } => {
+                if !whitelist.try_advance_admin_nonce(envelope.nonce) {
+                    return Err(rpc_error("ops sentinel nonce has already been consumed"));
+                }
                 whitelist.remove(&target);
             }
         }
@@ -96,7 +148,7 @@ where
 
         if let Some(whitelist) = self.ops_whitelist.as_ref() {
             if self.try_handle_sentinel_transaction(&recovered, whitelist)? {
-                return Ok(B256::from(*recovered.tx_hash()))
+                return Ok(B256::from(*recovered.tx_hash()));
             }
         }
 
@@ -122,12 +174,12 @@ where
 
 fn parse_sentinel_action<T>(
     recovered: &Recovered<T>,
-) -> Result<Option<SentinelAction>, SeismicEthApiError>
+) -> Result<Option<SentinelEnvelope>, SeismicEthApiError>
 where
     T: alloy_consensus::Transaction,
 {
     if recovered.to() != Some(WHITELIST_TX_SENTINEL) {
-        return Ok(None)
+        return Ok(None);
     }
 
     let input = recovered.input();
@@ -138,16 +190,25 @@ where
     if selector == OpsWhitelistTxAuth::whitelistKeyCall::SELECTOR {
         let call = OpsWhitelistTxAuth::whitelistKeyCall::abi_decode(input)
             .map_err(|_| rpc_error("failed to decode ops whitelist calldata"))?;
-        return Ok(Some(SentinelAction::Whitelist {
-            target: call.target,
-            expires_at: call.expiresAt,
-        }))
+        return Ok(Some(SentinelEnvelope {
+            action: SentinelAction::Whitelist { target: call.target, expires_at: call.expiresAt },
+            recent_block_hash: call.recentBlockHash,
+            expires_at_block: call.expiresAtBlock,
+            validator_id: call.validatorId,
+            nonce: call.nonce,
+        }));
     }
 
     if selector == OpsWhitelistTxAuth::revokeKeyCall::SELECTOR {
         let call = OpsWhitelistTxAuth::revokeKeyCall::abi_decode(input)
             .map_err(|_| rpc_error("failed to decode ops revoke calldata"))?;
-        return Ok(Some(SentinelAction::Revoke { target: call.target }))
+        return Ok(Some(SentinelEnvelope {
+            action: SentinelAction::Revoke { target: call.target },
+            recent_block_hash: call.recentBlockHash,
+            expires_at_block: call.expiresAtBlock,
+            validator_id: call.validatorId,
+            nonce: call.nonce,
+        }));
     }
 
     Err(rpc_error("unknown ops whitelist sentinel selector"))
