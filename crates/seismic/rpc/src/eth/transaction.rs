@@ -6,6 +6,7 @@ use alloy_primitives::{Address, Bytes, Signature, B256};
 use alloy_rpc_types_eth::{Transaction, TransactionInfo};
 use alloy_sol_types::SolCall;
 use reth_primitives_traits::SignedTransaction;
+use reth_provider::BlockNumReader;
 use reth_rpc_convert::transaction::{RpcTxConverter, SimTxConverter};
 use reth_rpc_eth_api::{
     helpers::{spec::SignersForRpc, EthTransactions, LoadTransaction},
