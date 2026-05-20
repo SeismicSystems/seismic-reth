@@ -1147,12 +1147,12 @@ where
         };
 
         let whitelist = whitelist.unwrap_or_default();
-        let mut auth_config = SignatureAuthConfig::new(whitelist, chain_id);
+        let mut auth_config = SignatureAuthConfig::new(whitelist.clone(), chain_id);
         let nonces = Arc::new(std::sync::RwLock::new(std::collections::HashMap::new()));
         auth_config.nonces = nonces.clone();
 
         // Create the OpsApi handler.
-        let ops_api = reth_rpc::OpsApi::new(provider, task_spawner, nonces);
+        let ops_api = reth_rpc::OpsApi::new(provider, task_spawner, nonces, whitelist);
 
         // Register it in a module.
         let mut module = BodyAuthRpcModule::empty();
