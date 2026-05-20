@@ -5,14 +5,19 @@ use alloy_consensus::{transaction::Recovered, Transaction as _};
 use alloy_primitives::{Address, Bytes, Signature, B256};
 use alloy_rpc_types_eth::{Transaction, TransactionInfo};
 use alloy_sol_types::SolCall;
+use futures::StreamExt;
+use reth_node_api::BlockBody;
 use reth_primitives_traits::SignedTransaction;
 use reth_provider::BlockNumReader;
+use reth_provider::CanonStateSubscriptions;
 use reth_rpc_convert::transaction::{RpcTxConverter, SimTxConverter};
 use reth_rpc_eth_api::{
-    helpers::{spec::SignersForRpc, EthTransactions, LoadTransaction},
-    FromEthApiError, RpcConvert, RpcNodeCore,
+    helpers::{spec::SignersForRpc, EthTransactions, LoadReceipt, LoadTransaction},
+    FromEthApiError, RpcConvert, RpcNodeCore, RpcReceipt,
 };
-use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError};
+use reth_rpc_eth_types::{
+    utils::recover_raw_transaction, EthApiError, EthApiError::TransactionConfirmationTimeout,
+};
 use reth_rpc_layer::{
     OpsWhitelistTxAuth, Whitelist, OPS_AUTH_CONTRACT, OPS_AUTH_SLOT, WHITELIST_TX_SENTINEL,
 };
@@ -163,6 +168,66 @@ where
             .map_err(Self::Error::from_eth_err)?;
 
         Ok(hash)
+    }
+
+    /// Sentinel txs targeting [`WHITELIST_TX_SENTINEL`] are intercepted at the
+    /// RPC layer and never enter the pool or a block, so the default impl's
+    /// "wait for on-chain inclusion" loop would time out at 30s while the
+    /// whitelist mutation has already applied. Reject those up front; for all
+    /// other txs run the upstream submit-and-wait flow.
+    ///
+    /// The non-sentinel branch mirrors the default impl at
+    /// `reth_rpc_eth_api::helpers::EthTransactions::send_raw_transaction_sync`,
+    /// inlined here because Rust does not allow calling a trait's default
+    /// method from an override. Keep in sync with upstream if the receipt-
+    /// waiting strategy changes there.
+    async fn send_raw_transaction_sync(
+        &self,
+        tx: Bytes,
+    ) -> Result<RpcReceipt<Self::NetworkTypes>, Self::Error>
+    where
+        Self: LoadReceipt + 'static,
+    {
+        let recovered: Recovered<
+            <<Self::Pool as TransactionPool>::Transaction as PoolTransaction>::Pooled,
+        > = recover_raw_transaction(&tx)?;
+        if recovered.to() == Some(WHITELIST_TX_SENTINEL) {
+            return Err(Self::Error::from_eth_err(EthApiError::Other(Box::new(
+                jsonrpsee_types::ErrorObject::owned(
+                    -32000,
+                    "ops sentinel transactions are not supported via eth_sendRawTransactionSync; \
+                     use eth_sendRawTransaction",
+                    None::<()>,
+                ),
+            ))));
+        }
+
+        let hash = EthTransactions::send_raw_transaction(self, tx).await?;
+        let mut stream = self.provider().canonical_state_stream();
+        const TIMEOUT_DURATION: tokio::time::Duration = tokio::time::Duration::from_secs(30);
+        tokio::time::timeout(TIMEOUT_DURATION, async {
+            while let Some(notification) = stream.next().await {
+                let chain = notification.committed();
+                for block in chain.blocks_iter() {
+                    if block.body().contains_transaction(&hash) {
+                        if let Some(receipt) = self.transaction_receipt(hash).await? {
+                            return Ok(receipt);
+                        }
+                    }
+                }
+            }
+            Err(Self::Error::from_eth_err(TransactionConfirmationTimeout {
+                hash,
+                duration: TIMEOUT_DURATION,
+            }))
+        })
+        .await
+        .unwrap_or_else(|_elapsed| {
+            Err(Self::Error::from_eth_err(TransactionConfirmationTimeout {
+                hash,
+                duration: TIMEOUT_DURATION,
+            }))
+        })
     }
 }
 
