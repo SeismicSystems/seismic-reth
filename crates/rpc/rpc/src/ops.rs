@@ -9,6 +9,7 @@ use alloy_serde::JsonStorageKey;
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use reth_rpc_api::OpsApiServer;
+use reth_rpc_layer::Whitelist;
 use reth_storage_api::{BlockIdReader, StateProviderFactory};
 use reth_tasks::TaskSpawner;
 use tokio::sync::oneshot;
@@ -18,6 +19,8 @@ use tokio::sync::oneshot;
 /// Provides privileged storage read operations protected by signature authentication.
 /// - `ops_getStorageAt`: whitelist-only, reads storage
 /// - `ops_getNonce`: whitelist-only, returns the next expected nonce
+/// - `ops_getValidatorId`: unauthenticated, returns the per-process random id
+/// - `ops_getAdminNonce`: unauthenticated, returns the last consumed admin nonce
 #[derive(Clone)]
 pub struct OpsApi<Provider> {
     inner: Arc<OpsApiInner<Provider>>,
@@ -28,8 +31,11 @@ struct OpsApiInner<Provider> {
     provider: Provider,
     /// Task spawner for blocking IO tasks.
     task_spawner: Box<dyn TaskSpawner>,
-    /// Shared in-memory next expected nonce per whitelisted signer.
+    /// Shared in-memory next expected nonce per whitelisted signer (HTTP auth).
     nonces: Arc<RwLock<HashMap<Address, u64>>>,
+    /// Shared whitelist; also carries the validator id and admin nonce used by
+    /// the sentinel-tx replay protection.
+    whitelist: Whitelist,
 }
 
 impl<Provider> OpsApi<Provider> {
@@ -38,8 +44,9 @@ impl<Provider> OpsApi<Provider> {
         provider: Provider,
         task_spawner: Box<dyn TaskSpawner>,
         nonces: Arc<RwLock<HashMap<Address, u64>>>,
+        whitelist: Whitelist,
     ) -> Self {
-        let inner = Arc::new(OpsApiInner { provider, task_spawner, nonces });
+        let inner = Arc::new(OpsApiInner { provider, task_spawner, nonces, whitelist });
         Self { inner }
     }
 }
@@ -112,6 +119,14 @@ where
             Ok(nonce)
         })
         .await
+    }
+
+    async fn get_validator_id(&self) -> RpcResult<B256> {
+        Ok(self.inner.whitelist.validator_id())
+    }
+
+    async fn get_admin_nonce(&self) -> RpcResult<u64> {
+        Ok(self.inner.whitelist.admin_nonce())
     }
 }
 

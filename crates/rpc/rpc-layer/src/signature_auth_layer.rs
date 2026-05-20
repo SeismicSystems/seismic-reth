@@ -3,6 +3,7 @@ use alloy_sol_types::{eip712_domain, sol, SolStruct};
 use http::{HeaderMap, Response, StatusCode};
 use http_body_util::BodyExt;
 use jsonrpsee_http_client::{HttpBody, HttpRequest, HttpResponse};
+use rand::RngCore;
 use serde::Deserialize;
 use std::{
     collections::HashMap,
@@ -23,8 +24,21 @@ sol! {
     }
 
     interface OpsWhitelistTxAuth {
-        function whitelistKey(address target, uint64 expiresAt) external;
-        function revokeKey(address target) external;
+        function whitelistKey(
+            address target,
+            uint64 expiresAt,
+            bytes32 recentBlockHash,
+            uint64 expiresAtBlock,
+            bytes32 validatorId,
+            uint64 nonce
+        ) external;
+        function revokeKey(
+            address target,
+            bytes32 recentBlockHash,
+            uint64 expiresAtBlock,
+            bytes32 validatorId,
+            uint64 nonce
+        ) external;
     }
 }
 
@@ -44,15 +58,57 @@ pub const OPS_AUTH_CONTRACT: Address = address!("0x00000000000000000000000000005
 pub const OPS_AUTH_SLOT: B256 = B256::ZERO;
 
 /// Shared whitelist of temporarily authorized addresses with expiration times.
+///
+/// Also carries the per-process `validator_id` and monotonic `admin_nonce` used
+/// to gate sentinel transactions (`whitelistKey` / `revokeKey`). Both reset on
+/// node restart: a fresh `validator_id` invalidates any in-flight captured
+/// sentinel payloads from the previous incarnation, and the `admin_nonce`
+/// starts again from zero in the new namespace.
 #[derive(Debug, Clone)]
 pub struct Whitelist {
     inner: Arc<RwLock<HashMap<Address, u64>>>,
+    /// Random per-process identifier. Sentinel txs must bind to this value to
+    /// be accepted by this validator.
+    validator_id: B256,
+    /// Highest admin nonce consumed by an accepted sentinel tx. Subsequent
+    /// sentinel txs must carry a strictly greater nonce.
+    admin_nonce: Arc<RwLock<u64>>,
 }
 
 impl Whitelist {
-    /// Creates an empty whitelist.
+    /// Creates an empty whitelist with a freshly generated `validator_id`.
     pub fn new() -> Self {
-        Self { inner: Arc::new(RwLock::new(HashMap::new())) }
+        let mut id = [0u8; 32];
+        rand::rng().fill_bytes(&mut id);
+        Self {
+            inner: Arc::new(RwLock::new(HashMap::new())),
+            validator_id: B256::from(id),
+            admin_nonce: Arc::new(RwLock::new(0)),
+        }
+    }
+
+    /// Returns this validator's random session identifier.
+    pub const fn validator_id(&self) -> B256 {
+        self.validator_id
+    }
+
+    /// Returns the highest admin nonce consumed by an accepted sentinel tx.
+    pub fn admin_nonce(&self) -> u64 {
+        *read_unpoisoned(&self.admin_nonce)
+    }
+
+    /// Attempts to advance the admin nonce to `nonce`. Returns `true` iff
+    /// `nonce > current` and the counter was updated. Strict-greater so
+    /// skipped nonces (e.g. out-of-order delivery) are silently dropped
+    /// rather than blocking later ones.
+    pub fn try_advance_admin_nonce(&self, nonce: u64) -> bool {
+        let mut guard = write_unpoisoned(&self.admin_nonce);
+        if nonce > *guard {
+            *guard = nonce;
+            true
+        } else {
+            false
+        }
     }
 
     /// Adds an address to the whitelist until the given Unix timestamp in seconds.
@@ -194,9 +250,21 @@ where
 
             // Parse the method name from the JSON body to avoid substring-matching
             // bypasses via Unicode escapes (e.g. \u006f for 'o').
-            let method = serde_json::from_slice::<RpcRequest>(&body_bytes)
+            // Use a struct that only requires `method` — JSON-RPC `params` is
+            // optional, and clients (incl. jsonrpsee with empty `rpc_params![]`)
+            // may omit or null it. Deserializing into `RpcRequest` would silently
+            // fall through to an empty method and skip the bootstrap match below.
+            let method = serde_json::from_slice::<RpcMethodOnly>(&body_bytes)
                 .map(|r| r.method)
                 .unwrap_or_default();
+
+            // Unauthenticated bootstrap endpoints: governance needs these to construct
+            // sentinel txs before any key is whitelisted, so they bypass the auth path.
+            if matches!(method.as_str(), "ops_getValidatorId" | "ops_getAdminNonce") {
+                let new_body = HttpBody::from(body_bytes.to_vec());
+                let new_req = HttpRequest::from_parts(parts, new_body);
+                return inner.call(new_req).await;
+            }
 
             let needs_nonce = method == "ops_getStorageAt";
             let is_get_nonce_method = method == "ops_getNonce";
@@ -355,8 +423,90 @@ struct RpcRequest {
     params: Vec<serde_json::Value>,
 }
 
+/// Minimal projection used for method-name routing only; tolerates clients that
+/// omit or null the JSON-RPC `params` field.
+#[derive(Deserialize)]
+struct RpcMethodOnly {
+    method: String,
+}
+
 fn parse_address_param(value: Option<&serde_json::Value>, field: &str) -> Result<Address, String> {
     let value = value.ok_or_else(|| format!("Missing {field}"))?;
     let addr = value.as_str().ok_or_else(|| format!("Invalid {field}"))?;
     addr.parse::<Address>().map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn admin_nonce_starts_at_zero() {
+        let w = Whitelist::new();
+        assert_eq!(w.admin_nonce(), 0);
+    }
+
+    #[test]
+    fn validator_id_is_nonzero_and_stable_within_a_whitelist() {
+        let w = Whitelist::new();
+        let id = w.validator_id();
+        assert_ne!(id, B256::ZERO, "validator_id must be random, not zero");
+        assert_eq!(w.validator_id(), id, "validator_id must not change within an instance");
+    }
+
+    #[test]
+    fn validator_id_differs_across_whitelists() {
+        // Two freshly-constructed whitelists must not collide.
+        let a = Whitelist::new();
+        let b = Whitelist::new();
+        assert_ne!(a.validator_id(), b.validator_id());
+    }
+
+    #[test]
+    fn try_advance_admin_nonce_accepts_strictly_greater() {
+        let w = Whitelist::new();
+        assert!(w.try_advance_admin_nonce(1));
+        assert_eq!(w.admin_nonce(), 1);
+        assert!(w.try_advance_admin_nonce(2));
+        assert_eq!(w.admin_nonce(), 2);
+    }
+
+    #[test]
+    fn try_advance_admin_nonce_rejects_equal() {
+        let w = Whitelist::new();
+        assert!(w.try_advance_admin_nonce(5));
+        // Re-submitting the same nonce must not advance.
+        assert!(!w.try_advance_admin_nonce(5));
+        assert_eq!(w.admin_nonce(), 5);
+    }
+
+    #[test]
+    fn try_advance_admin_nonce_rejects_lower() {
+        let w = Whitelist::new();
+        assert!(w.try_advance_admin_nonce(5));
+        // A lower nonce is a replay attempt; counter must not regress.
+        assert!(!w.try_advance_admin_nonce(3));
+        assert_eq!(w.admin_nonce(), 5);
+    }
+
+    #[test]
+    fn try_advance_admin_nonce_allows_gap_jumps() {
+        // Out-of-order delivery: if 5 lands before 1..4, later ones must drop
+        // silently rather than block 5 from being accepted.
+        let w = Whitelist::new();
+        assert!(w.try_advance_admin_nonce(5));
+        assert!(!w.try_advance_admin_nonce(1));
+        assert!(!w.try_advance_admin_nonce(4));
+        assert!(w.try_advance_admin_nonce(6));
+        assert_eq!(w.admin_nonce(), 6);
+    }
+
+    #[test]
+    fn try_advance_admin_nonce_rejects_initial_zero() {
+        // admin_nonce starts at 0; nonce 0 is not strictly greater, so the
+        // very first sentinel must carry nonce >= 1.
+        let w = Whitelist::new();
+        assert!(!w.try_advance_admin_nonce(0));
+        assert_eq!(w.admin_nonce(), 0);
+    }
 }
