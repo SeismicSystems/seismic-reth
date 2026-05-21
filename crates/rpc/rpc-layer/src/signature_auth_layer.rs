@@ -151,11 +151,17 @@ pub const EIP712_DOMAIN_NAME: &str = "SeismicOps";
 /// The EIP-712 domain version for ops requests.
 pub const EIP712_DOMAIN_VERSION: &str = "1";
 
-/// Closure type that returns the current canonical head block number. Injected
-/// so the middleware can evaluate block-based whitelist expiry without
-/// depending on the storage-api crate (and without depending on the host wall
-/// clock, which is untrusted in TEE deployments).
-pub type CurrentBlockFn = Arc<dyn Fn() -> u64 + Send + Sync>;
+/// Closure type that returns the current canonical head block number, or
+/// `None` if the underlying provider read failed. Injected so the middleware
+/// can evaluate block-based whitelist expiry without depending on the
+/// storage-api crate (and without depending on the host wall clock, which is
+/// untrusted in TEE deployments).
+///
+/// The `Option` is load-bearing: when the head can't be read we don't know
+/// whether a whitelist entry is still in its validity window, so the
+/// middleware must fail closed (return `503 Service Unavailable`) instead of
+/// substituting a default that would silently authorize every entry.
+pub type CurrentBlockFn = Arc<dyn Fn() -> Option<u64> + Send + Sync>;
 
 /// Configuration for the signature authentication layer.
 ///
@@ -354,7 +360,18 @@ where
                     }
                 };
 
-            let current_block = (config.current_block_fn)();
+            // If we can't read the canonical head we can't evaluate block-based
+            // whitelist expiry. Fail closed with 503 rather than substituting a
+            // default that would silently authorize every entry.
+            let current_block = match (config.current_block_fn)() {
+                Some(b) => b,
+                None => {
+                    return Ok(error_response(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "current block unavailable",
+                    ))
+                }
+            };
 
             if is_get_nonce_method {
                 config.whitelist.evict_expired(current_block);
