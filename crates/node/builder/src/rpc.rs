@@ -1147,7 +1147,17 @@ where
         };
 
         let whitelist = whitelist.unwrap_or_default();
-        let mut auth_config = SignatureAuthConfig::new(whitelist.clone(), chain_id);
+        // Closure read by the auth middleware on every authenticated ops_* request
+        // to evaluate block-based whitelist entry expiry. Reads the live canonical
+        // head; cheap (single AtomicU64 in the chain tracker).
+        let current_block_fn: reth_rpc_layer::CurrentBlockFn = {
+            let provider = provider.clone();
+            Arc::new(move || {
+                reth_storage_api::BlockNumReader::best_block_number(&*provider).unwrap_or(0)
+            })
+        };
+        let mut auth_config =
+            SignatureAuthConfig::new(whitelist.clone(), chain_id, current_block_fn);
         let nonces = Arc::new(std::sync::RwLock::new(std::collections::HashMap::new()));
         auth_config.nonces = nonces.clone();
 
