@@ -11,7 +11,6 @@ use std::{
     pin::Pin,
     sync::{Arc, RwLock},
     task::{Context, Poll},
-    time::{SystemTime, UNIX_EPOCH},
 };
 use tower::{Layer, Service};
 
@@ -26,7 +25,7 @@ sol! {
     interface OpsWhitelistTxAuth {
         function whitelistKey(
             address target,
-            uint64 expiresAt,
+            uint64 keyExpiresAtBlock,
             bytes32 recentBlockHash,
             uint64 expiresAtBlock,
             bytes32 validatorId,
@@ -111,16 +110,19 @@ impl Whitelist {
         }
     }
 
-    /// Adds an address to the whitelist until the given Unix timestamp in seconds.
-    pub fn add(&self, address: Address, expires_at: u64) {
-        write_unpoisoned(&self.inner).insert(address, expires_at);
+    /// Adds an address to the whitelist; the entry stays valid until the
+    /// canonical head reaches `key_expires_at_block`. Block-based to avoid
+    /// depending on the host wall clock, which is untrusted in TEE deployments.
+    pub fn add(&self, address: Address, key_expires_at_block: u64) {
+        write_unpoisoned(&self.inner).insert(address, key_expires_at_block);
     }
 
-    /// Returns `true` if the address is whitelisted and not expired.
-    pub fn is_authorized(&self, address: &Address) -> bool {
+    /// Returns `true` if the address is whitelisted and the canonical head has
+    /// not yet reached the entry's `key_expires_at_block`.
+    pub fn is_authorized(&self, address: &Address, current_block: u64) -> bool {
         let map = read_unpoisoned(&self.inner);
         match map.get(address) {
-            Some(expiry) => current_unix_timestamp() < *expiry,
+            Some(expires_at_block) => current_block < *expires_at_block,
             None => false,
         }
     }
@@ -130,10 +132,10 @@ impl Whitelist {
         write_unpoisoned(&self.inner).remove(address).is_some()
     }
 
-    /// Removes expired entries.
-    pub fn evict_expired(&self) {
-        let now = current_unix_timestamp();
-        write_unpoisoned(&self.inner).retain(|_, expiry| now < *expiry);
+    /// Removes entries whose `key_expires_at_block` has been reached or passed.
+    pub fn evict_expired(&self, current_block: u64) {
+        write_unpoisoned(&self.inner)
+            .retain(|_, expires_at_block| current_block < *expires_at_block);
     }
 }
 
@@ -149,11 +151,17 @@ pub const EIP712_DOMAIN_NAME: &str = "SeismicOps";
 /// The EIP-712 domain version for ops requests.
 pub const EIP712_DOMAIN_VERSION: &str = "1";
 
+/// Closure type that returns the current canonical head block number. Injected
+/// so the middleware can evaluate block-based whitelist expiry without
+/// depending on the storage-api crate (and without depending on the host wall
+/// clock, which is untrusted in TEE deployments).
+pub type CurrentBlockFn = Arc<dyn Fn() -> u64 + Send + Sync>;
+
 /// Configuration for the signature authentication layer.
 ///
 /// A shared whitelist holds temporarily authorized addresses for data endpoints.
 /// Signatures use EIP-712 typed data with the `SeismicOps` domain.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SignatureAuthConfig {
     /// Shared whitelist of temporarily authorized addresses.
     pub whitelist: Whitelist,
@@ -161,12 +169,33 @@ pub struct SignatureAuthConfig {
     pub nonces: Arc<RwLock<HashMap<Address, u64>>>,
     /// The chain ID for the EIP-712 domain separator.
     pub chain_id: u64,
+    /// Returns the current canonical head block number. Used to evaluate
+    /// whitelist entry expiry (`key_expires_at_block`).
+    pub current_block_fn: CurrentBlockFn,
+}
+
+impl std::fmt::Debug for SignatureAuthConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SignatureAuthConfig")
+            .field("whitelist", &self.whitelist)
+            .field("nonces", &self.nonces)
+            .field("chain_id", &self.chain_id)
+            .field("current_block_fn", &"<fn>")
+            .finish()
+    }
 }
 
 impl SignatureAuthConfig {
-    /// Creates a new signature auth config.
-    pub fn new(whitelist: Whitelist, chain_id: u64) -> Self {
-        Self { whitelist, nonces: Arc::new(RwLock::new(HashMap::new())), chain_id }
+    /// Creates a new signature auth config. `current_block_fn` is invoked on
+    /// every authenticated `ops_*` request to evaluate whitelist expiry; it
+    /// should be a cheap accessor over the node's canonical head.
+    pub fn new(whitelist: Whitelist, chain_id: u64, current_block_fn: CurrentBlockFn) -> Self {
+        Self {
+            whitelist,
+            nonces: Arc::new(RwLock::new(HashMap::new())),
+            chain_id,
+            current_block_fn,
+        }
     }
 }
 
@@ -325,9 +354,11 @@ where
                     }
                 };
 
+            let current_block = (config.current_block_fn)();
+
             if is_get_nonce_method {
-                config.whitelist.evict_expired();
-                if !config.whitelist.is_authorized(&recovered_address) {
+                config.whitelist.evict_expired(current_block);
+                if !config.whitelist.is_authorized(&recovered_address, current_block) {
                     return Ok(error_response(StatusCode::UNAUTHORIZED, "Key not whitelisted"));
                 }
 
@@ -344,8 +375,8 @@ where
                 }
             } else if needs_nonce {
                 // ops_getStorageAt: require whitelisted address.
-                config.whitelist.evict_expired();
-                if !config.whitelist.is_authorized(&recovered_address) {
+                config.whitelist.evict_expired(current_block);
+                if !config.whitelist.is_authorized(&recovered_address, current_block) {
                     return Ok(error_response(StatusCode::UNAUTHORIZED, "Key not whitelisted"));
                 }
             } else {
@@ -403,10 +434,6 @@ fn error_response(status: StatusCode, message: &str) -> HttpResponse {
         .status(status)
         .body(HttpBody::new(message.to_string()))
         .expect("building error response should not fail")
-}
-
-fn current_unix_timestamp() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).expect("system clock before unix epoch").as_secs()
 }
 
 fn read_unpoisoned<T>(lock: &RwLock<T>) -> std::sync::RwLockReadGuard<'_, T> {
@@ -508,5 +535,72 @@ mod tests {
         let w = Whitelist::new();
         assert!(!w.try_advance_admin_nonce(0));
         assert_eq!(w.admin_nonce(), 0);
+    }
+
+    // ---- is_authorized / evict_expired (block-based expiry) ----
+
+    #[test]
+    fn is_authorized_returns_false_for_unknown_address() {
+        let w = Whitelist::new();
+        assert!(!w.is_authorized(&Address::repeat_byte(0x42), 0));
+        assert!(!w.is_authorized(&Address::repeat_byte(0x42), u64::MAX));
+    }
+
+    #[test]
+    fn is_authorized_strictly_less_than_expires_at_block() {
+        // Entry valid until block 100. Strict-less semantics: block 99 is in,
+        // block 100 is already out (cannot read AT the expiry block).
+        let w = Whitelist::new();
+        let addr = Address::repeat_byte(0x11);
+        w.add(addr, 100);
+
+        assert!(w.is_authorized(&addr, 0), "block 0 < 100");
+        assert!(w.is_authorized(&addr, 99), "block 99 < 100");
+        assert!(!w.is_authorized(&addr, 100), "block 100 == 100 (strict-less)");
+        assert!(!w.is_authorized(&addr, 101), "block 101 > 100");
+    }
+
+    #[test]
+    fn evict_expired_retains_only_strictly_above_current_block() {
+        // Three entries at blocks 50, 100, 150. Advance head to 100:
+        //   - 50  ≤ 100 → evicted
+        //   - 100 ≤ 100 → evicted (strict-less)
+        //   - 150 >  100 → kept
+        let w = Whitelist::new();
+        let a = Address::repeat_byte(0xa);
+        let b = Address::repeat_byte(0xb);
+        let c = Address::repeat_byte(0xc);
+        w.add(a, 50);
+        w.add(b, 100);
+        w.add(c, 150);
+
+        w.evict_expired(100);
+
+        assert!(!w.is_authorized(&a, 100));
+        assert!(!w.is_authorized(&b, 100));
+        assert!(w.is_authorized(&c, 100), "150 > 100 must survive");
+    }
+
+    #[test]
+    fn evict_expired_is_a_noop_when_head_is_zero() {
+        // A freshly-started chain has best_block_number() == 0; nothing should
+        // be evicted unless an entry was explicitly added with expires == 0.
+        let w = Whitelist::new();
+        let a = Address::repeat_byte(0xa);
+        w.add(a, 1);
+        w.evict_expired(0);
+        assert!(w.is_authorized(&a, 0));
+    }
+
+    #[test]
+    fn add_overwrites_previous_expiry() {
+        // Re-adding the same address with a new expiry overrides the old one,
+        // which is the contract apply_sentinel_action relies on for renewal.
+        let w = Whitelist::new();
+        let a = Address::repeat_byte(0xa);
+        w.add(a, 50);
+        w.add(a, 200);
+        // At block 100 the original would have expired; the renewed one is still valid.
+        assert!(w.is_authorized(&a, 100));
     }
 }
