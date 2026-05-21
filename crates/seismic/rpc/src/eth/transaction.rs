@@ -28,7 +28,6 @@ use reth_transaction_pool::{
 };
 use seismic_alloy_consensus::SeismicTxEnvelope;
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Maximum span (in blocks) between `recent_block_hash` and `expires_at_block`.
 /// Bounds both how stale the reference may be and how far ahead the replay
@@ -44,7 +43,7 @@ struct SentinelEnvelope {
 }
 
 enum SentinelAction {
-    Whitelist { target: Address, expires_at: u64 },
+    Whitelist { target: Address, key_expires_at_block: u64 },
     Revoke { target: Address },
 }
 
@@ -84,8 +83,8 @@ where
         if envelope.expires_at_block < reference_block_number {
             return Err(rpc_error("ops sentinel expires_at_block precedes reference block"));
         }
-        if envelope.expires_at_block.saturating_sub(reference_block_number)
-            > MAX_SENTINEL_BLOCK_RANGE
+        if envelope.expires_at_block.saturating_sub(reference_block_number) >
+            MAX_SENTINEL_BLOCK_RANGE
         {
             return Err(rpc_error("ops sentinel block range exceeds bound"));
         }
@@ -99,17 +98,22 @@ where
         // 5. nonce must be strictly greater than the last consumed nonce; advance it.
         //    Strict-greater so out-of-order delivery silently drops older payloads rather than
         //    blocking later ones. Advanced *after* the action-specific check below so that an
-        //    envelope rejected for an action-level reason (e.g. stale expires_at) doesn't burn a
-        //    nonce that governance can otherwise reuse.
+        //    envelope rejected for an action-level reason (e.g. stale `key_expires_at_block`)
+        //    doesn't burn a nonce that governance can otherwise reuse.
         match envelope.action {
-            SentinelAction::Whitelist { target, expires_at } => {
-                if expires_at <= current_unix_timestamp()? {
-                    return Err(rpc_error("ops whitelist expiry must be in the future"));
+            SentinelAction::Whitelist { target, key_expires_at_block } => {
+                // The whitelist entry's validity is anchored to block height, not wall-clock
+                // time, so a TEE host can't manipulate `SystemTime::now()` to forge expiry.
+                // Compared against the same head we used for check #4.
+                if key_expires_at_block <= current_block {
+                    return Err(rpc_error(
+                        "ops whitelist key_expires_at_block must be in the future",
+                    ));
                 }
                 if !whitelist.try_advance_admin_nonce(envelope.nonce) {
                     return Err(rpc_error("ops sentinel nonce has already been consumed"));
                 }
-                whitelist.add(target, expires_at);
+                whitelist.add(target, key_expires_at_block);
             }
             SentinelAction::Revoke { target } => {
                 if !whitelist.try_advance_admin_nonce(envelope.nonce) {
@@ -257,7 +261,10 @@ where
         let call = OpsWhitelistTxAuth::whitelistKeyCall::abi_decode(input)
             .map_err(|_| rpc_error("failed to decode ops whitelist calldata"))?;
         return Ok(Some(SentinelEnvelope {
-            action: SentinelAction::Whitelist { target: call.target, expires_at: call.expiresAt },
+            action: SentinelAction::Whitelist {
+                target: call.target,
+                key_expires_at_block: call.keyExpiresAtBlock,
+            },
             recent_block_hash: call.recentBlockHash,
             expires_at_block: call.expiresAtBlock,
             validator_id: call.validatorId,
@@ -278,13 +285,6 @@ where
     }
 
     Err(rpc_error("unknown ops whitelist sentinel selector"))
-}
-
-fn current_unix_timestamp() -> Result<u64, SeismicEthApiError> {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .map_err(|_| rpc_error("system clock before unix epoch"))
 }
 
 fn rpc_error(message: &'static str) -> SeismicEthApiError {

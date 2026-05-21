@@ -29,7 +29,7 @@ sol! {
     interface OpsWhitelistTxAuth {
         function whitelistKey(
             address target,
-            uint64 expiresAt,
+            uint64 keyExpiresAtBlock,
             bytes32 recentBlockHash,
             uint64 expiresAtBlock,
             bytes32 validatorId,
@@ -44,6 +44,10 @@ sol! {
         ) external;
     }
 }
+
+/// Far-future block used for "valid for the rest of the test" whitelist entries.
+/// The test chain only produces a few blocks per test, so any large number works.
+const FAR_FUTURE_BLOCK: u64 = 1_000_000_000;
 
 /// The Params contract address.
 const PARAMS_CONTRACT: Address = address!("0x0000000000000000000000000000506172616d73");
@@ -121,10 +125,10 @@ struct Envelope {
     nonce: u64,
 }
 
-fn whitelist_calldata(target: Address, expires_at: u64, env: Envelope) -> Bytes {
+fn whitelist_calldata(target: Address, key_expires_at_block: u64, env: Envelope) -> Bytes {
     OpsWhitelistTxAuth::whitelistKeyCall {
         target,
-        expiresAt: expires_at,
+        keyExpiresAtBlock: key_expires_at_block,
         recentBlockHash: env.recent_block_hash,
         expiresAtBlock: env.expires_at_block,
         validatorId: env.validator_id,
@@ -183,13 +187,6 @@ async fn submit_sentinel(client: &HttpClient, raw_tx: &Bytes) -> Result<String, 
         Ok(v) => Ok(v.as_str().expect("tx hash string").to_string()),
         Err(e) => Err(e.to_string()),
     }
-}
-
-fn current_unix_timestamp() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("system clock before unix epoch")
-        .as_secs()
 }
 
 /// Send a signed request to the ops RPC server.
@@ -341,7 +338,7 @@ async fn test_ops_sentinel_whitelist_from_governance_key() {
         validator_id: live.validator_id,
         nonce: live.next_nonce,
     };
-    let expires_at = current_unix_timestamp() + 3600;
+    let expires_at = FAR_FUTURE_BLOCK;
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
@@ -395,7 +392,7 @@ async fn test_ops_sentinel_whitelist_from_non_governance_key_fails() {
         validator_id: live.validator_id,
         nonce: live.next_nonce,
     };
-    let expires_at = current_unix_timestamp() + 3600;
+    let expires_at = FAR_FUTURE_BLOCK;
     let raw_tx = build_sentinel_tx(
         &attacker,
         chain_id,
@@ -428,7 +425,7 @@ async fn test_ops_sentinel_rejects_wrong_validator_id() {
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
-        whitelist_calldata(reader.address(), current_unix_timestamp() + 3600, env),
+        whitelist_calldata(reader.address(), FAR_FUTURE_BLOCK, env),
     );
     let err =
         submit_sentinel(&client, &raw_tx).await.expect_err("wrong validator_id should be rejected");
@@ -456,7 +453,7 @@ async fn test_ops_sentinel_rejects_non_canonical_recent_block_hash() {
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
-        whitelist_calldata(reader.address(), current_unix_timestamp() + 3600, env),
+        whitelist_calldata(reader.address(), FAR_FUTURE_BLOCK, env),
     );
     let err = submit_sentinel(&client, &raw_tx)
         .await
@@ -488,7 +485,7 @@ async fn test_ops_sentinel_rejects_block_range_over_bound() {
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
-        whitelist_calldata(reader.address(), current_unix_timestamp() + 3600, env),
+        whitelist_calldata(reader.address(), FAR_FUTURE_BLOCK, env),
     );
     let err = submit_sentinel(&client, &raw_tx)
         .await
@@ -524,7 +521,7 @@ async fn test_ops_sentinel_rejects_expired_against_head() {
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
-        whitelist_calldata(reader.address(), current_unix_timestamp() + 3600, env),
+        whitelist_calldata(reader.address(), FAR_FUTURE_BLOCK, env),
     );
     let err =
         submit_sentinel(&client, &raw_tx).await.expect_err("expired sentinel should be rejected");
@@ -549,7 +546,7 @@ async fn test_ops_sentinel_rejects_replayed_nonce() {
         validator_id: live.validator_id,
         nonce: live.next_nonce,
     };
-    let expires_at = current_unix_timestamp() + 3600;
+    let expires_at = FAR_FUTURE_BLOCK;
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
@@ -603,7 +600,7 @@ async fn test_ops_admin_nonce_advances_after_successful_sentinel_tx() {
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
-        whitelist_calldata(reader.address(), current_unix_timestamp() + 3600, env),
+        whitelist_calldata(reader.address(), FAR_FUTURE_BLOCK, env),
     );
     submit_sentinel(&client, &raw_tx).await.expect("whitelist sentinel tx should succeed");
 
@@ -644,7 +641,7 @@ async fn test_ops_sentinel_rejects_expires_before_reference() {
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
-        whitelist_calldata(reader.address(), current_unix_timestamp() + 3600, env),
+        whitelist_calldata(reader.address(), FAR_FUTURE_BLOCK, env),
     );
     let err = submit_sentinel(&client, &raw_tx)
         .await
@@ -679,7 +676,7 @@ async fn test_ops_sentinel_accepts_admin_nonce_gap_jump() {
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
-        whitelist_calldata(reader.address(), current_unix_timestamp() + 3600, env_jump),
+        whitelist_calldata(reader.address(), FAR_FUTURE_BLOCK, env_jump),
     );
     submit_sentinel(&client, &raw_tx).await.expect("gap-jump sentinel should succeed");
     assert_eq!(ops_get_admin_nonce(&ops_client).await, 100);
@@ -689,7 +686,7 @@ async fn test_ops_sentinel_accepts_admin_nonce_gap_jump() {
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
-        whitelist_calldata(reader.address(), current_unix_timestamp() + 3600, env_stale),
+        whitelist_calldata(reader.address(), FAR_FUTURE_BLOCK, env_stale),
     );
     let err = submit_sentinel(&client, &raw_tx)
         .await
@@ -701,7 +698,7 @@ async fn test_ops_sentinel_accepts_admin_nonce_gap_jump() {
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
-        whitelist_calldata(reader.address(), current_unix_timestamp() + 3600, env_next),
+        whitelist_calldata(reader.address(), FAR_FUTURE_BLOCK, env_next),
     );
     submit_sentinel(&client, &raw_tx).await.expect("strictly-greater follow-up should succeed");
     assert_eq!(ops_get_admin_nonce(&ops_client).await, 101);
@@ -781,16 +778,18 @@ async fn test_ops_sentinel_does_not_burn_nonce_on_action_validation_failure() {
         nonce: live.next_nonce,
     };
 
-    // 1. Submit with a stale Unix expires_at — must be rejected.
-    let stale_expires_at = current_unix_timestamp() - 1;
+    // 1. Submit with a stale `key_expires_at_block` (at/below current head) — must be rejected.
+    //    Current head is at most a few blocks ahead of 0 on this fresh dev chain.
+    let stale_key_expires_at_block = 0u64;
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
-        whitelist_calldata(reader.address(), stale_expires_at, env),
+        whitelist_calldata(reader.address(), stale_key_expires_at_block, env),
     );
-    let err =
-        submit_sentinel(&client, &raw_tx).await.expect_err("stale expires_at should be rejected");
-    assert!(err.contains("expiry must be in the future"), "got: {err}");
+    let err = submit_sentinel(&client, &raw_tx)
+        .await
+        .expect_err("stale key_expires_at_block should be rejected");
+    assert!(err.contains("key_expires_at_block must be in the future"), "got: {err}");
 
     // 2. admin_nonce must NOT have advanced.
     assert_eq!(
@@ -803,7 +802,7 @@ async fn test_ops_sentinel_does_not_burn_nonce_on_action_validation_failure() {
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
-        whitelist_calldata(reader.address(), current_unix_timestamp() + 3600, env),
+        whitelist_calldata(reader.address(), FAR_FUTURE_BLOCK, env),
     );
     submit_sentinel(&client, &raw_tx)
         .await
@@ -841,7 +840,7 @@ async fn test_ops_sentinel_rejected_by_send_raw_transaction_sync() {
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
-        whitelist_calldata(reader.address(), current_unix_timestamp() + 3600, env),
+        whitelist_calldata(reader.address(), FAR_FUTURE_BLOCK, env),
     );
 
     // Time the round-trip so we can prove it's the early-reject path, not a 30s timeout.
@@ -868,5 +867,71 @@ async fn test_ops_sentinel_rejected_by_send_raw_transaction_sync() {
         ops_get_admin_nonce(&ops_client).await,
         0,
         "rejected sentinel must not advance admin_nonce",
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_ops_sentinel_whitelisted_key_expires_when_head_passes_key_block() {
+    // Full TEE-safe expiry flow exercised through the sentinel-tx path (not by
+    // calling `whitelist.add` directly): governance whitelists a key until a
+    // specific block, the reader can read until the chain advances past that
+    // block, and is then rejected. Confirms the validator's view of expiry is
+    // bound to canonical head, not host wall clock.
+    reth_tracing::init_test_tracing();
+    let governance = PrivateKeySigner::random();
+    let reader = PrivateKeySigner::random();
+
+    let (mut node, _tasks, _wallet) = launch_ops_node(&governance).await.unwrap();
+    let client = HttpClientBuilder::default().build(&node.rpc_url().to_string()).unwrap();
+    let ops_url = node_ops_url!(node);
+    let ops_client = build_ops_client(&ops_url);
+    let chain_id = 5124u64;
+
+    // Whitelist the reader until block 3. Current head is 0; the entry must be
+    // valid for the next read but rejected after we mine three blocks.
+    let (recent_block_hash, recent_block_number) = latest_block(&client).await;
+    assert_eq!(recent_block_number, 0, "fresh chain head must start at 0");
+    let validator_id = ops_get_validator_id(&ops_client).await;
+    let next_nonce = ops_get_admin_nonce(&ops_client).await + 1;
+    let env = Envelope {
+        recent_block_hash,
+        // generous envelope window — independent of the entry's own expiry
+        expires_at_block: recent_block_number + 128,
+        validator_id,
+        nonce: next_nonce,
+    };
+    let key_expires_at_block: u64 = 3;
+    let raw_tx = build_sentinel_tx(
+        &governance,
+        chain_id,
+        whitelist_calldata(reader.address(), key_expires_at_block, env),
+    );
+    submit_sentinel(&client, &raw_tx).await.expect("whitelist sentinel should succeed");
+
+    // While head is still below `key_expires_at_block`, the reader can read.
+    let body = ops_get_storage_request(PARAMS_CONTRACT, alloy_primitives::B256::ZERO, 1);
+    let resp = send_ops_signed_request(&ops_url, &body, &reader, Some("0"), chain_id).await;
+    assert_eq!(
+        resp.status(),
+        reqwest::StatusCode::OK,
+        "reader must be authorized before head reaches key_expires_at_block"
+    );
+
+    // Advance the chain past `key_expires_at_block`. After 3 blocks
+    // `best_block_number() == 3 == key_expires_at_block`, which fails the
+    // strict-less check, so the entry is now expired.
+    for _ in 0..3 {
+        node.advance_block().await.expect("advance block");
+    }
+    let (_after_hash, after_number) = latest_block(&client).await;
+    assert!(after_number >= key_expires_at_block, "head must reach the expiry block");
+
+    // Reader is now rejected — entry has expired.
+    let body = ops_get_storage_request(PARAMS_CONTRACT, alloy_primitives::B256::ZERO, 2);
+    let resp = send_ops_signed_request(&ops_url, &body, &reader, Some("1"), chain_id).await;
+    assert_eq!(
+        resp.status(),
+        reqwest::StatusCode::UNAUTHORIZED,
+        "reader must be rejected once head reaches key_expires_at_block"
     );
 }
