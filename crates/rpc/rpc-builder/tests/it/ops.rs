@@ -32,20 +32,16 @@ fn mock_provider_with_admin(admin_address: Address) -> Arc<MockEthProvider> {
     Arc::new(provider)
 }
 
-/// Launch an ops server with the given admin address. Returns the handle, the
-/// whitelist, and a shared `current_block` counter the test can bump to drive
-/// block-based whitelist-entry expiry (no real chain runs in these tests).
-async fn launch_ops_with_admin(
+/// Launch an ops server with the given admin address and an explicit
+/// `current_block_fn`. Lets individual tests inject a closure that simulates a
+/// broken or stalled provider (returning `None`).
+async fn launch_ops_with_block_fn(
     admin_address: Address,
-) -> (BodyAuthServerHandle, Whitelist, Arc<AtomicU64>) {
+    current_block_fn: CurrentBlockFn,
+) -> (BodyAuthServerHandle, Whitelist) {
     let provider = mock_provider_with_admin(admin_address);
     let whitelist = Whitelist::new();
     let nonces = Arc::new(std::sync::RwLock::new(std::collections::HashMap::new()));
-    let current_block = Arc::new(AtomicU64::new(0));
-    let current_block_fn: CurrentBlockFn = {
-        let current_block = current_block.clone();
-        Arc::new(move || current_block.load(Ordering::Relaxed))
-    };
     let mut auth_config =
         SignatureAuthConfig::new(whitelist.clone(), TEST_CHAIN_ID, current_block_fn);
     auth_config.nonces = nonces.clone();
@@ -60,6 +56,21 @@ async fn launch_ops_with_admin(
         BodyAuthServerConfig::builder(auth_config).socket_addr(test_address()).build();
 
     let handle = server_config.start(module).await.unwrap();
+    (handle, whitelist)
+}
+
+/// Launch an ops server with the given admin address. Returns the handle, the
+/// whitelist, and a shared `current_block` counter the test can bump to drive
+/// block-based whitelist-entry expiry (no real chain runs in these tests).
+async fn launch_ops_with_admin(
+    admin_address: Address,
+) -> (BodyAuthServerHandle, Whitelist, Arc<AtomicU64>) {
+    let current_block = Arc::new(AtomicU64::new(0));
+    let current_block_fn: CurrentBlockFn = {
+        let current_block = current_block.clone();
+        Arc::new(move || Some(current_block.load(Ordering::Relaxed)))
+    };
+    let (handle, whitelist) = launch_ops_with_block_fn(admin_address, current_block_fn).await;
     (handle, whitelist, current_block)
 }
 
@@ -258,4 +269,32 @@ async fn test_ops_get_nonce_rejects_other_address() {
     let nonce_body = get_nonce_request(other.address(), 2);
     let resp = send_signed_request(&url, &nonce_body, &reader, None).await;
     assert_eq!(resp.status(), reqwest::StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_ops_fails_closed_when_current_block_unavailable() {
+    // If the provider can't return a head, we cannot evaluate block-based
+    // whitelist expiry. The middleware must fail closed (503) rather than
+    // substituting a default that would silently authorize every entry.
+    reth_tracing::init_test_tracing();
+    let admin = PrivateKeySigner::random();
+    let reader = PrivateKeySigner::random();
+
+    // Closure simulates a broken provider read.
+    let broken_block_fn: CurrentBlockFn = Arc::new(|| None);
+    let (handle, whitelist) = launch_ops_with_block_fn(admin.address(), broken_block_fn).await;
+    let url = handle.http_url();
+
+    // Even an otherwise-valid whitelisted reader must be rejected because the
+    // server cannot determine whether the entry is still inside its validity
+    // window.
+    whitelist.add(reader.address(), FAR_FUTURE_BLOCK);
+
+    let read_body = get_storage_request(CONTRACT_ADDRESS, STORAGE_SLOT, 1);
+    let resp = send_signed_request(&url, &read_body, &reader, Some("0")).await;
+    assert_eq!(
+        resp.status(),
+        reqwest::StatusCode::SERVICE_UNAVAILABLE,
+        "broken provider must produce 503, not silently authorize"
+    );
 }
