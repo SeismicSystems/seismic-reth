@@ -31,8 +31,9 @@ use reth_rpc_eth_api::EthApiClient;
 use reth_seismic_node::utils::{
     e2e::{ensure_mock_purpose_keys, setup, SeismicTestNode},
     test_utils::{
-        client_decrypt, get_nonce, get_seismic_metadata, get_signed_seismic_tx_bytes,
-        get_signed_seismic_tx_typed_data, get_unsigned_seismic_tx_request,
+        client_decrypt, get_nonce, get_plaintext, get_seismic_metadata,
+        get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
+        get_unsigned_seismic_tx_request,
     },
 };
 use reth_seismic_primitives::{
@@ -1156,7 +1157,8 @@ fn usdc_only_signer() -> PrivateKeySigner {
     "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e".parse().unwrap()
 }
 
-/// gas_price is not part of the seismic-encrypted envelope, so mutating it post-encryption is safe.
+/// `gas_price` is not part of the seismic-encrypted envelope, so mutating it post-encryption is
+/// safe.
 async fn get_signed_seismic_tx_bytes_with_gas_price(
     sk_wallet: &PrivateKeySigner,
     nonce: u64,
@@ -1305,7 +1307,7 @@ async fn test_usdc_only_eth_estimate_gas_typed_data() -> eyre::Result<()> {
     Ok(())
 }
 
-/// 1000 USDC × 10^12 = 10^21 wei cap; gas_price = 10^18 → allowance 1000 gas, below 21000 floor.
+/// 1000 USDC × 10^12 = 10^21 wei cap; `gas_price` = 10^18 → allowance 1000 gas, below 21000 floor.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_usdc_only_insufficient_balance_high_gas_price() -> eyre::Result<()> {
     let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
@@ -1388,5 +1390,216 @@ async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
     .unwrap()
     .unwrap();
     assert!(receipt.status());
+    Ok(())
+}
+
+/// Get the latest block number via `eth_blockNumber`.
+async fn get_block_number(client: &jsonrpsee::http_client::HttpClient) -> u64 {
+    let result: serde_json::Value =
+        client.request("eth_blockNumber", rpc_params![]).await.expect("eth_blockNumber failed");
+    let hex = result.as_str().expect("block number not a string");
+    u64::from_str_radix(hex.trim_start_matches("0x"), 16).expect("failed to parse block number")
+}
+
+/// Build a signed Seismic tx that is fresh now but carries a near-future `expires_at_block` (the
+/// shared helpers hardcode it), so it goes stale after a couple of blocks. The ciphertext is left
+/// encrypted under the original elements — fine here, since freshness is checked before decryption.
+async fn get_expiring_seismic_tx_bytes(
+    wallet: &PrivateKeySigner,
+    nonce: u64,
+    to: TxKind,
+    chain_id: u64,
+    recent_block_hash: B256,
+    expires_at_block: u64,
+) -> Bytes {
+    let mut request = get_unsigned_seismic_tx_request(
+        wallet,
+        nonce,
+        to,
+        chain_id,
+        get_plaintext(),
+        recent_block_hash,
+    )
+    .await;
+    request.seismic_elements.as_mut().expect("seismic request has elements").expires_at_block =
+        expires_at_block;
+    let signed = sign_tx(wallet.clone(), request).await;
+    <SeismicTxEnvelope as Encodable2718>::encoded_2718(&signed).into()
+}
+
+/// Build a plain value-transfer tx, used to fill a nonce gap.
+async fn get_plain_transfer_bytes(wallet: &PrivateKeySigner, nonce: u64, chain_id: u64) -> Bytes {
+    let tx = TransactionRequest {
+        from: None,
+        to: Some(TxKind::Call(Address::random())),
+        gas: Some(21000),
+        max_fee_per_gas: Some(20e9 as u128),
+        max_priority_fee_per_gas: Some(1e9 as u128),
+        value: Some(U256::from(1)),
+        nonce: Some(nonce),
+        chain_id: Some(chain_id),
+        ..Default::default()
+    };
+    let eth_wallet: EthereumWallet = wallet.clone().into();
+    let envelope = tx.build(&eth_wallet).await.expect("failed to build transfer tx");
+    TxEnvelope::encoded_2718(&envelope).into()
+}
+
+/// Regression test: a stale parked Seismic tx must be skipped by the payload builder, not abort
+/// the build. Parks a nonce-gapped tx, lets it expire, fills the gap, then asserts the build still
+/// produces a block (gap-filler mined, stale tx skipped).
+#[tokio::test(flavor = "multi_thread")]
+async fn test_stale_seismic_tx_is_skipped_not_fatal() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+    let signer = &wallet.inner;
+    let address = signer.address();
+
+    // Advance once so we reference a real (non-genesis) recent block hash.
+    node.advance_block().await?;
+    let recent_block_hash = get_recent_block_hash(&client).await;
+    let head = get_block_number(&client).await;
+
+    // Park a Seismic tx at nonce 1 (signer nonce is 0), fresh now but expiring two blocks out.
+    let expires_at_block = head + 2;
+    let stale_tx = get_expiring_seismic_tx_bytes(
+        signer,
+        1,
+        TxKind::Call(Address::random()),
+        chain_id,
+        recent_block_hash,
+        expires_at_block,
+    )
+    .await;
+    let stale_hash = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::send_raw_transaction(&client, stale_tx)
+    .await
+    .expect("nonce-gapped seismic tx should be accepted into the pool as queued");
+
+    // Advance until the parked tx's freshness window has passed.
+    while get_block_number(&client).await <= expires_at_block {
+        node.advance_block().await?;
+    }
+
+    // Fill the nonce gap (nonce 0), which makes the now-stale Seismic tx executable.
+    let fill_tx = get_plain_transfer_bytes(signer, 0, chain_id).await;
+    let fill_hash = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::send_raw_transaction(&client, fill_tx)
+    .await
+    .expect("gap-filler tx should be accepted");
+
+    // Build blocks (two advances cover promotion timing). The stale tx is selected and fails
+    // freshness in the executor; before the fix this aborted the build.
+    node.advance_block().await?;
+    node.advance_block().await?;
+
+    // The gap-filler was mined -> the build was not aborted.
+    let fill_receipt = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::transaction_receipt(&client, fill_hash)
+    .await
+    .unwrap();
+    assert!(fill_receipt.is_some(), "gap-filler tx should be mined; payload build must not abort");
+
+    // The stale Seismic tx was skipped, not included.
+    let stale_receipt = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::transaction_receipt(&client, stale_hash)
+    .await
+    .unwrap();
+    assert!(stale_receipt.is_none(), "stale seismic tx must be skipped, not included in a block");
+
+    // The node is still alive and responsive; only the gap-filler advanced the nonce.
+    assert_eq!(
+        get_nonce(&client, address).await,
+        1,
+        "only the gap-filler (nonce 0) should be mined; the stale tx (nonce 1) was skipped"
+    );
+
+    Ok(())
+}
+
+/// Returns whether `eth_getTransactionByHash` knows `hash` (pool or chain). Inspects the raw JSON
+/// (null vs object) to avoid typed deserialization of queued seismic txs.
+async fn tx_known(client: &jsonrpsee::http_client::HttpClient, hash: B256) -> bool {
+    let result: serde_json::Value = client
+        .request("eth_getTransactionByHash", rpc_params![hash])
+        .await
+        .expect("eth_getTransactionByHash failed");
+    !result.is_null()
+}
+
+/// Regression test: a parked Seismic tx that goes stale is evicted from the mempool. The nonce gap
+/// is never filled — the tx stays queued, expires, and must be removed by the eviction task.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_stale_seismic_tx_is_evicted_from_pool() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+    let signer = &wallet.inner;
+
+    node.advance_block().await?;
+    let recent_block_hash = get_recent_block_hash(&client).await;
+    let head = get_block_number(&client).await;
+
+    // Park a Seismic tx behind a nonce gap (signer nonce is 0; submit nonce 1). Fresh now, expires
+    // two blocks out.
+    let expires_at_block = head + 2;
+    let stale_tx = get_expiring_seismic_tx_bytes(
+        signer,
+        1,
+        TxKind::Call(Address::random()),
+        chain_id,
+        recent_block_hash,
+        expires_at_block,
+    )
+    .await;
+    let stale_hash = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::send_raw_transaction(&client, stale_tx)
+    .await
+    .expect("nonce-gapped seismic tx should be accepted into the pool as queued");
+
+    // Precondition: the parked tx is in the pool.
+    assert!(
+        tx_known(&client, stale_hash).await,
+        "parked seismic tx should be in the pool before expiry"
+    );
+
+    // Advance past expiry, then poll for eviction (it runs async on canonical-head notifications;
+    // each extra advance emits another and gives the task a chance to run).
+    while get_block_number(&client).await <= expires_at_block {
+        node.advance_block().await?;
+    }
+
+    let mut evicted = false;
+    for _ in 0..10 {
+        if !tx_known(&client, stale_hash).await {
+            evicted = true;
+            break;
+        }
+        node.advance_block().await?;
+    }
+    assert!(evicted, "stale parked seismic tx should be evicted from the mempool");
+
     Ok(())
 }
