@@ -234,6 +234,19 @@ where
                 );
                 continue
             }
+            Err(BlockExecutionError::Internal(
+                InternalBlockExecutionError::SeismicValidationFailed(error),
+            )) => {
+                // stale freshness window: skip like any other invalid tx, don't abort the build
+                trace!(target: "payload_builder", %error, ?tx, "skipping stale seismic transaction");
+                best_txs.mark_invalid(
+                    &pool_tx,
+                    InvalidPoolTransactionError::Consensus(InvalidTransactionError::SeismicTx(
+                        "seismic transaction failed freshness validation".to_string(),
+                    )),
+                );
+                continue
+            }
             // this is an error that we should treat as fatal for this attempt
             Err(err) => return Err(PayloadBuilderError::evm(err)),
         };

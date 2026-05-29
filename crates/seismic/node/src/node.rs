@@ -565,6 +565,17 @@ reth_transaction_pool::maintain::LocalTransactionBackupConfig::with_local_txs_ba
                 ),
             );
             // debug!(target: "reth::cli", "Spawned txpool maintenance task");
+
+            // Evict Seismic txs whose freshness window has lapsed so stale parked txs don't
+            // linger and get re-selected by the builder every block.
+            ctx.task_executor().spawn_critical(
+                "seismic freshness eviction task",
+                reth_seismic_txpool::maintain_seismic_freshness(
+                    ctx.provider().clone(),
+                    transaction_pool.clone(),
+                    ctx.provider().canonical_state_stream(),
+                ),
+            );
         }
 
         Ok(transaction_pool)
