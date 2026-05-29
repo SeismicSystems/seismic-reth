@@ -31,6 +31,12 @@ impl<Cons: SignedTransaction, Pooled> SeismicPooledTransaction<Cons, Pooled> {
             _pd: core::marker::PhantomData,
         }
     }
+
+    /// Returns the recovered consensus transaction by reference (borrows, unlike
+    /// `clone_into_consensus`).
+    pub const fn recovered(&self) -> &Recovered<Cons> {
+        &self.inner.transaction
+    }
 }
 
 impl<Cons, Pooled> PoolTransaction for SeismicPooledTransaction<Cons, Pooled>

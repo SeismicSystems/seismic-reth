@@ -31,9 +31,15 @@ reth-seismic-primitives = {workspace = true, features = ["serde", "reth-codec", 
 # misc
 c-kzg.workspace = true
 derive_more.workspace = true
+futures-util.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
 reth-seismic-chainspec.workspace = true
 reth-provider = { workspace = true, features = ["test-utils"] }
 tokio.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "eviction_scan"
+harness = false

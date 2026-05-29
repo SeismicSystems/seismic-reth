@@ -1591,8 +1591,9 @@ async fn test_stale_seismic_tx_is_evicted_from_pool() -> eyre::Result<()> {
         node.advance_block().await?;
     }
 
+    // The scan is throttled to every Nth head, so advance enough heads to trigger a few scans.
     let mut evicted = false;
-    for _ in 0..10 {
+    for _ in 0..20 {
         if !tx_known(&client, stale_hash).await {
             evicted = true;
             break;

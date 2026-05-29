@@ -2,7 +2,7 @@
 
 use crate::recent_block_cache::RecentBlockCache;
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{Sealable, TxKind, B256, U256};
+use alloy_primitives::{Sealable, TxKind, U256};
 use reth_chainspec::ChainSpecProvider;
 use reth_primitives_traits::{transaction::error::InvalidTransactionError, Block, GotExpected};
 use reth_provider::{BlockReaderIdExt, StateProviderFactory};
@@ -12,7 +12,7 @@ use reth_transaction_pool::{
     validate::{TransactionValidationOutcome, TransactionValidator},
     EthPoolTransaction, EthTransactionValidator, TransactionOrigin,
 };
-use seismic_alloy_consensus::SeismicTxType;
+use seismic_alloy_consensus::{SeismicTxType, TxSeismicElements};
 use std::{
     fmt,
     marker::PhantomData,
@@ -106,23 +106,16 @@ where
                     {
                         let seismic_elements = &seismic_tx.seismic_elements;
 
-                        // Validate recent_block_hash is in the last 100 blocks
-                        if let Err(err) =
-                            self.validate_recent_block_hash(seismic_elements.recent_block_hash)
-                        {
+                        // Validate the freshness window.
+                        let freshness = {
+                            let cache =
+                                self.recent_blocks.read().unwrap_or_else(|e| e.into_inner());
+                            seismic_freshness_error(seismic_elements, &cache, true)
+                        };
+                        if let Some(err) = freshness {
                             return TransactionValidationOutcome::Invalid(
                                 valid_tx.into_transaction(),
-                                err,
-                            );
-                        }
-
-                        // Validate expires_at_block is not in the past
-                        if let Err(err) =
-                            self.validate_expiration(seismic_elements.expires_at_block)
-                        {
-                            return TransactionValidationOutcome::Invalid(
-                                valid_tx.into_transaction(),
-                                err,
+                                InvalidTransactionError::SeismicTx(err.to_string()).into(),
                             );
                         }
 
@@ -218,50 +211,35 @@ where
     }
 }
 
-impl<Client, Tx> SeismicTransactionValidator<Client, Tx> {
-    /// Validates that the `recent_block_hash` field provided in a Seismic tx
-    /// is in the last `SEISMIC_TX_RECENT_BLOCK_LOOKBACK` blocks.
-    ///
-    /// Uses an in-memory cache populated at startup and updated via `on_new_head_block`
-    /// for O(1) lookup.
-    fn validate_recent_block_hash(
-        &self,
-        recent_block_hash: B256,
-    ) -> Result<(), InvalidPoolTransactionError> {
-        let cache = self.recent_blocks.read().unwrap_or_else(|e| e.into_inner());
-        if cache.contains(&recent_block_hash) {
-            return Ok(());
-        }
-
-        let err = SeismicTxError::RecentBlockHashNotFound {
-            hash: recent_block_hash,
+/// The freshness violation for `elements` against `cache`, or `None` if fresh: `recent_block_hash`
+/// within the lookback window and `expires_at_block` not in the past. Shared by ingress and the
+/// eviction task. `check_recent_hash` gates the hash check (ingress passes `true`; eviction passes
+/// [`RecentBlockCache::is_complete`], so a cache hole isn't read as staleness). Expiry always
+/// applies.
+pub(crate) fn seismic_freshness_error(
+    elements: &TxSeismicElements,
+    cache: &RecentBlockCache,
+    check_recent_hash: bool,
+) -> Option<SeismicTxError> {
+    if check_recent_hash && !cache.contains(&elements.recent_block_hash) {
+        return Some(SeismicTxError::RecentBlockHashNotFound {
+            hash: elements.recent_block_hash,
             lookback: crate::SEISMIC_TX_RECENT_BLOCK_LOOKBACK,
-        };
-        Err(InvalidTransactionError::SeismicTx(err.to_string()).into())
+        });
     }
 
-    /// Validates that the transaction has not expired.
-    ///
-    /// Uses the cache's `current_block_number` (updated via `on_new_head_block`) so that
-    /// both hash validation and expiration check use the same consensus-driven source.
-    fn validate_expiration(
-        &self,
-        expires_at_block: u64,
-    ) -> Result<(), InvalidPoolTransactionError> {
-        let current_block_num =
-            self.recent_blocks.read().unwrap_or_else(|e| e.into_inner()).current_block_number();
-
-        if current_block_num > expires_at_block {
-            let err = SeismicTxError::TransactionExpired {
-                current_block: current_block_num,
-                expires_at_block,
-            };
-            return Err(InvalidTransactionError::SeismicTx(err.to_string()).into());
-        }
-
-        Ok(())
+    let current_block = cache.current_block_number();
+    if current_block > elements.expires_at_block {
+        return Some(SeismicTxError::TransactionExpired {
+            current_block,
+            expires_at_block: elements.expires_at_block,
+        });
     }
 
+    None
+}
+
+impl<Client, Tx> SeismicTransactionValidator<Client, Tx> {
     /// Validates that `signed_read` is false for write transactions (transactions with a `to`
     /// address)
     fn validate_signed_read_for_write(
@@ -275,5 +253,41 @@ impl<Client, Tx> SeismicTransactionValidator<Client, Tx> {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{seismic_freshness_error, RecentBlockCache};
+    use alloy_primitives::B256;
+    use reth_seismic_primitives::{
+        test_utils::get_seismic_elements, transaction::error::SeismicTxError,
+    };
+
+    #[test]
+    fn freshness_guard_gates_recent_hash_check() {
+        // Cache covering blocks 0..=10 (none of which is the tx's recent_block_hash).
+        let mut cache = RecentBlockCache::new(100);
+        cache.rebuild_to_tip(10, |n| Some(B256::from([(n as u8).wrapping_add(1); 32])));
+        assert!(cache.is_complete());
+
+        let mut elements = get_seismic_elements(B256::repeat_byte(0xab));
+        elements.expires_at_block = 1_000; // not expired (current block is 10)
+
+        // Complete cache: an unknown recent_block_hash is a violation.
+        assert!(matches!(
+            seismic_freshness_error(&elements, &cache, true),
+            Some(SeismicTxError::RecentBlockHashNotFound { .. })
+        ));
+
+        // Guard off (cache incomplete): the same miss must NOT be treated as stale.
+        assert!(seismic_freshness_error(&elements, &cache, false).is_none());
+
+        // Expiry is always enforced, regardless of the guard.
+        elements.expires_at_block = 5; // current block 10 > 5
+        assert!(matches!(
+            seismic_freshness_error(&elements, &cache, false),
+            Some(SeismicTxError::TransactionExpired { .. })
+        ));
     }
 }

@@ -21,6 +21,10 @@ pub struct RecentBlockCache {
     current_block_number: u64,
     /// Maximum number of block hashes to retain.
     max_size: u64,
+    /// Tip at/after which the window is whole again. A failed `canonical_hash_at` lookup leaves a
+    /// hole; this is set to `missing_block + max_size` (when that block ages out of the window).
+    /// `u64::MAX` until the first successful build. See [`is_complete`](Self::is_complete).
+    incomplete_until: u64,
 }
 
 impl Default for RecentBlockCache {
@@ -37,7 +41,15 @@ impl RecentBlockCache {
             ordered: VecDeque::with_capacity(max_size as usize),
             current_block_number: 0,
             max_size,
+            incomplete_until: u64::MAX,
         }
+    }
+
+    /// Whether the lookback window is fully populated (no unfilled hole still in range). Gate
+    /// `contains`-based eviction on this so a transient lookup hole isn't read as staleness; it
+    /// self-heals once the hole ages out.
+    pub const fn is_complete(&self) -> bool {
+        self.current_block_number >= self.incomplete_until
     }
 
     /// Inserts a block hash into the cache, evicting the oldest entry if at capacity.
@@ -83,6 +95,8 @@ impl RecentBlockCache {
         for (hash, number) in entries {
             self.insert(hash, number);
         }
+        // Caller supplies the entries it considers canonical; treat the window as fully populated.
+        self.incomplete_until = 0;
     }
 
     /// Rebuilds the cache from the canonical chain up to the given tip block number.
@@ -91,8 +105,20 @@ impl RecentBlockCache {
     /// given block number, or `None` if unavailable. This is used both at startup
     /// (to populate the cache) and during reorg recovery.
     pub fn rebuild_to_tip(&mut self, tip: u64, canonical_hash_at: impl Fn(u64) -> Option<B256>) {
+        self.hashes.clear();
+        self.ordered.clear();
+        self.current_block_number = 0;
         let earliest = tip.saturating_sub(self.max_size);
-        self.rebuild((earliest..=tip).filter_map(|n| canonical_hash_at(n).map(|h| (h, n))));
+        let mut newest_hole: Option<u64> = None;
+        for n in earliest..=tip {
+            match canonical_hash_at(n) {
+                Some(hash) => self.insert(hash, n),
+                // Ascending loop, so this keeps the newest missing block number.
+                None => newest_hole = Some(n),
+            }
+        }
+        // Whole again once the newest hole ages out of the window (tip = hole + max_size).
+        self.incomplete_until = newest_hole.map_or(0, |m| m.saturating_add(self.max_size));
     }
 
     /// Updates the cache with a new head block, handling gaps and reorgs.
@@ -129,8 +155,13 @@ impl RecentBlockCache {
             // Cache is canonical but behind — backfill the gap
             let backfill_start = self.current_block_number + 1;
             for n in backfill_start..=new_number {
-                if let Some(hash) = canonical_hash_at(n) {
-                    self.insert(hash, n);
+                match canonical_hash_at(n) {
+                    Some(hash) => self.insert(hash, n),
+                    // A missing block leaves a hole until it ages out of the window.
+                    None => {
+                        self.incomplete_until =
+                            self.incomplete_until.max(n.saturating_add(self.max_size));
+                    }
                 }
             }
             return;
@@ -320,5 +351,43 @@ mod tests {
         assert!(!cache.contains(&h5_old));
         assert!(cache.contains(&h5_new));
         assert_eq!(cache.current_block_number(), 5);
+    }
+
+    #[test]
+    fn test_is_complete_tracks_window_holes() {
+        let h = |i: u8| B256::from([i; 32]);
+
+        // Fresh cache: nothing built yet.
+        let mut cache = RecentBlockCache::new(5);
+        assert!(!cache.is_complete());
+
+        // Full rebuild over the whole window (blocks 0..=3 all present) -> complete.
+        let full = [(h(0), 0), (h(1), 1), (h(2), 2), (h(3), 3)];
+        cache.rebuild_to_tip(3, mock_canonical(&full));
+        assert!(cache.is_complete());
+
+        // Rebuild with block 2 missing -> a hole -> incomplete (whole again at block 2 + 5 = 7).
+        let holey = [(h(0), 0), (h(1), 1), (h(3), 3)];
+        cache.rebuild_to_tip(3, mock_canonical(&holey));
+        assert!(!cache.is_complete());
+
+        // Sequential appends must not paper over the hole while it is still in the window...
+        cache.update(h(4), 4, |_| None);
+        assert!(!cache.is_complete());
+        cache.update(h(5), 5, |_| None);
+        cache.update(h(6), 6, |_| None);
+        assert!(!cache.is_complete());
+
+        // ...but once block 2 ages out of the window (tip reaches 7), it self-heals — no rebuild.
+        cache.update(h(7), 7, |_| None);
+        assert!(cache.is_complete());
+
+        // A clean full rebuild also restores completeness directly.
+        let holey = [(h(3), 3), (h(5), 5), (h(6), 6), (h(7), 7)];
+        cache.rebuild_to_tip(7, mock_canonical(&holey));
+        assert!(!cache.is_complete()); // block 4 missing -> incomplete
+        let full = [(h(3), 3), (h(4), 4), (h(5), 5), (h(6), 6), (h(7), 7)];
+        cache.rebuild_to_tip(7, mock_canonical(&full));
+        assert!(cache.is_complete());
     }
 }
