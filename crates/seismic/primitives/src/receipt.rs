@@ -2,7 +2,10 @@ use alloy_consensus::{
     proofs::ordered_trie_root_with_encoder, Eip2718EncodableReceipt, Eip658Value, Receipt,
     ReceiptWithBloom, RlpDecodableReceipt, RlpEncodableReceipt, TxReceipt, Typed2718,
 };
-use alloy_eips::{eip2718::Eip2718Result, Decodable2718, Encodable2718};
+use alloy_eips::{
+    eip2718::{Eip2718Error, Eip2718Result},
+    Decodable2718, Encodable2718,
+};
 use alloy_primitives::{Bloom, Log, B256};
 use alloy_rlp::{BufMut, Decodable, Encodable, Header};
 use reth_primitives_traits::InMemorySize;
@@ -317,7 +320,12 @@ impl Encodable2718 for SeismicReceipt {
 
 impl Decodable2718 for SeismicReceipt {
     fn typed_decode(ty: u8, buf: &mut &[u8]) -> Eip2718Result<Self> {
-        Ok(Self::rlp_decode_inner_without_bloom(buf, SeismicTxType::try_from(ty)?)?)
+        // Legacy receipts must be decoded via `fallback_decode`, not as a typed envelope.
+        let tx_type = SeismicTxType::try_from(ty)?;
+        if tx_type == SeismicTxType::Legacy {
+            return Err(Eip2718Error::UnexpectedType(0));
+        }
+        Ok(Self::rlp_decode_inner_without_bloom(buf, tx_type)?)
     }
 
     fn fallback_decode(buf: &mut &[u8]) -> Eip2718Result<Self> {
@@ -705,5 +713,12 @@ mod tests {
         let decoded: ReceiptWithBloom<SeismicReceipt> =
             ReceiptWithBloom::decode(&mut &data[..]).unwrap();
         assert_eq!(receipt, decoded);
+    }
+
+    #[test]
+    fn typed_decode_rejects_legacy() {
+        // ty == 0 (legacy) must go through `fallback_decode`, not `typed_decode`.
+        let err = SeismicReceipt::typed_decode(0, &mut [].as_slice()).unwrap_err();
+        assert!(matches!(err, Eip2718Error::UnexpectedType(0)));
     }
 }
