@@ -1,8 +1,10 @@
 //! Loads and formats Seismic receipt RPC response.
 
+use alloy_consensus::Typed2718;
 use reth_rpc_convert::transaction::{ConvertReceiptInput, ReceiptConverter};
 use reth_rpc_eth_api::{helpers::LoadReceipt, RpcConvert, RpcNodeCore};
 use reth_rpc_eth_types::{receipt::build_receipt, EthApiError};
+use reth_rpc_server_types::result::internal_rpc_err;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt};
 use seismic_alloy_consensus::SeismicReceiptEnvelope;
 use seismic_alloy_rpc_types::SeismicTransactionReceipt;
@@ -29,6 +31,15 @@ pub struct SeismicReceiptBuilder {
 impl SeismicReceiptBuilder {
     /// Returns a new builder.
     pub fn new(input: ConvertReceiptInput<'_, SeismicPrimitives>) -> Result<Self, EthApiError> {
+        // The receipt and its transaction must agree on the transaction type.
+        let receipt_ty = input.receipt.tx_type() as u8;
+        let tx_ty = input.tx.ty();
+        if receipt_ty != tx_ty {
+            return Err(EthApiError::other(internal_rpc_err(format!(
+                "receipt type {receipt_ty} does not match transaction type {tx_ty}"
+            ))));
+        }
+
         let base = build_receipt(&input, None, |receipt_with_bloom| match input.receipt.as_ref() {
             SeismicReceipt::Legacy(_) => SeismicReceiptEnvelope::Legacy(receipt_with_bloom),
             SeismicReceipt::Eip2930(_) => SeismicReceiptEnvelope::Eip2930(receipt_with_bloom),
@@ -81,5 +92,36 @@ impl ReceiptConverter<SeismicPrimitives> for SeismicReceiptConverter {
                     .map(|builder| builder.build())
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_consensus::{
+        transaction::{Recovered, TransactionMeta},
+        Eip658Value, Receipt,
+    };
+    use alloy_primitives::{Address, B256};
+    use reth_seismic_primitives::test_utils::get_signed_seismic_tx;
+    use std::borrow::Cow;
+
+    #[test]
+    fn new_rejects_mismatched_receipt_and_tx_types() {
+        // Seismic-typed transaction paired with a legacy-typed receipt.
+        let tx = get_signed_seismic_tx(B256::ZERO);
+        let receipt = SeismicReceipt::Legacy(Receipt {
+            status: Eip658Value::Eip658(true),
+            cumulative_gas_used: 0,
+            logs: Vec::new(),
+        });
+        let input = ConvertReceiptInput {
+            receipt: Cow::Owned(receipt),
+            tx: Recovered::new_unchecked(&tx, Address::ZERO),
+            gas_used: 0,
+            next_log_index: 0,
+            meta: TransactionMeta::default(),
+        };
+        assert!(SeismicReceiptBuilder::new(input).is_err());
     }
 }
