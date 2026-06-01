@@ -2,6 +2,7 @@
 
 use alloy_primitives::B256;
 use std::collections::{HashSet, VecDeque};
+use tracing::warn;
 
 /// Maximum number of blocks to look back for `recent_block_hash` validation.
 pub const SEISMIC_TX_RECENT_BLOCK_LOOKBACK: u64 = 100;
@@ -41,7 +42,20 @@ impl RecentBlockCache {
     }
 
     /// Inserts a block hash into the cache, evicting the oldest entry if at capacity.
+    ///
+    /// Block numbers must be strictly increasing (the `ordered` deque relies on it for FIFO
+    /// eviction); a non-monotonic insert is rejected rather than corrupting the ordering.
     pub fn insert(&mut self, hash: B256, block_number: u64) {
+        if !self.is_empty() && block_number <= self.current_block_number {
+            warn!(
+                target: "seismic::txpool",
+                block_number,
+                current = self.current_block_number,
+                "ignoring out-of-order recent block cache insert",
+            );
+            return;
+        }
+
         self.current_block_number = block_number;
         self.ordered.push_back(hash);
         self.hashes.insert(hash);
@@ -170,6 +184,27 @@ mod tests {
         assert!(cache.contains(&h2));
         assert!(!cache.contains(&B256::from([3u8; 32])));
         assert_eq!(cache.current_block_number(), 2);
+    }
+
+    #[test]
+    fn test_insert_rejects_non_monotonic() {
+        let mut cache = RecentBlockCache::new(3);
+        let h2 = B256::from([2u8; 32]);
+        cache.insert(h2, 2);
+
+        // An out-of-order insert (<= current) is ignored and leaves the cache untouched.
+        let stale = B256::from([9u8; 32]);
+        cache.insert(stale, 1);
+        cache.insert(B256::from([8u8; 32]), 2);
+
+        assert!(!cache.contains(&stale));
+        assert_eq!(cache.current_block_number(), 2);
+
+        // A strictly-increasing insert is still accepted.
+        let h3 = B256::from([3u8; 32]);
+        cache.insert(h3, 3);
+        assert!(cache.contains(&h3));
+        assert_eq!(cache.current_block_number(), 3);
     }
 
     #[test]
