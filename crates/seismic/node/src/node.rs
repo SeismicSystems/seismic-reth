@@ -184,6 +184,16 @@ impl NodeTypes for SeismicNode {
     type Payload = SeismicEngineTypes;
 }
 
+impl SeismicNode {
+    /// Converts a fetched RPC block into a Seismic primitive block, preserving the full block
+    /// body (transactions, withdrawals, ...) instead of rebuilding it from transactions alone.
+    fn rpc_block_to_primitive(
+        rpc_block: alloy_rpc_types_eth::Block<seismic_alloy_consensus::SeismicTxEnvelope>,
+    ) -> reth_seismic_primitives::SeismicBlock {
+        rpc_block.into_consensus().convert_transactions()
+    }
+}
+
 impl<N> DebugNode<N> for SeismicNode
 where
     N: FullNodeComponents<Types = Self>,
@@ -191,14 +201,7 @@ where
     type RpcBlock = alloy_rpc_types_eth::Block<seismic_alloy_consensus::SeismicTxEnvelope>;
 
     fn rpc_to_primitive_block(rpc_block: Self::RpcBlock) -> reth_node_api::BlockTy<Self> {
-        let alloy_rpc_types_eth::Block { header, transactions, .. } = rpc_block;
-        reth_seismic_primitives::SeismicBlock {
-            header: header.inner,
-            body: reth_seismic_primitives::SeismicBlockBody {
-                transactions: transactions.into_transactions().map(Into::into).collect(),
-                ..Default::default()
-            },
-        }
+        Self::rpc_block_to_primitive(rpc_block)
     }
 
     fn local_payload_attributes_builder(
@@ -755,4 +758,31 @@ impl NetworkPrimitives for SeismicNetworkPrimitives {
     type PooledTransaction = SeismicTxEnvelope;
     type Receipt = SeismicReceipt;
     type NewBlockPayload = NewBlock<Self::Block>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_eips::eip4895::{Withdrawal, Withdrawals};
+    use alloy_primitives::Address;
+    use alloy_rpc_types_eth::{BlockTransactions, Header};
+
+    #[test]
+    fn rpc_to_primitive_block_preserves_withdrawals() {
+        let withdrawals = Withdrawals(vec![Withdrawal {
+            index: 1,
+            validator_index: 2,
+            address: Address::repeat_byte(0xab),
+            amount: 42,
+        }]);
+        let rpc_block = alloy_rpc_types_eth::Block::<SeismicTxEnvelope> {
+            header: Header::default(),
+            uncles: Vec::new(),
+            transactions: BlockTransactions::Full(Vec::new()),
+            withdrawals: Some(withdrawals.clone()),
+        };
+
+        let primitive = SeismicNode::rpc_block_to_primitive(rpc_block);
+        assert_eq!(primitive.body.withdrawals, Some(withdrawals));
+    }
 }
