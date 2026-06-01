@@ -106,11 +106,13 @@ where
                     {
                         let seismic_elements = &seismic_tx.seismic_elements;
 
-                        // Validate the freshness window.
+                        // Validate the freshness window. Skip the recent_block_hash check when the
+                        // cache window has a hole, so a missing entry can't reject a valid tx; the
+                        // executor re-checks against the canonical chain at block building.
                         let freshness = {
                             let cache =
                                 self.recent_blocks.read().unwrap_or_else(|e| e.into_inner());
-                            seismic_freshness_error(seismic_elements, &cache, true)
+                            seismic_freshness_error(seismic_elements, &cache, cache.is_complete())
                         };
                         if let Some(err) = freshness {
                             return TransactionValidationOutcome::Invalid(
