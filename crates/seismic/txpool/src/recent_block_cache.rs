@@ -2,6 +2,7 @@
 
 use alloy_primitives::B256;
 use std::collections::{HashSet, VecDeque};
+use tracing::warn;
 
 /// Maximum number of blocks to look back for `recent_block_hash` validation.
 pub const SEISMIC_TX_RECENT_BLOCK_LOOKBACK: u64 = 100;
@@ -105,16 +106,40 @@ impl RecentBlockCache {
     /// given block number, or `None` if unavailable. This is used both at startup
     /// (to populate the cache) and during reorg recovery.
     pub fn rebuild_to_tip(&mut self, tip: u64, canonical_hash_at: impl Fn(u64) -> Option<B256>) {
+        self.rebuild_window(tip, None, "rebuild", canonical_hash_at);
+    }
+
+    /// Clears and rebuilds the window `[tip - max_size, tip]` from `canonical_hash_at`.
+    ///
+    /// `tip_hash`, when supplied, is used for `tip` instead of re-fetching it through the
+    /// callback — the caller already has the sealed-block hash, and the client may not yet return
+    /// it by number. A missing canonical hash is warned and leaves the window marked incomplete
+    /// (see [`is_complete`](Self::is_complete)) rather than being silently skipped.
+    fn rebuild_window(
+        &mut self,
+        tip: u64,
+        tip_hash: Option<B256>,
+        mode: &str,
+        canonical_hash_at: impl Fn(u64) -> Option<B256>,
+    ) {
         self.hashes.clear();
         self.ordered.clear();
         self.current_block_number = 0;
         let earliest = tip.saturating_sub(self.max_size);
         let mut newest_hole: Option<u64> = None;
         for n in earliest..=tip {
-            match canonical_hash_at(n) {
+            let hash = if n == tip {
+                tip_hash.or_else(|| canonical_hash_at(n))
+            } else {
+                canonical_hash_at(n)
+            };
+            match hash {
                 Some(hash) => self.insert(hash, n),
-                // Ascending loop, so this keeps the newest missing block number.
-                None => newest_hole = Some(n),
+                None => {
+                    warn!(target: "seismic::txpool", missing_block = n, tip, mode, "recent block cache: missing canonical hash");
+                    // Ascending loop, so this keeps the newest missing block number.
+                    newest_hole = Some(n);
+                }
             }
         }
         // Whole again once the newest hole ages out of the window (tip = hole + max_size).
@@ -152,13 +177,15 @@ impl RecentBlockCache {
         // Non-sequential: check if the cache is still on the canonical chain
         if new_number > self.current_block_number && self.is_on_canonical_chain(&canonical_hash_at)
         {
-            // Cache is canonical but behind — backfill the gap
+            // Cache is canonical but behind — backfill the gap. Use the supplied `new_hash` for
+            // the tip instead of re-fetching it (the client may not return it by number yet).
             let backfill_start = self.current_block_number + 1;
             for n in backfill_start..=new_number {
-                match canonical_hash_at(n) {
+                let hash = if n == new_number { Some(new_hash) } else { canonical_hash_at(n) };
+                match hash {
                     Some(hash) => self.insert(hash, n),
-                    // A missing block leaves a hole until it ages out of the window.
                     None => {
+                        warn!(target: "seismic::txpool", missing_block = n, tip = new_number, mode = "backfill", "recent block cache: missing canonical hash");
                         self.incomplete_until =
                             self.incomplete_until.max(n.saturating_add(self.max_size));
                     }
@@ -167,8 +194,8 @@ impl RecentBlockCache {
             return;
         }
 
-        // Cache is stale (reorg, empty, or same/lower height) — full rebuild
-        self.rebuild_to_tip(new_number, canonical_hash_at);
+        // Cache is stale (reorg, empty, or same/lower height) — full rebuild, reusing `new_hash`.
+        self.rebuild_window(new_number, Some(new_hash), "rebuild", canonical_hash_at);
     }
 
     /// Checks whether the cache's latest block is still on the canonical chain.
@@ -307,6 +334,37 @@ mod tests {
         assert!(cache.contains(&h7));
         assert!(cache.contains(&h8));
         assert_eq!(cache.current_block_number(), 8);
+    }
+
+    #[test]
+    fn test_backfill_uses_supplied_hash_for_tip() {
+        let mut cache = RecentBlockCache::new(100);
+        let h5 = B256::from([5u8; 32]);
+        cache.insert(h5, 5);
+
+        // Backfill 6..=8 where the callback knows 5 (canonical check), 6, 7 but not the tip 8.
+        let h6 = B256::from([6u8; 32]);
+        let h7 = B256::from([7u8; 32]);
+        let tip = B256::from([88u8; 32]);
+        cache.update(tip, 8, mock_canonical(&[(h5, 5), (h6, 6), (h7, 7)]));
+
+        // The tip is taken from `new_hash`, not the (missing) callback result.
+        assert!(cache.contains(&tip));
+        assert_eq!(cache.current_block_number(), 8);
+    }
+
+    #[test]
+    fn test_rebuild_uses_supplied_hash_for_tip() {
+        let mut cache = RecentBlockCache::new(100);
+        cache.insert(B256::from([5u8; 32]), 5);
+
+        // Same-height, different hash -> stale -> full rebuild. The callback returns nothing, but
+        // the tip must still be taken from `new_hash`.
+        let tip = B256::from([66u8; 32]);
+        cache.update(tip, 5, |_| None);
+
+        assert!(cache.contains(&tip));
+        assert_eq!(cache.current_block_number(), 5);
     }
 
     #[test]
