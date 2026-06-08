@@ -118,6 +118,9 @@ pub enum EthApiError {
     /// Code overrides are not permitted (Seismic privacy)
     #[error("code overrides are not permitted on Seismic (account: {0:?})")]
     CodeOverrideNotPermitted(Address),
+    /// Storage overrides are not permitted (Seismic privacy)
+    #[error("storage overrides are not permitted on Seismic (account: {0:?})")]
+    StorageOverrideNotPermitted(Address),
     /// Other internal error
     #[error(transparent)]
     Internal(RethError),
@@ -258,6 +261,7 @@ impl From<EthApiError> for jsonrpsee_types::error::ErrorObject<'static> {
             EthApiError::Signing(_) |
             EthApiError::BothStateAndStateDiffInOverride(_) |
             EthApiError::CodeOverrideNotPermitted(_) |
+            EthApiError::StorageOverrideNotPermitted(_) |
             EthApiError::InvalidTracerConfig |
             EthApiError::TransactionConversionError |
             EthApiError::InvalidRewardPercentiles |
@@ -355,6 +359,9 @@ where
             }
             StateOverrideError::CodeOverrideNotPermitted(address) => {
                 Self::CodeOverrideNotPermitted(address)
+            }
+            StateOverrideError::StorageOverrideNotPermitted(address) => {
+                Self::StorageOverrideNotPermitted(address)
             }
             StateOverrideError::Database(err) => err.into(),
         }
