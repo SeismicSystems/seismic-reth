@@ -1,10 +1,16 @@
 //! Utils for testing the seismic rpc api
 
-use alloy_primitives::Address;
+use alloy_primitives::{Address, B256};
 use reth_primitives::Recovered;
 use reth_primitives_traits::SignedTransaction;
-use reth_rpc_eth_types::{utils::recover_raw_transaction, EthApiError, EthResult};
-use seismic_alloy_consensus::{Decodable712, SeismicTxEnvelope, TypedDataRequest};
+use reth_rpc_eth_types::{EthApiError, EthResult};
+use reth_seismic_primitives::{
+    transaction::error::SeismicTxError, SEISMIC_TX_RECENT_BLOCK_LOOKBACK,
+};
+use reth_storage_api::BlockNumReader;
+use seismic_alloy_consensus::{
+    Decodable712, SeismicTxEnvelope, TxSeismicElements, TypedDataRequest,
+};
 use seismic_alloy_network::{SeismicReth, TransactionBuilder};
 use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
 
@@ -57,18 +63,43 @@ pub fn convert_seismic_call_to_tx_request(
         }
 
         SeismicCallRequest::TypedData(typed_request) => {
+            // TODO(samlaf): this arm exists because `SeismicCallRequest::TypedData` is redundant
+            // with the `Bytes` variant below — clients could submit the same
+            // EIP-712-signed payload as RLP bytes (with `message_version = 2`).
+            // Once we have updated our clients and are sure no one is submitting via this path,
+            // we can delete this arm and the `TypedData` variant entirely.
             let req = SeismicTransactionRequest::decode_712(&typed_request)
                 .map_err(|_e| EthApiError::FailedToDecodeSignedTransaction)?;
             Ok((req, true))
         }
 
         SeismicCallRequest::Bytes(bytes) => {
-            let tx = recover_raw_transaction::<SeismicTxEnvelope>(&bytes)?;
+            let tx = recover_raw_seismic_call_tx(&bytes)?;
             let mut req: SeismicTransactionRequest = tx.inner().clone().into();
             TransactionBuilder::<SeismicReth>::set_from(&mut req, tx.signer());
             Ok((req, true))
         }
     }
+}
+
+/// Decode a raw EIP-2718 transaction submitted via the `eth_call` bytes path
+/// and recover its signer.
+///
+/// This is the `eth_call` counterpart of
+/// [`reth_rpc_eth_types::utils::recover_raw_transaction`]. It uses
+/// [`SeismicTxEnvelope::decode_2718_permit_seismic_calls`] so that signed
+/// seismic read requests (`signed_read = true`) are accepted. Those payloads
+/// are rejected on block / mempool / p2p / `eth_sendRawTransaction` paths to
+/// prevent replay as state-changing transactions.
+fn recover_raw_seismic_call_tx(data: &[u8]) -> EthResult<Recovered<SeismicTxEnvelope>> {
+    if data.is_empty() {
+        return Err(EthApiError::EmptyRawTransactionData);
+    }
+    let mut buf: &[u8] = data;
+    let transaction = SeismicTxEnvelope::decode_2718_permit_seismic_calls(&mut buf)
+        .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
+    SignedTransaction::try_into_recovered(transaction)
+        .or(Err(EthApiError::InvalidTransactionSignature))
 }
 
 /// Get the sender address from a seismic transaction request.
@@ -86,15 +117,25 @@ pub fn parse_request_sender(request: &SeismicTransactionRequest) -> Result<Addre
 /// Conditionally decrypt a seismic transaction request based on whether it's a signed read.
 ///
 /// For non-seismic transactions (`signed_read = false`), returns the request unchanged.
-/// For seismic transactions (`signed_read = true`), decrypts the request using the provided secret
-/// key.
-pub fn signed_read_to_plaintext_tx(
+/// For seismic transactions (`signed_read = true`), validates the freshness fields
+/// (`recent_block_hash` and `expires_at_block`) against the live chain tip, then decrypts
+/// the request using the provided secret key.
+pub fn signed_read_to_plaintext_tx<P>(
     (seismic_tx_request, signed_read): (SeismicTransactionRequest, bool),
     secret_key: &SecretKey,
-) -> Result<SeismicTransactionRequest, EthApiError> {
+    provider: &P,
+) -> Result<SeismicTransactionRequest, EthApiError>
+where
+    P: BlockNumReader,
+{
     match signed_read {
         false => Ok(seismic_tx_request),
         true => {
+            // Reject stale or expired signed reads before doing any ECDH work.
+            if let Some(elements) = seismic_tx_request.seismic_elements.as_ref() {
+                validate_seismic_freshness(elements, provider)?;
+            }
+
             let sender = parse_request_sender(&seismic_tx_request)?;
             let seismic_tx_request = seismic_tx_request
                 .plaintext_copy(secret_key, sender)
@@ -104,22 +145,146 @@ pub fn signed_read_to_plaintext_tx(
     }
 }
 
+/// Validate the freshness fields of a signed seismic read against the live chain tip.
+///
+/// Enforces two invariants:
+/// 1. `expires_at_block` is not in the past relative to the canonical chain tip.
+/// 2. `recent_block_hash` is one of the last `SEISMIC_TX_RECENT_BLOCK_LOOKBACK` canonical block
+///    hashes.
+pub fn validate_seismic_freshness<P>(
+    elements: &TxSeismicElements,
+    provider: &P,
+) -> Result<(), EthApiError>
+where
+    P: BlockNumReader,
+{
+    let current = provider.best_block_number().map_err(EthApiError::from)?;
+
+    if current > elements.expires_at_block {
+        return Err(seismic_expired_error(current, elements.expires_at_block));
+    }
+
+    let block_num = provider
+        .block_number(elements.recent_block_hash)
+        .map_err(EthApiError::from)?
+        .ok_or_else(|| seismic_recent_block_hash_error(elements.recent_block_hash))?;
+
+    // Verify the hash sits on the canonical chain at that height (guards against forked-out
+    // hashes that the node may still have in storage).
+    let canonical = provider.block_hash(block_num).map_err(EthApiError::from)?;
+    if canonical != Some(elements.recent_block_hash) {
+        return Err(seismic_recent_block_hash_error(elements.recent_block_hash));
+    }
+
+    if current.saturating_sub(block_num) > SEISMIC_TX_RECENT_BLOCK_LOOKBACK {
+        return Err(seismic_recent_block_hash_error(elements.recent_block_hash));
+    }
+
+    Ok(())
+}
+
+/// Build a JSON-RPC error for a signed read whose `expires_at_block` has passed.
+fn seismic_expired_error(current_block: u64, expires_at_block: u64) -> EthApiError {
+    let err = SeismicTxError::TransactionExpired { current_block, expires_at_block };
+    EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+        -32000,
+        err.to_string(),
+        None::<String>,
+    )))
+}
+
+/// Build a JSON-RPC error for a signed read whose `recent_block_hash` is missing from the
+/// last `SEISMIC_TX_RECENT_BLOCK_LOOKBACK` canonical blocks.
+fn seismic_recent_block_hash_error(hash: B256) -> EthApiError {
+    let err = SeismicTxError::RecentBlockHashNotFound {
+        hash,
+        lookback: SEISMIC_TX_RECENT_BLOCK_LOOKBACK,
+    };
+    EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+        -32000,
+        err.to_string(),
+        None::<String>,
+    )))
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 mod test {
-    use crate::utils::recover_typed_data_request;
+    use crate::utils::{recover_typed_data_request, seismic_override_call_request};
     use alloy_primitives::{
         aliases::U96,
         hex::{self, FromHex},
-        Address, Bytes, FixedBytes, Signature, U256,
+        Address, Bytes, FixedBytes, Signature, B256, U256,
     };
+    use alloy_rpc_types::TransactionRequest;
     use reth_primitives_traits::SignedTransaction;
     use reth_seismic_primitives::SeismicTransactionSigned;
     use secp256k1::PublicKey;
     use seismic_alloy_consensus::{
         SeismicTxEnvelope, TxSeismic, TxSeismicElements, TypedDataRequest,
     };
+    use seismic_alloy_rpc_types::SeismicTransactionRequest;
     use std::str::FromStr;
+
+    fn dummy_seismic_elements() -> TxSeismicElements {
+        TxSeismicElements {
+            encryption_pubkey: PublicKey::from_str(
+                "028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0",
+            )
+            .unwrap(),
+            encryption_nonce: U96::from_str("0x7da3a99bf0f90d56551d99ea").unwrap(),
+            message_version: 2,
+            recent_block_hash: B256::ZERO,
+            expires_at_block: 1,
+            signed_read: false,
+        }
+    }
+
+    fn spoofed_request(seismic_elements: Option<TxSeismicElements>) -> SeismicTransactionRequest {
+        let victim = Address::from([0xaa; 20]);
+        SeismicTransactionRequest {
+            inner: TransactionRequest {
+                from: Some(victim),
+                nonce: Some(7),
+                gas_price: Some(100),
+                max_fee_per_gas: Some(200),
+                max_priority_fee_per_gas: Some(50),
+                max_fee_per_blob_gas: Some(10),
+                value: Some(U256::from(1_000u64)),
+                ..Default::default()
+            },
+            seismic_elements,
+        }
+    }
+
+    fn assert_sanitized(req: &SeismicTransactionRequest) {
+        assert_eq!(req.inner.from, None, "from must be cleared");
+        assert_eq!(req.inner.gas_price, None);
+        assert_eq!(req.inner.max_fee_per_gas, None);
+        assert_eq!(req.inner.max_priority_fee_per_gas, None);
+        assert_eq!(req.inner.max_fee_per_blob_gas, None);
+        assert_eq!(req.inner.value, None);
+        assert!(req.seismic_elements.is_none());
+    }
+
+    #[test]
+    fn seismic_override_clears_from_with_seismic_elements() {
+        let mut req = spoofed_request(Some(dummy_seismic_elements()));
+        seismic_override_call_request(&mut req);
+        assert_sanitized(&req);
+    }
+
+    /// Regression test: a previous change gated sanitization on
+    /// `seismic_elements.is_some()`. That would have let an unsigned, plain
+    /// (non-seismic) `eth_call` spoof `from` and have the contract execute
+    /// `CLOAD` against a slot gated on `msg.sender == victim`. The sanitizer
+    /// must clear `from` unconditionally for every unsigned `TransactionRequest`.
+    #[test]
+    fn seismic_override_clears_from_without_seismic_elements() {
+        let mut req = spoofed_request(None);
+        seismic_override_call_request(&mut req);
+        assert_sanitized(&req);
+    }
 
     #[test]
     fn test_typed_data_tx_hash() {
@@ -188,5 +353,188 @@ mod test {
         .unwrap();
         assert_eq!(signed_sighash, expected_sighash);
         assert_eq!(recovered_sighash, expected_sighash);
+    }
+
+    mod freshness {
+        use crate::utils::validate_seismic_freshness;
+        use alloy_primitives::B256;
+        use reth_seismic_primitives::SEISMIC_TX_RECENT_BLOCK_LOOKBACK;
+        use reth_storage_api::{BlockHashReader, BlockNumReader};
+        use reth_storage_errors::provider::{ProviderError, ProviderResult};
+        use seismic_alloy_consensus::TxSeismicElements;
+        use std::{collections::HashMap, sync::Mutex};
+
+        /// Minimal in-memory provider that implements just the chain-tip / hash-lookup surface
+        /// `validate_seismic_freshness` exercises.
+        ///
+        /// `canonical` maps `block_number` -> the canonical hash at that height.
+        /// `headers` maps `block_hash` -> `block_number`, including hashes for forked-out blocks
+        /// (which are intentionally absent from `canonical`).
+        #[derive(Default)]
+        struct MockProvider {
+            canonical: Mutex<HashMap<u64, B256>>,
+            headers: Mutex<HashMap<B256, u64>>,
+            best: Mutex<Option<u64>>,
+        }
+
+        impl MockProvider {
+            fn add_canonical(&self, num: u64, hash: B256) {
+                self.canonical.lock().unwrap().insert(num, hash);
+                self.headers.lock().unwrap().insert(hash, num);
+                let mut best = self.best.lock().unwrap();
+                *best = Some(best.map_or(num, |b| b.max(num)));
+            }
+
+            /// Add a known-but-non-canonical (forked-out) block hash at the given height.
+            /// `block_number(hash)` returns `Some(num)` but `block_hash(num)` returns the
+            /// canonical hash, not this one.
+            fn add_orphan(&self, num: u64, hash: B256) {
+                self.headers.lock().unwrap().insert(hash, num);
+            }
+
+            fn set_best(&self, num: u64) {
+                *self.best.lock().unwrap() = Some(num);
+            }
+        }
+
+        impl BlockHashReader for MockProvider {
+            fn block_hash(&self, number: u64) -> ProviderResult<Option<B256>> {
+                Ok(self.canonical.lock().unwrap().get(&number).copied())
+            }
+
+            fn canonical_hashes_range(&self, _: u64, _: u64) -> ProviderResult<Vec<B256>> {
+                unimplemented!("not exercised by validate_seismic_freshness")
+            }
+        }
+
+        impl BlockNumReader for MockProvider {
+            fn chain_info(&self) -> ProviderResult<reth_chainspec::ChainInfo> {
+                unimplemented!("not exercised by validate_seismic_freshness")
+            }
+
+            fn best_block_number(&self) -> ProviderResult<u64> {
+                self.best.lock().unwrap().ok_or(ProviderError::BestBlockNotFound)
+            }
+
+            fn last_block_number(&self) -> ProviderResult<u64> {
+                self.best_block_number()
+            }
+
+            fn block_number(&self, hash: B256) -> ProviderResult<Option<u64>> {
+                Ok(self.headers.lock().unwrap().get(&hash).copied())
+            }
+        }
+
+        fn elements(hash: B256, expires_at: u64) -> TxSeismicElements {
+            TxSeismicElements {
+                recent_block_hash: hash,
+                expires_at_block: expires_at,
+                ..Default::default()
+            }
+        }
+
+        fn hash(byte: u8) -> B256 {
+            B256::from([byte; 32])
+        }
+
+        #[test]
+        fn passes_when_hash_is_recent_and_not_expired() {
+            let provider = MockProvider::default();
+            let h = hash(1);
+            provider.add_canonical(50, h);
+            provider.set_best(100);
+
+            assert!(validate_seismic_freshness(&elements(h, 1_000_000), &provider).is_ok());
+        }
+
+        #[test]
+        fn rejects_when_expires_at_block_is_past() {
+            let provider = MockProvider::default();
+            let h = hash(1);
+            provider.add_canonical(100, h);
+
+            let err =
+                validate_seismic_freshness(&elements(h, 50), &provider).unwrap_err().to_string();
+            assert!(err.contains("transaction expired"), "{err}");
+        }
+
+        #[test]
+        fn passes_when_expires_at_block_equals_current() {
+            // Check is `current > expires_at_block`; equality must pass.
+            let provider = MockProvider::default();
+            let h = hash(1);
+            provider.add_canonical(100, h);
+
+            assert!(validate_seismic_freshness(&elements(h, 100), &provider).is_ok());
+        }
+
+        #[test]
+        fn rejects_when_expires_one_block_before_current() {
+            let provider = MockProvider::default();
+            let h = hash(1);
+            provider.add_canonical(100, h);
+
+            let err =
+                validate_seismic_freshness(&elements(h, 99), &provider).unwrap_err().to_string();
+            assert!(err.contains("transaction expired"), "{err}");
+        }
+
+        #[test]
+        fn rejects_when_recent_block_hash_unknown() {
+            let provider = MockProvider::default();
+            provider.add_canonical(100, hash(1));
+
+            let err = validate_seismic_freshness(&elements(hash(2), 1_000_000), &provider)
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("recent_block_hash"), "{err}");
+        }
+
+        #[test]
+        fn passes_at_lookback_boundary() {
+            // Hash at exactly `best - SEISMIC_TX_RECENT_BLOCK_LOOKBACK` is still in window.
+            let best = 1_000;
+            let in_window = best - SEISMIC_TX_RECENT_BLOCK_LOOKBACK;
+            let h = hash(1);
+
+            let provider = MockProvider::default();
+            provider.add_canonical(in_window, h);
+            provider.set_best(best);
+
+            assert!(validate_seismic_freshness(&elements(h, 1_000_000), &provider).is_ok());
+        }
+
+        #[test]
+        fn rejects_one_block_past_lookback_boundary() {
+            let best = 1_000;
+            let too_old = best - SEISMIC_TX_RECENT_BLOCK_LOOKBACK - 1;
+            let h = hash(1);
+
+            let provider = MockProvider::default();
+            provider.add_canonical(too_old, h);
+            provider.set_best(best);
+
+            let err = validate_seismic_freshness(&elements(h, 1_000_000), &provider)
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("recent_block_hash"), "{err}");
+        }
+
+        #[test]
+        fn rejects_forked_out_hash() {
+            // The hash is known to the provider (block_number returns Some), but the canonical
+            // hash at that height is different — i.e., this hash was reorged out.
+            let provider = MockProvider::default();
+            let canonical_hash = hash(1);
+            let forked_hash = hash(2);
+            provider.add_canonical(50, canonical_hash);
+            provider.add_orphan(50, forked_hash);
+            provider.set_best(100);
+
+            let err = validate_seismic_freshness(&elements(forked_hash, 1_000_000), &provider)
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("recent_block_hash"), "{err}");
+        }
     }
 }

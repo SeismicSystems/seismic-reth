@@ -1,12 +1,10 @@
 //! Seismic-Reth `eth_` endpoint implementation.
 
-pub mod api;
 pub mod ext;
 pub mod receipt;
 pub mod transaction;
 pub mod utils;
 
-pub use api::FullSeismicApi;
 pub use receipt::SeismicReceiptConverter;
 
 mod block;

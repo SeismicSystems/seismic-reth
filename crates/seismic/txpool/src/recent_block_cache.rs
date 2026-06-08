@@ -1,10 +1,8 @@
 //! Bounded cache of recent block hashes for O(1) lookup during transaction validation.
 
 use alloy_primitives::B256;
+use reth_seismic_primitives::SEISMIC_TX_RECENT_BLOCK_LOOKBACK;
 use std::collections::{HashSet, VecDeque};
-
-/// Maximum number of blocks to look back for `recent_block_hash` validation.
-pub const SEISMIC_TX_RECENT_BLOCK_LOOKBACK: u64 = 100;
 
 /// A bounded cache that stores recent block hashes with FIFO eviction.
 ///

@@ -5,11 +5,11 @@
 //! For `eth_sendRawTransaction`, we directly call the inner eth api without decryption
 //! See that function's docs for more details
 
-use super::api::FullSeismicApi;
 use crate::utils::{
     convert_seismic_call_to_tx_request, parse_request_sender, signed_read_to_plaintext_tx,
 };
 use alloy_dyn_abi::TypedData;
+use alloy_eips::eip2718::Encodable2718;
 use alloy_json_rpc::RpcObject;
 use alloy_primitives::{Address, Bytes, B256, U256};
 use alloy_rpc_types::{
@@ -19,18 +19,19 @@ use alloy_rpc_types::{
 use alloy_rpc_types_eth::simulate::{
     SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock,
 };
-use futures::Future;
 use jsonrpsee::{
     core::{async_trait, RpcResult},
     proc_macros::rpc,
 };
 use reth_rpc_eth_api::{
-    helpers::{EthCall, EthTransactions},
+    helpers::{EthCall, EthTransactions, FullEthApi},
     RpcBlock, RpcTypes,
 };
 use reth_rpc_eth_types::EthApiError;
 use reth_tracing::tracing::*;
-use seismic_alloy_consensus::{InputDecryptionElements, TxSeismicMetadata, TypedDataRequest};
+use seismic_alloy_consensus::{
+    Decodable712, InputDecryptionElements, SeismicTxEnvelope, TxSeismicMetadata,
+};
 use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest,
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
@@ -73,17 +74,6 @@ impl SeismicApiServer for SeismicApi {
 /// Localhost with port 0 so a free port is used.
 pub const fn test_address() -> SocketAddr {
     SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))
-}
-
-/// Extension trait for `EthTransactions` to add custom transaction sending functionalities.
-pub trait SeismicTransaction: EthTransactions {
-    /// Decodes, signs (if necessary via an internal signer or enclave),
-    /// and submits a typed data transaction to the pool.
-    /// Returns the hash of the transaction.
-    fn send_typed_data_transaction(
-        &self,
-        tx_request: TypedDataRequest,
-    ) -> impl Future<Output = Result<B256, Self::Error>> + Send;
 }
 
 /// Seismic `eth_` RPC namespace overrides.
@@ -161,7 +151,7 @@ impl<Eth> EthApiExt<Eth> {
 #[async_trait]
 impl<Eth> EthApiOverrideServer<RpcBlock<Eth::NetworkTypes>> for EthApiExt<Eth>
 where
-    Eth: FullSeismicApi + Send + Sync + 'static,
+    Eth: FullEthApi + Send + Sync + 'static,
     Eth::Error: Send + Sync + 'static,
     jsonrpsee_types::error::ErrorObject<'static>: From<Eth::Error>,
     <Eth::NetworkTypes as RpcTypes>::TransactionRequest:
@@ -199,8 +189,11 @@ where
 
             for call in calls {
                 let tx_req = convert_seismic_call_to_tx_request(call)?;
-                let plaintext_tx_req =
-                    signed_read_to_plaintext_tx(tx_req, &self.purpose_keys.tx_io_sk)?;
+                let plaintext_tx_req = signed_read_to_plaintext_tx(
+                    tx_req,
+                    &self.purpose_keys.tx_io_sk,
+                    self.eth_api.provider(),
+                )?;
                 let tx_request: TransactionRequest = plaintext_tx_req.inner;
                 prepared_calls.push(tx_request.into());
             }
@@ -262,6 +255,7 @@ where
         let plaintext_tx_req = signed_read_to_plaintext_tx(
             (seismic_tx_request.clone(), signed_read),
             &self.purpose_keys.tx_io_sk,
+            self.eth_api.provider(),
         )?;
 
         // call inner
@@ -294,15 +288,23 @@ where
     /// decryption during execution is handled by the [`SeismicBlockExecutor`]
     async fn send_raw_transaction(&self, tx: SeismicRawTxRequest) -> RpcResult<B256> {
         debug!(target: "reth-seismic-rpc::eth", ?tx, "Serving overridden eth_sendRawTransaction extension");
-        match tx {
-            SeismicRawTxRequest::Bytes(bytes) => {
-                Ok(EthTransactions::send_raw_transaction(&self.eth_api, bytes).await?)
-            }
+        let bytes = match tx {
+            SeismicRawTxRequest::Bytes(bytes) => bytes,
             SeismicRawTxRequest::TypedData(typed_data) => {
-                Ok(SeismicTransaction::send_typed_data_transaction(&self.eth_api, typed_data)
-                    .await?)
+                // Re-encode EIP-712 typed-data submissions as RLP so they flow through
+                // the same `Decodable2718` pipeline as raw-bytes submissions. This keeps
+                // decode-time checks (e.g. signed-read rejection) uniformly enforced across all
+                // signed-tx ingress paths.
+                //
+                // TODO(samlaf): we should update our clients to submit EIP-712 transactions as RLP
+                // bytes directly rather than using the redundant `SeismicRawTxRequest::TypedData`
+                // wrapper, and then delete this TypedData ingress path.
+                let envelope = SeismicTxEnvelope::decode_712(&typed_data)
+                    .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
+                envelope.encoded_2718().into()
             }
-        }
+        };
+        Ok(EthTransactions::send_raw_transaction(&self.eth_api, bytes).await?)
     }
 
     async fn estimate_gas(
@@ -321,6 +323,7 @@ where
         let decrypted_req = signed_read_to_plaintext_tx(
             (seismic_tx_request, signed_read),
             &self.purpose_keys.tx_io_sk,
+            self.eth_api.provider(),
         )?;
 
         // call inner

@@ -2,7 +2,7 @@
 
 use crate::recent_block_cache::RecentBlockCache;
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{Sealable, TxKind, B256, U256};
+use alloy_primitives::{Sealable, B256, U256};
 use reth_chainspec::ChainSpecProvider;
 use reth_primitives_traits::{transaction::error::InvalidTransactionError, Block, GotExpected};
 use reth_provider::{BlockReaderIdExt, StateProviderFactory};
@@ -104,6 +104,12 @@ where
                     if let seismic_alloy_consensus::SeismicTypedTransaction::Seismic(seismic_tx) =
                         consensus_tx.transaction()
                     {
+                        // TODO: the recent_block_hash and expires_at_block checks below
+                        // are currently only done here in the mempool. They should instead be
+                        // done in consensus / block-level validation (e.g. a `SeismicBlockExecutor`
+                        // pre-flight) so that since otherwise they can be
+                        // bypassed by directly including txs via the builder API or other
+                        // non-mempool paths.
                         let seismic_elements = &seismic_tx.seismic_elements;
 
                         // Validate recent_block_hash is in the last 100 blocks
@@ -120,17 +126,6 @@ where
                         if let Err(err) =
                             self.validate_expiration(seismic_elements.expires_at_block)
                         {
-                            return TransactionValidationOutcome::Invalid(
-                                valid_tx.into_transaction(),
-                                err,
-                            );
-                        }
-
-                        // Validate signed_read for write transactions
-                        if let Err(err) = Self::validate_signed_read_for_write(
-                            seismic_tx.to,
-                            seismic_elements.signed_read,
-                        ) {
                             return TransactionValidationOutcome::Invalid(
                                 valid_tx.into_transaction(),
                                 err,
@@ -256,21 +251,6 @@ impl<Client, Tx> SeismicTransactionValidator<Client, Tx> {
                 current_block: current_block_num,
                 expires_at_block,
             };
-            return Err(InvalidTransactionError::SeismicTx(err.to_string()).into());
-        }
-
-        Ok(())
-    }
-
-    /// Validates that `signed_read` is false for write transactions (transactions with a `to`
-    /// address)
-    fn validate_signed_read_for_write(
-        to: TxKind,
-        signed_read: bool,
-    ) -> Result<(), InvalidPoolTransactionError> {
-        // If this is a write transaction (has a destination), signed_read must be false
-        if !to.is_create() && signed_read {
-            let err = SeismicTxError::InvalidSignedReadForWrite;
             return Err(InvalidTransactionError::SeismicTx(err.to_string()).into());
         }
 
