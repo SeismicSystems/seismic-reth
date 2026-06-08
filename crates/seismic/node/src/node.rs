@@ -34,7 +34,10 @@ use reth_provider::{providers::ProviderFactoryBuilder, CanonStateSubscriptions, 
 use reth_rpc::ValidationApi;
 use reth_rpc_api::BlockSubmissionValidationApiServer;
 use reth_rpc_builder::{config::RethRpcServerConfig, Identity};
-use reth_rpc_eth_api::helpers::config::{EthConfigApiServer, EthConfigHandler};
+use reth_rpc_eth_api::helpers::{
+    config::{EthConfigApiServer, EthConfigHandler},
+    FullEthApi,
+};
 use reth_rpc_eth_types::{
     error::{api::FromEvmHalt, FromEvmError},
     EthApiError,
@@ -314,7 +317,7 @@ impl<N, EthB, PVB, EB, EVB, RpcMiddleware> NodeAddOns<N>
 where
     N: SeismicFullNode,
     EthB: EthApiBuilder<N>,
-    EthB::EthApi: reth_seismic_rpc::FullSeismicApi + Send + Sync + 'static,
+    EthB::EthApi: FullEthApi + Send + Sync + 'static,
     <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
     jsonrpsee::types::ErrorObject<'static>:
         From<<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error>,
@@ -382,7 +385,7 @@ impl<N, EthB, PVB, EB, EVB, RpcMiddleware> RethRpcAddOns<N>
 where
     N: SeismicFullNode,
     EthB: EthApiBuilder<N>,
-    EthB::EthApi: reth_seismic_rpc::FullSeismicApi + Send + Sync + 'static,
+    EthB::EthApi: FullEthApi + Send + Sync + 'static,
     <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
     jsonrpsee::types::ErrorObject<'static>:
         From<<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error>,
@@ -412,7 +415,7 @@ impl<N, EthB, PVB, EB, EVB, RpcMiddleware> EngineValidatorAddOn<N>
 where
     N: SeismicFullNode<Evm: ConfigureEngineEvm<ExecutionData>>,
     EthB: EthApiBuilder<N>,
-    EthB::EthApi: reth_seismic_rpc::FullSeismicApi + Send + Sync + 'static,
+    EthB::EthApi: FullEthApi + Send + Sync + 'static,
     <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
     jsonrpsee::types::ErrorObject<'static>:
         From<<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error>,

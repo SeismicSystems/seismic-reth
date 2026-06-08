@@ -74,7 +74,9 @@ tracing.workspace = true
 
 [dev-dependencies]
 reth-seismic-chainspec.workspace = true
+reth-chainspec.workspace = true
 reth-consensus.workspace = true
+reth-storage-errors.workspace = true
 reth-evm-ethereum.workspace = true
 reth-ethereum-engine-primitives.workspace = true
 reth-rpc-builder.workspace = true

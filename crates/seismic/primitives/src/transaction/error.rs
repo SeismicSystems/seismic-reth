@@ -23,9 +23,6 @@ pub enum SeismicTxError {
         /// The block number at which the transaction expires
         expires_at_block: u64,
     },
-    /// A write transaction (non-contract creation) cannot have `signed_read` = true
-    #[display("write transactions cannot have signed_read set to true")]
-    InvalidSignedReadForWrite,
     /// Failed to decrypt calldata of seismic tx
     #[display("failed to decrypt seismic transaction")]
     FailedToDecrypt,
