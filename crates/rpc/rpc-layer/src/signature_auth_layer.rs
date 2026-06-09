@@ -3,6 +3,7 @@ use alloy_sol_types::{eip712_domain, sol, SolStruct};
 use http::{HeaderMap, Response, StatusCode};
 use http_body_util::BodyExt;
 use jsonrpsee_http_client::{HttpBody, HttpRequest, HttpResponse};
+use rand::RngCore;
 use serde::Deserialize;
 use std::{
     collections::HashMap,
@@ -10,7 +11,6 @@ use std::{
     pin::Pin,
     sync::{Arc, RwLock},
     task::{Context, Poll},
-    time::{SystemTime, UNIX_EPOCH},
 };
 use tower::{Layer, Service};
 
@@ -23,8 +23,21 @@ sol! {
     }
 
     interface OpsWhitelistTxAuth {
-        function whitelistKey(address target, uint64 expiresAt) external;
-        function revokeKey(address target) external;
+        function whitelistKey(
+            address target,
+            uint64 keyExpiresAtBlock,
+            bytes32 recentBlockHash,
+            uint64 expiresAtBlock,
+            bytes32 validatorId,
+            uint64 nonce
+        ) external;
+        function revokeKey(
+            address target,
+            bytes32 recentBlockHash,
+            uint64 expiresAtBlock,
+            bytes32 validatorId,
+            uint64 nonce
+        ) external;
     }
 }
 
@@ -44,27 +57,72 @@ pub const OPS_AUTH_CONTRACT: Address = address!("0x00000000000000000000000000005
 pub const OPS_AUTH_SLOT: B256 = B256::ZERO;
 
 /// Shared whitelist of temporarily authorized addresses with expiration times.
+///
+/// Also carries the per-process `validator_id` and monotonic `admin_nonce` used
+/// to gate sentinel transactions (`whitelistKey` / `revokeKey`). Both reset on
+/// node restart: a fresh `validator_id` invalidates any in-flight captured
+/// sentinel payloads from the previous incarnation, and the `admin_nonce`
+/// starts again from zero in the new namespace.
 #[derive(Debug, Clone)]
 pub struct Whitelist {
     inner: Arc<RwLock<HashMap<Address, u64>>>,
+    /// Random per-process identifier. Sentinel txs must bind to this value to
+    /// be accepted by this validator.
+    validator_id: B256,
+    /// Highest admin nonce consumed by an accepted sentinel tx. Subsequent
+    /// sentinel txs must carry a strictly greater nonce.
+    admin_nonce: Arc<RwLock<u64>>,
 }
 
 impl Whitelist {
-    /// Creates an empty whitelist.
+    /// Creates an empty whitelist with a freshly generated `validator_id`.
     pub fn new() -> Self {
-        Self { inner: Arc::new(RwLock::new(HashMap::new())) }
+        let mut id = [0u8; 32];
+        rand::rng().fill_bytes(&mut id);
+        Self {
+            inner: Arc::new(RwLock::new(HashMap::new())),
+            validator_id: B256::from(id),
+            admin_nonce: Arc::new(RwLock::new(0)),
+        }
     }
 
-    /// Adds an address to the whitelist until the given Unix timestamp in seconds.
-    pub fn add(&self, address: Address, expires_at: u64) {
-        write_unpoisoned(&self.inner).insert(address, expires_at);
+    /// Returns this validator's random session identifier.
+    pub const fn validator_id(&self) -> B256 {
+        self.validator_id
     }
 
-    /// Returns `true` if the address is whitelisted and not expired.
-    pub fn is_authorized(&self, address: &Address) -> bool {
+    /// Returns the highest admin nonce consumed by an accepted sentinel tx.
+    pub fn admin_nonce(&self) -> u64 {
+        *read_unpoisoned(&self.admin_nonce)
+    }
+
+    /// Attempts to advance the admin nonce to `nonce`. Returns `true` iff
+    /// `nonce > current` and the counter was updated. Strict-greater so
+    /// skipped nonces (e.g. out-of-order delivery) are silently dropped
+    /// rather than blocking later ones.
+    pub fn try_advance_admin_nonce(&self, nonce: u64) -> bool {
+        let mut guard = write_unpoisoned(&self.admin_nonce);
+        if nonce > *guard {
+            *guard = nonce;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Adds an address to the whitelist; the entry stays valid until the
+    /// canonical head reaches `key_expires_at_block`. Block-based to avoid
+    /// depending on the host wall clock, which is untrusted in TEE deployments.
+    pub fn add(&self, address: Address, key_expires_at_block: u64) {
+        write_unpoisoned(&self.inner).insert(address, key_expires_at_block);
+    }
+
+    /// Returns `true` if the address is whitelisted and the canonical head has
+    /// not yet reached the entry's `key_expires_at_block`.
+    pub fn is_authorized(&self, address: &Address, current_block: u64) -> bool {
         let map = read_unpoisoned(&self.inner);
         match map.get(address) {
-            Some(expiry) => current_unix_timestamp() < *expiry,
+            Some(expires_at_block) => current_block < *expires_at_block,
             None => false,
         }
     }
@@ -74,10 +132,10 @@ impl Whitelist {
         write_unpoisoned(&self.inner).remove(address).is_some()
     }
 
-    /// Removes expired entries.
-    pub fn evict_expired(&self) {
-        let now = current_unix_timestamp();
-        write_unpoisoned(&self.inner).retain(|_, expiry| now < *expiry);
+    /// Removes entries whose `key_expires_at_block` has been reached or passed.
+    pub fn evict_expired(&self, current_block: u64) {
+        write_unpoisoned(&self.inner)
+            .retain(|_, expires_at_block| current_block < *expires_at_block);
     }
 }
 
@@ -93,11 +151,23 @@ pub const EIP712_DOMAIN_NAME: &str = "SeismicOps";
 /// The EIP-712 domain version for ops requests.
 pub const EIP712_DOMAIN_VERSION: &str = "1";
 
+/// Closure type that returns the current canonical head block number, or
+/// `None` if the underlying provider read failed. Injected so the middleware
+/// can evaluate block-based whitelist expiry without depending on the
+/// storage-api crate (and without depending on the host wall clock, which is
+/// untrusted in TEE deployments).
+///
+/// The `Option` is load-bearing: when the head can't be read we don't know
+/// whether a whitelist entry is still in its validity window, so the
+/// middleware must fail closed (return `503 Service Unavailable`) instead of
+/// substituting a default that would silently authorize every entry.
+pub type CurrentBlockFn = Arc<dyn Fn() -> Option<u64> + Send + Sync>;
+
 /// Configuration for the signature authentication layer.
 ///
 /// A shared whitelist holds temporarily authorized addresses for data endpoints.
 /// Signatures use EIP-712 typed data with the `SeismicOps` domain.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SignatureAuthConfig {
     /// Shared whitelist of temporarily authorized addresses.
     pub whitelist: Whitelist,
@@ -105,12 +175,33 @@ pub struct SignatureAuthConfig {
     pub nonces: Arc<RwLock<HashMap<Address, u64>>>,
     /// The chain ID for the EIP-712 domain separator.
     pub chain_id: u64,
+    /// Returns the current canonical head block number. Used to evaluate
+    /// whitelist entry expiry (`key_expires_at_block`).
+    pub current_block_fn: CurrentBlockFn,
+}
+
+impl std::fmt::Debug for SignatureAuthConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SignatureAuthConfig")
+            .field("whitelist", &self.whitelist)
+            .field("nonces", &self.nonces)
+            .field("chain_id", &self.chain_id)
+            .field("current_block_fn", &"<fn>")
+            .finish()
+    }
 }
 
 impl SignatureAuthConfig {
-    /// Creates a new signature auth config.
-    pub fn new(whitelist: Whitelist, chain_id: u64) -> Self {
-        Self { whitelist, nonces: Arc::new(RwLock::new(HashMap::new())), chain_id }
+    /// Creates a new signature auth config. `current_block_fn` is invoked on
+    /// every authenticated `ops_*` request to evaluate whitelist expiry; it
+    /// should be a cheap accessor over the node's canonical head.
+    pub fn new(whitelist: Whitelist, chain_id: u64, current_block_fn: CurrentBlockFn) -> Self {
+        Self {
+            whitelist,
+            nonces: Arc::new(RwLock::new(HashMap::new())),
+            chain_id,
+            current_block_fn,
+        }
     }
 }
 
@@ -194,9 +285,21 @@ where
 
             // Parse the method name from the JSON body to avoid substring-matching
             // bypasses via Unicode escapes (e.g. \u006f for 'o').
-            let method = serde_json::from_slice::<RpcRequest>(&body_bytes)
+            // Use a struct that only requires `method` — JSON-RPC `params` is
+            // optional, and clients (incl. jsonrpsee with empty `rpc_params![]`)
+            // may omit or null it. Deserializing into `RpcRequest` would silently
+            // fall through to an empty method and skip the bootstrap match below.
+            let method = serde_json::from_slice::<RpcMethodOnly>(&body_bytes)
                 .map(|r| r.method)
                 .unwrap_or_default();
+
+            // Unauthenticated bootstrap endpoints: governance needs these to construct
+            // sentinel txs before any key is whitelisted, so they bypass the auth path.
+            if matches!(method.as_str(), "ops_getValidatorId" | "ops_getAdminNonce") {
+                let new_body = HttpBody::from(body_bytes.to_vec());
+                let new_req = HttpRequest::from_parts(parts, new_body);
+                return inner.call(new_req).await;
+            }
 
             let needs_nonce = method == "ops_getStorageAt";
             let is_get_nonce_method = method == "ops_getNonce";
@@ -257,9 +360,22 @@ where
                     }
                 };
 
+            // If we can't read the canonical head we can't evaluate block-based
+            // whitelist expiry. Fail closed with 503 rather than substituting a
+            // default that would silently authorize every entry.
+            let current_block = match (config.current_block_fn)() {
+                Some(b) => b,
+                None => {
+                    return Ok(error_response(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "current block unavailable",
+                    ))
+                }
+            };
+
             if is_get_nonce_method {
-                config.whitelist.evict_expired();
-                if !config.whitelist.is_authorized(&recovered_address) {
+                config.whitelist.evict_expired(current_block);
+                if !config.whitelist.is_authorized(&recovered_address, current_block) {
                     return Ok(error_response(StatusCode::UNAUTHORIZED, "Key not whitelisted"));
                 }
 
@@ -276,8 +392,8 @@ where
                 }
             } else if needs_nonce {
                 // ops_getStorageAt: require whitelisted address.
-                config.whitelist.evict_expired();
-                if !config.whitelist.is_authorized(&recovered_address) {
+                config.whitelist.evict_expired(current_block);
+                if !config.whitelist.is_authorized(&recovered_address, current_block) {
                     return Ok(error_response(StatusCode::UNAUTHORIZED, "Key not whitelisted"));
                 }
             } else {
@@ -337,10 +453,6 @@ fn error_response(status: StatusCode, message: &str) -> HttpResponse {
         .expect("building error response should not fail")
 }
 
-fn current_unix_timestamp() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).expect("system clock before unix epoch").as_secs()
-}
-
 fn read_unpoisoned<T>(lock: &RwLock<T>) -> std::sync::RwLockReadGuard<'_, T> {
     lock.read().unwrap_or_else(|err| err.into_inner())
 }
@@ -355,8 +467,157 @@ struct RpcRequest {
     params: Vec<serde_json::Value>,
 }
 
+/// Minimal projection used for method-name routing only; tolerates clients that
+/// omit or null the JSON-RPC `params` field.
+#[derive(Deserialize)]
+struct RpcMethodOnly {
+    method: String,
+}
+
 fn parse_address_param(value: Option<&serde_json::Value>, field: &str) -> Result<Address, String> {
     let value = value.ok_or_else(|| format!("Missing {field}"))?;
     let addr = value.as_str().ok_or_else(|| format!("Invalid {field}"))?;
     addr.parse::<Address>().map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn admin_nonce_starts_at_zero() {
+        let w = Whitelist::new();
+        assert_eq!(w.admin_nonce(), 0);
+    }
+
+    #[test]
+    fn validator_id_is_nonzero_and_stable_within_a_whitelist() {
+        let w = Whitelist::new();
+        let id = w.validator_id();
+        assert_ne!(id, B256::ZERO, "validator_id must be random, not zero");
+        assert_eq!(w.validator_id(), id, "validator_id must not change within an instance");
+    }
+
+    #[test]
+    fn validator_id_differs_across_whitelists() {
+        // Two freshly-constructed whitelists must not collide.
+        let a = Whitelist::new();
+        let b = Whitelist::new();
+        assert_ne!(a.validator_id(), b.validator_id());
+    }
+
+    #[test]
+    fn try_advance_admin_nonce_accepts_strictly_greater() {
+        let w = Whitelist::new();
+        assert!(w.try_advance_admin_nonce(1));
+        assert_eq!(w.admin_nonce(), 1);
+        assert!(w.try_advance_admin_nonce(2));
+        assert_eq!(w.admin_nonce(), 2);
+    }
+
+    #[test]
+    fn try_advance_admin_nonce_rejects_equal() {
+        let w = Whitelist::new();
+        assert!(w.try_advance_admin_nonce(5));
+        // Re-submitting the same nonce must not advance.
+        assert!(!w.try_advance_admin_nonce(5));
+        assert_eq!(w.admin_nonce(), 5);
+    }
+
+    #[test]
+    fn try_advance_admin_nonce_rejects_lower() {
+        let w = Whitelist::new();
+        assert!(w.try_advance_admin_nonce(5));
+        // A lower nonce is a replay attempt; counter must not regress.
+        assert!(!w.try_advance_admin_nonce(3));
+        assert_eq!(w.admin_nonce(), 5);
+    }
+
+    #[test]
+    fn try_advance_admin_nonce_allows_gap_jumps() {
+        // Out-of-order delivery: if 5 lands before 1..4, later ones must drop
+        // silently rather than block 5 from being accepted.
+        let w = Whitelist::new();
+        assert!(w.try_advance_admin_nonce(5));
+        assert!(!w.try_advance_admin_nonce(1));
+        assert!(!w.try_advance_admin_nonce(4));
+        assert!(w.try_advance_admin_nonce(6));
+        assert_eq!(w.admin_nonce(), 6);
+    }
+
+    #[test]
+    fn try_advance_admin_nonce_rejects_initial_zero() {
+        // admin_nonce starts at 0; nonce 0 is not strictly greater, so the
+        // very first sentinel must carry nonce >= 1.
+        let w = Whitelist::new();
+        assert!(!w.try_advance_admin_nonce(0));
+        assert_eq!(w.admin_nonce(), 0);
+    }
+
+    // ---- is_authorized / evict_expired (block-based expiry) ----
+
+    #[test]
+    fn is_authorized_returns_false_for_unknown_address() {
+        let w = Whitelist::new();
+        assert!(!w.is_authorized(&Address::repeat_byte(0x42), 0));
+        assert!(!w.is_authorized(&Address::repeat_byte(0x42), u64::MAX));
+    }
+
+    #[test]
+    fn is_authorized_strictly_less_than_expires_at_block() {
+        // Entry valid until block 100. Strict-less semantics: block 99 is in,
+        // block 100 is already out (cannot read AT the expiry block).
+        let w = Whitelist::new();
+        let addr = Address::repeat_byte(0x11);
+        w.add(addr, 100);
+
+        assert!(w.is_authorized(&addr, 0), "block 0 < 100");
+        assert!(w.is_authorized(&addr, 99), "block 99 < 100");
+        assert!(!w.is_authorized(&addr, 100), "block 100 == 100 (strict-less)");
+        assert!(!w.is_authorized(&addr, 101), "block 101 > 100");
+    }
+
+    #[test]
+    fn evict_expired_retains_only_strictly_above_current_block() {
+        // Three entries at blocks 50, 100, 150. Advance head to 100:
+        //   - 50  ≤ 100 → evicted
+        //   - 100 ≤ 100 → evicted (strict-less)
+        //   - 150 >  100 → kept
+        let w = Whitelist::new();
+        let a = Address::repeat_byte(0xa);
+        let b = Address::repeat_byte(0xb);
+        let c = Address::repeat_byte(0xc);
+        w.add(a, 50);
+        w.add(b, 100);
+        w.add(c, 150);
+
+        w.evict_expired(100);
+
+        assert!(!w.is_authorized(&a, 100));
+        assert!(!w.is_authorized(&b, 100));
+        assert!(w.is_authorized(&c, 100), "150 > 100 must survive");
+    }
+
+    #[test]
+    fn evict_expired_is_a_noop_when_head_is_zero() {
+        // A freshly-started chain has best_block_number() == 0; nothing should
+        // be evicted unless an entry was explicitly added with expires == 0.
+        let w = Whitelist::new();
+        let a = Address::repeat_byte(0xa);
+        w.add(a, 1);
+        w.evict_expired(0);
+        assert!(w.is_authorized(&a, 0));
+    }
+
+    #[test]
+    fn add_overwrites_previous_expiry() {
+        // Re-adding the same address with a new expiry overrides the old one,
+        // which is the contract apply_sentinel_action relies on for renewal.
+        let w = Whitelist::new();
+        let a = Address::repeat_byte(0xa);
+        w.add(a, 50);
+        w.add(a, 200);
+        // At block 100 the original would have expired; the renewed one is still valid.
+        assert!(w.is_authorized(&a, 100));
+    }
 }

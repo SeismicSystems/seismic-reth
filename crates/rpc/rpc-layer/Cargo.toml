@@ -20,6 +20,7 @@ http.workspace = true
 http-body-util.workspace = true
 jsonrpsee-http-client.workspace = true
 pin-project.workspace = true
+rand.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tower.workspace = true
