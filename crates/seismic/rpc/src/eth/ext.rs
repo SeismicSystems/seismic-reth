@@ -16,8 +16,9 @@ use alloy_rpc_types::{
     state::{EvmOverrides, StateOverride},
     BlockId, BlockOverrides, TransactionRequest,
 };
-use alloy_rpc_types_eth::simulate::{
-    SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock,
+use alloy_rpc_types_eth::{
+    simulate::{SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock},
+    Bundle, EthCallResponse, StateContext,
 };
 use jsonrpsee::{
     core::{async_trait, RpcResult},
@@ -103,6 +104,16 @@ pub trait EthApiOverride<B: RpcObject> {
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes>;
+
+    /// Simulate arbitrary number of transactions at an arbitrary blockchain index, with the
+    /// optionality of state overrides.
+    #[method(name = "callMany")]
+    async fn call_many(
+        &self,
+        bundles: Vec<Bundle<SeismicCallRequest>>,
+        state_context: Option<StateContext>,
+        state_override: Option<StateOverride>,
+    ) -> RpcResult<Vec<Vec<EthCallResponse>>>;
 
     /// Sends signed transaction, returning its hash.
     #[method(name = "sendRawTransaction")]
@@ -233,6 +244,64 @@ where
                         .encrypt(&self.purpose_keys.tx_io_sk, &call_result.return_data)
                         .map_err(|e| ext_encryption_error(e.to_string()))?;
                     call_result.return_data = encrypted_output;
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Handler for: `eth_callMany`
+    async fn call_many(
+        &self,
+        bundles: Vec<Bundle<SeismicCallRequest>>,
+        state_context: Option<StateContext>,
+        state_override: Option<StateOverride>,
+    ) -> RpcResult<Vec<Vec<EthCallResponse>>> {
+        debug!(target: "reth-seismic-rpc::eth", ?bundles, ?state_context, ?state_override, "Serving seismic eth_callMany extension");
+
+        // Keep originals so we can encrypt return data per-call after the inner call_many.
+        let seismic_bundles = bundles.clone();
+
+        // Convert each Bundle<SeismicCallRequest> into the upstream Bundle<TransactionRequest>:
+        // unsigned requests are sanitized; signed requests have their freshness validated and
+        // calldata decrypted by `signed_read_to_plaintext_tx`.
+        let mut prepared_bundles: Vec<Bundle<<Eth::NetworkTypes as RpcTypes>::TransactionRequest>> =
+            Vec::with_capacity(bundles.len());
+        for bundle in bundles {
+            let Bundle { transactions, block_override } = bundle;
+            let mut prepared = Vec::with_capacity(transactions.len());
+            for call in transactions {
+                let tx_req = convert_seismic_call_to_tx_request(call)?;
+                let plaintext_tx_req = signed_read_to_plaintext_tx(
+                    tx_req,
+                    &self.purpose_keys.tx_io_sk,
+                    self.eth_api.provider(),
+                )?;
+                let tx_request: TransactionRequest = plaintext_tx_req.inner;
+                prepared.push(tx_request.into());
+            }
+            prepared_bundles.push(Bundle { transactions: prepared, block_override });
+        }
+
+        let mut result =
+            EthCall::call_many(&self.eth_api, prepared_bundles, state_context, state_override)
+                .await?;
+
+        // Encrypt return data for signed-read calls so the response is readable only by the
+        // signer (matches the single-call `eth_call` behavior).
+        for (bundle, bundle_results) in seismic_bundles.iter().zip(result.iter_mut()) {
+            for (call, call_result) in bundle.transactions.iter().zip(bundle_results.iter_mut()) {
+                let (seismic_tx_request, signed_read) =
+                    convert_seismic_call_to_tx_request(call.clone())?;
+                if signed_read {
+                    if let Some(value) = call_result.value.as_mut() {
+                        let sender = parse_request_sender(&seismic_tx_request)?;
+                        let metadata = Self::build_metadata(&seismic_tx_request, sender)?;
+                        *value = metadata
+                            .encrypt(&self.purpose_keys.tx_io_sk, value)
+                            .map_err(|e| ext_encryption_error(e.to_string()))?;
+                    }
                 }
             }
         }
