@@ -15,7 +15,6 @@ use crate::{
     eth::transaction::{SeismicRpcTxConverter, SeismicSimTxConverter},
     SeismicEthApiError,
 };
-use alloy_consensus::TxEip4844;
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, U256};
 use futures::Future;
@@ -101,35 +100,15 @@ impl TryIntoTxEnv<seismic_revm::SeismicTransaction<TxEnv>> for SignableSeismicTr
 impl SignableTxRequest<reth_seismic_primitives::SeismicTransactionSigned>
     for SignableSeismicTransactionRequest
 {
+    /// Node-side signing (`eth_sendTransaction`/`eth_signTransaction`) is unsupported on Seismic:
+    /// it would have the node custody keys and build a transaction from a plaintext request, which
+    /// does not fit Seismic's client-side-encryption model. Reject rather than return a fabricated
+    /// placeholder transaction.
     async fn try_build_and_sign(
         self,
         _signer: impl TxSigner<Signature> + Send,
     ) -> Result<reth_seismic_primitives::SeismicTransactionSigned, SignTxRequestError> {
-        // TODO: Implement proper signing logic
-        // For now, create a placeholder transaction to make it compile
-        use alloy_consensus::{Signed, TxLegacy};
-        use alloy_primitives::{B256, U256};
-        use reth_seismic_primitives::SeismicTransactionSigned;
-        use seismic_alloy_consensus::SeismicTxEnvelope;
-
-        // Create a minimal transaction for compilation - this should be replaced with proper
-        // signing
-        let tx = TxLegacy {
-            chain_id: Some(1),
-            nonce: 0,
-            gas_price: 20_000_000_000u128,
-            gas_limit: 21_000,
-            to: alloy_primitives::TxKind::Create,
-            value: U256::ZERO,
-            input: Default::default(),
-        };
-
-        let signature = Signature::new(U256::ZERO, U256::ZERO, false);
-        let signed_tx = Signed::new_unchecked(tx, signature, B256::ZERO);
-        let envelope = SeismicTxEnvelope::<TxEip4844>::Legacy(signed_tx);
-        let seismic_signed = SeismicTransactionSigned::from(envelope);
-
-        Ok(seismic_signed)
+        Err(SignTxRequestError::InvalidTransactionRequest)
     }
 }
 
@@ -447,7 +426,7 @@ mod tests {
     use reth_rpc_convert::SignTxRequestError;
     use reth_rpc_eth_api::SignableTxRequest;
 
-    /// Seismic must reject node-side signing rather than returning a fabricated placeholder tx
+    /// Seismic rejects node-side signing rather than returning a fabricated placeholder tx
     /// (Veridise 1204), so `eth_sendTransaction`/`eth_signTransaction` fail cleanly.
     #[tokio::test]
     async fn try_build_and_sign_is_rejected() {
