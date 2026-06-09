@@ -814,3 +814,59 @@ async fn test_ops_sentinel_does_not_burn_nonce_on_action_validation_failure() {
         "successful retry must advance admin_nonce exactly once",
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_ops_sentinel_rejected_by_send_raw_transaction_sync() {
+    // eth_sendRawTransactionSync waits for on-chain inclusion. Sentinel txs are
+    // intercepted at the RPC layer and never enter the pool or a block, so the
+    // sync endpoint must reject them immediately rather than time out at 30s
+    // (the upstream default).
+    reth_tracing::init_test_tracing();
+    let governance = PrivateKeySigner::random();
+    let reader = PrivateKeySigner::random();
+
+    let (node, _tasks, _wallet) = launch_ops_node(&governance).await.unwrap();
+    let client = HttpClientBuilder::default().build(&node.rpc_url().to_string()).unwrap();
+    let ops_client = build_ops_client(&node_ops_url!(node));
+    let chain_id = 5124u64;
+
+    // Build a perfectly valid sentinel envelope — only the endpoint is wrong.
+    let live = fetch_live_envelope_fields(&client, &ops_client).await;
+    let env = Envelope {
+        recent_block_hash: live.recent_block_hash,
+        expires_at_block: live.expires_at_block,
+        validator_id: live.validator_id,
+        nonce: live.next_nonce,
+    };
+    let raw_tx = build_sentinel_tx(
+        &governance,
+        chain_id,
+        whitelist_calldata(reader.address(), current_unix_timestamp() + 3600, env),
+    );
+
+    // Time the round-trip so we can prove it's the early-reject path, not a 30s timeout.
+    let started = std::time::Instant::now();
+    let hex = format!("0x{}", alloy_primitives::hex::encode(&raw_tx));
+    let result = client
+        .request::<serde_json::Value, _>("eth_sendRawTransactionSync", rpc_params![hex])
+        .await;
+    let elapsed = started.elapsed();
+
+    let err = result.expect_err("sentinel tx via sendRawTransactionSync must be rejected");
+    let err_str = err.to_string();
+    assert!(
+        err_str.contains("not supported via eth_sendRawTransactionSync"),
+        "expected explicit rejection message, got: {err_str}"
+    );
+    assert!(
+        elapsed < std::time::Duration::from_secs(5),
+        "rejection must be immediate; the upstream timeout is 30s. elapsed: {elapsed:?}"
+    );
+
+    // The whitelist mutation must NOT have applied — admin_nonce stays at 0.
+    assert_eq!(
+        ops_get_admin_nonce(&ops_client).await,
+        0,
+        "rejected sentinel must not advance admin_nonce",
+    );
+}
