@@ -1147,22 +1147,12 @@ where
         };
 
         let whitelist = whitelist.unwrap_or_default();
-        // Closure read by the auth middleware on every authenticated ops_* request
-        // to evaluate block-based whitelist entry expiry. Reads the live canonical
-        // head; cheap (single AtomicU64 in the chain tracker). Returning `None` on
-        // provider error causes the middleware to fail closed (503), so a transient
-        // read failure can't silently authorize expired entries.
-        let current_block_fn: reth_rpc_layer::CurrentBlockFn = {
-            let provider = provider.clone();
-            Arc::new(move || reth_storage_api::BlockNumReader::best_block_number(&*provider).ok())
-        };
-        let mut auth_config =
-            SignatureAuthConfig::new(whitelist.clone(), chain_id, current_block_fn);
+        let mut auth_config = SignatureAuthConfig::new(whitelist, chain_id);
         let nonces = Arc::new(std::sync::RwLock::new(std::collections::HashMap::new()));
         auth_config.nonces = nonces.clone();
 
         // Create the OpsApi handler.
-        let ops_api = reth_rpc::OpsApi::new(provider, task_spawner, nonces, whitelist);
+        let ops_api = reth_rpc::OpsApi::new(provider, task_spawner, nonces);
 
         // Register it in a module.
         let mut module = BodyAuthRpcModule::empty();

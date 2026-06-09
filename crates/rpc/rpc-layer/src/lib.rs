@@ -21,9 +21,9 @@ pub mod signature_auth_layer;
 pub use auth_layer::{AuthService, ResponseFuture};
 pub use compression_layer::CompressionLayer;
 pub use signature_auth_layer::{
-    eip712_signing_hash, CurrentBlockFn, OpsWhitelistTxAuth, SignatureAuthConfig,
-    SignatureAuthLayer, SignatureAuthService, Whitelist, EIP712_DOMAIN_NAME, EIP712_DOMAIN_VERSION,
-    NONCE_HEADER, OPS_AUTH_CONTRACT, OPS_AUTH_SLOT, SIGNATURE_HEADER, WHITELIST_TX_SENTINEL,
+    eip712_signing_hash, OpsWhitelistTxAuth, SignatureAuthConfig, SignatureAuthLayer,
+    SignatureAuthService, Whitelist, EIP712_DOMAIN_NAME, EIP712_DOMAIN_VERSION, NONCE_HEADER,
+    OPS_AUTH_CONTRACT, OPS_AUTH_SLOT, SIGNATURE_HEADER, WHITELIST_TX_SENTINEL,
 };
 
 // Export alloy JWT types
