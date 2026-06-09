@@ -441,3 +441,22 @@ where
         Ok(SeismicEthApi { inner: Arc::new(eth_api), ops_whitelist })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SignableSeismicTransactionRequest;
+    use alloy_signer_local::PrivateKeySigner;
+    use reth_rpc_convert::SignTxRequestError;
+    use reth_rpc_eth_api::SignableTxRequest;
+
+    /// Seismic must reject node-side signing rather than returning a fabricated placeholder tx
+    /// (Veridise 1204), so `eth_sendTransaction`/`eth_signTransaction` fail cleanly.
+    #[tokio::test]
+    async fn try_build_and_sign_is_rejected() {
+        let req = SignableSeismicTransactionRequest::from(
+            alloy_rpc_types_eth::TransactionRequest::default(),
+        );
+        let result = req.try_build_and_sign(&PrivateKeySigner::random()).await;
+        assert!(matches!(result, Err(SignTxRequestError::InvalidTransactionRequest)));
+    }
+}
