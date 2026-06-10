@@ -327,36 +327,51 @@ async fn rpc_test_gas_and_call_variants(
          (got 0 allowance for a USDC-only wallet)"
     );
 
-    // eth_getAccountInfo is wallet-facing, so it reports the effective (USDC-inclusive)
-    // balance, consistent with eth_getBalance. eth_getAccount mirrors the raw trie record
-    // and must agree with eth_getProof, so it stays on the native balance. The
-    // usdc_only_signer has 0 native and 1000 USDC.
+    // eth_getBalance and eth_getAccountInfo default to the raw native balance, consistent with
+    // eth_getAccount/eth_getProof, so consumers never see divergent balances for the same
+    // account (Veridise 1206). The USDC-inclusive effective balance is opt-in on both via
+    // `includeGasToken = true`. The usdc_only_signer has 0 native and 1000 USDC.
     let usdc_addr = usdc_only_signer.address();
-    let account_info = EthApiClient::<
-        SeismicTransactionRequest,
-        SeismicTransactionSigned,
-        SeismicBlock,
-        SeismicTransactionReceipt,
-        Header,
-    >::get_account_info(client, usdc_addr, alloy_eips::BlockId::latest())
-    .await
-    .unwrap();
-    let get_balance = EthApiClient::<
-        SeismicTransactionRequest,
-        SeismicTransactionSigned,
-        SeismicBlock,
-        SeismicTransactionReceipt,
-        Header,
-    >::balance(client, usdc_addr, None)
-    .await
-    .unwrap();
-    assert!(
-        account_info.balance > U256::ZERO,
-        "eth_getAccountInfo must report the effective USDC-inclusive balance"
-    );
+    let native_balance =
+        EthApiOverrideClient::<Block>::get_balance(client, usdc_addr, None, None).await.unwrap();
     assert_eq!(
-        account_info.balance, get_balance,
-        "eth_getAccountInfo balance must match eth_getBalance"
+        native_balance,
+        U256::ZERO,
+        "eth_getBalance defaults to the native balance (0 for a USDC-only wallet)"
+    );
+    let native_account_info = EthApiOverrideClient::<Block>::get_account_info(
+        client,
+        usdc_addr,
+        alloy_eips::BlockId::latest(),
+        None,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        native_account_info.balance, native_balance,
+        "eth_getAccountInfo defaults to native, matching eth_getBalance"
+    );
+
+    // Opt-in: both endpoints report the effective USDC-inclusive balance.
+    let effective_balance =
+        EthApiOverrideClient::<Block>::get_balance(client, usdc_addr, None, Some(true))
+            .await
+            .unwrap();
+    assert!(
+        effective_balance > U256::ZERO,
+        "opt-in eth_getBalance must report the effective USDC-inclusive balance"
+    );
+    let effective_account_info = EthApiOverrideClient::<Block>::get_account_info(
+        client,
+        usdc_addr,
+        alloy_eips::BlockId::latest(),
+        Some(true),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        effective_account_info.balance, effective_balance,
+        "opt-in eth_getAccountInfo balance must match opt-in eth_getBalance"
     );
 
     // eth_getAccount must NOT substitute the effective balance: it is either absent (the
@@ -1977,6 +1992,76 @@ async fn test_stale_seismic_tx_is_evicted_from_pool() -> eyre::Result<()> {
         node.advance_block().await?;
     }
     assert!(evicted, "stale parked seismic tx should be evicted from the mempool");
+
+    Ok(())
+}
+
+/// `eth_getBalance` returns the native balance by default, with an opt-in `includeGasToken`
+/// parameter that restores the legacy `max(native, usdc)` effective balance.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_get_balance_native_by_default() -> eyre::Result<()> {
+    let (_node, client, _chain_id, wallet, _tasks) = setup_test_node().await?;
+    let addr = wallet.inner.address();
+
+    // Standard 2-arg eth_getBalance routes through the override with `includeGasToken = None`,
+    // so it returns the native balance.
+    let native = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::balance(&client, addr, None)
+    .await
+    .unwrap();
+    assert!(native > U256::ZERO, "dev wallet should hold a native balance");
+
+    // Explicit opt-out equals the default.
+    let opt_out =
+        EthApiOverrideClient::<Block>::get_balance(&client, addr, None, Some(false)).await.unwrap();
+    assert_eq!(opt_out, native);
+
+    // Opt-in to the effective balance; with no USDC held it equals native (and is never less).
+    let effective =
+        EthApiOverrideClient::<Block>::get_balance(&client, addr, None, Some(true)).await.unwrap();
+    assert_eq!(effective, native, "no USDC held: effective balance equals native");
+
+    // eth_getAccountInfo mirrors the same opt-in: its balance field defaults to native and
+    // matches eth_getBalance under both the default and the opt-in.
+    let info = EthApiOverrideClient::<Block>::get_account_info(
+        &client,
+        addr,
+        alloy_eips::BlockId::latest(),
+        None,
+    )
+    .await
+    .unwrap();
+    assert_eq!(info.balance, native, "eth_getAccountInfo defaults to the native balance");
+    let info_effective = EthApiOverrideClient::<Block>::get_account_info(
+        &client,
+        addr,
+        alloy_eips::BlockId::latest(),
+        Some(true),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        info_effective.balance, effective,
+        "opt-in eth_getAccountInfo matches eth_getBalance"
+    );
+
+    // A standard 2-arg eth_getAccountInfo (no includeGasToken) still resolves against the
+    // 3-param override, defaulting to native — existing callers keep working.
+    let info_2arg = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::get_account_info(&client, addr, alloy_eips::BlockId::latest())
+    .await
+    .unwrap();
+    assert_eq!(info_2arg.balance, native, "2-arg eth_getAccountInfo defaults to native");
 
     Ok(())
 }

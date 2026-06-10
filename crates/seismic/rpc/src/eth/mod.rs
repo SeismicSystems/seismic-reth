@@ -37,7 +37,6 @@ use reth_rpc_eth_api::{
 };
 use reth_rpc_eth_types::{EthStateCache, FeeHistoryCache, GasPriceOracle};
 use reth_rpc_layer::Whitelist;
-use reth_seismic_txpool::usdc::effective_balance;
 use reth_storage_api::{BlockReader, ProviderHeader, ProviderTx};
 use reth_tasks::{
     pool::{BlockingTaskGuard, BlockingTaskPool},
@@ -303,14 +302,10 @@ where
         self.inner.storage_apis_enabled()
     }
 
-    /// Returns the higher of the native balance or the USDC predeploy balance (scaled to 18
-    /// decimals) for `address`. USDC uses 6 decimals; we multiply by 10^12 so both balances
-    /// are comparable in 18-decimal wei units.
-    ///
-    /// The USDC predeploy on Seismic is a bytecode-less account whose `_balances` mapping
-    /// (slot 3) is read/written directly by the seismic-revm handler.  We therefore read
-    /// the balance from raw storage instead of executing a `balanceOf` call (which would
-    /// return empty bytes since there is no contract code).
+    /// Returns the native balance for `address` — the standard `eth_getBalance` behavior,
+    /// consistent with `eth_getAccount`/`eth_getProof`. The USDC-backed effective balance
+    /// (`max(native, usdc·10^12)`) is available opt-in via the `includeGasToken` parameter on
+    /// the `eth_getBalance` override (see `ext.rs`).
     fn balance(
         &self,
         address: Address,
@@ -318,28 +313,22 @@ where
     ) -> impl Future<Output = Result<U256, Self::Error>> + Send {
         self.spawn_blocking_io_fut(move |this| async move {
             let state = this.state_at_block_id_or_latest(block_id).await?;
-            let native_balance = state
+            Ok(state
                 .account_balance(&address)
                 .map_err(Self::Error::from_eth_err)?
-                .unwrap_or_default();
-            Ok(effective_balance(&*state, &address, native_balance))
+                .unwrap_or_default())
         })
     }
 
-    /// Reports the *effective* (spendable) balance — `max(native, usdc_scaled)` — for
-    /// `eth_getAccountInfo`, mirroring the upstream default and swapping only the balance
-    /// field. See [`effective_balance`].
+    /// Reports the raw native balance for `eth_getAccountInfo`, matching [`Self::balance`] and
+    /// the other account-surface endpoints (`eth_getAccount`/`eth_getProof`).
     ///
-    /// The dividing line for the account-surface endpoints: anything that answers the
-    /// `eth_getBalance` question ("what can this account spend") returns the effective
-    /// balance; anything that exposes the underlying committed `Account` record returns the
-    /// raw native balance. `eth_getAccountInfo` (`{balance, nonce, code}`, no trie-structural
-    /// fields) is the former, so it matches [`Self::balance`].
-    ///
-    /// `eth_getProof`/`eth_getAccount` are the latter and stay native (upstream default):
-    /// getProof's balance is proven against the state root (a synthetic value wouldn't
-    /// verify), and getAccount's `storage_root`/`code_hash` must stay self-consistent with
-    /// that proven leaf.
+    /// All account-inspection RPCs return the same native balance by default, so consumers never
+    /// see a different value for the same account at the same block (Veridise 1206). The
+    /// USDC-backed effective balance (`max(native, usdc·10^12)`) is opt-in via the
+    /// `includeGasToken` parameter on the `eth_getBalance` and `eth_getAccountInfo` overrides
+    /// (see `ext.rs`); the gas-allowance execution path (`estimateGas`/`call`) keeps accounting
+    /// for USDC independently.
     fn get_account_info(
         &self,
         address: Address,
@@ -352,7 +341,7 @@ where
                 .map_err(Self::Error::from_eth_err)?
                 .unwrap_or_default();
 
-            let balance = effective_balance(&*state, &address, account.balance);
+            let balance = account.balance;
             let nonce = account.nonce;
             let code = if account.get_bytecode_hash() == KECCAK_EMPTY {
                 Default::default()
