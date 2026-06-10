@@ -101,6 +101,36 @@ pub fn effective_balance(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloy_primitives::FlaggedStorage;
+    use reth_provider::test_utils::{ExtendedAccount, MockEthProvider};
+
+    /// `read_usdc_balance` scales 6→18 decimals, and `effective_balance` returns the larger of
+    /// native and the scaled USDC balance. This is the math behind the opt-in `includeGasToken`
+    /// branch of `eth_getBalance`.
+    #[test]
+    fn effective_balance_uses_larger_of_native_and_usdc() {
+        let addr = Address::with_last_byte(0xab);
+        let key = usdc_balance_storage_key(&addr);
+        let raw_usdc = U256::from(5_000_000u64); // 5 USDC at 6 decimals
+        let scaled = raw_usdc * USDC_DECIMAL_SCALE; // 5·10^18
+
+        let provider = MockEthProvider::default();
+        provider.add_account(
+            USDC_CONTRACT,
+            ExtendedAccount::new(0, U256::ZERO)
+                .extend_storage([(key, FlaggedStorage::new(raw_usdc, false))]),
+        );
+
+        assert_eq!(read_usdc_balance(&provider, &addr), scaled);
+        // USDC dominates a small native balance (the opt-in effective balance).
+        assert_eq!(effective_balance(&provider, &addr, U256::from(1u64)), scaled);
+        // Native dominates when it is larger.
+        let big_native = scaled + U256::from(1u64);
+        assert_eq!(effective_balance(&provider, &addr, big_native), big_native);
+        // An account with no USDC storage falls back to native.
+        let other = Address::with_last_byte(0xcd);
+        assert_eq!(effective_balance(&provider, &other, U256::from(42u64)), U256::from(42u64));
+    }
 
     #[test]
     fn storage_key_is_deterministic() {

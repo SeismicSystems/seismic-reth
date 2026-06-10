@@ -18,7 +18,7 @@ use alloy_rpc_types::{
 };
 use alloy_rpc_types_eth::{
     simulate::{SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock},
-    Bundle, EthCallResponse, StateContext,
+    AccountInfo, Bundle, EthCallResponse, StateContext,
 };
 use jsonrpsee::{
     core::{async_trait, RpcResult},
@@ -27,10 +27,11 @@ use jsonrpsee::{
 use reth_network_api::PeersInfo;
 use reth_network_peers::NodeRecord;
 use reth_rpc_eth_api::{
-    helpers::{EthCall, EthTransactions, FullEthApi},
+    helpers::{EthCall, EthState, EthTransactions, FullEthApi},
     RpcBlock, RpcTypes,
 };
 use reth_rpc_eth_types::EthApiError;
+use reth_seismic_txpool::usdc::effective_balance;
 use reth_tracing::tracing::*;
 use seismic_alloy_consensus::{
     Decodable712, InputDecryptionElements, SeismicTxEnvelope, TxSeismicMetadata,
@@ -154,6 +155,29 @@ pub trait EthApiOverride<B: RpcObject> {
         block_number: Option<BlockId>,
         state_override: Option<StateOverride>,
     ) -> RpcResult<U256>;
+
+    /// Returns the balance of an account. Defaults to the native balance (standard behavior).
+    /// Pass `include_gas_token = true` to instead return the Seismic effective balance
+    /// `max(native, usdc·10^12)`, which accounts for the USDC stablecoin accepted as gas.
+    #[method(name = "getBalance")]
+    async fn get_balance(
+        &self,
+        address: Address,
+        block_number: Option<BlockId>,
+        include_gas_token: Option<bool>,
+    ) -> RpcResult<U256>;
+
+    /// Returns `{balance, nonce, code}` for an account. The `balance` field defaults to the
+    /// native balance (standard behavior). Pass `include_gas_token = true` to instead report
+    /// the Seismic effective balance `max(native, usdc·10^12)`, mirroring the opt-in on
+    /// `eth_getBalance`.
+    #[method(name = "getAccountInfo")]
+    async fn get_account_info(
+        &self,
+        address: Address,
+        block: BlockId,
+        include_gas_token: Option<bool>,
+    ) -> RpcResult<AccountInfo>;
 }
 
 /// Implementation of the `eth_` namespace override
@@ -429,6 +453,56 @@ where
             state_override,
         )
         .await?)
+    }
+
+    async fn get_balance(
+        &self,
+        address: Address,
+        block_number: Option<BlockId>,
+        include_gas_token: Option<bool>,
+    ) -> RpcResult<U256> {
+        debug!(target: "reth-seismic-rpc::eth", ?address, ?block_number, ?include_gas_token, "Serving seismic eth_getBalance extension");
+
+        // Default: native balance, matching standard eth_getBalance.
+        let native = EthState::balance(&self.eth_api, address, block_number).await?;
+        if include_gas_token != Some(true) {
+            return Ok(native);
+        }
+
+        // Opt-in: effective balance, max(native, usdc·10^12).
+        Ok(self
+            .eth_api
+            .spawn_blocking_io_fut(move |this| async move {
+                let state = this.state_at_block_id_or_latest(block_number).await?;
+                Ok::<U256, Eth::Error>(effective_balance(&*state, &address, native))
+            })
+            .await?)
+    }
+
+    async fn get_account_info(
+        &self,
+        address: Address,
+        block: BlockId,
+        include_gas_token: Option<bool>,
+    ) -> RpcResult<AccountInfo> {
+        debug!(target: "reth-seismic-rpc::eth", ?address, ?block, ?include_gas_token, "Serving seismic eth_getAccountInfo extension");
+
+        // Default: native balance, matching standard eth_getAccountInfo and eth_getBalance.
+        let mut info = EthState::get_account_info(&self.eth_api, address, block).await?;
+        if include_gas_token != Some(true) {
+            return Ok(info);
+        }
+
+        // Opt-in: report the effective balance, max(native, usdc·10^12), in the balance field.
+        let native = info.balance;
+        info.balance = self
+            .eth_api
+            .spawn_blocking_io_fut(move |this| async move {
+                let state = this.state_at_block_id(block).await?;
+                Ok::<U256, Eth::Error>(effective_balance(&*state, &address, native))
+            })
+            .await?;
+        Ok(info)
     }
 }
 
