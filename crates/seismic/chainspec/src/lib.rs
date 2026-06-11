@@ -33,13 +33,30 @@ const fn normalize_genesis(mut genesis: Genesis) -> Genesis {
 }
 
 /// Genesis hash for the Seismic mainnet
-/// Calculated by rlp encoding the genesis header and hashing it
+/// Calculated by rlp encoding the genesis header and hashing it.
+///
+/// Must be updated whenever `res/genesis/mainnet.json` changes, or when
+/// [`SEISMIC_MAINNET_HARDFORKS`] changes which forks are active at genesis
+/// (active forks add fields to the header). The `genesis_header_hash` test
+/// recomputes it and fails on drift.
+///
+/// Reproduce the correct value with
+/// `seismic-reth genesis-hash --chain crates/seismic/chainspec/res/genesis/mainnet.json`
+/// — the file path matters: `--chain mainnet` echoes this pinned constant back.
 pub const SEISMIC_MAINNET_GENESIS_HASH: B256 =
     b256!("0xd548d4a126d72e43d893b3826c07ad24bddbaeee267489baff2f73fff2ac0976");
 
 /// Genesis hash for the Seismic devnet
-/// Calculated by rlp encoding the genesis header and hashing it
-/// Currently matches the mainnet genesis hash because they have matching hardforks
+/// Calculated by rlp encoding the genesis header and hashing it.
+///
+/// Must be updated whenever `res/genesis/dev.json` changes, or when
+/// [`SEISMIC_DEV_HARDFORKS`] changes which forks are active at genesis
+/// (active forks add fields to the header). The `genesis_header_hash` test
+/// recomputes it and fails on drift.
+///
+/// Reproduce the correct value with
+/// `seismic-reth genesis-hash --chain crates/seismic/chainspec/res/genesis/dev.json`
+/// — the file path matters: `--chain dev` echoes this pinned constant back.
 pub const SEISMIC_DEV_GENESIS_HASH: B256 =
     b256!("0x874a74ba374da00d8c097b4be585a60e40f901cac56a764ad0013a07b0a2f93c");
 
