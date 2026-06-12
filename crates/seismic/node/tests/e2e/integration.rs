@@ -1688,3 +1688,48 @@ async fn test_eth_call_many_rejects_signed_read_with_stale_recent_block_hash() -
     }
     Ok(())
 }
+
+/// Trace-serving namespaces (`debug_*`, `trace_*`, `ots_*`) must be unreachable on a Seismic
+/// node even when the operator enables them: trace metadata (gas usage, revert paths,
+/// call-tree shape, touched addresses) is a side channel on private state, even after the
+/// payload sanitizers strip calldata/returndata/memory/stack.
+///
+/// The e2e harness launches nodes with `RpcModuleSelection::All`, so every namespace is
+/// configured at the RPC layer — only the launch-time removal in
+/// `SeismicAddOns::launch_add_ons` makes these methods unregistered.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_trace_debug_ots_namespaces_disabled() -> eyre::Result<()> {
+    let (_node, client, _chain_id, _wallet, _tasks) = setup_test_node().await?;
+
+    let disabled_methods = [
+        "debug_traceCall",
+        "debug_traceTransaction",
+        "debug_traceBlockByNumber",
+        "trace_call",
+        "trace_callMany",
+        "trace_transaction",
+        "trace_block",
+        "ots_traceTransaction",
+        "ots_getInternalOperations",
+    ];
+
+    for method in disabled_methods {
+        let result = client.request::<serde_json::Value, _>(method, rpc_params![]).await;
+        match result {
+            Err(jsonrpsee::core::client::Error::Call(err)) => {
+                assert_eq!(
+                    err.code(),
+                    jsonrpsee::types::error::ErrorCode::MethodNotFound.code(),
+                    "{method} must be unregistered, got error: {err}"
+                );
+            }
+            other => panic!("{method} must return method-not-found, got: {other:?}"),
+        }
+    }
+
+    // Control: the standard eth namespace is still served.
+    let block_number: String = client.request("eth_blockNumber", rpc_params![]).await?;
+    assert!(block_number.starts_with("0x"), "unexpected eth_blockNumber response: {block_number}");
+
+    Ok(())
+}
