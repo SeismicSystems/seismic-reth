@@ -326,6 +326,54 @@ async fn rpc_test_gas_and_call_variants(
          (got 0 allowance for a USDC-only wallet)"
     );
 
+    // eth_getAccountInfo is wallet-facing, so it reports the effective (USDC-inclusive)
+    // balance, consistent with eth_getBalance. eth_getAccount mirrors the raw trie record
+    // and must agree with eth_getProof, so it stays on the native balance. The
+    // usdc_only_signer has 0 native and 1000 USDC.
+    let usdc_addr = usdc_only_signer.address();
+    let account_info = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::get_account_info(client, usdc_addr, alloy_eips::BlockId::latest())
+    .await
+    .unwrap();
+    let get_balance = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::balance(client, usdc_addr, None)
+    .await
+    .unwrap();
+    assert!(
+        account_info.balance > U256::ZERO,
+        "eth_getAccountInfo must report the effective USDC-inclusive balance"
+    );
+    assert_eq!(
+        account_info.balance, get_balance,
+        "eth_getAccountInfo balance must match eth_getBalance"
+    );
+
+    // eth_getAccount must NOT substitute the effective balance: it is either absent (the
+    // account has no native presence) or reports the raw native balance (0 here).
+    let raw_account = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::get_account(client, usdc_addr, alloy_eips::BlockId::latest())
+    .await
+    .unwrap();
+    assert!(
+        raw_account.map_or(true, |a| a.balance == U256::ZERO),
+        "eth_getAccount must keep the raw native balance, not the effective USDC balance"
+    );
+
     // test eth_estimateGas sanitizes unsigned seismic requests (clears `from` and
     // seismic_elements to prevent caller spoofing, same as eth_call)
     let unsigned_seismic_result = EthApiOverrideClient::<Block>::estimate_gas(
