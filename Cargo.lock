@@ -10542,7 +10542,7 @@ dependencies = [
 [[package]]
 name = "revm-inspectors"
 version = "0.29.0"
-source = "git+https://github.com/SeismicSystems/seismic-revm-inspectors.git?rev=5ad6b4b5652360b25f1487f8089456e80f30c188#5ad6b4b5652360b25f1487f8089456e80f30c188"
+source = "git+https://github.com/SeismicSystems/seismic-revm-inspectors.git?rev=31ce52dd54e30987cf558f2f6a246a02d8d63319#31ce52dd54e30987cf558f2f6a246a02d8d63319"
 dependencies = [
  "alloy-consensus",
  "alloy-consensus-any",
