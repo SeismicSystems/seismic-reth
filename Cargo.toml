@@ -781,7 +781,7 @@ revm-database-interface = { git = "https://github.com/SeismicSystems/seismic-rev
 op-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "2861f865d2b9249ebb0da4946be5052ec8ab41a0" }
 seismic-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "2861f865d2b9249ebb0da4946be5052ec8ab41a0" }
 
-revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "24652f3b9ef6a8057bc46203b26d1d9857f7ae30" }
+revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "31ce52dd54e30987cf558f2f6a246a02d8d63319" }
 
 # Seismic alloy
 # TODO: temporarily pointing to https://github.com/SeismicSystems/seismic-alloy/pull/104. Merge that PR first.
