@@ -8,8 +8,7 @@ use alloy_sol_types::SolCall;
 use futures::StreamExt;
 use reth_node_api::BlockBody;
 use reth_primitives_traits::SignedTransaction;
-use reth_provider::BlockNumReader;
-use reth_provider::CanonStateSubscriptions;
+use reth_provider::{BlockNumReader, CanonStateSubscriptions};
 use reth_rpc_convert::transaction::{RpcTxConverter, SimTxConverter};
 use reth_rpc_eth_api::{
     helpers::{spec::SignersForRpc, EthTransactions, LoadReceipt, LoadTransaction},

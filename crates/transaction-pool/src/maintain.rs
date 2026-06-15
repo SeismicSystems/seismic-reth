@@ -96,7 +96,9 @@ impl LocalTransactionBackupConfig {
 /// Hook to transform changed accounts before they are passed to the pool.
 ///
 /// This is used by Seismic to augment native balances with USDC balances so that
-/// the pool can make accurate demotion decisions for accounts paying gas in USDC.
+/// the pool can make accurate promote/demote decisions for accounts paying gas in
+/// USDC. It runs in the maintenance loop on new blocks/reorgs and does not affect
+/// transaction validation/admission.
 pub trait ChangedAccountsHook: Send + Sync + 'static {
     /// Transforms the changed accounts list in place.  Implementations may read
     /// additional state (e.g. ERC-20 storage) and adjust the `balance` field of
@@ -136,7 +138,9 @@ where
 }
 
 /// Like [`maintain_transaction_pool_future`] but accepts a [`ChangedAccountsHook`]
-/// that can transform account balances before the pool processes them.
+/// that can transform the changed-account balances applied on new blocks and reorgs.
+/// These feed the pool's promote/demote between subpools — not the transaction
+/// validation path.
 pub fn maintain_transaction_pool_future_with_hook<N, Client, P, St, Tasks, H>(
     client: Client,
     pool: P,
@@ -187,7 +191,9 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
 }
 
 /// Like [`maintain_transaction_pool`] but accepts a [`ChangedAccountsHook`] that
-/// can transform account balances before the pool processes them.
+/// can transform the changed-account balances applied on new blocks and reorgs.
+/// These feed the pool's promote/demote between subpools — not the transaction
+/// validation path.
 pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
     client: Client,
     pool: P,

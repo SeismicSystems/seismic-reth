@@ -134,25 +134,27 @@ where
                     }
                 }
 
-                // Compute the effective balance: max(native, usdc_scaled).
-                // Gas on Seismic can be paid in either native token or USDC, so
-                // we consider both when deciding pool admission.
+                // Gas on Seismic can be paid in native token or USDC, but the
+                // transferred value always comes out of the native balance, so
+                // affordability is checked component-wise (see `usdc::can_afford`).
                 let sender = *valid_tx.transaction().sender_ref();
                 let cost = *valid_tx.transaction().cost();
-                let (eff_balance, usdc_raw) = match self.inner.client().latest() {
-                    Ok(state) => {
-                        let usdc = crate::usdc::read_usdc_balance(&*state, &sender);
-                        (std::cmp::max(balance, usdc), usdc)
-                    }
-                    // If we can't read state, fall back to native balance only.
+                let value = valid_tx.transaction().value();
+                // `cost` is gas + blob + value, so stripping value leaves the
+                // maximum gas (incl. blob) cost.
+                let gas_cost = cost.saturating_sub(value);
+                let usdc = match self.inner.client().latest() {
+                    Ok(state) => crate::usdc::read_usdc_balance(&*state, &sender),
+                    // If we can't read state, fall back to native balance only:
+                    // usdc = 0 degrades `can_afford` to `native >= cost`.
                     Err(err) => {
                         tracing::warn!(
                             target: "seismic::txpool",
                             %err,
                             %sender,
-                            "failed to read state for USDC balance check"
+                            "failed to read state for USDC balance check, defaulting to zero"
                         );
-                        (balance, U256::ZERO)
+                        U256::ZERO
                     }
                 };
 
@@ -161,33 +163,48 @@ where
                     %sender,
                     tx_hash = %valid_tx.hash(),
                     native_balance = %balance,
-                    usdc_scaled_balance = %usdc_raw,
-                    effective_balance = %eff_balance,
-                    cost = %cost,
-                    "seismic validator effective balance check"
+                    usdc_scaled_balance = %usdc,
+                    gas_cost = %gas_cost,
+                    value = %value,
+                    "seismic validator affordability check"
                 );
 
-                // Reject if the sender cannot afford the transaction with either token.
-                if cost > eff_balance {
+                if !crate::usdc::can_afford(balance, usdc, gas_cost, value) {
                     tracing::debug!(
                         target: "seismic::txpool",
                         %sender,
                         tx_hash = %valid_tx.hash(),
-                        effective_balance = %eff_balance,
-                        cost = %cost,
-                        "rejecting tx: effective balance insufficient for cost"
+                        native_balance = %balance,
+                        usdc_scaled_balance = %usdc,
+                        gas_cost = %gas_cost,
+                        value = %value,
+                        "rejecting tx: balances insufficient for gas cost and value"
                     );
+                    // The error carries a single got/expected pair, so report the
+                    // native-token shortfall: `got` is the native balance, `expected`
+                    // the minimum native balance that would make the tx affordable
+                    // given the current USDC balance — just the value if USDC covers
+                    // gas, the full cost otherwise.
+                    let expected = if usdc >= gas_cost { value } else { cost };
                     return TransactionValidationOutcome::Invalid(
                         valid_tx.into_transaction(),
                         InvalidTransactionError::InsufficientFunds(
-                            GotExpected { got: eff_balance, expected: cost }.into(),
+                            GotExpected { got: balance, expected }.into(),
                         )
                         .into(),
                     );
                 }
 
                 TransactionValidationOutcome::Valid {
-                    balance: eff_balance,
+                    // The pool tracks one balance scalar per sender, so the
+                    // component-wise rule isn't expressible. Report native + usdc:
+                    // a sound upper bound (`can_afford ⟹ cost ≤ native + usdc`), so
+                    // any admitted tx also clears the pool's `cost ≤ balance`
+                    // promotion check instead of stranding in the Queued subpool.
+                    // Over-approximates across multiple txs from one sender, but
+                    // block building is the final affordability gate. Keep in sync
+                    // with `SeismicBalanceHook` (maintain.rs).
+                    balance: balance.saturating_add(usdc),
                     state_nonce,
                     transaction: valid_tx,
                     propagate,
@@ -255,5 +272,165 @@ impl<Client, Tx> SeismicTransactionValidator<Client, Tx> {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::panic)] // Test code - panic on failure is acceptable
+mod tests {
+    use super::*;
+    use crate::SeismicPooledTransaction;
+    use alloy_consensus::{transaction::Recovered, SignableTransaction, TxLegacy};
+    use alloy_eips::eip2718::Encodable2718;
+    use alloy_primitives::{Address, Bytes, FlaggedStorage, Signature, TxKind};
+    use reth_provider::test_utils::{ExtendedAccount, MockEthProvider};
+    use reth_seismic_chainspec::SEISMIC_MAINNET;
+    use reth_transaction_pool::{
+        blobstore::InMemoryBlobStore, validate::EthTransactionValidatorBuilder, TransactionOrigin,
+    };
+
+    const GAS_LIMIT: u64 = 100_000;
+    const GAS_PRICE: u128 = 10_000_000_000; // 10 gwei
+    /// Maximum gas cost of the test transaction: `GAS_LIMIT * GAS_PRICE` = 10^15 wei.
+    const GAS_COST: u128 = GAS_LIMIT as u128 * GAS_PRICE;
+    /// Raw 6-decimal USDC amount that scales to exactly [`GAS_COST`] (scaling is 10^12).
+    const USDC_RAW_GAS_COST: u128 = GAS_COST / 1_000_000_000_000;
+    const ONE_ETH: u128 = 1_000_000_000_000_000_000;
+
+    fn sender() -> Address {
+        Address::with_last_byte(0x42)
+    }
+
+    /// Validates a legacy transfer of `value` against a mock state where the
+    /// sender holds `native` wei and `usdc_raw` 6-decimal USDC units.
+    ///
+    /// Uses a legacy (non-Seismic-type) transaction so the affordability check
+    /// is exercised without needing a recent-block-hash cache entry.
+    async fn validate_with(
+        native: U256,
+        usdc_raw: U256,
+        value: U256,
+    ) -> TransactionValidationOutcome<SeismicPooledTransaction> {
+        let sender = sender();
+        let client = MockEthProvider::default().with_chain_spec(SEISMIC_MAINNET.clone());
+        client.add_account(sender, ExtendedAccount::new(0, native));
+        client.add_account(
+            crate::usdc::USDC_CONTRACT,
+            ExtendedAccount::new(0, U256::ZERO).extend_storage([(
+                crate::usdc::usdc_balance_storage_key(&sender),
+                FlaggedStorage::public(usdc_raw),
+            )]),
+        );
+
+        // Mirror the production pool wiring: the inner Ethereum validator runs
+        // with its native balance check disabled, making the seismic validator
+        // the sole affordability gate.
+        let eth_validator = EthTransactionValidatorBuilder::new(client)
+            .no_shanghai()
+            .no_cancun()
+            .disable_balance_check()
+            .build(InMemoryBlobStore::default());
+        let validator = SeismicTransactionValidator::new(eth_validator);
+
+        let tx = TxLegacy {
+            chain_id: Some(5123),
+            nonce: 0,
+            gas_price: GAS_PRICE,
+            gas_limit: GAS_LIMIT,
+            to: TxKind::Call(Address::with_last_byte(0x43)),
+            value,
+            input: Bytes::new(),
+        };
+        // The validator never recovers the signer (it trusts `Recovered`), so a
+        // dummy signature is sufficient.
+        let signature = Signature::new(U256::from(1), U256::from(1), false);
+        let signed: SeismicTransactionSigned =
+            SignableTransaction::into_signed(tx, signature).into();
+        let recovered = Recovered::new_unchecked(signed, sender);
+        let encoded_length = recovered.encode_2718_len();
+        let pooled = SeismicPooledTransaction::new(recovered, encoded_length);
+
+        validator.validate_transaction(TransactionOrigin::External, pooled).await
+    }
+
+    /// Asserts the outcome is an `InsufficientFunds` rejection and returns the
+    /// reported `(got, expected)` balances.
+    fn expect_insufficient_funds(
+        outcome: TransactionValidationOutcome<SeismicPooledTransaction>,
+    ) -> (U256, U256) {
+        match outcome {
+            TransactionValidationOutcome::Invalid(
+                _,
+                InvalidPoolTransactionError::Consensus(InvalidTransactionError::InsufficientFunds(
+                    err,
+                )),
+            ) => (err.got, err.expected),
+            other => panic!("expected InsufficientFunds rejection, got: {other:?}"),
+        }
+    }
+
+    /// Native covers the value exactly and USDC covers gas exactly. Neither
+    /// balance alone covers gas + value, but component-wise the tx is payable.
+    #[tokio::test]
+    async fn accepts_when_native_covers_value_and_usdc_covers_gas() {
+        let outcome =
+            validate_with(U256::from(ONE_ETH), U256::from(USDC_RAW_GAS_COST), U256::from(ONE_ETH))
+                .await;
+        match outcome {
+            TransactionValidationOutcome::Valid { balance, .. } => {
+                // pool-tracked scalar is native + usdc_scaled (a sound upper bound
+                // on cost; see the `Valid` arm in the validator)
+                assert_eq!(balance, U256::from(ONE_ETH) + U256::from(GAS_COST));
+            }
+            other => panic!("expected Valid outcome, got: {other:?}"),
+        }
+    }
+
+    /// USDC alone covers gas + value, but the value transfer can only be paid
+    /// in native token: the tx could never execute and must be rejected.
+    #[tokio::test]
+    async fn rejects_when_usdc_covers_cost_but_native_below_value() {
+        let native = U256::from(ONE_ETH - 1);
+        // 2 ETH worth of USDC (raw 6-decimal units), well above gas + value
+        let usdc_raw = U256::from(2 * ONE_ETH / 1_000_000_000_000);
+        let outcome = validate_with(native, usdc_raw, U256::from(ONE_ETH)).await;
+        let (got, expected) = expect_insufficient_funds(outcome);
+        assert_eq!(got, native);
+        // USDC covers gas, so the native balance only needs to cover the value
+        assert_eq!(expected, U256::from(ONE_ETH));
+    }
+
+    /// Native alone covers gas + value with no USDC at all.
+    #[tokio::test]
+    async fn accepts_when_native_covers_cost_without_usdc() {
+        let outcome = validate_with(U256::from(2 * ONE_ETH), U256::ZERO, U256::from(ONE_ETH)).await;
+        assert!(
+            matches!(outcome, TransactionValidationOutcome::Valid { .. }),
+            "expected Valid outcome, got: {outcome:?}"
+        );
+    }
+
+    /// Native covers the value but nothing more, and USDC is one raw unit short
+    /// of the gas cost: unaffordable in every combination.
+    #[tokio::test]
+    async fn rejects_when_neither_balance_sufficient() {
+        let native = U256::from(ONE_ETH);
+        let usdc_raw = U256::from(USDC_RAW_GAS_COST - 1);
+        let outcome = validate_with(native, usdc_raw, U256::from(ONE_ETH)).await;
+        let (got, expected) = expect_insufficient_funds(outcome);
+        assert_eq!(got, native);
+        // USDC cannot cover gas, so native would need to cover gas + value
+        assert_eq!(expected, U256::from(ONE_ETH + GAS_COST));
+    }
+
+    /// The common USDC-gas case: no native balance, no value transfer, USDC
+    /// covering exactly the gas cost.
+    #[tokio::test]
+    async fn accepts_usdc_gas_only_with_zero_native() {
+        let outcome = validate_with(U256::ZERO, U256::from(USDC_RAW_GAS_COST), U256::ZERO).await;
+        assert!(
+            matches!(outcome, TransactionValidationOutcome::Valid { .. }),
+            "expected Valid outcome, got: {outcome:?}"
+        );
     }
 }
