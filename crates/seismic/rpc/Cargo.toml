@@ -101,6 +101,9 @@ timestamp-in-seconds = [
     "seismic-revm/timestamp-in-seconds",
     "reth-seismic-primitives/timestamp-in-seconds",
     "reth-seismic-chainspec/timestamp-in-seconds",
+    "reth-rpc/timestamp-in-seconds",
+    "reth-rpc-eth-api/timestamp-in-seconds",
+    "reth-rpc-eth-types/timestamp-in-seconds",
 ]
 client = [
     "jsonrpsee/client",

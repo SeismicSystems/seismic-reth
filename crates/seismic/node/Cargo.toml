@@ -133,6 +133,14 @@ timestamp-in-seconds = [
     "reth-seismic-primitives/timestamp-in-seconds",
     "reth-seismic-rpc/timestamp-in-seconds",
     "reth-seismic-chainspec/timestamp-in-seconds",
+    "reth-rpc/timestamp-in-seconds",
+    "reth-rpc-eth-api/timestamp-in-seconds",
+    "reth-rpc-eth-types/timestamp-in-seconds",
+    "reth-chainspec/timestamp-in-seconds",
+    "reth-evm/timestamp-in-seconds",
+    "reth-transaction-pool/timestamp-in-seconds",
+    "reth-payload-builder/timestamp-in-seconds",
+    "reth-node-ethereum/timestamp-in-seconds",
 ]
 asm-keccak = [
     "alloy-primitives/asm-keccak",

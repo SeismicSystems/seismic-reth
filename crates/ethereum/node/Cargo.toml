@@ -81,7 +81,11 @@ rand.workspace = true
 
 [features]
 default = []
-timestamp-in-seconds = ["revm/timestamp-in-seconds"]
+timestamp-in-seconds = [
+    "revm/timestamp-in-seconds",
+    "reth-evm-ethereum/timestamp-in-seconds",
+    "reth-ethereum-engine-primitives/timestamp-in-seconds",
+]
 asm-keccak = [
     "alloy-primitives/asm-keccak",
     "reth-node-core/asm-keccak",

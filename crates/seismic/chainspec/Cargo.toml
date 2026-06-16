@@ -48,7 +48,7 @@ seismic-alloy-rpc-types.workspace = true
 
 [features]
 default = ["std"]
-timestamp-in-seconds = []
+timestamp-in-seconds = ["reth-chainspec/timestamp-in-seconds"]
 std = [
     "alloy-chains/std",
     "alloy-genesis/std",
