@@ -10,7 +10,9 @@ use reth_rpc_eth_api::{
     RpcNodeCore, RpcTxReq,
 };
 use reth_rpc_eth_types::{EthApiError, RpcInvalidTransactionError};
-use reth_seismic_txpool::usdc::{usdc_balance_storage_key, USDC_CONTRACT, USDC_DECIMAL_SCALE};
+use reth_seismic_txpool::usdc::{
+    gas_allowance, usdc_balance_storage_key, USDC_CONTRACT, USDC_DECIMAL_SCALE,
+};
 use revm::{
     context::TxEnv,
     context_interface::{Block, Transaction},
@@ -71,17 +73,17 @@ where
         self.inner.max_simulate_blocks()
     }
 
-    /// Override the upstream allowance computation to use the *effective* gas
-    /// balance: `max(native_balance, usdc_balance × 10^12)`. Without this,
-    /// `eth_estimateGas` rejects USDC-only wallets with `gas required exceeds
-    /// allowance (0)` even though `eth_getBalance` correctly reports their
-    /// USDC-backed balance.
+    /// Override the upstream allowance computation: on Seismic, gas can be paid
+    /// in native token or USDC, while the transferred value always comes out of
+    /// the native balance. Without this, `eth_estimateGas` rejects USDC-only
+    /// wallets with `gas required exceeds allowance (0)`.
     ///
-    /// **Keep this in sync with [`reth_seismic_txpool::usdc::effective_balance`]**
-    /// — same `max(native, usdc · USDC_DECIMAL_SCALE)` recipe, just operating on
-    /// a [`Database`] instead of a [`StateProvider`]. The two layers must agree
-    /// on the effective-balance definition, otherwise a tx the pool admits can
-    /// still be rejected at `eth_estimateGas` (or vice versa).
+    /// Delegates to [`gas_allowance`], which mirrors the component-wise
+    /// affordability rule the txpool enforces at admission via
+    /// [`reth_seismic_txpool::usdc::can_afford`] (distinct from the single-scalar
+    /// `native + usdc` bound the pool uses internally for promote/demote) — this
+    /// only differs in reading balances from a [`Database`] instead of a
+    /// [`StateProvider`](reth_provider::StateProvider).
     fn caller_gas_allowance(
         &self,
         mut db: impl Database<Error: Into<EthApiError>>,
@@ -100,10 +102,9 @@ where
             .map_err(|e| Self::Error::from_eth_err(e.into()))?
             .value
             .saturating_mul(USDC_DECIMAL_SCALE);
-        let balance = std::cmp::max(native, usdc);
 
-        let usable = balance.checked_sub(tx_env.value()).unwrap_or_default();
-        Ok(usable.checked_div(U256::from(tx_env.gas_price())).unwrap_or_default().saturating_to())
+        Ok(gas_allowance(native, usdc, tx_env.value(), U256::from(tx_env.gas_price()))
+            .saturating_to())
     }
 
     fn create_txn_env(
