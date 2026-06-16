@@ -2,8 +2,8 @@
 
 use crate::{
     args::{
-        DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, EnclaveArgs, EngineArgs, NetworkArgs,
-        PayloadBuilderArgs, PruningArgs, RpcServerArgs, TxPoolArgs,
+        DatabaseArgs, DatadirArgs, DebugArgs, DevArgs, EngineArgs, NetworkArgs, PayloadBuilderArgs,
+        PruningArgs, RpcServerArgs, TxPoolArgs,
     },
     dirs::{ChainPath, DataDirPath},
     utils::get_single_header,
@@ -153,8 +153,6 @@ pub struct NodeConfig<ChainSpec> {
     /// All engine related arguments
     pub engine: EngineArgs,
 
-    /// All enclave related arguments
-    pub enclave: EnclaveArgs,
     /// All ERA import related arguments with --era prefix
     pub era: EraArgs,
 }
@@ -186,7 +184,6 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
             pruning: PruningArgs::default(),
             datadir: DatadirArgs::default(),
             engine: EngineArgs::default(),
-            enclave: EnclaveArgs::default(),
             era: EraArgs::default(),
         }
     }
@@ -284,12 +281,6 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
     /// Set the dev args for the node
     pub const fn with_dev(mut self, dev: DevArgs) -> Self {
         self.dev = dev;
-        self
-    }
-
-    /// Set the enclave args for the node
-    pub const fn with_enclave(mut self, enclave: EnclaveArgs) -> Self {
-        self.enclave = enclave;
         self
     }
 
@@ -499,7 +490,6 @@ impl<ChainSpec> NodeConfig<ChainSpec> {
             dev: self.dev,
             pruning: self.pruning,
             engine: self.engine,
-            enclave: self.enclave,
             era: self.era,
         }
     }
@@ -540,7 +530,6 @@ impl<ChainSpec> Clone for NodeConfig<ChainSpec> {
             pruning: self.pruning.clone(),
             datadir: self.datadir.clone(),
             engine: self.engine.clone(),
-            enclave: self.enclave.clone(),
             era: self.era.clone(),
         }
     }
