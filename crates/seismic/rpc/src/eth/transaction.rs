@@ -164,10 +164,23 @@ where
 
         let pool_transaction = <Self::Pool as TransactionPool>::Transaction::from_pooled(recovered);
 
-        // submit the transaction to the pool with a `Local` origin
+        // Submit with `External` origin (upstream reth uses `Local` for RPC submissions).
+        //
+        // The default differs because the operating models differ. Ethereum assumes a
+        // run-your-own-node-at-home setting, where txs hitting your RPC are your own — so
+        // tagging them `Local` (auto-exempt from the per-sender slot cap, price rules, and
+        // stale-queued eviction) is reasonable. Seismic is a TEE chain requiring proof of
+        // cloud to run a node, so most users do NOT run their own node and instead submit to
+        // someone else's public RPC. There, RPC submitters are untrusted and those exemptions
+        // become a queued-subpool DoS vector.
+        //
+        // `External` withholds the exemptions by default; an operator who does run their own
+        // node can still exempt specific trusted senders by address via `--txpool.locals`.
+        // External transactions are still propagated to peers (only `Private` is withheld), so
+        // submissions reach block producers.
         let AddedTransactionOutcome { hash, .. } = self
             .pool()
-            .add_transaction(TransactionOrigin::Local, pool_transaction)
+            .add_transaction(TransactionOrigin::External, pool_transaction)
             .await
             .map_err(Self::Error::from_eth_err)?;
 
