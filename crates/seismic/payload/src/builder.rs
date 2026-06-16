@@ -28,7 +28,6 @@ use revm::context_interface::Block as _;
 use std::sync::Arc;
 use tracing::{debug, trace, warn};
 
-use reth_evm::execute::InternalBlockExecutionError;
 use reth_primitives_traits::transaction::error::InvalidTransactionError;
 
 type BestTransactionsIter<Pool> = Box<
@@ -222,19 +221,11 @@ where
                 }
                 continue
             }
-            Err(BlockExecutionError::Internal(
-                InternalBlockExecutionError::FailedToDecryptSeismicTx(error),
-            )) => {
-                trace!(target: "payload_builder", %error, ?tx, "skipping seismic tx with wrong encryption");
-                best_txs.mark_invalid(
-                    &pool_tx,
-                    InvalidPoolTransactionError::Consensus(InvalidTransactionError::SeismicTx(
-                        "failed to decrypt seismic transaction".to_string(),
-                    )),
-                );
-                continue
-            }
-            // this is an error that we should treat as fatal for this attempt
+            // Any other execution error aborts this payload attempt. The one recoverable case is
+            // an individually invalid tx (bad nonce, or a stale/expired seismic tx — the executor
+            // reports both as BlockValidationError::InvalidTx), which is skipped above. Reaching
+            // here means a genuine EVM / provider / internal failure, so we abort rather than seal
+            // a block built on incomplete or incorrect state.
             Err(err) => return Err(PayloadBuilderError::evm(err)),
         };
 

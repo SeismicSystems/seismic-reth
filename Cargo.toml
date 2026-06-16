@@ -792,5 +792,7 @@ seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-allo
 seismic-alloy-genesis = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "c1ce53389ad2bf9bd04c15f4924abe77677395b6" }
 
 # evm
-alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "0a751067fa55afc762e64c919c4443eea72546ca" }
-alloy-seismic-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "0a751067fa55afc762e64c919c4443eea72546ca" }
+# TODO: temporarily pointing to https://github.com/SeismicSystems/seismic-evm/pull/54
+# Re-pin to the merged commit on `seismic` once that PR lands.
+alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "41d2a9165cdb00f22c3e8a7c11c823e0b8cf8190" }
+alloy-seismic-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "41d2a9165cdb00f22c3e8a7c11c823e0b8cf8190" }
