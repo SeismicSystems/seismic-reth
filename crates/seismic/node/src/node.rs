@@ -377,13 +377,25 @@ where
                 // Register seismic_ namespace (getTeePublicKey)
                 modules.merge_configured(SeismicApi::new(purpose_keys).into_rpc())?;
 
-                // Disable the entire `debug_*` namespace.
-                let debug_methods: Vec<&'static str> = modules
-                    .methods_by_module::<fn(&str) -> bool>(RethRpcModule::Debug)
-                    .method_names()
-                    .collect();
-                for name in debug_methods {
-                    modules.remove_method_from_configured(name);
+                // Trace endpoints stay off on Seismic. Our traces are already sanitized
+                // (calldata, return data, memory, and stack are stripped — see
+                // https://github.com/SeismicSystems/seismic-revm-inspectors/blob/seismic/README.md),
+                // but the leftover metadata (gas, revert paths, call-tree shape, touched
+                // addresses) is still a side channel on private state. So to be 100% sure,
+                // we just don't serve these namespaces at all, whatever the operator's
+                // `--http.api` says:
+                //   - debug_*: geth-style tracing, plus raw state/DB access
+                //   - trace_*: parity-style tracing (also honors a caller-supplied `from`)
+                //   - ots_*:   Otterscan, which wraps the same tracing internals
+                // We may re-enable (sanitized) tracing here someday if needed.
+                for module in [RethRpcModule::Debug, RethRpcModule::Trace, RethRpcModule::Ots] {
+                    let method_names: Vec<&'static str> = modules
+                        .methods_by_module::<fn(&str) -> bool>(module)
+                        .method_names()
+                        .collect();
+                    for name in method_names {
+                        modules.remove_method_from_configured(name);
+                    }
                 }
 
                 Ok(())
