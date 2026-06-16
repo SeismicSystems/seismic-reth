@@ -95,7 +95,6 @@ impl SeismicNode {
             .executor(SeismicExecutorBuilder::default())
             .payload(BasicPayloadServiceBuilder::<SeismicPayloadBuilder>::default())
             .network(SeismicNetworkBuilder::default())
-            .executor(SeismicExecutorBuilder::default())
             .consensus(SeismicConsensusBuilder::default())
     }
 

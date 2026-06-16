@@ -123,8 +123,7 @@ impl ConfigureEvm for SeismicEvmConfig {
     }
 
     fn evm_env(&self, header: &Header) -> EvmEnv<SeismicSpecId> {
-        // TODO: use the correct spec id
-        let spec = SeismicSpecId::MERCURY;
+        let spec = revm_spec(self.chain_spec(), header);
 
         // configure evm env based on parent block
         let cfg_env = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
