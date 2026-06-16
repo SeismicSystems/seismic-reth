@@ -3,6 +3,10 @@
 mod enclave;
 pub use enclave::EnclaveArgs;
 
+/// Seismic-specific RPC args and the process-wide handle the RPC layer reads them through
+mod seismic_rpc;
+pub use seismic_rpc::{init_seismic_rpc_args, seismic_rpc_args, SeismicRpcArgs};
+
 /// NetworkArg struct for configuring the network
 mod network;
 pub use network::{DiscoveryArgs, NetworkArgs};

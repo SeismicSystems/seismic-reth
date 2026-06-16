@@ -12,7 +12,7 @@
 pub mod chainspec;
 
 use chainspec::SeismicChainSpecParser;
-use clap::{value_parser, Parser, Subcommand};
+use clap::{value_parser, Args, Parser, Subcommand};
 use futures_util::Future;
 use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_cli::chainspec::ChainSpecParser;
@@ -21,7 +21,7 @@ use reth_cli_runner::CliRunner;
 use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
 use reth_node_core::{
-    args::{EnclaveArgs, LogArgs},
+    args::{init_seismic_rpc_args, EnclaveArgs, LogArgs, SeismicRpcArgs},
     version::version_metadata,
 };
 use reth_node_ethereum::consensus::EthBeaconConsensus;
@@ -39,6 +39,38 @@ use reth_node_metrics::recorder::install_prometheus_recorder;
 use std::{ffi::OsString, fmt, sync::Arc};
 use tracing::info;
 
+/// Seismic-specific CLI args carried alongside the node command.
+///
+/// This is the default `Ext` for [`Cli`]: it bundles the enclave connection args with the Seismic
+/// RPC limits so both `--enclave.*` and `--seismic.rpc.*` flags are parsed. `AsRef<EnclaveArgs>`
+/// keeps the enclave-boot path unchanged; `AsRef<SeismicRpcArgs>` feeds the RPC-layer signed-read
+/// guard.
+// TODO(samlaf): the enclave flags still use the bare `--enclave.*` namespace, predating the
+// `seismic.*` convention. We probably want to move them under `seismic.enclave.*` so all
+// fork-specific flags live under one `seismic.*` namespace.
+#[derive(Debug, Clone, Copy, Args, PartialEq, Eq, Default)]
+pub struct SeismicNodeArgs {
+    /// Enclave connection configuration.
+    #[command(flatten)]
+    pub enclave: EnclaveArgs,
+
+    /// Seismic-specific RPC limits.
+    #[command(flatten)]
+    pub seismic_rpc: SeismicRpcArgs,
+}
+
+impl AsRef<EnclaveArgs> for SeismicNodeArgs {
+    fn as_ref(&self) -> &EnclaveArgs {
+        &self.enclave
+    }
+}
+
+impl AsRef<SeismicRpcArgs> for SeismicNodeArgs {
+    fn as_ref(&self) -> &SeismicRpcArgs {
+        &self.seismic_rpc
+    }
+}
+
 /// The main seismic-reth cli interface.
 ///
 /// This is the entrypoint to the executable.
@@ -46,7 +78,7 @@ use tracing::info;
 #[command(author, version =version_metadata().short_version.as_ref(), long_version = version_metadata().long_version.as_ref(), about = "Reth", long_about = None)]
 pub struct Cli<
     Spec: ChainSpecParser = SeismicChainSpecParser,
-    Ext: clap::Args + fmt::Debug = EnclaveArgs,
+    Ext: clap::Args + fmt::Debug = SeismicNodeArgs,
 > {
     /// The command to run
     #[command(subcommand)]
@@ -109,7 +141,7 @@ impl Cli {
 impl<C, Ext> Cli<C, Ext>
 where
     C: ChainSpecParser<ChainSpec = ChainSpec>,
-    Ext: clap::Args + fmt::Debug + AsRef<EnclaveArgs>,
+    Ext: clap::Args + fmt::Debug + AsRef<EnclaveArgs> + AsRef<SeismicRpcArgs>,
 {
     /// Execute the configured cli command.
     ///
@@ -139,6 +171,11 @@ where
         // Install the prometheus recorder to be sure to record all metrics
         let _ = install_prometheus_recorder();
         let enclave_args = self.enclave;
+
+        // Store the Seismic RPC limits before building the node. The signed-read guard lives in a
+        // free function in `reth-seismic-rpc` that has no other channel to the parsed CLI args and
+        // reads them back via `seismic_rpc_args()`.
+        init_seismic_rpc_args(*AsRef::<SeismicRpcArgs>::as_ref(&enclave_args));
 
         match self.command {
             Commands::Node(command) => runner.run_command_until_exit(|ctx| {

@@ -70,6 +70,9 @@ pub fn convert_seismic_call_to_tx_request(
             // we can delete this arm and the `TypedData` variant entirely.
             let req = SeismicTransactionRequest::decode_712(&typed_request)
                 .map_err(|_e| EthApiError::FailedToDecodeSignedTransaction)?;
+            // Bound the calldata before the downstream ECDH/AES decrypt — same limit as the bytes
+            // path, so the guard can't be bypassed by submitting via TypedData instead of Bytes.
+            check_signed_read_input_size(req.inner.input.input().map_or(0, |b| b.len()))?;
             Ok((req, true))
         }
 
@@ -80,6 +83,26 @@ pub fn convert_seismic_call_to_tx_request(
             Ok((req, true))
         }
     }
+}
+
+/// Reject a signed read whose payload exceeds the configured size cap, before any of the unmetered
+/// decrypt crypto (decode, keccak sighash, secp256k1 recovery, ECDH, AES-GCM) runs.
+///
+/// A signed read is a transaction that skips the mempool, so we hold it to the same per-tx size
+/// limit real transactions obey (`--seismic.rpc.max-signed-read-input-bytes`, default
+/// `DEFAULT_MAX_TX_INPUT_BYTES`). Both submission paths gate on this so the bound can't be bypassed
+/// by choosing one format over the other: `len` is the raw tx size on the bytes path, the calldata
+/// size on the typed-data path.
+fn check_signed_read_input_size(len: usize) -> Result<(), EthApiError> {
+    let max = reth_node_core::args::seismic_rpc_args().max_signed_read_input_bytes;
+    if len > max {
+        return Err(EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+            -32602,
+            format!("signed-read payload exceeds {max} bytes (got {len})"),
+            None::<String>,
+        ))));
+    }
+    Ok(())
 }
 
 /// Decode a raw EIP-2718 transaction submitted via the `eth_call` bytes path
@@ -95,6 +118,8 @@ fn recover_raw_seismic_call_tx(data: &[u8]) -> EthResult<Recovered<SeismicTxEnve
     if data.is_empty() {
         return Err(EthApiError::EmptyRawTransactionData);
     }
+    // Bound the raw tx size before any decode/recover/decrypt crypto runs.
+    check_signed_read_input_size(data.len())?;
     let mut buf: &[u8] = data;
     let transaction = SeismicTxEnvelope::decode_2718_permit_seismic_calls(&mut buf)
         .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
@@ -353,6 +378,35 @@ mod test {
         .unwrap();
         assert_eq!(signed_sighash, expected_sighash);
         assert_eq!(recovered_sighash, expected_sighash);
+    }
+
+    #[test]
+    fn rejects_oversized_signed_read_payload() {
+        // One byte over the cap is rejected by the size guard, before any decode/recovery crypto.
+        let cap = reth_node_core::args::seismic_rpc_args().max_signed_read_input_bytes;
+        let data = vec![0u8; cap + 1];
+        let err = super::recover_raw_seismic_call_tx(&data).unwrap_err().to_string().to_lowercase();
+        assert!(err.contains("signed-read payload exceeds"), "{err}");
+    }
+
+    #[test]
+    fn at_limit_payload_passes_size_guard() {
+        // Exactly at the cap clears the guard; this junk then fails to *decode*, proving the size
+        // check let it through rather than rejecting on size.
+        let cap = reth_node_core::args::seismic_rpc_args().max_signed_read_input_bytes;
+        let data = vec![0u8; cap];
+        let err = super::recover_raw_seismic_call_tx(&data).unwrap_err().to_string().to_lowercase();
+        assert!(!err.contains("signed-read payload exceeds"), "{err}");
+    }
+
+    #[test]
+    fn input_size_gate_rejects_over_and_passes_at_limit() {
+        // The shared gate used by both submission paths (bytes via `recover_raw_seismic_call_tx`,
+        // typed-data via the `convert_*` arm): at the cap is allowed, one byte over is rejected.
+        let cap = reth_node_core::args::seismic_rpc_args().max_signed_read_input_bytes;
+        assert!(super::check_signed_read_input_size(cap).is_ok());
+        let err = super::check_signed_read_input_size(cap + 1).unwrap_err().to_string();
+        assert!(err.to_lowercase().contains("signed-read payload exceeds"), "{err}");
     }
 
     mod freshness {
