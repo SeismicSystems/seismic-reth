@@ -40,7 +40,10 @@ tracing.workspace = true
 tokio = { workspace = true, features = ["sync", "rt"] }
 
 [features]
-timestamp-in-seconds = ["reth-primitives-traits/timestamp-in-seconds"]
+timestamp-in-seconds = [
+    "reth-primitives-traits/timestamp-in-seconds",
+    "reth-ethereum-engine-primitives/timestamp-in-seconds",
+]
 test-utils = [
     "reth-chain-state/test-utils",
     "reth-primitives-traits/test-utils",

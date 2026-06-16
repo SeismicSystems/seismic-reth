@@ -50,4 +50,9 @@ proptest-arbitrary-interop.workspace = true
 reth-execution-types.workspace = true
 
 [features]
-timestamp-in-seconds = ["revm/timestamp-in-seconds"]
+timestamp-in-seconds = [
+    "revm/timestamp-in-seconds",
+    "reth-chainspec/timestamp-in-seconds",
+    "reth-payload-builder/timestamp-in-seconds",
+    "reth-seismic-evm/timestamp-in-seconds",
+]
