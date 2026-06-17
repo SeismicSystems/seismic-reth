@@ -398,6 +398,15 @@ where
                     }
                 }
 
+                // `eth_createAccessList` is off for the same reason as the trace namespaces
+                // above: it returns the set of addresses and storage slots a call touches (plus
+                // the call-tree shape, and it honors a caller-supplied `from`), so it is a side
+                // channel on private state — a branch on shielded state touches a different set of
+                // public slots. Unlike `eth_call` there is no signed-read path to encrypt the
+                // result; the touched-slot set *is* the answer, so there is nothing to sanitize.
+                // It lives in the Eth module (which we keep), so we drop just this one method.
+                modules.remove_method_from_configured("eth_createAccessList");
+
                 Ok(())
             })
             .await
