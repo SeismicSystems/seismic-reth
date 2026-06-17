@@ -2,7 +2,7 @@
 
 use alloy_consensus::SignableTransaction;
 use alloy_eips::eip2718::Encodable2718;
-use alloy_primitives::{address, Address, Bytes, TxKind, B256, U256};
+use alloy_primitives::{address, aliases::U96, Address, Bytes, TxKind, B256, U256};
 use alloy_signer::{Signer, SignerSync};
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::{sol, SolCall};
@@ -23,7 +23,8 @@ use reth_seismic_node::{
     utils::e2e::{ensure_mock_purpose_keys, SEISMIC_TIMESTAMP_MULTIPLIER},
 };
 use reth_tasks::TaskManager;
-use std::sync::Arc;
+use seismic_alloy_consensus::{TxSeismic, TxSeismicElements, TypedDataRequest};
+use std::{str::FromStr, sync::Arc};
 
 sol! {
     interface OpsWhitelistTxAuth {
@@ -116,6 +117,77 @@ fn build_sentinel_tx(signer: &PrivateKeySigner, chain_id: u64, calldata: Bytes) 
     Encodable2718::encoded_2718(&envelope).into()
 }
 
+/// Send `eth_sendRawTransaction` and return either the tx hash on success or the error string.
+async fn submit_sentinel(client: &HttpClient, raw_tx: &Bytes) -> Result<String, String> {
+    let hex = format!("0x{}", alloy_primitives::hex::encode(raw_tx));
+    match client.request::<serde_json::Value, _>("eth_sendRawTransaction", rpc_params![hex]).await {
+        Ok(v) => Ok(v.as_str().expect("tx hash string").to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Build and sign a sentinel transaction in its EIP-712 typed-data form, returning
+/// the wire request plus the tx hash the node is expected to report back.
+///
+/// `eth_sendRawTransaction` accepts two payload forms: raw RLP bytes and EIP-712
+/// typed data. The typed-data form can only express a `TxSeismic` (type 0x4A) —
+/// `SeismicTxEnvelope::decode_712` decodes nothing else — so unlike
+/// [`build_sentinel_tx`] (a legacy tx) the sentinel call here rides in a seismic tx
+/// with `message_version = 2`, which selects the EIP-712 signing hash that the node
+/// recovers the signer against after re-encoding the typed data to RLP. The
+/// whitelist calldata is carried as plaintext `input`: sentinel txs are intercepted
+/// at the RPC layer, which parses `input` directly and never decrypts, so the
+/// encryption-related seismic elements are inert plumbing here.
+fn build_sentinel_typed_data_tx(
+    signer: &PrivateKeySigner,
+    chain_id: u64,
+    calldata: Bytes,
+    env: Envelope,
+) -> (TypedDataRequest, B256) {
+    let tx = TxSeismic {
+        chain_id,
+        nonce: 0,
+        gas_price: 0,
+        gas_limit: 100_000,
+        to: TxKind::Call(WHITELIST_TX_SENTINEL),
+        value: U256::ZERO,
+        input: calldata,
+        seismic_elements: TxSeismicElements {
+            // Any well-formed compressed secp256k1 point works — nothing on the
+            // sentinel path performs ECDH against it.
+            encryption_pubkey: secp256k1::PublicKey::from_str(
+                "028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0",
+            )
+            .expect("valid compressed secp256k1 point"),
+            encryption_nonce: U96::ZERO,
+            message_version: 2,
+            recent_block_hash: env.recent_block_hash,
+            expires_at_block: env.expires_at_block,
+            signed_read: false,
+        },
+        authorization_list: vec![],
+    };
+    let sig = signer.sign_hash_sync(&tx.signature_hash()).expect("sign typed-data sentinel tx");
+    let signed = tx.into_signed(sig);
+    let expected_hash = *signed.hash();
+    (signed.into(), expected_hash)
+}
+
+/// Send `eth_sendRawTransaction` with the EIP-712 typed-data payload form
+/// (`SeismicRawTxRequest::TypedData`; with `serde(untagged)` it goes over the wire
+/// as a `{"data": <EIP-712 typed data>, "signature": <sig>}` object instead of a
+/// hex string). Returns either the tx hash on success or the error string.
+async fn submit_sentinel_typed_data(
+    client: &HttpClient,
+    typed: &TypedDataRequest,
+) -> Result<String, String> {
+    match client.request::<serde_json::Value, _>("eth_sendRawTransaction", rpc_params![typed]).await
+    {
+        Ok(v) => Ok(v.as_str().expect("tx hash string").to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// Per-tx replay-protection envelope plumbed into both calldata variants.
 #[derive(Clone, Copy)]
 struct Envelope {
@@ -180,15 +252,6 @@ fn build_ops_client(ops_url: &str) -> HttpClient {
     HttpClientBuilder::default().build(ops_url).expect("ops http client")
 }
 
-/// Send `eth_sendRawTransaction` and return either the tx hash on success or the error string.
-async fn submit_sentinel(client: &HttpClient, raw_tx: &Bytes) -> Result<String, String> {
-    let hex = format!("0x{}", alloy_primitives::hex::encode(raw_tx));
-    match client.request::<serde_json::Value, _>("eth_sendRawTransaction", rpc_params![hex]).await {
-        Ok(v) => Ok(v.as_str().expect("tx hash string").to_string()),
-        Err(e) => Err(e.to_string()),
-    }
-}
-
 /// Send a signed request to the ops RPC server.
 async fn send_ops_signed_request(
     url: &str,
@@ -246,7 +309,12 @@ async fn launch_ops_node(
         .with_http()
         .with_http_api(RpcModuleSelection::All);
     rpc_args.ops_enable = true;
-    rpc_args.ops_port = 0; // random unused port
+    // Use a random unused port.
+    rpc_args.ops_port = 0;
+    // Disable since not needed. Furthermore default endpoint is a global
+    // `/tmp/reth.ipc-*` socket that some test environments forbid creating,
+    // such as inside sandboxed llm harness.
+    rpc_args.ipcdisable = true;
 
     let node_config = NodeConfig::new(chain_spec)
         .with_unused_ports()
@@ -318,7 +386,15 @@ async fn fetch_live_envelope_fields(
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_ops_sentinel_whitelist_from_governance_key() {
+async fn test_ops_sentinel_whitelist_from_governance_key_both_payload_forms() {
+    // Sentinel interception must cover BOTH payload forms of eth_sendRawTransaction:
+    // raw RLP bytes and EIP-712 typed data (which the server re-encodes to RLP so it
+    // flows through the same decode + sentinel pipeline). Interleaving the two forms
+    // against one node proves they drive the same whitelist and admin-nonce state
+    // machine: raw whitelist -> typed revoke -> typed whitelist -> raw revoke, all
+    // consuming one shared nonce sequence. A regression that routes typed-data
+    // submissions around the sentinel check would surface here as a pool insertion
+    // (hash visible via eth_getTransactionByHash) and a missing whitelist mutation.
     reth_tracing::init_test_tracing();
     let governance = PrivateKeySigner::random();
     let reader = PrivateKeySigner::random();
@@ -330,7 +406,9 @@ async fn test_ops_sentinel_whitelist_from_governance_key() {
     let ops_client = build_ops_client(&ops_url);
     let chain_id = 5124u64;
 
-    // Whitelist envelope: fetch live validator_id, admin_nonce, recent block.
+    // Envelope: fetch live validator_id, admin_nonce, recent block once; later
+    // sentinels reuse it with incremented admin nonces.
+    let before = ops_get_admin_nonce(&ops_client).await;
     let live = fetch_live_envelope_fields(&client, &ops_client).await;
     let whitelist_env = Envelope {
         recent_block_hash: live.recent_block_hash,
@@ -339,14 +417,19 @@ async fn test_ops_sentinel_whitelist_from_governance_key() {
         nonce: live.next_nonce,
     };
     let expires_at = FAR_FUTURE_BLOCK;
+
+    // 1. Whitelist via raw bytes.
     let raw_tx = build_sentinel_tx(
         &governance,
         chain_id,
         whitelist_calldata(reader.address(), expires_at, whitelist_env),
     );
-    submit_sentinel(&client, &raw_tx).await.expect("whitelist sentinel tx should succeed");
-
-    // Verify the reader is whitelisted by querying the ops server.
+    submit_sentinel(&client, &raw_tx).await.expect("raw-bytes whitelist sentinel should succeed");
+    assert_eq!(
+        ops_get_admin_nonce(&ops_client).await,
+        before + 1,
+        "raw-bytes whitelist must advance admin_nonce"
+    );
     let body = ops_get_storage_request(PARAMS_CONTRACT, alloy_primitives::B256::ZERO, 1);
     let resp = send_ops_signed_request(&ops_url, &body, &reader, Some("0"), chain_id).await;
     assert_eq!(
@@ -355,24 +438,90 @@ async fn test_ops_sentinel_whitelist_from_governance_key() {
         "whitelisted reader should be able to read storage"
     );
 
-    // Revoke envelope must carry a strictly greater admin nonce.
+    // 2. Revoke via typed data, continuing the same admin-nonce sequence.
     let revoke_env = Envelope { nonce: whitelist_env.nonce + 1, ..whitelist_env };
-    let raw_tx =
-        build_sentinel_tx(&governance, chain_id, revoke_calldata(reader.address(), revoke_env));
-    submit_sentinel(&client, &raw_tx).await.expect("revoke sentinel tx should succeed");
-
-    // Reader should no longer be whitelisted.
+    let (typed, _hash) = build_sentinel_typed_data_tx(
+        &governance,
+        chain_id,
+        revoke_calldata(reader.address(), revoke_env),
+        revoke_env,
+    );
+    submit_sentinel_typed_data(&client, &typed)
+        .await
+        .expect("typed-data revoke sentinel should succeed");
+    assert_eq!(
+        ops_get_admin_nonce(&ops_client).await,
+        before + 2,
+        "typed-data revoke must advance admin_nonce"
+    );
     let body = ops_get_storage_request(PARAMS_CONTRACT, alloy_primitives::B256::ZERO, 2);
     let resp = send_ops_signed_request(&ops_url, &body, &reader, Some("1"), chain_id).await;
     assert_eq!(
         resp.status(),
         reqwest::StatusCode::UNAUTHORIZED,
-        "revoked reader should be rejected"
+        "reader revoked via typed data should be rejected"
+    );
+
+    // 3. Whitelist again via typed data.
+    let rewhitelist_env = Envelope { nonce: whitelist_env.nonce + 2, ..whitelist_env };
+    let (typed, expected_hash) = build_sentinel_typed_data_tx(
+        &governance,
+        chain_id,
+        whitelist_calldata(reader.address(), expires_at, rewhitelist_env),
+        rewhitelist_env,
+    );
+    let returned = submit_sentinel_typed_data(&client, &typed)
+        .await
+        .expect("typed-data whitelist sentinel should succeed");
+    assert_eq!(
+        returned.parse::<B256>().expect("parse returned tx hash"),
+        expected_hash,
+        "node must report the intercepted tx's own hash"
+    );
+    assert_eq!(
+        ops_get_admin_nonce(&ops_client).await,
+        before + 3,
+        "typed-data whitelist must advance admin_nonce"
+    );
+    // The ops server's per-key replay nonce is an exact-increment counter consumed
+    // only by AUTHORIZED reads: the revoked attempt above was rejected at the
+    // whitelist check before nonce consumption, so this is still the reader's
+    // second consumed nonce.
+    let body = ops_get_storage_request(PARAMS_CONTRACT, alloy_primitives::B256::ZERO, 3);
+    let resp = send_ops_signed_request(&ops_url, &body, &reader, Some("1"), chain_id).await;
+    assert_eq!(
+        resp.status(),
+        reqwest::StatusCode::OK,
+        "reader re-whitelisted via typed data should read storage"
+    );
+
+    // Sentinel txs are node-local: they must not enter the txpool (or a block),
+    // so the node has no record of the hash it just returned.
+    let pooled: Option<serde_json::Value> = client
+        .request("eth_getTransactionByHash", rpc_params![expected_hash])
+        .await
+        .expect("eth_getTransactionByHash");
+    assert!(pooled.is_none(), "sentinel tx must not enter the txpool, got: {pooled:?}");
+
+    // 4. Revoke via raw bytes, closing the loop on the shared nonce sequence.
+    let final_env = Envelope { nonce: whitelist_env.nonce + 3, ..whitelist_env };
+    let raw_tx =
+        build_sentinel_tx(&governance, chain_id, revoke_calldata(reader.address(), final_env));
+    submit_sentinel(&client, &raw_tx).await.expect("raw-bytes revoke sentinel should succeed");
+    let body = ops_get_storage_request(PARAMS_CONTRACT, alloy_primitives::B256::ZERO, 4);
+    let resp = send_ops_signed_request(&ops_url, &body, &reader, Some("2"), chain_id).await;
+    assert_eq!(
+        resp.status(),
+        reqwest::StatusCode::UNAUTHORIZED,
+        "reader revoked via raw bytes should be rejected"
     );
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_ops_sentinel_whitelist_from_non_governance_key_fails() {
+async fn test_ops_sentinel_whitelist_from_non_governance_key_fails_both_payload_forms() {
+    // The governance-signer check must hold regardless of which payload form
+    // carried the sentinel action, so the same attacker-signed action is
+    // submitted both as raw RLP bytes and as EIP-712 typed data.
     reth_tracing::init_test_tracing();
     let governance = PrivateKeySigner::random();
     let attacker = PrivateKeySigner::random();
@@ -400,8 +549,26 @@ async fn test_ops_sentinel_whitelist_from_non_governance_key_fails() {
     );
     let err = submit_sentinel(&client, &raw_tx)
         .await
-        .expect_err("non-governance sentinel tx should be rejected");
+        .expect_err("non-governance raw-bytes sentinel should be rejected");
     assert!(err.contains("unauthorized"), "expected unauthorized signer error, got: {err}");
+
+    let (typed, _hash) = build_sentinel_typed_data_tx(
+        &attacker,
+        chain_id,
+        whitelist_calldata(target.address(), expires_at, env),
+        env,
+    );
+    let err = submit_sentinel_typed_data(&client, &typed)
+        .await
+        .expect_err("non-governance typed-data sentinel should be rejected");
+    assert!(err.contains("unauthorized"), "expected unauthorized signer error, got: {err}");
+
+    // No whitelist mutation happened through either form.
+    assert_eq!(
+        ops_get_admin_nonce(&ops_client).await,
+        0,
+        "rejected sentinels must not advance admin_nonce"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
