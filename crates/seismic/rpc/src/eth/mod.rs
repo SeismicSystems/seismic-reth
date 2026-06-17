@@ -15,8 +15,10 @@ use crate::{
     eth::transaction::{SeismicRpcTxConverter, SeismicSimTxConverter},
     SeismicEthApiError,
 };
+use alloy_consensus::constants::KECCAK_EMPTY;
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, U256};
+use alloy_rpc_types_eth::AccountInfo;
 use futures::Future;
 use reth_evm::{ConfigureEvm, SpecFor, TxEnvFor};
 use reth_node_api::{FullNodeComponents, HeaderTy};
@@ -321,6 +323,48 @@ where
                 .map_err(Self::Error::from_eth_err)?
                 .unwrap_or_default();
             Ok(effective_balance(&*state, &address, native_balance))
+        })
+    }
+
+    /// Reports the *effective* (spendable) balance — `max(native, usdc_scaled)` — for
+    /// `eth_getAccountInfo`, mirroring the upstream default and swapping only the balance
+    /// field. See [`effective_balance`].
+    ///
+    /// The dividing line for the account-surface endpoints: anything that answers the
+    /// `eth_getBalance` question ("what can this account spend") returns the effective
+    /// balance; anything that exposes the underlying committed `Account` record returns the
+    /// raw native balance. `eth_getAccountInfo` (`{balance, nonce, code}`, no trie-structural
+    /// fields) is the former, so it matches [`Self::balance`].
+    ///
+    /// `eth_getProof`/`eth_getAccount` are the latter and stay native (upstream default):
+    /// getProof's balance is proven against the state root (a synthetic value wouldn't
+    /// verify), and getAccount's `storage_root`/`code_hash` must stay self-consistent with
+    /// that proven leaf.
+    fn get_account_info(
+        &self,
+        address: Address,
+        block_id: BlockId,
+    ) -> impl Future<Output = Result<AccountInfo, Self::Error>> + Send {
+        self.spawn_blocking_io_fut(move |this| async move {
+            let state = this.state_at_block_id(block_id).await?;
+            let account = state
+                .basic_account(&address)
+                .map_err(Self::Error::from_eth_err)?
+                .unwrap_or_default();
+
+            let balance = effective_balance(&*state, &address, account.balance);
+            let nonce = account.nonce;
+            let code = if account.get_bytecode_hash() == KECCAK_EMPTY {
+                Default::default()
+            } else {
+                state
+                    .account_code(&address)
+                    .map_err(Self::Error::from_eth_err)?
+                    .unwrap_or_default()
+                    .original_bytes()
+            };
+
+            Ok(AccountInfo { balance, nonce, code })
         })
     }
 }
