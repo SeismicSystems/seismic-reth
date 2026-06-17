@@ -328,6 +328,21 @@ impl Decodable2718 for SeismicTransactionSigned {
             }
             seismic_alloy_consensus::SeismicTxType::Seismic => {
                 let (tx, signature, hash) = TxSeismic::rlp_decode_signed(buf)?.into_parts();
+                // Reject any signed-read seismic tx at decode time. Signed reads are an RPC
+                // `eth_call` construct only and must never be executed as a state transition;
+                // admitting one would let an attacker replay an intercepted signed `eth_call`
+                // payload as a real tx. The gate is enforced on both wire-ingress decoders:
+                //   - here, `SeismicTransactionSigned::typed_decode` (consensus type): block
+                //     ingestion — engine `newPayload`, the block executor's tx iterator, p2p block
+                //     bodies.
+                //   - `SeismicTxEnvelope::typed_decode` (pooled type): txpool admission —
+                //     `eth_sendRawTransaction` and p2p tx-gossip.
+                if tx.seismic_elements.signed_read {
+                    return Err(alloy_rlp::Error::Custom(
+                        "signed-read seismic transactions cannot appear in a block",
+                    )
+                    .into());
+                }
                 let signed_tx = Self::new_unhashed(SeismicTypedTransaction::Seismic(tx), signature);
                 signed_tx.hash.get_or_init(|| hash);
                 Ok(signed_tx)
@@ -566,8 +581,15 @@ impl reth_codecs::Compact for SeismicTransactionSigned {
 impl<'a> arbitrary::Arbitrary<'a> for SeismicTransactionSigned {
     #[allow(clippy::unwrap_used)] // Test/arbitrary code - panic on failure is acceptable
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        #[allow(unused_mut)]
         let mut transaction = SeismicTypedTransaction::arbitrary(u)?;
+
+        // A signed-read seismic tx is intentionally non-decodable from the wire (replay guard,
+        // see `decode_2718_rejects_signed_read_write`), so it can't round-trip through RLP/2718.
+        // `SeismicTransactionSigned` is the consensus type and never legitimately carries a
+        // signed read, so keep the generator producing valid wire txs by clearing the flag.
+        if let SeismicTypedTransaction::Seismic(tx) = &mut transaction {
+            tx.seismic_elements.signed_read = false;
+        }
 
         let secp = secp256k1::Secp256k1::new();
         let key_pair = secp256k1::Keypair::new(&secp, &mut rand_08::thread_rng());
@@ -710,6 +732,67 @@ mod tests {
         let expected_signer = Address::from_private_key(&get_signing_private_key());
 
         assert_eq!(recovered_signer, expected_signer);
+    }
+
+    /// Build the EIP-2718 bytes of a signed seismic tx with the given `signed_read`/`to`.
+    /// The signature is arbitrary: the consensus decoder gates on `signed_read`/`to`
+    /// before any recovery, so a dummy signature exercises the path we care about.
+    fn encoded_seismic_tx(signed_read: bool, to: TxKind) -> Vec<u8> {
+        let tx = TxSeismic {
+            chain_id: 5124,
+            nonce: 0,
+            gas_price: 1,
+            gas_limit: 21_000,
+            to,
+            value: U256::ZERO,
+            input: Bytes::new(),
+            seismic_elements: TxSeismicElements {
+                encryption_pubkey: PublicKey::from_str(
+                    "028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0",
+                )
+                .unwrap(),
+                encryption_nonce: U96::ZERO,
+                message_version: 2,
+                recent_block_hash: B256::ZERO,
+                expires_at_block: 1,
+                signed_read,
+            },
+            authorization_list: vec![],
+        };
+        let signature = Signature::new(U256::from(1u64), U256::from(1u64), false);
+        let signed =
+            SeismicTransactionSigned::new_unhashed(SeismicTypedTransaction::Seismic(tx), signature);
+        let mut buf = Vec::new();
+        signed.encode_2718(&mut buf);
+        buf
+    }
+
+    /// Regression test for the signed-read replay-as-write gap (issue #383): the consensus
+    /// decoder — used by engine `newPayload`, the block executor, and p2p block bodies — must
+    /// reject a signed-read seismic call, so a block proposer can't smuggle one past the
+    /// (pooled-type) mempool/RPC gate and replay it as a state-changing tx.
+    #[test]
+    fn decode_2718_rejects_signed_read_write() {
+        let encoded = encoded_seismic_tx(true, TxKind::Call(Address::with_last_byte(1)));
+        let result = SeismicTransactionSigned::decode_2718(&mut &encoded[..]);
+        assert!(result.is_err(), "consensus decoder must reject signed-read call");
+    }
+
+    /// The gate is on `signed_read` alone, not `to`: a signed-read create is rejected just like
+    /// a signed-read call.
+    #[test]
+    fn decode_2718_rejects_signed_read_create() {
+        let encoded = encoded_seismic_tx(true, TxKind::Create);
+        let result = SeismicTransactionSigned::decode_2718(&mut &encoded[..]);
+        assert!(result.is_err(), "consensus decoder must reject signed-read create");
+    }
+
+    /// Ordinary (non-signed-read) seismic writes must still decode unaffected.
+    #[test]
+    fn decode_2718_accepts_non_signed_read_write() {
+        let encoded = encoded_seismic_tx(false, TxKind::Call(Address::with_last_byte(1)));
+        SeismicTransactionSigned::decode_2718(&mut &encoded[..])
+            .expect("non-signed-read seismic write must decode");
     }
 
     proptest! {
