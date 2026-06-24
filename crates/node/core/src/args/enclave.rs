@@ -17,8 +17,9 @@ pub struct EnclaveArgs {
     #[arg(long = "enclave.endpoint-port", default_value_t = ENCLAVE_DEFAULT_ENDPOINT_PORT)]
     pub enclave_server_port: u16,
 
-    /// How many failures to tolerate before we panic
-    #[arg(long = "enclave.retries", default_value_t = 0)]
+    /// How many boot-time fetch failures to tolerate before we panic.
+    /// Total attempts = `retries` + 1 (one initial attempt plus `retries` re-attempts).
+    #[arg(long = "enclave.retries", default_value_t = 5)]
     pub retries: u32,
 
     /// How many seconds to pause between retries
