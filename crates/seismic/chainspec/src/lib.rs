@@ -18,6 +18,20 @@ use reth_chainspec::{make_genesis_header, ChainSpec};
 use reth_primitives_traits::{sync::LazyLock, SealedHeader};
 use reth_seismic_forks::{SEISMIC_DEV_HARDFORKS, SEISMIC_MAINNET_HARDFORKS};
 
+/// Normalizes a parsed genesis so all Seismic specs derive their config from one place:
+/// scales the JSON (seconds) timestamp to milliseconds when internal timestamps are in ms,
+/// and enables DAO-fork support.
+fn normalize_genesis(mut genesis: Genesis) -> Genesis {
+    // Genesis JSON timestamps are in seconds, but when timestamp-in-seconds feature is disabled,
+    // we store timestamps internally as milliseconds
+    #[cfg(not(feature = "timestamp-in-seconds"))]
+    {
+        genesis.timestamp *= 1000;
+    }
+    genesis.config.dao_fork_support = true;
+    genesis
+}
+
 /// Genesis hash for the Seismic mainnet
 /// Calculated by rlp encoding the genesis header and hashing it
 pub const SEISMIC_MAINNET_GENESIS_HASH: B256 =
@@ -36,15 +50,9 @@ pub const SEISMIC_DEV_GENESIS_HASH: B256 =
 /// Indicates a build error, not a runtime issue.
 #[allow(clippy::expect_used)] // Documented panic - genesis deserialization is required
 pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
-    let mut genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
+    let genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
         .expect("FATAL: Can't deserialize Dev testnet genesis json");
-
-    // Genesis JSON timestamps are in seconds, but when timestamp-in-seconds feature is disabled,
-    // we store timestamps internally as milliseconds
-    #[cfg(not(feature = "timestamp-in-seconds"))]
-    {
-        genesis.timestamp *= 1000;
-    }
+    let genesis = normalize_genesis(genesis);
 
     let hardforks = SEISMIC_DEV_HARDFORKS.clone();
     ChainSpec {
@@ -69,15 +77,9 @@ pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 /// Indicates a build error, not a runtime issue.
 #[allow(clippy::expect_used)] // Documented panic - genesis deserialization is required
 pub static SEISMIC_DEV_OLD: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
-    let mut genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
+    let genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
         .expect("FATAL: Can't deserialize Dev testnet genesis json");
-
-    // Genesis JSON timestamps are in seconds, but when timestamp-in-seconds feature is disabled,
-    // we store timestamps internally as milliseconds
-    #[cfg(not(feature = "timestamp-in-seconds"))]
-    {
-        genesis.timestamp *= 1000;
-    }
+    let genesis = normalize_genesis(genesis);
 
     let hardforks = SEISMIC_DEV_HARDFORKS.clone();
     ChainSpec {
@@ -101,18 +103,12 @@ pub static SEISMIC_DEV_OLD: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 /// Indicates a build issue, not a runtime issue.
 #[allow(clippy::expect_used)] // Documented panic - genesis deserialization is required
 pub static SEISMIC_MAINNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
-    let mut genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/mainnet.json"))
+    let genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/mainnet.json"))
         .expect("FATAL: Can't deserialize Mainnet genesis json"); //
-
-    // Genesis JSON timestamps are in seconds, but when timestamp-in-seconds feature is disabled,
-    // we store timestamps internally as milliseconds
-    #[cfg(not(feature = "timestamp-in-seconds"))]
-    {
-        genesis.timestamp *= 1000;
-    }
+    let genesis = normalize_genesis(genesis);
 
     let hardforks = SEISMIC_MAINNET_HARDFORKS.clone();
-    let mut spec = ChainSpec {
+    ChainSpec {
         chain: Chain::from_id(5123),
         genesis_header: SealedHeader::new(
             make_genesis_header(&genesis, &hardforks),
@@ -122,9 +118,8 @@ pub static SEISMIC_MAINNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
         hardforks,
         ..Default::default()
-    };
-    spec.genesis.config.dao_fork_support = true;
-    spec.into()
+    }
+    .into()
 });
 
 /// Returns `true` if the given chain is a seismic chain.
