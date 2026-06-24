@@ -74,15 +74,15 @@ impl SeismicApiServer for SeismicApi {
 
 /// Localhost with port 0 so a free port is used.
 pub const fn test_address() -> SocketAddr {
-    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))
+    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
 }
 
 /// Seismic `eth_` RPC namespace overrides.
 #[cfg_attr(not(feature = "client"), rpc(server, namespace = "eth"))]
 #[cfg_attr(feature = "client", rpc(server, client, namespace = "eth"))]
 pub trait EthApiOverride<B: RpcObject> {
-    /// Returns the account and storage values of the specified account including the Merkle-proof.
-    /// This call can be used to verify that the data you are pulling from is not tampered with.
+    /// Signs the given EIP-712 typed structured data for the specified address and returns the
+    /// resulting signature.
     #[method(name = "signTypedData_v4")]
     async fn sign_typed_data_v4(&self, address: Address, data: TypedData) -> RpcResult<String>;
 
