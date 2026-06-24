@@ -8,7 +8,7 @@ use alloy_sol_types::SolCall;
 use futures::StreamExt;
 use reth_node_api::BlockBody;
 use reth_primitives_traits::SignedTransaction;
-use reth_provider::{BlockNumReader, CanonStateSubscriptions};
+use reth_provider::{BlockHashReader, BlockNumReader, CanonStateSubscriptions};
 use reth_rpc_convert::transaction::{RpcTxConverter, SimTxConverter};
 use reth_rpc_eth_api::{
     helpers::{spec::SignersForRpc, EthTransactions, LoadReceipt, LoadTransaction},
@@ -75,10 +75,8 @@ where
         // 3. recent_block_hash must be on this node's canonical chain, and the [reference,
         //    expires_at_block] window must satisfy the range bound.
         let provider = self.provider();
-        let reference_block_number = provider
-            .block_number(envelope.recent_block_hash)
-            .map_err(SeismicEthApiError::from)?
-            .ok_or_else(|| rpc_error("ops sentinel recent_block_hash not on canonical chain"))?;
+        let reference_block_number =
+            resolve_canonical_reference(provider, envelope.recent_block_hash)?;
         if envelope.expires_at_block < reference_block_number {
             return Err(rpc_error("ops sentinel expires_at_block precedes reference block"));
         }
@@ -297,6 +295,35 @@ where
     }
 
     Err(rpc_error("unknown ops whitelist sentinel selector"))
+}
+
+/// Resolves `recent_block_hash` to a canonical block number, rejecting any hash that is not on the
+/// node's canonical chain.
+///
+/// `block_number(hash)` is only a hash->number index lookup: it can still resolve a block that was
+/// reorged out (lingering in the in-memory tree or a not-yet-unwound index entry). We therefore
+/// re-anchor by confirming the canonical chain at that height still maps back to
+/// `recent_block_hash`; otherwise the reference block lost a reorg and the replay window would be
+/// open again. (`BlockNumReader: BlockHashReader`, so both lookups come from the same provider.)
+fn resolve_canonical_reference<P>(
+    provider: &P,
+    recent_block_hash: B256,
+) -> Result<u64, SeismicEthApiError>
+where
+    P: BlockNumReader + BlockHashReader,
+{
+    let reference_block_number = provider
+        .block_number(recent_block_hash)
+        .map_err(SeismicEthApiError::from)?
+        .ok_or_else(|| rpc_error("ops sentinel recent_block_hash not on canonical chain"))?;
+    let canonical_hash = provider
+        .block_hash(reference_block_number)
+        .map_err(SeismicEthApiError::from)?
+        .ok_or_else(|| rpc_error("ops sentinel recent_block_hash not on canonical chain"))?;
+    if canonical_hash != recent_block_hash {
+        return Err(rpc_error("ops sentinel recent_block_hash not on canonical chain"));
+    }
+    Ok(reference_block_number)
 }
 
 fn rpc_error(message: &'static str) -> SeismicEthApiError {
@@ -524,5 +551,82 @@ mod test {
         let (raw_bytes, hash) = generate_test_raw_tx();
         let recovered = recover_raw_transaction::<SeismicTransactionSigned>(&raw_bytes).unwrap();
         assert_eq!(recovered.tx_hash(), &hash);
+    }
+
+    mod canonical_reference {
+        use super::super::resolve_canonical_reference;
+        use alloy_primitives::{BlockNumber, B256};
+        use reth_chainspec::ChainInfo;
+        use reth_provider::{BlockHashReader, BlockNumReader};
+        use reth_storage_errors::provider::ProviderResult;
+        use std::collections::HashMap;
+
+        /// Stub provider that resolves the hash->number and number->canonical-hash lookups
+        /// independently, so we can construct the resolvable-but-non-canonical state a reorg
+        /// produces without driving an actual reorg.
+        struct StubProvider {
+            number_by_hash: HashMap<B256, u64>,
+            hash_by_number: HashMap<u64, B256>,
+        }
+
+        impl BlockHashReader for StubProvider {
+            fn block_hash(&self, number: BlockNumber) -> ProviderResult<Option<B256>> {
+                Ok(self.hash_by_number.get(&number).copied())
+            }
+            fn canonical_hashes_range(
+                &self,
+                _start: BlockNumber,
+                _end: BlockNumber,
+            ) -> ProviderResult<Vec<B256>> {
+                Ok(vec![])
+            }
+        }
+
+        impl BlockNumReader for StubProvider {
+            fn chain_info(&self) -> ProviderResult<ChainInfo> {
+                unimplemented!("not exercised by resolve_canonical_reference")
+            }
+            fn best_block_number(&self) -> ProviderResult<BlockNumber> {
+                unimplemented!("not exercised by resolve_canonical_reference")
+            }
+            fn last_block_number(&self) -> ProviderResult<BlockNumber> {
+                unimplemented!("not exercised by resolve_canonical_reference")
+            }
+            fn block_number(&self, hash: B256) -> ProviderResult<Option<BlockNumber>> {
+                Ok(self.number_by_hash.get(&hash).copied())
+            }
+        }
+
+        #[test]
+        fn rejects_unknown_hash() {
+            let hash = B256::repeat_byte(0xaa);
+            let provider =
+                StubProvider { number_by_hash: HashMap::new(), hash_by_number: HashMap::new() };
+            assert!(resolve_canonical_reference(&provider, hash).is_err());
+        }
+
+        #[test]
+        fn rejects_reorged_out_hash() {
+            // The reorg case: `block_number` still resolves the old hash to height 5, but the
+            // canonical chain at height 5 now holds a different block. Without the re-anchor check
+            // this would (wrongly) succeed and reopen the replay window.
+            let reorged = B256::repeat_byte(0xaa);
+            let canonical = B256::repeat_byte(0xbb);
+            let provider = StubProvider {
+                number_by_hash: HashMap::from([(reorged, 5u64)]),
+                hash_by_number: HashMap::from([(5u64, canonical)]),
+            };
+            assert!(resolve_canonical_reference(&provider, reorged).is_err());
+        }
+
+        #[test]
+        fn accepts_canonical_hash() {
+            let hash = B256::repeat_byte(0xaa);
+            let provider = StubProvider {
+                number_by_hash: HashMap::from([(hash, 5u64)]),
+                hash_by_number: HashMap::from([(5u64, hash)]),
+            };
+            assert_eq!(resolve_canonical_reference(&provider, hash).unwrap(), 5);
+        }
     }
 }
