@@ -534,6 +534,11 @@ impl reth_codecs::Compact for SeismicTransactionSigned {
         buf.as_mut().len() - start
     }
 
+    // `_len` is intentionally unused: the encoding is self-describing — the leading bitflags byte
+    // carries the tx type, signature presence, and zstd bit, and each field decodes itself from
+    // there, so the total byte length is never needed. This matches upstream reth's
+    // `TransactionSigned::from_compact`, which likewise ignores the `len`/identifier arg rather
+    // than treating it as a byte length.
     fn from_compact(mut buf: &[u8], _len: usize) -> (Self, &[u8]) {
         use bytes::Buf;
 
@@ -544,6 +549,12 @@ impl reth_codecs::Compact for SeismicTransactionSigned {
         let (signature, buf) = Signature::from_compact(buf, sig_bit);
 
         let zstd_bit = bitflags >> 3;
+        // zstd path: the tx body is decoded from a *separate* decompressed buffer, so we can't
+        // cheaply tell how many bytes of the original (compressed) `buf` the frame occupied. We
+        // therefore return `buf` un-advanced (as if nothing was consumed). This matches upstream
+        // reth's `TransactionSigned`/`OpTypedTransaction` Compact impls, and is sound because a
+        // compressed tx is always the terminal field of its enclosing record, so the returned
+        // remainder is never read.
         let (transaction, buf) = if zstd_bit != 0 {
             if cfg!(feature = "std") {
                 reth_zstd_compressors::TRANSACTION_DECOMPRESSOR.with(|decompressor| {
