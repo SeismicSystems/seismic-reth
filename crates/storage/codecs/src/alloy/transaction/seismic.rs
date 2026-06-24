@@ -108,6 +108,12 @@ impl Compact for TxSeismicElements {
         len
     }
 
+    // `_len` is intentionally unused: the encoding is self-describing — every variable-size field
+    // (`encryption_nonce`, `expires_at_block`) carries its own 1-byte length prefix from
+    // `to_compact` and the rest are fixed-size, so the total byte length is never needed. This
+    // mirrors reth's `Compact` convention, where the `len`/identifier arg is not always a byte
+    // length (e.g. `Signature` repurposes it as a y-parity flag; see
+    // crates/storage/codecs/src/alloy/signature.rs).
     #[allow(clippy::indexing_slicing, clippy::unwrap_used)]
     fn from_compact(mut buf: &[u8], _len: usize) -> (Self, &[u8]) {
         // Codec format is fixed by to_compact; malformed data indicates corruption and should panic
@@ -171,7 +177,7 @@ impl Compact for AlloyTxSeismic {
     }
 
     fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
-        let (tx, _) = TxSeismic::from_compact(buf, len);
+        let (tx, buf) = TxSeismic::from_compact(buf, len);
 
         let alloy_tx = Self {
             chain_id: tx.chain_id,
@@ -490,5 +496,90 @@ mod tests {
             tx.seismic_elements.signed_read,
             decoded_tx.seismic_elements.signed_read
         );
+    }
+}
+
+#[cfg(test)]
+mod compact_remainder_tests {
+    use super::*;
+    use alloy_primitives::hex;
+    use proptest::prelude::*;
+    use proptest_arbitrary_interop::arb;
+    use seismic_enclave::secp256k1::PublicKey;
+
+    fn sample_tx(input: &'static [u8]) -> AlloyTxSeismic {
+        AlloyTxSeismic {
+            chain_id: 1,
+            nonce: 1,
+            gas_price: 1,
+            gas_limit: 1,
+            to: TxKind::Create,
+            value: U256::from(1u64),
+            seismic_elements: TxSeismicElements {
+                encryption_pubkey: PublicKey::from_slice(
+                    &hex::decode(
+                        "02d211b6b0a191b9469bb3674e9c609f453d3801c3e3fd7e0bb00c6cc1e1d941df",
+                    )
+                    .unwrap(),
+                )
+                .unwrap(),
+                encryption_nonce: U96::from(123u64),
+                message_version: 0,
+                recent_block_hash: alloy_primitives::B256::ZERO,
+                expires_at_block: 1,
+                signed_read: false,
+            },
+            authorization_list: vec![],
+            input: Bytes::from_static(input),
+        }
+    }
+
+    proptest! {
+        // `AlloyTxSeismic::from_compact` must return the buffer advanced past the bytes it
+        // consumed; previously it returned the un-advanced input. Asserting an empty remainder
+        // is the regression guard.
+        #[test]
+        fn alloy_tx_seismic_consumes_buffer(tx in arb::<AlloyTxSeismic>()) {
+            let mut buf = vec![];
+            let len = tx.to_compact(&mut buf);
+            let (decoded, remainder) = AlloyTxSeismic::from_compact(&buf, len);
+            prop_assert_eq!(&tx, &decoded);
+            prop_assert!(remainder.is_empty(), "left {} unconsumed bytes", remainder.len());
+        }
+
+        #[test]
+        fn tx_seismic_elements_consumes_buffer(elements in arb::<TxSeismicElements>()) {
+            let mut buf = vec![];
+            let len = elements.to_compact(&mut buf);
+            let (decoded, remainder) = TxSeismicElements::from_compact(&buf, len);
+            prop_assert_eq!(&elements, &decoded);
+            prop_assert!(remainder.is_empty(), "left {} unconsumed bytes", remainder.len());
+        }
+    }
+
+    // Roundtrip a Seismic envelope through the non-zstd path (input < 32 bytes) and assert the
+    // whole buffer is consumed — exercises `AlloyTxSeismic::from_compact` via the envelope decoder.
+    #[test]
+    fn seismic_envelope_consumes_buffer() {
+        let signature = Signature::new(
+            alloy_primitives::b256!(
+                "0x1fd474b1f9404c0c5df43b7620119ffbc3a1c3f942c73b6e14e9f55255ed9b1d"
+            )
+            .into(),
+            alloy_primitives::b256!(
+                "0x29aca24813279a901ec13b5f7bb53385fa1fc627b946592221417ff74a49600d"
+            )
+            .into(),
+            false,
+        );
+        let envelope =
+            SeismicTxEnvelope::Seismic(Signed::new_unhashed(sample_tx(&[0x24]), signature));
+
+        let mut buf = BytesMut::new();
+        let len = Compact::to_compact(&envelope, &mut buf);
+        let (decoded, remainder) = <SeismicTxEnvelope as Compact>::from_compact(&buf, len);
+
+        assert_eq!(envelope, decoded);
+        assert!(remainder.is_empty(), "left {} unconsumed bytes", remainder.len());
     }
 }
