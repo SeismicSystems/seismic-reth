@@ -156,10 +156,18 @@ where
     match signed_read {
         false => Ok(seismic_tx_request),
         true => {
+            // A signed read must carry seismic_elements: they hold the freshness fields validated
+            // below and the encryption metadata `plaintext_copy` needs to decrypt. Treating them as
+            // optional here would silently skip both checks.
+            let Some(elements) = seismic_tx_request.seismic_elements.as_ref() else {
+                return Err(EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+                    -32602,
+                    "signed read missing seismic_elements",
+                    None::<String>,
+                ))));
+            };
             // Reject stale or expired signed reads before doing any ECDH work.
-            if let Some(elements) = seismic_tx_request.seismic_elements.as_ref() {
-                validate_seismic_freshness(elements, provider)?;
-            }
+            validate_seismic_freshness(elements, provider)?;
 
             let sender = parse_request_sender(&seismic_tx_request)?;
             let seismic_tx_request = seismic_tx_request
@@ -589,6 +597,24 @@ mod test {
                 .unwrap_err()
                 .to_string();
             assert!(err.contains("recent_block_hash"), "{err}");
+        }
+
+        #[test]
+        fn signed_read_without_seismic_elements_is_rejected() {
+            // A signed read carries its freshness fields + decryption metadata in
+            // `seismic_elements`; if it's absent the request must be rejected outright rather than
+            // silently skipping freshness validation and proceeding to decrypt.
+            use crate::utils::signed_read_to_plaintext_tx;
+            use seismic_enclave::secp256k1::SecretKey;
+
+            let secret_key = SecretKey::from_slice(&[1u8; 32]).unwrap();
+            // Provider is never touched: the missing-elements check fires before any lookup.
+            let provider = MockProvider::default();
+            let request = super::spoofed_request(None);
+
+            let err =
+                signed_read_to_plaintext_tx((request, true), &secret_key, &provider).unwrap_err();
+            assert!(err.to_string().contains("signed read missing seismic_elements"), "{err}");
         }
     }
 }
