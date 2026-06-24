@@ -20,6 +20,9 @@ fn build_enclave_client(config: &EnclaveArgs) -> HttpClient {
 /// Boot the enclave (or mock server) and fetch purpose keys.
 /// This must be called before building the node components.
 /// Panics if the enclave cannot be booted or purpose keys cannot be fetched.
+///
+/// Total fetch attempts = `config.retries` + 1 (one initial attempt plus `retries`
+/// re-attempts); the `while failures <= config.retries` loop encodes this directly.
 #[allow(clippy::expect_used)] // Intentional panic on startup failure - enclave is required
 #[allow(clippy::panic)] // Intentional panic on fetching keys failure - enclave keys are required
 pub async fn boot_enclave_and_fetch_keys<T>(config: &T) -> GetPurposeKeysResponse

@@ -172,7 +172,6 @@ where
 
         // set up node config
         let mut node_config = NodeConfig {
-            enclave: reth_node_core::args::EnclaveArgs::default(),
             datadir,
             config,
             chain,
