@@ -16,7 +16,7 @@ mod transaction;
 pub mod usdc;
 mod validator;
 
-pub use maintain::SeismicBalanceHook;
+pub use maintain::{maintain_seismic_freshness, stale_seismic_hashes, SeismicBalanceHook};
 pub use recent_block_cache::RecentBlockCache;
 pub use reth_seismic_primitives::SEISMIC_TX_RECENT_BLOCK_LOOKBACK;
 pub use transaction::SeismicPooledTransaction;
