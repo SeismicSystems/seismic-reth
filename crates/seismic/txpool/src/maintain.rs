@@ -1,9 +1,21 @@
-//! Seismic-specific pool maintenance hook that augments native balances with
-//! USDC predeploy balances.
+//! Seismic-specific pool maintenance: a [`ChangedAccountsHook`] that augments native balances with
+//! USDC predeploy balances, and a background task that evicts stale Seismic transactions.
 
+use crate::{
+    recent_block_cache::RecentBlockCache, transaction::SeismicPooledTransaction,
+    validator::seismic_freshness_error,
+};
+use alloy_consensus::BlockHeader;
+use alloy_primitives::{Sealable, TxHash};
+use futures_util::StreamExt;
 use reth_execution_types::ChangedAccount;
-use reth_provider::StateProvider;
-use reth_transaction_pool::maintain::ChangedAccountsHook;
+use reth_provider::{BlockReaderIdExt, CanonStateNotificationStream, StateProvider};
+use reth_seismic_primitives::SeismicPrimitives;
+use reth_transaction_pool::{
+    maintain::ChangedAccountsHook, PoolTransaction, TransactionPool, ValidPoolTransaction,
+};
+use seismic_alloy_consensus::SeismicTypedTransaction;
+use std::sync::Arc;
 use tracing::debug;
 
 /// Makes the transaction pool's balance accounting aware of USDC gas payment.
@@ -58,4 +70,73 @@ impl ChangedAccountsHook for SeismicBalanceHook {
             }
         }
     }
+}
+
+/// Run the full-pool scan every Nth head (the cache still updates every head). Eviction is just
+/// cleanup — the builder skips stale txs regardless — so a little latency is fine.
+const SCAN_EVERY_N_BLOCKS: u64 = 4;
+
+/// Background task that evicts pooled Seismic txs whose freshness window has lapsed.
+///
+/// A tx fresh at ingress can go stale while parked behind a nonce gap (ingress doesn't re-run),
+/// then get re-selected by the builder every block. The cache refreshes each head; the eviction
+/// scan runs every [`SCAN_EVERY_N_BLOCKS`].
+pub async fn maintain_seismic_freshness<Client, Pool>(
+    client: Client,
+    pool: Pool,
+    mut events: CanonStateNotificationStream<SeismicPrimitives>,
+) where
+    Client: BlockReaderIdExt + 'static,
+    Pool: TransactionPool<Transaction = SeismicPooledTransaction>,
+{
+    // Seed the cache from the canonical chain so the first notification has a full lookback window.
+    let mut cache = RecentBlockCache::default();
+    if let Ok(tip) = client.best_block_number() {
+        cache.rebuild_to_tip(tip, |n| client.header_by_number(n).ok()?.map(|h| h.hash_slow()));
+    }
+
+    let mut heads_since_scan = 0u64;
+    while let Some(notification) = events.next().await {
+        let Some(tip) = notification.tip_checked() else { continue };
+        cache.update(tip.hash(), tip.number(), |n| {
+            client.header_by_number(n).ok()?.map(|h| h.hash_slow())
+        });
+
+        heads_since_scan += 1;
+        if heads_since_scan < SCAN_EVERY_N_BLOCKS {
+            continue;
+        }
+        heads_since_scan = 0;
+
+        let all = pool.all_transactions();
+        let stale = stale_seismic_hashes(all.pending.iter().chain(all.queued.iter()), &cache);
+        if !stale.is_empty() {
+            let removed = pool.remove_transactions(stale);
+            debug!(
+                target: "seismic::txpool",
+                count = removed.len(),
+                current_block = cache.current_block_number(),
+                "evicted stale seismic transactions"
+            );
+        }
+    }
+}
+
+/// Hashes of pooled Seismic txs whose freshness window has lapsed. Pure, so testable and benchable.
+/// `recent_block_hash` is gated on [`RecentBlockCache::is_complete`]; expiry always applies.
+pub fn stale_seismic_hashes<'a>(
+    txs: impl IntoIterator<Item = &'a Arc<ValidPoolTransaction<SeismicPooledTransaction>>>,
+    cache: &RecentBlockCache,
+) -> Vec<TxHash> {
+    let check_recent_hash = cache.is_complete();
+    txs.into_iter()
+        .filter_map(|tx| {
+            let consensus_tx = tx.transaction.clone_into_consensus();
+            let SeismicTypedTransaction::Seismic(seismic_tx) = consensus_tx.transaction() else {
+                return None;
+            };
+            seismic_freshness_error(&seismic_tx.seismic_elements, cache, check_recent_hash)
+                .map(|_| *tx.hash())
+        })
+        .collect()
 }

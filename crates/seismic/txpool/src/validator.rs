@@ -2,17 +2,16 @@
 
 use crate::recent_block_cache::RecentBlockCache;
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{Sealable, B256, U256};
+use alloy_primitives::{Sealable, U256};
 use reth_chainspec::ChainSpecProvider;
 use reth_primitives_traits::{transaction::error::InvalidTransactionError, Block, GotExpected};
 use reth_provider::{BlockReaderIdExt, StateProviderFactory};
 use reth_seismic_primitives::{transaction::error::SeismicTxError, SeismicTransactionSigned};
 use reth_transaction_pool::{
-    error::InvalidPoolTransactionError,
     validate::{TransactionValidationOutcome, TransactionValidator},
     EthPoolTransaction, EthTransactionValidator, TransactionOrigin,
 };
-use seismic_alloy_consensus::SeismicTxType;
+use seismic_alloy_consensus::{SeismicTxType, TxSeismicElements};
 use std::{
     fmt,
     marker::PhantomData,
@@ -104,31 +103,20 @@ where
                     if let seismic_alloy_consensus::SeismicTypedTransaction::Seismic(seismic_tx) =
                         consensus_tx.transaction()
                     {
-                        // TODO: the recent_block_hash and expires_at_block checks below
-                        // are currently only done here in the mempool. They should instead be
-                        // done in consensus / block-level validation (e.g. a `SeismicBlockExecutor`
-                        // pre-flight) so that since otherwise they can be
-                        // bypassed by directly including txs via the builder API or other
-                        // non-mempool paths.
                         let seismic_elements = &seismic_tx.seismic_elements;
 
-                        // Validate recent_block_hash is in the last 100 blocks
-                        if let Err(err) =
-                            self.validate_recent_block_hash(seismic_elements.recent_block_hash)
-                        {
+                        // Freshness check, shared with the eviction task. `is_complete()` gates the
+                        // recent_block_hash check so a transient cache hole can't reject a valid
+                        // tx.
+                        let freshness = {
+                            let cache =
+                                self.recent_blocks.read().unwrap_or_else(|e| e.into_inner());
+                            seismic_freshness_error(seismic_elements, &cache, cache.is_complete())
+                        };
+                        if let Some(err) = freshness {
                             return TransactionValidationOutcome::Invalid(
                                 valid_tx.into_transaction(),
-                                err,
-                            );
-                        }
-
-                        // Validate expires_at_block is not in the past
-                        if let Err(err) =
-                            self.validate_expiration(seismic_elements.expires_at_block)
-                        {
-                            return TransactionValidationOutcome::Invalid(
-                                valid_tx.into_transaction(),
-                                err,
+                                InvalidTransactionError::SeismicTx(err.to_string()).into(),
                             );
                         }
                     }
@@ -230,49 +218,30 @@ where
     }
 }
 
-impl<Client, Tx> SeismicTransactionValidator<Client, Tx> {
-    /// Validates that the `recent_block_hash` field provided in a Seismic tx
-    /// is in the last `SEISMIC_TX_RECENT_BLOCK_LOOKBACK` blocks.
-    ///
-    /// Uses an in-memory cache populated at startup and updated via `on_new_head_block`
-    /// for O(1) lookup.
-    fn validate_recent_block_hash(
-        &self,
-        recent_block_hash: B256,
-    ) -> Result<(), InvalidPoolTransactionError> {
-        let cache = self.recent_blocks.read().unwrap_or_else(|e| e.into_inner());
-        if cache.contains(&recent_block_hash) {
-            return Ok(());
-        }
-
-        let err = SeismicTxError::RecentBlockHashNotFound {
-            hash: recent_block_hash,
+/// Freshness violation for `elements`, or `None` if fresh (`recent_block_hash` in window, not
+/// expired). Shared by ingress and the eviction task. `check_recent_hash` gates the hash check so a
+/// transient cache hole isn't read as staleness; expiry always applies.
+pub(crate) fn seismic_freshness_error(
+    elements: &TxSeismicElements,
+    cache: &RecentBlockCache,
+    check_recent_hash: bool,
+) -> Option<SeismicTxError> {
+    if check_recent_hash && !cache.contains(&elements.recent_block_hash) {
+        return Some(SeismicTxError::RecentBlockHashNotFound {
+            hash: elements.recent_block_hash,
             lookback: crate::SEISMIC_TX_RECENT_BLOCK_LOOKBACK,
-        };
-        Err(InvalidTransactionError::SeismicTx(err.to_string()).into())
+        });
     }
 
-    /// Validates that the transaction has not expired.
-    ///
-    /// Uses the cache's `current_block_number` (updated via `on_new_head_block`) so that
-    /// both hash validation and expiration check use the same consensus-driven source.
-    fn validate_expiration(
-        &self,
-        expires_at_block: u64,
-    ) -> Result<(), InvalidPoolTransactionError> {
-        let current_block_num =
-            self.recent_blocks.read().unwrap_or_else(|e| e.into_inner()).current_block_number();
-
-        if current_block_num > expires_at_block {
-            let err = SeismicTxError::TransactionExpired {
-                current_block: current_block_num,
-                expires_at_block,
-            };
-            return Err(InvalidTransactionError::SeismicTx(err.to_string()).into());
-        }
-
-        Ok(())
+    let current_block = cache.current_block_number();
+    if current_block > elements.expires_at_block {
+        return Some(SeismicTxError::TransactionExpired {
+            current_block,
+            expires_at_block: elements.expires_at_block,
+        });
     }
+
+    None
 }
 
 #[cfg(test)]
@@ -286,7 +255,8 @@ mod tests {
     use reth_provider::test_utils::{ExtendedAccount, MockEthProvider};
     use reth_seismic_chainspec::SEISMIC_MAINNET;
     use reth_transaction_pool::{
-        blobstore::InMemoryBlobStore, validate::EthTransactionValidatorBuilder, TransactionOrigin,
+        blobstore::InMemoryBlobStore, error::InvalidPoolTransactionError,
+        validate::EthTransactionValidatorBuilder, TransactionOrigin,
     };
 
     const GAS_LIMIT: u64 = 100_000;
