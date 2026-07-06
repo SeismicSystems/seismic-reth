@@ -302,21 +302,21 @@ mod test {
     }
 
     #[test]
-    fn parse_genesis_hash_command() {
+    fn parse_genesis_hash_command() -> Result<(), clap::Error> {
         // The global --chain arg is accepted on either side of the subcommand.
         for args in [
             ["seismic-reth", "genesis-hash", "--chain", "dev"],
             ["seismic-reth", "--chain", "dev", "genesis-hash"],
         ] {
-            let cli = Cli::<SeismicChainSpecParser, NoArgs>::try_parse_from(args)
-                .expect("genesis-hash args should parse");
+            let cli = Cli::<SeismicChainSpecParser, NoArgs>::try_parse_from(args)?;
             assert!(matches!(cli.command, Commands::GenesisHash));
             assert_eq!(cli.chain.genesis_hash(), SEISMIC_DEV_GENESIS_HASH);
         }
+        Ok(())
     }
 
     #[test]
-    fn genesis_hash_from_genesis_file() {
+    fn genesis_hash_from_genesis_file() -> Result<(), clap::Error> {
         // Deploy passes a genesis *file* (`--chain reth-genesis.json`), while devs
         // use the built-in `--chain dev`; both must agree on the hash. File parsing
         // derives hardforks from the JSON config rather than SEISMIC_DEV_HARDFORKS,
@@ -327,10 +327,10 @@ mod test {
             "genesis-hash",
             "--chain",
             path,
-        ])
-        .expect("genesis-hash args should parse");
+        ])?;
         assert!(matches!(cli.command, Commands::GenesisHash));
         assert_eq!(cli.chain.genesis_hash(), SEISMIC_DEV_GENESIS_HASH);
+        Ok(())
     }
 
     #[test]
