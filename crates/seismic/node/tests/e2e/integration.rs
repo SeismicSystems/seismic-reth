@@ -371,7 +371,7 @@ async fn rpc_test_gas_and_call_variants(
     .await
     .unwrap();
     assert!(
-        raw_account.map_or(true, |a| a.balance == U256::ZERO),
+        raw_account.is_none_or(|a| a.balance == U256::ZERO),
         "eth_getAccount must keep the raw native balance, not the effective USDC balance"
     );
 
@@ -1197,7 +1197,8 @@ fn usdc_only_signer() -> PrivateKeySigner {
     "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e".parse().unwrap()
 }
 
-/// gas_price is not part of the seismic-encrypted envelope, so mutating it post-encryption is safe.
+/// `gas_price` is not part of the seismic-encrypted envelope, so mutating it post-encryption is
+/// safe.
 async fn get_signed_seismic_tx_bytes_with_gas_price(
     sk_wallet: &PrivateKeySigner,
     nonce: u64,
@@ -1312,7 +1313,7 @@ async fn test_usdc_only_eth_estimate_gas_typed_data() -> eyre::Result<()> {
     Ok(())
 }
 
-/// 1000 USDC × 10^12 = 10^21 wei cap; gas_price = 10^18 → allowance 1000 gas, below 21000 floor.
+/// 1000 USDC × 10^12 = 10^21 wei cap; `gas_price` = 10^18 → allowance 1000 gas, below 21000 floor.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_usdc_only_insufficient_balance_high_gas_price() -> eyre::Result<()> {
     let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
@@ -1405,7 +1406,7 @@ async fn test_eth_call_rejects_storage_override() -> eyre::Result<()> {
     let victim_addr = Address::from_hex("0x0000000000000000000000000000000000001234").unwrap();
 
     let storage: alloy_primitives::map::B256HashMap<B256> =
-        [(B256::ZERO, B256::from(U256::from(1)))].into_iter().collect();
+        std::iter::once((B256::ZERO, B256::from(U256::from(1)))).collect();
 
     let mut state_overrides = StateOverride::default();
     state_overrides
@@ -1454,7 +1455,7 @@ async fn test_eth_estimate_gas_rejects_storage_override() -> eyre::Result<()> {
     let victim_addr = Address::from_hex("0x0000000000000000000000000000000000001234").unwrap();
 
     let storage: alloy_primitives::map::B256HashMap<B256> =
-        [(B256::ZERO, B256::from(U256::from(1)))].into_iter().collect();
+        std::iter::once((B256::ZERO, B256::from(U256::from(1)))).collect();
 
     let mut state_overrides = StateOverride::default();
     state_overrides
@@ -1500,7 +1501,7 @@ async fn test_eth_simulate_v1_rejects_storage_override() -> eyre::Result<()> {
     let victim_addr = Address::from_hex("0x0000000000000000000000000000000000001234").unwrap();
 
     let storage: alloy_primitives::map::B256HashMap<B256> =
-        [(B256::ZERO, B256::from(U256::from(1)))].into_iter().collect();
+        std::iter::once((B256::ZERO, B256::from(U256::from(1)))).collect();
 
     let mut state_overrides = StateOverride::default();
     state_overrides

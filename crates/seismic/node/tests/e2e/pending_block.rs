@@ -1,5 +1,5 @@
 //! E2E test for the locally built pending block returned by `eth_getBlockByNumber("pending")`.
-#![allow(clippy::unwrap_used, clippy::expect_used)] // Test file - panics are acceptable
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // Test file - panics are acceptable
 
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
 use reth_e2e_test_utils::{
@@ -71,7 +71,7 @@ async fn test_pending_block_timestamp_offset() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
 
     let (node, _tasks, wallet) = launch_http_node().await?;
-    let client = HttpClientBuilder::default().build(node.rpc_url().to_string())?;
+    let client = HttpClientBuilder::default().build(node.rpc_url())?;
 
     // Put a transfer in the pool so the pending block is genuinely built from
     // the mempool rather than echoing an existing block.
