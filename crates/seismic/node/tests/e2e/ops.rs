@@ -578,7 +578,7 @@ async fn test_ops_sentinel_rejects_wrong_validator_id() {
     let reader = PrivateKeySigner::random();
 
     let (node, _tasks, _wallet) = launch_ops_node(&governance).await.unwrap();
-    let client = HttpClientBuilder::default().build(&node.rpc_url().to_string()).unwrap();
+    let client = HttpClientBuilder::default().build(node.rpc_url()).unwrap();
     let ops_client = build_ops_client(&node_ops_url!(node));
     let chain_id = 5124u64;
 
@@ -606,7 +606,7 @@ async fn test_ops_sentinel_rejects_non_canonical_recent_block_hash() {
     let reader = PrivateKeySigner::random();
 
     let (node, _tasks, _wallet) = launch_ops_node(&governance).await.unwrap();
-    let client = HttpClientBuilder::default().build(&node.rpc_url().to_string()).unwrap();
+    let client = HttpClientBuilder::default().build(node.rpc_url()).unwrap();
     let ops_client = build_ops_client(&node_ops_url!(node));
     let chain_id = 5124u64;
 
@@ -635,7 +635,7 @@ async fn test_ops_sentinel_rejects_block_range_over_bound() {
     let reader = PrivateKeySigner::random();
 
     let (node, _tasks, _wallet) = launch_ops_node(&governance).await.unwrap();
-    let client = HttpClientBuilder::default().build(&node.rpc_url().to_string()).unwrap();
+    let client = HttpClientBuilder::default().build(node.rpc_url()).unwrap();
     let ops_client = build_ops_client(&node_ops_url!(node));
     let chain_id = 5124u64;
 
@@ -667,7 +667,7 @@ async fn test_ops_sentinel_rejects_expired_against_head() {
     let reader = PrivateKeySigner::random();
 
     let (mut node, _tasks, _wallet) = launch_ops_node(&governance).await.unwrap();
-    let client = HttpClientBuilder::default().build(&node.rpc_url().to_string()).unwrap();
+    let client = HttpClientBuilder::default().build(node.rpc_url()).unwrap();
     let ops_client = build_ops_client(&node_ops_url!(node));
     let chain_id = 5124u64;
 
@@ -702,7 +702,7 @@ async fn test_ops_sentinel_rejects_replayed_nonce() {
     let reader = PrivateKeySigner::random();
 
     let (node, _tasks, _wallet) = launch_ops_node(&governance).await.unwrap();
-    let client = HttpClientBuilder::default().build(&node.rpc_url().to_string()).unwrap();
+    let client = HttpClientBuilder::default().build(node.rpc_url()).unwrap();
     let ops_client = build_ops_client(&node_ops_url!(node));
     let chain_id = 5124u64;
 
@@ -751,7 +751,7 @@ async fn test_ops_admin_nonce_advances_after_successful_sentinel_tx() {
     let reader = PrivateKeySigner::random();
 
     let (node, _tasks, _wallet) = launch_ops_node(&governance).await.unwrap();
-    let client = HttpClientBuilder::default().build(&node.rpc_url().to_string()).unwrap();
+    let client = HttpClientBuilder::default().build(node.rpc_url()).unwrap();
     let ops_client = build_ops_client(&node_ops_url!(node));
     let chain_id = 5124u64;
 
@@ -785,7 +785,7 @@ async fn test_ops_sentinel_rejects_expires_before_reference() {
     let reader = PrivateKeySigner::random();
 
     let (mut node, _tasks, _wallet) = launch_ops_node(&governance).await.unwrap();
-    let client = HttpClientBuilder::default().build(&node.rpc_url().to_string()).unwrap();
+    let client = HttpClientBuilder::default().build(node.rpc_url()).unwrap();
     let ops_client = build_ops_client(&node_ops_url!(node));
     let chain_id = 5124u64;
 
@@ -827,7 +827,7 @@ async fn test_ops_sentinel_accepts_admin_nonce_gap_jump() {
     let reader = PrivateKeySigner::random();
 
     let (node, _tasks, _wallet) = launch_ops_node(&governance).await.unwrap();
-    let client = HttpClientBuilder::default().build(&node.rpc_url().to_string()).unwrap();
+    let client = HttpClientBuilder::default().build(node.rpc_url()).unwrap();
     let ops_client = build_ops_client(&node_ops_url!(node));
     let chain_id = 5124u64;
 
@@ -932,7 +932,7 @@ async fn test_ops_sentinel_does_not_burn_nonce_on_action_validation_failure() {
     let reader = PrivateKeySigner::random();
 
     let (node, _tasks, _wallet) = launch_ops_node(&governance).await.unwrap();
-    let client = HttpClientBuilder::default().build(&node.rpc_url().to_string()).unwrap();
+    let client = HttpClientBuilder::default().build(node.rpc_url()).unwrap();
     let ops_client = build_ops_client(&node_ops_url!(node));
     let chain_id = 5124u64;
 
@@ -992,7 +992,7 @@ async fn test_ops_sentinel_rejected_by_send_raw_transaction_sync() {
     let reader = PrivateKeySigner::random();
 
     let (node, _tasks, _wallet) = launch_ops_node(&governance).await.unwrap();
-    let client = HttpClientBuilder::default().build(&node.rpc_url().to_string()).unwrap();
+    let client = HttpClientBuilder::default().build(node.rpc_url()).unwrap();
     let ops_client = build_ops_client(&node_ops_url!(node));
     let chain_id = 5124u64;
 
@@ -1049,7 +1049,7 @@ async fn test_ops_sentinel_whitelisted_key_expires_when_head_passes_key_block() 
     let reader = PrivateKeySigner::random();
 
     let (mut node, _tasks, _wallet) = launch_ops_node(&governance).await.unwrap();
-    let client = HttpClientBuilder::default().build(&node.rpc_url().to_string()).unwrap();
+    let client = HttpClientBuilder::default().build(node.rpc_url()).unwrap();
     let ops_url = node_ops_url!(node);
     let ops_client = build_ops_client(&ops_url);
     let chain_id = 5124u64;

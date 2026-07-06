@@ -80,6 +80,8 @@ mod tests {
         let listener = TcpListener::bind(("127.0.0.1", 0)).await.expect("bind listener");
         let addr = listener.local_addr().expect("local addr");
         tokio::spawn(async move {
+            // The Vec exists only to keep the sockets alive; it is never read.
+            #[allow(clippy::collection_is_never_read)]
             let mut held = Vec::new();
             while let Ok((stream, _)) = listener.accept().await {
                 held.push(stream); // keep the connection open without ever responding

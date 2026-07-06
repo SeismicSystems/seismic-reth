@@ -21,7 +21,7 @@ use reth_seismic_forks::{SEISMIC_DEV_HARDFORKS, SEISMIC_MAINNET_HARDFORKS};
 /// Normalizes a parsed genesis so all Seismic specs derive their config from one place:
 /// scales the JSON (seconds) timestamp to milliseconds when internal timestamps are in ms,
 /// and enables DAO-fork support.
-fn normalize_genesis(mut genesis: Genesis) -> Genesis {
+const fn normalize_genesis(mut genesis: Genesis) -> Genesis {
     // Genesis JSON timestamps are in seconds, but when timestamp-in-seconds feature is disabled,
     // we store timestamps internally as milliseconds
     #[cfg(not(feature = "timestamp-in-seconds"))]
