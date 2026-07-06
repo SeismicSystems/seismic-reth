@@ -214,7 +214,9 @@ where
                     command.execute::<SeismicNode, _>(ctx, components).await
                 })
             }
-            Commands::GenesisHash => unreachable!("handled before tracing init"),
+            // Already handled by the early return above (before tracing init); this arm
+            // only exists to keep the match exhaustive.
+            Commands::GenesisHash => Ok(()),
         }
     }
 
@@ -306,7 +308,8 @@ mod test {
             ["seismic-reth", "genesis-hash", "--chain", "dev"],
             ["seismic-reth", "--chain", "dev", "genesis-hash"],
         ] {
-            let cli = Cli::<SeismicChainSpecParser, NoArgs>::try_parse_from(args).unwrap();
+            let cli = Cli::<SeismicChainSpecParser, NoArgs>::try_parse_from(args)
+                .expect("genesis-hash args should parse");
             assert!(matches!(cli.command, Commands::GenesisHash));
             assert_eq!(cli.chain.genesis_hash(), SEISMIC_DEV_GENESIS_HASH);
         }
@@ -325,7 +328,7 @@ mod test {
             "--chain",
             path,
         ])
-        .unwrap();
+        .expect("genesis-hash args should parse");
         assert!(matches!(cli.command, Commands::GenesisHash));
         assert_eq!(cli.chain.genesis_hash(), SEISMIC_DEV_GENESIS_HASH);
     }
