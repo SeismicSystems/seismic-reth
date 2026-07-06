@@ -161,6 +161,13 @@ where
         L: FnOnce(WithLaunchContext<NodeBuilder<Arc<DatabaseEnv>, C::ChainSpec>>, Ext) -> Fut,
         Fut: Future<Output = eyre::Result<()>>,
     {
+        // Handled before tracing init (which logs to stdout): deploy tooling
+        // captures this command's stdout and needs it to be the hash alone.
+        if matches!(self.command, Commands::GenesisHash) {
+            println!("{}", self.chain.genesis_hash());
+            return Ok(());
+        }
+
         // add network name to logs dir
         self.logs.log_file_directory =
             self.logs.log_file_directory.join(self.chain.chain().to_string());
@@ -207,6 +214,9 @@ where
                     command.execute::<SeismicNode, _>(ctx, components).await
                 })
             }
+            // Already handled by the early return above (before tracing init); this arm
+            // only exists to keep the match exhaustive.
+            Commands::GenesisHash => Ok(()),
         }
     }
 
@@ -229,14 +239,25 @@ pub enum Commands<C: ChainSpecParser, Ext: clap::Args + fmt::Debug> {
     /// Manipulate individual stages.
     #[command(name = "stage")]
     Stage(stage::Command<C>),
+    /// Print the genesis block hash for `--chain` and exit.
+    ///
+    /// Offline: computes `keccak(rlp(header))` from the chain spec without touching a
+    /// database or booting the node, so deploy tooling can precompute the
+    /// `eth_genesis_hash` that summit's network-params config embeds, before any node
+    /// exists.
+    ///
+    /// This is the chain's block-0 hash — a value *derived* from the genesis file:
+    /// state root over the alloc, fork-dependent header fields.
+    #[command(name = "genesis-hash")]
+    GenesisHash,
 }
 
 #[cfg(test)]
 mod test {
-    use crate::chainspec::SeismicChainSpecParser;
+    use crate::{chainspec::SeismicChainSpecParser, Cli, Commands};
     use clap::Parser;
     use reth_cli_commands::{node::NoArgs, NodeCommand};
-    use reth_seismic_chainspec::{SEISMIC_DEV, SEISMIC_DEV_OLD};
+    use reth_seismic_chainspec::{SEISMIC_DEV, SEISMIC_DEV_GENESIS_HASH, SEISMIC_DEV_OLD};
 
     #[test]
     fn parse_dev() {
@@ -278,5 +299,48 @@ mod test {
 
         assert!(cmd.rpc.http);
         assert!(cmd.network.discovery.disable_discovery);
+    }
+
+    #[test]
+    fn parse_genesis_hash_command() -> Result<(), clap::Error> {
+        // The global --chain arg is accepted on either side of the subcommand.
+        for args in [
+            ["seismic-reth", "genesis-hash", "--chain", "dev"],
+            ["seismic-reth", "--chain", "dev", "genesis-hash"],
+        ] {
+            let cli = Cli::<SeismicChainSpecParser, NoArgs>::try_parse_from(args)?;
+            assert!(matches!(cli.command, Commands::GenesisHash));
+            assert_eq!(cli.chain.genesis_hash(), SEISMIC_DEV_GENESIS_HASH);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn genesis_hash_from_genesis_file() -> Result<(), clap::Error> {
+        // Deploy passes a genesis *file* (`--chain reth-genesis.json`), while devs
+        // use the built-in `--chain dev`; both must agree on the hash. File parsing
+        // derives hardforks from the JSON config rather than SEISMIC_DEV_HARDFORKS,
+        // so this also fails if the two chain definitions drift apart.
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../chainspec/res/genesis/dev.json");
+        let cli = Cli::<SeismicChainSpecParser, NoArgs>::try_parse_from([
+            "seismic-reth",
+            "genesis-hash",
+            "--chain",
+            path,
+        ])?;
+        assert!(matches!(cli.command, Commands::GenesisHash));
+        assert_eq!(cli.chain.genesis_hash(), SEISMIC_DEV_GENESIS_HASH);
+        Ok(())
+    }
+
+    #[test]
+    fn genesis_hash_output_format() {
+        // Deploy tooling parses stdout as a single lowercase 0x-hex line; pin the
+        // Display format the command prints. The value itself changes whenever
+        // the dev genesis does, so assert shape, not value.
+        let printed = SEISMIC_DEV.genesis_hash().to_string();
+        assert_eq!(printed.len(), 66);
+        assert!(printed.starts_with("0x"));
+        assert!(printed[2..].chars().all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c)));
     }
 }

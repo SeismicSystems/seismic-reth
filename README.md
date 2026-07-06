@@ -25,10 +25,6 @@ Seismic Reth extends [Reth](https://github.com/paradigmxyz/reth) with shielded t
 
 See [seismic-features](./docs/seismic/features.md) for a detailed overview of Seismic Reth's new features.
 
-## For Users
-
-See the [Seismic Reth Book](https://seismicsystems.github.io/seismic-reth) for instructions on how to install and run Seismic Reth.
-
 ## For Developers
 
 ### Building and testing
