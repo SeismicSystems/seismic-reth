@@ -542,13 +542,17 @@ async fn test_seismic_reth_rpc_with_rust_client() -> eyre::Result<()> {
         .await
         .unwrap();
 
-    let req = TransactionBuilder::<SeismicReth>::with_kind(
-        TransactionBuilder::<SeismicReth>::with_input(
-            SeismicTransactionRequest::default(),
-            ContractTestContext::get_deploy_input_plaintext(),
-        ),
-        TxKind::Create,
-    );
+    // TODO(seismic-alloy): the explicit gas limits in this test are a temporary workaround.
+    // Without one, SeismicGasFiller estimates gas by signing the tx and submitting the raw
+    // bytes to eth_estimateGas. The txs here are plain (non-seismic) txs with no
+    // seismic_elements (the builder never sets tx type 0x4a), so the node rejects the
+    // estimate as a signed read (#419). Remove once seismic-alloy falls back to unsigned
+    // estimation for non-seismic txs and the pin is bumped.
+    let req = seismic_reth_tx_builder()
+        .with_input(ContractTestContext::get_deploy_input_plaintext())
+        .with_kind(TxKind::Create)
+        .with_gas_limit(6_000_000)
+        .into();
     let pending_transaction = provider.send_transaction(req).await.unwrap();
     let tx_hash = *pending_transaction.tx_hash();
     node.advance_block().await?;
@@ -575,6 +579,8 @@ async fn test_seismic_reth_rpc_with_rust_client() -> eyre::Result<()> {
     let set_num_tx = seismic_reth_tx_builder()
         .with_input(ContractTestContext::get_set_number_input_plaintext())
         .with_to(contract_addr)
+        // Explicit gas: see the TODO(seismic-alloy) on the deploy above.
+        .with_gas_limit(6_000_000)
         .into();
     let pending_transaction = provider.send_transaction(set_num_tx).await.unwrap();
     let tx_hash = *pending_transaction.tx_hash();
@@ -612,13 +618,14 @@ async fn test_seismic_precompiles_end_to_end() -> eyre::Result<()> {
         .connect_http(reqwest::Url::parse(&reth_rpc_url).unwrap())
         .await
         .unwrap();
-    let req = TransactionBuilder::<SeismicReth>::with_kind(
-        TransactionBuilder::<SeismicReth>::with_input(
-            SeismicTransactionRequest::default(),
-            get_encryption_precompiles_contracts(),
-        ),
-        TxKind::Create,
-    );
+    // TODO(seismic-alloy): explicit gas limit is a temporary workaround so SeismicGasFiller
+    // skips signed gas estimation, which the node rejects for plain (non-seismic) txs since
+    // #419. See the comment in test_seismic_reth_rpc_with_rust_client.
+    let req = seismic_reth_tx_builder()
+        .with_input(get_encryption_precompiles_contracts())
+        .with_kind(TxKind::Create)
+        .with_gas_limit(6_000_000)
+        .into();
     let pending_transaction = provider.send_transaction(req).await.unwrap();
     let tx_hash = *pending_transaction.tx_hash();
     node.advance_block().await?;
@@ -641,6 +648,8 @@ async fn test_seismic_precompiles_end_to_end() -> eyre::Result<()> {
                 .with_from(from)
                 .with_to(contract_addr)
                 .with_input(unencrypted_aes_key)
+                // Explicit gas: see the TODO(seismic-alloy) on the deploy above.
+                .with_gas_limit(6_000_000)
                 .into(),
         )
         .await
@@ -665,6 +674,8 @@ async fn test_seismic_precompiles_end_to_end() -> eyre::Result<()> {
                 .with_from(from)
                 .with_to(contract_addr)
                 .with_input(unencrypted_input)
+                // Explicit gas: see the TODO(seismic-alloy) on the deploy above.
+                .with_gas_limit(6_000_000)
                 .into(),
         )
         .await
@@ -1154,12 +1165,13 @@ async fn test_eth_simulate_v1_rejects_code_override() -> eyre::Result<()> {
         },
     );
 
-    let nonce = get_nonce(&client, wallet.inner.address()).await;
-    let tx_bytes = get_signed_deploy_tx_bytes(
-        wallet.inner.clone(),
-        nonce,
+    let tx_bytes = get_signed_seismic_tx_bytes(
+        &wallet.inner,
+        get_nonce(&client, wallet.inner.address()).await,
+        TxKind::Call(victim_addr),
         chain_id,
-        ContractTestContext::get_deploy_input_plaintext(),
+        ContractTestContext::get_is_odd_input_plaintext(),
+        get_recent_block_hash(&client).await,
     )
     .await;
 
@@ -1507,12 +1519,13 @@ async fn test_eth_simulate_v1_rejects_storage_override() -> eyre::Result<()> {
     state_overrides
         .insert(victim_addr, AccountOverride { state_diff: Some(storage), ..Default::default() });
 
-    let nonce = get_nonce(&client, wallet.inner.address()).await;
-    let tx_bytes = get_signed_deploy_tx_bytes(
-        wallet.inner.clone(),
-        nonce,
+    let tx_bytes = get_signed_seismic_tx_bytes(
+        &wallet.inner,
+        get_nonce(&client, wallet.inner.address()).await,
+        TxKind::Call(victim_addr),
         chain_id,
-        ContractTestContext::get_deploy_input_plaintext(),
+        ContractTestContext::get_is_odd_input_plaintext(),
+        get_recent_block_hash(&client).await,
     )
     .await;
 
