@@ -5,7 +5,9 @@ use std::fmt::Debug;
 use crate::{
     eth_requests::EthRequestHandler,
     transactions::{
-        config::{StrictEthAnnouncementFilter, TransactionPropagationKind},
+        config::{
+            AnnouncementFilteringPolicy, StrictEthAnnouncementFilter, TransactionPropagationKind,
+        },
         policy::NetworkPolicies,
         TransactionPropagationPolicy, TransactionsManager, TransactionsManagerConfig,
     },
@@ -107,12 +109,36 @@ impl<Tx, Eth, N: NetworkPrimitives> NetworkBuilder<Tx, Eth, N> {
         Eth,
         N,
     > {
+        self.transactions_with_policies(
+            pool,
+            transactions_manager_config,
+            NetworkPolicies::new(propagation_policy, StrictEthAnnouncementFilter::default()),
+        )
+    }
+
+    /// Creates a new [`TransactionsManager`] with the given policy bundle (transaction
+    /// propagation + announcement filtering) and wires it to the network.
+    ///
+    /// Seismic addition: upstream's [`Self::transactions_with_policy`] pins the announcement
+    /// filter to [`StrictEthAnnouncementFilter`], which rejects TxSeismic announcements and
+    /// penalizes the announcing peer. That method is kept untouched (delegating here) so the
+    /// fork stays additive over upstream reth. Upstreaming this would mean generalizing
+    /// `transactions_with_policy` to take a [`NetworkPolicies`] bundle directly, at which
+    /// point this method folds away.
+    pub fn transactions_with_policies<
+        Pool: TransactionPool,
+        P: TransactionPropagationPolicy + Debug,
+        A: AnnouncementFilteringPolicy + Debug,
+    >(
+        self,
+        pool: Pool,
+        transactions_manager_config: TransactionsManagerConfig,
+        policies: NetworkPolicies<P, A>,
+    ) -> NetworkBuilder<TransactionsManager<Pool, N, NetworkPolicies<P, A>>, Eth, N> {
         let Self { mut network, request_handler, .. } = self;
         let (tx, rx) = mpsc::unbounded_channel();
         network.set_transactions(tx);
         let handle = network.handle().clone();
-        let announcement_policy = StrictEthAnnouncementFilter::default();
-        let policies = NetworkPolicies::new(propagation_policy, announcement_policy);
 
         let transactions = TransactionsManager::with_policy(
             handle,
