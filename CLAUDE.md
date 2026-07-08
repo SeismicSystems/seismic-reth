@@ -36,9 +36,27 @@ Reth is a high-performance Ethereum execution client written in Rust, focusing o
    cargo +nightly fmt --all
    ```
 
-2. **Linting**: Run clippy with all features
+2. **Linting**: Run the Seismic CI clippy command (matches `.github/workflows/seismic.yml`)
    ```bash
-   RUSTFLAGS="-D warnings" cargo +nightly clippy --workspace --lib --examples --tests --benches --all-features --locked
+   cargo clippy \
+     -p reth-seismic-primitives \
+     -p reth-seismic-chainspec \
+     -p reth-seismic-evm \
+     -p reth-seismic-payload-builder \
+     -p reth-seismic-node \
+     -p reth-seismic-rpc \
+     -p reth-seismic-cli \
+     -p reth-seismic-txpool \
+     -p reth-seismic-forks \
+     -p seismic-reth \
+     --lib --tests --no-deps \
+     -- -D warnings \
+     -W clippy::unwrap_used \
+     -W clippy::expect_used \
+     -W clippy::indexing_slicing \
+     -W clippy::panic \
+     -W clippy::unreachable \
+     -W clippy::todo
    ```
 
 3. **Testing**: Use nextest for faster test execution
@@ -166,13 +184,36 @@ Based on PR patterns, avoid:
 
 ### CI Requirements
 
-Before submitting changes, ensure:
+Before committing or pushing code, run these checks locally to match what Seismic CI (`.github/workflows/seismic.yml`) enforces:
 
 1. **Format Check**: `cargo +nightly fmt --all --check`
-2. **Clippy**: No warnings with `RUSTFLAGS="-D warnings"`
-3. **Tests Pass**: All unit and integration tests
-4. **Documentation**: Update relevant docs and add doc comments with `cargo docs --document-private-items`
-5. **Commit Messages**: Follow conventional format (feat:, fix:, chore:, etc.)
+2. **Warnings Check**: `RUSTFLAGS="-D warnings" cargo check`
+3. **Clippy** (Seismic crates with strict lints):
+   ```bash
+   cargo clippy \
+     -p reth-seismic-primitives \
+     -p reth-seismic-chainspec \
+     -p reth-seismic-evm \
+     -p reth-seismic-payload-builder \
+     -p reth-seismic-node \
+     -p reth-seismic-rpc \
+     -p reth-seismic-cli \
+     -p reth-seismic-txpool \
+     -p reth-seismic-forks \
+     -p seismic-reth \
+     --lib --tests --no-deps \
+     -- -D warnings \
+     -W clippy::unwrap_used \
+     -W clippy::expect_used \
+     -W clippy::indexing_slicing \
+     -W clippy::panic \
+     -W clippy::unreachable \
+     -W clippy::todo
+   ```
+4. **Tests Pass**: `cargo nextest run --workspace` (unit and integration)
+5. **Build Check**: `cargo check --workspace`
+6. **Documentation**: Update relevant docs and add doc comments with `cargo docs --document-private-items`
+7. **Commit Messages**: Follow conventional format (feat:, fix:, chore:, etc.)
 
 
 ### Opening PRs against <https://github.com/paradigmxyz/reth>
@@ -294,8 +335,11 @@ Let's say you want to fix a bug where external IP resolution fails on startup:
 # Format code
 cargo +nightly fmt --all
 
-# Run lints
-RUSTFLAGS="-D warnings" cargo +nightly clippy --workspace --all-features --locked
+# Run Seismic CI clippy (see CI Requirements section for full command)
+cargo clippy -p reth-seismic-primitives -p reth-seismic-chainspec -p reth-seismic-evm -p reth-seismic-payload-builder -p reth-seismic-node -p reth-seismic-rpc -p reth-seismic-cli -p reth-seismic-txpool -p reth-seismic-forks -p seismic-reth --lib --tests --no-deps -- -D warnings -W clippy::unwrap_used -W clippy::expect_used -W clippy::indexing_slicing -W clippy::panic -W clippy::unreachable -W clippy::todo
+
+# Run warnings check
+RUSTFLAGS="-D warnings" cargo check
 
 # Run tests
 cargo nextest run --workspace
