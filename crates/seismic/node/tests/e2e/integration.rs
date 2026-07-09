@@ -20,7 +20,7 @@ use alloy_primitives::{
 use alloy_provider::{Provider, SendableTx};
 use alloy_rpc_types::{
     state::{AccountOverride, StateOverride},
-    Block, Header, TransactionInput, TransactionRequest,
+    Block, BlockOverrides, Header, TransactionInput, TransactionRequest,
 };
 use alloy_rpc_types_eth::Bundle;
 use alloy_signer_local::PrivateKeySigner;
@@ -1551,6 +1551,110 @@ async fn test_eth_simulate_v1_rejects_storage_override() -> eyre::Result<()> {
             assert!(
                 err_msg.to_lowercase().contains("storage overrides are not permitted"),
                 "Expected storage override rejection error, got: {}",
+                err_msg
+            );
+        }
+    }
+    Ok(())
+}
+
+/// A user-supplied block override on `eth_call` can rewind `block.timestamp`
+/// (`BlockOverrides.time`) below a `balanceOfSigned` expiry and revive an expired signature — a
+/// confidentiality break the seismic-std-lib cannot defend against (Zellic seismic-std-lib finding
+/// 3.3). The node must reject any user-supplied block override. Positive control: the identical
+/// call without overrides succeeds.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_call_rejects_block_override() -> eyre::Result<()> {
+    let (_node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let victim_addr = Address::from_hex("0x0000000000000000000000000000000000001234").unwrap();
+
+    let request: SeismicCallRequest = SeismicTransactionRequest {
+        inner: TransactionRequest {
+            from: Some(wallet.inner.address()),
+            to: Some(TxKind::Call(victim_addr)),
+            gas: Some(1_000_000),
+            chain_id: Some(chain_id),
+            ..Default::default()
+        },
+        seismic_elements: None,
+    }
+    .into();
+
+    // Rewind the block timestamp far into the past.
+    let block_overrides = BlockOverrides { time: Some(1), ..Default::default() };
+
+    let result = EthApiOverrideClient::<Block>::call(
+        &client,
+        request.clone(),
+        None,
+        None,
+        Some(Box::new(block_overrides)),
+    )
+    .await;
+
+    match &result {
+        Ok(output) => panic!(
+            "eth_call with block override should be rejected, but got Ok: 0x{}",
+            hex::encode(output)
+        ),
+        Err(e) => {
+            let err_msg = e.to_string();
+            assert!(
+                err_msg.to_lowercase().contains("block overrides are not permitted"),
+                "Expected block override rejection error, got: {}",
+                err_msg
+            );
+        }
+    }
+
+    // Positive control: the same call without block overrides must succeed.
+    let ok = EthApiOverrideClient::<Block>::call(&client, request, None, None, None).await;
+    assert!(ok.is_ok(), "eth_call without overrides should succeed, got: {:?}", ok.err());
+
+    Ok(())
+}
+
+/// `eth_simulateV1` counterpart to [`test_eth_call_rejects_block_override`]: a
+/// `BlockOverrides.time` rewind carried on a simulated block must be rejected.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_simulate_v1_rejects_block_override() -> eyre::Result<()> {
+    let (_node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let victim_addr = Address::from_hex("0x0000000000000000000000000000000000001234").unwrap();
+
+    let tx_bytes = get_signed_seismic_tx_bytes(
+        &wallet.inner,
+        get_nonce(&client, wallet.inner.address()).await,
+        TxKind::Call(victim_addr),
+        chain_id,
+        ContractTestContext::get_is_odd_input_plaintext(),
+        get_recent_block_hash(&client).await,
+    )
+    .await;
+
+    let block_with_block_override = SimBlock {
+        block_overrides: Some(BlockOverrides { time: Some(1), ..Default::default() }),
+        state_overrides: None,
+        calls: vec![SeismicCallRequest::Bytes(tx_bytes)],
+    };
+
+    let simulate_payload = SimulatePayload::<SeismicCallRequest> {
+        block_state_calls: vec![block_with_block_override],
+        trace_transfers: false,
+        validation: false,
+        return_full_transactions: false,
+    };
+
+    let result = EthApiOverrideClient::<Block>::simulate_v1(&client, simulate_payload, None).await;
+
+    match &result {
+        Ok(_) => panic!("eth_simulateV1 with block override should be rejected"),
+        Err(e) => {
+            let err_msg = e.to_string();
+            assert!(
+                err_msg.to_lowercase().contains("block overrides are not permitted"),
+                "Expected block override rejection error, got: {}",
                 err_msg
             );
         }
