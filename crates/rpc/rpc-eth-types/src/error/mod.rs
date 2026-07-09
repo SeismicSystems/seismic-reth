@@ -121,6 +121,12 @@ pub enum EthApiError {
     /// Storage overrides are not permitted (Seismic privacy)
     #[error("storage overrides are not permitted on Seismic (account: {0:?})")]
     StorageOverrideNotPermitted(Address),
+    /// Block overrides are not permitted (Seismic privacy)
+    ///
+    /// A user-supplied block override can rewind `block.timestamp`/`number` and revive an expired
+    /// signed read (e.g. `balanceOfSigned`), so they are rejected on user-facing RPC entrypoints.
+    #[error("block overrides are not permitted on Seismic")]
+    BlockOverrideNotPermitted,
     /// Other internal error
     #[error(transparent)]
     Internal(RethError),
@@ -262,6 +268,7 @@ impl From<EthApiError> for jsonrpsee_types::error::ErrorObject<'static> {
             EthApiError::BothStateAndStateDiffInOverride(_) |
             EthApiError::CodeOverrideNotPermitted(_) |
             EthApiError::StorageOverrideNotPermitted(_) |
+            EthApiError::BlockOverrideNotPermitted |
             EthApiError::InvalidTracerConfig |
             EthApiError::TransactionConversionError |
             EthApiError::InvalidRewardPercentiles |

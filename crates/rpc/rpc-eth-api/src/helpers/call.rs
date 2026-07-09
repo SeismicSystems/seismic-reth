@@ -9,7 +9,7 @@ use crate::{
 };
 use alloy_consensus::BlockHeader;
 use alloy_eips::eip2930::AccessListResult;
-use alloy_evm::overrides::{apply_block_overrides, apply_state_overrides, OverrideBlockHashes};
+use alloy_evm::overrides::{apply_state_overrides, OverrideBlockHashes};
 use alloy_network::TransactionBuilder;
 use alloy_primitives::{Bytes, B256, U256};
 use alloy_rpc_types_eth::{
@@ -119,18 +119,11 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
                     let SimBlock { block_overrides, state_overrides, calls } = block;
 
-                    if let Some(block_overrides) = block_overrides {
-                        // ensure we don't allow uncapped gas limit per block
-                        if let Some(gas_limit_override) = block_overrides.gas_limit {
-                            if gas_limit_override > evm_env.block_env.gas_limit &&
-                                gas_limit_override > this.call_gas_limit()
-                            {
-                                return Err(
-                                    EthApiError::other(EthSimulateError::GasLimitReached).into()
-                                )
-                            }
-                        }
-                        apply_block_overrides(block_overrides, &mut db, &mut evm_env.block_env);
+                    // Seismic: reject user-supplied block overrides — rewinding
+                    // block.timestamp/number could revive an expired signed read, breaking
+                    // confidentiality.
+                    if block_overrides.is_some() {
+                        return Err(EthApiError::BlockOverrideNotPermitted.into())
                     }
                     if let Some(state_overrides) = state_overrides {
                         apply_state_overrides(state_overrides, &mut db)
@@ -779,8 +772,11 @@ pub trait Call:
         // set nonce to None so that the correct nonce is chosen by the EVM
         request.as_mut().take_nonce();
 
-        if let Some(block_overrides) = overrides.block {
-            apply_block_overrides(*block_overrides, db, &mut evm_env.block_env);
+        // Seismic: reject user-supplied block overrides — rewinding block.timestamp/number could
+        // revive an expired signed read, breaking confidentiality. This is the shared chokepoint
+        // for eth_call, eth_callMany, and the trace_/debug_ call variants.
+        if overrides.block.is_some() {
+            return Err(EthApiError::BlockOverrideNotPermitted.into())
         }
         if let Some(state_overrides) = overrides.state {
             apply_state_overrides(state_overrides, db)
