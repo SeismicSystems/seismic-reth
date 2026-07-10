@@ -83,7 +83,7 @@ If the answer is not there:
 
 ### Report a Vulnerability
 
-Contact [p@seismic.systems](mailto:p@seismic.systems), [l@seismic.systems](mailto:l@seismic.systems)
+Contact [security@seismic.systems](mailto:security@seismic.systems)
 
 ## Acknowledgements
 
