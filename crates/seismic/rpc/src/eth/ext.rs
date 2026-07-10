@@ -24,6 +24,7 @@ use jsonrpsee::{
     core::{async_trait, RpcResult},
     proc_macros::rpc,
 };
+use reth_network_api::PeersInfo;
 use reth_network_peers::NodeRecord;
 use reth_rpc_eth_api::{
     helpers::{EthCall, EthTransactions, FullEthApi},
@@ -70,20 +71,22 @@ pub struct SeismicNodeInfo {
 
 /// Implementation of the seismic rpc api
 #[derive(Debug, Clone)]
-pub struct SeismicApi {
+pub struct SeismicApi<P> {
     purpose_keys: GetPurposeKeysResponse,
-    node_info: SeismicNodeInfo,
+    // Keep the PeersInfo provider instead of snapshotting a NodeRecord because discovery
+    // may update the externally advertised address after startup.
+    peers_info: P,
 }
 
-impl SeismicApi {
+impl<P: PeersInfo> SeismicApi<P> {
     /// Creates a new seismic api instance.
-    pub const fn new(purpose_keys: GetPurposeKeysResponse, node_record: NodeRecord) -> Self {
-        Self { purpose_keys, node_info: SeismicNodeInfo { node_record } }
+    pub const fn new(purpose_keys: GetPurposeKeysResponse, peers_info: P) -> Self {
+        Self { purpose_keys, peers_info }
     }
 }
 
 #[async_trait]
-impl SeismicApiServer for SeismicApi {
+impl<P: PeersInfo + 'static> SeismicApiServer for SeismicApi<P> {
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey> {
         trace!(target: "rpc::seismic", "Serving seismic_getTeePublicKey");
         Ok(self.purpose_keys.tx_io_pk)
@@ -91,7 +94,7 @@ impl SeismicApiServer for SeismicApi {
 
     async fn node_info(&self) -> RpcResult<SeismicNodeInfo> {
         trace!(target: "rpc::seismic", "Serving seismic_nodeInfo");
-        Ok(self.node_info.clone())
+        Ok(SeismicNodeInfo { node_record: self.peers_info.local_node_record() })
     }
 }
 

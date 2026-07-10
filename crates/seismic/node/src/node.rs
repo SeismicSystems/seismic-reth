@@ -383,7 +383,7 @@ where
             EthConfigHandler::new(ctx.node.provider().clone(), ctx.node.evm_config().clone());
 
         let purpose_keys = get_purpose_keys().clone();
-        let node_record = ctx.node.network().local_node_record();
+        let peers_info = ctx.node.network().clone();
 
         self.inner
             .launch_add_ons_with(ctx, move |container| {
@@ -401,7 +401,7 @@ where
                 )?;
 
                 // Always register public Seismic node information, regardless of the configured standard RPC namespaces.
-                modules.merge_configured(SeismicApi::new(purpose_keys, node_record).into_rpc())?;
+                modules.merge_configured(SeismicApi::new(purpose_keys, peers_info).into_rpc())?;
 
                 // Trace endpoints stay off on Seismic. Our traces are already sanitized
                 // (calldata, return data, memory, and stack are stripped — see
