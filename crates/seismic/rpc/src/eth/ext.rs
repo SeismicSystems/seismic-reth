@@ -52,10 +52,10 @@ pub trait SeismicApi {
     #[method(name = "getTeePublicKey")]
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey>;
 
-    /// `admin` namespace is disabled for safety, but we still need the enode exposed for new joining
-    /// nodes wanting to locate discv5 bootnodes. Operators starting new nodes who have the IP
-    /// address of bootstrap nodes can query this endpoint for their enode record and add it to
-    /// reth's startup config via `--bootnodes <ENODE>[,<ENODE>...]`.
+    /// `admin` namespace is disabled for safety, but we still need the enode exposed for new
+    /// joining nodes wanting to locate discv5 bootnodes. Operators starting new nodes who have
+    /// the IP address of bootstrap nodes can query this endpoint for their enode record and add
+    /// it to reth's startup config via `--bootnodes <ENODE>[,<ENODE>...]`.
     #[method(name = "nodeInfo")]
     async fn node_info(&self) -> RpcResult<SeismicNodeInfo>;
 }
