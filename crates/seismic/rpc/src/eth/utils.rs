@@ -5,7 +5,7 @@ use reth_primitives::Recovered;
 use reth_primitives_traits::SignedTransaction;
 use reth_rpc_eth_types::{EthApiError, EthResult};
 use reth_seismic_primitives::{
-    transaction::error::SeismicTxError, SEISMIC_TX_RECENT_BLOCK_LOOKBACK,
+    transaction::error::SeismicTxError, SeismicTxType, SEISMIC_TX_RECENT_BLOCK_LOOKBACK,
 };
 use reth_storage_api::BlockNumReader;
 use seismic_alloy_consensus::{
@@ -49,10 +49,17 @@ pub fn recover_typed_data_request<T: SignedTransaction + Decodable712>(
         .or(Err(EthApiError::InvalidTransactionSignature))
 }
 
-/// Convert a [`SeismicCallRequest`] to a [`SeismicTransactionRequest`].
+/// Convert a [`SeismicCallRequest`] to a [`SeismicTransactionRequest`],
+/// classifying whether it must be processed as a signed read.
 ///
-/// If the call requests simulates a transaction without a signature from msg.sender,
-/// we null out the fields that may reveal sensitive information.
+/// Unsigned `TransactionRequest`s are sanitized (fields that could spoof
+/// `msg.sender` or leak are nulled) and are never signed reads. Signed
+/// submissions carrying a Seismic (0x4a) transaction are signed reads: their
+/// `seismic_elements` hold the freshness fields and decryption metadata that
+/// [`signed_read_to_plaintext_tx`] enforces and consumes. Raw bytes carrying a
+/// plain (non-seismic) transaction are authenticated calls/estimates — the
+/// recovered signature already proves the sender and there is nothing to
+/// decrypt — so they are not signed reads.
 pub fn convert_seismic_call_to_tx_request(
     request: SeismicCallRequest,
 ) -> Result<(SeismicTransactionRequest, bool), EthApiError> {
@@ -80,7 +87,13 @@ pub fn convert_seismic_call_to_tx_request(
             let tx = recover_raw_seismic_call_tx(&bytes)?;
             let mut req: SeismicTransactionRequest = tx.inner().clone().into();
             TransactionBuilder::<SeismicReth>::set_from(&mut req, tx.signer());
-            Ok((req, true))
+            // Only Seismic (0x4a) envelopes get signed-read handling; note a 0x4a
+            // *write* estimate also needs it, since its input must be decrypted
+            // before executing. Clients submit plain envelopes here to estimate
+            // transparent txs with an authenticated sender; classifying those as
+            // signed reads would reject them for lacking seismic_elements.
+            let signed_read = matches!(tx.inner().tx_type(), SeismicTxType::Seismic);
+            Ok((req, signed_read))
         }
     }
 }
@@ -319,8 +332,10 @@ mod test {
         assert_sanitized(&req);
     }
 
-    #[test]
-    fn test_typed_data_tx_hash() {
+    /// A [`TxSeismic`] with a real, recoverable signature (captured from a
+    /// devnet transaction). Shared by the typed-data and raw-bytes
+    /// classification tests.
+    fn seismic_tx_and_signature() -> (TxSeismic, Signature) {
         let r_bytes =
             hex::decode("e93185920818650416b4b0cc953c48f59fd9a29af4b7e1c4b1ac4824392f9220")
                 .unwrap();
@@ -358,6 +373,12 @@ mod test {
             },
             authorization_list: vec![],
         };
+        (tx, signature)
+    }
+
+    #[test]
+    fn test_typed_data_tx_hash() {
+        let (tx, signature) = seismic_tx_and_signature();
 
         let signed = SeismicTransactionSigned::new_unhashed(
             seismic_alloy_consensus::SeismicTypedTransaction::Seismic(tx.clone()),
@@ -386,6 +407,53 @@ mod test {
         .unwrap();
         assert_eq!(signed_sighash, expected_sighash);
         assert_eq!(recovered_sighash, expected_sighash);
+    }
+
+    /// Classification of the raw-bytes call path: only Seismic (0x4a)
+    /// envelopes are signed reads. Regression tests for plain signed txs
+    /// submitted to `eth_estimateGas` (the clients' signed gas-estimation
+    /// flow), which were classified as signed reads by transport shape and
+    /// rejected for lacking `seismic_elements`.
+    mod raw_bytes_classification {
+        use crate::utils::convert_seismic_call_to_tx_request;
+        use alloy_eips::eip2718::Encodable2718;
+        use alloy_primitives::{hex::FromHex, Address, Bytes};
+        use reth_seismic_primitives::SeismicTransactionSigned;
+        use seismic_alloy_rpc_types::SeismicCallRequest;
+        use std::str::FromStr;
+
+        /// A real signed EIP-1559 (0x02) transaction captured from the
+        /// clients' integration suite: `increment()` sent by anvil dev
+        /// account #0 on the dev chain (5124).
+        const RAW_PLAIN_TX: &str = "0x02f87282140410843b9aca00843c7cc0628401c9c380949a676e781a523b5d0c0e43731313a708cb6075088084d09de08ac080a03dd0f1039e6b2525144f25e4f0ee2394ed34245411e0aff27fc354f769008343a07647af2881f3927f35dbb3091a8ad529542bcb8a6116baccc82dedffc6c8528b";
+
+        #[test]
+        fn plain_raw_tx_is_not_a_signed_read() {
+            let bytes = Bytes::from_hex(RAW_PLAIN_TX).unwrap();
+            let (req, signed_read) =
+                convert_seismic_call_to_tx_request(SeismicCallRequest::Bytes(bytes)).unwrap();
+            assert!(!signed_read, "plain 0x02 tx must not be classified as a signed read");
+            // The sender comes from the recovered signature, not from a spoofable field.
+            assert_eq!(
+                req.inner.from,
+                Some(Address::from_str("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266").unwrap())
+            );
+            assert!(req.seismic_elements.is_none());
+        }
+
+        #[test]
+        fn seismic_raw_tx_is_a_signed_read() {
+            let (tx, signature) = super::seismic_tx_and_signature();
+            let signed = SeismicTransactionSigned::new_unhashed(
+                seismic_alloy_consensus::SeismicTypedTransaction::Seismic(tx),
+                signature,
+            );
+            let bytes = Bytes::from(signed.encoded_2718());
+            let (req, signed_read) =
+                convert_seismic_call_to_tx_request(SeismicCallRequest::Bytes(bytes)).unwrap();
+            assert!(signed_read, "0x4a envelopes get signed-read handling");
+            assert!(req.seismic_elements.is_some());
+        }
     }
 
     #[test]
