@@ -15,7 +15,7 @@ use reth_evm::{
 };
 use reth_network::{
     transactions::{config::TypedStrictFilter, policy::NetworkPolicies},
-    NetworkHandle, NetworkPrimitives,
+    NetworkHandle, NetworkPrimitives, PeersInfo,
 };
 use reth_node_api::{AddOnsContext, FullNodeComponents, NodeAddOns, PrimitivesTy, TxTy};
 use reth_node_builder::{
@@ -60,6 +60,7 @@ use reth_transaction_pool::{
 use revm::context::TxEnv;
 use seismic_alloy_consensus::{SeismicTxEnvelope, SeismicTxType};
 use std::{sync::Arc, time::SystemTime};
+use tracing::info;
 
 use crate::{purpose_keys::get_purpose_keys, seismic_evm_config};
 
@@ -382,6 +383,7 @@ where
             EthConfigHandler::new(ctx.node.provider().clone(), ctx.node.evm_config().clone());
 
         let purpose_keys = get_purpose_keys().clone();
+        let peers_info = ctx.node.network().clone();
 
         self.inner
             .launch_add_ons_with(ctx, move |container| {
@@ -398,8 +400,8 @@ where
                     EthApiExt::new(registry.eth_api().clone(), purpose_keys.clone()).into_rpc(),
                 )?;
 
-                // Register seismic_ namespace (getTeePublicKey)
-                modules.merge_configured(SeismicApi::new(purpose_keys).into_rpc())?;
+                // Always register public Seismic node information, regardless of the configured standard RPC namespaces.
+                modules.merge_configured(SeismicApi::new(purpose_keys, peers_info).into_rpc())?;
 
                 // Trace endpoints stay off on Seismic. Our traces are already sanitized
                 // (calldata, return data, memory, and stack are stripped — see
@@ -763,8 +765,11 @@ where
             ctx.config().network.transactions_manager_config(),
             policies,
         );
-        // info!(target: "reth::cli", enode=%handle.local_node_record(), "P2P networking
-        // initialized");
+        info!(
+            target: "reth::cli",
+            enode = %handle.local_node_record(),
+            "P2P networking initialized"
+        );
         Ok(handle)
     }
 }
