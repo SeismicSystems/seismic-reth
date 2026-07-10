@@ -13,7 +13,10 @@ use reth_eth_wire_types::NewBlock;
 use reth_evm::{
     ConfigureEngineEvm, ConfigureEvm, EvmFactory, EvmFactoryFor, NextBlockEnvAttributes,
 };
-use reth_network::{NetworkHandle, NetworkPrimitives};
+use reth_network::{
+    transactions::{config::TypedStrictFilter, policy::NetworkPolicies},
+    NetworkHandle, NetworkPrimitives,
+};
 use reth_node_api::{AddOnsContext, FullNodeComponents, NodeAddOns, PrimitivesTy, TxTy};
 use reth_node_builder::{
     components::{
@@ -55,7 +58,7 @@ use reth_transaction_pool::{
     CoinbaseTipOrdering, PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
 };
 use revm::context::TxEnv;
-use seismic_alloy_consensus::SeismicTxEnvelope;
+use seismic_alloy_consensus::{SeismicTxEnvelope, SeismicTxType};
 use std::{sync::Arc, time::SystemTime};
 
 use crate::{purpose_keys::get_purpose_keys, seismic_evm_config};
@@ -721,6 +724,10 @@ where
     }
 }
 
+/// Strict eth/68 announcement filter over [`SeismicTxType`]: accepts every Seismic
+/// transaction type (including `TxSeismic`, type 74) and rejects unknown type bytes.
+pub type SeismicAnnouncementFilter = TypedStrictFilter<SeismicTxType>;
+
 /// A basic ethereum payload service.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SeismicNetworkBuilder {
@@ -743,7 +750,19 @@ where
         pool: Pool,
     ) -> eyre::Result<NetworkHandle<SeismicNetworkPrimitives>> {
         let network = ctx.network_builder().await?;
-        let handle = ctx.start_network(network, pool);
+        // The default announcement filter only knows the Ethereum tx types, so eth/68
+        // announcements carrying TxSeismic (type 74) would be dropped and the announcing
+        // peer penalized. Filter announcements by SeismicTxType instead.
+        let policies = NetworkPolicies::new(
+            ctx.config().network.tx_propagation_policy,
+            SeismicAnnouncementFilter::default(),
+        );
+        let handle = ctx.start_network_with_policies(
+            network,
+            pool,
+            ctx.config().network.transactions_manager_config(),
+            policies,
+        );
         // info!(target: "reth::cli", enode=%handle.local_node_record(), "P2P networking
         // initialized");
         Ok(handle)
