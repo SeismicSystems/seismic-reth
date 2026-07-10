@@ -24,6 +24,7 @@ use jsonrpsee::{
     core::{async_trait, RpcResult},
     proc_macros::rpc,
 };
+use reth_network_peers::NodeRecord;
 use reth_rpc_eth_api::{
     helpers::{EthCall, EthTransactions, FullEthApi},
     RpcBlock, RpcTypes,
@@ -38,6 +39,7 @@ use seismic_alloy_rpc_types::{
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
 };
 use seismic_enclave::{secp256k1::PublicKey, GetPurposeKeysResponse};
+use serde::{Deserialize, Serialize};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
 /// trait interface for a custom rpc namespace: `seismic`
@@ -46,21 +48,37 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 #[cfg_attr(not(feature = "client"), rpc(server, namespace = "seismic"))]
 #[cfg_attr(feature = "client", rpc(server, client, namespace = "seismic"))]
 pub trait SeismicApi {
-    /// Returns the network public key
+    /// Returns the network public key.
     #[method(name = "getTeePublicKey")]
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey>;
+
+    /// `admin` namespace is disabled for safety, but we still need the enode exposed for new joining
+    /// nodes wanting to locate discv5 bootnodes. Operators starting new nodes who have the IP
+    /// address of bootstrap nodes can query this endpoint for their enode record and add it to
+    /// reth's startup config via `--bootnodes <ENODE>[,<ENODE>...]`.
+    #[method(name = "nodeInfo")]
+    async fn node_info(&self) -> RpcResult<SeismicNodeInfo>;
+}
+
+/// Public devp2p information for a Seismic node.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SeismicNodeInfo {
+    /// The structured local node record, serialized as an enode URL.
+    #[serde(rename = "enode")]
+    pub node_record: NodeRecord,
 }
 
 /// Implementation of the seismic rpc api
 #[derive(Debug, Clone)]
 pub struct SeismicApi {
     purpose_keys: GetPurposeKeysResponse,
+    node_info: SeismicNodeInfo,
 }
 
 impl SeismicApi {
-    /// Creates a new seismic api instance
-    pub const fn new(purpose_keys: GetPurposeKeysResponse) -> Self {
-        Self { purpose_keys }
+    /// Creates a new seismic api instance.
+    pub const fn new(purpose_keys: GetPurposeKeysResponse, node_record: NodeRecord) -> Self {
+        Self { purpose_keys, node_info: SeismicNodeInfo { node_record } }
     }
 }
 
@@ -69,6 +87,11 @@ impl SeismicApiServer for SeismicApi {
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey> {
         trace!(target: "rpc::seismic", "Serving seismic_getTeePublicKey");
         Ok(self.purpose_keys.tx_io_pk)
+    }
+
+    async fn node_info(&self) -> RpcResult<SeismicNodeInfo> {
+        trace!(target: "rpc::seismic", "Serving seismic_nodeInfo");
+        Ok(self.node_info.clone())
     }
 }
 
