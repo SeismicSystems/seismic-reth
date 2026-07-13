@@ -10,6 +10,10 @@
 
 name: Claude Code PR Review
 
+env:
+  # Sonnet 4.6 is the latest Sonnet and keeps per-push PR reviews faster and cheaper than Opus.
+  CLAUDE_MODEL: claude-sonnet-4-6
+
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
@@ -60,7 +64,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           claude_args: |
-            --model claude-sonnet-5
+            --model ${{ env.CLAUDE_MODEL }}
             --allowedTools "Read,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
           prompt: |
             Review PR #${{ env.PR_NUMBER }} in ${{ github.repository }}.

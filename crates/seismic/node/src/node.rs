@@ -13,7 +13,10 @@ use reth_eth_wire_types::NewBlock;
 use reth_evm::{
     ConfigureEngineEvm, ConfigureEvm, EvmFactory, EvmFactoryFor, NextBlockEnvAttributes,
 };
-use reth_network::{NetworkHandle, NetworkPrimitives};
+use reth_network::{
+    transactions::{config::TypedStrictFilter, policy::NetworkPolicies},
+    NetworkHandle, NetworkPrimitives, PeersInfo,
+};
 use reth_node_api::{AddOnsContext, FullNodeComponents, NodeAddOns, PrimitivesTy, TxTy};
 use reth_node_builder::{
     components::{
@@ -55,20 +58,42 @@ use reth_transaction_pool::{
     CoinbaseTipOrdering, PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
 };
 use revm::context::TxEnv;
-use seismic_alloy_consensus::SeismicTxEnvelope;
+use seismic_alloy_consensus::{SeismicTxEnvelope, SeismicTxType};
 use std::{sync::Arc, time::SystemTime};
+use tracing::info;
 
 use crate::{purpose_keys::get_purpose_keys, seismic_evm_config};
 
 /// Storage implementation for Seismic.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
 
-#[derive(Debug, Default, Clone)]
-#[non_exhaustive]
+#[derive(Debug, Clone)]
 /// Type configuration for a regular Seismic node.
-pub struct SeismicNode;
+///
+/// Purpose keys can be injected via [`SeismicNode::new`] so they flow through
+/// the node builder lifecycle instead of being read from a global side-channel.
+/// When constructed via [`Default`] (e.g. in tests), the executor builder will
+/// fall back to the global [`crate::purpose_keys::get_purpose_keys`].
+#[derive(Default)]
+pub struct SeismicNode {
+    /// Structurally-injected purpose keys.  `None` means "use global fallback".
+    purpose_keys: Option<&'static seismic_enclave::GetPurposeKeysResponse>,
+}
 
 impl SeismicNode {
+    /// Create a new [`SeismicNode`] with structurally-injected purpose keys.
+    ///
+    /// The keys are leaked onto the heap so they live for `'static`, which is
+    /// required by the EVM configuration layer.
+    pub fn new(purpose_keys: seismic_enclave::GetPurposeKeysResponse) -> Self {
+        Self { purpose_keys: Some(crate::purpose_keys::leak_purpose_keys(purpose_keys)) }
+    }
+
+    /// Returns the injected purpose keys, if any.
+    pub const fn purpose_keys(&self) -> Option<&'static seismic_enclave::GetPurposeKeysResponse> {
+        self.purpose_keys
+    }
+
     /// Returns the components for the given [`EnclaveArgs`].
     pub fn components<Node>(
         &self,
@@ -89,10 +114,11 @@ impl SeismicNode {
             >,
         >,
     {
+        let executor = SeismicExecutorBuilder { purpose_keys: self.purpose_keys };
         ComponentsBuilder::default()
             .node_types::<Node>()
             .pool(SeismicPoolBuilder::default())
-            .executor(SeismicExecutorBuilder::default())
+            .executor(executor)
             .payload(BasicPayloadServiceBuilder::<SeismicPayloadBuilder>::default())
             .network(SeismicNetworkBuilder::default())
             .consensus(SeismicConsensusBuilder::default())
@@ -357,6 +383,7 @@ where
             EthConfigHandler::new(ctx.node.provider().clone(), ctx.node.evm_config().clone());
 
         let purpose_keys = get_purpose_keys().clone();
+        let peers_info = ctx.node.network().clone();
 
         self.inner
             .launch_add_ons_with(ctx, move |container| {
@@ -373,8 +400,8 @@ where
                     EthApiExt::new(registry.eth_api().clone(), purpose_keys.clone()).into_rpc(),
                 )?;
 
-                // Register seismic_ namespace (getTeePublicKey)
-                modules.merge_configured(SeismicApi::new(purpose_keys).into_rpc())?;
+                // Always register public Seismic node information, regardless of the configured standard RPC namespaces.
+                modules.merge_configured(SeismicApi::new(purpose_keys, peers_info).into_rpc())?;
 
                 // Trace endpoints stay off on Seismic. Our traces are already sanitized
                 // (calldata, return data, memory, and stack are stripped — see
@@ -470,9 +497,14 @@ where
 }
 
 /// A regular seismic evm and executor builder.
-#[derive(Debug, Default, Clone, Copy)]
-#[non_exhaustive]
-pub struct SeismicExecutorBuilder;
+///
+/// When `purpose_keys` is `Some`, uses the injected keys directly.
+/// When `None`, falls back to the global [`crate::purpose_keys::get_purpose_keys`].
+#[derive(Debug, Default, Clone)]
+pub struct SeismicExecutorBuilder {
+    /// Structurally-injected purpose keys, or `None` for global fallback.
+    purpose_keys: Option<&'static seismic_enclave::GetPurposeKeysResponse>,
+}
 
 impl<Node> ExecutorBuilder<Node> for SeismicExecutorBuilder
 where
@@ -481,7 +513,8 @@ where
     type EVM = SeismicEvmConfig;
 
     async fn build_evm(self, ctx: &BuilderContext<Node>) -> eyre::Result<Self::EVM> {
-        let purpose_keys = crate::purpose_keys::get_purpose_keys();
+        let purpose_keys =
+            self.purpose_keys.unwrap_or_else(|| crate::purpose_keys::get_purpose_keys());
         let evm_config = seismic_evm_config(ctx.chain_spec(), purpose_keys);
 
         Ok(evm_config)
@@ -693,6 +726,10 @@ where
     }
 }
 
+/// Strict eth/68 announcement filter over [`SeismicTxType`]: accepts every Seismic
+/// transaction type (including `TxSeismic`, type 74) and rejects unknown type bytes.
+pub type SeismicAnnouncementFilter = TypedStrictFilter<SeismicTxType>;
+
 /// A basic ethereum payload service.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SeismicNetworkBuilder {
@@ -715,9 +752,24 @@ where
         pool: Pool,
     ) -> eyre::Result<NetworkHandle<SeismicNetworkPrimitives>> {
         let network = ctx.network_builder().await?;
-        let handle = ctx.start_network(network, pool);
-        // info!(target: "reth::cli", enode=%handle.local_node_record(), "P2P networking
-        // initialized");
+        // The default announcement filter only knows the Ethereum tx types, so eth/68
+        // announcements carrying TxSeismic (type 74) would be dropped and the announcing
+        // peer penalized. Filter announcements by SeismicTxType instead.
+        let policies = NetworkPolicies::new(
+            ctx.config().network.tx_propagation_policy,
+            SeismicAnnouncementFilter::default(),
+        );
+        let handle = ctx.start_network_with_policies(
+            network,
+            pool,
+            ctx.config().network.transactions_manager_config(),
+            policies,
+        );
+        info!(
+            target: "reth::cli",
+            enode = %handle.local_node_record(),
+            "P2P networking initialized"
+        );
         Ok(handle)
     }
 }
