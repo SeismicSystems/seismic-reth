@@ -126,7 +126,14 @@ impl ConfigureEvm for SeismicEvmConfig {
         let spec = revm_spec(self.chain_spec(), header);
 
         // configure evm env based on parent block
-        let cfg_env = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec);
+        // `enable_tx_chain_id_check` enforces EIP-155 chain-domain separation during
+        // execution, so a transaction signed for a different chain cannot execute even
+        // if it reaches block import (e.g. via `engine_newPayload`) without passing
+        // through the local txpool, which performs the same check on admission.
+        let cfg_env = CfgEnv::new()
+            .with_chain_id(self.chain_spec().chain().id())
+            .with_spec(spec)
+            .enable_tx_chain_id_check();
 
         let block_env = BlockEnv {
             number: U256::from(header.number()),
@@ -154,7 +161,10 @@ impl ConfigureEvm for SeismicEvmConfig {
         let spec_id = revm_spec(self.chain_spec(), parent);
 
         // configure evm env based on parent block
-        let cfg = CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
+        let cfg = CfgEnv::new()
+            .with_chain_id(self.chain_spec().chain().id())
+            .with_spec(spec_id)
+            .enable_tx_chain_id_check();
 
         // if the parent block did not have excess blob gas (i.e. it was pre-cancun), but it is
         // cancun now, we need to set the excess blob gas to the default value(0)
@@ -250,8 +260,10 @@ impl ConfigureEngineEvm<ExecutionData> for SeismicEvmConfig {
         };
         let spec_id = revm_spec(self.chain_spec(), &temp_header);
 
-        let cfg_env =
-            CfgEnv::new().with_chain_id(self.chain_spec().chain().id()).with_spec(spec_id);
+        let cfg_env = CfgEnv::new()
+            .with_chain_id(self.chain_spec().chain().id())
+            .with_spec(spec_id)
+            .enable_tx_chain_id_check();
 
         let blob_excess_gas_and_price = payload
             .payload
@@ -301,7 +313,7 @@ mod tests {
     use alloy_eips::eip7685::Requests;
     use alloy_evm::Evm;
     use alloy_genesis::Genesis;
-    use alloy_primitives::{bytes, map::HashMap, Address, LogData, B256};
+    use alloy_primitives::{bytes, map::HashMap, Address, LogData, TxKind, B256, U256};
     use reth_chainspec::ChainSpec;
     use reth_evm::execute::ProviderError;
     use reth_execution_types::{
@@ -311,6 +323,10 @@ mod tests {
     use reth_seismic_chainspec::SEISMIC_MAINNET;
     use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicReceipt};
     use revm::{
+        context::{
+            result::{EVMError, InvalidTransaction},
+            TxEnv,
+        },
         database::{BundleState, CacheDB},
         database_interface::EmptyDBTyped,
         handler::PrecompileProvider,
@@ -323,6 +339,7 @@ mod tests {
         get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
         get_unsecure_sample_secp256k1_sk, GetPurposeKeysResponse,
     };
+    use seismic_revm::transaction::abstraction::SeismicTransaction;
     use std::sync::Arc;
 
     fn test_evm_config() -> SeismicEvmConfig {
@@ -931,5 +948,105 @@ mod tests {
 
         // Assert that splitting at the first block number returns None for the lower outcome
         assert_eq!(exec_res.clone().split_at(123), (None, exec_res));
+    }
+
+    /// A funded EOA used as the transaction sender in chain-ID tests.
+    fn funded_caller(db: &mut CacheDB<EmptyDBTyped<ProviderError>>) -> Address {
+        let caller = Address::with_last_byte(0xaa);
+        db.insert_account_info(
+            caller,
+            AccountInfo {
+                balance: U256::from(10u128.pow(18)),
+                nonce: 0,
+                code_hash: Default::default(),
+                code: None,
+            },
+        );
+        caller
+    }
+
+    /// Builds a minimal legacy value-transfer transaction with the given `chain_id`.
+    fn transfer_tx(caller: Address, chain_id: Option<u64>) -> SeismicTransaction<TxEnv> {
+        SeismicTransaction {
+            base: TxEnv {
+                caller,
+                gas_limit: 21_000,
+                gas_price: 0,
+                gas_priority_fee: None,
+                kind: TxKind::Call(Address::with_last_byte(0xbb)),
+                value: U256::ZERO,
+                data: Default::default(),
+                chain_id,
+                nonce: 0,
+                access_list: Default::default(),
+                blob_hashes: Default::default(),
+                max_fee_per_blob_gas: 0,
+                authorization_list: Default::default(),
+                // Legacy tx type: it is the only type permitted to omit `chain_id`.
+                tx_type: 0,
+            },
+            tx_hash: Default::default(),
+            decryption_failed: false,
+        }
+    }
+
+    /// Header that makes [`SeismicEvmConfig::evm_env`] produce a valid post-Cancun
+    /// block env (Seismic genesis activates at Mercury, which is post-Cancun, so the
+    /// block env requires an excess-blob-gas value to be set).
+    fn exec_header() -> Header {
+        Header { excess_blob_gas: Some(0), gas_limit: 30_000_000, ..Default::default() }
+    }
+
+    /// Regression test for the block-import chain-ID bypass (audit finding).
+    ///
+    /// The txpool rejects transactions whose embedded chain ID differs from the
+    /// configured chain, but block execution runs through the EVM env produced by
+    /// [`SeismicEvmConfig`]. A block imported via `engine_newPayload` does not pass
+    /// through the local txpool, so the chain-ID invariant must also hold at the
+    /// execution boundary — otherwise a Byzantine proposer can smuggle a wrong-chain
+    /// transaction into a canonical block.
+    #[test]
+    fn wrong_chain_id_tx_is_rejected_at_execution() {
+        let evm_config = test_evm_config();
+        let chain_id = SEISMIC_MAINNET.chain().id();
+
+        // Use the production EVM env construction (same path as block import).
+        let evm_env = evm_config.evm_env(&exec_header());
+        assert_eq!(evm_env.cfg_env.chain_id, chain_id);
+
+        // A transaction validly signed for a *different* chain must be rejected.
+        let wrong_chain_id = chain_id + 1;
+        let mut db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
+        let caller = funded_caller(&mut db);
+        let mut evm = evm_config.evm_with_env(db, evm_env);
+
+        let result = evm.transact(transfer_tx(caller, Some(wrong_chain_id)));
+
+        assert!(
+            matches!(result, Err(EVMError::Transaction(InvalidTransaction::InvalidChainId))),
+            "wrong-chain transaction must be rejected at execution, got: {result:?}"
+        );
+    }
+
+    /// Complements the rejection test: a transaction carrying the correct chain ID
+    /// (or, for legacy transactions, omitting it entirely per EIP-155) must still
+    /// execute, so enabling the chain-ID check does not break legitimate traffic.
+    #[test]
+    fn matching_and_absent_chain_id_txs_are_accepted() {
+        let evm_config = test_evm_config();
+        let chain_id = SEISMIC_MAINNET.chain().id();
+
+        for tx_chain_id in [Some(chain_id), None] {
+            let mut db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
+            let caller = funded_caller(&mut db);
+            let mut evm = evm_config.evm_with_env(db, evm_config.evm_env(&exec_header()));
+
+            let result = evm.transact(transfer_tx(caller, tx_chain_id));
+
+            assert!(
+                result.is_ok(),
+                "legitimate transaction (chain_id={tx_chain_id:?}) must execute, got: {result:?}"
+            );
+        }
     }
 }
