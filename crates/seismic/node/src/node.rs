@@ -428,6 +428,14 @@ where
                 // It lives in the Eth module (which we keep), so we drop just this one method.
                 modules.remove_method_from_configured("eth_createAccessList");
 
+                // Disable `eth_callBundle` (Flashbots bundle simulation). The endpoint executed
+                // signed transactions through the EVM and returns raw success/revert output
+                // (`CLOAD`-derived shielded-storage bytes) in plaintext. Its `from` is the recovered
+                // signer (not a spoofable field), so there is no unsigned-request path to sanitize;
+                // and its per-tx output cannot be uniformly encrypted (plain, non-seismic bundle txs
+                // carry no encryption key).
+                modules.remove_method_from_configured("eth_callBundle");
+
                 Ok(())
             })
             .await
