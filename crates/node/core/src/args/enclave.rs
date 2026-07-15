@@ -26,7 +26,8 @@ pub struct EnclaveArgs {
     #[arg(long = "enclave.retry-seconds", default_value_t = 30)]
     pub retry_seconds: u16,
 
-    /// Spin up mock server for testing purpose
+    /// Use the built-in well-known keys (publicly known, no confidentiality) as the
+    /// node's purpose keys instead of fetching them from an enclave
     #[arg(long = "enclave.mock-server", action = clap::ArgAction::SetTrue)]
     pub mock_server: bool,
 
