@@ -23,7 +23,7 @@ use reth_seismic_node::{
 use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use secp256k1::PublicKey;
 use seismic_alloy_consensus::{SeismicTypedTransaction, TxSeismic, TxSeismicElements};
-use std::str::FromStr;
+use std::{str::FromStr, time::Duration};
 
 /// A `signed_read = true` seismic transaction. The signature is arbitrary: the consensus
 /// decoder gates on `signed_read` before any signature recovery, so a dummy signature
@@ -75,12 +75,20 @@ async fn test_new_payload_rejects_signed_read_tx() -> Result<()> {
 
     // Submit through the engine's newPayload handler. The signed-read tx must fail the
     // consensus-decode gate, so the payload is rejected rather than executed.
-    let result = node
-        .inner
-        .add_ons_handle
-        .beacon_engine_handle
-        .new_payload(SeismicPayloadTypes::block_to_payload(sealed))
-        .await;
+    //
+    // This is Seismic-owned test code, not an upstream helper edit. The invalid payload should
+    // return quickly; until our fork absorbs upstream reth#23837's e2e payload-helper fix, keep
+    // intentional waits in this regression bounded so CI reports the stuck rejection path instead
+    // of timing out the entire integration-test job.
+    let result = tokio::time::timeout(
+        Duration::from_secs(15),
+        node.inner
+            .add_ons_handle
+            .beacon_engine_handle
+            .new_payload(SeismicPayloadTypes::block_to_payload(sealed)),
+    )
+    .await
+    .expect("engine_newPayload timed out rejecting signed-read transaction");
 
     match result {
         Ok(status) => {
