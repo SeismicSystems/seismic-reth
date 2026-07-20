@@ -23,6 +23,7 @@ use reth_seismic_primitives::{
     test_utils::{get_unsigned_legacy_tx_request, sign_tx},
     SeismicBlock, SeismicTransactionSigned,
 };
+use std::time::Duration;
 
 /// A block containing a transaction signed for a different chain must be rejected by
 /// `engine_newPayload`, mirroring the txpool's chain-ID admission check.
@@ -66,12 +67,20 @@ async fn test_new_payload_rejects_wrong_chain_id_tx() -> Result<()> {
     let sealed = SealedBlock::seal_slow(block);
 
     // Submit through the engine's newPayload handler (the ConfigureEngineEvm import path).
-    let status = node
-        .inner
-        .add_ons_handle
-        .beacon_engine_handle
-        .new_payload(SeismicPayloadTypes::block_to_payload(sealed))
-        .await?;
+    //
+    // This is Seismic-owned test code, not an upstream helper edit. The invalid payload should
+    // return quickly; until our fork absorbs upstream reth#23837's e2e payload-helper fix, keep
+    // intentional waits in this regression bounded so CI reports the stuck rejection path instead
+    // of timing out the entire integration-test job.
+    let status = tokio::time::timeout(
+        Duration::from_secs(15),
+        node.inner
+            .add_ons_handle
+            .beacon_engine_handle
+            .new_payload(SeismicPayloadTypes::block_to_payload(sealed)),
+    )
+    .await
+    .expect("engine_newPayload timed out rejecting wrong-chain transaction")?;
 
     assert!(
         status.is_invalid(),
