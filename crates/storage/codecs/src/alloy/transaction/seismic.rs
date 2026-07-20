@@ -119,11 +119,11 @@ impl Compact for TxSeismicElements {
         // Codec format is fixed by to_compact; malformed data indicates corruption and should panic
         // 1. encryption_pubkey (fixed size: 33 bytes)
         let encryption_pubkey_compressed_bytes =
-            &buf[..seismic_enclave::secp256k1::constants::PUBLIC_KEY_SIZE];
+            &buf[..secp256k1::constants::PUBLIC_KEY_SIZE];
         let encryption_pubkey =
-            seismic_enclave::secp256k1::PublicKey::from_slice(encryption_pubkey_compressed_bytes)
+            secp256k1::PublicKey::from_slice(encryption_pubkey_compressed_bytes)
                 .unwrap();
-        buf.advance(seismic_enclave::secp256k1::constants::PUBLIC_KEY_SIZE);
+        buf.advance(secp256k1::constants::PUBLIC_KEY_SIZE);
 
         // 2. encryption_nonce (variable size: read length then data)
         let (nonce_len, buf) = (buf[0], &buf[1..]);
@@ -404,7 +404,7 @@ mod tests {
     use super::*;
     use alloy_primitives::{hex, Bytes, TxKind};
     use bytes::BytesMut;
-    use seismic_enclave::secp256k1::PublicKey;
+    use secp256k1::PublicKey;
 
     #[test]
     fn test_seismic_tx_compact_roundtrip() {
@@ -505,7 +505,7 @@ mod compact_remainder_tests {
     use alloy_primitives::hex;
     use proptest::prelude::*;
     use proptest_arbitrary_interop::arb;
-    use seismic_enclave::secp256k1::PublicKey;
+    use secp256k1::PublicKey;
 
     fn sample_tx(input: &'static [u8]) -> AlloyTxSeismic {
         AlloyTxSeismic {

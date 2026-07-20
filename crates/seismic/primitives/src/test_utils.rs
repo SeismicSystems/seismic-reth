@@ -13,7 +13,7 @@ use alloy_signer_local::PrivateKeySigner;
 use core::str::FromStr;
 use enr::EnrKey;
 use k256::ecdsa::SigningKey;
-use seismic_enclave::get_unsecure_sample_secp256k1_pk;
+use seismic_crypto::get_unsecure_sample_secp256k1_pk;
 
 use secp256k1::{PublicKey, SecretKey};
 use seismic_alloy_consensus::{

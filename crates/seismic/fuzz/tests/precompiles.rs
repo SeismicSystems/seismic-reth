@@ -1,6 +1,6 @@
 //! Fuzz tests for seismic precompiles.
 //!
-//! DEPENDENCIES EXERCISED: [`seismic-revm`, `seismic-enclave`]
+//! DEPENDENCIES EXERCISED: [`seismic-revm`, `seismic-crypto`]
 //! CRASH CATEGORY: precompile
 //!
 //! All stateless precompiles have signature `fn(&[u8], u64) -> PrecompileResult`.

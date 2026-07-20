@@ -77,7 +77,7 @@ pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
 #[derive(Default)]
 pub struct SeismicNode {
     /// Structurally-injected purpose keys.  `None` means "use global fallback".
-    purpose_keys: Option<&'static seismic_enclave::GetPurposeKeysResponse>,
+    purpose_keys: Option<&'static alloy_seismic_evm::PurposeKeys>,
 }
 
 impl SeismicNode {
@@ -85,12 +85,12 @@ impl SeismicNode {
     ///
     /// The keys are leaked onto the heap so they live for `'static`, which is
     /// required by the EVM configuration layer.
-    pub fn new(purpose_keys: seismic_enclave::GetPurposeKeysResponse) -> Self {
+    pub fn new(purpose_keys: alloy_seismic_evm::PurposeKeys) -> Self {
         Self { purpose_keys: Some(crate::purpose_keys::leak_purpose_keys(purpose_keys)) }
     }
 
     /// Returns the injected purpose keys, if any.
-    pub const fn purpose_keys(&self) -> Option<&'static seismic_enclave::GetPurposeKeysResponse> {
+    pub const fn purpose_keys(&self) -> Option<&'static alloy_seismic_evm::PurposeKeys> {
         self.purpose_keys
     }
 
@@ -503,7 +503,7 @@ where
 #[derive(Debug, Default, Clone)]
 pub struct SeismicExecutorBuilder {
     /// Structurally-injected purpose keys, or `None` for global fallback.
-    purpose_keys: Option<&'static seismic_enclave::GetPurposeKeysResponse>,
+    purpose_keys: Option<&'static alloy_seismic_evm::PurposeKeys>,
 }
 
 impl<Node> ExecutorBuilder<Node> for SeismicExecutorBuilder

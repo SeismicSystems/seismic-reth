@@ -30,7 +30,6 @@ reth-seismic-cli.workspace = true
 
 seismic-alloy-rpc-types.workspace = true
 seismic-alloy-consensus.workspace = true
-seismic-enclave.workspace = true
 
 # misc
 clap = { workspace = true, features = ["derive"] }

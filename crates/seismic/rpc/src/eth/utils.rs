@@ -15,8 +15,8 @@ use seismic_alloy_network::{SeismicReth, TransactionBuilder};
 use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
 
 use crate::ext::ext_decryption_error;
+use alloy_seismic_evm::secp256k1::SecretKey;
 use seismic_alloy_consensus::InputDecryptionElements;
-use seismic_enclave::secp256k1::SecretKey;
 
 /// Override the request for seismic calls
 pub const fn seismic_override_call_request(request: &mut SeismicTransactionRequest) {
@@ -605,7 +605,7 @@ mod test {
             // `seismic_elements`; if it's absent the request must be rejected outright rather than
             // silently skipping freshness validation and proceeding to decrypt.
             use crate::utils::signed_read_to_plaintext_tx;
-            use seismic_enclave::secp256k1::SecretKey;
+            use alloy_seismic_evm::secp256k1::SecretKey;
 
             let secret_key = SecretKey::from_slice(&[1u8; 32]).unwrap();
             // Provider is never touched: the missing-elements check fires before any lookup.

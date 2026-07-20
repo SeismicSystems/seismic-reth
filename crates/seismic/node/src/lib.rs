@@ -29,7 +29,7 @@ use std::sync::Arc;
 /// Creates a Seismic EVM configuration with the given chain spec and purpose keys.
 pub fn seismic_evm_config(
     spec: Arc<ChainSpec>,
-    purpose_keys: &'static seismic_enclave::GetPurposeKeysResponse,
+    purpose_keys: &'static alloy_seismic_evm::PurposeKeys,
 ) -> SeismicEvmConfig {
     SeismicEvmConfig::new(spec, purpose_keys)
 }
