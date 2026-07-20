@@ -92,6 +92,7 @@ arbitrary = [
     # The optimism crates don't compile because of type changes we made that affects them, such as FlaggedStorage.
     # "reth-optimism-primitives?/arbitrary",
     "reth-ethereum-primitives/arbitrary",
+    "reth-seismic-primitives/arbitrary",
 ]
 op = [
     # "dep:reth-optimism-primitives",

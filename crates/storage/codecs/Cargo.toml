@@ -64,6 +64,9 @@ std = [
     "op-alloy-consensus?/std",
     "serde_json/std",
     "reth-zstd-compressors?/std",
+    "alloy-genesis/std",
+    "seismic-alloy-consensus/std",
+    "seismic-alloy-genesis/std",
 ]
 alloy = [
     "dep:alloy-consensus",
@@ -87,6 +90,7 @@ serde = [
     "bytes/serde",
     "op-alloy-consensus?/serde",
     "secp256k1/serde",
+    "seismic-alloy-consensus/serde",
 ]
 arbitrary = [
     "alloy-consensus?/arbitrary",
@@ -94,4 +98,5 @@ arbitrary = [
     "alloy-primitives/arbitrary",
     "alloy-trie?/arbitrary",
     "op-alloy-consensus?/arbitrary",
+    "seismic-alloy-consensus/arbitrary",
 ]

@@ -21,15 +21,15 @@ reth-storage-api.workspace = true
 reth-evm.workspace = true
 reth-payload-builder.workspace = true
 reth-payload-builder-primitives.workspace = true
-reth-payload-primitives = { workspace = true}
+reth-payload-primitives = { workspace = true }
 reth-basic-payload-builder.workspace = true
 reth-ethereum-payload-builder.workspace = true
 reth-errors.workspace = true
 
 # seismic-reth
 reth-seismic-evm.workspace = true
-reth-seismic-primitives = {workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec", "arbitrary"] }
-reth-ethereum-primitives = {workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
+reth-seismic-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec", "arbitrary"] }
+reth-ethereum-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
 
 # ethereum
 revm.workspace = true

@@ -1,14 +1,14 @@
 # Keep dependency declarations compact (e.g. features on one line) instead of
 # taplo's default behavior of expanding arrays/inline tables to multiline.
 # eg. taplo will default to:
-# 
+#
 # secp256k1 = { version = "0.30", default-features = false, features = [
 #   "global-context",
 #   "recovery",
 # ] }
-# 
+#
 # but with these settings, we'll keep the upstream formatting style of:
-# 
+#
 # secp256k1 = { version = "0.30", default-features = false, features = ["global-context", "recovery"] }
 [formatting]
 array_auto_expand = false

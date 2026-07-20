@@ -210,10 +210,12 @@ Before committing or pushing code, run these checks locally to match what Seismi
      -W clippy::unreachable \
      -W clippy::todo
    ```
-4. **Tests Pass**: `cargo nextest run --workspace` (unit and integration)
-5. **Build Check**: `cargo check --workspace`
-6. **Documentation**: Update relevant docs and add doc comments with `cargo docs --document-private-items`
-7. **Commit Messages**: Follow conventional format (feat:, fix:, chore:, etc.)
+4. **TOML Formatting**: `dprint check` (auto-fix with `dprint fmt` / `make lint-toml`)
+5. **Feature Propagation**: `zepter run check` (auto-fix with plain `zepter`)
+6. **Tests Pass**: `cargo nextest run --workspace` (unit and integration)
+7. **Build Check**: `cargo check --workspace`
+8. **Documentation**: Update relevant docs and add doc comments with `cargo docs --document-private-items`
+9. **Commit Messages**: Follow conventional format (feat:, fix:, chore:, etc.)
 
 
 ### Opening PRs against <https://github.com/paradigmxyz/reth>

@@ -12,7 +12,6 @@ description = "Ethereum RPC implementation for seismic."
 workspace = true
 
 [dependencies]
-
 # alloy
 alloy-eips.workspace = true
 alloy-primitives.workspace = true
@@ -49,10 +48,7 @@ revm.workspace = true
 revm-context.workspace = true
 
 # seismic-reth
-reth-seismic-primitives = { workspace = true, features = [
-    "reth-codec",
-    "serde-bincode-compat",
-] }
+reth-seismic-primitives = { workspace = true, features = ["reth-codec", "serde-bincode-compat"] }
 alloy-seismic-evm.workspace = true
 
 seismic-alloy-consensus.workspace = true

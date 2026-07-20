@@ -94,10 +94,16 @@ serde = [
     "reth-ethereum-primitives/serde",
     "reth-chain-state/serde",
     "reth-storage-api/serde",
+    "seismic-alloy-consensus/serde",
 ]
 serde-bincode-compat = [
     "reth-ethereum-primitives/serde-bincode-compat",
     "reth-execution-types/serde-bincode-compat",
+    "alloy-consensus/serde-bincode-compat",
+    "alloy-eips/serde-bincode-compat",
+    "reth-primitives-traits/serde-bincode-compat",
+    "reth-storage-api/serde-bincode-compat",
+    "seismic-alloy-consensus/serde-bincode-compat",
 ]
 reth-codec = ["reth-ethereum-primitives/reth-codec"]
 test-utils = [
@@ -125,8 +131,8 @@ arbitrary = [
     "revm-interpreter/arbitrary",
     "reth-ethereum-primitives/arbitrary",
     "revm-primitives/arbitrary",
+    "seismic-alloy-consensus/arbitrary",
 ]
-
 
 [[bench]]
 name = "truncate"

@@ -12,7 +12,7 @@ description = "Database integration with merkle trie implementation"
 workspace = true
 
 [dependencies]
-# Seismic 
+# Seismic
 revm.workspace = true
 revm-state.workspace = true
 
@@ -65,6 +65,8 @@ serde = [
     "reth-primitives-traits/serde",
     "revm-database/serde",
     "revm/serde",
+    "revm-primitives/serde",
+    "revm-state/serde",
 ]
 test-utils = [
     "reth-trie-common/test-utils",

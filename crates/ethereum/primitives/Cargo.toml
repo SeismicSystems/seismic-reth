@@ -64,6 +64,7 @@ std = [
     "derive_more/std",
     "serde_with?/std",
     "secp256k1/std",
+    "alloy-serde?/std",
 ]
 reth-codec = [
     "std",
@@ -79,6 +80,7 @@ arbitrary = [
     "reth-codecs?/arbitrary",
     "reth-primitives-traits/arbitrary",
     "alloy-eips/arbitrary",
+    "alloy-serde?/arbitrary",
 ]
 serde-bincode-compat = [
     "dep:serde_with",
