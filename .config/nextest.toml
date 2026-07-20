@@ -2,6 +2,27 @@
 retries = { backoff = "exponential", count = 3, delay = "5s", jitter = true, max-delay = "30s" }
 slow-timeout = { period = "300s", terminate-after = 6 }
 
+# These Seismic audit-regression tests normally pass in about 11s: most of that is the forked
+# e2e helper's empty-payload wait before the crafted payload is submitted. 60s leaves room for CI
+# variance but fails much earlier than the 30m job timeout.
+#
+# Mainstream reth has already fixed the relevant e2e helper behavior in:
+# - https://github.com/paradigmxyz/reth/pull/23837
+# Related payload-resolution hardening also landed in:
+# - https://github.com/paradigmxyz/reth/pull/24967
+# - https://github.com/paradigmxyz/reth/pull/25242
+# There is a separate open cancellation-safety follow-up:
+# - https://github.com/paradigmxyz/reth/pull/26365
+#
+# This override only bounds these two audit tests. Other integration tests that exercise the same
+# forked helper path may still be flaky until the upstream fixes are absorbed.
+#
+# Remove this override after rebasing/syncing our fork onto a reth revision that includes those
+# upstream fixes, or cherry-picking the relevant upstream fixes if the flakiness becomes too noisy.
+[[profile.default.overrides]]
+filter = 'test(test_new_payload_rejects_signed_read_tx) | test(test_new_payload_rejects_wrong_chain_id_tx)'
+slow-timeout = { period = "60s", terminate-after = 1 }
+
 [[profile.default.overrides]]
 filter = 'test(general_state_tests)'
 slow-timeout = { period = "2m", terminate-after = 15 }
