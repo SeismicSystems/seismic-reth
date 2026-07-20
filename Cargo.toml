@@ -346,7 +346,6 @@ lto = "fat"
 codegen-units = 1
 
 [workspace.dependencies]
-
 # seismic dependencies
 # reth-seismic-bin = { path = "crates/seismic/bin" }
 reth-seismic-chainspec = { path = "crates/seismic/chainspec" }

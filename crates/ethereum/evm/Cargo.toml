@@ -60,6 +60,8 @@ std = [
     "derive_more?/std",
     "alloy-rpc-types-engine/std",
     "reth-storage-errors/std",
+    "secp256k1/std",
+    "serde_json/std",
 ]
 test-utils = [
     "dep:parking_lot",

@@ -67,7 +67,6 @@ serde.workspace = true
 eyre.workspace = true
 tracing.workspace = true
 
-
 # test-utils dependencies
 alloy-rpc-types = { workspace = true }
 tokio = { workspace = true }
@@ -148,6 +147,7 @@ asm-keccak = [
     "revm/asm-keccak",
     "reth-seismic-node/asm-keccak",
     "reth-node-core/asm-keccak",
+    "reth-node-ethereum/asm-keccak",
 ]
 js-tracer = [
     "reth-node-builder/js-tracer",
@@ -170,6 +170,8 @@ test-utils = [
     "reth-seismic-node/test-utils",
     "reth-seismic-primitives/arbitrary",
     "reth-primitives-traits/test-utils",
+    "reth-db/test-utils",
+    "reth-node-ethereum/test-utils",
 ]
 reth-codec = [
     "reth-seismic-primitives/reth-codec",

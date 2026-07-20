@@ -11262,6 +11262,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-eth",
  "alloy-serde",
+ "arbitrary",
  "derive_more 1.0.0",
  "seismic-alloy-consensus",
  "seismic-enclave",

@@ -66,4 +66,5 @@ std = [
     "thiserror/std",
     "serde_json/std",
     "seismic-alloy-consensus/std",
+    "reth-seismic-forks/std",
 ]

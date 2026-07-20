@@ -82,6 +82,41 @@ jobs:
             -W clippy::unreachable \
             -W clippy::todo
 
+  lint-toml:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run dprint
+        uses: dprint/check@v2.3
+        with:
+          config-path: dprint.json
+
+  feature-propagation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ZEPTER_VERSION: v1.88.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: fetch deps
+        run: |
+          # Eagerly pull dependencies
+          time cargo metadata --format-version=1 --locked > /dev/null
+      - name: install zepter
+        # Pinned prebuilt binary: installs in seconds where `cargo install`
+        # compiles for minutes, and new zepter releases (with new lints) only
+        # land here by bumping ZEPTER_VERSION.
+        run: |
+          curl -sSfLO "https://github.com/ggwpez/zepter/releases/download/${ZEPTER_VERSION}/zepter-x86_64-unknown-linux-gnu.tar.xz"
+          curl -sSfLO "https://github.com/ggwpez/zepter/releases/download/${ZEPTER_VERSION}/zepter-x86_64-unknown-linux-gnu.tar.xz.sha256"
+          sha256sum -c zepter-x86_64-unknown-linux-gnu.tar.xz.sha256
+          tar -xJf zepter-x86_64-unknown-linux-gnu.tar.xz
+          sudo mv zepter-x86_64-unknown-linux-gnu/zepter /usr/local/bin/
+          zepter --version
+      - name: run zepter
+        run: time zepter run check
+
   unit-test:
     runs-on: large-github-runner
     timeout-minutes: 30

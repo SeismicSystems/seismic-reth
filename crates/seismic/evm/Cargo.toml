@@ -37,10 +37,10 @@ alloy-consensus.workspace = true
 reth-seismic-chainspec.workspace = true
 reth-seismic-forks.workspace = true
 reth-seismic-primitives = { workspace = true }
-reth-ethereum-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"]}
+reth-ethereum-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
 
 # revm
-revm = { workspace = true}
+revm = { workspace = true }
 seismic-revm.workspace = true
 
 # misc
@@ -96,5 +96,13 @@ std = [
     "alloy-evm/std",
     "reth-evm/std",
     "tracing/std",
+    "alloy-rpc-types-engine/std",
+    "k256/std",
+    "reth-ethereum-primitives/std",
+    "reth-seismic-forks/std",
+    "reth-storage-errors/std",
+    "revm-state/std",
+    "secp256k1/std",
+    "seismic-alloy-genesis/std",
 ]
 portable = ["reth-revm/portable"]

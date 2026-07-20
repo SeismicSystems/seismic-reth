@@ -23,10 +23,10 @@ reth-chainspec.workspace = true
 reth-execution-types.workspace = true
 reth-primitives-traits.workspace = true
 reth-provider.workspace = true
-reth-transaction-pool = {workspace = true, features = ["serde", "reth-codec", "serde-bincode-compat"]}
+reth-transaction-pool = { workspace = true, features = ["serde", "reth-codec", "serde-bincode-compat"] }
 
 # seismic
-reth-seismic-primitives = {workspace = true, features = ["serde", "reth-codec", "serde-bincode-compat"]}
+reth-seismic-primitives = { workspace = true, features = ["serde", "reth-codec", "serde-bincode-compat"] }
 
 # misc
 c-kzg.workspace = true

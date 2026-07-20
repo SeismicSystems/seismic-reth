@@ -50,4 +50,5 @@ std = [
     "thiserror/std",
     "reth-engine-primitives/std",
     "reth-primitives-traits/std",
+    "alloy-consensus/std",
 ]
