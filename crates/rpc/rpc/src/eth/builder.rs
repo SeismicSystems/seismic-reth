@@ -331,7 +331,7 @@ where
         self
     }
 
-    /// Enables or disables storage APIs (eth_getStorageAt, eth_getFlaggedStorageAt).
+    /// Enables or disables storage APIs (`eth_getStorageAt`, `eth_getFlaggedStorageAt`).
     /// Disabled by default to protect private storage information.
     pub const fn enable_storage_apis(mut self, enable: bool) -> Self {
         self.enable_storage_apis = enable;

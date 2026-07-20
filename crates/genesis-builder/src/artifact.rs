@@ -48,7 +48,7 @@ impl ArtifactLoader {
         Ok(ContractArtifact { name, deployed_bytecode })
     }
 
-    /// Fetch artifact from GitHub via HTTP
+    /// Fetch artifact from `GitHub` via HTTP
     fn fetch_remote(&self, url: &str) -> Result<Vec<u8>> {
         let response = self
             .client
@@ -89,6 +89,10 @@ impl ArtifactLoader {
         }
 
         // Fallback to filename from URL
-        url.split('/').last().and_then(|s| s.strip_suffix(".json")).unwrap_or("unknown").to_string()
+        url.split('/')
+            .next_back()
+            .and_then(|s| s.strip_suffix(".json"))
+            .unwrap_or("unknown")
+            .to_string()
     }
 }

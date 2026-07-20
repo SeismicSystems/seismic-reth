@@ -238,7 +238,7 @@ impl<TX: DbTx> DatabaseHashedPostState<TX> for HashedPostState {
         {
             let (BlockNumberAddress((_, address)), storage) = entry?;
             let account_storage = storages.entry(address).or_default();
-            account_storage.entry(storage.key).or_insert(storage.into());
+            account_storage.entry(storage.key).or_insert_with(|| storage.into());
         }
 
         let hashed_accounts =

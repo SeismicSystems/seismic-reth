@@ -39,7 +39,7 @@ proptest! {
     /// Success/failure outcome must match. Any panic is a security bug.
     #[test]
     fn differential_eth_vs_seismic_outcome(input in arb::<FuzzSeismicTx>()) {
-        let seismic_tx = input.clone().into_eth_compatible_tx();
+        let seismic_tx = input.into_eth_compatible_tx();
         let caller = seismic_tx.base.caller;
         let plain_tx = seismic_tx.base.clone();
 

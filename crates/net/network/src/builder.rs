@@ -120,7 +120,7 @@ impl<Tx, Eth, N: NetworkPrimitives> NetworkBuilder<Tx, Eth, N> {
     /// propagation + announcement filtering) and wires it to the network.
     ///
     /// Seismic addition: upstream's [`Self::transactions_with_policy`] pins the announcement
-    /// filter to [`StrictEthAnnouncementFilter`], which rejects TxSeismic announcements and
+    /// filter to [`StrictEthAnnouncementFilter`], which rejects `TxSeismic` announcements and
     /// penalizes the announcing peer. That method is kept untouched (delegating here) so the
     /// fork stays additive over upstream reth. Upstreaming this would mean generalizing
     /// `transactions_with_policy` to take a [`NetworkPolicies`] bundle directly, at which

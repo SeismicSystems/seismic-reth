@@ -141,7 +141,7 @@ where
         &mut self,
         env: &mut Environment<I>,
         rlp_path: &Path,
-        evm_config: impl ConfigureEvm<Primitives = N::Primitives> + Clone + 'static,
+        evm_config: impl ConfigureEvm<Primitives = N::Primitives> + 'static,
     ) -> Result<()>
     where
         N: NodeBuilderHelper,
@@ -152,7 +152,7 @@ where
         Box::pin(self.apply_with_import_inner::<N>(env, rlp_path, evm_config)).await
     }
 
-    /// Apply setup using pre-imported chain data with the default EthEvmConfig.
+    /// Apply setup using pre-imported chain data with the default `EthEvmConfig`.
     pub async fn apply_with_import<N>(
         &mut self,
         env: &mut Environment<I>,
@@ -176,7 +176,7 @@ where
         &mut self,
         env: &mut Environment<I>,
         rlp_path: &Path,
-        evm_config: impl ConfigureEvm<Primitives = N::Primitives> + Clone + 'static,
+        evm_config: impl ConfigureEvm<Primitives = N::Primitives> + 'static,
     ) -> Result<()>
     where
         N: NodeBuilderHelper,
@@ -297,7 +297,7 @@ where
     async fn create_nodes_with_import<N>(
         &self,
         rlp_path: &Path,
-        evm_config: impl ConfigureEvm<Primitives = N::Primitives> + Clone + 'static,
+        evm_config: impl ConfigureEvm<Primitives = N::Primitives> + 'static,
     ) -> Result<crate::setup_import::ChainImportResult<N>>
     where
         N: NodeBuilderHelper,

@@ -646,6 +646,10 @@ where
     }
 
     /// Executes a block with the given state provider
+    // Keep upstream's `&mut self` signature: the mutation only happens in
+    // feature-gated paths this fork doesn't compile, so clippy flags it under
+    // our default-features gate.
+    #[allow(clippy::needless_pass_by_ref_mut)]
     fn execute_block<S, Err, T>(
         &mut self,
         state_provider: S,
@@ -672,7 +676,7 @@ where
             .without_state_clear()
             .build();
 
-        let evm = self.evm_config.evm_with_env(&mut db, env.evm_env.clone());
+        let evm = self.evm_config.evm_with_env(&mut db, env.evm_env);
         let ctx = self.execution_ctx_for(input);
 
         #[allow(unused_mut)]

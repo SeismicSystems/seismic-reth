@@ -232,7 +232,7 @@ pub struct RpcServerArgs {
     #[arg(long = "rpc.forwarder", alias = "rpc-forwarder", value_name = "FORWARDER")]
     pub rpc_forwarder: Option<Url>,
 
-    /// Enable storage APIs (eth_getStorageAt, eth_getFlaggedStorageAt).
+    /// Enable storage APIs (`eth_getStorageAt`, `eth_getFlaggedStorageAt`).
     /// Disabled by default to protect private storage information.
     /// Automatically enabled in dev mode.
     #[arg(

@@ -255,8 +255,8 @@ where
     ) -> Result<Tx, TransactionValidationOutcome<Tx>> {
         // Checks for tx_type
         match transaction.ty() {
-            LEGACY_TX_TYPE_ID => {
-                // Accept legacy transactions
+            LEGACY_TX_TYPE_ID | SEISMIC_TX_TYPE_ID => {
+                // Accept legacy and seismic transactions
             }
             EIP2930_TX_TYPE_ID => {
                 // Accept only legacy transactions until EIP-2718/2930 activates
@@ -293,10 +293,6 @@ where
                         InvalidTransactionError::Eip7702Disabled.into(),
                     ))
                 }
-            }
-
-            SEISMIC_TX_TYPE_ID => {
-                // Accept seismic transactions
             }
 
             _ => {

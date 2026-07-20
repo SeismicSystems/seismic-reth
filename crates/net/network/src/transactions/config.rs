@@ -283,7 +283,7 @@ mod tests {
     use seismic_alloy_consensus::{SeismicTxType, SEISMIC_TX_TYPE_ID};
 
     /// Documents why the Ethereum-typed strict filter must not be used on a Seismic
-    /// network: it rejects TxSeismic announcements and penalizes the announcing peer.
+    /// network: it rejects `TxSeismic` announcements and penalizes the announcing peer.
     #[test]
     fn strict_eth_filter_rejects_and_penalizes_seismic_tx_type() {
         let filter = StrictEthAnnouncementFilter::default();
@@ -294,7 +294,7 @@ mod tests {
     }
 
     /// Regression test: the Seismic-typed strict filter accepts every Seismic tx type,
-    /// TxSeismic (type 74) included, while still rejecting unknown type bytes.
+    /// `TxSeismic` (type 74) included, while still rejecting unknown type bytes.
     #[test]
     fn seismic_strict_filter_accepts_seismic_tx_types() {
         let filter = TypedStrictFilter::<SeismicTxType>::default();

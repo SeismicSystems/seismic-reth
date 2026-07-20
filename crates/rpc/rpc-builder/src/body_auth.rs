@@ -33,7 +33,7 @@ pub struct BodyAuthServerConfig<RpcMiddleware = Identity> {
 
 impl BodyAuthServerConfig {
     /// Convenience function to create a new builder.
-    pub fn builder(auth_config: SignatureAuthConfig) -> BodyAuthServerConfigBuilder {
+    pub const fn builder(auth_config: SignatureAuthConfig) -> BodyAuthServerConfigBuilder {
         BodyAuthServerConfigBuilder::new(auth_config)
     }
 }
@@ -94,7 +94,7 @@ pub struct BodyAuthServerConfigBuilder<RpcMiddleware = Identity> {
 
 impl BodyAuthServerConfigBuilder {
     /// Create a new builder with the given auth configuration.
-    pub fn new(auth_config: SignatureAuthConfig) -> Self {
+    pub const fn new(auth_config: SignatureAuthConfig) -> Self {
         Self {
             socket_addr: None,
             auth_config,
@@ -159,7 +159,7 @@ pub struct BodyAuthRpcModule {
 
 impl BodyAuthRpcModule {
     /// Create a new `BodyAuthRpcModule` from an `RpcModule`.
-    pub fn new(module: RpcModule<()>) -> Self {
+    pub const fn new(module: RpcModule<()>) -> Self {
         Self { inner: module }
     }
 
@@ -169,7 +169,7 @@ impl BodyAuthRpcModule {
     }
 
     /// Get a mutable reference to the inner `RpcModule`.
-    pub fn module_mut(&mut self) -> &mut RpcModule<()> {
+    pub const fn module_mut(&mut self) -> &mut RpcModule<()> {
         &mut self.inner
     }
 

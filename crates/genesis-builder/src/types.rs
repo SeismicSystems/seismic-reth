@@ -39,7 +39,7 @@ pub struct ManifestMetadata {
     pub version: String,
     /// Description of the manifest
     pub description: Option<String>,
-    /// Base GitHub URL for all artifacts
+    /// Base `GitHub` URL for all artifacts
     /// If not provided, the default base URL will be used
     pub base_url: Option<String>,
 }

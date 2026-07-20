@@ -72,7 +72,7 @@ jobs:
       - name: cargo check warnings
         run: RUSTFLAGS="-D warnings" cargo check
 
-  clippy:
+  clippy-seismic:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -84,18 +84,22 @@ jobs:
         with:
           shared-key: "clippy-cache"
       - name: Clippy (seismic crates)
+        # `-p 'reth-seismic*'` selects seismic-authored crates by naming
+        # convention, so new ones are covered automatically; crates that
+        # don't follow it are listed explicitly.
+        #
+        # The -W lints hold fork-authored code to a stricter bar than the
+        # workspace [lints] table. They live here as CLI flags because a
+        # crate inheriting `[lints] workspace = true` can't layer additions
+        # on top, and clippy.toml holds lint parameters, not levels. They
+        # are enforced: `-D warnings` promotes them to errors. Test code is
+        # exempt via the allow-*-in-tests entries in clippy.toml.
         run: |
           cargo clippy \
-            -p reth-seismic-primitives \
-            -p reth-seismic-chainspec \
-            -p reth-seismic-evm \
-            -p reth-seismic-payload-builder \
-            -p reth-seismic-node \
-            -p reth-seismic-rpc \
-            -p reth-seismic-cli \
-            -p reth-seismic-txpool \
-            -p reth-seismic-forks \
+            -p 'reth-seismic*' \
             -p seismic-reth \
+            -p reth-genesis-builder \
+            -p genesis-builder \
             --lib --tests --no-deps \
             -- -D warnings \
             -W clippy::unwrap_used \
@@ -104,6 +108,30 @@ jobs:
             -W clippy::panic \
             -W clippy::unreachable \
             -W clippy::todo
+
+  clippy-workspace:
+    runs-on: large-github-runner
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      # Pinned, unlike clippy-seismic: every stable release adds clippy lints,
+      # and fixing them means churning fork-modified upstream code that will
+      # conflict on upstream merges. Pinning to 1.91.1 for now.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.91.1
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "clippy-workspace-cache"
+      - name: Clippy (workspace)
+        # Default features only — never --all-features: the optimism `op`
+        # features gate code we neither run nor maintain (the optimism
+        # crates are excluded from the workspace and don't compile against
+        # fork type changes like FlaggedStorage).
+        run: cargo clippy --workspace --lib --examples --tests --benches --locked
+        env:
+          RUSTFLAGS: -D warnings
 
   lint-toml:
     runs-on: ubuntu-latest

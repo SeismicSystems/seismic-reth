@@ -813,9 +813,9 @@ impl From<InvalidTransactionError> for RpcInvalidTransactionError {
             InvalidTransactionError::Eip2930Disabled |
             InvalidTransactionError::Eip1559Disabled |
             InvalidTransactionError::Eip4844Disabled |
-            InvalidTransactionError::Eip7702Disabled => Self::TxTypeNotSupported,
-            InvalidTransactionError::SeismicTx(msg) => Self::SeismicTx(msg),
+            InvalidTransactionError::Eip7702Disabled |
             InvalidTransactionError::TxTypeNotSupported => Self::TxTypeNotSupported,
+            InvalidTransactionError::SeismicTx(msg) => Self::SeismicTx(msg),
             InvalidTransactionError::GasUintOverflow => Self::GasUintOverflow,
             InvalidTransactionError::GasTooLow => Self::GasTooLow,
             InvalidTransactionError::GasTooHigh => Self::GasTooHigh,

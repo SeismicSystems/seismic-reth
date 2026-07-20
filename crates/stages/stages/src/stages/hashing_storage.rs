@@ -503,11 +503,7 @@ mod tests {
 
             if hash {
                 let hashed_address = keccak256(bn_address.address());
-                let hashed_entry = StorageEntry {
-                    key: keccak256(entry.key),
-                    value: entry.value,
-                    ..Default::default()
-                };
+                let hashed_entry = StorageEntry { key: keccak256(entry.key), value: entry.value };
 
                 if let Some(e) = tx
                     .cursor_dup_write::<tables::HashedStorages>()?

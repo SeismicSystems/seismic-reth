@@ -2025,8 +2025,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
 
         self.update_size_metrics();
 
-        let res = Ok(InsertOk { transaction, move_to: state.into(), state, replaced_tx, updates });
-        res
+        Ok(InsertOk { transaction, move_to: state.into(), state, replaced_tx, updates })
     }
 
     /// Number of transactions in the entire pool

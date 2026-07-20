@@ -1,7 +1,7 @@
 //! Fuzz tests for full `SeismicEvm` transaction execution.
 //!
 //! DEPENDENCIES EXERCISED: [`seismic-revm`, `alloy-seismic-evm`, `seismic-crypto`]
-//! CRASH CATEGORY: evm_execution
+//! CRASH CATEGORY: `evm_execution`
 //!
 //! This is the highest-priority fuzz target. It exercises the full
 //! `SeismicEvm.transact()` path with arbitrary transactions. Any panic

@@ -2978,7 +2978,7 @@ mod tests {
         network_service_handle.abort();
     }
 
-    /// Regression test for TxSeismic (type 74) gossip: an eth/68 announcement carrying a
+    /// Regression test for `TxSeismic` (type 74) gossip: an eth/68 announcement carrying a
     /// seismic tx type must lead to a `GetPooledTransactions` fetch when the manager runs
     /// with the Seismic-typed announcement filter. Under the default Ethereum-typed strict
     /// filter this exact announcement is dropped and the peer penalized (see

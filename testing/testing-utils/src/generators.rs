@@ -357,12 +357,8 @@ where
                     storage.insert(entry.key, entry.value)
                 };
                 match old {
-                    Some(old_value) => {
-                        return Some(StorageEntry { value: old_value, ..entry });
-                    }
-                    None => {
-                        return Some(StorageEntry { key: entry.key, value: FlaggedStorage::ZERO });
-                    }
+                    Some(old_value) => Some(StorageEntry { value: old_value, ..entry }),
+                    None => Some(StorageEntry { key: entry.key, value: FlaggedStorage::ZERO }),
                 }
             })
             .collect();

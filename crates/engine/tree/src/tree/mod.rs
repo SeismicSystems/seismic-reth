@@ -1260,16 +1260,14 @@ where
 
     fn advance_backup(&mut self) -> Result<(), AdvancePersistenceError> {
         debug!(target: "engine::tree", "advance_backup called");
-        if !self.backup.in_progress() {
-            if self.should_backup() {
-                debug!(target: "engine::tree", "sending backup action");
-                let (tx, rx) = oneshot::channel();
-                let _ = self.backup.sender.send(BackupAction::BackupAtBlock(
-                    self.persistence_state.last_persisted_block,
-                    tx,
-                ));
-                self.backup.start(rx);
-            }
+        if !self.backup.in_progress() && self.should_backup() {
+            debug!(target: "engine::tree", "sending backup action");
+            let (tx, rx) = oneshot::channel();
+            let _ = self
+                .backup
+                .sender
+                .send(BackupAction::BackupAtBlock(self.persistence_state.last_persisted_block, tx));
+            self.backup.start(rx);
         }
 
         if self.backup.in_progress() {
@@ -1627,7 +1625,7 @@ where
     /// backfill is not running.
     fn should_backup(&self) -> bool {
         debug!(target: "engine::tree", "checking if we should backup");
-        return false;
+        false
     }
 
     /// Returns a batch of consecutive canonical blocks to persist in the range
