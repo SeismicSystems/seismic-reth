@@ -47,6 +47,7 @@ proptest.workspace = true
 asm-keccak = [
     "reth-node-core/asm-keccak",
     "reth-seismic-node/asm-keccak",
+    "reth-node-ethereum/asm-keccak",
 ]
 
 # Jemalloc feature for vergen to generate correct env vars

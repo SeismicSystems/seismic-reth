@@ -10,7 +10,7 @@ exclude.workspace = true
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
-reqwest = { workspace = true, default-features = false, features = ["blocking"] } 
+reqwest = { workspace = true, default-features = false, features = ["blocking"] }
 alloy-primitives = { workspace = true, features = ["serde"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

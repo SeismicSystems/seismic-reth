@@ -41,10 +41,25 @@ tokio.workspace = true
 [features]
 default = ["jemalloc"]
 timestamp-in-seconds = ["reth-seismic-node/timestamp-in-seconds"]
-asm-keccak = ["reth-node-core/asm-keccak", "reth-primitives/asm-keccak"]
+asm-keccak = [
+    "reth-node-core/asm-keccak",
+    "reth-primitives/asm-keccak",
+    "alloy-primitives/asm-keccak",
+    "reth-node-ethereum/asm-keccak",
+    "reth-seismic-cli/asm-keccak",
+    "reth-seismic-node/asm-keccak",
+]
 
-jemalloc = ["reth-node-core/jemalloc", "reth-node-metrics/jemalloc"]
-jemalloc-prof = ["jemalloc"]
+jemalloc = [
+    "reth-node-core/jemalloc",
+    "reth-node-metrics/jemalloc",
+    "reth-cli-util/jemalloc",
+    "reth-seismic-cli/jemalloc",
+]
+jemalloc-prof = [
+    "jemalloc",
+    "reth-cli-util/jemalloc-prof",
+]
 
 min-error-logs = ["tracing/release_max_level_error"]
 min-warn-logs = ["tracing/release_max_level_warn"]

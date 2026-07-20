@@ -100,6 +100,8 @@ std = [
     "revm-bytecode/std",
     "revm-state/std",
     "alloy-rpc-types-eth?/std",
+    "seismic-alloy-consensus/std",
+    "seismic-alloy-genesis/std",
 ]
 secp256k1 = ["alloy-consensus/secp256k1"]
 test-utils = [
@@ -123,6 +125,7 @@ arbitrary = [
     "alloy-trie/arbitrary",
     "reth-chainspec/arbitrary",
     "alloy-rpc-types-eth?/arbitrary",
+    "seismic-alloy-consensus/arbitrary",
 ]
 serde-bincode-compat = [
     "serde",
@@ -133,6 +136,7 @@ serde-bincode-compat = [
     "op-alloy-consensus?/serde-bincode-compat",
     "alloy-genesis/serde-bincode-compat",
     "alloy-rpc-types-eth?/serde-bincode-compat",
+    "seismic-alloy-consensus/serde-bincode-compat",
 ]
 serde = [
     "dep:serde",
@@ -150,6 +154,7 @@ serde = [
     "revm-state/serde",
     "rand_08/serde",
     "alloy-rpc-types-eth?/serde",
+    "seismic-alloy-consensus/serde",
 ]
 reth-codec = [
     "dep:reth-codecs",

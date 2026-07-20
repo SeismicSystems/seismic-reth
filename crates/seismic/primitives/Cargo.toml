@@ -40,13 +40,8 @@ serde = { workspace = true, optional = true }
 serde_with = { workspace = true, optional = true }
 
 # misc
-derive_more = { workspace = true, features = [
-    "deref",
-    "from",
-    "into",
-    "constructor",
-] }
-secp256k1 = { workspace = true, features = ["rand", "std", "global-context", "recovery"]}
+derive_more = { workspace = true, features = ["deref", "from", "into", "constructor"] }
+secp256k1 = { workspace = true, features = ["rand", "std", "global-context", "recovery"] }
 anyhow.workspace = true
 tracing.workspace = true
 
@@ -59,7 +54,7 @@ proptest = { workspace = true, optional = true }
 alloy-signer-local.workspace = true
 alloy-rpc-types.workspace = true
 k256.workspace = true
-enr = {workspace = true, features = ["rust-secp256k1"]}
+enr = { workspace = true, features = ["rust-secp256k1"] }
 alloy-dyn-abi.workspace = true
 seismic-alloy-rpc-types.workspace = true
 
@@ -94,6 +89,10 @@ std = [
     "serde_json/std",
     "alloy-evm/std",
     "serde_with?/std",
+    "k256/std",
+    "seismic-alloy-network/std",
+    "seismic-alloy-rpc-types/std",
+    "tracing/std",
 ]
 reth-codec = [
     "dep:reth-codecs",
@@ -117,6 +116,12 @@ serde = [
     "rand/serde",
     "secp256k1/serde",
     "revm-context/serde",
+    "enr/serde",
+    "k256/serde",
+    "rand_08?/serde",
+    "seismic-alloy-network/serde",
+    "seismic-alloy-rpc-types/serde",
+    "seismic-revm/serde",
 ]
 serde-bincode-compat = [
     "serde",
@@ -138,4 +143,7 @@ arbitrary = [
     "alloy-eips/arbitrary",
     "alloy-primitives/arbitrary",
     "rand_08",
+    "alloy-dyn-abi/arbitrary",
+    "alloy-rpc-types/arbitrary",
+    "seismic-alloy-rpc-types/arbitrary",
 ]
