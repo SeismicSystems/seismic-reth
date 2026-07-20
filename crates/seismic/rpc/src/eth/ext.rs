@@ -42,7 +42,10 @@ use seismic_alloy_rpc_types::{
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
 };
 use serde::{Deserialize, Serialize};
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::{
+    future::Future,
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+};
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///
@@ -205,6 +208,28 @@ impl<Eth> EthApiExt<Eth> {
                 format!("Failed to build seismic metadata: {}", e),
                 None::<String>,
             )))
+        })
+    }
+
+    /// Spawns a blocking task computing the effective balance, max(native, usdc·10^12), for
+    /// `address` at `block_id` (latest if `None`).
+    ///
+    /// Kept out of the `#[async_trait]` handler bodies: rustc ≤1.91 (MSRV is 1.88) fails to
+    /// infer the type of the closure-returning-async-block passed to `spawn_blocking_io_fut`
+    /// inside the macro-desugared bodies (E0308), while this plain `impl Future` method — the
+    /// same shape as the `EthState` overrides in `mod.rs` — compiles on all toolchains.
+    fn spawn_effective_balance(
+        &self,
+        address: Address,
+        block_id: Option<BlockId>,
+        native: U256,
+    ) -> impl Future<Output = Result<U256, Eth::Error>> + Send + use<'_, Eth>
+    where
+        Eth: FullEthApi,
+    {
+        self.eth_api.spawn_blocking_io_fut(move |this| async move {
+            let state = this.state_at_block_id_or_latest(block_id).await?;
+            Ok(effective_balance(&*state, &address, native))
         })
     }
 }
@@ -470,13 +495,7 @@ where
         }
 
         // Opt-in: effective balance, max(native, usdc·10^12).
-        Ok(self
-            .eth_api
-            .spawn_blocking_io_fut(move |this| async move {
-                let state = this.state_at_block_id_or_latest(block_number).await?;
-                Ok::<U256, Eth::Error>(effective_balance(&*state, &address, native))
-            })
-            .await?)
+        Ok(self.spawn_effective_balance(address, block_number, native).await?)
     }
 
     async fn get_account_info(
@@ -495,13 +514,7 @@ where
 
         // Opt-in: report the effective balance, max(native, usdc·10^12), in the balance field.
         let native = info.balance;
-        info.balance = self
-            .eth_api
-            .spawn_blocking_io_fut(move |this| async move {
-                let state = this.state_at_block_id(block).await?;
-                Ok::<U256, Eth::Error>(effective_balance(&*state, &address, native))
-            })
-            .await?;
+        info.balance = self.spawn_effective_balance(address, Some(block), native).await?;
         Ok(info)
     }
 }
