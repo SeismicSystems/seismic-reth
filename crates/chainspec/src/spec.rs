@@ -404,7 +404,7 @@ impl ChainSpec {
     }
 
     /// Get the timestamp of the genesis block in seconds
-    pub(crate) fn genesis_timestamp_seconds(&self) -> u64 {
+    pub(crate) const fn genesis_timestamp_seconds(&self) -> u64 {
         #[cfg(feature = "timestamp-in-seconds")]
         return self.genesis.timestamp;
         #[cfg(not(feature = "timestamp-in-seconds"))]

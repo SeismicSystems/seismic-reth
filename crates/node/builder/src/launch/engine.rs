@@ -235,6 +235,9 @@ where
 
         info!(target: "reth::cli", "Consensus engine initialized");
 
+        // stable clippy false-positives on the `continue` inside the external
+        // `stream_select!` macro expansion
+        #[allow(clippy::needless_continue)]
         let events = stream_select!(
             event_sender.new_listener().map(Into::into),
             pipeline_events.map(Into::into),

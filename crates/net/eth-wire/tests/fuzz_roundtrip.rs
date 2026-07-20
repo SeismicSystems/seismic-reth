@@ -53,10 +53,10 @@ pub mod fuzz_rlp {
     use alloy_rlp::{RlpDecodableWrapper, RlpEncodableWrapper};
     use reth_codecs::add_arbitrary_tests;
     use reth_eth_wire::{
-        BlockBodies, BlockHeaders, DisconnectReason, GetBlockBodies, GetBlockHeaders, GetNodeData,
+        BlockBodies, BlockHeaders, DisconnectReason, GetBlockBodies, GetBlockHeaders,
         GetPooledTransactions, GetReceipts, HelloMessage, NewBlock, NewBlockHashes,
-        NewPooledTransactionHashes66, NewPooledTransactionHashes68, NodeData, P2PMessage,
-        PooledTransactions, Receipts, Status, Transactions,
+        NewPooledTransactionHashes66, NewPooledTransactionHashes68, P2PMessage, PooledTransactions,
+        Receipts, Status, Transactions,
     };
     use serde::{Deserialize, Serialize};
     use test_fuzz::test_fuzz;

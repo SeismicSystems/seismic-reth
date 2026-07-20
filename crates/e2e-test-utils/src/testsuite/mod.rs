@@ -320,7 +320,7 @@ where
         self
     }
 
-    /// Run the test scenario using the default EthEvmConfig for chain imports.
+    /// Run the test scenario using the default `EthEvmConfig` for chain imports.
     pub async fn run<N>(mut self) -> Result<()>
     where
         N: NodeBuilderHelper,
@@ -347,10 +347,10 @@ where
     }
 
     /// Run the test scenario with a custom EVM config for chain imports.
-    /// Use this when the node type requires a non-Ethereum EVM config (e.g., SeismicNode).
+    /// Use this when the node type requires a non-Ethereum EVM config (e.g., `SeismicNode`).
     pub async fn run_with_evm<N>(
         mut self,
-        evm_config: impl reth_evm::ConfigureEvm<Primitives = N::Primitives> + Clone + 'static,
+        evm_config: impl reth_evm::ConfigureEvm<Primitives = N::Primitives> + 'static,
     ) -> Result<()>
     where
         N: NodeBuilderHelper,

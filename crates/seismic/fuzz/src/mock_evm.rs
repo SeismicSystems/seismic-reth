@@ -7,7 +7,7 @@ use seismic_revm::SeismicSpecId;
 
 use crate::{mock_keys::get_static_mock_keys, mock_state::FUZZ_CHAIN_ID};
 
-/// Creates a new SeismicEvmFactory with the static mock keys.
+/// Creates a new `SeismicEvmFactory` with the static mock keys.
 pub fn fuzz_evm_factory() -> SeismicEvmFactory {
     SeismicEvmFactory::new_with_purpose_keys(get_static_mock_keys())
 }

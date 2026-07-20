@@ -202,8 +202,7 @@ mod tests {
 
     #[test]
     fn hash_builder_state_regression_with_private() {
-        let mut state = HashBuilderState::default();
-        state.is_private = Some(true);
+        let mut state = HashBuilderState { is_private: Some(true), ..Default::default() };
         state.stack.push(Default::default());
         let mut buf = vec![];
         let len = state.clone().to_compact(&mut buf);

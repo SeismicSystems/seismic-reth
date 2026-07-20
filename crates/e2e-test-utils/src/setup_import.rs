@@ -80,7 +80,7 @@ pub async fn setup_engine_with_chain_import<N>(
         + Sync
         + Copy
         + 'static,
-    evm_config: impl ConfigureEvm<Primitives = N::Primitives> + Clone + 'static,
+    evm_config: impl ConfigureEvm<Primitives = N::Primitives> + 'static,
 ) -> eyre::Result<ChainImportResult<N>>
 where
     N: NodeBuilderHelper,

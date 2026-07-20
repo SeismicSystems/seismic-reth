@@ -25,7 +25,7 @@ pub trait EthState: LoadState + SpawnBlocking {
     /// Returns the maximum number of blocks into the past for generating state proofs.
     fn max_proof_window(&self) -> u64;
 
-    /// Returns whether storage APIs (eth_getStorageAt, eth_getFlaggedStorageAt) are enabled.
+    /// Returns whether storage APIs (`eth_getStorageAt`, `eth_getFlaggedStorageAt`) are enabled.
     /// Disabled by default to protect private storage information.
     fn storage_apis_enabled(&self) -> bool;
 

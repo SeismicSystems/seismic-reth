@@ -55,7 +55,7 @@ where
         EthState::get_code(
             eth_api,
             address,
-            Some(BlockId::Number(BlockNumberOrTag::Number(block_number.into()))),
+            Some(BlockId::Number(BlockNumberOrTag::Number(block_number))),
         )
         .await
     }
@@ -69,7 +69,7 @@ where
         EthState::get_account(
             eth_api,
             address,
-            BlockId::Number(BlockNumberOrTag::Number(block_number.into())),
+            BlockId::Number(BlockNumberOrTag::Number(block_number)),
         )
         .await
     }

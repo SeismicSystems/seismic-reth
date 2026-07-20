@@ -313,7 +313,7 @@ pub struct EthApiInner<N: RpcNodeCore, Rpc: RpcConvert> {
     /// Configuration for pending block construction.
     pending_block_kind: PendingBlockKind,
 
-    /// Whether storage APIs (eth_getStorageAt, eth_getFlaggedStorageAt) are enabled.
+    /// Whether storage APIs (`eth_getStorageAt`, `eth_getFlaggedStorageAt`) are enabled.
     /// Disabled by default to protect private storage information.
     enable_storage_apis: bool,
 }
@@ -495,7 +495,7 @@ where
         self.eth_proof_window
     }
 
-    /// Returns whether storage APIs (eth_getStorageAt, eth_getFlaggedStorageAt) are enabled.
+    /// Returns whether storage APIs (`eth_getStorageAt`, `eth_getFlaggedStorageAt`) are enabled.
     #[inline]
     pub const fn storage_apis_enabled(&self) -> bool {
         self.enable_storage_apis

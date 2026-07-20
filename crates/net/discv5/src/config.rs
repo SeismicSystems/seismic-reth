@@ -220,7 +220,7 @@ impl ConfigBuilder {
     }
 
     /// Sets the NAT resolver for determining the external IP to advertise in the ENR.
-    pub fn nat(mut self, nat: NatResolver) -> Self {
+    pub const fn nat(mut self, nat: NatResolver) -> Self {
         self.nat = nat;
         self
     }

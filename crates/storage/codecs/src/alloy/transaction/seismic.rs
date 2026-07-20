@@ -386,13 +386,12 @@ mod seismic_typed_transaction_tests {
 
         proptest::proptest!(config, |(field in arb::<SeismicTypedTransaction>())| {
             // Skip EIP4844 cases as they have incomplete serialization support
-            match &field {
-                SeismicTypedTransaction::Eip4844(_) => return Ok(()),
-                _ => {}
+            if let SeismicTypedTransaction::Eip4844(_) = &field {
+                return Ok(());
             }
 
             let mut buf = vec![];
-            let len = field.clone().to_compact(&mut buf);
+            let len = field.to_compact(&mut buf);
             let (decoded, _): (SeismicTypedTransaction, _) = Compact::from_compact(&buf, len);
             assert_eq!(field, decoded, "maybe_generate_tests::compact");
         });

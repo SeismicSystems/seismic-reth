@@ -128,7 +128,7 @@ async fn test_ops_request_without_signature_is_rejected() {
 
     let body = get_storage_request(Address::ZERO, B256::ZERO, 1);
     let resp = reqwest::Client::new()
-        .post(&handle.http_url())
+        .post(handle.http_url())
         .header("Content-Type", "application/json")
         .body(body)
         .send()

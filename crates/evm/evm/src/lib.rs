@@ -498,7 +498,7 @@ pub struct NextBlockEnvAttributes {
 
 impl NextBlockEnvAttributes {
     /// Returns the timestamp in seconds, assuming the timestamp is in milliseconds.
-    pub fn timestamp_seconds(&self) -> u64 {
+    pub const fn timestamp_seconds(&self) -> u64 {
         if cfg!(feature = "timestamp-in-seconds") {
             self.timestamp
         } else {

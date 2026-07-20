@@ -5,7 +5,7 @@ use alloy_primitives::{address, b256, keccak256, Address, Bytes, B256, U256};
 use alloy_rlp::EMPTY_STRING_CODE;
 use reth_chainspec::{Chain, ChainSpec, HOLESKY, MAINNET};
 use reth_db::tables;
-use reth_db_api::transaction::{DbTx, DbTxMut};
+use reth_db_api::transaction::DbTxMut;
 use reth_primitives_traits::{Account, StorageEntry};
 use reth_provider::test_utils::{create_test_provider_factory, insert_genesis};
 use reth_trie::{proof::Proof, AccountProof, Nibbles, StateRoot, StorageProof};

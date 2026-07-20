@@ -53,8 +53,8 @@ pub fn storage_root_prehashed<I: IntoIterator<Item = (B256, alloy_primitives::Fl
     triehash::trie_root::<KeccakHasher, _, _, _>(encoded_storage)
 }
 
-/// Compute the state root of a given set of accounts using privacy-aware HashBuilder.
-/// This function respects the privacy flags in FlaggedStorage values and hashes the keys.
+/// Compute the state root of a given set of accounts using privacy-aware `HashBuilder`.
+/// This function respects the privacy flags in `FlaggedStorage` values and hashes the keys.
 pub fn state_root_privacy_aware<I, S>(accounts: I) -> B256
 where
     I: IntoIterator<Item = (Address, (Account, S))>,
@@ -84,8 +84,8 @@ where
     hash_builder.root()
 }
 
-/// Compute the storage root for a given account using privacy-aware HashBuilder.
-/// This function respects the privacy flags in FlaggedStorage values and hashes the keys.
+/// Compute the storage root for a given account using privacy-aware `HashBuilder`.
+/// This function respects the privacy flags in `FlaggedStorage` values and hashes the keys.
 pub fn storage_root_privacy_aware<
     I: IntoIterator<Item = (B256, alloy_primitives::FlaggedStorage)>,
 >(
@@ -109,8 +109,8 @@ pub fn storage_root_privacy_aware<
 }
 
 /// Compute the storage root for a given account with prehashed slots using privacy-aware
-/// HashBuilder. This function respects the privacy flags in FlaggedStorage values, unlike the
-/// standard version above.
+/// `HashBuilder`. This function respects the privacy flags in `FlaggedStorage` values, unlike
+/// the standard version above.
 pub fn storage_root_prehashed_privacy_aware<
     I: IntoIterator<Item = (B256, alloy_primitives::FlaggedStorage)>,
 >(

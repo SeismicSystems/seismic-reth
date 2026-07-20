@@ -65,8 +65,8 @@ impl Default for EnclaveArgs {
     }
 }
 
-impl AsRef<EnclaveArgs> for EnclaveArgs {
-    fn as_ref(&self) -> &EnclaveArgs {
+impl AsRef<Self> for EnclaveArgs {
+    fn as_ref(&self) -> &Self {
         self
     }
 }
@@ -90,6 +90,6 @@ mod tests {
         assert_eq!(args.enclave_server_port, ENCLAVE_DEFAULT_ENDPOINT_PORT);
         assert_eq!(args.enclave_server_addr, ENCLAVE_DEFAULT_ENDPOINT_IP);
         assert_eq!(args.custodian_socket, std::path::Path::new(ENCLAVE_DEFAULT_CUSTODIAN_SOCKET));
-        assert_eq!(args.mock_server, false);
+        assert!(!args.mock_server);
     }
 }

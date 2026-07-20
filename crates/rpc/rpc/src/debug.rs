@@ -1005,7 +1005,7 @@ where
         let _permit = self.acquire_trace_permit().await;
         Self::debug_trace_raw_block(self, rlp_block, opts.unwrap_or_default())
             .await
-            .map(|results| sanitize_trace_results_vec(results))
+            .map(sanitize_trace_results_vec)
             .map_err(Into::into)
     }
 
@@ -1018,7 +1018,7 @@ where
         let _permit = self.acquire_trace_permit().await;
         Self::debug_trace_block(self, block.into(), opts.unwrap_or_default())
             .await
-            .map(|results| sanitize_trace_results_vec(results))
+            .map(sanitize_trace_results_vec)
             .map_err(Into::into)
     }
 
@@ -1031,7 +1031,7 @@ where
         let _permit = self.acquire_trace_permit().await;
         Self::debug_trace_block(self, block.into(), opts.unwrap_or_default())
             .await
-            .map(|results| sanitize_trace_results_vec(results))
+            .map(sanitize_trace_results_vec)
             .map_err(Into::into)
     }
 

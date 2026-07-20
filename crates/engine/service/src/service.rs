@@ -228,7 +228,7 @@ mod tests {
             TreeConfig::default(),
             sync_metrics_tx,
             evm_config,
-            MaybePlatformPath::chain_default(chain_spec.chain.clone()),
+            MaybePlatformPath::chain_default(chain_spec.chain),
         );
     }
 }

@@ -1,7 +1,7 @@
 //! Fuzz tests for `SeismicTransactionSigned` encoding/decoding.
 //!
 //! DEPENDENCIES EXERCISED: [`seismic-alloy-consensus`, `seismic-alloy-core`]
-//! CRASH CATEGORY: encoding_decoding
+//! CRASH CATEGORY: `encoding_decoding`
 //!
 //! Any panic here indicates a security bug — a malformed transaction from
 //! the P2P network could crash a node.

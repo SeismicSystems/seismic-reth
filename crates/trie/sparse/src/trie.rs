@@ -1818,7 +1818,7 @@ impl SparseNode {
 
     /// returns if the node holds private state
     /// node is always public unless it is a leaf
-    pub fn is_private(&self) -> bool {
+    pub const fn is_private(&self) -> bool {
         match self {
             Self::Leaf { is_private, .. } => *is_private,
             _ => false,

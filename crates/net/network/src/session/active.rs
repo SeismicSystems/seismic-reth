@@ -262,7 +262,7 @@ impl<N: NetworkPrimitives> ActiveSession<N> {
             }
             EthMessage::GetNodeData(req) => {
                 // GetNodeData is disabled to prevent privacy leaks - treat as bad message
-                return OnIncomingMessageOutcome::BadMessage {
+                OnIncomingMessageOutcome::BadMessage {
                     error: EthStreamError::InvalidMessage(MessageError::Other(
                         "GetNodeData message is disabled to prevent privacy leaks".to_string(),
                     )),
@@ -271,7 +271,7 @@ impl<N: NetworkPrimitives> ActiveSession<N> {
             }
             EthMessage::NodeData(resp) => {
                 // NodeData is disabled to prevent privacy leaks - treat as bad message
-                return OnIncomingMessageOutcome::BadMessage {
+                OnIncomingMessageOutcome::BadMessage {
                     error: EthStreamError::InvalidMessage(MessageError::Other(
                         "NodeData message is disabled to prevent privacy leaks".to_string(),
                     )),

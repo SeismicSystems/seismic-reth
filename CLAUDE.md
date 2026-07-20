@@ -36,19 +36,16 @@ Reth is a high-performance Ethereum execution client written in Rust, focusing o
    cargo +nightly fmt --all
    ```
 
-2. **Linting**: Run the Seismic CI clippy command (matches `.github/workflows/seismic.yml`)
+2. **Linting**: Run the Seismic CI clippy command (matches `.github/workflows/seismic.yml`).
+   `-p 'reth-seismic*'` selects seismic-authored crates by naming convention; crates that
+   don't follow it are listed explicitly. Name new seismic crates `reth-seismic-*` so they
+   are covered automatically.
    ```bash
    cargo clippy \
-     -p reth-seismic-primitives \
-     -p reth-seismic-chainspec \
-     -p reth-seismic-evm \
-     -p reth-seismic-payload-builder \
-     -p reth-seismic-node \
-     -p reth-seismic-rpc \
-     -p reth-seismic-cli \
-     -p reth-seismic-txpool \
-     -p reth-seismic-forks \
+     -p 'reth-seismic*' \
      -p seismic-reth \
+     -p reth-genesis-builder \
+     -p genesis-builder \
      --lib --tests --no-deps \
      -- -D warnings \
      -W clippy::unwrap_used \
@@ -191,16 +188,10 @@ Before committing or pushing code, run these checks locally to match what Seismi
 3. **Clippy** (Seismic crates with strict lints):
    ```bash
    cargo clippy \
-     -p reth-seismic-primitives \
-     -p reth-seismic-chainspec \
-     -p reth-seismic-evm \
-     -p reth-seismic-payload-builder \
-     -p reth-seismic-node \
-     -p reth-seismic-rpc \
-     -p reth-seismic-cli \
-     -p reth-seismic-txpool \
-     -p reth-seismic-forks \
+     -p 'reth-seismic*' \
      -p seismic-reth \
+     -p reth-genesis-builder \
+     -p genesis-builder \
      --lib --tests --no-deps \
      -- -D warnings \
      -W clippy::unwrap_used \
@@ -210,12 +201,13 @@ Before committing or pushing code, run these checks locally to match what Seismi
      -W clippy::unreachable \
      -W clippy::todo
    ```
-4. **TOML Formatting**: `dprint check` (auto-fix with `dprint fmt` / `make lint-toml`)
-5. **Feature Propagation**: `zepter run check` (auto-fix with plain `zepter`)
-6. **Tests Pass**: `cargo nextest run --workspace` (unit and integration)
-7. **Build Check**: `cargo check --workspace`
-8. **Documentation**: Update relevant docs and add doc comments with `cargo docs --document-private-items`
-9. **Commit Messages**: Follow conventional format (feat:, fix:, chore:, etc.)
+4. **Workspace Clippy**: `RUSTFLAGS="-D warnings" cargo clippy --workspace --lib --examples --tests --benches --locked` (default features only — never enable the optimism `op` features; that code is upstream's and doesn't compile against fork type changes)
+5. **TOML Formatting**: `dprint check` (auto-fix with `dprint fmt` / `make lint-toml`)
+6. **Feature Propagation**: `zepter run check` (auto-fix with plain `zepter`)
+7. **Tests Pass**: `cargo nextest run --workspace` (unit and integration)
+8. **Build Check**: `cargo check --workspace`
+9. **Documentation**: Update relevant docs and add doc comments with `cargo docs --document-private-items`
+10. **Commit Messages**: Follow conventional format (feat:, fix:, chore:, etc.)
 
 
 ### Opening PRs against <https://github.com/paradigmxyz/reth>
@@ -338,7 +330,7 @@ Let's say you want to fix a bug where external IP resolution fails on startup:
 cargo +nightly fmt --all
 
 # Run Seismic CI clippy (see CI Requirements section for full command)
-cargo clippy -p reth-seismic-primitives -p reth-seismic-chainspec -p reth-seismic-evm -p reth-seismic-payload-builder -p reth-seismic-node -p reth-seismic-rpc -p reth-seismic-cli -p reth-seismic-txpool -p reth-seismic-forks -p seismic-reth --lib --tests --no-deps -- -D warnings -W clippy::unwrap_used -W clippy::expect_used -W clippy::indexing_slicing -W clippy::panic -W clippy::unreachable -W clippy::todo
+cargo clippy -p 'reth-seismic*' -p seismic-reth -p reth-genesis-builder -p genesis-builder --lib --tests --no-deps -- -D warnings -W clippy::unwrap_used -W clippy::expect_used -W clippy::indexing_slicing -W clippy::panic -W clippy::unreachable -W clippy::todo
 
 # Run warnings check
 RUSTFLAGS="-D warnings" cargo check

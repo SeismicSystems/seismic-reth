@@ -647,7 +647,7 @@ where
 
     /// Executes a block with the given state provider
     fn execute_block<S, Err, T>(
-        &mut self,
+        &self,
         state_provider: S,
         env: ExecutionEnv<Evm>,
         input: &BlockOrPayload<T>,
@@ -672,7 +672,7 @@ where
             .without_state_clear()
             .build();
 
-        let evm = self.evm_config.evm_with_env(&mut db, env.evm_env.clone());
+        let evm = self.evm_config.evm_with_env(&mut db, env.evm_env);
         let ctx = self.execution_ctx_for(input);
 
         #[allow(unused_mut)]

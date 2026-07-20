@@ -83,7 +83,6 @@ pub fn insert_genesis<N: ProviderNodeTypes<ChainSpec = ChainSpec>>(
                 storage.into_iter().map(|(key, value)| StorageEntry {
                     key,
                     value: FlaggedStorage::public(U256::from_be_bytes(value.0)),
-                    ..Default::default()
                 }),
             )
         })

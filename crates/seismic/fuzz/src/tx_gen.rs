@@ -98,9 +98,10 @@ impl FuzzSeismicTx {
         }
     }
 
-    /// Forces tx_type to non-seismic (Legacy/EIP-2930/EIP-1559/EIP-4844) for differential testing.
+    /// Forces `tx_type` to non-seismic (Legacy/EIP-2930/EIP-1559/EIP-4844) for differential
+    /// testing.
     pub fn into_eth_compatible_tx(mut self) -> SeismicTransaction<TxEnv> {
-        self.tx_type_selector = self.tx_type_selector % 4;
+        self.tx_type_selector %= 4;
         self.into_seismic_tx()
     }
 }
