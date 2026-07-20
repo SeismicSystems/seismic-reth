@@ -20,6 +20,7 @@ use alloy_rpc_types_eth::{
     simulate::{SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock},
     AccountInfo, Bundle, EthCallResponse, StateContext,
 };
+use alloy_seismic_evm::{secp256k1::PublicKey, PurposeKeys};
 use jsonrpsee::{
     core::{async_trait, RpcResult},
     proc_macros::rpc,
@@ -40,7 +41,6 @@ use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest,
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
 };
-use seismic_enclave::{secp256k1::PublicKey, GetPurposeKeysResponse};
 use serde::{Deserialize, Serialize};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
@@ -73,7 +73,7 @@ pub struct SeismicNodeInfo {
 /// Implementation of the seismic rpc api
 #[derive(Debug, Clone)]
 pub struct SeismicApi<P> {
-    purpose_keys: GetPurposeKeysResponse,
+    purpose_keys: PurposeKeys,
     // Keep the PeersInfo provider instead of snapshotting a NodeRecord because discovery
     // may update the externally advertised address after startup.
     peers_info: P,
@@ -81,7 +81,7 @@ pub struct SeismicApi<P> {
 
 impl<P: PeersInfo> SeismicApi<P> {
     /// Creates a new seismic api instance.
-    pub const fn new(purpose_keys: GetPurposeKeysResponse, peers_info: P) -> Self {
+    pub const fn new(purpose_keys: PurposeKeys, peers_info: P) -> Self {
         Self { purpose_keys, peers_info }
     }
 }
@@ -184,12 +184,12 @@ pub trait EthApiOverride<B: RpcObject> {
 #[derive(Debug, Clone)]
 pub struct EthApiExt<Eth> {
     eth_api: Eth,
-    purpose_keys: GetPurposeKeysResponse,
+    purpose_keys: PurposeKeys,
 }
 
 impl<Eth> EthApiExt<Eth> {
     /// Create a new `EthApiExt` module.
-    pub const fn new(eth_api: Eth, purpose_keys: GetPurposeKeysResponse) -> Self {
+    pub const fn new(eth_api: Eth, purpose_keys: PurposeKeys) -> Self {
         Self { eth_api, purpose_keys }
     }
 

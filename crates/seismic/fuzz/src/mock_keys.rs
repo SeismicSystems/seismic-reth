@@ -1,7 +1,8 @@
 //! Mock purpose keys for fuzz targets.
-use seismic_enclave::{
+use alloy_seismic_evm::PurposeKeys;
+use seismic_crypto::{
     get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
-    get_unsecure_sample_secp256k1_sk, GetPurposeKeysResponse,
+    get_unsecure_sample_secp256k1_sk,
 };
 use std::sync::OnceLock;
 
@@ -9,14 +10,13 @@ use std::sync::OnceLock;
 ///
 /// Safe for use in fuzz targets — the allocation is leaked once and
 /// reused across all iterations within a single process.
-pub fn get_static_mock_keys() -> &'static GetPurposeKeysResponse {
-    static KEYS: OnceLock<&'static GetPurposeKeysResponse> = OnceLock::new();
+pub fn get_static_mock_keys() -> &'static PurposeKeys {
+    static KEYS: OnceLock<&'static PurposeKeys> = OnceLock::new();
     KEYS.get_or_init(|| {
-        Box::leak(Box::new(GetPurposeKeysResponse {
+        Box::leak(Box::new(PurposeKeys {
             tx_io_sk: get_unsecure_sample_secp256k1_sk(),
             tx_io_pk: get_unsecure_sample_secp256k1_pk(),
-            snapshot_key_bytes: [0u8; 32],
-            rng_keypair: get_unsecure_sample_schnorrkel_keypair(),
+            rng_ikm: get_unsecure_sample_schnorrkel_keypair().secret.to_bytes(),
         }))
     })
 }

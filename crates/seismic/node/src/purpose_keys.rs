@@ -16,12 +16,12 @@
 //! the CLI `stage` command, or tests that construct `SeismicNode::default()`).
 //! New code should prefer the injection path.
 
-use seismic_enclave::GetPurposeKeysResponse;
+use alloy_seismic_evm::PurposeKeys;
 use std::sync::OnceLock;
 
 /// Global storage for purpose keys.
 /// These keys are fetched once from the enclave during node startup.
-static PURPOSE_KEYS: OnceLock<GetPurposeKeysResponse> = OnceLock::new();
+static PURPOSE_KEYS: OnceLock<PurposeKeys> = OnceLock::new();
 
 /// Initialize the global purpose keys.
 /// This should be called once during node startup, after the enclave is booted.
@@ -29,7 +29,7 @@ static PURPOSE_KEYS: OnceLock<GetPurposeKeysResponse> = OnceLock::new();
 /// # Panics
 /// Panics if called more than once.
 #[allow(clippy::expect_used)] // Documented panic behavior
-pub fn init_purpose_keys(keys: GetPurposeKeysResponse) {
+pub fn init_purpose_keys(keys: PurposeKeys) {
     PURPOSE_KEYS.set(keys).expect("Purpose keys already initialized");
 }
 
@@ -38,7 +38,7 @@ pub fn init_purpose_keys(keys: GetPurposeKeysResponse) {
 /// # Panics
 /// Panics if the keys haven't been initialized yet.
 #[allow(clippy::expect_used)] // Documented panic behavior
-pub fn get_purpose_keys() -> &'static GetPurposeKeysResponse {
+pub fn get_purpose_keys() -> &'static PurposeKeys {
     PURPOSE_KEYS.get().expect("Purpose keys not initialized")
 }
 
@@ -47,6 +47,6 @@ pub fn get_purpose_keys() -> &'static GetPurposeKeysResponse {
 /// This is used by [`SeismicNode::new`](crate::node::SeismicNode::new) so that
 /// the purpose keys have a `'static` lifetime without relying on the global
 /// `OnceLock`.
-pub fn leak_purpose_keys(keys: GetPurposeKeysResponse) -> &'static GetPurposeKeysResponse {
+pub fn leak_purpose_keys(keys: PurposeKeys) -> &'static PurposeKeys {
     Box::leak(Box::new(keys))
 }

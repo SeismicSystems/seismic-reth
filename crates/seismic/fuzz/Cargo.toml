@@ -13,7 +13,7 @@ workspace = true
 
 [dependencies]
 # seismic
-seismic-enclave.workspace = true
+seismic-crypto.workspace = true
 seismic-revm.workspace = true
 alloy-seismic-evm.workspace = true
 seismic-alloy-consensus.workspace = true

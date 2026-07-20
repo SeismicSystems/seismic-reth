@@ -11,8 +11,8 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-# enclave
-seismic-enclave.workspace = true
+# seismic
+secp256k1.workspace = true
 seismic-alloy-consensus = { workspace = true, default-features = false, features = ["arbitrary", "serde"] }
 seismic-alloy-genesis.workspace = true
 
@@ -56,6 +56,7 @@ default = ["std", "alloy"]
 std = [
     "alloy-primitives/std",
     "bytes/std",
+    "secp256k1/std",
     "alloy-consensus?/std",
     "alloy-eips?/std",
     "alloy-trie?/std",
@@ -85,6 +86,7 @@ serde = [
     "alloy-trie?/serde",
     "bytes/serde",
     "op-alloy-consensus?/serde",
+    "secp256k1/serde",
 ]
 arbitrary = [
     "alloy-consensus?/arbitrary",

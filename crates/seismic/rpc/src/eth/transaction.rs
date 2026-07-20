@@ -474,7 +474,7 @@ mod test {
     /// - First Anvil private key:
     ///   0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
     /// - Sender address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-    /// - Network public key from seismic-enclave (insecure sample key)
+    /// - Network public key from seismic-crypto (insecure sample key)
     #[allow(dead_code)]
     fn generate_test_raw_tx() -> (Bytes, FixedBytes<32>) {
         use alloy_consensus::SignableTransaction;
@@ -483,7 +483,7 @@ mod test {
         use k256::ecdsa::SigningKey;
         use secp256k1::PublicKey;
         use seismic_alloy_consensus::{TxSeismic, TxSeismicElements};
-        use seismic_enclave::get_unsecure_sample_secp256k1_pk;
+        use seismic_crypto::get_unsecure_sample_secp256k1_pk;
 
         // First anvil key
         let private_key_bytes: [u8; 32] =

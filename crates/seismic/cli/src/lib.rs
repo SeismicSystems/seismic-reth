@@ -26,7 +26,7 @@ use reth_node_core::{
 };
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_seismic_node::{
-    enclave::boot_enclave_and_fetch_keys,
+    enclave::fetch_purpose_keys,
     node::SeismicNode,
     purpose_keys::{get_purpose_keys, init_purpose_keys},
     SeismicEvmConfig,
@@ -48,7 +48,7 @@ use tracing::info;
 // TODO(samlaf): the enclave flags still use the bare `--enclave.*` namespace, predating the
 // `seismic.*` convention. We probably want to move them under `seismic.enclave.*` so all
 // fork-specific flags live under one `seismic.*` namespace.
-#[derive(Debug, Clone, Copy, Args, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Args, PartialEq, Eq, Default)]
 pub struct SeismicNodeArgs {
     /// Enclave connection configuration.
     #[command(flatten)]
@@ -195,8 +195,8 @@ where
             }),
             Commands::Stage(command) => {
                 runner.run_command_until_exit(|ctx| async move {
-                    // For Stage commands, boot the enclave and fetch purpose keys first
-                    let purpose_keys_response = boot_enclave_and_fetch_keys(&enclave_args).await;
+                    // For Stage commands, fetch the purpose keys first
+                    let purpose_keys_response = fetch_purpose_keys(&enclave_args).await;
 
                     // Initialize purpose keys in global storage
                     init_purpose_keys(purpose_keys_response);

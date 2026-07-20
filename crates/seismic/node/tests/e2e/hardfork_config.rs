@@ -12,14 +12,15 @@ use alloy_primitives::{Address, B256};
 use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
 use alloy_rpc_types_engine::PayloadAttributes;
 use alloy_rpc_types_eth::TransactionRequest;
+use alloy_seismic_evm::PurposeKeys;
 use reth_chainspec::{EthChainSpec, Hardforks, Head};
 use reth_e2e_test_utils::setup;
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use reth_seismic_chainspec::SEISMIC_DEV;
 use reth_seismic_node::{node::SeismicNode, purpose_keys::init_purpose_keys};
-use seismic_enclave::{
+use seismic_crypto::{
     get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
-    get_unsecure_sample_secp256k1_sk, GetPurposeKeysResponse,
+    get_unsecure_sample_secp256k1_sk,
 };
 use std::sync::Once;
 
@@ -27,11 +28,10 @@ use std::sync::Once;
 static INIT_KEYS: Once = Once::new();
 fn ensure_mock_purpose_keys() {
     INIT_KEYS.call_once(|| {
-        init_purpose_keys(GetPurposeKeysResponse {
+        init_purpose_keys(PurposeKeys {
             tx_io_sk: get_unsecure_sample_secp256k1_sk(),
             tx_io_pk: get_unsecure_sample_secp256k1_pk(),
-            snapshot_key_bytes: [0u8; 32],
-            rng_keypair: get_unsecure_sample_schnorrkel_keypair(),
+            rng_ikm: get_unsecure_sample_schnorrkel_keypair().secret.to_bytes(),
         });
     });
 }

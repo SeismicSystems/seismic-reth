@@ -56,7 +56,7 @@ impl SeismicEvmConfig {
     /// Creates a new Seismic EVM configuration with the given chain spec and purpose keys.
     pub fn new(
         chain_spec: Arc<ChainSpec>,
-        purpose_keys: &'static seismic_enclave::GetPurposeKeysResponse,
+        purpose_keys: &'static alloy_seismic_evm::PurposeKeys,
     ) -> Self {
         Self::new_with_evm_factory(
             chain_spec,
@@ -69,7 +69,7 @@ impl SeismicEvmConfig {
     pub fn new_with_evm_factory(
         chain_spec: Arc<ChainSpec>,
         evm_factory: SeismicEvmFactory,
-        purpose_keys: &'static seismic_enclave::GetPurposeKeysResponse,
+        purpose_keys: &'static alloy_seismic_evm::PurposeKeys,
     ) -> Self {
         Self {
             block_assembler: SeismicBlockAssembler::new(chain_spec.clone()),
@@ -314,6 +314,7 @@ mod tests {
     use alloy_evm::Evm;
     use alloy_genesis::Genesis;
     use alloy_primitives::{bytes, map::HashMap, Address, LogData, TxKind, B256, U256};
+    use alloy_seismic_evm::PurposeKeys;
     use reth_chainspec::ChainSpec;
     use reth_evm::execute::ProviderError;
     use reth_execution_types::{
@@ -335,9 +336,9 @@ mod tests {
         primitives::Log,
         state::AccountInfo,
     };
-    use seismic_enclave::{
+    use seismic_crypto::{
         get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
-        get_unsecure_sample_secp256k1_sk, GetPurposeKeysResponse,
+        get_unsecure_sample_secp256k1_sk,
     };
     use seismic_revm::transaction::abstraction::SeismicTransaction;
     use std::sync::Arc;
@@ -349,12 +350,11 @@ mod tests {
         SeismicEvmConfig::new(SEISMIC_MAINNET.clone(), mock_keys)
     }
 
-    fn get_mock_keys() -> GetPurposeKeysResponse {
-        GetPurposeKeysResponse {
+    fn get_mock_keys() -> PurposeKeys {
+        PurposeKeys {
             tx_io_sk: get_unsecure_sample_secp256k1_sk(),
             tx_io_pk: get_unsecure_sample_secp256k1_pk(),
-            snapshot_key_bytes: [0u8; 32],
-            rng_keypair: get_unsecure_sample_schnorrkel_keypair(),
+            rng_ikm: get_unsecure_sample_schnorrkel_keypair().secret.to_bytes(),
         }
     }
 
