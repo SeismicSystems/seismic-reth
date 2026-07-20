@@ -37,6 +37,29 @@ jobs:
       - name: cargo check (workspace)
         run: cargo check --workspace
 
+  msrv:
+    name: MSRV (1.88)
+    runs-on: large-github-runner
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rui314/setup-mold@v1
+      # @master is the action's canonical ref, the only one that reads an
+      # explicit `toolchain` input. The @stable/@nightly refs the other jobs use
+      # are just shorthands that bake the toolchain into the ref itself, so they
+      # can't pin an arbitrary version. Matches upstream reth's msrv job.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.88" # keep in sync with rust-version in Cargo.toml
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "msrv-cache"
+          cache-on-failure: true
+      - name: cargo build (MSRV)
+        run: cargo build --bin seismic-reth --workspace
+        env:
+          RUSTFLAGS: -D warnings
+
   warnings:
     runs-on: ubuntu-latest
     timeout-minutes: 15
