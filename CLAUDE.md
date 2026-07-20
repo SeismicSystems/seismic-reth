@@ -201,7 +201,7 @@ Before committing or pushing code, run these checks locally to match what Seismi
      -W clippy::unreachable \
      -W clippy::todo
    ```
-4. **Workspace Clippy**: `RUSTFLAGS="-D warnings" cargo clippy --workspace --lib --examples --tests --benches --locked` (default features only — never enable the optimism `op` features; that code is upstream's and doesn't compile against fork type changes)
+4. **Workspace Clippy**: `RUSTFLAGS="-D warnings" rustup run 1.91.1 cargo clippy --workspace --lib --examples --tests --benches --locked` (default features only — never enable the optimism `op` features; that code is upstream's and doesn't compile against fork type changes. The toolchain is pinned in CI because new stable releases add lints whose fixes churn upstream code; bump the pin deliberately, fixing new findings in the same PR)
 5. **TOML Formatting**: `dprint check` (auto-fix with `dprint fmt` / `make lint-toml`)
 6. **Feature Propagation**: `zepter run check` (auto-fix with plain `zepter`)
 7. **Tests Pass**: `cargo nextest run --workspace` (unit and integration)
