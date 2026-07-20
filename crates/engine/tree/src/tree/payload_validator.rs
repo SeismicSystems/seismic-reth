@@ -646,8 +646,12 @@ where
     }
 
     /// Executes a block with the given state provider
+    // Keep upstream's `&mut self` signature: the mutation only happens in
+    // feature-gated paths this fork doesn't compile, so clippy flags it under
+    // our default-features gate.
+    #[allow(clippy::needless_pass_by_ref_mut)]
     fn execute_block<S, Err, T>(
-        &self,
+        &mut self,
         state_provider: S,
         env: ExecutionEnv<Evm>,
         input: &BlockOrPayload<T>,
