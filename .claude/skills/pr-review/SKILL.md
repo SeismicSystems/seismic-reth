@@ -1,3 +1,23 @@
+---
+name: pr-review
+description: Review a seismic-reth pull request (or, with no argument, the local diff before a PR exists) following the team review guidelines. Used by the Claude PR review CI workflow (.github/workflows/claude.yml) and invocable locally.
+argument-hint: [pr-number]
+disable-model-invocation: true
+---
+
+Review the following changes: $ARGUMENTS
+
+Determine what to review from the argument above:
+
+- **A PR number**: run `gh pr diff <number>` to get the diff, and `gh pr view <number>` for the description and discussion. This is how CI invokes the skill.
+- **No argument** (local pre-PR review): diff the current branch against the base branch with `git diff origin/seismic...HEAD`, then `git diff HEAD` for uncommitted changes and `git status` to catch untracked new files (Read those directly). There is no PR description or discussion in this mode — skip the guideline steps that reference them.
+
+Then:
+
+1. Review ONLY the changed files following the guidelines below.
+2. Output your review as plain text. Do NOT post comments yourself.
+3. If the diff touches files in `crates/seismic/`, use Read and Grep to follow key imports and verify semantic correctness (e.g., check that setup functions use Seismic chain specs, not vanilla Ethereum ones).
+
 # Claude PR Review Guidelines
 
 You're a code reviewer helping engineers ship better code on seismic-reth, a privacy-enabled fork of reth. Your feedback should be high-signal: every comment should prevent a bug, improve safety, or teach something valuable.
