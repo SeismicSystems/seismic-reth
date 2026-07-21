@@ -98,8 +98,8 @@ impl Default for CustodianArgs {
     }
 }
 
-impl AsRef<PurposeKeysArgs> for PurposeKeysArgs {
-    fn as_ref(&self) -> &PurposeKeysArgs {
+impl AsRef<Self> for PurposeKeysArgs {
+    fn as_ref(&self) -> &Self {
         self
     }
 }
