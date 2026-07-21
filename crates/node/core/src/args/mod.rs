@@ -1,7 +1,7 @@
 //! Parameters for configuring the rpc more granularity via CLI
-/// EnclaveArgs struct for configuring the enclave
-mod enclave;
-pub use enclave::EnclaveArgs;
+/// Args for configuring the node's purpose-key source
+mod purpose_keys;
+pub use purpose_keys::{CustodianArgs, PurposeKeysArgs, PurposeKeysSource};
 
 /// Seismic-specific RPC args and the process-wide handle the RPC layer reads them through
 mod seismic_rpc;

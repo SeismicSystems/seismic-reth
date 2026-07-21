@@ -94,7 +94,7 @@ impl SeismicNode {
         self.purpose_keys
     }
 
-    /// Returns the components for the given [`EnclaveArgs`].
+    /// Returns the [`ComponentsBuilder`] for this node.
     pub fn components<Node>(
         &self,
     ) -> ComponentsBuilder<

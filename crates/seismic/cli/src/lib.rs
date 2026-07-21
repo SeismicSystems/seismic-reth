@@ -21,12 +21,12 @@ use reth_cli_runner::CliRunner;
 use reth_db::DatabaseEnv;
 use reth_node_builder::{NodeBuilder, WithLaunchContext};
 use reth_node_core::{
-    args::{init_seismic_rpc_args, EnclaveArgs, LogArgs, SeismicRpcArgs},
+    args::{init_seismic_rpc_args, LogArgs, PurposeKeysArgs, SeismicRpcArgs},
     version::version_metadata,
 };
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_seismic_node::{
-    enclave::fetch_purpose_keys,
+    keys_source::fetch_purpose_keys,
     node::SeismicNode,
     purpose_keys::{get_purpose_keys, init_purpose_keys},
     SeismicEvmConfig,
@@ -41,27 +41,24 @@ use tracing::info;
 
 /// Seismic-specific CLI args carried alongside the node command.
 ///
-/// This is the default `Ext` for [`Cli`]: it bundles the enclave connection args with the Seismic
-/// RPC limits so both `--enclave.*` and `--seismic.rpc.*` flags are parsed. `AsRef<EnclaveArgs>`
-/// keeps the enclave-boot path unchanged; `AsRef<SeismicRpcArgs>` feeds the RPC-layer signed-read
-/// guard.
-// TODO(samlaf): the enclave flags still use the bare `--enclave.*` namespace, predating the
-// `seismic.*` convention. We probably want to move them under `seismic.enclave.*` so all
-// fork-specific flags live under one `seismic.*` namespace.
+/// This is the default `Ext` for [`Cli`]: it bundles the purpose-key source args with the
+/// Seismic RPC limits so both `--seismic.purpose-keys-source`/`--seismic.custodian.*` and
+/// `--seismic.rpc.*` flags are parsed. `AsRef<PurposeKeysArgs>` feeds the purpose-key boot
+/// path; `AsRef<SeismicRpcArgs>` feeds the RPC-layer signed-read guard.
 #[derive(Debug, Clone, Args, PartialEq, Eq, Default)]
 pub struct SeismicNodeArgs {
-    /// Enclave connection configuration.
+    /// Purpose-key source configuration.
     #[command(flatten)]
-    pub enclave: EnclaveArgs,
+    pub purpose_keys: PurposeKeysArgs,
 
     /// Seismic-specific RPC limits.
     #[command(flatten)]
     pub seismic_rpc: SeismicRpcArgs,
 }
 
-impl AsRef<EnclaveArgs> for SeismicNodeArgs {
-    fn as_ref(&self) -> &EnclaveArgs {
-        &self.enclave
+impl AsRef<PurposeKeysArgs> for SeismicNodeArgs {
+    fn as_ref(&self) -> &PurposeKeysArgs {
+        &self.purpose_keys
     }
 }
 
@@ -117,9 +114,9 @@ pub struct Cli<
     #[command(flatten)]
     pub logs: LogArgs,
 
-    /// Enclave configuration for Seismic.
+    /// Seismic-specific extension args (purpose-key source and RPC limits).
     #[command(flatten)]
-    pub enclave: Ext,
+    pub ext: Ext,
 }
 
 impl Cli {
@@ -141,7 +138,7 @@ impl Cli {
 impl<C, Ext> Cli<C, Ext>
 where
     C: ChainSpecParser<ChainSpec = ChainSpec>,
-    Ext: clap::Args + fmt::Debug + AsRef<EnclaveArgs> + AsRef<SeismicRpcArgs>,
+    Ext: clap::Args + fmt::Debug + AsRef<PurposeKeysArgs> + AsRef<SeismicRpcArgs>,
 {
     /// Execute the configured cli command.
     ///
@@ -177,12 +174,12 @@ where
 
         // Install the prometheus recorder to be sure to record all metrics
         let _ = install_prometheus_recorder();
-        let enclave_args = self.enclave;
+        let ext_args = self.ext;
 
         // Store the Seismic RPC limits before building the node. The signed-read guard lives in a
         // free function in `reth-seismic-rpc` that has no other channel to the parsed CLI args and
         // reads them back via `seismic_rpc_args()`.
-        init_seismic_rpc_args(*AsRef::<SeismicRpcArgs>::as_ref(&enclave_args));
+        init_seismic_rpc_args(*AsRef::<SeismicRpcArgs>::as_ref(&ext_args));
 
         match self.command {
             Commands::Node(command) => runner.run_command_until_exit(|ctx| {
@@ -196,7 +193,7 @@ where
             Commands::Stage(command) => {
                 runner.run_command_until_exit(|ctx| async move {
                     // For Stage commands, fetch the purpose keys first
-                    let purpose_keys_response = fetch_purpose_keys(&enclave_args).await;
+                    let purpose_keys_response = fetch_purpose_keys(&ext_args).await;
 
                     // Initialize purpose keys in global storage
                     init_purpose_keys(purpose_keys_response);

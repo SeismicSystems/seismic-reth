@@ -12,8 +12,8 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 // #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod enclave;
 pub mod engine;
+pub mod keys_source;
 pub mod node;
 pub mod purpose_keys;
 pub use reth_seismic_txpool as txpool;
