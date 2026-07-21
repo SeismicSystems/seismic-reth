@@ -3,7 +3,7 @@
 use std::{path::Path, str::FromStr, time::Duration};
 
 use alloy_seismic_evm::{secp256k1, PurposeKeys};
-use reth_node_core::args::EnclaveArgs;
+use reth_node_core::args::{PurposeKeysArgs, PurposeKeysSource};
 use seismic_custodian_ipc::{CustodianClient, RngIkmBytes, TxIoKeypairBytes};
 use tracing::{info, warn};
 
@@ -23,16 +23,17 @@ const WELL_KNOWN_RNG_IKM: [u8; 64] = [
     249, 195, 114,
 ];
 
-/// The well-known purpose keys, used when `--enclave.mock-server` is set (dev nodes
-/// and pre-TEE deployments, which run no TEE at all).
+/// The well-known purpose keys, used when `--seismic.purpose-keys-source built-in` is
+/// selected (dev nodes and pre-TEE deployments, which run no TEE at all).
 ///
-/// These are real keys with zero secrecy, not mocks: on pre-TEE networks every node
-/// boots with `--enclave.mock-server`, so they are the consensus-visible network
-/// keys — wallets encrypt to this `tx_io_pk`, sync decrypts history with `tx_io_sk`,
-/// and `rng_ikm` seeds the RNG precompile.
-// TODO: by mainnet launch, a pre-TEE mainnet must not run keys published on GitHub —
-// needs a per-network keypair obfuscated or provisioned outside source control,
-// while sanvil/dev networks stay on the well-known keys.
+/// These are real keys with zero secrecy, not mocks: on pre-TEE networks — the live
+/// testnet included — every node boots with `--seismic.purpose-keys-source built-in`,
+/// so they are the consensus-visible network keys — wallets encrypt to this `tx_io_pk`,
+/// sync decrypts history with `tx_io_sk`, and `rng_ikm` seeds the RNG precompile.
+// TODO: these are the only keys reth can run without a custodian; there is no way to
+// input other key material. By mainnet launch, a pre-TEE mainnet must not run keys
+// published on GitHub — needs a per-network keypair provisioned outside source control
+// (e.g. a `file` key source), while sanvil/dev networks stay on the well-known keys.
 #[allow(clippy::expect_used)] // hardcoded constants; validity is exercised by tests
 pub fn well_known_purpose_keys() -> PurposeKeys {
     PurposeKeys {
@@ -48,36 +49,39 @@ pub fn well_known_purpose_keys() -> PurposeKeys {
     }
 }
 
-/// Fetch purpose keys: built locally when `--enclave.mock-server` is set, otherwise
-/// fetched from the key custodian's Unix socket (`--enclave.custodian-socket`).
+/// Fetch purpose keys: built locally with `--seismic.purpose-keys-source built-in`, otherwise
+/// fetched from the key custodian's Unix socket (`--seismic.custodian.socket`).
 /// This must be called before building the node components.
 /// Panics if purpose keys cannot be fetched from the custodian.
 ///
-/// Total fetch attempts = `config.retries` + 1 (one initial attempt plus `retries`
-/// re-attempts); the `while failures <= config.retries` loop encodes this directly.
+/// Total fetch attempts = `custodian.retries` + 1 (one initial attempt plus `retries`
+/// re-attempts); the `while failures <= custodian.retries` loop encodes this directly.
 #[allow(clippy::panic)] // Intentional panic on fetching keys failure - purpose keys are required
 pub async fn fetch_purpose_keys<T>(config: &T) -> PurposeKeys
 where
-    T: AsRef<EnclaveArgs>,
+    T: AsRef<PurposeKeysArgs>,
 {
     let config = config.as_ref();
-    if config.mock_server {
+    if config.source == PurposeKeysSource::BuiltIn {
         info!(target: "reth::cli", "Using built-in well-known purpose keys (no TEE)");
         return well_known_purpose_keys();
     }
 
+    let custodian = &config.custodian;
     info!(target: "reth::cli", "Fetching purpose keys from the custodian socket");
     let mut failures = 0;
-    while failures <= config.retries {
-        match fetch_keys_from_custodian(&config.custodian_socket, config.enclave_timeout).await {
+    while failures <= custodian.retries {
+        match fetch_keys_from_custodian(&custodian.socket, custodian.timeout_seconds).await {
             Ok(purpose_keys) => {
                 info!(target: "reth::cli", "Successfully fetched purpose keys from the custodian");
                 return purpose_keys;
             }
             Err(e) => {
-                warn!(target: "reth::cli", "Failure to fetch purpose keys {}/{}: {}", failures, config.retries, e);
-                tokio::time::sleep(tokio::time::Duration::from_secs(config.retry_seconds.into()))
-                    .await;
+                warn!(target: "reth::cli", "Failure to fetch purpose keys {}/{}: {}", failures, custodian.retries, e);
+                tokio::time::sleep(tokio::time::Duration::from_secs(
+                    custodian.retry_seconds.into(),
+                ))
+                .await;
                 failures += 1;
             }
         }
@@ -104,16 +108,21 @@ async fn fetch_keys_from_custodian(
     .map_err(|_| eyre::eyre!("custodian fetch timed out after {timeout_seconds}s"))?
 }
 
-/// Decode the custodian's raw key bytes into the typed purpose-key bundle.
+/// Decode the custodian's raw key bytes into the typed purpose-key bundle, rejecting a
+/// mismatched tx-io keypair — a node must never advertise a public key whose traffic it
+/// cannot decrypt.
 fn purpose_keys_from_custodian_bytes(
     tx_io: &TxIoKeypairBytes,
     rng: &RngIkmBytes,
 ) -> eyre::Result<PurposeKeys> {
-    Ok(PurposeKeys {
-        tx_io_sk: secp256k1::SecretKey::from_byte_array(&tx_io.sk)?,
-        tx_io_pk: secp256k1::PublicKey::from_byte_array_compressed(&tx_io.pk)?,
-        rng_ikm: rng.ikm,
-    })
+    let tx_io_sk = secp256k1::SecretKey::from_byte_array(&tx_io.sk)?;
+    let tx_io_pk = secp256k1::PublicKey::from_byte_array_compressed(&tx_io.pk)?;
+    let derived_pk = tx_io_sk.public_key(&secp256k1::Secp256k1::new());
+    eyre::ensure!(
+        tx_io_pk == derived_pk,
+        "custodian served a mismatched tx-io keypair: public key {tx_io_pk} is not the secret key's ({derived_pk})"
+    );
+    Ok(PurposeKeys { tx_io_sk, tx_io_pk, rng_ikm: rng.ikm })
 }
 
 #[cfg(test)]
@@ -154,7 +163,7 @@ mod tests {
     #[test]
     fn default_custodian_socket_matches_ipc_crate() {
         assert_eq!(
-            EnclaveArgs::default().custodian_socket,
+            PurposeKeysArgs::default().custodian.socket,
             Path::new(seismic_custodian_ipc::DEFAULT_CUSTODIAN_SOCKET_PATH)
         );
     }
@@ -181,10 +190,31 @@ mod tests {
         assert_eq!(keys.rng_ikm, expected.rng_ikm);
     }
 
+    /// A custodian response whose public key is not the secret key's must be rejected
+    /// at decode time instead of booting a node that advertises a key it cannot
+    /// decrypt for.
+    #[test]
+    fn mismatched_custodian_keypair_is_rejected() {
+        use seismic_crypto::{
+            get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
+        };
+
+        let other_sk = secp256k1::SecretKey::from_byte_array(&[1; 32]).expect("valid secret key");
+        let tx_io = TxIoKeypairBytes {
+            sk: other_sk.secret_bytes(),
+            pk: get_unsecure_sample_secp256k1_pk().serialize(),
+        };
+        let rng = RngIkmBytes { ikm: get_unsecure_sample_schnorrkel_keypair().secret.to_bytes() };
+
+        let err = purpose_keys_from_custodian_bytes(&tx_io, &rng)
+            .expect_err("mismatched keypair must be rejected");
+        assert!(err.to_string().contains("mismatched tx-io keypair"), "unexpected error: {err}");
+    }
+
     /// A stalled custodian socket (accepts connections but never replies) must make
-    /// the fetch error within the configured `enclave_timeout`, not hang the boot.
+    /// the fetch error within the configured `timeout_seconds`, not hang the boot.
     #[tokio::test]
-    async fn enclave_timeout_bounds_a_stalled_fetch() {
+    async fn custodian_timeout_bounds_a_stalled_fetch() {
         let dir = tempfile::tempdir().expect("create socket directory");
         let socket = dir.path().join("custodian.sock");
         let listener = tokio::net::UnixListener::bind(&socket).expect("bind unix listener");
@@ -203,7 +233,7 @@ mod tests {
         assert!(result.is_err(), "stalled fetch should error, not succeed");
         assert!(
             started.elapsed() < Duration::from_secs(10),
-            "fetch should be bounded by enclave_timeout, took {:?}",
+            "fetch should be bounded by timeout_seconds, took {:?}",
             started.elapsed()
         );
     }

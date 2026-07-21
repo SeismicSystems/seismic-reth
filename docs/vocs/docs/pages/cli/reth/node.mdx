@@ -952,21 +952,35 @@ Logging:
           - auto:   Colors on
           - never:  Colors off
 
-Trusted Execution Environment Server:
-    The TEE Server provides secure encryption/decryption services for TxSeismic transactions in an isolated environment. Required for processing encrypted TxSeismic transaction data.
+Purpose Keys:
+      --seismic.purpose-keys-source <SOURCE>
+          Where the node sources its purpose keys. `custodian` fetches them from the key custodian's Unix socket (TEE deployments); `built-in` uses the well-known keys built into the binary (publicly known, no confidentiality). With `built-in` the `--seismic.custodian.*` flags are unused
 
-      --enclave.endpoint-addr <ADDR>
-          TEE server address to listen on
+          [default: custodian]
 
-          [default: 127.0.0.1]
+          Possible values:
+          - custodian: Fetch the keys from the key custodian's Unix socket (TEE deployments)
+          - built-in:  Use the well-known keys built into the binary (publicly known, no confidentiality); for dev nodes and pre-TEE deployments that run no TEE at all
 
-      --enclave.endpoint-port <PORT>
-          TEE server port to listen on
+      --seismic.custodian.socket <SOCKET>
+          Path of the key custodian's Unix socket, the source of the node's purpose keys on TEE deployments. Only used with `--seismic.purpose-keys-source custodian`
 
-          [default: 8545]
+          [default: /run/seismic/custodian/custodian.sock]
 
-      --enclave.mock-server
-          Use the built-in well-known keys (publicly known, no confidentiality) as the node's purpose keys instead of fetching them from an enclave
+      --seismic.custodian.retries <RETRIES>
+          How many boot-time fetch failures to tolerate before we panic. Total attempts = `retries` + 1 (one initial attempt plus `retries` re-attempts). Only used with `--seismic.purpose-keys-source custodian`
+
+          [default: 5]
+
+      --seismic.custodian.timeout-seconds <TIMEOUT_SECONDS>
+          Timeout in seconds for each purpose-key fetch attempt against the custodian socket. Only used with `--seismic.purpose-keys-source custodian`
+
+          [default: 5]
+
+      --seismic.custodian.retry-seconds <RETRY_SECONDS>
+          How many seconds to wait before retrying after a failed attempt. Only used with `--seismic.purpose-keys-source custodian`
+
+          [default: 30]
 
 
 Display:

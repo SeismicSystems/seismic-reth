@@ -2,7 +2,7 @@
 
 use clap::Parser;
 use reth_seismic_cli::{chainspec::SeismicChainSpecParser, Cli};
-use reth_seismic_node::{enclave::fetch_purpose_keys, node::SeismicNode};
+use reth_seismic_node::{keys_source::fetch_purpose_keys, node::SeismicNode};
 
 fn main() {
     // Enable backtraces unless we explicitly set RUST_BACKTRACE
@@ -12,9 +12,9 @@ fn main() {
 
     reth_cli_util::sigsegv_handler::install();
 
-    if let Err(err) = Cli::<SeismicChainSpecParser>::parse().run(|builder, encl| async move {
+    if let Err(err) = Cli::<SeismicChainSpecParser>::parse().run(|builder, ext| async move {
         // Fetch purpose keys BEFORE building node components
-        let purpose_keys = fetch_purpose_keys(&encl).await;
+        let purpose_keys = fetch_purpose_keys(&ext).await;
 
         // Store purpose keys in global static storage as a fallback for code
         // paths that cannot yet receive keys structurally (e.g. CLI stage command).

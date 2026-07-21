@@ -1,4 +1,4 @@
-//! Global storage for purpose keys fetched from enclave on boot.
+//! Global storage for purpose keys obtained on boot.
 //!
 //! This module provides thread-safe access to purpose keys that are fetched once
 //! during node startup and then used throughout the application lifetime.
@@ -20,11 +20,11 @@ use alloy_seismic_evm::PurposeKeys;
 use std::sync::OnceLock;
 
 /// Global storage for purpose keys.
-/// These keys are fetched once from the enclave during node startup.
+/// These keys are obtained once during node startup (see [`crate::keys_source`]).
 static PURPOSE_KEYS: OnceLock<PurposeKeys> = OnceLock::new();
 
 /// Initialize the global purpose keys.
-/// This should be called once during node startup, after the enclave is booted.
+/// This should be called once during node startup, after the purpose keys are obtained.
 ///
 /// # Panics
 /// Panics if called more than once.

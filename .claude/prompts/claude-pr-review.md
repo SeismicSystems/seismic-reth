@@ -36,9 +36,9 @@ RPC conversion from JSON to `TxSeismic` is in `crates/seismic/primitives/src/all
 
 ### Enclave/TEE & Purpose Keys
 
-Purpose keys are fetched once at boot from the TEE enclave (`crates/seismic/node/src/enclave.rs`). The `boot_enclave_and_fetch_keys()` function has two modes:
-- **Real enclave:** HTTP client connects to the configured endpoint (default `127.0.0.1:7878`)
-- **Mock server:** Started via `seismic_enclave::start_mock_server()`, gated behind `--enclave.mock-server` CLI flag (`crates/node/core/src/args/enclave.rs:29`)
+Purpose keys are fetched once at boot (`crates/seismic/node/src/keys_source.rs`). The `fetch_purpose_keys()` function has two sources, selected by `--seismic.purpose-keys-source` (`crates/node/core/src/args/purpose_keys.rs`):
+- **Custodian (default):** fetched from the key custodian's Unix socket (`--seismic.custodian.socket`, default `/run/seismic/custodian/custodian.sock`)
+- **Built-in:** the well-known keys built into the binary (publicly known, no confidentiality), selected with `--seismic.purpose-keys-source built-in`
 
 Keys are stored in a global `OnceLock` in `crates/seismic/node/src/purpose_keys.rs` and accessed via `get_purpose_keys()`. The `GetPurposeKeysResponse` contains:
 - `tx_io_sk` — **SECRET KEY**, must never be logged or serialized
@@ -95,7 +95,7 @@ Key seismic-specific endpoints in `crates/seismic/rpc/src/eth/ext.rs`:
 
 ### Clippy Strictness
 
-Seismic CI enforces `clippy::unwrap_used`, `clippy::expect_used`, `clippy::panic`, `clippy::unreachable`, `clippy::todo` as **errors** in non-test code. Existing `expect()`/`panic!()` calls in production code use explicit `#[allow(...)]` with documented justifications (startup panics in enclave.rs, genesis deserialization in chainspec). New code must follow this pattern.
+Seismic CI enforces `clippy::unwrap_used`, `clippy::expect_used`, `clippy::panic`, `clippy::unreachable`, `clippy::todo` as **errors** in non-test code. Existing `expect()`/`panic!()` calls in production code use explicit `#[allow(...)]` with documented justifications (startup panics in keys_source.rs, genesis deserialization in chainspec). New code must follow this pattern.
 
 ## Known Antipatterns
 
@@ -122,7 +122,7 @@ Problems that would cause immediate harm:
 - Data corruption or loss risks (especially codec backward compatibility)
 - Race conditions in `RwLock<RecentBlockCache>` or other shared state
 - Breaking API changes not flagged in the PR description
-- **Mock enclave accessible in production** — `--enclave.mock-server` path reachable without the flag
+- **Well-known keys accessible in production** — `--seismic.purpose-keys-source built-in` path reachable without selecting it
 - **Wrong chain spec for node type** — `ChainSpecBuilder::default()...cancun_activated()` or `MAINNET` used with `SeismicNode`. Seismic nodes must use `SEISMIC_DEV` or `SEISMIC_MAINNET` chain specs.
 - **Missing timestamp multiplier** — Seismic uses millisecond timestamps. Payload attributes must multiply timestamps by 1000 (use `SEISMIC_TIMESTAMP_MULTIPLIER`).
 - **Semantic mismatch** — code that claims to test or set up Seismic functionality but actually uses vanilla Ethereum configuration (wrong chain spec, wrong node type, missing Seismic-specific parameters)
@@ -248,7 +248,7 @@ When reviewing changes to these files, pay extra attention:
 |------|-------------------|
 | `crates/seismic/rpc/src/eth/ext.rs` | Holds `tx_io_sk`, derives Debug, all custom RPC endpoints |
 | `crates/seismic/rpc/src/eth/utils.rs` | `signed_read_to_plaintext_tx` decryption path |
-| `crates/seismic/node/src/enclave.rs` | Mock server gating, purpose key fetch |
+| `crates/seismic/node/src/keys_source.rs` | Purpose-key source selection, purpose key fetch |
 | `crates/seismic/node/src/purpose_keys.rs` | Global secret key storage |
 | `crates/seismic/payload/src/builder.rs` | Tx logging, fee handling with expect |
 | `crates/seismic/primitives/src/transaction/signed.rs` | TxSeismic structure, encoding |
