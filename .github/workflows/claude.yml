@@ -3,16 +3,26 @@
 # Runs Claude in agent mode to review PRs, then posts the review as a
 # sticky comment (one comment, edited in-place on each push).
 #
+# The review guidelines live in the .claude/skills/pr-review/ skill,
+# which the prompt invokes as /pr-review. The same skill can be run
+# locally in any Claude Code session: `/pr-review <pr-number>`, or
+# `/pr-review` with no argument to review local changes before a PR.
+#
 # Agent mode doesn't post comments itself, so a post-step extracts
 # Claude's text output from the execution file and manages the comment.
+#
+# NOTE: Anthropic ships a managed alternative to this whole workflow —
+# https://code.claude.com/docs/en/code-review — multi-agent review with
+# a false-positive verification pass, inline comments by severity, and
+# customization via a repo-root REVIEW.md. Worth evaluating at some
+# point; keeping this simple self-hosted version for now.
 #
 # Requires: ANTHROPIC_API_KEY secret.
 
 name: Claude Code PR Review
 
 env:
-  # Sonnet 4.6 is the latest Sonnet and keeps per-push PR reviews faster and cheaper than Opus.
-  CLAUDE_MODEL: claude-sonnet-4-6
+  CLAUDE_MODEL: claude-opus-4-8
 
 on:
   pull_request:
@@ -49,14 +59,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read review prompt
-        id: prompt
+      # On pull_request events the checkout is the PR merge ref, so a PR
+      # could edit its own review guidelines. Pin the review skill to the
+      # base branch's copy (skipped if the base doesn't have it yet, e.g.
+      # the PR that introduces the skill).
+      - name: Pin review skill to base branch
+        if: github.event_name == 'pull_request'
         run: |
-          {
-            echo 'REVIEW_PROMPT<<EOF'
-            cat .claude/prompts/claude-pr-review.md
-            echo 'EOF'
-          } >> "$GITHUB_ENV"
+          if git cat-file -e "origin/${{ github.base_ref }}:.claude/skills/pr-review/SKILL.md" 2>/dev/null; then
+            git checkout "origin/${{ github.base_ref }}" -- .claude/skills/pr-review/
+          fi
 
       - uses: anthropics/claude-code-action@v1
         id: claude
@@ -66,15 +78,7 @@ jobs:
           claude_args: |
             --model ${{ env.CLAUDE_MODEL }}
             --allowedTools "Read,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
-          prompt: |
-            Review PR #${{ env.PR_NUMBER }} in ${{ github.repository }}.
-
-            1. Run `gh pr diff ${{ env.PR_NUMBER }}` to get the diff.
-            2. Review ONLY the changed files following the guidelines below.
-            3. Output your review as plain text. Do NOT post comments yourself.
-            4. If the diff touches files in `crates/seismic/`, use Read and Grep to follow key imports and verify semantic correctness (e.g., check that setup functions use Seismic chain specs, not vanilla Ethereum ones).
-
-            ${{ env.REVIEW_PROMPT }}
+          prompt: "/pr-review ${{ env.PR_NUMBER }}"
 
       - name: Post review comment
         if: always() && steps.claude.outputs.execution_file
