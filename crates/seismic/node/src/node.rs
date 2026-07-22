@@ -355,6 +355,8 @@ where
             + Send
             + Sync
             + 'static,
+    <EthB::EthApi as reth_rpc_eth_api::RpcNodeCore>::Primitives:
+        reth_node_api::NodePrimitives<SignedTx = reth_seismic_primitives::SeismicTransactionSigned>,
     PVB: PayloadValidatorBuilder<N>,
     EB: EngineApiBuilder<N>,
     EVB: EngineValidatorBuilder<N>,
@@ -454,6 +456,8 @@ where
             + Send
             + Sync
             + 'static,
+    <EthB::EthApi as reth_rpc_eth_api::RpcNodeCore>::Primitives:
+        reth_node_api::NodePrimitives<SignedTx = reth_seismic_primitives::SeismicTransactionSigned>,
     PVB: PayloadValidatorBuilder<N>,
     EB: EngineApiBuilder<N>,
     EVB: EngineValidatorBuilder<N>,

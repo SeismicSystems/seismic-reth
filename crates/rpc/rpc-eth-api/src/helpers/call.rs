@@ -50,6 +50,14 @@ use tracing::{trace, warn};
 /// Result type for `eth_simulateV1` RPC method.
 pub type SimulatedBlocksResult<N, E> = Result<Vec<SimulatedBlock<RpcBlock<N>>>, E>;
 
+/// Raw execution result type for `eth_simulateV1` before RPC response conversion.
+///
+/// Exposing this lets callers rebuild the response transactions from different bytes than were
+/// actually executed (see [`simulate::build_simulated_block_with_transactions`]) — e.g. to
+/// restore ciphertext input for a confidential-execution wrapper.
+pub type SimulatedBlocksRawResult<P, Halt, E> =
+    Result<Vec<simulate::SimulatedBlockExecution<P, Halt>>, E>;
+
 /// Execution related functions for the [`EthApiServer`](crate::EthApiServer) trait in
 /// the `eth_` namespace.
 pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthApiTypes {
@@ -73,8 +81,35 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         block: Option<BlockId>,
     ) -> impl Future<Output = SimulatedBlocksResult<Self::NetworkTypes, Self::Error>> + Send {
         async move {
+            let return_full_transactions = payload.return_full_transactions;
+            let raw_blocks = self.simulate_v1_raw(payload, block).await?;
+
+            raw_blocks
+                .into_iter()
+                .map(|execution| {
+                    simulate::build_simulated_block(
+                        execution.block,
+                        execution.results,
+                        return_full_transactions.into(),
+                        self.tx_resp_builder(),
+                    )
+                })
+                .collect()
+        }
+    }
+
+    /// Same execution as [`EthCall::simulate_v1`], but returns raw executed blocks and per-call
+    /// execution results before they are converted into RPC response objects.
+    fn simulate_v1_raw(
+        &self,
+        payload: SimulatePayload<RpcTxReq<<Self::RpcConvert as RpcConvert>::Network>>,
+        block: Option<BlockId>,
+    ) -> impl Future<
+        Output = SimulatedBlocksRawResult<Self::Primitives, HaltReasonFor<Self::Evm>, Self::Error>,
+    > + Send {
+        async move {
             if payload.block_state_calls.len() > self.max_simulate_blocks() as usize {
-                return Err(EthApiError::InvalidParams("too many blocks.".to_string()).into())
+                return Err(EthApiError::InvalidParams("too many blocks.".to_string()).into());
             }
 
             let block = block.unwrap_or_default();
@@ -83,11 +118,11 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                 block_state_calls,
                 trace_transfers,
                 validation,
-                return_full_transactions,
+                return_full_transactions: _,
             } = payload;
 
             if block_state_calls.is_empty() {
-                return Err(EthApiError::InvalidParams(String::from("calls are empty.")).into())
+                return Err(EthApiError::InvalidParams(String::from("calls are empty.")).into());
             }
 
             let base_block =
@@ -98,8 +133,9 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
             self.spawn_with_state_at_block(block, move |state| {
                 let mut db =
                     State::builder().with_database(StateProviderDatabase::new(state)).build();
-                let mut blocks: Vec<SimulatedBlock<RpcBlock<Self::NetworkTypes>>> =
-                    Vec::with_capacity(block_state_calls.len());
+                let mut blocks = Vec::<
+                    simulate::SimulatedBlockExecution<Self::Primitives, HaltReasonFor<Self::Evm>>,
+                >::with_capacity(block_state_calls.len());
                 for block in block_state_calls {
                     let mut evm_env = this
                         .evm_config()
@@ -127,7 +163,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                             {
                                 return Err(
                                     EthApiError::other(EthSimulateError::GasLimitReached).into()
-                                )
+                                );
                             }
                         }
                         apply_block_overrides(block_overrides, &mut db, &mut evm_env.block_env);
@@ -150,7 +186,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                             return Err(EthApiError::Other(Box::new(
                                 EthSimulateError::BlockGasLimitExceeded,
                             ))
-                            .into())
+                            .into());
                         }
 
                         if txs_without_gas_limit > 0 {
@@ -191,15 +227,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                     };
 
                     parent = result.block.clone_sealed_header();
-
-                    let block = simulate::build_simulated_block(
-                        result.block,
-                        results,
-                        return_full_transactions.into(),
-                        this.tx_resp_builder(),
-                    )?;
-
-                    blocks.push(block);
+                    blocks.push(simulate::SimulatedBlockExecution { block: result.block, results });
                 }
 
                 Ok(blocks)
@@ -229,8 +257,40 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         &self,
         bundles: Vec<Bundle<RpcTxReq<<Self::RpcConvert as RpcConvert>::Network>>>,
         state_context: Option<StateContext>,
-        mut state_override: Option<StateOverride>,
+        state_override: Option<StateOverride>,
     ) -> impl Future<Output = Result<Vec<Vec<EthCallResponse>>, Self::Error>> + Send {
+        async move {
+            let all_results = self.call_many_raw(bundles, state_context, state_override).await?;
+            Ok(all_results
+                .into_iter()
+                .map(|bundle_results| {
+                    bundle_results
+                        .into_iter()
+                        .map(|result| match result {
+                            Ok(output) => EthCallResponse { value: Some(output), error: None },
+                            Err(err) => {
+                                EthCallResponse { value: None, error: Some(err.to_string()) }
+                            }
+                        })
+                        .collect()
+                })
+                .collect())
+        }
+    }
+
+    /// Same execution as [`EthCall::call_many`], but returns the per-call [`Result`] before it
+    /// is downgraded to [`EthCallResponse`]'s `String` error representation.
+    ///
+    /// This lets callers (e.g. a confidential-execution wrapper) inspect and transform a
+    /// structured error — such as re-encrypting [`RevertError`] output — before any information
+    /// it carries is irreversibly flattened into a display string.
+    fn call_many_raw(
+        &self,
+        bundles: Vec<Bundle<RpcTxReq<<Self::RpcConvert as RpcConvert>::Network>>>,
+        state_context: Option<StateContext>,
+        mut state_override: Option<StateOverride>,
+    ) -> impl Future<Output = Result<Vec<Vec<Result<Bytes, Self::Error>>>, Self::Error>> + Send
+    {
         async move {
             // Check if the vector of bundles is empty
             if bundles.is_empty() {
@@ -316,18 +376,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                             this.prepare_call_env(evm_env.clone(), tx, &mut db, overrides)?;
                         let res = this.transact(&mut db, current_evm_env, prepared_tx)?;
 
-                        match ensure_success::<_, Self::Error>(res.result) {
-                            Ok(output) => {
-                                bundle_results
-                                    .push(EthCallResponse { value: Some(output), error: None });
-                            }
-                            Err(err) => {
-                                bundle_results.push(EthCallResponse {
-                                    value: None,
-                                    error: Some(err.to_string()),
-                                });
-                            }
-                        }
+                        bundle_results.push(ensure_success::<_, Self::Error>(res.result));
 
                         // Commit state changes after each transaction to allow subsequent calls to
                         // see the updates
@@ -423,7 +472,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                         access_list,
                         gas_used: U256::from(gas_used),
                         error,
-                    })
+                    });
                 }
                 ExecutionResult::Revert { output, gas_used } => {
                     let error = Some(RevertError::new(output).to_string());
@@ -431,7 +480,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                         access_list,
                         gas_used: U256::from(gas_used),
                         error,
-                    })
+                    });
                 }
                 ExecutionResult::Success { .. } => {}
             };
@@ -700,7 +749,7 @@ pub trait Call:
         for tx in transactions {
             if *tx.tx_hash() == target_tx_hash {
                 // reached the target transaction
-                break
+                break;
             }
 
             let tx_env = self.evm_config().tx_env(tx);
