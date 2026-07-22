@@ -35,7 +35,7 @@ use reth_rpc_eth_types::EthApiError;
 use reth_seismic_txpool::usdc::effective_balance;
 use reth_tracing::tracing::*;
 use seismic_alloy_consensus::{
-    Decodable712, InputDecryptionElements, SeismicTxEnvelope, TxSeismicMetadata,
+    Decodable712, InputDecryptionElements, SeismicTxEnvelope, TxSeismicMetadata, SEISMIC_TX_TYPE_ID,
 };
 use seismic_alloy_rpc_types::{
     SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest,
@@ -347,12 +347,15 @@ where
             let Bundle { transactions, block_override } = bundle;
             let mut prepared = Vec::with_capacity(transactions.len());
             for call in transactions {
-                let tx_req = convert_seismic_call_to_tx_request(call)?;
-                let plaintext_tx_req = signed_read_to_plaintext_tx(
-                    tx_req,
+                let (seismic_req, signed_read) = convert_seismic_call_to_tx_request(call)?;
+                let mut plaintext_tx_req = signed_read_to_plaintext_tx(
+                    (seismic_req, signed_read),
                     &self.purpose_keys.tx_io_sk,
                     self.eth_api.provider(),
                 )?;
+                if signed_read {
+                    plaintext_tx_req.inner.transaction_type = Some(SEISMIC_TX_TYPE_ID);
+                }
                 let tx_request: TransactionRequest = plaintext_tx_req.inner;
                 prepared.push(tx_request.into());
             }
@@ -396,11 +399,14 @@ where
 
         // process different CallRequest types
         let (seismic_tx_request, signed_read) = convert_seismic_call_to_tx_request(request)?;
-        let plaintext_tx_req = signed_read_to_plaintext_tx(
+        let mut plaintext_tx_req = signed_read_to_plaintext_tx(
             (seismic_tx_request.clone(), signed_read),
             &self.purpose_keys.tx_io_sk,
             self.eth_api.provider(),
         )?;
+        if signed_read {
+            plaintext_tx_req.inner.transaction_type = Some(SEISMIC_TX_TYPE_ID);
+        }
 
         // call inner
         let result = EthCall::call(
@@ -464,11 +470,14 @@ where
         // spoofing that could leak private state. Signed requests (TypedData/Bytes)
         // authenticate the sender cryptographically and are processed normally.
         let (seismic_tx_request, signed_read) = convert_seismic_call_to_tx_request(request)?;
-        let decrypted_req = signed_read_to_plaintext_tx(
+        let mut decrypted_req = signed_read_to_plaintext_tx(
             (seismic_tx_request, signed_read),
             &self.purpose_keys.tx_io_sk,
             self.eth_api.provider(),
         )?;
+        if signed_read {
+            decrypted_req.inner.transaction_type = Some(SEISMIC_TX_TYPE_ID);
+        }
 
         // call inner
         Ok(EthCall::estimate_gas_at(
