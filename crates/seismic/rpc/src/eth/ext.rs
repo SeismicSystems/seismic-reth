@@ -316,7 +316,7 @@ where
                     let sender = parse_request_sender(&seismic_tx_request)?;
                     let metadata = Self::build_metadata(&seismic_tx_request, sender)?;
                     let encrypted_output = metadata
-                        .encrypt(&self.purpose_keys.tx_io_sk, &call_result.return_data)
+                        .encrypt_response(&self.purpose_keys.tx_io_sk, &call_result.return_data)
                         .map_err(|e| ext_encryption_error(e.to_string()))?;
                     call_result.return_data = encrypted_output;
                 }
@@ -374,7 +374,7 @@ where
                         let sender = parse_request_sender(&seismic_tx_request)?;
                         let metadata = Self::build_metadata(&seismic_tx_request, sender)?;
                         *value = metadata
-                            .encrypt(&self.purpose_keys.tx_io_sk, value)
+                            .encrypt_response(&self.purpose_keys.tx_io_sk, value)
                             .map_err(|e| ext_encryption_error(e.to_string()))?;
                     }
                 }
@@ -417,7 +417,7 @@ where
                 let sender = parse_request_sender(&seismic_tx_request)?;
                 let metadata = Self::build_metadata(&seismic_tx_request, sender)?;
                 return Ok(seismic_elements
-                    .encrypt(&self.purpose_keys.tx_io_sk, &result, &metadata)
+                    .encrypt_response(&self.purpose_keys.tx_io_sk, &result, &metadata)
                     .map_err(|e| ext_encryption_error(e.to_string()))?);
             }
         }
