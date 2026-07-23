@@ -293,8 +293,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         bundles: Vec<Bundle<RpcTxReq<<Self::RpcConvert as RpcConvert>::Network>>>,
         state_context: Option<StateContext>,
         mut state_override: Option<StateOverride>,
-    ) -> impl Future<Output = CallManyRawResult<Self::Error>> + Send
-    {
+    ) -> impl Future<Output = CallManyRawResult<Self::Error>> + Send {
         async move {
             // Check if the vector of bundles is empty
             if bundles.is_empty() {
