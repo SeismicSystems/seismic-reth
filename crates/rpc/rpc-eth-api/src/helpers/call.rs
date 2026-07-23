@@ -58,6 +58,9 @@ pub type SimulatedBlocksResult<N, E> = Result<Vec<SimulatedBlock<RpcBlock<N>>>, 
 pub type SimulatedBlocksRawResult<P, Halt, E> =
     Result<Vec<simulate::SimulatedBlockExecution<P, Halt>>, E>;
 
+/// Raw result type for `eth_callMany` before per-call errors are flattened into strings.
+pub type CallManyRawResult<E> = Result<Vec<Vec<Result<Bytes, E>>>, E>;
+
 /// Execution related functions for the [`EthApiServer`](crate::EthApiServer) trait in
 /// the `eth_` namespace.
 pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthApiTypes {
@@ -290,7 +293,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
         bundles: Vec<Bundle<RpcTxReq<<Self::RpcConvert as RpcConvert>::Network>>>,
         state_context: Option<StateContext>,
         mut state_override: Option<StateOverride>,
-    ) -> impl Future<Output = Result<Vec<Vec<Result<Bytes, Self::Error>>>, Self::Error>> + Send
+    ) -> impl Future<Output = CallManyRawResult<Self::Error>> + Send
     {
         async move {
             // Check if the vector of bundles is empty
