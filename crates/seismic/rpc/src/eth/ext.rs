@@ -274,12 +274,15 @@ where
             let mut prepared_calls = Vec::with_capacity(calls.len());
 
             for call in calls {
-                let tx_req = convert_seismic_call_to_tx_request(call)?;
-                let plaintext_tx_req = signed_read_to_plaintext_tx(
-                    tx_req,
+                let (seismic_req, signed_read) = convert_seismic_call_to_tx_request(call)?;
+                let mut plaintext_tx_req = signed_read_to_plaintext_tx(
+                    (seismic_req, signed_read),
                     &self.purpose_keys.tx_io_sk,
                     self.eth_api.provider(),
                 )?;
+                if signed_read {
+                    plaintext_tx_req.inner.transaction_type = Some(SEISMIC_TX_TYPE_ID);
+                }
                 let tx_request: TransactionRequest = plaintext_tx_req.inner;
                 prepared_calls.push(tx_request.into());
             }
