@@ -166,7 +166,7 @@ Extended `ConfigureEvmEnv` trait and `EthEvmConfig` implementation to integrate 
 
 #### 4.1 Seismic Chain Spec
 
-If chain spec is `SEISMIC_MAINNET` (chain id is 5123) or `SEISMIC_DEV` (chain id is 5124), the `Mercury` spec of EVM is used.
+The `SEISMIC_MAINNET` (chain id 5123), `SEISMIC_TESTNET` (chain id 5124), and `SEISMIC_DEV` (chain id 5124) chain specs use the `Mercury` EVM spec.
 
 #### 4.2 `rng_mode` Initialization
 

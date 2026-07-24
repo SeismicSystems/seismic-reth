@@ -254,7 +254,9 @@ mod test {
     use crate::{chainspec::SeismicChainSpecParser, Cli, Commands};
     use clap::Parser;
     use reth_cli_commands::{node::NoArgs, NodeCommand};
-    use reth_seismic_chainspec::{SEISMIC_DEV, SEISMIC_DEV_GENESIS_HASH, SEISMIC_DEV_OLD};
+    use reth_seismic_chainspec::{
+        SEISMIC_DEV, SEISMIC_DEV_GENESIS_HASH, SEISMIC_TESTNET_GENESIS_HASH,
+    };
 
     #[test]
     fn parse_dev() {
@@ -276,29 +278,6 @@ mod test {
     }
 
     #[test]
-    fn parse_dev_old() {
-        // TODO: remove this once we launch devnet with consensus
-        let cmd = NodeCommand::<SeismicChainSpecParser, NoArgs>::parse_from([
-            "seismic-reth",
-            "--chain",
-            "dev-old",
-            "--http",
-            "-d",
-        ]);
-        let chain = SEISMIC_DEV_OLD.clone();
-        assert_eq!(cmd.chain.chain, chain.chain);
-        assert_eq!(cmd.chain.genesis_hash(), chain.genesis_hash());
-        assert_eq!(
-            cmd.chain.paris_block_and_final_difficulty,
-            chain.paris_block_and_final_difficulty
-        );
-        assert_eq!(cmd.chain.hardforks, chain.hardforks);
-
-        assert!(cmd.rpc.http);
-        assert!(cmd.network.discovery.disable_discovery);
-    }
-
-    #[test]
     fn parse_genesis_hash_command() -> Result<(), clap::Error> {
         // The global --chain arg is accepted on either side of the subcommand.
         for args in [
@@ -309,6 +288,19 @@ mod test {
             assert!(matches!(cli.command, Commands::GenesisHash));
             assert_eq!(cli.chain.genesis_hash(), SEISMIC_DEV_GENESIS_HASH);
         }
+        Ok(())
+    }
+
+    #[test]
+    fn parse_testnet_genesis_hash_command() -> Result<(), clap::Error> {
+        let cli = Cli::<SeismicChainSpecParser, NoArgs>::try_parse_from([
+            "seismic-reth",
+            "genesis-hash",
+            "--chain",
+            "testnet",
+        ])?;
+        assert!(matches!(cli.command, Commands::GenesisHash));
+        assert_eq!(cli.chain.genesis_hash(), SEISMIC_TESTNET_GENESIS_HASH);
         Ok(())
     }
 
