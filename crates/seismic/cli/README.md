@@ -31,14 +31,13 @@ Things worth knowing:
 - **It answers with the node's own belief.** The subcommand shares the exact
   `--chain` parse path with `node`, so the printed hash is what a node booted
   from the same `--chain` value computes at genesis.
-- **Built-in names echo pinned constants.** `--chain dev` / `--chain mainnet`
-  resolve to the built-in chain specs, whose genesis hashes are pinned as
-  `SEISMIC_DEV_GENESIS_HASH` / `SEISMIC_MAINNET_GENESIS_HASH` in
-  `reth-seismic-chainspec`. To *recompute* a hash — e.g. to update those
-  constants after editing a genesis file — pass the JSON file path, not the
-  chain name. The `genesis_header_hash` test fails whenever a constant drifts
-  from its genesis file, and the constants' doc comments carry the exact
-  reproduce commands.
+- **Built-in names echo pinned constants.** `--chain dev`, `--chain testnet`,
+  and `--chain mainnet` resolve to built-in chain specs whose genesis hashes
+  are pinned in `reth-seismic-chainspec`. To *recompute* a hash — e.g. to
+  update a constant after editing a genesis file — pass the JSON file path,
+  not the chain name. The `genesis_header_hash` test fails whenever a constant
+  drifts from its genesis file, and the constants' doc comments carry the
+  exact reproduce commands.
 
 ### Why it exists
 

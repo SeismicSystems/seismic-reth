@@ -121,7 +121,7 @@ Seismic CI enforces `clippy::unwrap_used`, `clippy::expect_used`, `clippy::panic
 
 These patterns are always bugs in Seismic code. Flag them immediately:
 
-- `ChainSpecBuilder::default()...cancun_activated()` used with `SeismicNode` — must use `SEISMIC_DEV` or `SEISMIC_MAINNET`
+- `ChainSpecBuilder::default()...cancun_activated()` used with `SeismicNode` — must use `SEISMIC_DEV`, `SEISMIC_TESTNET`, or `SEISMIC_MAINNET`
 - `MAINNET` chain ID in Seismic test code — Seismic has its own chain IDs (mainnet=5123, dev=5124)
 - Raw `timestamp` in payload attributes without multiplying by `SEISMIC_TIMESTAMP_MULTIPLIER` (1000) — Seismic uses millisecond timestamps
 - Duplicated `ensure_mock_purpose_keys()` — should use the shared helper from `utils.rs`
@@ -143,7 +143,7 @@ Problems that would cause immediate harm:
 - Race conditions in `RwLock<RecentBlockCache>` or other shared state
 - Breaking API changes not flagged in the PR description
 - **Well-known keys accessible in production** — `--seismic.purpose-keys-source built-in` path reachable without selecting it
-- **Wrong chain spec for node type** — `ChainSpecBuilder::default()...cancun_activated()` or `MAINNET` used with `SeismicNode`. Seismic nodes must use `SEISMIC_DEV` or `SEISMIC_MAINNET` chain specs.
+- **Wrong chain spec for node type** — `ChainSpecBuilder::default()...cancun_activated()` or `MAINNET` used with `SeismicNode`. Seismic nodes must use `SEISMIC_DEV`, `SEISMIC_TESTNET`, or `SEISMIC_MAINNET` chain specs.
 - **Missing timestamp multiplier** — Seismic uses millisecond timestamps. Payload attributes must multiply timestamps by 1000 (use `SEISMIC_TIMESTAMP_MULTIPLIER`).
 - **Semantic mismatch** — code that claims to test or set up Seismic functionality but actually uses vanilla Ethereum configuration (wrong chain spec, wrong node type, missing Seismic-specific parameters)
 

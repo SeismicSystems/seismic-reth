@@ -21,10 +21,8 @@ impl Hardfork for SeismicHardfork {
     }
 }
 
-/// Mainnet hardforks
-/// Based off [`EthereumHardfork::mainnet()`]
-/// with existing eth hardforks activated at block 0
-pub static SEISMIC_MAINNET_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
+/// Builds the hardfork schedule currently shared by all Seismic networks.
+fn seismic_hardforks() -> ChainHardforks {
     ChainHardforks::new(vec![
         (EthereumHardfork::Frontier.boxed(), ForkCondition::Block(0)),
         (EthereumHardfork::Homestead.boxed(), ForkCondition::Block(0)),
@@ -53,39 +51,16 @@ pub static SEISMIC_MAINNET_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|
         (EthereumHardfork::Prague.boxed(), ForkCondition::Timestamp(0)),
         (SeismicHardfork::Mercury.boxed(), ForkCondition::Timestamp(0)),
     ])
-});
+}
 
-/// Dev hardforks
-pub static SEISMIC_DEV_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
-    ChainHardforks::new(vec![
-        (EthereumHardfork::Frontier.boxed(), ForkCondition::Block(0)),
-        (EthereumHardfork::Homestead.boxed(), ForkCondition::Block(0)),
-        (EthereumHardfork::Dao.boxed(), ForkCondition::Block(0)),
-        (EthereumHardfork::Tangerine.boxed(), ForkCondition::Block(0)),
-        (EthereumHardfork::SpuriousDragon.boxed(), ForkCondition::Block(0)),
-        (EthereumHardfork::Byzantium.boxed(), ForkCondition::Block(0)),
-        (EthereumHardfork::Constantinople.boxed(), ForkCondition::Block(0)),
-        (EthereumHardfork::Petersburg.boxed(), ForkCondition::Block(0)),
-        (EthereumHardfork::Istanbul.boxed(), ForkCondition::Block(0)),
-        (EthereumHardfork::MuirGlacier.boxed(), ForkCondition::Block(0)),
-        (EthereumHardfork::Berlin.boxed(), ForkCondition::Block(0)),
-        (EthereumHardfork::London.boxed(), ForkCondition::Block(0)),
-        (EthereumHardfork::ArrowGlacier.boxed(), ForkCondition::Block(0)),
-        (EthereumHardfork::GrayGlacier.boxed(), ForkCondition::Block(0)),
-        (
-            EthereumHardfork::Paris.boxed(),
-            ForkCondition::TTD {
-                activation_block_number: 0,
-                fork_block: None,
-                total_difficulty: uint!(58_750_000_000_000_000_000_000_U256),
-            },
-        ),
-        (EthereumHardfork::Shanghai.boxed(), ForkCondition::Timestamp(0)),
-        (EthereumHardfork::Cancun.boxed(), ForkCondition::Timestamp(0)),
-        (EthereumHardfork::Prague.boxed(), ForkCondition::Timestamp(0)),
-        (SeismicHardfork::Mercury.boxed(), ForkCondition::Timestamp(0)),
-    ])
-});
+/// Mainnet hardforks.
+pub static SEISMIC_MAINNET_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(seismic_hardforks);
+
+/// Public testnet hardforks.
+pub static SEISMIC_TESTNET_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(seismic_hardforks);
+
+/// Dev hardforks.
+pub static SEISMIC_DEV_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(seismic_hardforks);
 
 #[cfg(test)]
 #[allow(clippy::panic)]
@@ -93,10 +68,8 @@ mod tests {
     use super::*;
     use core::panic;
 
-    #[test]
-    fn check_ethereum_hardforks_at_zero() {
+    fn assert_hardforks_at_zero(seismic_hardforks: &ChainHardforks) {
         let eth_mainnet_forks = EthereumHardfork::mainnet();
-        let seismic_hardforks = SEISMIC_MAINNET_HARDFORKS.clone();
         for eth_hf in eth_mainnet_forks {
             let (fork, _) = eth_hf;
             let lookup = seismic_hardforks.get(fork);
@@ -115,14 +88,17 @@ mod tests {
                 }
             }
         }
-    }
 
-    #[test]
-    fn check_seismic_hardforks_at_zero() {
-        let seismic_hardforks = SEISMIC_MAINNET_HARDFORKS.clone();
         assert!(
             seismic_hardforks.get(SeismicHardfork::Mercury).is_some(),
             "Missing hardfork mercury"
         );
+    }
+
+    #[test]
+    fn check_network_hardforks_at_zero() {
+        assert_hardforks_at_zero(&SEISMIC_MAINNET_HARDFORKS);
+        assert_hardforks_at_zero(&SEISMIC_TESTNET_HARDFORKS);
+        assert_hardforks_at_zero(&SEISMIC_DEV_HARDFORKS);
     }
 }

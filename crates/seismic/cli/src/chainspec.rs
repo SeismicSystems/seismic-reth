@@ -1,9 +1,9 @@
 use reth_chainspec::ChainSpec;
 use reth_cli::chainspec::{parse_genesis, ChainSpecParser};
-use reth_seismic_chainspec::{SEISMIC_DEV, SEISMIC_DEV_OLD, SEISMIC_MAINNET};
+use reth_seismic_chainspec::{SEISMIC_DEV, SEISMIC_MAINNET, SEISMIC_TESTNET};
 use std::sync::Arc;
 
-/// Optimism chain specification parser.
+/// Seismic chain specification parser.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct SeismicChainSpecParser;
@@ -11,7 +11,7 @@ pub struct SeismicChainSpecParser;
 impl ChainSpecParser for SeismicChainSpecParser {
     type ChainSpec = ChainSpec;
 
-    const SUPPORTED_CHAINS: &'static [&'static str] = &["dev", "mainnet", "dev-old"];
+    const SUPPORTED_CHAINS: &'static [&'static str] = &["dev", "testnet", "mainnet"];
 
     fn parse(s: &str) -> eyre::Result<Arc<Self::ChainSpec>> {
         chain_value_parser(s)
@@ -25,8 +25,8 @@ impl ChainSpecParser for SeismicChainSpecParser {
 pub fn chain_value_parser(s: &str) -> eyre::Result<Arc<ChainSpec>, eyre::Error> {
     Ok(match s {
         "dev" => SEISMIC_DEV.clone(),
+        "testnet" => SEISMIC_TESTNET.clone(),
         "mainnet" => SEISMIC_MAINNET.clone(),
-        "dev-old" => SEISMIC_DEV_OLD.clone(),
         _ => Arc::new(parse_genesis(s)?.into()),
     })
 }
