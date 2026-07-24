@@ -1,9 +1,6 @@
 [metadata]
 version = "0.1.0"
-description = "Seismic testnet genesis contracts"
-
-# Optional: defaults to main branch if not specified
-# base_url = "https://raw.githubusercontent.com/SeismicSystems/seismic-contracts/intelligence-contracts"
+description = "Seismic dev genesis contracts"
 
 # NOTE: the beacon roots contract (EIP-4788) was written in etk assembly
 # and doesn't have Solidity source code.
@@ -37,10 +34,6 @@ address = "0x1000000000000000000000000000000000000001"
 [contracts.MultisigUpgradeOperator]
 artifact = "artifacts/MultisigUpgradeOperator.json"
 address = "0x1000000000000000000000000000000000000002"
-
-[contracts.AesLib]
-artifact = "artifacts/AesLib.json"
-address = "0x1000000000000000000000000000000000000003"
 
 [contracts.Directory]
 artifact = "artifacts/Directory.json"

@@ -70,7 +70,7 @@ pub const SEISMIC_TESTNET_GENESIS_HASH: B256 =
 /// `seismic-reth genesis-hash --chain crates/seismic/chainspec/res/genesis/dev.json`
 /// — the file path matters: `--chain dev` echoes this pinned constant back.
 pub const SEISMIC_DEV_GENESIS_HASH: B256 =
-    b256!("0x0ae0a074933e87dc3403784a14458873d1c81abf6cda0b7539523ff5bde8450e");
+    b256!("0x54d4537d2a8a385c8f4d52a7ac0d59fa0cc44d63ee7ef6d34802183f73aca789");
 
 /// Seismic devnet specification
 ///
@@ -157,6 +157,7 @@ pub static SEISMIC_MAINNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 mod tests {
     use crate::*;
     use alloy_consensus::constants::MAINNET_GENESIS_HASH;
+    use alloy_primitives::address;
     use reth_chainspec::MAINNET;
     use reth_ethereum_forks::EthereumHardfork;
     use reth_seismic_forks::SeismicHardfork;
@@ -196,6 +197,19 @@ mod tests {
             assert!(content.contains(eth_hf.name()), "missing hardfork {eth_hf}");
         }
         assert!(content.contains("Mercury"));
+    }
+
+    #[test]
+    fn deprecated_aes_lib_is_testnet_only() {
+        let aes_lib = address!("1000000000000000000000000000000000000003");
+        assert!(
+            !SEISMIC_DEV.genesis.alloc.contains_key(&aes_lib),
+            "dev genesis must not include the deprecated AesLib"
+        );
+        assert!(
+            SEISMIC_TESTNET.genesis.alloc.contains_key(&aes_lib),
+            "running testnet genesis must remain immutable"
+        );
     }
 
     #[test]
