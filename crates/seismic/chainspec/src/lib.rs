@@ -70,7 +70,7 @@ pub const SEISMIC_TESTNET_GENESIS_HASH: B256 =
 /// `seismic-reth genesis-hash --chain crates/seismic/chainspec/res/genesis/dev.json`
 /// — the file path matters: `--chain dev` echoes this pinned constant back.
 pub const SEISMIC_DEV_GENESIS_HASH: B256 =
-    b256!("0x54d4537d2a8a385c8f4d52a7ac0d59fa0cc44d63ee7ef6d34802183f73aca789");
+    b256!("0x22dd5e1965de252ac0beb835afddd266c9a5db146285dc92d320d607d521152b");
 
 /// Seismic devnet specification
 ///
