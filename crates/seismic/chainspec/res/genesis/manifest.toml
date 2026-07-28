@@ -26,13 +26,18 @@ address = "0x0000000000000000000000000000506172616D73"
 artifact = "artifacts/ShieldedDelegationAccount.json"
 address = "0x2001"
 
-[contracts.UpgradeOperator]
-artifact = "artifacts/UpgradeOperator.json"
+# Measurement-admission registry. Ships with empty storage: the accepted
+# admission IDs are network-specific and injected into this account's genesis
+# storage by deploy tooling; with no storage the registry fails closed.
+[contracts.MeasurementRegistry]
+artifact = "artifacts/MeasurementRegistry.json"
 address = "0x1000000000000000000000000000000000000001"
 
-# TODO: this has anvil keys hard-coded
-[contracts.MultisigUpgradeOperator]
-artifact = "artifacts/MultisigUpgradeOperator.json"
+# Interim registry mutation authority (anvil-keyed dev forwarder). The registry
+# recognizes this fixed address; the contract behind it will be replaced by
+# the production authority without moving the address.
+[contracts.MeasurementAuthorityDev]
+artifact = "artifacts/MeasurementAuthorityDev.json"
 address = "0x1000000000000000000000000000000000000002"
 
 [contracts.Directory]
