@@ -1581,6 +1581,44 @@ async fn test_eth_estimate_gas_signed_read_revert_leaks_private_data() -> eyre::
     Ok(())
 }
 
+/// Regression test for the unsigned `eth_estimateGas` disclosure. Sanitizing an unsigned request
+/// must not allow a publicly reachable `CLOAD` path to put private state into the revert reason
+/// returned to an unauthenticated caller.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_estimate_gas_unsigned_revert_does_not_leak_private_data() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let secret = U256::from(7_771_337);
+    let contract_addr =
+        revert_leak_deploy_and_set_secret(&mut node, &client, chain_id, &wallet, secret).await?;
+    let revert_calldata: Bytes = hex::decode(REVERT_LEAK_REVERT_WITH_SECRET).unwrap().into();
+
+    // This is deliberately a plain JSON-RPC transaction object, not signed transaction bytes:
+    // `convert_seismic_call_to_tx_request` classifies it as an unsigned request.
+    let result = EthApiOverrideClient::<Block>::estimate_gas(
+        &client,
+        SeismicCallRequest::TransactionRequest(SeismicTransactionRequest {
+            inner: TransactionRequest {
+                to: Some(TxKind::Call(contract_addr)),
+                input: TransactionInput { data: Some(revert_calldata), ..Default::default() },
+                ..Default::default()
+            },
+            seismic_elements: None,
+        }),
+        None,
+        None,
+    )
+    .await;
+
+    let err = result.expect_err("revertWithSecret() must revert during gas estimation");
+    let err_msg = err.to_string();
+    assert!(
+        !err_msg.contains(&secret.to_string()),
+        "unsigned eth_estimateGas leaked private value {secret}: {err_msg}"
+    );
+    Ok(())
+}
+
 /// `eth_simulateV1`: the per-call `error.message` for a signed-read revert embeds the decoded
 /// revert reason in cleartext, independent of `return_data` (which is already re-encrypted).
 #[tokio::test(flavor = "multi_thread")]
