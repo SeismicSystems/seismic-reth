@@ -199,6 +199,40 @@ mod tests {
         assert!(content.contains("Mercury"));
     }
 
+    /// The dev genesis is regenerated from `res/genesis/manifest.toml`, so it is
+    /// stored in the genesis builder's canonical form: a rebuild that changes no
+    /// contract is then an empty diff, and a contract bump is all a reviewer has
+    /// to read.
+    #[test]
+    fn dev_genesis_is_canonical() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/genesis/dev.json");
+        let genesis = reth_genesis_builder::load_genesis(&path).expect("dev.json parses");
+
+        assert_eq!(
+            std::fs::read_to_string(&path).expect("dev.json is readable"),
+            reth_genesis_builder::canonical_json(&genesis).expect("dev.json reserializes"),
+            "dev.json is not in canonical form; regenerate it with the genesis-builder binary"
+        );
+    }
+
+    #[test]
+    fn templates_ship_no_storage_at_registry_address() {
+        let registry = address!("0x1000000000000000000000000000000000000001");
+
+        for (network, spec) in
+            [("dev", &SEISMIC_DEV), ("testnet", &SEISMIC_TESTNET), ("mainnet", &SEISMIC_MAINNET)]
+        {
+            let account = spec.genesis.alloc.get(&registry).expect("registry address is allocated");
+
+            assert!(
+                account.storage.as_ref().is_none_or(|storage| storage.is_empty()),
+                "{network} genesis ships storage at the registry address: accepted admission IDs \
+                 are network-specific and injected into deploy-owned genesis files, so committed \
+                 templates carry no policy and an empty registry fails closed"
+            );
+        }
+    }
+
     #[test]
     fn deprecated_aes_lib_is_testnet_only() {
         let aes_lib = address!("1000000000000000000000000000000000000003");

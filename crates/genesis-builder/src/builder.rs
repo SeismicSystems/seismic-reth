@@ -7,9 +7,6 @@ use alloy_primitives::{hex, Address};
 use std::io::{self, Write};
 use tracing::{info, warn};
 
-/// Default nonce for the genesis file
-pub const DEFAULT_NONCE: &str = "0x1";
-
 /// Default balance for the genesis file
 pub const DEFAULT_BALANCE: &str = "0x0";
 
@@ -59,7 +56,6 @@ impl GenesisBuilder {
             self.manifest.metadata.base_url().trim_end_matches('/'),
             config.artifact.trim_start_matches('/')
         );
-        println!("Url: {}", url);
 
         let artifact = self.loader.load_artifact(&url)?;
 
