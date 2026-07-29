@@ -22,9 +22,13 @@ module.exports = async ({ github, context }) => {
     console.log("Pruning old prereleases");
 
     // doc: https://docs.github.com/en/rest/releases/releases
-    const { data: releases } = await github.rest.repos.listReleases({
+    // Paginated so the pruning rules below see every release; a single
+    // page (30) would stop covering the nightlies once the repo holds
+    // more than a page of mixed nightly/versioned releases.
+    const releases = await github.paginate(github.rest.repos.listReleases, {
         owner: context.repo.owner,
         repo: context.repo.repo,
+        per_page: 100,
     });
 
     let nightlies = releases.filter(
