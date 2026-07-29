@@ -45,7 +45,7 @@ once_cell.workspace = true
 reth-chainspec = { workspace = true, features = ["test-utils"] }
 # The canonical-form test reserializes the committed templates through the
 # builder's own serializer.
-reth-genesis-builder.workspace = true
+reth-seismic-genesis-builder.workspace = true
 alloy-genesis.workspace = true
 seismic-alloy-rpc-types.workspace = true
 

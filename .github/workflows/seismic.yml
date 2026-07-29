@@ -77,9 +77,9 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - name: Clippy (seismic crates)
-        # `-p 'reth-seismic*'` selects seismic-authored crates by naming
-        # convention, so new ones are covered automatically; crates that
-        # don't follow it are listed explicitly.
+        # The two globs select seismic-authored crates by naming convention
+        # (reth-seismic-* libraries, seismic-reth* binaries), so new ones
+        # are covered automatically.
         #
         # The -W lints hold fork-authored code to a stricter bar than the
         # workspace [lints] table. They live here as CLI flags because a
@@ -90,9 +90,7 @@ jobs:
         run: |
           cargo clippy \
             -p 'reth-seismic*' \
-            -p seismic-reth \
-            -p reth-genesis-builder \
-            -p genesis-builder \
+            -p 'seismic-reth*' \
             --lib --tests --no-deps \
             -- -D warnings \
             -W clippy::unwrap_used \

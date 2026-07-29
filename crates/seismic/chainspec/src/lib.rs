@@ -213,11 +213,11 @@ mod tests {
     #[test]
     fn dev_genesis_is_canonical() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/genesis/dev.json");
-        let genesis = reth_genesis_builder::load_genesis(&path).expect("dev.json parses");
+        let genesis = reth_seismic_genesis_builder::load_genesis(&path).expect("dev.json parses");
 
         assert_eq!(
             std::fs::read_to_string(&path).expect("dev.json is readable"),
-            reth_genesis_builder::canonical_json(&genesis).expect("dev.json reserializes"),
+            reth_seismic_genesis_builder::canonical_json(&genesis).expect("dev.json reserializes"),
             "dev.json is not in canonical form; regenerate it with the genesis-builder binary"
         );
     }
