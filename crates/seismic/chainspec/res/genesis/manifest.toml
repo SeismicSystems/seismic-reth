@@ -1,6 +1,15 @@
 [metadata]
 version = "0.1.0"
 description = "Seismic dev genesis contracts"
+# Describes the dev template (`dev.json`) alone. A network genesis is built
+# from a manifest like this once, at launch; from then on it is an immutable
+# snapshot guarded by its pinned hash — `testnet.json` and `mainnet.json` are
+# never regenerated from here.
+#
+# Commit of SeismicSystems/seismic the artifacts below are fetched from. Bumping
+# the contracts means bumping this SHA and committing the regenerated genesis
+# (and its new hash) alongside it.
+ref = "cadca3ccf0717a9199c612d0d2621d83161a7ae8"
 
 # NOTE: the beacon roots contract (EIP-4788) was written in etk assembly
 # and doesn't have Solidity source code.

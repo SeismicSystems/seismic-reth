@@ -22,6 +22,6 @@ pub mod types;
 
 pub use builder::GenesisBuilder;
 pub use error::{BuilderError, Result};
-pub use genesis::{canonical_json, load_genesis, write_genesis};
+pub use genesis::{canonical_json, is_current, load_genesis, write_genesis};
 pub use manifest::load_manifest;
 pub use types::{ContractConfig, Genesis, GenesisAccount, Manifest, ManifestMetadata};

@@ -17,6 +17,9 @@ pub enum BuilderError {
     /// Invalid address format
     #[error("Invalid address format: {0}")]
     InvalidAddress(String),
+    /// Manifest pins something other than a full commit SHA
+    #[error("Invalid artifact ref: {0}")]
+    InvalidRef(String),
     /// Invalid hex format
     #[error("Invalid hex format: {0}")]
     InvalidHex(String),

@@ -2,10 +2,15 @@ use alloy_primitives::{Address, Bytes};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
-/// Default base URL for the manifest which will be
-/// used if a base URL is not provided explicitly
-pub const DEFAULT_BASE_URL: &str =
-    "https://raw.githubusercontent.com/SeismicSystems/seismic/refs/heads/main/contracts";
+/// Raw-content base of the `SeismicSystems/seismic` monorepo, which holds the
+/// compiled artifacts of the contracts a manifest allocates
+pub const ARTIFACT_REPO_RAW_URL: &str = "https://raw.githubusercontent.com/SeismicSystems/seismic";
+
+/// Directory holding the compiled artifacts inside the monorepo
+pub const ARTIFACT_REPO_CONTRACTS_DIR: &str = "contracts";
+
+/// Length of the commit SHA a manifest pins
+pub const COMMIT_SHA_LEN: usize = 40;
 
 /// Contract configuration from manifest
 #[derive(Debug, Deserialize, Clone)]
@@ -39,15 +44,17 @@ pub struct ManifestMetadata {
     pub version: String,
     /// Description of the manifest
     pub description: Option<String>,
-    /// Base `GitHub` URL for all artifacts
-    /// If not provided, the default base URL will be used
-    pub base_url: Option<String>,
+    /// Full commit SHA of the monorepo whose artifacts this manifest allocates.
+    /// Pinning a commit is what makes a rebuild reproducible: bumping contracts
+    /// is a one-line SHA change, reviewed next to the regenerated genesis.
+    #[serde(rename = "ref")]
+    pub git_ref: String,
 }
 
 impl ManifestMetadata {
-    /// Get the base URL for the manifest
-    pub fn base_url(&self) -> &str {
-        self.base_url.as_deref().unwrap_or(DEFAULT_BASE_URL)
+    /// Base URL of the artifacts pinned by [`Self::git_ref`]
+    pub fn base_url(&self) -> String {
+        format!("{ARTIFACT_REPO_RAW_URL}/{}/{ARTIFACT_REPO_CONTRACTS_DIR}", self.git_ref)
     }
 }
 
