@@ -1,0 +1,263 @@
+# Publishes prebuilt seismic-reth binaries, mirroring seismic-foundry's
+# release.yml¹: versioned releases on v*.*.* tags, plus a rolling `nightly`
+# pre-release (daily cron / manual dispatch) consumed by the monorepo's
+# setup-sreth action².
+#
+# ¹ https://github.com/SeismicSystems/seismic-foundry/blob/seismic/.github/workflows/release.yml
+# ² https://github.com/SeismicSystems/seismic/tree/main/.github/actions/setup-sreth
+#
+# Each nightly run publishes twice, via the .github/scripts helpers
+# (copied from seismic-foundry's .github/scripts):
+#   - create-tag.js tags the built commit `nightly-<sha>` and a release is
+#     published there, giving every nightly a permanent, pinnable URL for
+#     rollback.
+#   - the rolling `nightly` release then gets the same assets, and
+#     move-tag.js points the `nightly` tag at the built commit — this is
+#     the stable "latest nightly" URL that setup-sreth downloads by
+#     default.
+#   - prune-prereleases.js caps the pinned history: it keeps the newest 30
+#     `nightly-<sha>` releases plus, as a long-term archive, the earliest
+#     release of each calendar month; everything else (release and tag) is
+#     deleted. The rolling `nightly` release and versioned releases are
+#     never pruned.
+name: seismic-release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  schedule:
+    # Daily at 11:00am UTC (6:00am EST)
+    - cron: "0 11 * * *"
+  # manual trigger behaves like the cron job and creates a nightly pre-release.
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  IS_NIGHTLY: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+  PROFILE: maxperf
+
+jobs:
+  prepare:
+    permissions:
+      contents: write
+    name: Prepare release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      tag_name: ${{ steps.release_info.outputs.tag_name }}
+      release_name: ${{ steps.release_info.outputs.release_name }}
+      changelog: ${{ steps.build_changelog.outputs.changelog }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Compute release name and tag
+        id: release_info
+        run: |
+          if [[ ${IS_NIGHTLY} == 'true' ]]; then
+            echo "tag_name=nightly-${GITHUB_SHA}" >> $GITHUB_OUTPUT
+            echo "release_name=Nightly ($(date '+%Y-%m-%d'))" >> $GITHUB_OUTPUT
+          else
+            echo "tag_name=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+            echo "release_name=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
+      # Creates a `nightly-SHA` tag for this specific nightly
+      # This tag is used for this specific nightly version's release
+      # which allows users to roll back. It is also used to build
+      # the changelog.
+      - name: Create build-specific nightly tag
+        if: ${{ env.IS_NIGHTLY == 'true' }}
+        uses: actions/github-script@v7
+        env:
+          TAG_NAME: ${{ steps.release_info.outputs.tag_name }}
+        with:
+          script: |
+            const createTag = require('./.github/scripts/create-tag.js')
+            await createTag({ github, context }, process.env.TAG_NAME)
+
+      # For versioned releases (v*.*.*), find the previous semver tag to
+      # compute the changelog from, resolved dynamically so it never needs
+      # a hardcoded "previous version" to be kept up to date.
+      - name: Find previous semver tag
+        if: ${{ env.IS_NIGHTLY != 'true' }}
+        id: prev_stable
+        run: |
+          # List all v*.*.* tags sorted by version, exclude the current one
+          PREV_TAG=$(git tag -l 'v*.*.*' --sort=-v:refname | grep -v "^${GITHUB_REF_NAME}$" | head -1)
+          echo "tag=${PREV_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build changelog
+        id: build_changelog
+        uses: mikepenz/release-changelog-builder-action@v4
+        with:
+          configuration: "./.github/changelog.json"
+          fromTag: ${{ env.IS_NIGHTLY == 'true' && 'nightly' || steps.prev_stable.outputs.tag }}
+          toTag: ${{ steps.release_info.outputs.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release:
+    permissions:
+      id-token: write
+      contents: write
+      attestations: write
+    name: ${{ matrix.target }} (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 240
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # `runner`: GHA runner label
+          # `target`: Rust build target triple
+          # `platform` and `arch`: Used in tarball names
+          # Linux amd64 covers every current consumer (the binary is
+          # downloaded by GitHub-hosted CI runners via setup-sreth);
+          # add matrix entries here when other platforms need one.
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            platform: linux
+            arch: amd64
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+          cache-on-failure: true
+
+      - name: Build binaries
+        env:
+          TARGET: ${{ matrix.target }}
+          OUT_DIR: target/${{ matrix.target }}/${{ env.PROFILE }}
+        shell: bash
+        run: |
+          set -eo pipefail
+          cargo build --target $TARGET --profile $PROFILE \
+            --bin seismic-reth --features jemalloc,asm-keccak
+
+          bin=$OUT_DIR/seismic-reth
+          file "$bin" || true
+          du -h "$bin" || true
+          ldd "$bin" || true
+          $bin --version
+          echo "seismic_reth_bin_path=${bin}" >> $GITHUB_ENV
+
+      - name: Archive binaries
+        id: artifacts
+        env:
+          PLATFORM_NAME: ${{ matrix.platform }}
+          OUT_DIR: target/${{ matrix.target }}/${{ env.PROFILE }}
+          VERSION_NAME: ${{ (env.IS_NIGHTLY == 'true' && 'nightly') || needs.prepare.outputs.tag_name }}
+          ARCH: ${{ matrix.arch }}
+        shell: bash
+        run: |
+          if [[ "$PLATFORM_NAME" == "linux" ]]; then
+            tar -czvf "seismic-reth_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C $OUT_DIR seismic-reth
+          elif [ "$PLATFORM_NAME" == "darwin" ]; then
+            # We need to use gtar here otherwise the archive is corrupt.
+            # See: https://github.com/actions/virtual-environments/issues/2619
+            gtar -czvf "seismic-reth_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C $OUT_DIR seismic-reth
+          fi
+          echo "file_name=seismic-reth_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" >> $GITHUB_OUTPUT
+          echo "attestation_name=seismic-reth_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.attestation.txt" >> $GITHUB_OUTPUT
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          retention-days: 1
+          name: ${{ steps.artifacts.outputs.file_name }}
+          path: ${{ steps.artifacts.outputs.file_name }}
+
+      - name: Binaries attestation
+        id: attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ env.seismic_reth_bin_path }}
+
+      - name: Record attestation URL
+        run: |
+          echo "${{ steps.attestation.outputs.attestation-url }}" > ${{ steps.artifacts.outputs.attestation_name }}
+
+      # Creates the release for this specific version
+      - name: Create release
+        uses: softprops/action-gh-release@v2.2.2
+        with:
+          name: ${{ needs.prepare.outputs.release_name }}
+          tag_name: ${{ needs.prepare.outputs.tag_name }}
+          prerelease: ${{ env.IS_NIGHTLY == 'true' }}
+          body: ${{ needs.prepare.outputs.changelog }}
+          files: |
+            ${{ steps.artifacts.outputs.file_name }}
+            ${{ steps.artifacts.outputs.attestation_name }}
+
+      # If this is a nightly release, it also updates the release
+      # tagged `nightly`, which is what setup-sreth downloads by default
+      - name: Update nightly release
+        if: ${{ env.IS_NIGHTLY == 'true' }}
+        uses: softprops/action-gh-release@v2.2.2
+        with:
+          name: "Nightly"
+          tag_name: "nightly"
+          prerelease: true
+          body: |
+            _The release date shown may be stale. See [${{ needs.prepare.outputs.tag_name }}](https://github.com/${{ github.repository }}/releases/tag/${{ needs.prepare.outputs.tag_name }}) for the exact build._
+
+            ${{ needs.prepare.outputs.changelog }}
+          files: |
+            ${{ steps.artifacts.outputs.file_name }}
+            ${{ steps.artifacts.outputs.attestation_name }}
+
+  cleanup:
+    # contents:write is needed for move-tag.js to update the nightly tag
+    # and for prune-prereleases.js to delete old nightly releases/tags.
+    permissions:
+      contents: write
+    name: Release cleanup
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: release
+    if: always()
+    steps:
+      - uses: actions/checkout@v5
+
+      # Moves the `nightly` tag to `HEAD`
+      - name: Move nightly tag
+        if: ${{ env.IS_NIGHTLY == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const moveTag = require('./.github/scripts/move-tag.js')
+            await moveTag({ github, context }, 'nightly')
+
+      - name: Delete old nightlies
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prunePrereleases = require('./.github/scripts/prune-prereleases.js')
+            await prunePrereleases({github, context})
+
+  # If any of the jobs fail, this will create a high-priority issue to signal so.
+  issue:
+    permissions:
+      issues: write
+    name: Open an issue
+    runs-on: ubuntu-latest
+    needs: [prepare, release, cleanup]
+    if: failure()
+    steps:
+      - uses: actions/checkout@v5
+      - uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_URL: |
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          update_existing: true
+          filename: .github/SEISMIC_RELEASE_FAILURE_ISSUE_TEMPLATE.md
