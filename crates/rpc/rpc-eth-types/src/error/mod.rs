@@ -3,7 +3,7 @@
 pub mod api;
 use crate::error::api::FromEvmHalt;
 use alloy_eips::BlockId;
-use alloy_evm::{call::CallError, overrides::StateOverrideError};
+use alloy_evm::{call::CallError, overrides::OverrideError};
 use alloy_primitives::{Address, Bytes, B256, U256};
 use alloy_rpc_types_eth::{error::EthRpcErrorCode, request::TransactionInputError, BlockError};
 use alloy_sol_types::{ContractError, RevertReason};
@@ -121,6 +121,9 @@ pub enum EthApiError {
     /// Storage overrides are not permitted (Seismic privacy)
     #[error("storage overrides are not permitted on Seismic (account: {0:?})")]
     StorageOverrideNotPermitted(Address),
+    /// Block overrides are not permitted (Seismic privacy)
+    #[error("block overrides are not permitted on Seismic")]
+    BlockOverrideNotPermitted,
     /// Other internal error
     #[error(transparent)]
     Internal(RethError),
@@ -227,8 +230,8 @@ impl EthApiError {
         }
     }
 
-    /// Converts the given [`StateOverrideError`] into a new [`EthApiError`] instance.
-    pub fn from_state_overrides_err<E>(err: StateOverrideError<E>) -> Self
+    /// Converts the given [`OverrideError`] into a new [`EthApiError`] instance.
+    pub fn from_overrides_err<E>(err: OverrideError<E>) -> Self
     where
         E: Into<Self>,
     {
@@ -262,6 +265,7 @@ impl From<EthApiError> for jsonrpsee_types::error::ErrorObject<'static> {
             EthApiError::BothStateAndStateDiffInOverride(_) |
             EthApiError::CodeOverrideNotPermitted(_) |
             EthApiError::StorageOverrideNotPermitted(_) |
+            EthApiError::BlockOverrideNotPermitted |
             EthApiError::InvalidTracerConfig |
             EthApiError::TransactionConversionError |
             EthApiError::InvalidRewardPercentiles |
@@ -345,25 +349,26 @@ where
     }
 }
 
-impl<E> From<StateOverrideError<E>> for EthApiError
+impl<E> From<OverrideError<E>> for EthApiError
 where
     E: Into<Self>,
 {
-    fn from(value: StateOverrideError<E>) -> Self {
+    fn from(value: OverrideError<E>) -> Self {
         match value {
-            StateOverrideError::InvalidBytecode(bytecode_decode_error) => {
+            OverrideError::InvalidBytecode(bytecode_decode_error) => {
                 Self::InvalidBytecode(bytecode_decode_error.to_string())
             }
-            StateOverrideError::BothStateAndStateDiff(address) => {
+            OverrideError::BothStateAndStateDiff(address) => {
                 Self::BothStateAndStateDiffInOverride(address)
             }
-            StateOverrideError::CodeOverrideNotPermitted(address) => {
+            OverrideError::CodeOverrideNotPermitted(address) => {
                 Self::CodeOverrideNotPermitted(address)
             }
-            StateOverrideError::StorageOverrideNotPermitted(address) => {
+            OverrideError::StorageOverrideNotPermitted(address) => {
                 Self::StorageOverrideNotPermitted(address)
             }
-            StateOverrideError::Database(err) => err.into(),
+            OverrideError::BlockOverrideNotPermitted => Self::BlockOverrideNotPermitted,
+            OverrideError::Database(err) => err.into(),
         }
     }
 }
