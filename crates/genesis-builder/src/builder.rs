@@ -19,6 +19,8 @@ pub struct GenesisBuilder {
     genesis: Genesis,
     /// Loader for fetching contract artifacts
     loader: ArtifactLoader,
+    /// Base URL the artifacts are fetched from
+    base_url: String,
     /// Number of contracts added to the genesis file
     contracts_added: usize,
     /// Say "yes" to every overwrite question
@@ -26,11 +28,21 @@ pub struct GenesisBuilder {
 }
 
 impl GenesisBuilder {
-    /// Create a new genesis builder
+    /// Create a new genesis builder fetching the artifacts of the commit the
+    /// manifest pins
     pub fn new(manifest: Manifest, genesis: Genesis, yes_overwrite: bool) -> Result<Self> {
         let loader = ArtifactLoader::new()?;
+        let base_url = manifest.metadata.base_url();
 
-        Ok(Self { manifest, genesis, loader, contracts_added: 0, yes_overwrite })
+        Ok(Self { manifest, genesis, loader, base_url, contracts_added: 0, yes_overwrite })
+    }
+
+    /// Fetch the artifacts from `base_url` instead of from the commit the
+    /// manifest pins. For local experimentation: the result is only
+    /// reproducible when it comes from the pinned commit.
+    pub fn with_base_url(mut self, base_url: String) -> Self {
+        self.base_url = base_url;
+        self
     }
 
     /// Execute the build process
@@ -38,7 +50,7 @@ impl GenesisBuilder {
         info!(
             "Building genesis with {} contracts from {}",
             self.manifest.contracts.len(),
-            self.manifest.metadata.base_url()
+            self.base_url
         );
 
         for (name, config) in &self.manifest.contracts.clone() {
@@ -53,7 +65,7 @@ impl GenesisBuilder {
     fn add_contract(&mut self, name: &str, config: &crate::types::ContractConfig) -> Result<()> {
         let url = format!(
             "{}/{}",
-            self.manifest.metadata.base_url().trim_end_matches('/'),
+            self.base_url.trim_end_matches('/'),
             config.artifact.trim_start_matches('/')
         );
 

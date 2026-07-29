@@ -44,6 +44,12 @@ pub fn write_genesis(genesis: &Genesis, path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Whether the genesis file at `path` already holds `genesis` verbatim, i.e.
+/// whether [`write_genesis`] would leave it untouched
+pub fn is_current(genesis: &Genesis, path: &Path) -> Result<bool> {
+    Ok(fs::read_to_string(path)? == canonical_json(genesis)?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

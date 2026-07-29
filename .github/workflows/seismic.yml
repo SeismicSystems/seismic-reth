@@ -32,8 +32,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "build-cache"
       - name: cargo check (workspace)
         run: cargo check --workspace
 
@@ -53,7 +51,6 @@ jobs:
           toolchain: "1.88" # keep in sync with rust-version in Cargo.toml
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "msrv-cache"
           cache-on-failure: true
       - name: cargo build (MSRV)
         run: cargo build --bin seismic-reth --workspace
@@ -67,8 +64,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "warnings-cache"
       - name: cargo check warnings
         run: RUSTFLAGS="-D warnings" cargo check
 
@@ -81,8 +76,6 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "clippy-cache"
       - name: Clippy (seismic crates)
         # `-p 'reth-seismic*'` selects seismic-authored crates by naming
         # convention, so new ones are covered automatically; crates that
@@ -122,8 +115,6 @@ jobs:
           toolchain: 1.91.1
           components: clippy
       - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "clippy-workspace-cache"
       - name: Clippy (workspace)
         # Default features only — never --all-features: the optimism `op`
         # features gate code we neither run nor maintain (the optimism
@@ -168,6 +159,24 @@ jobs:
       - name: run zepter
         run: time zepter run check
 
+  genesis-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Dev genesis matches its manifest
+        # Rebuilds the dev genesis from the artifacts of the commit
+        # manifest.toml pins and fails if the committed file differs, so a
+        # contract bump can't land without its regenerated genesis.
+        #
+        # The dev template only, which is what the default --genesis is. The
+        # testnet and mainnet specs are snapshots of launched networks: they
+        # have no manifest to drift from, and rebuilding them would rewrite a
+        # live network's genesis.
+        run: cargo run --bin genesis-builder -- --check
+
   unit-test:
     runs-on: large-github-runner
     timeout-minutes: 30
@@ -179,6 +188,9 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
         with:
+          # unit-test and integration-test compile the same workspace test
+          # binaries (they differ only in the nextest filter), so they share
+          # one cache instead of the default per-job ones
           shared-key: "integration-test-cache"
       - name: seismic-node test
         # see profile.default in .config/nextest.toml for filtered tests
@@ -195,6 +207,9 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
         with:
+          # unit-test and integration-test compile the same workspace test
+          # binaries (they differ only in the nextest filter), so they share
+          # one cache instead of the default per-job ones
           shared-key: "integration-test-cache"
       - name: seismic-node test
         # see profile.default in .config/nextest.toml for filtered tests
