@@ -37,15 +37,13 @@ Reth is a high-performance Ethereum execution client written in Rust, focusing o
    ```
 
 2. **Linting**: Run the Seismic CI clippy command (matches `.github/workflows/seismic.yml`).
-   `-p 'reth-seismic*'` selects seismic-authored crates by naming convention; crates that
-   don't follow it are listed explicitly. Name new seismic crates `reth-seismic-*` so they
-   are covered automatically.
+   The two globs select seismic-authored crates by naming convention. Name new seismic
+   library crates `reth-seismic-*` and binary packages `seismic-reth*` so they are
+   covered automatically.
    ```bash
    cargo clippy \
      -p 'reth-seismic*' \
-     -p seismic-reth \
-     -p reth-genesis-builder \
-     -p genesis-builder \
+     -p 'seismic-reth*' \
      --lib --tests --no-deps \
      -- -D warnings \
      -W clippy::unwrap_used \
@@ -189,9 +187,7 @@ Before committing or pushing code, run these checks locally to match what Seismi
    ```bash
    cargo clippy \
      -p 'reth-seismic*' \
-     -p seismic-reth \
-     -p reth-genesis-builder \
-     -p genesis-builder \
+     -p 'seismic-reth*' \
      --lib --tests --no-deps \
      -- -D warnings \
      -W clippy::unwrap_used \
@@ -330,7 +326,7 @@ Let's say you want to fix a bug where external IP resolution fails on startup:
 cargo +nightly fmt --all
 
 # Run Seismic CI clippy (see CI Requirements section for full command)
-cargo clippy -p 'reth-seismic*' -p seismic-reth -p reth-genesis-builder -p genesis-builder --lib --tests --no-deps -- -D warnings -W clippy::unwrap_used -W clippy::expect_used -W clippy::indexing_slicing -W clippy::panic -W clippy::unreachable -W clippy::todo
+cargo clippy -p 'reth-seismic*' -p 'seismic-reth*' --lib --tests --no-deps -- -D warnings -W clippy::unwrap_used -W clippy::expect_used -W clippy::indexing_slicing -W clippy::panic -W clippy::unreachable -W clippy::todo
 
 # Run warnings check
 RUSTFLAGS="-D warnings" cargo check

@@ -3608,16 +3608,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "genesis-builder"
-version = "1.7.0"
-dependencies = [
- "clap",
- "reth-genesis-builder",
- "tracing",
- "tracing-subscriber 0.3.22",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8230,19 +8220,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "reth-genesis-builder"
-version = "1.7.0"
-dependencies = [
- "alloy-primitives",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 2.0.17",
- "toml",
- "tracing",
-]
-
-[[package]]
 name = "reth-invalid-block-hooks"
 version = "1.7.0"
 dependencies = [
@@ -9521,10 +9498,10 @@ dependencies = [
  "once_cell",
  "reth-chainspec",
  "reth-ethereum-forks",
- "reth-genesis-builder",
  "reth-network-peers",
  "reth-primitives-traits",
  "reth-seismic-forks",
+ "reth-seismic-genesis-builder",
  "reth-seismic-primitives",
  "seismic-alloy-consensus",
  "seismic-alloy-rpc-types",
@@ -9636,6 +9613,19 @@ dependencies = [
  "seismic-alloy-consensus",
  "seismic-crypto",
  "seismic-revm",
+]
+
+[[package]]
+name = "reth-seismic-genesis-builder"
+version = "1.7.0"
+dependencies = [
+ "alloy-primitives",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "toml",
+ "tracing",
 ]
 
 [[package]]
@@ -11323,6 +11313,16 @@ dependencies = [
  "seismic-alloy-rpc-types",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "seismic-reth-genesis-builder"
+version = "1.7.0"
+dependencies = [
+ "clap",
+ "reth-seismic-genesis-builder",
+ "tracing",
+ "tracing-subscriber 0.3.22",
 ]
 
 [[package]]

@@ -1,7 +1,9 @@
 //! Genesis builder CLI tool for adding contracts to genesis files
 
 use clap::Parser;
-use reth_genesis_builder::{builder::GenesisBuilder, error::BuilderError, genesis, manifest};
+use reth_seismic_genesis_builder::{
+    builder::GenesisBuilder, error::BuilderError, genesis, manifest,
+};
 use std::{path::PathBuf, process};
 use tracing::{error, info};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
