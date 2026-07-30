@@ -1,6 +1,7 @@
 #![allow(missing_docs)]
 
 use clap::Parser;
+use reth_node_core::args::PurposeKeysArgs;
 use reth_seismic_cli::{chainspec::SeismicChainSpecParser, Cli};
 use reth_seismic_keys::PurposeKeyring;
 use reth_seismic_node::{keys_source::fetch_purpose_keys, node::SeismicNode};
@@ -28,8 +29,13 @@ fn main() {
         reth_seismic_node::purpose_keys::init_purpose_keyring(keyring.clone());
 
         // Inject the keyring structurally into SeismicNode so it flows through the
-        // node builder lifecycle without relying on the global.
-        let node = builder.node(SeismicNode::new(keyring)).launch_with_debug_capabilities().await?;
+        // node builder lifecycle without relying on the global; the purpose-key args
+        // let the rotation watcher fetch newly announced epochs from the custodian.
+        let purpose_keys_args = AsRef::<PurposeKeysArgs>::as_ref(&ext).clone();
+        let node = builder
+            .node(SeismicNode::new(keyring, purpose_keys_args))
+            .launch_with_debug_capabilities()
+            .await?;
         node.node_exit_future.await
     }) {
         eprintln!("Error: {err:?}");
