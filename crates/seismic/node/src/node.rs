@@ -126,7 +126,7 @@ impl SeismicNode {
         };
         ComponentsBuilder::default()
             .node_types::<Node>()
-            .pool(SeismicPoolBuilder::default())
+            .pool(SeismicPoolBuilder { keyring: self.keyring.clone() })
             .executor(executor)
             .payload(BasicPayloadServiceBuilder::<SeismicPayloadBuilder>::default())
             .network(SeismicNetworkBuilder::default())
@@ -565,9 +565,13 @@ where
 ///
 /// This contains various settings that can be configured and take precedence over the node's
 /// config.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 #[non_exhaustive]
-pub struct SeismicPoolBuilder;
+pub struct SeismicPoolBuilder {
+    /// Purpose keyring, read by the validator for its rotation schedule only (the
+    /// key-rotation expiry boundary rule). `None` falls back to the global keyring.
+    keyring: Option<Arc<PurposeKeyring>>,
+}
 
 impl<Node> PoolBuilder<Node> for SeismicPoolBuilder
 where
@@ -624,8 +628,13 @@ where
             .disable_balance_check()
             .build_with_tasks(ctx.task_executor().clone(), blob_store.clone());
 
-        // Wrap the eth validator with seismic-specific validation
-        let validator = eth_validator.map(reth_seismic_txpool::SeismicTransactionValidator::new);
+        // Wrap the eth validator with seismic-specific validation; the keyring feeds
+        // the key-rotation expiry boundary rule (schedule only, no key material).
+        let keyring = self.keyring.unwrap_or_else(get_purpose_keyring);
+        let validator = eth_validator.map(|inner| {
+            reth_seismic_txpool::SeismicTransactionValidator::new(inner)
+                .with_keyring(keyring.clone())
+        });
 
         let transaction_pool = reth_transaction_pool::Pool::new(
             validator,
