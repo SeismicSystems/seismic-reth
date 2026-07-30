@@ -62,7 +62,11 @@ use seismic_alloy_consensus::{SeismicTxEnvelope, SeismicTxType};
 use std::{sync::Arc, time::SystemTime};
 use tracing::info;
 
-use crate::{purpose_keys::get_purpose_keys, seismic_evm_config};
+use crate::{
+    purpose_keys::{epoch0_static, get_purpose_keyring},
+    seismic_evm_config,
+};
+use reth_seismic_keys::PurposeKeyring;
 
 /// Storage implementation for Seismic.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
@@ -70,28 +74,25 @@ pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
 #[derive(Debug, Clone)]
 /// Type configuration for a regular Seismic node.
 ///
-/// Purpose keys can be injected via [`SeismicNode::new`] so they flow through
+/// The purpose keyring can be injected via [`SeismicNode::new`] so it flows through
 /// the node builder lifecycle instead of being read from a global side-channel.
 /// When constructed via [`Default`] (e.g. in tests), the executor builder will
-/// fall back to the global [`crate::purpose_keys::get_purpose_keys`].
+/// fall back to the global [`crate::purpose_keys::get_purpose_keyring`].
 #[derive(Default)]
 pub struct SeismicNode {
-    /// Structurally-injected purpose keys.  `None` means "use global fallback".
-    purpose_keys: Option<&'static alloy_seismic_evm::PurposeKeys>,
+    /// Structurally-injected purpose keyring. `None` means "use global fallback".
+    keyring: Option<Arc<PurposeKeyring>>,
 }
 
 impl SeismicNode {
-    /// Create a new [`SeismicNode`] with structurally-injected purpose keys.
-    ///
-    /// The keys are leaked onto the heap so they live for `'static`, which is
-    /// required by the EVM configuration layer.
-    pub fn new(purpose_keys: alloy_seismic_evm::PurposeKeys) -> Self {
-        Self { purpose_keys: Some(crate::purpose_keys::leak_purpose_keys(purpose_keys)) }
+    /// Create a new [`SeismicNode`] with a structurally-injected purpose keyring.
+    pub const fn new(keyring: Arc<PurposeKeyring>) -> Self {
+        Self { keyring: Some(keyring) }
     }
 
-    /// Returns the injected purpose keys, if any.
-    pub const fn purpose_keys(&self) -> Option<&'static alloy_seismic_evm::PurposeKeys> {
-        self.purpose_keys
+    /// Returns the injected purpose keyring, if any.
+    pub fn keyring(&self) -> Option<Arc<PurposeKeyring>> {
+        self.keyring.clone()
     }
 
     /// Returns the [`ComponentsBuilder`] for this node.
@@ -114,7 +115,7 @@ impl SeismicNode {
             >,
         >,
     {
-        let executor = SeismicExecutorBuilder { purpose_keys: self.purpose_keys };
+        let executor = SeismicExecutorBuilder { keyring: self.keyring.clone() };
         ComponentsBuilder::default()
             .node_types::<Node>()
             .pool(SeismicPoolBuilder::default())
@@ -382,7 +383,7 @@ where
         let eth_config =
             EthConfigHandler::new(ctx.node.provider().clone(), ctx.node.evm_config().clone());
 
-        let purpose_keys = get_purpose_keys().clone();
+        let keyring = get_purpose_keyring();
         let peers_info = ctx.node.network().clone();
 
         self.inner
@@ -397,11 +398,11 @@ where
 
                 // Register Seismic eth_ overrides (sendRawTransaction, call, estimateGas, etc.)
                 modules.replace_configured(
-                    EthApiExt::new(registry.eth_api().clone(), purpose_keys.clone()).into_rpc(),
+                    EthApiExt::new(registry.eth_api().clone(), keyring.clone()).into_rpc(),
                 )?;
 
                 // Always register public Seismic node information, regardless of the configured standard RPC namespaces.
-                modules.merge_configured(SeismicApi::new(purpose_keys, peers_info).into_rpc())?;
+                modules.merge_configured(SeismicApi::new(keyring, peers_info).into_rpc())?;
 
                 // Trace endpoints stay off on Seismic. Our traces are already sanitized
                 // (calldata, return data, memory, and stack are stripped — see
@@ -506,12 +507,12 @@ where
 
 /// A regular seismic evm and executor builder.
 ///
-/// When `purpose_keys` is `Some`, uses the injected keys directly.
-/// When `None`, falls back to the global [`crate::purpose_keys::get_purpose_keys`].
+/// When `keyring` is `Some`, uses the injected keyring directly.
+/// When `None`, falls back to the global [`crate::purpose_keys::get_purpose_keyring`].
 #[derive(Debug, Default, Clone)]
 pub struct SeismicExecutorBuilder {
-    /// Structurally-injected purpose keys, or `None` for global fallback.
-    purpose_keys: Option<&'static alloy_seismic_evm::PurposeKeys>,
+    /// Structurally-injected purpose keyring, or `None` for global fallback.
+    keyring: Option<Arc<PurposeKeyring>>,
 }
 
 impl<Node> ExecutorBuilder<Node> for SeismicExecutorBuilder
@@ -521,9 +522,12 @@ where
     type EVM = SeismicEvmConfig;
 
     async fn build_evm(self, ctx: &BuilderContext<Node>) -> eyre::Result<Self::EVM> {
-        let purpose_keys =
-            self.purpose_keys.unwrap_or_else(|| crate::purpose_keys::get_purpose_keys());
-        let evm_config = seismic_evm_config(ctx.chain_spec(), purpose_keys);
+        let keyring = self.keyring.unwrap_or_else(get_purpose_keyring);
+
+        // The EVM configuration still requires `&'static PurposeKeys` and stays
+        // pinned to epoch 0 until the alloy-seismic-evm factories adopt the keyring
+        // (docs/design/purpose-key-rotation.md, rollout Phase 2).
+        let evm_config = seismic_evm_config(ctx.chain_spec(), epoch0_static(&keyring));
 
         Ok(evm_config)
     }

@@ -17,7 +17,8 @@ use reth_chainspec::{EthChainSpec, Hardforks, Head};
 use reth_e2e_test_utils::setup;
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use reth_seismic_chainspec::SEISMIC_DEV;
-use reth_seismic_node::{node::SeismicNode, purpose_keys::init_purpose_keys};
+use reth_seismic_keys::PurposeKeyring;
+use reth_seismic_node::{node::SeismicNode, purpose_keys::init_purpose_keyring};
 use seismic_crypto::{
     get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
     get_unsecure_sample_secp256k1_sk,
@@ -28,11 +29,11 @@ use std::sync::Once;
 static INIT_KEYS: Once = Once::new();
 fn ensure_mock_purpose_keys() {
     INIT_KEYS.call_once(|| {
-        init_purpose_keys(PurposeKeys {
+        init_purpose_keyring(std::sync::Arc::new(PurposeKeyring::single_epoch(PurposeKeys {
             tx_io_sk: get_unsecure_sample_secp256k1_sk(),
             tx_io_pk: get_unsecure_sample_secp256k1_pk(),
             rng_ikm: get_unsecure_sample_schnorrkel_keypair().secret.to_bytes(),
-        });
+        })));
     });
 }
 
