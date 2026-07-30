@@ -9611,6 +9611,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "reth-seismic-keys"
+version = "1.7.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-seismic-evm",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "reth-seismic-node"
 version = "1.7.0"
 dependencies = [
