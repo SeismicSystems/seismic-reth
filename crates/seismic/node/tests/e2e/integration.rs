@@ -1543,6 +1543,29 @@ async fn test_eth_call_many_signed_read_revert_leaks_private_data() -> eyre::Res
         !err_msg.contains(&secret.to_string()),
         "eth_callMany leaked private value {secret} in signed-read revert message: {err_msg}"
     );
+
+    // The error string carries the encrypted revert output as hex; the signer must be able to
+    // decrypt it and recover the plaintext revert reason.
+    let ciphertext_hex = err_msg
+        .strip_prefix("execution reverted: 0x")
+        .expect("signed-read revert error should embed the encrypted revert output");
+    let ciphertext: Bytes = hex::decode(ciphertext_hex).unwrap().into();
+    let metadata = get_seismic_metadata(
+        wallet.inner.address(),
+        chain_id,
+        nonce,
+        TxKind::Call(contract_addr),
+        U256::ZERO,
+        block_hash,
+    );
+    let decrypted = client_decrypt(metadata, &ciphertext).unwrap();
+    let reason = alloy_sol_types::RevertReason::decode(&decrypted)
+        .expect("decrypted revert output should decode")
+        .to_string();
+    assert!(
+        reason.contains(&format!("secret={secret}")),
+        "decrypted revert reason should contain the secret, got: {reason}"
+    );
     Ok(())
 }
 

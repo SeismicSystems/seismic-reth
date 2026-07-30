@@ -507,12 +507,25 @@ where
                         EthCallResponse { value: Some(value), error: None }
                     }
                     Err(err) => {
-                        let err = if signed_read {
-                            self.reencrypt_revert_output(err, &seismic_tx_request)?
+                        // `EthCallResponse.error` is a plain string with no `data` field, so for
+                        // signed reads the encrypted revert output is appended as hex; otherwise
+                        // the ciphertext would be dropped and the signer couldn't decrypt the
+                        // revert reason.
+                        let err_str = if signed_read {
+                            let err = self.reencrypt_revert_output(err, &seismic_tx_request)?;
+                            match err.as_err() {
+                                Some(EthApiError::InvalidTransaction(
+                                    RpcInvalidTransactionError::Revert(revert),
+                                )) => match revert.output() {
+                                    Some(output) => format!("execution reverted: {output}"),
+                                    None => err.to_string(),
+                                },
+                                _ => err.to_string(),
+                            }
                         } else {
-                            err
+                            err.to_string()
                         };
-                        EthCallResponse { value: None, error: Some(err.to_string()) }
+                        EthCallResponse { value: None, error: Some(err_str) }
                     }
                 };
                 encrypted_bundle_results.push(response);
