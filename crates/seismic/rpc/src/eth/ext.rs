@@ -65,12 +65,51 @@ pub trait SeismicApi {
     #[method(name = "getTeePublicKey")]
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey>;
 
+    /// Returns the active key epoch, its network public key, and the pending key
+    /// rotation (if one is announced), so wallets can pre-fetch the next key, switch
+    /// exactly at activation, and set `expires_at_block` values that clear the
+    /// rotation boundary (`docs/design/purpose-key-rotation.md` §8).
+    #[method(name = "getKeyEpochInfo")]
+    async fn get_key_epoch_info(&self) -> RpcResult<KeyEpochInfo>;
+
     /// `admin` namespace is disabled for safety, but we still need the enode exposed for new
     /// joining nodes wanting to locate discv5 bootnodes. Operators starting new nodes who have
     /// the IP address of bootstrap nodes can query this endpoint for their enode record and add
     /// it to reth's startup config via `--bootnodes <ENODE>[,<ENODE>...]`.
     #[method(name = "nodeInfo")]
     async fn node_info(&self) -> RpcResult<SeismicNodeInfo>;
+}
+
+/// Key-epoch information served by `seismic_getKeyEpochInfo`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyEpochInfo {
+    /// The key epoch active at the node's canonical tip.
+    pub current_epoch: u64,
+    /// The block at which `current_epoch` activated (0 for the genesis epoch).
+    pub activation_block: u64,
+    /// The network encryption key wallets encrypt to today; identical to
+    /// `seismic_getTeePublicKey`.
+    pub tee_public_key: PublicKey,
+    /// The announced-but-not-yet-activated rotation, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_rotation: Option<PendingRotation>,
+}
+
+/// An announced key rotation that has not activated yet.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingRotation {
+    /// The epoch that will activate.
+    pub epoch: u64,
+    /// The first block that will execute with the new epoch's keys; wallets must
+    /// encrypt to the new key from this block on, and until then cap
+    /// `expires_at_block` below it.
+    pub activation_block: u64,
+    /// The next network encryption key, present once this node has fetched it from
+    /// its custodian (usually well before activation).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tee_public_key: Option<PublicKey>,
 }
 
 /// Public devp2p information for a Seismic node.
@@ -107,10 +146,34 @@ impl<P: PeersInfo + 'static> SeismicApiServer for SeismicApi<P> {
         Ok(keys.tx_io.public_key())
     }
 
+    async fn get_key_epoch_info(&self) -> RpcResult<KeyEpochInfo> {
+        trace!(target: "rpc::seismic", "Serving seismic_getKeyEpochInfo");
+        Ok(key_epoch_info(&self.keyring).map_err(keyring_unavailable_error)?)
+    }
+
     async fn node_info(&self) -> RpcResult<SeismicNodeInfo> {
         trace!(target: "rpc::seismic", "Serving seismic_nodeInfo");
         Ok(SeismicNodeInfo { node_record: self.peers_info.local_node_record() })
     }
+}
+
+/// Assembles the [`KeyEpochInfo`] response from the keyring's current view.
+fn key_epoch_info(
+    keyring: &PurposeKeyring,
+) -> Result<KeyEpochInfo, reth_seismic_keys::MissingEpochKeys> {
+    let (current_epoch, keys) = keyring.current()?;
+    let activation_block = keyring.activation_block_of(current_epoch).unwrap_or(0);
+    let pending_rotation = keyring.pending().map(|(epoch, activation_block)| PendingRotation {
+        epoch,
+        activation_block,
+        tee_public_key: keyring.keys_for_epoch(epoch).map(|k| k.tx_io_pk),
+    });
+    Ok(KeyEpochInfo {
+        current_epoch,
+        activation_block,
+        tee_public_key: keys.tx_io_pk,
+        pending_rotation,
+    })
 }
 
 /// Localhost with port 0 so a free port is used.
@@ -771,4 +834,72 @@ pub fn ext_encryption_error(e_str: String) -> EthApiError {
         "Error Encrypting in Seismic EthApiExt",
         Some(e_str),
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)] // test code
+
+    use super::*;
+    use alloy_seismic_evm::{
+        secp256k1::{Secp256k1, SecretKey},
+        PurposeKeys,
+    };
+    use reth_seismic_keys::{RotationEntry, RotationSchedule};
+
+    fn test_keys(seed: u8) -> PurposeKeys {
+        let sk = SecretKey::from_byte_array(&[seed; 32]).unwrap();
+        let pk = sk.public_key(&Secp256k1::new());
+        PurposeKeys { tx_io_sk: sk, tx_io_pk: pk, rng_ikm: [seed; 64] }
+    }
+
+    /// Pre-rotation networks (all of them today): epoch 0, no pending rotation.
+    #[test]
+    fn epoch_info_before_any_rotation() {
+        let keyring = PurposeKeyring::single_epoch(test_keys(1));
+        let info = key_epoch_info(&keyring).unwrap();
+        assert_eq!(info.current_epoch, 0);
+        assert_eq!(info.activation_block, 0);
+        assert_eq!(info.tee_public_key, test_keys(1).tx_io_pk);
+        assert_eq!(info.pending_rotation, None);
+    }
+
+    /// With a rotation announced, the pending section carries the activation block
+    /// and — once the watcher has fetched the epoch — the next public key, so
+    /// wallets can switch exactly at activation.
+    #[test]
+    fn epoch_info_reports_a_pending_rotation() {
+        let keyring = PurposeKeyring::single_epoch(test_keys(1));
+        keyring
+            .apply_schedule(
+                &RotationSchedule::from_entries([RotationEntry {
+                    epoch: 1,
+                    activation_block: 100,
+                    announced_at_block: 10,
+                }])
+                .unwrap(),
+            )
+            .unwrap();
+
+        // Announced but not yet fetched: pending key unknown.
+        let info = key_epoch_info(&keyring).unwrap();
+        let pending = info.pending_rotation.unwrap();
+        assert_eq!((pending.epoch, pending.activation_block), (1, 100));
+        assert_eq!(pending.tee_public_key, None);
+
+        // Fetched: pending key advertised ahead of activation.
+        keyring.insert_epoch(1, test_keys(2)).unwrap();
+        let info = key_epoch_info(&keyring).unwrap();
+        assert_eq!(info.current_epoch, 0);
+        let pending = info.pending_rotation.unwrap();
+        assert_eq!(pending.tee_public_key, Some(test_keys(2).tx_io_pk));
+
+        // Past activation the rotation is current, not pending.
+        keyring.note_tip(100);
+        let info = key_epoch_info(&keyring).unwrap();
+        assert_eq!(info.current_epoch, 1);
+        assert_eq!(info.activation_block, 100);
+        assert_eq!(info.tee_public_key, test_keys(2).tx_io_pk);
+        assert_eq!(info.pending_rotation, None);
+    }
 }

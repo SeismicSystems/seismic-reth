@@ -167,6 +167,20 @@ impl PurposeKeyring {
         self.read().keys.get(&epoch).cloned()
     }
 
+    /// The block at which `epoch` activates per the known schedule. Epoch 0 is the
+    /// genesis epoch (activation 0); an epoch beyond the schedule is unknown.
+    pub fn activation_block_of(&self, epoch: u64) -> Option<u64> {
+        if epoch == 0 {
+            return Some(0);
+        }
+        self.read()
+            .schedule
+            .entries()
+            .iter()
+            .find(|entry| entry.epoch == epoch)
+            .map(|entry| entry.activation_block)
+    }
+
     /// Scheduled epochs (1..=schedule len) whose keys are not yet in the keyring —
     /// the watcher's fetch work-list and the value of the
     /// `pending_unfetched_epochs` metric. Epoch 0 is excluded (seeded at boot).
