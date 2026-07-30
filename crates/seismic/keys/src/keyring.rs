@@ -178,7 +178,7 @@ impl PurposeKeyring {
 
 /// Field-wise equality; `PurposeKeys` does not derive `PartialEq` itself.
 fn keys_equal(a: &PurposeKeys, b: &PurposeKeys) -> bool {
-    a.tx_io_sk == b.tx_io_sk && a.tx_io_pk == b.tx_io_pk && a.rng_ikm == b.rng_ikm
+    a.tx_io == b.tx_io && a.rng_ikm == b.rng_ikm
 }
 
 #[cfg(test)]
@@ -191,8 +191,8 @@ mod tests {
 
     fn test_keys(seed: u8) -> PurposeKeys {
         let sk = SecretKey::from_byte_array(&[seed; 32]).unwrap();
-        let pk = sk.public_key(&Secp256k1::new());
-        PurposeKeys { tx_io_sk: sk, tx_io_pk: pk, rng_ikm: [seed; 64] }
+        let tx_io = alloy_seismic_evm::secp256k1::Keypair::from_secret_key(&Secp256k1::new(), &sk);
+        PurposeKeys { tx_io, rng_ikm: [seed; 64] }
     }
 
     fn schedule(entries: &[(u64, u64, u64)]) -> RotationSchedule {

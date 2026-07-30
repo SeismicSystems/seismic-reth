@@ -24,6 +24,7 @@ reth-provider.workspace = true
 reth-primitives.workspace = true
 
 # seismic
+reth-seismic-keys.workspace = true
 reth-seismic-node.workspace = true
 reth-seismic-rpc.workspace = true
 reth-seismic-cli.workspace = true

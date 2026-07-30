@@ -17,14 +17,17 @@ use reth_chainspec::{EthChainSpec, Hardforks, Head};
 use reth_e2e_test_utils::setup;
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use reth_seismic_chainspec::SEISMIC_DEV;
-use reth_seismic_node::{node::SeismicNode, purpose_keys::init_purpose_keys};
+use reth_seismic_keys::PurposeKeyring;
+use reth_seismic_node::{node::SeismicNode, purpose_keys::init_purpose_keyring};
 use std::sync::Once;
 
 /// Ensure mock purpose keys are initialized exactly once per test binary.
 static INIT_KEYS: Once = Once::new();
 fn ensure_mock_purpose_keys() {
     INIT_KEYS.call_once(|| {
-        init_purpose_keys(PurposeKeys::well_known());
+        init_purpose_keyring(std::sync::Arc::new(PurposeKeyring::single_epoch(
+            PurposeKeys::well_known(),
+        )));
     });
 }
 

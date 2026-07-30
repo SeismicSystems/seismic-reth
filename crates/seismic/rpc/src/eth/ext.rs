@@ -21,7 +21,7 @@ use alloy_rpc_types_eth::{
     simulate::{SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock},
     AccountInfo, Bundle, EthCallResponse, StateContext,
 };
-use alloy_seismic_evm::{secp256k1::PublicKey, PurposeKeys};
+use alloy_seismic_evm::secp256k1::{PublicKey, SecretKey};
 use jsonrpsee::{
     core::{async_trait, RegisterMethodError, RpcResult},
     proc_macros::rpc,
@@ -37,6 +37,7 @@ use reth_rpc_eth_api::{
 use reth_rpc_eth_types::{
     simulate::SimulatedBlockExecution, EthApiError, RevertError, RpcInvalidTransactionError,
 };
+use reth_seismic_keys::PurposeKeyring;
 use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
 use reth_tracing::tracing::*;
 use seismic_alloy_consensus::{
@@ -48,7 +49,10 @@ use seismic_alloy_rpc_types::{
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
 };
 use serde::{Deserialize, Serialize};
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::{
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    sync::Arc,
+};
 
 /// Fixed wallet-compatibility reply for `eth_getBalance` unless `native = true`.
 ///
@@ -86,7 +90,9 @@ pub struct SeismicNodeInfo {
 /// Implementation of the seismic rpc api
 #[derive(Debug, Clone)]
 pub struct SeismicApi<P> {
-    purpose_keys: PurposeKeys,
+    // Read through the keyring (not a key snapshot) so the advertised key follows
+    // rotations at runtime.
+    keyring: Arc<PurposeKeyring>,
     // Keep the PeersInfo provider instead of snapshotting a NodeRecord because discovery
     // may update the externally advertised address after startup.
     peers_info: P,
@@ -94,8 +100,8 @@ pub struct SeismicApi<P> {
 
 impl<P: PeersInfo> SeismicApi<P> {
     /// Creates a new seismic api instance.
-    pub const fn new(purpose_keys: PurposeKeys, peers_info: P) -> Self {
-        Self { purpose_keys, peers_info }
+    pub const fn new(keyring: Arc<PurposeKeyring>, peers_info: P) -> Self {
+        Self { keyring, peers_info }
     }
 }
 
@@ -103,7 +109,8 @@ impl<P: PeersInfo> SeismicApi<P> {
 impl<P: PeersInfo + 'static> SeismicApiServer for SeismicApi<P> {
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey> {
         trace!(target: "rpc::seismic", "Serving seismic_getTeePublicKey");
-        Ok(self.purpose_keys.tx_io.public_key())
+        let (_, keys) = self.keyring.current().map_err(keyring_unavailable_error)?;
+        Ok(keys.tx_io.public_key())
     }
 
     async fn node_info(&self) -> RpcResult<SeismicNodeInfo> {
@@ -214,13 +221,28 @@ struct AccountInfoParams {
 #[derive(Debug, Clone)]
 pub struct EthApiExt<Eth> {
     eth_api: Eth,
-    purpose_keys: PurposeKeys,
+    keyring: Arc<PurposeKeyring>,
 }
 
 impl<Eth> EthApiExt<Eth> {
     /// Create a new `EthApiExt` module.
-    pub const fn new(eth_api: Eth, purpose_keys: PurposeKeys) -> Self {
-        Self { eth_api, purpose_keys }
+    pub const fn new(eth_api: Eth, keyring: Arc<PurposeKeyring>) -> Self {
+        Self { eth_api, keyring }
+    }
+
+    /// The tx-io secret key active at the canonical tip. Signed reads always decrypt
+    /// with the tip epoch — wallets encrypt to the currently advertised public key,
+    /// and freshness validation already pins requests to the tip window.
+    //
+    // TODO(purpose-key rotation, spec §8): once activation enforcement lands, retry
+    // AEAD failures once with the previous epoch's key within the freshness window
+    // to smooth the boundary. Dead code until rotations can activate.
+    fn tx_io_sk(&self) -> Result<SecretKey, EthApiError> {
+        let (_, keys) = self
+            .keyring
+            .current()
+            .map_err(|e| EthApiError::Other(Box::new(keyring_unavailable_error(e))))?;
+        Ok(keys.tx_io.secret_key())
     }
 
     /// Build transaction metadata for encryption/decryption.
@@ -289,7 +311,7 @@ impl<Eth> EthApiExt<Eth> {
         let sender = parse_request_sender(seismic_tx_request)?;
         let metadata = Self::build_metadata(seismic_tx_request, sender)?;
         let encrypted = metadata
-            .encrypt_response(&self.purpose_keys.tx_io.secret_key(), output)
+            .encrypt_response(&self.tx_io_sk()?, output)
             .map_err(|e| ext_encryption_error(e.to_string()))?;
 
         Ok(E::from_eth_err(EthApiError::InvalidTransaction(RpcInvalidTransactionError::Revert(
@@ -410,6 +432,7 @@ where
         let trace_transfers = payload.trace_transfers;
         let validation = payload.validation;
         let return_full_transactions = payload.return_full_transactions;
+        let tx_io_sk = self.tx_io_sk()?;
         let seismic_sim_blocks: Vec<SeismicSimBlock<SeismicCallRequest>> =
             payload.block_state_calls.clone();
 
@@ -423,11 +446,8 @@ where
 
             for call in calls {
                 let call = resolve_seismic_call(call)?;
-                let plaintext_tx_req = seismic_call_to_plaintext_tx(
-                    &call,
-                    &self.purpose_keys.tx_io.secret_key(),
-                    self.eth_api.provider(),
-                )?;
+                let plaintext_tx_req =
+                    seismic_call_to_plaintext_tx(&call, &tx_io_sk, self.eth_api.provider())?;
                 let tx_request: TransactionRequest = plaintext_tx_req.inner;
                 prepared_calls.push(tx_request.into());
             }
@@ -487,10 +507,7 @@ where
                 let sender = parse_request_sender(&request)?;
                 let metadata = Self::build_metadata(&request, sender)?;
                 let encrypted_output = metadata
-                    .encrypt_response(
-                        &self.purpose_keys.tx_io.secret_key(),
-                        &call_result.return_data,
-                    )
+                    .encrypt_response(&tx_io_sk, &call_result.return_data)
                     .map_err(|e| ext_encryption_error(e.to_string()))?;
                 call_result.return_data = encrypted_output;
 
@@ -522,6 +539,7 @@ where
             "Serving seismic eth_callMany extension"
         );
 
+        let tx_io_sk = self.tx_io_sk()?;
         // Keep originals so we can encrypt return data per-call after the inner call_many.
         let seismic_bundles = bundles.clone();
 
@@ -535,11 +553,8 @@ where
             let mut prepared = Vec::with_capacity(transactions.len());
             for call in transactions {
                 let call = resolve_seismic_call(call)?;
-                let plaintext_tx_req = seismic_call_to_plaintext_tx(
-                    &call,
-                    &self.purpose_keys.tx_io.secret_key(),
-                    self.eth_api.provider(),
-                )?;
+                let plaintext_tx_req =
+                    seismic_call_to_plaintext_tx(&call, &tx_io_sk, self.eth_api.provider())?;
                 let tx_request: TransactionRequest = plaintext_tx_req.inner;
                 prepared.push(tx_request.into());
             }
@@ -574,7 +589,7 @@ where
                         let sender = parse_request_sender(&request)?;
                         let metadata = Self::build_metadata(&request, sender)?;
                         value = metadata
-                            .encrypt_response(&self.purpose_keys.tx_io.secret_key(), &value)
+                            .encrypt_response(&tx_io_sk, &value)
                             .map_err(|e| ext_encryption_error(e.to_string()))?;
                         EthCallResponse { value: Some(value), error: None }
                     }
@@ -619,10 +634,11 @@ where
             "Serving seismic eth_call extension"
         );
 
+        let tx_io_sk = self.tx_io_sk()?;
         let call = resolve_seismic_call(request)?;
         let plaintext_tx_req = seismic_call_to_plaintext_tx(
             &call,
-            &self.purpose_keys.tx_io.secret_key(),
+            &tx_io_sk,
             self.eth_api.provider(),
         )?;
 
@@ -648,7 +664,7 @@ where
                 let sender = parse_request_sender(&request)?;
                 let metadata = Self::build_metadata(&request, sender)?;
                 Ok(metadata
-                    .encrypt_response(&self.purpose_keys.tx_io.secret_key(), &result)
+                    .encrypt_response(&tx_io_sk, &result)
                     .map_err(|e| ext_encryption_error(e.to_string()))?)
             }
         }
@@ -696,6 +712,7 @@ where
             "serving seismic eth_estimateGas extension"
         );
 
+        let tx_io_sk = self.tx_io_sk()?;
         // Same sanitization as eth_call: unsigned requests have `from`,
         // gas/value fields, and seismic_elements cleared to prevent caller
         // spoofing that could leak private state. Signed requests (TypedData/Bytes)
@@ -703,7 +720,7 @@ where
         let call = resolve_seismic_call(request)?;
         let decrypted_req = seismic_call_to_plaintext_tx(
             &call,
-            &self.purpose_keys.tx_io.secret_key(),
+            &tx_io_sk,
             self.eth_api.provider(),
         )?;
 
@@ -761,7 +778,19 @@ pub fn ext_decryption_error(e_str: String) -> EthApiError {
     )))
 }
 
-/// Creates an [`EthApiError`] that says that seismic encryption failed
+/// Error for a keyring that cannot serve the current epoch's keys (a rotation
+/// activated before this node's custodian fetch completed).
+pub fn keyring_unavailable_error(
+    e: reth_seismic_keys::MissingEpochKeys,
+) -> jsonrpsee_types::ErrorObjectOwned {
+    jsonrpsee_types::ErrorObject::owned(
+        -32000,
+        "Purpose keys unavailable for the current epoch",
+        Some(e.to_string()),
+    )
+}
+
+/// Error for a failed encryption/decryption inside the Seismic `eth_` overrides.
 pub fn ext_encryption_error(e_str: String) -> EthApiError {
     EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
         -32000, // TODO: pick a better error code?
