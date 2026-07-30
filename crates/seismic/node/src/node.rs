@@ -64,8 +64,9 @@ use tracing::info;
 
 use crate::{
     purpose_keys::{epoch0_static, get_purpose_keyring},
-    seismic_evm_config,
+    rotation, seismic_evm_config,
 };
+use reth_node_core::args::PurposeKeysArgs;
 use reth_seismic_keys::PurposeKeyring;
 
 /// Storage implementation for Seismic.
@@ -82,12 +83,16 @@ pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
 pub struct SeismicNode {
     /// Structurally-injected purpose keyring. `None` means "use global fallback".
     keyring: Option<Arc<PurposeKeyring>>,
+    /// The purpose-key source configuration, used by the rotation watcher to fetch
+    /// newly announced epochs at runtime. `None` (tests) disables the watcher.
+    purpose_keys_args: Option<PurposeKeysArgs>,
 }
 
 impl SeismicNode {
-    /// Create a new [`SeismicNode`] with a structurally-injected purpose keyring.
-    pub const fn new(keyring: Arc<PurposeKeyring>) -> Self {
-        Self { keyring: Some(keyring) }
+    /// Create a new [`SeismicNode`] with a structurally-injected purpose keyring and
+    /// the key-source configuration the rotation watcher fetches new epochs with.
+    pub const fn new(keyring: Arc<PurposeKeyring>, purpose_keys_args: PurposeKeysArgs) -> Self {
+        Self { keyring: Some(keyring), purpose_keys_args: Some(purpose_keys_args) }
     }
 
     /// Returns the injected purpose keyring, if any.
@@ -115,7 +120,10 @@ impl SeismicNode {
             >,
         >,
     {
-        let executor = SeismicExecutorBuilder { keyring: self.keyring.clone() };
+        let executor = SeismicExecutorBuilder {
+            keyring: self.keyring.clone(),
+            purpose_keys_args: self.purpose_keys_args.clone(),
+        };
         ComponentsBuilder::default()
             .node_types::<Node>()
             .pool(SeismicPoolBuilder::default())
@@ -513,6 +521,9 @@ where
 pub struct SeismicExecutorBuilder {
     /// Structurally-injected purpose keyring, or `None` for global fallback.
     keyring: Option<Arc<PurposeKeyring>>,
+    /// Key-source configuration for the rotation watcher. `None` (tests) disables
+    /// the watcher and boot reconciliation.
+    purpose_keys_args: Option<PurposeKeysArgs>,
 }
 
 impl<Node> ExecutorBuilder<Node> for SeismicExecutorBuilder
@@ -528,6 +539,23 @@ where
         // pinned to epoch 0 until the alloy-seismic-evm factories adopt the keyring
         // (docs/design/purpose-key-rotation.md, rollout Phase 2).
         let evm_config = seismic_evm_config(ctx.chain_spec(), epoch0_static(&keyring));
+
+        // Sync the keyring with the on-chain rotation registry: catch up on
+        // announcements made while the node was offline (fail the launch if their
+        // keys cannot be fetched — same fail-fast policy as the epoch-0 boot
+        // fetch), then keep following the chain from a background task.
+        if let Some(args) = self.purpose_keys_args {
+            rotation::boot_reconcile(ctx.provider(), &keyring, &args).await?;
+            ctx.task_executor().spawn_critical(
+                "purpose-key rotation watcher",
+                rotation::watch_key_rotations(
+                    ctx.provider().clone(),
+                    keyring,
+                    args,
+                    ctx.provider().canonical_state_stream(),
+                ),
+            );
+        }
 
         Ok(evm_config)
     }
