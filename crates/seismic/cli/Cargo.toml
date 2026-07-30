@@ -27,6 +27,7 @@ reth-node-metrics.workspace = true
 
 ## seismic
 reth-seismic-chainspec.workspace = true
+reth-seismic-keys.workspace = true
 reth-seismic-node.workspace = true
 
 # misc

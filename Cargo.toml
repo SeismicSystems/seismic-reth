@@ -644,6 +644,7 @@ async-trait = "0.1.68"
 futures = "0.3"
 futures-core = "0.3"
 futures-util = { version = "0.3", default-features = false }
+hkdf = { version = "0.12", default-features = false }
 hyper = "1.3"
 hyper-util = "0.1.5"
 pin-project = "1.0.12"

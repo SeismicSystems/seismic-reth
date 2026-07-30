@@ -7,26 +7,107 @@ use reth_node_core::args::{PurposeKeysArgs, PurposeKeysSource};
 use seismic_custodian_ipc::{CustodianClient, RngIkmBytes, TxIoKeypairBytes};
 use tracing::{info, warn};
 
-/// The key epoch this node fetches its purpose keys at. Epochs only advance on an
-/// explicit operator-triggered rotation (a consensus event); until that mechanism
-/// exists every node derives at epoch 0.
+/// The genesis key epoch. Boot always fetches epoch 0; later epochs are fetched by
+/// the rotation watcher as on-chain rotation announcements appear
+/// (`docs/design/purpose-key-rotation.md`).
 const PURPOSE_KEY_EPOCH: u64 = 0;
 
-/// Fetch purpose keys: built locally with `--seismic.purpose-keys-source built-in`, otherwise
-/// fetched from the key custodian's Unix socket (`--seismic.custodian.socket`).
+/// The HKDF salt the custodian uses for purpose-key derivation; mirrored here so the
+/// built-in dev derivation stays structurally identical to the custodian's scheme.
+const PURPOSE_DERIVE_SALT: &[u8] = b"seismic-purpose-derive-salt";
+
+/// The publicly-known root the built-in source derives epoch > 0 keys from.
+/// Exactly 32 bytes, zero secrecy by design (dev networks only).
+const DEV_WELL_KNOWN_ROOT: [u8; 32] = *b"seismic-well-known-dev-root-key!";
+
+/// The well-known purpose keys for `epoch`, used with
+/// `--seismic.purpose-keys-source built-in`.
+///
+/// Epoch 0 returns [`PurposeKeys::well_known`] — the live keys of every pre-TEE
+/// network, kept in lockstep with sanvil via the shared `seismic-crypto` crate.
+/// Epochs > 0 derive deterministically from [`DEV_WELL_KNOWN_ROOT`] with the
+/// custodian's HKDF scheme.
+// TODO: coordinate the epoch > 0 derivation with sanvil and the dev custodian
+// (spec §5.5 / open question 4). Until then it is only self-consistent: the
+// custodian's rng derivation still routes through a schnorrkel expansion for
+// epoch 0 backward compat, so a dev custodian would disagree with this at
+// epoch > 0. Nothing can announce a rotation before the KeyRotationRegistry
+// contract ships, so no network can hit the divergence yet.
+pub fn well_known_purpose_keys_at(epoch: u64) -> eyre::Result<PurposeKeys> {
+    if epoch == 0 {
+        return Ok(PurposeKeys::well_known());
+    }
+    let tx_io_sk = derive_dev_tx_io_sk(epoch)?;
+    let rng_ikm = derive_dev_purpose_bytes::<64>("rng-precompile", epoch, 0)?;
+    Ok(PurposeKeys {
+        tx_io: secp256k1::Keypair::from_secret_key(&secp256k1::Secp256k1::new(), &tx_io_sk),
+        rng_ikm,
+    })
+}
+
+/// HKDF-SHA256 expansion mirroring the custodian's derivation:
+/// `info = "seismic-purpose-{label}" || epoch_be` (plus a retry counter byte when
+/// nonzero, used only for the negligible invalid-scalar case below).
+fn derive_dev_purpose_bytes<const N: usize>(
+    label: &str,
+    epoch: u64,
+    counter: u8,
+) -> eyre::Result<[u8; N]> {
+    let hk = hkdf::Hkdf::<sha2::Sha256>::new(Some(PURPOSE_DERIVE_SALT), &DEV_WELL_KNOWN_ROOT);
+    let mut info = format!("seismic-purpose-{label}").into_bytes();
+    info.extend_from_slice(&epoch.to_be_bytes());
+    if counter > 0 {
+        info.push(counter);
+    }
+    let mut out = [0u8; N];
+    hk.expand(&info, &mut out)
+        .map_err(|e| eyre::eyre!("hkdf expand for {label} at epoch {epoch}: {e}"))?;
+    Ok(out)
+}
+
+/// Derives the dev tx-io secret key for `epoch`. A 32-byte expansion is an invalid
+/// secp256k1 scalar with negligible probability; the counter loop keeps the function
+/// total without a panic path.
+fn derive_dev_tx_io_sk(epoch: u64) -> eyre::Result<secp256k1::SecretKey> {
+    for counter in 0..=u8::MAX {
+        let bytes = derive_dev_purpose_bytes::<32>("tx-io", epoch, counter)?;
+        if let Ok(sk) = secp256k1::SecretKey::from_byte_array(&bytes) {
+            return Ok(sk);
+        }
+    }
+    Err(eyre::eyre!("no valid tx-io scalar for epoch {epoch} in 256 derivation attempts"))
+}
+
+/// Fetch the boot (epoch-0) purpose keys: built locally with
+/// `--seismic.purpose-keys-source built-in`, otherwise fetched from the key
+/// custodian's Unix socket (`--seismic.custodian.socket`).
 /// This must be called before building the node components.
 /// Panics if purpose keys cannot be fetched from the custodian.
-///
-/// Total fetch attempts = `custodian.retries` + 1 (one initial attempt plus `retries`
-/// re-attempts); the `while failures <= custodian.retries` loop encodes this directly.
 #[allow(clippy::panic)] // Intentional panic on fetching keys failure - purpose keys are required
 pub async fn fetch_purpose_keys<T>(config: &T) -> PurposeKeys
 where
     T: AsRef<PurposeKeysArgs>,
 {
+    match fetch_epoch_keys(config, PURPOSE_KEY_EPOCH).await {
+        Ok(purpose_keys) => purpose_keys,
+        Err(e) => panic!("FATAL: Failed to fetch purpose keys on boot: {e}"),
+    }
+}
+
+/// Fetch the purpose keys for `epoch`: derived locally with
+/// `--seismic.purpose-keys-source built-in`, otherwise fetched from the custodian
+/// socket with one bounded retry pass (total attempts = `custodian.retries` + 1).
+///
+/// Unlike [`fetch_purpose_keys`] this returns an error instead of panicking, so the
+/// rotation watcher can keep retrying across its own loop while boot-time callers
+/// escalate as they see fit.
+pub async fn fetch_epoch_keys<T>(config: &T, epoch: u64) -> eyre::Result<PurposeKeys>
+where
+    T: AsRef<PurposeKeysArgs>,
+{
     let config = config.as_ref();
     if config.source == PurposeKeysSource::BuiltIn {
-        info!(target: "reth::cli", "Using built-in well-known purpose keys (no TEE)");
+        info!(target: "reth::cli", epoch, "Using built-in well-known purpose keys (no TEE)");
         // Real keys with zero secrecy, not mocks: on pre-TEE networks — the live testnet
         // included — every node boots with this source, so the well-known keys are the
         // consensus-visible network keys. Wallets encrypt to the tx-io public key, sync
@@ -36,44 +117,47 @@ where
         // keys published on GitHub — needs a per-network keypair provisioned outside
         // source control (e.g. a `file` key source), while sanvil/dev networks stay on the
         // well-known keys.
-        return PurposeKeys::well_known();
+        return well_known_purpose_keys_at(epoch);
     }
 
     let custodian = &config.custodian;
-    info!(target: "reth::cli", "Fetching purpose keys from the custodian socket");
+    info!(target: "reth::cli", epoch, "Fetching purpose keys from the custodian socket");
     let mut failures = 0;
-    while failures <= custodian.retries {
-        match fetch_keys_from_custodian(&custodian.socket, custodian.timeout_seconds).await {
+    loop {
+        match fetch_keys_from_custodian(&custodian.socket, custodian.timeout_seconds, epoch).await {
             Ok(purpose_keys) => {
-                info!(target: "reth::cli", "Successfully fetched purpose keys from the custodian");
-                return purpose_keys;
+                info!(target: "reth::cli", epoch, "Successfully fetched purpose keys from the custodian");
+                return Ok(purpose_keys);
             }
             Err(e) => {
-                warn!(target: "reth::cli", "Failure to fetch purpose keys {}/{}: {}", failures, custodian.retries, e);
+                warn!(target: "reth::cli", epoch, "Failure to fetch purpose keys {}/{}: {}", failures, custodian.retries, e);
+                failures += 1;
+                if failures > custodian.retries {
+                    return Err(eyre::eyre!(
+                        "failed to fetch purpose keys for epoch {epoch} from the custodian after {failures} attempts: {e}"
+                    ));
+                }
                 tokio::time::sleep(tokio::time::Duration::from_secs(
                     custodian.retry_seconds.into(),
                 ))
                 .await;
-                failures += 1;
             }
         }
     }
-    panic!(
-        "FATAL: Failed to fetch purpose keys from the custodian on boot after {failures} failures"
-    );
 }
 
 /// One custodian fetch attempt: connect, fetch the tx-io and rng key material at
-/// [`PURPOSE_KEY_EPOCH`], and decode it. Bounded end-to-end by `timeout_seconds`
-/// so a stalled custodian fails the attempt instead of hanging the boot.
+/// `epoch`, and decode it. Bounded end-to-end by `timeout_seconds` so a stalled
+/// custodian fails the attempt instead of hanging the caller.
 async fn fetch_keys_from_custodian(
     socket: &Path,
     timeout_seconds: u64,
+    epoch: u64,
 ) -> eyre::Result<PurposeKeys> {
     tokio::time::timeout(Duration::from_secs(timeout_seconds), async {
         let mut custodian = CustodianClient::connect(socket).await?;
-        let tx_io = custodian.get_tx_io_keypair(PURPOSE_KEY_EPOCH).await?;
-        let rng = custodian.get_rng_ikm(PURPOSE_KEY_EPOCH).await?;
+        let tx_io = custodian.get_tx_io_keypair(epoch).await?;
+        let rng = custodian.get_rng_ikm(epoch).await?;
         purpose_keys_from_custodian_bytes(&tx_io, &rng)
     })
     .await
@@ -107,6 +191,34 @@ mod tests {
 
     use super::*;
     use std::time::Instant;
+
+    /// Epoch 0 of the built-in derivation must be exactly the well-known keys —
+    /// the live pre-TEE network keys cannot change out from under running networks.
+    #[test]
+    fn well_known_at_epoch_zero_is_the_well_known_keys() {
+        let at_zero = well_known_purpose_keys_at(0).expect("epoch 0 derivation");
+        let well_known = PurposeKeys::well_known();
+        assert_eq!(at_zero.tx_io, well_known.tx_io);
+        assert_eq!(at_zero.rng_ikm, well_known.rng_ikm);
+    }
+
+    /// Epoch > 0 derivation must be deterministic (all built-in nodes agree)
+    /// and distinct per epoch.
+    #[test]
+    fn well_known_at_later_epochs_is_deterministic_and_distinct() {
+        let one_a = well_known_purpose_keys_at(1).expect("epoch 1 derivation");
+        let one_b = well_known_purpose_keys_at(1).expect("epoch 1 derivation");
+        assert_eq!(one_a.tx_io, one_b.tx_io);
+        assert_eq!(one_a.rng_ikm, one_b.rng_ikm);
+
+        let two = well_known_purpose_keys_at(2).expect("epoch 2 derivation");
+        assert_ne!(one_a.tx_io, two.tx_io);
+        assert_ne!(one_a.rng_ikm, two.rng_ikm);
+
+        let zero = PurposeKeys::well_known();
+        assert_ne!(one_a.tx_io, zero.tx_io);
+        assert_ne!(one_a.rng_ikm, zero.rng_ikm);
+    }
 
     /// The clap default must stay in lockstep with the custodian's canonical socket
     /// path (the images-side unit files bind it there); node-core hardcodes the
@@ -174,7 +286,7 @@ mod tests {
         });
 
         let started = Instant::now();
-        let result = fetch_keys_from_custodian(&socket, 1).await;
+        let result = fetch_keys_from_custodian(&socket, 1, PURPOSE_KEY_EPOCH).await;
 
         assert!(result.is_err(), "stalled fetch should error, not succeed");
         assert!(

@@ -2,7 +2,9 @@
 
 use clap::Parser;
 use reth_seismic_cli::{chainspec::SeismicChainSpecParser, Cli};
+use reth_seismic_keys::PurposeKeyring;
 use reth_seismic_node::{keys_source::fetch_purpose_keys, node::SeismicNode};
+use std::sync::Arc;
 
 fn main() {
     // Enable backtraces unless we explicitly set RUST_BACKTRACE
@@ -13,19 +15,21 @@ fn main() {
     reth_cli_util::sigsegv_handler::install();
 
     if let Err(err) = Cli::<SeismicChainSpecParser>::parse().run(|builder, ext| async move {
-        // Fetch purpose keys BEFORE building node components
+        // Fetch the epoch-0 purpose keys BEFORE building node components and seed the
+        // keyring with them. The rotation watcher fetches later epochs at runtime as
+        // on-chain announcements appear (docs/design/purpose-key-rotation.md).
         let purpose_keys = fetch_purpose_keys(&ext).await;
+        let keyring = Arc::new(PurposeKeyring::single_epoch(purpose_keys));
 
-        // Store purpose keys in global static storage as a fallback for code
-        // paths that cannot yet receive keys structurally (e.g. CLI stage command).
+        // Store the keyring in global static storage as a fallback for code paths
+        // that cannot yet receive it structurally (e.g. CLI stage command).
         // Seismic RPC modules (seismic_ namespace + eth_ overrides) are registered
-        // in SeismicAddOns::launch_add_ons, which reads keys via get_purpose_keys().
-        reth_seismic_node::purpose_keys::init_purpose_keys(purpose_keys.clone());
+        // in SeismicAddOns::launch_add_ons, which reads it via get_purpose_keyring().
+        reth_seismic_node::purpose_keys::init_purpose_keyring(keyring.clone());
 
-        // Inject purpose keys structurally into SeismicNode so they flow
-        // through the node builder lifecycle without relying on the global.
-        let node =
-            builder.node(SeismicNode::new(purpose_keys)).launch_with_debug_capabilities().await?;
+        // Inject the keyring structurally into SeismicNode so it flows through the
+        // node builder lifecycle without relying on the global.
+        let node = builder.node(SeismicNode::new(keyring)).launch_with_debug_capabilities().await?;
         node.node_exit_future.await
     }) {
         eprintln!("Error: {err:?}");
