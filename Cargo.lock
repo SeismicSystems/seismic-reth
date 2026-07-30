@@ -9882,6 +9882,7 @@ dependencies = [
  "reth-primitives-traits",
  "reth-provider",
  "reth-seismic-chainspec",
+ "reth-seismic-keys",
  "reth-seismic-primitives",
  "reth-seismic-test-utils",
  "reth-transaction-pool",
