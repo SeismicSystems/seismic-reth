@@ -1,6 +1,11 @@
 # Purpose-Key Rotation
 
-Status: **draft / proposal** — for team review. Nothing in this document is implemented.
+Status: **draft / proposal** — for team review. The reth-side groundwork (Phase 0
+keyring refactor, the dormant rotation watcher, the pool boundary rule, and
+`seismic_getKeyEpochInfo`) is implemented behind naturally-inert gates: with no
+registry contract deployed the schedule is empty and every new path no-ops. The
+contract, activation enforcement (`alloy-seismic-evm`), and the hardfork gate are
+not implemented.
 
 This spec describes how the network rotates its purpose keys (the tx-io keypair and
 the RNG ikm): an on-chain announcement made by an authorized operator schedules a new
@@ -284,12 +289,19 @@ recovers the instant the custodian comes back.
 ### 5.3 The rotation watcher
 
 New module `crates/seismic/node/src/rotation.rs`, spawned from
-`SeismicAddOns::launch_add_ons` (`crates/seismic/node/src/node.rs:369`) via
-`ctx.node.task_executor().spawn_critical(...)`, modeled directly on the existing
-canon-state consumer `maintain_seismic_freshness`
-(`crates/seismic/txpool/src/maintain.rs:84`, spawned at `node.rs:647-654`). Inputs:
+`SeismicExecutorBuilder::build_evm` via `ctx.task_executor().spawn_critical(...)`,
+modeled directly on the existing canon-state consumer
+`maintain_seismic_freshness` (`crates/seismic/txpool/src/maintain.rs:84`). Inputs:
 the provider (`StateProviderFactory + CanonStateSubscriptions`), the
 `Arc<PurposeKeyring>`, and the custodian config (`PurposeKeysArgs`).
+
+> Implementation note: an earlier draft placed the spawn in
+> `SeismicAddOns::launch_add_ons`, but `AddOnsContext` has no channel for the
+> parsed `PurposeKeysArgs` (the RPC args reach that layer via a global
+> side-channel), whereas the keyring and args already flow structurally through
+> `SeismicNode::new` into the executor builder — whose `BuilderContext` offers the
+> same provider/task-executor surface (proven by `SeismicPoolBuilder`). The
+> executor builder is also where boot reconciliation must run anyway (§5.4).
 
 Loop:
 
