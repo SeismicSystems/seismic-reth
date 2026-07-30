@@ -24,6 +24,7 @@ members = [
     "crates/seismic/txpool/",
     "crates/seismic/hardforks",
     "crates/seismic/fuzz",
+    "crates/seismic/keys",
 
     # "bin/reth-bench/",
     # "bin/reth/",
@@ -361,6 +362,7 @@ reth-seismic-rpc = { path = "crates/seismic/rpc" }
 reth-seismic-txpool = { path = "crates/seismic/txpool" }
 reth-seismic-forks = { path = "crates/seismic/hardforks", default-features = false }
 reth-seismic-fuzz = { path = "crates/seismic/fuzz" }
+reth-seismic-keys = { path = "crates/seismic/keys" }
 
 seismic-crypto = "0.1.0"
 seismic-custodian-ipc = "0.1.0"
