@@ -127,6 +127,9 @@ where
             SeismicTxType::Seismic
         } else if request.authorization_list.is_some() {
             SeismicTxType::Eip7702
+        } else if request.blob_versioned_hashes.is_some() {
+            // Blob calls carry 1559-style fee fields, so this must precede the Eip1559 arm.
+            SeismicTxType::Eip4844
         } else if request.max_fee_per_gas.is_some() || request.max_priority_fee_per_gas.is_some() {
             SeismicTxType::Eip1559
         } else if request.access_list.is_some() {
