@@ -49,6 +49,14 @@ address = "0x1000000000000000000000000000000000000001"
 artifact = "artifacts/MeasurementAuthorityDev.json"
 address = "0x1000000000000000000000000000000000000002"
 
+# NOTE: dev.json carries a hand-added placeholder (code 0x00) for the
+# KeyRotationRegistry at 0x1000000000000000000000000000000000000007, with genesis
+# storage slot 0 = admin and slot 2 = minActivationDelay (32). Once the contract
+# merges in SeismicSystems/seismic (src/enclave/KeyRotationRegistry.sol) and its
+# artifact is synced, replace the placeholder with a proper
+# [contracts.KeyRotationRegistry] entry here and regenerate. The address and
+# storage layout are consensus-frozen against reth-seismic-keys::registry.
+
 [contracts.Directory]
 artifact = "artifacts/Directory.json"
 address = "0x1000000000000000000000000000000000000004"
