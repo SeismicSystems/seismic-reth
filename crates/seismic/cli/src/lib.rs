@@ -29,7 +29,7 @@ use reth_seismic_keys::PurposeKeyring;
 use reth_seismic_node::{
     keys_source::fetch_purpose_keys,
     node::SeismicNode,
-    purpose_keys::{epoch0_static, get_purpose_keyring, init_purpose_keyring},
+    purpose_keys::{get_purpose_keyring, init_purpose_keyring},
     SeismicEvmConfig,
 };
 use reth_tracing::FileWorkerGuard;
@@ -202,14 +202,14 @@ where
                         purpose_keys_response,
                     )));
 
-                    // Create components with the initialized keyring. The EVM config
-                    // still takes `&'static PurposeKeys` pinned to epoch 0 (see
-                    // `epoch0_static`); stage re-execution of post-rotation history
-                    // is a Phase 2 concern (docs/design/purpose-key-rotation.md).
+                    // Create components with the initialized keyring. Stage
+                    // re-execution selects each block's epoch through the keyring;
+                    // the execution-state schedule refresh covers rotations the
+                    // (watcher-less) stage command has not otherwise learned.
                     let components = |spec: Arc<C::ChainSpec>| {
                         let keyring = get_purpose_keyring();
                         (
-                            SeismicEvmConfig::new(spec.clone(), epoch0_static(&keyring)),
+                            SeismicEvmConfig::new(spec.clone(), keyring),
                             EthBeaconConsensus::new(spec),
                         )
                     };

@@ -257,7 +257,7 @@ dependencies = [
 [[package]]
 name = "alloy-evm"
 version = "0.20.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=7c2072141ed851f0d38c1489b205782f87b5f9a8#7c2072141ed851f0d38c1489b205782f87b5f9a8"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=8d35baf3c9dec49145e6f1b1e6e867322eaf192c#8d35baf3c9dec49145e6f1b1e6e867322eaf192c"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -678,7 +678,7 @@ dependencies = [
 [[package]]
 name = "alloy-seismic-evm"
 version = "0.20.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=7c2072141ed851f0d38c1489b205782f87b5f9a8#7c2072141ed851f0d38c1489b205782f87b5f9a8"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=8d35baf3c9dec49145e6f1b1e6e867322eaf192c#8d35baf3c9dec49145e6f1b1e6e867322eaf192c"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -9562,6 +9562,7 @@ dependencies = [
  "reth-revm",
  "reth-seismic-chainspec",
  "reth-seismic-forks",
+ "reth-seismic-keys",
  "reth-seismic-primitives",
  "reth-storage-errors",
  "reth-testing-utils",

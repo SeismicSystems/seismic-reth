@@ -5,11 +5,11 @@ use alloy_seismic_evm::SeismicEvmFactory;
 use revm::context::CfgEnv;
 use seismic_revm::SeismicSpecId;
 
-use crate::{mock_keys::get_static_mock_keys, mock_state::FUZZ_CHAIN_ID};
+use crate::{mock_keys::get_mock_keyring, mock_state::FUZZ_CHAIN_ID};
 
-/// Creates a new `SeismicEvmFactory` with the static mock keys.
+/// Creates a new `SeismicEvmFactory` with the shared mock keyring.
 pub fn fuzz_evm_factory() -> SeismicEvmFactory {
-    SeismicEvmFactory::new_with_purpose_keys(get_static_mock_keys())
+    SeismicEvmFactory::new(get_mock_keyring())
 }
 
 /// MERCURY spec with [`FUZZ_CHAIN_ID`].

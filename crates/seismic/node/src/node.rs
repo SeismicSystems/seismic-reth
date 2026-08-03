@@ -62,10 +62,7 @@ use seismic_alloy_consensus::{SeismicTxEnvelope, SeismicTxType};
 use std::{sync::Arc, time::SystemTime};
 use tracing::info;
 
-use crate::{
-    purpose_keys::{epoch0_static, get_purpose_keyring},
-    rotation, seismic_evm_config,
-};
+use crate::{purpose_keys::get_purpose_keyring, rotation, seismic_evm_config};
 use reth_node_core::args::PurposeKeysArgs;
 use reth_seismic_keys::PurposeKeyring;
 
@@ -535,10 +532,10 @@ where
     async fn build_evm(self, ctx: &BuilderContext<Node>) -> eyre::Result<Self::EVM> {
         let keyring = self.keyring.unwrap_or_else(get_purpose_keyring);
 
-        // The EVM configuration still requires `&'static PurposeKeys` and stays
-        // pinned to epoch 0 until the alloy-seismic-evm factories adopt the keyring
-        // (docs/design/purpose-key-rotation.md, rollout Phase 2).
-        let evm_config = seismic_evm_config(ctx.chain_spec(), epoch0_static(&keyring));
+        // The EVM selects each block's keys through the keyring (per-block epoch
+        // selection in the alloy-seismic-evm block executor; missing keys stall
+        // execution until the rotation watcher fetches them).
+        let evm_config = seismic_evm_config(ctx.chain_spec(), keyring.clone());
 
         // Sync the keyring with the on-chain rotation registry: catch up on
         // announcements made while the node was offline (fail the launch if their
