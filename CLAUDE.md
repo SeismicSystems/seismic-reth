@@ -2,6 +2,8 @@
 
 This guide provides comprehensive instructions for AI agents working on the Reth codebase. It covers the architecture, development workflows, and critical guidelines for effective contributions.
 
+**Workspace context**: this repo is part of the multi-repo Seismic workspace. If the workspace file isn't already in your context, read `../CLAUDE.md` (sibling checkout) or fetch [CLAUDE.workspace.md](https://github.com/SeismicSystems/seismic/blob/main/workspace/CLAUDE.workspace.md) (standalone checkout/CI) for key concepts, the repo map, and cross-repo conventions.
+
 ## Project Overview
 
 Reth is a high-performance Ethereum execution client written in Rust, focusing on modularity, performance, and contributor-friendliness. The codebase is organized into well-defined crates with clear boundaries and responsibilities.
