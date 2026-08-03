@@ -166,12 +166,12 @@ fn key_epoch_info(
     let pending_rotation = keyring.pending().map(|(epoch, activation_block)| PendingRotation {
         epoch,
         activation_block,
-        tee_public_key: keyring.keys_for_epoch(epoch).map(|k| k.tx_io_pk),
+        tee_public_key: keyring.keys_for_epoch(epoch).map(|k| k.tx_io.public_key()),
     });
     Ok(KeyEpochInfo {
         current_epoch,
         activation_block,
-        tee_public_key: keys.tx_io_pk,
+        tee_public_key: keys.tx_io.public_key(),
         pending_rotation,
     })
 }
@@ -664,11 +664,8 @@ where
 
         let tx_io_sk = self.tx_io_sk()?;
         let call = resolve_seismic_call(request)?;
-        let plaintext_tx_req = seismic_call_to_plaintext_tx(
-            &call,
-            &tx_io_sk,
-            self.eth_api.provider(),
-        )?;
+        let plaintext_tx_req =
+            seismic_call_to_plaintext_tx(&call, &tx_io_sk, self.eth_api.provider())?;
 
         // call inner
         let result = EthCall::call(
@@ -738,11 +735,8 @@ where
         // spoofing that could leak private state. Signed requests (TypedData/Bytes)
         // authenticate the sender cryptographically and must be call-only.
         let call = resolve_seismic_call(request)?;
-        let decrypted_req = seismic_call_to_plaintext_tx(
-            &call,
-            &tx_io_sk,
-            self.eth_api.provider(),
-        )?;
+        let decrypted_req =
+            seismic_call_to_plaintext_tx(&call, &tx_io_sk, self.eth_api.provider())?;
 
         // call inner
         let result = EthCall::estimate_gas_at(
@@ -849,8 +843,8 @@ mod tests {
 
     fn test_keys(seed: u8) -> PurposeKeys {
         let sk = SecretKey::from_byte_array(&[seed; 32]).unwrap();
-        let pk = sk.public_key(&Secp256k1::new());
-        PurposeKeys { tx_io_sk: sk, tx_io_pk: pk, rng_ikm: [seed; 64] }
+        let tx_io = secp256k1::Keypair::from_secret_key(&Secp256k1::new(), &sk);
+        PurposeKeys { tx_io, rng_ikm: [seed; 64] }
     }
 
     /// Pre-rotation networks (all of them today): epoch 0, no pending rotation.
@@ -860,7 +854,7 @@ mod tests {
         let info = key_epoch_info(&keyring).unwrap();
         assert_eq!(info.current_epoch, 0);
         assert_eq!(info.activation_block, 0);
-        assert_eq!(info.tee_public_key, test_keys(1).tx_io_pk);
+        assert_eq!(info.tee_public_key, test_keys(1).tx_io.public_key());
         assert_eq!(info.pending_rotation, None);
     }
 
@@ -892,14 +886,14 @@ mod tests {
         let info = key_epoch_info(&keyring).unwrap();
         assert_eq!(info.current_epoch, 0);
         let pending = info.pending_rotation.unwrap();
-        assert_eq!(pending.tee_public_key, Some(test_keys(2).tx_io_pk));
+        assert_eq!(pending.tee_public_key, Some(test_keys(2).tx_io.public_key()));
 
         // Past activation the rotation is current, not pending.
         keyring.note_tip(100);
         let info = key_epoch_info(&keyring).unwrap();
         assert_eq!(info.current_epoch, 1);
         assert_eq!(info.activation_block, 100);
-        assert_eq!(info.tee_public_key, test_keys(2).tx_io_pk);
+        assert_eq!(info.tee_public_key, test_keys(2).tx_io.public_key());
         assert_eq!(info.pending_rotation, None);
     }
 }

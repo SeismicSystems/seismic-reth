@@ -21,10 +21,14 @@
 //! event RotationAnnounced(uint64 indexed epoch, uint64 activationBlock);
 //! ```
 
-use crate::schedule::RotationEntry;
+use crate::{RotationEntry, RotationSchedule, ScheduleError};
 use alloy_primitives::{address, b256, keccak256, Address, B256, U256};
 use std::sync::LazyLock;
 use thiserror::Error;
+
+/// Hard cap on the rotations array length a node will read. Rotations are rare,
+/// operator-triggered events; a length beyond this is a corrupt or hostile registry.
+pub const MAX_ROTATIONS: u64 = 100_000;
 
 /// The `KeyRotationRegistry` predeploy address.
 ///
@@ -91,11 +95,93 @@ pub fn decode_rotation_entry(word: B256, index: u64) -> Result<RotationEntry, Re
     Ok(RotationEntry { epoch, activation_block, announced_at_block })
 }
 
+/// Reading the rotation schedule out of registry storage failed.
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum ScheduleReadError<E> {
+    /// The underlying storage read failed.
+    #[error("registry storage read failed: {0}")]
+    Storage(E),
+    /// The rotations length slot does not fit a `u64`.
+    #[error("rotations length overflows u64")]
+    LengthOverflow,
+    /// The rotations length exceeds [`MAX_ROTATIONS`].
+    #[error("rotations length {0} exceeds the {MAX_ROTATIONS} cap")]
+    LengthCap(u64),
+    /// An array element failed to decode.
+    #[error(transparent)]
+    Decode(#[from] RegistryDecodeError),
+    /// The decoded entries violate the schedule invariants.
+    #[error(transparent)]
+    Schedule(#[from] ScheduleError),
+}
+
+/// Reads the full rotation schedule from registry storage through a caller-supplied
+/// slot reader (a state provider, an execution `Database`, …). An absent account or
+/// empty length slot yields an empty schedule — the dormant pre-contract path.
+pub fn read_schedule_with<E>(
+    mut read_slot: impl FnMut(B256) -> Result<U256, E>,
+) -> Result<RotationSchedule, ScheduleReadError<E>> {
+    let len = read_slot(ROTATIONS_LEN_SLOT).map_err(ScheduleReadError::Storage)?;
+    let len = u64::try_from(len).map_err(|_| ScheduleReadError::LengthOverflow)?;
+    if len > MAX_ROTATIONS {
+        return Err(ScheduleReadError::LengthCap(len));
+    }
+
+    let mut entries = Vec::with_capacity(len as usize);
+    for index in 0..len {
+        let word = read_slot(rotation_entry_slot(index)).map_err(ScheduleReadError::Storage)?;
+        entries.push(decode_rotation_entry(B256::from(word), index)?);
+    }
+    Ok(RotationSchedule::from_entries(entries)?)
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used)] // test code
 
     use super::*;
+    use std::collections::HashMap;
+
+    /// `read_schedule_with` over a fake storage map: empty registry -> empty
+    /// schedule; a length plus packed entries -> the decoded schedule.
+    #[test]
+    fn reads_schedule_through_the_slot_reader() {
+        let empty: HashMap<B256, U256> = HashMap::new();
+        let schedule = read_schedule_with(|slot| {
+            Ok::<_, core::convert::Infallible>(empty.get(&slot).copied().unwrap_or_default())
+        })
+        .unwrap();
+        assert!(schedule.is_empty());
+
+        let mut storage = HashMap::new();
+        storage.insert(ROTATIONS_LEN_SLOT, U256::from(1));
+        storage.insert(
+            rotation_entry_slot(0),
+            U256::from_be_bytes(
+                b256!("0000000000000000000000000000006400000000000000c80000000000000001").0,
+            ),
+        );
+        let schedule = read_schedule_with(|slot| {
+            Ok::<_, core::convert::Infallible>(storage.get(&slot).copied().unwrap_or_default())
+        })
+        .unwrap();
+        assert_eq!(schedule.len(), 1);
+        assert_eq!(schedule.epoch_at_block(200), 1);
+    }
+
+    /// A hostile length is capped instead of allocating unbounded memory.
+    #[test]
+    fn caps_hostile_lengths() {
+        let err = read_schedule_with(|slot| {
+            Ok::<_, core::convert::Infallible>(if slot == ROTATIONS_LEN_SLOT {
+                U256::from(MAX_ROTATIONS + 1)
+            } else {
+                U256::ZERO
+            })
+        })
+        .unwrap_err();
+        assert_eq!(err, ScheduleReadError::LengthCap(MAX_ROTATIONS + 1));
+    }
 
     /// `keccak256(uint256(1))` — the well-known base slot of a dynamic array at
     /// slot 1. Independent fixture so the slot derivation can't silently drift.

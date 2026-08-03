@@ -1,12 +1,14 @@
 //! Mock purpose keys for fuzz targets.
-use alloy_seismic_evm::PurposeKeys;
-use std::sync::OnceLock;
+use alloy_seismic_evm::{PurposeKeyring, PurposeKeys};
+use std::sync::{Arc, OnceLock};
 
-/// Returns a `&'static` reference to mock purpose keys.
+/// Returns a shared single-epoch keyring holding the mock purpose keys.
 ///
-/// Safe for use in fuzz targets — the allocation is leaked once and
-/// reused across all iterations within a single process.
-pub fn get_static_mock_keys() -> &'static PurposeKeys {
-    static KEYS: OnceLock<&'static PurposeKeys> = OnceLock::new();
-    KEYS.get_or_init(|| Box::leak(Box::new(PurposeKeys::well_known())))
+/// Safe for use in fuzz targets — the keyring is created once and reused across
+/// all iterations within a single process.
+pub fn get_mock_keyring() -> Arc<PurposeKeyring> {
+    static KEYRING: OnceLock<Arc<PurposeKeyring>> = OnceLock::new();
+    KEYRING
+        .get_or_init(|| Arc::new(PurposeKeyring::single_epoch(PurposeKeys::well_known())))
+        .clone()
 }

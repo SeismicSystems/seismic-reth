@@ -14,28 +14,26 @@
 
 use crate::keys_source::fetch_epoch_keys;
 use alloy_consensus::{BlockHeader, TxReceipt};
-use alloy_primitives::B256;
 use futures_util::StreamExt;
 use reth_node_core::args::PurposeKeysArgs;
 use reth_provider::{CanonStateNotification, CanonStateNotificationStream, StateProviderFactory};
 use reth_seismic_keys::{
-    registry::{
-        decode_rotation_entry, rotation_entry_slot, KEY_ROTATION_REGISTRY, ROTATIONS_LEN_SLOT,
-        ROTATION_ANNOUNCED_TOPIC,
-    },
+    registry::{read_schedule_with, KEY_ROTATION_REGISTRY, ROTATION_ANNOUNCED_TOPIC},
     PurposeKeyring, RotationSchedule,
 };
 use reth_seismic_primitives::SeismicPrimitives;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tracing::{error, info, warn};
 
 /// Reconcile from registry storage at least this often even without any hint, as a
 /// safety net for dropped notifications.
 const RECONCILE_EVERY_N_BLOCKS: u64 = 256;
 
-/// Hard cap on the rotations array length the node will read. Rotations are rare,
-/// operator-triggered events; a length beyond this is a corrupt or hostile registry.
-const MAX_ROTATIONS: u64 = 100_000;
+/// Periodic reconcile interval. Canonical notifications are the primary trigger,
+/// but staged (pipeline) sync emits none per block, so the timer is what re-fetches
+/// keys and un-stalls execution when a `MissingEpochKeys` stall happens deep in a
+/// catch-up sync — and it doubles as the retry pacing for failed custodian fetches.
+const PERIODIC_RECONCILE: Duration = Duration::from_secs(60);
 
 /// Background task keeping the keyring in sync with the on-chain rotation registry.
 /// Spawn as a critical task; it runs until the canonical-state stream ends (node
@@ -53,25 +51,38 @@ pub async fn watch_key_rotations<Client>(
     reconcile(&client, &keyring, &args).await;
 
     let mut blocks_since_reconcile = 0u64;
-    while let Some(notification) = events.next().await {
-        let Some(tip) = notification.tip_checked() else { continue };
-        keyring.note_tip(tip.number());
-        blocks_since_reconcile += 1;
+    let mut tick = tokio::time::interval(PERIODIC_RECONCILE);
+    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
-        let reorged = matches!(notification, CanonStateNotification::Reorg { .. });
-        let announced = has_rotation_announcement(&notification);
-        let unfetched_pending = !keyring.unfetched_scheduled_epochs().is_empty();
+    loop {
+        tokio::select! {
+            maybe_notification = events.next() => {
+                // Stream ended: the node is shutting down.
+                let Some(notification) = maybe_notification else { return };
+                let Some(tip) = notification.tip_checked() else { continue };
+                keyring.note_tip(tip.number());
+                blocks_since_reconcile += 1;
 
-        if reorged ||
-            announced ||
-            unfetched_pending ||
-            blocks_since_reconcile >= RECONCILE_EVERY_N_BLOCKS
-        {
-            blocks_since_reconcile = 0;
-            if announced {
-                info!(target: "seismic::rotation", tip = tip.number, "observed a RotationAnnounced log; reconciling");
+                let reorged = matches!(notification, CanonStateNotification::Reorg { .. });
+                let announced = has_rotation_announcement(&notification);
+                let unfetched_pending = !keyring.unfetched_scheduled_epochs().is_empty();
+
+                if reorged ||
+                    announced ||
+                    unfetched_pending ||
+                    blocks_since_reconcile >= RECONCILE_EVERY_N_BLOCKS
+                {
+                    blocks_since_reconcile = 0;
+                    if announced {
+                        info!(target: "seismic::rotation", tip = tip.number(), "observed a RotationAnnounced log; reconciling");
+                    }
+                    reconcile(&client, &keyring, &args).await;
+                }
             }
-            reconcile(&client, &keyring, &args).await;
+            _ = tick.tick() => {
+                blocks_since_reconcile = 0;
+                reconcile(&client, &keyring, &args).await;
+            }
         }
     }
 }
@@ -161,21 +172,10 @@ where
 {
     let state = client.latest()?;
     // Registry slots are ordinary public storage; the privacy flag is ignored.
-    let len = state.storage(KEY_ROTATION_REGISTRY, ROTATIONS_LEN_SLOT)?.unwrap_or_default().value;
-    let len = u64::try_from(len).map_err(|_| eyre::eyre!("rotations length overflows u64"))?;
-    if len > MAX_ROTATIONS {
-        return Err(eyre::eyre!("rotations length {len} exceeds the {MAX_ROTATIONS} cap"));
-    }
-
-    let mut entries = Vec::with_capacity(len as usize);
-    for index in 0..len {
-        let word = state
-            .storage(KEY_ROTATION_REGISTRY, rotation_entry_slot(index))?
-            .unwrap_or_default()
-            .value;
-        entries.push(decode_rotation_entry(B256::from(word), index)?);
-    }
-    Ok(RotationSchedule::from_entries(entries)?)
+    read_schedule_with(|slot| {
+        state.storage(KEY_ROTATION_REGISTRY, slot).map(|value| value.unwrap_or_default().value)
+    })
+    .map_err(|e| eyre::eyre!("{e}"))
 }
 
 /// Merges a freshly read schedule into the keyring, logging any divergence loudly
