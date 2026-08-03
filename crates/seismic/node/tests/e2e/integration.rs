@@ -6,7 +6,7 @@
 //! on dev-mode auto-mining with `thread::sleep`.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic)] // Test file - panics are acceptable
 
-use alloy_consensus::{Transaction as _, TxEnvelope};
+use alloy_consensus::{proofs::calculate_transaction_root, Transaction as _, TxEnvelope};
 use alloy_dyn_abi::EventExt;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_json_abi::{Event, EventParam};
@@ -1363,6 +1363,7 @@ async fn test_simulate_v1_full_transactions_keep_signed_read_calldata_encrypted(
     let simulated_block = result.remove(0);
     assert_eq!(simulated_block.calls.len(), 1, "expected one simulated call result");
 
+    let returned_transactions_root = simulated_block.inner.header.transactions_root;
     let mut transactions = simulated_block.inner.into_transactions_vec();
     assert_eq!(transactions.len(), 1, "return_full_transactions should return full tx objects");
 
@@ -1377,6 +1378,12 @@ async fn test_simulate_v1_full_transactions_keep_signed_read_calldata_encrypted(
     assert_eq!(
         returned_hash, recomputed_hash,
         "simulateV1 full transaction hash should match the restored ciphertext input"
+    );
+    let recomputed_transactions_root =
+        calculate_transaction_root(std::slice::from_ref(&returned_tx.inner));
+    assert_eq!(
+        returned_transactions_root, recomputed_transactions_root,
+        "simulateV1 transaction root should match the restored ciphertext transaction"
     );
 
     Ok(())

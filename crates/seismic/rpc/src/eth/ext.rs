@@ -8,6 +8,7 @@
 use crate::utils::{
     convert_seismic_call_to_tx_request, parse_request_sender, signed_read_to_plaintext_tx,
 };
+use alloy_consensus::proofs::calculate_transaction_root;
 use alloy_dyn_abi::TypedData;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_json_rpc::RpcObject;
@@ -27,13 +28,15 @@ use jsonrpsee::{
 };
 use reth_network_api::PeersInfo;
 use reth_network_peers::NodeRecord;
-use reth_primitives_traits::{NodePrimitives, Recovered};
+use reth_primitives_traits::{Recovered, RecoveredBlock};
 use reth_rpc_eth_api::{
     helpers::{EthCall, EthState, EthTransactions, FullEthApi},
     AsEthApiError, FromEthApiError, RpcBlock, RpcTypes,
 };
-use reth_rpc_eth_types::{EthApiError, RevertError, RpcInvalidTransactionError};
-use reth_seismic_primitives::SeismicTransactionSigned;
+use reth_rpc_eth_types::{
+    simulate::SimulatedBlockExecution, EthApiError, RevertError, RpcInvalidTransactionError,
+};
+use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
 use reth_seismic_txpool::usdc::effective_balance;
 use reth_tracing::tracing::*;
 use seismic_alloy_consensus::{
@@ -297,12 +300,71 @@ fn rebuild_simulated_signed_read_tx(
     ))
 }
 
+/// Reconstructs raw simulated blocks so their bodies and headers commit to the ciphertext-backed
+/// transactions returned to signed-read callers.
+///
+/// Execution results remain those produced by the plaintext transactions. For consecutive
+/// simulated blocks, each reconstructed header is linked to the hash of the preceding
+/// reconstructed block.
+fn reconstruct_simulated_blocks<Halt>(
+    seismic_sim_blocks: &[SeismicSimBlock<SeismicCallRequest>],
+    raw_results: Vec<SimulatedBlockExecution<SeismicPrimitives, Halt>>,
+) -> Result<Vec<SimulatedBlockExecution<SeismicPrimitives, Halt>>, EthApiError> {
+    if seismic_sim_blocks.len() != raw_results.len() {
+        return Err(EthApiError::InternalEthError)
+    }
+
+    let mut reconstructed = Vec::with_capacity(raw_results.len());
+    let mut parent_hash = None;
+
+    for (sim_block, execution) in seismic_sim_blocks.iter().zip(raw_results) {
+        if sim_block.calls.len() != execution.block.body().transactions.len() {
+            return Err(EthApiError::InternalEthError)
+        }
+
+        let mut response_transactions = Vec::with_capacity(sim_block.calls.len());
+        for (call, executed_tx) in
+            sim_block.calls.iter().zip(execution.block.clone_transactions_recovered())
+        {
+            let (seismic_tx_request, signed_read) =
+                convert_seismic_call_to_tx_request(call.clone())?;
+            let response_tx = if signed_read {
+                let ciphertext_input =
+                    seismic_tx_request.inner.input.input.clone().ok_or_else(|| {
+                        EthApiError::InvalidParams(
+                            "signed-read simulate transaction missing input".to_string(),
+                        )
+                    })?;
+                rebuild_simulated_signed_read_tx(executed_tx, ciphertext_input)?
+            } else {
+                executed_tx
+            };
+            response_transactions.push(response_tx);
+        }
+
+        let (mut response_block, senders) = execution.block.split();
+        response_block.body.transactions =
+            response_transactions.into_iter().map(|tx| tx.into_parts().0).collect();
+        if let Some(parent_hash) = parent_hash {
+            response_block.header.parent_hash = parent_hash;
+        }
+        response_block.header.transactions_root =
+            calculate_transaction_root(&response_block.body.transactions);
+
+        let response_block = RecoveredBlock::new_unhashed(response_block, senders);
+        parent_hash = Some(response_block.hash());
+        reconstructed
+            .push(SimulatedBlockExecution { block: response_block, results: execution.results });
+    }
+
+    Ok(reconstructed)
+}
+
 #[async_trait]
 impl<Eth> EthApiOverrideServer<RpcBlock<Eth::NetworkTypes>> for EthApiExt<Eth>
 where
-    Eth: FullEthApi + Send + Sync + 'static,
+    Eth: FullEthApi<Primitives = SeismicPrimitives> + Send + Sync + 'static,
     Eth::Error: Send + Sync + 'static,
-    Eth::Primitives: NodePrimitives<SignedTx = SeismicTransactionSigned>,
     jsonrpsee_types::error::ErrorObject<'static>: From<Eth::Error>,
     <Eth::NetworkTypes as RpcTypes>::TransactionRequest:
         From<TransactionRequest> + AsRef<TransactionRequest> + Send + Sync + 'static,
@@ -371,39 +433,19 @@ where
         )
         .await?;
 
+        let raw_results = reconstruct_simulated_blocks(&seismic_sim_blocks, raw_results)?;
+
         let mut result = Vec::with_capacity(raw_results.len());
 
-        // Convert Eth blocks back to Seismic blocks.
+        // Convert reconstructed Seismic blocks into RPC blocks.
         for (block, execution) in seismic_sim_blocks.iter().zip(raw_results) {
             let SeismicSimBlock::<SeismicCallRequest> { calls, .. } = block;
-            let mut response_transactions = Vec::with_capacity(calls.len());
-            for (call, executed_tx) in
-                calls.iter().zip(execution.block.clone_transactions_recovered())
-            {
-                let (seismic_tx_request, signed_read) =
-                    convert_seismic_call_to_tx_request(call.clone())?;
-                let tx = if signed_read {
-                    let ciphertext_input =
-                        seismic_tx_request.inner.input.input.clone().ok_or_else(|| {
-                            EthApiError::InvalidParams(
-                                "signed-read simulate transaction missing input".to_string(),
-                            )
-                        })?;
-                    rebuild_simulated_signed_read_tx(executed_tx, ciphertext_input)?
-                } else {
-                    executed_tx
-                };
-                response_transactions.push(tx);
-            }
-
-            let mut simulated_block =
-                reth_rpc_eth_types::simulate::build_simulated_block_with_transactions(
-                    &execution.block,
-                    response_transactions,
-                    execution.results,
-                    return_full_transactions.into(),
-                    self.eth_api.tx_resp_builder(),
-                )?;
+            let mut simulated_block = reth_rpc_eth_types::simulate::build_simulated_block(
+                execution.block,
+                execution.results,
+                return_full_transactions.into(),
+                self.eth_api.tx_resp_builder(),
+            )?;
             let SimulatedBlock { calls: call_results, .. } = &mut simulated_block;
 
             // Encrypt signed-read outputs and replace plaintext revert messages with the generic

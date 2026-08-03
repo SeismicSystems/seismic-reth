@@ -345,7 +345,7 @@ impl<N, EthB, PVB, EB, EVB, RpcMiddleware> NodeAddOns<N>
 where
     N: SeismicFullNode,
     EthB: EthApiBuilder<N>,
-    EthB::EthApi: FullEthApi + Send + Sync + 'static,
+    EthB::EthApi: FullEthApi<Primitives = SeismicPrimitives> + Send + Sync + 'static,
     <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
     jsonrpsee::types::ErrorObject<'static>:
         From<<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error>,
@@ -355,8 +355,6 @@ where
             + Send
             + Sync
             + 'static,
-    <EthB::EthApi as reth_rpc_eth_api::RpcNodeCore>::Primitives:
-        reth_node_api::NodePrimitives<SignedTx = reth_seismic_primitives::SeismicTransactionSigned>,
     PVB: PayloadValidatorBuilder<N>,
     EB: EngineApiBuilder<N>,
     EVB: EngineValidatorBuilder<N>,
@@ -454,7 +452,7 @@ impl<N, EthB, PVB, EB, EVB, RpcMiddleware> RethRpcAddOns<N>
 where
     N: SeismicFullNode,
     EthB: EthApiBuilder<N>,
-    EthB::EthApi: FullEthApi + Send + Sync + 'static,
+    EthB::EthApi: FullEthApi<Primitives = SeismicPrimitives> + Send + Sync + 'static,
     <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
     jsonrpsee::types::ErrorObject<'static>:
         From<<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error>,
@@ -464,8 +462,6 @@ where
             + Send
             + Sync
             + 'static,
-    <EthB::EthApi as reth_rpc_eth_api::RpcNodeCore>::Primitives:
-        reth_node_api::NodePrimitives<SignedTx = reth_seismic_primitives::SeismicTransactionSigned>,
     PVB: PayloadValidatorBuilder<N>,
     EB: EngineApiBuilder<N>,
     EVB: EngineValidatorBuilder<N>,
