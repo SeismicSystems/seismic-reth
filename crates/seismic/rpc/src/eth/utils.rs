@@ -49,17 +49,25 @@ pub fn recover_typed_data_request<T: SignedTransaction + Decodable712>(
         .or(Err(EthApiError::InvalidTransactionSignature))
 }
 
-/// Convert a [`SeismicCallRequest`] to a [`SeismicTransactionRequest`].
+/// A resolved Seismic call, classified by its authenticated execution semantics.
+#[derive(Clone, Debug)]
+pub enum SeismicCall {
+    /// An unsigned object-form request. Sender-sensitive fields have been sanitized.
+    Transparent(SeismicTransactionRequest),
+    /// A signed, call-only request whose `signed_read` intent is covered by its signature.
+    SignedRead(SeismicTransactionRequest),
+}
+
+/// Resolve a wire-format [`SeismicCallRequest`] into a [`SeismicCall`].
 ///
-/// If the call requests simulates a transaction without a signature from msg.sender,
-/// we null out the fields that may reveal sensitive information.
-pub fn convert_seismic_call_to_tx_request(
-    request: SeismicCallRequest,
-) -> Result<(SeismicTransactionRequest, bool), EthApiError> {
+/// Unsigned object-form requests are sanitized. Signed typed-data and raw-byte requests must carry
+/// an authenticated `signed_read = true` intent so mempool-admissible write transactions cannot be
+/// replayed through simulation RPCs.
+pub fn resolve_seismic_call(request: SeismicCallRequest) -> Result<SeismicCall, EthApiError> {
     match request {
         SeismicCallRequest::TransactionRequest(mut tx_request) => {
             seismic_override_call_request(&mut tx_request); // null fields that may reveal sensitive information
-            Ok((tx_request, false))
+            Ok(SeismicCall::Transparent(tx_request))
         }
 
         SeismicCallRequest::TypedData(typed_request) => {
@@ -73,16 +81,34 @@ pub fn convert_seismic_call_to_tx_request(
             // Bound the calldata before the downstream ECDH/AES decrypt — same limit as the bytes
             // path, so the guard can't be bypassed by submitting via TypedData instead of Bytes.
             check_signed_read_input_size(req.inner.input.input().map_or(0, |b| b.len()))?;
-            Ok((req, true))
+            ensure_signed_read_request(&req)?;
+            Ok(SeismicCall::SignedRead(req))
         }
 
         SeismicCallRequest::Bytes(bytes) => {
             let tx = recover_raw_seismic_call_tx(&bytes)?;
             let mut req: SeismicTransactionRequest = tx.inner().clone().into();
             TransactionBuilder::<SeismicReth>::set_from(&mut req, tx.signer());
-            Ok((req, true))
+            ensure_signed_read_request(&req)?;
+            Ok(SeismicCall::SignedRead(req))
         }
     }
+}
+
+/// Ensure a signed simulation request is authenticated and explicitly call-only.
+fn ensure_signed_read_request(request: &SeismicTransactionRequest) -> Result<(), EthApiError> {
+    parse_request_sender(request)?;
+
+    let elements = request.seismic_elements.as_ref().ok_or_else(|| {
+        EthApiError::InvalidParams("signed read missing seismic_elements".to_string())
+    })?;
+    if !elements.signed_read {
+        return Err(EthApiError::InvalidParams(
+            "signed simulation request must set signedRead=true".to_string(),
+        ));
+    }
+
+    Ok(())
 }
 
 /// Reject a signed read whose payload exceeds the configured size cap, before any of the unmetered
@@ -139,41 +165,33 @@ pub fn parse_request_sender(request: &SeismicTransactionRequest) -> Result<Addre
     })
 }
 
-/// Conditionally decrypt a seismic transaction request based on whether it's a signed read.
+/// Convert a resolved Seismic call into the plaintext transaction request executed by the EVM.
 ///
-/// For non-seismic transactions (`signed_read = false`), returns the request unchanged.
-/// For seismic transactions (`signed_read = true`), validates the freshness fields
-/// (`recent_block_hash` and `expires_at_block`) against the live chain tip, then decrypts
-/// the request using the provided secret key.
-pub fn signed_read_to_plaintext_tx<P>(
-    (seismic_tx_request, signed_read): (SeismicTransactionRequest, bool),
+/// Transparent calls are already plaintext. Signed reads have their freshness fields validated
+/// before their calldata is decrypted with the node's secret key.
+pub fn seismic_call_to_plaintext_tx<P>(
+    call: &SeismicCall,
     secret_key: &SecretKey,
     provider: &P,
 ) -> Result<SeismicTransactionRequest, EthApiError>
 where
     P: BlockNumReader,
 {
-    match signed_read {
-        false => Ok(seismic_tx_request),
-        true => {
-            // A signed read must carry seismic_elements: they hold the freshness fields validated
-            // below and the encryption metadata `plaintext_copy` needs to decrypt. Treating them as
-            // optional here would silently skip both checks.
-            let Some(elements) = seismic_tx_request.seismic_elements.as_ref() else {
-                return Err(EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
-                    -32602,
-                    "signed read missing seismic_elements",
-                    None::<String>,
-                ))));
-            };
+    match call {
+        SeismicCall::Transparent(request) => Ok(request.clone()),
+        SeismicCall::SignedRead(request) => {
+            // Keep this defensive check even though `resolve_seismic_call` establishes the enum's
+            // invariant, so direct construction cannot silently skip freshness validation.
+            let elements = request.seismic_elements.as_ref().ok_or_else(|| {
+                EthApiError::InvalidParams("signed read missing seismic_elements".to_string())
+            })?;
             // Reject stale or expired signed reads before doing any ECDH work.
             validate_seismic_freshness(elements, provider)?;
 
-            let sender = parse_request_sender(&seismic_tx_request)?;
-            let seismic_tx_request = seismic_tx_request
+            let sender = parse_request_sender(request)?;
+            request
                 .plaintext_copy(secret_key, sender)
-                .map_err(|e| ext_decryption_error(e.to_string()))?;
-            Ok(seismic_tx_request)
+                .map_err(|e| ext_decryption_error(e.to_string()))
         }
     }
 }
@@ -243,7 +261,12 @@ fn seismic_recent_block_hash_error(hash: B256) -> EthApiError {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 mod test {
-    use crate::utils::{recover_typed_data_request, seismic_override_call_request};
+    use crate::utils::{
+        recover_typed_data_request, resolve_seismic_call, seismic_override_call_request,
+        SeismicCall,
+    };
+    use alloy_consensus::SignableTransaction;
+    use alloy_eips::eip2718::Encodable2718;
     use alloy_primitives::{
         aliases::U96,
         hex::{self, FromHex},
@@ -251,12 +274,15 @@ mod test {
     };
     use alloy_rpc_types::TransactionRequest;
     use reth_primitives_traits::SignedTransaction;
-    use reth_seismic_primitives::SeismicTransactionSigned;
+    use reth_seismic_primitives::{
+        test_utils::{get_seismic_tx, get_signing_private_key, sign_seismic_tx},
+        SeismicTransactionSigned,
+    };
     use secp256k1::PublicKey;
     use seismic_alloy_consensus::{
         SeismicTxEnvelope, TxSeismic, TxSeismicElements, TypedDataRequest,
     };
-    use seismic_alloy_rpc_types::SeismicTransactionRequest;
+    use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
     use std::str::FromStr;
 
     fn dummy_seismic_elements() -> TxSeismicElements {
@@ -300,6 +326,27 @@ mod test {
         assert!(req.seismic_elements.is_none());
     }
 
+    fn signed_seismic_request(signed_read: bool, typed_data: bool) -> SeismicCallRequest {
+        let signing_key = get_signing_private_key();
+        let sender = Address::from_public_key(signing_key.verifying_key());
+        let mut tx = get_seismic_tx(sender, B256::ZERO);
+        tx.seismic_elements.signed_read = signed_read;
+        if typed_data {
+            tx.seismic_elements.message_version = 2;
+        }
+        let signature = sign_seismic_tx(&tx, &signing_key);
+
+        if typed_data {
+            SeismicCallRequest::TypedData(TypedDataRequest {
+                data: tx.eip712_to_type_data(),
+                signature,
+            })
+        } else {
+            let envelope = SeismicTxEnvelope::Seismic(tx.into_signed(signature));
+            SeismicCallRequest::Bytes(envelope.encoded_2718().into())
+        }
+    }
+
     #[test]
     fn seismic_override_clears_from_with_seismic_elements() {
         let mut req = spoofed_request(Some(dummy_seismic_elements()));
@@ -317,6 +364,43 @@ mod test {
         let mut req = spoofed_request(None);
         seismic_override_call_request(&mut req);
         assert_sanitized(&req);
+    }
+
+    #[test]
+    fn resolves_object_request_as_sanitized_transparent_call() {
+        let mut elements = dummy_seismic_elements();
+        elements.signed_read = true;
+        let request = SeismicCallRequest::TransactionRequest(spoofed_request(Some(elements)));
+
+        let call = resolve_seismic_call(request).unwrap();
+        assert!(matches!(call, SeismicCall::Transparent(_)));
+        if let SeismicCall::Transparent(request) = call {
+            assert_sanitized(&request);
+        }
+    }
+
+    #[test]
+    fn resolves_signed_read_bytes() {
+        let call = resolve_seismic_call(signed_seismic_request(true, false)).unwrap();
+        assert!(matches!(call, SeismicCall::SignedRead(_)));
+    }
+
+    #[test]
+    fn rejects_write_intent_bytes() {
+        let err = resolve_seismic_call(signed_seismic_request(false, false)).unwrap_err();
+        assert!(err.to_string().contains("must set signedRead=true"), "{err}");
+    }
+
+    #[test]
+    fn resolves_signed_read_typed_data() {
+        let call = resolve_seismic_call(signed_seismic_request(true, true)).unwrap();
+        assert!(matches!(call, SeismicCall::SignedRead(_)));
+    }
+
+    #[test]
+    fn rejects_write_intent_typed_data() {
+        let err = resolve_seismic_call(signed_seismic_request(false, true)).unwrap_err();
+        assert!(err.to_string().contains("must set signedRead=true"), "{err}");
     }
 
     #[test]
@@ -604,7 +688,7 @@ mod test {
             // A signed read carries its freshness fields + decryption metadata in
             // `seismic_elements`; if it's absent the request must be rejected outright rather than
             // silently skipping freshness validation and proceeding to decrypt.
-            use crate::utils::signed_read_to_plaintext_tx;
+            use crate::utils::{seismic_call_to_plaintext_tx, SeismicCall};
             use alloy_seismic_evm::secp256k1::SecretKey;
 
             let secret_key = SecretKey::from_slice(&[1u8; 32]).unwrap();
@@ -612,8 +696,12 @@ mod test {
             let provider = MockProvider::default();
             let request = super::spoofed_request(None);
 
-            let err =
-                signed_read_to_plaintext_tx((request, true), &secret_key, &provider).unwrap_err();
+            let err = seismic_call_to_plaintext_tx(
+                &SeismicCall::SignedRead(request),
+                &secret_key,
+                &provider,
+            )
+            .unwrap_err();
             assert!(err.to_string().contains("signed read missing seismic_elements"), "{err}");
         }
     }

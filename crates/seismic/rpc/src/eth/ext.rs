@@ -6,7 +6,7 @@
 //! See that function's docs for more details
 
 use crate::utils::{
-    convert_seismic_call_to_tx_request, parse_request_sender, signed_read_to_plaintext_tx,
+    parse_request_sender, resolve_seismic_call, seismic_call_to_plaintext_tx, SeismicCall,
 };
 use alloy_consensus::proofs::calculate_transaction_root;
 use alloy_dyn_abi::TypedData;
@@ -326,18 +326,16 @@ fn reconstruct_simulated_blocks<Halt>(
         for (call, executed_tx) in
             sim_block.calls.iter().zip(execution.block.clone_transactions_recovered())
         {
-            let (seismic_tx_request, signed_read) =
-                convert_seismic_call_to_tx_request(call.clone())?;
-            let response_tx = if signed_read {
-                let ciphertext_input =
-                    seismic_tx_request.inner.input.input.clone().ok_or_else(|| {
+            let response_tx = match resolve_seismic_call(call.clone())? {
+                SeismicCall::Transparent(_) => executed_tx,
+                SeismicCall::SignedRead(request) => {
+                    let ciphertext_input = request.inner.input.input.clone().ok_or_else(|| {
                         EthApiError::InvalidParams(
                             "signed-read simulate transaction missing input".to_string(),
                         )
                     })?;
-                rebuild_simulated_signed_read_tx(executed_tx, ciphertext_input)?
-            } else {
-                executed_tx
+                    rebuild_simulated_signed_read_tx(executed_tx, ciphertext_input)?
+                }
             };
             response_transactions.push(response_tx);
         }
@@ -403,9 +401,9 @@ where
             let mut prepared_calls = Vec::with_capacity(calls.len());
 
             for call in calls {
-                let tx_req = convert_seismic_call_to_tx_request(call)?;
-                let plaintext_tx_req = signed_read_to_plaintext_tx(
-                    tx_req,
+                let call = resolve_seismic_call(call)?;
+                let plaintext_tx_req = seismic_call_to_plaintext_tx(
+                    &call,
                     &self.purpose_keys.tx_io_sk,
                     self.eth_api.provider(),
                 )?;
@@ -451,31 +449,30 @@ where
             // Encrypt signed-read outputs and replace plaintext revert messages with the generic
             // form after the response block has been rebuilt with ciphertext-backed tx hashes.
             for (call_result, call) in call_results.iter_mut().zip(calls.iter()) {
-                let (seismic_tx_request, signed_read) =
-                    convert_seismic_call_to_tx_request(call.clone())?;
-                if signed_read {
-                    // `build_simulated_block` sets a non-empty `return_data` only for
-                    // `ExecutionResult::Revert` (halts always leave it empty), and derives
-                    // `error.message` by decoding that same output as a revert reason. That
-                    // decoded reason can embed private state (e.g. a custom error like
-                    // `revert InsufficientBalance(actualBalance)`), so it must not reach the
-                    // client in cleartext. Replace it with a generic message: the caller can
-                    // still recover the real reason by decrypting `return_data` below.
-                    let is_revert_with_reason =
-                        !call_result.status && !call_result.return_data.is_empty();
+                let SeismicCall::SignedRead(request) = resolve_seismic_call(call.clone())? else {
+                    continue
+                };
 
-                    // if there are seismic elements, encrypt the output
-                    let sender = parse_request_sender(&seismic_tx_request)?;
-                    let metadata = Self::build_metadata(&seismic_tx_request, sender)?;
-                    let encrypted_output = metadata
-                        .encrypt_response(&self.purpose_keys.tx_io_sk, &call_result.return_data)
-                        .map_err(|e| ext_encryption_error(e.to_string()))?;
-                    call_result.return_data = encrypted_output;
+                // `build_simulated_block` sets a non-empty `return_data` only for
+                // `ExecutionResult::Revert` (halts always leave it empty), and derives
+                // `error.message` by decoding that same output as a revert reason. That
+                // decoded reason can embed private state (e.g. a custom error like
+                // `revert InsufficientBalance(actualBalance)`), so it must not reach the
+                // client in cleartext. Replace it with a generic message: the caller can
+                // still recover the real reason by decrypting `return_data` below.
+                let is_revert_with_reason =
+                    !call_result.status && !call_result.return_data.is_empty();
 
-                    if is_revert_with_reason {
-                        if let Some(error) = call_result.error.as_mut() {
-                            error.message = "execution reverted".to_string();
-                        }
+                let sender = parse_request_sender(&request)?;
+                let metadata = Self::build_metadata(&request, sender)?;
+                let encrypted_output = metadata
+                    .encrypt_response(&self.purpose_keys.tx_io_sk, &call_result.return_data)
+                    .map_err(|e| ext_encryption_error(e.to_string()))?;
+                call_result.return_data = encrypted_output;
+
+                if is_revert_with_reason {
+                    if let Some(error) = call_result.error.as_mut() {
+                        error.message = "execution reverted".to_string();
                     }
                 }
             }
@@ -500,16 +497,16 @@ where
 
         // Convert each Bundle<SeismicCallRequest> into the upstream Bundle<TransactionRequest>:
         // unsigned requests are sanitized; signed requests have their freshness validated and
-        // calldata decrypted by `signed_read_to_plaintext_tx`.
+        // calldata decrypted by `seismic_call_to_plaintext_tx`.
         let mut prepared_bundles: Vec<Bundle<<Eth::NetworkTypes as RpcTypes>::TransactionRequest>> =
             Vec::with_capacity(bundles.len());
         for bundle in bundles {
             let Bundle { transactions, block_override } = bundle;
             let mut prepared = Vec::with_capacity(transactions.len());
             for call in transactions {
-                let tx_req = convert_seismic_call_to_tx_request(call)?;
-                let plaintext_tx_req = signed_read_to_plaintext_tx(
-                    tx_req,
+                let call = resolve_seismic_call(call)?;
+                let plaintext_tx_req = seismic_call_to_plaintext_tx(
+                    &call,
                     &self.purpose_keys.tx_io_sk,
                     self.eth_api.provider(),
                 )?;
@@ -534,38 +531,36 @@ where
         {
             let mut encrypted_bundle_results = Vec::with_capacity(bundle_results.len());
             for (call, call_result) in bundle.transactions.iter().zip(bundle_results) {
-                let (seismic_tx_request, signed_read) =
-                    convert_seismic_call_to_tx_request(call.clone())?;
+                let call = resolve_seismic_call(call.clone())?;
 
-                let response = match call_result {
-                    Ok(mut value) => {
-                        if signed_read {
-                            let sender = parse_request_sender(&seismic_tx_request)?;
-                            let metadata = Self::build_metadata(&seismic_tx_request, sender)?;
-                            value = metadata
-                                .encrypt_response(&self.purpose_keys.tx_io_sk, &value)
-                                .map_err(|e| ext_encryption_error(e.to_string()))?;
-                        }
+                let response = match (call, call_result) {
+                    (SeismicCall::Transparent(_), Ok(value)) => {
                         EthCallResponse { value: Some(value), error: None }
                     }
-                    Err(err) => {
-                        // `EthCallResponse.error` is a plain string with no `data` field, so for
-                        // signed reads the encrypted revert output is appended as hex; otherwise
-                        // the ciphertext would be dropped and the signer couldn't decrypt the
-                        // revert reason.
-                        let err_str = if signed_read {
-                            let err = self.reencrypt_revert_output(err, &seismic_tx_request)?;
-                            match err.as_err() {
-                                Some(EthApiError::InvalidTransaction(
-                                    RpcInvalidTransactionError::Revert(revert),
-                                )) => match revert.output() {
-                                    Some(output) => format!("execution reverted: {output}"),
-                                    None => err.to_string(),
-                                },
-                                _ => err.to_string(),
-                            }
-                        } else {
-                            err.to_string()
+                    (SeismicCall::Transparent(_), Err(err)) => {
+                        EthCallResponse { value: None, error: Some(err.to_string()) }
+                    }
+                    (SeismicCall::SignedRead(request), Ok(mut value)) => {
+                        let sender = parse_request_sender(&request)?;
+                        let metadata = Self::build_metadata(&request, sender)?;
+                        value = metadata
+                            .encrypt_response(&self.purpose_keys.tx_io_sk, &value)
+                            .map_err(|e| ext_encryption_error(e.to_string()))?;
+                        EthCallResponse { value: Some(value), error: None }
+                    }
+                    (SeismicCall::SignedRead(request), Err(err)) => {
+                        // `EthCallResponse.error` is a plain string with no `data` field, so the
+                        // encrypted revert output is appended as hex; otherwise the ciphertext
+                        // would be dropped and the signer couldn't decrypt the revert reason.
+                        let err = self.reencrypt_revert_output(err, &request)?;
+                        let err_str = match err.as_err() {
+                            Some(EthApiError::InvalidTransaction(
+                                RpcInvalidTransactionError::Revert(revert),
+                            )) => match revert.output() {
+                                Some(output) => format!("execution reverted: {output}"),
+                                None => err.to_string(),
+                            },
+                            _ => err.to_string(),
                         };
                         EthCallResponse { value: None, error: Some(err_str) }
                     }
@@ -588,10 +583,9 @@ where
     ) -> RpcResult<Bytes> {
         debug!(target: "reth-seismic-rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving seismic eth_call extension");
 
-        // process different CallRequest types
-        let (seismic_tx_request, signed_read) = convert_seismic_call_to_tx_request(request)?;
-        let plaintext_tx_req = signed_read_to_plaintext_tx(
-            (seismic_tx_request.clone(), signed_read),
+        let call = resolve_seismic_call(request)?;
+        let plaintext_tx_req = seismic_call_to_plaintext_tx(
+            &call,
             &self.purpose_keys.tx_io_sk,
             self.eth_api.provider(),
         )?;
@@ -605,26 +599,23 @@ where
         )
         .await;
 
-        // On revert, re-encrypt the output bytes before they reach the client: a contract's
-        // revert data can embed private state just like a successful return value can.
-        let result = match result {
-            Err(err) if signed_read => Err(self.reencrypt_revert_output(err, &seismic_tx_request)?),
-            other => other,
-        };
-        let result = result?;
+        match call {
+            SeismicCall::Transparent(_) => Ok(result?),
+            SeismicCall::SignedRead(request) => {
+                // On revert, re-encrypt the output bytes before they reach the client: a contract's
+                // revert data can embed private state just like a successful return value can.
+                let result = match result {
+                    Err(err) => Err(self.reencrypt_revert_output(err, &request)?),
+                    Ok(result) => Ok(result),
+                }?;
 
-        // encrypt result - only for signed reads with seismic elements
-        if signed_read {
-            if let Some(seismic_elements) = seismic_tx_request.seismic_elements {
-                let sender = parse_request_sender(&seismic_tx_request)?;
-                let metadata = Self::build_metadata(&seismic_tx_request, sender)?;
-                return Ok(seismic_elements
-                    .encrypt_response(&self.purpose_keys.tx_io_sk, &result, &metadata)
-                    .map_err(|e| ext_encryption_error(e.to_string()))?);
+                let sender = parse_request_sender(&request)?;
+                let metadata = Self::build_metadata(&request, sender)?;
+                Ok(metadata
+                    .encrypt_response(&self.purpose_keys.tx_io_sk, &result)
+                    .map_err(|e| ext_encryption_error(e.to_string()))?)
             }
         }
-
-        Ok(result)
     }
 
     /// Handler for: `eth_sendRawTransaction`
@@ -664,10 +655,10 @@ where
         // Same sanitization as eth_call: unsigned requests have `from`,
         // gas/value fields, and seismic_elements cleared to prevent caller
         // spoofing that could leak private state. Signed requests (TypedData/Bytes)
-        // authenticate the sender cryptographically and are processed normally.
-        let (seismic_tx_request, signed_read) = convert_seismic_call_to_tx_request(request)?;
-        let decrypted_req = signed_read_to_plaintext_tx(
-            (seismic_tx_request.clone(), signed_read),
+        // authenticate the sender cryptographically and must be call-only.
+        let call = resolve_seismic_call(request)?;
+        let decrypted_req = seismic_call_to_plaintext_tx(
+            &call,
             &self.purpose_keys.tx_io_sk,
             self.eth_api.provider(),
         )?;
@@ -681,14 +672,18 @@ where
         )
         .await;
 
-        // On revert, re-encrypt the output bytes before they reach the client: a contract's
-        // revert data can embed private state just like a successful return value can.
-        let result = match result {
-            Err(err) if signed_read => Err(self.reencrypt_revert_output(err, &seismic_tx_request)?),
-            other => other,
-        };
-
-        Ok(result?)
+        match call {
+            SeismicCall::Transparent(_) => Ok(result?),
+            SeismicCall::SignedRead(request) => {
+                // On revert, re-encrypt the output bytes before they reach the client: a contract's
+                // revert data can embed private state just like a successful return value can.
+                let result = match result {
+                    Err(err) => Err(self.reencrypt_revert_output(err, &request)?),
+                    Ok(result) => Ok(result),
+                }?;
+                Ok(result)
+            }
+        }
     }
 
     async fn get_balance(
