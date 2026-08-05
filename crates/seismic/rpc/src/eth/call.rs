@@ -18,7 +18,7 @@ use revm::{
     context_interface::{Block, Transaction},
     Database,
 };
-use seismic_alloy_consensus::SeismicTxType;
+use seismic_alloy_consensus::{SeismicTxType, SEISMIC_TX_TYPE_ID};
 use seismic_revm::{self, SeismicTransaction};
 
 impl<N, Rpc> EthCall for SeismicEthApi<N, Rpc>
@@ -121,14 +121,18 @@ where
             return Err(RpcInvalidTransactionError::BlobTransactionMissingBlobHashes.into_eth_err());
         }
 
-        let tx_type = if request.authorization_list.is_some() {
+        // Only an explicitly Seismic-typed call (a signed read, set in ext.rs) is Seismic;
+        // a plain eth_call must not report as an encrypted channel.
+        let tx_type = if request.transaction_type == Some(SEISMIC_TX_TYPE_ID) {
+            SeismicTxType::Seismic
+        } else if request.authorization_list.is_some() {
             SeismicTxType::Eip7702
         } else if request.max_fee_per_gas.is_some() || request.max_priority_fee_per_gas.is_some() {
             SeismicTxType::Eip1559
         } else if request.access_list.is_some() {
             SeismicTxType::Eip2930
         } else {
-            SeismicTxType::Seismic
+            SeismicTxType::Legacy
         } as u8;
 
         let TransactionRequest {

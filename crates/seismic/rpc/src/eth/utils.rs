@@ -30,6 +30,7 @@ pub const fn seismic_override_call_request(request: &mut SeismicTransactionReque
     request.inner.max_priority_fee_per_gas = None; // preventing InsufficientFunds error
     request.inner.max_fee_per_blob_gas = None; // preventing InsufficientFunds error
     request.inner.value = None; // preventing InsufficientFunds error
+    request.inner.transaction_type = None; // don't let a plain call spoof the Seismic tx type
     request.seismic_elements = None; // zero out seismic elements
 }
 
