@@ -222,7 +222,12 @@ where
 
         tracing::debug!("reth-seismic-rpc::eth create_txn_env {:?}", env);
 
-        Ok(SeismicTransaction { base: env, tx_hash: Default::default(), decryption_failed: false }
-            .into())
+        Ok(SeismicTransaction {
+            base: env,
+            tx_hash: Default::default(),
+            decryption_failed: false,
+            signed_read: tx_type == SEISMIC_TX_TYPE_ID,
+        }
+        .into())
     }
 }

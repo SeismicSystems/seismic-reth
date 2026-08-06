@@ -987,6 +987,7 @@ mod tests {
             },
             tx_hash: Default::default(),
             decryption_failed: false,
+            signed_read: false,
         }
     }
 

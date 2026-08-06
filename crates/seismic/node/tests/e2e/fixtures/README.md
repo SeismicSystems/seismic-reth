@@ -2,8 +2,10 @@
 
 `TxTypeProbe.sol` is the source for the `TXTYPE_PROBE_DEPLOY` creation bytecode
 embedded in [`../txtype.rs`](../txtype.rs). It is stock Solidity: it reads the
-current transaction's EIP-2718 type byte from the `0x6A` tx-type precompile via
-`staticcall` — there is no compiler builtin and no `ssolc` change.
+current transaction's EIP-2718 type byte and its signed-read flag from the `0x6A`
+tx-context precompile via `staticcall` — there is no compiler builtin and no
+`ssolc` change. Empty input selects the tx type; a single `0x01` byte selects the
+signed-read flag.
 
 ## Reproducing the committed bytecode
 
