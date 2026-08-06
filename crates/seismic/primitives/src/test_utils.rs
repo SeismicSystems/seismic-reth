@@ -221,6 +221,45 @@ pub fn get_seismic_metadata(
     }
 }
 
+/// Get signed-read seismic transaction metadata for testing.
+pub fn get_signed_read_seismic_metadata(
+    sender: Address,
+    chain_id: u64,
+    nonce: u64,
+    to: TxKind,
+    value: U256,
+    recent_block_hash: B256,
+) -> TxSeismicMetadata {
+    let mut metadata = get_seismic_metadata(sender, chain_id, nonce, to, value, recent_block_hash);
+    metadata.seismic_elements.signed_read = true;
+    metadata
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn get_unsigned_seismic_tx_request_with_options(
+    sk_wallet: &PrivateKeySigner,
+    nonce: u64,
+    to: TxKind,
+    chain_id: u64,
+    plaintext: Bytes,
+    recent_block_hash: B256,
+    signed_read: bool,
+    message_version: u8,
+) -> SeismicTransactionRequest {
+    let mut plaintext_req = get_plaintext_tx_request(sk_wallet, nonce, to, chain_id, &plaintext);
+    let mut metadata = get_metadata(&plaintext_req, recent_block_hash);
+    metadata.seismic_elements.signed_read = signed_read;
+    metadata.seismic_elements.message_version = message_version;
+    let ciphertext = metadata
+        .client_encrypt(&plaintext, &get_network_public_key(), &get_client_io_sk())
+        .unwrap();
+    plaintext_req.input = TransactionInput { input: Some(ciphertext), data: None };
+    SeismicTransactionRequest {
+        inner: plaintext_req,
+        seismic_elements: Some(metadata.seismic_elements),
+    }
+}
+
 /// Get an unsigned seismic transaction request
 pub async fn get_unsigned_seismic_tx_request(
     sk_wallet: &PrivateKeySigner,
@@ -230,16 +269,39 @@ pub async fn get_unsigned_seismic_tx_request(
     plaintext: Bytes,
     recent_block_hash: B256,
 ) -> SeismicTransactionRequest {
-    let mut plaintext_req = get_plaintext_tx_request(sk_wallet, nonce, to, chain_id, &plaintext);
-    let metadata = get_metadata(&plaintext_req, recent_block_hash);
-    let ciphertext = metadata
-        .client_encrypt(&plaintext, &get_network_public_key(), &get_client_io_sk())
-        .unwrap();
-    plaintext_req.input = TransactionInput { input: Some(ciphertext), data: None };
-    SeismicTransactionRequest {
-        inner: plaintext_req,
-        seismic_elements: Some(metadata.seismic_elements),
-    }
+    get_unsigned_seismic_tx_request_with_options(
+        sk_wallet,
+        nonce,
+        to,
+        chain_id,
+        plaintext,
+        recent_block_hash,
+        false,
+        0,
+    )
+    .await
+}
+
+/// Get an unsigned call-only seismic transaction request.
+pub async fn get_unsigned_seismic_call_request(
+    sk_wallet: &PrivateKeySigner,
+    nonce: u64,
+    to: TxKind,
+    chain_id: u64,
+    plaintext: Bytes,
+    recent_block_hash: B256,
+) -> SeismicTransactionRequest {
+    get_unsigned_seismic_tx_request_with_options(
+        sk_wallet,
+        nonce,
+        to,
+        chain_id,
+        plaintext,
+        recent_block_hash,
+        true,
+        0,
+    )
+    .await
 }
 
 /// Get an unsigned seismic transaction request
@@ -287,6 +349,28 @@ pub async fn get_signed_seismic_tx_bytes(
     <SeismicTxEnvelope as Encodable2718>::encoded_2718(&signed_inner).into()
 }
 
+/// Create a signed call-only seismic transaction.
+pub async fn get_signed_seismic_call_bytes(
+    sk_wallet: &PrivateKeySigner,
+    nonce: u64,
+    to: TxKind,
+    chain_id: u64,
+    plaintext: Bytes,
+    recent_block_hash: B256,
+) -> Bytes {
+    let tx = get_unsigned_seismic_call_request(
+        sk_wallet,
+        nonce,
+        to,
+        chain_id,
+        plaintext,
+        recent_block_hash,
+    )
+    .await;
+    let signed_inner = sign_tx(sk_wallet.clone(), tx).await;
+    <SeismicTxEnvelope as Encodable2718>::encoded_2718(&signed_inner).into()
+}
+
 /// Get an unsigned seismic transaction typed data
 #[allow(clippy::panic)] // Test util function - panic on failure is acceptable
 pub async fn get_unsigned_seismic_tx_typed_data(
@@ -297,13 +381,15 @@ pub async fn get_unsigned_seismic_tx_typed_data(
     decrypted_input: Bytes,
     recent_block_hash: B256,
 ) -> TypedData {
-    let tx_request = get_unsigned_seismic_tx_request(
+    let tx_request = get_unsigned_seismic_tx_request_with_options(
         sk_wallet,
         nonce,
         to,
         chain_id,
         decrypted_input,
         recent_block_hash,
+        false,
+        2,
     )
     .await;
     let typed_tx = tx_request.build_typed_tx().unwrap();
@@ -323,16 +409,46 @@ pub async fn get_signed_seismic_tx_typed_data(
     plaintext: Bytes,
     recent_block_hash: B256,
 ) -> TypedDataRequest {
-    let tx = get_unsigned_seismic_tx_request(
+    let tx = get_unsigned_seismic_tx_request_with_options(
         sk_wallet,
         nonce,
         to,
         chain_id,
         plaintext,
         recent_block_hash,
+        false,
+        2,
     )
     .await;
-    tx.seismic_elements.unwrap().message_version = 2;
+    let signed = sign_tx(sk_wallet.clone(), tx).await;
+
+    match signed {
+        SeismicTxEnvelope::Seismic(tx) => tx.into(),
+        _ => panic!("Signed transaction is not a seismic transaction"),
+    }
+}
+
+/// Create a signed call-only seismic transaction with typed data.
+#[allow(clippy::panic)] // Test util function - panic on failure is acceptable
+pub async fn get_signed_seismic_call_typed_data(
+    sk_wallet: &PrivateKeySigner,
+    nonce: u64,
+    to: TxKind,
+    chain_id: u64,
+    plaintext: Bytes,
+    recent_block_hash: B256,
+) -> TypedDataRequest {
+    let tx = get_unsigned_seismic_tx_request_with_options(
+        sk_wallet,
+        nonce,
+        to,
+        chain_id,
+        plaintext,
+        recent_block_hash,
+        true,
+        2,
+    )
+    .await;
     let signed = sign_tx(sk_wallet.clone(), tx).await;
 
     match signed {

@@ -6,11 +6,11 @@
 //! on dev-mode auto-mining with `thread::sleep`.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic)] // Test file - panics are acceptable
 
-use alloy_consensus::TxEnvelope;
+use alloy_consensus::{proofs::calculate_transaction_root, Transaction as _, TxEnvelope};
 use alloy_dyn_abi::EventExt;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_json_abi::{Event, EventParam};
-use alloy_network::{EthereumWallet, ReceiptResponse, TransactionBuilder};
+use alloy_network::{EthereumWallet, ReceiptResponse, TransactionBuilder, TransactionResponse};
 use alloy_primitives::{
     aliases::{B96, U96},
     hex,
@@ -32,8 +32,9 @@ use reth_rpc_eth_api::EthApiClient;
 use reth_seismic_node::utils::{
     e2e::{ensure_mock_purpose_keys, setup, SeismicTestNode},
     test_utils::{
-        client_decrypt, get_nonce, get_plaintext, get_seismic_metadata,
-        get_signed_seismic_tx_bytes, get_signed_seismic_tx_typed_data,
+        client_decrypt, get_nonce, get_plaintext, get_signed_read_seismic_metadata,
+        get_signed_seismic_call_bytes, get_signed_seismic_call_typed_data,
+        get_signed_seismic_tx_bytes, get_unsigned_seismic_call_request,
         get_unsigned_seismic_tx_request,
     },
 };
@@ -184,7 +185,7 @@ async fn rpc_test_check_parity(
     let to = TxKind::Call(contract_addr);
     let output = EthApiOverrideClient::<Block>::call(
         client,
-        get_signed_seismic_tx_bytes(
+        get_signed_seismic_call_bytes(
             &wallet.inner,
             nonce,
             to,
@@ -200,7 +201,7 @@ async fn rpc_test_check_parity(
     )
     .await
     .unwrap();
-    let metadata = get_seismic_metadata(
+    let metadata = get_signed_read_seismic_metadata(
         wallet.inner.address(),
         chain_id,
         nonce,
@@ -278,7 +279,7 @@ async fn rpc_test_gas_and_call_variants(
     // test eth_estimateGas with signed bytes (unsigned requests have `from` sanitized)
     let gas = EthApiOverrideClient::<Block>::estimate_gas(
         client,
-        get_signed_seismic_tx_bytes(
+        get_signed_seismic_call_bytes(
             &wallet.inner,
             get_nonce(client, wallet.inner.address()).await,
             TxKind::Call(contract_addr),
@@ -306,7 +307,7 @@ async fn rpc_test_gas_and_call_variants(
         "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e".parse().unwrap();
     let usdc_gas = EthApiOverrideClient::<Block>::estimate_gas(
         client,
-        get_signed_seismic_tx_bytes(
+        get_signed_seismic_call_bytes(
             &usdc_only_signer,
             get_nonce(client, usdc_only_signer.address()).await,
             TxKind::Call(contract_addr),
@@ -513,7 +514,7 @@ async fn test_seismic_reth_rpc_with_typed_data() -> eyre::Result<()> {
     let to = TxKind::Call(contract_addr);
     let output = EthApiOverrideClient::<Block>::call(
         &client,
-        get_signed_seismic_tx_typed_data(
+        get_signed_seismic_call_typed_data(
             &wallet.inner,
             nonce,
             to,
@@ -529,7 +530,7 @@ async fn test_seismic_reth_rpc_with_typed_data() -> eyre::Result<()> {
     )
     .await
     .unwrap();
-    let metadata = get_seismic_metadata(
+    let mut metadata = get_signed_read_seismic_metadata(
         wallet.inner.address(),
         chain_id,
         nonce,
@@ -537,6 +538,7 @@ async fn test_seismic_reth_rpc_with_typed_data() -> eyre::Result<()> {
         U256::ZERO,
         recent_block_hash,
     );
+    metadata.seismic_elements.message_version = 2;
     let decrypted_output = client_decrypt(metadata, &output).unwrap();
     assert_eq!(U256::from_be_slice(&decrypted_output), U256::ZERO);
 
@@ -891,7 +893,7 @@ async fn test_eth_call_allows_cload_on_public_storage() -> eyre::Result<()> {
     let nonce = get_nonce(&client, wallet.inner.address()).await;
     let result = EthApiOverrideClient::<Block>::call(
         &client,
-        get_signed_seismic_tx_bytes(
+        get_signed_seismic_call_bytes(
             &wallet.inner,
             nonce,
             TxKind::Call(contract_addr),
@@ -931,9 +933,16 @@ async fn test_eth_call_allows_cload_on_private_storage() -> eyre::Result<()> {
     let to = TxKind::Call(contract_addr);
     let output = EthApiOverrideClient::<Block>::call(
         &client,
-        get_signed_seismic_tx_bytes(&wallet.inner, nonce, to, chain_id, read_calldata, block_hash)
-            .await
-            .into(),
+        get_signed_seismic_call_bytes(
+            &wallet.inner,
+            nonce,
+            to,
+            chain_id,
+            read_calldata,
+            block_hash,
+        )
+        .await
+        .into(),
         None,
         None,
         None,
@@ -941,8 +950,14 @@ async fn test_eth_call_allows_cload_on_private_storage() -> eyre::Result<()> {
     .await
     .expect("CLOAD on private storage should succeed");
 
-    let metadata =
-        get_seismic_metadata(wallet.inner.address(), chain_id, nonce, to, U256::ZERO, block_hash);
+    let metadata = get_signed_read_seismic_metadata(
+        wallet.inner.address(),
+        chain_id,
+        nonce,
+        to,
+        U256::ZERO,
+        block_hash,
+    );
     let decrypted = client_decrypt(metadata, &output).unwrap();
     assert_eq!(U256::from_be_slice(&decrypted), U256::from(42));
     Ok(())
@@ -1180,7 +1195,7 @@ async fn test_eth_simulate_v1_rejects_code_override() -> eyre::Result<()> {
         },
     );
 
-    let tx_bytes = get_signed_seismic_tx_bytes(
+    let tx_bytes = get_signed_seismic_call_bytes(
         &wallet.inner,
         get_nonce(&client, wallet.inner.address()).await,
         TxKind::Call(victim_addr),
@@ -1235,7 +1250,7 @@ async fn get_signed_seismic_tx_bytes_with_gas_price(
     recent_block_hash: B256,
     gas_price: u128,
 ) -> Bytes {
-    let mut tx = get_unsigned_seismic_tx_request(
+    let mut tx = get_unsigned_seismic_call_request(
         sk_wallet,
         nonce,
         to,
@@ -1258,7 +1273,7 @@ async fn test_usdc_only_eth_call_signed_bytes() -> eyre::Result<()> {
     let signer = usdc_only_signer();
     let output = EthApiOverrideClient::<Block>::call(
         &client,
-        get_signed_seismic_tx_bytes(
+        get_signed_seismic_call_bytes(
             &signer,
             get_nonce(&client, signer.address()).await,
             TxKind::Call(contract_addr),
@@ -1288,7 +1303,7 @@ async fn test_usdc_only_eth_simulate_v1() -> eyre::Result<()> {
         rpc_test_deploy_contract(&mut node, &client, chain_id, &wallet).await?;
 
     let signer = usdc_only_signer();
-    let tx_bytes = get_signed_seismic_tx_bytes(
+    let tx_bytes = get_signed_seismic_call_bytes(
         &signer,
         get_nonce(&client, signer.address()).await,
         TxKind::Call(contract_addr),
@@ -1317,13 +1332,365 @@ async fn test_usdc_only_eth_simulate_v1() -> eyre::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn test_simulate_v1_full_transactions_keep_signed_read_calldata_encrypted() -> eyre::Result<()>
+{
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let contract_addr = flagged_storage_deploy_and_write(
+        &mut node,
+        &client,
+        chain_id,
+        &wallet,
+        FLAGGED_STORAGE_SET_PRIVATE,
+        U256::from(42),
+    )
+    .await?;
+
+    let block_hash = get_recent_block_hash(&client).await;
+    let set_private_calldata =
+        get_input_data(FLAGGED_STORAGE_SET_PRIVATE, B256::from(U256::from(99)));
+    let tx_bytes = get_signed_seismic_call_bytes(
+        &wallet.inner,
+        get_nonce(&client, wallet.inner.address()).await,
+        TxKind::Call(contract_addr),
+        chain_id,
+        set_private_calldata.clone(),
+        block_hash,
+    )
+    .await;
+
+    let payload = SimulatePayload::<SeismicCallRequest> {
+        block_state_calls: vec![SimBlock {
+            block_overrides: None,
+            state_overrides: None,
+            calls: vec![SeismicCallRequest::Bytes(tx_bytes)],
+        }],
+        trace_transfers: false,
+        validation: false,
+        return_full_transactions: true,
+    };
+
+    let mut result = EthApiOverrideClient::<Block>::simulate_v1(&client, payload, None)
+        .await
+        .expect("simulate_v1 must succeed for signed encrypted calldata");
+    assert_eq!(result.len(), 1, "expected one simulated block");
+
+    let simulated_block = result.remove(0);
+    assert_eq!(simulated_block.calls.len(), 1, "expected one simulated call result");
+
+    let returned_transactions_root = simulated_block.inner.header.transactions_root;
+    let mut transactions = simulated_block.inner.into_transactions_vec();
+    assert_eq!(transactions.len(), 1, "return_full_transactions should return full tx objects");
+
+    let returned_tx = transactions.remove(0);
+    let returned_input = returned_tx.input();
+    assert_ne!(
+        returned_input, &set_private_calldata,
+        "simulateV1 full transaction input leaked decrypted signed-read calldata"
+    );
+    let returned_hash = TransactionResponse::tx_hash(&returned_tx);
+    let recomputed_hash = alloy_primitives::keccak256(returned_tx.inner.encoded_2718());
+    assert_eq!(
+        returned_hash, recomputed_hash,
+        "simulateV1 full transaction hash should match the restored ciphertext input"
+    );
+    let recomputed_transactions_root =
+        calculate_transaction_root(std::slice::from_ref(&returned_tx.inner));
+    assert_eq!(
+        returned_transactions_root, recomputed_transactions_root,
+        "simulateV1 transaction root should match the restored ciphertext transaction"
+    );
+
+    Ok(())
+}
+
+// RevertLeak test contract: reverts with a decimal-formatted private (`suint256`) value baked
+// into the revert reason string, simulating a contract author accidentally leaking a private
+// value via a custom revert (e.g. `revert InsufficientBalance(actualBalance)`).
+//
+// Solidity source (compiled with seismic solc, evm-version=mercury):
+//
+//   contract RevertLeak {
+//       suint256 private secret;
+//       function setSecret(suint256 value) public { secret = value; }
+//       function revertWithSecret() public view {
+//           uint256 revealed = uint256(secret);
+//           revert(string(abi.encodePacked("secret=", toString(revealed))));
+//       }
+//       function toString(uint256 value) internal pure returns (string memory) { ... }
+//   }
+const REVERT_LEAK_DEPLOY_BYTECODE: &[u8] = &hex!("6080604052348015600e575f5ffd5b506105e78061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610034575f3560e01c80638987b12814610038578063e0f7bec414610054575b5f5ffd5b610052600480360381019061004d9190610260565b61005e565b005b61005c610067565b005b805f8190b15050565b5f5fb09050610075816100d0565b6040516020016100859190610327565b6040516020818303038152906040526040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016100c791906103a0565b60405180910390fd5b60605f8203610116576040518060400160405280600181526020017f30000000000000000000000000000000000000000000000000000000000000008152509050610224565b5f8290505f5b5f821461014557808061012e906103f6565b915050600a8261013e919061046a565b915061011c565b5f8167ffffffffffffffff8111156101605761015f61049a565b5b6040519080825280601f01601f1916602001820160405280156101925781602001600182028036833780820191505090505b5090505b5f851461021d576001826101aa91906104c7565b9150600a856101b991906104fa565b60306101c5919061052a565b60f81b8183815181106101db576101da61055d565b5b60200101907effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff191690815f1a905350600a85610216919061046a565b9450610196565b8093505050505b919050565b5f5ffd5b5f819050919050565b61023f8161022d565b8114610249575f5ffd5b50565b5f8135905061025a81610236565b92915050565b5f6020828403121561027557610274610229565b5b5f6102828482850161024c565b91505092915050565b5f81905092915050565b7f7365637265743d000000000000000000000000000000000000000000000000005f82015250565b5f6102c960078361028b565b91506102d482610295565b600782019050919050565b5f81519050919050565b8281835e5f83830152505050565b5f610301826102df565b61030b818561028b565b935061031b8185602086016102e9565b80840191505092915050565b5f610331826102bd565b915061033d82846102f7565b915081905092915050565b5f82825260208201905092915050565b5f601f19601f8301169050919050565b5f610372826102df565b61037c8185610348565b935061038c8185602086016102e9565b61039581610358565b840191505092915050565b5f6020820190508181035f8301526103b88184610368565b905092915050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52601160045260245ffd5b5f819050919050565b5f610400826103ed565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8203610432576104316103c0565b5b600182019050919050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52601260045260245ffd5b5f610474826103ed565b915061047f836103ed565b92508261048f5761048e61043d565b5b828204905092915050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52604160045260245ffd5b5f6104d1826103ed565b91506104dc836103ed565b92508282039050818111156104f4576104f36103c0565b5b92915050565b5f610504826103ed565b915061050f836103ed565b92508261051f5761051e61043d565b5b828206905092915050565b5f610534826103ed565b915061053f836103ed565b9250828201905080821115610557576105566103c0565b5b92915050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52603260045260245ffdfea2646970667358221220efc2a5dedbd6d373c0639d2ee3f210d4206d14702d22025bd9da8b583389b2f664736f6c637829302e382e33312d646576656c6f702e323032352e31312e31322b636f6d6d69742e3464313362633133005a");
+const REVERT_LEAK_SET_SECRET: &str = "8987b128"; // setSecret(suint256)
+const REVERT_LEAK_REVERT_WITH_SECRET: &str = "e0f7bec4"; // revertWithSecret()
+
+/// Deploy the `RevertLeak` test contract and set its private `secret` field via a signed
+/// (encrypted) seismic write transaction, returning the contract address.
+async fn revert_leak_deploy_and_set_secret(
+    node: &mut SeismicTestNode,
+    client: &jsonrpsee::http_client::HttpClient,
+    chain_id: u64,
+    wallet: &Wallet,
+    secret: U256,
+) -> eyre::Result<Address> {
+    let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
+        client,
+        get_signed_deploy_tx_bytes(
+            wallet.inner.clone(),
+            get_nonce(client, wallet.inner.address()).await,
+            chain_id,
+            Bytes::from_static(REVERT_LEAK_DEPLOY_BYTECODE),
+        )
+        .await
+        .into(),
+    )
+    .await
+    .unwrap();
+    node.advance_block().await?;
+
+    let receipt = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::transaction_receipt(client, tx_hash)
+    .await
+    .unwrap()
+    .unwrap();
+    let contract_addr = receipt.contract_address.unwrap();
+    assert!(receipt.status());
+
+    let block_hash = get_recent_block_hash(client).await;
+    let set_data = get_input_data(REVERT_LEAK_SET_SECRET, B256::from(secret));
+    EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::send_raw_transaction(
+        client,
+        get_signed_seismic_tx_bytes(
+            &wallet.inner,
+            get_nonce(client, wallet.inner.address()).await,
+            TxKind::Call(contract_addr),
+            chain_id,
+            set_data,
+            block_hash,
+        )
+        .await,
+    )
+    .await
+    .unwrap();
+    node.advance_block().await?;
+
+    Ok(contract_addr)
+}
+
+/// `eth_call`: a signed (encrypted) read that reverts must not leak the private value embedded
+/// in the revert reason in cleartext. The signer proved possession of the decryption key by
+/// submitting a signed request, so revert output deserves the same encryption guarantee as a
+/// successful return value.
+///
+/// Regression test for an audit finding: `eth_call` needs to encrypt revert data if it exists.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_call_signed_read_revert_leaks_private_data() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let secret = U256::from(1337);
+    let contract_addr =
+        revert_leak_deploy_and_set_secret(&mut node, &client, chain_id, &wallet, secret).await?;
+
+    let block_hash = get_recent_block_hash(&client).await;
+    let revert_calldata: Bytes = hex::decode(REVERT_LEAK_REVERT_WITH_SECRET).unwrap().into();
+    let nonce = get_nonce(&client, wallet.inner.address()).await;
+    let tx_bytes = get_signed_seismic_call_bytes(
+        &wallet.inner,
+        nonce,
+        TxKind::Call(contract_addr),
+        chain_id,
+        revert_calldata,
+        block_hash,
+    )
+    .await;
+
+    let result =
+        EthApiOverrideClient::<Block>::call(&client, tx_bytes.into(), None, None, None).await;
+
+    let err = result.expect_err("revertWithSecret() must revert");
+    let err_msg = err.to_string();
+    assert!(
+        !err_msg.contains(&secret.to_string()),
+        "eth_call leaked private value {secret} in signed-read revert message: {err_msg}"
+    );
+    Ok(())
+}
+
+/// `eth_callMany`: same leak as `eth_call`, but via the bundled path — the per-call `error`
+/// string in `EthCallResponse` embeds the decoded revert reason in cleartext for signed reads.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_call_many_signed_read_revert_leaks_private_data() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let secret = U256::from(2024);
+    let contract_addr =
+        revert_leak_deploy_and_set_secret(&mut node, &client, chain_id, &wallet, secret).await?;
+
+    let block_hash = get_recent_block_hash(&client).await;
+    let revert_calldata: Bytes = hex::decode(REVERT_LEAK_REVERT_WITH_SECRET).unwrap().into();
+    let nonce = get_nonce(&client, wallet.inner.address()).await;
+    let tx_bytes = get_signed_seismic_call_bytes(
+        &wallet.inner,
+        nonce,
+        TxKind::Call(contract_addr),
+        chain_id,
+        revert_calldata,
+        block_hash,
+    )
+    .await;
+
+    let bundle = Bundle::from(vec![SeismicCallRequest::Bytes(tx_bytes)]);
+    let mut results = EthApiOverrideClient::<Block>::call_many(&client, vec![bundle], None, None)
+        .await
+        .expect("callMany RPC call should return per-call results, not a top-level error");
+
+    assert_eq!(results.len(), 1, "expected one bundle result");
+    let mut bundle_results = results.remove(0);
+    assert_eq!(bundle_results.len(), 1, "expected one call result");
+    let call_result = bundle_results.remove(0);
+
+    let err_msg =
+        call_result.error.expect("revertWithSecret() must produce a per-call error via callMany");
+    assert!(
+        !err_msg.contains(&secret.to_string()),
+        "eth_callMany leaked private value {secret} in signed-read revert message: {err_msg}"
+    );
+
+    // The error string carries the encrypted revert output as hex; the signer must be able to
+    // decrypt it and recover the plaintext revert reason.
+    let ciphertext_hex = err_msg
+        .strip_prefix("execution reverted: 0x")
+        .expect("signed-read revert error should embed the encrypted revert output");
+    let ciphertext: Bytes = hex::decode(ciphertext_hex).unwrap().into();
+    let metadata = get_signed_read_seismic_metadata(
+        wallet.inner.address(),
+        chain_id,
+        nonce,
+        TxKind::Call(contract_addr),
+        U256::ZERO,
+        block_hash,
+    );
+    let decrypted = client_decrypt(metadata, &ciphertext).unwrap();
+    let reason = alloy_sol_types::RevertReason::decode(&decrypted)
+        .expect("decrypted revert output should decode")
+        .to_string();
+    assert!(
+        reason.contains(&format!("secret={secret}")),
+        "decrypted revert reason should contain the secret, got: {reason}"
+    );
+    Ok(())
+}
+
+/// `eth_estimateGas`: same leak — a signed read that would revert on execution surfaces the
+/// decoded revert reason (with the private value embedded) in cleartext.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_estimate_gas_signed_read_revert_leaks_private_data() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let secret = U256::from(5551234);
+    let contract_addr =
+        revert_leak_deploy_and_set_secret(&mut node, &client, chain_id, &wallet, secret).await?;
+
+    let block_hash = get_recent_block_hash(&client).await;
+    let revert_calldata: Bytes = hex::decode(REVERT_LEAK_REVERT_WITH_SECRET).unwrap().into();
+    let nonce = get_nonce(&client, wallet.inner.address()).await;
+    let tx_bytes = get_signed_seismic_call_bytes(
+        &wallet.inner,
+        nonce,
+        TxKind::Call(contract_addr),
+        chain_id,
+        revert_calldata,
+        block_hash,
+    )
+    .await;
+
+    let result =
+        EthApiOverrideClient::<Block>::estimate_gas(&client, tx_bytes.into(), None, None).await;
+
+    let err = result.expect_err("revertWithSecret() must revert during gas estimation");
+    let err_msg = err.to_string();
+    assert!(
+        !err_msg.contains(&secret.to_string()),
+        "eth_estimateGas leaked private value {secret} in signed-read revert message: {err_msg}"
+    );
+    Ok(())
+}
+
+/// `eth_simulateV1`: the per-call `error.message` for a signed-read revert embeds the decoded
+/// revert reason in cleartext, independent of `return_data` (which is already re-encrypted).
+#[tokio::test(flavor = "multi_thread")]
+async fn test_simulate_v1_signed_read_revert_message_leaks_private_data() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let secret = U256::from(9988776);
+    let contract_addr =
+        revert_leak_deploy_and_set_secret(&mut node, &client, chain_id, &wallet, secret).await?;
+
+    let block_hash = get_recent_block_hash(&client).await;
+    let revert_calldata: Bytes = hex::decode(REVERT_LEAK_REVERT_WITH_SECRET).unwrap().into();
+    let nonce = get_nonce(&client, wallet.inner.address()).await;
+    let tx_bytes = get_signed_seismic_call_bytes(
+        &wallet.inner,
+        nonce,
+        TxKind::Call(contract_addr),
+        chain_id,
+        revert_calldata,
+        block_hash,
+    )
+    .await;
+
+    let payload = SimulatePayload::<SeismicCallRequest> {
+        block_state_calls: vec![SimBlock {
+            block_overrides: None,
+            state_overrides: None,
+            calls: vec![SeismicCallRequest::Bytes(tx_bytes)],
+        }],
+        trace_transfers: false,
+        validation: false,
+        return_full_transactions: false,
+    };
+
+    let mut result = EthApiOverrideClient::<Block>::simulate_v1(&client, payload, None)
+        .await
+        .expect("simulate_v1 must succeed at the top level even if the call reverts");
+    assert_eq!(result.len(), 1, "expected one simulated block");
+
+    let simulated_block = result.remove(0);
+    assert_eq!(simulated_block.calls.len(), 1, "expected one simulated call result");
+    let call_result = &simulated_block.calls[0];
+
+    assert!(!call_result.status, "revertWithSecret() call should not succeed");
+    let err_msg = call_result
+        .error
+        .as_ref()
+        .expect("revertWithSecret() must produce a SimulateError")
+        .message
+        .clone();
+    assert!(
+        !err_msg.contains(&secret.to_string()),
+        "eth_simulateV1 leaked private value {secret} in signed-read revert message: {err_msg}"
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn test_usdc_only_eth_estimate_gas_typed_data() -> eyre::Result<()> {
     let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
     let (contract_addr, recent_block_hash) =
         rpc_test_deploy_contract(&mut node, &client, chain_id, &wallet).await?;
 
     let signer = usdc_only_signer();
-    let typed = get_signed_seismic_tx_typed_data(
+    let typed = get_signed_seismic_call_typed_data(
         &signer,
         get_nonce(&client, signer.address()).await,
         TxKind::Call(contract_addr),
@@ -1388,6 +1755,15 @@ async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
     let recent = get_recent_block_hash(&client).await;
     let nonce = get_nonce(&client, signer.address()).await;
 
+    let estimate_bytes = get_signed_seismic_call_bytes(
+        &signer,
+        nonce,
+        TxKind::Call(usdc),
+        chain_id,
+        plaintext.clone(),
+        recent,
+    )
+    .await;
     let signed_bytes = get_signed_seismic_tx_bytes(
         &signer,
         nonce,
@@ -1397,14 +1773,10 @@ async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
         recent,
     )
     .await;
-    let estimate = EthApiOverrideClient::<Block>::estimate_gas(
-        &client,
-        signed_bytes.clone().into(),
-        None,
-        None,
-    )
-    .await
-    .expect("eth_estimateGas must succeed for USDC-only wallet");
+    let estimate =
+        EthApiOverrideClient::<Block>::estimate_gas(&client, estimate_bytes.into(), None, None)
+            .await
+            .expect("eth_estimateGas must succeed for USDC-only wallet");
     assert!(estimate > U256::ZERO);
 
     let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(&client, signed_bytes.into())
@@ -1534,7 +1906,7 @@ async fn test_eth_simulate_v1_rejects_storage_override() -> eyre::Result<()> {
     state_overrides
         .insert(victim_addr, AccountOverride { state_diff: Some(storage), ..Default::default() });
 
-    let tx_bytes = get_signed_seismic_tx_bytes(
+    let tx_bytes = get_signed_seismic_call_bytes(
         &wallet.inner,
         get_nonce(&client, wallet.inner.address()).await,
         TxKind::Call(victim_addr),
@@ -1652,9 +2024,15 @@ async fn test_eth_call_many_allows_signed_cload_on_private_storage() -> eyre::Re
     let nonce = get_nonce(&client, wallet.inner.address()).await;
     let to = TxKind::Call(contract_addr);
 
-    let signed_bytes =
-        get_signed_seismic_tx_bytes(&wallet.inner, nonce, to, chain_id, read_calldata, block_hash)
-            .await;
+    let signed_bytes = get_signed_seismic_call_bytes(
+        &wallet.inner,
+        nonce,
+        to,
+        chain_id,
+        read_calldata,
+        block_hash,
+    )
+    .await;
 
     let bundle = Bundle::from(vec![SeismicCallRequest::Bytes(signed_bytes)]);
     let mut results = EthApiOverrideClient::<Block>::call_many(&client, vec![bundle], None, None)
@@ -1667,8 +2045,83 @@ async fn test_eth_call_many_allows_signed_cload_on_private_storage() -> eyre::Re
     let call_result = bundle_results.remove(0);
     let value = call_result.value.expect("call should have produced a value");
 
-    let metadata =
-        get_seismic_metadata(wallet.inner.address(), chain_id, nonce, to, U256::ZERO, block_hash);
+    let metadata = get_signed_read_seismic_metadata(
+        wallet.inner.address(),
+        chain_id,
+        nonce,
+        to,
+        U256::ZERO,
+        block_hash,
+    );
+    let decrypted = client_decrypt(metadata, &value).unwrap();
+    assert_eq!(U256::from_be_slice(&decrypted), U256::from(42));
+    Ok(())
+}
+
+/// `eth_callMany` must preserve later bundle results even when an earlier bundle is empty.
+///
+/// Upstream skips empty bundles entirely, so the non-empty bundle below should still produce the
+/// same single successful signed-read result as
+/// `test_eth_call_many_allows_signed_cload_on_private_storage`.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_call_many_skips_empty_bundle_without_dropping_later_results() -> eyre::Result<()>
+{
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let contract_addr = flagged_storage_deploy_and_write(
+        &mut node,
+        &client,
+        chain_id,
+        &wallet,
+        FLAGGED_STORAGE_SET_PRIVATE,
+        U256::from(42),
+    )
+    .await?;
+
+    let block_hash = get_recent_block_hash(&client).await;
+    let read_calldata: Bytes = hex::decode(FLAGGED_STORAGE_READ_PRIVATE_CLOAD).unwrap().into();
+    let nonce = get_nonce(&client, wallet.inner.address()).await;
+    let to = TxKind::Call(contract_addr);
+
+    let signed_bytes = get_signed_seismic_call_bytes(
+        &wallet.inner,
+        nonce,
+        to,
+        chain_id,
+        read_calldata,
+        block_hash,
+    )
+    .await;
+
+    let empty_bundle = Bundle::<SeismicCallRequest>::default();
+    let value_bundle = Bundle::from(vec![SeismicCallRequest::Bytes(signed_bytes)]);
+    let mut results = EthApiOverrideClient::<Block>::call_many(
+        &client,
+        vec![empty_bundle, value_bundle],
+        None,
+        None,
+    )
+    .await
+    .expect("callMany should ignore empty bundles without dropping later bundle results");
+
+    assert_eq!(
+        results.len(),
+        1,
+        "empty bundles should be skipped rather than consuming later bundle results"
+    );
+    let mut bundle_results = results.remove(0);
+    assert_eq!(bundle_results.len(), 1, "expected one call result from the non-empty bundle");
+    let call_result = bundle_results.remove(0);
+    let value = call_result.value.expect("call should have produced a value");
+
+    let metadata = get_signed_read_seismic_metadata(
+        wallet.inner.address(),
+        chain_id,
+        nonce,
+        to,
+        U256::ZERO,
+        block_hash,
+    );
     let decrypted = client_decrypt(metadata, &value).unwrap();
     assert_eq!(U256::from_be_slice(&decrypted), U256::from(42));
     Ok(())
@@ -1695,7 +2148,7 @@ async fn test_eth_call_many_rejects_signed_read_with_stale_recent_block_hash() -
     let stale_block_hash = B256::ZERO;
     let read_calldata: Bytes = hex::decode(FLAGGED_STORAGE_READ_PRIVATE_CLOAD).unwrap().into();
     let nonce = get_nonce(&client, wallet.inner.address()).await;
-    let signed_bytes = get_signed_seismic_tx_bytes(
+    let signed_bytes = get_signed_seismic_call_bytes(
         &wallet.inner,
         nonce,
         TxKind::Call(contract_addr),

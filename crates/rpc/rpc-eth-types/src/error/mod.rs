@@ -861,6 +861,14 @@ impl RevertError {
     pub const fn error_code(&self) -> i32 {
         EthRpcErrorCode::ExecutionError.code()
     }
+
+    /// Returns the raw revert output bytes, if any.
+    ///
+    /// This is intended for callers that need to inspect or transform the revm output
+    /// (e.g. to re-encrypt it for a networks whose calls may return confidential data).
+    pub const fn output(&self) -> Option<&Bytes> {
+        self.output.as_ref()
+    }
 }
 
 impl std::fmt::Display for RevertError {
