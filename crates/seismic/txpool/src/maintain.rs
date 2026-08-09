@@ -140,3 +140,179 @@ pub fn stale_seismic_hashes<'a>(
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_consensus::transaction::Recovered;
+    use alloy_eips::Encodable2718;
+    use alloy_primitives::{Address, FlaggedStorage, B256, U256};
+    use reth_provider::test_utils::{ExtendedAccount, MockEthProvider};
+    use reth_seismic_primitives::test_utils::get_signed_seismic_tx;
+    use reth_transaction_pool::identifier::{SenderId, TransactionId};
+    use std::time::Instant;
+
+    /// Builds a pooled Seismic tx referencing `recent_block_hash`. Mirrors
+    /// `txpool/benches/eviction_scan.rs::make_tx`; the default
+    /// `expires_at_block` baked into [`get_signed_seismic_tx`] is `1_000_000`
+    /// (see `reth_seismic_primitives::test_utils::get_seismic_elements`).
+    fn make_tx(recent_block_hash: B256) -> Arc<ValidPoolTransaction<SeismicPooledTransaction>> {
+        let recovered =
+            Recovered::new_unchecked(get_signed_seismic_tx(recent_block_hash), Address::ZERO);
+        let len = recovered.encode_2718_len();
+        Arc::new(ValidPoolTransaction {
+            transaction: SeismicPooledTransaction::new(recovered, len),
+            transaction_id: TransactionId::new(SenderId::from(1u64), 1),
+            propagate: true,
+            timestamp: Instant::now(),
+            origin: TransactionOrigin::External,
+            authority_ids: None,
+        })
+    }
+
+    // ---- stale_seismic_hashes ----
+
+    #[test]
+    fn stale_seismic_hashes_keeps_fresh_tx() {
+        let hash = B256::repeat_byte(1);
+        let mut cache = RecentBlockCache::new(10);
+        // `rebuild` marks the cache complete (`incomplete_until = 0`), tip well within the
+        // tx's default 1_000_000 expiry, and the tx's own recent_block_hash is present.
+        cache.rebuild(std::iter::once((hash, 100)));
+        let tx = make_tx(hash);
+
+        let stale = stale_seismic_hashes(std::iter::once(&tx), &cache);
+        assert!(stale.is_empty(), "a tx within its lookback window and not expired must not evict");
+    }
+
+    #[test]
+    fn stale_seismic_hashes_evicts_expired_tx() {
+        let hash = B256::repeat_byte(1);
+        let mut cache = RecentBlockCache::new(10);
+        // recent_block_hash is present (isolates the expiry check), but the tip is past the
+        // tx's default expires_at_block of 1_000_000.
+        cache.rebuild(std::iter::once((hash, 1_000_001)));
+        let tx = make_tx(hash);
+
+        let stale = stale_seismic_hashes(std::iter::once(&tx), &cache);
+        assert_eq!(stale, vec![*tx.hash()], "a tx past its expires_at_block must be evicted");
+    }
+
+    #[test]
+    fn stale_seismic_hashes_evicts_when_recent_hash_missing_and_cache_complete() {
+        let referenced_hash = B256::repeat_byte(1); // what the tx points at
+        let cached_hash = B256::repeat_byte(2); // what's actually canonical
+        let mut cache = RecentBlockCache::new(10);
+        // Complete cache (rebuild -> incomplete_until = 0) that never saw `referenced_hash`,
+        // e.g. because it was reorged out. Tip (50) is well within the expiry window, so this
+        // isolates the recent_block_hash check from the expiry check.
+        cache.rebuild(std::iter::once((cached_hash, 50)));
+        let tx = make_tx(referenced_hash);
+
+        let stale = stale_seismic_hashes(std::iter::once(&tx), &cache);
+        assert_eq!(
+            stale,
+            vec![*tx.hash()],
+            "a tx whose recent_block_hash isn't canonical must be evicted once the cache is complete"
+        );
+    }
+
+    #[test]
+    fn stale_seismic_hashes_does_not_evict_when_cache_incomplete() {
+        // A freshly constructed cache starts incomplete (`incomplete_until = u64::MAX`,
+        // `current_block_number = 0`) until the first successful rebuild.
+        let cache = RecentBlockCache::new(10);
+        assert!(!cache.is_complete());
+        let tx = make_tx(B256::repeat_byte(1)); // hash the cache never saw
+
+        let stale = stale_seismic_hashes(std::iter::once(&tx), &cache);
+        assert!(
+            stale.is_empty(),
+            "a transient cache hole must not evict a possibly-valid tx (see is_complete docs)"
+        );
+    }
+
+    #[test]
+    fn stale_seismic_hashes_filters_multiple_txs_independently() {
+        let known_hash = B256::repeat_byte(1);
+        let unknown_hash = B256::repeat_byte(2);
+        let mut cache = RecentBlockCache::new(10);
+        cache.rebuild(std::iter::once((known_hash, 50)));
+
+        let fresh_tx = make_tx(known_hash);
+        let stale_tx = make_tx(unknown_hash);
+        let txs = vec![fresh_tx.clone(), stale_tx.clone()];
+
+        let stale = stale_seismic_hashes(txs.iter(), &cache);
+        assert_eq!(
+            stale,
+            vec![*stale_tx.hash()],
+            "only the tx with the missing recent_block_hash should be reported stale"
+        );
+    }
+
+    // ---- SeismicBalanceHook ----
+
+    #[test]
+    fn balance_hook_augments_balance_with_usdc() {
+        let addr = Address::with_last_byte(0xab);
+        let key = crate::usdc::usdc_balance_storage_key(&addr);
+        let raw_usdc = U256::from(5_000_000u64); // 5 USDC at 6 decimals
+
+        let provider = MockEthProvider::default();
+        provider.add_account(
+            crate::usdc::USDC_CONTRACT,
+            ExtendedAccount::new(0, U256::ZERO)
+                .extend_storage([(key, FlaggedStorage::new(raw_usdc, false))]),
+        );
+
+        let native = U256::from(1_000u64);
+        let mut accounts = vec![ChangedAccount { address: addr, nonce: 0, balance: native }];
+        SeismicBalanceHook.transform(&provider, &mut accounts);
+
+        let scaled_usdc = raw_usdc * crate::usdc::USDC_DECIMAL_SCALE;
+        assert_eq!(accounts[0].balance, native + scaled_usdc);
+    }
+
+    #[test]
+    fn balance_hook_leaves_balance_unchanged_without_usdc() {
+        let addr = Address::with_last_byte(0xcd);
+        let provider = MockEthProvider::default(); // no USDC storage for `addr`
+        let native = U256::from(777u64);
+        let mut accounts = vec![ChangedAccount { address: addr, nonce: 3, balance: native }];
+
+        SeismicBalanceHook.transform(&provider, &mut accounts);
+
+        assert_eq!(accounts[0].balance, native);
+        assert_eq!(accounts[0].nonce, 3, "transform must only touch balance");
+    }
+
+    #[test]
+    fn balance_hook_augments_multiple_accounts_independently() {
+        let addr_with_usdc = Address::with_last_byte(0x01);
+        let addr_without_usdc = Address::with_last_byte(0x02);
+        let key = crate::usdc::usdc_balance_storage_key(&addr_with_usdc);
+        let raw_usdc = U256::from(1_000_000u64); // 1 USDC
+
+        let provider = MockEthProvider::default();
+        provider.add_account(
+            crate::usdc::USDC_CONTRACT,
+            ExtendedAccount::new(0, U256::ZERO)
+                .extend_storage([(key, FlaggedStorage::new(raw_usdc, false))]),
+        );
+
+        let mut accounts = vec![
+            ChangedAccount { address: addr_with_usdc, nonce: 0, balance: U256::from(10u64) },
+            ChangedAccount { address: addr_without_usdc, nonce: 0, balance: U256::from(20u64) },
+        ];
+        SeismicBalanceHook.transform(&provider, &mut accounts);
+
+        let scaled_usdc = raw_usdc * crate::usdc::USDC_DECIMAL_SCALE;
+        assert_eq!(accounts[0].balance, U256::from(10u64) + scaled_usdc);
+        assert_eq!(
+            accounts[1].balance,
+            U256::from(20u64),
+            "account without USDC storage is untouched"
+        );
+    }
+}
