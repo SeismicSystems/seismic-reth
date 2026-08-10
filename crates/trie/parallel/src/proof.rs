@@ -140,7 +140,6 @@ where
         debug!(
             target: "trie::parallel_proof",
             total_targets,
-            ?hashed_address,
             "Starting storage proof generation"
         );
 

@@ -446,7 +446,6 @@ where
             trace!(
                 target: "engine::root",
                 proof_sequence_number,
-                ?proof_targets,
                 storage_targets,
                 "Starting dedicated storage proof calculation",
             );
@@ -518,7 +517,6 @@ where
             trace!(
                 target: "engine::root",
                 proof_sequence_number,
-                ?proof_targets,
                 account_targets,
                 storage_targets,
                 ?source,

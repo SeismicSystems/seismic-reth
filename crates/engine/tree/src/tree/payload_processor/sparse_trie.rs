@@ -188,7 +188,7 @@ where
                     continue;
                 }
 
-                trace!(target: "engine::root::sparse", ?slot_nibbles, "Updating storage slot");
+                trace!(target: "engine::root::sparse", "Updating storage slot");
                 storage_trie.update_leaf(
                     slot_nibbles,
                     alloy_rlp::encode_fixed_size(&value).to_vec(),
@@ -198,7 +198,7 @@ where
             }
 
             for slot_nibbles in removed_slots {
-                trace!(target: "engine::root::sparse", ?slot_nibbles, "Removing storage slot");
+                trace!(target: "engine::root::sparse", "Removing storage slot");
                 storage_trie.remove_leaf(&slot_nibbles, &storage_provider)?;
             }
 
@@ -223,7 +223,7 @@ where
         if let Some(account) = state.accounts.remove(&address) {
             // If the account itself has an update, remove it from the state update and update in
             // one go instead of doing it down below.
-            trace!(target: "engine::root::sparse", ?address, "Updating account and its storage root");
+            trace!(target: "engine::root::sparse", "Updating account and its storage root");
             if !trie.update_account(
                 address,
                 account.unwrap_or_default(),
@@ -233,7 +233,7 @@ where
             }
         } else if trie.is_account_revealed(address) {
             // Otherwise, if the account is revealed, only update its storage root.
-            trace!(target: "engine::root::sparse", ?address, "Updating account storage root");
+            trace!(target: "engine::root::sparse", "Updating account storage root");
             if !trie.update_account_storage_root(address, blinded_provider_factory)? {
                 removed_accounts.push(address);
             }

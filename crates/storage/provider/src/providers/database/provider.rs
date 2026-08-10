@@ -1999,7 +1999,6 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
             storage.par_sort_unstable_by_key(|a| a.key);
 
             for entry in storage {
-                tracing::trace!(?address, ?entry.key, "Updating plain state storage");
                 if let Some(db_entry) = storages_cursor.seek_by_key_subkey(address, entry.key)? {
                     if db_entry.key == entry.key {
                         storages_cursor.delete_current()?;

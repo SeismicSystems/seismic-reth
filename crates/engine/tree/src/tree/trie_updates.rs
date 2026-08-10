@@ -75,23 +75,20 @@ impl StorageTrieUpdatesDiff {
             database: database_not_exists,
         }) = self.is_deleted
         {
-            warn!(target: "engine::tree", ?address, ?task_deleted, ?regular_deleted, ?database_not_exists, "Difference in storage trie deletion");
+            warn!(target: "engine::tree", ?task_deleted, ?regular_deleted, ?database_not_exists, "Difference in storage trie deletion");
         }
 
         for (path, EntryDiff { task, regular, database }) in &self.storage_nodes {
             warn!(target: "engine::tree", ?address, ?path, ?task, ?regular, ?database, "Difference in storage trie updates");
         }
 
-        for (
-            path,
-            EntryDiff {
-                task: task_removed,
-                regular: regular_removed,
-                database: database_not_exists,
-            },
-        ) in &self.removed_nodes
+        for EntryDiff {
+            task: task_removed,
+            regular: regular_removed,
+            database: database_not_exists,
+        } in self.removed_nodes.values()
         {
-            warn!(target: "engine::tree", ?address, ?path, ?task_removed, ?regular_removed, ?database_not_exists, "Difference in removed storage trie nodes");
+            warn!(target: "engine::tree", ?task_removed, ?regular_removed, ?database_not_exists, "Difference in removed storage trie nodes");
         }
     }
 }

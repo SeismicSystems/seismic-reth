@@ -611,7 +611,7 @@ where
     ///
     /// The storage root, number of walked entries and trie updates
     /// for a given address if requested.
-    #[instrument(skip_all, target = "trie::storage_root", name = "Storage trie", fields(hashed_address = ?self.hashed_address))]
+    #[instrument(skip_all, target = "trie::storage_root", name = "Storage trie")]
     pub fn calculate(self, retain_updates: bool) -> Result<StorageRootProgress, StorageRootError> {
         trace!(target: "trie::storage_root", "calculating storage root");
 
@@ -707,8 +707,6 @@ where
 
         trace!(
             target: "trie::storage_root",
-            %root,
-            hashed_address = %self.hashed_address,
             duration = ?stats.duration(),
             branches_added = stats.branches_added(),
             leaves_added = stats.leaves_added(),

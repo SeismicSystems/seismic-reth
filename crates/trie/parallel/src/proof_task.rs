@@ -266,11 +266,7 @@ where
         result_sender: Sender<StorageProofResult>,
         tx_sender: Sender<ProofTaskMessage<Tx>>,
     ) {
-        debug!(
-            target: "trie::proof_task",
-            hashed_address=?input.hashed_address,
-            "Starting storage proof task calculation"
-        );
+        debug!(target: "trie::proof_task", "Starting storage proof task calculation");
 
         let (trie_cursor_factory, hashed_cursor_factory) = self.create_factories();
         let multi_added_removed_keys = input
@@ -281,9 +277,8 @@ where
         let span = tracing::trace_span!(
             target: "trie::proof_task",
             "Storage proof calculation",
-            hashed_address=?input.hashed_address,
-            // Add a unique id because we often have parallel storage proof calculations for the
-            // same hashed address, and we want to differentiate them during trace analysis.
+            // Add a unique id because we often have parallel storage proof calculations, and we
+            // want to differentiate them during trace analysis.
             span_id=self.id,
         );
         let span_guard = span.enter();
@@ -388,12 +383,7 @@ where
         result_sender: Sender<TrieNodeProviderResult>,
         tx_sender: Sender<ProofTaskMessage<Tx>>,
     ) {
-        debug!(
-            target: "trie::proof_task",
-            ?account,
-            ?path,
-            "Starting blinded storage node retrieval"
-        );
+        debug!(target: "trie::proof_task", "Starting blinded storage node retrieval");
 
         let (trie_cursor_factory, hashed_cursor_factory) = self.create_factories();
 
@@ -407,8 +397,6 @@ where
         let result = blinded_provider_factory.storage_node_provider(account).trie_node(&path);
         debug!(
             target: "trie::proof_task",
-            ?account,
-            ?path,
             elapsed = ?start.elapsed(),
             "Completed blinded storage node retrieval"
         );
