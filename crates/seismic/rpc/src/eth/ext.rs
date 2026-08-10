@@ -493,7 +493,13 @@ where
         state_context: Option<StateContext>,
         state_override: Option<StateOverride>,
     ) -> RpcResult<Vec<Vec<EthCallResponse>>> {
-        debug!(target: "reth-seismic-rpc::eth", ?bundles, ?state_context, ?state_override, "Serving seismic eth_callMany extension");
+        debug!(
+            target: "reth-seismic-rpc::eth",
+            bundle_count = bundles.len(),
+            has_state_context = state_context.is_some(),
+            has_state_override = state_override.is_some(),
+            "Serving seismic eth_callMany extension"
+        );
 
         // Keep originals so we can encrypt return data per-call after the inner call_many.
         let seismic_bundles = bundles.clone();
@@ -584,7 +590,13 @@ where
         state_overrides: Option<StateOverride>,
         block_overrides: Option<Box<BlockOverrides>>,
     ) -> RpcResult<Bytes> {
-        debug!(target: "reth-seismic-rpc::eth", ?request, ?block_number, ?state_overrides, ?block_overrides, "Serving seismic eth_call extension");
+        debug!(
+            target: "reth-seismic-rpc::eth",
+            ?block_number,
+            has_state_overrides = state_overrides.is_some(),
+            has_block_overrides = block_overrides.is_some(),
+            "Serving seismic eth_call extension"
+        );
 
         let call = resolve_seismic_call(request)?;
         let plaintext_tx_req = seismic_call_to_plaintext_tx(
@@ -627,7 +639,10 @@ where
     /// We do this so that it is encrypted in the tx pool, so it is encrypted in blocks
     /// decryption during execution is handled by the [`SeismicBlockExecutor`]
     async fn send_raw_transaction(&self, tx: SeismicRawTxRequest) -> RpcResult<B256> {
-        debug!(target: "reth-seismic-rpc::eth", ?tx, "Serving overridden eth_sendRawTransaction extension");
+        debug!(
+            target: "reth-seismic-rpc::eth",
+            "Serving overridden eth_sendRawTransaction extension"
+        );
         let bytes = match tx {
             SeismicRawTxRequest::Bytes(bytes) => bytes,
             SeismicRawTxRequest::TypedData(typed_data) => {
@@ -653,7 +668,12 @@ where
         block_number: Option<BlockId>,
         state_override: Option<StateOverride>,
     ) -> RpcResult<U256> {
-        debug!(target: "reth-seismic-rpc::eth", ?request, ?block_number, ?state_override, "serving seismic eth_estimateGas extension");
+        debug!(
+            target: "reth-seismic-rpc::eth",
+            ?block_number,
+            has_state_override = state_override.is_some(),
+            "serving seismic eth_estimateGas extension"
+        );
 
         // Same sanitization as eth_call: unsigned requests have `from`,
         // gas/value fields, and seismic_elements cleared to prevent caller

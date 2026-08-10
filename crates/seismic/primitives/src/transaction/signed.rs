@@ -44,7 +44,7 @@ use alloy_evm::FromTxWithEncoded;
 /// which can be Seismic(TxSeismic) with additional fields, or Ethereum compatible transactions.
 #[cfg_attr(any(test, feature = "reth-codec"), reth_codecs::add_arbitrary_tests(rlp))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Eq, AsRef, Deref)]
+#[derive(Clone, Eq, AsRef, Deref)]
 pub struct SeismicTransactionSigned {
     /// Transaction hash
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -55,6 +55,18 @@ pub struct SeismicTransactionSigned {
     #[deref]
     #[as_ref]
     transaction: SeismicTypedTransaction,
+}
+
+// Confidential transaction fields must never be exposed by incidental `Debug` logging.
+impl core::fmt::Debug for SeismicTransactionSigned {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("SeismicTransactionSigned")
+            .field("hash", &self.hash.get())
+            .field("transaction_type", &Typed2718::ty(self))
+            .field("signature", &"<redacted>")
+            .field("transaction", &"<redacted>")
+            .finish()
+    }
 }
 
 impl SeismicTransactionSigned {
@@ -201,7 +213,7 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
             SeismicTypedTransaction::Seismic(tx) => TxEnv::from_recovered_tx(tx, sender),
         };
         let tx = Self { base, tx_hash, decryption_failed: false };
-        tracing::debug!("from_recovered_tx: tx: {:?}", tx);
+        tracing::debug!(%tx_hash, "converted recovered transaction");
         tx
     }
 }
@@ -745,10 +757,7 @@ mod tests {
         assert_eq!(recovered_signer, expected_signer);
     }
 
-    /// Build the EIP-2718 bytes of a signed seismic tx with the given `signed_read`/`to`.
-    /// The signature is arbitrary: the consensus decoder gates on `signed_read`/`to`
-    /// before any recovery, so a dummy signature exercises the path we care about.
-    fn encoded_seismic_tx(signed_read: bool, to: TxKind) -> Vec<u8> {
+    fn seismic_signed_tx(signed_read: bool, to: TxKind, input: Bytes) -> SeismicTransactionSigned {
         let tx = TxSeismic {
             chain_id: 5124,
             nonce: 0,
@@ -756,7 +765,7 @@ mod tests {
             gas_limit: 21_000,
             to,
             value: U256::ZERO,
-            input: Bytes::new(),
+            input,
             seismic_elements: TxSeismicElements {
                 encryption_pubkey: PublicKey::from_str(
                     "028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0",
@@ -771,8 +780,14 @@ mod tests {
             authorization_list: vec![],
         };
         let signature = Signature::new(U256::from(1u64), U256::from(1u64), false);
-        let signed =
-            SeismicTransactionSigned::new_unhashed(SeismicTypedTransaction::Seismic(tx), signature);
+        SeismicTransactionSigned::new_unhashed(SeismicTypedTransaction::Seismic(tx), signature)
+    }
+
+    /// Build the EIP-2718 bytes of a signed seismic tx with the given `signed_read`/`to`.
+    /// The signature is arbitrary: the consensus decoder gates on `signed_read`/`to`
+    /// before any recovery, so a dummy signature exercises the path we care about.
+    fn encoded_seismic_tx(signed_read: bool, to: TxKind) -> Vec<u8> {
+        let signed = seismic_signed_tx(signed_read, to, Bytes::new());
         let mut buf = Vec::new();
         signed.encode_2718(&mut buf);
         buf
@@ -846,6 +861,22 @@ mod tests {
 
             assert_eq!(actual_tx, expected_tx);
         }
+    }
+
+    #[test]
+    fn signed_transaction_debug_redacts_calldata() {
+        const PRIVATE_INPUT: &[u8] = b"private-signed-transaction-input";
+
+        let signed = seismic_signed_tx(
+            false,
+            TxKind::Call(Address::with_last_byte(1)),
+            Bytes::from_static(PRIVATE_INPUT),
+        );
+        let debug = format!("{signed:?}");
+        let marker = hex::encode(PRIVATE_INPUT);
+
+        assert!(debug.contains("<redacted>"));
+        assert!(!debug.contains(&marker), "private signed transaction input leaked: {debug}");
     }
 
     #[test]

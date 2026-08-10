@@ -56,8 +56,19 @@ use reth_rpc_convert::SignTxRequestError;
 use seismic_alloy_network::TxSigner;
 
 /// Newtype wrapper around `SeismicTransactionRequest` to implement `SignableTxRequest`
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct SignableSeismicTransactionRequest(pub SeismicTransactionRequest);
+
+// Requests can contain decrypted calldata, so `Debug` is intentionally redacted.
+impl fmt::Debug for SignableSeismicTransactionRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SignableSeismicTransactionRequest")
+            .field("transaction_type", &self.0.inner.transaction_type)
+            .field("has_seismic_elements", &self.0.seismic_elements.is_some())
+            .field("request", &"<redacted>")
+            .finish()
+    }
+}
 
 impl From<SeismicTransactionRequest> for SignableSeismicTransactionRequest {
     fn from(req: SeismicTransactionRequest) -> Self {
@@ -455,9 +466,27 @@ where
 #[cfg(test)]
 mod tests {
     use super::SignableSeismicTransactionRequest;
+    use alloy_primitives::Bytes;
+    use alloy_rpc_types_eth::{TransactionInput, TransactionRequest};
     use alloy_signer_local::PrivateKeySigner;
     use reth_rpc_convert::SignTxRequestError;
     use reth_rpc_eth_api::SignableTxRequest;
+
+    #[test]
+    fn debug_redacts_transaction_request_input() {
+        const PRIVATE_INPUT: &[u8] = b"private-signable-request-input";
+
+        let request = TransactionRequest {
+            input: TransactionInput { input: Some(Bytes::from_static(PRIVATE_INPUT)), data: None },
+            ..Default::default()
+        };
+        let request = SignableSeismicTransactionRequest::from(request);
+        let debug = format!("{request:?}");
+        let marker = alloy_primitives::hex::encode(PRIVATE_INPUT);
+
+        assert!(debug.contains("<redacted>"));
+        assert!(!debug.contains(&marker), "private request input leaked: {debug}");
+    }
 
     /// Seismic rejects node-side signing rather than returning a fabricated placeholder tx
     /// (Veridise 1204), so `eth_sendTransaction`/`eth_signTransaction` fail cleanly.

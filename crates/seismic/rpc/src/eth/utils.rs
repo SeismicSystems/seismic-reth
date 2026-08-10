@@ -1,5 +1,7 @@
 //! Utils for testing the seismic rpc api
 
+use core::fmt;
+
 use alloy_primitives::{Address, B256};
 use reth_primitives::Recovered;
 use reth_primitives_traits::SignedTransaction;
@@ -50,12 +52,23 @@ pub fn recover_typed_data_request<T: SignedTransaction + Decodable712>(
 }
 
 /// A resolved Seismic call, classified by its authenticated execution semantics.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum SeismicCall {
     /// An unsigned object-form request. Sender-sensitive fields have been sanitized.
     Transparent(SeismicTransactionRequest),
     /// A signed, call-only request whose `signed_read` intent is covered by its signature.
     SignedRead(SeismicTransactionRequest),
+}
+
+// Resolved signed reads contain plaintext calldata, so `Debug` only identifies the call kind.
+impl fmt::Debug for SeismicCall {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let kind = match self {
+            Self::Transparent(_) => "transparent",
+            Self::SignedRead(_) => "signed_read",
+        };
+        f.debug_struct("SeismicCall").field("kind", &kind).field("request", &"<redacted>").finish()
+    }
 }
 
 /// Resolve a wire-format [`SeismicCallRequest`] into a [`SeismicCall`].
@@ -272,7 +285,7 @@ mod test {
         hex::{self, FromHex},
         Address, Bytes, FixedBytes, Signature, B256, U256,
     };
-    use alloy_rpc_types::TransactionRequest;
+    use alloy_rpc_types::{TransactionInput, TransactionRequest};
     use reth_primitives_traits::SignedTransaction;
     use reth_seismic_primitives::SeismicTransactionSigned;
     use reth_seismic_test_utils::{get_seismic_tx, get_signing_private_key, sign_seismic_tx};
@@ -322,6 +335,27 @@ mod test {
         assert_eq!(req.inner.max_fee_per_blob_gas, None);
         assert_eq!(req.inner.value, None);
         assert!(req.seismic_elements.is_none());
+    }
+
+    #[test]
+    fn seismic_call_debug_redacts_request() {
+        const PRIVATE_INPUT: &[u8] = b"private-resolved-call-input";
+
+        let request = SeismicTransactionRequest {
+            inner: TransactionRequest {
+                input: TransactionInput {
+                    input: Some(Bytes::from_static(PRIVATE_INPUT)),
+                    data: None,
+                },
+                ..Default::default()
+            },
+            seismic_elements: Some(dummy_seismic_elements()),
+        };
+        let debug = format!("{:?}", SeismicCall::SignedRead(request));
+        let marker = hex::encode(PRIVATE_INPUT);
+
+        assert!(debug.contains("<redacted>"));
+        assert!(!debug.contains(&marker), "resolved call input leaked: {debug}");
     }
 
     fn signed_seismic_request(signed_read: bool, typed_data: bool) -> SeismicCallRequest {

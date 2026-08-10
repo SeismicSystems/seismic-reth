@@ -130,7 +130,13 @@ pub trait EstimateCall: Call {
             }
         }
 
-        trace!(target: "rpc::eth::estimate", ?tx_env, gas_limit = tx_env.gas_limit(), is_basic_transfer, "Starting gas estimation");
+        trace!(
+            target: "rpc::eth::estimate",
+            gas_limit = tx_env.gas_limit(),
+            gas_price = tx_env.gas_price(),
+            is_basic_transfer,
+            "Starting gas estimation"
+        );
 
         // Execute the transaction with the highest possible gas limit.
         let mut res = match evm.transact(tx_env.clone()).map_err(Self::Error::from_evm_err) {

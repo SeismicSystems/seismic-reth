@@ -5,7 +5,7 @@ use alloy_eips::{
 };
 use alloy_primitives::{Address, Bytes, TxHash, TxKind, B256, U256};
 use c_kzg::KzgSettings;
-use core::fmt::Debug;
+use core::fmt::{self, Debug};
 use reth_primitives_traits::{InMemorySize, SignedTransaction};
 use reth_seismic_primitives::SeismicTransactionSigned;
 use reth_transaction_pool::{
@@ -15,12 +15,23 @@ use seismic_alloy_consensus::SeismicTxEnvelope;
 use std::sync::Arc;
 
 /// Pool Transaction for Seismic.
-#[derive(Debug, Clone, derive_more::Deref)]
+#[derive(Clone, derive_more::Deref)]
 pub struct SeismicPooledTransaction<Cons = SeismicTransactionSigned, Pooled = SeismicTxEnvelope> {
     #[deref]
     inner: EthPooledTransaction<Cons>,
     /// The pooled transaction type.
     _pd: core::marker::PhantomData<Pooled>,
+}
+
+// Keep pooled transaction payloads out of incidental `Debug` logging.
+impl<Cons: SignedTransaction, Pooled> fmt::Debug for SeismicPooledTransaction<Cons, Pooled> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SeismicPooledTransaction")
+            .field("hash", self.inner.transaction.tx_hash())
+            .field("transaction_type", &self.inner.transaction.ty())
+            .field("transaction", &"<redacted>")
+            .finish()
+    }
 }
 
 impl<Cons: SignedTransaction, Pooled> SeismicPooledTransaction<Cons, Pooled> {
@@ -186,9 +197,9 @@ where
 #[allow(clippy::panic)] // Test code - panic on failure is acceptable
 mod tests {
     use crate::SeismicPooledTransaction;
-    use alloy_consensus::transaction::Recovered;
+    use alloy_consensus::{transaction::Recovered, Transaction as _};
     use alloy_eips::eip2718::Encodable2718;
-    use alloy_primitives::B256;
+    use alloy_primitives::{hex, B256};
     use reth_primitives_traits::transaction::error::InvalidTransactionError;
     use reth_provider::test_utils::MockEthProvider;
     use reth_seismic_chainspec::SEISMIC_MAINNET;
@@ -197,6 +208,21 @@ mod tests {
         blobstore::InMemoryBlobStore, error::InvalidPoolTransactionError,
         validate::EthTransactionValidatorBuilder, TransactionOrigin, TransactionValidationOutcome,
     };
+
+    #[test]
+    fn pooled_transaction_debug_redacts_transaction_input() {
+        let signer = Default::default();
+        let signed = get_signed_seismic_tx(B256::ZERO);
+        let input = hex::encode(signed.input());
+        let recovered = Recovered::new_unchecked(signed, signer);
+        let encoded_length = recovered.encode_2718_len();
+        let pooled: SeismicPooledTransaction =
+            SeismicPooledTransaction::new(recovered, encoded_length);
+        let debug = format!("{pooled:?}");
+
+        assert!(debug.contains("<redacted>"));
+        assert!(!debug.contains(&input), "pooled transaction input leaked: {debug}");
+    }
 
     #[tokio::test]
     async fn validate_seismic_transaction() {

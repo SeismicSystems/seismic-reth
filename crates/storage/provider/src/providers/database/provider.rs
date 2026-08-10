@@ -1926,7 +1926,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
                     }
                 }
 
-                tracing::trace!(?address, ?storage, "Writing storage reverts");
+                tracing::trace!(storage_entries = storage.len(), wiped, "Writing storage reverts");
                 for (key, value) in StorageRevertsIter::new(storage, wiped_storage) {
                     storage_changeset_cursor.append_dup(storage_id, StorageEntry { key, value })?;
                 }

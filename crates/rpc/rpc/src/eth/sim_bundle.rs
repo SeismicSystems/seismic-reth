@@ -419,7 +419,7 @@ where
         request: MevSendBundle,
         overrides: SimBundleOverrides,
     ) -> RpcResult<SimBundleResponse> {
-        trace!("mev_simBundle called, request: {:?}, overrides: {:?}", request, overrides);
+        trace!("mev_simBundle called");
 
         let override_timeout = overrides.timeout;
 

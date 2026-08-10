@@ -1381,7 +1381,12 @@ where
                                 }
                             }
                             BeaconEngineMessage::NewPayload { payload, tx } => {
-                                debug!("receiving beacon engine message: payload: {:?}", payload);
+                                debug!(
+                                    target: "engine::tree",
+                                    block_number = payload.block_number(),
+                                    block_hash = %payload.block_hash(),
+                                    "receiving beacon engine new payload message"
+                                );
                                 let mut output = self.on_new_payload(payload);
 
                                 let maybe_event =

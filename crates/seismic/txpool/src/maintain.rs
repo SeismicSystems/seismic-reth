@@ -61,9 +61,6 @@ impl ChangedAccountsHook for SeismicBalanceHook {
                 debug!(
                     target: "seismic::txpool",
                     address = %acc.address,
-                    native_balance = %acc.balance,
-                    usdc_scaled_balance = %usdc,
-                    pool_balance = %new_balance,
                     "augmenting changed account balance with USDC"
                 );
                 acc.balance = new_balance;

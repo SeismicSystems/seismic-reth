@@ -198,7 +198,11 @@ where
 
         // convert tx to a signed transaction
         let tx = pool_tx.to_consensus();
-        debug!("default_seismic_payload: tx: {:?}", tx);
+        debug!(
+            target: "payload_builder",
+            tx_hash = %pool_tx.hash(),
+            "executing pooled transaction"
+        );
 
         let gas_used = match builder.execute_transaction(tx.clone()) {
             Ok(gas_used) => gas_used,
@@ -207,11 +211,21 @@ where
             })) => {
                 if error.is_nonce_too_low() {
                     // if the nonce is too low, we can skip this transaction
-                    trace!(target: "payload_builder", %error, ?tx, "skipping nonce too low transaction");
+                    trace!(
+                        target: "payload_builder",
+                        %error,
+                        tx_hash = %pool_tx.hash(),
+                        "skipping nonce too low transaction"
+                    );
                 } else {
                     // if the transaction is invalid, we can skip it and all of its
                     // descendants
-                    trace!(target: "payload_builder", %error, ?tx, "skipping invalid transaction and its descendants");
+                    trace!(
+                        target: "payload_builder",
+                        %error,
+                        tx_hash = %pool_tx.hash(),
+                        "skipping invalid transaction and its descendants"
+                    );
                     best_txs.mark_invalid(
                         &pool_tx,
                         InvalidPoolTransactionError::Consensus(

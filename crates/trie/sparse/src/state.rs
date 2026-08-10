@@ -325,7 +325,7 @@ where
 
         if let Some(root_node) = root_node {
             // Reveal root node if it wasn't already.
-            trace!(target: "trie::sparse", ?root_node, "Revealing root account node");
+            trace!(target: "trie::sparse", "Revealing root account node");
             let trie =
                 self.state.reveal_root(root_node.node, root_node.masks, self.retain_updates)?;
 
@@ -378,7 +378,7 @@ where
     /// Reveals a decoded storage multiproof for the given address. This is internal static function
     /// is designed to handle a variety of associated public functions.
     fn reveal_decoded_storage_multiproof_inner(
-        account: B256,
+        _account: B256,
         storage_subtree: DecodedStorageMultiProof,
         revealed_nodes: &mut HashSet<Nibbles>,
         trie: &mut SparseTrie<S>,
@@ -394,14 +394,14 @@ where
 
         if let Some(root_node) = root_node {
             // Reveal root node if it wasn't already.
-            trace!(target: "trie::sparse", ?account, ?root_node, "Revealing root storage node");
+            trace!(target: "trie::sparse", "Revealing root storage node");
             let trie = trie.reveal_root(root_node.node, root_node.masks, retain_updates)?;
 
             // Reserve the capacity for new nodes ahead of time, if the trie implementation
             // supports doing so.
             trie.reserve_nodes(new_nodes);
 
-            trace!(target: "trie::sparse", ?account, total_nodes = ?nodes.len(), "Revealing storage nodes");
+            trace!(target: "trie::sparse", total_nodes = nodes.len(), "Revealing storage nodes");
             trie.reveal_nodes(nodes)?;
         }
 

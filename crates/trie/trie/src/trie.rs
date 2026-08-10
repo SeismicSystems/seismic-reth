@@ -187,13 +187,7 @@ where
                 let hashed_address = account_root_state.last_hashed_key;
                 let account = storage_state.account;
 
-                debug!(
-                    target: "trie::state_root",
-                    account_nonce = account.nonce,
-                    account_balance = ?account.balance,
-                    last_hashed_key = ?account_root_state.last_hashed_key,
-                    "Resuming storage root calculation"
-                );
+                debug!(target: "trie::state_root", "Resuming storage root calculation");
 
                 // resume the storage root calculation
                 let remaining_threshold = self.threshold.saturating_sub(
@@ -445,10 +439,7 @@ impl StateRootContext {
                 // Storage root hit threshold or resumed calculation hit threshold
                 debug!(
                     target: "trie::state_root",
-                    ?hashed_address,
                     storage_slots_walked,
-                    last_storage_key = ?state.last_hashed_key,
-                    ?account,
                     "Pausing storage root calculation"
                 );
 

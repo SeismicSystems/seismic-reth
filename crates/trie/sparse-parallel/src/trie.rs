@@ -2043,12 +2043,7 @@ impl SparseSubtrieInner {
         branch_node_hash_masks: &HashMap<Nibbles, TrieMask>,
     ) {
         let path = stack_item.path;
-        trace!(
-            target: "trie::parallel_sparse",
-            ?path,
-            ?node,
-            "Calculating node RLP"
-        );
+        trace!(target: "trie::parallel_sparse", "Calculating node RLP");
 
         // Check if the path is in the prefix set.
         // First, check the cached value. If it's `None`, then check the prefix set, and update

@@ -387,7 +387,7 @@ where
     where
         B: Block,
     {
-        trace!(target: "txpool", ?update, "updating pool on canonical state change");
+        trace!(target: "txpool", update = %update, "updating pool on canonical state change");
 
         let block_info = update.block_info();
         let CanonicalStateUpdate {
@@ -515,8 +515,6 @@ where
                     target: "txpool",
                     tx_hash = %hash,
                     ?subpool,
-                    reported_balance = %balance,
-                    state_nonce,
                     "transaction added to pool"
                 );
                 let state = match subpool {

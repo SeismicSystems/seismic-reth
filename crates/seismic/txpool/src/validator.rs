@@ -148,24 +148,14 @@ where
 
                 tracing::debug!(
                     target: "seismic::txpool",
-                    %sender,
                     tx_hash = %valid_tx.hash(),
-                    native_balance = %balance,
-                    usdc_scaled_balance = %usdc,
-                    gas_cost = %gas_cost,
-                    value = %value,
                     "seismic validator affordability check"
                 );
 
                 if !crate::usdc::can_afford(balance, usdc, gas_cost, value) {
                     tracing::debug!(
                         target: "seismic::txpool",
-                        %sender,
                         tx_hash = %valid_tx.hash(),
-                        native_balance = %balance,
-                        usdc_scaled_balance = %usdc,
-                        gas_cost = %gas_cost,
-                        value = %value,
                         "rejecting tx: balances insufficient for gas cost and value"
                     );
                     // The error carries a single got/expected pair, so report the

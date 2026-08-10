@@ -101,11 +101,7 @@ where
         trace!(
             target: "trie::proof::blinded",
             elapsed = ?start.unwrap().elapsed(),
-            ?path,
-            ?node,
-            ?tree_mask,
-            ?hash_mask,
-            "Blinded node for account trie"
+            "Retrieved blinded node for account trie"
         );
         Ok(node.map(|node| RevealedNode { node, tree_mask, hash_mask }))
     }
@@ -162,13 +158,8 @@ where
 
         trace!(
             target: "trie::proof::blinded",
-            account = ?self.account,
             elapsed = ?start.unwrap().elapsed(),
-            ?path,
-            ?node,
-            ?tree_mask,
-            ?hash_mask,
-            "Blinded node for storage trie"
+            "Retrieved blinded node for storage trie"
         );
         Ok(node.map(|node| RevealedNode { node, tree_mask, hash_mask }))
     }

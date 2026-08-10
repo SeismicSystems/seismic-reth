@@ -420,7 +420,7 @@ impl SparseTrieInterface for SerialSparseTrie {
         node: TrieNode,
         masks: TrieMasks,
     ) -> SparseTrieResult<()> {
-        trace!(target: "trie::sparse", ?path, ?node, ?masks, "reveal_node called");
+        trace!(target: "trie::sparse", "Revealing trie node");
 
         // If the node is already revealed and it's not a hash node, do nothing.
         if self.nodes.get(&path).is_some_and(|node| !node.is_hash()) {
@@ -1401,19 +1401,14 @@ impl SerialSparseTrie {
         buffers: &mut RlpNodeBuffers,
         rlp_buf: &mut Vec<u8>,
     ) -> RlpNode {
-        let _starting_path = buffers.path_stack.last().map(|item| item.path);
-
         'main: while let Some(RlpNodePathStackItem { level, path, mut is_in_prefix_set }) =
             buffers.path_stack.pop()
         {
             let node = self.nodes.get_mut(&path).unwrap();
             trace!(
                 target: "trie::sparse",
-                ?_starting_path,
                 ?level,
-                ?path,
                 ?is_in_prefix_set,
-                ?node,
                 "Popped node from path stack"
             );
 
@@ -1672,10 +1667,7 @@ impl SerialSparseTrie {
 
             trace!(
                 target: "trie::sparse",
-                ?_starting_path,
                 ?level,
-                ?path,
-                ?node,
                 ?node_type,
                 ?is_in_prefix_set,
                 "Added node to rlp node stack"

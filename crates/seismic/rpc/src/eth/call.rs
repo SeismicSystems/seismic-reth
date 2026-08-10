@@ -213,7 +213,12 @@ where
             authorization_list,
         };
 
-        tracing::debug!("reth-seismic-rpc::eth create_txn_env {:?}", env);
+        tracing::debug!(
+            target: "reth-seismic-rpc::eth::call",
+            tx_type = env.tx_type(),
+            gas_limit = env.gas_limit(),
+            "created transaction environment"
+        );
 
         Ok(SeismicTransaction { base: env, tx_hash: Default::default(), decryption_failed: false }
             .into())
