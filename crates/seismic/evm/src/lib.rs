@@ -265,10 +265,14 @@ impl ConfigureEngineEvm<ExecutionData> for SeismicEvmConfig {
             .with_spec(spec_id)
             .enable_tx_chain_id_check();
 
-        let blob_excess_gas_and_price = payload
-            .payload
-            .blob_gas_used()
-            .map(|_gas| BlobExcessGasAndPrice::new_with_spec(0, spec_id.into_eth_spec()));
+        // Must match `evm_env`, which derives this from the header's `excess_blob_gas`:
+        // `PayloadValidator::evm_env_for` picks this function for a block that arrives as an
+        // engine payload and `evm_env` for the same block once it is a header, so any
+        // disagreement here makes BLOBBASEFEE (and therefore the state root) depend on which
+        // ingress path the block took.
+        let blob_excess_gas_and_price = payload.payload.excess_blob_gas().map(|excess_blob_gas| {
+            BlobExcessGasAndPrice::new_with_spec(excess_blob_gas, spec_id.into_eth_spec())
+        });
 
         let block_env = BlockEnv {
             number: U256::from(payload.payload.block_number()),
@@ -382,6 +386,72 @@ mod tests {
         // Assert that the chain ID in the `cfg_env` is correctly set to the chain ID of the
         // ChainSpec
         assert_eq!(cfg_env.chain_id, chain_spec.chain().id());
+    }
+
+    /// `PayloadValidator::evm_env_for` builds the EVM env with `evm_env_for_payload` when a
+    /// block arrives over the engine API and with `evm_env` when the same block is already a
+    /// header. Both must produce the same blob fee, otherwise BLOBBASEFEE — and the resulting
+    /// state root — would depend on which ingress path the block took.
+    ///
+    /// Regression: `evm_env_for_payload` read `blob_gas_used` and then hardcoded an excess blob
+    /// gas of 0, so the engine path always saw the minimum blob fee.
+    #[test]
+    fn engine_payload_evm_env_matches_header_evm_env_blob_fee() {
+        use alloy_consensus::{Block as ConsensusBlock, BlockBody, EMPTY_ROOT_HASH};
+        use alloy_rpc_types_engine::ExecutionPayload;
+
+        // A multiple of GAS_PER_BLOB (131_072), and large enough that the derived blob gas
+        // price sits above its 1 wei floor: that way the two paths disagree on BLOBBASEFEE
+        // itself, not merely on the raw excess value. Mainnet excess blob gas reaches this
+        // range under sustained blob congestion.
+        const EXCESS_BLOB_GAS: u64 = 256 * 131_072;
+
+        let evm_config = test_evm_config();
+
+        let header = Header {
+            number: 7,
+            timestamp: 1_700_000_000,
+            gas_limit: 30_000_000,
+            base_fee_per_gas: Some(7),
+            withdrawals_root: Some(EMPTY_ROOT_HASH),
+            blob_gas_used: Some(0),
+            excess_blob_gas: Some(EXCESS_BLOB_GAS),
+            parent_beacon_block_root: Some(B256::ZERO),
+            ..Default::default()
+        };
+
+        let block: SeismicBlock = ConsensusBlock {
+            header: header.clone(),
+            body: BlockBody {
+                transactions: vec![],
+                ommers: vec![],
+                withdrawals: Some(Default::default()),
+            },
+        };
+        let sealed = SealedBlock::seal_slow(block);
+        let block_hash = sealed.hash();
+        let (payload, sidecar) =
+            ExecutionPayload::from_block_unchecked(block_hash, &sealed.into_block());
+        let execution_data = alloy_rpc_types_engine::ExecutionData { payload, sidecar };
+
+        let from_header = evm_config.evm_env(&header).block_env.blob_excess_gas_and_price;
+        let from_payload =
+            evm_config.evm_env_for_payload(&execution_data).block_env.blob_excess_gas_and_price;
+
+        assert_eq!(
+            from_payload, from_header,
+            "engine payload and header must agree on the blob fee"
+        );
+
+        let blob = from_header.expect("cancun block carries a blob fee");
+        assert_eq!(blob.excess_blob_gas, EXCESS_BLOB_GAS);
+        // Guards the point of the test: at this excess the price is off its floor, so the
+        // regression changed BLOBBASEFEE and not just the excess field.
+        assert!(
+            blob.blob_gasprice > 1,
+            "excess blob gas must move the price off its floor, got {}",
+            blob.blob_gasprice,
+        );
     }
 
     #[test]
