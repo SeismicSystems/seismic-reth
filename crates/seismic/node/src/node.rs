@@ -583,8 +583,12 @@ where
         };
         let eth_validator = TransactionValidationTaskExecutor::eth_builder(ctx.provider().clone())
             .with_head_timestamp(head_timestamp_seconds)
+            .with_max_tx_input_bytes(ctx.config().txpool.max_tx_input_bytes)
             .kzg_settings(ctx.kzg_settings()?)
             .with_local_transactions_config(pool_config.local_transactions_config.clone())
+            .set_tx_fee_cap(ctx.config().rpc.rpc_tx_fee_cap)
+            .with_max_tx_gas_limit(ctx.config().txpool.max_tx_gas_limit)
+            .with_minimum_priority_fee(ctx.config().txpool.minimum_priority_fee)
             .with_additional_tasks(ctx.config().txpool.additional_validation_tasks)
             // Gas is paid in USDC on Seismic, not native ETH. Disable the native balance check
             // so transactions from accounts with zero ETH are not rejected. Actual gas payment
@@ -635,6 +639,10 @@ reth_transaction_pool::maintain::LocalTransactionBackupConfig::with_local_txs_ba
                     ctx.task_executor().clone(),
                     reth_transaction_pool::maintain::MaintainPoolConfig {
                         max_tx_lifetime: transaction_pool.config().max_queued_lifetime,
+                        no_local_exemptions: transaction_pool
+                            .config()
+                            .local_transactions_config
+                            .no_exemptions,
                         ..Default::default()
                     },
                     balance_hook,
