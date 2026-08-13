@@ -339,11 +339,7 @@ where
         result_sender: Sender<TrieNodeProviderResult>,
         tx_sender: Sender<ProofTaskMessage<Tx>>,
     ) {
-        debug!(
-            target: "trie::proof_task",
-            ?path,
-            "Starting blinded account node retrieval"
-        );
+        debug!(target: "trie::proof_task", "Starting blinded account node retrieval");
 
         let (trie_cursor_factory, hashed_cursor_factory) = self.create_factories();
 
@@ -357,16 +353,13 @@ where
         let result = blinded_provider_factory.account_node_provider().trie_node(&path);
         debug!(
             target: "trie::proof_task",
-            ?path,
             elapsed = ?start.elapsed(),
             "Completed blinded account node retrieval"
         );
 
-        if let Err(error) = result_sender.send(result) {
+        if result_sender.send(result).is_err() {
             tracing::error!(
                 target: "trie::proof_task",
-                ?path,
-                ?error,
                 "Failed to send blinded account node result"
             );
         }
@@ -401,12 +394,9 @@ where
             "Completed blinded storage node retrieval"
         );
 
-        if let Err(error) = result_sender.send(result) {
+        if result_sender.send(result).is_err() {
             tracing::error!(
                 target: "trie::proof_task",
-                ?account,
-                ?path,
-                ?error,
                 "Failed to send blinded storage node result"
             );
         }

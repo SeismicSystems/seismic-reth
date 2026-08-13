@@ -162,7 +162,7 @@ where
         .map(|(address, storage)| (address, storage, trie.take_storage_trie(&address)))
         .par_bridge()
         .map(|(address, storage, storage_trie)| {
-            let span = trace_span!(target: "engine::root::sparse", "Storage trie", ?address);
+            let span = trace_span!(target: "engine::root::sparse", "Storage trie");
             let _enter = span.enter();
             trace!(target: "engine::root::sparse", "Updating storage");
             let storage_provider = blinded_provider_factory.storage_node_provider(address);
@@ -242,7 +242,7 @@ where
 
     // Update accounts
     for (address, account) in state.accounts {
-        trace!(target: "engine::root::sparse", ?address, "Updating account");
+        trace!(target: "engine::root::sparse", "Updating account");
         if !trie.update_account(address, account.unwrap_or_default(), blinded_provider_factory)? {
             removed_accounts.push(address);
         }
@@ -250,7 +250,7 @@ where
 
     // Remove accounts
     for address in removed_accounts {
-        trace!(target: "trie::sparse", ?address, "Removing account");
+        trace!(target: "trie::sparse", "Removing account");
         let nibbles = Nibbles::unpack(address);
         trie.remove_account_leaf(&nibbles, blinded_provider_factory)?;
     }

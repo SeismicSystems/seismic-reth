@@ -702,7 +702,7 @@ where
             return Ok(false);
         }
 
-        trace!(target: "trie::sparse", ?address, "Updating account");
+        trace!(target: "trie::sparse", "Updating account");
         let nibbles = Nibbles::unpack(address);
         self.account_rlp_buf.clear();
         account.into_trie_account(storage_root).encode(&mut self.account_rlp_buf);

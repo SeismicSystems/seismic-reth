@@ -98,10 +98,6 @@ impl CursorSubNode {
             let nonremoved_mask = !removed_mask & node.state_mask;
             tracing::trace!(
                 target: "trie::walker",
-                key = ?self.key,
-                ?removed_mask,
-                ?nonremoved_mask,
-                ?nibble,
                 "Checking full_key_is_only_nonremoved_node",
             );
             nonremoved_mask.count_ones() == 1 && nonremoved_mask.is_bit_set(nibble)

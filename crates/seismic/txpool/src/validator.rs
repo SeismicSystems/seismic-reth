@@ -135,11 +135,9 @@ where
                     Ok(state) => crate::usdc::read_usdc_balance(&*state, &sender),
                     // If we can't read state, fall back to native balance only:
                     // usdc = 0 degrades `can_afford` to `native >= cost`.
-                    Err(err) => {
+                    Err(_) => {
                         tracing::warn!(
                             target: "seismic::txpool",
-                            %err,
-                            %sender,
                             "failed to read state for USDC balance check, defaulting to zero"
                         );
                         U256::ZERO

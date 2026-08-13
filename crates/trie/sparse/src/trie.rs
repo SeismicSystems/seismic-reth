@@ -575,7 +575,7 @@ impl SparseTrieInterface for SerialSparseTrie {
         is_private: bool,
         provider: P,
     ) -> SparseTrieResult<()> {
-        trace!(target: "trie::sparse", ?full_path, ?value, "update_leaf called");
+        trace!(target: "trie::sparse", "update_leaf called");
 
         self.prefix_set.insert(full_path);
         let existing = self.values.insert(full_path, value);
@@ -647,8 +647,6 @@ impl SparseTrieInterface for SerialSparseTrie {
                             if self.nodes.get(&current).unwrap().is_hash() {
                                 debug!(
                                     target: "trie::sparse",
-                                    leaf_full_path = ?full_path,
-                                    child_path = ?current,
                                     "Extension node child not revealed in update_leaf, falling back to db",
                                 );
                                 if let Some(RevealedNode { node, tree_mask, hash_mask }) =
@@ -657,10 +655,6 @@ impl SparseTrieInterface for SerialSparseTrie {
                                     let decoded = TrieNode::decode(&mut &node[..])?;
                                     trace!(
                                         target: "trie::sparse",
-                                        ?current,
-                                        ?decoded,
-                                        ?tree_mask,
-                                        ?hash_mask,
                                         "Revealing extension node child",
                                     );
                                     self.reveal_node(
@@ -717,7 +711,7 @@ impl SparseTrieInterface for SerialSparseTrie {
         full_path: &Nibbles,
         provider: P,
     ) -> SparseTrieResult<()> {
-        trace!(target: "trie::sparse", ?full_path, "remove_leaf called");
+        trace!(target: "trie::sparse", "remove_leaf called");
 
         if self.values.remove(full_path).is_none() {
             if let Some(&SparseNode::Hash(hash)) = self.nodes.get(full_path) {
@@ -725,7 +719,7 @@ impl SparseTrieInterface for SerialSparseTrie {
                 return Err(SparseTrieErrorKind::BlindedNode { path: *full_path, hash }.into())
             }
 
-            trace!(target: "trie::sparse", ?full_path, "Leaf node is not present in the trie");
+            trace!(target: "trie::sparse", "Leaf node is not present in the trie");
             // Leaf is not present in the trie.
             return Ok(())
         }
@@ -819,13 +813,11 @@ impl SparseTrieInterface for SerialSparseTrie {
                         let mut child_path = removed_path;
                         child_path.push_unchecked(child_nibble);
 
-                        trace!(target: "trie::sparse", ?removed_path, ?child_path, "Branch node has only one child");
+                        trace!(target: "trie::sparse", "Branch node has only one child");
 
                         if self.nodes.get(&child_path).unwrap().is_hash() {
                             debug!(
                                 target: "trie::sparse",
-                                ?child_path,
-                                leaf_full_path = ?full_path,
                                 "Branch node child not revealed in remove_leaf, falling back to db",
                             );
                             if let Some(RevealedNode { node, tree_mask, hash_mask }) =
@@ -834,10 +826,6 @@ impl SparseTrieInterface for SerialSparseTrie {
                                 let decoded = TrieNode::decode(&mut &node[..])?;
                                 trace!(
                                     target: "trie::sparse",
-                                    ?child_path,
-                                    ?decoded,
-                                    ?tree_mask,
-                                    ?hash_mask,
                                     "Revealing remaining blinded branch child"
                                 );
                                 self.reveal_node(
@@ -911,7 +899,7 @@ impl SparseTrieInterface for SerialSparseTrie {
                 node: new_node.clone(),
                 unset_branch_nibble: None,
             };
-            trace!(target: "trie::sparse", ?removed_path, ?new_node, "Re-inserting the node");
+            trace!(target: "trie::sparse", "Re-inserting the node");
             self.nodes.insert(removed_path, new_node);
         }
 
@@ -1274,7 +1262,11 @@ impl SerialSparseTrie {
         // Update the prefix set to the prefix set of the nodes that still need to be updated.
         self.prefix_set = new_prefix_set;
 
-        trace!(target: "trie::sparse", ?depth, ?targets, "Updating nodes at depth");
+        trace!(
+            target: "trie::sparse",
+            target_count = targets.len(),
+            "Updating trie nodes"
+        );
 
         let mut temp_rlp_buf = core::mem::take(&mut self.rlp_buf);
         for (level, path) in targets {
@@ -1405,12 +1397,7 @@ impl SerialSparseTrie {
             buffers.path_stack.pop()
         {
             let node = self.nodes.get_mut(&path).unwrap();
-            trace!(
-                target: "trie::sparse",
-                ?level,
-                ?is_in_prefix_set,
-                "Popped node from path stack"
-            );
+            trace!(target: "trie::sparse", "Popped node from path stack");
 
             // Check if the path is in the prefix set.
             // First, check the cached value. If it's `None`, then check the prefix set, and update
@@ -1456,13 +1443,7 @@ impl SerialSparseTrie {
 
                         let store_in_db_trie_value = child_node_type.store_in_db_trie();
 
-                        trace!(
-                            target: "trie::sparse",
-                            ?path,
-                            ?child_path,
-                            ?child_node_type,
-                            "Extension node"
-                        );
+                        trace!(target: "trie::sparse", "Extension node");
 
                         *store_in_db_trie = store_in_db_trie_value;
 
@@ -1594,13 +1575,7 @@ impl SerialSparseTrie {
                         }
                     }
 
-                    trace!(
-                        target: "trie::sparse",
-                        ?path,
-                        ?tree_mask,
-                        ?hash_mask,
-                        "Branch node masks"
-                    );
+                    trace!(target: "trie::sparse", "Branch node masks");
 
                     rlp_buf.clear();
                     let branch_node_ref =
@@ -1665,13 +1640,7 @@ impl SerialSparseTrie {
                 }
             };
 
-            trace!(
-                target: "trie::sparse",
-                ?level,
-                ?node_type,
-                ?is_in_prefix_set,
-                "Added node to rlp node stack"
-            );
+            trace!(target: "trie::sparse", "Added node to rlp node stack");
 
             buffers.rlp_node_stack.push(RlpNodeStackItem { path, rlp_node, node_type });
         }

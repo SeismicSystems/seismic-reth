@@ -499,7 +499,17 @@ where
                         }
                     }
                     Err(error) => {
-                        debug!(target: "engine::tree", %error, "Background parallel state root computation failed");
+                        let error_kind = match &error {
+                            ParallelStateRootError::StorageRoot(_) => "storage_root",
+                            ParallelStateRootError::Provider(_) => "provider",
+                            ParallelStateRootError::Other(_) => "other",
+                        };
+                        debug!(
+                            target: "engine::tree",
+                            block = ?block_num_hash,
+                            error_kind,
+                            "Background parallel state root computation failed, falling back"
+                        );
                     }
                 }
             } else {

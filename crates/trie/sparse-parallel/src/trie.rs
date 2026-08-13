@@ -342,8 +342,6 @@ impl SparseTrieInterface for ParallelSparseTrie {
                         if subtrie.nodes.get(&reveal_path).expect("node must exist").is_hash() {
                             debug!(
                                 target: "trie::parallel_sparse",
-                                child_path = ?reveal_path,
-                                leaf_full_path = ?full_path,
                                 "Extension node child not revealed in update_leaf, falling back to db",
                             );
                             if let Some(RevealedNode { node, tree_mask, hash_mask }) =
@@ -352,10 +350,6 @@ impl SparseTrieInterface for ParallelSparseTrie {
                                 let decoded = TrieNode::decode(&mut &node[..])?;
                                 trace!(
                                     target: "trie::parallel_sparse",
-                                    ?reveal_path,
-                                    ?decoded,
-                                    ?tree_mask,
-                                    ?hash_mask,
                                     "Revealing child (from upper)",
                                 );
                                 subtrie.reveal_node(
@@ -608,9 +602,6 @@ impl SparseTrieInterface for ParallelSparseTrie {
 
                 trace!(
                     target: "trie::parallel_sparse",
-                    ?leaf_path,
-                    ?branch_path,
-                    ?remaining_child_path,
                     "Branch node has only one child",
                 );
 
@@ -623,8 +614,6 @@ impl SparseTrieInterface for ParallelSparseTrie {
                         SparseNode::Hash(_) => {
                             debug!(
                                 target: "trie::parallel_sparse",
-                                child_path = ?remaining_child_path,
-                                leaf_full_path = ?full_path,
                                 "Branch node child not revealed in remove_leaf, falling back to db",
                             );
                             if let Some(RevealedNode { node, tree_mask, hash_mask }) =
@@ -633,10 +622,6 @@ impl SparseTrieInterface for ParallelSparseTrie {
                                 let decoded = TrieNode::decode(&mut &node[..])?;
                                 trace!(
                                     target: "trie::parallel_sparse",
-                                    ?remaining_child_path,
-                                    ?decoded,
-                                    ?tree_mask,
-                                    ?hash_mask,
                                     "Revealing remaining blinded branch child"
                                 );
                                 remaining_child_subtrie.reveal_node(
@@ -1234,7 +1219,7 @@ impl ParallelSparseTrie {
     }
 
     /// Updates hashes for the upper subtrie, using nodes from both upper and lower subtries.
-    #[instrument(level = "trace", target = "trie::parallel_sparse", skip_all, ret)]
+    #[instrument(level = "trace", target = "trie::parallel_sparse", skip_all)]
     fn update_upper_subtrie_hashes(&mut self, prefix_set: &mut PrefixSet) -> RlpNode {
         trace!(target: "trie::parallel_sparse", "Updating upper subtrie hashes");
 
@@ -1551,8 +1536,6 @@ impl SparseSubtrie {
                         if self.nodes.get(&reveal_path).expect("node must exist").is_hash() {
                             debug!(
                                 target: "trie::parallel_sparse",
-                                child_path = ?reveal_path,
-                                leaf_full_path = ?full_path,
                                 "Extension node child not revealed in update_leaf, falling back to db",
                             );
                             if let Some(RevealedNode { node, tree_mask, hash_mask }) =
@@ -1561,10 +1544,6 @@ impl SparseSubtrie {
                                 let decoded = TrieNode::decode(&mut &node[..])?;
                                 trace!(
                                     target: "trie::parallel_sparse",
-                                    ?reveal_path,
-                                    ?decoded,
-                                    ?tree_mask,
-                                    ?hash_mask,
                                     "Revealing child (from lower)",
                                 );
                                 self.reveal_node(
@@ -1938,7 +1917,7 @@ impl SparseSubtrie {
     /// # Panics
     ///
     /// If the node at the root path does not exist.
-    #[instrument(level = "trace", target = "trie::parallel_sparse", skip_all, fields(root = ?self.path), ret)]
+    #[instrument(level = "trace", target = "trie::parallel_sparse", skip_all)]
     fn update_hashes(
         &mut self,
         prefix_set: &mut PrefixSet,
@@ -2102,13 +2081,7 @@ impl SparseSubtrieInner {
 
                     let store_in_db_trie_value = child_node_type.store_in_db_trie();
 
-                    trace!(
-                        target: "trie::parallel_sparse",
-                        ?path,
-                        ?child_path,
-                        ?child_node_type,
-                        "Extension node"
-                    );
+                    trace!(target: "trie::parallel_sparse", "Extension node");
 
                     *store_in_db_trie = store_in_db_trie_value;
 
@@ -2241,13 +2214,7 @@ impl SparseSubtrieInner {
                     }
                 }
 
-                trace!(
-                    target: "trie::parallel_sparse",
-                    ?path,
-                    ?tree_mask,
-                    ?hash_mask,
-                    "Branch node masks"
-                );
+                trace!(target: "trie::parallel_sparse", "Branch node masks");
 
                 // Top of the stack has all children node, we can encode the branch node and
                 // update its hash
@@ -2305,12 +2272,7 @@ impl SparseSubtrieInner {
         };
 
         self.buffers.rlp_node_stack.push(RlpNodeStackItem { path, rlp_node, node_type });
-        trace!(
-            target: "trie::parallel_sparse",
-            ?path,
-            ?node_type,
-            "Added node to RLP node stack"
-        );
+        trace!(target: "trie::parallel_sparse", "Added node to RLP node stack");
     }
 
     /// Clears the subtrie, keeping the data structures allocated.
