@@ -174,7 +174,7 @@ where
     let mut total_fees = U256::ZERO;
 
     builder.apply_pre_execution_changes().map_err(|err| {
-        warn!(target: "payload_builder", %err, "failed to apply pre-execution changes");
+        warn!(target: "payload_builder", "failed to apply pre-execution changes");
         PayloadBuilderError::Internal(err.into())
     })?;
 
@@ -213,7 +213,6 @@ where
                     // if the nonce is too low, we can skip this transaction
                     trace!(
                         target: "payload_builder",
-                        %error,
                         tx_hash = %pool_tx.hash(),
                         "skipping nonce too low transaction"
                     );
@@ -222,7 +221,6 @@ where
                     // descendants
                     trace!(
                         target: "payload_builder",
-                        %error,
                         tx_hash = %pool_tx.hash(),
                         "skipping invalid transaction and its descendants"
                     );

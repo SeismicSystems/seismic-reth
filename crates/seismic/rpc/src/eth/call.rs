@@ -215,8 +215,6 @@ where
 
         tracing::debug!(
             target: "reth-seismic-rpc::eth::call",
-            tx_type = env.tx_type(),
-            gas_limit = env.gas_limit(),
             "created transaction environment"
         );
 

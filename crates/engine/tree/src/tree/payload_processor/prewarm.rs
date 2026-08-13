@@ -251,12 +251,8 @@ where
 
         let state_provider = match provider.build() {
             Ok(provider) => provider,
-            Err(err) => {
-                trace!(
-                    target: "engine::tree",
-                    %err,
-                    "Failed to build state provider in prewarm thread"
-                );
+            Err(_) => {
+                trace!(target: "engine::tree", "Failed to build state provider in prewarm thread");
                 return None
             }
         };
@@ -328,12 +324,10 @@ where
             let start = Instant::now();
             let res = match evm.transact(&tx) {
                 Ok(res) => res,
-                Err(err) => {
+                Err(_) => {
                     trace!(
                         target: "engine::tree",
-                        %err,
-                        tx_hash=%tx.tx().tx_hash(),
-                        sender=%tx.signer(),
+                        tx_hash = %tx.tx().tx_hash(),
                         "Error when executing prewarm transaction",
                     );
                     return

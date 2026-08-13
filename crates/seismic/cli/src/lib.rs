@@ -39,14 +39,21 @@ use reth_node_metrics::recorder::install_prometheus_recorder;
 use std::{ffi::OsString, fmt, sync::Arc};
 use tracing::info;
 
-/// `seismic-trie` tracing targets that may emit private trie keys, values, proofs, or topology.
+/// Tracing targets that may emit private trie data, complete RPC requests, or authentication
+/// headers.
 ///
 /// These are blocked by a separate subscriber layer, so `RUST_LOG` and per-sink CLI filters cannot
 /// re-enable them.
-const DISABLED_SEISMIC_TRIE_TARGETS: [&str; 2] = ["trie::hash_builder", "trie::proof_retainer"];
+const DISABLED_SEISMIC_TRACING_TARGETS: [&str; 5] = [
+    "trie::hash_builder",
+    "trie::proof_retainer",
+    "jsonrpsee-http",
+    "jsonrpsee-server",
+    "jsonrpsee_core::proc_macros_support",
+];
 
-fn seismic_trie_target_enabled(target: &str) -> bool {
-    !DISABLED_SEISMIC_TRIE_TARGETS.iter().any(|disabled| {
+fn seismic_tracing_target_enabled(target: &str) -> bool {
+    !DISABLED_SEISMIC_TRACING_TARGETS.iter().any(|disabled| {
         target == *disabled ||
             target.strip_prefix(disabled).is_some_and(|suffix| suffix.starts_with("::"))
     })
@@ -236,7 +243,7 @@ where
     /// that all logs are flushed to disk.
     pub fn init_tracing(&self) -> eyre::Result<Option<FileWorkerGuard>> {
         let mut layers = Layers::new();
-        layers.add_layer(filter_fn(|metadata| seismic_trie_target_enabled(metadata.target())));
+        layers.add_layer(filter_fn(|metadata| seismic_tracing_target_enabled(metadata.target())));
         self.logs.init_tracing_with_layers(layers)
     }
 }
@@ -265,7 +272,7 @@ pub enum Commands<C: ChainSpecParser, Ext: clap::Args + fmt::Debug> {
 
 #[cfg(test)]
 mod test {
-    use crate::{chainspec::SeismicChainSpecParser, seismic_trie_target_enabled, Cli, Commands};
+    use crate::{chainspec::SeismicChainSpecParser, seismic_tracing_target_enabled, Cli, Commands};
     use clap::Parser;
     use reth_cli_commands::{node::NoArgs, NodeCommand};
     use reth_seismic_chainspec::{
@@ -273,13 +280,17 @@ mod test {
     };
 
     #[test]
-    fn seismic_trie_tracing_targets_are_hard_disabled() {
-        assert!(!seismic_trie_target_enabled("trie::hash_builder"));
-        assert!(!seismic_trie_target_enabled("trie::hash_builder::child"));
-        assert!(!seismic_trie_target_enabled("trie::proof_retainer"));
-        assert!(!seismic_trie_target_enabled("trie::proof_retainer::child"));
-        assert!(seismic_trie_target_enabled("trie::sparse"));
-        assert!(seismic_trie_target_enabled("trie::hash_builder_safe"));
+    fn sensitive_tracing_targets_are_hard_disabled() {
+        assert!(!seismic_tracing_target_enabled("trie::hash_builder"));
+        assert!(!seismic_tracing_target_enabled("trie::hash_builder::child"));
+        assert!(!seismic_tracing_target_enabled("trie::proof_retainer"));
+        assert!(!seismic_tracing_target_enabled("trie::proof_retainer::child"));
+        assert!(!seismic_tracing_target_enabled("jsonrpsee-http"));
+        assert!(!seismic_tracing_target_enabled("jsonrpsee-server"));
+        assert!(!seismic_tracing_target_enabled("jsonrpsee_core::proc_macros_support"));
+        assert!(seismic_tracing_target_enabled("trie::sparse"));
+        assert!(seismic_tracing_target_enabled("trie::hash_builder_safe"));
+        assert!(seismic_tracing_target_enabled("jsonrpsee-client"));
     }
 
     #[test]
