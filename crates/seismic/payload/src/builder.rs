@@ -215,7 +215,7 @@ where
                     best_txs.mark_invalid(
                         &pool_tx,
                         InvalidPoolTransactionError::Consensus(
-                            InvalidTransactionError::TxTypeNotSupported,
+                            InvalidTransactionError::SeismicTx(error.to_string()),
                         ),
                     );
                 }
