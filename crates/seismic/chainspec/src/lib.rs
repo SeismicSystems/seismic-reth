@@ -185,12 +185,12 @@ mod tests {
         );
     }
 
-    // Test that the latest fork id is the latest seismic fork (mercury)
+    // Test that the latest fork id is the latest seismic fork (Venus)
     #[test]
     fn latest_seismic_mainnet_fork_id_with_builder() {
         let seismic_mainnet = &SEISMIC_MAINNET;
         assert_eq!(
-            seismic_mainnet.hardfork_fork_id(SeismicHardfork::Mercury).unwrap(),
+            seismic_mainnet.hardfork_fork_id(SeismicHardfork::Venus).unwrap(),
             seismic_mainnet.latest_fork_id()
         )
     }

@@ -11,17 +11,33 @@ use reth_ethereum_forks::{ChainHardforks, EthereumHardfork, ForkCondition, Hardf
 #[allow(missing_docs)]
 pub enum SeismicHardfork {
     Mercury,
+    Venus,
 }
 
 impl Hardfork for SeismicHardfork {
     fn name(&self) -> &'static str {
         match self {
             Self::Mercury => "Mercury",
+            Self::Venus => "Venus",
         }
     }
 }
 
-/// Builds the hardfork schedule currently shared by all Seismic networks.
+/// Activation block for the [`SeismicHardfork::Venus`] hardfork, on every Seismic network.
+///
+/// Venus is an irregular state transition that force-replaces the bytecode of the USDC contract
+/// with an updated version at this block. It is scheduled by block number (not timestamp) so the
+/// block executor can detect the exact activation boundary from the block number alone and apply
+/// the swap exactly once, with no per-block state access afterwards. See the Venus executor in
+/// `reth-seismic-evm`.
+///
+/// The executor keys the swap off this constant directly (not off the chainspec fork schedule), so
+/// it fires at this block regardless of how the chain was launched — including from a genesis JSON
+/// file, which bypasses the built-in Seismic fork schedule. The schedule entries below exist so the
+/// fork also participates in fork-id / p2p partitioning for nodes launched from the built-in specs.
+pub const SEISMIC_VENUS_BLOCK: u64 = 39_307_813;
+
+/// Builds the hardfork schedule shared by all Seismic networks.
 fn seismic_hardforks() -> ChainHardforks {
     ChainHardforks::new(vec![
         (EthereumHardfork::Frontier.boxed(), ForkCondition::Block(0)),
@@ -50,6 +66,7 @@ fn seismic_hardforks() -> ChainHardforks {
         (EthereumHardfork::Cancun.boxed(), ForkCondition::Timestamp(0)),
         (EthereumHardfork::Prague.boxed(), ForkCondition::Timestamp(0)),
         (SeismicHardfork::Mercury.boxed(), ForkCondition::Timestamp(0)),
+        (SeismicHardfork::Venus.boxed(), ForkCondition::Block(SEISMIC_VENUS_BLOCK)),
     ])
 }
 
@@ -100,5 +117,21 @@ mod tests {
         assert_hardforks_at_zero(&SEISMIC_MAINNET_HARDFORKS);
         assert_hardforks_at_zero(&SEISMIC_TESTNET_HARDFORKS);
         assert_hardforks_at_zero(&SEISMIC_DEV_HARDFORKS);
+    }
+
+    #[test]
+    fn venus_is_scheduled_on_all_networks() {
+        let expected = Some(ForkCondition::Block(SEISMIC_VENUS_BLOCK));
+        assert_eq!(SEISMIC_MAINNET_HARDFORKS.get(SeismicHardfork::Venus), expected);
+        assert_eq!(SEISMIC_TESTNET_HARDFORKS.get(SeismicHardfork::Venus), expected);
+        assert_eq!(SEISMIC_DEV_HARDFORKS.get(SeismicHardfork::Venus), expected);
+    }
+
+    #[test]
+    fn venus_transitions_only_at_activation_block() {
+        let venus = SEISMIC_MAINNET_HARDFORKS.fork(SeismicHardfork::Venus);
+        assert!(venus.transitions_at_block(SEISMIC_VENUS_BLOCK));
+        assert!(!venus.transitions_at_block(SEISMIC_VENUS_BLOCK - 1));
+        assert!(!venus.transitions_at_block(SEISMIC_VENUS_BLOCK + 1));
     }
 }

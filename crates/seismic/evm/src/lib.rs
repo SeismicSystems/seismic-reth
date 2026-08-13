@@ -42,12 +42,18 @@ mod build;
 pub mod config;
 use config::revm_spec;
 
+mod usdc_hardfork;
+pub use usdc_hardfork::{VenusBlockExecutor, VenusBlockExecutorFactory};
+
 /// Seismic EVM configuration.
 #[derive(Debug, Clone)]
 pub struct SeismicEvmConfig {
-    /// Inner [`SeismicBlockExecutorFactory`].
-    pub executor_factory:
+    /// Block executor factory. The inner [`SeismicBlockExecutorFactory`] is wrapped in a
+    /// [`VenusBlockExecutorFactory`] that applies the testnet-only Venus USDC bytecode swap at its
+    /// activation block.
+    pub executor_factory: VenusBlockExecutorFactory<
         SeismicBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, SeismicEvmFactory>,
+    >,
     /// Seismic block assembler.
     pub block_assembler: SeismicBlockAssembler<ChainSpec>,
 }
@@ -71,20 +77,21 @@ impl SeismicEvmConfig {
         evm_factory: SeismicEvmFactory,
         purpose_keys: &'static alloy_seismic_evm::PurposeKeys,
     ) -> Self {
+        let inner_factory = SeismicBlockExecutorFactory::new(
+            SeismicRethReceiptBuilder::default(),
+            chain_spec.clone(),
+            evm_factory,
+            purpose_keys,
+        );
         Self {
-            block_assembler: SeismicBlockAssembler::new(chain_spec.clone()),
-            executor_factory: SeismicBlockExecutorFactory::new(
-                SeismicRethReceiptBuilder::default(),
-                chain_spec,
-                evm_factory,
-                purpose_keys,
-            ),
+            block_assembler: SeismicBlockAssembler::new(chain_spec),
+            executor_factory: VenusBlockExecutorFactory::new(inner_factory),
         }
     }
 
     /// Returns the chain spec associated with this configuration.
     pub const fn chain_spec(&self) -> &Arc<ChainSpec> {
-        self.executor_factory.spec()
+        self.executor_factory.inner().spec()
     }
 
     /// Sets the extra data for the block assembler.
@@ -102,7 +109,7 @@ impl SeismicEvmConfig {
     where
         DB: alloy_evm::Database,
     {
-        self.executor_factory.evm_factory().create_evm(db, evm_env)
+        self.executor_factory.inner().evm_factory().create_evm(db, evm_env)
     }
 }
 
@@ -110,8 +117,9 @@ impl ConfigureEvm for SeismicEvmConfig {
     type Primitives = SeismicPrimitives;
     type Error = Infallible;
     type NextBlockEnvCtx = NextBlockEnvAttributes;
-    type BlockExecutorFactory =
-        SeismicBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, SeismicEvmFactory>;
+    type BlockExecutorFactory = VenusBlockExecutorFactory<
+        SeismicBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, SeismicEvmFactory>,
+    >;
     type BlockAssembler = SeismicBlockAssembler<ChainSpec>;
 
     fn block_executor_factory(&self) -> &Self::BlockExecutorFactory {
