@@ -133,11 +133,14 @@ where
                         );
                     }
                     Ok(Either::Right(Ok(fcu_status))) => {
+                        let status = match fcu_status.forkchoice_status() {
+                            reth_engine_primitives::ForkchoiceStatus::Valid => "valid",
+                            reth_engine_primitives::ForkchoiceStatus::Invalid => "invalid",
+                            reth_engine_primitives::ForkchoiceStatus::Syncing => "syncing",
+                        };
                         debug!(
                             target: "engine::stream::reorg",
-                            status = fcu_status.payload_status.status.as_str(),
-                            latest_valid_hash = ?fcu_status.payload_status.latest_valid_hash,
-                            payload_id = ?fcu_status.payload_id,
+                            status,
                             "Received response for reorg forkchoice update"
                         );
                     }
