@@ -176,9 +176,9 @@ where
                     let storage_root_result = match storage_roots.remove(&hashed_address) {
                         Some(rx) => rx.recv().map_err(|_| {
                             ParallelStateRootError::StorageRoot(StorageRootError::Database(
-                                DatabaseError::Other(format!(
-                                    "channel closed for {hashed_address}"
-                                )),
+                                DatabaseError::Other(
+                                    "storage root result channel closed".to_string(),
+                                ),
                             ))
                         })??,
                         // Since we do not store all intermediate nodes in the database, there might

@@ -54,6 +54,7 @@ criterion.workspace = true
 proptest.workspace = true
 proptest-arbitrary-interop.workspace = true
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros"] }
+tracing-subscriber = { workspace = true, features = ["fmt"] }
 
 [features]
 default = ["metrics"]

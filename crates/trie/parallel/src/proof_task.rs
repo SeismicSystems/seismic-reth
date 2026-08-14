@@ -301,16 +301,12 @@ where
 
         let decoded_result = raw_proof_result.and_then(|raw_proof| {
             raw_proof.try_into().map_err(|e: alloy_rlp::Error| {
-                ParallelStateRootError::Other(format!(
-                    "Failed to decode storage proof for {}: {}",
-                    input.hashed_address, e
-                ))
+                ParallelStateRootError::Other(format!("Failed to decode storage proof: {e}"))
             })
         });
 
         debug!(
             target: "trie::proof_task",
-            hashed_address=?input.hashed_address,
             prefix_set = ?input.prefix_set.len(),
             target_slots = ?target_slots_len,
             proof_time = ?proof_start.elapsed(),
@@ -318,11 +314,9 @@ where
         );
 
         // send the result back
-        if let Err(error) = result_sender.send(decoded_result) {
+        if result_sender.send(decoded_result).is_err() {
             debug!(
                 target: "trie::proof_task",
-                hashed_address = ?input.hashed_address,
-                ?error,
                 task_time = ?proof_start.elapsed(),
                 "Storage proof receiver is dropped, discarding the result"
             );
