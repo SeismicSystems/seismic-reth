@@ -603,7 +603,7 @@ where
         sender: Address,
         nonce: U64,
     ) -> RpcResult<Option<RpcTransaction<T::NetworkTypes>>> {
-        trace!(target: "rpc::eth", ?sender, ?nonce, "Serving eth_getTransactionBySenderAndNonce");
+        trace!(target: "rpc::eth", "Serving eth_getTransactionBySenderAndNonce");
         Ok(EthTransactions::get_transaction_by_sender_and_nonce(self, sender, nonce.to(), true)
             .await?)
     }
@@ -619,7 +619,7 @@ where
 
     /// Handler for: `eth_getBalance`
     async fn balance(&self, address: Address, block_number: Option<BlockId>) -> RpcResult<U256> {
-        trace!(target: "rpc::eth", ?address, ?block_number, "Serving eth_getBalance");
+        trace!(target: "rpc::eth", ?block_number, "Serving eth_getBalance");
         Ok(EthState::balance(self, address, block_number).await?)
     }
 
@@ -630,7 +630,7 @@ where
         index: JsonStorageKey,
         block_number: Option<BlockId>,
     ) -> RpcResult<B256> {
-        trace!(target: "rpc::eth", ?address, ?block_number, "Serving eth_getStorageAt");
+        trace!(target: "rpc::eth", ?block_number, "Serving eth_getStorageAt");
         Ok(EthState::storage_at(self, address, index, block_number).await?)
     }
 
@@ -641,7 +641,7 @@ where
         index: JsonStorageKey,
         block_number: Option<BlockId>,
     ) -> RpcResult<FlaggedStorage> {
-        trace!(target: "rpc::eth", ?address, ?block_number, "Serving eth_getFlaggedStorageAt");
+        trace!(target: "rpc::eth", ?block_number, "Serving eth_getFlaggedStorageAt");
         Ok(EthState::flagged_storage_at(self, address, index, block_number).await?)
     }
     /// Handler for: `eth_getTransactionCount`
@@ -650,13 +650,13 @@ where
         address: Address,
         block_number: Option<BlockId>,
     ) -> RpcResult<U256> {
-        trace!(target: "rpc::eth", ?address, ?block_number, "Serving eth_getTransactionCount");
+        trace!(target: "rpc::eth", ?block_number, "Serving eth_getTransactionCount");
         Ok(EthState::transaction_count(self, address, block_number).await?)
     }
 
     /// Handler for: `eth_getCode`
     async fn get_code(&self, address: Address, block_number: Option<BlockId>) -> RpcResult<Bytes> {
-        trace!(target: "rpc::eth", ?address, ?block_number, "Serving eth_getCode");
+        trace!(target: "rpc::eth", ?block_number, "Serving eth_getCode");
         Ok(EthState::get_code(self, address, block_number).await?)
     }
 

@@ -715,7 +715,7 @@ where
         block_number: Option<BlockId>,
         include_gas_token: Option<bool>,
     ) -> RpcResult<U256> {
-        debug!(target: "reth-seismic-rpc::eth", ?address, ?block_number, ?include_gas_token, "Serving seismic eth_getBalance extension");
+        debug!(target: "reth-seismic-rpc::eth", ?block_number, ?include_gas_token, "Serving seismic eth_getBalance extension");
 
         // Default: native balance, matching standard eth_getBalance.
         let native = EthState::balance(&self.eth_api, address, block_number).await?;
@@ -733,7 +733,7 @@ where
         block: BlockId,
         include_gas_token: Option<bool>,
     ) -> RpcResult<AccountInfo> {
-        debug!(target: "reth-seismic-rpc::eth", ?address, ?block, ?include_gas_token, "Serving seismic eth_getAccountInfo extension");
+        debug!(target: "reth-seismic-rpc::eth", ?block, ?include_gas_token, "Serving seismic eth_getAccountInfo extension");
 
         // Default: native balance, matching standard eth_getAccountInfo and eth_getBalance.
         let mut info = EthState::get_account_info(&self.eth_api, address, block).await?;

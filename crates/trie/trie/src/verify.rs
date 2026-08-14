@@ -250,7 +250,7 @@ impl<C: TrieCursor> SingleVerifier<DepthFirstTrieIterator<C>> {
             }
 
             let (curr_path, curr_node) = self.curr.as_ref().expect("not None");
-            trace!(target: "trie::verify", account=?self.account, ?curr_path, ?path, "Current cursor node");
+            trace!(target: "trie::verify", "Current cursor node");
 
             // Use depth-first ordering for comparison
             match depth_first::cmp(&path, curr_path) {
@@ -370,7 +370,7 @@ impl<T: TrieCursorFactory, H: HashedCursorFactory + Clone> Verifier<T, H> {
             };
 
             if curr_account < next_account || (end_inclusive && curr_account == next_account) {
-                trace!(target: "trie::verify", account = ?curr_account, "Verying account has empty storage");
+                trace!(target: "trie::verify", "Verying account has empty storage");
 
                 let mut storage_cursor =
                     self.trie_cursor_factory.storage_trie_cursor(curr_account)?;
@@ -409,7 +409,7 @@ impl<T: TrieCursorFactory, H: HashedCursorFactory + Clone> Verifier<T, H> {
                 self.complete = true;
             }
             Some(BranchNode::Account(path, node)) => {
-                trace!(target: "trie::verify", ?path, "Account node from state root");
+                trace!(target: "trie::verify", "Account node from state root");
                 self.account.next(&mut self.outputs, path, node)?;
                 // Push progress indicator
                 if !path.is_empty() {
@@ -417,7 +417,7 @@ impl<T: TrieCursorFactory, H: HashedCursorFactory + Clone> Verifier<T, H> {
                 }
             }
             Some(BranchNode::Storage(account, path, node)) => {
-                trace!(target: "trie::verify", ?account, ?path, "Storage node from state root");
+                trace!(target: "trie::verify", "Storage node from state root");
                 match self.storage.as_mut() {
                     None => {
                         // First storage account - check for any empty storages before it

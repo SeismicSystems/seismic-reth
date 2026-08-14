@@ -134,7 +134,7 @@ where
         &self,
         from: Address,
     ) -> RpcResult<TxpoolContentFrom<RpcTransaction<Eth::Network>>> {
-        trace!(target: "rpc::eth", ?from, "Serving txpool_contentFrom");
+        trace!(target: "rpc::eth", "Serving txpool_contentFrom");
         Ok(self.content().map_err(Into::into)?.remove_from(&from))
     }
 
