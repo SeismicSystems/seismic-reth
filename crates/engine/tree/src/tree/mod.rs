@@ -467,7 +467,14 @@ where
             }
 
             if let Err(err) = self.advance_persistence() {
-                error!(target: "engine::tree", %err, "Advancing persistence failed");
+                // `ProviderError`'s Display can embed hashed addresses/keys, so log only the
+                // error kind. `MissingAncestor` carries a public block hash, which is safe.
+                let error_kind = match &err {
+                    AdvancePersistenceError::RecvError(_) => "recv",
+                    AdvancePersistenceError::Provider(_) => "provider",
+                    AdvancePersistenceError::MissingAncestor(_) => "missing_ancestor",
+                };
+                error!(target: "engine::tree", error_kind, "Advancing persistence failed");
                 return
             }
             if self.advance_backup().is_err() {

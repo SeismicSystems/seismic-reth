@@ -42,6 +42,11 @@ use tracing::info;
 /// Tracing targets that may emit private trie data, complete RPC requests, or authentication
 /// headers.
 ///
+/// `jsonrpsee-http` is emitted by `jsonrpsee-core`'s `http_helpers::read_body`, which logs the
+/// full HTTP request body at trace level. `jsonrpsee-server` covers the server transport and
+/// method-dispatch logs (params/responses), and `jsonrpsee_core::proc_macros_support` covers the
+/// generated RPC method tracing.
+///
 /// These are blocked by a separate subscriber layer, so `RUST_LOG` and per-sink CLI filters cannot
 /// re-enable them.
 const DISABLED_SEISMIC_TRACING_TARGETS: [&str; 5] = [

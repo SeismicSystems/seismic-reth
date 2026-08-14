@@ -424,6 +424,9 @@ mod tests {
             .with_max_level(tracing::Level::TRACE)
             .with_writer(logs.clone())
             .finish();
+        // A global (not thread-local) subscriber is required because the proof task logs from a
+        // `spawn_blocking` thread. This relies on per-process test isolation (cargo nextest, the
+        // project standard); no other test in this binary may set a global default.
         tracing::subscriber::set_global_default(subscriber).unwrap();
 
         let factory = create_test_provider_factory();
