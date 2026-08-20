@@ -95,7 +95,6 @@ pub mod e2e {
 }
 
 /// RPC test utilities: nonce helpers.
-#[cfg(feature = "test-utils")]
 pub mod test_utils {
     use alloy_primitives::Address;
     use alloy_rpc_types::{Block, Header, Transaction, TransactionReceipt};
