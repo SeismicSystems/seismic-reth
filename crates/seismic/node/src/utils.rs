@@ -18,10 +18,6 @@ pub mod e2e {
     use reth_seismic_chainspec::SEISMIC_DEV;
     use reth_seismic_primitives::SeismicPrimitives;
     use reth_tasks::TaskManager;
-    use seismic_crypto::{
-        get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
-        get_unsecure_sample_secp256k1_sk,
-    };
     use std::sync::{Arc, Once};
     use tokio::sync::Mutex;
 
@@ -33,11 +29,7 @@ pub mod e2e {
     /// Initializes mock purpose keys for tests. Safe to call multiple times.
     pub fn ensure_mock_purpose_keys() {
         INIT_KEYS.call_once(|| {
-            init_purpose_keys(PurposeKeys {
-                tx_io_sk: get_unsecure_sample_secp256k1_sk(),
-                tx_io_pk: get_unsecure_sample_secp256k1_pk(),
-                rng_ikm: get_unsecure_sample_schnorrkel_keypair().secret.to_bytes(),
-            });
+            init_purpose_keys(PurposeKeys::well_known());
         });
     }
 

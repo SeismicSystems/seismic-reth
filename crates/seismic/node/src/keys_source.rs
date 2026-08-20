@@ -1,6 +1,6 @@
 //! Tools to obtain purpose keys: from the local key custodian's Unix socket, or built
 //! locally from the well-known keys when running without a TEE.
-use std::{path::Path, str::FromStr, time::Duration};
+use std::{path::Path, time::Duration};
 
 use alloy_seismic_evm::{secp256k1, PurposeKeys};
 use reth_node_core::args::{PurposeKeysArgs, PurposeKeysSource};
@@ -11,43 +11,6 @@ use tracing::{info, warn};
 /// explicit operator-triggered rotation (a consensus event); until that mechanism
 /// exists every node derives at epoch 0.
 const PURPOSE_KEY_EPOCH: u64 = 0;
-
-/// The well-known rng HKDF input key material, as `schnorrkel::SecretKey::to_bytes()`
-/// (32-byte key || 32-byte nonce) of the well-known keypair. No schnorrkel
-/// cryptography is performed anywhere with it — the RNG precompile consumes it as
-/// HKDF ikm only.
-const WELL_KNOWN_RNG_IKM: [u8; 64] = [
-    108, 143, 208, 128, 94, 149, 36, 232, 240, 31, 238, 111, 54, 39, 246, 163, 231, 190, 237, 137,
-    76, 19, 107, 188, 78, 133, 126, 183, 245, 50, 56, 8, 121, 108, 125, 215, 62, 231, 212, 112, 83,
-    141, 75, 154, 109, 225, 74, 71, 155, 254, 199, 42, 79, 100, 86, 93, 155, 190, 165, 181, 199,
-    249, 195, 114,
-];
-
-/// The well-known purpose keys, used when `--seismic.purpose-keys-source built-in` is
-/// selected (dev nodes and pre-TEE deployments, which run no TEE at all).
-///
-/// These are real keys with zero secrecy, not mocks: on pre-TEE networks — the live
-/// testnet included — every node boots with `--seismic.purpose-keys-source built-in`,
-/// so they are the consensus-visible network keys — wallets encrypt to this `tx_io_pk`,
-/// sync decrypts history with `tx_io_sk`, and `rng_ikm` seeds the RNG precompile.
-// TODO: these are the only keys reth can run without a custodian; there is no way to
-// input other key material. By mainnet launch, a pre-TEE mainnet must not run keys
-// published on GitHub — needs a per-network keypair provisioned outside source control
-// (e.g. a `file` key source), while sanvil/dev networks stay on the well-known keys.
-#[allow(clippy::expect_used)] // hardcoded constants; validity is exercised by tests
-pub fn well_known_purpose_keys() -> PurposeKeys {
-    PurposeKeys {
-        tx_io_sk: secp256k1::SecretKey::from_str(
-            "311d54d3bf8359c70827122a44a7b4458733adce3c51c6b59d9acfce85e07505",
-        )
-        .expect("valid well-known tx_io secret key"),
-        tx_io_pk: secp256k1::PublicKey::from_str(
-            "028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0",
-        )
-        .expect("valid well-known tx_io public key"),
-        rng_ikm: WELL_KNOWN_RNG_IKM,
-    }
-}
 
 /// Fetch purpose keys: built locally with `--seismic.purpose-keys-source built-in`, otherwise
 /// fetched from the key custodian's Unix socket (`--seismic.custodian.socket`).
@@ -64,7 +27,16 @@ where
     let config = config.as_ref();
     if config.source == PurposeKeysSource::BuiltIn {
         info!(target: "reth::cli", "Using built-in well-known purpose keys (no TEE)");
-        return well_known_purpose_keys();
+        // Real keys with zero secrecy, not mocks: on pre-TEE networks — the live testnet
+        // included — every node boots with this source, so the well-known keys are the
+        // consensus-visible network keys. Wallets encrypt to the tx-io public key, sync
+        // decrypts history with the secret one, and the ikm seeds the RNG precompile.
+        // TODO: these are the only keys reth can run without a custodian; there is no way
+        // to input other key material. By mainnet launch, a pre-TEE mainnet must not run
+        // keys published on GitHub — needs a per-network keypair provisioned outside
+        // source control (e.g. a `file` key source), while sanvil/dev networks stay on the
+        // well-known keys.
+        return PurposeKeys::well_known();
     }
 
     let custodian = &config.custodian;
@@ -115,14 +87,18 @@ fn purpose_keys_from_custodian_bytes(
     tx_io: &TxIoKeypairBytes,
     rng: &RngIkmBytes,
 ) -> eyre::Result<PurposeKeys> {
+    let secp = secp256k1::Secp256k1::new();
     let tx_io_sk = secp256k1::SecretKey::from_byte_array(&tx_io.sk)?;
     let tx_io_pk = secp256k1::PublicKey::from_byte_array_compressed(&tx_io.pk)?;
-    let derived_pk = tx_io_sk.public_key(&secp256k1::Secp256k1::new());
+    let derived_pk = tx_io_sk.public_key(&secp);
     eyre::ensure!(
         tx_io_pk == derived_pk,
         "custodian served a mismatched tx-io keypair: public key {tx_io_pk} is not the secret key's ({derived_pk})"
     );
-    Ok(PurposeKeys { tx_io_sk, tx_io_pk, rng_ikm: rng.ikm })
+    Ok(PurposeKeys {
+        tx_io: secp256k1::Keypair::from_secret_key(&secp, &tx_io_sk),
+        rng_ikm: rng.ikm,
+    })
 }
 
 #[cfg(test)]
@@ -131,31 +107,6 @@ mod tests {
 
     use super::*;
     use std::time::Instant;
-
-    /// sanvil (whose mock arm serves keys built from the sample-key fns) must produce
-    /// these exact keys: `rng_ikm` is a consensus input via the RNG precompile, so
-    /// drift splits the chain, and divergence from sanvil breaks dev-tooling interop.
-    /// This holds for as long as dev networks share keys with anvil.
-    #[test]
-    fn well_known_purpose_keys_match_enclave_crate() {
-        use seismic_crypto::{
-            get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
-            get_unsecure_sample_secp256k1_sk,
-        };
-
-        let ours = well_known_purpose_keys();
-        assert_eq!(ours.tx_io_sk, get_unsecure_sample_secp256k1_sk());
-        assert_eq!(ours.tx_io_pk, get_unsecure_sample_secp256k1_pk());
-        assert_eq!(ours.rng_ikm, get_unsecure_sample_schnorrkel_keypair().secret.to_bytes());
-    }
-
-    /// The hardcoded `tx_io_pk` must actually be `tx_io_sk`'s public key — wallets
-    /// ECDH against the published key, the node decrypts with the secret one.
-    #[test]
-    fn well_known_tx_io_keypair_is_consistent() {
-        let keys = well_known_purpose_keys();
-        assert_eq!(keys.tx_io_pk, keys.tx_io_sk.public_key(&secp256k1::Secp256k1::new()));
-    }
 
     /// The clap default must stay in lockstep with the custodian's canonical socket
     /// path (the images-side unit files bind it there); node-core hardcodes the
@@ -168,25 +119,22 @@ mod tests {
         );
     }
 
-    /// The custodian's raw key bytes decode to exactly the well-known keys when
-    /// fed the sample derivations.
+    /// The custodian's raw key bytes decode to exactly the well-known bundle when the
+    /// custodian serves the well-known key material.
     #[test]
     fn custodian_bytes_decode_to_purpose_keys() {
-        use seismic_crypto::{
-            get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
-            get_unsecure_sample_secp256k1_sk,
-        };
+        use seismic_crypto::{well_known_rng_ikm, well_known_tx_io_keypair};
 
+        let keypair = well_known_tx_io_keypair();
         let tx_io = TxIoKeypairBytes {
-            sk: get_unsecure_sample_secp256k1_sk().secret_bytes(),
-            pk: get_unsecure_sample_secp256k1_pk().serialize(),
+            sk: keypair.secret_key().secret_bytes(),
+            pk: keypair.public_key().serialize(),
         };
-        let rng = RngIkmBytes { ikm: get_unsecure_sample_schnorrkel_keypair().secret.to_bytes() };
+        let rng = RngIkmBytes { ikm: well_known_rng_ikm() };
 
         let keys = purpose_keys_from_custodian_bytes(&tx_io, &rng).expect("decode purpose keys");
-        let expected = well_known_purpose_keys();
-        assert_eq!(keys.tx_io_sk, expected.tx_io_sk);
-        assert_eq!(keys.tx_io_pk, expected.tx_io_pk);
+        let expected = PurposeKeys::well_known();
+        assert_eq!(keys.tx_io, expected.tx_io);
         assert_eq!(keys.rng_ikm, expected.rng_ikm);
     }
 
@@ -195,16 +143,14 @@ mod tests {
     /// decrypt for.
     #[test]
     fn mismatched_custodian_keypair_is_rejected() {
-        use seismic_crypto::{
-            get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
-        };
+        use seismic_crypto::{well_known_rng_ikm, well_known_tx_io_keypair};
 
         let other_sk = secp256k1::SecretKey::from_byte_array(&[1; 32]).expect("valid secret key");
         let tx_io = TxIoKeypairBytes {
             sk: other_sk.secret_bytes(),
-            pk: get_unsecure_sample_secp256k1_pk().serialize(),
+            pk: well_known_tx_io_keypair().public_key().serialize(),
         };
-        let rng = RngIkmBytes { ikm: get_unsecure_sample_schnorrkel_keypair().secret.to_bytes() };
+        let rng = RngIkmBytes { ikm: well_known_rng_ikm() };
 
         let err = purpose_keys_from_custodian_bytes(&tx_io, &rng)
             .expect_err("mismatched keypair must be rejected");

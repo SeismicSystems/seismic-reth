@@ -13,7 +13,7 @@ use alloy_signer_local::PrivateKeySigner;
 use core::str::FromStr;
 use enr::EnrKey;
 use k256::ecdsa::SigningKey;
-use seismic_crypto::get_unsecure_sample_secp256k1_pk;
+use seismic_crypto::well_known_tx_io_keypair;
 
 use secp256k1::{PublicKey, SecretKey};
 use seismic_alloy_consensus::{
@@ -24,7 +24,7 @@ use seismic_alloy_rpc_types::SeismicTransactionRequest;
 
 /// Get the network public key
 pub fn get_network_public_key() -> PublicKey {
-    get_unsecure_sample_secp256k1_pk()
+    well_known_tx_io_keypair().public_key()
 }
 
 /// Get the client's sk for tx io

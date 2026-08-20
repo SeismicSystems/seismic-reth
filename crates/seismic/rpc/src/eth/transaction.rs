@@ -483,7 +483,7 @@ mod test {
         use k256::ecdsa::SigningKey;
         use secp256k1::PublicKey;
         use seismic_alloy_consensus::{TxSeismic, TxSeismicElements};
-        use seismic_crypto::get_unsecure_sample_secp256k1_pk;
+        use seismic_crypto::well_known_tx_io_keypair;
 
         // First anvil key
         let private_key_bytes: [u8; 32] =
@@ -494,7 +494,7 @@ mod test {
         let signing_key = SigningKey::from_bytes(&private_key_bytes.into()).unwrap();
 
         // Network public key
-        let network_pubkey: PublicKey = get_unsecure_sample_secp256k1_pk();
+        let network_pubkey: PublicKey = well_known_tx_io_keypair().public_key();
 
         // Create a seismic transaction
         let tx = TxSeismic {
