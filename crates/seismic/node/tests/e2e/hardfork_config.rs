@@ -18,21 +18,13 @@ use reth_e2e_test_utils::setup;
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use reth_seismic_chainspec::SEISMIC_DEV;
 use reth_seismic_node::{node::SeismicNode, purpose_keys::init_purpose_keys};
-use seismic_crypto::{
-    get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
-    get_unsecure_sample_secp256k1_sk,
-};
 use std::sync::Once;
 
 /// Ensure mock purpose keys are initialized exactly once per test binary.
 static INIT_KEYS: Once = Once::new();
 fn ensure_mock_purpose_keys() {
     INIT_KEYS.call_once(|| {
-        init_purpose_keys(PurposeKeys {
-            tx_io_sk: get_unsecure_sample_secp256k1_sk(),
-            tx_io_pk: get_unsecure_sample_secp256k1_pk(),
-            rng_ikm: get_unsecure_sample_schnorrkel_keypair().secret.to_bytes(),
-        });
+        init_purpose_keys(PurposeKeys::well_known());
     });
 }
 

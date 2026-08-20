@@ -99,7 +99,7 @@ impl<P: PeersInfo> SeismicApi<P> {
 impl<P: PeersInfo + 'static> SeismicApiServer for SeismicApi<P> {
     async fn get_tee_public_key(&self) -> RpcResult<PublicKey> {
         trace!(target: "rpc::seismic", "Serving seismic_getTeePublicKey");
-        Ok(self.purpose_keys.tx_io_pk)
+        Ok(self.purpose_keys.tx_io.public_key())
     }
 
     async fn node_info(&self) -> RpcResult<SeismicNodeInfo> {
@@ -268,7 +268,7 @@ impl<Eth> EthApiExt<Eth> {
         let sender = parse_request_sender(seismic_tx_request)?;
         let metadata = Self::build_metadata(seismic_tx_request, sender)?;
         let encrypted = metadata
-            .encrypt_response(&self.purpose_keys.tx_io_sk, output)
+            .encrypt_response(&self.purpose_keys.tx_io.secret_key(), output)
             .map_err(|e| ext_encryption_error(e.to_string()))?;
 
         Ok(E::from_eth_err(EthApiError::InvalidTransaction(RpcInvalidTransactionError::Revert(
@@ -404,7 +404,7 @@ where
                 let call = resolve_seismic_call(call)?;
                 let plaintext_tx_req = seismic_call_to_plaintext_tx(
                     &call,
-                    &self.purpose_keys.tx_io_sk,
+                    &self.purpose_keys.tx_io.secret_key(),
                     self.eth_api.provider(),
                 )?;
                 let tx_request: TransactionRequest = plaintext_tx_req.inner;
@@ -466,7 +466,10 @@ where
                 let sender = parse_request_sender(&request)?;
                 let metadata = Self::build_metadata(&request, sender)?;
                 let encrypted_output = metadata
-                    .encrypt_response(&self.purpose_keys.tx_io_sk, &call_result.return_data)
+                    .encrypt_response(
+                        &self.purpose_keys.tx_io.secret_key(),
+                        &call_result.return_data,
+                    )
                     .map_err(|e| ext_encryption_error(e.to_string()))?;
                 call_result.return_data = encrypted_output;
 
@@ -507,7 +510,7 @@ where
                 let call = resolve_seismic_call(call)?;
                 let plaintext_tx_req = seismic_call_to_plaintext_tx(
                     &call,
-                    &self.purpose_keys.tx_io_sk,
+                    &self.purpose_keys.tx_io.secret_key(),
                     self.eth_api.provider(),
                 )?;
                 let tx_request: TransactionRequest = plaintext_tx_req.inner;
@@ -544,7 +547,7 @@ where
                         let sender = parse_request_sender(&request)?;
                         let metadata = Self::build_metadata(&request, sender)?;
                         value = metadata
-                            .encrypt_response(&self.purpose_keys.tx_io_sk, &value)
+                            .encrypt_response(&self.purpose_keys.tx_io.secret_key(), &value)
                             .map_err(|e| ext_encryption_error(e.to_string()))?;
                         EthCallResponse { value: Some(value), error: None }
                     }
@@ -586,7 +589,7 @@ where
         let call = resolve_seismic_call(request)?;
         let plaintext_tx_req = seismic_call_to_plaintext_tx(
             &call,
-            &self.purpose_keys.tx_io_sk,
+            &self.purpose_keys.tx_io.secret_key(),
             self.eth_api.provider(),
         )?;
 
@@ -612,7 +615,7 @@ where
                 let sender = parse_request_sender(&request)?;
                 let metadata = Self::build_metadata(&request, sender)?;
                 Ok(metadata
-                    .encrypt_response(&self.purpose_keys.tx_io_sk, &result)
+                    .encrypt_response(&self.purpose_keys.tx_io.secret_key(), &result)
                     .map_err(|e| ext_encryption_error(e.to_string()))?)
             }
         }
@@ -659,7 +662,7 @@ where
         let call = resolve_seismic_call(request)?;
         let decrypted_req = seismic_call_to_plaintext_tx(
             &call,
-            &self.purpose_keys.tx_io_sk,
+            &self.purpose_keys.tx_io.secret_key(),
             self.eth_api.provider(),
         )?;
 

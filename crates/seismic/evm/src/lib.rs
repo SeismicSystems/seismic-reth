@@ -336,26 +336,14 @@ mod tests {
         primitives::Log,
         state::AccountInfo,
     };
-    use seismic_crypto::{
-        get_unsecure_sample_schnorrkel_keypair, get_unsecure_sample_secp256k1_pk,
-        get_unsecure_sample_secp256k1_sk,
-    };
     use seismic_revm::transaction::abstraction::SeismicTransaction;
     use std::sync::Arc;
 
     fn test_evm_config() -> SeismicEvmConfig {
         // Get mock purpose keys for testing
-        let mock_keys = Box::leak(Box::new(get_mock_keys()));
+        let mock_keys = Box::leak(Box::new(PurposeKeys::well_known()));
 
         SeismicEvmConfig::new(SEISMIC_MAINNET.clone(), mock_keys)
-    }
-
-    fn get_mock_keys() -> PurposeKeys {
-        PurposeKeys {
-            tx_io_sk: get_unsecure_sample_secp256k1_sk(),
-            tx_io_pk: get_unsecure_sample_secp256k1_pk(),
-            rng_ikm: get_unsecure_sample_schnorrkel_keypair().secret.to_bytes(),
-        }
     }
 
     #[test]
@@ -375,7 +363,7 @@ mod tests {
 
         // Use the `SeismicEvmConfig` to create the `cfg_env` and `block_env` based on the
         // ChainSpec, Header, and total difficulty
-        let mock_keys = Box::leak(Box::new(get_mock_keys()));
+        let mock_keys = Box::leak(Box::new(PurposeKeys::well_known()));
         let EvmEnv { cfg_env, .. } =
             SeismicEvmConfig::new(Arc::new(chain_spec.clone()), mock_keys).evm_env(&header);
 
