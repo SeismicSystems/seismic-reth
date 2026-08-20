@@ -16,9 +16,10 @@ use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_param
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use reth_seismic_node::utils::{
     e2e::{ensure_mock_purpose_keys, setup},
-    test_utils::{get_nonce, get_signed_seismic_tx_bytes},
+    test_utils::get_nonce,
 };
 use reth_seismic_rpc::ext::EthApiOverrideClient;
+use reth_seismic_test_utils::get_signed_seismic_tx_bytes;
 use tracing::{info, trace};
 
 /// Number of random payloads per fuzz batch

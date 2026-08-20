@@ -8,7 +8,7 @@ use alloy_consensus::transaction::Recovered;
 use alloy_eips::Encodable2718;
 use alloy_primitives::{Address, B256};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use reth_seismic_primitives::test_utils::get_signed_seismic_tx;
+use reth_seismic_test_utils::get_signed_seismic_tx;
 use reth_seismic_txpool::{stale_seismic_hashes, RecentBlockCache, SeismicPooledTransaction};
 use reth_transaction_pool::{
     identifier::{SenderId, TransactionId},

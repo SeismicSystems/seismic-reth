@@ -192,7 +192,7 @@ mod tests {
     use reth_primitives_traits::transaction::error::InvalidTransactionError;
     use reth_provider::test_utils::MockEthProvider;
     use reth_seismic_chainspec::SEISMIC_MAINNET;
-    use reth_seismic_primitives::test_utils::get_signed_seismic_tx;
+    use reth_seismic_test_utils::get_signed_seismic_tx;
     use reth_transaction_pool::{
         blobstore::InMemoryBlobStore, error::InvalidPoolTransactionError,
         validate::EthTransactionValidatorBuilder, TransactionOrigin, TransactionValidationOutcome,

@@ -31,18 +31,16 @@ use reth_e2e_test_utils::wallet::Wallet;
 use reth_rpc_eth_api::EthApiClient;
 use reth_seismic_node::utils::{
     e2e::{ensure_mock_purpose_keys, setup, SeismicTestNode},
-    test_utils::{
-        client_decrypt, get_nonce, get_plaintext, get_signed_read_seismic_metadata,
-        get_signed_seismic_call_bytes, get_signed_seismic_call_typed_data,
-        get_signed_seismic_tx_bytes, get_unsigned_seismic_call_request,
-        get_unsigned_seismic_tx_request,
-    },
+    test_utils::get_nonce,
 };
-use reth_seismic_primitives::{
-    test_utils::{get_unsigned_legacy_tx_request, sign_tx},
-    SeismicBlock, SeismicTransactionSigned,
-};
+use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
+use reth_seismic_test_utils::{
+    client_decrypt, get_plaintext, get_signed_read_seismic_metadata, get_signed_seismic_call_bytes,
+    get_signed_seismic_call_typed_data, get_signed_seismic_tx_bytes,
+    get_unsigned_legacy_tx_request, get_unsigned_seismic_call_request,
+    get_unsigned_seismic_tx_request, sign_tx,
+};
 use seismic_alloy_consensus::SeismicTxEnvelope;
 use seismic_alloy_network::{
     reth::builder::seismic_reth_tx_builder, wallet::SeismicWallet, SeismicReth,

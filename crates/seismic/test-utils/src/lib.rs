@@ -1,8 +1,14 @@
-//! Test utils for seismic primitives, e.g. `SeismicTransactionSigned`
+//! Test helpers for building, encrypting, and signing Seismic transactions.
 
+#![doc(
+    html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
+    html_favicon_url = "https://avatars0.githubusercontent.com/u/97369466?s=256",
+    issue_tracker_base_url = "https://github.com/SeismicSystems/seismic-reth/issues/"
+)]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![warn(unused_crate_dependencies)]
 #![allow(clippy::unwrap_used, clippy::expect_used)] // Test utilities - panics are acceptable
 
-use crate::SeismicTransactionSigned;
 use alloy_consensus::SignableTransaction;
 use alloy_dyn_abi::TypedData;
 use alloy_eips::eip2718::Encodable2718;
@@ -13,6 +19,7 @@ use alloy_signer_local::PrivateKeySigner;
 use core::str::FromStr;
 use enr::EnrKey;
 use k256::ecdsa::SigningKey;
+use reth_seismic_primitives::SeismicTransactionSigned;
 use seismic_crypto::well_known_tx_io_keypair;
 
 use secp256k1::{PublicKey, SecretKey};
