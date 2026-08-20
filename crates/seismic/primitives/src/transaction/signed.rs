@@ -724,7 +724,7 @@ pub mod serde_bincode_compat {
 mod tests {
     use core::str::FromStr;
 
-    use crate::test_utils::{get_signed_seismic_tx, get_signing_private_key};
+    use reth_seismic_test_utils::{get_signed_seismic_tx, get_signing_private_key};
 
     use super::*;
     use alloy_primitives::{aliases::U96, hex, U256};

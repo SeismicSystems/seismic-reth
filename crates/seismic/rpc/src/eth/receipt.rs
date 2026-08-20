@@ -103,7 +103,7 @@ mod tests {
         Eip658Value, Receipt,
     };
     use alloy_primitives::{Address, B256};
-    use reth_seismic_primitives::test_utils::get_signed_seismic_tx;
+    use reth_seismic_test_utils::get_signed_seismic_tx;
     use std::borrow::Cow;
 
     #[test]

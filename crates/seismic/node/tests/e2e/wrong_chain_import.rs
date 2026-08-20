@@ -19,10 +19,8 @@ use reth_seismic_node::{
     engine::SeismicPayloadTypes,
     utils::e2e::{ensure_mock_purpose_keys, setup},
 };
-use reth_seismic_primitives::{
-    test_utils::{get_unsigned_legacy_tx_request, sign_tx},
-    SeismicBlock, SeismicTransactionSigned,
-};
+use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
+use reth_seismic_test_utils::{get_unsigned_legacy_tx_request, sign_tx};
 use std::time::Duration;
 
 /// A block containing a transaction signed for a different chain must be rejected by

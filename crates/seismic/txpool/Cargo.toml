@@ -36,6 +36,7 @@ tracing.workspace = true
 
 [dev-dependencies]
 reth-seismic-chainspec.workspace = true
+reth-seismic-test-utils.workspace = true
 reth-provider = { workspace = true, features = ["test-utils"] }
 tokio.workspace = true
 criterion.workspace = true

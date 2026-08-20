@@ -21,6 +21,7 @@ members = [
     "crates/seismic/primitives/",
     "crates/seismic/reth/",
     "crates/seismic/rpc/",
+    "crates/seismic/test-utils/",
     "crates/seismic/txpool/",
     "crates/seismic/hardforks",
     "crates/seismic/fuzz",
@@ -358,6 +359,7 @@ reth-seismic-payload-builder = { path = "crates/seismic/payload" }
 reth-seismic-primitives = { path = "crates/seismic/primitives" }
 reth-seismic-reth = { path = "crates/seismic/reth" }
 reth-seismic-rpc = { path = "crates/seismic/rpc" }
+reth-seismic-test-utils = { path = "crates/seismic/test-utils" }
 reth-seismic-txpool = { path = "crates/seismic/txpool" }
 reth-seismic-forks = { path = "crates/seismic/hardforks", default-features = false }
 reth-seismic-fuzz = { path = "crates/seismic/fuzz" }
