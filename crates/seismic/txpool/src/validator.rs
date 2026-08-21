@@ -212,9 +212,12 @@ where
         self.inner.on_new_head_block(new_tip_block);
 
         let mut cache = self.recent_blocks.write().unwrap_or_else(|e| e.into_inner());
-        cache.update(new_tip_block.hash(), new_tip_block.header().number(), |n| {
-            self.inner.client().header_by_number(n).ok()?.map(|h| h.hash_slow())
-        });
+        cache.update(
+            new_tip_block.hash(),
+            new_tip_block.header().number(),
+            new_tip_block.header().parent_hash(),
+            |n| self.inner.client().header_by_number(n).ok()?.map(|h| h.hash_slow()),
+        );
     }
 }
 
