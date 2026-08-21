@@ -6,16 +6,16 @@ use crate::{
     validator::seismic_freshness_error,
 };
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{Sealable, TxHash};
+use alloy_primitives::{Address, Sealable, TxHash, B256};
 use futures_util::StreamExt;
-use reth_execution_types::ChangedAccount;
+use reth_execution_types::{ChangedAccount, ExecutionOutcome};
 use reth_provider::{BlockReaderIdExt, CanonStateNotificationStream, StateProvider};
 use reth_seismic_primitives::SeismicPrimitives;
 use reth_transaction_pool::{
     maintain::ChangedAccountsHook, PoolTransaction, TransactionPool, ValidPoolTransaction,
 };
 use seismic_alloy_consensus::SeismicTypedTransaction;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 use tracing::debug;
 
 /// Makes the transaction pool's balance accounting aware of USDC gas payment.
@@ -70,6 +70,43 @@ impl ChangedAccountsHook for SeismicBalanceHook {
             }
         }
     }
+
+    fn extend_reload_queued_senders<R>(
+        &self,
+        queued_senders: &HashSet<Address>,
+        old: Option<&ExecutionOutcome<R>>,
+        new: &ExecutionOutcome<R>,
+        dirty_addresses: &mut HashSet<Address>,
+    ) {
+        dirty_addresses.extend(queued_senders_with_changed_usdc_slots(queued_senders, old, new));
+    }
+}
+
+fn queued_senders_with_changed_usdc_slots<'a, R>(
+    queued_senders: &'a HashSet<Address>,
+    old: Option<&ExecutionOutcome<R>>,
+    new: &ExecutionOutcome<R>,
+) -> impl Iterator<Item = Address> + 'a {
+    let changed_slots = changed_usdc_storage_slots(new)
+        .chain(old.into_iter().flat_map(changed_usdc_storage_slots))
+        .collect::<HashSet<_>>();
+
+    queued_senders.iter().copied().filter(move |address| {
+        changed_slots.contains(&crate::usdc::usdc_balance_storage_key(address))
+    })
+}
+
+fn changed_usdc_storage_slots<R>(state: &ExecutionOutcome<R>) -> impl Iterator<Item = B256> + '_ {
+    state
+        .bundle_accounts_iter()
+        .filter_map(|(address, account)| (address == crate::usdc::USDC_CONTRACT).then_some(account))
+        .flat_map(|account| {
+            account
+                .storage
+                .iter()
+                .filter(|(_, value)| value.is_changed())
+                .map(|(slot, _)| B256::from(slot.to_be_bytes::<32>()))
+        })
 }
 
 /// Run the full-pool scan every Nth head (the cache still updates every head). Eviction is just
@@ -139,4 +176,62 @@ pub fn stale_seismic_hashes<'a>(
                 .map(|_| *tx.hash())
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_primitives::{map::HashMap, FlaggedStorage, U256};
+    use reth_execution_types::{BundleStateInit, RevertsInit};
+
+    #[test]
+    fn reloads_only_queued_senders_with_changed_usdc_slots() {
+        let affected = alloy_primitives::address!("000000000000000000000000000000000000000a");
+        let unaffected = alloy_primitives::address!("000000000000000000000000000000000000000b");
+        let queued_senders = HashSet::from([affected, unaffected]);
+        let state = execution_outcome_with_changed_usdc_slots([affected]);
+
+        let dirty = queued_senders_with_changed_usdc_slots(&queued_senders, None, &state)
+            .collect::<HashSet<_>>();
+
+        assert_eq!(dirty, HashSet::from([affected]));
+    }
+
+    #[test]
+    fn includes_changed_slots_from_old_and_new_state() {
+        let old_sender = alloy_primitives::address!("000000000000000000000000000000000000000a");
+        let new_sender = alloy_primitives::address!("000000000000000000000000000000000000000b");
+        let queued_senders = HashSet::from([old_sender, new_sender]);
+        let old = execution_outcome_with_changed_usdc_slots([old_sender]);
+        let new = execution_outcome_with_changed_usdc_slots([new_sender]);
+
+        let dirty = queued_senders_with_changed_usdc_slots(&queued_senders, Some(&old), &new)
+            .collect::<HashSet<_>>();
+
+        assert_eq!(dirty, HashSet::from([old_sender, new_sender]));
+    }
+
+    fn execution_outcome_with_changed_usdc_slots(
+        senders: impl IntoIterator<Item = Address>,
+    ) -> ExecutionOutcome<()> {
+        let mut init = BundleStateInit::default();
+        init.insert(
+            crate::usdc::USDC_CONTRACT,
+            (
+                None,
+                None,
+                senders
+                    .into_iter()
+                    .map(|sender| {
+                        (
+                            crate::usdc::usdc_balance_storage_key(&sender),
+                            (FlaggedStorage::ZERO, FlaggedStorage::from(U256::from(1))),
+                        )
+                    })
+                    .collect::<HashMap<_, _>>(),
+            ),
+        );
+
+        ExecutionOutcome::new_init(init, RevertsInit::default(), [], vec![], 0, vec![])
+    }
 }
