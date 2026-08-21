@@ -98,7 +98,7 @@ pub async fn maintain_seismic_freshness<Client, Pool>(
     let mut heads_since_scan = 0u64;
     while let Some(notification) = events.next().await {
         let Some(tip) = notification.tip_checked() else { continue };
-        cache.update(tip.hash(), tip.number(), |n| {
+        cache.update(tip.hash(), tip.number(), tip.parent_hash(), |n| {
             client.header_by_number(n).ok()?.map(|h| h.hash_slow())
         });
 
