@@ -238,7 +238,7 @@ where
 fn seismic_expired_error(current_block: u64, expires_at_block: u64) -> EthApiError {
     let err = SeismicTxError::TransactionExpired { current_block, expires_at_block };
     EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
-        -32000,
+        crate::eth::error_codes::seismic_error_codes::TRANSACTION_EXPIRED,
         err.to_string(),
         None::<String>,
     )))
@@ -252,7 +252,7 @@ fn seismic_recent_block_hash_error(hash: B256) -> EthApiError {
         lookback: SEISMIC_TX_RECENT_BLOCK_LOOKBACK,
     };
     EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
-        -32000,
+        crate::eth::error_codes::seismic_error_codes::RECENT_BLOCK_HASH_NOT_FOUND,
         err.to_string(),
         None::<String>,
     )))

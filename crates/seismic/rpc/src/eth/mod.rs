@@ -1,5 +1,6 @@
 //! Seismic-Reth `eth_` endpoint implementation.
 
+pub mod error_codes;
 pub mod ext;
 pub mod receipt;
 pub mod transaction;
