@@ -6,6 +6,7 @@ use jsonrpsee::http_client::HttpClientBuilder;
 use reth_e2e_test_utils::transaction::TransactionTestContext;
 use reth_seismic_node::utils::e2e::ensure_mock_purpose_keys;
 use reth_seismic_rpc::ext::SeismicApiClient;
+use reth_transaction_pool::TransactionPool;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_seismic_node_info() -> Result<()> {
@@ -50,5 +51,21 @@ async fn test_seismic_produce_blocks() -> Result<()> {
     let payload = node.advance_block().await?;
     node.assert_new_block(tx_hash, payload.block().hash(), payload.block().number).await?;
 
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_seismic_blob_sidecar_survives_pool_ingress() -> Result<()> {
+    reth_tracing::init_test_tracing();
+    ensure_mock_purpose_keys();
+
+    let (mut nodes, _tasks, wallet) = reth_seismic_node::utils::e2e::setup(1).await?;
+    let node = nodes.pop().unwrap();
+    let raw_tx =
+        TransactionTestContext::tx_with_blobs_bytes(wallet.chain_id, wallet.inner.clone()).await?;
+
+    let tx_hash = node.rpc.inject_tx(raw_tx).await?;
+
+    assert!(node.inner.pool.get_blob(tx_hash)?.is_some());
     Ok(())
 }

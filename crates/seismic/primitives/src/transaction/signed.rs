@@ -2,9 +2,10 @@
 
 use alloc::vec::Vec;
 use alloy_consensus::{
+    error::ValueError,
     transaction::{RlpEcdsaDecodableTx, RlpEcdsaEncodableTx},
-    SignableTransaction, Signed, Transaction, TxEip1559, TxEip2930, TxEip4844, TxEip7702, TxLegacy,
-    Typed2718,
+    EthereumTxEnvelope, SignableTransaction, Signed, Transaction, TxEip1559, TxEip2930, TxEip4844,
+    TxEip7702, TxLegacy, Typed2718,
 };
 use alloy_eips::{
     eip2718::{Decodable2718, Eip2718Error, Eip2718Result, Encodable2718},
@@ -26,7 +27,7 @@ use reth_primitives_traits::{
     crypto::secp256k1::{recover_signer, recover_signer_unchecked},
     sync::OnceLock,
     transaction::signed::RecoveryError,
-    InMemorySize, SignedTransaction, SignerRecoverable,
+    Extended, InMemorySize, SignedTransaction, SignerRecoverable,
 };
 use revm_context::TxEnv;
 use seismic_alloy_consensus::{
@@ -37,6 +38,8 @@ use seismic_revm::SeismicTransaction;
 
 // Seismic imports, not used by upstream
 use alloy_evm::FromTxWithEncoded;
+
+use super::SeismicPooledTransactionVariant;
 
 /// Signed transaction.
 ///
@@ -176,6 +179,46 @@ impl From<SeismicTransactionSigned> for SeismicTxEnvelope {
             SeismicTypedTransaction::Eip7702(tx) => {
                 Signed::new_unchecked(tx, signature, hash).into()
             }
+        }
+    }
+}
+
+impl From<SeismicPooledTransactionVariant> for SeismicTransactionSigned {
+    fn from(value: SeismicPooledTransactionVariant) -> Self {
+        match value {
+            Extended::BuiltIn(tx) => match tx {
+                EthereumTxEnvelope::Legacy(tx) => tx.into(),
+                EthereumTxEnvelope::Eip2930(tx) => tx.into(),
+                EthereumTxEnvelope::Eip1559(tx) => tx.into(),
+                EthereumTxEnvelope::Eip4844(tx) => {
+                    let (tx, signature, hash) = tx.into_parts();
+                    let (tx, _sidecar) = tx.into_parts();
+                    Self::new(SeismicTypedTransaction::Eip4844(tx), signature, hash)
+                }
+                EthereumTxEnvelope::Eip7702(tx) => tx.into(),
+            },
+            Extended::Other(tx) => tx.into(),
+        }
+    }
+}
+
+impl TryFrom<SeismicTransactionSigned> for SeismicPooledTransactionVariant {
+    type Error = ValueError<SeismicTransactionSigned>;
+
+    fn try_from(value: SeismicTransactionSigned) -> Result<Self, Self::Error> {
+        let envelope: SeismicTxEnvelope = value.into();
+        match envelope {
+            // Ethereum types are always represented by `BuiltIn`, matching `Extended`'s decoder
+            // dispatch and keeping its two branches non-overlapping.
+            SeismicTxEnvelope::Legacy(tx) => Ok(Self::BuiltIn(EthereumTxEnvelope::Legacy(tx))),
+            SeismicTxEnvelope::Eip2930(tx) => Ok(Self::BuiltIn(EthereumTxEnvelope::Eip2930(tx))),
+            SeismicTxEnvelope::Eip1559(tx) => Ok(Self::BuiltIn(EthereumTxEnvelope::Eip1559(tx))),
+            SeismicTxEnvelope::Eip7702(tx) => Ok(Self::BuiltIn(EthereumTxEnvelope::Eip7702(tx))),
+            SeismicTxEnvelope::Seismic(tx) => Ok(Self::Other(SeismicTxEnvelope::Seismic(tx))),
+            SeismicTxEnvelope::Eip4844(tx) => Err(ValueError::new_static(
+                SeismicTransactionSigned::from(SeismicTxEnvelope::Eip4844(tx)),
+                "pooled transaction requires 4844 sidecar",
+            )),
         }
     }
 }

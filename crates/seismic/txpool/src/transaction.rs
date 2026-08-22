@@ -1,4 +1,7 @@
-use alloy_consensus::{transaction::Recovered, BlobTransactionValidationError, Typed2718};
+use alloy_consensus::{
+    error::ValueError, transaction::Recovered, BlobTransactionValidationError, EthereumTxEnvelope,
+    Signed, Typed2718,
+};
 use alloy_eips::{
     eip2930::AccessList, eip7594::BlobTransactionSidecarVariant, eip7702::SignedAuthorization,
     Encodable2718,
@@ -6,17 +9,20 @@ use alloy_eips::{
 use alloy_primitives::{Address, Bytes, TxHash, TxKind, B256, U256};
 use c_kzg::KzgSettings;
 use core::fmt::Debug;
-use reth_primitives_traits::{InMemorySize, SignedTransaction};
-use reth_seismic_primitives::SeismicTransactionSigned;
+use reth_primitives_traits::{Extended, InMemorySize, SignedTransaction};
+use reth_seismic_primitives::{SeismicPooledTransactionVariant, SeismicTransactionSigned};
 use reth_transaction_pool::{
     EthBlobTransactionSidecar, EthPoolTransaction, EthPooledTransaction, PoolTransaction,
 };
-use seismic_alloy_consensus::SeismicTxEnvelope;
+use seismic_alloy_consensus::SeismicTypedTransaction;
 use std::sync::Arc;
 
 /// Pool Transaction for Seismic.
 #[derive(Debug, Clone, derive_more::Deref)]
-pub struct SeismicPooledTransaction<Cons = SeismicTransactionSigned, Pooled = SeismicTxEnvelope> {
+pub struct SeismicPooledTransaction<
+    Cons = SeismicTransactionSigned,
+    Pooled = SeismicPooledTransactionVariant,
+> {
     #[deref]
     inner: EthPooledTransaction<Cons>,
     /// The pooled transaction type.
@@ -33,14 +39,10 @@ impl<Cons: SignedTransaction, Pooled> SeismicPooledTransaction<Cons, Pooled> {
     }
 }
 
-impl<Cons, Pooled> PoolTransaction for SeismicPooledTransaction<Cons, Pooled>
-where
-    Cons: SignedTransaction + From<Pooled>,
-    Pooled: SignedTransaction + TryFrom<Cons, Error: core::error::Error>,
-{
-    type TryFromConsensusError = <Pooled as TryFrom<Cons>>::Error;
-    type Consensus = Cons;
-    type Pooled = Pooled;
+impl PoolTransaction for SeismicPooledTransaction {
+    type TryFromConsensusError = ValueError<SeismicTransactionSigned>;
+    type Consensus = SeismicTransactionSigned;
+    type Pooled = SeismicPooledTransactionVariant;
 
     fn hash(&self) -> &TxHash {
         self.inner.transaction.tx_hash()
@@ -72,7 +74,22 @@ where
 
     fn from_pooled(tx: Recovered<Self::Pooled>) -> Self {
         let encoded_len = tx.encode_2718_len();
-        Self::new(tx.convert(), encoded_len)
+        let (tx, signer) = tx.into_parts();
+        match tx {
+            Extended::BuiltIn(EthereumTxEnvelope::Eip4844(tx)) => {
+                let (tx, signature, hash) = tx.into_parts();
+                let (tx, blob) = tx.into_parts();
+                let tx = SeismicTransactionSigned::from(Signed::new_unchecked(tx, signature, hash));
+                let tx = Recovered::new_unchecked(tx, signer);
+                let mut pooled = Self::new(tx, encoded_len);
+                pooled.inner.blob_sidecar = EthBlobTransactionSidecar::Present(blob);
+                pooled
+            }
+            tx => {
+                let tx = Recovered::new_unchecked(tx.into(), signer);
+                Self::new(tx, encoded_len)
+            }
+        }
     }
 }
 
@@ -147,37 +164,54 @@ where
     }
 }
 
-impl<Cons, Pooled> EthPoolTransaction for SeismicPooledTransaction<Cons, Pooled>
-where
-    Cons: SignedTransaction + From<Pooled>,
-    Pooled: SignedTransaction + TryFrom<Cons>,
-    <Pooled as TryFrom<Cons>>::Error: core::error::Error,
-{
+impl EthPoolTransaction for SeismicPooledTransaction {
     fn take_blob(&mut self) -> EthBlobTransactionSidecar {
-        EthBlobTransactionSidecar::None
+        if self.is_eip4844() {
+            std::mem::replace(&mut self.inner.blob_sidecar, EthBlobTransactionSidecar::Missing)
+        } else {
+            EthBlobTransactionSidecar::None
+        }
     }
 
     fn try_into_pooled_eip4844(
         self,
-        _sidecar: Arc<BlobTransactionSidecarVariant>,
+        sidecar: Arc<BlobTransactionSidecarVariant>,
     ) -> Option<Recovered<Self::Pooled>> {
-        None
+        let (tx, signer) = self.into_consensus().into_parts();
+        attach_blob_sidecar(tx, Arc::unwrap_or_clone(sidecar))
+            .map(|tx| Recovered::new_unchecked(tx, signer))
     }
 
     fn try_from_eip4844(
-        _tx: Recovered<Self::Consensus>,
-        _sidecar: BlobTransactionSidecarVariant,
+        tx: Recovered<Self::Consensus>,
+        sidecar: BlobTransactionSidecarVariant,
     ) -> Option<Self> {
-        None
+        let (tx, signer) = tx.into_parts();
+        attach_blob_sidecar(tx, sidecar)
+            .map(|tx| Recovered::new_unchecked(tx, signer))
+            .map(Self::from_pooled)
     }
 
     fn validate_blob(
         &self,
-        _sidecar: &BlobTransactionSidecarVariant,
-        _settings: &KzgSettings,
+        sidecar: &BlobTransactionSidecarVariant,
+        settings: &KzgSettings,
     ) -> Result<(), BlobTransactionValidationError> {
-        Err(BlobTransactionValidationError::NotBlobTransaction(self.ty()))
+        match self.inner.transaction.inner().transaction() {
+            SeismicTypedTransaction::Eip4844(tx) => tx.validate_blob(sidecar, settings),
+            _ => Err(BlobTransactionValidationError::NotBlobTransaction(self.ty())),
+        }
     }
+}
+
+fn attach_blob_sidecar(
+    tx: SeismicTransactionSigned,
+    sidecar: BlobTransactionSidecarVariant,
+) -> Option<SeismicPooledTransactionVariant> {
+    let (tx, signature, hash) = tx.into_parts();
+    let SeismicTypedTransaction::Eip4844(tx) = tx else { return None };
+    let tx = Signed::new_unchecked(tx.with_sidecar(sidecar), signature, hash);
+    Some(Extended::BuiltIn(EthereumTxEnvelope::Eip4844(tx)))
 }
 
 #[cfg(test)]
@@ -186,17 +220,91 @@ where
 #[allow(clippy::panic)] // Test code - panic on failure is acceptable
 mod tests {
     use crate::SeismicPooledTransaction;
-    use alloy_consensus::transaction::Recovered;
-    use alloy_eips::eip2718::Encodable2718;
-    use alloy_primitives::B256;
-    use reth_primitives_traits::transaction::error::InvalidTransactionError;
+    use alloy_consensus::{
+        transaction::Recovered, EthereumTxEnvelope, Signed, TxEip1559, TxEip4844,
+    };
+    use alloy_eips::{
+        eip2718::Encodable2718, eip4844::BlobTransactionSidecar,
+        eip7594::BlobTransactionSidecarVariant,
+    };
+    use alloy_primitives::{Address, Signature, B256, U256};
+    use reth_primitives_traits::{transaction::error::InvalidTransactionError, Extended};
     use reth_provider::test_utils::MockEthProvider;
     use reth_seismic_chainspec::SEISMIC_MAINNET;
+    use reth_seismic_primitives::{SeismicPooledTransactionVariant, SeismicTransactionSigned};
     use reth_seismic_test_utils::get_signed_seismic_tx;
     use reth_transaction_pool::{
         blobstore::InMemoryBlobStore, error::InvalidPoolTransactionError,
-        validate::EthTransactionValidatorBuilder, TransactionOrigin, TransactionValidationOutcome,
+        validate::EthTransactionValidatorBuilder, EthBlobTransactionSidecar, EthPoolTransaction,
+        PoolTransaction, TransactionOrigin, TransactionValidationOutcome,
     };
+    use seismic_alloy_consensus::SeismicTxEnvelope;
+    use std::sync::Arc;
+
+    fn pooled_blob_transaction() -> (SeismicPooledTransactionVariant, BlobTransactionSidecarVariant)
+    {
+        let sidecar = BlobTransactionSidecarVariant::Eip4844(BlobTransactionSidecar::default());
+        let signature = Signature::new(U256::from(1), U256::from(1), false);
+        let tx = TxEip4844::default().with_sidecar(sidecar.clone());
+        let tx = Signed::new_unchecked(tx, signature, B256::repeat_byte(3));
+        (Extended::BuiltIn(EthereumTxEnvelope::Eip4844(tx)), sidecar)
+    }
+
+    #[test]
+    fn pooled_conversion_uses_non_overlapping_branches() {
+        let seismic = get_signed_seismic_tx(B256::ZERO);
+        let pooled = SeismicPooledTransactionVariant::try_from(seismic.clone())
+            .expect("seismic transaction should be poolable");
+        assert!(matches!(&pooled, Extended::Other(SeismicTxEnvelope::Seismic(_))));
+        assert_eq!(SeismicTransactionSigned::from(pooled), seismic);
+
+        let signature = Signature::new(U256::from(1), U256::from(1), false);
+        let ethereum = SeismicTransactionSigned::from(Signed::new_unchecked(
+            TxEip1559::default(),
+            signature,
+            B256::repeat_byte(1),
+        ));
+        let pooled = SeismicPooledTransactionVariant::try_from(ethereum.clone())
+            .expect("EIP-1559 transaction should be poolable");
+        assert!(matches!(&pooled, Extended::BuiltIn(EthereumTxEnvelope::Eip1559(_))));
+        assert_eq!(SeismicTransactionSigned::from(pooled), ethereum);
+    }
+
+    #[test]
+    fn consensus_eip4844_requires_sidecar_for_pooled_conversion() {
+        let signature = Signature::new(U256::from(1), U256::from(1), false);
+        let consensus = SeismicTransactionSigned::from(Signed::new_unchecked(
+            TxEip4844::default(),
+            signature,
+            B256::repeat_byte(3),
+        ));
+
+        let err = SeismicPooledTransactionVariant::try_from(consensus.clone())
+            .expect_err("consensus EIP-4844 transaction must not pool without a sidecar");
+        assert_eq!(err.into_value(), consensus);
+    }
+
+    #[test]
+    fn pooled_blob_sidecar_is_stripped_and_retained() {
+        let (tx, sidecar) = pooled_blob_transaction();
+        let encoded_length = tx.encode_2718_len();
+        let recovered = Recovered::new_unchecked(tx, Address::repeat_byte(1));
+        let mut pooled = SeismicPooledTransaction::from_pooled(recovered);
+
+        assert_eq!(pooled.encoded_length(), encoded_length);
+        assert!(encoded_length > pooled.clone_into_consensus().encode_2718_len());
+        let repropagated = pooled
+            .clone()
+            .try_into_pooled_eip4844(Arc::new(sidecar.clone()))
+            .expect("blob sidecar should reattach for propagation");
+        assert_eq!(repropagated.encode_2718_len(), encoded_length);
+        assert_eq!(pooled.take_blob(), EthBlobTransactionSidecar::Present(sidecar.clone()));
+
+        let consensus = pooled.clone_into_consensus();
+        let mut reattached = SeismicPooledTransaction::try_from_eip4844(consensus, sidecar.clone())
+            .expect("consensus blob transaction should accept a sidecar");
+        assert_eq!(reattached.take_blob(), EthBlobTransactionSidecar::Present(sidecar));
+    }
 
     #[tokio::test]
     async fn validate_seismic_transaction() {
