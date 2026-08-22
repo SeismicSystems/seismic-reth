@@ -48,7 +48,9 @@ use reth_rpc_eth_types::{
 use reth_rpc_server_types::RethRpcModule;
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_payload_builder::SeismicBuilderConfig;
-use reth_seismic_primitives::{SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned};
+use reth_seismic_primitives::{
+    SeismicPooledTransactionVariant, SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned,
+};
 use reth_seismic_rpc::{
     ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer},
     SeismicEthApiBuilder, SeismicEthApiError, SeismicRethWithSignable,
@@ -58,7 +60,7 @@ use reth_transaction_pool::{
     CoinbaseTipOrdering, PoolTransaction, TransactionPool, TransactionValidationTaskExecutor,
 };
 use revm::context::TxEnv;
-use seismic_alloy_consensus::{SeismicTxEnvelope, SeismicTxType};
+use seismic_alloy_consensus::SeismicTxType;
 use std::{sync::Arc, time::SystemTime};
 use tracing::info;
 
@@ -748,7 +750,10 @@ impl<Node, Pool> NetworkBuilder<Node, Pool> for SeismicNetworkBuilder
 where
     Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
     Pool: TransactionPool<
-            Transaction: PoolTransaction<Consensus = TxTy<Node::Types>, Pooled = SeismicTxEnvelope>, /* equiv to op_alloy_consensus::OpPooledTransaction>, */
+            Transaction: PoolTransaction<
+                Consensus = TxTy<Node::Types>,
+                Pooled = SeismicPooledTransactionVariant,
+            >,
         > + Unpin
         + 'static,
 {
@@ -858,7 +863,7 @@ impl NetworkPrimitives for SeismicNetworkPrimitives {
     type BlockBody = alloy_consensus::BlockBody<SeismicTransactionSigned>;
     type Block = alloy_consensus::Block<SeismicTransactionSigned>;
     type BroadcastedTransaction = SeismicTransactionSigned;
-    type PooledTransaction = SeismicTxEnvelope;
+    type PooledTransaction = SeismicPooledTransactionVariant;
     type Receipt = SeismicReceipt;
     type NewBlockPayload = NewBlock<Self::Block>;
 }
@@ -869,6 +874,7 @@ mod tests {
     use alloy_eips::eip4895::{Withdrawal, Withdrawals};
     use alloy_primitives::Address;
     use alloy_rpc_types_eth::{BlockTransactions, Header};
+    use seismic_alloy_consensus::SeismicTxEnvelope;
 
     #[test]
     fn rpc_to_primitive_block_preserves_withdrawals() {
