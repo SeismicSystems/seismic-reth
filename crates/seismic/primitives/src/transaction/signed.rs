@@ -198,7 +198,12 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
             SeismicTypedTransaction::Eip1559(tx) => TxEnv::from_recovered_tx(tx, sender),
             SeismicTypedTransaction::Eip4844(tx) => TxEnv::from_recovered_tx(tx, sender),
             SeismicTypedTransaction::Eip7702(tx) => TxEnv::from_recovered_tx(tx, sender),
-            SeismicTypedTransaction::Seismic(tx) => TxEnv::from_recovered_tx(tx, sender),
+            SeismicTypedTransaction::Seismic(tx) => {
+                let mut tx_env = TxEnv::from_recovered_tx(tx, sender);
+                // The base `TxSeismic` conversion omits its EIP-7702 authorization list.
+                tx_env.set_signed_authorization(tx.authorization_list.clone());
+                tx_env
+            }
         };
         let tx = Self { base, tx_hash, decryption_failed: false };
         tracing::debug!("from_recovered_tx: tx: {:?}", tx);
@@ -724,13 +729,15 @@ pub mod serde_bincode_compat {
 mod tests {
     use core::str::FromStr;
 
-    use reth_seismic_test_utils::{get_signed_seismic_tx, get_signing_private_key};
+    use reth_seismic_test_utils::{get_seismic_tx, get_signed_seismic_tx, get_signing_private_key};
 
     use super::*;
+    use alloy_eips::eip7702::Authorization;
     use alloy_primitives::{aliases::U96, hex, U256};
     use proptest::proptest;
     use proptest_arbitrary_interop::arb;
     use reth_codecs::Compact;
+    use revm_context::either::Either;
     use secp256k1::PublicKey;
     use seismic_alloy_consensus::SeismicTxType;
     use seismic_revm::transaction::abstraction::SeismicTxTr;
@@ -743,6 +750,27 @@ mod tests {
         let expected_signer = Address::from_private_key(&get_signing_private_key());
 
         assert_eq!(recovered_signer, expected_signer);
+    }
+
+    #[test]
+    fn seismic_tx_env_preserves_authorization_list() {
+        let sender = Address::with_last_byte(1);
+        let authorization = Authorization {
+            chain_id: U256::from(5123),
+            address: Address::with_last_byte(2),
+            nonce: 3,
+        }
+        .into_signed(Signature::new(U256::from(1), U256::from(1), false));
+        let mut tx = get_seismic_tx(sender, B256::ZERO);
+        tx.authorization_list.push(authorization.clone());
+        let signed = SeismicTransactionSigned::new_unhashed(
+            SeismicTypedTransaction::Seismic(tx),
+            Signature::new(U256::from(2), U256::from(2), false),
+        );
+
+        let recovered = SeismicTransaction::<TxEnv>::from_recovered_tx(&signed, sender);
+
+        assert_eq!(recovered.base.authorization_list, vec![Either::Left(authorization)]);
     }
 
     /// Build the EIP-2718 bytes of a signed seismic tx with the given `signed_read`/`to`.
