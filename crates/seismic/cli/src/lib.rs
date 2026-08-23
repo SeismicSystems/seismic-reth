@@ -307,9 +307,8 @@ mod test {
     #[test]
     fn genesis_hash_from_genesis_file() -> Result<(), clap::Error> {
         // Deploy passes a genesis *file* (`--chain reth-genesis.json`), while devs
-        // use the built-in `--chain dev`; both must agree on the hash. File parsing
-        // derives hardforks from the JSON config rather than SEISMIC_DEV_HARDFORKS,
-        // so this also fails if the two chain definitions drift apart.
+        // use the built-in `--chain dev`; both must agree on the hash and canonical
+        // Seismic hardfork schedule.
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../chainspec/res/genesis/dev.json");
         let cli = Cli::<SeismicChainSpecParser, NoArgs>::try_parse_from([
             "seismic-reth",
