@@ -809,7 +809,6 @@ mod tests {
     proptest! {
         #[test]
         fn test_roundtrip_2718(reth_tx in arb::<SeismicTransactionSigned>()) {
-            println!("{}", reth_tx.transaction().tx_type());
             if reth_tx.transaction().tx_type() == SeismicTxType::Eip4844 {
                 // TODO: make this work for eip4844 in seismic-alloy
                 return Ok(())
