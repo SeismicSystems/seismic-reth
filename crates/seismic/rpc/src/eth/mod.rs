@@ -20,6 +20,7 @@ use alloy_eips::BlockId;
 use alloy_primitives::{Address, U256};
 use alloy_rpc_types_eth::AccountInfo;
 use futures::Future;
+use reth_chainspec::ChainSpecProvider;
 use reth_evm::{ConfigureEvm, SpecFor, TxEnvFor};
 use reth_node_api::{FullNodeComponents, HeaderTy};
 use reth_node_builder::rpc::{EthApiBuilder, EthApiCtx};
@@ -440,7 +441,8 @@ where
 
     async fn build_eth_api(self, ctx: EthApiCtx<'_, N>) -> eyre::Result<Self::EthApi> {
         let ops_whitelist = ctx.ops_whitelist.clone();
-        let receipt_converter = SeismicReceiptConverter::new();
+        let receipt_converter =
+            SeismicReceiptConverter::new(ctx.components.provider().chain_spec());
 
         let rpc_converter: SeismicRpcConvert<N, NetworkT> = RpcConverter::new(receipt_converter)
             .with_sim_tx_converter(SeismicSimTxConverter::new())

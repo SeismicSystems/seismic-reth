@@ -24,6 +24,7 @@ alloy-sol-types.workspace = true
 
 # reth
 reth-evm.workspace = true
+reth-chainspec.workspace = true
 reth-node-api.workspace = true
 reth-node-builder.workspace = true
 reth-network-api.workspace = true
@@ -73,7 +74,6 @@ tracing.workspace = true
 
 [dev-dependencies]
 reth-seismic-chainspec.workspace = true
-reth-chainspec.workspace = true
 reth-consensus.workspace = true
 reth-storage-errors.workspace = true
 reth-evm-ethereum.workspace = true
