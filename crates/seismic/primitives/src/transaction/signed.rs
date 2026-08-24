@@ -200,7 +200,7 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
             SeismicTypedTransaction::Eip7702(tx) => TxEnv::from_recovered_tx(tx, sender),
             SeismicTypedTransaction::Seismic(tx) => TxEnv::from_recovered_tx(tx, sender),
         };
-        let tx = Self { base, tx_hash, decryption_failed: false };
+        let tx = Self { base, tx_hash, decryption_failed: false, signed_read: false };
         tracing::debug!("from_recovered_tx: tx: {:?}", tx);
         tx
     }
@@ -209,7 +209,12 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
 impl FromTxWithEncoded<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
     fn from_encoded_tx(tx: &SeismicTransactionSigned, sender: Address, _encoded: Bytes) -> Self {
         let tx_env = Self::from_recovered_tx(tx, sender);
-        Self { base: tx_env.base, tx_hash: tx_env.tx_hash, decryption_failed: false }
+        Self {
+            base: tx_env.base,
+            tx_hash: tx_env.tx_hash,
+            decryption_failed: false,
+            signed_read: false,
+        }
     }
 }
 
