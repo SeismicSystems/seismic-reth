@@ -270,6 +270,50 @@ async fn test_signed_read_flag_estimate_gas() {
     }
 }
 
+/// An unsigned object-form call that sets `type: 0x4a` must not be classified as Seismic: the
+/// sanitizer clears the tx type, so `requireSeismic()` reverts and `requireNotSignedRead()` passes.
+/// Regression for the sanitizer dropping `transaction_type` during the rebase.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_txtype_unsigned_type74_cannot_spoof() {
+    reth_tracing::init_test_tracing();
+    ensure_mock_purpose_keys();
+
+    let (mut nodes, _tasks, wallet) = setup(1).await.unwrap();
+    let mut node = nodes.pop().unwrap();
+    let client = HttpClientBuilder::default().build(node.rpc_url()).unwrap();
+    let signer = wallet.inner.clone();
+    let from = signer.address();
+    let chain_id = wallet.chain_id;
+
+    let contract = deploy_probe(&client, &mut node, &signer, from, chain_id).await;
+
+    // requireSeismic() must revert: the spoofed type is stripped, so isSeismicTx() is false.
+    let mut spoof = plain_call(contract, Bytes::from_hex(REQUIRE_SEISMIC_SELECTOR).unwrap());
+    spoof.inner.transaction_type = Some(0x4a);
+    let res = EthApiOverrideClient::<Block>::call(
+        &client,
+        SeismicCallRequest::TransactionRequest(spoof),
+        None,
+        None,
+        None,
+    )
+    .await;
+    assert!(res.is_err(), "unsigned type-0x4a call must not report as Seismic, got {res:?}");
+
+    // requireNotSignedRead() must pass: isSignedRead() is false for the same spoof.
+    let mut spoof2 = plain_call(contract, Bytes::from_hex(REQUIRE_NOT_SIGNED_READ_SELECTOR).unwrap());
+    spoof2.inner.transaction_type = Some(0x4a);
+    let res2 = EthApiOverrideClient::<Block>::call(
+        &client,
+        SeismicCallRequest::TransactionRequest(spoof2),
+        None,
+        None,
+        None,
+    )
+    .await;
+    assert!(res2.is_ok(), "unsigned type-0x4a call must report signed_read=0, got {res2:?}");
+}
+
 /// Deploy the probe as a standard tx via the signer's account (nonce 0) and return its address.
 async fn deploy_probe(
     client: &jsonrpsee::http_client::HttpClient,
