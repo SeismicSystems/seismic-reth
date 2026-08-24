@@ -9,7 +9,7 @@ use reth_seismic_primitives::{
 };
 use reth_storage_api::BlockNumReader;
 use seismic_alloy_consensus::{
-    Decodable712, SeismicTxEnvelope, TxSeismicElements, TypedDataRequest,
+    Decodable712, SeismicTxEnvelope, TxSeismicElements, TypedDataRequest, SEISMIC_TX_TYPE_ID,
 };
 use seismic_alloy_network::{SeismicReth, TransactionBuilder};
 use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
@@ -189,9 +189,11 @@ where
             validate_seismic_freshness(elements, provider)?;
 
             let sender = parse_request_sender(request)?;
-            request
+            let mut plaintext = request
                 .plaintext_copy(secret_key, sender)
-                .map_err(|e| ext_decryption_error(e.to_string()))
+                .map_err(|e| ext_decryption_error(e.to_string()))?;
+            plaintext.inner.transaction_type = Some(SEISMIC_TX_TYPE_ID);
+            Ok(plaintext)
         }
     }
 }
