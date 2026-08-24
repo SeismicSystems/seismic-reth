@@ -16,7 +16,9 @@ use alloy_eips::{eip1559::INITIAL_BASE_FEE, Decodable2718};
 use alloy_evm::{eth::EthBlockExecutionCtx, EvmFactory};
 use alloy_primitives::{Bytes, U256};
 use alloy_rpc_types_engine::ExecutionData;
-pub use alloy_seismic_evm::{block::SeismicBlockExecutorFactory, SeismicEvm, SeismicEvmFactory};
+pub use alloy_seismic_evm::{
+    block::SeismicBlockExecutorFactory, PurposeKeyring, SeismicEvm, SeismicEvmFactory,
+};
 use build::SeismicBlockAssembler;
 use core::fmt::Debug;
 use reth_chainspec::{ChainSpec, EthChainSpec};
@@ -53,23 +55,17 @@ pub struct SeismicEvmConfig {
 }
 
 impl SeismicEvmConfig {
-    /// Creates a new Seismic EVM configuration with the given chain spec and purpose keys.
-    pub fn new(
-        chain_spec: Arc<ChainSpec>,
-        purpose_keys: &'static alloy_seismic_evm::PurposeKeys,
-    ) -> Self {
-        Self::new_with_evm_factory(
-            chain_spec,
-            SeismicEvmFactory::new_with_purpose_keys(purpose_keys),
-            purpose_keys,
-        )
+    /// Creates a new Seismic EVM configuration with the given chain spec and the
+    /// epoch-keyed purpose keyring.
+    pub fn new(chain_spec: Arc<ChainSpec>, keyring: Arc<PurposeKeyring>) -> Self {
+        Self::new_with_evm_factory(chain_spec, SeismicEvmFactory::new(keyring.clone()), keyring)
     }
 
     /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
     pub fn new_with_evm_factory(
         chain_spec: Arc<ChainSpec>,
         evm_factory: SeismicEvmFactory,
-        purpose_keys: &'static alloy_seismic_evm::PurposeKeys,
+        keyring: Arc<PurposeKeyring>,
     ) -> Self {
         Self {
             block_assembler: SeismicBlockAssembler::new(chain_spec.clone()),
@@ -77,7 +73,7 @@ impl SeismicEvmConfig {
                 SeismicRethReceiptBuilder::default(),
                 chain_spec,
                 evm_factory,
-                purpose_keys,
+                keyring,
             ),
         }
     }
@@ -93,7 +89,13 @@ impl SeismicEvmConfig {
         self
     }
 
-    /// Creates an EVM with the pre-fetched purpose keys
+    /// Creates an EVM selecting its RNG key through the purpose keyring.
+    ///
+    /// Before creating the EVM this refreshes the keyring's rotation schedule from
+    /// the execution state when the cached schedule cannot prove the block's epoch
+    /// (the pipeline-sync catch-up path: a rotation announced beyond the node's
+    /// last reconciled tip — see `docs/design/purpose-key-rotation.md` §5.4). Live
+    /// nodes take the cache fast path.
     pub fn evm_with_env_and_live_key<DB>(
         &self,
         db: DB,
@@ -102,7 +104,72 @@ impl SeismicEvmConfig {
     where
         DB: alloy_evm::Database,
     {
+        let mut db = db;
+        refresh_keyring_for_block(
+            &self.executor_factory.keyring,
+            &mut db,
+            evm_env.block_env.number.saturating_to(),
+        );
         self.executor_factory.evm_factory().create_evm(db, evm_env)
+    }
+}
+
+/// Refreshes `keyring`'s rotation schedule from `db` (the block's execution state)
+/// when the cached schedule cannot prove `block`'s epoch.
+///
+/// Failures are logged, never fatal: the registry is ordinary storage, so a read
+/// failure here would fail the block's execution anyway, and a divergent history is
+/// refused rather than adopted. If a refresh reveals an epoch whose keys are not
+/// fetched yet, the block executor's hard `MissingEpochKeys` error stalls execution
+/// until the rotation watcher fetches them.
+fn refresh_keyring_for_block<DB>(keyring: &PurposeKeyring, db: &mut DB, block: u64)
+where
+    DB: alloy_evm::Database,
+{
+    if keyring.schedule_covers_block(block) {
+        return;
+    }
+
+    // revm's `State` DB requires an account to be loaded before its storage may be
+    // read (it panics otherwise); load the registry account first. Absent account
+    // (pre-contract networks) still reads as empty storage below.
+    if let Err(err) = db.basic(reth_seismic_keys::registry::KEY_ROTATION_REGISTRY) {
+        tracing::debug!(
+            target: "seismic::rotation",
+            err = %alloc::format!("{err:?}"),
+            block,
+            "could not load the rotation registry account from execution state"
+        );
+        return;
+    }
+
+    let read = reth_seismic_keys::registry::read_schedule_with(|slot| {
+        db.storage(reth_seismic_keys::registry::KEY_ROTATION_REGISTRY, U256::from_be_bytes(slot.0))
+            // Registry slots are ordinary public storage; the privacy flag is ignored.
+            .map(|value| value.value)
+            .map_err(|e| alloc::format!("{e:?}"))
+    });
+    match read {
+        Ok(schedule) => {
+            if schedule.len() > keyring.schedule_len() {
+                if let Err(err) = keyring.apply_schedule(&schedule) {
+                    tracing::error!(
+                        target: "seismic::rotation",
+                        %err,
+                        block,
+                        "rotation registry history diverged during execution-state refresh; refusing to adopt it"
+                    );
+                }
+            }
+        }
+        Err(err) => {
+            tracing::debug!(
+                target: "seismic::rotation",
+                %err,
+                block,
+                "could not refresh the rotation schedule from execution state"
+            );
+        }
     }
 }
 
@@ -340,10 +407,10 @@ mod tests {
     use std::sync::Arc;
 
     fn test_evm_config() -> SeismicEvmConfig {
-        // Get mock purpose keys for testing
-        let mock_keys = Box::leak(Box::new(PurposeKeys::well_known()));
-
-        SeismicEvmConfig::new(SEISMIC_MAINNET.clone(), mock_keys)
+        SeismicEvmConfig::new(
+            SEISMIC_MAINNET.clone(),
+            Arc::new(PurposeKeyring::single_epoch(PurposeKeys::well_known())),
+        )
     }
 
     #[test]
@@ -363,9 +430,9 @@ mod tests {
 
         // Use the `SeismicEvmConfig` to create the `cfg_env` and `block_env` based on the
         // ChainSpec, Header, and total difficulty
-        let mock_keys = Box::leak(Box::new(PurposeKeys::well_known()));
+        let keyring = Arc::new(PurposeKeyring::single_epoch(PurposeKeys::well_known()));
         let EvmEnv { cfg_env, .. } =
-            SeismicEvmConfig::new(Arc::new(chain_spec.clone()), mock_keys).evm_env(&header);
+            SeismicEvmConfig::new(Arc::new(chain_spec.clone()), keyring).evm_env(&header);
 
         // Assert that the chain ID in the `cfg_env` is correctly set to the chain ID of the
         // ChainSpec

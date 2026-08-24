@@ -48,6 +48,7 @@ revm.workspace = true
 revm-context.workspace = true
 
 # seismic-reth
+reth-seismic-keys.workspace = true
 reth-seismic-primitives = { workspace = true, features = ["reth-codec", "serde-bincode-compat"] }
 alloy-seismic-evm.workspace = true
 

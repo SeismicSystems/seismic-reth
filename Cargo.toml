@@ -25,6 +25,7 @@ members = [
     "crates/seismic/txpool/",
     "crates/seismic/hardforks",
     "crates/seismic/fuzz",
+    "crates/seismic/keys",
 
     # "bin/reth-bench/",
     # "bin/reth/",
@@ -363,6 +364,7 @@ reth-seismic-test-utils = { path = "crates/seismic/test-utils" }
 reth-seismic-txpool = { path = "crates/seismic/txpool" }
 reth-seismic-forks = { path = "crates/seismic/hardforks", default-features = false }
 reth-seismic-fuzz = { path = "crates/seismic/fuzz" }
+reth-seismic-keys = { path = "crates/seismic/keys" }
 
 seismic-crypto = "0.1.0"
 seismic-custodian-ipc = "0.1.0"
@@ -642,6 +644,7 @@ async-trait = "0.1.68"
 futures = "0.3"
 futures-core = "0.3"
 futures-util = { version = "0.3", default-features = false }
+hkdf = { version = "0.12", default-features = false }
 hyper = "1.3"
 hyper-util = "0.1.5"
 pin-project = "1.0.12"
@@ -793,5 +796,5 @@ seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-allo
 seismic-alloy-genesis = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "70d1fb739c411b86199578b1f190fbc03c27ccda" }
 
 # evm
-alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "d347fbbc8ceaa36677ed36713a08c1038cb47138" }
-alloy-seismic-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "d347fbbc8ceaa36677ed36713a08c1038cb47138" }
+alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "58eaf22ea5a7f32edee7d4a8c1a3d947ca2638e5" }
+alloy-seismic-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "58eaf22ea5a7f32edee7d4a8c1a3d947ca2638e5" }

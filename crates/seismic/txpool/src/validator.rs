@@ -25,6 +25,11 @@ pub struct SeismicTransactionValidator<Client, T> {
     inner: Arc<EthTransactionValidator<Client, T>>,
     /// Cache of recent block hashes for O(1) validation
     recent_blocks: RwLock<RecentBlockCache>,
+    /// Purpose keyring, read for its rotation schedule only (`pending()`): while a
+    /// key rotation is pending, transactions whose expiry crosses the activation
+    /// boundary are rejected (`docs/design/purpose-key-rotation.md` §6). The pool
+    /// never touches key material. `None` disables the rule.
+    keyring: Option<Arc<reth_seismic_keys::PurposeKeyring>>,
     /// Phantom data for transaction type
     _pd: PhantomData<T>,
 }
@@ -56,7 +61,19 @@ where
             });
         }
 
-        Self { inner: Arc::new(inner), recent_blocks: RwLock::new(cache), _pd: PhantomData }
+        Self {
+            inner: Arc::new(inner),
+            recent_blocks: RwLock::new(cache),
+            keyring: None,
+            _pd: PhantomData,
+        }
+    }
+
+    /// Enables the key-rotation boundary rule, reading the pending rotation from
+    /// `keyring`'s schedule.
+    pub fn with_keyring(mut self, keyring: Arc<reth_seismic_keys::PurposeKeyring>) -> Self {
+        self.keyring = Some(keyring);
+        self
     }
 
     /// Get a reference to the inner validator
@@ -118,6 +135,22 @@ where
                                 valid_tx.into_transaction(),
                                 InvalidTransactionError::SeismicTx(err.to_string()).into(),
                             );
+                        }
+
+                        // Key-rotation boundary rule: with a rotation pending, admit
+                        // only transactions that expire before its activation, so the
+                        // existing expiry eviction drains all old-key transactions
+                        // exactly at the boundary.
+                        if let Some(keyring) = &self.keyring {
+                            if let Some(err) = rotation_boundary_error(
+                                seismic_elements.expires_at_block,
+                                keyring.pending(),
+                            ) {
+                                return TransactionValidationOutcome::Invalid(
+                                    valid_tx.into_transaction(),
+                                    InvalidTransactionError::SeismicTx(err.to_string()).into(),
+                                );
+                            }
                         }
                     }
                 }
@@ -242,6 +275,23 @@ pub(crate) fn seismic_freshness_error(
     }
 
     None
+}
+
+/// Key-rotation boundary violation, or `None` when no rotation is pending or the
+/// expiry stays below the pending activation block
+/// (`docs/design/purpose-key-rotation.md` §6).
+///
+/// Admitted transactions therefore always satisfy `expires_at_block < activation`,
+/// so the freshness eviction drains every old-key transaction from the pool exactly
+/// at the boundary — an honest builder can never include a transaction encrypted to
+/// the outgoing key at or after activation.
+pub(crate) fn rotation_boundary_error(
+    expires_at_block: u64,
+    pending_rotation: Option<(u64, u64)>,
+) -> Option<SeismicTxError> {
+    let (_, activation_block) = pending_rotation?;
+    (expires_at_block >= activation_block)
+        .then_some(SeismicTxError::ExpiryCrossesRotation { expires_at_block, activation_block })
 }
 
 #[cfg(test)]
@@ -401,6 +451,37 @@ mod tests {
         assert!(
             matches!(outcome, TransactionValidationOutcome::Valid { .. }),
             "expected Valid outcome, got: {outcome:?}"
+        );
+    }
+
+    /// No pending rotation (the state of every network today): the boundary rule
+    /// never fires, whatever the expiry.
+    #[test]
+    fn boundary_rule_is_inert_without_a_pending_rotation() {
+        assert_eq!(rotation_boundary_error(u64::MAX, None), None);
+        assert_eq!(rotation_boundary_error(0, None), None);
+    }
+
+    /// With a rotation pending at activation block A, expiries below A pass and
+    /// expiries at or beyond A are rejected — admitted transactions always expire
+    /// before the boundary.
+    #[test]
+    fn boundary_rule_caps_expiry_below_activation() {
+        let pending = Some((1, 100));
+        assert_eq!(rotation_boundary_error(99, pending), None);
+        assert_eq!(
+            rotation_boundary_error(100, pending),
+            Some(SeismicTxError::ExpiryCrossesRotation {
+                expires_at_block: 100,
+                activation_block: 100
+            })
+        );
+        assert_eq!(
+            rotation_boundary_error(u64::MAX, pending),
+            Some(SeismicTxError::ExpiryCrossesRotation {
+                expires_at_block: u64::MAX,
+                activation_block: 100
+            })
         );
     }
 }

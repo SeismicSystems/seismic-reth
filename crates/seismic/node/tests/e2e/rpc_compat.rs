@@ -17,7 +17,7 @@ use reth_primitives_traits::SealedHeader;
 use reth_rpc_e2e_tests::rpc_compat::{InitializeFromExecutionApis, RunRpcCompatTests};
 use reth_seismic_evm::SeismicEvmConfig;
 use reth_seismic_node::{
-    engine::SeismicEngineTypes, node::SeismicNode, purpose_keys::get_purpose_keys,
+    engine::SeismicEngineTypes, node::SeismicNode, purpose_keys::get_purpose_keyring,
 };
 use std::{path::PathBuf, sync::Arc};
 use tracing::info;
@@ -79,7 +79,7 @@ async fn test_seismic_rpc_compat() -> Result<()> {
             test_data_path.to_string_lossy(),
         ));
 
-    let evm_config = SeismicEvmConfig::new(chain_spec, get_purpose_keys());
+    let evm_config = SeismicEvmConfig::new(chain_spec, get_purpose_keyring());
     test.run_with_evm::<SeismicNode>(evm_config).await?;
 
     Ok(())

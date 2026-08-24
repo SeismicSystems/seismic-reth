@@ -25,10 +25,11 @@ use reth_node_core::{
     version::version_metadata,
 };
 use reth_node_ethereum::consensus::EthBeaconConsensus;
+use reth_seismic_keys::PurposeKeyring;
 use reth_seismic_node::{
     keys_source::fetch_purpose_keys,
     node::SeismicNode,
-    purpose_keys::{get_purpose_keys, init_purpose_keys},
+    purpose_keys::{get_purpose_keyring, init_purpose_keyring},
     SeismicEvmConfig,
 };
 use reth_tracing::FileWorkerGuard;
@@ -192,17 +193,23 @@ where
             }),
             Commands::Stage(command) => {
                 runner.run_command_until_exit(|ctx| async move {
-                    // For Stage commands, fetch the purpose keys first
+                    // For Stage commands, fetch the epoch-0 purpose keys first and
+                    // seed a keyring with them
                     let purpose_keys_response = fetch_purpose_keys(&ext_args).await;
 
-                    // Initialize purpose keys in global storage
-                    init_purpose_keys(purpose_keys_response);
+                    // Initialize the purpose keyring in global storage
+                    init_purpose_keyring(Arc::new(PurposeKeyring::single_epoch(
+                        purpose_keys_response,
+                    )));
 
-                    // Create components with the initialized purpose keys
+                    // Create components with the initialized keyring. Stage
+                    // re-execution selects each block's epoch through the keyring;
+                    // the execution-state schedule refresh covers rotations the
+                    // (watcher-less) stage command has not otherwise learned.
                     let components = |spec: Arc<C::ChainSpec>| {
-                        let purpose_keys = get_purpose_keys();
+                        let keyring = get_purpose_keyring();
                         (
-                            SeismicEvmConfig::new(spec.clone(), purpose_keys),
+                            SeismicEvmConfig::new(spec.clone(), keyring),
                             EthBeaconConsensus::new(spec),
                         )
                     };

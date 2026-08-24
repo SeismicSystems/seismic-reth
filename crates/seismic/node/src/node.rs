@@ -62,7 +62,9 @@ use seismic_alloy_consensus::{SeismicTxEnvelope, SeismicTxType};
 use std::{sync::Arc, time::SystemTime};
 use tracing::info;
 
-use crate::{purpose_keys::get_purpose_keys, seismic_evm_config};
+use crate::{purpose_keys::get_purpose_keyring, rotation, seismic_evm_config};
+use reth_node_core::args::PurposeKeysArgs;
+use reth_seismic_keys::PurposeKeyring;
 
 /// Storage implementation for Seismic.
 pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
@@ -70,28 +72,29 @@ pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
 #[derive(Debug, Clone)]
 /// Type configuration for a regular Seismic node.
 ///
-/// Purpose keys can be injected via [`SeismicNode::new`] so they flow through
+/// The purpose keyring can be injected via [`SeismicNode::new`] so it flows through
 /// the node builder lifecycle instead of being read from a global side-channel.
 /// When constructed via [`Default`] (e.g. in tests), the executor builder will
-/// fall back to the global [`crate::purpose_keys::get_purpose_keys`].
+/// fall back to the global [`crate::purpose_keys::get_purpose_keyring`].
 #[derive(Default)]
 pub struct SeismicNode {
-    /// Structurally-injected purpose keys.  `None` means "use global fallback".
-    purpose_keys: Option<&'static alloy_seismic_evm::PurposeKeys>,
+    /// Structurally-injected purpose keyring. `None` means "use global fallback".
+    keyring: Option<Arc<PurposeKeyring>>,
+    /// The purpose-key source configuration, used by the rotation watcher to fetch
+    /// newly announced epochs at runtime. `None` (tests) disables the watcher.
+    purpose_keys_args: Option<PurposeKeysArgs>,
 }
 
 impl SeismicNode {
-    /// Create a new [`SeismicNode`] with structurally-injected purpose keys.
-    ///
-    /// The keys are leaked onto the heap so they live for `'static`, which is
-    /// required by the EVM configuration layer.
-    pub fn new(purpose_keys: alloy_seismic_evm::PurposeKeys) -> Self {
-        Self { purpose_keys: Some(crate::purpose_keys::leak_purpose_keys(purpose_keys)) }
+    /// Create a new [`SeismicNode`] with a structurally-injected purpose keyring and
+    /// the key-source configuration the rotation watcher fetches new epochs with.
+    pub const fn new(keyring: Arc<PurposeKeyring>, purpose_keys_args: PurposeKeysArgs) -> Self {
+        Self { keyring: Some(keyring), purpose_keys_args: Some(purpose_keys_args) }
     }
 
-    /// Returns the injected purpose keys, if any.
-    pub const fn purpose_keys(&self) -> Option<&'static alloy_seismic_evm::PurposeKeys> {
-        self.purpose_keys
+    /// Returns the injected purpose keyring, if any.
+    pub fn keyring(&self) -> Option<Arc<PurposeKeyring>> {
+        self.keyring.clone()
     }
 
     /// Returns the [`ComponentsBuilder`] for this node.
@@ -114,10 +117,13 @@ impl SeismicNode {
             >,
         >,
     {
-        let executor = SeismicExecutorBuilder { purpose_keys: self.purpose_keys };
+        let executor = SeismicExecutorBuilder {
+            keyring: self.keyring.clone(),
+            purpose_keys_args: self.purpose_keys_args.clone(),
+        };
         ComponentsBuilder::default()
             .node_types::<Node>()
-            .pool(SeismicPoolBuilder::default())
+            .pool(SeismicPoolBuilder { keyring: self.keyring.clone() })
             .executor(executor)
             .payload(BasicPayloadServiceBuilder::<SeismicPayloadBuilder>::default())
             .network(SeismicNetworkBuilder::default())
@@ -382,7 +388,7 @@ where
         let eth_config =
             EthConfigHandler::new(ctx.node.provider().clone(), ctx.node.evm_config().clone());
 
-        let purpose_keys = get_purpose_keys().clone();
+        let keyring = get_purpose_keyring();
         let peers_info = ctx.node.network().clone();
 
         self.inner
@@ -397,11 +403,11 @@ where
 
                 // Register Seismic eth_ overrides (sendRawTransaction, call, estimateGas, etc.)
                 modules.replace_configured(
-                    EthApiExt::new(registry.eth_api().clone(), purpose_keys.clone()).into_rpc(),
+                    EthApiExt::new(registry.eth_api().clone(), keyring.clone()).into_rpc(),
                 )?;
 
                 // Always register public Seismic node information, regardless of the configured standard RPC namespaces.
-                modules.merge_configured(SeismicApi::new(purpose_keys, peers_info).into_rpc())?;
+                modules.merge_configured(SeismicApi::new(keyring, peers_info).into_rpc())?;
 
                 // Trace endpoints stay off on Seismic. Our traces are already sanitized
                 // (calldata, return data, memory, and stack are stripped — see
@@ -506,12 +512,15 @@ where
 
 /// A regular seismic evm and executor builder.
 ///
-/// When `purpose_keys` is `Some`, uses the injected keys directly.
-/// When `None`, falls back to the global [`crate::purpose_keys::get_purpose_keys`].
+/// When `keyring` is `Some`, uses the injected keyring directly.
+/// When `None`, falls back to the global [`crate::purpose_keys::get_purpose_keyring`].
 #[derive(Debug, Default, Clone)]
 pub struct SeismicExecutorBuilder {
-    /// Structurally-injected purpose keys, or `None` for global fallback.
-    purpose_keys: Option<&'static alloy_seismic_evm::PurposeKeys>,
+    /// Structurally-injected purpose keyring, or `None` for global fallback.
+    keyring: Option<Arc<PurposeKeyring>>,
+    /// Key-source configuration for the rotation watcher. `None` (tests) disables
+    /// the watcher and boot reconciliation.
+    purpose_keys_args: Option<PurposeKeysArgs>,
 }
 
 impl<Node> ExecutorBuilder<Node> for SeismicExecutorBuilder
@@ -521,9 +530,29 @@ where
     type EVM = SeismicEvmConfig;
 
     async fn build_evm(self, ctx: &BuilderContext<Node>) -> eyre::Result<Self::EVM> {
-        let purpose_keys =
-            self.purpose_keys.unwrap_or_else(|| crate::purpose_keys::get_purpose_keys());
-        let evm_config = seismic_evm_config(ctx.chain_spec(), purpose_keys);
+        let keyring = self.keyring.unwrap_or_else(get_purpose_keyring);
+
+        // The EVM selects each block's keys through the keyring (per-block epoch
+        // selection in the alloy-seismic-evm block executor; missing keys stall
+        // execution until the rotation watcher fetches them).
+        let evm_config = seismic_evm_config(ctx.chain_spec(), keyring.clone());
+
+        // Sync the keyring with the on-chain rotation registry: catch up on
+        // announcements made while the node was offline (fail the launch if their
+        // keys cannot be fetched — same fail-fast policy as the epoch-0 boot
+        // fetch), then keep following the chain from a background task.
+        if let Some(args) = self.purpose_keys_args {
+            rotation::boot_reconcile(ctx.provider(), &keyring, &args).await?;
+            ctx.task_executor().spawn_critical(
+                "purpose-key rotation watcher",
+                rotation::watch_key_rotations(
+                    ctx.provider().clone(),
+                    keyring,
+                    args,
+                    ctx.provider().canonical_state_stream(),
+                ),
+            );
+        }
 
         Ok(evm_config)
     }
@@ -533,9 +562,13 @@ where
 ///
 /// This contains various settings that can be configured and take precedence over the node's
 /// config.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 #[non_exhaustive]
-pub struct SeismicPoolBuilder;
+pub struct SeismicPoolBuilder {
+    /// Purpose keyring, read by the validator for its rotation schedule only (the
+    /// key-rotation expiry boundary rule). `None` falls back to the global keyring.
+    keyring: Option<Arc<PurposeKeyring>>,
+}
 
 impl<Node> PoolBuilder<Node> for SeismicPoolBuilder
 where
@@ -592,8 +625,13 @@ where
             .disable_balance_check()
             .build_with_tasks(ctx.task_executor().clone(), blob_store.clone());
 
-        // Wrap the eth validator with seismic-specific validation
-        let validator = eth_validator.map(reth_seismic_txpool::SeismicTransactionValidator::new);
+        // Wrap the eth validator with seismic-specific validation; the keyring feeds
+        // the key-rotation expiry boundary rule (schedule only, no key material).
+        let keyring = self.keyring.unwrap_or_else(get_purpose_keyring);
+        let validator = eth_validator.map(|inner| {
+            reth_seismic_txpool::SeismicTransactionValidator::new(inner)
+                .with_keyring(keyring.clone())
+        });
 
         let transaction_pool = reth_transaction_pool::Pool::new(
             validator,

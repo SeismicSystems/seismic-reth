@@ -257,7 +257,7 @@ dependencies = [
 [[package]]
 name = "alloy-evm"
 version = "0.20.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=d347fbbc8ceaa36677ed36713a08c1038cb47138#d347fbbc8ceaa36677ed36713a08c1038cb47138"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=58eaf22ea5a7f32edee7d4a8c1a3d947ca2638e5#58eaf22ea5a7f32edee7d4a8c1a3d947ca2638e5"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -678,7 +678,7 @@ dependencies = [
 [[package]]
 name = "alloy-seismic-evm"
 version = "0.20.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=d347fbbc8ceaa36677ed36713a08c1038cb47138#d347fbbc8ceaa36677ed36713a08c1038cb47138"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=58eaf22ea5a7f32edee7d4a8c1a3d947ca2638e5#58eaf22ea5a7f32edee7d4a8c1a3d947ca2638e5"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -9513,6 +9513,7 @@ dependencies = [
  "reth-node-ethereum",
  "reth-node-metrics",
  "reth-seismic-chainspec",
+ "reth-seismic-keys",
  "reth-seismic-node",
  "reth-stages",
  "reth-tracing",
@@ -9546,6 +9547,7 @@ dependencies = [
  "reth-revm",
  "reth-seismic-chainspec",
  "reth-seismic-forks",
+ "reth-seismic-keys",
  "reth-seismic-primitives",
  "reth-storage-errors",
  "reth-testing-utils",
@@ -9611,6 +9613,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "reth-seismic-keys"
+version = "1.7.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-seismic-evm",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "reth-seismic-node"
 version = "1.7.0"
 dependencies = [
@@ -9632,8 +9643,11 @@ dependencies = [
  "alloy-sol-types",
  "eyre",
  "futures",
+ "futures-util",
+ "hkdf",
  "jsonrpsee 0.26.0",
  "k256",
+ "metrics",
  "rand 0.9.2",
  "reqwest",
  "reth-chainspec",
@@ -9667,6 +9681,7 @@ dependencies = [
  "reth-seismic-chainspec",
  "reth-seismic-evm",
  "reth-seismic-forks",
+ "reth-seismic-keys",
  "reth-seismic-node",
  "reth-seismic-payload-builder",
  "reth-seismic-primitives",
@@ -9688,6 +9703,7 @@ dependencies = [
  "seismic-revm",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "tokio",
  "tracing",
@@ -9806,6 +9822,7 @@ dependencies = [
  "reth-rpc-server-types",
  "reth-seismic-chainspec",
  "reth-seismic-evm",
+ "reth-seismic-keys",
  "reth-seismic-primitives",
  "reth-seismic-test-utils",
  "reth-seismic-txpool",
@@ -9866,6 +9883,7 @@ dependencies = [
  "reth-primitives-traits",
  "reth-provider",
  "reth-seismic-chainspec",
+ "reth-seismic-keys",
  "reth-seismic-primitives",
  "reth-seismic-test-utils",
  "reth-transaction-pool",
@@ -11287,6 +11305,7 @@ dependencies = [
  "reth-primitives",
  "reth-provider",
  "reth-seismic-cli",
+ "reth-seismic-keys",
  "reth-seismic-node",
  "reth-seismic-rpc",
  "reth-tracing",
