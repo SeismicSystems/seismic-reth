@@ -277,12 +277,11 @@ mod test {
     };
     use alloy_rpc_types::TransactionRequest;
     use reth_primitives_traits::SignedTransaction;
-    use seismic_alloy_consensus::SEISMIC_TX_TYPE_ID;
     use reth_seismic_primitives::SeismicTransactionSigned;
     use reth_seismic_test_utils::{get_seismic_tx, get_signing_private_key, sign_seismic_tx};
     use secp256k1::PublicKey;
     use seismic_alloy_consensus::{
-        SeismicTxEnvelope, TxSeismic, TxSeismicElements, TypedDataRequest,
+        SeismicTxEnvelope, TxSeismic, TxSeismicElements, TypedDataRequest, SEISMIC_TX_TYPE_ID,
     };
     use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
     use std::str::FromStr;

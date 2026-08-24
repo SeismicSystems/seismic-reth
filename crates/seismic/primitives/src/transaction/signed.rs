@@ -209,7 +209,12 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
 impl FromTxWithEncoded<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
     fn from_encoded_tx(tx: &SeismicTransactionSigned, sender: Address, _encoded: Bytes) -> Self {
         let tx_env = Self::from_recovered_tx(tx, sender);
-        Self { base: tx_env.base, tx_hash: tx_env.tx_hash, decryption_failed: false, signed_read: false }
+        Self {
+            base: tx_env.base,
+            tx_hash: tx_env.tx_hash,
+            decryption_failed: false,
+            signed_read: false,
+        }
     }
 }
 

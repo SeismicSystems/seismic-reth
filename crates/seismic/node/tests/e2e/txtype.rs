@@ -13,8 +13,8 @@ use alloy_primitives::{hex::FromHex, Bytes, TxKind};
 use alloy_rpc_types::{Block, TransactionInput, TransactionRequest};
 use jsonrpsee::http_client::HttpClientBuilder;
 use reth_seismic_node::utils::e2e::{ensure_mock_purpose_keys, setup};
-use reth_seismic_test_utils::{get_signed_seismic_call_typed_data, sign_tx};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
+use reth_seismic_test_utils::{get_signed_seismic_call_typed_data, sign_tx};
 use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
 
 // TxTypeProbe (stock solc): reads the 0x6A tx-context precompile by staticcall — empty input for
@@ -301,7 +301,8 @@ async fn test_txtype_unsigned_type74_cannot_spoof() {
     assert!(res.is_err(), "unsigned type-0x4a call must not report as Seismic, got {res:?}");
 
     // requireNotSignedRead() must pass: isSignedRead() is false for the same spoof.
-    let mut spoof2 = plain_call(contract, Bytes::from_hex(REQUIRE_NOT_SIGNED_READ_SELECTOR).unwrap());
+    let mut spoof2 =
+        plain_call(contract, Bytes::from_hex(REQUIRE_NOT_SIGNED_READ_SELECTOR).unwrap());
     spoof2.inner.transaction_type = Some(0x4a);
     let res2 = EthApiOverrideClient::<Block>::call(
         &client,
