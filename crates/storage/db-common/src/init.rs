@@ -493,7 +493,8 @@ fn parse_accounts(
     let mut line = String::new();
     let mut collector = Collector::new(etl_config.file_size, etl_config.dir);
 
-    while let Ok(n) = reader.read_line(&mut line) {
+    loop {
+        let n = reader.read_line(&mut line)?;
         if n == 0 {
             break
         }
@@ -691,7 +692,19 @@ mod tests {
         test_utils::{create_test_provider_factory_with_chain_spec, MockNodeTypesWithDB},
         ProviderFactory,
     };
-    use std::{collections::BTreeMap, sync::Arc};
+    use std::{
+        collections::BTreeMap,
+        io::{self, BufReader, Cursor, Read},
+        sync::Arc,
+    };
+
+    struct FailingReader;
+
+    impl Read for FailingReader {
+        fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+            Err(io::Error::other("state dump read failed"))
+        }
+    }
 
     fn collect_table_entries<DB, T>(
         tx: &<DB as Database>::TX,
@@ -750,6 +763,25 @@ mod tests {
                 storage_hash: SEPOLIA_GENESIS_HASH
             }
         ))
+    }
+
+    #[test]
+    fn parse_accounts_propagates_reader_error() {
+        let entry = GenesisAccountWithAddress {
+            genesis_account: seismic_alloy_genesis::GenesisAccount::default(),
+            address: Address::ZERO,
+        };
+        let mut data = serde_json::to_vec(&entry).unwrap();
+        data.push(b'\n');
+
+        let reader = BufReader::new(Cursor::new(data).chain(FailingReader));
+        let result = parse_accounts(reader, EtlConfig::default());
+
+        assert!(result.is_err(), "state dump I/O errors must not be treated as EOF");
+        assert_eq!(
+            result.err().and_then(|err| err.downcast_ref::<io::Error>().map(io::Error::kind)),
+            Some(io::ErrorKind::Other)
+        );
     }
 
     #[test]
