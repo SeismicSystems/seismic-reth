@@ -74,6 +74,7 @@ pub fn convert_seismic_call_to_tx_request(
             // Bound the calldata before the downstream ECDH/AES decrypt — same limit as the bytes
             // path, so the guard can't be bypassed by submitting via TypedData instead of Bytes.
             check_signed_read_input_size(req.inner.input.input().map_or(0, |b| b.len()))?;
+            ensure_wire_signed_read(&req)?;
             Ok((req, true))
         }
 
@@ -81,9 +82,23 @@ pub fn convert_seismic_call_to_tx_request(
             let tx = recover_raw_seismic_call_tx(&bytes)?;
             let mut req: SeismicTransactionRequest = tx.inner().clone().into();
             TransactionBuilder::<SeismicReth>::set_from(&mut req, tx.signer());
+            ensure_wire_signed_read(&req)?;
             Ok((req, true))
         }
     }
+}
+
+/// A signed Seismic call must carry a wire-level `signed_read = true`; a write-intent payload
+/// (`signed_read = false`) must not be classified and executed as a signed read.
+fn ensure_wire_signed_read(request: &SeismicTransactionRequest) -> Result<(), EthApiError> {
+    if !request.seismic_elements.as_ref().is_some_and(|e| e.signed_read) {
+        return Err(EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+            -32602,
+            "signed Seismic call must set signed_read=true",
+            None::<String>,
+        ))));
+    }
+    Ok(())
 }
 
 /// Reject a signed read whose payload exceeds the configured size cap, before any of the unmetered
@@ -387,6 +402,72 @@ mod test {
         .unwrap();
         assert_eq!(signed_sighash, expected_sighash);
         assert_eq!(recovered_sighash, expected_sighash);
+    }
+
+    /// A validly-signed Seismic tx whose wire `signed_read` is false — a write-intent payload.
+    fn signed_write_intent() -> (TxSeismic, Signature) {
+        let r_bytes =
+            hex::decode("e93185920818650416b4b0cc953c48f59fd9a29af4b7e1c4b1ac4824392f9220")
+                .unwrap();
+        let s_bytes =
+            hex::decode("79b76b064a83d423997b7234c575588f60da5d3e1e0561eff9804eb04c23789a")
+                .unwrap();
+        let mut r_padded = [0u8; 32];
+        let mut s_padded = [0u8; 32];
+        r_padded[32 - r_bytes.len()..].copy_from_slice(&r_bytes);
+        s_padded[32 - s_bytes.len()..].copy_from_slice(&s_bytes);
+        let signature =
+            Signature::new(U256::from_be_bytes(r_padded), U256::from_be_bytes(s_padded), false);
+        let tx = TxSeismic {
+            chain_id: 5124,
+            nonce: 48,
+            gas_price: 360000,
+            gas_limit: 169477,
+            to: alloy_primitives::TxKind::Call(
+                Address::from_str("0x3aB946eEC2553114040dE82D2e18798a51cf1e14").unwrap(),
+            ),
+            value: U256::from_str("1000000000000000").unwrap(),
+            input: Bytes::from_str("0x4e69e56c3bb999b8c98772ebb32aebcbd43b33e9e65a46333dfe6636f37f3009e93bad334235aec73bd54d11410e64eb2cab4da8").unwrap(),
+            seismic_elements: TxSeismicElements {
+                encryption_pubkey: PublicKey::from_str("028e76821eb4d77fd30223ca971c49738eb5b5b71eabe93f96b348fdce788ae5a0").unwrap(),
+                encryption_nonce: U96::from_str("0x7da3a99bf0f90d56551d99ea").unwrap(),
+                message_version: 2,
+                recent_block_hash: alloy_primitives::B256::from_slice(&hex::decode("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef").unwrap()),
+                expires_at_block: 1000000,
+                signed_read: false,
+            },
+            authorization_list: vec![],
+        };
+        (tx, signature)
+    }
+
+    #[test]
+    fn convert_rejects_typed_data_write_intent() {
+        use crate::utils::convert_seismic_call_to_tx_request;
+        use seismic_alloy_rpc_types::SeismicCallRequest;
+        let (tx, signature) = signed_write_intent();
+        let req = TypedDataRequest { signature, data: tx.eip712_to_type_data() };
+        let err = convert_seismic_call_to_tx_request(SeismicCallRequest::TypedData(req))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("signed_read=true"), "{err}");
+    }
+
+    #[test]
+    fn convert_rejects_raw_bytes_write_intent() {
+        use crate::utils::convert_seismic_call_to_tx_request;
+        use alloy_eips::Encodable2718;
+        use seismic_alloy_rpc_types::SeismicCallRequest;
+        let (tx, signature) = signed_write_intent();
+        let signed = SeismicTransactionSigned::new_unhashed(
+            seismic_alloy_consensus::SeismicTypedTransaction::Seismic(tx),
+            signature,
+        );
+        let bytes = signed.encoded_2718();
+        let err = convert_seismic_call_to_tx_request(SeismicCallRequest::Bytes(bytes.into()))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("signed_read=true"), "{err}");
     }
 
     #[test]

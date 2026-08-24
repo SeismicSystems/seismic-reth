@@ -14,7 +14,7 @@ use alloy_rpc_types::{Block, TransactionInput, TransactionRequest};
 use jsonrpsee::http_client::HttpClientBuilder;
 use reth_seismic_node::utils::{
     e2e::{ensure_mock_purpose_keys, setup},
-    test_utils::get_signed_seismic_tx_typed_data,
+    test_utils::get_signed_seismic_call_typed_data,
 };
 use reth_seismic_primitives::test_utils::sign_tx;
 use reth_seismic_rpc::ext::EthApiOverrideClient;
@@ -60,7 +60,7 @@ async fn test_txtype_eth_call_classifies_signed_read() {
     let selector = Bytes::from_hex(REQUIRE_SEISMIC_SELECTOR).unwrap();
 
     // Signed read -> txtype()==74 -> requireSeismic() succeeds.
-    let signed = get_signed_seismic_tx_typed_data(
+    let signed = get_signed_seismic_call_typed_data(
         &signer,
         1,
         TxKind::Call(contract),
@@ -115,7 +115,7 @@ async fn test_txtype_estimate_gas_classifies_signed_read() {
     let recent = node.advance_block().await.unwrap().block().hash();
     let selector = Bytes::from_hex(REQUIRE_SEISMIC_SELECTOR).unwrap();
 
-    let signed = get_signed_seismic_tx_typed_data(
+    let signed = get_signed_seismic_call_typed_data(
         &signer,
         1,
         TxKind::Call(contract),
@@ -173,7 +173,7 @@ async fn test_signed_read_flag_eth_call() {
         let recent = node.advance_block().await.unwrap().block().hash();
         let calldata = Bytes::from_hex(selector).unwrap();
 
-        let signed = get_signed_seismic_tx_typed_data(
+        let signed = get_signed_seismic_call_typed_data(
             &signer,
             1,
             TxKind::Call(contract),
@@ -235,7 +235,7 @@ async fn test_signed_read_flag_estimate_gas() {
         let recent = node.advance_block().await.unwrap().block().hash();
         let calldata = Bytes::from_hex(selector).unwrap();
 
-        let signed = get_signed_seismic_tx_typed_data(
+        let signed = get_signed_seismic_call_typed_data(
             &signer,
             1,
             TxKind::Call(contract),

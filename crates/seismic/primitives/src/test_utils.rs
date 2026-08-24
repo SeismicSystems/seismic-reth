@@ -340,3 +340,34 @@ pub async fn get_signed_seismic_tx_typed_data(
         _ => panic!("Signed transaction is not a seismic transaction"),
     }
 }
+
+/// Like [`get_signed_seismic_tx_typed_data`] but marks the payload as an authenticated signed read
+/// (wire `signed_read = true`), as an `eth_call`/`estimateGas` signed read must carry. The flag is
+/// set in the metadata before encryption so the ciphertext's AAD matches.
+#[allow(clippy::panic)] // Test util function - panic on failure is acceptable
+pub async fn get_signed_seismic_call_typed_data(
+    sk_wallet: &PrivateKeySigner,
+    nonce: u64,
+    to: TxKind,
+    chain_id: u64,
+    plaintext: Bytes,
+    recent_block_hash: B256,
+) -> TypedDataRequest {
+    let mut plaintext_req = get_plaintext_tx_request(sk_wallet, nonce, to, chain_id, &plaintext);
+    let mut metadata = get_metadata(&plaintext_req, recent_block_hash);
+    metadata.seismic_elements.signed_read = true;
+    let ciphertext = metadata
+        .client_encrypt(&plaintext, &get_network_public_key(), &get_client_io_sk())
+        .unwrap();
+    plaintext_req.input = TransactionInput { input: Some(ciphertext), data: None };
+    let tx = SeismicTransactionRequest {
+        inner: plaintext_req,
+        seismic_elements: Some(metadata.seismic_elements),
+    };
+    let signed = sign_tx(sk_wallet.clone(), tx).await;
+
+    match signed {
+        SeismicTxEnvelope::Seismic(tx) => tx.into(),
+        _ => panic!("Signed transaction is not a seismic transaction"),
+    }
+}
