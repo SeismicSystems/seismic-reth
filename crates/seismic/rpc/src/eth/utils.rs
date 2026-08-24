@@ -30,6 +30,7 @@ pub const fn seismic_override_call_request(request: &mut SeismicTransactionReque
     request.inner.max_priority_fee_per_gas = None; // preventing InsufficientFunds error
     request.inner.max_fee_per_blob_gas = None; // preventing InsufficientFunds error
     request.inner.value = None; // preventing InsufficientFunds error
+    request.inner.transaction_type = None; // don't let a plain call spoof the Seismic tx type
     request.seismic_elements = None; // zero out seismic elements
 }
 
@@ -276,6 +277,7 @@ mod test {
     };
     use alloy_rpc_types::TransactionRequest;
     use reth_primitives_traits::SignedTransaction;
+    use seismic_alloy_consensus::SEISMIC_TX_TYPE_ID;
     use reth_seismic_primitives::SeismicTransactionSigned;
     use reth_seismic_test_utils::{get_seismic_tx, get_signing_private_key, sign_seismic_tx};
     use secp256k1::PublicKey;
@@ -310,6 +312,7 @@ mod test {
                 max_priority_fee_per_gas: Some(50),
                 max_fee_per_blob_gas: Some(10),
                 value: Some(U256::from(1_000u64)),
+                transaction_type: Some(SEISMIC_TX_TYPE_ID),
                 ..Default::default()
             },
             seismic_elements,
@@ -323,6 +326,7 @@ mod test {
         assert_eq!(req.inner.max_priority_fee_per_gas, None);
         assert_eq!(req.inner.max_fee_per_blob_gas, None);
         assert_eq!(req.inner.value, None);
+        assert_eq!(req.inner.transaction_type, None, "tx type must be cleared to block spoofing");
         assert!(req.seismic_elements.is_none());
     }
 
