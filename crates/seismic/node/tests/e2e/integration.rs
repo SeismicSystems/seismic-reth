@@ -2274,6 +2274,34 @@ async fn test_call_bundle_disabled() -> eyre::Result<()> {
     Ok(())
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn test_get_proof_disabled() -> eyre::Result<()> {
+    let (_node, client, _chain_id, _wallet, _tasks) = setup_test_node().await?;
+
+    let result = client
+        .request::<serde_json::Value, _>(
+            "eth_getProof",
+            rpc_params![Address::ZERO, Vec::<B256>::new(), "latest"],
+        )
+        .await;
+    match result {
+        Err(jsonrpsee::core::client::Error::Call(err)) => {
+            assert_eq!(
+                err.code(),
+                jsonrpsee::types::error::ErrorCode::MethodNotFound.code(),
+                "eth_getProof must be unregistered, got error: {err}"
+            );
+        }
+        other => panic!("eth_getProof must return method-not-found, got: {other:?}"),
+    }
+
+    // Control: a sibling Eth method we do not remove is still served.
+    let block_number: String = client.request("eth_blockNumber", rpc_params![]).await?;
+    assert!(block_number.starts_with("0x"), "unexpected eth_blockNumber response: {block_number}");
+
+    Ok(())
+}
+
 /// Get the latest block number via `eth_blockNumber`.
 async fn get_block_number(client: &jsonrpsee::http_client::HttpClient) -> u64 {
     let result: serde_json::Value =

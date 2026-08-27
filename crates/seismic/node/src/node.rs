@@ -387,7 +387,7 @@ where
 
         self.inner
             .launch_add_ons_with(ctx, move |container| {
-                let RpcModuleContainer { modules, registry, .. } = container;
+                let RpcModuleContainer { modules, registry, auth_module, .. } = container;
                 modules.merge_if_module_configured(
                     RethRpcModule::Flashbots,
                     validation_api.into_rpc(),
@@ -440,6 +440,10 @@ where
                 // and its per-tx output cannot be uniformly encrypted (plain, non-seismic bundle txs
                 // carry no encryption key).
                 modules.remove_method_from_configured("eth_callBundle");
+
+                // `eth_getProof` is disabled because of a security audits revealing that valid merkle proofs of public slots could make it easier to brute force the values of private slots in the same contract
+                modules.remove_method_from_configured("eth_getProof");
+                auth_module.remove_auth_method("eth_getProof");
 
                 Ok(())
             })
