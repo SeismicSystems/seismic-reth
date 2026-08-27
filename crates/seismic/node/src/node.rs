@@ -387,7 +387,7 @@ where
 
         self.inner
             .launch_add_ons_with(ctx, move |container| {
-                let RpcModuleContainer { modules, registry, .. } = container;
+                let RpcModuleContainer { modules, registry, auth_module, .. } = container;
                 modules.merge_if_module_configured(
                     RethRpcModule::Flashbots,
                     validation_api.into_rpc(),
@@ -440,6 +440,13 @@ where
                 // and its per-tx output cannot be uniformly encrypted (plain, non-seismic bundle txs
                 // carry no encryption key).
                 modules.remove_method_from_configured("eth_callBundle");
+
+                // `eth_getProof` returns Merkle proofs whose leaves are the raw account and
+                // storage values — i.e. plaintext shielded storage, with no signed-read path to
+                // encrypt them. The proof *is* the answer, so there is nothing to sanitize; drop
+                // the method on every transport, including the JWT-protected engine port's copy.
+                modules.remove_method_from_configured("eth_getProof");
+                auth_module.remove_auth_method("eth_getProof");
 
                 Ok(())
             })
