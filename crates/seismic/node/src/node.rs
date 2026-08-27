@@ -441,10 +441,7 @@ where
                 // carry no encryption key).
                 modules.remove_method_from_configured("eth_callBundle");
 
-                // `eth_getProof` returns Merkle proofs whose leaves are the raw account and
-                // storage values — i.e. plaintext shielded storage, with no signed-read path to
-                // encrypt them. The proof *is* the answer, so there is nothing to sanitize; drop
-                // the method on every transport, including the JWT-protected engine port's copy.
+                // `eth_getProof` is disabled because of a security audits revealing that valid merkle proofs of public slots could make it easier to brute force the values of private slots in the same contract
                 modules.remove_method_from_configured("eth_getProof");
                 auth_module.remove_auth_method("eth_getProof");
 
