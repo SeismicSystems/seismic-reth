@@ -128,7 +128,7 @@ where
         } else if request.access_list.is_some() {
             SeismicTxType::Eip2930
         } else {
-            SeismicTxType::Seismic
+            SeismicTxType::Legacy
         } as u8;
 
         let TransactionRequest {
