@@ -49,9 +49,10 @@ use tracing::info;
 ///
 /// These are blocked by a separate subscriber layer, so `RUST_LOG` and per-sink CLI filters cannot
 /// re-enable them.
-const DISABLED_SEISMIC_TRACING_TARGETS: [&str; 5] = [
+const DISABLED_SEISMIC_TRACING_TARGETS: [&str; 6] = [
     "trie::hash_builder",
     "trie::proof_retainer",
+    "trie::trie_cursor::depth_first",
     "jsonrpsee-http",
     "jsonrpsee-server",
     "jsonrpsee_core::proc_macros_support",
@@ -59,8 +60,8 @@ const DISABLED_SEISMIC_TRACING_TARGETS: [&str; 5] = [
 
 fn seismic_tracing_target_enabled(target: &str) -> bool {
     !DISABLED_SEISMIC_TRACING_TARGETS.iter().any(|disabled| {
-        target == *disabled ||
-            target.strip_prefix(disabled).is_some_and(|suffix| suffix.starts_with("::"))
+        target == *disabled
+            || target.strip_prefix(disabled).is_some_and(|suffix| suffix.starts_with("::"))
     })
 }
 
