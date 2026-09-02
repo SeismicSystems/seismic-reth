@@ -6353,7 +6353,8 @@ mod tests {
         let mut sparse = ParallelSparseTrie::default();
         let path1 = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x3, 0x4]); // Creates branch at 0x12
         let path2 = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x5, 0x6]); // Belongs to same branch
-        let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x7, 0x8]); // Diverges at nibble 7
+        let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x7, 0x8]); // Diverges at
+                                                                                 // nibble 7
 
         sparse.update_leaf(path1, encode_account_value(0), false, &provider).unwrap();
         sparse.update_leaf(path2, encode_account_value(1), false, &provider).unwrap();

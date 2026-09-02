@@ -4,7 +4,10 @@
 //! the previous subprocess-based approach (`cargo run --bin seismic-reth`).
 //! Blocks are produced explicitly via `node.advance_block()` instead of relying
 //! on dev-mode auto-mining with `thread::sleep`.
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic)] // Test file - panics are acceptable
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic)] // Test
+                                                                                             // file
+                                                                                             // - panics
+                                                                                             // are acceptable
 
 use alloy_consensus::{proofs::calculate_transaction_root, Transaction as _, TxEnvelope};
 use alloy_dyn_abi::EventExt;

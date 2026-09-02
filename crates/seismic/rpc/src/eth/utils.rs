@@ -79,7 +79,8 @@ impl fmt::Debug for SeismicCall {
 pub fn resolve_seismic_call(request: SeismicCallRequest) -> Result<SeismicCall, EthApiError> {
     match request {
         SeismicCallRequest::TransactionRequest(mut tx_request) => {
-            seismic_override_call_request(&mut tx_request); // null fields that may reveal sensitive information
+            seismic_override_call_request(&mut tx_request); // null fields that may reveal sensitive
+                                                            // information
             Ok(SeismicCall::Transparent(tx_request))
         }
 

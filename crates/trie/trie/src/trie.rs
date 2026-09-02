@@ -248,7 +248,8 @@ where
                 }
                 TrieElement::Leaf(hashed_address, account) => {
                     tracker.inc_leaf();
-                    let is_private = false; // account leaves are always public. Their storage leaves can be private.
+                    let is_private = false; // account leaves are always public. Their storage
+                                            // leaves can be private.
                     storage_ctx.hashed_entries_walked += 1;
 
                     // calculate storage root, calculating the remaining threshold so we have

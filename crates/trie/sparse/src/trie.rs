@@ -2025,7 +2025,8 @@ mod find_leaf_tests {
         let mut sparse = SerialSparseTrie::default();
         let path1 = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x3, 0x4]); // Creates branch at 0x12
         let path2 = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x5, 0x6]); // Belongs to same branch
-        let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x7, 0x8]); // Diverges at nibble 7
+        let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x7, 0x8]); // Diverges at
+                                                                                 // nibble 7
 
         let is_private = false; // hardcode to false for legacy test
         sparse.update_leaf(path1, VALUE_A(), is_private, &provider).unwrap();
@@ -2168,8 +2169,10 @@ mod find_leaf_tests {
     #[test]
     fn find_leaf_error_trie_node_via_reveal() {
         let blinded_hash = B256::repeat_byte(0xAA);
-        let path_to_blind = Nibbles::from_nibbles_unchecked([0x1]); // Path of the blinded node itself
-        let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x3, 0x4]); // Path we will search for
+        let path_to_blind = Nibbles::from_nibbles_unchecked([0x1]); // Path of the blinded node
+                                                                    // itself
+        let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x3, 0x4]); // Path we will
+                                                                                 // search for
 
         let revealed_leaf_prefix = Nibbles::from_nibbles_unchecked([0x5]);
         let revealed_leaf_suffix = Nibbles::from_nibbles_unchecked([0x6, 0x7, 0x8]);
@@ -2202,7 +2205,8 @@ mod find_leaf_tests {
         // Assertions before we reveal child5
         assert_matches!(sparse.nodes.get(&Nibbles::default()), Some(SparseNode::Branch { state_mask, .. }) if *state_mask == TrieMask::new(0b100010)); // Here we check that 1 and 5 are set in the state_mask
         assert_matches!(sparse.nodes.get(&path_to_blind), Some(SparseNode::Hash(h)) if *h == blinded_hash );
-        assert!(sparse.nodes.get(&revealed_leaf_prefix).unwrap().is_hash()); // Child 5 is initially a hash of its RLP
+        assert!(sparse.nodes.get(&revealed_leaf_prefix).unwrap().is_hash()); // Child 5 is initially
+                                                                             // a hash of its RLP
         assert!(sparse.values.is_empty());
 
         // 4. Explicitly reveal the leaf node for child 5
@@ -2282,7 +2286,8 @@ mod tests {
         proof_targets: impl IntoIterator<Item = Nibbles>,
     ) -> (B256, TrieUpdates, ProofNodes, HashMap<Nibbles, TrieMask>, HashMap<Nibbles, TrieMask>)
     {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
         let mut account_rlp = Vec::new();
 
         let mut hash_builder = HashBuilder::default()
@@ -2398,7 +2403,8 @@ mod tests {
 
     #[test]
     fn sparse_trie_empty_update_one() {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
         let key = Nibbles::unpack(B256::with_last_byte(42));
         let value = || Account::default();
         let value_encoded = || {
@@ -2428,7 +2434,8 @@ mod tests {
 
     #[test]
     fn sparse_trie_empty_update_multiple_lower_nibbles() {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
         reth_tracing::init_test_tracing();
 
         let paths = (0..=16).map(|b| Nibbles::unpack(B256::with_last_byte(b))).collect::<Vec<_>>();
@@ -2462,7 +2469,8 @@ mod tests {
 
     #[test]
     fn sparse_trie_empty_update_multiple_upper_nibbles() {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
         let paths = (239..=255).map(|b| Nibbles::unpack(B256::repeat_byte(b))).collect::<Vec<_>>();
         let value = || Account::default();
         let value_encoded = || {
@@ -2494,7 +2502,8 @@ mod tests {
 
     #[test]
     fn sparse_trie_empty_update_multiple() {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
         let paths = (0..=255)
             .map(|b| {
                 Nibbles::unpack(if b % 2 == 0 {
@@ -2979,7 +2988,8 @@ mod tests {
                 let default_provider = DefaultTrieNodeProvider;
                 let provider_factory = create_test_provider_factory();
                 let mut sparse = SerialSparseTrie::default().with_updates(true);
-                let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+                let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                        // equivalent
 
                 for (update, keys_to_delete) in updates {
                     // Insert state updates into the sparse trie and calculate the root
@@ -3121,7 +3131,8 @@ mod tests {
     /// replacing it.
     #[test]
     fn sparse_trie_reveal_node_1() {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
 
         let key1 = || pad_nibbles_right(Nibbles::from_nibbles_unchecked([0x00]));
         let key2 = || pad_nibbles_right(Nibbles::from_nibbles_unchecked([0x01]));
@@ -3336,7 +3347,8 @@ mod tests {
     ///    overwritten with the extension node from the proof.
     #[test]
     fn sparse_trie_reveal_node_3() {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
         let key1 = || pad_nibbles_right(Nibbles::from_nibbles_unchecked([0x00, 0x01]));
         let key2 = || pad_nibbles_right(Nibbles::from_nibbles_unchecked([0x00, 0x02]));
         let key3 = || pad_nibbles_right(Nibbles::from_nibbles_unchecked([0x01, 0x00]));

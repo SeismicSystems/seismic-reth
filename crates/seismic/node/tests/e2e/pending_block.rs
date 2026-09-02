@@ -1,5 +1,6 @@
 //! E2E test for the locally built pending block returned by `eth_getBlockByNumber("pending")`.
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // Test file - panics are acceptable
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // Test file - panics are
+                                                                   // acceptable
 
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
 use reth_e2e_test_utils::{
