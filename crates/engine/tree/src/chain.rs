@@ -1,6 +1,6 @@
 use crate::backfill::{BackfillAction, BackfillEvent, BackfillSync};
 use futures::Stream;
-use reth_stages_api::{ControlFlow, PipelineTarget};
+use reth_stages_api::{ControlFlow, PipelineError, PipelineTarget};
 use std::{
     fmt::{Display, Formatter, Result},
     pin::Pin,
@@ -97,7 +97,16 @@ where
                                 Poll::Ready(ChainEvent::BackfillSyncFinished)
                             }
                             Err(err) => {
-                                tracing::error!( %err, "backfill sync failed");
+                                let error_kind = match &err {
+                                    PipelineError::Stage(_) => "stage",
+                                    PipelineError::Database(_) => "database",
+                                    PipelineError::Provider(_) => "provider",
+                                    PipelineError::Channel(_) => "channel",
+                                    PipelineError::Internal(_) => "internal",
+                                    PipelineError::UnexpectedUnwind => "unexpected_unwind",
+                                    PipelineError::UnwindTargetPruned(_) => "unwind_target_pruned",
+                                };
+                                tracing::error!(error_kind, "backfill sync failed");
                                 Poll::Ready(ChainEvent::FatalError)
                             }
                         }

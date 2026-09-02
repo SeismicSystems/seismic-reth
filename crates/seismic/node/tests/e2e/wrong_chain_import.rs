@@ -6,7 +6,8 @@
 //! has to be enforced at the execution boundary. This test drives the real engine
 //! `newPayload` handler with a block a Byzantine proposer could craft — one that
 //! carries a wrong-chain transaction — and asserts the node rejects it.
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // Test file - panics are acceptable
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // Test file - panics are
+                                                                   // acceptable
 
 use alloy_consensus::proofs::calculate_transaction_root;
 use alloy_eips::eip2718::{Decodable2718, Encodable2718};

@@ -2,7 +2,7 @@
 //! RPC methods.
 
 use super::SpawnBlocking;
-use crate::{EthApiTypes, FromEthApiError, FromEvmError, RpcNodeCore};
+use crate::{AsEthApiError, EthApiTypes, FromEthApiError, FromEvmError, RpcNodeCore};
 use alloy_consensus::{BlockHeader, Transaction};
 use alloy_eips::eip7840::BlobParams;
 use alloy_primitives::{B256, U256};
@@ -180,7 +180,18 @@ pub trait LoadPendingBlock:
             {
                 Ok(block) => block,
                 Err(err) => {
-                    debug!(target: "rpc", "Failed to build pending block: {:?}", err);
+                    let error_kind = match err.as_err() {
+                        Some(EthApiError::Internal(RethError::Execution(_))) => "execution",
+                        Some(EthApiError::Internal(RethError::Consensus(_))) => "consensus",
+                        Some(EthApiError::Internal(RethError::Database(_))) => "database",
+                        Some(EthApiError::Internal(RethError::Provider(_))) => "provider",
+                        Some(EthApiError::InvalidTransaction(_)) => "invalid_transaction",
+                        Some(EthApiError::InvalidBlockData(_)) => "invalid_block",
+                        Some(EthApiError::Internal(_)) => "internal",
+                        Some(_) => "rpc",
+                        None => "other",
+                    };
+                    debug!(target: "rpc", error_kind, "Failed to build pending block");
                     return Ok(None)
                 }
             };

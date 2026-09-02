@@ -140,21 +140,19 @@ where
         debug!(
             target: "trie::parallel_proof",
             total_targets,
-            ?hashed_address,
             "Starting storage proof generation"
         );
 
         let receiver = self.spawn_storage_proof(hashed_address, prefix_set, target_slots);
         let proof_result = receiver.recv().map_err(|_| {
             ParallelStateRootError::StorageRoot(StorageRootError::Database(DatabaseError::Other(
-                format!("channel closed for {hashed_address}"),
+                "storage proof result channel closed".to_string(),
             )))
         })?;
 
         debug!(
             target: "trie::parallel_proof",
             total_targets,
-            ?hashed_address,
             "Storage proof generation completed"
         );
 
@@ -275,11 +273,11 @@ where
                     let decoded_storage_multiproof = match storage_proof_receivers
                         .remove(&hashed_address)
                     {
-                        Some(rx) => rx.recv().map_err(|e| {
+                        Some(rx) => rx.recv().map_err(|_| {
                             ParallelStateRootError::StorageRoot(StorageRootError::Database(
-                                DatabaseError::Other(format!(
-                                    "channel closed for {hashed_address}: {e}"
-                                )),
+                                DatabaseError::Other(
+                                    "storage proof result channel closed".to_string(),
+                                ),
                             ))
                         })??,
                         // Since we do not store all intermediate nodes in the database, there might
@@ -310,7 +308,8 @@ where
                     account_rlp.clear();
                     let account = account.into_trie_account(decoded_storage_multiproof.root);
                     account.encode(&mut account_rlp as &mut dyn BufMut);
-                    let is_private = false; // account leaves are always public. Their storage leaves can be private.
+                    let is_private = false; // account leaves are always public. Their storage
+                                            // leaves can be private.
                     hash_builder.add_leaf(
                         Nibbles::unpack(hashed_address),
                         &account_rlp,
@@ -380,7 +379,126 @@ mod tests {
     use reth_primitives_traits::{Account, StorageEntry};
     use reth_provider::{test_utils::create_test_provider_factory, HashingWriter};
     use reth_trie::proof::Proof;
+    use std::{
+        io::{self, Write},
+        sync::Mutex,
+    };
     use tokio::runtime::Runtime;
+    use tracing_subscriber::fmt::MakeWriter;
+
+    #[derive(Clone, Default)]
+    struct CapturedLogs(Arc<Mutex<Vec<u8>>>);
+
+    impl CapturedLogs {
+        fn contents(&self) -> String {
+            String::from_utf8(self.0.lock().unwrap().clone()).unwrap()
+        }
+    }
+
+    struct CapturedLogWriter(Arc<Mutex<Vec<u8>>>);
+
+    impl Write for CapturedLogWriter {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'a> MakeWriter<'a> for CapturedLogs {
+        type Writer = CapturedLogWriter;
+
+        fn make_writer(&'a self) -> Self::Writer {
+            CapturedLogWriter(self.0.clone())
+        }
+    }
+
+    #[test]
+    fn storage_proof_logs_redact_hashed_address() {
+        let logs = CapturedLogs::default();
+        let subscriber = tracing_subscriber::fmt()
+            .with_ansi(false)
+            .without_time()
+            .with_max_level(tracing::Level::TRACE)
+            .with_writer(logs.clone())
+            .finish();
+        // A global (not thread-local) subscriber is required because the proof task logs from a
+        // `spawn_blocking` thread. This relies on per-process test isolation (cargo nextest, the
+        // project standard); no other test in this binary may set a global default.
+        tracing::subscriber::set_global_default(subscriber).unwrap();
+
+        let factory = create_test_provider_factory();
+        let consistent_view = ConsistentDbView::new(factory, None);
+        let rt = Runtime::new().unwrap();
+        let task_ctx =
+            ProofTaskCtx::new(Default::default(), Default::default(), Default::default());
+        let proof_task =
+            ProofTaskManager::new(rt.handle().clone(), consistent_view.clone(), task_ctx, 1);
+        let proof_task_handle = proof_task.handle();
+        let join_handle = rt.spawn_blocking(move || proof_task.run());
+
+        let hashed_address = B256::repeat_byte(0x7a);
+        let proof = ParallelProof::new(
+            consistent_view,
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            proof_task_handle.clone(),
+        );
+
+        let receiver =
+            proof.spawn_storage_proof(hashed_address, PrefixSet::default(), B256Set::default());
+        receiver.recv().unwrap().unwrap();
+
+        let dropped_receiver =
+            proof.spawn_storage_proof(hashed_address, PrefixSet::default(), B256Set::default());
+        drop(dropped_receiver);
+
+        proof.storage_proof(hashed_address, B256Set::default()).unwrap();
+
+        drop(proof_task_handle);
+        rt.block_on(join_handle).unwrap().unwrap();
+
+        let output = logs.contents();
+        assert!(output.contains("Completed storage proof task calculation"), "{output}");
+        assert!(
+            output.contains("Storage proof receiver is dropped, discarding the result"),
+            "{output}"
+        );
+        assert!(output.contains("Storage proof generation completed"), "{output}");
+        assert!(!output.contains(&hashed_address.to_string()));
+    }
+
+    #[test]
+    fn storage_proof_channel_error_redacts_hashed_address() {
+        let factory = create_test_provider_factory();
+        let consistent_view = ConsistentDbView::new(factory, None);
+        let rt = Runtime::new().unwrap();
+        let task_ctx =
+            ProofTaskCtx::new(Default::default(), Default::default(), Default::default());
+        let proof_task =
+            ProofTaskManager::new(rt.handle().clone(), consistent_view.clone(), task_ctx, 1);
+        let proof_task_handle = proof_task.handle();
+        drop(proof_task);
+
+        let hashed_address = B256::repeat_byte(0x7a);
+        let error = ParallelProof::new(
+            consistent_view,
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            proof_task_handle,
+        )
+        .storage_proof(hashed_address, B256Set::default())
+        .unwrap_err()
+        .to_string();
+
+        assert!(error.contains("storage proof result channel closed"));
+        assert!(!error.contains(&hashed_address.to_string()));
+    }
 
     #[test]
     fn random_parallel_proof() {

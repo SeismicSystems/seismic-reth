@@ -187,13 +187,7 @@ where
                 let hashed_address = account_root_state.last_hashed_key;
                 let account = storage_state.account;
 
-                debug!(
-                    target: "trie::state_root",
-                    account_nonce = account.nonce,
-                    account_balance = ?account.balance,
-                    last_hashed_key = ?account_root_state.last_hashed_key,
-                    "Resuming storage root calculation"
-                );
+                debug!(target: "trie::state_root", "Resuming storage root calculation");
 
                 // resume the storage root calculation
                 let remaining_threshold = self.threshold.saturating_sub(
@@ -254,7 +248,8 @@ where
                 }
                 TrieElement::Leaf(hashed_address, account) => {
                     tracker.inc_leaf();
-                    let is_private = false; // account leaves are always public. Their storage leaves can be private.
+                    let is_private = false; // account leaves are always public. Their storage
+                                            // leaves can be private.
                     storage_ctx.hashed_entries_walked += 1;
 
                     // calculate storage root, calculating the remaining threshold so we have
@@ -445,10 +440,7 @@ impl StateRootContext {
                 // Storage root hit threshold or resumed calculation hit threshold
                 debug!(
                     target: "trie::state_root",
-                    ?hashed_address,
                     storage_slots_walked,
-                    last_storage_key = ?state.last_hashed_key,
-                    ?account,
                     "Pausing storage root calculation"
                 );
 
@@ -620,7 +612,7 @@ where
     ///
     /// The storage root, number of walked entries and trie updates
     /// for a given address if requested.
-    #[instrument(skip_all, target = "trie::storage_root", name = "Storage trie", fields(hashed_address = ?self.hashed_address))]
+    #[instrument(skip_all, target = "trie::storage_root", name = "Storage trie")]
     pub fn calculate(self, retain_updates: bool) -> Result<StorageRootProgress, StorageRootError> {
         trace!(target: "trie::storage_root", "calculating storage root");
 
@@ -716,8 +708,6 @@ where
 
         trace!(
             target: "trie::storage_root",
-            %root,
-            hashed_address = %self.hashed_address,
             duration = ?stats.duration(),
             branches_added = stats.branches_added(),
             leaves_added = stats.leaves_added(),

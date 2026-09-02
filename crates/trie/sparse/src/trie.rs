@@ -420,7 +420,7 @@ impl SparseTrieInterface for SerialSparseTrie {
         node: TrieNode,
         masks: TrieMasks,
     ) -> SparseTrieResult<()> {
-        trace!(target: "trie::sparse", ?path, ?node, ?masks, "reveal_node called");
+        trace!(target: "trie::sparse", "Revealing trie node");
 
         // If the node is already revealed and it's not a hash node, do nothing.
         if self.nodes.get(&path).is_some_and(|node| !node.is_hash()) {
@@ -575,7 +575,7 @@ impl SparseTrieInterface for SerialSparseTrie {
         is_private: bool,
         provider: P,
     ) -> SparseTrieResult<()> {
-        trace!(target: "trie::sparse", ?full_path, ?value, "update_leaf called");
+        trace!(target: "trie::sparse", "update_leaf called");
 
         self.prefix_set.insert(full_path);
         let existing = self.values.insert(full_path, value);
@@ -647,8 +647,6 @@ impl SparseTrieInterface for SerialSparseTrie {
                             if self.nodes.get(&current).unwrap().is_hash() {
                                 debug!(
                                     target: "trie::sparse",
-                                    leaf_full_path = ?full_path,
-                                    child_path = ?current,
                                     "Extension node child not revealed in update_leaf, falling back to db",
                                 );
                                 if let Some(RevealedNode { node, tree_mask, hash_mask }) =
@@ -657,10 +655,6 @@ impl SparseTrieInterface for SerialSparseTrie {
                                     let decoded = TrieNode::decode(&mut &node[..])?;
                                     trace!(
                                         target: "trie::sparse",
-                                        ?current,
-                                        ?decoded,
-                                        ?tree_mask,
-                                        ?hash_mask,
                                         "Revealing extension node child",
                                     );
                                     self.reveal_node(
@@ -717,7 +711,7 @@ impl SparseTrieInterface for SerialSparseTrie {
         full_path: &Nibbles,
         provider: P,
     ) -> SparseTrieResult<()> {
-        trace!(target: "trie::sparse", ?full_path, "remove_leaf called");
+        trace!(target: "trie::sparse", "remove_leaf called");
 
         if self.values.remove(full_path).is_none() {
             if let Some(&SparseNode::Hash(hash)) = self.nodes.get(full_path) {
@@ -725,7 +719,7 @@ impl SparseTrieInterface for SerialSparseTrie {
                 return Err(SparseTrieErrorKind::BlindedNode { path: *full_path, hash }.into())
             }
 
-            trace!(target: "trie::sparse", ?full_path, "Leaf node is not present in the trie");
+            trace!(target: "trie::sparse", "Leaf node is not present in the trie");
             // Leaf is not present in the trie.
             return Ok(())
         }
@@ -819,13 +813,11 @@ impl SparseTrieInterface for SerialSparseTrie {
                         let mut child_path = removed_path;
                         child_path.push_unchecked(child_nibble);
 
-                        trace!(target: "trie::sparse", ?removed_path, ?child_path, "Branch node has only one child");
+                        trace!(target: "trie::sparse", "Branch node has only one child");
 
                         if self.nodes.get(&child_path).unwrap().is_hash() {
                             debug!(
                                 target: "trie::sparse",
-                                ?child_path,
-                                leaf_full_path = ?full_path,
                                 "Branch node child not revealed in remove_leaf, falling back to db",
                             );
                             if let Some(RevealedNode { node, tree_mask, hash_mask }) =
@@ -834,10 +826,6 @@ impl SparseTrieInterface for SerialSparseTrie {
                                 let decoded = TrieNode::decode(&mut &node[..])?;
                                 trace!(
                                     target: "trie::sparse",
-                                    ?child_path,
-                                    ?decoded,
-                                    ?tree_mask,
-                                    ?hash_mask,
                                     "Revealing remaining blinded branch child"
                                 );
                                 self.reveal_node(
@@ -911,7 +899,7 @@ impl SparseTrieInterface for SerialSparseTrie {
                 node: new_node.clone(),
                 unset_branch_nibble: None,
             };
-            trace!(target: "trie::sparse", ?removed_path, ?new_node, "Re-inserting the node");
+            trace!(target: "trie::sparse", "Re-inserting the node");
             self.nodes.insert(removed_path, new_node);
         }
 
@@ -1274,7 +1262,11 @@ impl SerialSparseTrie {
         // Update the prefix set to the prefix set of the nodes that still need to be updated.
         self.prefix_set = new_prefix_set;
 
-        trace!(target: "trie::sparse", ?depth, ?targets, "Updating nodes at depth");
+        trace!(
+            target: "trie::sparse",
+            target_count = targets.len(),
+            "Updating trie nodes"
+        );
 
         let mut temp_rlp_buf = core::mem::take(&mut self.rlp_buf);
         for (level, path) in targets {
@@ -1401,21 +1393,11 @@ impl SerialSparseTrie {
         buffers: &mut RlpNodeBuffers,
         rlp_buf: &mut Vec<u8>,
     ) -> RlpNode {
-        let _starting_path = buffers.path_stack.last().map(|item| item.path);
-
         'main: while let Some(RlpNodePathStackItem { level, path, mut is_in_prefix_set }) =
             buffers.path_stack.pop()
         {
             let node = self.nodes.get_mut(&path).unwrap();
-            trace!(
-                target: "trie::sparse",
-                ?_starting_path,
-                ?level,
-                ?path,
-                ?is_in_prefix_set,
-                ?node,
-                "Popped node from path stack"
-            );
+            trace!(target: "trie::sparse", "Popped node from path stack");
 
             // Check if the path is in the prefix set.
             // First, check the cached value. If it's `None`, then check the prefix set, and update
@@ -1461,13 +1443,7 @@ impl SerialSparseTrie {
 
                         let store_in_db_trie_value = child_node_type.store_in_db_trie();
 
-                        trace!(
-                            target: "trie::sparse",
-                            ?path,
-                            ?child_path,
-                            ?child_node_type,
-                            "Extension node"
-                        );
+                        trace!(target: "trie::sparse", "Extension node");
 
                         *store_in_db_trie = store_in_db_trie_value;
 
@@ -1599,13 +1575,7 @@ impl SerialSparseTrie {
                         }
                     }
 
-                    trace!(
-                        target: "trie::sparse",
-                        ?path,
-                        ?tree_mask,
-                        ?hash_mask,
-                        "Branch node masks"
-                    );
+                    trace!(target: "trie::sparse", "Branch node masks");
 
                     rlp_buf.clear();
                     let branch_node_ref =
@@ -1670,16 +1640,7 @@ impl SerialSparseTrie {
                 }
             };
 
-            trace!(
-                target: "trie::sparse",
-                ?_starting_path,
-                ?level,
-                ?path,
-                ?node,
-                ?node_type,
-                ?is_in_prefix_set,
-                "Added node to rlp node stack"
-            );
+            trace!(target: "trie::sparse", "Added node to rlp node stack");
 
             buffers.rlp_node_stack.push(RlpNodeStackItem { path, rlp_node, node_type });
         }
@@ -2064,7 +2025,8 @@ mod find_leaf_tests {
         let mut sparse = SerialSparseTrie::default();
         let path1 = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x3, 0x4]); // Creates branch at 0x12
         let path2 = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x5, 0x6]); // Belongs to same branch
-        let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x7, 0x8]); // Diverges at nibble 7
+        let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x7, 0x8]); // Diverges at
+                                                                                 // nibble 7
 
         let is_private = false; // hardcode to false for legacy test
         sparse.update_leaf(path1, VALUE_A(), is_private, &provider).unwrap();
@@ -2207,8 +2169,10 @@ mod find_leaf_tests {
     #[test]
     fn find_leaf_error_trie_node_via_reveal() {
         let blinded_hash = B256::repeat_byte(0xAA);
-        let path_to_blind = Nibbles::from_nibbles_unchecked([0x1]); // Path of the blinded node itself
-        let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x3, 0x4]); // Path we will search for
+        let path_to_blind = Nibbles::from_nibbles_unchecked([0x1]); // Path of the blinded node
+                                                                    // itself
+        let search_path = Nibbles::from_nibbles_unchecked([0x1, 0x2, 0x3, 0x4]); // Path we will
+                                                                                 // search for
 
         let revealed_leaf_prefix = Nibbles::from_nibbles_unchecked([0x5]);
         let revealed_leaf_suffix = Nibbles::from_nibbles_unchecked([0x6, 0x7, 0x8]);
@@ -2241,7 +2205,8 @@ mod find_leaf_tests {
         // Assertions before we reveal child5
         assert_matches!(sparse.nodes.get(&Nibbles::default()), Some(SparseNode::Branch { state_mask, .. }) if *state_mask == TrieMask::new(0b100010)); // Here we check that 1 and 5 are set in the state_mask
         assert_matches!(sparse.nodes.get(&path_to_blind), Some(SparseNode::Hash(h)) if *h == blinded_hash );
-        assert!(sparse.nodes.get(&revealed_leaf_prefix).unwrap().is_hash()); // Child 5 is initially a hash of its RLP
+        assert!(sparse.nodes.get(&revealed_leaf_prefix).unwrap().is_hash()); // Child 5 is initially
+                                                                             // a hash of its RLP
         assert!(sparse.values.is_empty());
 
         // 4. Explicitly reveal the leaf node for child 5
@@ -2321,7 +2286,8 @@ mod tests {
         proof_targets: impl IntoIterator<Item = Nibbles>,
     ) -> (B256, TrieUpdates, ProofNodes, HashMap<Nibbles, TrieMask>, HashMap<Nibbles, TrieMask>)
     {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
         let mut account_rlp = Vec::new();
 
         let mut hash_builder = HashBuilder::default()
@@ -2437,7 +2403,8 @@ mod tests {
 
     #[test]
     fn sparse_trie_empty_update_one() {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
         let key = Nibbles::unpack(B256::with_last_byte(42));
         let value = || Account::default();
         let value_encoded = || {
@@ -2467,7 +2434,8 @@ mod tests {
 
     #[test]
     fn sparse_trie_empty_update_multiple_lower_nibbles() {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
         reth_tracing::init_test_tracing();
 
         let paths = (0..=16).map(|b| Nibbles::unpack(B256::with_last_byte(b))).collect::<Vec<_>>();
@@ -2501,7 +2469,8 @@ mod tests {
 
     #[test]
     fn sparse_trie_empty_update_multiple_upper_nibbles() {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
         let paths = (239..=255).map(|b| Nibbles::unpack(B256::repeat_byte(b))).collect::<Vec<_>>();
         let value = || Account::default();
         let value_encoded = || {
@@ -2533,7 +2502,8 @@ mod tests {
 
     #[test]
     fn sparse_trie_empty_update_multiple() {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
         let paths = (0..=255)
             .map(|b| {
                 Nibbles::unpack(if b % 2 == 0 {
@@ -3018,7 +2988,8 @@ mod tests {
                 let default_provider = DefaultTrieNodeProvider;
                 let provider_factory = create_test_provider_factory();
                 let mut sparse = SerialSparseTrie::default().with_updates(true);
-                let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+                let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                        // equivalent
 
                 for (update, keys_to_delete) in updates {
                     // Insert state updates into the sparse trie and calculate the root
@@ -3160,7 +3131,8 @@ mod tests {
     /// replacing it.
     #[test]
     fn sparse_trie_reveal_node_1() {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
 
         let key1 = || pad_nibbles_right(Nibbles::from_nibbles_unchecked([0x00]));
         let key2 = || pad_nibbles_right(Nibbles::from_nibbles_unchecked([0x01]));
@@ -3375,7 +3347,8 @@ mod tests {
     ///    overwritten with the extension node from the proof.
     #[test]
     fn sparse_trie_reveal_node_3() {
-        let is_private = false; // hardcode to false for legacy test, TODO: make a private equivalent
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
         let key1 = || pad_nibbles_right(Nibbles::from_nibbles_unchecked([0x00, 0x01]));
         let key2 = || pad_nibbles_right(Nibbles::from_nibbles_unchecked([0x00, 0x02]));
         let key3 = || pad_nibbles_right(Nibbles::from_nibbles_unchecked([0x01, 0x00]));

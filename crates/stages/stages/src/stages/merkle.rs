@@ -143,7 +143,6 @@ impl MerkleStage {
         if let Some(checkpoint) = checkpoint {
             debug!(
                 target: "sync::stages::merkle::exec",
-                last_account_key = ?checkpoint.last_account_key,
                 "Saving inner merkle checkpoint"
             );
             checkpoint.to_compact(&mut buf);
@@ -202,14 +201,14 @@ where
             let mut checkpoint = self.get_execution_checkpoint(provider)?;
 
             // if there are more blocks than threshold it is faster to rebuild the trie
-            let mut entities_checkpoint = if let Some(checkpoint) =
-                checkpoint.as_ref().filter(|c| c.target_block == to_block)
+            let mut entities_checkpoint = if checkpoint
+                .as_ref()
+                .is_some_and(|checkpoint| checkpoint.target_block == to_block)
             {
                 debug!(
                     target: "sync::stages::merkle::exec",
                     current = ?current_block_number,
                     target = ?to_block,
-                    last_account_key = ?checkpoint.last_account_key,
                     "Continuing inner merkle checkpoint"
                 );
 
@@ -219,7 +218,7 @@ where
                     target: "sync::stages::merkle::exec",
                     current = ?current_block_number,
                     target = ?to_block,
-                    previous_checkpoint = ?checkpoint,
+                    had_previous_checkpoint = checkpoint.is_some(),
                     "Rebuilding trie"
                 );
                 // Reset the checkpoint and clear trie tables

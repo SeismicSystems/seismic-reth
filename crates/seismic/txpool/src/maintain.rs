@@ -58,14 +58,7 @@ impl ChangedAccountsHook for SeismicBalanceHook {
             let usdc = crate::usdc::read_usdc_balance(state, &acc.address);
             let new_balance = acc.balance.saturating_add(usdc);
             if new_balance != acc.balance {
-                debug!(
-                    target: "seismic::txpool",
-                    address = %acc.address,
-                    native_balance = %acc.balance,
-                    usdc_scaled_balance = %usdc,
-                    pool_balance = %new_balance,
-                    "augmenting changed account balance with USDC"
-                );
+                debug!(target: "seismic::txpool", "augmenting changed account balance with USDC");
                 acc.balance = new_balance;
             }
         }

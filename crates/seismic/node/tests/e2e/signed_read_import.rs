@@ -9,7 +9,8 @@
 //! The gate lives in the consensus-type decoder (`SeismicTransactionSigned::typed_decode`),
 //! which the payload→block conversion in `SeismicEngineValidator::ensure_well_formed_payload`
 //! runs on every payload transaction, so a signed-read tx fails to decode at import.
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // Test file - panics are acceptable
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // Test file - panics are
+                                                                   // acceptable
 
 use alloy_consensus::proofs::calculate_transaction_root;
 use alloy_primitives::{aliases::U96, Address, Bytes, Signature, TxKind, B256, U256};

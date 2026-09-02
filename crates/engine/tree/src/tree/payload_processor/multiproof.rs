@@ -219,7 +219,7 @@ pub(crate) fn evm_state_to_hashed_post_state(update: EvmState) -> HashedPostStat
     for (address, account) in update {
         if account.is_touched() {
             let hashed_address = keccak256(address);
-            trace!(target: "engine::root", ?address, ?hashed_address, "Adding account to state update");
+            trace!(target: "engine::root", "Adding account to state update");
 
             let destroyed = account.is_selfdestructed();
             let info = if destroyed { None } else { Some(account.info.into()) };
@@ -446,7 +446,6 @@ where
             trace!(
                 target: "engine::root",
                 proof_sequence_number,
-                ?proof_targets,
                 storage_targets,
                 "Starting dedicated storage proof calculation",
             );
@@ -518,7 +517,6 @@ where
             trace!(
                 target: "engine::root",
                 proof_sequence_number,
-                ?proof_targets,
                 account_targets,
                 storage_targets,
                 ?source,
@@ -1063,9 +1061,15 @@ where
                         }
                     }
                     MultiProofMessage::ProofCalculationError(err) => {
+                        let error_kind = match err {
+                            ProviderError::Database(_) => "database",
+                            ProviderError::Rlp(_) => "rlp",
+                            ProviderError::ConsistentView(_) => "consistent_view",
+                            _ => "other",
+                        };
                         error!(
                             target: "engine::root",
-                            ?err,
+                            error_kind,
                             "proof calculation error"
                         );
                         return

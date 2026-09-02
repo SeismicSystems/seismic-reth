@@ -1917,7 +1917,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
                 // See [StorageWipe::Primary] for more details.
                 let mut wiped_storage = Vec::new();
                 if wiped {
-                    tracing::trace!(?address, "Wiping storage");
+                    tracing::trace!("Wiping storage");
                     if let Some((_, entry)) = storages_cursor.seek_exact(address)? {
                         wiped_storage.push((entry.key, entry.into()));
                         while let Some(entry) = storages_cursor.next_dup_val()? {
@@ -1926,7 +1926,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
                     }
                 }
 
-                tracing::trace!(?address, ?storage, "Writing storage reverts");
+                tracing::trace!(storage_entries = storage.len(), wiped, "Writing storage reverts");
                 for (key, value) in StorageRevertsIter::new(storage, wiped_storage) {
                     storage_changeset_cursor.append_dup(storage_id, StorageEntry { key, value })?;
                 }
@@ -1967,10 +1967,10 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
         // write account to database.
         for (address, account) in changes.accounts {
             if let Some(account) = account {
-                tracing::trace!(?address, "Updating plain state account");
+                tracing::trace!("Updating plain state account");
                 accounts_cursor.upsert(address, &account.into())?;
             } else if accounts_cursor.seek_exact(address)?.is_some() {
-                tracing::trace!(?address, "Deleting plain state account");
+                tracing::trace!("Deleting plain state account");
                 accounts_cursor.delete_current()?;
             }
         }
@@ -1999,7 +1999,6 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypesForProvider> StateWriter
             storage.par_sort_unstable_by_key(|a| a.key);
 
             for entry in storage {
-                tracing::trace!(?address, ?entry.key, "Updating plain state storage");
                 if let Some(db_entry) = storages_cursor.seek_by_key_subkey(address, entry.key)? {
                     if db_entry.key == entry.key {
                         storages_cursor.delete_current()?;

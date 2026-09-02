@@ -176,9 +176,9 @@ where
                     let storage_root_result = match storage_roots.remove(&hashed_address) {
                         Some(rx) => rx.recv().map_err(|_| {
                             ParallelStateRootError::StorageRoot(StorageRootError::Database(
-                                DatabaseError::Other(format!(
-                                    "channel closed for {hashed_address}"
-                                )),
+                                DatabaseError::Other(
+                                    "storage root result channel closed".to_string(),
+                                ),
                             ))
                         })??,
                         // Since we do not store all intermediate nodes in the database, there might
@@ -215,7 +215,8 @@ where
                     account_rlp.clear();
                     let account = account.into_trie_account(storage_root);
                     account.encode(&mut account_rlp as &mut dyn BufMut);
-                    let is_private = false; // account leaves are always public. Their storage leaves can be private.
+                    let is_private = false; // account leaves are always public. Their storage
+                                            // leaves can be private.
                     hash_builder.add_leaf(
                         Nibbles::unpack(hashed_address),
                         &account_rlp,

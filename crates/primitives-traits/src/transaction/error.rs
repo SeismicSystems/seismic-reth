@@ -7,9 +7,7 @@ use alloy_primitives::U256;
 #[derive(Debug, Clone, Eq, PartialEq, thiserror::Error)]
 pub enum InvalidTransactionError {
     /// The sender does not have enough funds to cover the transaction fees
-    #[error(
-        "sender does not have enough funds ({}) to cover transaction fees: {}", _0.got, _0.expected
-    )]
+    #[error("sender does not have enough funds to cover transaction fees")]
     InsufficientFunds(GotExpectedBoxed<U256>),
     /// The nonce is lower than the account's nonce, or there is a nonce gap present.
     ///
@@ -88,4 +86,21 @@ pub enum TryFromRecoveredTransactionError {
     /// This error variant is used when a blob sidecar is missing.
     #[error("Blob sidecar missing for an EIP-4844 transaction")]
     BlobSidecarMissing,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn insufficient_funds_display_redacts_values() {
+        let error = InvalidTransactionError::InsufficientFunds(
+            (U256::from(123_456), U256::from(789_012)).into(),
+        );
+
+        assert_eq!(
+            error.to_string(),
+            "sender does not have enough funds to cover transaction fees"
+        );
+    }
 }

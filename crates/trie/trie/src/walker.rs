@@ -157,7 +157,7 @@ impl<C: TrieCursor, K: AsRef<AddedRemovedKeys>> TrieWalker<C, K> {
     }
 
     /// Returns the next unprocessed key in the trie along with its raw [`Nibbles`] representation.
-    #[instrument(level = "trace", skip(self), ret)]
+    #[instrument(level = "trace", skip(self))]
     pub fn next_unprocessed_key(&self) -> Option<(B256, Nibbles)> {
         self.key()
             .and_then(|key| if self.can_skip_current_node { key.increment() } else { Some(*key) })
@@ -181,12 +181,7 @@ impl<C: TrieCursor, K: AsRef<AddedRemovedKeys>> TrieWalker<C, K> {
                     node.full_key_is_only_nonremoved_child(added_removed_keys.as_ref())
                 });
 
-            trace!(
-                target: "trie::walker",
-                ?key_is_only_nonremoved_child,
-                full_key=?node.full_key(),
-                "Checked for only nonremoved child",
-            );
+            trace!(target: "trie::walker", "Checked for only nonremoved child");
 
             !self.changes.contains(node.full_key()) &&
                 node.hash_flag() &&
@@ -196,7 +191,6 @@ impl<C: TrieCursor, K: AsRef<AddedRemovedKeys>> TrieWalker<C, K> {
             target: "trie::walker",
             old,
             new = self.can_skip_current_node,
-            last = ?self.stack.last(),
             "updated skip node flag"
         );
     }
@@ -260,7 +254,6 @@ impl<C: TrieCursor, K: AsRef<AddedRemovedKeys>> TrieWalker<C, K> {
             if !self.can_skip_current_node && self.children_are_in_trie() {
                 trace!(
                     target: "trie::walker",
-                    position = ?last.position(),
                     "cannot skip current node and children are in the trie"
                 );
                 // If we can't skip the current node and the children are in the trie,
@@ -297,7 +290,7 @@ impl<C: TrieCursor, K: AsRef<AddedRemovedKeys>> TrieWalker<C, K> {
     }
 
     /// Consumes the next node in the trie, updating the stack.
-    #[instrument(level = "trace", skip(self), ret)]
+    #[instrument(level = "trace", skip(self))]
     fn consume_node(&mut self) -> Result<(), DatabaseError> {
         let Some((key, node)) = self.node(false)? else {
             // If no next node is found, clear the stack.
@@ -343,7 +336,7 @@ impl<C: TrieCursor, K: AsRef<AddedRemovedKeys>> TrieWalker<C, K> {
     }
 
     /// Moves to the next sibling node in the trie, updating the stack.
-    #[instrument(level = "trace", skip(self), ret)]
+    #[instrument(level = "trace", skip(self))]
     fn move_to_next_sibling(
         &mut self,
         allow_root_to_child_nibble: bool,
@@ -370,11 +363,11 @@ impl<C: TrieCursor, K: AsRef<AddedRemovedKeys>> TrieWalker<C, K> {
         loop {
             let position = subnode.position();
             if subnode.state_flag() {
-                trace!(target: "trie::walker", ?position, "found next sibling with state");
+                trace!(target: "trie::walker", "found next sibling with state");
                 return Ok(())
             }
             if position.is_last_child() {
-                trace!(target: "trie::walker", ?position, "checked all siblings");
+                trace!(target: "trie::walker", "checked all siblings");
                 break
             }
             subnode.inc_nibble();

@@ -124,7 +124,10 @@ where
     fn seek_hashed_entry(&mut self, key: B256) -> Result<Option<(B256, H::Value)>, DatabaseError> {
         if let Some((last_key, last_value)) = self.last_next_result {
             if last_key == key {
-                trace!(target: "trie::node_iter", seek_key = ?key, "reusing result from last next() call instead of seeking");
+                trace!(
+                    target: "trie::node_iter",
+                    "reusing result from last next() call instead of seeking"
+                );
                 self.last_next_result = None; // Consume the cached value
 
                 let result = Some((last_key, last_value));
@@ -145,7 +148,7 @@ where
             return Ok(entry);
         }
 
-        trace!(target: "trie::node_iter", ?key, "performing hashed cursor seek");
+        trace!(target: "trie::node_iter", "performing hashed cursor seek");
         let result = self.hashed_cursor.seek(key)?;
         self.last_seeked_hashed_entry = Some(SeekedHashedEntry { seeked_key: key, result });
 
@@ -194,8 +197,7 @@ where
         level = "trace",
         target = "trie::node_iter",
         skip_all,
-        fields(trie_type = ?self.trie_type),
-        ret
+        fields(trie_type = ?self.trie_type)
     )]
     pub fn try_next(
         &mut self,
@@ -231,7 +233,7 @@ where
                 }
 
                 // Set the next hashed entry as a leaf node and return
-                trace!(target: "trie::node_iter", ?hashed_key, "next hashed entry");
+                trace!(target: "trie::node_iter", "next hashed entry");
                 self.current_hashed_entry = self.next_hashed_entry()?;
 
                 #[cfg(feature = "metrics")]
@@ -242,7 +244,7 @@ where
             // Handle seeking and advancing based on the previous hashed key
             match self.previous_hashed_key.take() {
                 Some(hashed_key) => {
-                    trace!(target: "trie::node_iter", ?hashed_key, "seeking to the previous hashed entry");
+                    trace!(target: "trie::node_iter", "seeking to the previous hashed entry");
                     // Seek to the previous hashed key and get the next hashed entry
                     self.seek_hashed_entry(hashed_key)?;
                     self.current_hashed_entry = self.next_hashed_entry()?;
@@ -257,18 +259,12 @@ where
 
                     trace!(
                         target: "trie::node_iter",
-                        ?seek_key,
                         can_skip_current_node = self.walker.can_skip_current_node,
-                        last = ?self.walker.stack.last(),
                         "seeking to the next unprocessed hashed entry"
                     );
                     let can_skip_node = self.walker.can_skip_current_node;
                     self.walker.advance()?;
-                    trace!(
-                        target: "trie::node_iter",
-                        last = ?self.walker.stack.last(),
-                        "advanced walker"
-                    );
+                    trace!(target: "trie::node_iter", "advanced walker");
 
                     // We should get the iterator to return a branch node if we can skip the
                     // current node and the tree flag for the current node is set.
@@ -284,12 +280,7 @@ where
                         self.walker.key().is_some_and(|key| key.starts_with(&seek_prefix)) &&
                         self.walker.children_are_in_trie()
                     {
-                        trace!(
-                            target: "trie::node_iter",
-                            ?seek_key,
-                            walker_hash = ?self.walker.maybe_hash(),
-                            "skipping hashed seek"
-                        );
+                        trace!(target: "trie::node_iter", "skipping hashed seek");
 
                         self.should_check_walker_key = false;
                         continue

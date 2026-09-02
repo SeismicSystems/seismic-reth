@@ -201,8 +201,8 @@ impl BackupHandle {
         std::thread::Builder::new()
             .name("Backup Service".to_string())
             .spawn(move || {
-                if let Err(err) = service.run() {
-                    error!(target: "engine::backup", ?err, "Backup service failed");
+                if service.run().is_err() {
+                    error!(target: "engine::backup", "Backup service failed");
                 }
             })
             .unwrap();
