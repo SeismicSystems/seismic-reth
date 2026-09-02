@@ -142,7 +142,7 @@ where
         let next = ready!(this.stream.poll_next_unpin(cx));
         if let Some(msg) = &next {
             if let Err(error) = this.store.on_message(msg, SystemTime::now()) {
-                error!(target: "engine::stream::store", ?msg, %error, "Error handling Engine API message");
+                error!(target: "engine::stream::store", message = %msg, %error, "Error handling Engine API message");
             }
         }
         Poll::Ready(next)

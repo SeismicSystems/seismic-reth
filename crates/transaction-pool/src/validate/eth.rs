@@ -32,6 +32,7 @@ use reth_primitives_traits::{
 };
 use reth_storage_api::{AccountInfoReader, BytecodeReader, StateProviderFactory};
 use reth_tasks::TaskSpawner;
+use seismic_alloy_consensus::SEISMIC_TX_TYPE_ID;
 use std::{
     marker::PhantomData,
     sync::{
@@ -254,8 +255,8 @@ where
     ) -> Result<Tx, TransactionValidationOutcome<Tx>> {
         // Checks for tx_type
         match transaction.ty() {
-            LEGACY_TX_TYPE_ID => {
-                // Accept legacy transactions
+            LEGACY_TX_TYPE_ID | SEISMIC_TX_TYPE_ID => {
+                // Accept legacy and seismic transactions
             }
             EIP2930_TX_TYPE_ID => {
                 // Accept only legacy transactions until EIP-2718/2930 activates
@@ -723,26 +724,30 @@ where
     }
 
     fn on_new_head_block<T: BlockHeader>(&self, new_tip_block: &T) {
+        let timestamp = if cfg!(feature = "timestamp-in-seconds") {
+            new_tip_block.timestamp()
+        } else {
+            new_tip_block.timestamp() / 1000
+        };
+
         // update all forks
-        if self.chain_spec().is_shanghai_active_at_timestamp(new_tip_block.timestamp()) {
+        if self.chain_spec().is_shanghai_active_at_timestamp(timestamp) {
             self.fork_tracker.shanghai.store(true, std::sync::atomic::Ordering::Relaxed);
         }
 
-        if self.chain_spec().is_cancun_active_at_timestamp(new_tip_block.timestamp()) {
+        if self.chain_spec().is_cancun_active_at_timestamp(timestamp) {
             self.fork_tracker.cancun.store(true, std::sync::atomic::Ordering::Relaxed);
         }
 
-        if self.chain_spec().is_prague_active_at_timestamp(new_tip_block.timestamp()) {
+        if self.chain_spec().is_prague_active_at_timestamp(timestamp) {
             self.fork_tracker.prague.store(true, std::sync::atomic::Ordering::Relaxed);
         }
 
-        if self.chain_spec().is_osaka_active_at_timestamp(new_tip_block.timestamp()) {
+        if self.chain_spec().is_osaka_active_at_timestamp(timestamp) {
             self.fork_tracker.osaka.store(true, std::sync::atomic::Ordering::Relaxed);
         }
 
-        if let Some(blob_params) =
-            self.chain_spec().blob_params_at_timestamp(new_tip_block.timestamp())
-        {
+        if let Some(blob_params) = self.chain_spec().blob_params_at_timestamp(timestamp) {
             self.fork_tracker
                 .max_blob_count
                 .store(blob_params.max_blobs_per_tx, std::sync::atomic::Ordering::Relaxed);

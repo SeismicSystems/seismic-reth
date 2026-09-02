@@ -22,7 +22,9 @@ use reth_fs_util::FsPathError;
 use reth_primitives_traits::{
     transaction::signed::SignedTransaction, NodePrimitives, SealedHeader,
 };
-use reth_storage_api::{errors::provider::ProviderError, BlockReaderIdExt, StateProviderFactory};
+use reth_storage_api::{
+    errors::provider::ProviderError, BlockReaderIdExt, StateProvider, StateProviderFactory,
+};
 use reth_tasks::TaskSpawner;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -91,6 +93,28 @@ impl LocalTransactionBackupConfig {
     }
 }
 
+/// Hook to transform changed accounts before they are passed to the pool.
+///
+/// This is used by Seismic to augment native balances with USDC balances so that
+/// the pool can make accurate promote/demote decisions for accounts paying gas in
+/// USDC. It runs in the maintenance loop on new blocks/reorgs and does not affect
+/// transaction validation/admission.
+pub trait ChangedAccountsHook: Send + Sync + 'static {
+    /// Transforms the changed accounts list in place.  Implementations may read
+    /// additional state (e.g. ERC-20 storage) and adjust the `balance` field of
+    /// each [`ChangedAccount`].
+    ///
+    /// The [`StateProvider`] is the same snapshot the maintenance loop used to
+    /// load native balance/nonce, so implementations always see a consistent
+    /// view of the chain.
+    fn transform(&self, state: &dyn StateProvider, accounts: &mut Vec<ChangedAccount>);
+}
+
+/// No-op implementation for chains that don't need balance augmentation.
+impl ChangedAccountsHook for () {
+    fn transform(&self, _state: &dyn StateProvider, _accounts: &mut Vec<ChangedAccount>) {}
+}
+
 /// Returns a spawnable future for maintaining the state of the transaction pool.
 pub fn maintain_transaction_pool_future<N, Client, P, St, Tasks>(
     client: Client,
@@ -110,8 +134,35 @@ where
     St: Stream<Item = CanonStateNotification<N>> + Send + Unpin + 'static,
     Tasks: TaskSpawner + 'static,
 {
+    maintain_transaction_pool_future_with_hook(client, pool, events, task_spawner, config, ())
+}
+
+/// Like [`maintain_transaction_pool_future`] but accepts a [`ChangedAccountsHook`]
+/// that can transform the changed-account balances applied on new blocks and reorgs.
+/// These feed the pool's promote/demote between subpools — not the transaction
+/// validation path.
+pub fn maintain_transaction_pool_future_with_hook<N, Client, P, St, Tasks, H>(
+    client: Client,
+    pool: P,
+    events: St,
+    task_spawner: Tasks,
+    config: MaintainPoolConfig,
+    hook: H,
+) -> BoxFuture<'static, ()>
+where
+    N: NodePrimitives,
+    Client: StateProviderFactory
+        + BlockReaderIdExt<Header = N::BlockHeader>
+        + ChainSpecProvider<ChainSpec: EthChainSpec<Header = N::BlockHeader>>
+        + Clone
+        + 'static,
+    P: TransactionPoolExt<Transaction: PoolTransaction<Consensus = N::SignedTx>> + 'static,
+    St: Stream<Item = CanonStateNotification<N>> + Send + Unpin + 'static,
+    Tasks: TaskSpawner + 'static,
+    H: ChangedAccountsHook,
+{
     async move {
-        maintain_transaction_pool(client, pool, events, task_spawner, config).await;
+        maintain_transaction_pool_with_hook(client, pool, events, task_spawner, config, hook).await;
     }
     .boxed()
 }
@@ -122,7 +173,7 @@ where
 pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
     client: Client,
     pool: P,
-    mut events: St,
+    events: St,
     task_spawner: Tasks,
     config: MaintainPoolConfig,
 ) where
@@ -136,6 +187,32 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
     St: Stream<Item = CanonStateNotification<N>> + Send + Unpin + 'static,
     Tasks: TaskSpawner + 'static,
 {
+    maintain_transaction_pool_with_hook(client, pool, events, task_spawner, config, ()).await
+}
+
+/// Like [`maintain_transaction_pool`] but accepts a [`ChangedAccountsHook`] that
+/// can transform the changed-account balances applied on new blocks and reorgs.
+/// These feed the pool's promote/demote between subpools — not the transaction
+/// validation path.
+pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
+    client: Client,
+    pool: P,
+    mut events: St,
+    task_spawner: Tasks,
+    config: MaintainPoolConfig,
+    hook: H,
+) where
+    N: NodePrimitives,
+    Client: StateProviderFactory
+        + BlockReaderIdExt<Header = N::BlockHeader>
+        + ChainSpecProvider<ChainSpec: EthChainSpec<Header = N::BlockHeader>>
+        + Clone
+        + 'static,
+    P: TransactionPoolExt<Transaction: PoolTransaction<Consensus = N::SignedTx>> + 'static,
+    St: Stream<Item = CanonStateNotification<N>> + Send + Unpin + 'static,
+    Tasks: TaskSpawner + 'static,
+    H: ChangedAccountsHook,
+{
     let metrics = MaintainPoolMetrics::default();
     let MaintainPoolConfig { max_update_depth, max_reload_accounts, .. } = config;
     // ensure the pool points to latest state
@@ -147,10 +224,11 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
             last_seen_block_hash: latest.hash(),
             last_seen_block_number: latest.number(),
             pending_basefee: chain_spec
-                .next_block_base_fee(latest.header(), latest.timestamp())
+                .next_block_base_fee(latest.header(), latest.timestamp_seconds())
                 .unwrap_or_default(),
-            pending_blob_fee: latest
-                .maybe_next_block_blob_fee(chain_spec.blob_params_at_timestamp(latest.timestamp())),
+            pending_blob_fee: latest.maybe_next_block_blob_fee(
+                chain_spec.blob_params_at_timestamp(latest.timestamp_seconds()),
+            ),
         };
         pool.set_block_info(info);
     }
@@ -285,10 +363,13 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
         }
         // handle the result of the account reload
         match reloaded {
-            Some(Ok(Ok(LoadedAccounts { accounts, failed_to_load }))) => {
+            Some(Ok(Ok(LoadedAccounts { mut accounts, failed_to_load }))) => {
                 // reloaded accounts successfully
                 // extend accounts we failed to load from database
                 dirty_addresses.extend(failed_to_load);
+                if let Ok(state) = client.history_by_block_hash(pool_info.last_seen_block_hash) {
+                    hook.transform(&*state, &mut accounts);
+                }
                 // update the pool with the loaded accounts
                 pool.update_accounts(accounts);
             }
@@ -327,10 +408,10 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
 
                 // fees for the next block: `new_tip+1`
                 let pending_block_base_fee = chain_spec
-                    .next_block_base_fee(new_tip.header(), new_tip.timestamp())
+                    .next_block_base_fee(new_tip.header(), new_tip.timestamp_seconds())
                     .unwrap_or_default();
                 let pending_block_blob_fee = new_tip.header().maybe_next_block_blob_fee(
-                    chain_spec.blob_params_at_timestamp(new_tip.timestamp()),
+                    chain_spec.blob_params_at_timestamp(new_tip.timestamp_seconds()),
                 );
 
                 // we know all changed account in the new chain
@@ -368,6 +449,9 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
                 // also include all accounts from new chain
                 // we can use extend here because they are unique
                 changed_accounts.extend(new_changed_accounts.into_iter().map(|entry| entry.0));
+                if let Ok(state) = client.history_by_block_hash(new_tip.hash()) {
+                    hook.transform(&*state, &mut changed_accounts);
+                }
 
                 // all transactions mined in the new chain
                 let new_mined_transactions: HashSet<_> = new_blocks.transaction_hashes().collect();
@@ -430,10 +514,10 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
 
                 // fees for the next block: `tip+1`
                 let pending_block_base_fee = chain_spec
-                    .next_block_base_fee(tip.header(), tip.timestamp())
+                    .next_block_base_fee(tip.header(), tip.timestamp_seconds())
                     .unwrap_or_default();
                 let pending_block_blob_fee = tip.header().maybe_next_block_blob_fee(
-                    chain_spec.blob_params_at_timestamp(tip.timestamp()),
+                    chain_spec.blob_params_at_timestamp(tip.timestamp_seconds()),
                 );
 
                 let first_block = blocks.first();
@@ -471,6 +555,9 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
                     // we can always clear the dirty flag for this account
                     dirty_addresses.remove(&acc.address);
                     changed_accounts.push(acc);
+                }
+                if let Ok(tip_state) = client.history_by_block_hash(tip.hash()) {
+                    hook.transform(&*tip_state, &mut changed_accounts);
                 }
 
                 let mined_transactions = blocks.transaction_hashes().collect();

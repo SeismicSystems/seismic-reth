@@ -1,6 +1,6 @@
 use super::ExecutedBlockWithTrieUpdates;
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{keccak256, Address, BlockNumber, Bytes, StorageKey, StorageValue, B256};
+use alloy_primitives::{keccak256, Address, BlockNumber, Bytes, StorageKey, B256};
 use reth_errors::ProviderResult;
 use reth_primitives_traits::{Account, Bytecode, NodePrimitives};
 use reth_storage_api::{
@@ -13,6 +13,8 @@ use reth_trie::{
 };
 use revm_database::BundleState;
 use std::sync::OnceLock;
+
+use alloy_primitives::FlaggedStorage;
 
 /// A state provider that stores references to in-memory blocks along with their state as well as a
 /// reference of the historical state provider for fallback lookups.
@@ -219,7 +221,7 @@ impl<N: NodePrimitives> StateProvider for MemoryOverlayStateProviderRef<'_, N> {
         &self,
         address: Address,
         storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>> {
+    ) -> ProviderResult<Option<FlaggedStorage>> {
         for block in &self.in_memory {
             if let Some(value) = block.execution_output.storage(&address, storage_key.into()) {
                 return Ok(Some(value));

@@ -247,7 +247,8 @@ where
                 let mut db = CacheDB::new(StateProviderDatabase::new(state));
 
                 // apply overrides
-                apply_block_overrides(block_overrides, &mut db, &mut evm_env.block_env);
+                apply_block_overrides(block_overrides, &mut db, &mut evm_env.block_env)
+                    .map_err(EthApiError::from_overrides_err)?;
 
                 let initial_coinbase_balance = DatabaseRef::basic_ref(&db, coinbase)
                     .map_err(EthApiError::from_eth_err)?
@@ -418,7 +419,7 @@ where
         request: MevSendBundle,
         overrides: SimBundleOverrides,
     ) -> RpcResult<SimBundleResponse> {
-        trace!("mev_simBundle called, request: {:?}, overrides: {:?}", request, overrides);
+        trace!("mev_simBundle called");
 
         let override_timeout = overrides.timeout;
 

@@ -55,6 +55,10 @@ revm = { workspace = true, features = ["secp256k1", "blst", "c-kzg"] }
 eyre.workspace = true
 
 [dev-dependencies]
+# seismic
+seismic-alloy-genesis.workspace = true
+
+reth-chainspec.workspace = true
 reth-db.workspace = true
 reth-exex.workspace = true
 reth-node-core.workspace = true
@@ -77,6 +81,11 @@ rand.workspace = true
 
 [features]
 default = []
+timestamp-in-seconds = [
+    "revm/timestamp-in-seconds",
+    "reth-evm-ethereum/timestamp-in-seconds",
+    "reth-ethereum-engine-primitives/timestamp-in-seconds",
+]
 asm-keccak = [
     "alloy-primitives/asm-keccak",
     "reth-node-core/asm-keccak",

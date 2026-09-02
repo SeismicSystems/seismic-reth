@@ -2,7 +2,7 @@
 //! RPC methods.
 
 use super::SpawnBlocking;
-use crate::{EthApiTypes, FromEthApiError, FromEvmError, RpcNodeCore};
+use crate::{AsEthApiError, EthApiTypes, FromEthApiError, FromEvmError, RpcNodeCore};
 use alloy_consensus::{BlockHeader, Transaction};
 use alloy_eips::eip7840::BlobParams;
 use alloy_primitives::{B256, U256};
@@ -180,7 +180,18 @@ pub trait LoadPendingBlock:
             {
                 Ok(block) => block,
                 Err(err) => {
-                    debug!(target: "rpc", "Failed to build pending block: {:?}", err);
+                    let error_kind = match err.as_err() {
+                        Some(EthApiError::Internal(RethError::Execution(_))) => "execution",
+                        Some(EthApiError::Internal(RethError::Consensus(_))) => "consensus",
+                        Some(EthApiError::Internal(RethError::Database(_))) => "database",
+                        Some(EthApiError::Internal(RethError::Provider(_))) => "provider",
+                        Some(EthApiError::InvalidTransaction(_)) => "invalid_transaction",
+                        Some(EthApiError::InvalidBlockData(_)) => "invalid_block",
+                        Some(EthApiError::Internal(_)) => "internal",
+                        Some(_) => "rpc",
+                        None => "other",
+                    };
+                    debug!(target: "rpc", error_kind, "Failed to build pending block");
                     return Ok(None)
                 }
             };
@@ -257,7 +268,7 @@ pub trait LoadPendingBlock:
         let blob_params = self
             .provider()
             .chain_spec()
-            .blob_params_at_timestamp(parent.timestamp())
+            .blob_params_at_timestamp(parent.timestamp_seconds())
             .unwrap_or_else(BlobParams::cancun);
         let mut cumulative_gas_used = 0;
         let mut sum_blob_gas_used = 0;
@@ -416,8 +427,10 @@ where
 
 impl<H: BlockHeader> BuildPendingEnv<H> for NextBlockEnvAttributes {
     fn build_pending_env(parent: &SealedHeader<H>) -> Self {
+        // NOTE: 12000 is block time in ms (MODIFIED)
+        let td = if cfg!(feature = "timestamp-in-seconds") { 12 } else { 12000 };
         Self {
-            timestamp: parent.timestamp().saturating_add(12),
+            timestamp: parent.timestamp().saturating_add(td),
             suggested_fee_recipient: parent.beneficiary(),
             prev_randao: B256::random(),
             gas_limit: parent.gas_limit(),

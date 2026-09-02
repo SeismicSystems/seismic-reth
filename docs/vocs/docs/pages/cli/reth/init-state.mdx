@@ -5,8 +5,9 @@ Initialize the database from a state dump file
 ```bash
 $ reth init-state --help
 ```
+
 ```txt
-Usage: reth init-state [OPTIONS] <STATE_DUMP_FILE>
+Usage: seismic-reth init-state [OPTIONS] <STATE_DUMP_FILE>
 
 Options:
   -h, --help

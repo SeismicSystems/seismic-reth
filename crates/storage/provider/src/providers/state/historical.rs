@@ -3,7 +3,7 @@ use crate::{
     HashedPostStateProvider, ProviderError, StateProvider, StateRootProvider,
 };
 use alloy_eips::merge::EPOCH_SLOTS;
-use alloy_primitives::{Address, BlockNumber, Bytes, StorageKey, StorageValue, B256};
+use alloy_primitives::{Address, BlockNumber, Bytes, StorageKey, B256};
 use reth_db_api::{
     cursor::{DbCursorRO, DbDupCursorRO},
     models::{storage_sharded_key::StorageShardedKey, ShardedKey},
@@ -28,8 +28,9 @@ use reth_trie_db::{
     DatabaseHashedPostState, DatabaseHashedStorage, DatabaseProof, DatabaseStateRoot,
     DatabaseStorageProof, DatabaseStorageRoot, DatabaseTrieWitness,
 };
-
 use std::fmt::Debug;
+
+use revm_state::FlaggedStorage;
 
 /// State provider for a given block number which takes a tx reference.
 ///
@@ -402,7 +403,7 @@ impl<Provider: DBProvider + BlockNumReader + BlockHashReader> StateProvider
         &self,
         address: Address,
         storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>> {
+    ) -> ProviderResult<Option<FlaggedStorage>> {
         match self.storage_history_lookup(address, storage_key)? {
             HistoryInfo::NotYetWritten => Ok(None),
             HistoryInfo::InChangeset(changeset_block_number) => Ok(Some(
@@ -415,15 +416,15 @@ impl<Provider: DBProvider + BlockNumReader + BlockHashReader> StateProvider
                         address,
                         storage_key: Box::new(storage_key),
                     })?
-                    .value,
+                    .into(),
             )),
             HistoryInfo::InPlainState | HistoryInfo::MaybeInPlainState => Ok(self
                 .tx()
                 .cursor_dup_read::<tables::PlainStorageState>()?
                 .seek_by_key_subkey(address, storage_key)?
                 .filter(|entry| entry.key == storage_key)
-                .map(|entry| entry.value)
-                .or(Some(StorageValue::ZERO))),
+                .map(|entry| entry.into())
+                .or(Some(FlaggedStorage::ZERO))),
         }
     }
 }
@@ -532,6 +533,7 @@ mod tests {
     use reth_primitives_traits::{Account, StorageEntry};
     use reth_storage_api::{BlockHashReader, BlockNumReader, DBProvider, DatabaseProviderFactory};
     use reth_storage_errors::provider::ProviderError;
+    use revm_state::FlaggedStorage;
 
     const ADDRESS: Address = address!("0x0000000000000000000000000000000000000001");
     const HIGHER_ADDRESS: Address = address!("0x0000000000000000000000000000000000000005");
@@ -687,13 +689,13 @@ mod tests {
         )
         .unwrap();
 
-        let higher_entry_plain = StorageEntry { key: STORAGE, value: U256::from(1000) };
-        let higher_entry_at4 = StorageEntry { key: STORAGE, value: U256::from(0) };
-        let entry_plain = StorageEntry { key: STORAGE, value: U256::from(100) };
-        let entry_at15 = StorageEntry { key: STORAGE, value: U256::from(15) };
-        let entry_at10 = StorageEntry { key: STORAGE, value: U256::from(10) };
-        let entry_at7 = StorageEntry { key: STORAGE, value: U256::from(7) };
-        let entry_at3 = StorageEntry { key: STORAGE, value: U256::from(0) };
+        let higher_entry_plain = StorageEntry { key: STORAGE, value: FlaggedStorage::public(1000) };
+        let higher_entry_at4 = StorageEntry { key: STORAGE, value: FlaggedStorage::public(0) };
+        let entry_plain = StorageEntry { key: STORAGE, value: FlaggedStorage::public(100) };
+        let entry_at15 = StorageEntry { key: STORAGE, value: FlaggedStorage::public(15) };
+        let entry_at10 = StorageEntry { key: STORAGE, value: FlaggedStorage::public(10) };
+        let entry_at7 = StorageEntry { key: STORAGE, value: FlaggedStorage::public(7) };
+        let entry_at3 = StorageEntry { key: STORAGE, value: FlaggedStorage::public(0) };
 
         // setup
         tx.put::<tables::StorageChangeSets>((3, ADDRESS).into(), entry_at3).unwrap();
@@ -716,7 +718,7 @@ mod tests {
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 3).storage(ADDRESS, STORAGE),
-            Ok(Some(U256::ZERO))
+            Ok(Some(FlaggedStorage::ZERO))
         ));
         assert!(matches!(
             HistoricalStateProviderRef::new(&db, 4).storage(ADDRESS, STORAGE),

@@ -12,6 +12,7 @@ description = "Types supporting implementation of 'eth' namespace RPC server API
 workspace = true
 
 [dependencies]
+# reth
 reth-chainspec.workspace = true
 reth-chain-state.workspace = true
 reth-errors.workspace = true
@@ -30,7 +31,7 @@ reth-trie.workspace = true
 
 # ethereum
 alloy-eips.workspace = true
-alloy-evm = { workspace = true, features = ["overrides", "call-util"] }
+alloy-evm = { workspace = true, features = ["call-util"] }
 alloy-primitives.workspace = true
 alloy-consensus.workspace = true
 alloy-sol-types.workspace = true
@@ -67,4 +68,5 @@ itertools.workspace = true
 serde_json.workspace = true
 
 [features]
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]
 js-tracer = ["revm-inspectors/js-tracer"]

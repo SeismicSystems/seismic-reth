@@ -1,5 +1,6 @@
 use crate::{
     backfill::{BackfillAction, BackfillSyncState},
+    backup::{BackupAction, BackupHandle},
     chain::FromOrchestrator,
     engine::{DownloadRequest, EngineApiEvent, EngineApiKind, EngineApiRequest, FromEngine},
     persistence::PersistenceHandle,
@@ -24,7 +25,7 @@ use reth_engine_primitives::{
     ForkchoiceStateTracker, OnForkChoiceUpdated,
 };
 use reth_errors::{ConsensusError, ProviderResult};
-use reth_evm::{ConfigureEvm, OnStateHook};
+use reth_evm::{execute::InternalBlockExecutionError, ConfigureEvm, OnStateHook};
 use reth_payload_builder::PayloadBuilderHandle;
 use reth_payload_primitives::{
     BuiltPayload, EngineApiMessageVersion, NewPayloadError, PayloadBuilderAttributes, PayloadTypes,
@@ -64,6 +65,7 @@ mod metrics;
 mod payload_processor;
 pub mod payload_validator;
 mod persistence_state;
+#[allow(unused)]
 pub mod precompile_cache;
 #[cfg(test)]
 mod tests;
@@ -282,6 +284,8 @@ where
     engine_kind: EngineApiKind,
     /// The EVM configuration.
     evm_config: C,
+    /// The backup handler
+    backup: BackupHandle,
 }
 
 impl<N, P: Debug, T: PayloadTypes + Debug, V: Debug, C> std::fmt::Debug
@@ -341,6 +345,7 @@ where
         config: TreeConfig,
         engine_kind: EngineApiKind,
         evm_config: C,
+        backup: BackupHandle,
     ) -> Self {
         let (incoming_tx, incoming) = std::sync::mpsc::channel();
 
@@ -361,6 +366,7 @@ where
             incoming_tx,
             engine_kind,
             evm_config,
+            backup,
         }
     }
 
@@ -380,6 +386,7 @@ where
         config: TreeConfig,
         kind: EngineApiKind,
         evm_config: C,
+        backup: BackupHandle,
     ) -> (Sender<FromEngine<EngineApiRequest<T, N>, N::Block>>, UnboundedReceiver<EngineApiEvent<N>>)
     {
         let best_block_number = provider.best_block_number().unwrap_or(0);
@@ -411,6 +418,7 @@ where
             config,
             kind,
             evm_config,
+            backup,
         );
         let incoming = task.incoming_tx.clone();
         std::thread::Builder::new().name("Engine Task".to_string()).spawn(|| task.run()).unwrap();
@@ -431,7 +439,21 @@ where
                 Ok(Some(msg)) => {
                     debug!(target: "engine::tree", %msg, "received new engine message");
                     if let Err(fatal) = self.on_engine_message(msg) {
-                        error!(target: "engine::tree", %fatal, "insert block fatal error");
+                        match &fatal {
+                            InsertBlockFatalError::Provider(_) => {
+                                error!(target: "engine::tree", error_kind = "provider", "insert block fatal error");
+                            }
+                            InsertBlockFatalError::BlockExecutionError(
+                                InternalBlockExecutionError::EVM { hash, .. },
+                            ) => {
+                                error!(target: "engine::tree", error_kind = "evm", tx_hash = %hash, "insert block fatal error");
+                            }
+                            InsertBlockFatalError::BlockExecutionError(
+                                InternalBlockExecutionError::Other(_),
+                            ) => {
+                                error!(target: "engine::tree", error_kind = "other", "insert block fatal error");
+                            }
+                        }
                         return
                     }
                 }
@@ -445,7 +467,18 @@ where
             }
 
             if let Err(err) = self.advance_persistence() {
-                error!(target: "engine::tree", %err, "Advancing persistence failed");
+                // `ProviderError`'s Display can embed hashed addresses/keys, so log only the
+                // error kind. `MissingAncestor` carries a public block hash, which is safe.
+                let error_kind = match &err {
+                    AdvancePersistenceError::RecvError(_) => "recv",
+                    AdvancePersistenceError::Provider(_) => "provider",
+                    AdvancePersistenceError::MissingAncestor(_) => "missing_ancestor",
+                };
+                error!(target: "engine::tree", error_kind, "Advancing persistence failed");
+                return
+            }
+            if self.advance_backup().is_err() {
+                error!(target: "engine::tree", "Advancing backup failed");
                 return
             }
         }
@@ -1148,7 +1181,7 @@ where
     fn try_recv_engine_message(
         &self,
     ) -> Result<Option<FromEngine<EngineApiRequest<T, N>, N::Block>>, RecvError> {
-        if self.persistence_state.in_progress() {
+        if self.persistence_state.in_progress() || self.backup.in_progress() {
             // try to receive the next request with a timeout to not block indefinitely
             match self.incoming.recv_timeout(std::time::Duration::from_millis(500)) {
                 Ok(msg) => Ok(Some(msg)),
@@ -1246,6 +1279,49 @@ where
         Ok(())
     }
 
+    fn advance_backup(&mut self) -> Result<(), AdvancePersistenceError> {
+        debug!(target: "engine::tree", "advance_backup called");
+        if !self.backup.in_progress() && self.should_backup() {
+            debug!(target: "engine::tree", "sending backup action");
+            let (tx, rx) = oneshot::channel();
+            let _ = self
+                .backup
+                .sender
+                .send(BackupAction::BackupAtBlock(self.persistence_state.last_persisted_block, tx));
+            self.backup.start(rx);
+        }
+
+        if self.backup.in_progress() {
+            let (mut rx, start_time) = self
+                .backup
+                .rx
+                .take()
+                .expect("if a backup task is in progress Receiver must be Some");
+            // Check if persistence has complete
+            match rx.try_recv() {
+                Ok(last_backup_hash_num) => {
+                    let Some(BlockNumHash {
+                        hash: last_backup_block_hash,
+                        number: last_backup_block_number,
+                    }) = last_backup_hash_num
+                    else {
+                        warn!(target: "engine::tree", "Backup task completed but did not backup any blocks");
+                        return Ok(())
+                    };
+
+                    debug!(target: "engine::tree", ?last_backup_hash_num, "Finished backup, calling finish");
+                    self.backup.finish(BlockNumHash::new(
+                        last_backup_block_number,
+                        last_backup_block_hash,
+                    ));
+                }
+                Err(TryRecvError::Closed) => return Err(TryRecvError::Closed.into()),
+                Err(TryRecvError::Empty) => self.backup.rx = Some((rx, start_time)),
+            }
+        }
+        Ok(())
+    }
+
     /// Handles a message from the engine.
     fn on_engine_message(
         &mut self,
@@ -1315,29 +1391,34 @@ where
                                     self.on_maybe_tree_event(res.event.take())?;
                                 }
 
-                                if let Err(err) =
-                                    tx.send(output.map(|o| o.outcome).map_err(Into::into))
-                                {
+                                if tx.send(output.map(|o| o.outcome).map_err(Into::into)).is_err() {
                                     self.metrics
                                         .engine
                                         .failed_forkchoice_updated_response_deliveries
                                         .increment(1);
-                                    error!(target: "engine::tree", "Failed to send event: {err:?}");
+                                    error!(target: "engine::tree", "Failed to send forkchoice updated response");
                                 }
                             }
                             BeaconEngineMessage::NewPayload { payload, tx } => {
+                                debug!(
+                                    target: "engine::tree",
+                                    block_number = payload.block_number(),
+                                    block_hash = %payload.block_hash(),
+                                    "receiving beacon engine new payload message"
+                                );
                                 let mut output = self.on_new_payload(payload);
 
                                 let maybe_event =
                                     output.as_mut().ok().and_then(|out| out.event.take());
 
                                 // emit response
-                                if let Err(err) =
-                                    tx.send(output.map(|o| o.outcome).map_err(|e| {
+                                if tx
+                                    .send(output.map(|o| o.outcome).map_err(|e| {
                                         BeaconOnNewPayloadError::Internal(Box::new(e))
                                     }))
+                                    .is_err()
                                 {
-                                    error!(target: "engine::tree", "Failed to send event: {err:?}");
+                                    error!(target: "engine::tree", "Failed to send new payload response");
                                     self.metrics
                                         .engine
                                         .failed_new_payload_response_deliveries
@@ -1562,6 +1643,14 @@ where
         let min_block = self.persistence_state.last_persisted_block.number;
         self.state.tree_state.canonical_block_number().saturating_sub(min_block) >
             self.config.persistence_threshold()
+    }
+
+    /// Returns true if the canonical chain length minus the last persisted
+    /// block is greater than or equal to the backup threshold and
+    /// backfill is not running.
+    fn should_backup(&self) -> bool {
+        debug!(target: "engine::tree", "checking if we should backup");
+        false
     }
 
     /// Returns a batch of consecutive canonical blocks to persist in the range
@@ -1905,9 +1994,39 @@ where
                 }
                 Err(err) => {
                     if let InsertPayloadError::Block(err) = err {
-                        debug!(target: "engine::tree", ?err, "failed to connect buffered block to tree");
+                        let error_kind = match err.kind() {
+                            error::InsertBlockErrorKind::Consensus(_) => "consensus",
+                            error::InsertBlockErrorKind::Execution(
+                                reth_errors::BlockExecutionError::Validation(_),
+                            ) => "execution_validation",
+                            error::InsertBlockErrorKind::Execution(
+                                reth_errors::BlockExecutionError::Internal(_),
+                            ) => "execution_internal",
+                            error::InsertBlockErrorKind::Provider(_) => "provider",
+                            error::InsertBlockErrorKind::Other(_) => "other",
+                        };
+                        debug!(
+                            target: "engine::tree",
+                            block = ?child_num_hash,
+                            error_kind,
+                            "failed to connect buffered block to tree"
+                        );
                         if let Err(fatal) = self.on_insert_block_error(err) {
-                            warn!(target: "engine::tree", %fatal, "fatal error occurred while connecting buffered blocks");
+                            let error_kind = match &fatal {
+                                InsertBlockFatalError::Provider(_) => "provider",
+                                InsertBlockFatalError::BlockExecutionError(
+                                    InternalBlockExecutionError::EVM { .. },
+                                ) => "evm",
+                                InsertBlockFatalError::BlockExecutionError(
+                                    InternalBlockExecutionError::Other(_),
+                                ) => "other",
+                            };
+                            warn!(
+                                target: "engine::tree",
+                                block = ?child_num_hash,
+                                error_kind,
+                                "fatal error occurred while connecting buffered blocks"
+                            );
                             return Err(fatal)
                         }
                     }
@@ -2249,9 +2368,39 @@ where
             }
             Err(err) => {
                 if let InsertPayloadError::Block(err) = err {
-                    debug!(target: "engine::tree", err=%err.kind(), "failed to insert downloaded block");
+                    let error_kind = match err.kind() {
+                        error::InsertBlockErrorKind::Consensus(_) => "consensus",
+                        error::InsertBlockErrorKind::Execution(
+                            reth_errors::BlockExecutionError::Validation(_),
+                        ) => "execution_validation",
+                        error::InsertBlockErrorKind::Execution(
+                            reth_errors::BlockExecutionError::Internal(_),
+                        ) => "execution_internal",
+                        error::InsertBlockErrorKind::Provider(_) => "provider",
+                        error::InsertBlockErrorKind::Other(_) => "other",
+                    };
+                    debug!(
+                        target: "engine::tree",
+                        block = ?block_num_hash,
+                        error_kind,
+                        "failed to insert downloaded block"
+                    );
                     if let Err(fatal) = self.on_insert_block_error(err) {
-                        warn!(target: "engine::tree", %fatal, "fatal error occurred while inserting downloaded block");
+                        let error_kind = match &fatal {
+                            InsertBlockFatalError::Provider(_) => "provider",
+                            InsertBlockFatalError::BlockExecutionError(
+                                InternalBlockExecutionError::EVM { .. },
+                            ) => "evm",
+                            InsertBlockFatalError::BlockExecutionError(
+                                InternalBlockExecutionError::Other(_),
+                            ) => "other",
+                        };
+                        warn!(
+                            target: "engine::tree",
+                            block = ?block_num_hash,
+                            error_kind,
+                            "fatal error occurred while inserting downloaded block"
+                        );
                         return Err(fatal)
                     }
                 }
@@ -2508,11 +2657,15 @@ where
         // If the error was due to an invalid payload, the payload is added to the
         // invalid headers cache and `Ok` with [PayloadStatusEnum::Invalid] is
         // returned.
+        let validation_error_kind = match &validation_err {
+            error::InsertBlockValidationError::Consensus(_) => "consensus",
+            error::InsertBlockValidationError::Validation(_) => "execution_validation",
+        };
         warn!(
             target: "engine::tree",
             invalid_hash=%block.hash(),
             invalid_number=block.number(),
-            %validation_err,
+            validation_error_kind,
             "Invalid block error on new payload",
         );
         let latest_valid_hash = self.latest_valid_hash_for_invalid_payload(block.parent_hash())?;
@@ -2534,7 +2687,11 @@ where
         error: NewPayloadError,
         parent_hash: B256,
     ) -> ProviderResult<PayloadStatus> {
-        error!(target: "engine::tree", %error, "Invalid payload");
+        let error_kind = match &error {
+            NewPayloadError::Eth(_) => "payload",
+            NewPayloadError::Other(_) => "other",
+        };
+        error!(target: "engine::tree", error_kind, "Invalid payload");
         // we need to convert the error to a payload status (response to the CL)
 
         let latest_valid_hash =
@@ -2696,7 +2853,20 @@ where
         if let Err(err) =
             self.payload_validator.validate_payload_attributes_against_header(&attrs, head)
         {
-            warn!(target: "engine::tree", %err, ?head, "Invalid payload attributes");
+            let error_kind = match err {
+                reth_payload_primitives::InvalidPayloadAttributesError::InvalidTimestamp => {
+                    "invalid_timestamp"
+                }
+                reth_payload_primitives::InvalidPayloadAttributesError::InvalidParams(_) => {
+                    "invalid_params"
+                }
+            };
+            warn!(
+                target: "engine::tree",
+                head_number = head.number(),
+                error_kind,
+                "Invalid payload attributes"
+            );
             return OnForkChoiceUpdated::invalid_payload_attributes()
         }
 

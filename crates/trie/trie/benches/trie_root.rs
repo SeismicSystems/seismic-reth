@@ -71,7 +71,8 @@ mod implementations {
             value_buffer.clear();
             receipts[index].encode_2718(&mut value_buffer);
 
-            hb.add_leaf(Nibbles::unpack(&index_buffer), &value_buffer);
+            let is_private = false; // hardcode to false for legacy bench
+            hb.add_leaf(Nibbles::unpack(&index_buffer), &value_buffer, is_private);
         }
 
         hb.root()

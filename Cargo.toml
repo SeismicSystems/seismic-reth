@@ -3,14 +3,31 @@ version = "1.7.0"
 edition = "2021"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
-homepage = "https://paradigmxyz.github.io/reth"
-repository = "https://github.com/paradigmxyz/reth"
+homepage = "https://github.com/SeismicSystems/seismic-reth"
+repository = "https://github.com/SeismicSystems/seismic-reth"
 exclude = [".github/"]
 
 [workspace]
 members = [
-    "bin/reth-bench/",
-    "bin/reth/",
+    # Seismic crates
+    "bin/seismic-reth/",
+    "bin/genesis-builder/",
+    "crates/seismic/chainspec",
+    "crates/seismic/cli",
+    "crates/seismic/evm/",
+    "crates/seismic/genesis-builder",
+    "crates/seismic/node/",
+    "crates/seismic/payload/",
+    "crates/seismic/primitives/",
+    "crates/seismic/reth/",
+    "crates/seismic/rpc/",
+    "crates/seismic/test-utils/",
+    "crates/seismic/txpool/",
+    "crates/seismic/hardforks",
+    "crates/seismic/fuzz",
+
+    # "bin/reth-bench/",
+    # "bin/reth/",
     "crates/storage/rpc-provider/",
     "crates/chain-state/",
     "crates/chainspec/",
@@ -71,20 +88,21 @@ members = [
     "crates/node/events/",
     "crates/node/metrics",
     "crates/node/types",
-    "crates/optimism/bin",
-    "crates/optimism/chainspec",
-    "crates/optimism/cli",
-    "crates/optimism/consensus",
-    "crates/optimism/evm/",
-    "crates/optimism/flashblocks/",
-    "crates/optimism/hardforks/",
-    "crates/optimism/node/",
-    "crates/optimism/payload/",
-    "crates/optimism/primitives/",
-    "crates/optimism/reth/",
-    "crates/optimism/rpc/",
-    "crates/optimism/storage",
-    "crates/optimism/txpool/",
+    # seismic: these crates don't compile because of type changes we made that affects them, such as FlaggedStorage.
+    # "crates/optimism/bin",
+    # "crates/optimism/chainspec",
+    # "crates/optimism/cli",
+    # "crates/optimism/consensus",
+    # "crates/optimism/evm/",
+    # "crates/optimism/flashblocks/",
+    # "crates/optimism/hardforks/",
+    # "crates/optimism/node/",
+    # "crates/optimism/payload/",
+    # "crates/optimism/primitives/",
+    # "crates/optimism/reth/",
+    # "crates/optimism/rpc/",
+    # "crates/optimism/storage",
+    # "crates/optimism/txpool/",
     "crates/payload/basic/",
     "crates/payload/builder/",
     "crates/payload/builder-primitives/",
@@ -139,43 +157,43 @@ members = [
     "crates/trie/sparse",
     "crates/trie/sparse-parallel/",
     "crates/trie/trie",
-    "examples/beacon-api-sidecar-fetcher/",
-    "examples/beacon-api-sse/",
-    "examples/bsc-p2p",
-    "examples/custom-dev-node/",
-    "examples/custom-node/",
-    "examples/custom-engine-types/",
-    "examples/custom-evm/",
-    "examples/custom-inspector/",
-    "examples/custom-node-components/",
-    "examples/custom-payload-builder/",
-    "examples/custom-rlpx-subprotocol",
-    "examples/custom-node",
-    "examples/db-access",
-    "examples/engine-api-access",
-    "examples/exex-hello-world",
-    "examples/exex-subscription",
-    "examples/exex-test",
-    "examples/full-contract-state",
-    "examples/manual-p2p/",
-    "examples/network-txpool/",
-    "examples/network/",
-    "examples/network-proxy/",
-    "examples/node-builder-api/",
-    "examples/node-custom-rpc/",
-    "examples/node-event-hooks/",
-    "examples/op-db-access/",
-    "examples/polygon-p2p/",
-    "examples/rpc-db/",
-    "examples/precompile-cache/",
-    "examples/txpool-tracing/",
-    "examples/custom-beacon-withdrawals",
+    # "examples/beacon-api-sidecar-fetcher/",
+    # "examples/beacon-api-sse/",
+    # "examples/bsc-p2p",
+    # "examples/custom-dev-node/",
+    # "examples/custom-node/",
+    # "examples/custom-engine-types/",
+    # "examples/custom-evm/",
+    # "examples/custom-inspector/",
+    # "examples/custom-node-components/",
+    # "examples/custom-payload-builder/",
+    # "examples/custom-rlpx-subprotocol",
+    # "examples/custom-node",
+    # "examples/db-access",
+    # "examples/engine-api-access",
+    # "examples/exex-hello-world",
+    # "examples/exex-subscription",
+    # "examples/exex-test",
+    # "examples/full-contract-state",
+    # "examples/manual-p2p/",
+    # "examples/network-txpool/",
+    # "examples/network/",
+    # "examples/network-proxy/",
+    # "examples/node-builder-api/",
+    # "examples/node-custom-rpc/",
+    # "examples/node-event-hooks/",
+    # "examples/op-db-access/",
+    # "examples/polygon-p2p/",
+    # "examples/rpc-db/",
+    # "examples/precompile-cache/",
+    # "examples/txpool-tracing/",
+    # "examples/custom-beacon-withdrawals",
     "testing/ef-tests/",
     "testing/testing-utils",
     "testing/runner",
     "crates/tracing-otlp",
 ]
-default-members = ["bin/reth"]
+default-members = ["bin/seismic-reth", "bin/genesis-builder"]
 exclude = ["docs/cli"]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
@@ -317,7 +335,11 @@ strip = "none"
 
 # Include debug info in benchmarks too.
 [profile.bench]
-inherits = "profiling"
+opt-level = 3
+lto = "thin"
+debug = "full"
+strip = "none"
+codegen-units = 16
 
 [profile.maxperf]
 inherits = "release"
@@ -325,8 +347,39 @@ lto = "fat"
 codegen-units = 1
 
 [workspace.dependencies]
+# seismic dependencies
+# reth-seismic-bin = { path = "crates/seismic/bin" }
+reth-seismic-chainspec = { path = "crates/seismic/chainspec" }
+reth-seismic-cli = { path = "crates/seismic/cli" }
+reth-seismic-evm = { path = "crates/seismic/evm" }
+reth-seismic-genesis-builder = { path = "crates/seismic/genesis-builder" }
+reth-seismic-node = { path = "crates/seismic/node" }
+reth-seismic-chain-registry = { path = "crates/seismic/chain-registry" }
+reth-seismic-payload-builder = { path = "crates/seismic/payload" }
+reth-seismic-primitives = { path = "crates/seismic/primitives" }
+reth-seismic-reth = { path = "crates/seismic/reth" }
+reth-seismic-rpc = { path = "crates/seismic/rpc" }
+reth-seismic-test-utils = { path = "crates/seismic/test-utils" }
+reth-seismic-txpool = { path = "crates/seismic/txpool" }
+reth-seismic-forks = { path = "crates/seismic/hardforks", default-features = false }
+reth-seismic-fuzz = { path = "crates/seismic/fuzz" }
+
+seismic-crypto = "0.1.0"
+seismic-custodian-ipc = "0.1.0"
+seismic-revm = "1.0.0"
+alloy-seismic-evm = "0.20.1"
+
+seismic-alloy-rpc-types = { version = "0.0.1", default-features = false }
+seismic-alloy-consensus = { version = "0.0.1", default-features = false }
+seismic-alloy-provider = { version = "0.0.1", default-features = false }
+seismic-alloy-genesis = { version = "0.0.1", default-features = false }
+seismic-alloy-rpc-types-engine = { version = "0.0.1", default-features = false }
+seismic-alloy-network = { version = "0.0.1", default-features = false }
+seismic-alloy-flz = { version = "0.0.1", default-features = false }
+
+alloy-json-abi = { version = "1.1.2", default-features = false } # only used by seismic rn
+
 # reth
-op-reth = { path = "crates/optimism/bin" }
 reth = { path = "bin/reth" }
 reth-storage-rpc-provider = { path = "crates/storage/rpc-provider" }
 reth-basic-payload-builder = { path = "crates/payload/basic" }
@@ -374,7 +427,6 @@ reth-ethereum = { path = "crates/ethereum/reth" }
 reth-etl = { path = "crates/etl" }
 reth-evm = { path = "crates/evm/evm", default-features = false }
 reth-evm-ethereum = { path = "crates/ethereum/evm", default-features = false }
-reth-optimism-evm = { path = "crates/optimism/evm", default-features = false }
 reth-execution-errors = { path = "crates/evm/execution-errors", default-features = false }
 reth-execution-types = { path = "crates/evm/execution-types", default-features = false }
 reth-exex = { path = "crates/exex/exex" }
@@ -401,18 +453,7 @@ reth-node-ethereum = { path = "crates/ethereum/node" }
 reth-node-ethstats = { path = "crates/node/ethstats" }
 reth-node-events = { path = "crates/node/events" }
 reth-node-metrics = { path = "crates/node/metrics" }
-reth-optimism-node = { path = "crates/optimism/node" }
 reth-node-types = { path = "crates/node/types" }
-reth-op = { path = "crates/optimism/reth", default-features = false }
-reth-optimism-chainspec = { path = "crates/optimism/chainspec", default-features = false }
-reth-optimism-cli = { path = "crates/optimism/cli" }
-reth-optimism-consensus = { path = "crates/optimism/consensus", default-features = false }
-reth-optimism-forks = { path = "crates/optimism/hardforks", default-features = false }
-reth-optimism-payload-builder = { path = "crates/optimism/payload" }
-reth-optimism-primitives = { path = "crates/optimism/primitives", default-features = false }
-reth-optimism-rpc = { path = "crates/optimism/rpc" }
-reth-optimism-storage = { path = "crates/optimism/storage" }
-reth-optimism-txpool = { path = "crates/optimism/txpool" }
 reth-payload-builder = { path = "crates/payload/builder" }
 reth-payload-builder-primitives = { path = "crates/payload/builder-primitives" }
 reth-payload-primitives = { path = "crates/payload/primitives" }
@@ -433,7 +474,6 @@ reth-rpc-engine-api = { path = "crates/rpc/rpc-engine-api" }
 reth-rpc-eth-api = { path = "crates/rpc/rpc-eth-api" }
 reth-rpc-eth-types = { path = "crates/rpc/rpc-eth-types", default-features = false }
 reth-rpc-layer = { path = "crates/rpc/rpc-layer" }
-reth-optimism-flashblocks = { path = "crates/optimism/flashblocks" }
 reth-rpc-server-types = { path = "crates/rpc/rpc-server-types" }
 reth-rpc-convert = { path = "crates/rpc/rpc-convert" }
 reth-stages = { path = "crates/stages/stages" }
@@ -484,39 +524,39 @@ alloy-sol-macro = "1.3.1"
 alloy-sol-types = { version = "1.3.1", default-features = false }
 alloy-trie = { version = "0.9.1", default-features = false }
 
-alloy-hardforks = "0.3.1"
+alloy-hardforks = "=0.3.1"
 
-alloy-consensus = { version = "1.0.30", default-features = false }
-alloy-contract = { version = "1.0.30", default-features = false }
-alloy-eips = { version = "1.0.30", default-features = false }
-alloy-genesis = { version = "1.0.30", default-features = false }
-alloy-json-rpc = { version = "1.0.30", default-features = false }
-alloy-network = { version = "1.0.30", default-features = false }
-alloy-network-primitives = { version = "1.0.30", default-features = false }
-alloy-provider = { version = "1.0.30", features = ["reqwest"], default-features = false }
-alloy-pubsub = { version = "1.0.30", default-features = false }
-alloy-rpc-client = { version = "1.0.30", default-features = false }
-alloy-rpc-types = { version = "1.0.30", features = ["eth"], default-features = false }
-alloy-rpc-types-admin = { version = "1.0.30", default-features = false }
-alloy-rpc-types-anvil = { version = "1.0.30", default-features = false }
-alloy-rpc-types-beacon = { version = "1.0.30", default-features = false }
-alloy-rpc-types-debug = { version = "1.0.30", default-features = false }
-alloy-rpc-types-engine = { version = "1.0.30", default-features = false }
-alloy-rpc-types-eth = { version = "1.0.30", default-features = false }
-alloy-rpc-types-mev = { version = "1.0.30", default-features = false }
-alloy-rpc-types-trace = { version = "1.0.30", default-features = false }
-alloy-rpc-types-txpool = { version = "1.0.30", default-features = false }
-alloy-serde = { version = "1.0.30", default-features = false }
-alloy-signer = { version = "1.0.30", default-features = false }
-alloy-signer-local = { version = "1.0.30", default-features = false }
-alloy-transport = { version = "1.0.30" }
-alloy-transport-http = { version = "1.0.30", features = ["reqwest-rustls-tls"], default-features = false }
-alloy-transport-ipc = { version = "1.0.30", default-features = false }
-alloy-transport-ws = { version = "1.0.30", default-features = false }
+alloy-consensus = { version = "=1.1.0", default-features = false }
+alloy-contract = { version = "=1.1.0", default-features = false }
+alloy-eips = { version = "=1.1.0", default-features = false }
+alloy-genesis = { version = "=1.1.0", default-features = false }
+alloy-json-rpc = { version = "=1.1.0", default-features = false }
+alloy-network = { version = "=1.1.0", default-features = false }
+alloy-network-primitives = { version = "=1.1.0", default-features = false }
+alloy-provider = { version = "=1.1.0", features = ["reqwest"], default-features = false }
+alloy-pubsub = { version = "=1.1.0", default-features = false }
+alloy-rpc-client = { version = "=1.1.0", default-features = false }
+alloy-rpc-types = { version = "=1.1.0", features = ["eth"], default-features = false }
+alloy-rpc-types-admin = { version = "=1.1.0", default-features = false }
+alloy-rpc-types-anvil = { version = "=1.1.0", default-features = false }
+alloy-rpc-types-beacon = { version = "=1.1.0", default-features = false }
+alloy-rpc-types-debug = { version = "=1.1.0", default-features = false }
+alloy-rpc-types-engine = { version = "=1.1.0", default-features = false }
+alloy-rpc-types-eth = { version = "=1.1.0", default-features = false }
+alloy-rpc-types-mev = { version = "=1.1.0", default-features = false }
+alloy-rpc-types-trace = { version = "=1.1.0", default-features = false }
+alloy-rpc-types-txpool = { version = "=1.1.0", default-features = false }
+alloy-serde = { version = "=1.1.0", default-features = false }
+alloy-signer = { version = "=1.1.0", default-features = false }
+alloy-signer-local = { version = "=1.1.0", default-features = false }
+alloy-transport = { version = "=1.1.0" }
+alloy-transport-http = { version = "=1.1.0", features = ["reqwest-rustls-tls"], default-features = false }
+alloy-transport-ipc = { version = "=1.1.0", default-features = false }
+alloy-transport-ws = { version = "=1.1.0", default-features = false }
 
 # op
 alloy-op-evm = { version = "0.20.1", default-features = false }
-alloy-op-hardforks = "0.3.1"
+alloy-op-hardforks = "=0.3.1"
 op-alloy-rpc-types = { version = "0.19.0", default-features = false }
 op-alloy-rpc-types-engine = { version = "0.19.0", default-features = false }
 op-alloy-network = { version = "0.19.0", default-features = false }
@@ -542,7 +582,7 @@ dirs-next = "2.0.0"
 dyn-clone = "1.0.17"
 eyre = "0.6"
 fdlimit = "0.3.0"
-generic-array = "0.14"
+generic-array = "=0.14.7"
 humantime = "2.1"
 humantime-serde = "1.1"
 itertools = { version = "0.14", default-features = false }
@@ -713,45 +753,45 @@ visibility = "0.1.1"
 walkdir = "2.3.3"
 vergen-git2 = "1.0.5"
 
-# [patch.crates-io]
-# alloy-consensus = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-contract = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-eips = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-genesis = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-json-rpc = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-network = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-network-primitives = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-provider = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-pubsub = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-rpc-client = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-rpc-types = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-rpc-types-admin = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-rpc-types-anvil = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-rpc-types-beacon = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-rpc-types-debug = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-rpc-types-engine = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-rpc-types-eth = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-rpc-types-mev = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-rpc-types-trace = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-rpc-types-txpool = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-serde = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-signer = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-signer-local = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-transport = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-transport-http = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-transport-ipc = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
-# alloy-transport-ws = { git = "https://github.com/alloy-rs/alloy", rev = "3049f232fbb44d1909883e154eb38ec5962f53a3" }
+[patch.crates-io]
+# enclave crates
+seismic-crypto = { git = "https://github.com/SeismicSystems/enclave.git", rev = "7dc159d50f7142466e0ac5c73e15d524d996b5b2" }
+seismic-custodian-ipc = { git = "https://github.com/SeismicSystems/enclave.git", rev = "7dc159d50f7142466e0ac5c73e15d524d996b5b2" }
 
-# op-alloy-consensus = { git = "https://github.com/alloy-rs/op-alloy", rev = "a79d6fc" }
-# op-alloy-network = { git = "https://github.com/alloy-rs/op-alloy", rev = "a79d6fc" }
-# op-alloy-rpc-types = { git = "https://github.com/alloy-rs/op-alloy", rev = "a79d6fc" }
-# op-alloy-rpc-types-engine = { git = "https://github.com/alloy-rs/op-alloy", rev = "a79d6fc" }
-# op-alloy-rpc-jsonrpsee = { git = "https://github.com/alloy-rs/op-alloy", rev = "a79d6fc" }
-#
-# revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors", rev = "1207e33" }
-#
-# jsonrpsee = { git = "https://github.com/paradigmxyz/jsonrpsee", branch = "matt/make-rpc-service-pub" }
-# jsonrpsee-core = { git = "https://github.com/paradigmxyz/jsonrpsee", branch = "matt/make-rpc-service-pub" }
-# jsonrpsee-server = { git = "https://github.com/paradigmxyz/jsonrpsee", branch = "matt/make-rpc-service-pub" }
-# jsonrpsee-http-client = { git = "https://github.com/paradigmxyz/jsonrpsee", branch = "matt/make-rpc-service-pub" }
-# jsonrpsee-types = { git = "https://github.com/paradigmxyz/jsonrpsee", branch = "matt/make-rpc-service-pub" }
+# seismic-alloy-core
+alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "994f7b3fbc4582c2e06a00d03c7f3fe476b1b7c7" }
+alloy-json-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "994f7b3fbc4582c2e06a00d03c7f3fe476b1b7c7" }
+alloy-sol-macro-expander = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "994f7b3fbc4582c2e06a00d03c7f3fe476b1b7c7" }
+alloy-sol-macro-input = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "994f7b3fbc4582c2e06a00d03c7f3fe476b1b7c7" }
+alloy-sol-types = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "994f7b3fbc4582c2e06a00d03c7f3fe476b1b7c7" }
+alloy-sol-type-parser = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "994f7b3fbc4582c2e06a00d03c7f3fe476b1b7c7" }
+alloy-dyn-abi = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "994f7b3fbc4582c2e06a00d03c7f3fe476b1b7c7" }
+
+alloy-trie = { git = "https://github.com/SeismicSystems/seismic-trie.git", rev = "2787e2265d492fa8eaee00424585b8f7e522178f" }
+
+# revm
+revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "45b4f4f036d324013636c9f3203012e58971c187" }
+revm-bytecode = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "45b4f4f036d324013636c9f3203012e58971c187" }
+revm-database = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "45b4f4f036d324013636c9f3203012e58971c187" }
+revm-state = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "45b4f4f036d324013636c9f3203012e58971c187" }
+revm-primitives = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "45b4f4f036d324013636c9f3203012e58971c187" }
+revm-interpreter = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "45b4f4f036d324013636c9f3203012e58971c187" }
+revm-inspector = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "45b4f4f036d324013636c9f3203012e58971c187" }
+revm-context = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "45b4f4f036d324013636c9f3203012e58971c187" }
+revm-context-interface = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "45b4f4f036d324013636c9f3203012e58971c187" }
+revm-database-interface = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "45b4f4f036d324013636c9f3203012e58971c187" }
+op-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "45b4f4f036d324013636c9f3203012e58971c187" }
+seismic-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev = "45b4f4f036d324013636c9f3203012e58971c187" }
+
+revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "31ce52dd54e30987cf558f2f6a246a02d8d63319" }
+
+# Seismic alloy
+seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "70d1fb739c411b86199578b1f190fbc03c27ccda" }
+seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "70d1fb739c411b86199578b1f190fbc03c27ccda" }
+seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "70d1fb739c411b86199578b1f190fbc03c27ccda" }
+seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "70d1fb739c411b86199578b1f190fbc03c27ccda" }
+seismic-alloy-genesis = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "70d1fb739c411b86199578b1f190fbc03c27ccda" }
+
+# evm
+alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "d347fbbc8ceaa36677ed36713a08c1038cb47138" }
+alloy-seismic-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "d347fbbc8ceaa36677ed36713a08c1038cb47138" }

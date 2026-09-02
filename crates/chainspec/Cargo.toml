@@ -25,6 +25,9 @@ alloy-genesis.workspace = true
 alloy-primitives = { workspace = true, features = ["rlp"] }
 alloy-consensus.workspace = true
 
+# seismic
+alloy-seismic-evm.workspace = true
+
 # misc
 auto_impl.workspace = true
 serde_json.workspace = true
@@ -38,6 +41,7 @@ alloy-rlp = { workspace = true, features = ["arrayvec"] }
 
 [features]
 default = ["std"]
+timestamp-in-seconds = ["reth-primitives-traits/timestamp-in-seconds"]
 std = [
     "alloy-chains/std",
     "alloy-eips/std",
@@ -62,6 +66,4 @@ arbitrary = [
     "alloy-primitives/arbitrary",
     "alloy-trie/arbitrary",
 ]
-test-utils = [
-    "reth-primitives-traits/test-utils",
-]
+test-utils = ["reth-primitives-traits/test-utils"]

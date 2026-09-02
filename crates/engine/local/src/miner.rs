@@ -107,6 +107,8 @@ pub struct LocalMiner<T: PayloadTypes, B, Pool: TransactionPool + Unpin> {
     /// The payload builder for the engine
     payload_builder: PayloadBuilderHandle<T>,
     /// Timestamp for the next block.
+    /// NOTE: this is in MILLISECONDS when timestamp-in-seconds feature is disabled.
+    /// Different from upstream reth, which holds this in seconds
     last_timestamp: u64,
     /// Stores latest mined blocks.
     last_block_hashes: VecDeque<B256>,
@@ -126,6 +128,7 @@ where
         mode: MiningMode<Pool>,
         payload_builder: PayloadBuilderHandle<T>,
     ) -> Self {
+        // NOTE: header block timestamp should be in milliseconds here
         let latest_header =
             provider.sealed_header(provider.best_block_number().unwrap()).unwrap().unwrap();
 
@@ -146,14 +149,14 @@ where
             tokio::select! {
                 // Wait for the interval or the pool to receive a transaction
                 _ = &mut self.mode => {
-                    if let Err(e) = self.advance().await {
-                        error!(target: "engine::local", "Error advancing the chain: {:?}", e);
+                    if self.advance().await.is_err() {
+                        error!(target: "engine::local", "Failed to advance the chain");
                     }
                 }
                 // send FCU once in a while
                 _ = fcu_interval.tick() => {
-                    if let Err(e) = self.update_forkchoice_state().await {
-                        error!(target: "engine::local", "Error updating fork choice: {:?}", e);
+                    if self.update_forkchoice_state().await.is_err() {
+                        error!(target: "engine::local", "Failed to update fork choice");
                     }
                 }
             }
@@ -192,12 +195,21 @@ where
     /// Generates payload attributes for a new block, passes them to FCU and inserts built payload
     /// through newPayload.
     async fn advance(&mut self) -> eyre::Result<()> {
+        #[cfg(feature = "timestamp-in-seconds")]
         let timestamp = std::cmp::max(
             self.last_timestamp + 1,
             std::time::SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("cannot be earlier than UNIX_EPOCH")
                 .as_secs(),
+        );
+        #[cfg(not(feature = "timestamp-in-seconds"))]
+        let timestamp = std::cmp::max(
+            self.last_timestamp + 1000,
+            std::time::SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("cannot be earlier than UNIX_EPOCH")
+                .as_millis() as u64,
         );
 
         let res = self
@@ -222,6 +234,7 @@ where
         };
 
         let block = payload.block();
+        tracing::debug!("local_miner: advance: block: {:?}", block.body());
 
         let payload = T::block_to_payload(payload.block().clone());
         let res = self.to_engine.new_payload(payload).await?;

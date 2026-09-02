@@ -232,7 +232,11 @@ impl<T: NodePrimitives> PersistenceHandle<T> {
             .name("Persistence Service".to_string())
             .spawn(|| {
                 if let Err(err) = db_service.run() {
-                    error!(target: "engine::persistence", ?err, "Persistence service failed");
+                    let error_kind = match &err {
+                        PersistenceError::PrunerError(_) => "pruner",
+                        PersistenceError::ProviderError(_) => "provider",
+                    };
+                    error!(target: "engine::persistence", error_kind, "Persistence service failed");
                 }
             })
             .unwrap();

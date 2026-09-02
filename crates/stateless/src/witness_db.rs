@@ -89,7 +89,11 @@ where
     /// Get storage value of an account at a specific slot.
     ///
     /// Returns `U256::ZERO` if the slot is not found in the trie.
-    fn storage(&mut self, address: Address, slot: U256) -> Result<U256, Self::Error> {
+    fn storage(
+        &mut self,
+        address: Address,
+        slot: U256,
+    ) -> Result<alloy_primitives::FlaggedStorage, Self::Error> {
         self.trie.storage(address, slot)
     }
 

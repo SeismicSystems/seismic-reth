@@ -3,7 +3,7 @@
 pub mod api;
 use crate::error::api::FromEvmHalt;
 use alloy_eips::BlockId;
-use alloy_evm::{call::CallError, overrides::StateOverrideError};
+use alloy_evm::{call::CallError, overrides::OverrideError};
 use alloy_primitives::{Address, Bytes, B256, U256};
 use alloy_rpc_types_eth::{error::EthRpcErrorCode, request::TransactionInputError, BlockError};
 use alloy_sol_types::{ContractError, RevertReason};
@@ -26,7 +26,6 @@ use revm::context_interface::result::{
 use revm_inspectors::tracing::MuxError;
 use std::convert::Infallible;
 use tokio::sync::oneshot::error::RecvError;
-use tracing::error;
 
 /// A trait to convert an error to an RPC error.
 pub trait ToRpcError: core::error::Error + Send + Sync + 'static {
@@ -116,6 +115,15 @@ pub enum EthApiError {
     /// Thrown when an `AccountOverride` contains conflicting `state` and `stateDiff` fields
     #[error("account {0:?} has both 'state' and 'stateDiff'")]
     BothStateAndStateDiffInOverride(Address),
+    /// Code overrides are not permitted (Seismic privacy)
+    #[error("code overrides are not permitted on Seismic (account: {0:?})")]
+    CodeOverrideNotPermitted(Address),
+    /// Storage overrides are not permitted (Seismic privacy)
+    #[error("storage overrides are not permitted on Seismic (account: {0:?})")]
+    StorageOverrideNotPermitted(Address),
+    /// Block overrides are not permitted (Seismic privacy)
+    #[error("block overrides are not permitted on Seismic")]
+    BlockOverrideNotPermitted,
     /// Other internal error
     #[error(transparent)]
     Internal(RethError),
@@ -126,7 +134,7 @@ pub enum EthApiError {
     #[error("transaction not found")]
     TransactionNotFound,
     /// Some feature is unsupported
-    #[error("unsupported")]
+    #[error("unsupported: {0}")]
     Unsupported(&'static str),
     /// General purpose error for invalid params
     #[error("{0}")]
@@ -222,8 +230,8 @@ impl EthApiError {
         }
     }
 
-    /// Converts the given [`StateOverrideError`] into a new [`EthApiError`] instance.
-    pub fn from_state_overrides_err<E>(err: StateOverrideError<E>) -> Self
+    /// Converts the given [`OverrideError`] into a new [`EthApiError`] instance.
+    pub fn from_overrides_err<E>(err: OverrideError<E>) -> Self
     where
         E: Into<Self>,
     {
@@ -255,6 +263,9 @@ impl From<EthApiError> for jsonrpsee_types::error::ErrorObject<'static> {
             EthApiError::ConflictingFeeFieldsInRequest |
             EthApiError::Signing(_) |
             EthApiError::BothStateAndStateDiffInOverride(_) |
+            EthApiError::CodeOverrideNotPermitted(_) |
+            EthApiError::StorageOverrideNotPermitted(_) |
+            EthApiError::BlockOverrideNotPermitted |
             EthApiError::InvalidTracerConfig |
             EthApiError::TransactionConversionError |
             EthApiError::InvalidRewardPercentiles |
@@ -338,19 +349,26 @@ where
     }
 }
 
-impl<E> From<StateOverrideError<E>> for EthApiError
+impl<E> From<OverrideError<E>> for EthApiError
 where
     E: Into<Self>,
 {
-    fn from(value: StateOverrideError<E>) -> Self {
+    fn from(value: OverrideError<E>) -> Self {
         match value {
-            StateOverrideError::InvalidBytecode(bytecode_decode_error) => {
+            OverrideError::InvalidBytecode(bytecode_decode_error) => {
                 Self::InvalidBytecode(bytecode_decode_error.to_string())
             }
-            StateOverrideError::BothStateAndStateDiff(address) => {
+            OverrideError::BothStateAndStateDiff(address) => {
                 Self::BothStateAndStateDiffInOverride(address)
             }
-            StateOverrideError::Database(err) => err.into(),
+            OverrideError::CodeOverrideNotPermitted(address) => {
+                Self::CodeOverrideNotPermitted(address)
+            }
+            OverrideError::StorageOverrideNotPermitted(address) => {
+                Self::StorageOverrideNotPermitted(address)
+            }
+            OverrideError::BlockOverrideNotPermitted => Self::BlockOverrideNotPermitted,
+            OverrideError::Database(err) => err.into(),
         }
     }
 }
@@ -644,6 +662,9 @@ pub enum RpcInvalidTransactionError {
         /// Minimum required priority fee.
         minimum_priority_fee: u128,
     },
+    /// Seismic transaction error
+    #[error("Seismic transaction error: {0}")]
+    SeismicTx(String),
     /// Any other error
     #[error("{0}")]
     Other(Box<dyn ToRpcError>),
@@ -755,7 +776,7 @@ impl From<InvalidTransaction> for RpcInvalidTransactionError {
             InvalidTransaction::BlobVersionedHashesNotSupported => {
                 Self::BlobVersionedHashesNotSupported
             }
-            InvalidTransaction::BlobGasPriceGreaterThanMax => Self::BlobFeeCapTooLow,
+            InvalidTransaction::BlobGasPriceGreaterThanMax { .. } => Self::BlobFeeCapTooLow,
             InvalidTransaction::EmptyBlobs => Self::BlobTransactionMissingBlobHashes,
             InvalidTransaction::BlobVersionNotSupported => Self::BlobHashVersionMismatch,
             InvalidTransaction::TooManyBlobs { have, .. } => Self::TooManyBlobs { have },
@@ -799,6 +820,7 @@ impl From<InvalidTransactionError> for RpcInvalidTransactionError {
             InvalidTransactionError::Eip4844Disabled |
             InvalidTransactionError::Eip7702Disabled |
             InvalidTransactionError::TxTypeNotSupported => Self::TxTypeNotSupported,
+            InvalidTransactionError::SeismicTx(msg) => Self::SeismicTx(msg),
             InvalidTransactionError::GasUintOverflow => Self::GasUintOverflow,
             InvalidTransactionError::GasTooLow => Self::GasTooLow,
             InvalidTransactionError::GasTooHigh => Self::GasTooHigh,
@@ -838,6 +860,14 @@ impl RevertError {
     /// Returns error code to return for this error.
     pub const fn error_code(&self) -> i32 {
         EthRpcErrorCode::ExecutionError.code()
+    }
+
+    /// Returns the raw revert output bytes, if any.
+    ///
+    /// This is intended for callers that need to inspect or transform the revm output
+    /// (e.g. to re-encrypt it for a networks whose calls may return confidential data).
+    pub const fn output(&self) -> Option<&Bytes> {
+        self.output.as_ref()
     }
 }
 

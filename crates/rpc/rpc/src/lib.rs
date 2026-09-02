@@ -20,7 +20,7 @@
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
     html_favicon_url = "https://avatars0.githubusercontent.com/u/97369466?s=256",
-    issue_tracker_base_url = "https://github.com/paradigmxyz/reth/issues/"
+    issue_tracker_base_url = "https://github.com/SeismicSystems/seismic-reth/issues/"
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
@@ -38,6 +38,7 @@ mod engine;
 pub mod eth;
 mod miner;
 mod net;
+mod ops;
 mod otterscan;
 mod reth;
 mod rpc;
@@ -52,6 +53,7 @@ pub use engine::{EngineApi, EngineEthApi};
 pub use eth::{helpers::SyncListener, EthApi, EthApiBuilder, EthBundle, EthFilter, EthPubSub};
 pub use miner::MinerApi;
 pub use net::NetApi;
+pub use ops::OpsApi;
 pub use otterscan::OtterscanApi;
 pub use reth::RethApi;
 pub use reth_rpc_convert::RpcTypes;

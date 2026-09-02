@@ -1,0 +1,47 @@
+name: Forkdiff Github-Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - seismic
+
+jobs:
+  build:
+    concurrency: ci-${{ github.ref }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Build forkdiff
+        uses: "docker://protolambda/forkdiff:0.1.0"
+        with:
+          args: -repo=/github/workspace -fork=/github/workspace/fork.yaml -out=/github/workspace/index.html
+
+      # upload-pages-artifact action requires the files to be in a _site folder
+      - name: Prepare for deployment
+        run: |
+          mkdir -p _site
+          mv index.html _site/
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+
+  # This needs to run in the github-pages environment to deploy successfully. For more info see:
+  # https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

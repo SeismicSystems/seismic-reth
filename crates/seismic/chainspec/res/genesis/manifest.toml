@@ -1,0 +1,58 @@
+[metadata]
+version = "0.1.0"
+description = "Seismic dev genesis contracts"
+# Describes the dev template (`dev.json`) alone. A network genesis is built
+# from a manifest like this once, at launch; from then on it is an immutable
+# snapshot guarded by its pinned hash — `testnet.json` and `mainnet.json` are
+# never regenerated from here.
+#
+# Commit of SeismicSystems/seismic the artifacts below are fetched from. Bumping
+# the contracts means bumping this SHA and committing the regenerated genesis
+# (and its new hash) alongside it.
+ref = "cadca3ccf0717a9199c612d0d2621d83161a7ae8"
+
+# NOTE: the beacon roots contract (EIP-4788) was written in etk assembly
+# and doesn't have Solidity source code.
+# The address is 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02.
+# NOTE: the withdrawal contract (EIP-7002) was written in etk assembly
+# and doesn't have Solidity source code.
+# The address is 0x00000961ef480eb55e80d19ad83579a64c007002.
+# NOTE: withdrawal contract is hardcoded in genesis,
+# but our deposit contract is NOT stock ETH bytecode,
+# which is why we have this here.
+[contracts.Deposit]
+artifact = "artifacts/DepositContract.json"
+address = "0x00000000219ab540356cbb839cbe05303d7705fa"
+
+[contracts.ProtocolParams]
+artifact = "artifacts/ProtocolParams.json"
+address = "0x0000000000000000000000000000506172616D73"
+
+[contracts.ProtocolParams.storage]
+"0x0000000000000000000000000000000000000000000000000000000000000000" = "0xd412c5ecd343e264381ff15afc0ad78a67b79f35"
+
+[contracts.ShieldedDelegationAccount]
+artifact = "artifacts/ShieldedDelegationAccount.json"
+address = "0x2001"
+
+# Measurement-admission registry. Ships with empty storage: the accepted
+# admission IDs are network-specific and injected into this account's genesis
+# storage by deploy tooling; with no storage the registry fails closed.
+[contracts.MeasurementRegistry]
+artifact = "artifacts/MeasurementRegistry.json"
+address = "0x1000000000000000000000000000000000000001"
+
+# Interim registry mutation authority (anvil-keyed dev forwarder). The registry
+# recognizes this fixed address; the contract behind it will be replaced by
+# the production authority without moving the address.
+[contracts.MeasurementAuthorityDev]
+artifact = "artifacts/MeasurementAuthorityDev.json"
+address = "0x1000000000000000000000000000000000000002"
+
+[contracts.Directory]
+artifact = "artifacts/Directory.json"
+address = "0x1000000000000000000000000000000000000004"
+
+[contracts.Intelligence]
+artifact = "artifacts/Intelligence.json"
+address = "0x1000000000000000000000000000000000000005"

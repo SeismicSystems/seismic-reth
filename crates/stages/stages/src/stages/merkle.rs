@@ -143,7 +143,6 @@ impl MerkleStage {
         if let Some(checkpoint) = checkpoint {
             debug!(
                 target: "sync::stages::merkle::exec",
-                last_account_key = ?checkpoint.last_account_key,
                 "Saving inner merkle checkpoint"
             );
             checkpoint.to_compact(&mut buf);
@@ -202,14 +201,14 @@ where
             let mut checkpoint = self.get_execution_checkpoint(provider)?;
 
             // if there are more blocks than threshold it is faster to rebuild the trie
-            let mut entities_checkpoint = if let Some(checkpoint) =
-                checkpoint.as_ref().filter(|c| c.target_block == to_block)
+            let mut entities_checkpoint = if checkpoint
+                .as_ref()
+                .is_some_and(|checkpoint| checkpoint.target_block == to_block)
             {
                 debug!(
                     target: "sync::stages::merkle::exec",
                     current = ?current_block_number,
                     target = ?to_block,
-                    last_account_key = ?checkpoint.last_account_key,
                     "Continuing inner merkle checkpoint"
                 );
 
@@ -219,7 +218,7 @@ where
                     target: "sync::stages::merkle::exec",
                     current = ?current_block_number,
                     target = ?to_block,
-                    previous_checkpoint = ?checkpoint,
+                    had_previous_checkpoint = checkpoint.is_some(),
                     "Rebuilding trie"
                 );
                 // Reset the checkpoint and clear trie tables
@@ -448,7 +447,7 @@ mod tests {
     use alloy_primitives::{keccak256, U256};
     use assert_matches::assert_matches;
     use reth_db_api::cursor::{DbCursorRO, DbCursorRW, DbDupCursorRO};
-    use reth_primitives_traits::{SealedBlock, StorageEntry};
+    use reth_primitives_traits::SealedBlock;
     use reth_provider::{providers::StaticFileWriter, StaticFileProviderFactory};
     use reth_stages_api::StageUnitCheckpoint;
     use reth_static_file_types::StaticFileSegment;
@@ -726,7 +725,9 @@ mod tests {
                     accounts.insert(key, (account, storage));
                 }
 
-                Ok(state_root_prehashed(accounts.into_iter()))
+                Ok(state_root_prehashed(
+                    accounts.into_iter().map(|(key, (a, b))| (key, (a, b.into_iter()))),
+                ))
             })?;
 
             let static_file_provider = self.db.factory.static_file_provider();
@@ -770,7 +771,8 @@ mod tests {
                     let mut storage_cursor =
                         tx.cursor_dup_write::<tables::HashedStorages>().unwrap();
 
-                    let mut tree: BTreeMap<B256, BTreeMap<B256, U256>> = BTreeMap::new();
+                    let mut tree: BTreeMap<B256, BTreeMap<B256, alloy_primitives::FlaggedStorage>> =
+                        BTreeMap::new();
 
                     let mut rev_changeset_walker =
                         storage_changesets_cursor.walk_back(None).unwrap();
@@ -795,7 +797,7 @@ mod tests {
                             }
 
                             if !value.is_zero() {
-                                let storage_entry = StorageEntry { key: hashed_slot, value };
+                                let storage_entry = (hashed_slot, value).into();
                                 storage_cursor.upsert(hashed_address, &storage_entry).unwrap();
                             }
                         }

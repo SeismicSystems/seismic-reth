@@ -5,8 +5,9 @@ Deletes all table entries
 ```bash
 $ reth db clear --help
 ```
+
 ```txt
-Usage: reth db clear [OPTIONS] <COMMAND>
+Usage: seismic-reth db clear [OPTIONS] <COMMAND>
 
 Commands:
   mdbx         Deletes all database table entries
