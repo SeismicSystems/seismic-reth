@@ -267,8 +267,10 @@ impl ConfigureEngineEvm<ExecutionData> for SeismicEvmConfig {
 
         let blob_excess_gas_and_price = payload
             .payload
-            .blob_gas_used()
-            .map(|_gas| BlobExcessGasAndPrice::new_with_spec(0, spec_id.into_eth_spec()));
+            .excess_blob_gas()
+            .map(|excess_blob_gas| {
+                BlobExcessGasAndPrice::new_with_spec(excess_blob_gas, spec_id.into_eth_spec())
+            });
 
         let block_env = BlockEnv {
             number: U256::from(payload.payload.block_number()),
