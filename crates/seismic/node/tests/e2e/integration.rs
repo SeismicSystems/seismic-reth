@@ -1708,6 +1708,45 @@ async fn test_usdc_only_eth_estimate_gas_typed_data() -> eyre::Result<()> {
     Ok(())
 }
 
+/// Regression test for the replay-protection gap flagged in
+/// `SeismicTxEnvelope::decode_712`'s and `SeismicRawTxRequest::TypedData`'s own doc comments:
+/// `decode_712` itself has no `signed_read` gate (unlike the strict `Decodable2718::decode_2718`
+/// path, which rejects `signed_read = true` at decode time). `eth_sendRawTransaction`'s
+/// `TypedData` payload form is currently safe only because the handler re-encodes the decoded
+/// envelope to RLP and re-decodes it through that strict pipeline (see the handler's own
+/// comment in `ext.rs::send_raw_transaction`) -- an indirect guarantee that a future refactor
+/// could silently break. This test is the trip wire: it submits a `signed_read = true`
+/// transaction (the same kind `get_signed_seismic_call_typed_data` produces for legitimate
+/// `eth_call`/`eth_estimateGas` use, see `test_usdc_only_eth_estimate_gas_typed_data` above)
+/// via `eth_sendRawTransaction` instead, where it must be rejected rather than accepted into
+/// the pool.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_signed_read_typed_data_rejected_by_send_raw_transaction() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+    let (contract_addr, recent_block_hash) =
+        rpc_test_deploy_contract(&mut node, &client, chain_id, &wallet).await?;
+
+    let signer = PrivateKeySigner::random();
+    let typed = get_signed_seismic_call_typed_data(
+        &signer,
+        get_nonce(&client, signer.address()).await,
+        TxKind::Call(contract_addr),
+        chain_id,
+        ContractTestContext::get_is_odd_input_plaintext(),
+        recent_block_hash,
+    )
+    .await;
+
+    let result = EthApiOverrideClient::<Block>::send_raw_transaction(&client, typed.into()).await;
+    assert!(
+        result.is_err(),
+        "a signed-read (eth_call-only) transaction submitted via eth_sendRawTransaction's \
+         typed-data form must be rejected, not inserted into the pool"
+    );
+
+    Ok(())
+}
+
 /// 1000 USDC × 10^12 = 10^21 wei cap; `gas_price` = 10^18 → allowance 1000 gas, below 21000 floor.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_usdc_only_insufficient_balance_high_gas_price() -> eyre::Result<()> {
