@@ -4,6 +4,7 @@ mod balance;
 mod fuzz;
 mod hardfork_config;
 mod integration;
+mod key_rotation;
 mod ops;
 mod p2p;
 mod pending_block;

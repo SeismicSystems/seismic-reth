@@ -255,8 +255,8 @@ pub trait LoadPendingBlock:
         let state = StateProviderDatabase::new(&state_provider);
         let mut db = State::builder().with_database(state).with_bundle_update().build();
 
-        let mut builder = self
-            .evm_config()
+        let evm_config = self.evm_config().snapshot_for_simulation();
+        let mut builder = evm_config
             .builder_for_next_block(&mut db, parent, self.next_env_attributes(parent)?)
             .map_err(RethError::other)
             .map_err(Self::Error::from_eth_err)?;

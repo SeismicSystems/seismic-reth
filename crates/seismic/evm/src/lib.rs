@@ -78,6 +78,24 @@ impl SeismicEvmConfig {
         }
     }
 
+    /// Creates a request-local configuration with an independent purpose keyring.
+    ///
+    /// Both factories share the same snapshot so simulated schedule changes are
+    /// visible throughout the request, but never reach live execution or the
+    /// rotation watcher. All other configuration is preserved.
+    pub fn snapshot_for_simulation(&self) -> Self {
+        let keyring = Arc::new(self.executor_factory.keyring.snapshot());
+        Self {
+            executor_factory: SeismicBlockExecutorFactory::new(
+                *self.executor_factory.receipt_builder(),
+                self.executor_factory.spec().clone(),
+                SeismicEvmFactory::new(keyring.clone()),
+                keyring,
+            ),
+            block_assembler: self.block_assembler.clone(),
+        }
+    }
+
     /// Returns the chain spec associated with this configuration.
     pub const fn chain_spec(&self) -> &Arc<ChainSpec> {
         self.executor_factory.spec()
@@ -180,6 +198,18 @@ impl ConfigureEvm for SeismicEvmConfig {
     type BlockExecutorFactory =
         SeismicBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, SeismicEvmFactory>;
     type BlockAssembler = SeismicBlockAssembler<ChainSpec>;
+
+    fn snapshot_for_simulation(
+        &self,
+    ) -> impl ConfigureEvm<
+        Primitives = Self::Primitives,
+        Error = Self::Error,
+        NextBlockEnvCtx = Self::NextBlockEnvCtx,
+        BlockExecutorFactory = Self::BlockExecutorFactory,
+        BlockAssembler = Self::BlockAssembler,
+    > {
+        Self::snapshot_for_simulation(self)
+    }
 
     fn block_executor_factory(&self) -> &Self::BlockExecutorFactory {
         &self.executor_factory
@@ -411,6 +441,142 @@ mod tests {
             SEISMIC_MAINNET.clone(),
             Arc::new(PurposeKeyring::single_epoch(PurposeKeys::well_known())),
         )
+    }
+
+    #[test]
+    fn simulation_snapshot_preserves_config_and_isolates_both_factories() {
+        use alloy_evm::block::{BlockExecutor, BlockExecutorFactory};
+        use alloy_seismic_evm::{RotationEntry, RotationSchedule};
+
+        let live = test_evm_config().with_extra_data(bytes!("1234"));
+        let snapshot = live.snapshot_for_simulation();
+        assert_eq!(snapshot.block_assembler.extra_data, live.block_assembler.extra_data);
+        assert!(Arc::ptr_eq(snapshot.chain_spec(), live.chain_spec()));
+        assert!(!Arc::ptr_eq(&snapshot.executor_factory.keyring, &live.executor_factory.keyring));
+
+        let keyring = &snapshot.executor_factory.keyring;
+        keyring
+            .apply_schedule(
+                &RotationSchedule::from_entries([RotationEntry {
+                    epoch: 1,
+                    activation_block: 100,
+                    announced_at_block: 10,
+                }])
+                .unwrap(),
+            )
+            .unwrap();
+        let mut keys = PurposeKeys::well_known();
+        keys.rng_ikm = [42; 64];
+        keyring.insert_epoch(1, keys).unwrap();
+        let env = snapshot.evm_env(&Header {
+            number: 100,
+            excess_blob_gas: Some(0),
+            ..Default::default()
+        });
+
+        let mut db = revm::database::State::builder()
+            .with_database(EmptyDBTyped::<ProviderError>::default())
+            .build();
+        let evm = snapshot.evm_with_env(&mut db, env.clone());
+        let rng_before = evm.chain.process_rng(b"snapshot", 32, &B256::ZERO, 100_000).unwrap();
+        let live_evm = live.evm_with_env(EmptyDBTyped::<ProviderError>::default(), env.clone());
+        let live_rng = live_evm.chain.process_rng(b"snapshot", 32, &B256::ZERO, 100_000).unwrap();
+        assert_ne!(rng_before, live_rng, "EVM factory must use the snapshot's RNG key");
+        let inspected = snapshot.evm_with_env_and_inspector(
+            EmptyDBTyped::<ProviderError>::default(),
+            env,
+            NoOpInspector {},
+        );
+        assert_eq!(
+            rng_before,
+            inspected.chain.process_rng(b"snapshot", 32, &B256::ZERO, 100_000).unwrap(),
+            "inspected EVMs must use the snapshot's RNG key too",
+        );
+
+        let ctx = EthBlockExecutionCtx {
+            parent_hash: B256::ZERO,
+            parent_beacon_block_root: Some(B256::ZERO),
+            ommers: &[],
+            withdrawals: None,
+        };
+        let mut executor = snapshot.executor_factory.create_executor(evm, ctx);
+        executor.apply_pre_execution_changes().unwrap();
+        let rng_after =
+            executor.evm().chain.process_rng(b"snapshot", 32, &B256::ZERO, 100_000).unwrap();
+        assert_eq!(rng_before, rng_after, "block executor must use the same snapshot key");
+        assert_eq!(live.executor_factory.keyring.schedule_len(), 0);
+        assert!(live.executor_factory.keyring.keys_for_epoch(1).is_none());
+    }
+
+    #[test]
+    fn simulation_snapshot_refresh_keeps_speculative_schedule_local() {
+        use alloy_evm::block::{BlockExecutor, BlockExecutorFactory};
+        use reth_seismic_keys::registry::{
+            rotation_entry_slot, KEY_ROTATION_REGISTRY, ROTATIONS_LEN_SLOT,
+        };
+
+        let live = test_evm_config();
+        live.executor_factory.keyring.note_tip(100);
+        let snapshot = live.snapshot_for_simulation();
+        let mut db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
+        let env = snapshot.evm_env(&Header { number: 101, ..Default::default() });
+        drop(snapshot.evm_with_env(&mut db, env));
+
+        // Model an announcement committed to the request's overlay in its first
+        // simulated block. This is fixture setup, not a permitted RPC override.
+        db.insert_account_storage(
+            KEY_ROTATION_REGISTRY,
+            U256::from_be_bytes(ROTATIONS_LEN_SLOT.0),
+            U256::from(1).into(),
+        )
+        .unwrap();
+        db.insert_account_storage(
+            KEY_ROTATION_REGISTRY,
+            U256::from_be_bytes(rotation_entry_slot(0).0),
+            U256::from_limbs([1, 200, 101, 0]).into(),
+        )
+        .unwrap();
+        let env = snapshot.evm_env(&Header { number: 102, ..Default::default() });
+        drop(snapshot.evm_with_env(&mut db, env));
+        assert_eq!(snapshot.executor_factory.keyring.pending(), Some((1, 200)));
+        assert_eq!(snapshot.executor_factory.keyring.unfetched_scheduled_epochs(), vec![1]);
+        assert_eq!(live.executor_factory.keyring.schedule_len(), 0);
+        assert_eq!(live.executor_factory.keyring.known_tip(), 100);
+        assert!(live.executor_factory.keyring.unfetched_scheduled_epochs().is_empty());
+        assert_eq!(live.snapshot_for_simulation().executor_factory.keyring.schedule_len(), 0);
+
+        // Crossing an unfetched epoch fails locally; even that error must not
+        // publish a fetch request to the live watcher's keyring.
+        let mut db = revm::database::State::builder().with_database(db).build();
+        let env = snapshot.evm_env(&Header { number: 200, ..Default::default() });
+        let evm = snapshot.evm_with_env(&mut db, env);
+        let ctx = EthBlockExecutionCtx {
+            parent_hash: B256::ZERO,
+            parent_beacon_block_root: None,
+            ommers: &[],
+            withdrawals: None,
+        };
+        let mut executor = snapshot.executor_factory.create_executor(evm, ctx);
+        assert!(executor.apply_pre_execution_changes().is_err());
+        assert_eq!(live.executor_factory.keyring.schedule_len(), 0);
+        assert!(live.executor_factory.keyring.unfetched_scheduled_epochs().is_empty());
+    }
+
+    #[test]
+    fn simulation_snapshot_hook_forwards_through_reference_and_arc() {
+        let live = test_evm_config();
+        let by_ref = &live;
+        let by_arc = Arc::new(live.clone());
+        let from_ref = ConfigureEvm::snapshot_for_simulation(&by_ref);
+        let from_arc = ConfigureEvm::snapshot_for_simulation(&by_arc);
+        assert!(!Arc::ptr_eq(
+            &from_ref.block_executor_factory().keyring,
+            &live.executor_factory.keyring
+        ));
+        assert!(!Arc::ptr_eq(
+            &from_arc.block_executor_factory().keyring,
+            &live.executor_factory.keyring
+        ));
     }
 
     #[test]

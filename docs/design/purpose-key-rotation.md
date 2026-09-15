@@ -475,6 +475,27 @@ secret key material.
   previous epoch's sk. Cheap, consensus-irrelevant, and removes the only
   user-visible race at the boundary.
 
+### RPC execution isolation
+
+Speculative execution must not publish registry entries to the live keyring. An
+in-memory database overlay alone is insufficient: execution-state schedule refresh
+reads that overlay and can otherwise append simulated announcements to the shared
+keyring used by consensus, RPC key discovery, the pool, and the rotation watcher.
+
+`PurposeKeyring::snapshot` copies the schedule, fetched keys, and known tip under
+one read lock. `SeismicEvmConfig::snapshot_for_simulation` wires both its EVM factory
+and block-executor factory to the same independent copy, preserving other config.
+The generic `ConfigureEvm` hook allows RPC execution helpers to select this isolated
+configuration. Multi-block and multi-call requests keep one copy across their
+execution loop; changes are never merged back, even when execution fails. Normal
+node execution continues to use the live keyring.
+
+A snapshot is mutable **within** its request, not immutable. It can learn a
+simulated announcement, but cannot ask the live watcher to fetch its keys. If
+block execution selects an epoch absent from the snapshot's fetched keys, it
+fails with `MissingEpochKeys`; neither that failure nor a successful simulation
+may change the live schedule or trigger a custodian fetch.
+
 ## 9. Custodian-side changes
 
 **Strictly required: none.** The IPC already serves arbitrary epochs.
