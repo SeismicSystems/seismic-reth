@@ -257,7 +257,7 @@ dependencies = [
 [[package]]
 name = "alloy-evm"
 version = "0.20.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=930a232247f404c4d130c1f3802eef7bbb391fe2#930a232247f404c4d130c1f3802eef7bbb391fe2"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=bbf2c03fb9af9e6d59bcc97d01cd9452340f1437#bbf2c03fb9af9e6d59bcc97d01cd9452340f1437"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -678,7 +678,7 @@ dependencies = [
 [[package]]
 name = "alloy-seismic-evm"
 version = "0.20.1"
-source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=930a232247f404c4d130c1f3802eef7bbb391fe2#930a232247f404c4d130c1f3802eef7bbb391fe2"
+source = "git+https://github.com/SeismicSystems/seismic-evm.git?rev=bbf2c03fb9af9e6d59bcc97d01cd9452340f1437#bbf2c03fb9af9e6d59bcc97d01cd9452340f1437"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -691,6 +691,7 @@ dependencies = [
  "seismic-alloy-consensus",
  "seismic-crypto",
  "seismic-revm",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
@@ -9616,9 +9617,7 @@ dependencies = [
 name = "reth-seismic-keys"
 version = "1.7.0"
 dependencies = [
- "alloy-primitives",
  "alloy-seismic-evm",
- "thiserror 2.0.17",
 ]
 
 [[package]]

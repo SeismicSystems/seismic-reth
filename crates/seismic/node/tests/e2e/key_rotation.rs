@@ -56,7 +56,7 @@ async fn simulate_v1_keeps_rotation_local_on_success_and_error() -> eyre::Result
     let client = HttpClientBuilder::default().build(node.rpc_url())?;
     let genesis_hash = node.block_hash(0);
     let live = node.inner.evm_config.executor_factory.keyring.clone();
-    let before = (live.schedule_len(), live.known_tip(), live.unfetched_scheduled_epochs());
+    let before = (live.canonical_view(), live.requested_epochs());
 
     // The first simulated block is 1; dev genesis requires a 32-block delay.
     let activation = 33;
@@ -82,7 +82,7 @@ async fn simulate_v1_keeps_rotation_local_on_success_and_error() -> eyre::Result
         return_full_transactions: false,
     };
 
-    // Block 2's EVM creation reads the simulated registry written in block 1.
+    // Block 2's pre-execution initialization reads the registry written in block 1.
     // Repeat the request to also check that a finished request leaves no residue.
     for _ in 0..2 {
         let result = tokio::time::timeout(
@@ -95,16 +95,13 @@ async fn simulate_v1_keeps_rotation_local_on_success_and_error() -> eyre::Result
             result.first().unwrap().calls.first().unwrap().status,
             "the authorized announcement must execute successfully in the simulation"
         );
-        assert_eq!(
-            (live.schedule_len(), live.known_tip(), live.unfetched_scheduled_epochs()),
-            before
-        );
+        assert_eq!((live.canonical_view(), live.requested_epochs()), before);
         assert_eq!(live.epoch_for_block(activation), 0);
     }
 
-    // Keep the same private snapshot across all blocks. It must remember the
-    // announcement and fail at activation because epoch 1 has not been fetched.
-    // A fresh snapshot per simulated block would forget it and incorrectly succeed.
+    // The private parent overlays retain the announcement across simulated
+    // blocks. At activation, missing epoch-1 keys must fail the request without
+    // enqueueing a live custodian fetch or publishing canonical metadata.
     let mut blocks = vec![first];
     blocks.extend(std::iter::repeat_n(empty, (activation - 1) as usize));
     let payload = SimulatePayload { block_state_calls: blocks, ..payload };
@@ -115,7 +112,7 @@ async fn simulate_v1_keeps_rotation_local_on_success_and_error() -> eyre::Result
     .await?
     .expect_err("unfetched simulated epoch must fail at activation");
     assert!(err.to_string().contains("purpose keys"), "unexpected error: {err}");
-    assert_eq!((live.schedule_len(), live.known_tip(), live.unfetched_scheduled_epochs()), before);
+    assert_eq!((live.canonical_view(), live.requested_epochs()), before);
     assert!(live.keys_for_epoch(1).is_none());
 
     // Nor did the simulation alter the real registry's rotations.length slot.

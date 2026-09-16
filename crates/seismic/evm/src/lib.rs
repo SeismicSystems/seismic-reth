@@ -80,9 +80,10 @@ impl SeismicEvmConfig {
 
     /// Creates a request-local configuration with an independent purpose keyring.
     ///
-    /// Both factories share the same snapshot so simulated schedule changes are
-    /// visible throughout the request, but never reach live execution or the
-    /// rotation watcher. All other configuration is preserved.
+    /// Both factories share a request-local handle to additive key material, with
+    /// fetch requests disabled and no inherited canonical metadata. Schedules are
+    /// resolved from each simulated parent's database overlay. Other configuration
+    /// is preserved.
     pub fn snapshot_for_simulation(&self) -> Self {
         let keyring = Arc::new(self.executor_factory.keyring.snapshot());
         Self {
@@ -107,13 +108,8 @@ impl SeismicEvmConfig {
         self
     }
 
-    /// Creates an EVM selecting its RNG key through the purpose keyring.
-    ///
-    /// Before creating the EVM this refreshes the keyring's rotation schedule from
-    /// the execution state when the cached schedule cannot prove the block's epoch
-    /// (the pipeline-sync catch-up path: a rotation announced beyond the node's
-    /// last reconciled tip — see `docs/design/purpose-key-rotation.md` §5.4). Live
-    /// nodes take the cache fast path.
+    /// Creates an EVM that resolves keys from its own execution state before its
+    /// first operation. Construction never reads or publishes a global schedule.
     pub fn evm_with_env_and_live_key<DB>(
         &self,
         db: DB,
@@ -122,72 +118,7 @@ impl SeismicEvmConfig {
     where
         DB: alloy_evm::Database,
     {
-        let mut db = db;
-        refresh_keyring_for_block(
-            &self.executor_factory.keyring,
-            &mut db,
-            evm_env.block_env.number.saturating_to(),
-        );
         self.executor_factory.evm_factory().create_evm(db, evm_env)
-    }
-}
-
-/// Refreshes `keyring`'s rotation schedule from `db` (the block's execution state)
-/// when the cached schedule cannot prove `block`'s epoch.
-///
-/// Failures are logged, never fatal: the registry is ordinary storage, so a read
-/// failure here would fail the block's execution anyway, and a divergent history is
-/// refused rather than adopted. If a refresh reveals an epoch whose keys are not
-/// fetched yet, the block executor's hard `MissingEpochKeys` error stalls execution
-/// until the rotation watcher fetches them.
-fn refresh_keyring_for_block<DB>(keyring: &PurposeKeyring, db: &mut DB, block: u64)
-where
-    DB: alloy_evm::Database,
-{
-    if keyring.schedule_covers_block(block) {
-        return;
-    }
-
-    // revm's `State` DB requires an account to be loaded before its storage may be
-    // read (it panics otherwise); load the registry account first. Absent account
-    // (pre-contract networks) still reads as empty storage below.
-    if let Err(err) = db.basic(reth_seismic_keys::registry::KEY_ROTATION_REGISTRY) {
-        tracing::debug!(
-            target: "seismic::rotation",
-            err = %alloc::format!("{err:?}"),
-            block,
-            "could not load the rotation registry account from execution state"
-        );
-        return;
-    }
-
-    let read = reth_seismic_keys::registry::read_schedule_with(|slot| {
-        db.storage(reth_seismic_keys::registry::KEY_ROTATION_REGISTRY, U256::from_be_bytes(slot.0))
-            // Registry slots are ordinary public storage; the privacy flag is ignored.
-            .map(|value| value.value)
-            .map_err(|e| alloc::format!("{e:?}"))
-    });
-    match read {
-        Ok(schedule) => {
-            if schedule.len() > keyring.schedule_len() {
-                if let Err(err) = keyring.apply_schedule(&schedule) {
-                    tracing::error!(
-                        target: "seismic::rotation",
-                        %err,
-                        block,
-                        "rotation registry history diverged during execution-state refresh; refusing to adopt it"
-                    );
-                }
-            }
-        }
-        Err(err) => {
-            tracing::debug!(
-                target: "seismic::rotation",
-                %err,
-                block,
-                "could not refresh the rotation schedule from execution state"
-            );
-        }
     }
 }
 
@@ -446,7 +377,7 @@ mod tests {
     #[test]
     fn simulation_snapshot_preserves_config_and_isolates_both_factories() {
         use alloy_evm::block::{BlockExecutor, BlockExecutorFactory};
-        use alloy_seismic_evm::{RotationEntry, RotationSchedule};
+        use alloy_seismic_evm::{CanonicalRotationView, RotationEntry, RotationSchedule};
 
         let live = test_evm_config().with_extra_data(bytes!("1234"));
         let snapshot = live.snapshot_for_simulation();
@@ -455,16 +386,16 @@ mod tests {
         assert!(!Arc::ptr_eq(&snapshot.executor_factory.keyring, &live.executor_factory.keyring));
 
         let keyring = &snapshot.executor_factory.keyring;
-        keyring
-            .apply_schedule(
-                &RotationSchedule::from_entries([RotationEntry {
-                    epoch: 1,
-                    activation_block: 100,
-                    announced_at_block: 10,
-                }])
-                .unwrap(),
-            )
-            .unwrap();
+        keyring.replace_canonical_view(CanonicalRotationView {
+            head_hash: B256::repeat_byte(1),
+            head_number: 100,
+            schedule: RotationSchedule::from_entries([RotationEntry {
+                epoch: 1,
+                activation_block: 100,
+                announced_at_block: 10,
+            }])
+            .unwrap(),
+        });
         let mut keys = PurposeKeys::well_known();
         keys.rng_ikm = [42; 64];
         keyring.insert_epoch(1, keys).unwrap();
@@ -477,16 +408,19 @@ mod tests {
         let mut db = revm::database::State::builder()
             .with_database(EmptyDBTyped::<ProviderError>::default())
             .build();
-        let evm = snapshot.evm_with_env(&mut db, env.clone());
+        let mut evm = snapshot.evm_with_env(&mut db, env.clone());
+        evm.initialize_keys().unwrap();
         let rng_before = evm.chain.process_rng(b"snapshot", 32, &B256::ZERO, 100_000).unwrap();
-        let live_evm = live.evm_with_env(EmptyDBTyped::<ProviderError>::default(), env.clone());
+        let mut live_evm = live.evm_with_env(EmptyDBTyped::<ProviderError>::default(), env.clone());
+        live_evm.initialize_keys().unwrap();
         let live_rng = live_evm.chain.process_rng(b"snapshot", 32, &B256::ZERO, 100_000).unwrap();
-        assert_ne!(rng_before, live_rng, "EVM factory must use the snapshot's RNG key");
-        let inspected = snapshot.evm_with_env_and_inspector(
+        assert_eq!(rng_before, live_rng, "canonical metadata must not override empty parent state");
+        let mut inspected = snapshot.evm_with_env_and_inspector(
             EmptyDBTyped::<ProviderError>::default(),
             env,
             NoOpInspector {},
         );
+        inspected.initialize_keys().unwrap();
         assert_eq!(
             rng_before,
             inspected.chain.process_rng(b"snapshot", 32, &B256::ZERO, 100_000).unwrap(),
@@ -505,7 +439,8 @@ mod tests {
             executor.evm().chain.process_rng(b"snapshot", 32, &B256::ZERO, 100_000).unwrap();
         assert_eq!(rng_before, rng_after, "block executor must use the same snapshot key");
         assert_eq!(live.executor_factory.keyring.schedule_len(), 0);
-        assert!(live.executor_factory.keyring.keys_for_epoch(1).is_none());
+        // Fetched epoch material is additive and shared, but is not selection authority.
+        assert!(live.executor_factory.keyring.keys_for_epoch(1).is_some());
     }
 
     #[test]
@@ -516,7 +451,13 @@ mod tests {
         };
 
         let live = test_evm_config();
-        live.executor_factory.keyring.note_tip(100);
+        live.executor_factory.keyring.replace_canonical_view(
+            alloy_seismic_evm::CanonicalRotationView {
+                head_hash: B256::repeat_byte(1),
+                head_number: 100,
+                ..Default::default()
+            },
+        );
         let snapshot = live.snapshot_for_simulation();
         let mut db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
         let env = snapshot.evm_env(&Header { number: 101, ..Default::default() });
@@ -524,6 +465,7 @@ mod tests {
 
         // Model an announcement committed to the request's overlay in its first
         // simulated block. This is fixture setup, not a permitted RPC override.
+        db.insert_account_info(KEY_ROTATION_REGISTRY, AccountInfo::default());
         db.insert_account_storage(
             KEY_ROTATION_REGISTRY,
             U256::from_be_bytes(ROTATIONS_LEN_SLOT.0),
@@ -538,8 +480,8 @@ mod tests {
         .unwrap();
         let env = snapshot.evm_env(&Header { number: 102, ..Default::default() });
         drop(snapshot.evm_with_env(&mut db, env));
-        assert_eq!(snapshot.executor_factory.keyring.pending(), Some((1, 200)));
-        assert_eq!(snapshot.executor_factory.keyring.unfetched_scheduled_epochs(), vec![1]);
+        assert_eq!(snapshot.executor_factory.keyring.pending(), None);
+        assert!(snapshot.executor_factory.keyring.unfetched_scheduled_epochs().is_empty());
         assert_eq!(live.executor_factory.keyring.schedule_len(), 0);
         assert_eq!(live.executor_factory.keyring.known_tip(), 100);
         assert!(live.executor_factory.keyring.unfetched_scheduled_epochs().is_empty());
@@ -557,7 +499,9 @@ mod tests {
             withdrawals: None,
         };
         let mut executor = snapshot.executor_factory.create_executor(evm, ctx);
-        assert!(executor.apply_pre_execution_changes().is_err());
+        let error = executor.apply_pre_execution_changes().unwrap_err();
+        assert!(error.is_retryable());
+        assert!(live.executor_factory.keyring.requested_epochs().is_empty());
         assert_eq!(live.executor_factory.keyring.schedule_len(), 0);
         assert!(live.executor_factory.keyring.unfetched_scheduled_epochs().is_empty());
     }

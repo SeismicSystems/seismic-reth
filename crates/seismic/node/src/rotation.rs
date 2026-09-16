@@ -1,43 +1,28 @@
-//! The purpose-key rotation watcher: keeps the [`PurposeKeyring`] in sync with the
-//! on-chain `KeyRotationRegistry` and fetches newly announced epochs' keys from the
-//! local key custodian (design: `docs/design/purpose-key-rotation.md` §5.3).
+//! Canonical rotation metadata and additive purpose-key fetching.
 //!
-//! Dormant by construction today: the registry predeploy has not shipped, so its
-//! address reads as empty storage, the schedule stays empty, and every path here
-//! no-ops. Once the contract lands in genesis (rollout Phase 1) the watcher starts
-//! doing real work with no further node changes.
-//!
-//! The canonical-state stream is a lossy hint (it drops notifications on lag), so
-//! **registry storage is the source of truth**: the watcher re-reads it at task
-//! start, on every reorg, on every `RotationAnnounced` log it happens to see, and
-//! unconditionally every [`RECONCILE_EVERY_N_BLOCKS`] blocks.
+//! The serialized watcher replaces the entire view from one canonical head hash.
+//! Execution never publishes schedules; it only requests missing epoch material.
+//! A separate polling future services those deduplicated requests even during
+//! staged sync, where per-block canonical notifications are absent.
 
 use crate::keys_source::fetch_epoch_keys;
-use alloy_consensus::{BlockHeader, TxReceipt};
 use futures_util::StreamExt;
 use reth_node_core::args::PurposeKeysArgs;
-use reth_provider::{CanonStateNotification, CanonStateNotificationStream, StateProviderFactory};
+use reth_provider::{CanonStateNotificationStream, StateProviderFactory};
 use reth_seismic_keys::{
-    registry::{read_schedule_with, KEY_ROTATION_REGISTRY, ROTATION_ANNOUNCED_TOPIC},
-    PurposeKeyring, RotationSchedule,
+    registry::{read_schedule_with, KEY_ROTATION_REGISTRY},
+    CanonicalRotationView, PurposeKeyring,
 };
 use reth_seismic_primitives::SeismicPrimitives;
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, warn};
 
-/// Reconcile from registry storage at least this often even without any hint, as a
-/// safety net for dropped notifications.
-const RECONCILE_EVERY_N_BLOCKS: u64 = 256;
-
-/// Periodic reconcile interval. Canonical notifications are the primary trigger,
-/// but staged (pipeline) sync emits none per block, so the timer is what re-fetches
-/// keys and un-stalls execution when a `MissingEpochKeys` stall happens deep in a
-/// catch-up sync — and it doubles as the retry pacing for failed custodian fetches.
 const PERIODIC_RECONCILE: Duration = Duration::from_secs(60);
+const FETCH_POLL_INTERVAL: Duration = Duration::from_secs(1);
 
-/// Background task keeping the keyring in sync with the on-chain rotation registry.
-/// Spawn as a critical task; it runs until the canonical-state stream ends (node
-/// shutdown).
+/// Keep RPC/pool metadata canonical and service missing-key requests. Fetching is
+/// independent of metadata reconciliation, so a slow custodian cannot stall reorg
+/// publication. Dropping the watcher (or ending its stream) cancels both futures.
 pub async fn watch_key_rotations<Client>(
     client: Client,
     keyring: Arc<PurposeKeyring>,
@@ -46,52 +31,38 @@ pub async fn watch_key_rotations<Client>(
 ) where
     Client: StateProviderFactory + 'static,
 {
-    // Catch up immediately: boot reconciliation ran before launch, but blocks may
-    // have landed since.
-    reconcile(&client, &keyring, &args).await;
-
-    let mut blocks_since_reconcile = 0u64;
-    let mut tick = tokio::time::interval(PERIODIC_RECONCILE);
-    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-
-    loop {
-        tokio::select! {
-            maybe_notification = events.next() => {
-                // Stream ended: the node is shutting down.
-                let Some(notification) = maybe_notification else { return };
-                let Some(tip) = notification.tip_checked() else { continue };
-                keyring.note_tip(tip.number());
-                blocks_since_reconcile += 1;
-
-                let reorged = matches!(notification, CanonStateNotification::Reorg { .. });
-                let announced = has_rotation_announcement(&notification);
-                let unfetched_pending = !keyring.unfetched_scheduled_epochs().is_empty();
-
-                if reorged ||
-                    announced ||
-                    unfetched_pending ||
-                    blocks_since_reconcile >= RECONCILE_EVERY_N_BLOCKS
-                {
-                    blocks_since_reconcile = 0;
-                    if announced {
-                        info!(target: "seismic::rotation", tip = tip.number(), "observed a RotationAnnounced log; reconciling");
-                    }
-                    reconcile(&client, &keyring, &args).await;
+    let canonical = async {
+        reconcile_view(&client, &keyring);
+        let mut tick = tokio::time::interval(PERIODIC_RECONCILE);
+        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            tokio::select! {
+                notification = events.next() => {
+                    if notification.is_none() { return; }
+                    // Re-read even for an ordinary commit: the head number and
+                    // schedule must be published together, never independently.
+                    reconcile_view(&client, &keyring);
                 }
-            }
-            _ = tick.tick() => {
-                blocks_since_reconcile = 0;
-                reconcile(&client, &keyring, &args).await;
+                _ = tick.tick() => reconcile_view(&client, &keyring),
             }
         }
+    };
+    let fetch = async {
+        let mut tick = tokio::time::interval(FETCH_POLL_INTERVAL);
+        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            tick.tick().await;
+            fetch_missing_epochs(&keyring, &args).await;
+        }
+    };
+    tokio::select! {
+        _ = canonical => {},
+        _ = fetch => {},
     }
 }
 
-/// One-shot boot reconciliation, run before the node launches: read the registry
-/// from the latest local state and fetch every announced epoch's keys with the
-/// bounded retry budget. Errors (instead of retrying indefinitely like the watcher)
-/// so a boot without required key material fails fast and loud, matching the
-/// epoch-0 boot-fetch policy.
+/// Boot reconciliation uses a bounded fetch budget and fails startup if any
+/// announced material is unavailable. Epoch zero was already fetched at boot.
 pub async fn boot_reconcile<Client>(
     client: &Client,
     keyring: &PurposeKeyring,
@@ -100,130 +71,198 @@ pub async fn boot_reconcile<Client>(
 where
     Client: StateProviderFactory,
 {
-    let schedule = read_registry_schedule(client)?;
-    apply_schedule_updates(keyring, &schedule);
-    for epoch in keyring.unfetched_scheduled_epochs() {
+    keyring.replace_canonical_view(read_registry_view(client)?);
+    for epoch in keyring.unfetched_epochs() {
         let keys = fetch_epoch_keys(args, epoch).await?;
-        keyring
-            .insert_epoch(epoch, keys)
-            .map_err(|e| eyre::eyre!("conflicting keys for announced epoch: {e}"))?;
-        info!(target: "seismic::rotation", epoch, "fetched purpose keys for announced epoch at boot");
+        keyring.insert_epoch(epoch, keys)?;
     }
     Ok(())
 }
 
-/// One watcher reconcile pass: re-read the registry schedule from latest state,
-/// merge it, fetch any missing epochs' keys, and refresh the gauge. Never fails the
-/// task — failures are logged and retried on the next pass.
-async fn reconcile<Client>(client: &Client, keyring: &PurposeKeyring, args: &PurposeKeysArgs)
-where
-    Client: StateProviderFactory,
-{
-    match read_registry_schedule(client) {
-        Ok(schedule) => apply_schedule_updates(keyring, &schedule),
-        Err(e) => {
-            warn!(target: "seismic::rotation", %e, "failed to read the rotation registry; will retry")
+fn reconcile_view<Client: StateProviderFactory>(client: &Client, keyring: &PurposeKeyring) {
+    match read_registry_view(client) {
+        Ok(view) => keyring.replace_canonical_view(view),
+        Err(err) => {
+            warn!(target: "seismic::rotation", %err, "failed to reconcile rotation registry; will retry")
         }
     }
+}
 
-    for epoch in keyring.unfetched_scheduled_epochs() {
+/// Fetch material only. Neither a successful fetch nor an execution request may
+/// publish activation metadata. Failed requests remain queued for another pass.
+async fn fetch_missing_epochs(keyring: &PurposeKeyring, args: &PurposeKeysArgs) {
+    for epoch in keyring.unfetched_epochs() {
         match fetch_epoch_keys(args, epoch).await {
             Ok(keys) => match keyring.insert_epoch(epoch, keys) {
-                Ok(true) => {
-                    info!(target: "seismic::rotation", epoch, "fetched purpose keys for announced epoch")
-                }
+                Ok(true) => info!(target: "seismic::rotation", epoch, "fetched purpose keys"),
                 Ok(false) => {}
-                Err(e) => {
-                    // Deterministic derivation means this is a serious custodian or
-                    // node bug; the original material is kept.
-                    error!(target: "seismic::rotation", %e, epoch, "custodian served conflicting keys for an epoch")
+                Err(err) => {
+                    error!(target: "seismic::rotation", %err, epoch, "custodian served conflicting keys; original material retained")
                 }
             },
-            Err(e) => {
-                // The announcement delay bought time; keep retrying until activation.
-                // If activation arrives first, block execution stalls on
-                // MissingEpochKeys and resumes when a later fetch succeeds.
-                warn!(target: "seismic::rotation", %e, epoch, "failed to fetch purpose keys for announced epoch; will retry")
+            Err(err) => {
+                warn!(target: "seismic::rotation", %err, epoch, "failed to fetch purpose keys; will retry")
             }
         }
     }
-
-    let unfetched = keyring.unfetched_scheduled_epochs().len();
-    metrics::gauge!("seismic.rotation.pending_unfetched_epochs").set(unfetched as f64);
-    if unfetched > 0 {
-        if let Some((epoch, activation_block)) = keyring.pending() {
-            error!(
-                target: "seismic::rotation",
-                epoch,
-                activation_block,
-                known_tip = keyring.known_tip(),
-                "purpose keys for a pending rotation are not fetched yet; the node will stall at activation without them"
-            );
-        }
-    }
+    metrics::gauge!("seismic.rotation.pending_unfetched_epochs")
+        .set(keyring.unfetched_epochs().len() as f64);
 }
 
-/// Reads the full rotation schedule from the registry's storage at the latest state.
-/// An absent account or empty length slot yields an empty schedule (the dormant
-/// pre-contract path).
-fn read_registry_schedule<Client>(client: &Client) -> eyre::Result<RotationSchedule>
-where
-    Client: StateProviderFactory,
-{
-    let state = client.latest()?;
-    // Registry slots are ordinary public storage; the privacy flag is ignored.
-    read_schedule_with(|slot| {
+/// Pin state to one head hash, then verify it is still canonical before returning.
+/// A concurrent head change causes a retry, never a mixed head/schedule publication.
+fn read_registry_view<Client: StateProviderFactory>(
+    client: &Client,
+) -> eyre::Result<CanonicalRotationView> {
+    let head = client.chain_info()?;
+    let state = client.state_by_block_hash(head.best_hash)?;
+    let schedule = read_schedule_with(|slot| {
         state.storage(KEY_ROTATION_REGISTRY, slot).map(|value| value.unwrap_or_default().value)
-    })
-    .map_err(|e| eyre::eyre!("{e}"))
-}
-
-/// Merges a freshly read schedule into the keyring, logging any divergence loudly
-/// instead of adopting it (the registry is append-only; divergence is a bug or a
-/// deeper-than-`MIN_ACTIVATION_DELAY` reorg).
-fn apply_schedule_updates(keyring: &PurposeKeyring, schedule: &RotationSchedule) {
-    if schedule.len() <= keyring.schedule_len() {
-        return;
-    }
-    match keyring.apply_schedule(schedule) {
-        Ok(new_rotations) if new_rotations > 0 => {
-            info!(target: "seismic::rotation", new_rotations, total = schedule.len(), "learned new key-rotation announcements");
-        }
-        Ok(_) => {}
-        Err(e) => {
-            error!(target: "seismic::rotation", %e, "rotation registry history diverged; refusing to adopt it");
-        }
-    }
-}
-
-/// Whether the committed chain segment emitted a `RotationAnnounced` log from the
-/// registry. A hint only — reconciliation always goes back to storage.
-fn has_rotation_announcement(notification: &CanonStateNotification<SeismicPrimitives>) -> bool {
-    let chain = notification.committed();
-    let announced = chain.blocks_and_receipts().any(|(_, receipts)| {
-        receipts.iter().any(|receipt| {
-            receipt.logs().iter().any(|log| {
-                log.address == KEY_ROTATION_REGISTRY &&
-                    log.topics().first() == Some(&*ROTATION_ANNOUNCED_TOPIC)
-            })
-        })
-    });
-    announced
+    })?;
+    let current = client.chain_info()?;
+    eyre::ensure!(
+        current.best_hash == head.best_hash && current.best_number == head.best_number,
+        "canonical head changed while reading rotation registry"
+    );
+    Ok(CanonicalRotationView { head_hash: head.best_hash, head_number: head.best_number, schedule })
 }
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
     use super::*;
-    use reth_provider::test_utils::MockEthProvider;
+    use alloy_consensus::Header;
+    use alloy_primitives::{B256, U256};
+    use alloy_seismic_evm::PurposeKeys;
+    use reth_evm::{
+        execute::{BlockExecutionError, BlockExecutor},
+        ConfigureEvm,
+    };
+    use reth_node_core::args::PurposeKeysSource;
+    use reth_primitives_traits::SealedBlock;
+    use reth_provider::test_utils::{ExtendedAccount, MockEthProvider};
+    use reth_revm::{
+        db::{CacheDB, EmptyDB, State},
+        state::AccountInfo,
+    };
+    use reth_seismic_evm::SeismicEvmConfig;
+    use reth_seismic_keys::{
+        registry::{rotation_entry_slot, ROTATIONS_LEN_SLOT},
+        RotationEntry, RotationSchedule,
+    };
+    use reth_seismic_primitives::SeismicBlock;
 
-    /// With no registry contract deployed (the state of every network today), the
-    /// schedule reads as empty and reconciliation is a no-op.
+    fn view(number: u64, activation: Option<u64>) -> CanonicalRotationView {
+        CanonicalRotationView {
+            head_hash: B256::from(U256::from_limbs([number, activation.unwrap_or_default(), 0, 0])),
+            head_number: number,
+            schedule: RotationSchedule::from_entries(activation.map(|activation_block| {
+                RotationEntry { epoch: 1, activation_block, announced_at_block: 101 }
+            }))
+            .unwrap(),
+        }
+    }
+
+    fn reconcile_fixture(keyring: &PurposeKeyring, view: CanonicalRotationView) {
+        let provider = MockEthProvider::<SeismicPrimitives>::new();
+        provider
+            .add_header(view.head_hash, Header { number: view.head_number, ..Default::default() });
+        let mut slots = vec![(ROTATIONS_LEN_SLOT, U256::from(view.schedule.len()).into())];
+        slots.extend(view.schedule.entries().iter().enumerate().map(|(index, entry)| {
+            (
+                rotation_entry_slot(index as u64),
+                U256::from_limbs([
+                    entry.epoch,
+                    entry.activation_block,
+                    entry.announced_at_block,
+                    0,
+                ])
+                .into(),
+            )
+        }));
+        provider.add_account(
+            KEY_ROTATION_REGISTRY,
+            ExtendedAccount::new(0, U256::ZERO).extend_storage(slots),
+        );
+        reconcile_view(&provider, keyring);
+        assert_eq!(keyring.canonical_view(), view);
+    }
+
+    #[test]
+    fn reconciliation_removes_orphan_and_accepts_equal_length_replacement() {
+        let keyring = PurposeKeyring::single_epoch(PurposeKeys::well_known());
+        reconcile_fixture(&keyring, view(102, Some(200)));
+        reconcile_fixture(&keyring, view(102, None));
+        assert_eq!(keyring.pending(), None);
+        reconcile_fixture(&keyring, view(102, Some(200)));
+        reconcile_fixture(&keyring, view(102, Some(300)));
+        assert_eq!(keyring.pending(), Some((1, 300)));
+    }
+
+    #[test]
+    fn reconciliation_accepts_lower_head() {
+        let keyring = PurposeKeyring::single_epoch(PurposeKeys::well_known());
+        reconcile_fixture(&keyring, view(200, Some(200)));
+        reconcile_fixture(&keyring, view(100, None));
+        assert_eq!(keyring.known_tip(), 100);
+        assert_eq!(keyring.current().unwrap().0, 0);
+        assert_eq!(keyring.canonical_view(), view(100, None));
+    }
+
     #[test]
     fn absent_registry_reads_as_empty_schedule() {
         let provider = MockEthProvider::<SeismicPrimitives>::new();
-        let schedule = read_registry_schedule(&provider).unwrap_or_else(|e| {
-            panic!("reading an absent registry must succeed with an empty schedule: {e}")
+        provider.add_header(B256::ZERO, alloy_consensus::Header::default());
+        let view = read_registry_view(&provider).unwrap();
+        assert!(view.schedule.is_empty());
+    }
+
+    // Same parent-state attempt used before and after the worker fetch. No
+    // canonical notifications or schedule publication are needed during catch-up.
+    fn execution_attempt(keyring: Arc<PurposeKeyring>) -> Result<(), BlockExecutionError> {
+        let config =
+            SeismicEvmConfig::new(reth_seismic_chainspec::SEISMIC_MAINNET.clone(), keyring);
+        let mut parent = CacheDB::<EmptyDB>::default();
+        parent.insert_account_info(KEY_ROTATION_REGISTRY, AccountInfo::default());
+        parent
+            .insert_account_storage(
+                KEY_ROTATION_REGISTRY,
+                U256::from_be_bytes(ROTATIONS_LEN_SLOT.0),
+                U256::from(1).into(),
+            )
+            .unwrap();
+        parent
+            .insert_account_storage(
+                KEY_ROTATION_REGISTRY,
+                U256::from_be_bytes(rotation_entry_slot(0).0),
+                U256::from_limbs([1, 200, 101, 0]).into(),
+            )
+            .unwrap();
+        let mut state = State::builder().with_database(parent).build();
+        let block = SealedBlock::seal_slow(SeismicBlock {
+            header: Header {
+                number: 200,
+                excess_blob_gas: Some(0),
+                parent_beacon_block_root: Some(B256::ZERO),
+                ..Default::default()
+            },
+            body: Default::default(),
         });
-        assert!(schedule.is_empty());
+        let mut executor = config.executor_for_block(&mut state, &block);
+        executor.apply_pre_execution_changes()
+    }
+
+    #[tokio::test]
+    async fn execution_request_fetches_without_publishing_a_schedule() {
+        let keyring = Arc::new(PurposeKeyring::single_epoch(PurposeKeys::well_known()));
+        for _ in 0..3 {
+            assert!(execution_attempt(keyring.clone()).unwrap_err().is_retryable());
+        }
+        assert_eq!(keyring.requested_epochs(), vec![1]);
+        let args = PurposeKeysArgs { source: PurposeKeysSource::BuiltIn, ..Default::default() };
+        fetch_missing_epochs(&keyring, &args).await;
+        execution_attempt(keyring.clone()).unwrap();
+        assert!(keyring.requested_epochs().is_empty());
+        assert!(keyring.canonical_view().schedule.is_empty());
     }
 }

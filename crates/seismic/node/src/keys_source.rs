@@ -31,8 +31,9 @@ const DEV_WELL_KNOWN_ROOT: [u8; 32] = *b"seismic-well-known-dev-root-key!";
 // (spec §5.5 / open question 4). Until then it is only self-consistent: the
 // custodian's rng derivation still routes through a schnorrkel expansion for
 // epoch 0 backward compat, so a dev custodian would disagree with this at
-// epoch > 0. Nothing can announce a rotation before the KeyRotationRegistry
-// contract ships, so no network can hit the divergence yet.
+// epoch > 0 even with the same root. The registry is present in dev genesis:
+// do not mix built-in and custodian-derived keys on a rotating network. The
+// branch-specific schedule fix does not resolve this derivation mismatch.
 pub fn well_known_purpose_keys_at(epoch: u64) -> eyre::Result<PurposeKeys> {
     if epoch == 0 {
         return Ok(PurposeKeys::well_known());

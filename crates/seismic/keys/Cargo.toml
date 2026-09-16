@@ -12,11 +12,5 @@ description = "Seismic purpose-key keyring, rotation schedule, and rotation-regi
 workspace = true
 
 [dependencies]
-# ethereum
-alloy-primitives.workspace = true
-
 # seismic
 alloy-seismic-evm.workspace = true
-
-# misc
-thiserror.workspace = true

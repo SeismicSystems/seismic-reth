@@ -167,13 +167,25 @@ impl<P: PeersInfo + 'static> SeismicApiServer for SeismicApi<P> {
 fn key_epoch_info(
     keyring: &PurposeKeyring,
 ) -> Result<KeyEpochInfo, reth_seismic_keys::MissingEpochKeys> {
-    let (current_epoch, keys) = keyring.current()?;
-    let activation_block = keyring.activation_block_of(current_epoch).unwrap_or(0);
-    let pending_rotation = keyring.pending().map(|(epoch, activation_block)| PendingRotation {
-        epoch,
-        activation_block,
-        tee_public_key: keyring.keys_for_epoch(epoch).map(|k| k.tx_io.public_key()),
-    });
+    let view = keyring.canonical_view();
+    let current_epoch = view.schedule.epoch_at_block(view.head_number);
+    let keys =
+        keyring.keys_for_epoch(current_epoch).ok_or(reth_seismic_keys::MissingEpochKeys {
+            epoch: current_epoch,
+            block: view.head_number,
+        })?;
+    let activation_block = view
+        .schedule
+        .entries()
+        .iter()
+        .find(|entry| entry.epoch == current_epoch)
+        .map_or(0, |entry| entry.activation_block);
+    let pending_rotation =
+        view.schedule.pending_after(view.head_number).map(|entry| PendingRotation {
+            epoch: entry.epoch,
+            activation_block: entry.activation_block,
+            tee_public_key: keyring.keys_for_epoch(entry.epoch).map(|k| k.tx_io.public_key()),
+        });
     Ok(KeyEpochInfo {
         current_epoch,
         activation_block,
@@ -957,7 +969,7 @@ mod tests {
         secp256k1::{Secp256k1, SecretKey},
         PurposeKeys,
     };
-    use reth_seismic_keys::{RotationEntry, RotationSchedule};
+    use reth_seismic_keys::{CanonicalRotationView, RotationEntry, RotationSchedule};
 
     fn test_keys(seed: u8) -> PurposeKeys {
         let sk = SecretKey::from_byte_array(&[seed; 32]).unwrap();
@@ -982,16 +994,17 @@ mod tests {
     #[test]
     fn epoch_info_reports_a_pending_rotation() {
         let keyring = PurposeKeyring::single_epoch(test_keys(1));
-        keyring
-            .apply_schedule(
-                &RotationSchedule::from_entries([RotationEntry {
-                    epoch: 1,
-                    activation_block: 100,
-                    announced_at_block: 10,
-                }])
-                .unwrap(),
-            )
-            .unwrap();
+        let schedule = RotationSchedule::from_entries([RotationEntry {
+            epoch: 1,
+            activation_block: 100,
+            announced_at_block: 10,
+        }])
+        .unwrap();
+        keyring.replace_canonical_view(CanonicalRotationView {
+            head_hash: B256::repeat_byte(1),
+            head_number: 10,
+            schedule: schedule.clone(),
+        });
 
         // Announced but not yet fetched: pending key unknown.
         let info = key_epoch_info(&keyring).unwrap();
@@ -1007,11 +1020,28 @@ mod tests {
         assert_eq!(pending.tee_public_key, Some(test_keys(2).tx_io.public_key()));
 
         // Past activation the rotation is current, not pending.
-        keyring.note_tip(100);
+        keyring.replace_canonical_view(CanonicalRotationView {
+            head_hash: B256::repeat_byte(2),
+            head_number: 100,
+            schedule,
+        });
         let info = key_epoch_info(&keyring).unwrap();
         assert_eq!(info.current_epoch, 1);
         assert_eq!(info.activation_block, 100);
         assert_eq!(info.tee_public_key, test_keys(2).tx_io.public_key());
         assert_eq!(info.pending_rotation, None);
+
+        // A lower replacement head removes the orphaned rotation, not its keys.
+        keyring.replace_canonical_view(CanonicalRotationView {
+            head_hash: B256::repeat_byte(3),
+            head_number: 9,
+            schedule: RotationSchedule::new(),
+        });
+        let info = key_epoch_info(&keyring).unwrap();
+        assert_eq!(info.current_epoch, 0);
+        assert_eq!(info.activation_block, 0);
+        assert_eq!(info.pending_rotation, None);
+        assert_eq!(info.tee_public_key, test_keys(1).tx_io.public_key());
+        assert!(keyring.keys_for_epoch(1).is_some());
     }
 }

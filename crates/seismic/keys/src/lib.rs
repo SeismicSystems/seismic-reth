@@ -7,12 +7,10 @@
 //! deterministic function of chain state, so every consumer selects keys through the
 //! [`PurposeKeyring`] rather than holding a single static key bundle.
 //!
-//! The keyring and schedule types live in `alloy-seismic-evm` (next to
-//! [`PurposeKeys`](alloy_seismic_evm::PurposeKeys), so the EVM factories can select
-//! keys per block) and are re-exported here; this crate owns what is
-//! seismic-reth-specific:
-//! - [`registry`]: the `KeyRotationRegistry` predeploy's protocol constants and storage decoding,
-//!   which the rotation watcher and boot reconciliation read the schedule with.
+//! Keyring, canonical-view and schedule types live in `alloy-seismic-evm` next to
+//! [`PurposeKeys`](alloy_seismic_evm::PurposeKeys). This crate re-exports them and
+//! the shared [`registry`] decoder for the canonical watcher and RPC/pool policy.
+//! Block execution selects from its own parent state, not the canonical view.
 
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
@@ -25,9 +23,9 @@
 pub mod registry;
 
 pub use alloy_seismic_evm::{
-    EpochKeyConflict, MissingEpochKeys, PurposeKeyring, RotationEntry, RotationSchedule,
-    ScheduleError,
+    CanonicalRotationView, EpochKeyConflict, MissingEpochKeys, PurposeKeyring, RotationEntry,
+    RotationSchedule, ScheduleError,
 };
 
-// The keyring/schedule unit tests live with the types in `alloy-seismic-evm`; this
-// crate's tests cover the registry decoding in `registry`.
+// Keyring, schedule and registry-decoding tests live with their implementations
+// in `alloy-seismic-evm`.
