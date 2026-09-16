@@ -98,6 +98,33 @@ async fn get_signed_deploy_tx_bytes(
     TxEnvelope::encoded_2718(&tx_envelope).into()
 }
 
+/// Helper function to create a regular (non-seismic) call transaction.
+async fn get_signed_call_tx_bytes(
+    wallet: impl Into<EthereumWallet> + Clone,
+    nonce: u64,
+    chain_id: u64,
+    to: Address,
+    calldata: Bytes,
+) -> Bytes {
+    let tx = TransactionRequest {
+        from: None,
+        to: Some(TxKind::Call(to)),
+        gas: Some(6000000),
+        max_fee_per_gas: Some(20e9 as u128),
+        max_priority_fee_per_gas: Some(1e9 as u128),
+        value: Some(U256::ZERO),
+        input: TransactionInput { input: Some(calldata), data: None },
+        nonce: Some(nonce),
+        chain_id: Some(chain_id),
+        ..Default::default()
+    };
+
+    let eth_wallet: EthereumWallet = wallet.into();
+    let tx_envelope = tx.build(&eth_wallet).await.expect("Failed to build transaction");
+
+    TxEnvelope::encoded_2718(&tx_envelope).into()
+}
+
 /// Sets up a single in-process Seismic node for testing and returns the node,
 /// an HTTP RPC client, `chain_id`, wallet, and task manager.
 ///
@@ -1031,6 +1058,181 @@ const FLAGGED_STORAGE_READ_PRIVATE_SLOAD: &str = "ef561792"; // readPrivateSload
 const FLAGGED_STORAGE_READ_PRIVATE_SLOAD_RAW: &str = "4e0d898c"; // readPrivateSloadRaw()
 const FLAGGED_STORAGE_READ_PRIVATE_CLOAD: &str = "9ad95ef8"; // readPrivateCload()
 const FLAGGED_STORAGE_READ_PUBLIC_CLOAD: &str = "94193f11"; // readPublicCload()
+
+// CLoadWarmLeak test contracts (no inline assembly):
+//
+//   * CLoadWarmPublicReader interprets slot 0 of the caller's storage as a public `mapping(uint256
+//     => uint256)`; `read(k)` is therefore a standard `sload` of slot `keccak(k, 0)`.
+//   * CLoadWarmLeak holds a shielded mapping at slot 0. Its `probe(reader, k)` performs a
+//     confidential `cload` of `keccak(k, 0)` (`values[k]`) and then a standard `sload` of the fixed
+//     slot `keccak(5, 0)` by delegatecalling `reader.read(5)`.
+//
+// The regression test asserts the combined cost is independent of `k`; if `cload`
+// warmed the access set, `probe(reader, 5)` would be 2000 gas cheaper than
+// `probe(reader, 6)` because only `k == 5` makes the two slots coincide.
+//
+// Solidity source (compiled with seismic ssolc 0.8.31, `--optimize`):
+//   crates/seismic/node/tests/e2e/testdata/CLoadWarmLeak.sol
+//
+// The `cload` result is used (`v = uint256(c) + ...`) on purpose: if it is discarded
+// the optimizer drops the `cload` entirely and the leak never reaches the bytecode.
+const CLOAD_WARM_LEAK_TEST_BYTECODE: &[u8] = &hex!("6080604052348015600e575f5ffd5b5061024f8061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610029575f3560e01c8063e357a6051461002d575b5f5ffd5b61004061003b36600461016c565b610052565b60405190815260200160405180910390f35b5f81815260208190526040808220b0905160056024820152829081906001600160a01b0387169060440160408051601f198184030181529181526020820180516001600160e01b031663ed2e5a9760e01b179052516100b191906101a1565b5f60405180830381855af49150503d805f81146100e9576040519150601f19603f3d011682016040523d82523d5f602084013e6100ee565b606091505b5091509150816101445760405162461bcd60e51b815260206004820152601a60248201527f7265616465722064656c656761746563616c6c206661696c6564000000000000604482015260640160405180910390fd5b8080602001905181019061015891906101b7565b61016290846101ce565b9695505050505050565b5f5f6040838503121561017d575f5ffd5b82356001600160a01b0381168114610193575f5ffd5b946020939093013593505050565b5f82518060208501845e5f920191825250919050565b5f602082840312156101c7575f5ffd5b5051919050565b808201808211156101ed57634e487b7160e01b5f52601160045260245ffd5b9291505056fea2646970667358221220abf7745955ceeade70d2e87a03ad2cf6283c067eff95eaf7bd3a1915df9ea47164736f6c637828302e382e33312d646576656c6f702e323032362e372e32382b636f6d6d69742e66643566333839630059");
+const CLOAD_WARM_PUBLIC_READER_BYTECODE: &[u8] = &hex!("6080604052348015600e575f5ffd5b5060d180601a5f395ff3fe6080604052348015600e575f5ffd5b50600436106026575f3560e01c8063ed2e5a9714602a575b5f5ffd5b60396035366004605f565b604b565b60405190815260200160405180910390f35b5f8181526020819052604081205492915050565b5f60208284031215606e575f5ffd5b503591905056fea26469706673582212207624a694b8aa32164d62f99dbed16dabba4a5bfe2c043908b4c00dafe56590cc64736f6c637828302e382e33312d646576656c6f702e323032362e372e32382b636f6d6d69742e66643566333839630059");
+
+sol! {
+    interface CLoadWarmLeakProbe {
+        function probe(address reader, uint256 k) external returns (uint256);
+    }
+}
+
+/// Sends a plain (non-seismic) call to `CLoadWarmLeak.probe(reader, k)`, advances a
+/// block, and returns the receipt's exact `gas_used`. Using real transactions (rather
+/// than `eth_estimateGas`, which returns a gas limit found by binary search with a
+/// ~1.5% early-stop tolerance) makes the warm/cold SLOAD delta exact.
+async fn send_plain_cload_probe(
+    node: &mut SeismicTestNode,
+    client: &jsonrpsee::http_client::HttpClient,
+    chain_id: u64,
+    wallet: &Wallet,
+    contract_addr: Address,
+    reader_addr: Address,
+    k: u64,
+) -> eyre::Result<u64> {
+    let calldata = Bytes::from(
+        CLoadWarmLeakProbe::probeCall { reader: reader_addr, k: U256::from(k) }.abi_encode(),
+    );
+    let tx_bytes = get_signed_call_tx_bytes(
+        wallet.inner.clone(),
+        get_nonce(client, wallet.inner.address()).await,
+        chain_id,
+        contract_addr,
+        calldata,
+    )
+    .await;
+
+    let tx_hash =
+        EthApiOverrideClient::<Block>::send_raw_transaction(client, tx_bytes.into()).await.unwrap();
+    node.advance_block().await?;
+
+    let receipt = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::transaction_receipt(client, tx_hash)
+    .await
+    .unwrap()
+    .unwrap();
+    assert!(receipt.status());
+    Ok(receipt.gas_used())
+}
+
+/// Regression test: `cload` must not affect EIP-2929 warm/cold accounting for a later
+/// standard `sload`. `CLoadWarmLeak.probe(reader, k)` performs a confidential load of
+/// slot `keccak(k, 0)` and then a standard load of slot `keccak(5, 0)` (via a
+/// delegatecall that reinterprets the same storage under a public mapping type). If
+/// `cload` leaves the access set untouched, both probes cost exactly the same; if it
+/// warms `k`, `probe(reader, 5)` becomes 2000 gas cheaper than `probe(reader, 6)` and
+/// leaks whether the confidential target equals the probed slot.
+///
+/// Asserts the secure behavior (`probe(reader, 5) == probe(reader, 6)`). The two
+/// probes differed by 2000 gas against seismic-revm revisions before `894ac536`, which
+/// warmed the access set from `cload`/`cstore`; the pinned revision fixes that, so the
+/// two probes must now cost exactly the same.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_cload_does_not_warm_access_set() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    // Deploy the public reader whose `read(k)` performs a standard `sload` of slot
+    // `keccak(k, 0)` when delegatecalled by `CLoadWarmLeak`.
+    let reader_tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
+        &client,
+        get_signed_deploy_tx_bytes(
+            wallet.inner.clone(),
+            get_nonce(&client, wallet.inner.address()).await,
+            chain_id,
+            Bytes::from_static(CLOAD_WARM_PUBLIC_READER_BYTECODE),
+        )
+        .await
+        .into(),
+    )
+    .await
+    .unwrap();
+    node.advance_block().await?;
+
+    let reader_receipt = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::transaction_receipt(&client, reader_tx_hash)
+    .await
+    .unwrap()
+    .unwrap();
+    assert!(reader_receipt.status());
+    let reader_addr = reader_receipt.contract_address.unwrap();
+
+    let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(
+        &client,
+        get_signed_deploy_tx_bytes(
+            wallet.inner.clone(),
+            get_nonce(&client, wallet.inner.address()).await,
+            chain_id,
+            Bytes::from_static(CLOAD_WARM_LEAK_TEST_BYTECODE),
+        )
+        .await
+        .into(),
+    )
+    .await
+    .unwrap();
+    node.advance_block().await?;
+
+    let receipt = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::transaction_receipt(&client, tx_hash)
+    .await
+    .unwrap()
+    .unwrap();
+    assert!(receipt.status());
+    let contract_addr = receipt.contract_address.unwrap();
+
+    // Both probes carry the same calldata shape (selector + reader address + one
+    // non-zero word), and `cload` is charged a flat rate regardless of `k`. So any
+    // difference in the receipt's `gas_used` can only come from `cload` mutating the
+    // EIP-2929 access set. If `cload` is side-effect free, the two calls cost exactly
+    // the same.
+    let warm = send_plain_cload_probe(
+        &mut node,
+        &client,
+        chain_id,
+        &wallet,
+        contract_addr,
+        reader_addr,
+        5,
+    )
+    .await?;
+    let cold = send_plain_cload_probe(
+        &mut node,
+        &client,
+        chain_id,
+        &wallet,
+        contract_addr,
+        reader_addr,
+        6,
+    )
+    .await?;
+    println!("CLOAD probe gas_used: probe(5)={warm}, probe(6)={cold}");
+
+    assert_eq!(cold, warm, "CLOAD must not warm the access set: probe(5)={warm}, probe(6)={cold}");
+
+    Ok(())
+}
 
 const fn get_encryption_precompiles_contracts() -> Bytes {
     Bytes::from_static(&hex!("6080604052348015600e575f5ffd5b50335f5f6101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550610dce8061005b5f395ff3fe608060405234801561000f575f5ffd5b506004361061004a575f3560e01c806328696e361461004e5780638da5cb5b1461006a578063a061904014610088578063ce75255b146100a4575b5f5ffd5b61006860048036038101906100639190610687565b6100d4565b005b61007261019a565b60405161007f9190610711565b60405180910390f35b6100a2600480360381019061009d919061075d565b6101be565b005b6100be60048036038101906100b991906107c9565b610256565b6040516100cb9190610896565b60405180910390f35b5f6100dd610412565b90505f61012d8285858080601f0160208091040260200160405190810160405280939291908181526020018383808284375f81840152601f19601f820116905080830192505050505050506104f5565b9050816bffffffffffffffffffffffff167f093a34a48cc07b4bf1355d9c15ec71077c85342d872753188302f99341f961008260405160200161017091906108f0565b60405160208183030381529060405260405161018c9190610896565b60405180910390a250505050565b5f5f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b5f5f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161461024c576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161024390610986565b60405180910390fd5b8060018190b15050565b60605f5f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146102e6576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016102dd90610986565b60405180910390fd5b5f838390501161032b576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610322906109ee565b60405180910390fd5b5f606790505f6001b086868660405160200161034a9493929190610a92565b60405160208183030381529060405290505f5f8373ffffffffffffffffffffffffffffffffffffffff168360405161038291906108f0565b5f60405180830381855afa9150503d805f81146103ba576040519150601f19603f3d011682016040523d82523d5f602084013e6103bf565b606091505b509150915081610404576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016103fb90610b3c565b60405180910390fd5b809450505050509392505050565b5f5f606490505f5f8273ffffffffffffffffffffffffffffffffffffffff1660206040516020016104439190610b9d565b60405160208183030381529060405260405161045f91906108f0565b5f60405180830381855afa9150503d805f8114610497576040519150601f19603f3d011682016040523d82523d5f602084013e61049c565b606091505b5091509150816104e1576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016104d890610c01565b60405180910390fd5b5f60208201519050805f1c94505050505090565b60605f606690505f6001b0858560405160200161051493929190610c1f565b60405160208183030381529060405290505f5f8373ffffffffffffffffffffffffffffffffffffffff168360405161054c91906108f0565b5f60405180830381855afa9150503d805f8114610584576040519150601f19603f3d011682016040523d82523d5f602084013e610589565b606091505b5091509150816105ce576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016105c590610cc7565b60405180910390fd5b5f815111610611576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161060890610d55565b60405180910390fd5b8094505050505092915050565b5f5ffd5b5f5ffd5b5f5ffd5b5f5ffd5b5f5ffd5b5f5f83601f84011261064757610646610626565b5b8235905067ffffffffffffffff8111156106645761066361062a565b5b6020830191508360018202830111156106805761067f61062e565b5b9250929050565b5f5f6020838503121561069d5761069c61061e565b5b5f83013567ffffffffffffffff8111156106ba576106b9610622565b5b6106c685828601610632565b92509250509250929050565b5f73ffffffffffffffffffffffffffffffffffffffff82169050919050565b5f6106fb826106d2565b9050919050565b61070b816106f1565b82525050565b5f6020820190506107245f830184610702565b92915050565b5f819050919050565b61073c8161072a565b8114610746575f5ffd5b50565b5f8135905061075781610733565b92915050565b5f602082840312156107725761077161061e565b5b5f61077f84828501610749565b91505092915050565b5f6bffffffffffffffffffffffff82169050919050565b6107a881610788565b81146107b2575f5ffd5b50565b5f813590506107c38161079f565b92915050565b5f5f5f604084860312156107e0576107df61061e565b5b5f6107ed868287016107b5565b935050602084013567ffffffffffffffff81111561080e5761080d610622565b5b61081a86828701610632565b92509250509250925092565b5f81519050919050565b5f82825260208201905092915050565b8281835e5f83830152505050565b5f601f19601f8301169050919050565b5f61086882610826565b6108728185610830565b9350610882818560208601610840565b61088b8161084e565b840191505092915050565b5f6020820190508181035f8301526108ae818461085e565b905092915050565b5f81905092915050565b5f6108ca82610826565b6108d481856108b6565b93506108e4818560208601610840565b80840191505092915050565b5f6108fb82846108c0565b915081905092915050565b5f82825260208201905092915050565b7f4f6e6c79206f776e65722063616e2063616c6c20746869732066756e6374696f5f8201527f6e00000000000000000000000000000000000000000000000000000000000000602082015250565b5f610970602183610906565b915061097b82610916565b604082019050919050565b5f6020820190508181035f83015261099d81610964565b9050919050565b7f436970686572746578742063616e6e6f7420626520656d7074790000000000005f82015250565b5f6109d8601a83610906565b91506109e3826109a4565b602082019050919050565b5f6020820190508181035f830152610a05816109cc565b9050919050565b5f819050919050565b610a26610a218261072a565b610a0c565b82525050565b5f8160a01b9050919050565b5f610a4282610a2c565b9050919050565b610a5a610a5582610788565b610a38565b82525050565b828183375f83830152505050565b5f610a7983856108b6565b9350610a86838584610a60565b82840190509392505050565b5f610a9d8287610a15565b602082019150610aad8286610a49565b600c82019150610abe828486610a6e565b915081905095945050505050565b7f414553206465637279707420707265636f6d70696c652063616c6c206661696c5f8201527f6564000000000000000000000000000000000000000000000000000000000000602082015250565b5f610b26602283610906565b9150610b3182610acc565b604082019050919050565b5f6020820190508181035f830152610b5381610b1a565b9050919050565b5f63ffffffff82169050919050565b5f8160e01b9050919050565b5f610b7f82610b69565b9050919050565b610b97610b9282610b5a565b610b75565b82525050565b5f610ba88284610b86565b60048201915081905092915050565b7f524e4720507265636f6d70696c652063616c6c206661696c65640000000000005f82015250565b5f610beb601a83610906565b9150610bf682610bb7565b602082019050919050565b5f6020820190508181035f830152610c1881610bdf565b9050919050565b5f610c2a8286610a15565b602082019150610c3a8285610a49565b600c82019150610c4a82846108c0565b9150819050949350505050565b7f41455320656e637279707420707265636f6d70696c652063616c6c206661696c5f8201527f6564000000000000000000000000000000000000000000000000000000000000602082015250565b5f610cb1602283610906565b9150610cbc82610c57565b604082019050919050565b5f6020820190508181035f830152610cde81610ca5565b9050919050565b7f456e6372797074696f6e2063616c6c2072657475726e6564206e6f206f7574705f8201527f7574000000000000000000000000000000000000000000000000000000000000602082015250565b5f610d3f602283610906565b9150610d4a82610ce5565b604082019050919050565b5f6020820190508181035f830152610d6c81610d33565b905091905056fea2646970667358221220cdc3edd7891930a1ad58becbe2b3f7679ecfc78a3b1f8a803d4c381c8318287864736f6c637827302e382e32382d63692e323032342e31312e342b636f6d6d69742e32306261666332392e6d6f640058"))
