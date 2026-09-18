@@ -313,10 +313,9 @@ where
         self.inner.storage_apis_enabled()
     }
 
-    /// Returns the native balance for `address` — the standard `eth_getBalance` behavior,
-    /// consistent with `eth_getAccount`/`eth_getProof`. The USDC-backed effective balance
-    /// (`max(native, usdc·10^12)`) is available opt-in via the `includeGasToken` parameter on
-    /// the `eth_getBalance` override (see `ext.rs`).
+    /// Returns the actual public native balance, consistent with account state and proofs.
+    /// The RPC override calls this only for `eth_getBalance(..., native = true)`; default
+    /// balance replies use a state-independent compatibility constant (see `ext.rs`).
     fn balance(
         &self,
         address: Address,
@@ -334,12 +333,10 @@ where
     /// Reports the raw native balance for `eth_getAccountInfo`, matching [`Self::balance`] and
     /// the other account-surface endpoints (`eth_getAccount`/`eth_getProof`).
     ///
-    /// All account-inspection RPCs return the same native balance by default, so consumers never
-    /// see a different value for the same account at the same block (Veridise 1206). The
-    /// USDC-backed effective balance (`max(native, usdc·10^12)`) is opt-in via the
-    /// `includeGasToken` parameter on the `eth_getBalance` and `eth_getAccountInfo` overrides
-    /// (see `ext.rs`); the gas-allowance execution path (`estimateGas`/`call`) keeps accounting
-    /// for USDC independently.
+    /// Native account inspection remains uniform (Veridise 1206), except for the intentional
+    /// default `eth_getBalance` compatibility placeholder. Neither public balance endpoint
+    /// reads USDC storage. Gas-allowance execution (`estimateGas`/`call`) keeps accounting for
+    /// USDC independently; the placeholder must never be used for affordability.
     fn get_account_info(
         &self,
         address: Address,

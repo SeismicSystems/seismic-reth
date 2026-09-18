@@ -396,9 +396,12 @@ where
                 modules.merge_if_module_configured(RethRpcModule::Eth, eth_config.into_rpc())?;
 
                 // Register Seismic eth_ overrides (sendRawTransaction, call, estimateGas, etc.)
-                modules.replace_configured(
-                    EthApiExt::new(registry.eth_api().clone(), purpose_keys.clone()).into_rpc(),
-                )?;
+                let eth_ext =
+                    EthApiExt::new(registry.eth_api().clone(), purpose_keys.clone());
+                modules.replace_configured(eth_ext.clone().into_rpc())?;
+                // Shadow the generated balance handlers on every configured transport: the
+                // generated parsers silently ignore unknown named and extra positional params.
+                modules.replace_configured(eth_ext.into_balance_rpc()?)?;
 
                 // Always register public Seismic node information, regardless of the configured standard RPC namespaces.
                 modules.merge_configured(SeismicApi::new(purpose_keys, peers_info).into_rpc())?;
