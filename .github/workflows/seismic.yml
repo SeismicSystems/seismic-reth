@@ -194,6 +194,78 @@ jobs:
         # see profile.default in .config/nextest.toml for filtered tests
         run: cargo nextest run --workspace -E '!kind(test)' --no-fail-fast
 
+  timestamp-in-seconds:
+    name: timestamp-in-seconds feature
+    runs-on: large-github-runner
+    timeout-minutes: 30
+    env:
+      SEISMIC_CI: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: taiki-e/install-action@nextest
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo build (timestamp-in-seconds)
+        # Explicit package list, not the `reth-seismic*` glob clippy-seismic uses above:
+        # that glob also matches Seismic crates that DON'T declare this feature (cli,
+        # fuzz, genesis-builder, hardforks, txpool), and it's untested whether
+        # `--features` silently no-ops on a selected package that lacks the named
+        # feature or hard-errors. Listing exactly the ~10 crates #420 names (the ones
+        # that carry `timestamp-in-seconds` in their own `[features]` table) avoids
+        # relying on that. If a new Seismic crate gains this feature, add it here.
+        run: |
+          cargo build \
+            -p seismic-reth \
+            -p reth-seismic-chainspec \
+            -p reth-seismic-primitives \
+            -p reth-seismic-evm \
+            -p reth-seismic-payload-builder \
+            -p reth-seismic-node \
+            -p reth-seismic-rpc \
+            -p reth-chainspec \
+            -p reth-transaction-pool \
+            -p reth-payload-builder \
+            -p reth-e2e-test-utils \
+            --features timestamp-in-seconds
+      - name: cargo clippy (timestamp-in-seconds)
+        run: |
+          cargo clippy \
+            -p seismic-reth \
+            -p reth-seismic-chainspec \
+            -p reth-seismic-primitives \
+            -p reth-seismic-evm \
+            -p reth-seismic-payload-builder \
+            -p reth-seismic-node \
+            -p reth-seismic-rpc \
+            -p reth-chainspec \
+            -p reth-transaction-pool \
+            -p reth-payload-builder \
+            -p reth-e2e-test-utils \
+            --features timestamp-in-seconds \
+            --all-targets \
+            -- -D warnings
+      - name: cargo nextest (timestamp-in-seconds)
+        # No kind(test) filter, unlike unit-test/integration-test above: this lane exists
+        # specifically to run the seconds-only assertions wherever they live (unit or e2e),
+        # e.g. crates/seismic/node/tests/e2e/pending_block.rs.
+        run: |
+          cargo nextest run \
+            -p seismic-reth \
+            -p reth-seismic-chainspec \
+            -p reth-seismic-primitives \
+            -p reth-seismic-evm \
+            -p reth-seismic-payload-builder \
+            -p reth-seismic-node \
+            -p reth-seismic-rpc \
+            -p reth-chainspec \
+            -p reth-transaction-pool \
+            -p reth-payload-builder \
+            -p reth-e2e-test-utils \
+            --features timestamp-in-seconds \
+            --no-fail-fast
+
   integration-test:
     runs-on: large-github-runner
     timeout-minutes: 30
