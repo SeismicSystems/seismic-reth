@@ -77,7 +77,7 @@ pub const SEISMIC_TESTNET_GENESIS_HASH: B256 =
 /// `seismic-reth genesis-hash --chain crates/seismic/chainspec/res/genesis/dev.json`
 /// The `genesis_header_hash` test recomputes it and fails on drift.
 pub const SEISMIC_DEV_GENESIS_HASH: B256 =
-    b256!("0x3ac4d8f5b8db40e9113aae227e7f7fe2e0fe4724825a277e80e01059261ee8ed");
+    b256!("0x24c71bf0f56f72de38aa2fceb0ad21bcc72730f08139b8e71b498d3272895235");
 
 /// Seismic devnet specification
 ///
