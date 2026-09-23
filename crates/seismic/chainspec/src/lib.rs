@@ -33,6 +33,24 @@ const fn normalize_genesis(mut genesis: Genesis) -> Genesis {
     genesis
 }
 
+/// Builds a [`ChainSpec`] for a custom Seismic [`Genesis`].
+///
+/// Genesis-configured fields are retained, while the hardfork schedule and merge metadata use the
+/// canonical settings shared by all Seismic networks.
+pub fn seismic_chain_spec_from_genesis(genesis: Genesis) -> ChainSpec {
+    // All Seismic networks currently share the same canonical hardfork schedule.
+    let hardforks = SEISMIC_DEV_HARDFORKS.clone();
+    let genesis_hash = make_genesis_header(&genesis, &hardforks).hash_slow();
+    let genesis = normalize_genesis(genesis);
+    let mut chain_spec: ChainSpec = genesis.into();
+
+    chain_spec.genesis_header =
+        SealedHeader::new(make_genesis_header(&chain_spec.genesis, &hardforks), genesis_hash);
+    chain_spec.paris_block_and_final_difficulty = Some((0, U256::ZERO));
+    chain_spec.hardforks = hardforks;
+    chain_spec
+}
+
 /// Genesis hash for the Seismic mainnet
 /// Calculated by rlp encoding the genesis header and hashing it.
 ///
@@ -164,6 +182,8 @@ pub static SEISMIC_MAINNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
 mod tests {
     use crate::*;
     use alloy_consensus::constants::MAINNET_GENESIS_HASH;
+    use alloy_eips::eip7840::BlobParams;
+    use alloy_genesis::GenesisAccount;
     use alloy_primitives::address;
     use reth_chainspec::MAINNET;
     use reth_ethereum_forks::EthereumHardfork;
@@ -251,6 +271,33 @@ mod tests {
             SEISMIC_TESTNET.genesis.alloc.contains_key(&aes_lib),
             "running testnet genesis must remain immutable"
         );
+    }
+
+    #[test]
+    fn custom_genesis_preserves_config_derived_fields() {
+        let account = address!("0000000000000000000000000000000000000042");
+        let deposit_contract = address!("0000000000000000000000000000000000000043");
+        let mut genesis = Genesis::default();
+        genesis.config.chain_id = 12_345;
+        genesis
+            .alloc
+            .insert(account, GenesisAccount { balance: U256::from(42), ..Default::default() });
+        genesis.config.deposit_contract_address = Some(deposit_contract);
+        genesis.config.blob_schedule.insert("cancun".into(), BlobParams::prague());
+        let expected_blob_params = genesis.config.blob_schedule_blob_params();
+
+        let chain_spec = seismic_chain_spec_from_genesis(genesis);
+
+        assert_eq!(chain_spec.chain, Chain::from_id(12_345));
+        assert_eq!(chain_spec.genesis.alloc[&account].balance, U256::from(42));
+        assert_eq!(chain_spec.genesis.config.deposit_contract_address, Some(deposit_contract));
+        assert_eq!(
+            chain_spec.deposit_contract.map(|contract| contract.address),
+            Some(deposit_contract)
+        );
+        assert_eq!(chain_spec.blob_params, expected_blob_params);
+        assert!(chain_spec.hardforks.get(SeismicHardfork::Mercury).is_some());
+        assert!(chain_spec.hardforks.get(EthereumHardfork::Osaka).is_none());
     }
 
     #[test]
