@@ -150,25 +150,36 @@ impl RecentBlockCache {
     /// accepts exactly the hashes that the RPC layer would return for
     /// `eth_getBlockByNumber("latest")`. Three cases:
     ///
-    /// 1. **Sequential block** (`new == cached + 1`): The common case during normal operation. We
-    ///    just append the new hash — O(1).
+    /// 1. **Sequential block** (`new == cached + 1` and `new.parent == cached.hash`): The common
+    ///    case during normal operation. We just append the new hash — O(1).
     ///
     /// 2. **Gap but still canonical** (`new > cached` and our latest hash is still on the canonical
     ///    chain): Multiple blocks were produced between callbacks (e.g. between `new()` and the
     ///    first callback, or a slow consumer). We backfill only the missing blocks.
     ///
     /// 3. **Stale cache** (reorg, empty, or same/lower height): The cache contains hashes from a
-    ///    fork that is no longer canonical. We clear and rebuild the full lookback window to purge
-    ///    stale fork hashes.
+    ///    fork that is no longer canonical. This includes a numerically sequential block whose
+    ///    parent does not match the cached tip. We clear and rebuild the full lookback window to
+    ///    purge stale fork hashes.
     pub fn update(
         &mut self,
         new_hash: B256,
         new_number: u64,
+        new_parent_hash: B256,
         canonical_hash_at: impl Fn(u64) -> Option<B256>,
     ) {
-        // Happy path: sequential block, just append
-        if new_number == self.current_block_number + 1 {
+        let is_next_height = new_number == self.current_block_number + 1;
+
+        // Happy path: a direct extension of the cached tip, just append without a provider lookup.
+        if is_next_height && self.latest_hash().is_some_and(|hash| *hash == new_parent_hash) {
             self.insert(new_hash, new_number);
+            return;
+        }
+
+        // A block at the next height with a different parent is a known reorg, not a gap. Rebuild
+        // immediately so hashes from the replaced fork cannot remain in the cache.
+        if is_next_height {
+            self.rebuild_window(new_number, Some(new_hash), "rebuild", canonical_hash_at);
             return;
         }
 
@@ -306,11 +317,42 @@ mod tests {
         cache.insert(h1, 1);
         // Sequential: block 2 follows block 1
         #[allow(clippy::panic)]
-        cache.update(h2, 2, |_| panic!("should not be called for sequential"));
+        cache.update(h2, 2, h1, |_| panic!("should not be called for sequential"));
 
         assert!(cache.contains(&h1));
         assert!(cache.contains(&h2));
         assert_eq!(cache.current_block_number(), 2);
+    }
+
+    #[test]
+    fn test_update_next_height_reorg_triggers_rebuild() {
+        let mut cache = RecentBlockCache::new(5);
+        let h8_old = B256::from([80u8; 32]);
+        let h9_old = B256::from([90u8; 32]);
+        let h10_old = B256::from([100u8; 32]);
+        cache.insert(h8_old, 8);
+        cache.insert(h9_old, 9);
+        cache.insert(h10_old, 10);
+
+        // The replacement chain is one block taller than the cached losing fork. Numeric height
+        // alone looks sequential, but the new tip's parent is not the cached height-10 hash.
+        let h6_new = B256::from([6u8; 32]);
+        let h7_new = B256::from([7u8; 32]);
+        let h8_new = B256::from([8u8; 32]);
+        let h9_new = B256::from([9u8; 32]);
+        let h10_new = B256::from([10u8; 32]);
+        let h11_new = B256::from([11u8; 32]);
+        let replacement = [(h6_new, 6), (h7_new, 7), (h8_new, 8), (h9_new, 9), (h10_new, 10)];
+
+        cache.update(h11_new, 11, h10_new, mock_canonical(&replacement));
+
+        assert!(!cache.contains(&h8_old));
+        assert!(!cache.contains(&h9_old));
+        assert!(!cache.contains(&h10_old));
+        for hash in [h7_new, h8_new, h9_new, h10_new, h11_new] {
+            assert!(cache.contains(&hash));
+        }
+        assert_eq!(cache.current_block_number(), 11);
     }
 
     #[test]
@@ -325,7 +367,7 @@ mod tests {
 
         // Gap: jump from 5 to 8, but cache is still canonical
         let blocks = [(h5, 5), (h6, 6), (h7, 7), (h8, 8)];
-        cache.update(h8, 8, mock_canonical(&blocks));
+        cache.update(h8, 8, h7, mock_canonical(&blocks));
 
         assert!(cache.contains(&h5));
         assert!(cache.contains(&h6));
@@ -344,7 +386,7 @@ mod tests {
         let h6 = B256::from([6u8; 32]);
         let h7 = B256::from([7u8; 32]);
         let tip = B256::from([88u8; 32]);
-        cache.update(tip, 8, mock_canonical(&[(h5, 5), (h6, 6), (h7, 7)]));
+        cache.update(tip, 8, h7, mock_canonical(&[(h5, 5), (h6, 6), (h7, 7)]));
 
         // The tip is taken from `new_hash`, not the (missing) callback result.
         assert!(cache.contains(&tip));
@@ -359,7 +401,7 @@ mod tests {
         // Same-height, different hash -> stale -> full rebuild. The callback returns nothing, but
         // the tip must still be taken from `new_hash`.
         let tip = B256::from([66u8; 32]);
-        cache.update(tip, 5, |_| None);
+        cache.update(tip, 5, B256::ZERO, |_| None);
 
         assert!(cache.contains(&tip));
         assert_eq!(cache.current_block_number(), 5);
@@ -381,7 +423,7 @@ mod tests {
         // Reorg: new canonical chain is shorter (tip at 6), old fork hashes are stale.
         // new_number (6) <= current_block_number (7), so this triggers a full rebuild.
         let blocks = [(h5_new, 5), (h6_new, 6)];
-        cache.update(h6_new, 6, mock_canonical(&blocks));
+        cache.update(h6_new, 6, h5_new, mock_canonical(&blocks));
 
         // Old fork hashes should be gone, new canonical hashes present
         assert!(!cache.contains(&h5_old));
@@ -402,7 +444,7 @@ mod tests {
 
         // Same height but different hash (reorg at same level)
         let blocks = [(h5_new, 5)];
-        cache.update(h5_new, 5, mock_canonical(&blocks));
+        cache.update(h5_new, 5, B256::ZERO, mock_canonical(&blocks));
 
         assert!(!cache.contains(&h5_old));
         assert!(cache.contains(&h5_new));
@@ -428,14 +470,14 @@ mod tests {
         assert!(!cache.is_complete());
 
         // Sequential appends must not paper over the hole while it is still in the window...
-        cache.update(h(4), 4, |_| None);
+        cache.update(h(4), 4, h(3), |_| None);
         assert!(!cache.is_complete());
-        cache.update(h(5), 5, |_| None);
-        cache.update(h(6), 6, |_| None);
+        cache.update(h(5), 5, h(4), |_| None);
+        cache.update(h(6), 6, h(5), |_| None);
         assert!(!cache.is_complete());
 
         // ...but once block 2 ages out of the window (tip reaches 7), it self-heals — no rebuild.
-        cache.update(h(7), 7, |_| None);
+        cache.update(h(7), 7, h(6), |_| None);
         assert!(cache.is_complete());
 
         // A clean full rebuild also restores completeness directly.
