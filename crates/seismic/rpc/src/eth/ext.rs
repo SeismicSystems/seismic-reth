@@ -365,11 +365,13 @@ impl<Eth> EthApiExt<Eth> {
     /// under the caller's key (mirroring the encryption already applied to successful output),
     /// so a revert can't be used to exfiltrate private state in cleartext.
     ///
+    /// Uses the key captured when decrypting the request: activation or a reorg
+    /// during execution must not change the response's encryption key.
     /// Non-revert errors, and reverts with empty output, are returned unchanged.
     fn reencrypt_revert_output<E>(
-        &self,
         err: E,
         seismic_tx_request: &SeismicTransactionRequest,
+        tx_io_sk: &SecretKey,
     ) -> Result<E, EthApiError>
     where
         E: AsEthApiError + FromEthApiError,
@@ -386,7 +388,7 @@ impl<Eth> EthApiExt<Eth> {
         let sender = parse_request_sender(seismic_tx_request)?;
         let metadata = Self::build_metadata(seismic_tx_request, sender)?;
         let encrypted = metadata
-            .encrypt_response(&self.tx_io_sk()?, output)
+            .encrypt_response(tx_io_sk, output)
             .map_err(|e| ext_encryption_error(e.to_string()))?;
 
         Ok(E::from_eth_err(EthApiError::InvalidTransaction(RpcInvalidTransactionError::Revert(
@@ -672,7 +674,7 @@ where
                         // `EthCallResponse.error` is a plain string with no `data` field, so the
                         // encrypted revert output is appended as hex; otherwise the ciphertext
                         // would be dropped and the signer couldn't decrypt the revert reason.
-                        let err = self.reencrypt_revert_output(err, &request)?;
+                        let err = Self::reencrypt_revert_output(err, &request, &tx_io_sk)?;
                         let err_str = match err.as_err() {
                             Some(EthApiError::InvalidTransaction(
                                 RpcInvalidTransactionError::Revert(revert),
@@ -729,7 +731,7 @@ where
                 // On revert, re-encrypt the output bytes before they reach the client: a contract's
                 // revert data can embed private state just like a successful return value can.
                 let result = match result {
-                    Err(err) => Err(self.reencrypt_revert_output(err, &request)?),
+                    Err(err) => Err(Self::reencrypt_revert_output(err, &request, &tx_io_sk)?),
                     Ok(result) => Ok(result),
                 }?;
 
@@ -808,7 +810,7 @@ where
                 // On revert, re-encrypt the output bytes before they reach the client: a contract's
                 // revert data can embed private state just like a successful return value can.
                 let result = match result {
-                    Err(err) => Err(self.reencrypt_revert_output(err, &request)?),
+                    Err(err) => Err(Self::reencrypt_revert_output(err, &request, &tx_io_sk)?),
                     Ok(result) => Ok(result),
                 }?;
                 Ok(result)
@@ -975,6 +977,80 @@ mod tests {
         let sk = SecretKey::from_byte_array(&[seed; 32]).unwrap();
         let tx_io = secp256k1::Keypair::from_secret_key(&Secp256k1::new(), &sk);
         PurposeKeys { tx_io, rng_ikm: [seed; 64] }
+    }
+
+    #[test]
+    fn revert_response_keeps_request_key_across_activation_and_reorg() {
+        use seismic_alloy_consensus::{TxSeismic, TxSeismicElements};
+
+        let keyring = Arc::new(PurposeKeyring::single_epoch(test_keys(1)));
+        keyring.insert_epoch(1, test_keys(2)).unwrap();
+        let api = EthApiExt::new((), keyring.clone());
+        let before_activation = CanonicalRotationView {
+            head_hash: B256::repeat_byte(1),
+            head_number: 99,
+            schedule: RotationSchedule::from_entries([RotationEntry {
+                epoch: 1,
+                activation_block: 100,
+                announced_at_block: 10,
+            }])
+            .unwrap(),
+        };
+        let after_activation = CanonicalRotationView {
+            head_hash: B256::repeat_byte(2),
+            head_number: 100,
+            schedule: before_activation.schedule.clone(),
+        };
+        let client_sk = test_keys(3).tx_io.secret_key();
+        let elements = TxSeismicElements {
+            encryption_pubkey: client_sk.public_key(&Secp256k1::new()),
+            signed_read: true,
+            expires_at_block: 200,
+            ..Default::default()
+        };
+        let request: SeismicTransactionRequest =
+            TxSeismic { seismic_elements: elements, ..Default::default() }.into();
+        let request = request.from(Address::ZERO);
+        let metadata = request.metadata(Address::ZERO).unwrap();
+        let plaintext = Bytes::from_static(b"private revert data");
+
+        // Forward activation and a reorg back to the outgoing epoch must both
+        // preserve the key captured before awaiting the inner RPC execution.
+        for (start, end) in [
+            (before_activation.clone(), after_activation.clone()),
+            (after_activation, before_activation),
+        ] {
+            keyring.replace_canonical_view(start);
+            let request_key = api.tx_io_sk().unwrap();
+            let request_pk = request_key.public_key(&Secp256k1::new());
+            let ciphertext =
+                elements.client_encrypt(&plaintext, &request_pk, &client_sk, &metadata).unwrap();
+            assert_eq!(
+                metadata.decrypt_request(&request_key, &ciphertext).unwrap(),
+                plaintext.as_ref()
+            );
+
+            keyring.replace_canonical_view(end);
+            let current_pk = api.tx_io_sk().unwrap().public_key(&Secp256k1::new());
+            assert_ne!(request_pk, current_pk);
+            let error = EthApiError::InvalidTransaction(RpcInvalidTransactionError::Revert(
+                RevertError::new(plaintext.clone()),
+            ));
+            let encrypted =
+                EthApiExt::<()>::reencrypt_revert_output(error, &request, &request_key).unwrap();
+            let output = match encrypted {
+                EthApiError::InvalidTransaction(RpcInvalidTransactionError::Revert(revert)) => {
+                    revert.output().cloned()
+                }
+                _ => None,
+            }
+            .unwrap();
+            assert_eq!(
+                elements.client_decrypt(&output, &request_pk, &client_sk, &metadata).unwrap(),
+                plaintext
+            );
+            assert!(elements.client_decrypt(&output, &current_pk, &client_sk, &metadata).is_err());
+        }
     }
 
     /// Pre-rotation networks (all of them today): epoch 0, no pending rotation.

@@ -398,7 +398,7 @@ mod tests {
         });
         let mut keys = PurposeKeys::well_known();
         keys.rng_ikm = [42; 64];
-        keyring.insert_epoch(1, keys).unwrap();
+        live.executor_factory.keyring.insert_epoch(1, keys).unwrap();
         let env = snapshot.evm_env(&Header {
             number: 100,
             excess_blob_gas: Some(0),
