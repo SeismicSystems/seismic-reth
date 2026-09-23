@@ -52,6 +52,10 @@ where
     /// Pre-populates the recent block hash cache from the client so that validation
     /// works immediately without a cold-start fallback.
     pub fn new(inner: EthTransactionValidator<Client, T>) -> Self {
+        // Seismic execution ignores access lists, including their intrinsic gas.
+        // Configure this here so every Seismic validator uses the same policy,
+        // while standalone Ethereum validators retain EIP-2930 charging.
+        let inner = inner.with_access_list_gas_charging(false);
         let mut cache = RecentBlockCache::default();
 
         // Populate cache from the current canonical chain
@@ -287,14 +291,22 @@ pub(crate) fn rotation_boundary_error(
 mod tests {
     use super::*;
     use crate::SeismicPooledTransaction;
-    use alloy_consensus::{transaction::Recovered, SignableTransaction, TxLegacy};
-    use alloy_eips::eip2718::Encodable2718;
-    use alloy_primitives::{Address, Bytes, FlaggedStorage, Signature, TxKind};
+    use alloy_consensus::{transaction::Recovered, SignableTransaction, TxEip2930, TxLegacy};
+    use alloy_eips::{
+        eip2718::Encodable2718,
+        eip2930::{AccessList, AccessListItem},
+    };
+    use alloy_primitives::{Address, Bytes, FlaggedStorage, Signature, TxKind, B256};
     use reth_provider::test_utils::{ExtendedAccount, MockEthProvider};
     use reth_seismic_chainspec::SEISMIC_MAINNET;
     use reth_transaction_pool::{
         blobstore::InMemoryBlobStore, error::InvalidPoolTransactionError,
-        validate::EthTransactionValidatorBuilder, TransactionOrigin,
+        validate::EthTransactionValidatorBuilder, PoolTransaction, TransactionOrigin,
+    };
+    use revm::{
+        context::{result::InvalidTransaction, TxEnv},
+        handler::validation::validate_initial_tx_gas,
+        primitives::hardfork::SpecId,
     };
 
     const GAS_LIMIT: u64 = 100_000;
@@ -359,6 +371,110 @@ mod tests {
         let pooled = SeismicPooledTransaction::new(recovered, encoded_length);
 
         validator.validate_transaction(TransactionOrigin::External, pooled).await
+    }
+
+    /// Compare execution and pool admission at access-list gas boundaries.
+    /// Seismic ignores access lists for both intrinsic gas and warming.
+    async fn assert_access_list_intrinsic_gas_parity(
+        access_list: AccessList,
+        gas_limit: u64,
+        expected_intrinsic_gas: u64,
+    ) {
+        let sender = sender();
+        let tx = TxEip2930 {
+            chain_id: 5123,
+            gas_limit,
+            gas_price: GAS_PRICE,
+            to: TxKind::Call(Address::with_last_byte(0x43)),
+            access_list,
+            ..Default::default()
+        };
+        let execution_tx = TxEnv {
+            tx_type: 1,
+            caller: sender,
+            gas_limit: tx.gas_limit,
+            gas_price: tx.gas_price,
+            kind: tx.to,
+            value: tx.value,
+            data: tx.input.clone(),
+            nonce: tx.nonce,
+            chain_id: Some(tx.chain_id),
+            access_list: tx.access_list.clone(),
+            ..Default::default()
+        };
+        let should_accept = gas_limit >= expected_intrinsic_gas;
+        let execution = validate_initial_tx_gas(&execution_tx, SpecId::MERCURY);
+        match execution {
+            Ok(gas) => {
+                assert!(should_accept, "execution must reject an insufficient gas limit");
+                assert_eq!(gas.initial_gas, expected_intrinsic_gas);
+            }
+            Err(InvalidTransaction::CallGasCostMoreThanGasLimit { initial_gas, .. }) => {
+                assert!(!should_accept, "execution must accept a sufficient gas limit");
+                assert_eq!(initial_gas, expected_intrinsic_gas);
+            }
+            other => panic!("unexpected execution gas result: {other:?}"),
+        }
+
+        let client = MockEthProvider::default().with_chain_spec(SEISMIC_MAINNET.clone());
+        client.add_account(sender, ExtendedAccount::new(0, U256::from(ONE_ETH)));
+        let eth_validator = EthTransactionValidatorBuilder::new(client)
+            .disable_balance_check()
+            .build(InMemoryBlobStore::default());
+        // As in the affordability tests, recovery is outside this validator.
+        let signature = Signature::new(U256::from(1), U256::from(1), false);
+        let signed: SeismicTransactionSigned = tx.into_signed(signature).into();
+        let recovered = Recovered::new_unchecked(signed, sender);
+        let encoded_length = recovered.encode_2718_len();
+        let pooled: SeismicPooledTransaction =
+            SeismicPooledTransaction::new(recovered, encoded_length);
+        // At these limits, Ethereum accepts only the empty-list 21,000-gas control.
+        let eth_outcome =
+            eth_validator.validate_transaction(TransactionOrigin::External, pooled.clone()).await;
+        if execution_tx.access_list.is_empty() && should_accept {
+            assert!(matches!(eth_outcome, TransactionValidationOutcome::Valid { .. }));
+        } else {
+            assert!(matches!(
+                eth_outcome,
+                TransactionValidationOutcome::Invalid(
+                    _,
+                    InvalidPoolTransactionError::IntrinsicGasTooLow
+                )
+            ));
+        }
+
+        let original = pooled.clone_into_consensus();
+        let validator = SeismicTransactionValidator::new(eth_validator);
+        let outcome = validator.validate_transaction(TransactionOrigin::External, pooled).await;
+        match outcome {
+            TransactionValidationOutcome::Valid { transaction, .. } => {
+                assert!(should_accept, "pool must reject an insufficient gas limit");
+                assert_eq!(transaction.transaction().clone_into_consensus(), original);
+            }
+            TransactionValidationOutcome::Invalid(
+                _,
+                InvalidPoolTransactionError::IntrinsicGasTooLow,
+            ) => assert!(!should_accept, "pool must accept a sufficient gas limit"),
+            other => panic!("unexpected pool outcome: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn access_list_intrinsic_gas_parity_empty_list() {
+        for gas_limit in [20_999, 21_000] {
+            assert_access_list_intrinsic_gas_parity(AccessList::default(), gas_limit, 21_000).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn access_list_intrinsic_gas_parity_nonempty_list() {
+        let access_list = AccessList(vec![AccessListItem {
+            address: Address::with_last_byte(0x43),
+            storage_keys: vec![B256::ZERO],
+        }]);
+        for gas_limit in [20_999, 21_000] {
+            assert_access_list_intrinsic_gas_parity(access_list.clone(), gas_limit, 21_000).await;
+        }
     }
 
     /// Asserts the outcome is an `InsufficientFunds` rejection and returns the

@@ -36,6 +36,7 @@ futures-util.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+revm.workspace = true
 reth-seismic-chainspec.workspace = true
 reth-seismic-test-utils.workspace = true
 reth-provider = { workspace = true, features = ["test-utils"] }
