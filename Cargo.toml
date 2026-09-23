@@ -786,11 +786,11 @@ seismic-revm = { git = "https://github.com/SeismicSystems/seismic-revm.git", rev
 revm-inspectors = { git = "https://github.com/SeismicSystems/seismic-revm-inspectors.git", rev = "31ce52dd54e30987cf558f2f6a246a02d8d63319" }
 
 # Seismic alloy
-seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "261875f4561d75c3a607f32456e0c66b2f57f141" }
-seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "261875f4561d75c3a607f32456e0c66b2f57f141" }
-seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "261875f4561d75c3a607f32456e0c66b2f57f141" }
-seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "261875f4561d75c3a607f32456e0c66b2f57f141" }
-seismic-alloy-genesis = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "261875f4561d75c3a607f32456e0c66b2f57f141" }
+seismic-alloy-consensus = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "774ebc2a7a1102d81486bf69f700614e91615082" }
+seismic-alloy-rpc-types = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "774ebc2a7a1102d81486bf69f700614e91615082" }
+seismic-alloy-network = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "774ebc2a7a1102d81486bf69f700614e91615082" }
+seismic-alloy-provider = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "774ebc2a7a1102d81486bf69f700614e91615082" }
+seismic-alloy-genesis = { git = "https://github.com/SeismicSystems/seismic-alloy.git", rev = "774ebc2a7a1102d81486bf69f700614e91615082" }
 
 # evm
 alloy-evm = { git = "https://github.com/SeismicSystems/seismic-evm.git", rev = "a7932f7e1851971b39a6dbcfb8b2a8b2e20e0f3f" }
