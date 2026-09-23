@@ -180,6 +180,10 @@ We have modified several RPC endpoints to support shielded features:
 
 -   **Modified _eth_ RPC Methods**:
 
+    -   **`eth_getBalance` / `eth_getAccountInfo`**:
+        -   `eth_getBalance` returns a fixed compatibility placeholder unless its third boolean parameter, `native`, is `true`.
+        -   `eth_getAccountInfo` always returns actual public native balance, nonce, and code; it has no third parameter.
+        -   Neither endpoint reads USDC balances. See the [balance RPC breaking-change notes](CHANGELOG.md) for strict parameter rules, block-resolution semantics, and migration details.
     -   **`eth_storageAt`**:
         -   Returns `0` for private storage slots.
         -   **Modification Location**: [Code Reference](https://github.com/SeismicSystems/seismic-reth/pull/4/commits/f26de3b8ff74a4b23de0df548c8b629c2479d907)

@@ -80,9 +80,10 @@ pub fn gas_allowance(native: U256, usdc: U256, value: U256, gas_price: U256) -> 
     std::cmp::max(remaining_native, usdc).checked_div(gas_price).unwrap_or_default()
 }
 
-/// Returns the *display* balance reported by `eth_getBalance`:
-/// `max(native_balance, usdc_balance_scaled)`, so wallets holding only USDC
-/// still see a non-zero spendable balance.
+/// Returns `max(native_balance, usdc_balance_scaled)` for internal consumers.
+///
+/// Do not expose this derived value through public balance RPCs: it can disclose private USDC
+/// storage. `eth_getBalance` returns a compatibility constant or the actual native balance.
 ///
 /// This is a display convention only — it is **not** an affordability check.
 /// `max` conflates the two balances, while value transfers can only be paid in
@@ -105,8 +106,7 @@ mod tests {
     use reth_provider::test_utils::{ExtendedAccount, MockEthProvider};
 
     /// `read_usdc_balance` scales 6→18 decimals, and `effective_balance` returns the larger of
-    /// native and the scaled USDC balance. This is the math behind the opt-in `includeGasToken`
-    /// branch of `eth_getBalance`.
+    /// native and the scaled USDC balance. Public balance RPCs must not expose this value.
     #[test]
     fn effective_balance_uses_larger_of_native_and_usdc() {
         let addr = Address::with_last_byte(0xab);

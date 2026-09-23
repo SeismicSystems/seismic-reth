@@ -23,21 +23,21 @@ use alloy_rpc_types_eth::{
 };
 use alloy_seismic_evm::{secp256k1::PublicKey, PurposeKeys};
 use jsonrpsee::{
-    core::{async_trait, RpcResult},
+    core::{async_trait, RegisterMethodError, RpcResult},
     proc_macros::rpc,
+    RpcModule,
 };
 use reth_network_api::PeersInfo;
 use reth_network_peers::NodeRecord;
 use reth_primitives_traits::{Recovered, RecoveredBlock};
 use reth_rpc_eth_api::{
     helpers::{EthCall, EthState, EthTransactions, FullEthApi},
-    AsEthApiError, FromEthApiError, RpcBlock, RpcTypes,
+    AsEthApiError, EthApiTypes, FromEthApiError, RpcBlock, RpcTypes,
 };
 use reth_rpc_eth_types::{
     simulate::SimulatedBlockExecution, EthApiError, RevertError, RpcInvalidTransactionError,
 };
 use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
-use reth_seismic_txpool::usdc::effective_balance;
 use reth_tracing::tracing::*;
 use seismic_alloy_consensus::{
     Decodable712, InputDecryptionElements, SeismicTxEnvelope, SeismicTypedTransaction,
@@ -48,10 +48,14 @@ use seismic_alloy_rpc_types::{
     SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
 };
 use serde::{Deserialize, Serialize};
-use std::{
-    future::Future,
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
-};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+
+/// Fixed wallet-compatibility reply for `eth_getBalance` unless `native = true`.
+///
+/// This placeholder is independent of account holdings. It is not funds, proof of affordability,
+/// or a value that may be used to construct native transfers. Internal accounting never uses it.
+pub const COMPATIBILITY_BALANCE: U256 =
+    alloy_primitives::uint!(0x9612084f0316e0ebd5182f398e5195a51b5ca47667d4c9b26c9b26c9b26c9b2_U256);
 
 /// trait interface for a custom rpc namespace: `seismic`
 ///
@@ -165,28 +169,45 @@ pub trait EthApiOverride<B: RpcObject> {
         state_override: Option<StateOverride>,
     ) -> RpcResult<U256>;
 
-    /// Returns the balance of an account. Defaults to the native balance (standard behavior).
-    /// Pass `include_gas_token = true` to instead return the Seismic effective balance
-    /// `max(native, usdc·10^12)`, which accounts for the USDC stablecoin accepted as gas.
+    /// Returns [`COMPATIBILITY_BALANCE`] unless `native = true`, which selects the actual
+    /// public native balance. Omitted/null/false selects the constant without resolving state
+    /// (even for a syntactically valid nonexistent block). Neither mode reads USDC storage.
+    ///
+    /// Breaking change: positional `true` previously selected the USDC-inclusive effective
+    /// balance. It now selects native balance. The named `includeGasToken` option is rejected.
     #[method(name = "getBalance")]
     async fn get_balance(
         &self,
         address: Address,
         block_number: Option<BlockId>,
-        include_gas_token: Option<bool>,
+        native: Option<bool>,
     ) -> RpcResult<U256>;
 
-    /// Returns `{balance, nonce, code}` for an account. The `balance` field defaults to the
-    /// native balance (standard behavior). Pass `include_gas_token = true` to instead report
-    /// the Seismic effective balance `max(native, usdc·10^12)`, mirroring the opt-in on
-    /// `eth_getBalance`.
+    /// Returns the actual public native `{balance, nonce, code}` for an account.
+    /// Unlike default `eth_getBalance`, this resolves state and never returns a placeholder.
+    /// No third parameter or USDC balance lookup is supported.
     #[method(name = "getAccountInfo")]
-    async fn get_account_info(
-        &self,
-        address: Address,
-        block: BlockId,
-        include_gas_token: Option<bool>,
-    ) -> RpcResult<AccountInfo>;
+    async fn get_account_info(&self, address: Address, block: BlockId) -> RpcResult<AccountInfo>;
+}
+
+// Serde's struct deserializer accepts both positional arrays and named objects. Unlike
+// jsonrpsee's generated parsing, it checks the entire sequence length (including extra nulls).
+// Defaults allow omitted trailing optional parameters; deny_unknown_fields makes maps strict.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BalanceParams {
+    address: Address,
+    #[serde(default, rename = "blockNumber", alias = "block_number")]
+    block_number: Option<BlockId>,
+    #[serde(default)]
+    native: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AccountInfoParams {
+    address: Address,
+    block: BlockId,
 }
 
 /// Implementation of the `eth_` namespace override
@@ -217,26 +238,26 @@ impl<Eth> EthApiExt<Eth> {
         })
     }
 
-    /// Spawns a blocking task computing the effective balance, max(native, usdc·10^12), for
-    /// `address` at `block_id` (latest if `None`).
+    /// Builds strict wire handlers for the two balance endpoints.
     ///
-    /// Kept out of the `#[async_trait]` handler bodies: rustc ≤1.91 (MSRV is 1.88) fails to
-    /// infer the type of the closure-returning-async-block passed to `spawn_blocking_io_fut`
-    /// inside the macro-desugared bodies (E0308), while this plain `impl Future` method — the
-    /// same shape as the `EthState` overrides in `mod.rs` — compiles on all toolchains.
-    fn spawn_effective_balance(
-        &self,
-        address: Address,
-        block_id: Option<BlockId>,
-        native: U256,
-    ) -> impl Future<Output = Result<U256, Eth::Error>> + Send + use<'_, Eth>
+    /// Install these with `replace_configured` **after** the generated `into_rpc()` module.
+    /// jsonrpsee's generated server handlers ignore extra positional and unknown named
+    /// parameters, so validation inside the typed trait methods alone is not sufficient.
+    pub fn into_balance_rpc(self) -> Result<RpcModule<Self>, RegisterMethodError>
     where
-        Eth: FullEthApi,
+        Eth: EthApiTypes,
+        Self: EthApiOverrideServer<RpcBlock<Eth::NetworkTypes>>,
     {
-        self.eth_api.spawn_blocking_io_fut(move |this| async move {
-            let state = this.state_at_block_id_or_latest(block_id).await?;
-            Ok(effective_balance(&*state, &address, native))
-        })
+        let mut module = RpcModule::new(self);
+        module.register_async_method("eth_getBalance", |params, api, _| async move {
+            let BalanceParams { address, block_number, native } = params.parse()?;
+            api.get_balance(address, block_number, native).await
+        })?;
+        module.register_async_method("eth_getAccountInfo", |params, api, _| async move {
+            let AccountInfoParams { address, block } = params.parse()?;
+            api.get_account_info(address, block).await
+        })?;
+        Ok(module)
     }
 
     /// Re-encrypts the output bytes of a reverted call for a signed-read caller.
@@ -713,38 +734,21 @@ where
         &self,
         address: Address,
         block_number: Option<BlockId>,
-        include_gas_token: Option<bool>,
+        native: Option<bool>,
     ) -> RpcResult<U256> {
-        debug!(target: "reth-seismic-rpc::eth", ?block_number, ?include_gas_token, "Serving seismic eth_getBalance extension");
+        debug!(target: "reth-seismic-rpc::eth", ?block_number, ?native, "Serving seismic eth_getBalance extension");
 
-        // Default: native balance, matching standard eth_getBalance.
-        let native = EthState::balance(&self.eth_api, address, block_number).await?;
-        if include_gas_token != Some(true) {
-            return Ok(native);
+        // Return before any state resolution, including pending block construction or header
+        // lookups. Address and block syntax have already been validated by deserialization.
+        if native != Some(true) {
+            return Ok(COMPATIBILITY_BALANCE);
         }
-
-        // Opt-in: effective balance, max(native, usdc·10^12).
-        Ok(self.spawn_effective_balance(address, block_number, native).await?)
+        Ok(EthState::balance(&self.eth_api, address, block_number).await?)
     }
 
-    async fn get_account_info(
-        &self,
-        address: Address,
-        block: BlockId,
-        include_gas_token: Option<bool>,
-    ) -> RpcResult<AccountInfo> {
-        debug!(target: "reth-seismic-rpc::eth", ?block, ?include_gas_token, "Serving seismic eth_getAccountInfo extension");
-
-        // Default: native balance, matching standard eth_getAccountInfo and eth_getBalance.
-        let mut info = EthState::get_account_info(&self.eth_api, address, block).await?;
-        if include_gas_token != Some(true) {
-            return Ok(info);
-        }
-
-        // Opt-in: report the effective balance, max(native, usdc·10^12), in the balance field.
-        let native = info.balance;
-        info.balance = self.spawn_effective_balance(address, Some(block), native).await?;
-        Ok(info)
+    async fn get_account_info(&self, address: Address, block: BlockId) -> RpcResult<AccountInfo> {
+        debug!(target: "reth-seismic-rpc::eth", ?block, "Serving seismic eth_getAccountInfo extension");
+        Ok(EthState::get_account_info(&self.eth_api, address, block).await?)
     }
 }
 
@@ -764,4 +768,96 @@ pub fn ext_encryption_error(e_str: String) -> EthApiError {
         "Error Encrypting in Seismic EthApiExt",
         Some(e_str),
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jsonrpsee::types::Params;
+
+    const ADDRESS: &str = "0x0000000000000000000000000000000000000001";
+
+    #[test]
+    fn balance_params_accept_positional_and_named_forms() -> RpcResult<()> {
+        for raw in [
+            format!(r#"["{ADDRESS}"]"#),
+            format!(r#"["{ADDRESS}",null]"#),
+            format!(r#"["{ADDRESS}",null,null]"#),
+            format!(r#"{{"address":"{ADDRESS}"}}"#),
+            format!(r#"{{"address":"{ADDRESS}","blockNumber":null,"native":null}}"#),
+        ] {
+            let parsed: BalanceParams = Params::new(Some(&raw)).parse()?;
+            assert_eq!(parsed.address, Address::with_last_byte(1));
+            assert_eq!(parsed.block_number, None);
+            assert_eq!(parsed.native, None);
+        }
+        for native in [false, true] {
+            for raw in [
+                format!(r#"["{ADDRESS}","latest",{native}]"#),
+                format!(r#"{{"address":"{ADDRESS}","blockNumber":"latest","native":{native}}}"#),
+                format!(r#"{{"address":"{ADDRESS}","block_number":"latest","native":{native}}}"#),
+            ] {
+                let parsed: BalanceParams = Params::new(Some(&raw)).parse()?;
+                assert_eq!(parsed.block_number, Some(BlockId::latest()));
+                assert_eq!(parsed.native, Some(native));
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn balance_params_reject_unknown_fields_types_and_all_extra_elements() {
+        for raw in [
+            "[]".to_string(),
+            "null".to_string(),
+            "{}".to_string(),
+            r#"["0x1234","latest"]"#.to_string(),
+            r#"[null,"latest"]"#.to_string(),
+            format!(r#"["{ADDRESS}","not-a-block"]"#),
+            format!(r#"["{ADDRESS}",true]"#),
+            format!(r#"["{ADDRESS}","latest",0]"#),
+            format!(r#"["{ADDRESS}","latest","true"]"#),
+            format!(r#"["{ADDRESS}","latest",{{"native":true}}]"#),
+            format!(r#"["{ADDRESS}","latest",false,null]"#),
+            format!(r#"["{ADDRESS}","latest",null,null,true]"#),
+            format!(r#"["{ADDRESS}","latest",true,false]"#),
+            format!(r#"{{"address":"{ADDRESS}","includeGasToken":true}}"#),
+            format!(r#"{{"address":"{ADDRESS}","include_gas_token":false}}"#),
+            format!(r#"{{"address":"{ADDRESS}","unknown":null}}"#),
+            format!(r#"{{"address":"{ADDRESS}","native":0}}"#),
+            format!(r#"{{"address":"{ADDRESS}","native":false,"native":true}}"#),
+            format!(r#"{{"address":"{ADDRESS}","blockNumber":"latest","block_number":"pending"}}"#),
+        ] {
+            let parsed = Params::new(Some(&raw)).parse::<BalanceParams>();
+            assert_eq!(parsed.err().map(|err| err.code()), Some(-32602), "{raw}");
+        }
+    }
+
+    #[test]
+    fn account_info_params_require_exactly_address_and_block() -> RpcResult<()> {
+        for raw in [
+            format!(r#"["{ADDRESS}","latest"]"#),
+            format!(r#"{{"address":"{ADDRESS}","block":"latest"}}"#),
+        ] {
+            let parsed: AccountInfoParams = Params::new(Some(&raw)).parse()?;
+            assert_eq!(parsed.address, Address::with_last_byte(1));
+            assert_eq!(parsed.block, BlockId::latest());
+        }
+        for raw in [
+            format!(r#"["{ADDRESS}"]"#),
+            format!(r#"["{ADDRESS}",null]"#),
+            format!(r#"["{ADDRESS}","latest",null]"#),
+            format!(r#"["{ADDRESS}","latest",null,true]"#),
+            format!(r#"["{ADDRESS}","latest",false]"#),
+            format!(r#"["{ADDRESS}","latest",true]"#),
+            format!(r#"{{"address":"{ADDRESS}","block":"latest","native":true}}"#),
+            format!(r#"{{"address":"{ADDRESS}","block":"latest","includeGasToken":null}}"#),
+            format!(r#"{{"address":"{ADDRESS}","block":"latest","include_gas_token":true}}"#),
+            format!(r#"{{"address":"{ADDRESS}","block":"latest","unknown":false}}"#),
+        ] {
+            let parsed = Params::new(Some(&raw)).parse::<AccountInfoParams>();
+            assert_eq!(parsed.err().map(|err| err.code()), Some(-32602), "{raw}");
+        }
+        Ok(())
+    }
 }
