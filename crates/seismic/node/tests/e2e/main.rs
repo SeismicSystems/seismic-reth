@@ -1,5 +1,6 @@
 #![allow(missing_docs, clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 
+mod balance;
 mod fuzz;
 mod hardfork_config;
 mod integration;
@@ -10,6 +11,7 @@ mod pending_block;
 // roots. Currently broken from stable coin gas update not burning gas
 mod signed_read_import;
 mod testsuite;
+mod txtype;
 mod wrong_chain_import;
 
 const fn main() {}

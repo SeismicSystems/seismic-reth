@@ -11,7 +11,7 @@ use reth_seismic_primitives::{
 };
 use reth_storage_api::BlockNumReader;
 use seismic_alloy_consensus::{
-    Decodable712, SeismicTxEnvelope, TxSeismicElements, TypedDataRequest,
+    Decodable712, SeismicTxEnvelope, TxSeismicElements, TypedDataRequest, SEISMIC_TX_TYPE_ID,
 };
 use seismic_alloy_network::{SeismicReth, TransactionBuilder};
 use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
@@ -32,6 +32,7 @@ pub const fn seismic_override_call_request(request: &mut SeismicTransactionReque
     request.inner.max_priority_fee_per_gas = None; // preventing InsufficientFunds error
     request.inner.max_fee_per_blob_gas = None; // preventing InsufficientFunds error
     request.inner.value = None; // preventing InsufficientFunds error
+    request.inner.transaction_type = None; // don't let a plain call spoof the Seismic tx type
     request.seismic_elements = None; // zero out seismic elements
 }
 
@@ -203,9 +204,11 @@ where
             validate_seismic_freshness(elements, provider)?;
 
             let sender = parse_request_sender(request)?;
-            request
+            let mut plaintext = request
                 .plaintext_copy(secret_key, sender)
-                .map_err(|e| ext_decryption_error(e.to_string()))
+                .map_err(|e| ext_decryption_error(e.to_string()))?;
+            plaintext.inner.transaction_type = Some(SEISMIC_TX_TYPE_ID);
+            Ok(plaintext)
         }
     }
 }
@@ -241,7 +244,11 @@ where
         return Err(seismic_recent_block_hash_error(elements.recent_block_hash));
     }
 
-    if current.saturating_sub(block_num) > SEISMIC_TX_RECENT_BLOCK_LOOKBACK {
+    // Reject anchors above the sampled tip instead of treating them as zero blocks old.
+    let Some(age) = current.checked_sub(block_num) else {
+        return Err(seismic_recent_block_hash_error(elements.recent_block_hash));
+    };
+    if age > SEISMIC_TX_RECENT_BLOCK_LOOKBACK {
         return Err(seismic_recent_block_hash_error(elements.recent_block_hash));
     }
 
@@ -292,7 +299,7 @@ mod test {
     use reth_seismic_test_utils::{get_seismic_tx, get_signing_private_key, sign_seismic_tx};
     use secp256k1::PublicKey;
     use seismic_alloy_consensus::{
-        SeismicTxEnvelope, TxSeismic, TxSeismicElements, TypedDataRequest,
+        SeismicTxEnvelope, TxSeismic, TxSeismicElements, TypedDataRequest, SEISMIC_TX_TYPE_ID,
     };
     use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
     use std::str::FromStr;
@@ -322,6 +329,7 @@ mod test {
                 max_priority_fee_per_gas: Some(50),
                 max_fee_per_blob_gas: Some(10),
                 value: Some(U256::from(1_000u64)),
+                transaction_type: Some(SEISMIC_TX_TYPE_ID),
                 ..Default::default()
             },
             seismic_elements,
@@ -335,6 +343,7 @@ mod test {
         assert_eq!(req.inner.max_priority_fee_per_gas, None);
         assert_eq!(req.inner.max_fee_per_blob_gas, None);
         assert_eq!(req.inner.value, None);
+        assert_eq!(req.inner.transaction_type, None, "tx type must be cleared to block spoofing");
         assert!(req.seismic_elements.is_none());
     }
 
@@ -554,6 +563,8 @@ mod test {
             canonical: Mutex<HashMap<u64, B256>>,
             headers: Mutex<HashMap<B256, u64>>,
             best: Mutex<Option<u64>>,
+            /// Import a block immediately after sampling the tip, before the next lookup.
+            advance_after_tip_read: Mutex<Option<(u64, B256)>>,
         }
 
         impl MockProvider {
@@ -592,7 +603,11 @@ mod test {
             }
 
             fn best_block_number(&self) -> ProviderResult<u64> {
-                self.best.lock().unwrap().ok_or(ProviderError::BestBlockNotFound)
+                let sampled = self.best.lock().unwrap().ok_or(ProviderError::BestBlockNotFound)?;
+                if let Some((number, hash)) = self.advance_after_tip_read.lock().unwrap().take() {
+                    self.add_canonical(number, hash);
+                }
+                Ok(sampled)
             }
 
             fn last_block_number(&self) -> ProviderResult<u64> {
@@ -645,6 +660,30 @@ mod test {
             provider.add_canonical(100, h);
 
             assert!(validate_seismic_freshness(&elements(h, 100), &provider).is_ok());
+        }
+
+        #[test]
+        fn rejects_freshness_valid_only_across_mixed_chain_views() {
+            let provider = MockProvider::default();
+            provider.add_canonical(100, hash(1));
+            let anchor = hash(2);
+            let request = elements(anchor, 100);
+
+            // At tip 100 the anchor is unknown, so the request is invalid.
+            assert!(validate_seismic_freshness(&request, &provider).is_err());
+
+            // Deterministically import block 101 after the validator samples tip 100.
+            // Its later anchor lookups now see block 101, without sleeps or threads.
+            *provider.advance_after_tip_read.lock().unwrap() = Some((101, anchor));
+            let result = validate_seismic_freshness(&request, &provider);
+
+            // At tip 101 the anchor is canonical, but the request has expired.
+            assert_eq!(provider.block_hash(101).unwrap(), Some(anchor));
+            assert!(validate_seismic_freshness(&request, &provider).is_err());
+
+            // No coherent chain view accepts this request. Mixing the old expiry check
+            // with the new anchor lookup must not turn two failures into a success.
+            assert!(result.is_err(), "mixed chain views accepted an invalid request: {result:?}");
         }
 
         #[test]
