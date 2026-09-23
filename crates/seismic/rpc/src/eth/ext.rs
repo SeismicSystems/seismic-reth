@@ -369,7 +369,14 @@ where
 {
     /// Handler for: `eth_signTypedData_v4`
     ///
-    /// TODO: determine if this should be removed, seems the same as eth functionality
+    /// Not a duplicate of the standard `eth_signTypedData` reth already exposes: its trait
+    /// definition in `reth_rpc_eth_api::core` registers the RPC method under the un-suffixed
+    /// name (`#[method(name = "signTypedData")]`) and returns raw `Bytes`. This handler adds
+    /// the `_v4`-suffixed name, hex-encoded as a `0x`-prefixed `String`, because that's the
+    /// method name and response shape real wallets and dapp libraries call for EIP-712 signing
+    /// — MetaMask's docs recommend `eth_signTypedData_v4` specifically, and seismic-alloy's own
+    /// README documents `.eip712()` as existing for "browser wallet compatibility (MetaMask)".
+    /// Without this, the node wouldn't answer `eth_signTypedData_v4` at all.
     async fn sign_typed_data_v4(&self, from: Address, data: TypedData) -> RpcResult<String> {
         debug!(target: "reth-seismic-rpc::eth", "Serving seismic eth_signTypedData_v4 extension");
         let signature = EthTransactions::sign_typed_data(&self.eth_api, &data, from)
