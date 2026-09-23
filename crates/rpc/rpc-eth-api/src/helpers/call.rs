@@ -134,14 +134,17 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
             let this = self.clone();
             self.spawn_with_state_at_block(block, move |state| {
+                // One isolated config for the whole request, including every simulated
+                // block's EVM and block executor. A database overlay alone does not
+                // isolate shared execution state such as the purpose-key schedule.
+                let evm_config = this.evm_config().snapshot_for_simulation();
                 let mut db =
                     State::builder().with_database(StateProviderDatabase::new(state)).build();
                 let mut blocks = Vec::<
                     simulate::SimulatedBlockExecution<Self::Primitives, HaltReasonFor<Self::Evm>>,
                 >::with_capacity(block_state_calls.len());
                 for block in block_state_calls {
-                    let mut evm_env = this
-                        .evm_config()
+                    let mut evm_env = evm_config
                         .next_evm_env(&parent, &this.next_env_attributes(&parent)?)
                         .map_err(RethError::other)
                         .map_err(Self::Error::from_eth_err)?;
@@ -200,17 +203,15 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                         }
                     };
 
-                    let ctx = this
-                        .evm_config()
+                    let ctx = evm_config
                         .context_for_next_block(&parent, this.next_env_attributes(&parent)?);
                     let (result, results) = if trace_transfers {
                         // prepare inspector to capture transfer inside the evm so they are recorded
                         // and included in logs
                         let inspector = TransferInspector::new(false).with_logs(true);
-                        let evm = this
-                            .evm_config()
-                            .evm_with_env_and_inspector(&mut db, evm_env, inspector);
-                        let builder = this.evm_config().create_block_builder(evm, &parent, ctx);
+                        let evm =
+                            evm_config.evm_with_env_and_inspector(&mut db, evm_env, inspector);
+                        let builder = evm_config.create_block_builder(evm, &parent, ctx);
                         simulate::execute_transactions(
                             builder,
                             calls,
@@ -219,8 +220,8 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                             this.tx_resp_builder(),
                         )?
                     } else {
-                        let evm = this.evm_config().evm_with_env(&mut db, evm_env);
-                        let builder = this.evm_config().create_block_builder(evm, &parent, ctx);
+                        let evm = evm_config.evm_with_env(&mut db, evm_env);
+                        let builder = evm_config.create_block_builder(evm, &parent, ctx);
                         simulate::execute_transactions(
                             builder,
                             calls,
@@ -343,6 +344,7 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
             let this = self.clone();
             self.spawn_with_state_at_block(at.into(), move |state| {
+                let evm_config = this.evm_config().snapshot_for_simulation();
                 let mut all_results = Vec::with_capacity(bundles.len());
                 let mut db = CacheDB::new(StateProviderDatabase::new(state));
 
@@ -351,8 +353,11 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
                     // to be replayed
                     let block_transactions = block.transactions_recovered().take(num_txs);
                     for tx in block_transactions {
-                        let tx_env = RpcNodeCore::evm_config(&this).tx_env(tx);
-                        let res = this.transact(&mut db, evm_env.clone(), tx_env)?;
+                        let tx_env = evm_config.tx_env(tx);
+                        let res = evm_config
+                            .evm_with_env(&mut db, evm_env.clone())
+                            .transact(tx_env)
+                            .map_err(Self::Error::from_evm_err)?;
                         db.commit(res.state);
                     }
                 }
@@ -377,7 +382,10 @@ pub trait EthCall: EstimateCall + Call + LoadPendingBlock + LoadBlock + FullEthA
 
                         let (current_evm_env, prepared_tx) =
                             this.prepare_call_env(evm_env.clone(), tx, &mut db, overrides)?;
-                        let res = this.transact(&mut db, current_evm_env, prepared_tx)?;
+                        let res = evm_config
+                            .evm_with_env(&mut db, current_evm_env)
+                            .transact(prepared_tx)
+                            .map_err(Self::Error::from_evm_err)?;
 
                         bundle_results.push(ensure_success::<_, Self::Error>(res.result));
 
@@ -566,7 +574,8 @@ pub trait Call:
     where
         DB: Database<Error = ProviderError> + fmt::Debug,
     {
-        let mut evm = self.evm_config().evm_with_env(db, evm_env);
+        let evm_config = self.evm_config().snapshot_for_simulation();
+        let mut evm = evm_config.evm_with_env(db, evm_env);
         let res = evm.transact(tx_env).map_err(Self::Error::from_evm_err)?;
 
         Ok(res)
@@ -585,7 +594,8 @@ pub trait Call:
         DB: Database<Error = ProviderError> + fmt::Debug,
         I: InspectorFor<Self::Evm, DB>,
     {
-        let mut evm = self.evm_config().evm_with_env_and_inspector(db, evm_env, inspector);
+        let evm_config = self.evm_config().snapshot_for_simulation();
+        let mut evm = evm_config.evm_with_env_and_inspector(db, evm_env, inspector);
         let res = evm.transact(tx_env).map_err(Self::Error::from_evm_err)?;
 
         Ok(res)
@@ -747,7 +757,8 @@ pub trait Call:
         DB: Database<Error = ProviderError> + DatabaseCommit + core::fmt::Debug,
         I: IntoIterator<Item = Recovered<&'a ProviderTx<Self::Provider>>>,
     {
-        let mut evm = self.evm_config().evm_with_env(db, evm_env);
+        let evm_config = self.evm_config().snapshot_for_simulation();
+        let mut evm = evm_config.evm_with_env(db, evm_env);
         let mut index = 0;
         for tx in transactions {
             if *tx.tx_hash() == target_tx_hash {
@@ -755,7 +766,7 @@ pub trait Call:
                 break;
             }
 
-            let tx_env = self.evm_config().tx_env(tx);
+            let tx_env = evm_config.tx_env(tx);
             evm.transact_commit(tx_env).map_err(Self::Error::from_evm_err)?;
             index += 1;
         }

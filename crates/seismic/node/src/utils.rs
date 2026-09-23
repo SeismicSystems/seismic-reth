@@ -5,7 +5,7 @@
 /// E2E test helpers: node setup, chain advancement, payload attributes.
 #[cfg(feature = "test-utils")]
 pub mod e2e {
-    use crate::{node::SeismicNode, purpose_keys::init_purpose_keys};
+    use crate::{node::SeismicNode, purpose_keys::init_purpose_keyring};
     use alloy_primitives::{Address, B256};
     use alloy_rpc_types_engine::PayloadAttributes;
     use alloy_seismic_evm::PurposeKeys;
@@ -16,6 +16,7 @@ pub mod e2e {
     use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
     use reth_provider::providers::BlockchainProvider;
     use reth_seismic_chainspec::SEISMIC_DEV;
+    use reth_seismic_keys::PurposeKeyring;
     use reth_seismic_primitives::SeismicPrimitives;
     use reth_tasks::TaskManager;
     use std::sync::{Arc, Once};
@@ -26,10 +27,10 @@ pub mod e2e {
 
     static INIT_KEYS: Once = Once::new();
 
-    /// Initializes mock purpose keys for tests. Safe to call multiple times.
+    /// Initializes a mock purpose keyring for tests. Safe to call multiple times.
     pub fn ensure_mock_purpose_keys() {
         INIT_KEYS.call_once(|| {
-            init_purpose_keys(PurposeKeys::well_known());
+            init_purpose_keyring(Arc::new(PurposeKeyring::single_epoch(PurposeKeys::well_known())));
         });
     }
 

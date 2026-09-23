@@ -788,6 +788,25 @@ async fn test_get_canonical_blocks_to_persist() {
 }
 
 #[tokio::test]
+async fn retryable_payload_is_syncing_not_invalid_and_can_be_retried() {
+    let mut harness = TestHarness::new(MAINNET.clone());
+    let block = Block::default().seal_slow();
+    let hash = block.hash();
+    for _ in 0..2 {
+        let error = InsertBlockError::new(
+            block.clone(),
+            error::InsertBlockErrorKind::Execution(reth_errors::BlockExecutionError::retryable(
+                std::io::Error::other("purpose keys unavailable"),
+            )),
+        );
+        let status = harness.tree.on_insert_block_error(error).unwrap();
+        assert!(matches!(status.status, PayloadStatusEnum::Syncing));
+        assert_eq!(status.latest_valid_hash, None);
+        assert!(harness.tree.state.invalid_headers.get(&hash).is_none());
+    }
+}
+
+#[tokio::test]
 async fn test_engine_tree_fcu_missing_head() {
     let chain_spec = MAINNET.clone();
     let mut test_harness = TestHarness::new(chain_spec.clone());

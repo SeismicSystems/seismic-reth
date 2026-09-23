@@ -15,6 +15,7 @@ alloy-seismic-evm.workspace = true
 seismic-custodian-ipc.workspace = true
 
 # seismic-reth
+reth-seismic-keys.workspace = true
 reth-seismic-payload-builder.workspace = true
 reth-seismic-evm.workspace = true
 reth-seismic-rpc.workspace = true
@@ -65,6 +66,10 @@ seismic-revm = { workspace = true }
 # misc
 serde.workspace = true
 eyre.workspace = true
+futures-util.workspace = true
+hkdf.workspace = true
+metrics.workspace = true
+sha2.workspace = true
 tracing.workspace = true
 
 # test-utils dependencies

@@ -209,6 +209,27 @@ pub trait ConfigureEvm: Clone + Debug + Send + Sync + Unpin {
         Block = BlockTy<Self::Primitives>,
     >;
 
+    /// Creates a request-local configuration for speculative execution.
+    ///
+    /// The default clone is sufficient for stateless configurations. Implementations
+    /// with mutable execution state shared with the live node must override this to
+    /// isolate that state. Use the returned configuration for every EVM and block
+    /// executor in a request, so simulated updates remain local to that request.
+    ///
+    /// Returning a configuration rather than `Self` also lets reference and `Arc`
+    /// wrappers forward to the underlying implementation without a shallow clone.
+    fn snapshot_for_simulation(
+        &self,
+    ) -> impl ConfigureEvm<
+        Primitives = Self::Primitives,
+        Error = Self::Error,
+        NextBlockEnvCtx = Self::NextBlockEnvCtx,
+        BlockExecutorFactory = Self::BlockExecutorFactory,
+        BlockAssembler = Self::BlockAssembler,
+    > {
+        self.clone()
+    }
+
     /// Returns reference to the configured [`BlockExecutorFactory`].
     fn block_executor_factory(&self) -> &Self::BlockExecutorFactory;
 

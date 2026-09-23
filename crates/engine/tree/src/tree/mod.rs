@@ -2650,6 +2650,15 @@ where
     ) -> Result<PayloadStatus, InsertBlockFatalError> {
         let (block, error) = error.split();
 
+        if matches!(&error, error::InsertBlockErrorKind::Execution(err) if err.is_retryable()) {
+            // Missing local key material is not evidence of an invalid payload.
+            // The fetcher is already notified by execution. Let the CL retry,
+            // without poisoning invalid_headers or terminating the engine.
+            warn!(target: "engine::tree", hash = %block.hash(), %error,
+                "Payload waiting for a local execution resource");
+            return Ok(PayloadStatus::new(PayloadStatusEnum::Syncing, None))
+        }
+
         // if invalid block, we check the validation error. Otherwise return the fatal
         // error.
         let validation_err = error.ensure_validation_error()?;

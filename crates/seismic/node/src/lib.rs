@@ -16,6 +16,7 @@ pub mod engine;
 pub mod keys_source;
 pub mod node;
 pub mod purpose_keys;
+pub mod rotation;
 pub use reth_seismic_txpool as txpool;
 pub mod utils;
 
@@ -26,10 +27,8 @@ pub use reth_seismic_evm::*;
 use reth_chainspec::ChainSpec;
 use std::sync::Arc;
 
-/// Creates a Seismic EVM configuration with the given chain spec and purpose keys.
-pub fn seismic_evm_config(
-    spec: Arc<ChainSpec>,
-    purpose_keys: &'static alloy_seismic_evm::PurposeKeys,
-) -> SeismicEvmConfig {
-    SeismicEvmConfig::new(spec, purpose_keys)
+/// Creates a Seismic EVM configuration with the given chain spec and the epoch-keyed
+/// purpose keyring.
+pub fn seismic_evm_config(spec: Arc<ChainSpec>, keyring: Arc<PurposeKeyring>) -> SeismicEvmConfig {
+    SeismicEvmConfig::new(spec, keyring)
 }
