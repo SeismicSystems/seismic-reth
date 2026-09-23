@@ -61,7 +61,7 @@ pub async fn launch_auth(secret: JwtSecret) -> AuthServerHandle {
 /// Launches a new server with http only with the given modules
 pub async fn launch_http(modules: impl Into<RpcModuleSelection>) -> RpcServerHandle {
     let builder = test_rpc_builder();
-    let eth_api = builder.bootstrap_eth_api();
+    let eth_api = builder.eth_api_builder().enable_storage_apis(true).build();
     let server = builder.build(TransportRpcModuleConfig::set_http(modules), eth_api);
     RpcServerConfig::http(Default::default())
         .with_http_address(test_address())
@@ -73,7 +73,7 @@ pub async fn launch_http(modules: impl Into<RpcModuleSelection>) -> RpcServerHan
 /// Launches a new server with ws only with the given modules
 pub async fn launch_ws(modules: impl Into<RpcModuleSelection>) -> RpcServerHandle {
     let builder = test_rpc_builder();
-    let eth_api = builder.bootstrap_eth_api();
+    let eth_api = builder.eth_api_builder().enable_storage_apis(true).build();
     let server = builder.build(TransportRpcModuleConfig::set_ws(modules), eth_api);
     RpcServerConfig::ws(Default::default())
         .with_ws_address(test_address())
@@ -85,7 +85,7 @@ pub async fn launch_ws(modules: impl Into<RpcModuleSelection>) -> RpcServerHandl
 /// Launches a new server with http and ws and with the given modules
 pub async fn launch_http_ws(modules: impl Into<RpcModuleSelection>) -> RpcServerHandle {
     let builder = test_rpc_builder();
-    let eth_api = builder.bootstrap_eth_api();
+    let eth_api = builder.eth_api_builder().enable_storage_apis(true).build();
     let modules = modules.into();
     let server = builder
         .build(TransportRpcModuleConfig::set_ws(modules.clone()).with_http(modules), eth_api);
@@ -103,7 +103,7 @@ pub async fn launch_http_ws(modules: impl Into<RpcModuleSelection>) -> RpcServer
 pub async fn launch_http_ws_same_port(modules: impl Into<RpcModuleSelection>) -> RpcServerHandle {
     let builder = test_rpc_builder();
     let modules = modules.into();
-    let eth_api = builder.bootstrap_eth_api();
+    let eth_api = builder.eth_api_builder().enable_storage_apis(true).build();
     let server = builder
         .build(TransportRpcModuleConfig::set_ws(modules.clone()).with_http(modules), eth_api);
     let addr = test_address();

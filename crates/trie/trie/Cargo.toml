@@ -21,6 +21,7 @@ reth-trie-sparse.workspace = true
 reth-trie-common = { workspace = true, features = ["rayon"] }
 
 revm-database.workspace = true
+revm-state.workspace = true
 
 # alloy
 alloy-eips.workspace = true

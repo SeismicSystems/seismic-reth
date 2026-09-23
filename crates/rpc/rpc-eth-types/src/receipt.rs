@@ -97,8 +97,13 @@ where
         let mut receipts = Vec::with_capacity(inputs.len());
 
         for input in inputs {
+            let timestamp_seconds = if cfg!(feature = "timestamp-in-seconds") {
+                input.meta.timestamp
+            } else {
+                input.meta.timestamp / 1000
+            };
             let tx_type = input.receipt.tx_type;
-            let blob_params = self.chain_spec.blob_params_at_timestamp(input.meta.timestamp);
+            let blob_params = self.chain_spec.blob_params_at_timestamp(timestamp_seconds);
             receipts.push(build_receipt(&input, blob_params, |receipt_with_bloom| {
                 ReceiptEnvelope::from_typed(tx_type, receipt_with_bloom)
             }));

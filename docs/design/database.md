@@ -81,7 +81,7 @@ PlainAccountState {
 PlainStorageState {
     Address Account "PK"
     B256 StorageKey "PK"
-    U256 StorageValue
+    U256 FlaggedStorage
 }
 AccountsHistory {
     B256 Account "PK"

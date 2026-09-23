@@ -243,7 +243,8 @@ pub enum InvalidPoolTransactionError {
     #[error("transaction underpriced")]
     Underpriced,
     /// Thrown if the transaction's would require an account to be overdrawn
-    #[error("transaction overdraws from account, balance: {balance}, cost: {cost}")]
+    // The exact balance and cost are private; they must not appear in the message.
+    #[error("transaction overdraws from account")]
     Overdraft {
         /// Cost transaction is allowed to consume. See `reth_transaction_pool::PoolTransaction`.
         cost: U256,
@@ -320,6 +321,7 @@ impl InvalidPoolTransactionError {
                         // settings
                         false
                     }
+                    InvalidTransactionError::SeismicTx(_) => false,
                     InvalidTransactionError::OldLegacyChainId |
                     InvalidTransactionError::ChainIdMismatch |
                     InvalidTransactionError::GasUintOverflow |

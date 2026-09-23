@@ -110,7 +110,8 @@ pub trait EstimateCall: Call {
         tx_env.set_gas_limit(tx_env.gas_limit().min(highest_gas_limit));
 
         // Create EVM instance once and reuse it throughout the entire estimation process
-        let mut evm = self.evm_config().evm_with_env(&mut db, evm_env);
+        let evm_config = self.evm_config().snapshot_for_simulation();
+        let mut evm = evm_config.evm_with_env(&mut db, evm_env);
 
         // For basic transfers, try using minimum gas before running full binary search
         if is_basic_transfer {
@@ -130,7 +131,11 @@ pub trait EstimateCall: Call {
             }
         }
 
-        trace!(target: "rpc::eth::estimate", ?tx_env, gas_limit = tx_env.gas_limit(), is_basic_transfer, "Starting gas estimation");
+        trace!(
+            target: "rpc::eth::estimate",
+            is_basic_transfer,
+            "Starting gas estimation"
+        );
 
         // Execute the transaction with the highest possible gas limit.
         let mut res = match evm.transact(tx_env.clone()).map_err(Self::Error::from_evm_err) {

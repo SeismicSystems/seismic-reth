@@ -48,9 +48,9 @@ where
                             target: "engine::stream::skip_new_payload",
                             block_number = payload.block_number(),
                             block_hash = %payload.block_hash(),
-                            ?payload,
-                            threshold=this.threshold,
-                            skipped=this.skipped, "Skipping new payload"
+                            threshold = this.threshold,
+                            skipped = this.skipped,
+                            "Skipping new payload"
                         );
                         let _ = tx.send(Ok(PayloadStatus::from_status(PayloadStatusEnum::Syncing)));
                         continue

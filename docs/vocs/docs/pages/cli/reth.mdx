@@ -1,12 +1,13 @@
 # reth
 
-Reth
+Seismic Reth
 
 ```bash
-$ reth --help
+$ seismic-reth --help
 ```
+
 ```txt
-Usage: reth [OPTIONS] <COMMAND>
+Usage: seismic-reth [OPTIONS] <COMMAND>
 
 Commands:
   node          Start the node

@@ -3,17 +3,18 @@ use std::{collections::BTreeMap, fmt::Debug, sync::Arc};
 use crate::mock::{KeyVisit, KeyVisitType};
 
 use super::{HashedCursor, HashedCursorFactory, HashedStorageCursor};
-use alloy_primitives::{map::B256Map, B256, U256};
+use alloy_primitives::{map::B256Map, B256};
 use parking_lot::{Mutex, MutexGuard};
 use reth_primitives_traits::Account;
 use reth_storage_errors::db::DatabaseError;
+use revm_state::FlaggedStorage;
 use tracing::instrument;
 
 /// Mock hashed cursor factory.
 #[derive(Clone, Default, Debug)]
 pub struct MockHashedCursorFactory {
     hashed_accounts: Arc<BTreeMap<B256, Account>>,
-    hashed_storage_tries: B256Map<Arc<BTreeMap<B256, U256>>>,
+    hashed_storage_tries: B256Map<Arc<BTreeMap<B256, FlaggedStorage>>>,
 
     /// List of keys that the hashed accounts cursor has visited.
     visited_account_keys: Arc<Mutex<Vec<KeyVisit<B256>>>>,
@@ -25,7 +26,7 @@ impl MockHashedCursorFactory {
     /// Creates a new mock hashed cursor factory.
     pub fn new(
         hashed_accounts: BTreeMap<B256, Account>,
-        hashed_storage_tries: B256Map<BTreeMap<B256, U256>>,
+        hashed_storage_tries: B256Map<BTreeMap<B256, FlaggedStorage>>,
     ) -> Self {
         let visited_storage_keys =
             hashed_storage_tries.keys().map(|k| (*k, Default::default())).collect();
@@ -56,7 +57,7 @@ impl MockHashedCursorFactory {
 
 impl HashedCursorFactory for MockHashedCursorFactory {
     type AccountCursor = MockHashedCursor<Account>;
-    type StorageCursor = MockHashedCursor<U256>;
+    type StorageCursor = MockHashedCursor<FlaggedStorage>;
 
     fn hashed_account_cursor(&self) -> Result<Self::AccountCursor, DatabaseError> {
         Ok(MockHashedCursor::new(self.hashed_accounts.clone(), self.visited_account_keys.clone()))

@@ -1,0 +1,121 @@
+# Claude Code PR Review
+#
+# Runs Claude in agent mode to review PRs, then posts the review as a
+# sticky comment (one comment, edited in-place on each push).
+#
+# The review guidelines live in the .claude/skills/pr-review/ skill,
+# which the prompt invokes as /pr-review. The same skill can be run
+# locally in any Claude Code session: `/pr-review <pr-number>`, or
+# `/pr-review` with no argument to review local changes before a PR.
+#
+# Agent mode doesn't post comments itself, so a post-step extracts
+# Claude's text output from the execution file and manages the comment.
+#
+# NOTE: Anthropic ships a managed alternative to this whole workflow —
+# https://code.claude.com/docs/en/code-review — multi-agent review with
+# a false-positive verification pass, inline comments by severity, and
+# customization via a repo-root REVIEW.md. Worth evaluating at some
+# point; keeping this simple self-hosted version for now.
+#
+# Requires: ANTHROPIC_API_KEY secret.
+
+name: Claude Code PR Review
+
+env:
+  CLAUDE_MODEL: claude-opus-4-8
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  claude:
+    if: >
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.draft == false &&
+       github.event.pull_request.user.login != 'dependabot[bot]' &&
+       !contains(github.head_ref, 'gh-readonly-queue/')) ||
+      (github.event_name == 'issue_comment' &&
+       contains(github.event.comment.body, '@claude') &&
+       github.event.issue.pull_request &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # On pull_request events the checkout is the PR merge ref, so a PR
+      # could edit its own review guidelines. Pin the review skill to the
+      # base branch's copy (skipped if the base doesn't have it yet, e.g.
+      # the PR that introduces the skill).
+      - name: Pin review skill to base branch
+        if: github.event_name == 'pull_request'
+        run: |
+          if git cat-file -e "origin/${{ github.base_ref }}:.claude/skills/pr-review/SKILL.md" 2>/dev/null; then
+            git checkout "origin/${{ github.base_ref }}" -- .claude/skills/pr-review/
+          fi
+
+      - uses: anthropics/claude-code-action@v1
+        id: claude
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: |
+            --model ${{ env.CLAUDE_MODEL }}
+            --allowedTools "Read,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
+          prompt: "/pr-review ${{ env.PR_NUMBER }}"
+
+      - name: Post review comment
+        if: always() && steps.claude.outputs.execution_file
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          set -euo pipefail
+
+          # Extract the last assistant text block from the execution JSON.
+          # The file is an array of turns. We want only the final assistant
+          # message's text (the review), not earlier conversational turns.
+          REVIEW=$(jq -r '
+            [.[] | select(.type == "assistant")] | last
+            | .message.content[]? | select(.type == "text") | .text
+          ' "$EXECUTION_FILE")
+
+          if [ -z "$REVIEW" ] || [ "$REVIEW" = "null" ]; then
+            echo "No review text found in execution output"
+            exit 0
+          fi
+
+          # Sticky comment: find existing review comment and update it,
+          # or create a new one. We use a hidden marker to identify our comments.
+          MARKER="<!-- claude-pr-review -->"
+          BODY="$(printf '%s\n%s' "$MARKER" "$REVIEW")"
+
+          # Search for existing comment with our marker
+          COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments" \
+            --jq "[.[] | select(.user.login == \"github-actions[bot]\") | select(.body | contains(\"$MARKER\")) | .id] | first // empty")
+
+          if [ -n "$COMMENT_ID" ]; then
+            echo "Updating existing review comment $COMMENT_ID"
+            gh api "repos/${{ github.repository }}/issues/comments/$COMMENT_ID" \
+              -X PATCH -f body="$BODY"
+          else
+            echo "Creating new review comment"
+            gh api "repos/${{ github.repository }}/issues/${{ env.PR_NUMBER }}/comments" \
+              -f body="$BODY"
+          fi

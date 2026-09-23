@@ -278,7 +278,7 @@ impl NetworkArgs {
             // apply discovery settings
             .apply(|builder| {
                 let rlpx_socket = (addr, self.port).into();
-                self.discovery.apply_to_builder(builder, rlpx_socket, chain_bootnodes)
+                self.discovery.apply_to_builder(builder, rlpx_socket, chain_bootnodes, self.nat)
             })
             .listener_addr(SocketAddr::new(
                 addr, // set discovery port based on instance number
@@ -444,6 +444,7 @@ impl DiscoveryArgs {
         mut network_config_builder: NetworkConfigBuilder<N>,
         rlpx_tcp_socket: SocketAddr,
         boot_nodes: impl IntoIterator<Item = NodeRecord>,
+        nat: NatResolver,
     ) -> NetworkConfigBuilder<N>
     where
         N: NetworkPrimitives,
@@ -463,7 +464,7 @@ impl DiscoveryArgs {
 
         if self.should_enable_discv5() {
             network_config_builder = network_config_builder
-                .discovery_v5(self.discovery_v5_builder(rlpx_tcp_socket, boot_nodes));
+                .discovery_v5(self.discovery_v5_builder(rlpx_tcp_socket, boot_nodes, nat));
         }
 
         network_config_builder
@@ -474,6 +475,7 @@ impl DiscoveryArgs {
         &self,
         rlpx_tcp_socket: SocketAddr,
         boot_nodes: impl IntoIterator<Item = NodeRecord>,
+        nat: NatResolver,
     ) -> reth_discv5::ConfigBuilder {
         let Self {
             discv5_addr,
@@ -508,6 +510,7 @@ impl DiscoveryArgs {
             .lookup_interval(*discv5_lookup_interval)
             .bootstrap_lookup_interval(*discv5_bootstrap_lookup_interval)
             .bootstrap_lookup_countdown(*discv5_bootstrap_lookup_countdown)
+            .nat(nat)
     }
 
     /// Returns true if discv5 discovery should be configured

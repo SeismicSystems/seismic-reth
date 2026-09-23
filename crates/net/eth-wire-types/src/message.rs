@@ -100,16 +100,12 @@ impl<N: NetworkPrimitives> ProtocolMessage<N> {
                 EthMessage::PooledTransactions(RequestPair::decode(buf)?)
             }
             EthMessageID::GetNodeData => {
-                if version >= EthVersion::Eth67 {
-                    return Err(MessageError::Invalid(version, EthMessageID::GetNodeData))
-                }
-                EthMessage::GetNodeData(RequestPair::decode(buf)?)
+                // GetNodeData is disabled in all versions to prevent privacy leaks
+                return Err(MessageError::Invalid(version, EthMessageID::GetNodeData))
             }
             EthMessageID::NodeData => {
-                if version >= EthVersion::Eth67 {
-                    return Err(MessageError::Invalid(version, EthMessageID::GetNodeData))
-                }
-                EthMessage::NodeData(RequestPair::decode(buf)?)
+                // NodeData is disabled in all versions to prevent privacy leaks
+                return Err(MessageError::Invalid(version, EthMessageID::NodeData))
             }
             EthMessageID::GetReceipts => EthMessage::GetReceipts(RequestPair::decode(buf)?),
             EthMessageID::Receipts => {
@@ -684,6 +680,37 @@ mod tests {
             encode(ProtocolMessage { message_type: EthMessageID::NodeData, message: node_data });
         let msg = ProtocolMessage::<EthNetworkPrimitives>::decode_message(
             crate::EthVersion::Eth67,
+            &mut &buf[..],
+        );
+        assert!(matches!(msg, Err(MessageError::Invalid(..))));
+    }
+
+    #[test]
+    fn test_get_node_data_disabled_for_privacy() {
+        // Test that GetNodeData is rejected in ETH66 to prevent privacy leaks
+        let get_node_data = EthMessage::<EthNetworkPrimitives>::GetNodeData(RequestPair {
+            request_id: 1337,
+            message: GetNodeData(vec![]),
+        });
+        let buf = encode(ProtocolMessage {
+            message_type: EthMessageID::GetNodeData,
+            message: get_node_data,
+        });
+        let msg = ProtocolMessage::<EthNetworkPrimitives>::decode_message(
+            crate::EthVersion::Eth66,
+            &mut &buf[..],
+        );
+        assert!(matches!(msg, Err(MessageError::Invalid(..))));
+
+        // Test that NodeData is also rejected in ETH66
+        let node_data = EthMessage::<EthNetworkPrimitives>::NodeData(RequestPair {
+            request_id: 1337,
+            message: NodeData(vec![]),
+        });
+        let buf =
+            encode(ProtocolMessage { message_type: EthMessageID::NodeData, message: node_data });
+        let msg = ProtocolMessage::<EthNetworkPrimitives>::decode_message(
+            crate::EthVersion::Eth66,
             &mut &buf[..],
         );
         assert!(matches!(msg, Err(MessageError::Invalid(..))));

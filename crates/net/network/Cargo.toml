@@ -34,6 +34,9 @@ reth-consensus.workspace = true
 reth-network-peers = { workspace = true, features = ["net"] }
 reth-network-types.workspace = true
 
+# seismic
+seismic-alloy-consensus.workspace = true
+
 # ethereum
 alloy-consensus.workspace = true
 alloy-eips.workspace = true
@@ -123,6 +126,7 @@ serde = [
     "reth-network-api/serde",
     "rand_08/serde",
     "reth-storage-api/serde",
+    "seismic-alloy-consensus/serde",
 ]
 test-utils = [
     "reth-transaction-pool/test-utils",

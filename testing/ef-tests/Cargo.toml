@@ -13,9 +13,12 @@ workspace = true
 
 [features]
 ef-tests = []
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]
 asm-keccak = ["alloy-primitives/asm-keccak", "revm/asm-keccak"]
 
 [dependencies]
+seismic-alloy-genesis.workspace = true
+
 reth-chainspec.workspace = true
 reth-ethereum-primitives.workspace = true
 reth-primitives-traits.workspace = true

@@ -301,7 +301,8 @@ mod tests {
         prefix_set_mut.insert(Nibbles::from_nibbles([1, 2, 3])); // Duplicate
 
         assert_eq!(prefix_set_mut.keys.len(), 4); // Length should be 3 (including duplicate)
-        assert_eq!(prefix_set_mut.keys.capacity(), 101); // Capacity should be 101 (including duplicate)
+        assert_eq!(prefix_set_mut.keys.capacity(), 101); // Capacity should be 101 (including
+                                                         // duplicate)
 
         let mut prefix_set = prefix_set_mut.freeze();
         assert!(prefix_set.contains(&Nibbles::from_nibbles_unchecked([1, 2])));

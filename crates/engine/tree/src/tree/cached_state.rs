@@ -1,5 +1,5 @@
 //! Implements a state provider that has a shared cache in front of it.
-use alloy_primitives::{Address, StorageKey, StorageValue, B256};
+use alloy_primitives::{Address, StorageKey, B256};
 use metrics::Gauge;
 use mini_moka::sync::CacheBuilder;
 use reth_errors::ProviderResult;
@@ -17,6 +17,8 @@ use reth_trie::{
 use revm_primitives::map::DefaultHashBuilder;
 use std::time::Duration;
 use tracing::trace;
+
+use revm_state::FlaggedStorage as StorageValue;
 
 pub(crate) type Cache<K, V> =
     mini_moka::sync::Cache<K, V, alloy_primitives::map::DefaultHashBuilder>;
@@ -368,7 +370,10 @@ impl ProviderCaches {
             // error has occurred because this state should be unrepresentable. An account with
             // `None` current info, should be destroyed.
             let Some(ref account_info) = account.info else {
-                trace!(target: "engine::caching", ?account, "Account with None account info found in state updates");
+                trace!(
+                    target: "engine::caching",
+                    "Account with None account info found in state updates"
+                );
                 return Err(())
             };
 
@@ -658,7 +663,7 @@ mod tests {
         let mut rng = rand::rng();
 
         let key = StorageKey::random();
-        let value = StorageValue::from(rng.random::<u128>());
+        let value = StorageValue::public(rng.random::<u128>());
         let (first_slot, _) = measure_allocation(|| {
             cache.insert_storage(key, Some(value));
         });
@@ -668,7 +673,7 @@ mod tests {
         let (test_slots, _) = measure_allocation(|| {
             for _ in 0..TOTAL_SLOTS {
                 let key = StorageKey::random();
-                let value = StorageValue::from(rng.random::<u128>());
+                let value = StorageValue::public(rng.random::<u128>());
                 cache.insert_storage(key, Some(value));
             }
         });
@@ -708,8 +713,8 @@ mod tests {
         let address = Address::random();
         let storage_key = StorageKey::random();
         let storage_value = U256::from(1);
-        let account =
-            ExtendedAccount::new(0, U256::ZERO).extend_storage(vec![(storage_key, storage_value)]);
+        let account = ExtendedAccount::new(0, U256::ZERO)
+            .extend_storage(vec![(storage_key, storage_value.into())]);
 
         // note that we extend storage here with one value
         let provider = MockEthProvider::default();
@@ -722,7 +727,7 @@ mod tests {
         // check that the storage is empty
         let res = state_provider.storage(address, storage_key);
         assert!(res.is_ok());
-        assert_eq!(res.unwrap(), Some(storage_value));
+        assert_eq!(res.unwrap(), Some(storage_value.into()));
     }
 
     #[test]
@@ -734,11 +739,11 @@ mod tests {
 
         // insert into caches directly
         let caches = ProviderCacheBuilder::default().build_caches(1000);
-        caches.insert_storage(address, storage_key, Some(storage_value));
+        caches.insert_storage(address, storage_key, Some(storage_value.into()));
 
         // check that the storage is empty
         let slot_status = caches.get_storage(&address, &storage_key);
-        assert_eq!(slot_status, SlotStatus::Value(storage_value));
+        assert_eq!(slot_status, SlotStatus::Value(storage_value.into()));
     }
 
     #[test]

@@ -60,6 +60,8 @@ impl PendingBlockKind {
 /// Additional config values for the eth namespace.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct EthConfig {
+    /// Whether to enable the storage APIs.
+    pub enable_storage_apis: bool,
     /// Settings for the caching layer
     pub cache: EthStateCacheConfig,
     /// Settings for the gas price oracle
@@ -123,11 +125,18 @@ impl Default for EthConfig {
             max_batch_size: 1,
             pending_block_kind: PendingBlockKind::Full,
             raw_tx_forwarder: ForwardConfig::default(),
+            enable_storage_apis: false,
         }
     }
 }
 
 impl EthConfig {
+    /// Configures whether to enable the storage APIs.
+    pub const fn enable_storage_apis(mut self, enable_storage_apis: bool) -> Self {
+        self.enable_storage_apis = enable_storage_apis;
+        self
+    }
+
     /// Configures the caching layer settings
     pub const fn state_cache(mut self, cache: EthStateCacheConfig) -> Self {
         self.cache = cache;

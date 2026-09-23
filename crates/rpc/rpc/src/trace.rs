@@ -35,7 +35,14 @@ use revm::DatabaseCommit;
 use revm_inspectors::{
     opcode::OpcodeGasInspector,
     storage::StorageInspector,
-    tracing::{parity::populate_state_diff, TracingInspector, TracingInspectorConfig},
+    tracing::{
+        parity::populate_state_diff,
+        trace_sanitizer::{
+            sanitize_localized_transaction_trace, sanitize_trace_results,
+            sanitize_trace_results_with_hash,
+        },
+        TracingInspector, TracingInspectorConfig,
+    },
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -523,7 +530,7 @@ where
                     // If statediffs were requested, populate them with the account balance and
                     // nonce from pre-state
                     if let Some(ref mut state_diff) = full_trace.state_diff {
-                        populate_state_diff(state_diff, &ctx.db, ctx.state.iter())
+                        populate_state_diff(state_diff, &ctx.db, ctx.state.iter(), true)
                             .map_err(Eth::Error::from_eth_err)?;
                     }
 
@@ -608,6 +615,11 @@ where
     }
 }
 
+// Seismic: every handler that returns trace data calls a `sanitize_*` function from
+// `revm_inspectors::tracing::trace_sanitizer` before returning to the caller. This strips
+// calldata, return data, stack, memory, VM trace payloads, and function selectors.
+// Storage filtering is handled separately in the trace builders via `filter_private_storage`.
+// See the seismic-revm-inspectors README for the full architecture.
 #[async_trait]
 impl<Eth> TraceApiServer<RpcTxReq<Eth::NetworkTypes>> for TraceApi<Eth>
 where
@@ -627,7 +639,7 @@ where
         let _permit = self.acquire_trace_permit().await;
         let request =
             TraceCallRequest { call, trace_types, block_id, state_overrides, block_overrides };
-        Ok(Self::trace_call(self, request).await.map_err(Into::into)?)
+        Ok(sanitize_trace_results(Self::trace_call(self, request).await.map_err(Into::into)?))
     }
 
     /// Handler for `trace_callMany`
@@ -637,7 +649,8 @@ where
         block_id: Option<BlockId>,
     ) -> RpcResult<Vec<TraceResults>> {
         let _permit = self.acquire_trace_permit().await;
-        Ok(Self::trace_call_many(self, calls, block_id).await.map_err(Into::into)?)
+        let results = Self::trace_call_many(self, calls, block_id).await.map_err(Into::into)?;
+        Ok(results.into_iter().map(sanitize_trace_results).collect())
     }
 
     /// Handler for `trace_rawTransaction`
@@ -648,9 +661,11 @@ where
         block_id: Option<BlockId>,
     ) -> RpcResult<TraceResults> {
         let _permit = self.acquire_trace_permit().await;
-        Ok(Self::trace_raw_transaction(self, data, trace_types, block_id)
-            .await
-            .map_err(Into::into)?)
+        Ok(sanitize_trace_results(
+            Self::trace_raw_transaction(self, data, trace_types, block_id)
+                .await
+                .map_err(Into::into)?,
+        ))
     }
 
     /// Handler for `trace_replayBlockTransactions`
@@ -660,9 +675,10 @@ where
         trace_types: HashSet<TraceType>,
     ) -> RpcResult<Option<Vec<TraceResultsWithTransactionHash>>> {
         let _permit = self.acquire_trace_permit().await;
-        Ok(Self::replay_block_transactions(self, block_id, trace_types)
+        let results = Self::replay_block_transactions(self, block_id, trace_types)
             .await
-            .map_err(Into::into)?)
+            .map_err(Into::into)?;
+        Ok(results.map(|traces| traces.into_iter().map(sanitize_trace_results_with_hash).collect()))
     }
 
     /// Handler for `trace_replayTransaction`
@@ -672,7 +688,9 @@ where
         trace_types: HashSet<TraceType>,
     ) -> RpcResult<TraceResults> {
         let _permit = self.acquire_trace_permit().await;
-        Ok(Self::replay_transaction(self, transaction, trace_types).await.map_err(Into::into)?)
+        let results =
+            Self::replay_transaction(self, transaction, trace_types).await.map_err(Into::into)?;
+        Ok(sanitize_trace_results(results))
     }
 
     /// Handler for `trace_block`
@@ -681,7 +699,9 @@ where
         block_id: BlockId,
     ) -> RpcResult<Option<Vec<LocalizedTransactionTrace>>> {
         let _permit = self.acquire_trace_permit().await;
-        Ok(Self::trace_block(self, block_id).await.map_err(Into::into)?)
+        let traces = Self::trace_block(self, block_id).await.map_err(Into::into)?;
+        Ok(traces
+            .map(|traces| traces.into_iter().map(sanitize_localized_transaction_trace).collect()))
     }
 
     /// Handler for `trace_filter`
@@ -691,7 +711,8 @@ where
     /// # Limitations
     /// This currently requires block filter fields, since reth does not have address indices yet.
     async fn trace_filter(&self, filter: TraceFilter) -> RpcResult<Vec<LocalizedTransactionTrace>> {
-        Ok(Self::trace_filter(self, filter).await.map_err(Into::into)?)
+        let traces = Self::trace_filter(self, filter).await.map_err(Into::into)?;
+        Ok(traces.into_iter().map(sanitize_localized_transaction_trace).collect())
     }
 
     /// Returns transaction trace at given index.
@@ -702,9 +723,10 @@ where
         indices: Vec<Index>,
     ) -> RpcResult<Option<LocalizedTransactionTrace>> {
         let _permit = self.acquire_trace_permit().await;
-        Ok(Self::trace_get(self, hash, indices.into_iter().map(Into::into).collect())
+        let trace = Self::trace_get(self, hash, indices.into_iter().map(Into::into).collect())
             .await
-            .map_err(Into::into)?)
+            .map_err(Into::into)?;
+        Ok(trace.map(sanitize_localized_transaction_trace))
     }
 
     /// Handler for `trace_transaction`
@@ -713,7 +735,9 @@ where
         hash: B256,
     ) -> RpcResult<Option<Vec<LocalizedTransactionTrace>>> {
         let _permit = self.acquire_trace_permit().await;
-        Ok(Self::trace_transaction(self, hash).await.map_err(Into::into)?)
+        let traces = Self::trace_transaction(self, hash).await.map_err(Into::into)?;
+        Ok(traces
+            .map(|traces| traces.into_iter().map(sanitize_localized_transaction_trace).collect()))
     }
 
     /// Handler for `trace_transactionOpcodeGas`

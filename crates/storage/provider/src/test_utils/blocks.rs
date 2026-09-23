@@ -14,7 +14,7 @@ use reth_node_types::NodeTypes;
 use reth_primitives_traits::{Account, RecoveredBlock, SealedBlock, SealedHeader};
 use reth_trie::root::{state_root_unhashed, storage_root_unhashed};
 use revm_database::BundleState;
-use revm_state::AccountInfo;
+use revm_state::{AccountInfo, FlaggedStorage};
 use std::{str::FromStr, sync::LazyLock};
 
 /// Assert genesis block
@@ -205,7 +205,10 @@ fn block1(
             .revert_account_info(number, account1, Some(None))
             .state_present_account_info(account2, info)
             .revert_account_info(number, account2, Some(None))
-            .state_storage(account1, HashMap::from_iter([(slot, (U256::ZERO, U256::from(10)))]))
+            .state_storage(
+                account1,
+                HashMap::from_iter([(slot, (FlaggedStorage::ZERO, FlaggedStorage::public(10)))]),
+            )
             .build(),
         vec![vec![Receipt {
             tx_type: TxType::Eip2930,
@@ -253,13 +256,16 @@ fn block2(
                 account,
                 AccountInfo { nonce: 3, balance: U256::from(20), ..Default::default() },
             )
-            .state_storage(account, HashMap::from_iter([(slot, (U256::ZERO, U256::from(15)))]))
+            .state_storage(
+                account,
+                HashMap::from_iter([(slot, (FlaggedStorage::ZERO, FlaggedStorage::public(15)))]),
+            )
             .revert_account_info(
                 number,
                 account,
                 Some(Some(AccountInfo { nonce: 1, balance: U256::from(10), ..Default::default() })),
             )
-            .revert_storage(number, account, Vec::from([(slot, U256::from(10))]))
+            .revert_storage(number, account, Vec::from([(slot, FlaggedStorage::public(10))]))
             .build(),
         vec![vec![Receipt {
             tx_type: TxType::Eip1559,
@@ -316,8 +322,10 @@ fn block3(
                 address,
                 slot_range
                     .clone()
-                    .map(|slot| (U256::from(slot), (U256::ZERO, U256::from(slot))))
-                    .collect(),
+                    .map(|slot| {
+                        (U256::from(slot), (FlaggedStorage::ZERO, FlaggedStorage::public(slot)))
+                    })
+                    .collect::<HashMap<_, _>>(),
             )
             .revert_account_info(number, address, Some(None))
             .revert_storage(number, address, Vec::new());
@@ -376,16 +384,23 @@ fn block4(
                     address,
                     slot_range
                         .clone()
-                        .map(|slot| (U256::from(slot), (U256::from(slot), U256::from(slot * 2))))
-                        .collect(),
+                        .map(|slot| {
+                            (
+                                U256::from(slot),
+                                (FlaggedStorage::public(slot), FlaggedStorage::public(slot * 2)),
+                            )
+                        })
+                        .collect::<HashMap<_, _>>(),
                 )
         } else {
             bundle_state_builder.state_address(address).state_storage(
                 address,
                 slot_range
                     .clone()
-                    .map(|slot| (U256::from(slot), (U256::from(slot), U256::ZERO)))
-                    .collect(),
+                    .map(|slot| {
+                        (U256::from(slot), (FlaggedStorage::public(slot), FlaggedStorage::ZERO))
+                    })
+                    .collect::<HashMap<_, _>>(),
             )
         };
         // record previous account info
@@ -402,7 +417,10 @@ fn block4(
             .revert_storage(
                 number,
                 address,
-                slot_range.clone().map(|slot| (U256::from(slot), U256::from(slot))).collect(),
+                slot_range
+                    .clone()
+                    .map(|slot| (U256::from(slot), FlaggedStorage::public(slot)))
+                    .collect::<Vec<_>>(),
             );
     }
     let execution_outcome = ExecutionOutcome::new(
@@ -459,8 +477,13 @@ fn block5(
                 slot_range
                     .clone()
                     .take(50)
-                    .map(|slot| (U256::from(slot), (U256::from(slot), U256::from(slot * 4))))
-                    .collect(),
+                    .map(|slot| {
+                        (
+                            U256::from(slot),
+                            (FlaggedStorage::public(slot), FlaggedStorage::public(slot * 4)),
+                        )
+                    })
+                    .collect::<HashMap<_, _>>(),
             );
         bundle_state_builder = if idx.is_multiple_of(2) {
             bundle_state_builder
@@ -478,7 +501,7 @@ fn block5(
                     address,
                     slot_range
                         .clone()
-                        .map(|slot| (U256::from(slot), U256::from(slot * 2)))
+                        .map(|slot| (U256::from(slot), FlaggedStorage::public(slot * 2)))
                         .collect(),
                 )
         } else {

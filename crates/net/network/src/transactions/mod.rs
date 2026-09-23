@@ -45,7 +45,7 @@ use reth_eth_wire::{
     NewPooledTransactionHashes66, NewPooledTransactionHashes68, PooledTransactions,
     RequestTxHashes, Transactions, ValidAnnouncementData,
 };
-use reth_ethereum_primitives::{TransactionSigned, TxType};
+use reth_ethereum_primitives::TransactionSigned;
 use reth_metrics::common::mpsc::UnboundedMeteredReceiver;
 use reth_network_api::{
     events::{PeerEvent, SessionInfo},
@@ -64,6 +64,7 @@ use reth_transaction_pool::{
     AddedTransactionOutcome, GetPooledTransactionLimit, PoolTransaction, PropagateKind,
     PropagatedTransactions, TransactionPool, ValidPoolTransaction,
 };
+use seismic_alloy_consensus::SeismicTxType;
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet},
     pin::Pin,
@@ -697,7 +698,7 @@ impl<Pool: TransactionPool, N: NetworkPrimitives, PBundle: TransactionPolicies>
 
             if is_eth68_message {
                 if let Some((actual_ty_byte, _)) = *metadata_ref_mut {
-                    if let Ok(parsed_tx_type) = TxType::try_from(actual_ty_byte) {
+                    if let Ok(parsed_tx_type) = SeismicTxType::try_from(actual_ty_byte) {
                         tx_types_counter.increase_by_tx_type(parsed_tx_type);
                     }
                 }
@@ -2972,6 +2973,113 @@ mod tests {
         assert!(
             !unexpected_request_received,
             "An unexpected P2P request was received by the mock peer."
+        );
+
+        network_service_handle.abort();
+    }
+
+    /// Regression test for `TxSeismic` (type 74) gossip: an eth/68 announcement carrying a
+    /// seismic tx type must lead to a `GetPooledTransactions` fetch when the manager runs
+    /// with the Seismic-typed announcement filter. Under the default Ethereum-typed strict
+    /// filter this exact announcement is dropped and the peer penalized (see
+    /// `strict_eth_filter_rejects_and_penalizes_seismic_tx_type` in `config::tests`).
+    #[tokio::test]
+    async fn test_seismic_filter_fetches_announced_seismic_txs() {
+        reth_tracing::init_test_tracing();
+
+        use crate::transactions::config::TypedStrictFilter;
+        use seismic_alloy_consensus::{SeismicTxType, SEISMIC_TX_TYPE_ID};
+
+        type SeismicFilter = TypedStrictFilter<SeismicTxType>;
+
+        let transactions_manager_config = TransactionsManagerConfig::default();
+        let policy_bundle =
+            NetworkPolicies::new(TransactionPropagationKind::default(), SeismicFilter::default());
+
+        let pool = testing_pool();
+        let secret_key = SecretKey::new(&mut rand_08::thread_rng());
+        let client = NoopProvider::default();
+
+        let network_config = NetworkConfigBuilder::new(secret_key)
+            .listener_port(0)
+            .disable_discovery()
+            .build(client.clone());
+
+        let mut network_manager = NetworkManager::new(network_config).await.unwrap();
+        let (to_tx_manager_tx, from_network_rx) =
+            mpsc::unbounded_channel::<NetworkTransactionEvent<EthNetworkPrimitives>>();
+        network_manager.set_transactions(to_tx_manager_tx);
+        let network_handle = network_manager.handle().clone();
+        let network_service_handle = tokio::spawn(network_manager);
+
+        let mut tx_manager = TransactionsManager::<
+            TestPool,
+            EthNetworkPrimitives,
+            NetworkPolicies<TransactionPropagationKind, SeismicFilter>,
+        >::with_policy(
+            network_handle.clone(),
+            pool.clone(),
+            from_network_rx,
+            transactions_manager_config,
+            policy_bundle,
+        );
+
+        let peer_id = PeerId::random();
+        let eth_version = EthVersion::Eth68;
+        let (mock_peer_metadata, mut mock_session_rx) = new_mock_session(peer_id, eth_version);
+        tx_manager.peers.insert(peer_id, mock_peer_metadata);
+
+        let mut tx_factory = MockTransactionFactory::default();
+        let eip1559_tx: Arc<ValidPoolTransaction<MockTransaction>> =
+            Arc::new(tx_factory.create_eip1559());
+        let eip1559_tx_hash = *eip1559_tx.hash();
+
+        // The announcement path only inspects (type, size, hash) tuples, so a random hash
+        // with the seismic type byte exercises the filter without a full seismic tx.
+        let seismic_tx_hash = B256::random();
+
+        let announcement_msg = NewPooledTransactionHashes::Eth68(NewPooledTransactionHashes68 {
+            types: vec![eip1559_tx.transaction.tx_type(), SEISMIC_TX_TYPE_ID],
+            sizes: vec![eip1559_tx.encoded_length(), 200],
+            hashes: vec![eip1559_tx_hash, seismic_tx_hash],
+        });
+
+        tx_manager.on_new_pooled_transaction_hashes(peer_id, announcement_msg);
+
+        let mut requested_hashes = HashSet::new();
+        // Fetch requests are dispatched while polling the manager; drain until quiescent.
+        for _ in 0..3 {
+            poll_fn(|cx| {
+                let _ = tx_manager.poll_unpin(cx);
+                Poll::Ready(())
+            })
+            .await;
+
+            match tokio::time::timeout(
+                std::time::Duration::from_millis(200),
+                mock_session_rx.recv(),
+            )
+            .await
+            {
+                Ok(Some(PeerRequest::GetPooledTransactions { request, response })) => {
+                    let GetPooledTransactions(hashes) = request;
+                    requested_hashes.extend(hashes);
+                    let _ = response.send(Ok(PooledTransactions(vec![])));
+                }
+                Ok(Some(other_request)) => {
+                    panic!("unexpected P2P request: {other_request:?}");
+                }
+                Ok(None) | Err(_) => break,
+            }
+        }
+
+        assert!(
+            requested_hashes.contains(&seismic_tx_hash),
+            "TxSeismic (type 74) announcement must be fetched, not filtered out. Requested: {requested_hashes:?}"
+        );
+        assert!(
+            requested_hashes.contains(&eip1559_tx_hash),
+            "EIP-1559 announcement must still be fetched. Requested: {requested_hashes:?}"
         );
 
         network_service_handle.abort();

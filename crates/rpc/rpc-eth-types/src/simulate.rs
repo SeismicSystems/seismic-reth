@@ -10,9 +10,10 @@ use crate::{
 use alloy_consensus::{BlockHeader, Transaction as _};
 use alloy_eips::eip2718::WithEncoded;
 use alloy_network::TransactionBuilder;
+use alloy_primitives::{Sealable, B256};
 use alloy_rpc_types_eth::{
     simulate::{SimCallResult, SimulateError, SimulatedBlock},
-    BlockTransactionsKind,
+    Block, BlockTransactions, BlockTransactionsKind, TransactionInfo,
 };
 use jsonrpsee_types::ErrorObject;
 use reth_evm::{
@@ -55,6 +56,19 @@ impl ToRpcError for EthSimulateError {
     fn to_rpc_error(&self) -> ErrorObject<'static> {
         rpc_err(self.error_code(), self.to_string(), None)
     }
+}
+
+/// Raw execution output for a single simulated block before it is converted into an RPC response.
+///
+/// Exposing this lets callers rebuild the response transactions from different bytes than were
+/// actually executed (see [`build_simulated_block_with_transactions`]) — e.g. to restore
+/// ciphertext input for a confidential-execution wrapper.
+#[derive(Debug)]
+pub struct SimulatedBlockExecution<P: NodePrimitives, Halt> {
+    /// Executed block with the transactions that were actually run.
+    pub block: RecoveredBlock<BlockTy<P>>,
+    /// Per-transaction execution results in block order.
+    pub results: Vec<ExecutionResult<Halt>>,
 }
 
 /// Converts all [`TransactionRequest`]s into [`Recovered`] transactions and applies them to the
@@ -196,10 +210,40 @@ pub fn build_simulated_block<T, Halt: Clone>(
 where
     T: RpcConvert<Error: FromEthApiError + FromEvmHalt<Halt>>,
 {
+    let response_transactions = block.clone_transactions_recovered().collect();
+    build_simulated_block_with_transactions(
+        &block,
+        response_transactions,
+        results,
+        txs_kind,
+        tx_resp_builder,
+    )
+}
+
+/// Handles outputs of the calls execution and builds a [`SimulatedBlock`] using explicit
+/// response transactions.
+pub fn build_simulated_block_with_transactions<T, Halt: Clone>(
+    block: &RecoveredBlock<BlockTy<T::Primitives>>,
+    response_transactions: Vec<Recovered<<T::Primitives as NodePrimitives>::SignedTx>>,
+    results: Vec<ExecutionResult<Halt>>,
+    txs_kind: BlockTransactionsKind,
+    tx_resp_builder: &T,
+) -> Result<SimulatedBlock<RpcBlock<T::Network>>, T::Error>
+where
+    T: RpcConvert<Error: FromEthApiError + FromEvmHalt<Halt>>,
+{
+    // `response_transactions` must be positionally 1:1 with `block.body().transactions()`:
+    // logs, call results, and transaction indices below are associated by index, not by hash.
+    debug_assert_eq!(results.len(), block.body().transactions().len());
+    debug_assert_eq!(response_transactions.len(), block.body().transactions().len());
+
+    let tx_hashes: Vec<B256> = response_transactions.iter().map(|tx| *tx.tx_hash()).collect();
     let mut calls: Vec<SimCallResult> = Vec::with_capacity(results.len());
 
     let mut log_index = 0;
-    for (index, (result, tx)) in results.into_iter().zip(block.body().transactions()).enumerate() {
+    for (index, ((result, tx), tx_hash)) in
+        results.into_iter().zip(block.body().transactions()).zip(tx_hashes.iter()).enumerate()
+    {
         let call = match result {
             ExecutionResult::Halt { reason, gas_used } => {
                 let error = T::Error::from_evm_halt(reason, tx.gas_limit());
@@ -239,7 +283,7 @@ where
                             inner: log,
                             log_index: Some(log_index - 1),
                             transaction_index: Some(index as u64),
-                            transaction_hash: Some(*tx.tx_hash()),
+                            transaction_hash: Some(*tx_hash),
                             block_number: Some(block.header().number()),
                             block_timestamp: Some(block.header().timestamp()),
                             ..Default::default()
@@ -253,10 +297,36 @@ where
         calls.push(call);
     }
 
-    let block = block.into_rpc_block(
-        txs_kind,
-        |tx, tx_info| tx_resp_builder.fill(tx, tx_info),
-        |header, size| tx_resp_builder.convert_header(header, size),
-    )?;
+    let block_hash = Some(block.hash());
+    let block_number = block.header().number();
+    let base_fee = block.header().base_fee_per_gas();
+    let rlp_length = block.rlp_length();
+    let header = tx_resp_builder.convert_header(block.clone_sealed_header(), rlp_length)?;
+    let withdrawals = block.body().withdrawals().cloned();
+    let uncles = block.body().ommers().unwrap_or(&[]).iter().map(|h| h.hash_slow()).collect();
+
+    let transactions = match txs_kind {
+        BlockTransactionsKind::Hashes => BlockTransactions::Hashes(tx_hashes),
+        BlockTransactionsKind::Full => {
+            let transactions = response_transactions
+                .into_iter()
+                .enumerate()
+                .map(|(index, tx)| {
+                    let tx_info = TransactionInfo {
+                        hash: Some(*tx.tx_hash()),
+                        block_hash,
+                        block_number: Some(block_number),
+                        base_fee,
+                        index: Some(index as u64),
+                    };
+
+                    tx_resp_builder.fill(tx, tx_info)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            BlockTransactions::Full(transactions)
+        }
+    };
+
+    let block = Block { header, uncles, transactions, withdrawals };
     Ok(SimulatedBlock { inner: block, calls })
 }

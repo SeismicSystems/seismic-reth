@@ -1,5 +1,5 @@
 #![allow(missing_docs, unreachable_pub)]
-use alloy_primitives::{B256, U256};
+use alloy_primitives::B256;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use proptest::{prelude::*, strategy::ValueTree, test_runner::TestRunner};
 use proptest_arbitrary_interop::arb;
@@ -13,6 +13,7 @@ use reth_trie::{
 };
 use reth_trie_db::{DatabaseHashedCursorFactory, DatabaseStateRoot};
 use reth_trie_parallel::root::ParallelStateRoot;
+use revm_state::FlaggedStorage;
 use std::collections::HashMap;
 
 pub fn calculate_state_root(c: &mut Criterion) {
@@ -87,7 +88,7 @@ fn generate_test_data(size: usize) -> (HashedPostState, HashedPostState) {
             arb::<Account>().prop_filter("non empty account", |a| !a.is_empty()),
             hash_map(
                 any::<B256>(),
-                any::<U256>().prop_filter("non zero value", |v| !v.is_zero()),
+                any::<FlaggedStorage>().prop_filter("non zero value", |v| !v.is_zero()),
                 storage_size,
             ),
         ),
@@ -111,7 +112,9 @@ fn generate_test_data(size: usize) -> (HashedPostState, HashedPostState) {
                 address,
                 slots_to_update
                     .into_iter()
-                    .map(|slot| (slot, any::<U256>().new_tree(&mut runner).unwrap().current()))
+                    .map(|slot| {
+                        (slot, any::<FlaggedStorage>().new_tree(&mut runner).unwrap().current())
+                    })
                     .collect::<HashMap<_, _>>(),
             )
         })

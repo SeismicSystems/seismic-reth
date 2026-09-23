@@ -1,0 +1,1123 @@
+//! seismic implementation of eth api and its extensions
+//!
+//! Overrides the eth_ namespace to be compatible with seismic specific types
+//! Most endpoints handle transaction decrytpion before passing to the inner eth api
+//! For `eth_sendRawTransaction`, we directly call the inner eth api without decryption
+//! See that function's docs for more details
+
+use crate::utils::{
+    parse_request_sender, resolve_seismic_call, seismic_call_to_plaintext_tx, SeismicCall,
+};
+use alloy_consensus::proofs::calculate_transaction_root;
+use alloy_dyn_abi::TypedData;
+use alloy_eips::eip2718::Encodable2718;
+use alloy_json_rpc::RpcObject;
+use alloy_primitives::{Address, Bytes, B256, U256};
+use alloy_rpc_types::{
+    state::{EvmOverrides, StateOverride},
+    BlockId, BlockOverrides, TransactionRequest,
+};
+use alloy_rpc_types_eth::{
+    simulate::{SimBlock as EthSimBlock, SimulatePayload as EthSimulatePayload, SimulatedBlock},
+    AccountInfo, Bundle, EthCallResponse, StateContext,
+};
+use alloy_seismic_evm::secp256k1::{PublicKey, SecretKey};
+use jsonrpsee::{
+    core::{async_trait, RegisterMethodError, RpcResult},
+    proc_macros::rpc,
+    RpcModule,
+};
+use reth_network_api::PeersInfo;
+use reth_network_peers::NodeRecord;
+use reth_primitives_traits::{Recovered, RecoveredBlock};
+use reth_rpc_eth_api::{
+    helpers::{EthCall, EthState, EthTransactions, FullEthApi},
+    AsEthApiError, EthApiTypes, FromEthApiError, RpcBlock, RpcTypes,
+};
+use reth_rpc_eth_types::{
+    simulate::SimulatedBlockExecution, EthApiError, RevertError, RpcInvalidTransactionError,
+};
+use reth_seismic_keys::PurposeKeyring;
+use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
+use reth_tracing::tracing::*;
+use seismic_alloy_consensus::{
+    Decodable712, InputDecryptionElements, SeismicTxEnvelope, SeismicTypedTransaction,
+    TxSeismicMetadata,
+};
+use seismic_alloy_rpc_types::{
+    SeismicCallRequest, SeismicRawTxRequest, SeismicTransactionRequest,
+    SimBlock as SeismicSimBlock, SimulatePayload as SeismicSimulatePayload,
+};
+use serde::{Deserialize, Serialize};
+use std::{
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    sync::Arc,
+};
+
+/// Fixed wallet-compatibility reply for `eth_getBalance` unless `native = true`.
+///
+/// This placeholder is independent of account holdings. It is not funds, proof of affordability,
+/// or a value that may be used to construct native transfers. Internal accounting never uses it.
+pub const COMPATIBILITY_BALANCE: U256 =
+    alloy_primitives::uint!(0x9612084f0316e0ebd5182f398e5195a51b5ca47667d4c9b26c9b26c9b26c9b2_U256);
+
+/// trait interface for a custom rpc namespace: `seismic`
+///
+/// This defines an additional namespace where all methods are configured as trait functions.
+#[cfg_attr(not(feature = "client"), rpc(server, namespace = "seismic"))]
+#[cfg_attr(feature = "client", rpc(server, client, namespace = "seismic"))]
+pub trait SeismicApi {
+    /// Returns the network public key.
+    #[method(name = "getTeePublicKey")]
+    async fn get_tee_public_key(&self) -> RpcResult<PublicKey>;
+
+    /// Returns the active key epoch, its network public key, and the pending key
+    /// rotation (if one is announced), so wallets can pre-fetch the next key, switch
+    /// exactly at activation, and set `expires_at_block` values that clear the
+    /// rotation boundary (`docs/design/purpose-key-rotation.md` §8).
+    #[method(name = "getKeyEpochInfo")]
+    async fn get_key_epoch_info(&self) -> RpcResult<KeyEpochInfo>;
+
+    /// `admin` namespace is disabled for safety, but we still need the enode exposed for new
+    /// joining nodes wanting to locate discv5 bootnodes. Operators starting new nodes who have
+    /// the IP address of bootstrap nodes can query this endpoint for their enode record and add
+    /// it to reth's startup config via `--bootnodes <ENODE>[,<ENODE>...]`.
+    #[method(name = "nodeInfo")]
+    async fn node_info(&self) -> RpcResult<SeismicNodeInfo>;
+}
+
+/// Key-epoch information served by `seismic_getKeyEpochInfo`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyEpochInfo {
+    /// The key epoch active at the node's canonical tip.
+    pub current_epoch: u64,
+    /// The block at which `current_epoch` activated (0 for the genesis epoch).
+    pub activation_block: u64,
+    /// The network encryption key wallets encrypt to today; identical to
+    /// `seismic_getTeePublicKey`.
+    pub tee_public_key: PublicKey,
+    /// The announced-but-not-yet-activated rotation, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_rotation: Option<PendingRotation>,
+}
+
+/// An announced key rotation that has not activated yet.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingRotation {
+    /// The epoch that will activate.
+    pub epoch: u64,
+    /// The first block that will execute with the new epoch's keys; wallets must
+    /// encrypt to the new key from this block on, and until then cap
+    /// `expires_at_block` below it.
+    pub activation_block: u64,
+    /// The next network encryption key, present once this node has fetched it from
+    /// its custodian (usually well before activation).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tee_public_key: Option<PublicKey>,
+}
+
+/// Public devp2p information for a Seismic node.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SeismicNodeInfo {
+    /// The structured local node record, serialized as an enode URL.
+    #[serde(rename = "enode")]
+    pub node_record: NodeRecord,
+}
+
+/// Implementation of the seismic rpc api
+#[derive(Debug, Clone)]
+pub struct SeismicApi<P> {
+    // Read through the keyring (not a key snapshot) so the advertised key follows
+    // rotations at runtime.
+    keyring: Arc<PurposeKeyring>,
+    // Keep the PeersInfo provider instead of snapshotting a NodeRecord because discovery
+    // may update the externally advertised address after startup.
+    peers_info: P,
+}
+
+impl<P: PeersInfo> SeismicApi<P> {
+    /// Creates a new seismic api instance.
+    pub const fn new(keyring: Arc<PurposeKeyring>, peers_info: P) -> Self {
+        Self { keyring, peers_info }
+    }
+}
+
+#[async_trait]
+impl<P: PeersInfo + 'static> SeismicApiServer for SeismicApi<P> {
+    async fn get_tee_public_key(&self) -> RpcResult<PublicKey> {
+        trace!(target: "rpc::seismic", "Serving seismic_getTeePublicKey");
+        let (_, keys) = self.keyring.current().map_err(keyring_unavailable_error)?;
+        Ok(keys.tx_io.public_key())
+    }
+
+    async fn get_key_epoch_info(&self) -> RpcResult<KeyEpochInfo> {
+        trace!(target: "rpc::seismic", "Serving seismic_getKeyEpochInfo");
+        Ok(key_epoch_info(&self.keyring).map_err(keyring_unavailable_error)?)
+    }
+
+    async fn node_info(&self) -> RpcResult<SeismicNodeInfo> {
+        trace!(target: "rpc::seismic", "Serving seismic_nodeInfo");
+        Ok(SeismicNodeInfo { node_record: self.peers_info.local_node_record() })
+    }
+}
+
+/// Assembles the [`KeyEpochInfo`] response from the keyring's current view.
+fn key_epoch_info(
+    keyring: &PurposeKeyring,
+) -> Result<KeyEpochInfo, reth_seismic_keys::MissingEpochKeys> {
+    let view = keyring.canonical_view();
+    let current_epoch = view.schedule.epoch_at_block(view.head_number);
+    let keys =
+        keyring.keys_for_epoch(current_epoch).ok_or(reth_seismic_keys::MissingEpochKeys {
+            epoch: current_epoch,
+            block: view.head_number,
+        })?;
+    let activation_block = view
+        .schedule
+        .entries()
+        .iter()
+        .find(|entry| entry.epoch == current_epoch)
+        .map_or(0, |entry| entry.activation_block);
+    let pending_rotation =
+        view.schedule.pending_after(view.head_number).map(|entry| PendingRotation {
+            epoch: entry.epoch,
+            activation_block: entry.activation_block,
+            tee_public_key: keyring.keys_for_epoch(entry.epoch).map(|k| k.tx_io.public_key()),
+        });
+    Ok(KeyEpochInfo {
+        current_epoch,
+        activation_block,
+        tee_public_key: keys.tx_io.public_key(),
+        pending_rotation,
+    })
+}
+
+/// Localhost with port 0 so a free port is used.
+pub const fn test_address() -> SocketAddr {
+    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
+}
+
+/// Seismic `eth_` RPC namespace overrides.
+#[cfg_attr(not(feature = "client"), rpc(server, namespace = "eth"))]
+#[cfg_attr(feature = "client", rpc(server, client, namespace = "eth"))]
+pub trait EthApiOverride<B: RpcObject> {
+    /// Signs the given EIP-712 typed structured data for the specified address and returns the
+    /// resulting signature.
+    #[method(name = "signTypedData_v4")]
+    async fn sign_typed_data_v4(&self, address: Address, data: TypedData) -> RpcResult<String>;
+
+    /// `eth_simulateV1` executes an arbitrary number of transactions on top of the requested state.
+    /// The transactions are packed into individual blocks. Overrides can be provided.
+    #[method(name = "simulateV1")]
+    async fn simulate_v1(
+        &self,
+        opts: SeismicSimulatePayload<SeismicCallRequest>,
+        block_number: Option<BlockId>,
+    ) -> RpcResult<Vec<SimulatedBlock<B>>>;
+
+    /// Executes a new message call immediately without creating a transaction on the block chain.
+    #[method(name = "call")]
+    async fn call(
+        &self,
+        request: SeismicCallRequest,
+        block_number: Option<BlockId>,
+        state_overrides: Option<StateOverride>,
+        block_overrides: Option<Box<BlockOverrides>>,
+    ) -> RpcResult<Bytes>;
+
+    /// Simulate arbitrary number of transactions at an arbitrary blockchain index, with the
+    /// optionality of state overrides.
+    #[method(name = "callMany")]
+    async fn call_many(
+        &self,
+        bundles: Vec<Bundle<SeismicCallRequest>>,
+        state_context: Option<StateContext>,
+        state_override: Option<StateOverride>,
+    ) -> RpcResult<Vec<Vec<EthCallResponse>>>;
+
+    /// Sends signed transaction, returning its hash.
+    #[method(name = "sendRawTransaction")]
+    async fn send_raw_transaction(&self, bytes: SeismicRawTxRequest) -> RpcResult<B256>;
+
+    /// Generates and returns an estimate of how much gas is necessary to allow the transaction to
+    /// complete.
+    #[method(name = "estimateGas")]
+    async fn estimate_gas(
+        &self,
+        request: SeismicCallRequest,
+        block_number: Option<BlockId>,
+        state_override: Option<StateOverride>,
+    ) -> RpcResult<U256>;
+
+    /// Returns [`COMPATIBILITY_BALANCE`] unless `native = true`, which selects the actual
+    /// public native balance. Omitted/null/false selects the constant without resolving state
+    /// (even for a syntactically valid nonexistent block). Neither mode reads USDC storage.
+    ///
+    /// Breaking change: positional `true` previously selected the USDC-inclusive effective
+    /// balance. It now selects native balance. The named `includeGasToken` option is rejected.
+    #[method(name = "getBalance")]
+    async fn get_balance(
+        &self,
+        address: Address,
+        block_number: Option<BlockId>,
+        native: Option<bool>,
+    ) -> RpcResult<U256>;
+
+    /// Returns the actual public native `{balance, nonce, code}` for an account.
+    /// Unlike default `eth_getBalance`, this resolves state and never returns a placeholder.
+    /// No third parameter or USDC balance lookup is supported.
+    #[method(name = "getAccountInfo")]
+    async fn get_account_info(&self, address: Address, block: BlockId) -> RpcResult<AccountInfo>;
+}
+
+// Serde's struct deserializer accepts both positional arrays and named objects. Unlike
+// jsonrpsee's generated parsing, it checks the entire sequence length (including extra nulls).
+// Defaults allow omitted trailing optional parameters; deny_unknown_fields makes maps strict.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BalanceParams {
+    address: Address,
+    #[serde(default, rename = "blockNumber", alias = "block_number")]
+    block_number: Option<BlockId>,
+    #[serde(default)]
+    native: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AccountInfoParams {
+    address: Address,
+    block: BlockId,
+}
+
+/// Implementation of the `eth_` namespace override
+#[derive(Debug, Clone)]
+pub struct EthApiExt<Eth> {
+    eth_api: Eth,
+    keyring: Arc<PurposeKeyring>,
+}
+
+impl<Eth> EthApiExt<Eth> {
+    /// Create a new `EthApiExt` module.
+    pub const fn new(eth_api: Eth, keyring: Arc<PurposeKeyring>) -> Self {
+        Self { eth_api, keyring }
+    }
+
+    /// The tx-io secret key active at the canonical tip. Signed reads always decrypt
+    /// with the tip epoch — wallets encrypt to the currently advertised public key,
+    /// and freshness validation already pins requests to the tip window.
+    //
+    // TODO(purpose-key rotation, spec §8): once activation enforcement lands, retry
+    // AEAD failures once with the previous epoch's key within the freshness window
+    // to smooth the boundary. Dead code until rotations can activate.
+    fn tx_io_sk(&self) -> Result<SecretKey, EthApiError> {
+        let (_, keys) = self
+            .keyring
+            .current()
+            .map_err(|e| EthApiError::Other(Box::new(keyring_unavailable_error(e))))?;
+        Ok(keys.tx_io.secret_key())
+    }
+
+    /// Build transaction metadata for encryption/decryption.
+    /// Returns an error if required fields are missing.
+    fn build_metadata(
+        request: &SeismicTransactionRequest,
+        sender: Address,
+    ) -> Result<TxSeismicMetadata, EthApiError> {
+        request.metadata(sender).map_err(|e| {
+            EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+                -32602,
+                format!("Failed to build seismic metadata: {}", e),
+                None::<String>,
+            )))
+        })
+    }
+
+    /// Builds strict wire handlers for the two balance endpoints.
+    ///
+    /// Install these with `replace_configured` **after** the generated `into_rpc()` module.
+    /// jsonrpsee's generated server handlers ignore extra positional and unknown named
+    /// parameters, so validation inside the typed trait methods alone is not sufficient.
+    pub fn into_balance_rpc(self) -> Result<RpcModule<Self>, RegisterMethodError>
+    where
+        Eth: EthApiTypes,
+        Self: EthApiOverrideServer<RpcBlock<Eth::NetworkTypes>>,
+    {
+        let mut module = RpcModule::new(self);
+        module.register_async_method("eth_getBalance", |params, api, _| async move {
+            let BalanceParams { address, block_number, native } = params.parse()?;
+            api.get_balance(address, block_number, native).await
+        })?;
+        module.register_async_method("eth_getAccountInfo", |params, api, _| async move {
+            let AccountInfoParams { address, block } = params.parse()?;
+            api.get_account_info(address, block).await
+        })?;
+        Ok(module)
+    }
+
+    /// Re-encrypts the output bytes of a reverted call for a signed-read caller.
+    ///
+    /// A contract's revert data can embed arbitrary values from private state (e.g. a custom
+    /// error like `revert InsufficientBalance(actualBalance)`), just like a successful return
+    /// value can. For signed reads, `err` is re-wrapped with the revert output bytes encrypted
+    /// under the caller's key (mirroring the encryption already applied to successful output),
+    /// so a revert can't be used to exfiltrate private state in cleartext.
+    ///
+    /// Uses the key captured when decrypting the request: activation or a reorg
+    /// during execution must not change the response's encryption key.
+    /// Non-revert errors, and reverts with empty output, are returned unchanged.
+    fn reencrypt_revert_output<E>(
+        err: E,
+        seismic_tx_request: &SeismicTransactionRequest,
+        tx_io_sk: &SecretKey,
+    ) -> Result<E, EthApiError>
+    where
+        E: AsEthApiError + FromEthApiError,
+    {
+        let Some(EthApiError::InvalidTransaction(RpcInvalidTransactionError::Revert(revert))) =
+            err.as_err()
+        else {
+            return Ok(err);
+        };
+        let Some(output) = revert.output() else {
+            return Ok(err);
+        };
+
+        let sender = parse_request_sender(seismic_tx_request)?;
+        let metadata = Self::build_metadata(seismic_tx_request, sender)?;
+        let encrypted = metadata
+            .encrypt_response(tx_io_sk, output)
+            .map_err(|e| ext_encryption_error(e.to_string()))?;
+
+        Ok(E::from_eth_err(EthApiError::InvalidTransaction(RpcInvalidTransactionError::Revert(
+            RevertError::new(encrypted),
+        ))))
+    }
+}
+
+/// Rebuilds a simulated signed-read transaction with its original ciphertext input so the
+/// response hash is recomputed from the bytes returned to the client.
+fn rebuild_simulated_signed_read_tx(
+    tx: Recovered<SeismicTransactionSigned>,
+    ciphertext_input: Bytes,
+) -> Result<Recovered<SeismicTransactionSigned>, EthApiError> {
+    let (signed_tx, signer) = tx.into_parts();
+    let (mut typed_tx, signature) = signed_tx.split();
+    match &mut typed_tx {
+        SeismicTypedTransaction::Legacy(tx) => tx.input = ciphertext_input,
+        SeismicTypedTransaction::Eip2930(tx) => tx.input = ciphertext_input,
+        SeismicTypedTransaction::Eip1559(tx) => tx.input = ciphertext_input,
+        SeismicTypedTransaction::Eip4844(tx) => tx.input = ciphertext_input,
+        SeismicTypedTransaction::Eip7702(tx) => tx.input = ciphertext_input,
+        SeismicTypedTransaction::Seismic(tx) => tx.input = ciphertext_input,
+    }
+
+    Ok(Recovered::new_unchecked(
+        SeismicTransactionSigned::new_unhashed(typed_tx, signature),
+        signer,
+    ))
+}
+
+/// Reconstructs raw simulated blocks so their bodies and headers commit to the ciphertext-backed
+/// transactions returned to signed-read callers.
+///
+/// Execution results remain those produced by the plaintext transactions. For consecutive
+/// simulated blocks, each reconstructed header is linked to the hash of the preceding
+/// reconstructed block.
+fn reconstruct_simulated_blocks<Halt>(
+    seismic_sim_blocks: &[SeismicSimBlock<SeismicCallRequest>],
+    raw_results: Vec<SimulatedBlockExecution<SeismicPrimitives, Halt>>,
+) -> Result<Vec<SimulatedBlockExecution<SeismicPrimitives, Halt>>, EthApiError> {
+    if seismic_sim_blocks.len() != raw_results.len() {
+        return Err(EthApiError::InternalEthError)
+    }
+
+    let mut reconstructed = Vec::with_capacity(raw_results.len());
+    let mut parent_hash = None;
+
+    for (sim_block, execution) in seismic_sim_blocks.iter().zip(raw_results) {
+        if sim_block.calls.len() != execution.block.body().transactions.len() {
+            return Err(EthApiError::InternalEthError)
+        }
+
+        let mut response_transactions = Vec::with_capacity(sim_block.calls.len());
+        for (call, executed_tx) in
+            sim_block.calls.iter().zip(execution.block.clone_transactions_recovered())
+        {
+            let response_tx = match resolve_seismic_call(call.clone())? {
+                SeismicCall::Transparent(_) => executed_tx,
+                SeismicCall::SignedRead(request) => {
+                    let ciphertext_input = request.inner.input.input.clone().ok_or_else(|| {
+                        EthApiError::InvalidParams(
+                            "signed-read simulate transaction missing input".to_string(),
+                        )
+                    })?;
+                    rebuild_simulated_signed_read_tx(executed_tx, ciphertext_input)?
+                }
+            };
+            response_transactions.push(response_tx);
+        }
+
+        let (mut response_block, senders) = execution.block.split();
+        response_block.body.transactions =
+            response_transactions.into_iter().map(|tx| tx.into_parts().0).collect();
+        if let Some(parent_hash) = parent_hash {
+            response_block.header.parent_hash = parent_hash;
+        }
+        response_block.header.transactions_root =
+            calculate_transaction_root(&response_block.body.transactions);
+
+        let response_block = RecoveredBlock::new_unhashed(response_block, senders);
+        parent_hash = Some(response_block.hash());
+        reconstructed
+            .push(SimulatedBlockExecution { block: response_block, results: execution.results });
+    }
+
+    Ok(reconstructed)
+}
+
+#[async_trait]
+impl<Eth> EthApiOverrideServer<RpcBlock<Eth::NetworkTypes>> for EthApiExt<Eth>
+where
+    Eth: FullEthApi<Primitives = SeismicPrimitives> + Send + Sync + 'static,
+    Eth::Error: Send + Sync + 'static,
+    jsonrpsee_types::error::ErrorObject<'static>: From<Eth::Error>,
+    <Eth::NetworkTypes as RpcTypes>::TransactionRequest:
+        From<TransactionRequest> + AsRef<TransactionRequest> + Send + Sync + 'static,
+{
+    /// Handler for: `eth_signTypedData_v4`
+    ///
+    /// TODO: determine if this should be removed, seems the same as eth functionality
+    async fn sign_typed_data_v4(&self, from: Address, data: TypedData) -> RpcResult<String> {
+        debug!(target: "reth-seismic-rpc::eth", "Serving seismic eth_signTypedData_v4 extension");
+        let signature = EthTransactions::sign_typed_data(&self.eth_api, &data, from)
+            .map_err(|err| err.into())?;
+        let signature = alloy_primitives::hex::encode(signature);
+        Ok(format!("0x{signature}"))
+    }
+
+    /// Handler for: `eth_simulateV1`
+    async fn simulate_v1(
+        &self,
+        payload: SeismicSimulatePayload<SeismicCallRequest>,
+        block_number: Option<BlockId>,
+    ) -> RpcResult<Vec<SimulatedBlock<RpcBlock<Eth::NetworkTypes>>>> {
+        debug!(target: "reth-seismic-rpc::eth", "Serving seismic eth_simulateV1 extension");
+
+        let trace_transfers = payload.trace_transfers;
+        let validation = payload.validation;
+        let return_full_transactions = payload.return_full_transactions;
+        let tx_io_sk = self.tx_io_sk()?;
+        let seismic_sim_blocks: Vec<SeismicSimBlock<SeismicCallRequest>> =
+            payload.block_state_calls.clone();
+
+        // Recover EthSimBlocks from the SeismicSimulatePayload<SeismicCallRequest>
+        let mut eth_simulated_blocks: Vec<
+            EthSimBlock<<Eth::NetworkTypes as RpcTypes>::TransactionRequest>,
+        > = Vec::with_capacity(payload.block_state_calls.len());
+        for block in payload.block_state_calls {
+            let SeismicSimBlock { block_overrides, state_overrides, calls } = block;
+            let mut prepared_calls = Vec::with_capacity(calls.len());
+
+            for call in calls {
+                let call = resolve_seismic_call(call)?;
+                let plaintext_tx_req =
+                    seismic_call_to_plaintext_tx(&call, &tx_io_sk, self.eth_api.provider())?;
+                let tx_request: TransactionRequest = plaintext_tx_req.inner;
+                prepared_calls.push(tx_request.into());
+            }
+
+            let prepared_block =
+                EthSimBlock { block_overrides, state_overrides, calls: prepared_calls };
+
+            eth_simulated_blocks.push(prepared_block);
+        }
+
+        // Execute the simulated blocks while keeping the structured block/results form so the
+        // Seismic wrapper can rebuild the response transactions from ciphertext-backed inputs.
+        let raw_results = EthCall::simulate_v1_raw(
+            &self.eth_api,
+            EthSimulatePayload {
+                block_state_calls: eth_simulated_blocks,
+                trace_transfers,
+                validation,
+                return_full_transactions,
+            },
+            block_number,
+        )
+        .await?;
+
+        let raw_results = reconstruct_simulated_blocks(&seismic_sim_blocks, raw_results)?;
+
+        let mut result = Vec::with_capacity(raw_results.len());
+
+        // Convert reconstructed Seismic blocks into RPC blocks.
+        for (block, execution) in seismic_sim_blocks.iter().zip(raw_results) {
+            let SeismicSimBlock::<SeismicCallRequest> { calls, .. } = block;
+            let mut simulated_block = reth_rpc_eth_types::simulate::build_simulated_block(
+                execution.block,
+                execution.results,
+                return_full_transactions.into(),
+                self.eth_api.tx_resp_builder(),
+            )?;
+            let SimulatedBlock { calls: call_results, .. } = &mut simulated_block;
+
+            // Encrypt signed-read outputs and replace plaintext revert messages with the generic
+            // form after the response block has been rebuilt with ciphertext-backed tx hashes.
+            for (call_result, call) in call_results.iter_mut().zip(calls.iter()) {
+                let SeismicCall::SignedRead(request) = resolve_seismic_call(call.clone())? else {
+                    continue
+                };
+
+                // `build_simulated_block` sets a non-empty `return_data` only for
+                // `ExecutionResult::Revert` (halts always leave it empty), and derives
+                // `error.message` by decoding that same output as a revert reason. That
+                // decoded reason can embed private state (e.g. a custom error like
+                // `revert InsufficientBalance(actualBalance)`), so it must not reach the
+                // client in cleartext. Replace it with a generic message: the caller can
+                // still recover the real reason by decrypting `return_data` below.
+                let is_revert_with_reason =
+                    !call_result.status && !call_result.return_data.is_empty();
+
+                let sender = parse_request_sender(&request)?;
+                let metadata = Self::build_metadata(&request, sender)?;
+                let encrypted_output = metadata
+                    .encrypt_response(&tx_io_sk, &call_result.return_data)
+                    .map_err(|e| ext_encryption_error(e.to_string()))?;
+                call_result.return_data = encrypted_output;
+
+                if is_revert_with_reason {
+                    if let Some(error) = call_result.error.as_mut() {
+                        error.message = "execution reverted".to_string();
+                    }
+                }
+            }
+
+            result.push(simulated_block);
+        }
+
+        Ok(result)
+    }
+
+    /// Handler for: `eth_callMany`
+    async fn call_many(
+        &self,
+        bundles: Vec<Bundle<SeismicCallRequest>>,
+        state_context: Option<StateContext>,
+        state_override: Option<StateOverride>,
+    ) -> RpcResult<Vec<Vec<EthCallResponse>>> {
+        debug!(
+            target: "reth-seismic-rpc::eth",
+            bundle_count = bundles.len(),
+            has_state_context = state_context.is_some(),
+            has_state_override = state_override.is_some(),
+            "Serving seismic eth_callMany extension"
+        );
+
+        let tx_io_sk = self.tx_io_sk()?;
+        // Keep originals so we can encrypt return data per-call after the inner call_many.
+        let seismic_bundles = bundles.clone();
+
+        // Convert each Bundle<SeismicCallRequest> into the upstream Bundle<TransactionRequest>:
+        // unsigned requests are sanitized; signed requests have their freshness validated and
+        // calldata decrypted by `seismic_call_to_plaintext_tx`.
+        let mut prepared_bundles: Vec<Bundle<<Eth::NetworkTypes as RpcTypes>::TransactionRequest>> =
+            Vec::with_capacity(bundles.len());
+        for bundle in bundles {
+            let Bundle { transactions, block_override } = bundle;
+            let mut prepared = Vec::with_capacity(transactions.len());
+            for call in transactions {
+                let call = resolve_seismic_call(call)?;
+                let plaintext_tx_req =
+                    seismic_call_to_plaintext_tx(&call, &tx_io_sk, self.eth_api.provider())?;
+                let tx_request: TransactionRequest = plaintext_tx_req.inner;
+                prepared.push(tx_request.into());
+            }
+            prepared_bundles.push(Bundle { transactions: prepared, block_override });
+        }
+
+        // Use the raw per-call `Result` form so a revert's structured `RevertError` (and its
+        // output bytes) is still available to re-encrypt below — the public `call_many` method
+        // downgrades errors to a `String` immediately, which would discard them.
+        let raw_results =
+            EthCall::call_many_raw(&self.eth_api, prepared_bundles, state_context, state_override)
+                .await?;
+
+        // Encrypt return data (and re-encrypt revert output) for signed-read calls so the
+        // response is readable only by the signer (matches the single-call `eth_call` behavior).
+        let mut result: Vec<Vec<EthCallResponse>> = Vec::with_capacity(raw_results.len());
+        for (bundle, bundle_results) in
+            seismic_bundles.iter().filter(|bundle| !bundle.transactions.is_empty()).zip(raw_results)
+        {
+            let mut encrypted_bundle_results = Vec::with_capacity(bundle_results.len());
+            for (call, call_result) in bundle.transactions.iter().zip(bundle_results) {
+                let call = resolve_seismic_call(call.clone())?;
+
+                let response = match (call, call_result) {
+                    (SeismicCall::Transparent(_), Ok(value)) => {
+                        EthCallResponse { value: Some(value), error: None }
+                    }
+                    (SeismicCall::Transparent(_), Err(err)) => {
+                        EthCallResponse { value: None, error: Some(err.to_string()) }
+                    }
+                    (SeismicCall::SignedRead(request), Ok(mut value)) => {
+                        let sender = parse_request_sender(&request)?;
+                        let metadata = Self::build_metadata(&request, sender)?;
+                        value = metadata
+                            .encrypt_response(&tx_io_sk, &value)
+                            .map_err(|e| ext_encryption_error(e.to_string()))?;
+                        EthCallResponse { value: Some(value), error: None }
+                    }
+                    (SeismicCall::SignedRead(request), Err(err)) => {
+                        // `EthCallResponse.error` is a plain string with no `data` field, so the
+                        // encrypted revert output is appended as hex; otherwise the ciphertext
+                        // would be dropped and the signer couldn't decrypt the revert reason.
+                        let err = Self::reencrypt_revert_output(err, &request, &tx_io_sk)?;
+                        let err_str = match err.as_err() {
+                            Some(EthApiError::InvalidTransaction(
+                                RpcInvalidTransactionError::Revert(revert),
+                            )) => match revert.output() {
+                                Some(output) => format!("execution reverted: {output}"),
+                                None => err.to_string(),
+                            },
+                            _ => err.to_string(),
+                        };
+                        EthCallResponse { value: None, error: Some(err_str) }
+                    }
+                };
+                encrypted_bundle_results.push(response);
+            }
+            result.push(encrypted_bundle_results);
+        }
+
+        Ok(result)
+    }
+
+    /// Handler for: `eth_call`
+    async fn call(
+        &self,
+        request: SeismicCallRequest,
+        block_number: Option<BlockId>,
+        state_overrides: Option<StateOverride>,
+        block_overrides: Option<Box<BlockOverrides>>,
+    ) -> RpcResult<Bytes> {
+        debug!(
+            target: "reth-seismic-rpc::eth",
+            ?block_number,
+            has_state_overrides = state_overrides.is_some(),
+            has_block_overrides = block_overrides.is_some(),
+            "Serving seismic eth_call extension"
+        );
+
+        let tx_io_sk = self.tx_io_sk()?;
+        let call = resolve_seismic_call(request)?;
+        let plaintext_tx_req =
+            seismic_call_to_plaintext_tx(&call, &tx_io_sk, self.eth_api.provider())?;
+
+        // call inner
+        let result = EthCall::call(
+            &self.eth_api,
+            plaintext_tx_req.inner.into(),
+            block_number,
+            EvmOverrides::new(state_overrides, block_overrides),
+        )
+        .await;
+
+        match call {
+            SeismicCall::Transparent(_) => Ok(result?),
+            SeismicCall::SignedRead(request) => {
+                // On revert, re-encrypt the output bytes before they reach the client: a contract's
+                // revert data can embed private state just like a successful return value can.
+                let result = match result {
+                    Err(err) => Err(Self::reencrypt_revert_output(err, &request, &tx_io_sk)?),
+                    Ok(result) => Ok(result),
+                }?;
+
+                let sender = parse_request_sender(&request)?;
+                let metadata = Self::build_metadata(&request, sender)?;
+                Ok(metadata
+                    .encrypt_response(&tx_io_sk, &result)
+                    .map_err(|e| ext_encryption_error(e.to_string()))?)
+            }
+        }
+    }
+
+    /// Handler for: `eth_sendRawTransaction`
+    ///
+    /// Directly calls the inner eth api without decryption
+    /// We do this so that it is encrypted in the tx pool, so it is encrypted in blocks
+    /// decryption during execution is handled by the [`SeismicBlockExecutor`]
+    async fn send_raw_transaction(&self, tx: SeismicRawTxRequest) -> RpcResult<B256> {
+        debug!(
+            target: "reth-seismic-rpc::eth",
+            "Serving overridden eth_sendRawTransaction extension"
+        );
+        let bytes = match tx {
+            SeismicRawTxRequest::Bytes(bytes) => bytes,
+            SeismicRawTxRequest::TypedData(typed_data) => {
+                // Re-encode EIP-712 typed-data submissions as RLP so they flow through
+                // the same `Decodable2718` pipeline as raw-bytes submissions. This keeps
+                // decode-time checks (e.g. signed-read rejection) uniformly enforced across all
+                // signed-tx ingress paths.
+                //
+                // TODO(samlaf): we should update our clients to submit EIP-712 transactions as RLP
+                // bytes directly rather than using the redundant `SeismicRawTxRequest::TypedData`
+                // wrapper, and then delete this TypedData ingress path.
+                let envelope = SeismicTxEnvelope::decode_712(&typed_data)
+                    .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
+                envelope.encoded_2718().into()
+            }
+        };
+        Ok(EthTransactions::send_raw_transaction(&self.eth_api, bytes).await?)
+    }
+
+    async fn estimate_gas(
+        &self,
+        request: SeismicCallRequest,
+        block_number: Option<BlockId>,
+        state_override: Option<StateOverride>,
+    ) -> RpcResult<U256> {
+        debug!(
+            target: "reth-seismic-rpc::eth",
+            ?block_number,
+            has_state_override = state_override.is_some(),
+            "serving seismic eth_estimateGas extension"
+        );
+
+        let tx_io_sk = self.tx_io_sk()?;
+        // Same sanitization as eth_call: unsigned requests have `from`,
+        // gas/value fields, and seismic_elements cleared to prevent caller
+        // spoofing that could leak private state. Signed requests (TypedData/Bytes)
+        // authenticate the sender cryptographically and must be call-only.
+        let call = resolve_seismic_call(request)?;
+        let decrypted_req =
+            seismic_call_to_plaintext_tx(&call, &tx_io_sk, self.eth_api.provider())?;
+
+        // call inner
+        let result = EthCall::estimate_gas_at(
+            &self.eth_api,
+            decrypted_req.inner.into(),
+            block_number.unwrap_or_default(),
+            state_override,
+        )
+        .await;
+
+        match call {
+            SeismicCall::Transparent(_) => Ok(result?),
+            SeismicCall::SignedRead(request) => {
+                // On revert, re-encrypt the output bytes before they reach the client: a contract's
+                // revert data can embed private state just like a successful return value can.
+                let result = match result {
+                    Err(err) => Err(Self::reencrypt_revert_output(err, &request, &tx_io_sk)?),
+                    Ok(result) => Ok(result),
+                }?;
+                Ok(result)
+            }
+        }
+    }
+
+    async fn get_balance(
+        &self,
+        address: Address,
+        block_number: Option<BlockId>,
+        native: Option<bool>,
+    ) -> RpcResult<U256> {
+        debug!(target: "reth-seismic-rpc::eth", ?block_number, ?native, "Serving seismic eth_getBalance extension");
+
+        // Return before any state resolution, including pending block construction or header
+        // lookups. Address and block syntax have already been validated by deserialization.
+        if native != Some(true) {
+            return Ok(COMPATIBILITY_BALANCE);
+        }
+        Ok(EthState::balance(&self.eth_api, address, block_number).await?)
+    }
+
+    async fn get_account_info(&self, address: Address, block: BlockId) -> RpcResult<AccountInfo> {
+        debug!(target: "reth-seismic-rpc::eth", ?block, "Serving seismic eth_getAccountInfo extension");
+        Ok(EthState::get_account_info(&self.eth_api, address, block).await?)
+    }
+}
+
+/// Creates an [`EthApiError`] that says that seismic decryption failed
+pub fn ext_decryption_error(e_str: String) -> EthApiError {
+    EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+        -32000, // TODO: pick a better error code?
+        "Error Decrypting in Seismic EthApiExt",
+        Some(e_str),
+    )))
+}
+
+/// Error for a keyring that cannot serve the current epoch's keys (a rotation
+/// activated before this node's custodian fetch completed).
+pub fn keyring_unavailable_error(
+    e: reth_seismic_keys::MissingEpochKeys,
+) -> jsonrpsee_types::ErrorObjectOwned {
+    jsonrpsee_types::ErrorObject::owned(
+        -32000,
+        "Purpose keys unavailable for the current epoch",
+        Some(e.to_string()),
+    )
+}
+
+/// Error for a failed encryption/decryption inside the Seismic `eth_` overrides.
+pub fn ext_encryption_error(e_str: String) -> EthApiError {
+    EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
+        -32000, // TODO: pick a better error code?
+        "Error Encrypting in Seismic EthApiExt",
+        Some(e_str),
+    )))
+}
+
+#[cfg(test)]
+mod balance_tests {
+    use super::*;
+    use jsonrpsee::types::Params;
+
+    const ADDRESS: &str = "0x0000000000000000000000000000000000000001";
+
+    #[test]
+    fn balance_params_accept_positional_and_named_forms() -> RpcResult<()> {
+        for raw in [
+            format!(r#"["{ADDRESS}"]"#),
+            format!(r#"["{ADDRESS}",null]"#),
+            format!(r#"["{ADDRESS}",null,null]"#),
+            format!(r#"{{"address":"{ADDRESS}"}}"#),
+            format!(r#"{{"address":"{ADDRESS}","blockNumber":null,"native":null}}"#),
+        ] {
+            let parsed: BalanceParams = Params::new(Some(&raw)).parse()?;
+            assert_eq!(parsed.address, Address::with_last_byte(1));
+            assert_eq!(parsed.block_number, None);
+            assert_eq!(parsed.native, None);
+        }
+        for native in [false, true] {
+            for raw in [
+                format!(r#"["{ADDRESS}","latest",{native}]"#),
+                format!(r#"{{"address":"{ADDRESS}","blockNumber":"latest","native":{native}}}"#),
+                format!(r#"{{"address":"{ADDRESS}","block_number":"latest","native":{native}}}"#),
+            ] {
+                let parsed: BalanceParams = Params::new(Some(&raw)).parse()?;
+                assert_eq!(parsed.block_number, Some(BlockId::latest()));
+                assert_eq!(parsed.native, Some(native));
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn balance_params_reject_unknown_fields_types_and_all_extra_elements() {
+        for raw in [
+            "[]".to_string(),
+            "null".to_string(),
+            "{}".to_string(),
+            r#"["0x1234","latest"]"#.to_string(),
+            r#"[null,"latest"]"#.to_string(),
+            format!(r#"["{ADDRESS}","not-a-block"]"#),
+            format!(r#"["{ADDRESS}",true]"#),
+            format!(r#"["{ADDRESS}","latest",0]"#),
+            format!(r#"["{ADDRESS}","latest","true"]"#),
+            format!(r#"["{ADDRESS}","latest",{{"native":true}}]"#),
+            format!(r#"["{ADDRESS}","latest",false,null]"#),
+            format!(r#"["{ADDRESS}","latest",null,null,true]"#),
+            format!(r#"["{ADDRESS}","latest",true,false]"#),
+            format!(r#"{{"address":"{ADDRESS}","includeGasToken":true}}"#),
+            format!(r#"{{"address":"{ADDRESS}","include_gas_token":false}}"#),
+            format!(r#"{{"address":"{ADDRESS}","unknown":null}}"#),
+            format!(r#"{{"address":"{ADDRESS}","native":0}}"#),
+            format!(r#"{{"address":"{ADDRESS}","native":false,"native":true}}"#),
+            format!(r#"{{"address":"{ADDRESS}","blockNumber":"latest","block_number":"pending"}}"#),
+        ] {
+            let parsed = Params::new(Some(&raw)).parse::<BalanceParams>();
+            assert_eq!(parsed.err().map(|err| err.code()), Some(-32602), "{raw}");
+        }
+    }
+
+    #[test]
+    fn account_info_params_require_exactly_address_and_block() -> RpcResult<()> {
+        for raw in [
+            format!(r#"["{ADDRESS}","latest"]"#),
+            format!(r#"{{"address":"{ADDRESS}","block":"latest"}}"#),
+        ] {
+            let parsed: AccountInfoParams = Params::new(Some(&raw)).parse()?;
+            assert_eq!(parsed.address, Address::with_last_byte(1));
+            assert_eq!(parsed.block, BlockId::latest());
+        }
+        for raw in [
+            format!(r#"["{ADDRESS}"]"#),
+            format!(r#"["{ADDRESS}",null]"#),
+            format!(r#"["{ADDRESS}","latest",null]"#),
+            format!(r#"["{ADDRESS}","latest",null,true]"#),
+            format!(r#"["{ADDRESS}","latest",false]"#),
+            format!(r#"["{ADDRESS}","latest",true]"#),
+            format!(r#"{{"address":"{ADDRESS}","block":"latest","native":true}}"#),
+            format!(r#"{{"address":"{ADDRESS}","block":"latest","includeGasToken":null}}"#),
+            format!(r#"{{"address":"{ADDRESS}","block":"latest","include_gas_token":true}}"#),
+            format!(r#"{{"address":"{ADDRESS}","block":"latest","unknown":false}}"#),
+        ] {
+            let parsed = Params::new(Some(&raw)).parse::<AccountInfoParams>();
+            assert_eq!(parsed.err().map(|err| err.code()), Some(-32602), "{raw}");
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)] // test code
+
+    use super::*;
+    use alloy_seismic_evm::{
+        secp256k1::{Secp256k1, SecretKey},
+        PurposeKeys,
+    };
+    use reth_seismic_keys::{CanonicalRotationView, RotationEntry, RotationSchedule};
+
+    fn test_keys(seed: u8) -> PurposeKeys {
+        let sk = SecretKey::from_byte_array(&[seed; 32]).unwrap();
+        let tx_io = secp256k1::Keypair::from_secret_key(&Secp256k1::new(), &sk);
+        PurposeKeys { tx_io, rng_ikm: [seed; 64] }
+    }
+
+    #[test]
+    fn revert_response_keeps_request_key_across_activation_and_reorg() {
+        use seismic_alloy_consensus::{TxSeismic, TxSeismicElements};
+
+        let keyring = Arc::new(PurposeKeyring::single_epoch(test_keys(1)));
+        keyring.insert_epoch(1, test_keys(2)).unwrap();
+        let api = EthApiExt::new((), keyring.clone());
+        let before_activation = CanonicalRotationView {
+            head_hash: B256::repeat_byte(1),
+            head_number: 99,
+            schedule: RotationSchedule::from_entries([RotationEntry {
+                epoch: 1,
+                activation_block: 100,
+                announced_at_block: 10,
+            }])
+            .unwrap(),
+        };
+        let after_activation = CanonicalRotationView {
+            head_hash: B256::repeat_byte(2),
+            head_number: 100,
+            schedule: before_activation.schedule.clone(),
+        };
+        let client_sk = test_keys(3).tx_io.secret_key();
+        let elements = TxSeismicElements {
+            encryption_pubkey: client_sk.public_key(&Secp256k1::new()),
+            signed_read: true,
+            expires_at_block: 200,
+            ..Default::default()
+        };
+        let request: SeismicTransactionRequest =
+            TxSeismic { seismic_elements: elements, ..Default::default() }.into();
+        let request = request.from(Address::ZERO);
+        let metadata = request.metadata(Address::ZERO).unwrap();
+        let plaintext = Bytes::from_static(b"private revert data");
+
+        // Forward activation and a reorg back to the outgoing epoch must both
+        // preserve the key captured before awaiting the inner RPC execution.
+        for (start, end) in [
+            (before_activation.clone(), after_activation.clone()),
+            (after_activation, before_activation),
+        ] {
+            keyring.replace_canonical_view(start);
+            let request_key = api.tx_io_sk().unwrap();
+            let request_pk = request_key.public_key(&Secp256k1::new());
+            let ciphertext =
+                elements.client_encrypt(&plaintext, &request_pk, &client_sk, &metadata).unwrap();
+            assert_eq!(
+                metadata.decrypt_request(&request_key, &ciphertext).unwrap(),
+                plaintext.as_ref()
+            );
+
+            keyring.replace_canonical_view(end);
+            let current_pk = api.tx_io_sk().unwrap().public_key(&Secp256k1::new());
+            assert_ne!(request_pk, current_pk);
+            let error = EthApiError::InvalidTransaction(RpcInvalidTransactionError::Revert(
+                RevertError::new(plaintext.clone()),
+            ));
+            let encrypted =
+                EthApiExt::<()>::reencrypt_revert_output(error, &request, &request_key).unwrap();
+            let output = match encrypted {
+                EthApiError::InvalidTransaction(RpcInvalidTransactionError::Revert(revert)) => {
+                    revert.output().cloned()
+                }
+                _ => None,
+            }
+            .unwrap();
+            assert_eq!(
+                elements.client_decrypt(&output, &request_pk, &client_sk, &metadata).unwrap(),
+                plaintext
+            );
+            assert!(elements.client_decrypt(&output, &current_pk, &client_sk, &metadata).is_err());
+        }
+    }
+
+    /// Pre-rotation networks (all of them today): epoch 0, no pending rotation.
+    #[test]
+    fn epoch_info_before_any_rotation() {
+        let keyring = PurposeKeyring::single_epoch(test_keys(1));
+        let info = key_epoch_info(&keyring).unwrap();
+        assert_eq!(info.current_epoch, 0);
+        assert_eq!(info.activation_block, 0);
+        assert_eq!(info.tee_public_key, test_keys(1).tx_io.public_key());
+        assert_eq!(info.pending_rotation, None);
+    }
+
+    /// With a rotation announced, the pending section carries the activation block
+    /// and — once the watcher has fetched the epoch — the next public key, so
+    /// wallets can switch exactly at activation.
+    #[test]
+    fn epoch_info_reports_a_pending_rotation() {
+        let keyring = PurposeKeyring::single_epoch(test_keys(1));
+        let schedule = RotationSchedule::from_entries([RotationEntry {
+            epoch: 1,
+            activation_block: 100,
+            announced_at_block: 10,
+        }])
+        .unwrap();
+        keyring.replace_canonical_view(CanonicalRotationView {
+            head_hash: B256::repeat_byte(1),
+            head_number: 10,
+            schedule: schedule.clone(),
+        });
+
+        // Announced but not yet fetched: pending key unknown.
+        let info = key_epoch_info(&keyring).unwrap();
+        let pending = info.pending_rotation.unwrap();
+        assert_eq!((pending.epoch, pending.activation_block), (1, 100));
+        assert_eq!(pending.tee_public_key, None);
+
+        // Fetched: pending key advertised ahead of activation.
+        keyring.insert_epoch(1, test_keys(2)).unwrap();
+        let info = key_epoch_info(&keyring).unwrap();
+        assert_eq!(info.current_epoch, 0);
+        let pending = info.pending_rotation.unwrap();
+        assert_eq!(pending.tee_public_key, Some(test_keys(2).tx_io.public_key()));
+
+        // Past activation the rotation is current, not pending.
+        keyring.replace_canonical_view(CanonicalRotationView {
+            head_hash: B256::repeat_byte(2),
+            head_number: 100,
+            schedule,
+        });
+        let info = key_epoch_info(&keyring).unwrap();
+        assert_eq!(info.current_epoch, 1);
+        assert_eq!(info.activation_block, 100);
+        assert_eq!(info.tee_public_key, test_keys(2).tx_io.public_key());
+        assert_eq!(info.pending_rotation, None);
+
+        // A lower replacement head removes the orphaned rotation, not its keys.
+        keyring.replace_canonical_view(CanonicalRotationView {
+            head_hash: B256::repeat_byte(3),
+            head_number: 9,
+            schedule: RotationSchedule::new(),
+        });
+        let info = key_epoch_info(&keyring).unwrap();
+        assert_eq!(info.current_epoch, 0);
+        assert_eq!(info.activation_block, 0);
+        assert_eq!(info.pending_rotation, None);
+        assert_eq!(info.tee_public_key, test_keys(1).tx_io.public_key());
+        assert!(keyring.keys_for_epoch(1).is_some());
+    }
+}

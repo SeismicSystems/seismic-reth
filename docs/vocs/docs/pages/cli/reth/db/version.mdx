@@ -5,8 +5,9 @@ Lists current and local database versions
 ```bash
 $ reth db version --help
 ```
+
 ```txt
-Usage: reth db version [OPTIONS]
+Usage: seismic-reth db version [OPTIONS]
 
 Options:
   -h, --help

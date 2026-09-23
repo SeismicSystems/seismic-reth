@@ -1,0 +1,214 @@
+name: Seismic CI
+
+on:
+  push:
+    branches: [seismic]
+  pull_request:
+    branches: [seismic]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+
+jobs:
+  rustfmt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  build:
+    runs-on: large-github-runner
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo check (workspace)
+        run: cargo check --workspace
+
+  msrv:
+    name: MSRV (1.88)
+    runs-on: large-github-runner
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rui314/setup-mold@v1
+      # @master is the action's canonical ref, the only one that reads an
+      # explicit `toolchain` input. The @stable/@nightly refs the other jobs use
+      # are just shorthands that bake the toolchain into the ref itself, so they
+      # can't pin an arbitrary version. Matches upstream reth's msrv job.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.88" # keep in sync with rust-version in Cargo.toml
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: cargo build (MSRV)
+        run: cargo build --bin seismic-reth --workspace
+        env:
+          RUSTFLAGS: -D warnings
+
+  warnings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo check warnings
+        run: RUSTFLAGS="-D warnings" cargo check
+
+  clippy-seismic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy (seismic crates)
+        # The two globs select seismic-authored crates by naming convention
+        # (reth-seismic-* libraries, seismic-reth* binaries), so new ones
+        # are covered automatically.
+        #
+        # The -W lints hold fork-authored code to a stricter bar than the
+        # workspace [lints] table. They live here as CLI flags because a
+        # crate inheriting `[lints] workspace = true` can't layer additions
+        # on top, and clippy.toml holds lint parameters, not levels. They
+        # are enforced: `-D warnings` promotes them to errors. Test code is
+        # exempt via the allow-*-in-tests entries in clippy.toml.
+        run: |
+          cargo clippy \
+            -p 'reth-seismic*' \
+            -p 'seismic-reth*' \
+            --lib --tests --no-deps \
+            -- -D warnings \
+            -W clippy::unwrap_used \
+            -W clippy::expect_used \
+            -W clippy::indexing_slicing \
+            -W clippy::panic \
+            -W clippy::unreachable \
+            -W clippy::todo
+
+  clippy-workspace:
+    runs-on: large-github-runner
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      # Pinned, unlike clippy-seismic: every stable release adds clippy lints,
+      # and fixing them means churning fork-modified upstream code that will
+      # conflict on upstream merges. Pinning to 1.91.1 for now.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.91.1
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy (workspace)
+        # Default features only — never --all-features: the optimism `op`
+        # features gate code we neither run nor maintain (the optimism
+        # crates are excluded from the workspace and don't compile against
+        # fork type changes like FlaggedStorage).
+        run: cargo clippy --workspace --lib --examples --tests --benches --locked
+        env:
+          RUSTFLAGS: -D warnings
+
+  lint-toml:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run dprint
+        uses: dprint/check@v2.3
+        with:
+          config-path: dprint.json
+
+  feature-propagation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ZEPTER_VERSION: v1.88.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: fetch deps
+        run: |
+          # Eagerly pull dependencies
+          time cargo metadata --format-version=1 --locked > /dev/null
+      - name: install zepter
+        # Pinned prebuilt binary: installs in seconds where `cargo install`
+        # compiles for minutes, and new zepter releases (with new lints) only
+        # land here by bumping ZEPTER_VERSION.
+        run: |
+          curl -sSfLO "https://github.com/ggwpez/zepter/releases/download/${ZEPTER_VERSION}/zepter-x86_64-unknown-linux-gnu.tar.xz"
+          curl -sSfLO "https://github.com/ggwpez/zepter/releases/download/${ZEPTER_VERSION}/zepter-x86_64-unknown-linux-gnu.tar.xz.sha256"
+          sha256sum -c zepter-x86_64-unknown-linux-gnu.tar.xz.sha256
+          tar -xJf zepter-x86_64-unknown-linux-gnu.tar.xz
+          sudo mv zepter-x86_64-unknown-linux-gnu/zepter /usr/local/bin/
+          zepter --version
+      - name: run zepter
+        run: time zepter run check
+
+  genesis-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Dev genesis matches its manifest
+        # Rebuilds the dev genesis from the artifacts of the commit
+        # manifest.toml pins and fails if the committed file differs, so a
+        # contract bump can't land without its regenerated genesis.
+        #
+        # The dev template only, which is what the default --genesis is. The
+        # testnet and mainnet specs are snapshots of launched networks: they
+        # have no manifest to drift from, and rebuilding them would rewrite a
+        # live network's genesis.
+        run: cargo run --bin genesis-builder -- --check
+
+  unit-test:
+    runs-on: large-github-runner
+    timeout-minutes: 30
+    env:
+      SEISMIC_CI: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@nextest
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # unit-test and integration-test compile the same workspace test
+          # binaries (they differ only in the nextest filter), so they share
+          # one cache instead of the default per-job ones
+          shared-key: "integration-test-cache"
+      - name: seismic-node test
+        # see profile.default in .config/nextest.toml for filtered tests
+        run: cargo nextest run --workspace -E '!kind(test)' --no-fail-fast
+
+  integration-test:
+    runs-on: large-github-runner
+    timeout-minutes: 30
+    env:
+      SEISMIC_CI: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@nextest
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # unit-test and integration-test compile the same workspace test
+          # binaries (they differ only in the nextest filter), so they share
+          # one cache instead of the default per-job ones
+          shared-key: "integration-test-cache"
+      - name: seismic-node test
+        # see profile.default in .config/nextest.toml for filtered tests
+        run: cargo nextest run --workspace -E 'kind(test)' --no-fail-fast

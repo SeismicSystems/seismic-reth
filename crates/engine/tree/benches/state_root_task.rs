@@ -26,7 +26,9 @@ use reth_provider::{
 };
 use reth_trie::TrieInput;
 use revm_primitives::{HashMap, U256};
-use revm_state::{Account as RevmAccount, AccountInfo, AccountStatus, EvmState, EvmStorageSlot};
+use revm_state::{
+    Account as RevmAccount, AccountInfo, AccountStatus, EvmState, EvmStorageSlot, FlaggedStorage,
+};
 use std::{hint::black_box, sync::Arc};
 
 #[derive(Debug, Clone)]
@@ -77,8 +79,8 @@ fn create_bench_state_updates(params: &BenchParams) -> Vec<EvmState> {
                             (
                                 U256::from(rng.random::<u64>()),
                                 EvmStorageSlot::new_changed(
-                                    U256::ZERO,
-                                    U256::from(rng.random::<u64>()),
+                                    FlaggedStorage::ZERO,
+                                    FlaggedStorage::public(rng.random::<u64>()),
                                     0,
                                 ),
                             )

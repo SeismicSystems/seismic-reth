@@ -5,7 +5,6 @@ use crate::{
     DatabaseError,
 };
 use alloy_consensus::Header;
-use alloy_genesis::GenesisAccount;
 use alloy_primitives::{Address, Bytes, Log, B256, U256};
 use reth_codecs::{add_arbitrary_tests, Compact};
 use reth_ethereum_primitives::{Receipt, TransactionSigned, TxType};
@@ -13,6 +12,7 @@ use reth_primitives_traits::{Account, Bytecode, StorageEntry};
 use reth_prune_types::{PruneCheckpoint, PruneSegment};
 use reth_stages_types::StageCheckpoint;
 use reth_trie_common::{StoredNibbles, StoredNibblesSubKey, *};
+use seismic_alloy_genesis::GenesisAccount;
 use serde::{Deserialize, Serialize};
 
 pub mod accounts;
@@ -202,8 +202,13 @@ macro_rules! impl_compression_for_compact {
 
             impl$(<$($generic: core::fmt::Debug + Send + Sync + Compact),*>)? Decompress for $name$(<$($generic),*>)? {
                 fn decompress(value: &[u8]) -> Result<$name$(<$($generic),*>)?, $crate::DatabaseError> {
-                    let (obj, _) = Compact::from_compact(value, value.len());
-                    Ok(obj)
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        Compact::from_compact(value, value.len())
+                    }));
+                    match result {
+                        Ok((obj, _)) => Ok(obj),
+                        Err(_) => Err($crate::DatabaseError::Decode),
+                    }
                 }
             }
         )+
@@ -245,6 +250,13 @@ mod op {
     impl_compression_for_compact!(OpTransactionSigned, OpReceipt);
 }
 
+mod seismic {
+    use super::*;
+    use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
+
+    impl_compression_for_compact!(SeismicTransactionSigned, SeismicReceipt);
+}
+
 macro_rules! impl_compression_fixed_compact {
     ($($name:tt),+) => {
         $(
@@ -262,8 +274,14 @@ macro_rules! impl_compression_fixed_compact {
 
             impl Decompress for $name {
                 fn decompress(value: &[u8]) -> Result<$name, $crate::DatabaseError> {
-                    let (obj, _) = Compact::from_compact(&value, value.len());
-                    Ok(obj)
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        let (obj, _) = Compact::from_compact(&value, value.len());
+                        obj
+                    }));
+                    match result {
+                        Ok(obj) => Ok(obj),
+                        Err(_) => Err($crate::DatabaseError::Decode),
+                    }
                 }
             }
 

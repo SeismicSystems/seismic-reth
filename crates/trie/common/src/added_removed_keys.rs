@@ -103,8 +103,8 @@ mod tests {
 
         // First mark slots as removed
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, U256::ZERO);
-        storage.storage.insert(slot2, U256::ZERO);
+        storage.storage.insert(slot1, U256::ZERO.into());
+        storage.storage.insert(slot2, U256::ZERO.into());
         update.storages.insert(addr, storage);
         multi_keys.update_with_state(&update);
 
@@ -115,8 +115,8 @@ mod tests {
         // Now update with non-zero values
         let mut update2 = HashedPostState::default();
         let mut storage2 = HashedStorage::default();
-        storage2.storage.insert(slot1, U256::from(100));
-        storage2.storage.insert(slot2, U256::from(200));
+        storage2.storage.insert(slot1, U256::from(100).into());
+        storage2.storage.insert(slot2, U256::from(200).into());
         update2.storages.insert(addr, storage2);
         multi_keys.update_with_state(&update2);
 
@@ -136,7 +136,7 @@ mod tests {
 
         // First add some removed keys
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, U256::ZERO);
+        storage.storage.insert(slot1, U256::ZERO.into());
         update.storages.insert(addr, storage);
         multi_keys.update_with_state(&update);
         assert!(multi_keys.get_storage(&addr).is_some());
@@ -162,7 +162,7 @@ mod tests {
 
         // Add storage with zero value and empty account
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot, U256::ZERO);
+        storage.storage.insert(slot, U256::ZERO.into());
         update.storages.insert(addr, storage);
         // Account is implicitly empty (not in accounts map)
 
@@ -175,7 +175,7 @@ mod tests {
         // Now clear all removed storage keys and keep account empty
         let mut update2 = HashedPostState::default();
         let mut storage2 = HashedStorage::default();
-        storage2.storage.insert(slot, U256::from(100)); // Non-zero removes from removed set
+        storage2.storage.insert(slot, U256::from(100).into()); // Non-zero removes from removed set
         update2.storages.insert(addr, storage2);
 
         multi_keys.update_with_state(&update2);

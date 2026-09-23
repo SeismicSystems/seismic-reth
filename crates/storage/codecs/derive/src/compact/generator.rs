@@ -107,8 +107,17 @@ fn generate_from_compact(
     zstd: Option<ZstdConfig>,
 ) -> TokenStream2 {
     let mut lines = vec![];
-    let mut known_types =
-        vec!["B256", "Address", "Bloom", "Vec", "TxHash", "BlockHash", "FixedBytes", "Cow"];
+    let mut known_types = vec![
+        "B256",
+        "Address",
+        "Bloom",
+        "Vec",
+        "TxHash",
+        "BlockHash",
+        "FixedBytes",
+        "Cow",
+        "TxSeismicElements",
+    ];
 
     // Only types without `Bytes` should be added here. It's currently manually added, since
     // it's hard to figure out with derive_macro which types have Bytes fields.

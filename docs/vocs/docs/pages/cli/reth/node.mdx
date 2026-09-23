@@ -1,12 +1,13 @@
-# reth node
+# seismic-reth node
 
 Start the node
 
 ```bash
-$ reth node --help
+$ seismic-reth node --help
 ```
+
 ```txt
-Usage: reth node [OPTIONS]
+Usage: seismic-reth node [OPTIONS]
 
 Options:
       --config <FILE>
@@ -17,9 +18,9 @@ Options:
           Possible values are either a built-in chain or the path to a chain specification file.
 
           Built-in chains:
-              mainnet, sepolia, holesky, hoodi, dev
+              seismic, dev
 
-          [default: mainnet]
+          [default: seismic]
 
       --instance <INSTANCE>
           Add a new instance of a node.
@@ -951,7 +952,36 @@ Logging:
           - auto:   Colors on
           - never:  Colors off
 
-          [default: always]
+Purpose Keys:
+      --seismic.purpose-keys-source <SOURCE>
+          Where the node sources its purpose keys. `custodian` fetches them from the key custodian's Unix socket (TEE deployments); `built-in` uses the well-known keys built into the binary (publicly known, no confidentiality). With `built-in` the `--seismic.custodian.*` flags are unused
+
+          [default: custodian]
+
+          Possible values:
+          - custodian: Fetch the keys from the key custodian's Unix socket (TEE deployments)
+          - built-in:  Use the well-known keys built into the binary (publicly known, no confidentiality); for dev nodes and pre-TEE deployments that run no TEE at all
+
+      --seismic.custodian.socket <SOCKET>
+          Path of the key custodian's Unix socket, the source of the node's purpose keys on TEE deployments. Only used with `--seismic.purpose-keys-source custodian`
+
+          [default: /run/seismic/custodian/custodian.sock]
+
+      --seismic.custodian.retries <RETRIES>
+          How many boot-time fetch failures to tolerate before we panic. Total attempts = `retries` + 1 (one initial attempt plus `retries` re-attempts). Only used with `--seismic.purpose-keys-source custodian`
+
+          [default: 5]
+
+      --seismic.custodian.timeout-seconds <TIMEOUT_SECONDS>
+          Timeout in seconds for each purpose-key fetch attempt against the custodian socket. Only used with `--seismic.purpose-keys-source custodian`
+
+          [default: 5]
+
+      --seismic.custodian.retry-seconds <RETRY_SECONDS>
+          How many seconds to wait before retrying after a failed attempt. Only used with `--seismic.purpose-keys-source custodian`
+
+          [default: 30]
+
 
 Display:
   -v, --verbosity...

@@ -38,7 +38,8 @@ pub trait Trace: LoadState<Error: FromEvmError<Self::Evm>> {
         DB: Database<Error = ProviderError>,
         I: InspectorFor<Self::Evm, DB>,
     {
-        let mut evm = self.evm_config().evm_with_env_and_inspector(db, evm_env, inspector);
+        let evm_config = self.evm_config().snapshot_for_simulation();
+        let mut evm = evm_config.evm_with_env_and_inspector(db, evm_env, inspector);
         evm.transact(tx_env).map_err(Self::Error::from_evm_err)
     }
 
@@ -439,7 +440,8 @@ pub trait Trace: LoadState<Error: FromEvmError<Self::Evm>> {
         let mut system_caller = SystemCaller::new(self.provider().chain_spec());
 
         // apply relevant system calls
-        let mut evm = self.evm_config().evm_with_env(db, evm_env.clone());
+        let evm_config = self.evm_config().snapshot_for_simulation();
+        let mut evm = evm_config.evm_with_env(db, evm_env.clone());
         system_caller.apply_pre_execution_changes(block.header(), &mut evm).map_err(|err| {
             EthApiError::EvmCustom(format!("failed to apply 4788 system call {err}"))
         })?;

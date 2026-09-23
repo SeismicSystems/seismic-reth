@@ -762,12 +762,21 @@ mod tests {
 
     #[test]
     fn test_discv5_fork_id_default() {
-        const GENESIS_TIME: u64 = 151_515;
+        const GENESIS_TIME: u64 = 151_515_000;
+        // ForkCondition::Timestamp stores seconds (upstream alloy-hardforks convention),
+        // while header/head timestamps store ms (Seismic uses 300-400ms block times).
+        // This unit mismatch is the source of the `timestamp-in-seconds` feature flag
+        // and scattered `/ 1000` conversions across the codebase.
+        // TODO(samlaf): think we could convert ForkCondition to also use ms, and then only keep the
+        // feature-flag for ef-tests.
+        const GENESIS_TIME_SECONDS: u64 = 151_515;
 
         let genesis = Genesis::default().with_timestamp(GENESIS_TIME);
 
-        let active_fork = (EthereumHardfork::Shanghai, ForkCondition::Timestamp(GENESIS_TIME));
-        let future_fork = (EthereumHardfork::Cancun, ForkCondition::Timestamp(GENESIS_TIME + 1));
+        let active_fork =
+            (EthereumHardfork::Shanghai, ForkCondition::Timestamp(GENESIS_TIME_SECONDS));
+        let future_fork =
+            (EthereumHardfork::Cancun, ForkCondition::Timestamp(GENESIS_TIME_SECONDS + 1));
 
         let chain_spec = ChainSpecBuilder::default()
             .chain(Chain::dev())
@@ -778,7 +787,7 @@ mod tests {
 
         // get the fork id to advertise on discv5
         let genesis_fork_hash = ForkHash::from(chain_spec.genesis_hash());
-        let fork_id = ForkId { hash: genesis_fork_hash, next: GENESIS_TIME + 1 };
+        let fork_id = ForkId { hash: genesis_fork_hash, next: GENESIS_TIME_SECONDS + 1 };
         // check the fork id is set to active fork and _not_ yet future fork
         assert_eq!(
             fork_id,
@@ -804,6 +813,7 @@ mod tests {
         let (local_enr, _, _, _) = build_local_enr(
             &config.secret_key,
             &config.discovery_v5_config.expect("should build config"),
+            None,
         );
 
         // peers on the odyssey network will check discovered enrs for the 'odyssey' key and

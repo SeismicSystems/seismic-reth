@@ -105,6 +105,7 @@ impl RethRpcServerConfig for RpcServerArgs {
             .proof_permits(self.rpc_proof_permits)
             .pending_block_kind(self.rpc_pending_block)
             .raw_tx_forwarder(self.rpc_forwarder.clone())
+            .enable_storage_apis(self.rpc_enable_storage_apis)
     }
 
     fn flashbots_config(&self) -> ValidationApiConfig {
@@ -269,6 +270,20 @@ mod tests {
 
         let args = CommandParser::<RpcServerArgs>::try_parse_from(["reth", "--rpc.gascap", "0"]);
         assert!(args.is_err());
+    }
+
+    #[test]
+    fn test_rpc_enable_storage_apis() {
+        // Default: storage APIs disabled
+        let args = CommandParser::<RpcServerArgs>::parse_from(["reth"]).args;
+        let config = args.eth_config();
+        assert!(!config.enable_storage_apis);
+
+        // Enabled via flag
+        let args =
+            CommandParser::<RpcServerArgs>::parse_from(["reth", "--rpc.enable-storage-apis"]).args;
+        let config = args.eth_config();
+        assert!(config.enable_storage_apis);
     }
 
     #[test]

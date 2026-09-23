@@ -387,7 +387,7 @@ where
     where
         B: Block,
     {
-        trace!(target: "txpool", ?update, "updating pool on canonical state change");
+        trace!(target: "txpool", update = %update, "updating pool on canonical state change");
 
         let block_info = update.block_info();
         let CanonicalStateUpdate {
@@ -510,7 +510,14 @@ where
 
                 let added = pool.add_transaction(tx, balance, state_nonce, bytecode_hash)?;
                 let hash = *added.hash();
-                let state = match added.subpool() {
+                let subpool = added.subpool();
+                debug!(
+                    target: "txpool",
+                    tx_hash = %hash,
+                    ?subpool,
+                    "transaction added to pool"
+                );
+                let state = match subpool {
                     SubPool::Pending => AddedTransactionState::Pending,
                     _ => AddedTransactionState::Queued,
                 };

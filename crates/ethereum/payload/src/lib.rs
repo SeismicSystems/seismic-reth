@@ -3,7 +3,7 @@
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
     html_favicon_url = "https://avatars0.githubusercontent.com/u/97369466?s=256",
-    issue_tracker_base_url = "https://github.com/paradigmxyz/reth/issues/"
+    issue_tracker_base_url = "https://github.com/SeismicSystems/seismic-reth/issues/"
 )]
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
@@ -197,11 +197,11 @@ where
     let mut block_blob_count = 0;
     let mut block_transactions_rlp_length = 0;
 
-    let blob_params = chain_spec.blob_params_at_timestamp(attributes.timestamp);
+    let blob_params = chain_spec.blob_params_at_timestamp(attributes.timestamp_seconds());
     let max_blob_count =
         blob_params.as_ref().map(|params| params.max_blob_count).unwrap_or_default();
 
-    let is_osaka = chain_spec.is_osaka_active_at_timestamp(attributes.timestamp);
+    let is_osaka = chain_spec.is_osaka_active_at_timestamp(attributes.timestamp_seconds());
 
     while let Some(pool_tx) = best_txs.next() {
         // ensure we still have capacity for this transaction
@@ -353,7 +353,7 @@ where
     let BlockBuilderOutcome { execution_result, block, .. } = builder.finish(&state_provider)?;
 
     let requests = chain_spec
-        .is_prague_active_at_timestamp(attributes.timestamp)
+        .is_prague_active_at_timestamp(attributes.timestamp_seconds())
         .then_some(execution_result.requests);
 
     let sealed_block = Arc::new(block.sealed_block().clone());

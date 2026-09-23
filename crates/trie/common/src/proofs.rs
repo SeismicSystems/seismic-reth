@@ -6,7 +6,7 @@ use alloy_consensus::constants::KECCAK_EMPTY;
 use alloy_primitives::{
     keccak256,
     map::{hash_map, B256Map, B256Set, HashMap},
-    Address, Bytes, B256, U256,
+    Address, Bytes, FlaggedStorage, B256, U256,
 };
 use alloy_rlp::{encode_fixed_size, Decodable, EMPTY_STRING_CODE};
 use alloy_trie::{
@@ -238,7 +238,7 @@ impl MultiProof {
                             nonce: account.nonce,
                             bytecode_hash: (account.code_hash != KECCAK_EMPTY)
                                 .then_some(account.code_hash),
-                        })
+                        });
                     }
                 }
             }
@@ -368,7 +368,7 @@ impl DecodedMultiProof {
                         nonce: account.nonce,
                         bytecode_hash: (account.code_hash != KECCAK_EMPTY)
                             .then_some(account.code_hash),
-                    })
+                    });
                 }
             }
             None
@@ -485,18 +485,20 @@ impl StorageMultiProof {
 
         // Inspect the last node in the proof. If it's a leaf node with matching suffix,
         // then the node contains the encoded slot value.
+        let mut is_private = false;
         let value = 'value: {
             if let Some(last) = proof.last() {
                 if let TrieNode::Leaf(leaf) = TrieNode::decode(&mut &last[..])? {
                     if nibbles.ends_with(&leaf.key) {
-                        break 'value U256::decode(&mut &leaf.value[..])?
+                        is_private = leaf.is_private;
+                        break 'value U256::decode(&mut &leaf.value[..])?;
                     }
                 }
             }
             U256::ZERO
         };
 
-        Ok(StorageProof { key: slot, nibbles, value, proof })
+        Ok(StorageProof { key: slot, nibbles, value, is_private, proof })
     }
 }
 
@@ -541,7 +543,7 @@ impl DecodedStorageMultiProof {
         let value = 'value: {
             if let Some(TrieNode::Leaf(leaf)) = proof.last() {
                 if nibbles.ends_with(&leaf.key) {
-                    break 'value U256::decode(&mut &leaf.value[..])?
+                    break 'value U256::decode(&mut &leaf.value[..])?;
                 }
             }
             U256::ZERO
@@ -684,7 +686,8 @@ impl AccountProof {
             ))
         };
         let nibbles = Nibbles::unpack(keccak256(self.address));
-        verify_proof(root, nibbles, expected, &self.proof)
+        let account_node_is_private = false; // account nodes are always public
+        verify_proof(root, nibbles, expected, account_node_is_private, &self.proof)
     }
 }
 
@@ -733,6 +736,8 @@ pub struct StorageProof {
     pub nibbles: Nibbles,
     /// The storage value.
     pub value: U256,
+    /// Whether the storge node is private.
+    pub is_private: bool,
     /// Array of rlp-serialized merkle trie nodes which starting from the storage root node and
     /// following the path of the hashed storage slot as key.
     pub proof: Vec<Bytes>,
@@ -762,21 +767,40 @@ impl StorageProof {
     }
 
     /// Verify the proof against the provided storage root.
+    ///
+    /// In Seismic, storage values in the trie are encoded as [`FlaggedStorage`] which
+    /// includes the privacy flag byte. The expected value must be encoded the same way
+    /// to match what the trie actually stores.
     pub fn verify(&self, root: B256) -> Result<(), ProofVerificationError> {
-        let expected =
-            if self.value.is_zero() { None } else { Some(encode_fixed_size(&self.value).to_vec()) };
-        verify_proof(root, self.nibbles, expected, &self.proof)
+        let expected = if self.value.is_zero() && !self.is_private {
+            None
+        } else {
+            let flagged = FlaggedStorage::new(self.value, self.is_private);
+            Some(encode_fixed_size(&flagged).to_vec())
+        };
+        verify_proof(root, self.nibbles, expected, self.is_private, &self.proof)
     }
 }
 
 #[cfg(feature = "eip1186")]
 impl StorageProof {
-    /// Convert into an EIP-1186 storage proof
+    /// Convert into an EIP-1186 storage proof.
+    ///
+    /// For private storage slots, returns a zeroed value and empty proof to avoid leaking
+    /// private storage information, matching the behavior of `eth_getStorageAt`.
     pub fn into_eip1186_proof(
         self,
         slot: alloy_serde::JsonStorageKey,
     ) -> alloy_rpc_types_eth::EIP1186StorageProof {
-        alloy_rpc_types_eth::EIP1186StorageProof { key: slot, value: self.value, proof: self.proof }
+        if self.is_private {
+            alloy_rpc_types_eth::EIP1186StorageProof { key: slot, value: U256::ZERO, proof: vec![] }
+        } else {
+            alloy_rpc_types_eth::EIP1186StorageProof {
+                key: slot,
+                value: self.value,
+                proof: self.proof,
+            }
+        }
     }
 
     /// Convert from an

@@ -12,19 +12,24 @@ description = "Common types in reth."
 workspace = true
 
 [dependencies]
+# seimsic
+seismic-alloy-consensus = { workspace = true, features = ["k256", "serde"] }
+seismic-alloy-genesis.workspace = true
+alloy-genesis.workspace = true
+
 # reth
 reth-codecs = { workspace = true, optional = true }
 
 # ethereum
 alloy-consensus = { workspace = true, features = ["k256"] }
 alloy-eips.workspace = true
-alloy-genesis.workspace = true
 alloy-primitives = { workspace = true, features = ["k256"] }
 alloy-rlp.workspace = true
 alloy-trie.workspace = true
 revm-primitives.workspace = true
 revm-bytecode.workspace = true
 revm-state.workspace = true
+# alloy-rpc-types-eth.workspace = true
 
 # op
 op-alloy-consensus = { workspace = true, optional = true, features = ["k256"] }
@@ -73,6 +78,7 @@ test-fuzz.workspace = true
 
 [features]
 default = ["std"]
+timestamp-in-seconds = []
 std = [
     "alloy-consensus/std",
     "alloy-eips/std",
@@ -94,6 +100,8 @@ std = [
     "revm-bytecode/std",
     "revm-state/std",
     "alloy-rpc-types-eth?/std",
+    "seismic-alloy-consensus/std",
+    "seismic-alloy-genesis/std",
 ]
 secp256k1 = ["alloy-consensus/secp256k1"]
 test-utils = [
@@ -117,6 +125,7 @@ arbitrary = [
     "alloy-trie/arbitrary",
     "reth-chainspec/arbitrary",
     "alloy-rpc-types-eth?/arbitrary",
+    "seismic-alloy-consensus/arbitrary",
 ]
 serde-bincode-compat = [
     "serde",
@@ -127,6 +136,7 @@ serde-bincode-compat = [
     "op-alloy-consensus?/serde-bincode-compat",
     "alloy-genesis/serde-bincode-compat",
     "alloy-rpc-types-eth?/serde-bincode-compat",
+    "seismic-alloy-consensus/serde-bincode-compat",
 ]
 serde = [
     "dep:serde",
@@ -137,7 +147,6 @@ serde = [
     "rand/serde",
     "reth-codecs?/serde",
     "revm-primitives/serde",
-    "revm-primitives/serde",
     "op-alloy-consensus?/serde",
     "secp256k1?/serde",
     "alloy-trie/serde",
@@ -145,6 +154,7 @@ serde = [
     "revm-state/serde",
     "rand_08/serde",
     "alloy-rpc-types-eth?/serde",
+    "seismic-alloy-consensus/serde",
 ]
 reth-codec = [
     "dep:reth-codecs",

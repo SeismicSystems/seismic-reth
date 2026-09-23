@@ -10,7 +10,7 @@ use reth_db::{
 use reth_primitives_traits::{Account, StorageEntry};
 use reth_provider::test_utils::create_test_provider_factory;
 use reth_trie::{
-    test_utils::{state_root_prehashed, storage_root_prehashed},
+    test_utils::{state_root_prehashed, storage_root_prehashed_privacy_aware},
     trie_cursor::InMemoryTrieCursorFactory,
     updates::TrieUpdates,
     HashedPostState, HashedStorage, StateRoot, StorageRoot,
@@ -75,7 +75,7 @@ proptest! {
     }
 
     #[test]
-    fn fuzz_in_memory_storage_nodes(mut init_storage: BTreeMap<B256, U256>, storage_updates: [(bool, BTreeMap<B256, U256>); 10]) {
+    fn fuzz_in_memory_storage_nodes(mut init_storage: BTreeMap<B256, alloy_primitives::FlaggedStorage>, storage_updates: [(bool, BTreeMap<B256, alloy_primitives::FlaggedStorage>); 10]) {
         let hashed_address = B256::random();
         let factory = create_test_provider_factory();
         let provider = factory.provider_rw().unwrap();
@@ -127,7 +127,7 @@ proptest! {
                 storage.clear();
             }
             storage.append(&mut storage_update);
-            let expected_root = storage_root_prehashed(storage.clone());
+            let expected_root = storage_root_prehashed_privacy_aware(storage.clone());
             assert_eq!(expected_root, storage_root);
         }
     }

@@ -45,6 +45,17 @@ mod rpc;
 /// Utilities for creating and writing RLP test data
 pub mod test_rlp_utils;
 
+/// Returns the RPC server args used for test nodes: unused ports, HTTP enabled, IPC disabled.
+///
+/// Tests talk to their nodes over local HTTP only, so the IPC server is disabled: nothing
+/// connects to it, its default endpoint lives in the shared `/tmp`, and sandboxed test
+/// environments often forbid binding unix domain sockets altogether.
+fn test_rpc_server_args() -> RpcServerArgs {
+    let mut args = RpcServerArgs::default().with_unused_ports().with_http();
+    args.ipcdisable = true;
+    args
+}
+
 /// Creates the initial setup with `num_nodes` started and interconnected.
 pub async fn setup<N>(
     num_nodes: usize,
@@ -77,7 +88,7 @@ where
         let node_config = NodeConfig::new(chain_spec.clone())
             .with_network(network_config.clone())
             .with_unused_ports()
-            .with_rpc(RpcServerArgs::default().with_unused_ports().with_http())
+            .with_rpc(test_rpc_server_args())
             .set_dev(is_dev);
 
         let span = span!(Level::INFO, "node", idx);
@@ -169,12 +180,7 @@ where
         let node_config = NodeConfig::new(chain_spec.clone())
             .with_network(network_config.clone())
             .with_unused_ports()
-            .with_rpc(
-                RpcServerArgs::default()
-                    .with_unused_ports()
-                    .with_http()
-                    .with_http_api(RpcModuleSelection::All),
-            )
+            .with_rpc(test_rpc_server_args().with_http_api(RpcModuleSelection::All))
             .set_dev(is_dev);
 
         let span = span!(Level::INFO, "node", idx);
@@ -224,7 +230,9 @@ where
 
 /// Testing database
 pub type TmpDB = Arc<TempDatabase<DatabaseEnv>>;
-type TmpNodeAdapter<N, Provider = BlockchainProvider<NodeTypesWithDBAdapter<N, TmpDB>>> =
+
+/// Type alias for a testing `FullNodeTypesAdapter`
+pub type TmpNodeAdapter<N, Provider = BlockchainProvider<NodeTypesWithDBAdapter<N, TmpDB>>> =
     FullNodeTypesAdapter<N, TmpDB, Provider>;
 
 /// Type alias for a `NodeAdapter`

@@ -1,0 +1,105 @@
+# Uses https://github.com/protolambda/forkdiff to generate a diff overview index.html page.
+# To use:
+# 1. install forkdiff: `go install github.com/protolambda/forkdiff@latest`
+# 2. run `forkdiff`
+title: "SeismicSystems/seismic-reth" # Define the HTML page title
+logo: "logo.png"
+footer: | # define the footer with markdown
+  SeismicSystems' [seismic-reth](https://github.com/SeismicSystems/seismic-reth) fork overview - created with [Forkdiff](https://github.com/protolambda/forkdiff)
+# We compare the fork against the base branch, which matches the upstream repo's main branch
+# at the point where the fork was created.
+base:
+  name: reth
+  url: https://github.com/SeismicSystems/seismic-reth
+  ref: refs/remotes/origin/main
+fork:
+  name: seismic-reth
+  url: https://github.com/SeismicSystems/seismic-reth
+  ref: refs/remotes/origin/seismic
+def:
+  title: "Seismic-Reth fork diff"
+  description: | # description in markdown
+    - Original reth codebase: [`https://github.com/paradigmxyz/reth`](https://github.com/paradigmxyz/reth).
+    - Seismic reth fork: [`https://github.com/SeismicSystems/seismic-reth`](https://github.com/SeismicSystems/seismic-reth).
+  sub:
+    - title: "Seismic crate"
+      description: |
+        TODO
+      sub:
+        - title: "evm"
+          globs:
+            - "crates/seismic/evm/**"
+
+        - title: "node"
+          globs:
+            - "crates/seismic/node/**"
+
+        - title: "rpc"
+          globs:
+            - "crates/seismic/rpc/**"
+
+        - title: "primitives"
+          globs:
+            - "crates/seismic/primitives/**"
+
+        - title: "txpool"
+          globs:
+            - "crates/seismic/txpool/**"
+
+        - title: "chainspec"
+          globs:
+            - "crates/seismic/chainspec/**"
+            - "crates/seismic/hardforks/**"
+
+        - title: "misc"
+          globs:
+            - "crates/seismic/**"
+
+    - title: "Crates"
+      description: |
+        Changes to other crates in the repo.
+      sub:
+        - title: "trie"
+          globs:
+            - "crates/trie/**"
+
+        - title: "storage"
+          globs:
+            - "crates/storage/**"
+
+    - title: "Docs"
+      description: |
+        Changes to documentation files.
+      sub:
+        - title: "markdown docs"
+          globs:
+            - "**/*.md"
+            - "**/*.mdx"
+
+    - title: "Tests"
+      description: |
+        tests ^.^
+      sub:
+        - title: "tests"
+          globs:
+            - "**/tests/**"
+            - "testing/**"
+
+        - title: "test utils"
+          globs:
+            - "crates/e2e-test-utils/**"
+
+    - title: "CICD"
+      description: |
+        Changes to CICD workflows to support our custom testing and deployment.
+      sub:
+        - title: "Github workflows"
+          globs:
+            - ".github/**"
+            - ".circleci/**"
+
+# files can be ignored globally, these will be listed in a separate grayed-out section,
+# and do not count towards the total line count.
+ignore:
+  - "**/Cargo.lock"
+  - "fork.yaml"

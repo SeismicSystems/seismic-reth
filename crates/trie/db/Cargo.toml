@@ -12,6 +12,10 @@ description = "Database integration with merkle trie implementation"
 workspace = true
 
 [dependencies]
+# Seismic
+revm.workspace = true
+revm-state.workspace = true
+
 # reth
 reth-primitives-traits.workspace = true
 reth-execution-errors.workspace = true
@@ -33,6 +37,8 @@ reth-provider = { workspace = true, features = ["test-utils"] }
 reth-trie-common = { workspace = true, features = ["test-utils", "arbitrary"] }
 reth-trie = { workspace = true, features = ["test-utils"] }
 
+revm-primitives.workspace = true
+
 alloy-consensus.workspace = true
 alloy-rlp.workspace = true
 revm.workspace = true
@@ -48,6 +54,7 @@ serde_json.workspace = true
 similar-asserts.workspace = true
 
 [features]
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]
 metrics = ["reth-trie/metrics"]
 serde = [
     "similar-asserts/serde",
@@ -58,6 +65,8 @@ serde = [
     "reth-primitives-traits/serde",
     "revm-database/serde",
     "revm/serde",
+    "revm-primitives/serde",
+    "revm-state/serde",
 ]
 test-utils = [
     "reth-trie-common/test-utils",

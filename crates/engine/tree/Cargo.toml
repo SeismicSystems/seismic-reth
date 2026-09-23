@@ -9,9 +9,7 @@ repository.workspace = true
 
 [lints]
 workspace = true
-
-[dependencies]
-# reth
+[dependencies] # reth
 reth-chain-state.workspace = true
 reth-chainspec = { workspace = true, optional = true }
 reth-consensus.workspace = true
@@ -35,6 +33,7 @@ reth-trie-parallel.workspace = true
 reth-trie-sparse = { workspace = true, features = ["std", "metrics"] }
 reth-trie-sparse-parallel = { workspace = true, features = ["std"] }
 reth-trie.workspace = true
+reth-node-core.workspace = true
 
 # alloy
 alloy-evm.workspace = true
@@ -46,6 +45,7 @@ alloy-rpc-types-engine.workspace = true
 
 revm.workspace = true
 revm-primitives.workspace = true
+revm-state.workspace = true
 
 # common
 futures.workspace = true
@@ -112,6 +112,7 @@ name = "state_root_task"
 harness = false
 
 [features]
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]
 test-utils = [
     "reth-chain-state/test-utils",
     "reth-chainspec/test-utils",
@@ -131,7 +132,6 @@ test-utils = [
     "reth-tracing",
     "reth-trie/test-utils",
     "reth-trie-sparse/test-utils",
-    "reth-prune-types?/test-utils",
     "reth-trie-db/test-utils",
     "reth-trie-parallel/test-utils",
     "reth-ethereum-primitives/test-utils",

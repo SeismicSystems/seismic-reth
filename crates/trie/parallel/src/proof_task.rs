@@ -266,11 +266,7 @@ where
         result_sender: Sender<StorageProofResult>,
         tx_sender: Sender<ProofTaskMessage<Tx>>,
     ) {
-        debug!(
-            target: "trie::proof_task",
-            hashed_address=?input.hashed_address,
-            "Starting storage proof task calculation"
-        );
+        debug!(target: "trie::proof_task", "Starting storage proof task calculation");
 
         let (trie_cursor_factory, hashed_cursor_factory) = self.create_factories();
         let multi_added_removed_keys = input
@@ -281,9 +277,8 @@ where
         let span = tracing::trace_span!(
             target: "trie::proof_task",
             "Storage proof calculation",
-            hashed_address=?input.hashed_address,
-            // Add a unique id because we often have parallel storage proof calculations for the
-            // same hashed address, and we want to differentiate them during trace analysis.
+            // Add a unique id because we often have parallel storage proof calculations, and we
+            // want to differentiate them during trace analysis.
             span_id=self.id,
         );
         let span_guard = span.enter();
@@ -306,16 +301,12 @@ where
 
         let decoded_result = raw_proof_result.and_then(|raw_proof| {
             raw_proof.try_into().map_err(|e: alloy_rlp::Error| {
-                ParallelStateRootError::Other(format!(
-                    "Failed to decode storage proof for {}: {}",
-                    input.hashed_address, e
-                ))
+                ParallelStateRootError::Other(format!("Failed to decode storage proof: {e}"))
             })
         });
 
         debug!(
             target: "trie::proof_task",
-            hashed_address=?input.hashed_address,
             prefix_set = ?input.prefix_set.len(),
             target_slots = ?target_slots_len,
             proof_time = ?proof_start.elapsed(),
@@ -323,11 +314,9 @@ where
         );
 
         // send the result back
-        if let Err(error) = result_sender.send(decoded_result) {
+        if result_sender.send(decoded_result).is_err() {
             debug!(
                 target: "trie::proof_task",
-                hashed_address = ?input.hashed_address,
-                ?error,
                 task_time = ?proof_start.elapsed(),
                 "Storage proof receiver is dropped, discarding the result"
             );
@@ -344,11 +333,7 @@ where
         result_sender: Sender<TrieNodeProviderResult>,
         tx_sender: Sender<ProofTaskMessage<Tx>>,
     ) {
-        debug!(
-            target: "trie::proof_task",
-            ?path,
-            "Starting blinded account node retrieval"
-        );
+        debug!(target: "trie::proof_task", "Starting blinded account node retrieval");
 
         let (trie_cursor_factory, hashed_cursor_factory) = self.create_factories();
 
@@ -362,16 +347,13 @@ where
         let result = blinded_provider_factory.account_node_provider().trie_node(&path);
         debug!(
             target: "trie::proof_task",
-            ?path,
             elapsed = ?start.elapsed(),
             "Completed blinded account node retrieval"
         );
 
-        if let Err(error) = result_sender.send(result) {
+        if result_sender.send(result).is_err() {
             tracing::error!(
                 target: "trie::proof_task",
-                ?path,
-                ?error,
                 "Failed to send blinded account node result"
             );
         }
@@ -388,12 +370,7 @@ where
         result_sender: Sender<TrieNodeProviderResult>,
         tx_sender: Sender<ProofTaskMessage<Tx>>,
     ) {
-        debug!(
-            target: "trie::proof_task",
-            ?account,
-            ?path,
-            "Starting blinded storage node retrieval"
-        );
+        debug!(target: "trie::proof_task", "Starting blinded storage node retrieval");
 
         let (trie_cursor_factory, hashed_cursor_factory) = self.create_factories();
 
@@ -407,18 +384,13 @@ where
         let result = blinded_provider_factory.storage_node_provider(account).trie_node(&path);
         debug!(
             target: "trie::proof_task",
-            ?account,
-            ?path,
             elapsed = ?start.elapsed(),
             "Completed blinded storage node retrieval"
         );
 
-        if let Err(error) = result_sender.send(result) {
+        if result_sender.send(result).is_err() {
             tracing::error!(
                 target: "trie::proof_task",
-                ?account,
-                ?path,
-                ?error,
                 "Failed to send blinded storage node result"
             );
         }

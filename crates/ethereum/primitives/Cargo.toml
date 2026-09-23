@@ -12,6 +12,8 @@ description = "Ethereum primitive types"
 workspace = true
 
 [dependencies]
+# Seismic imports
+
 # reth
 reth-codecs = { workspace = true, optional = true }
 reth-primitives-traits.workspace = true
@@ -47,6 +49,8 @@ default = ["std"]
 test-utils = [
     "reth-codecs?/test-utils",
     "reth-primitives-traits/test-utils",
+    "serde",
+    "serde-bincode-compat",
 ]
 std = [
     "alloy-consensus/std",

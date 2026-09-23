@@ -570,7 +570,7 @@ pub struct BlockState<N: NodePrimitives = EthPrimitives> {
     /// The executed block that determines the state after this block has been executed.
     block: ExecutedBlockWithTrieUpdates<N>,
     /// The block's parent block if it exists.
-    parent: Option<Arc<BlockState<N>>>,
+    parent: Option<Arc<Self>>,
 }
 
 impl<N: NodePrimitives> BlockState<N> {
@@ -966,7 +966,7 @@ mod tests {
     use super::*;
     use crate::test_utils::TestBlockBuilder;
     use alloy_eips::eip7685::Requests;
-    use alloy_primitives::{Address, BlockNumber, Bytes, StorageKey, StorageValue};
+    use alloy_primitives::{Address, BlockNumber, Bytes, StorageKey};
     use rand::Rng;
     use reth_errors::ProviderResult;
     use reth_ethereum_primitives::{EthPrimitives, Receipt};
@@ -979,6 +979,8 @@ mod tests {
         AccountProof, HashedStorage, MultiProof, MultiProofTargets, StorageMultiProof,
         StorageProof, TrieInput,
     };
+
+    use alloy_primitives::FlaggedStorage;
 
     fn create_mock_state(
         test_block_builder: &mut TestBlockBuilder<EthPrimitives>,
@@ -1018,7 +1020,7 @@ mod tests {
             &self,
             _address: Address,
             _storage_key: StorageKey,
-        ) -> ProviderResult<Option<StorageValue>> {
+        ) -> ProviderResult<Option<FlaggedStorage>> {
             Ok(None)
         }
     }

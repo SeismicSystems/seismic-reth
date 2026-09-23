@@ -147,6 +147,19 @@ where
     }
 }
 
+impl SignedTransaction for seismic_alloy_consensus::SeismicTxEnvelope {
+    fn tx_hash(&self) -> &TxHash {
+        match self {
+            Self::Legacy(tx) => tx.hash(),
+            Self::Eip2930(tx) => tx.hash(),
+            Self::Eip1559(tx) => tx.hash(),
+            Self::Eip4844(tx) => tx.hash(),
+            Self::Eip7702(tx) => tx.hash(),
+            Self::Seismic(tx) => tx.hash(),
+        }
+    }
+}
+
 #[cfg(feature = "op")]
 mod op {
     use super::*;

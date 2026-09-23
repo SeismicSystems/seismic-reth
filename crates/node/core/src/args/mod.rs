@@ -1,4 +1,11 @@
 //! Parameters for configuring the rpc more granularity via CLI
+/// Args for configuring the node's purpose-key source
+mod purpose_keys;
+pub use purpose_keys::{CustodianArgs, PurposeKeysArgs, PurposeKeysSource};
+
+/// Seismic-specific RPC args and the process-wide handle the RPC layer reads them through
+mod seismic_rpc;
+pub use seismic_rpc::{init_seismic_rpc_args, seismic_rpc_args, SeismicRpcArgs};
 
 /// NetworkArg struct for configuring the network
 mod network;

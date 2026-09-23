@@ -18,8 +18,12 @@ use core::convert::Infallible;
 use reth_ethereum_primitives::{Block, EthPrimitives};
 use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes};
 use reth_primitives_traits::SealedBlock;
+use reth_seismic_primitives::SeismicPrimitives;
 
 use crate::BuiltPayloadConversionError;
+
+// Seismic imports not used upstream
+use reth_primitives_traits::NodePrimitives;
 
 /// Contains the built payload.
 ///
@@ -27,11 +31,11 @@ use crate::BuiltPayloadConversionError;
 /// Therefore, the empty-block here is always available and full-block will be set/updated
 /// afterward.
 #[derive(Debug, Clone)]
-pub struct EthBuiltPayload {
+pub struct EthBuiltPayload<N: NodePrimitives = EthPrimitives> {
     /// Identifier of the payload
     pub(crate) id: PayloadId,
     /// The built block
-    pub(crate) block: Arc<SealedBlock<Block>>,
+    pub(crate) block: Arc<SealedBlock<N::Block>>,
     /// The fees of the block
     pub(crate) fees: U256,
     /// The blobs, proofs, and commitments in the block. If the block is pre-cancun, this will be
@@ -43,13 +47,17 @@ pub struct EthBuiltPayload {
 
 // === impl BuiltPayload ===
 
-impl EthBuiltPayload {
+impl<N> EthBuiltPayload<N>
+where
+    N: NodePrimitives,
+    N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
+{
     /// Initializes the payload with the given initial block
     ///
     /// Caution: This does not set any [`BlobSidecars`].
     pub const fn new(
         id: PayloadId,
-        block: Arc<SealedBlock<Block>>,
+        block: Arc<SealedBlock<N::Block>>,
         fees: U256,
         requests: Option<Requests>,
     ) -> Self {
@@ -62,7 +70,7 @@ impl EthBuiltPayload {
     }
 
     /// Returns the built block(sealed)
-    pub fn block(&self) -> &SealedBlock<Block> {
+    pub fn block(&self) -> &SealedBlock<N::Block> {
         &self.block
     }
 
@@ -99,7 +107,7 @@ impl EthBuiltPayload {
         Ok(ExecutionPayloadEnvelopeV3 {
             execution_payload: ExecutionPayloadV3::from_block_unchecked(
                 block.hash(),
-                &Arc::unwrap_or_clone(block).into_block(),
+                &Arc::unwrap_or_clone(block).into_block().into(),
             ),
             block_value: fees,
             // From the engine API spec:
@@ -121,7 +129,7 @@ impl EthBuiltPayload {
     pub fn try_into_v4(self) -> Result<ExecutionPayloadEnvelopeV4, BuiltPayloadConversionError> {
         Ok(ExecutionPayloadEnvelopeV4 {
             execution_requests: self.requests.clone().unwrap_or_default(),
-            envelope_inner: self.try_into()?,
+            envelope_inner: self.try_into_v3()?,
         })
     }
 
@@ -140,7 +148,7 @@ impl EthBuiltPayload {
         Ok(ExecutionPayloadEnvelopeV5 {
             execution_payload: ExecutionPayloadV3::from_block_unchecked(
                 block.hash(),
-                &Arc::unwrap_or_clone(block).into_block(),
+                &Arc::unwrap_or_clone(block).into_block().into(),
             ),
             block_value: fees,
             // From the engine API spec:
@@ -174,51 +182,102 @@ impl BuiltPayload for EthBuiltPayload {
     }
 }
 
+type SeismicBuiltPayload = EthBuiltPayload<SeismicPrimitives>;
+
+impl SeismicBuiltPayload {
+    /// Create a new [`SeismicBuiltPayload`].
+    pub const fn new_seismic_payload(
+        id: PayloadId,
+        block: Arc<SealedBlock<reth_seismic_primitives::SeismicBlock>>,
+        fees: U256,
+        sidecars: BlobSidecars,
+        requests: Option<Requests>,
+    ) -> Self {
+        Self { id, block, fees, sidecars, requests }
+    }
+}
+
+impl BuiltPayload for SeismicBuiltPayload {
+    type Primitives = reth_seismic_primitives::SeismicPrimitives;
+
+    fn block(&self) -> &SealedBlock<reth_seismic_primitives::SeismicBlock> {
+        &self.block
+    }
+
+    fn fees(&self) -> U256 {
+        self.fees
+    }
+
+    fn requests(&self) -> Option<Requests> {
+        self.requests.clone()
+    }
+}
+
 // V1 engine_getPayloadV1 response
-impl From<EthBuiltPayload> for ExecutionPayloadV1 {
-    fn from(value: EthBuiltPayload) -> Self {
+impl<N> From<EthBuiltPayload<N>> for ExecutionPayloadV1
+where
+    N: NodePrimitives,
+    N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
+{
+    fn from(value: EthBuiltPayload<N>) -> Self {
         Self::from_block_unchecked(
             value.block().hash(),
-            &Arc::unwrap_or_clone(value.block).into_block(),
+            &Arc::unwrap_or_clone(value.clone().block).into_block().into(),
         )
     }
 }
 
 // V2 engine_getPayloadV2 response
-impl From<EthBuiltPayload> for ExecutionPayloadEnvelopeV2 {
-    fn from(value: EthBuiltPayload) -> Self {
+impl<N> From<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV2
+where
+    N: NodePrimitives,
+    N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
+{
+    fn from(value: EthBuiltPayload<N>) -> Self {
         let EthBuiltPayload { block, fees, .. } = value;
 
         Self {
             block_value: fees,
             execution_payload: ExecutionPayloadFieldV2::from_block_unchecked(
                 block.hash(),
-                &Arc::unwrap_or_clone(block).into_block(),
+                &Arc::unwrap_or_clone(block).into_block().into(),
             ),
         }
     }
 }
 
-impl TryFrom<EthBuiltPayload> for ExecutionPayloadEnvelopeV3 {
+impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV3
+where
+    N: NodePrimitives,
+    N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
+{
     type Error = BuiltPayloadConversionError;
 
-    fn try_from(value: EthBuiltPayload) -> Result<Self, Self::Error> {
+    fn try_from(value: EthBuiltPayload<N>) -> Result<Self, Self::Error> {
         value.try_into_v3()
     }
 }
 
-impl TryFrom<EthBuiltPayload> for ExecutionPayloadEnvelopeV4 {
+impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV4
+where
+    N: NodePrimitives,
+    N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
+{
     type Error = BuiltPayloadConversionError;
 
-    fn try_from(value: EthBuiltPayload) -> Result<Self, Self::Error> {
+    fn try_from(value: EthBuiltPayload<N>) -> Result<Self, Self::Error> {
         value.try_into_v4()
     }
 }
 
-impl TryFrom<EthBuiltPayload> for ExecutionPayloadEnvelopeV5 {
+impl<N> TryFrom<EthBuiltPayload<N>> for ExecutionPayloadEnvelopeV5
+where
+    N: NodePrimitives,
+    N::Block: Into<alloy_consensus::Block<N::SignedTx>>,
+{
     type Error = BuiltPayloadConversionError;
 
-    fn try_from(value: EthBuiltPayload) -> Result<Self, Self::Error> {
+    fn try_from(value: EthBuiltPayload<N>) -> Result<Self, Self::Error> {
         value.try_into_v5()
     }
 }
@@ -311,6 +370,8 @@ impl From<alloc::vec::IntoIter<BlobTransactionSidecarEip7594>> for BlobSidecars 
 }
 
 /// Container type for all components required to build a payload.
+/// NOTE: modified miner such that timestamp is in milliseconds (similar to payload attributes
+/// emitted from consensus layer)
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct EthPayloadBuilderAttributes {
     /// Id of the payload
@@ -319,7 +380,7 @@ pub struct EthPayloadBuilderAttributes {
     pub parent: B256,
     /// Unix timestamp for the generated payload
     ///
-    /// Number of seconds since the Unix epoch.
+    /// MODIFIED: Number of milliseconds since the Unix epoch instead of seconds.
     pub timestamp: u64,
     /// Address of the recipient for collecting transaction fee
     pub suggested_fee_recipient: Address,
@@ -337,6 +398,15 @@ impl EthPayloadBuilderAttributes {
     /// Returns the identifier of the payload.
     pub const fn payload_id(&self) -> PayloadId {
         self.id
+    }
+
+    /// Returns the timestamp in seconds, assuming the timestamp is in milliseconds.
+    pub const fn timestamp_seconds(&self) -> u64 {
+        if cfg!(feature = "timestamp-in-seconds") {
+            self.timestamp
+        } else {
+            self.timestamp / 1000
+        }
     }
 
     /// Creates a new payload builder for the given parent block and the attributes.
@@ -422,7 +492,7 @@ pub fn payload_id(parent: &B256, attributes: &PayloadAttributes) -> PayloadId {
     }
 
     let out = hasher.finalize();
-    PayloadId::new(out.as_slice()[..8].try_into().expect("sufficient length"))
+    PayloadId::new(out[..8].try_into().expect("sufficient length"))
 }
 
 #[cfg(test)]

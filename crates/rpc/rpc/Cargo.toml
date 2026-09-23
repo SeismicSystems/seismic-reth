@@ -17,6 +17,7 @@ reth-chainspec.workspace = true
 reth-primitives-traits.workspace = true
 reth-rpc-api.workspace = true
 reth-rpc-eth-api.workspace = true
+reth-rpc-layer.workspace = true
 reth-engine-primitives.workspace = true
 reth-errors.workspace = true
 reth-metrics.workspace = true
@@ -42,7 +43,7 @@ reth-node-api.workspace = true
 reth-trie-common.workspace = true
 
 # ethereum
-alloy-evm = { workspace = true, features = ["overrides"] }
+alloy-evm.workspace = true
 alloy-consensus.workspace = true
 alloy-signer.workspace = true
 alloy-signer-local.workspace = true
@@ -105,4 +106,5 @@ rand.workspace = true
 jsonrpsee = { workspace = true, features = ["client"] }
 
 [features]
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]
 js-tracer = ["revm-inspectors/js-tracer", "reth-rpc-eth-types/js-tracer"]

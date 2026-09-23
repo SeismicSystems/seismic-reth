@@ -89,7 +89,7 @@ where
         for (block, receipts) in blocks {
             let mut fee_history_entry = FeeHistoryEntry::<H>::new(
                 block,
-                chain_spec.blob_params_at_timestamp(block.header().timestamp()),
+                chain_spec.blob_params_at_timestamp(block.timestamp_seconds()),
             );
             fee_history_entry.rewards = calculate_reward_percentiles_for_block(
                 &percentiles,

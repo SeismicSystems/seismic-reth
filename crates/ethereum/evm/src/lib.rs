@@ -9,7 +9,7 @@
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
     html_favicon_url = "https://avatars0.githubusercontent.com/u/97369466?s=256",
-    issue_tracker_base_url = "https://github.com/paradigmxyz/reth/issues/"
+    issue_tracker_base_url = "https://github.com/SeismicSystems/seismic-reth/issues/"
 )]
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
@@ -31,8 +31,8 @@ use core::{convert::Infallible, fmt::Debug};
 use reth_chainspec::{ChainSpec, EthChainSpec, EthereumHardforks, MAINNET};
 use reth_ethereum_primitives::{Block, EthPrimitives, TransactionSigned};
 use reth_evm::{
-    precompiles::PrecompilesMap, ConfigureEngineEvm, ConfigureEvm, EvmEnv, EvmEnvFor, EvmFactory,
-    ExecutableTxIterator, ExecutionCtxFor, NextBlockEnvAttributes, TransactionEnv,
+    ConfigureEngineEvm, ConfigureEvm, EvmEnv, EvmEnvFor, EvmFactory, ExecutableTxIterator,
+    ExecutionCtxFor, NextBlockEnvAttributes, TransactionEnv,
 };
 use reth_primitives_traits::{
     constants::MAX_TX_GAS_LIMIT_OSAKA, SealedBlock, SealedHeader, SignedTransaction, TxTy,
@@ -50,6 +50,8 @@ use alloy_evm::eth::spec::EthExecutorSpec;
 pub use config::{revm_spec, revm_spec_by_timestamp_and_block_number};
 use reth_ethereum_forks::{EthereumHardfork, Hardforks};
 
+use reth_primitives_traits::BlockHeader as _;
+
 /// Helper type with backwards compatible methods to obtain Ethereum executor
 /// providers.
 #[doc(hidden)]
@@ -60,7 +62,7 @@ pub mod execute {
     pub type EthExecutorProvider = EthEvmConfig;
 }
 
-mod build;
+pub mod build;
 pub use build::EthBlockAssembler;
 
 mod receipt;
@@ -132,7 +134,7 @@ where
                     + FromRecoveredTx<TransactionSigned>
                     + FromTxWithEncoded<TransactionSigned>,
             Spec = SpecId,
-            Precompiles = PrecompilesMap,
+            // Precompiles<EmptyDBTyped<Infallible>> = PrecompilesMap,
         > + Clone
         + Debug
         + Send
@@ -155,8 +157,13 @@ where
     }
 
     fn evm_env(&self, header: &Header) -> EvmEnv {
-        let blob_params = self.chain_spec().blob_params_at_timestamp(header.timestamp);
-        let spec = config::revm_spec(self.chain_spec(), header);
+        let timestamp_seconds = header.timestamp_seconds();
+        let blob_params = self.chain_spec().blob_params_at_timestamp(timestamp_seconds);
+        let spec = config::revm_spec_by_timestamp_and_block_number(
+            self.chain_spec(),
+            timestamp_seconds,
+            header.number(),
+        );
 
         // configure evm env based on parent block
         let mut cfg_env =
@@ -166,7 +173,7 @@ where
             cfg_env.set_max_blobs_per_tx(blob_params.max_blobs_per_tx);
         }
 
-        if self.chain_spec().is_osaka_active_at_timestamp(header.timestamp) {
+        if self.chain_spec().is_osaka_active_at_timestamp(timestamp_seconds) {
             cfg_env.tx_gas_limit_cap = Some(MAX_TX_GAS_LIMIT_OSAKA);
         }
 
@@ -199,10 +206,10 @@ where
     ) -> Result<EvmEnv, Self::Error> {
         // ensure we're not missing any timestamp based hardforks
         let chain_spec = self.chain_spec();
-        let blob_params = chain_spec.blob_params_at_timestamp(attributes.timestamp);
+        let blob_params = chain_spec.blob_params_at_timestamp(attributes.timestamp_seconds());
         let spec_id = revm_spec_by_timestamp_and_block_number(
             chain_spec,
-            attributes.timestamp,
+            attributes.timestamp_seconds(),
             parent.number() + 1,
         );
 
@@ -229,7 +236,7 @@ where
                 BlobExcessGasAndPrice { excess_blob_gas, blob_gasprice }
             });
 
-        let mut basefee = chain_spec.next_block_base_fee(parent, attributes.timestamp);
+        let mut basefee = chain_spec.next_block_base_fee(parent, attributes.timestamp_seconds());
 
         let mut gas_limit = attributes.gas_limit;
 
@@ -239,7 +246,7 @@ where
         {
             let elasticity_multiplier = self
                 .chain_spec()
-                .base_fee_params_at_timestamp(attributes.timestamp)
+                .base_fee_params_at_timestamp(attributes.timestamp_seconds())
                 .elasticity_multiplier;
 
             // multiply the gas limit by the elasticity multiplier
@@ -296,7 +303,7 @@ where
                     + FromRecoveredTx<TransactionSigned>
                     + FromTxWithEncoded<TransactionSigned>,
             Spec = SpecId,
-            Precompiles = PrecompilesMap,
+            // Precompiles<EmptyDBTyped<Infallible>> = PrecompilesMap,
         > + Clone
         + Debug
         + Send
@@ -306,11 +313,16 @@ where
 {
     fn evm_env_for_payload(&self, payload: &ExecutionData) -> EvmEnvFor<Self> {
         let timestamp = payload.payload.timestamp();
+        let timestamp_seconds =
+            if cfg!(feature = "timestamp-in-seconds") { timestamp } else { timestamp / 1000 };
         let block_number = payload.payload.block_number();
 
-        let blob_params = self.chain_spec().blob_params_at_timestamp(timestamp);
-        let spec =
-            revm_spec_by_timestamp_and_block_number(self.chain_spec(), timestamp, block_number);
+        let blob_params = self.chain_spec().blob_params_at_timestamp(timestamp_seconds);
+        let spec = revm_spec_by_timestamp_and_block_number(
+            self.chain_spec(),
+            timestamp_seconds,
+            block_number,
+        );
 
         // configure evm env based on parent block
         let mut cfg_env =
@@ -320,7 +332,7 @@ where
             cfg_env.set_max_blobs_per_tx(blob_params.max_blobs_per_tx);
         }
 
-        if self.chain_spec().is_osaka_active_at_timestamp(timestamp) {
+        if self.chain_spec().is_osaka_active_at_timestamp(timestamp_seconds) {
             cfg_env.tx_gas_limit_cap = Some(MAX_TX_GAS_LIMIT_OSAKA);
         }
 

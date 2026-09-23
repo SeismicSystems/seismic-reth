@@ -108,7 +108,14 @@ impl<C: ChainSpecParser> Command<C> {
                 reset_prune_checkpoint(tx, PruneSegment::ContractLogs)?;
                 reset_stage_checkpoint(tx, StageId::Execution)?;
 
-                let alloc = &self.env.chain.genesis().alloc;
+                let alloc: std::collections::BTreeMap<_, seismic_alloy_genesis::GenesisAccount> =
+                    self.env
+                        .chain
+                        .genesis()
+                        .alloc
+                        .iter()
+                        .map(|(addr, account)| (*addr, account.clone().into()))
+                        .collect();
                 insert_genesis_state(&provider_rw, alloc.iter())?;
             }
             StageEnum::AccountHashing => {
@@ -147,7 +154,15 @@ impl<C: ChainSpecParser> Command<C> {
                 reset_stage_checkpoint(tx, StageId::IndexAccountHistory)?;
                 reset_stage_checkpoint(tx, StageId::IndexStorageHistory)?;
 
-                insert_genesis_history(&provider_rw, self.env.chain.genesis().alloc.iter())?;
+                let alloc: std::collections::BTreeMap<_, seismic_alloy_genesis::GenesisAccount> =
+                    self.env
+                        .chain
+                        .genesis()
+                        .alloc
+                        .iter()
+                        .map(|(addr, account)| (*addr, account.clone().into()))
+                        .collect();
+                insert_genesis_history(&provider_rw, alloc.iter())?;
             }
             StageEnum::TxLookup => {
                 tx.clear::<tables::TransactionHashNumbers>()?;

@@ -1,7 +1,7 @@
 use crate::{DatabaseHashedCursorFactory, DatabaseTrieCursorFactory, PrefixSetLoader};
 use alloy_primitives::{
     map::{AddressMap, B256Map},
-    Address, BlockNumber, B256, U256,
+    Address, BlockNumber, B256,
 };
 use reth_db_api::{
     cursor::DbCursorRO,
@@ -16,6 +16,7 @@ use reth_trie::{
     updates::TrieUpdates, HashedPostState, HashedStorage, KeccakKeyHasher, KeyHasher, StateRoot,
     StateRootProgress, TrieInput,
 };
+use revm::state::FlaggedStorage;
 use std::{collections::HashMap, ops::RangeInclusive};
 use tracing::debug;
 
@@ -230,14 +231,14 @@ impl<TX: DbTx> DatabaseHashedPostState<TX> for HashedPostState {
         }
 
         // Iterate over storage changesets and record value before first occurring storage change.
-        let mut storages = AddressMap::<B256Map<U256>>::default();
+        let mut storages = AddressMap::<B256Map<FlaggedStorage>>::default();
         let mut storage_changesets_cursor = tx.cursor_read::<tables::StorageChangeSets>()?;
         for entry in
             storage_changesets_cursor.walk_range(BlockNumberAddress((from, Address::ZERO))..)?
         {
             let (BlockNumberAddress((_, address)), storage) = entry?;
             let account_storage = storages.entry(address).or_default();
-            account_storage.entry(storage.key).or_insert(storage.value);
+            account_storage.entry(storage.key).or_insert_with(|| storage.into());
         }
 
         let hashed_accounts =
@@ -286,8 +287,14 @@ mod tests {
         let bundle_state = BundleState::builder(2..=2)
             .state_present_account_info(address1, account1)
             .state_present_account_info(address2, account2)
-            .state_storage(address1, HashMap::from_iter([(slot1, (U256::ZERO, U256::from(10)))]))
-            .state_storage(address2, HashMap::from_iter([(slot2, (U256::ZERO, U256::from(20)))]))
+            .state_storage(
+                address1,
+                HashMap::from_iter([(slot1, (FlaggedStorage::ZERO, FlaggedStorage::public(10)))]),
+            )
+            .state_storage(
+                address2,
+                HashMap::from_iter([(slot2, (FlaggedStorage::ZERO, FlaggedStorage::public(20)))]),
+            )
             .build();
         assert_eq!(bundle_state.reverts.len(), 1);
 
@@ -299,7 +306,11 @@ mod tests {
         let tx = db.tx().expect("failed to create transaction");
         assert_eq!(
             StateRoot::overlay_root(&tx, post_state).unwrap(),
+            // If we had the same state root calculation as ethereum when all values are public:
+            /*
             hex!("b464525710cafcf5d4044ac85b72c08b1e76231b8d91f288fe438cc41d8eaafd")
+            */
+            hex!("64f7822621afd8a66d71e233b48e945c101ab97334e19398422f22c3fae72223")
         );
     }
 }

@@ -5,8 +5,9 @@ Calculates the content checksum of a table
 ```bash
 $ reth db checksum --help
 ```
+
 ```txt
-Usage: reth db checksum [OPTIONS] <TABLE>
+Usage: seismic-reth db checksum [OPTIONS] <TABLE>
 
 Arguments:
   <TABLE>

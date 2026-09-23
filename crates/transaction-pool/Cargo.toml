@@ -30,6 +30,7 @@ alloy-eips = { workspace = true, features = ["kzg"] }
 alloy-primitives.workspace = true
 alloy-rlp.workspace = true
 alloy-consensus = { workspace = true, features = ["kzg"] }
+seismic-alloy-consensus.workspace = true
 
 # async/futures
 futures-util.workspace = true
@@ -76,6 +77,7 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 futures.workspace = true
 
 [features]
+timestamp-in-seconds = ["revm-interpreter/timestamp-in-seconds", "reth-primitives-traits/timestamp-in-seconds"]
 serde = [
     "reth-execution-types/serde",
     "reth-eth-wire-types/serde",
@@ -92,7 +94,18 @@ serde = [
     "reth-ethereum-primitives/serde",
     "reth-chain-state/serde",
     "reth-storage-api/serde",
+    "seismic-alloy-consensus/serde",
 ]
+serde-bincode-compat = [
+    "reth-ethereum-primitives/serde-bincode-compat",
+    "reth-execution-types/serde-bincode-compat",
+    "alloy-consensus/serde-bincode-compat",
+    "alloy-eips/serde-bincode-compat",
+    "reth-primitives-traits/serde-bincode-compat",
+    "reth-storage-api/serde-bincode-compat",
+    "seismic-alloy-consensus/serde-bincode-compat",
+]
+reth-codec = ["reth-ethereum-primitives/reth-codec"]
 test-utils = [
     "rand",
     "paste",
@@ -118,6 +131,7 @@ arbitrary = [
     "revm-interpreter/arbitrary",
     "reth-ethereum-primitives/arbitrary",
     "revm-primitives/arbitrary",
+    "seismic-alloy-consensus/arbitrary",
 ]
 
 [[bench]]

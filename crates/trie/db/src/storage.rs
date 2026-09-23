@@ -88,7 +88,7 @@ impl<TX: DbTx> DatabaseHashedStorage<TX> for HashedStorage {
             if storage_address == address {
                 let hashed_slot = keccak256(storage_change.key);
                 if let hash_map::Entry::Vacant(entry) = storage.storage.entry(hashed_slot) {
-                    entry.insert(storage_change.value);
+                    entry.insert(storage_change.into());
                 }
             }
         }
