@@ -28,7 +28,15 @@ pub struct RecentBlockCache {
 
 impl Default for RecentBlockCache {
     fn default() -> Self {
-        Self::new(SEISMIC_TX_RECENT_BLOCK_LOOKBACK)
+        // `SEISMIC_TX_RECENT_BLOCK_LOOKBACK` is a maximum *distance* (the RPC validator in
+        // `validate_seismic_freshness` accepts `recent_block_hash` at distance <= LOOKBACK,
+        // inclusive), so the inclusive window `[tip - LOOKBACK, tip]` spans `LOOKBACK + 1`
+        // distinct blocks. `max_size` here is a retained *count* (see `insert`'s eviction), so
+        // it must be seeded with `LOOKBACK + 1`, not `LOOKBACK` - otherwise `rebuild_window`
+        // evicts the oldest still-valid block (at distance exactly LOOKBACK) as soon as it
+        // finishes inserting the window, and a transaction referencing that block's hash is
+        // rejected by the txpool despite being accepted by `eth_call`.
+        Self::new(SEISMIC_TX_RECENT_BLOCK_LOOKBACK + 1)
     }
 }
 
@@ -407,6 +415,35 @@ mod tests {
         assert!(!cache.contains(&h5_old));
         assert!(cache.contains(&h5_new));
         assert_eq!(cache.current_block_number(), 5);
+    }
+
+    #[test]
+    fn test_rebuild_window_holds_full_inclusive_lookback() {
+        // Regression test for #460: a production-seeded cache (via `Default`, i.e.
+        // `SEISMIC_TX_RECENT_BLOCK_LOOKBACK`) must retain the block at distance exactly
+        // `SEISMIC_TX_RECENT_BLOCK_LOOKBACK` after a rebuild, since `validate_seismic_freshness`
+        // (crates/seismic/rpc/src/eth/utils.rs) accepts `recent_block_hash` at that distance
+        // (inclusive `<=`). Before the fix, the oldest block in the window was evicted one
+        // insert too early, silently rejecting valid transactions referencing it.
+        fn hash_for(n: u64) -> B256 {
+            let mut bytes = [0u8; 32];
+            bytes[24..].copy_from_slice(&n.to_be_bytes());
+            B256::from(bytes)
+        }
+
+        let mut cache = RecentBlockCache::default();
+        let tip = 10_000u64;
+        let oldest_distance = SEISMIC_TX_RECENT_BLOCK_LOOKBACK;
+        let oldest_block = tip - oldest_distance;
+
+        let blocks: Vec<(B256, u64)> = (oldest_block..=tip).map(|n| (hash_for(n), n)).collect();
+        cache.rebuild_to_tip(tip, mock_canonical(&blocks));
+
+        assert!(
+            cache.contains(&hash_for(oldest_block)),
+            "block at distance {oldest_distance} (the oldest still-valid distance) must be in \
+             the cache after rebuild_to_tip"
+        );
     }
 
     #[test]
