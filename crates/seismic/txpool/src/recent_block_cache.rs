@@ -28,7 +28,7 @@ pub struct RecentBlockCache {
 
 impl Default for RecentBlockCache {
     fn default() -> Self {
-        Self::new(SEISMIC_TX_RECENT_BLOCK_LOOKBACK)
+        Self::new(SEISMIC_TX_RECENT_BLOCK_LOOKBACK + 1)
     }
 }
 
@@ -409,7 +409,23 @@ mod tests {
         assert_eq!(cache.current_block_number(), 5);
     }
 
+
     #[test]
+    fn test_rebuild_window_holds_full_lookback() {
+        let max_size = 5u64;
+        let mut cache = RecentBlockCache::new(max_size + 1);
+        let tip = 100u64;
+        let blocks: Vec<(B256, u64)> =
+            (tip - max_size..=tip).map(|n| (B256::from([n as u8; 32]), n)).collect();
+        let canonical = |n: u64| blocks.iter().find(|(_, num)| *num == n).map(|(h, _)| *h);
+        cache.rebuild_to_tip(tip, canonical);
+
+        let oldest_hash = B256::from([(tip - max_size) as u8; 32]);
+        assert!(cache.contains(&oldest_hash), "block at distance {max_size} must be in cache");
+
+        let too_old = B256::from([(tip - max_size - 1) as u8; 32]);
+        assert!(!cache.contains(&too_old), "block beyond window must NOT be in cache");
+    }
     fn test_is_complete_tracks_window_holes() {
         let h = |i: u8| B256::from([i; 32]);
 
