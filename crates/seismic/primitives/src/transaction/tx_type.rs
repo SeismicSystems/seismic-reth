@@ -5,7 +5,7 @@ pub use seismic_alloy_consensus::SeismicTxType;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_consensus::constants::EIP7702_TX_TYPE_ID;
+    use alloy_consensus::constants::{EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID};
     use reth_codecs::{txtype::*, Compact};
     use rstest::rstest;
 
@@ -13,6 +13,7 @@ mod tests {
     #[case(SeismicTxType::Legacy, COMPACT_IDENTIFIER_LEGACY, vec![])]
     #[case(SeismicTxType::Eip2930, COMPACT_IDENTIFIER_EIP2930, vec![])]
     #[case(SeismicTxType::Eip1559, COMPACT_IDENTIFIER_EIP1559, vec![])]
+    #[case(SeismicTxType::Eip4844, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP4844_TX_TYPE_ID])]
     #[case(SeismicTxType::Eip7702, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP7702_TX_TYPE_ID])]
     #[case(SeismicTxType::Seismic, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![74_u8])]
     fn test_txtype_to_compact(
@@ -34,6 +35,7 @@ mod tests {
     #[case(SeismicTxType::Legacy, COMPACT_IDENTIFIER_LEGACY, vec![])]
     #[case(SeismicTxType::Eip2930, COMPACT_IDENTIFIER_EIP2930, vec![])]
     #[case(SeismicTxType::Eip1559, COMPACT_IDENTIFIER_EIP1559, vec![])]
+    #[case(SeismicTxType::Eip4844, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP4844_TX_TYPE_ID])]
     #[case(SeismicTxType::Eip7702, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![EIP7702_TX_TYPE_ID])]
     #[case(SeismicTxType::Seismic, COMPACT_EXTENDED_IDENTIFIER_FLAG, vec![74_u8])]
     fn test_txtype_from_compact(
