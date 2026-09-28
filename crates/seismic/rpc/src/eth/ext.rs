@@ -843,7 +843,7 @@ where
 /// Creates an [`EthApiError`] that says that seismic decryption failed
 pub fn ext_decryption_error(e_str: String) -> EthApiError {
     EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
-        -32000, // TODO: pick a better error code?
+        crate::eth::error_codes::seismic_error_codes::DECRYPTION_ERROR,
         "Error Decrypting in Seismic EthApiExt",
         Some(e_str),
     )))
@@ -864,7 +864,7 @@ pub fn keyring_unavailable_error(
 /// Error for a failed encryption/decryption inside the Seismic `eth_` overrides.
 pub fn ext_encryption_error(e_str: String) -> EthApiError {
     EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
-        -32000, // TODO: pick a better error code?
+        crate::eth::error_codes::seismic_error_codes::ENCRYPTION_ERROR,
         "Error Encrypting in Seismic EthApiExt",
         Some(e_str),
     )))
