@@ -9,7 +9,7 @@ description = "Seismic dev genesis contracts"
 # Commit of SeismicSystems/seismic the artifacts below are fetched from. Bumping
 # the contracts means bumping this SHA and committing the regenerated genesis
 # (and its new hash) alongside it.
-ref = "cadca3ccf0717a9199c612d0d2621d83161a7ae8"
+ref = "2fa3435c3b31fc6a5dcbf27834b9e08f7786a9a6"
 
 # NOTE: the beacon roots contract (EIP-4788) was written in etk assembly
 # and doesn't have Solidity source code.
@@ -49,14 +49,16 @@ address = "0x1000000000000000000000000000000000000001"
 artifact = "artifacts/MeasurementAuthorityDev.json"
 address = "0x1000000000000000000000000000000000000002"
 
-# NOTE: dev.json carries a hand-placed KeyRotationRegistry at
-# 0x1000000000000000000000000000000000000007 (real bytecode, genesis storage
-# slot 0 = admin and slot 2 = minActivationDelay of 32). Once the contract merges
-# in SeismicSystems/seismic (src/enclave/KeyRotationRegistry.sol) and its artifact
-# is synced there, replace the hand-placed account with a proper
-# [contracts.KeyRotationRegistry] entry here, bump `ref`, and regenerate. The
-# address and storage layout are consensus-frozen against
-# reth-seismic-keys::registry.
+# Purpose-key rotation schedule. Its address and storage layout are
+# consensus-frozen against reth-seismic-keys::registry. Genesis storage seeds
+# slot 0 (admin) and slot 2 (minActivationDelay = 32 blocks).
+[contracts.KeyRotationRegistry]
+artifact = "artifacts/KeyRotationRegistry.json"
+address = "0x1000000000000000000000000000000000000007"
+
+[contracts.KeyRotationRegistry.storage]
+"0x0000000000000000000000000000000000000000000000000000000000000000" = "0xd412c5ecd343e264381ff15afc0ad78a67b79f35"
+"0x0000000000000000000000000000000000000000000000000000000000000002" = "0x20"
 
 [contracts.Directory]
 artifact = "artifacts/Directory.json"
