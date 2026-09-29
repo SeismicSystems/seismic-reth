@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
@@ -29,7 +29,7 @@ jobs:
     runs-on: large-github-runner
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: cargo check (workspace)
@@ -40,7 +40,7 @@ jobs:
     runs-on: large-github-runner
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: rui314/setup-mold@v1
       # @master is the action's canonical ref, the only one that reads an
       # explicit `toolchain` input. The @stable/@nightly refs the other jobs use
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: cargo check warnings
@@ -71,7 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -104,7 +104,7 @@ jobs:
     runs-on: large-github-runner
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Pinned, unlike clippy-seismic: every stable release adds clippy lints,
       # and fixing them means churning fork-modified upstream code that will
       # conflict on upstream merges. Pinning to 1.91.1 for now.
@@ -126,7 +126,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Run dprint
         uses: dprint/check@v2.3
         with:
@@ -138,7 +138,7 @@ jobs:
     env:
       ZEPTER_VERSION: v1.88.1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: fetch deps
         run: |
           # Eagerly pull dependencies
@@ -161,7 +161,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Dev genesis matches its manifest
@@ -181,7 +181,7 @@ jobs:
     env:
       SEISMIC_CI: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
@@ -200,7 +200,7 @@ jobs:
     env:
       SEISMIC_CI: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
