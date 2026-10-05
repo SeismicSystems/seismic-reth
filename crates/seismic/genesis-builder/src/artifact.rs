@@ -79,7 +79,7 @@ impl ArtifactLoader {
     fn parse_hex_bytecode(hex: &str, url: &str) -> Result<Bytes> {
         hex::decode(hex)
             .map(Bytes::from)
-            .map_err(|_| BuilderError::InvalidHex(format!("Invalid hex in bytecode: {}", url)))
+            .map_err(|_| BuilderError::InvalidHex(format!("Invalid hex in bytecode: {url}")))
     }
 
     /// Extract contract name from artifact JSON or URL

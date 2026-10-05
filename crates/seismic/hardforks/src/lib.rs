@@ -78,8 +78,7 @@ mod tests {
                     if fork <= EthereumHardfork::Prague {
                         assert!(
                             condition.active_at_timestamp(0) || condition.active_at_block(0),
-                            "Hardfork {} not active at timestamp 1",
-                            fork
+                            "Hardfork {fork} not active at timestamp 1"
                         );
                     }
                 }

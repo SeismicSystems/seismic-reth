@@ -329,7 +329,7 @@ impl<Eth> EthApiExt<Eth> {
         request.metadata(sender).map_err(|e| {
             EthApiError::Other(Box::new(jsonrpsee_types::ErrorObject::owned(
                 -32602,
-                format!("Failed to build seismic metadata: {}", e),
+                format!("Failed to build seismic metadata: {e}"),
                 None::<String>,
             )))
         })
