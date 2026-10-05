@@ -101,7 +101,7 @@ impl GenesisBuilder {
 fn parse_address(hex_str: &str) -> Result<Address> {
     let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
 
-    let padded = if hex_str.len() < 40 { format!("{:0>40}", hex_str) } else { hex_str.to_string() };
+    let padded = if hex_str.len() < 40 { format!("{hex_str:0>40}") } else { hex_str.to_string() };
 
     let bytes =
         hex::decode(&padded).map_err(|_| BuilderError::InvalidAddress(hex_str.to_string()))?;
@@ -115,10 +115,7 @@ fn parse_address(hex_str: &str) -> Result<Address> {
 
 /// Prompt the user to confirm overwriting an existing contract
 fn overwrite_address(name: &str, address: &str) -> Result<bool> {
-    print!(
-        "Address collision: {} ({}) already exists in genesis. Overwrite? [y/N]: ",
-        name, address
-    );
+    print!("Address collision: {name} ({address}) already exists in genesis. Overwrite? [y/N]: ");
     io::stdout().flush()?;
 
     let mut input = String::new();

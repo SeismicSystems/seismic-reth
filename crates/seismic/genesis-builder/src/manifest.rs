@@ -54,10 +54,7 @@ fn validate_ref(manifest: &Manifest) -> Result<()> {
 fn validate_addresses(manifest: &Manifest) -> Result<()> {
     for (name, config) in &manifest.contracts {
         if !config.address.starts_with("0x") {
-            return Err(BuilderError::InvalidAddress(format!(
-                "{}: address must start with 0x",
-                name
-            )));
+            return Err(BuilderError::InvalidAddress(format!("{name}: address must start with 0x")));
         }
     }
     Ok(())

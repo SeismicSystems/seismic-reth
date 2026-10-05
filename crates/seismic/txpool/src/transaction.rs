@@ -255,7 +255,7 @@ mod tests {
                 // accounts account balance is one of the last things checked in
                 // validate_one, so getting that far good news
             }
-            _ => panic!("Did not get expected outcome, got: {:?}", outcome),
+            _ => panic!("Did not get expected outcome, got: {outcome:?}"),
         }
     }
 }

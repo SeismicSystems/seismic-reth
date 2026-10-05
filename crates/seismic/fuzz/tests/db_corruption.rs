@@ -104,8 +104,7 @@ fn corrupt_db_entry_returns_decode_error() {
     assert!(result.is_err(), "corrupt data should return an error, not succeed");
     assert!(
         matches!(result, Err(DatabaseError::Decode)),
-        "expected DatabaseError::Decode, got: {:?}",
-        result,
+        "expected DatabaseError::Decode, got: {result:?}",
     );
 
     // Verify the zstd decompressor panic actually fired inside `catch_unwind`

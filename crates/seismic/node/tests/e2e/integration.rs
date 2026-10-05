@@ -428,7 +428,7 @@ async fn rpc_test_gas_and_call_variants(
     )
     .await
     .unwrap();
-    println!("eth_estimateGas for plain unsigned is_odd() gas: {:?}", plain_unsigned_result);
+    println!("eth_estimateGas for plain unsigned is_odd() gas: {plain_unsigned_result:?}");
     assert!(plain_unsigned_result > U256::ZERO);
 
     // NB: eth_createAccessList is intentionally not exercised here — it is disabled on Seismic
@@ -797,13 +797,12 @@ async fn test_eth_call_rejects_sload_on_private_storage() -> eyre::Result<()> {
     .await;
 
     match &result {
-        Ok(output) => panic!("SLOAD on private storage should fail, but got Ok: {:?}", output),
+        Ok(output) => panic!("SLOAD on private storage should fail, but got Ok: {output:?}"),
         Err(e) => {
             let err_msg = e.to_string().to_lowercase();
             assert!(
                 err_msg.contains("invalidprivatestorageaccess"),
-                "Expected 'InvalidPrivateStorageAccess' revert, got: {}",
-                err_msg
+                "Expected 'InvalidPrivateStorageAccess' revert, got: {err_msg}"
             );
         }
     }
@@ -1301,8 +1300,7 @@ async fn test_eth_call_rejects_code_override() -> eyre::Result<()> {
             let err_msg = e.to_string();
             assert!(
                 err_msg.to_lowercase().contains("code overrides are not permitted"),
-                "Expected code override rejection error, got: {}",
-                err_msg
+                "Expected code override rejection error, got: {err_msg}"
             );
         }
     }
@@ -1343,14 +1341,13 @@ async fn test_eth_estimate_gas_rejects_code_override() -> eyre::Result<()> {
 
     match &result {
         Ok(gas) => {
-            panic!("eth_estimateGas with code override should be rejected, but got Ok: {}", gas)
+            panic!("eth_estimateGas with code override should be rejected, but got Ok: {gas}")
         }
         Err(e) => {
             let err_msg = e.to_string();
             assert!(
                 err_msg.to_lowercase().contains("code overrides are not permitted"),
-                "Expected code override rejection error, got: {}",
-                err_msg
+                "Expected code override rejection error, got: {err_msg}"
             );
         }
     }
@@ -1403,8 +1400,7 @@ async fn test_eth_simulate_v1_rejects_code_override() -> eyre::Result<()> {
             let err_msg = e.to_string();
             assert!(
                 err_msg.to_lowercase().contains("code overrides are not permitted"),
-                "Expected code override rejection error, got: {}",
-                err_msg
+                "Expected code override rejection error, got: {err_msg}"
             );
         }
     }
@@ -1905,7 +1901,7 @@ async fn test_usdc_only_insufficient_balance_high_gas_price() -> eyre::Result<()
 
     let result =
         EthApiOverrideClient::<Block>::estimate_gas(&client, bytes.into(), None, None).await;
-    assert!(result.is_err(), "got {:?}", result);
+    assert!(result.is_err(), "got {result:?}");
     Ok(())
 }
 
@@ -2016,8 +2012,7 @@ async fn test_eth_call_rejects_storage_override() -> eyre::Result<()> {
             let err_msg = e.to_string();
             assert!(
                 err_msg.to_lowercase().contains("storage overrides are not permitted"),
-                "Expected storage override rejection error, got: {}",
-                err_msg
+                "Expected storage override rejection error, got: {err_msg}"
             );
         }
     }
@@ -2056,14 +2051,13 @@ async fn test_eth_estimate_gas_rejects_storage_override() -> eyre::Result<()> {
 
     match &result {
         Ok(gas) => {
-            panic!("eth_estimateGas with storage override should be rejected, but got Ok: {}", gas)
+            panic!("eth_estimateGas with storage override should be rejected, but got Ok: {gas}")
         }
         Err(e) => {
             let err_msg = e.to_string();
             assert!(
                 err_msg.to_lowercase().contains("storage overrides are not permitted"),
-                "Expected storage override rejection error, got: {}",
-                err_msg
+                "Expected storage override rejection error, got: {err_msg}"
             );
         }
     }
@@ -2114,8 +2108,7 @@ async fn test_eth_simulate_v1_rejects_storage_override() -> eyre::Result<()> {
             let err_msg = e.to_string();
             assert!(
                 err_msg.to_lowercase().contains("storage overrides are not permitted"),
-                "Expected storage override rejection error, got: {}",
-                err_msg
+                "Expected storage override rejection error, got: {err_msg}"
             );
         }
     }
@@ -2172,8 +2165,7 @@ async fn test_eth_call_many_rejects_unsigned_sload_on_private_storage() -> eyre:
         .to_lowercase();
     assert!(
         err_msg.contains("invalidprivatestorageaccess"),
-        "expected 'InvalidPrivateStorageAccess' revert, got: {}",
-        err_msg
+        "expected 'InvalidPrivateStorageAccess' revert, got: {err_msg}"
     );
     Ok(())
 }
@@ -2340,14 +2332,13 @@ async fn test_eth_call_many_rejects_signed_read_with_stale_recent_block_hash() -
 
     match &result {
         Ok(output) => {
-            panic!("callMany with stale recent_block_hash should be rejected, got Ok: {:?}", output)
+            panic!("callMany with stale recent_block_hash should be rejected, got Ok: {output:?}")
         }
         Err(e) => {
             let err_msg = e.to_string().to_lowercase();
             assert!(
                 err_msg.contains("recent_block_hash"),
-                "expected RecentBlockHashNotFound error, got: {}",
-                err_msg
+                "expected RecentBlockHashNotFound error, got: {err_msg}"
             );
         }
     }
