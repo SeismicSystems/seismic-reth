@@ -5,6 +5,8 @@
 //! For `eth_sendRawTransaction`, we directly call the inner eth api without decryption
 //! See that function's docs for more details
 
+#![allow(clippy::double_must_use)]
+
 use crate::utils::{
     parse_request_sender, resolve_seismic_call, seismic_call_to_plaintext_tx, SeismicCall,
 };
