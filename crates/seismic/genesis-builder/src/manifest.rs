@@ -61,6 +61,7 @@ fn validate_addresses(manifest: &Manifest) -> Result<()> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -98,6 +99,28 @@ mod tests {
                 matches!(error, BuilderError::InvalidRef(_)),
                 "{git_ref} should not pass validation, got: {error}"
             );
+        }
+    }
+
+    #[test]
+    fn gas_registry_uses_the_same_manifest_validation_as_other_contracts() {
+        let sha = "83a012da472f626dc3e71b43d186cee22781decd";
+        let generic = manifest_pinning(sha);
+        let registry = generic
+            .replace("contracts.Registry", "contracts.GasTokenRegistry")
+            .replace("MeasurementRegistry.json", "GasTokenRegistry.json");
+
+        for content in [generic, registry] {
+            assert!(parse_manifest(&content).is_ok());
+            // Commit and address checks apply equally, independent of contract name.
+            assert!(matches!(
+                parse_manifest(&content.replace(sha, "main")),
+                Err(BuilderError::InvalidRef(_))
+            ));
+            assert!(matches!(
+                parse_manifest(&content.replace("0x100000", "100000")),
+                Err(BuilderError::InvalidAddress(_))
+            ));
         }
     }
 

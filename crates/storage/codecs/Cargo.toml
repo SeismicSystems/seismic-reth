@@ -24,6 +24,7 @@ reth-zstd-compressors = { workspace = true, optional = true, default-features = 
 alloy-consensus = { workspace = true, optional = true }
 alloy-eips = { workspace = true, optional = true, features = ["serde"] }
 alloy-primitives.workspace = true
+alloy-rlp = { workspace = true, optional = true }
 alloy-trie = { workspace = true, optional = true }
 
 # optimism
@@ -55,6 +56,7 @@ rstest.workspace = true
 default = ["std", "alloy"]
 std = [
     "alloy-primitives/std",
+    "alloy-rlp?/std",
     "bytes/std",
     "secp256k1/std",
     "alloy-consensus?/std",
@@ -71,6 +73,7 @@ std = [
 alloy = [
     "dep:alloy-consensus",
     "dep:alloy-eips",
+    "dep:alloy-rlp",
     "dep:alloy-trie",
     "dep:reth-zstd-compressors",
 ]

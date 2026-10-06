@@ -15,10 +15,24 @@ use revm_context::result::HaltReason;
 pub enum SeismicEthApiError {
     /// Eth error
     #[error(transparent)]
-    Eth(#[from] EthApiError),
+    Eth(EthApiError),
     /// Enclave error
     #[error("enclave error: {0}")]
     EnclaveError(String),
+}
+
+impl From<EthApiError> for SeismicEthApiError {
+    fn from(error: EthApiError) -> Self {
+        // Some shared simulation/block helpers convert revm errors before returning
+        // to this API. Redact that route too, not only direct EVM/allowance errors.
+        // Auto can choose a private token, so never assume these amounts are native.
+        match error {
+            EthApiError::InvalidTransaction(
+                reth_rpc_eth_types::RpcInvalidTransactionError::InsufficientFunds { .. },
+            ) => Self::Eth(crate::eth::payment::insufficient_payment()),
+            error => Self::Eth(error),
+        }
+    }
 }
 
 impl AsEthApiError for SeismicEthApiError {
@@ -71,7 +85,10 @@ impl From<Infallible> for SeismicEthApiError {
 
 impl From<EVMError<ProviderError>> for SeismicEthApiError {
     fn from(error: EVMError<ProviderError>) -> Self {
-        Self::Eth(EthApiError::from(error))
+        match error {
+            EVMError::Transaction(error) => Self::Eth(crate::eth::payment::invalid_payment(error)),
+            error => Self::Eth(EthApiError::from(error)),
+        }
     }
 }
 
@@ -96,6 +113,42 @@ impl FromEvmHalt<HaltReason> for SeismicEthApiError {
 #[cfg(test)]
 mod tests {
     use crate::error::SeismicEthApiError;
+
+    #[test]
+    fn payment_amounts_are_redacted_from_direct_and_block_simulation_errors() {
+        use alloy_primitives::{B256, U256};
+        use reth_evm::block::{BlockExecutionError, BlockValidationError};
+        use reth_provider::ProviderError;
+        use reth_rpc_eth_types::{EthApiError, RpcInvalidTransactionError};
+        use revm::context_interface::result::{EVMError, InvalidTransaction};
+        let reason = InvalidTransaction::LackOfFundForMaxFee {
+            fee: Box::new(U256::from(987_654_321)),
+            balance: Box::new(U256::from(123_456_789)),
+        };
+        let block_error: EthApiError =
+            BlockExecutionError::Validation(BlockValidationError::InvalidTx {
+                hash: B256::ZERO,
+                error: Box::new(reason.clone()),
+            })
+            .into();
+        let direct: EVMError<ProviderError> = EVMError::Transaction(reason);
+        for error in [SeismicEthApiError::from(direct), SeismicEthApiError::from(block_error)] {
+            assert!(matches!(
+                error,
+                SeismicEthApiError::Eth(EthApiError::InvalidTransaction(
+                    RpcInvalidTransactionError::SeismicTx(_)
+                ))
+            ));
+            for text in [error.to_string(), format!("{error:?}")] {
+                assert!(!text.contains("987654321"));
+                assert!(!text.contains("123456789"));
+            }
+            let wire: jsonrpsee::types::ErrorObjectOwned = error.into();
+            assert_ne!(wire.code(), -32603);
+            assert!(wire.data().is_none());
+            assert!(!wire.message().contains("123456789"));
+        }
+    }
 
     #[test]
     fn enclave_error_message() {

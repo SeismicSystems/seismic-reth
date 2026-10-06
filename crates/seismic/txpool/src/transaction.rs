@@ -197,17 +197,22 @@ where
 #[allow(clippy::panic)] // Test code - panic on failure is acceptable
 mod tests {
     use crate::SeismicPooledTransaction;
-    use alloy_consensus::{transaction::Recovered, Transaction as _};
-    use alloy_eips::eip2718::Encodable2718;
-    use alloy_primitives::{hex, B256};
-    use reth_primitives_traits::transaction::error::InvalidTransactionError;
+    use alloy_consensus::{transaction::Recovered, SignableTransaction, Transaction as _};
+    use alloy_eips::eip2718::{Decodable2718, Encodable2718};
+    use alloy_primitives::{hex, Address, B256};
+    use reth_primitives_traits::{transaction::error::InvalidTransactionError, SignedTransaction};
     use reth_provider::test_utils::MockEthProvider;
     use reth_seismic_chainspec::SEISMIC_MAINNET;
-    use reth_seismic_test_utils::get_signed_seismic_tx;
+    use reth_seismic_primitives::SeismicTransactionSigned;
+    use reth_seismic_test_utils::{
+        get_seismic_tx, get_signed_seismic_tx, get_signing_private_key, sign_seismic_tx,
+    };
     use reth_transaction_pool::{
         blobstore::InMemoryBlobStore, error::InvalidPoolTransactionError,
-        validate::EthTransactionValidatorBuilder, TransactionOrigin, TransactionValidationOutcome,
+        validate::EthTransactionValidatorBuilder, PoolTransaction, TransactionOrigin,
+        TransactionValidationOutcome,
     };
+    use seismic_alloy_consensus::{GasPayment, SeismicTxEnvelope};
 
     #[test]
     fn pooled_transaction_debug_redacts_transaction_input() {
@@ -222,6 +227,76 @@ mod tests {
 
         assert!(debug.contains("<redacted>"));
         assert!(!debug.contains(&input), "pooled transaction input leaked: {debug}");
+    }
+
+    #[test]
+    fn local_backup_wire_and_pooled_conversions_preserve_authenticated_selectors() {
+        let key = get_signing_private_key();
+        let sender = Address::from_private_key(&key);
+        for message_version in [0, 2] {
+            for gas_payment in [
+                GasPayment::Auto,
+                GasPayment::Native,
+                GasPayment::Token(Address::with_last_byte(0x43)),
+            ] {
+                let mut tx = get_seismic_tx(sender, B256::ZERO);
+                tx.gas_payment = gas_payment;
+                tx.seismic_elements.message_version = message_version;
+                let signature = sign_seismic_tx(&tx, &key);
+                let signed: SeismicTransactionSigned = tx.into_signed(signature).into();
+                let original = signed.clone().try_into_recovered().unwrap();
+                assert_eq!(original.signer(), sender);
+                let pool_tx: SeismicPooledTransaction =
+                    SeismicPooledTransaction::try_from_consensus(original.clone()).unwrap();
+                let pooled = pool_tx.clone().try_into_pooled().unwrap();
+                assert_eq!(
+                    SeismicPooledTransaction::from_pooled(pooled).into_consensus(),
+                    original
+                );
+
+                // The backup task persists the entire signed consensus wire bytes, not
+                // a request whose omitted JSON selector might accidentally default to Auto.
+                let backup = reth_transaction_pool::maintain::TxBackup {
+                    rlp: pool_tx.clone_into_consensus().into_inner().encoded_2718().into(),
+                    origin: TransactionOrigin::Local,
+                };
+                let mut wire = backup.rlp.as_ref();
+                let restored = SeismicTransactionSigned::decode_2718(&mut wire).unwrap();
+                assert!(wire.is_empty());
+                assert_eq!(restored, signed);
+                assert_eq!(
+                    reth_primitives_traits::SignerRecoverable::recover_signer(&restored).unwrap(),
+                    sender
+                );
+                let restored: SeismicPooledTransaction =
+                    SeismicPooledTransaction::try_from_consensus(
+                        restored.try_into_recovered().unwrap(),
+                    )
+                    .unwrap();
+                assert_eq!(restored.into_consensus(), original);
+            }
+        }
+    }
+
+    #[test]
+    fn pooled_wire_rejects_signed_reads_for_every_payment_selector() {
+        let key = get_signing_private_key();
+        let sender = Address::from_private_key(&key);
+        for gas_payment in
+            [GasPayment::Auto, GasPayment::Native, GasPayment::Token(Address::with_last_byte(0x43))]
+        {
+            let mut tx = get_seismic_tx(sender, B256::ZERO);
+            tx.gas_payment = gas_payment;
+            tx.seismic_elements.signed_read = true;
+            let signature = sign_seismic_tx(&tx, &key);
+            let signed: SeismicTransactionSigned = tx.into_signed(signature).into();
+            let wire = signed.encoded_2718();
+            assert!(SeismicTxEnvelope::<alloy_consensus::TxEip4844>::decode_2718(
+                &mut wire.as_slice()
+            )
+            .is_err());
+            assert!(SeismicTransactionSigned::decode_2718(&mut wire.as_slice()).is_err());
+        }
     }
 
     #[tokio::test]

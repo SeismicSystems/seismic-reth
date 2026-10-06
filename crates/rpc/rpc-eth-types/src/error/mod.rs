@@ -794,6 +794,17 @@ impl From<InvalidTransaction> for RpcInvalidTransactionError {
             InvalidTransaction::Eip7873MissingTarget => {
                 Self::other(internal_rpc_err(err.to_string()))
             }
+            InvalidTransaction::InvalidGasPaymentSelector |
+            InvalidTransaction::GasTokenRegistryTooLarge |
+            InvalidTransaction::GasTokenNotRegistered(_) |
+            InvalidTransaction::GasTokenInactive(_) |
+            InvalidTransaction::UnsupportedGasTokenMode { .. } |
+            InvalidTransaction::UnsupportedGasTokenDecimals { .. } |
+            InvalidTransaction::GasTokenBalanceModeMismatch { .. } => {
+                // Deterministic payment invalidity is not an internal RPC error.
+                // These reasons contain public metadata, never balance amounts.
+                Self::SeismicTx(err.to_string())
+            }
         }
     }
 }

@@ -51,6 +51,7 @@ pub fn is_current(genesis: &Genesis, path: &Path) -> Result<bool> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

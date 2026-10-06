@@ -9,7 +9,7 @@ description = "Seismic dev genesis contracts"
 # Commit of SeismicSystems/seismic the artifacts below are fetched from. Bumping
 # the contracts means bumping this SHA and committing the regenerated genesis
 # (and its new hash) alongside it.
-ref = "2fa3435c3b31fc6a5dcbf27834b9e08f7786a9a6"
+ref = "83a012da472f626dc3e71b43d186cee22781decd"
 
 # NOTE: the beacon roots contract (EIP-4788) was written in etk assembly
 # and doesn't have Solidity source code.
@@ -30,6 +30,17 @@ address = "0x0000000000000000000000000000506172616D73"
 
 [contracts.ProtocolParams.storage]
 "0x0000000000000000000000000000000000000000000000000000000000000000" = "0xd412c5ecd343e264381ff15afc0ad78a67b79f35"
+
+# Fresh-chain gas-token registry. Genesis installation bypasses the constructor:
+# seed the same initial owner as ProtocolParams and start with zero entries.
+# Shielded token balances and registrations are initialized after genesis.
+[contracts.GasTokenRegistry]
+artifact = "artifacts/GasTokenRegistry.json"
+address = "0x0000000000000000000000476173546f6b656e73"
+
+[contracts.GasTokenRegistry.storage]
+"0x0000000000000000000000000000000000000000000000000000000000000000" = "0x000000000000000000000000d412c5ecd343e264381ff15afc0ad78a67b79f35"
+"0x0000000000000000000000000000000000000000000000000000000000000001" = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 [contracts.ShieldedDelegationAccount]
 artifact = "artifacts/ShieldedDelegationAccount.json"

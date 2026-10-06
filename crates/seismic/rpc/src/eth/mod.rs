@@ -9,7 +9,10 @@ pub use receipt::SeismicReceiptConverter;
 
 mod block;
 mod call;
+pub(crate) mod payment;
 mod pending_block;
+#[cfg(test)]
+mod request_tests;
 
 use crate::{
     eth::transaction::{SeismicRpcTxConverter, SeismicSimTxConverter},
@@ -46,7 +49,7 @@ use seismic_alloy_network::SeismicReth;
 use seismic_revm::SeismicTransaction;
 use std::{fmt, marker::PhantomData, sync::Arc};
 
-use reth_rpc_convert::transaction::{EthTxEnvError, TryIntoTxEnv};
+use reth_rpc_convert::transaction::TryIntoTxEnv;
 use revm_context::{BlockEnv, CfgEnv, TxEnv};
 use seismic_alloy_rpc_types::SeismicTransactionRequest;
 
@@ -78,7 +81,7 @@ impl From<SeismicTransactionRequest> for SignableSeismicTransactionRequest {
 
 impl From<alloy_rpc_types_eth::TransactionRequest> for SignableSeismicTransactionRequest {
     fn from(req: alloy_rpc_types_eth::TransactionRequest) -> Self {
-        Self(SeismicTransactionRequest { inner: req, seismic_elements: None })
+        Self(req.into())
     }
 }
 
@@ -95,17 +98,44 @@ impl AsMut<alloy_rpc_types_eth::TransactionRequest> for SignableSeismicTransacti
 }
 
 impl TryIntoTxEnv<seismic_revm::SeismicTransaction<TxEnv>> for SignableSeismicTransactionRequest {
-    type Err = EthTxEnvError;
+    type Err = SeismicEthApiError;
 
     fn try_into_tx_env<Spec>(
         self,
         cfg_env: &CfgEnv<Spec>,
         block_env: &BlockEnv,
     ) -> Result<seismic_revm::SeismicTransaction<TxEnv>, Self::Err> {
-        // First convert the inner transaction to TxEnv
-        let base_tx_env = self.0.inner.try_into_tx_env(cfg_env, block_env)?;
-        // Then wrap it in SeismicTransaction
-        Ok(seismic_revm::SeismicTransaction::new(base_tx_env))
+        self.0.validate_seismic_consistency().map_err(|message| {
+            reth_rpc_eth_types::EthApiError::InvalidParams(message.to_owned())
+        })?;
+        let seismic =
+            self.0.inner.transaction_type == Some(seismic_alloy_consensus::SEISMIC_TX_TYPE_ID);
+        let signed_read = seismic &&
+            self.0.seismic_elements.as_ref().is_some_and(|elements| elements.signed_read);
+        if self.0.gas_payment != seismic_alloy_consensus::GasPayment::Auto && !signed_read {
+            return Err(reth_rpc_eth_types::EthApiError::InvalidParams(
+                "explicit gas payment requires an authenticated Seismic signed read".to_owned(),
+            )
+            .into());
+        }
+        let selector = reth_evm::tx::gas_payment_to_env(self.0.gas_payment);
+        // Fee normalization still validates conflicting fields and fee caps. Retain the
+        // original maximum cap for revm's maximum affordability, not only the effective
+        // execution price computed by the upstream RPC converter.
+        let maximum_price = self.0.inner.max_fee_per_gas;
+        let mut base = self.0.inner.try_into_tx_env(cfg_env, block_env)?;
+        if let Some(maximum_price) = maximum_price {
+            base.gas_price = maximum_price;
+            // Missing dynamic priority means zero, not a legacy price equal to
+            // the fee cap. Preserve the normalized effective execution price.
+            base.gas_priority_fee = Some(base.gas_priority_fee.unwrap_or_default());
+        }
+        if seismic {
+            base.tx_type = seismic_alloy_consensus::SEISMIC_TX_TYPE_ID;
+        }
+        Ok(seismic_revm::SeismicTransaction::new(base)
+            .with_signed_read(signed_read)
+            .with_gas_payment(selector))
     }
 }
 
@@ -335,8 +365,8 @@ where
     ///
     /// Native account inspection remains uniform (Veridise 1206), except for the intentional
     /// default `eth_getBalance` compatibility placeholder. Neither public balance endpoint
-    /// reads USDC storage. Gas-allowance execution (`estimateGas`/`call`) keeps accounting for
-    /// USDC independently; the placeholder must never be used for affordability.
+    /// reads token storage. Gas allowance (`estimateGas`/`call`) independently uses the
+    /// registry and signed selector; the placeholder must never be used for affordability.
     fn get_account_info(
         &self,
         address: Address,

@@ -35,6 +35,7 @@ fn plain_call(contract: alloy_primitives::Address, calldata: Bytes) -> SeismicTr
             ..Default::default()
         },
         seismic_elements: None,
+        gas_payment: seismic_alloy_consensus::GasPayment::Auto,
     }
 }
 
@@ -337,6 +338,7 @@ async fn deploy_probe(
             ..Default::default()
         },
         seismic_elements: None,
+        gas_payment: seismic_alloy_consensus::GasPayment::Auto,
     };
     let signed = sign_tx(signer.clone(), deploy).await;
     let raw: Bytes = signed.encoded_2718().into();

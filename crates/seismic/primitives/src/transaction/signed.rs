@@ -212,7 +212,13 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
             SeismicTypedTransaction::Eip7702(tx) => TxEnv::from_recovered_tx(tx, sender),
             SeismicTypedTransaction::Seismic(tx) => TxEnv::from_recovered_tx(tx, sender),
         };
-        let tx = Self { base, tx_hash, decryption_failed: false, signed_read: false };
+        let (gas_payment, signed_read) = match &tx.transaction {
+            SeismicTypedTransaction::Seismic(tx) => {
+                (alloy_evm::tx::gas_payment_to_env(tx.gas_payment), tx.seismic_elements.signed_read)
+            }
+            _ => (seismic_revm::GasPayment::Auto, false),
+        };
+        let tx = Self { base, tx_hash, decryption_failed: false, signed_read, gas_payment };
         tracing::debug!(%tx_hash, "converted recovered transaction");
         tx
     }
@@ -220,13 +226,7 @@ impl FromRecoveredTx<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
 
 impl FromTxWithEncoded<SeismicTransactionSigned> for SeismicTransaction<TxEnv> {
     fn from_encoded_tx(tx: &SeismicTransactionSigned, sender: Address, _encoded: Bytes) -> Self {
-        let tx_env = Self::from_recovered_tx(tx, sender);
-        Self {
-            base: tx_env.base,
-            tx_hash: tx_env.tx_hash,
-            decryption_failed: false,
-            signed_read: false,
-        }
+        Self::from_recovered_tx(tx, sender)
     }
 }
 
@@ -768,6 +768,7 @@ mod tests {
             nonce: 0,
             gas_price: 1,
             gas_limit: 21_000,
+            gas_payment: seismic_alloy_consensus::GasPayment::Auto,
             to,
             value: U256::ZERO,
             input,
@@ -786,6 +787,128 @@ mod tests {
         };
         let signature = Signature::new(U256::from(1u64), U256::from(1u64), false);
         SeismicTransactionSigned::new_unhashed(SeismicTypedTransaction::Seismic(tx), signature)
+    }
+
+    #[test]
+    fn payment_selector_survives_execution_conversions() {
+        let sender = Address::with_last_byte(0x42);
+        let token = Address::with_last_byte(0x43);
+        for gas_payment in [
+            seismic_alloy_consensus::GasPayment::Auto,
+            seismic_alloy_consensus::GasPayment::Native,
+            seismic_alloy_consensus::GasPayment::Token(token),
+        ] {
+            for signed_read in [false, true] {
+                let mut signed = seismic_signed_tx(
+                    signed_read,
+                    TxKind::Call(token),
+                    Bytes::from_static(b"selector conversion"),
+                );
+                let SeismicTypedTransaction::Seismic(tx) = &mut signed.transaction else {
+                    panic!("expected seismic transaction")
+                };
+                tx.gas_payment = gas_payment;
+                let expected = alloy_evm::tx::gas_payment_to_env(gas_payment);
+                let encoded = signed.encoded_2718().into();
+                let recovered = SeismicTransaction::<TxEnv>::from_recovered_tx(&signed, sender);
+                let from_encoded =
+                    SeismicTransaction::<TxEnv>::from_encoded_tx(&signed, sender, encoded);
+                for env in [recovered, from_encoded] {
+                    assert_eq!(env.gas_payment, expected);
+                    assert_eq!(env.signed_read, signed_read);
+                    assert_eq!(env.tx_hash, *signed.tx_hash());
+                    assert_eq!(env.base.caller, sender);
+                    assert_eq!(env.base.data, signed.input().clone());
+                    assert_eq!(env.base.value, signed.value());
+                    assert!(!env.decryption_failed);
+                }
+                // Preserving signed-read metadata must not make it admissible on the wire.
+                let raw = signed.encoded_2718();
+                assert_eq!(
+                    SeismicTransactionSigned::decode_2718(&mut raw.as_slice()).is_err(),
+                    signed_read,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn standard_signatures_hashes_and_wire_encodings_are_unchanged() {
+        let signature = Signature::new(U256::from(1), U256::from(1), false);
+        let standard: [alloy_consensus::TxEnvelope; 5] = [
+            TxLegacy::default().into_signed(signature).into(),
+            TxEip2930::default().into_signed(signature).into(),
+            TxEip1559::default().into_signed(signature).into(),
+            TxEip4844::default().into_signed(signature).into(),
+            TxEip7702::default().into_signed(signature).into(),
+        ];
+        for envelope in standard {
+            let expected_wire = envelope.encoded_2718();
+            let expected_hash = *envelope.tx_hash();
+            let mut wire = expected_wire.as_slice();
+            let signed = SeismicTransactionSigned::decode_2718(&mut wire).unwrap();
+            assert!(wire.is_empty());
+            assert_eq!(signed.signature, signature);
+            assert_eq!(*signed.tx_hash(), expected_hash);
+            assert_eq!(signed.encoded_2718(), expected_wire);
+            assert_eq!(SeismicTxEnvelope::from(signed.clone()).encoded_2718(), expected_wire);
+            assert_eq!(signed.signature_hash(), envelope.signature_hash());
+        }
+    }
+
+    #[test]
+    fn standard_execution_conversions_use_auto() {
+        let signature = Signature::new(U256::from(1), U256::from(1), false);
+        let transactions: [SeismicTypedTransaction; 5] = [
+            TxLegacy::default().into(),
+            TxEip2930::default().into(),
+            TxEip1559::default().into(),
+            TxEip4844::default().into(),
+            TxEip7702::default().into(),
+        ];
+        for transaction in transactions {
+            let signed = SeismicTransactionSigned::new_unhashed(transaction, signature);
+            let env = SeismicTransaction::<TxEnv>::from_encoded_tx(
+                &signed,
+                Address::with_last_byte(0x42),
+                signed.encoded_2718().into(),
+            );
+            assert_eq!(env.gas_payment, seismic_revm::GasPayment::Auto);
+            assert!(!env.signed_read);
+            assert_eq!(env.tx_hash, *signed.tx_hash());
+        }
+    }
+
+    #[test]
+    fn payment_selector_survives_signed_storage_and_wire_roundtrips() {
+        for gas_payment in [
+            seismic_alloy_consensus::GasPayment::Auto,
+            seismic_alloy_consensus::GasPayment::Native,
+            seismic_alloy_consensus::GasPayment::Token(Address::with_last_byte(0x43)),
+        ] {
+            for input_len in [1, 64] {
+                let mut signed =
+                    seismic_signed_tx(false, TxKind::Create, Bytes::from(vec![0x24; input_len]));
+                let SeismicTypedTransaction::Seismic(tx) = &mut signed.transaction else {
+                    panic!("expected seismic transaction")
+                };
+                tx.gas_payment = gas_payment;
+                let expected_hash = *signed.tx_hash();
+                let envelope = SeismicTxEnvelope::from(signed.clone());
+                assert_eq!(SeismicTransactionSigned::from(envelope.clone()), signed);
+                let mut compact = Vec::new();
+                let len = signed.to_compact(&mut compact);
+                let (decoded, _) = SeismicTransactionSigned::from_compact(&compact, len);
+                assert_eq!(decoded, signed);
+                assert_eq!(*decoded.tx_hash(), expected_hash);
+                let (decoded_envelope, _) = SeismicTxEnvelope::from_compact(&compact, len);
+                assert_eq!(decoded_envelope, envelope);
+                let raw = signed.encoded_2718();
+                let decoded = SeismicTransactionSigned::decode_2718(&mut raw.as_slice()).unwrap();
+                assert_eq!(decoded, signed);
+                assert_eq!(*decoded.tx_hash(), expected_hash);
+            }
+        }
     }
 
     /// Build the EIP-2718 bytes of a signed seismic tx with the given `signed_read`/`to`.
@@ -901,6 +1024,7 @@ mod tests {
             nonce: 47,
             gas_price: 360000,
             gas_limit: 169477,
+            gas_payment: seismic_alloy_consensus::GasPayment::Auto,
             to: TxKind::Call(
                 Address::from_str("0x3ab946eec2553114040de82d2e18798a51cf1e14").unwrap(),
             ),

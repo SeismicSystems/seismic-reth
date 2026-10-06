@@ -9,6 +9,9 @@
                                                                                              // - panics
                                                                                              // are acceptable
 
+use super::common::gas_tokens::{
+    Receipt as FixtureReceipt, TokenFixture, TokenKind, TokenTestContext,
+};
 use alloy_consensus::{proofs::calculate_transaction_root, Transaction as _, TxEnvelope};
 use alloy_dyn_abi::EventExt;
 use alloy_eips::eip2718::Encodable2718;
@@ -149,6 +152,34 @@ pub(super) async fn setup_test_node() -> eyre::Result<(
     let chain_id = wallet.chain_id;
     let client = HttpClientBuilder::default().build(&rpc_url)?;
     Ok((node, client, chain_id, wallet, tasks))
+}
+
+/// Start with an empty registry, then deploy, mint and register real SUSDC through execution.
+/// Anvil account #6 keeps zero native balance; no token balance is seeded in genesis.
+pub(super) async fn setup_susdc_test_node() -> eyre::Result<(
+    SeismicTestNode,
+    jsonrpsee::http_client::HttpClient,
+    u64,
+    Wallet,
+    reth_tasks::TaskManager,
+    TokenFixture,
+)> {
+    reth_tracing::init_test_tracing();
+    let mut context = TokenTestContext::new(false).await?;
+    let signer = token_only_signer();
+    let token = context.bootstrap(TokenKind::Susdc, signer.address(), false).await?;
+    assert_eq!(
+        EthApiOverrideClient::<Block>::get_balance(
+            &context.client,
+            signer.address(),
+            None,
+            Some(true)
+        )
+        .await?,
+        U256::ZERO
+    );
+    let (node, client, wallet, tasks) = context.into_parts();
+    Ok((node, client, wallet.chain_id, wallet, tasks, token))
 }
 
 /// Deploy contract, verify receipt and code, then return the contract address + block hash.
@@ -324,15 +355,9 @@ async fn rpc_test_gas_and_call_variants(
     .unwrap();
     assert!(gas > U256::ZERO);
 
-    // Regression test for the stablecoin-gas allowance gap. PR #378 routed
-    // eth_getBalance through max(native, usdc_balance) but `caller_gas_allowance`
-    // (used by eth_estimateGas) still reads only native. A wallet with 0 native
-    // and nonzero USDC must still get a >0 allowance.
-    //
-    // Fixture: anvil acct #6, allocated in dev.json with 0 native and 1000 USDC
-    // at the predeploy's `_balances[addr]` storage slot.
-    let usdc_only_signer: PrivateKeySigner =
-        "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e".parse().unwrap();
+    // Regression for registry-aware caller gas allowance: account #6 has zero
+    // native balance and real Shielded SUSDC minted and registered by setup.
+    let usdc_only_signer = token_only_signer();
     let usdc_gas = EthApiOverrideClient::<Block>::estimate_gas(
         client,
         get_signed_seismic_call_bytes(
@@ -422,6 +447,7 @@ async fn rpc_test_gas_and_call_variants(
                 ..Default::default()
             },
             seismic_elements: None,
+            gas_payment: seismic_alloy_consensus::GasPayment::Auto,
         }),
         None,
         None,
@@ -467,6 +493,7 @@ async fn rpc_test_gas_and_call_variants(
                 ..Default::default()
             },
             seismic_elements: None,
+            gas_payment: seismic_alloy_consensus::GasPayment::Auto,
         }
         .into(),
         None,
@@ -481,7 +508,7 @@ async fn rpc_test_gas_and_call_variants(
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_seismic_reth_rpc() -> eyre::Result<()> {
-    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+    let (mut node, client, chain_id, wallet, _tasks, _token) = setup_susdc_test_node().await?;
 
     let (contract_addr, recent_block_hash) =
         rpc_test_deploy_contract(&mut node, &client, chain_id, &wallet).await?;
@@ -788,6 +815,7 @@ async fn test_eth_call_rejects_sload_on_private_storage() -> eyre::Result<()> {
                 ..Default::default()
             },
             seismic_elements: None,
+            gas_payment: seismic_alloy_consensus::GasPayment::Auto,
         }
         .into(),
         None,
@@ -991,6 +1019,7 @@ async fn test_solidity_read_public_sload_succeeds() -> eyre::Result<()> {
                 ..Default::default()
             },
             seismic_elements: None,
+            gas_payment: seismic_alloy_consensus::GasPayment::Auto,
         }
         .into(),
         None,
@@ -1035,6 +1064,7 @@ async fn test_solidity_read_private_succeeds() -> eyre::Result<()> {
                 ..Default::default()
             },
             seismic_elements: None,
+            gas_payment: seismic_alloy_consensus::GasPayment::Auto,
         }
         .into(),
         None,
@@ -1283,6 +1313,7 @@ async fn test_eth_call_rejects_code_override() -> eyre::Result<()> {
                 ..Default::default()
             },
             seismic_elements: None,
+            gas_payment: seismic_alloy_consensus::GasPayment::Auto,
         }
         .into(),
         None,
@@ -1333,6 +1364,7 @@ async fn test_eth_estimate_gas_rejects_code_override() -> eyre::Result<()> {
                 ..Default::default()
             },
             seismic_elements: None,
+            gas_payment: seismic_alloy_consensus::GasPayment::Auto,
         }),
         None,
         Some(state_overrides),
@@ -1407,8 +1439,8 @@ async fn test_eth_simulate_v1_rejects_code_override() -> eyre::Result<()> {
     Ok(())
 }
 
-/// Anvil acct #6 — dev.json seeds 0 native + 1000 USDC at the predeploy's `_balances[addr]` slot.
-fn usdc_only_signer() -> PrivateKeySigner {
+/// Anvil account #6 has zero native balance and is funded with SUSDC by explicit bootstrap.
+fn token_only_signer() -> PrivateKeySigner {
     "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e".parse().unwrap()
 }
 
@@ -1438,12 +1470,13 @@ async fn get_signed_seismic_tx_bytes_with_gas_price(
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_usdc_only_eth_call_signed_bytes() -> eyre::Result<()> {
-    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+async fn test_registered_susdc_only_eth_call_signed_bytes() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks, token) = setup_susdc_test_node().await?;
     let (contract_addr, recent_block_hash) =
         rpc_test_deploy_contract(&mut node, &client, chain_id, &wallet).await?;
 
-    let signer = usdc_only_signer();
+    let signer = token_only_signer();
+    let nonce = get_nonce(&client, signer.address()).await;
     let output = EthApiOverrideClient::<Block>::call(
         &client,
         get_signed_seismic_call_bytes(
@@ -1463,19 +1496,33 @@ async fn test_usdc_only_eth_call_signed_bytes() -> eyre::Result<()> {
     .await
     .expect("eth_call must honor USDC balance for caller_gas_allowance");
 
-    assert!(!output.is_empty());
+    let metadata = get_signed_read_seismic_metadata(
+        signer.address(),
+        chain_id,
+        nonce,
+        TxKind::Call(contract_addr),
+        U256::ZERO,
+        recent_block_hash,
+    );
+    assert_eq!(
+        U256::from_be_slice(
+            &client_decrypt(metadata, &output).expect("authenticated call response decrypts")
+        ),
+        U256::ZERO
+    );
+    assert_eq!(token.balance_at(&node, signer.address())?, (token.funded_amount, true));
     Ok(())
 }
 
-/// simulateV1 does not route through `caller_gas_allowance`; seismic-revm's caller-deduct charges
-/// in USDC at execution time instead. Locks in that routing.
+/// Simulate a token-funded authenticated call against the real registry and minted balances;
+/// simulation must not persist any fee debits to the canonical token state.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_usdc_only_eth_simulate_v1() -> eyre::Result<()> {
-    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+async fn test_registered_susdc_only_eth_simulate_v1() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks, token) = setup_susdc_test_node().await?;
     let (contract_addr, recent_block_hash) =
         rpc_test_deploy_contract(&mut node, &client, chain_id, &wallet).await?;
 
-    let signer = usdc_only_signer();
+    let signer = token_only_signer();
     let tx_bytes = get_signed_seismic_call_bytes(
         &signer,
         get_nonce(&client, signer.address()).await,
@@ -1499,8 +1546,11 @@ async fn test_usdc_only_eth_simulate_v1() -> eyre::Result<()> {
 
     let result = EthApiOverrideClient::<Block>::simulate_v1(&client, payload, None)
         .await
-        .expect("simulate_v1 must succeed for USDC-only wallet");
-    assert!(!result.is_empty());
+        .expect("simulate_v1 must succeed for a registered SUSDC-only wallet");
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].calls.len(), 1);
+    assert!(result[0].calls[0].status, "the actual simulated call must succeed");
+    assert_eq!(token.balance_at(&node, signer.address())?, (token.funded_amount, true));
     Ok(())
 }
 
@@ -1857,12 +1907,12 @@ async fn test_simulate_v1_signed_read_revert_message_leaks_private_data() -> eyr
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_usdc_only_eth_estimate_gas_typed_data() -> eyre::Result<()> {
-    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+async fn test_registered_susdc_only_eth_estimate_gas_typed_data() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks, token) = setup_susdc_test_node().await?;
     let (contract_addr, recent_block_hash) =
         rpc_test_deploy_contract(&mut node, &client, chain_id, &wallet).await?;
 
-    let signer = usdc_only_signer();
+    let signer = token_only_signer();
     let typed = get_signed_seismic_call_typed_data(
         &signer,
         get_nonce(&client, signer.address()).await,
@@ -1875,19 +1925,20 @@ async fn test_usdc_only_eth_estimate_gas_typed_data() -> eyre::Result<()> {
 
     let gas = EthApiOverrideClient::<Block>::estimate_gas(&client, typed.into(), None, None)
         .await
-        .expect("estimate_gas via typed-data must honor USDC balance");
+        .expect("estimate_gas via typed-data must honor registered SUSDC balance");
     assert!(gas > U256::ZERO);
+    assert_eq!(token.balance_at(&node, signer.address())?, (token.funded_amount, true));
     Ok(())
 }
 
 /// 1000 USDC × 10^12 = 10^21 wei cap; `gas_price` = 10^18 → allowance 1000 gas, below 21000 floor.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_usdc_only_insufficient_balance_high_gas_price() -> eyre::Result<()> {
-    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+async fn test_registered_susdc_only_insufficient_balance_high_gas_price() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks, token) = setup_susdc_test_node().await?;
     let (contract_addr, recent_block_hash) =
         rpc_test_deploy_contract(&mut node, &client, chain_id, &wallet).await?;
 
-    let signer = usdc_only_signer();
+    let signer = token_only_signer();
     let bytes = get_signed_seismic_tx_bytes_with_gas_price(
         &signer,
         get_nonce(&client, signer.address()).await,
@@ -1902,36 +1953,29 @@ async fn test_usdc_only_insufficient_balance_high_gas_price() -> eyre::Result<()
     let result =
         EthApiOverrideClient::<Block>::estimate_gas(&client, bytes.into(), None, None).await;
     assert!(result.is_err(), "got {result:?}");
+    assert_eq!(token.balance_at(&node, signer.address())?, (token.funded_amount, true));
     Ok(())
 }
 
-/// dev.json's USDC predeploy has no runtime bytecode, so the transfer is a no-op at the EVM
-/// level — this asserts the estimateGas → sendRawTransaction → receipt flow, not balance movement.
+/// Estimate, sign and mine a real SUSDC transfer, including actual Shielded balance movement
+/// and token gas charging from a native-zero holder. The old empty-code fixture is gone.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
-    let (mut node, client, chain_id, _wallet, _tasks) = setup_test_node().await?;
-
-    let signer = usdc_only_signer();
+async fn test_registered_susdc_only_transfer_e2e() -> eyre::Result<()> {
+    let (mut node, client, chain_id, _wallet, _tasks, token) = setup_susdc_test_node().await?;
+    let signer = token_only_signer();
     let recipient = Address::from_hex("0xaFD9e07a4955cB2E27a6DB7E2b55b05B4D928BD8").unwrap();
-    let usdc = Address::from_hex("0x790701048922E265105fd6a4467a2901c2201C43").unwrap();
-
-    // transfer(address,uint256) selector + 32-byte recipient + 1 SUSDC (6 dec raw).
-    let mut calldata = vec![0xa9, 0x05, 0x9c, 0xbb];
-    let mut recipient_word = [0u8; 32];
-    recipient_word[12..].copy_from_slice(recipient.as_slice());
-    calldata.extend_from_slice(&recipient_word);
-    calldata.extend_from_slice(&U256::from(1_000_000u64).to_be_bytes::<32>());
-    let plaintext = Bytes::from(calldata);
-
-    // Seismic validator requires a recent block hash from the last 100 blocks.
-    node.advance_block().await?;
+    let amount = U256::from(1_000_000u64);
+    let plaintext: Bytes =
+        super::common::gas_tokens::transferCall { to: recipient, amount }.abi_encode().into();
+    let before = token.balance_at(&node, signer.address())?;
+    assert_eq!(before, (token.funded_amount, true));
+    assert_eq!(token.balance_at(&node, recipient)?.0, U256::ZERO);
     let recent = get_recent_block_hash(&client).await;
     let nonce = get_nonce(&client, signer.address()).await;
-
     let estimate_bytes = get_signed_seismic_call_bytes(
         &signer,
         nonce,
-        TxKind::Call(usdc),
+        TxKind::Call(token.token),
         chain_id,
         plaintext.clone(),
         recent,
@@ -1940,7 +1984,7 @@ async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
     let signed_bytes = get_signed_seismic_tx_bytes(
         &signer,
         nonce,
-        TxKind::Call(usdc),
+        TxKind::Call(token.token),
         chain_id,
         plaintext,
         recent,
@@ -1948,15 +1992,16 @@ async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
     .await;
     let estimate =
         EthApiOverrideClient::<Block>::estimate_gas(&client, estimate_bytes.into(), None, None)
-            .await
-            .expect("eth_estimateGas must succeed for USDC-only wallet");
-    assert!(estimate > U256::ZERO);
-
-    let tx_hash = EthApiOverrideClient::<Block>::send_raw_transaction(&client, signed_bytes.into())
-        .await
-        .expect("eth_sendRawTransaction must succeed for USDC-only wallet");
+            .await?;
+    assert!(estimate > U256::from(21_000), "real transfer code must execute");
+    assert_eq!(
+        token.balance_at(&node, signer.address())?,
+        before,
+        "estimation must not persist changes"
+    );
+    let tx_hash =
+        EthApiOverrideClient::<Block>::send_raw_transaction(&client, signed_bytes.into()).await?;
     node.advance_block().await?;
-
     let receipt = EthApiClient::<
         SeismicTransactionRequest,
         SeismicTransactionSigned,
@@ -1964,10 +2009,21 @@ async fn test_usdc_only_susdc_transfer_e2e() -> eyre::Result<()> {
         SeismicTransactionReceipt,
         Header,
     >::transaction_receipt(&client, tx_hash)
-    .await
-    .unwrap()
+    .await?
     .unwrap();
     assert!(receipt.status());
+    let fee = token.fee_units(&FixtureReceipt {
+        gas_used: U256::from(receipt.gas_used()),
+        effective_gas_price: U256::from(receipt.effective_gas_price()),
+        contract_address: receipt.contract_address,
+    });
+    assert_eq!(token.balance_at(&node, signer.address())?, (before.0 - amount - fee, true));
+    assert_eq!(token.balance_at(&node, recipient)?, (amount, true));
+    assert_eq!(
+        EthApiOverrideClient::<Block>::get_balance(&client, signer.address(), None, Some(true))
+            .await?,
+        U256::ZERO
+    );
     Ok(())
 }
 
@@ -1995,6 +2051,7 @@ async fn test_eth_call_rejects_storage_override() -> eyre::Result<()> {
                 ..Default::default()
             },
             seismic_elements: None,
+            gas_payment: seismic_alloy_consensus::GasPayment::Auto,
         }
         .into(),
         None,
@@ -2043,6 +2100,7 @@ async fn test_eth_estimate_gas_rejects_storage_override() -> eyre::Result<()> {
                 ..Default::default()
             },
             seismic_elements: None,
+            gas_payment: seismic_alloy_consensus::GasPayment::Auto,
         }),
         None,
         Some(state_overrides),
@@ -2143,6 +2201,7 @@ async fn test_eth_call_many_rejects_unsigned_sload_on_private_storage() -> eyre:
                 ..Default::default()
             },
             seismic_elements: None,
+            gas_payment: seismic_alloy_consensus::GasPayment::Auto,
         })]);
 
     let mut results = EthApiOverrideClient::<Block>::call_many(&client, vec![bundle], None, None)

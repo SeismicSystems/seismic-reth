@@ -357,6 +357,7 @@ where
         From<<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error>,
     <<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest:
         From<alloy_rpc_types::TransactionRequest>
+            + From<seismic_alloy_rpc_types::SeismicTransactionRequest>
             + AsRef<alloy_rpc_types::TransactionRequest>
             + Send
             + Sync
@@ -470,6 +471,7 @@ where
         From<<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error>,
     <<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest:
         From<alloy_rpc_types::TransactionRequest>
+            + From<seismic_alloy_rpc_types::SeismicTransactionRequest>
             + AsRef<alloy_rpc_types::TransactionRequest>
             + Send
             + Sync
@@ -500,6 +502,7 @@ where
         From<<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error>,
     <<EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::NetworkTypes as reth_rpc_eth_api::RpcTypes>::TransactionRequest:
         From<alloy_rpc_types::TransactionRequest>
+            + From<seismic_alloy_rpc_types::SeismicTransactionRequest>
             + AsRef<alloy_rpc_types::TransactionRequest>
             + Send
             + Sync
@@ -625,9 +628,10 @@ where
             .kzg_settings(ctx.kzg_settings()?)
             .with_local_transactions_config(pool_config.local_transactions_config.clone())
             .with_additional_tasks(ctx.config().txpool.additional_validation_tasks)
-            // Gas is paid in USDC on Seismic, not native ETH. Disable the native balance check
-            // so transactions from accounts with zero ETH are not rejected. Actual gas payment
-            // is enforced by the Seismic revm implementation at execution time.
+            // Seismic supports registry tokens as well as native gas payment. The wrapper
+            // enforces selector-aware affordability; disable the inner native-only check so
+            // eligible token-funded transactions are not rejected for lacking native gas funds.
+            // Actual execution independently enforces payment through Seismic revm.
             .disable_balance_check()
             .build_with_tasks(ctx.task_executor().clone(), blob_store.clone());
 
@@ -668,7 +672,7 @@ reth_transaction_pool::maintain::LocalTransactionBackupConfig::with_local_txs_ba
                 },
             );
 
-            // spawn the maintenance task with USDC balance augmentation
+            // Spawn maintenance with registry-aware balance augmentation and targeted refresh.
             let balance_hook = reth_seismic_txpool::SeismicBalanceHook;
             ctx.task_executor().spawn_critical(
                 "txpool maintenance task",

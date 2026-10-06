@@ -11,13 +11,15 @@ use alloy_consensus::{
     transaction::{TxEip1559, TxEip2930, TxEip7702, TxLegacy},
     Signed, TxEip4844,
 };
-use alloy_eips::eip2718::{EIP7702_TX_TYPE_ID, EIP4844_TX_TYPE_ID};
+use alloy_eips::{
+    eip2718::{EIP4844_TX_TYPE_ID, EIP7702_TX_TYPE_ID},
+    eip7702::SignedAuthorization,
+};
 use alloy_primitives::{aliases::U96, Bytes, ChainId, Signature, TxKind, U256};
 use bytes::{Buf, BufMut, BytesMut};
-use alloy_eips::eip7702::SignedAuthorization;
 use seismic_alloy_consensus::{
-    transaction::TxSeismicElements, SeismicTxEnvelope, SeismicTxType, SeismicTypedTransaction,
-    TxSeismic as AlloyTxSeismic, SEISMIC_TX_TYPE_ID,
+    transaction::TxSeismicElements, GasPayment, SeismicTxEnvelope, SeismicTxType,
+    SeismicTypedTransaction, TxSeismic as AlloyTxSeismic, SEISMIC_TX_TYPE_ID,
 };
 
 use super::ethereum::{CompactEnvelope, Envelope, FromTxCompact, ToTxCompact};
@@ -50,6 +52,8 @@ pub(crate) struct TxSeismic {
     /// computation is done and may not be increased
     /// later; formally Tg.
     gas_limit: u64,
+    /// Mandatory authenticated payment choice; there is no legacy-layout decoder.
+    gas_payment: GasPayment,
     /// The 160-bit address of the message call’s recipient or, for a contract creation
     /// transaction, ∅, used here to denote the only member of B0 ; formally Tt.
     to: TxKind,
@@ -68,6 +72,22 @@ pub(crate) struct TxSeismic {
     /// data: An unlimited size byte array specifying the
     /// input data of the message call, formally Td.
     input: Bytes,
+}
+
+/// Store the selector using the same canonical, self-describing RLP as the wire.
+impl Compact for GasPayment {
+    fn to_compact<B: bytes::BufMut + AsMut<[u8]>>(&self, buf: &mut B) -> usize {
+        alloy_rlp::Encodable::encode(self, buf);
+        alloy_rlp::Encodable::length(self)
+    }
+
+    #[allow(clippy::expect_used)] // Compact corruption is fatal, matching the surrounding storage
+                                  // codecs.
+    fn from_compact(mut buf: &[u8], _len: usize) -> (Self, &[u8]) {
+        let selector =
+            alloy_rlp::Decodable::decode(&mut buf).expect("invalid gas-payment compact storage");
+        (selector, buf)
+    }
 }
 
 impl Compact for TxSeismicElements {
@@ -118,11 +138,9 @@ impl Compact for TxSeismicElements {
     fn from_compact(mut buf: &[u8], _len: usize) -> (Self, &[u8]) {
         // Codec format is fixed by to_compact; malformed data indicates corruption and should panic
         // 1. encryption_pubkey (fixed size: 33 bytes)
-        let encryption_pubkey_compressed_bytes =
-            &buf[..secp256k1::constants::PUBLIC_KEY_SIZE];
+        let encryption_pubkey_compressed_bytes = &buf[..secp256k1::constants::PUBLIC_KEY_SIZE];
         let encryption_pubkey =
-            secp256k1::PublicKey::from_slice(encryption_pubkey_compressed_bytes)
-                .unwrap();
+            secp256k1::PublicKey::from_slice(encryption_pubkey_compressed_bytes).unwrap();
         buf.advance(secp256k1::constants::PUBLIC_KEY_SIZE);
 
         // 2. encryption_nonce (variable size: read length then data)
@@ -166,6 +184,7 @@ impl Compact for AlloyTxSeismic {
             nonce: self.nonce,
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
+            gas_payment: self.gas_payment,
             to: self.to,
             value: self.value,
             seismic_elements: self.seismic_elements,
@@ -184,6 +203,7 @@ impl Compact for AlloyTxSeismic {
             nonce: tx.nonce,
             gas_price: tx.gas_price,
             gas_limit: tx.gas_limit,
+            gas_payment: tx.gas_payment,
             to: tx.to,
             value: tx.value,
             seismic_elements: tx.seismic_elements,
@@ -413,6 +433,7 @@ mod tests {
             nonce: 13985005159674441909,
             gas_price: 296133358425745351516777806240018869443,
             gas_limit: 6091425913586946366,
+            gas_payment: GasPayment::Auto,
             to: TxKind::Create,
             value: U256::from_str_radix(
                 "30997721070913355446596643088712595347117842472993214294164452566768407578853",
@@ -439,18 +460,22 @@ mod tests {
                 signed_read: false,
             },
             input: Bytes::from_static(&[0x24]),
-            authorization_list: vec![
-                alloy_eips::eip7702::Authorization {
-                    chain_id: U256::from(1),
-                    address: alloy_primitives::address!("0xdac17f958d2ee523a2206206994597c13d831ec7"),
-                    nonce: 1,
-                }
-                .into_signed(Signature::new(
-                    alloy_primitives::b256!("0x1fd474b1f9404c0c5df43b7620119ffbc3a1c3f942c73b6e14e9f55255ed9b1d").into(),
-                    alloy_primitives::b256!("0x29aca24813279a901ec13b5f7bb53385fa1fc627b946592221417ff74a49600d").into(),
-                    false,
-                )),
-            ],
+            authorization_list: vec![alloy_eips::eip7702::Authorization {
+                chain_id: U256::from(1),
+                address: alloy_primitives::address!("0xdac17f958d2ee523a2206206994597c13d831ec7"),
+                nonce: 1,
+            }
+            .into_signed(Signature::new(
+                alloy_primitives::b256!(
+                    "0x1fd474b1f9404c0c5df43b7620119ffbc3a1c3f942c73b6e14e9f55255ed9b1d"
+                )
+                .into(),
+                alloy_primitives::b256!(
+                    "0x29aca24813279a901ec13b5f7bb53385fa1fc627b946592221417ff74a49600d"
+                )
+                .into(),
+                false,
+            ))],
         };
 
         // Encode to compact format
@@ -465,6 +490,7 @@ mod tests {
         assert_eq!(tx.nonce, decoded_tx.nonce);
         assert_eq!(tx.gas_price, decoded_tx.gas_price);
         assert_eq!(tx.gas_limit, decoded_tx.gas_limit);
+        assert_eq!(tx.gas_payment, decoded_tx.gas_payment);
         assert_eq!(tx.to, decoded_tx.to);
         assert_eq!(tx.value, decoded_tx.value);
         assert_eq!(tx.input, decoded_tx.input);
@@ -491,10 +517,7 @@ mod tests {
             tx.seismic_elements.expires_at_block,
             decoded_tx.seismic_elements.expires_at_block
         );
-        assert_eq!(
-            tx.seismic_elements.signed_read,
-            decoded_tx.seismic_elements.signed_read
-        );
+        assert_eq!(tx.seismic_elements.signed_read, decoded_tx.seismic_elements.signed_read);
     }
 }
 
@@ -512,6 +535,7 @@ mod compact_remainder_tests {
             nonce: 1,
             gas_price: 1,
             gas_limit: 1,
+            gas_payment: GasPayment::Auto,
             to: TxKind::Create,
             value: U256::from(1u64),
             seismic_elements: TxSeismicElements {
@@ -530,6 +554,51 @@ mod compact_remainder_tests {
             },
             authorization_list: vec![],
             input: Bytes::from_static(input),
+        }
+    }
+
+    #[test]
+    fn payment_selector_compact_is_canonical_and_preserves_remainder() {
+        for selector in [
+            GasPayment::Auto,
+            GasPayment::Native,
+            GasPayment::Token(alloy_primitives::Address::with_last_byte(0x43)),
+        ] {
+            let mut buf = Vec::new();
+            let len = selector.to_compact(&mut buf);
+            assert_eq!(buf, alloy_rlp::encode(selector));
+            assert_eq!(len, buf.len());
+            buf.extend_from_slice(b"remainder");
+            let (decoded, remainder) = GasPayment::from_compact(&buf, len);
+            assert_eq!(decoded, selector);
+            assert_eq!(remainder, b"remainder");
+
+            let mut tx = sample_tx(&[0x24]);
+            tx.gas_payment = selector;
+            let mut buf = Vec::new();
+            let len = tx.to_compact(&mut buf);
+            let (decoded, remainder) = AlloyTxSeismic::from_compact(&buf, len);
+            assert_eq!(decoded, tx);
+            assert!(remainder.is_empty());
+        }
+    }
+
+    #[test]
+    fn payment_selector_compact_rejects_malformed_storage() {
+        for encoded in [
+            // Not a selector list.
+            "80",
+            // Unknown kind.
+            "c20380",
+            // Extra field.
+            "c3808080",
+            // Token address has the wrong length.
+            "c3028101",
+            // Zero token.
+            "d602940000000000000000000000000000000000000000",
+        ] {
+            let buf = hex::decode(encoded).unwrap();
+            assert!(std::panic::catch_unwind(|| GasPayment::from_compact(&buf, buf.len())).is_err());
         }
     }
 
@@ -571,14 +640,19 @@ mod compact_remainder_tests {
             .into(),
             false,
         );
-        let envelope =
-            SeismicTxEnvelope::Seismic(Signed::new_unhashed(sample_tx(&[0x24]), signature));
-
-        let mut buf = BytesMut::new();
-        let len = Compact::to_compact(&envelope, &mut buf);
-        let (decoded, remainder) = <SeismicTxEnvelope as Compact>::from_compact(&buf, len);
-
-        assert_eq!(envelope, decoded);
-        assert!(remainder.is_empty(), "left {} unconsumed bytes", remainder.len());
+        for gas_payment in [
+            GasPayment::Auto,
+            GasPayment::Native,
+            GasPayment::Token(alloy_primitives::Address::with_last_byte(0x43)),
+        ] {
+            let mut tx = sample_tx(&[0x24]);
+            tx.gas_payment = gas_payment;
+            let envelope = SeismicTxEnvelope::Seismic(Signed::new_unhashed(tx, signature));
+            let mut buf = BytesMut::new();
+            let len = Compact::to_compact(&envelope, &mut buf);
+            let (decoded, remainder) = <SeismicTxEnvelope as Compact>::from_compact(&buf, len);
+            assert_eq!(envelope, decoded);
+            assert!(remainder.is_empty(), "left {} unconsumed bytes", remainder.len());
+        }
     }
 }

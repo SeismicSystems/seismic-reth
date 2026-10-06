@@ -1,17 +1,25 @@
 //! Seismic transaction validator
 
-use crate::recent_block_cache::RecentBlockCache;
+use crate::{
+    payment::{maximum_gas_cost, ProviderRegistryStorage},
+    recent_block_cache::RecentBlockCache,
+    SeismicPaymentError,
+};
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{Sealable, U256};
+use alloy_primitives::Sealable;
 use reth_chainspec::ChainSpecProvider;
-use reth_primitives_traits::{transaction::error::InvalidTransactionError, Block, GotExpected};
-use reth_provider::{BlockReaderIdExt, StateProviderFactory};
+use reth_primitives_traits::{transaction::error::InvalidTransactionError, Block};
+use reth_provider::{AccountInfoReader, BlockReaderIdExt, StateProvider, StateProviderFactory};
 use reth_seismic_primitives::{transaction::error::SeismicTxError, SeismicTransactionSigned};
 use reth_transaction_pool::{
+    error::InvalidPoolTransactionError,
     validate::{TransactionValidationOutcome, TransactionValidator},
     EthPoolTransaction, EthTransactionValidator, TransactionOrigin,
 };
-use seismic_alloy_consensus::{SeismicTxType, TxSeismicElements};
+use seismic_alloy_consensus::{SeismicTxType, SeismicTypedTransaction, TxSeismicElements};
+use seismic_revm::gas_token_registry::{
+    aggregate_balance, select_payment, GasPayment, RegistryError,
+};
 use std::{
     fmt,
     marker::PhantomData,
@@ -102,8 +110,46 @@ where
         origin: TransactionOrigin,
         transaction: Self::Transaction,
     ) -> TransactionValidationOutcome<Self::Transaction> {
-        // First run the standard Ethereum validation
-        let outcome = self.inner.validate_transaction(origin, transaction).await;
+        // One provider snapshot supplies both Ethereum account/code validation
+        // and registry/token checks. Never call latest() again after validation.
+        let state = match self.inner.client().latest() {
+            Ok(state) => Arc::<dyn StateProvider>::from(state),
+            Err(error) => {
+                return TransactionValidationOutcome::Error(*transaction.hash(), Box::new(error))
+            }
+        };
+        self.validate_with_state(origin, transaction, state)
+    }
+
+    fn on_new_head_block<B>(&self, new_tip_block: &reth_primitives_traits::SealedBlock<B>)
+    where
+        B: Block,
+    {
+        self.inner.on_new_head_block(new_tip_block);
+
+        let mut cache = self.recent_blocks.write().unwrap_or_else(|e| e.into_inner());
+        cache.update(new_tip_block.hash(), new_tip_block.header().number(), |n| {
+            self.inner.client().header_by_number(n).ok()?.map(|h| h.hash_slow())
+        });
+    }
+}
+
+impl<Client, Tx> SeismicTransactionValidator<Client, Tx>
+where
+    Client: StateProviderFactory
+        + BlockReaderIdExt
+        + ChainSpecProvider<ChainSpec: reth_chainspec::EthereumHardforks>,
+    Tx: EthPoolTransaction<Consensus = SeismicTransactionSigned> + fmt::Debug,
+{
+    /// Share the provider through the existing Ethereum validator extension point.
+    fn validate_with_state(
+        &self,
+        origin: TransactionOrigin,
+        transaction: Tx,
+        state: Arc<dyn StateProvider>,
+    ) -> TransactionValidationOutcome<Tx> {
+        let mut account_state: Option<Box<dyn AccountInfoReader>> = Some(Box::new(state.clone()));
+        let outcome = self.inner.validate_one_with_state(origin, transaction, &mut account_state);
 
         // If the standard validation failed, return early
         match outcome {
@@ -159,65 +205,65 @@ where
                     }
                 }
 
-                // Gas on Seismic can be paid in native token or USDC, but the
-                // transferred value always comes out of the native balance, so
-                // affordability is checked component-wise (see `usdc::can_afford`).
+                let selector = match consensus_tx.transaction() {
+                    SeismicTypedTransaction::Seismic(tx) => match tx.gas_payment {
+                        seismic_alloy_consensus::GasPayment::Auto => GasPayment::Auto,
+                        seismic_alloy_consensus::GasPayment::Native => GasPayment::Native,
+                        seismic_alloy_consensus::GasPayment::Token(token) => {
+                            GasPayment::Token(token)
+                        }
+                    },
+                    _ => GasPayment::Auto,
+                };
                 let sender = *valid_tx.transaction().sender_ref();
-                let cost = *valid_tx.transaction().cost();
                 let value = valid_tx.transaction().value();
-                // `cost` is gas + blob + value, so stripping value leaves the
-                // maximum gas (incl. blob) cost.
-                let gas_cost = cost.saturating_sub(value);
-                let usdc = match self.inner.client().latest() {
-                    Ok(state) => crate::usdc::read_usdc_balance(&*state, &sender),
-                    // If we can't read state, fall back to native balance only:
-                    // usdc = 0 degrades `can_afford` to `native >= cost`.
-                    Err(_) => {
-                        tracing::warn!(
-                            target: "seismic::txpool",
-                            "failed to read state for USDC balance check, defaulting to zero"
-                        );
-                        U256::ZERO
+                let gas_cost = match maximum_gas_cost(valid_tx.transaction()) {
+                    Ok(cost) => cost,
+                    Err(error) => {
+                        return TransactionValidationOutcome::Invalid(
+                            valid_tx.into_transaction(),
+                            InvalidPoolTransactionError::other(SeismicPaymentError(error)),
+                        )
+                    }
+                };
+                let mut reader = ProviderRegistryStorage(state.as_ref());
+                // Admission always reserves the original signed value. It cannot
+                // assume failed decryption will waive value funding at execution.
+                let selected =
+                    select_payment(&mut reader, selector, sender, balance, value, gas_cost);
+                if let Err(error) = selected {
+                    return match error {
+                        RegistryError::Storage(error) => {
+                            TransactionValidationOutcome::Error(*valid_tx.hash(), Box::new(error))
+                        }
+                        RegistryError::Transaction(error) => TransactionValidationOutcome::Invalid(
+                            valid_tx.into_transaction(),
+                            InvalidPoolTransactionError::other(SeismicPaymentError(error)),
+                        ),
+                    }
+                }
+
+                // This full scan is intentionally separate from exact lazy selection.
+                // Mixed-selector nonce sequences need one sender-wide approximate
+                // scalar, not just the selected asset. No sum authorizes one fee.
+                let aggregate = match aggregate_balance(&mut reader, sender, balance) {
+                    Ok(balance) => balance,
+                    Err(RegistryError::Storage(error)) => {
+                        return TransactionValidationOutcome::Error(
+                            *valid_tx.hash(),
+                            Box::new(error),
+                        )
+                    }
+                    Err(RegistryError::Transaction(error)) => {
+                        return TransactionValidationOutcome::Invalid(
+                            valid_tx.into_transaction(),
+                            InvalidPoolTransactionError::other(SeismicPaymentError(error)),
+                        )
                     }
                 };
 
-                tracing::debug!(
-                    target: "seismic::txpool",
-                    tx_hash = %valid_tx.hash(),
-                    "seismic validator affordability check"
-                );
-
-                if !crate::usdc::can_afford(balance, usdc, gas_cost, value) {
-                    tracing::debug!(
-                        target: "seismic::txpool",
-                        tx_hash = %valid_tx.hash(),
-                        "rejecting tx: balances insufficient for gas cost and value"
-                    );
-                    // The error carries a single got/expected pair, so report the
-                    // native-token shortfall: `got` is the native balance, `expected`
-                    // the minimum native balance that would make the tx affordable
-                    // given the current USDC balance — just the value if USDC covers
-                    // gas, the full cost otherwise.
-                    let expected = if usdc >= gas_cost { value } else { cost };
-                    return TransactionValidationOutcome::Invalid(
-                        valid_tx.into_transaction(),
-                        InvalidTransactionError::InsufficientFunds(
-                            GotExpected { got: balance, expected }.into(),
-                        )
-                        .into(),
-                    );
-                }
-
                 TransactionValidationOutcome::Valid {
-                    // The pool tracks one balance scalar per sender, so the
-                    // component-wise rule isn't expressible. Report native + usdc:
-                    // a sound upper bound (`can_afford ⟹ cost ≤ native + usdc`), so
-                    // any admitted tx also clears the pool's `cost ≤ balance`
-                    // promotion check instead of stranding in the Queued subpool.
-                    // Over-approximates across multiple txs from one sender, but
-                    // block building is the final affordability gate. Keep in sync
-                    // with `SeismicBalanceHook` (maintain.rs).
-                    balance: balance.saturating_add(usdc),
+                    balance: aggregate,
                     state_nonce,
                     transaction: valid_tx,
                     propagate,
@@ -228,18 +274,6 @@ where
             // For invalid or error outcomes, pass through
             other => other,
         }
-    }
-
-    fn on_new_head_block<B>(&self, new_tip_block: &reth_primitives_traits::SealedBlock<B>)
-    where
-        B: Block,
-    {
-        self.inner.on_new_head_block(new_tip_block);
-
-        let mut cache = self.recent_blocks.write().unwrap_or_else(|e| e.into_inner());
-        cache.update(new_tip_block.hash(), new_tip_block.header().number(), |n| {
-            self.inner.client().header_by_number(n).ok()?.map(|h| h.hash_slow())
-        });
     }
 }
 
@@ -287,6 +321,10 @@ pub(crate) fn rotation_boundary_error(
 }
 
 #[cfg(test)]
+#[path = "validator/payment_tests.rs"]
+mod payment_tests;
+
+#[cfg(test)]
 #[allow(clippy::panic)] // Test code - panic on failure is acceptable
 mod tests {
     use super::*;
@@ -296,7 +334,7 @@ mod tests {
         eip2718::Encodable2718,
         eip2930::{AccessList, AccessListItem},
     };
-    use alloy_primitives::{Address, Bytes, FlaggedStorage, Signature, TxKind, B256};
+    use alloy_primitives::{Address, Bytes, FlaggedStorage, Signature, TxKind, B256, U256};
     use reth_provider::test_utils::{ExtendedAccount, MockEthProvider};
     use reth_seismic_chainspec::SEISMIC_MAINNET;
     use reth_transaction_pool::{
@@ -307,6 +345,9 @@ mod tests {
         context::{result::InvalidTransaction, TxEnv},
         handler::validation::validate_initial_tx_gas,
         primitives::hardfork::SpecId,
+    };
+    use seismic_revm::gas_token_registry::{
+        balance_storage_key, token_metadata_slot, GAS_TOKEN_REGISTRY, TOKEN_COUNT_SLOT,
     };
 
     const GAS_LIMIT: u64 = 100_000;
@@ -334,10 +375,33 @@ mod tests {
         let sender = sender();
         let client = MockEthProvider::default().with_chain_spec(SEISMIC_MAINNET.clone());
         client.add_account(sender, ExtendedAccount::new(0, native));
+        let token = Address::with_last_byte(0x44);
+        let root = U256::from(3);
+        let metadata = U256::from_be_slice(token.as_slice()) |
+            (U256::from(1) << 160usize) | // active
+            (U256::from(1) << 168usize) | // Public
+            (U256::from(6) << 176usize);
         client.add_account(
-            crate::usdc::USDC_CONTRACT,
+            GAS_TOKEN_REGISTRY,
+            ExtendedAccount::new(0, U256::ZERO).extend_storage([
+                (
+                    TOKEN_COUNT_SLOT.to_be_bytes::<32>().into(),
+                    FlaggedStorage::public(U256::from(1)),
+                ),
+                (
+                    token_metadata_slot(0).to_be_bytes::<32>().into(),
+                    FlaggedStorage::public(metadata),
+                ),
+                (
+                    (token_metadata_slot(0) + U256::from(1)).to_be_bytes::<32>().into(),
+                    FlaggedStorage::public(root),
+                ),
+            ]),
+        );
+        client.add_account(
+            token,
             ExtendedAccount::new(0, U256::ZERO).extend_storage([(
-                crate::usdc::usdc_balance_storage_key(&sender),
+                balance_storage_key(sender, root).to_be_bytes::<32>().into(),
                 FlaggedStorage::public(usdc_raw),
             )]),
         );
@@ -483,12 +547,15 @@ mod tests {
         outcome: TransactionValidationOutcome<SeismicPooledTransaction>,
     ) -> (U256, U256) {
         match outcome {
-            TransactionValidationOutcome::Invalid(
-                _,
-                InvalidPoolTransactionError::Consensus(InvalidTransactionError::InsufficientFunds(
-                    err,
-                )),
-            ) => (err.got, err.expected),
+            TransactionValidationOutcome::Invalid(_, error) => match error
+                .downcast_other_ref::<SeismicPaymentError>()
+                .map(SeismicPaymentError::reason)
+            {
+                Some(InvalidTransaction::LackOfFundForMaxFee { fee, balance }) => {
+                    (**balance, **fee)
+                }
+                other => panic!("expected typed insufficient-funds reason, got: {other:?}"),
+            },
             other => panic!("expected InsufficientFunds rejection, got: {other:?}"),
         }
     }

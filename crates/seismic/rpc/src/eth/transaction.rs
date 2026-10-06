@@ -409,12 +409,7 @@ impl SimTxConverter<alloy_rpc_types_eth::TransactionRequest, SeismicTransactionS
         &self,
         tx_req: alloy_rpc_types_eth::TransactionRequest,
     ) -> Result<SeismicTransactionSigned, Self::Err> {
-        let request = SeismicTransactionRequest {
-            inner: tx_req,
-            seismic_elements: None,
-            /* Assumed that the transaction has already been decrypted in
-             * the EthApiExt */
-        };
+        let request: SeismicTransactionRequest = tx_req.into();
         let Ok(tx) = request.build_typed_tx() else {
             return Err(SeismicEthApiError::Eth(EthApiError::TransactionConversionError));
         };
@@ -502,6 +497,7 @@ mod test {
             nonce: 1,
             gas_price: 20000000000,
             gas_limit: 210000,
+            gas_payment: seismic_alloy_consensus::GasPayment::Auto,
             to: TxKind::Call(
                 Address::from_str("0x3aB946eEC2553114040dE82D2e18798a51cf1e14").unwrap(),
             ),
