@@ -1,9 +1,10 @@
 //! Offline, transaction-based fixtures using real SUSDC and `HypERC20` creation bytecode.
 
-use alloy_consensus::{SignableTransaction, TxLegacy};
-use alloy_eips::eip2718::Encodable2718;
+use alloy_consensus::{BlockHeader, SignableTransaction, TxLegacy};
+use alloy_eips::eip2718::{Decodable2718, Encodable2718};
 use alloy_primitives::{address, hex, keccak256, Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types::Block;
+use alloy_rpc_types_engine::PayloadStatus;
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::{sol, SolCall, SolValue};
@@ -14,9 +15,11 @@ use jsonrpsee::{
 };
 use reth_chainspec::make_genesis_header;
 use reth_e2e_test_utils::wallet::Wallet;
-use reth_primitives_traits::SealedHeader;
+use reth_payload_primitives::PayloadTypes;
+use reth_primitives_traits::{SealedBlock, SealedHeader};
 use reth_provider::StateProviderFactory;
 use reth_seismic_node::{
+    engine::SeismicPayloadTypes,
     node::SeismicNode,
     utils::{
         e2e::{
@@ -25,12 +28,13 @@ use reth_seismic_node::{
         test_utils::get_nonce,
     },
 };
+use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
 use reth_seismic_test_utils::{get_unsigned_seismic_tx_request, sign_tx};
 use reth_tasks::TaskManager;
 use seismic_alloy_consensus::GasPayment;
 use seismic_revm::gas_token_registry::GAS_TOKEN_REGISTRY;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 pub(crate) const TOKEN_PROXY: Address = address!("0x57ab1ed011a20000000000000000000000000000");
 pub(crate) const PROXY_ADMIN: Address = address!("0xc4120d2e54b07854ab8b96512fd8eedf3fc415d3");
@@ -83,11 +87,25 @@ pub(crate) struct TokenTestContext {
     pub node: SeismicTestNode,
     pub client: HttpClient,
     pub wallet: Wallet,
+    /// Optional second node that never builds payloads and receives every block produced
+    /// by `node` through `engine_newPayload`, so it must execute them itself.
+    pub importer: Option<SeismicTestNode>,
     _tasks: TaskManager,
 }
 
 impl TokenTestContext {
     pub(crate) async fn new(with_proxy: bool) -> eyre::Result<Self> {
+        Self::new_with_importer(with_proxy, false).await
+    }
+
+    /// Like [`Self::new`], optionally starting a second node that imports the primary
+    /// node's blocks. Locally built payloads are inserted into the builder node's engine
+    /// tree as already-executed blocks, so only the importer exercises consensus-import
+    /// execution of the produced blocks.
+    pub(crate) async fn new_with_importer(
+        with_proxy: bool,
+        with_importer: bool,
+    ) -> eyre::Result<Self> {
         ensure_mock_purpose_keys();
         let mut spec = test_chain_spec();
         if with_proxy {
@@ -107,16 +125,49 @@ impl TokenTestContext {
         }
         let (mut nodes, tasks, wallet) =
             tokio::spawn(reth_e2e_test_utils::setup_engine::<SeismicNode>(
-                1,
+                if with_importer { 2 } else { 1 },
                 spec,
                 false,
                 Default::default(),
                 seismic_payload_attributes,
             ))
             .await??;
+        let importer = with_importer.then(|| nodes.pop().unwrap());
         let node = nodes.pop().unwrap();
         let client = HttpClientBuilder::default().build(node.rpc_url())?;
-        Ok(Self { node, client, wallet, _tasks: tasks })
+        Ok(Self { node, client, wallet, importer, _tasks: tasks })
+    }
+
+    /// Submit a sealed block to `node`'s engine `newPayload` handler and return its status.
+    pub(crate) async fn import_block(
+        node: &SeismicTestNode,
+        block: SealedBlock<SeismicBlock>,
+    ) -> eyre::Result<PayloadStatus> {
+        let status = tokio::time::timeout(
+            Duration::from_secs(30),
+            node.inner
+                .add_ons_handle
+                .beacon_engine_handle
+                .new_payload(SeismicPayloadTypes::block_to_payload(block)),
+        )
+        .await
+        .map_err(|_| eyre::eyre!("engine_newPayload timed out"))??;
+        Ok(status)
+    }
+
+    /// Import the block the builder node just produced into the importer, requiring
+    /// `VALID`, and make it canonical there.
+    async fn forward_to_importer(&self, block: &SealedBlock<SeismicBlock>) -> eyre::Result<()> {
+        let Some(importer) = &self.importer else { return Ok(()) };
+        let status = Self::import_block(importer, block.clone()).await?;
+        eyre::ensure!(
+            status.is_valid(),
+            "importer rejected builder block {} ({}): {status:?}",
+            block.number(),
+            block.hash()
+        );
+        importer.update_forkchoice(block.parent_hash(), block.hash()).await?;
+        Ok(())
     }
 
     /// Return the initialized node while keeping its task manager available to the caller.
@@ -127,7 +178,8 @@ impl TokenTestContext {
     pub(crate) async fn mine(&mut self, raw: Bytes) -> eyre::Result<Receipt> {
         let hash =
             EthApiOverrideClient::<Block>::send_raw_transaction(&self.client, raw.into()).await?;
-        self.node.advance_block().await?;
+        let payload = self.node.advance_block().await?;
+        self.forward_to_importer(payload.block()).await?;
         let receipt: serde_json::Value =
             self.client.request("eth_getTransactionReceipt", rpc_params![hash]).await?;
         eyre::ensure!(
@@ -170,13 +222,15 @@ impl TokenTestContext {
         Ok(serde_json::from_value(block.get("hash").unwrap().clone())?)
     }
 
-    pub(crate) async fn seismic_transaction(
-        &mut self,
+    /// Sign a Seismic write with the given payment selector at the signer's current nonce,
+    /// anchored to the latest block, without submitting it anywhere.
+    pub(crate) async fn signed_seismic_transaction(
+        &self,
         signer: &PrivateKeySigner,
         to: Address,
         plaintext: Bytes,
         payment: GasPayment,
-    ) -> eyre::Result<Receipt> {
+    ) -> eyre::Result<SeismicTransactionSigned> {
         let mut request = get_unsigned_seismic_tx_request(
             signer,
             get_nonce(&self.client, signer.address()).await,
@@ -187,7 +241,18 @@ impl TokenTestContext {
         )
         .await;
         request.gas_payment = payment;
-        let signed = sign_tx(signer.clone(), request).await;
+        let encoded = sign_tx(signer.clone(), request).await.encoded_2718();
+        Ok(SeismicTransactionSigned::decode_2718(&mut encoded.as_slice())?)
+    }
+
+    pub(crate) async fn seismic_transaction(
+        &mut self,
+        signer: &PrivateKeySigner,
+        to: Address,
+        plaintext: Bytes,
+        payment: GasPayment,
+    ) -> eyre::Result<Receipt> {
+        let signed = self.signed_seismic_transaction(signer, to, plaintext, payment).await?;
         self.mine(signed.encoded_2718().into()).await
     }
 
