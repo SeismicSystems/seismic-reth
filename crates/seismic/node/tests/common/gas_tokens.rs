@@ -199,11 +199,21 @@ impl TokenTestContext {
         self.native_transaction(TxKind::Call(GAS_TOKEN_REGISTRY), input.into()).await
     }
 
-    pub(crate) async fn mine(&mut self, raw: Bytes) -> eyre::Result<Receipt> {
-        let hash =
-            EthApiOverrideClient::<Block>::send_raw_transaction(&self.client, raw.into()).await?;
+    /// Submit a raw transaction to the pool without building a block.
+    pub(crate) async fn submit(&self, raw: Bytes) -> eyre::Result<B256> {
+        Ok(EthApiOverrideClient::<Block>::send_raw_transaction(&self.client, raw.into()).await?)
+    }
+
+    /// Build, submit and canonicalize one block from the current pool contents (forwarding
+    /// it to the importer when present) and return the sealed block.
+    pub(crate) async fn advance(&mut self) -> eyre::Result<SealedBlock<SeismicBlock>> {
         let payload = self.node.advance_block().await?;
         self.forward_to_importer(payload.block()).await?;
+        Ok(payload.block().clone())
+    }
+
+    /// Fetch a mined transaction's receipt, requiring success.
+    pub(crate) async fn receipt(&mut self, hash: B256) -> eyre::Result<Receipt> {
         let receipt: serde_json::Value =
             self.client.request("eth_getTransactionReceipt", rpc_params![hash]).await?;
         eyre::ensure!(
@@ -222,22 +232,39 @@ impl TokenTestContext {
         })
     }
 
-    pub(crate) async fn native_transaction(
-        &mut self,
+    pub(crate) async fn mine(&mut self, raw: Bytes) -> eyre::Result<Receipt> {
+        let hash = self.submit(raw).await?;
+        self.advance().await?;
+        self.receipt(hash).await
+    }
+
+    /// Sign an owner/wallet legacy transaction at the given gas price without submitting it.
+    pub(crate) async fn signed_native_transaction(
+        &self,
         to: TxKind,
         input: Bytes,
-    ) -> eyre::Result<Receipt> {
+        gas_price: u128,
+    ) -> eyre::Result<Bytes> {
         let tx = TxLegacy {
             chain_id: Some(self.wallet.chain_id),
             nonce: get_nonce(&self.client, self.wallet.inner.address()).await,
-            gas_price: GAS_PRICE,
+            gas_price,
             gas_limit: 6_000_000,
             to,
             input,
             ..Default::default()
         };
         let signature = self.wallet.inner.sign_hash_sync(&tx.signature_hash())?;
-        self.mine(tx.into_signed(signature).encoded_2718().into()).await
+        Ok(tx.into_signed(signature).encoded_2718().into())
+    }
+
+    pub(crate) async fn native_transaction(
+        &mut self,
+        to: TxKind,
+        input: Bytes,
+    ) -> eyre::Result<Receipt> {
+        let raw = self.signed_native_transaction(to, input, GAS_PRICE).await?;
+        self.mine(raw).await
     }
 
     pub(crate) async fn recent_hash(&self) -> eyre::Result<B256> {
