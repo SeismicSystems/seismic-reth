@@ -282,9 +282,22 @@ impl TokenTestContext {
         plaintext: Bytes,
         payment: GasPayment,
     ) -> eyre::Result<SeismicTransactionSigned> {
+        let nonce = get_nonce(&self.client, signer.address()).await;
+        self.signed_seismic_transaction_at(signer, nonce, to, plaintext, payment).await
+    }
+
+    /// [`Self::signed_seismic_transaction`] at an explicit nonce, for pending sequences.
+    pub(crate) async fn signed_seismic_transaction_at(
+        &self,
+        signer: &PrivateKeySigner,
+        nonce: u64,
+        to: Address,
+        plaintext: Bytes,
+        payment: GasPayment,
+    ) -> eyre::Result<SeismicTransactionSigned> {
         let mut request = get_unsigned_seismic_tx_request(
             signer,
-            get_nonce(&self.client, signer.address()).await,
+            nonce,
             TxKind::Call(to),
             self.wallet.chain_id,
             plaintext,
@@ -420,6 +433,42 @@ impl TokenTestContext {
                 self.native_transaction(TxKind::Call(fixture.token), transfer.into()).await
             }
         }
+    }
+
+    /// Sign (without submitting) an admin SUSDC `burn(address,suint256)` of `amount` base
+    /// units from `holder`: the only way a holder's Shielded balance decreases without the
+    /// holder's own transaction. Native-funded by the wallet, at the given gas price.
+    pub(crate) async fn signed_susdc_burn(
+        &self,
+        fixture: &TokenFixture,
+        holder: Address,
+        amount: U256,
+        gas_price: u128,
+    ) -> eyre::Result<Bytes> {
+        eyre::ensure!(matches!(fixture.kind, TokenKind::Susdc), "burn is an SUSDC admin call");
+        let mut burn = hex::decode(
+            fixture
+                .kind
+                .artifact()
+                .pointer("/methodIdentifiers/burn(address,suint256)")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+        )?;
+        burn.extend((holder, amount).abi_encode_params());
+        let wallet = self.wallet.inner.clone();
+        let mut request = get_unsigned_seismic_tx_request(
+            &wallet,
+            get_nonce(&self.client, wallet.address()).await,
+            TxKind::Call(fixture.token),
+            self.wallet.chain_id,
+            burn.into(),
+            self.recent_hash().await?,
+        )
+        .await;
+        request.gas_payment = GasPayment::Native;
+        request.gas_price = Some(gas_price);
+        Ok(sign_tx(wallet, request).await.encoded_2718().into())
     }
 
     pub(crate) fn token_balance(
