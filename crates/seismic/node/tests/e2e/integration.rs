@@ -1593,7 +1593,11 @@ async fn test_simulate_v1_full_transactions_keep_signed_read_calldata_encrypted(
         return_full_transactions: true,
     };
 
-    let mut result = EthApiOverrideClient::<Block>::simulate_v1(&client, payload, None)
+    // Simulated signed reads keep their Seismic envelope (type 0x4a, seismic elements and
+    // the signed gas-payment selector), so full transactions must be decoded with the Seismic
+    // block response type rather than the Ethereum-only one.
+    type SeismicRpcBlock = alloy_rpc_types::Block<alloy_rpc_types::Transaction<SeismicTxEnvelope>>;
+    let mut result = EthApiOverrideClient::<SeismicRpcBlock>::simulate_v1(&client, payload, None)
         .await
         .expect("simulate_v1 must succeed for signed encrypted calldata");
     assert_eq!(result.len(), 1, "expected one simulated block");
@@ -1606,6 +1610,15 @@ async fn test_simulate_v1_full_transactions_keep_signed_read_calldata_encrypted(
     assert_eq!(transactions.len(), 1, "return_full_transactions should return full tx objects");
 
     let returned_tx = transactions.remove(0);
+    let SeismicTxEnvelope::Seismic(seismic_tx) = returned_tx.inner.inner() else {
+        panic!("simulateV1 must return the signed read as a Seismic transaction");
+    };
+    assert!(seismic_tx.tx().seismic_elements.signed_read, "signed-read flag must be preserved");
+    assert_eq!(
+        seismic_tx.tx().gas_payment,
+        seismic_alloy_consensus::GasPayment::Auto,
+        "the signed gas-payment selector must reach the simulated transaction"
+    );
     let returned_input = returned_tx.input();
     assert_ne!(
         returned_input, &set_private_calldata,
