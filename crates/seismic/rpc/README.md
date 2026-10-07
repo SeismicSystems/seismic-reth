@@ -64,6 +64,32 @@ again or revalidate signed-read expiry against fabricated future block heights.
 The live factory never enables this mode. Ordinary encrypted transactions replayed
 inside simulations still undergo decryption and execution-height freshness checks.
 
+## Pool admission gas errors
+
+A transaction whose declared gas limit is below the pool's intrinsic gas or
+calldata floor still returns RPC code `-32000` and message `intrinsic gas too low`.
+Pool admission additionally supplies diagnostic `data`, for example:
+
+```json
+{
+  "gasLimit": "0x53e8",
+  "minimumGasLimit": "0x5528",
+  "reason": "calldataFloor"
+}
+```
+
+The gas values are hex quantities (21,480 supplied, 21,800 required here).
+`reason` is `intrinsicGas` or `calldataFloor`, identifying the binding requirement.
+The minimum is calculated only from the public submitted transaction, including
+its original input bytes and public hardfork rules. Seismic input is still
+ciphertext at this stage; these details require no decryption or private-state
+reads. Admission rules and peer classification are unchanged.
+
+This data is **pool-only**. General EVM gas-limit errors from execution,
+`eth_call`, estimation, and block simulation retain their existing data-less
+response; decrypted input costs must never populate the public admission
+fields. The legacy fieldless pool error also remains data-less.
+
 ## Verification scope
 
 Library tests cover all 19 precisions and both storage modes, strict selections,

@@ -502,7 +502,7 @@ mod tests {
                 eth_outcome,
                 TransactionValidationOutcome::Invalid(
                     _,
-                    InvalidPoolTransactionError::IntrinsicGasTooLow
+                    InvalidPoolTransactionError::GasLimitBelowMinimum { .. }
                 )
             ));
         }
@@ -517,7 +517,7 @@ mod tests {
             }
             TransactionValidationOutcome::Invalid(
                 _,
-                InvalidPoolTransactionError::IntrinsicGasTooLow,
+                InvalidPoolTransactionError::GasLimitBelowMinimum { .. },
             ) => assert!(!should_accept, "pool must accept a sufficient gas limit"),
             other => panic!("unexpected pool outcome: {other:?}"),
         }

@@ -4,7 +4,8 @@ use super::constants::DEFAULT_MAX_TX_INPUT_BYTES;
 use crate::{
     blobstore::BlobStore,
     error::{
-        Eip4844PoolTransactionError, Eip7702PoolTransactionError, InvalidPoolTransactionError,
+        Eip4844PoolTransactionError, Eip7702PoolTransactionError, GasLimitReason,
+        InvalidPoolTransactionError,
     },
     metrics::TxPoolValidationMetrics,
     traits::TransactionOrigin,
@@ -1257,8 +1258,20 @@ fn ensure_intrinsic_gas_with_access_list<T: EthPoolTransaction>(
     );
 
     let gas_limit = transaction.gas_limit();
-    if gas_limit < gas.initial_gas || gas_limit < gas.floor_gas {
-        Err(InvalidPoolTransactionError::IntrinsicGasTooLow)
+    let minimum_gas_limit = gas.initial_gas.max(gas.floor_gas);
+    if gas_limit < minimum_gas_limit {
+        // Only submitted input is used here. Seismic input remains ciphertext:
+        // these diagnostics must never be populated from decrypted execution.
+        let reason = if gas.floor_gas > gas.initial_gas {
+            GasLimitReason::CalldataFloor
+        } else {
+            GasLimitReason::IntrinsicGas
+        };
+        Err(InvalidPoolTransactionError::GasLimitBelowMinimum {
+            gas_limit,
+            minimum_gas_limit,
+            reason,
+        })
     } else {
         Ok(())
     }
@@ -1281,6 +1294,42 @@ mod tests {
     use reth_ethereum_primitives::PooledTransactionVariant;
     use reth_primitives_traits::SignedTransaction;
     use reth_provider::test_utils::{ExtendedAccount, MockEthProvider};
+
+    #[test]
+    fn pool_gas_limit_details_match_submitted_input_and_exact_boundary() {
+        for (input, prague, gas_limit, minimum, reason) in [
+            (Bytes::new(), true, 20_999, 21_000, GasLimitReason::IntrinsicGas),
+            (Bytes::from(vec![1; 20]), false, 21_319, 21_320, GasLimitReason::IntrinsicGas),
+            (Bytes::from(vec![1; 20]), true, 21_480, 21_800, GasLimitReason::CalldataFloor),
+        ] {
+            let forks = ForkTracker {
+                shanghai: true.into(),
+                cancun: true.into(),
+                prague: prague.into(),
+                osaka: false.into(),
+                max_blob_count: 0.into(),
+            };
+            let mut tx = MockTransaction::eip2930().with_input(input);
+            tx.set_accesslist(AccessList::default());
+            tx.set_gas_limit(gas_limit);
+            match ensure_intrinsic_gas(&tx, &forks) {
+                Err(InvalidPoolTransactionError::GasLimitBelowMinimum {
+                    gas_limit: provided,
+                    minimum_gas_limit,
+                    reason: actual_reason,
+                }) => {
+                    assert_eq!(provided, gas_limit);
+                    assert_eq!(minimum_gas_limit, minimum);
+                    assert_eq!(actual_reason, reason);
+                }
+                other => panic!("unexpected admission result: {other:?}"),
+            }
+            tx.set_gas_limit(minimum - 1);
+            assert!(ensure_intrinsic_gas(&tx, &forks).is_err());
+            tx.set_gas_limit(minimum);
+            assert!(ensure_intrinsic_gas(&tx, &forks).is_ok());
+        }
+    }
 
     #[test]
     fn intrinsic_gas_without_access_list_preserves_other_costs() {
@@ -1318,7 +1367,7 @@ mod tests {
             assert!(
                 matches!(
                     ensure_intrinsic_gas_with_access_list(&tx, &forks, false),
-                    Err(InvalidPoolTransactionError::IntrinsicGasTooLow)
+                    Err(InvalidPoolTransactionError::GasLimitBelowMinimum { .. })
                 ),
                 "must still enforce {name} gas"
             );
@@ -1330,7 +1379,7 @@ mod tests {
             assert!(
                 matches!(
                     ensure_intrinsic_gas(&tx, &forks),
-                    Err(InvalidPoolTransactionError::IntrinsicGasTooLow)
+                    Err(InvalidPoolTransactionError::GasLimitBelowMinimum { .. })
                 ),
                 "Ethereum must still charge for access lists: {name}"
             );

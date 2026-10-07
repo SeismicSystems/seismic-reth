@@ -4,7 +4,7 @@ pub mod api;
 use crate::error::api::FromEvmHalt;
 use alloy_eips::BlockId;
 use alloy_evm::{call::CallError, overrides::OverrideError};
-use alloy_primitives::{Address, Bytes, B256, U256};
+use alloy_primitives::{Address, Bytes, B256, U256, U64};
 use alloy_rpc_types_eth::{error::EthRpcErrorCode, request::TransactionInputError, BlockError};
 use alloy_sol_types::{ContractError, RevertReason};
 use alloy_transport::{RpcError, TransportErrorKind};
@@ -17,8 +17,8 @@ use reth_rpc_server_types::result::{
     block_id_to_str, internal_rpc_err, invalid_params_rpc_err, rpc_err, rpc_error_with_code,
 };
 use reth_transaction_pool::error::{
-    Eip4844PoolTransactionError, Eip7702PoolTransactionError, InvalidPoolTransactionError,
-    PoolError, PoolErrorKind, PoolTransactionError,
+    Eip4844PoolTransactionError, Eip7702PoolTransactionError, GasLimitReason,
+    InvalidPoolTransactionError, PoolError, PoolErrorKind, PoolTransactionError,
 };
 use revm::context_interface::result::{
     EVMError, ExecutionResult, HaltReason, InvalidHeader, InvalidTransaction, OutOfGasError,
@@ -940,6 +940,18 @@ pub enum RpcPoolError {
     /// When the max initcode size is exceeded
     #[error("max initcode size exceeded")]
     ExceedsMaxInitCodeSize,
+    /// Pool-only minimum gas diagnostics derived from public submitted transaction data.
+    ///
+    /// Never populate this variant from decrypted simulation or private state.
+    #[error("intrinsic gas too low")]
+    GasLimitBelowMinimum {
+        /// The public gas limit of the submitted transaction.
+        gas_limit: u64,
+        /// The minimum gas limit accepted by pool admission.
+        minimum_gas_limit: u64,
+        /// The binding admission requirement.
+        reason: GasLimitReason,
+    },
     /// Errors related to invalid transactions
     #[error(transparent)]
     Invalid(#[from] RpcInvalidTransactionError),
@@ -963,10 +975,35 @@ pub enum RpcPoolError {
     Other(Box<dyn core::error::Error + Send + Sync>),
 }
 
+/// Only pool admission may expose these public-wire diagnostics. EVM validation
+/// can see decrypted input and continues to return a data-less `GasTooLow` error.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PoolGasLimitErrorData {
+    gas_limit: U64,
+    minimum_gas_limit: U64,
+    reason: &'static str,
+}
+
 impl From<RpcPoolError> for jsonrpsee_types::error::ErrorObject<'static> {
     fn from(error: RpcPoolError) -> Self {
         match error {
             RpcPoolError::Invalid(err) => err.into(),
+            RpcPoolError::GasLimitBelowMinimum { gas_limit, minimum_gas_limit, reason } => {
+                let reason = match reason {
+                    GasLimitReason::IntrinsicGas => "intrinsicGas",
+                    GasLimitReason::CalldataFloor => "calldataFloor",
+                };
+                Self::owned(
+                    EthRpcErrorCode::InvalidInput.code(),
+                    error.to_string(),
+                    Some(PoolGasLimitErrorData {
+                        gas_limit: U64::from(gas_limit),
+                        minimum_gas_limit: U64::from(minimum_gas_limit),
+                        reason,
+                    }),
+                )
+            }
             RpcPoolError::TxPoolOverflow => {
                 rpc_error_with_code(EthRpcErrorCode::TransactionRejected.code(), error.to_string())
             }
@@ -1022,6 +1059,11 @@ impl From<InvalidPoolTransactionError> for RpcPoolError {
             InvalidPoolTransactionError::IntrinsicGasTooLow => {
                 Self::Invalid(RpcInvalidTransactionError::GasTooLow)
             }
+            InvalidPoolTransactionError::GasLimitBelowMinimum {
+                gas_limit,
+                minimum_gas_limit,
+                reason,
+            } => Self::GasLimitBelowMinimum { gas_limit, minimum_gas_limit, reason },
             InvalidPoolTransactionError::OversizedData(_, _) => Self::OversizedData,
             InvalidPoolTransactionError::Underpriced => Self::Underpriced,
             InvalidPoolTransactionError::Eip2681 => {
@@ -1087,6 +1129,57 @@ mod tests {
     use super::*;
     use alloy_sol_types::{Revert, SolError};
     use revm::primitives::b256;
+
+    #[test]
+    fn pool_gas_limit_details_preserve_rpc_code_and_message() {
+        for (reason, gas_limit, minimum_gas_limit, expected_reason) in [
+            (GasLimitReason::IntrinsicGas, 20_999, 21_000, "intrinsicGas"),
+            (GasLimitReason::CalldataFloor, 21_480, 21_800, "calldataFloor"),
+        ] {
+            let pool = PoolError::new(
+                B256::ZERO,
+                InvalidPoolTransactionError::GasLimitBelowMinimum {
+                    gas_limit,
+                    minimum_gas_limit,
+                    reason,
+                },
+            );
+            let wire = EthApiError::from(pool).into_rpc_err();
+            assert_eq!(wire.code(), RpcInvalidTransactionError::GasTooLow.error_code());
+            assert_eq!(wire.message(), "intrinsic gas too low");
+            let data: serde_json::Value = serde_json::from_str(wire.data().unwrap().get()).unwrap();
+            assert_eq!(
+                data,
+                serde_json::json!({
+                    "gasLimit": format!("{gas_limit:#x}"),
+                    "minimumGasLimit": format!("{minimum_gas_limit:#x}"),
+                    "reason": expected_reason,
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn execution_gas_errors_and_legacy_pool_error_have_no_diagnostic_data() {
+        // These values may depend on decrypted input. Never attach them to RPC data.
+        for reason in [
+            InvalidTransaction::CallGasCostMoreThanGasLimit {
+                initial_gas: 123_456,
+                gas_limit: 21_000,
+            },
+            InvalidTransaction::GasFloorMoreThanGasLimit { gas_floor: 987_654, gas_limit: 21_000 },
+        ] {
+            let wire = RpcInvalidTransactionError::from(reason).into_rpc_err();
+            assert_eq!(wire.message(), "intrinsic gas too low");
+            assert_eq!(wire.code(), RpcInvalidTransactionError::GasTooLow.error_code());
+            assert!(wire.data().is_none());
+        }
+        let legacy: jsonrpsee_types::ErrorObjectOwned =
+            RpcPoolError::from(InvalidPoolTransactionError::IntrinsicGasTooLow).into();
+        assert_eq!(legacy.message(), "intrinsic gas too low");
+        assert_eq!(legacy.code(), RpcInvalidTransactionError::GasTooLow.error_code());
+        assert!(legacy.data().is_none());
+    }
 
     #[test]
     fn timed_out_error() {

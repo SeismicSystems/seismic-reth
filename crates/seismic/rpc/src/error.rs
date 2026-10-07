@@ -151,6 +151,63 @@ mod tests {
     }
 
     #[test]
+    fn pool_gas_limit_data_survives_seismic_rpc_conversion() {
+        use alloy_primitives::B256;
+        use reth_rpc_eth_types::EthApiError;
+        use reth_transaction_pool::error::{
+            GasLimitReason, InvalidPoolTransactionError, PoolError,
+        };
+
+        let pool = PoolError::new(
+            B256::ZERO,
+            InvalidPoolTransactionError::GasLimitBelowMinimum {
+                gas_limit: 21_480,
+                minimum_gas_limit: 21_800,
+                reason: GasLimitReason::CalldataFloor,
+            },
+        );
+        let wire: jsonrpsee::types::ErrorObjectOwned =
+            SeismicEthApiError::from(EthApiError::from(pool)).into();
+        assert_eq!(wire.code(), -32000);
+        assert_eq!(wire.message(), "intrinsic gas too low");
+        assert_eq!(
+            wire.data().map(|data| data.get()),
+            Some(r#"{"gasLimit":"0x53e8","minimumGasLimit":"0x5528","reason":"calldataFloor"}"#)
+        );
+    }
+
+    #[test]
+    fn execution_gas_errors_remain_data_less_in_seismic_rpc() {
+        use alloy_primitives::B256;
+        use reth_evm::block::{BlockExecutionError, BlockValidationError};
+        use reth_provider::ProviderError;
+        use reth_rpc_eth_types::EthApiError;
+        use revm::context_interface::result::{EVMError, InvalidTransaction};
+
+        for reason in [
+            InvalidTransaction::CallGasCostMoreThanGasLimit {
+                initial_gas: 123_456,
+                gas_limit: 21_000,
+            },
+            InvalidTransaction::GasFloorMoreThanGasLimit { gas_floor: 987_654, gas_limit: 21_000 },
+        ] {
+            let block_error: EthApiError =
+                BlockExecutionError::Validation(BlockValidationError::InvalidTx {
+                    hash: B256::ZERO,
+                    error: Box::new(reason.clone()),
+                })
+                .into();
+            let direct = EVMError::<ProviderError>::Transaction(reason);
+            for error in [SeismicEthApiError::from(direct), SeismicEthApiError::from(block_error)] {
+                let wire: jsonrpsee::types::ErrorObjectOwned = error.into();
+                assert_eq!(wire.code(), -32000);
+                assert_eq!(wire.message(), "intrinsic gas too low");
+                assert!(wire.data().is_none());
+            }
+        }
+    }
+
+    #[test]
     fn enclave_error_message() {
         let err: jsonrpsee::types::error::ErrorObject<'static> =
             SeismicEthApiError::EnclaveError("test".to_string()).into();
