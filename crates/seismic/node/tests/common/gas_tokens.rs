@@ -15,6 +15,7 @@ use jsonrpsee::{
 };
 use reth_chainspec::make_genesis_header;
 use reth_e2e_test_utils::wallet::Wallet;
+use reth_payload_builder::EthBuiltPayload;
 use reth_payload_primitives::PayloadTypes;
 use reth_primitives_traits::{SealedBlock, SealedHeader};
 use reth_provider::StateProviderFactory;
@@ -28,10 +29,11 @@ use reth_seismic_node::{
         test_utils::get_nonce,
     },
 };
-use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
+use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicTransactionSigned};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
 use reth_seismic_test_utils::{get_unsigned_seismic_tx_request, sign_tx};
 use reth_tasks::TaskManager;
+use reth_transaction_pool::TransactionPool;
 use seismic_alloy_consensus::GasPayment;
 use seismic_revm::gas_token_registry::GAS_TOKEN_REGISTRY;
 use std::{sync::Arc, time::Duration};
@@ -210,6 +212,57 @@ impl TokenTestContext {
         let payload = self.node.advance_block().await?;
         self.forward_to_importer(payload.block()).await?;
         Ok(payload.block().clone())
+    }
+
+    /// Build a payload from the current pool on the canonical head without submitting it.
+    pub(crate) async fn build_payload(
+        &mut self,
+    ) -> eyre::Result<EthBuiltPayload<SeismicPrimitives>> {
+        self.node.new_payload().await
+    }
+
+    /// Submit a previously built payload and make it the head with an optimistic forkchoice
+    /// update (safe/finalized untouched), so sibling payloads can still replace it.
+    pub(crate) async fn make_canonical(
+        &self,
+        payload: &EthBuiltPayload<SeismicPrimitives>,
+    ) -> eyre::Result<SealedBlock<SeismicBlock>> {
+        let status = Self::import_block(&self.node, payload.block().clone()).await?;
+        eyre::ensure!(status.is_valid(), "payload {} rejected: {status:?}", payload.block().hash());
+        self.node.update_optimistic_forkchoice(payload.block().hash()).await?;
+        if let Some(importer) = &self.importer {
+            let status = Self::import_block(importer, payload.block().clone()).await?;
+            eyre::ensure!(status.is_valid(), "importer rejected payload: {status:?}");
+            importer.update_optimistic_forkchoice(payload.block().hash()).await?;
+        }
+        Ok(payload.block().clone())
+    }
+
+    /// Wait until exactly the first `pending` of `hashes` are pending and the rest queued.
+    /// Pool maintenance reacts to canonical-state notifications asynchronously.
+    pub(crate) async fn wait_for_pool_split(
+        &self,
+        hashes: &[B256],
+        pending: usize,
+        what: &str,
+    ) -> eyre::Result<()> {
+        let pool = &self.node.inner.pool;
+        let expected: Vec<bool> = (0..hashes.len()).map(|i| i < pending).collect();
+        for _ in 0..200 {
+            let pending_set = pool.pending_transactions();
+            let queued_set = pool.queued_transactions();
+            let pending_now: Vec<bool> =
+                hashes.iter().map(|hash| pending_set.iter().any(|tx| tx.hash() == hash)).collect();
+            let queued_now: Vec<bool> =
+                hashes.iter().map(|hash| queued_set.iter().any(|tx| tx.hash() == hash)).collect();
+            if pending_now == expected && queued_now.iter().zip(&expected).all(|(q, p)| q != p) {
+                return Ok(());
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        eyre::bail!(
+            "{what}: expected the first {pending} of {hashes:?} pending and the rest queued"
+        )
     }
 
     /// Fetch a mined transaction's receipt, requiring success.

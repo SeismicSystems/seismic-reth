@@ -23,7 +23,8 @@ use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use seismic_alloy_consensus::GasPayment;
 
 fn head(node: &SeismicTestNode) -> eyre::Result<(u64, alloy_primitives::B256)> {
-    let number = node.inner.provider.last_block_number()?;
+    // The canonical in-memory head, not the lagging persisted height.
+    let number = node.inner.provider.best_block_number()?;
     Ok((number, node.inner.provider.block_hash(number)?.unwrap()))
 }
 

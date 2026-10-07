@@ -19,37 +19,9 @@ use reth_seismic_node::utils::test_utils::get_nonce;
 use reth_seismic_primitives::SeismicBlock;
 use reth_transaction_pool::TransactionPool;
 use seismic_alloy_consensus::GasPayment;
-use std::time::Duration;
 
 fn mined_hashes(block: &SealedBlock<SeismicBlock>) -> Vec<B256> {
     block.body().transactions().map(|tx| *tx.tx_hash()).collect()
-}
-
-/// Wait until exactly `pending` of the sequence is pending and the rest queued.
-async fn wait_for_split(
-    context: &TokenTestContext,
-    hashes: &[B256],
-    pending: usize,
-    what: &str,
-) -> eyre::Result<()> {
-    let pool = &context.node.inner.pool;
-    for _ in 0..200 {
-        let pending_now: Vec<bool> = {
-            let set = pool.pending_transactions();
-            hashes.iter().map(|hash| set.iter().any(|tx| tx.hash() == hash)).collect()
-        };
-        let queued_now: Vec<bool> = {
-            let set = pool.queued_transactions();
-            hashes.iter().map(|hash| set.iter().any(|tx| tx.hash() == hash)).collect()
-        };
-        let expected_pending: Vec<bool> = (0..hashes.len()).map(|i| i < pending).collect();
-        let expected_queued: Vec<bool> = (0..hashes.len()).map(|i| i >= pending).collect();
-        if pending_now == expected_pending && queued_now == expected_queued {
-            return Ok(());
-        }
-        tokio::time::sleep(Duration::from_millis(50)).await;
-    }
-    eyre::bail!("{what}: expected the first {pending} of {hashes:?} pending and the rest queued")
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -85,7 +57,7 @@ async fn token_balance_changes_demote_and_promote_a_pending_nonce_sequence() -> 
             .await?;
         hashes.push(context.submit(tx.encoded_2718().into()).await?);
     }
-    wait_for_split(&context, &hashes, 3, "admission").await?;
+    context.wait_for_pool_split(&hashes, 3, "admission").await?;
 
     // 1. The admin burn is ordered first and leaves one base unit: the builder must skip the whole
     //    dependent sequence rather than fail, and maintenance demotes all of it.
@@ -98,7 +70,7 @@ async fn token_balance_changes_demote_and_promote_a_pending_nonce_sequence() -> 
     context.receipt(burn_hash).await?;
     assert_eq!(context.token_balance(&susdc, holder)?, (U256::from(1), true));
     assert_eq!(get_nonce(&context.client, holder).await, 0);
-    wait_for_split(&context, &hashes, 0, "after burn").await?;
+    context.wait_for_pool_split(&hashes, 0, "after burn").await?;
     assert!(mined_hashes(&context.advance().await?).is_empty(), "queued txs are not retried");
     assert!(hashes.iter().all(|hash| context.node.inner.pool.contains(hash)));
 
@@ -107,7 +79,7 @@ async fn token_balance_changes_demote_and_promote_a_pending_nonce_sequence() -> 
     let partial = max_cost * U256::from(2) - U256::from(2);
     context.fund(&susdc, holder, partial).await?;
     assert_eq!(context.token_balance(&susdc, holder)?.0, partial + U256::from(1));
-    wait_for_split(&context, &hashes, 1, "after partial refund").await?;
+    context.wait_for_pool_split(&hashes, 1, "after partial refund").await?;
 
     // 3. Each mined transaction charges far less than its maximum, so the next nonce becomes
     //    affordable and is promoted only once its predecessor is canonical.
@@ -120,7 +92,8 @@ async fn token_balance_changes_demote_and_promote_a_pending_nonce_sequence() -> 
         assert_eq!(context.token_balance(&susdc, holder)?, (balance, true));
         assert_eq!(get_nonce(&context.client, holder).await, index as u64 + 1);
         let remaining = hashes.get(index + 1..).unwrap_or_default();
-        wait_for_split(&context, remaining, usize::from(!remaining.is_empty()), "promotion")
+        context
+            .wait_for_pool_split(remaining, usize::from(!remaining.is_empty()), "promotion")
             .await?;
     }
 
