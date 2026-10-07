@@ -44,6 +44,8 @@ pub(crate) const GAS_PRICE: u128 = 20_000_000_000;
 
 sol! {
     function addToken(address token, uint256 balanceSlot, uint8 mode, uint8 decimals);
+    function activateToken(address token);
+    function deactivateToken(address token);
     function transfer(address to, uint256 amount) returns (bool);
     function upgradeAndCall(address proxy, address implementation, bytes data);
     function initialize(address initialAdmin);
@@ -175,6 +177,28 @@ impl TokenTestContext {
         (self.node, self.client, self.wallet, self._tasks)
     }
 
+    /// Submit a raw transaction that the pool must reject; return the RPC error text.
+    pub(crate) async fn submit_expect_rejected(&self, raw: Bytes) -> eyre::Result<String> {
+        match EthApiOverrideClient::<Block>::send_raw_transaction(&self.client, raw.into()).await {
+            Ok(hash) => eyre::bail!("transaction {hash} was accepted but must be rejected"),
+            Err(error) => Ok(error.to_string()),
+        }
+    }
+
+    /// Owner-signed `activateToken` / `deactivateToken`, mined in its own block.
+    pub(crate) async fn set_token_active(
+        &mut self,
+        token: Address,
+        active: bool,
+    ) -> eyre::Result<Receipt> {
+        let input = if active {
+            activateTokenCall { token }.abi_encode()
+        } else {
+            deactivateTokenCall { token }.abi_encode()
+        };
+        self.native_transaction(TxKind::Call(GAS_TOKEN_REGISTRY), input.into()).await
+    }
+
     pub(crate) async fn mine(&mut self, raw: Bytes) -> eyre::Result<Receipt> {
         let hash =
             EthApiOverrideClient::<Block>::send_raw_transaction(&self.client, raw.into()).await?;
@@ -292,9 +316,11 @@ impl TokenTestContext {
                     .as_str()
                     .unwrap();
                 let mut data = hex::decode(selector)?;
+                // The wallet keeps a reserve of the initial supply so tests can fund holders
+                // again later through the real transfer path.
                 data.extend(
                     (
-                        amount,
+                        amount * U256::from(10),
                         "Fixture Public Token".to_string(),
                         "FHYP".to_string(),
                         Address::ZERO,
@@ -318,31 +344,8 @@ impl TokenTestContext {
             }
             implementation
         };
-        match kind {
-            TokenKind::Susdc => {
-                // suint256 has a different selector but its ABI word is still 32 bytes.
-                let mut mint = hex::decode(
-                    artifact
-                        .pointer("/methodIdentifiers/mint(address,suint256)")
-                        .unwrap()
-                        .as_str()
-                        .unwrap(),
-                )?;
-                mint.extend((holder, amount).abi_encode_params());
-                self.seismic_transaction(
-                    &self.wallet.inner.clone(),
-                    token,
-                    mint.into(),
-                    GasPayment::Native,
-                )
-                .await?;
-            }
-            TokenKind::HypErc20 => {
-                let transfer = transferCall { to: holder, amount }.abi_encode();
-                self.native_transaction(TxKind::Call(token), transfer.into()).await?;
-            }
-        }
         let fixture = TokenFixture { token, implementation, kind, funded_amount: amount };
+        self.fund(&fixture, holder, amount).await?;
         // Prove the mapping metadata against actual execution, not seeded fixture words.
         assert_eq!(self.token_balance(&fixture, holder)?, (amount, kind.is_private()));
         let registration = addTokenCall {
@@ -354,6 +357,42 @@ impl TokenTestContext {
         .abi_encode();
         self.native_transaction(TxKind::Call(GAS_TOKEN_REGISTRY), registration.into()).await?;
         Ok(fixture)
+    }
+
+    /// Give `holder` `amount` base units through the token's own code: an admin mint for
+    /// SUSDC, a transfer out of the wallet's initial supply for `HypERC20`. Native-funded.
+    pub(crate) async fn fund(
+        &mut self,
+        fixture: &TokenFixture,
+        holder: Address,
+        amount: U256,
+    ) -> eyre::Result<Receipt> {
+        match fixture.kind {
+            TokenKind::Susdc => {
+                // suint256 has a different selector but its ABI word is still 32 bytes.
+                let mut mint = hex::decode(
+                    fixture
+                        .kind
+                        .artifact()
+                        .pointer("/methodIdentifiers/mint(address,suint256)")
+                        .unwrap()
+                        .as_str()
+                        .unwrap(),
+                )?;
+                mint.extend((holder, amount).abi_encode_params());
+                self.seismic_transaction(
+                    &self.wallet.inner.clone(),
+                    fixture.token,
+                    mint.into(),
+                    GasPayment::Native,
+                )
+                .await
+            }
+            TokenKind::HypErc20 => {
+                let transfer = transferCall { to: holder, amount }.abi_encode();
+                self.native_transaction(TxKind::Call(fixture.token), transfer.into()).await
+            }
+        }
     }
 
     pub(crate) fn token_balance(
