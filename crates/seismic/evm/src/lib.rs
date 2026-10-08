@@ -82,8 +82,9 @@ impl SeismicEvmConfig {
     ///
     /// Both factories share a request-local handle to additive key material, with
     /// fetch requests disabled and no inherited canonical metadata. Schedules are
-    /// resolved from each simulated parent's database overlay. Other configuration
-    /// is preserved.
+    /// resolved from each simulated parent's database overlay. Its block executor
+    /// accepts authenticated plaintext signed reads prepared by RPC ingress, without
+    /// decrypting them again; ordinary encrypted replay remains unchanged.
     pub fn snapshot_for_simulation(&self) -> Self {
         let keyring = Arc::new(self.executor_factory.keyring.snapshot());
         Self {
@@ -92,7 +93,8 @@ impl SeismicEvmConfig {
                 self.executor_factory.spec().clone(),
                 SeismicEvmFactory::new(keyring.clone()),
                 keyring,
-            ),
+            )
+            .with_plaintext_signed_reads(),
             block_assembler: self.block_assembler.clone(),
         }
     }
@@ -1153,6 +1155,7 @@ mod tests {
             tx_hash: Default::default(),
             decryption_failed: false,
             signed_read: false,
+            gas_payment: seismic_revm::GasPayment::Auto,
         }
     }
 

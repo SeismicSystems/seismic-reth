@@ -11,7 +11,8 @@ use reth_seismic_primitives::{
 };
 use reth_storage_api::BlockNumReader;
 use seismic_alloy_consensus::{
-    Decodable712, SeismicTxEnvelope, TxSeismicElements, TypedDataRequest, SEISMIC_TX_TYPE_ID,
+    Decodable712, GasPayment, SeismicTxEnvelope, TxSeismicElements, TypedDataRequest,
+    SEISMIC_TX_TYPE_ID,
 };
 use seismic_alloy_network::{SeismicReth, TransactionBuilder};
 use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
@@ -80,6 +81,11 @@ impl fmt::Debug for SeismicCall {
 pub fn resolve_seismic_call(request: SeismicCallRequest) -> Result<SeismicCall, EthApiError> {
     match request {
         SeismicCallRequest::TransactionRequest(mut tx_request) => {
+            if tx_request.gas_payment != GasPayment::Auto {
+                return Err(EthApiError::InvalidParams(
+                    "explicit gas payment requires an authenticated Seismic signed read".to_owned(),
+                ));
+            }
             seismic_override_call_request(&mut tx_request); // null fields that may reveal sensitive
                                                             // information
             Ok(SeismicCall::Transparent(tx_request))
@@ -113,6 +119,9 @@ pub fn resolve_seismic_call(request: SeismicCallRequest) -> Result<SeismicCall, 
 /// Ensure a signed simulation request is authenticated and explicitly call-only.
 fn ensure_signed_read_request(request: &SeismicTransactionRequest) -> Result<(), EthApiError> {
     parse_request_sender(request)?;
+    request
+        .validate_seismic_consistency()
+        .map_err(|message| EthApiError::InvalidParams(message.to_owned()))?;
 
     let elements = request.seismic_elements.as_ref().ok_or_else(|| {
         EthApiError::InvalidParams("signed read missing seismic_elements".to_string())
@@ -164,6 +173,9 @@ fn recover_raw_seismic_call_tx(data: &[u8]) -> EthResult<Recovered<SeismicTxEnve
     let mut buf: &[u8] = data;
     let transaction = SeismicTxEnvelope::decode_2718_permit_seismic_calls(&mut buf)
         .map_err(|_| EthApiError::FailedToDecodeSignedTransaction)?;
+    if !buf.is_empty() {
+        return Err(EthApiError::FailedToDecodeSignedTransaction);
+    }
     SignedTransaction::try_into_recovered(transaction)
         .or(Err(EthApiError::InvalidTransactionSignature))
 }
@@ -195,6 +207,7 @@ where
     match call {
         SeismicCall::Transparent(request) => Ok(request.clone()),
         SeismicCall::SignedRead(request) => {
+            ensure_signed_read_request(request)?;
             // Keep this defensive check even though `resolve_seismic_call` establishes the enum's
             // invariant, so direct construction cannot silently skip freshness validation.
             let elements = request.seismic_elements.as_ref().ok_or_else(|| {
@@ -280,7 +293,7 @@ fn seismic_recent_block_hash_error(hash: B256) -> EthApiError {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::unreachable)]
 mod test {
     use crate::utils::{
         recover_typed_data_request, resolve_seismic_call, seismic_override_call_request,
@@ -299,7 +312,8 @@ mod test {
     use reth_seismic_test_utils::{get_seismic_tx, get_signing_private_key, sign_seismic_tx};
     use secp256k1::PublicKey;
     use seismic_alloy_consensus::{
-        SeismicTxEnvelope, TxSeismic, TxSeismicElements, TypedDataRequest, SEISMIC_TX_TYPE_ID,
+        GasPayment, InputDecryptionElements, SeismicTxEnvelope, TxSeismic, TxSeismicElements,
+        TypedDataRequest, SEISMIC_TX_TYPE_ID,
     };
     use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
     use std::str::FromStr;
@@ -333,6 +347,7 @@ mod test {
                 ..Default::default()
             },
             seismic_elements,
+            gas_payment: GasPayment::Auto,
         }
     }
 
@@ -345,6 +360,7 @@ mod test {
         assert_eq!(req.inner.value, None);
         assert_eq!(req.inner.transaction_type, None, "tx type must be cleared to block spoofing");
         assert!(req.seismic_elements.is_none());
+        assert_eq!(req.gas_payment, GasPayment::Auto);
     }
 
     #[test]
@@ -360,6 +376,7 @@ mod test {
                 ..Default::default()
             },
             seismic_elements: Some(dummy_seismic_elements()),
+            gas_payment: GasPayment::Auto,
         };
         let debug = format!("{:?}", SeismicCall::SignedRead(request));
         let marker = hex::encode(PRIVATE_INPUT);
@@ -369,6 +386,14 @@ mod test {
     }
 
     fn signed_seismic_request(signed_read: bool, typed_data: bool) -> SeismicCallRequest {
+        signed_seismic_request_with_payment(signed_read, typed_data, GasPayment::Auto)
+    }
+
+    fn signed_seismic_request_with_payment(
+        signed_read: bool,
+        typed_data: bool,
+        payment: GasPayment,
+    ) -> SeismicCallRequest {
         let signing_key = get_signing_private_key();
         let sender = Address::from_public_key(signing_key.verifying_key());
         let mut tx = get_seismic_tx(sender, B256::ZERO);
@@ -376,6 +401,8 @@ mod test {
         if typed_data {
             tx.seismic_elements.message_version = 2;
         }
+        tx.gas_payment = payment;
+        tx.input = reth_seismic_test_utils::get_ciphertext(&tx.metadata(sender).unwrap());
         let signature = sign_seismic_tx(&tx, &signing_key);
 
         if typed_data {
@@ -387,6 +414,53 @@ mod test {
             let envelope = SeismicTxEnvelope::Seismic(tx.into_signed(signature));
             SeismicCallRequest::Bytes(envelope.encoded_2718().into())
         }
+    }
+
+    #[test]
+    fn rejects_unsigned_explicit_selection_before_sanitization() {
+        for elements in [None, Some(dummy_seismic_elements())] {
+            for payment in [GasPayment::Native, GasPayment::Token(Address::repeat_byte(0x44))] {
+                let mut request = spoofed_request(elements);
+                request.gas_payment = payment;
+                let error = resolve_seismic_call(SeismicCallRequest::TransactionRequest(request))
+                    .unwrap_err();
+                assert!(matches!(error, reth_rpc_eth_types::EthApiError::InvalidParams(_)));
+                assert!(error.to_string().contains("authenticated"));
+            }
+        }
+    }
+
+    #[test]
+    fn all_signed_selectors_survive_raw_and_typed_data_resolution() {
+        for typed_data in [false, true] {
+            for payment in [
+                GasPayment::Auto,
+                GasPayment::Native,
+                GasPayment::Token(Address::repeat_byte(0x44)),
+            ] {
+                let resolved = resolve_seismic_call(signed_seismic_request_with_payment(
+                    true, typed_data, payment,
+                ))
+                .unwrap();
+                let SeismicCall::SignedRead(request) = resolved else { unreachable!() };
+                assert_eq!(request.gas_payment, payment);
+                assert!(request.seismic_elements.unwrap().signed_read);
+                assert!(resolve_seismic_call(signed_seismic_request_with_payment(
+                    false, typed_data, payment
+                ))
+                .is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn raw_signed_read_rejects_trailing_bytes() {
+        let SeismicCallRequest::Bytes(raw) = signed_seismic_request(true, false) else {
+            unreachable!()
+        };
+        let mut raw = raw.to_vec();
+        raw.push(0);
+        assert!(resolve_seismic_call(SeismicCallRequest::Bytes(raw.into())).is_err());
     }
 
     #[test]
@@ -471,6 +545,7 @@ mod test {
             nonce: 48,
             gas_price: 360000,
             gas_limit: 169477,
+            gas_payment: GasPayment::Auto,
             to: alloy_primitives::TxKind::Call(Address::from_str("0x3aB946eEC2553114040dE82D2e18798a51cf1e14").unwrap()),
             value: U256::from_str("1000000000000000").unwrap(),
             input: Bytes::from_str("0x4e69e56c3bb999b8c98772ebb32aebcbd43b33e9e65a46333dfe6636f37f3009e93bad334235aec73bd54d11410e64eb2cab4da8").unwrap(),
@@ -500,14 +575,14 @@ mod test {
         let recovered_sighash = recovered.signature_hash();
 
         let expected_tx_hash = FixedBytes::<32>::from_hex(
-            "0xe82f9ce621da07a8ae10d330383275402ff9430dbe4b8b10cd0038ede3ef3718",
+            "0x715a612f214d67abecfd8d2201ed342187c072c17327fea5c99144be22d6c2ed",
         )
         .unwrap();
         assert_eq!(signed_hash, expected_tx_hash);
         assert_eq!(recovered_hash, expected_tx_hash);
 
         let expected_sighash = FixedBytes::<32>::from_hex(
-            "d84991e3c16d527e808a207b3135472c96273f93c98431ffe061de28b02555c9",
+            "adc0121c2afffe950838e858f85aff4c56b43ab914d19763eed2d6db76906228",
         )
         .unwrap();
         assert_eq!(signed_sighash, expected_sighash);
@@ -629,6 +704,46 @@ mod test {
 
         fn hash(byte: u8) -> B256 {
             B256::from([byte; 32])
+        }
+
+        #[test]
+        fn signed_selector_survives_authenticated_decryption_and_network_conversion() {
+            use crate::{
+                eth::SignableSeismicTransactionRequest, utils::seismic_call_to_plaintext_tx,
+            };
+            use reth_rpc_convert::transaction::TryIntoTxEnv;
+            let key = seismic_crypto::well_known_tx_io_keypair().secret_key();
+            let provider = MockProvider::default();
+            provider.add_canonical(0, B256::ZERO);
+            for typed_data in [false, true] {
+                for selector in [
+                    seismic_alloy_consensus::GasPayment::Auto,
+                    seismic_alloy_consensus::GasPayment::Native,
+                    seismic_alloy_consensus::GasPayment::Token(
+                        alloy_primitives::Address::repeat_byte(0x44),
+                    ),
+                ] {
+                    let call = super::resolve_seismic_call(
+                        super::signed_seismic_request_with_payment(true, typed_data, selector),
+                    )
+                    .unwrap();
+                    let plaintext = seismic_call_to_plaintext_tx(&call, &key, &provider).unwrap();
+                    assert_eq!(plaintext.gas_payment, selector);
+                    assert_eq!(
+                        plaintext.inner.input.input.as_ref(),
+                        Some(&reth_seismic_test_utils::get_plaintext())
+                    );
+                    let env = SignableSeismicTransactionRequest::from(plaintext)
+                        .try_into_tx_env(
+                            &revm::context::CfgEnv::<seismic_revm::SeismicSpecId>::default(),
+                            &revm::context::BlockEnv::default(),
+                        )
+                        .unwrap();
+                    assert_eq!(env.gas_payment, reth_evm::tx::gas_payment_to_env(selector));
+                    assert!(env.signed_read);
+                    assert_eq!(env.base.tx_type, seismic_alloy_consensus::SEISMIC_TX_TYPE_ID);
+                }
+            }
         }
 
         #[test]

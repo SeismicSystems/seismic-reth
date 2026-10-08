@@ -1,5 +1,8 @@
 #![allow(missing_docs, clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 
+#[path = "../common/mod.rs"]
+mod common;
+
 mod balance;
 mod fuzz;
 mod hardfork_config;

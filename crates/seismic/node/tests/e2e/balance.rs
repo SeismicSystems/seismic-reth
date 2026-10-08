@@ -1,14 +1,13 @@
-//! Wire-level coverage for public balance RPCs. Internal USDC gas accounting stays separate.
+//! Wire-level coverage for public balance RPCs. Internal registry gas accounting stays separate.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 
-use super::integration::setup_test_node;
+use super::integration::{setup_susdc_test_node, setup_test_node};
 use alloy_primitives::{address, Address, B256, U256};
 use alloy_rpc_types_eth::AccountInfo;
 use jsonrpsee::{core::client::ClientT, rpc_params};
 use reth_e2e_test_utils::transaction::TransactionTestContext;
 use reth_provider::StateProviderFactory;
 use reth_rpc_eth_api::helpers::LoadPendingBlock;
-use reth_seismic_chainspec::SEISMIC_DEV;
 use reth_seismic_rpc::ext::COMPATIBILITY_BALANCE;
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -31,25 +30,17 @@ async fn request(
 
 #[tokio::test(flavor = "multi_thread")]
 async fn balance_modes_and_account_info_match_native_state() -> eyre::Result<()> {
-    let (node, client, _chain_id, wallet, _tasks) = setup_test_node().await?;
+    let (node, client, _chain_id, wallet, _tasks, token) = setup_susdc_test_node().await?;
     let http = reqwest::Client::new();
     let state = node.inner.provider.latest()?;
-    let contract = *SEISMIC_DEV
-        .genesis
-        .alloc
-        .iter()
-        .find(|(_, account)| account.code.as_ref().is_some_and(|code| !code.is_empty()))
-        .expect("dev genesis includes a contract")
-        .0;
+    let genesis_state = node.inner.provider.history_by_block_number(0)?;
+    let contract = token.token;
+    let holder = address!("976ea74026e726554db657fa54763abd0c3a0aa9");
+    assert_eq!(token.balance_at(&node, holder)?, (token.funded_amount, true));
 
-    // Empty, native-funded, USDC-funded, and contract accounts all get exactly the same
+    // Empty, native-funded, execution-funded SUSDC, and contract accounts get the same
     // placeholder, while native/account-info reads must match the real provider state.
-    for addr in [
-        Address::with_last_byte(0xab),
-        wallet.inner.address(),
-        address!("976ea74026e726554db657fa54763abd0c3a0aa9"),
-        contract,
-    ] {
+    for addr in [Address::with_last_byte(0xab), wallet.inner.address(), holder, contract] {
         let account = state.basic_account(&addr)?.unwrap_or_default();
         let code = state.account_code(&addr)?.map(|code| code.original_bytes()).unwrap_or_default();
         for params in [
@@ -97,7 +88,11 @@ async fn balance_modes_and_account_info_match_native_state() -> eyre::Result<()>
             assert_eq!(info.code, code);
         }
         let native: U256 = client.request("eth_getBalance", rpc_params![addr, "0x0", true]).await?;
-        assert_eq!(native, account.balance, "explicit genesis selector");
+        assert_eq!(
+            native,
+            genesis_state.account_balance(&addr)?.unwrap_or_default(),
+            "explicit genesis selector must not use the post-bootstrap latest state"
+        );
     }
     Ok(())
 }

@@ -149,6 +149,7 @@ fn build_sentinel_typed_data_tx(
         nonce: 0,
         gas_price: 0,
         gas_limit: 100_000,
+        gas_payment: seismic_alloy_consensus::GasPayment::Auto,
         to: TxKind::Call(WHITELIST_TX_SENTINEL),
         value: U256::ZERO,
         input: calldata,

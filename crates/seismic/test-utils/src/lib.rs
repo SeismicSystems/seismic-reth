@@ -111,6 +111,7 @@ pub fn get_seismic_tx(sender: Address, recent_block_hash: B256) -> TxSeismic {
         nonce: 1,
         gas_price: 20000000000,
         gas_limit: 210000,
+        gas_payment: seismic_alloy_consensus::GasPayment::Auto,
         to: alloy_primitives::TxKind::Call(
             Address::from_str("0x5fbdb2315678afecb367f032d93f642f64180aa3").unwrap(),
         ),
@@ -264,6 +265,7 @@ async fn get_unsigned_seismic_tx_request_with_options(
     SeismicTransactionRequest {
         inner: plaintext_req,
         seismic_elements: Some(metadata.seismic_elements),
+        gas_payment: seismic_alloy_consensus::GasPayment::Auto,
     }
 }
 
@@ -321,7 +323,7 @@ pub async fn get_unsigned_legacy_tx_request(
 ) -> SeismicTransactionRequest {
     let mut plaintext_req = get_plaintext_tx_request(sk_wallet, nonce, to, chain_id, &plaintext);
     plaintext_req.transaction_type = None;
-    SeismicTransactionRequest { inner: plaintext_req, seismic_elements: None }
+    plaintext_req.into()
 }
 
 /// Signs an arbitrary [`TransactionRequest`] using the provided wallet

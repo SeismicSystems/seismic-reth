@@ -1,67 +1,95 @@
-//! Seismic-specific pool maintenance: a [`ChangedAccountsHook`] that augments native balances with
-//! USDC predeploy balances, and a background task that evicts stale Seismic transactions.
+//! Registry-backed pool maintenance and stale Seismic transaction eviction.
 
 use crate::{
-    recent_block_cache::RecentBlockCache, transaction::SeismicPooledTransaction,
-    validator::seismic_freshness_error,
+    payment::ProviderRegistryStorage, recent_block_cache::RecentBlockCache,
+    transaction::SeismicPooledTransaction, validator::seismic_freshness_error, SeismicBalanceError,
 };
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{Sealable, TxHash};
+use alloy_primitives::{Address, Sealable, TxHash};
 use futures_util::StreamExt;
 use reth_execution_types::ChangedAccount;
 use reth_provider::{BlockReaderIdExt, CanonStateNotificationStream, StateProvider};
 use reth_seismic_primitives::SeismicPrimitives;
 use reth_transaction_pool::{
-    maintain::ChangedAccountsHook, PoolTransaction, TransactionPool, ValidPoolTransaction,
+    maintain::{CanonicalStorageChanges, ChangedAccountsHook},
+    PoolTransaction, TransactionPool, ValidPoolTransaction,
 };
 use seismic_alloy_consensus::SeismicTypedTransaction;
-use std::sync::Arc;
+use seismic_revm::gas_token_registry::{
+    aggregate_balance, balance_storage_key, visit_registered_tokens, GAS_TOKEN_REGISTRY,
+};
+use std::{collections::HashSet, sync::Arc};
 use tracing::debug;
 
-/// Makes the transaction pool's balance accounting aware of USDC gas payment.
+#[cfg(test)]
+mod tests;
+
+/// Registry-backed aggregate balance and targeted token-holder discovery.
 ///
-/// On Seismic, gas can be paid in USDC, but the pool tracks a single native
-/// balance per account and uses it to promote/demote transactions between the
-/// Pending and Queued subpools. Without help, an account paying gas in USDC
-/// (with little or no native balance) looks broke to the pool, so its otherwise
-/// valid transactions end up parked in the Queued subpool — never promoted to
-/// Pending, or demoted back out of it — and are never mined. This
-/// [`ChangedAccountsHook`] augments that per-account balance with the sender's
-/// USDC balance so those decisions are accurate. It runs in the maintenance loop
-/// on new blocks/reorgs and only feeds promote/demote — admission is gated
-/// separately by the validator (see [`crate::usdc::can_afford`]).
+/// Uses the same shared aggregate as admission, without selecting a transaction's
+/// payment asset. Actual registry changes refresh every pooled sender; token-only
+/// changes match full-width balance mapping keys for known pooled senders. Both
+/// removed and added reorg branches are inspected, but balances are read at the new tip.
 ///
-/// The pool's single scalar can't express the validator's component-wise rule
-/// (value from native, gas from remaining native or USDC). We report
-/// `native + usdc` instead, a sound upper bound: any transaction the validator
-/// admits satisfies `cost ≤ native + usdc`, so the pool's `cost ≤ balance` check
-/// never parks it in Queued. Keep in sync with the scalar reported by the
-/// validator (see `validator.rs`).
-///
-/// The sum over-promotes only when an account overcommits its *native* balance
-/// across multiple value-bearing txs (value=0 gas traffic is gated near-exactly).
-/// Such a tx then fails at block building, the final affordability gate. That is
-/// safe: an unincluded tx consumes no nonce — it just lingers in the pending
-/// subpool and blocks higher nonces from the same sender until balances change
-/// (standard stuck-nonce behavior, not on-chain inconsistency).
-///
-/// Implementation: for each changed account it sets `balance = native + usdc_scaled`
-/// ([`crate::usdc::read_usdc_balance`]), reading USDC via the [`StateProvider`] the
-/// maintenance loop passes in rather than its own snapshot, so USDC is read from the
-/// same block as the native balance and nonce.
+/// Reads use the maintenance snapshot. All aggregates succeed before any record is
+/// mutated. Failed batches remain dirty instead of reporting zero token funds, and
+/// read-only discovery does not fetch holder balances.
 #[derive(Debug, Default)]
 pub struct SeismicBalanceHook;
 
 impl ChangedAccountsHook for SeismicBalanceHook {
-    fn transform(&self, state: &dyn StateProvider, accounts: &mut Vec<ChangedAccount>) {
-        for acc in accounts.iter_mut() {
-            let usdc = crate::usdc::read_usdc_balance(state, &acc.address);
-            let new_balance = acc.balance.saturating_add(usdc);
-            if new_balance != acc.balance {
-                debug!(target: "seismic::txpool", "augmenting changed account balance with USDC");
-                acc.balance = new_balance;
+    type Error = SeismicBalanceError;
+
+    fn affected_accounts(
+        &self,
+        state: &dyn StateProvider,
+        changes: &dyn CanonicalStorageChanges,
+        pooled_senders: &HashSet<Address>,
+    ) -> Result<HashSet<Address>, Self::Error> {
+        if pooled_senders.is_empty() || !changes.has_storage_changes() {
+            return Ok(HashSet::new())
+        }
+        if changes.storage_changed(GAS_TOKEN_REGISTRY) {
+            return Ok(pooled_senders.clone())
+        }
+
+        let mut affected = HashSet::new();
+        let mut reader = ProviderRegistryStorage(state);
+        visit_registered_tokens(&mut reader, |token| {
+            if changes.storage_changed(token.token) {
+                for &sender in pooled_senders {
+                    if changes
+                        .slot_changed(token.token, balance_storage_key(sender, token.balance_slot))
+                    {
+                        affected.insert(sender);
+                    }
+                }
+            }
+        })?;
+        Ok(affected)
+    }
+
+    fn transform(
+        &self,
+        state: &dyn StateProvider,
+        accounts: &mut [ChangedAccount],
+    ) -> Result<(), Self::Error> {
+        // Stage all reads before mutating the batch so a later read failure cannot
+        // leave partially augmented records, including for callers outside maintenance.
+        let balances = accounts
+            .iter()
+            .map(|acc| {
+                aggregate_balance(&mut ProviderRegistryStorage(state), acc.address, acc.balance)
+                    .map_err(SeismicBalanceError::from)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        for (acc, balance) in accounts.iter_mut().zip(balances) {
+            if balance != acc.balance {
+                debug!(target: "seismic::txpool", "augmenting changed account balance with registry tokens");
+                acc.balance = balance;
             }
         }
+        Ok(())
     }
 }
 

@@ -35,6 +35,7 @@ fn signed_read_tx(chain_id: u64) -> SeismicTransactionSigned {
         nonce: 0,
         gas_price: 1,
         gas_limit: 21_000,
+        gas_payment: seismic_alloy_consensus::GasPayment::Auto,
         to: TxKind::Call(Address::with_last_byte(1)),
         value: U256::ZERO,
         input: Bytes::new(),

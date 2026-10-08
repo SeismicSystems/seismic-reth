@@ -55,7 +55,6 @@ alloy-seismic-evm.workspace = true
 seismic-alloy-consensus.workspace = true
 seismic-alloy-network.workspace = true
 seismic-alloy-rpc-types = { workspace = true, features = ["serde", "k256"] }
-reth-seismic-txpool.workspace = true
 seismic-revm.workspace = true
 
 # async

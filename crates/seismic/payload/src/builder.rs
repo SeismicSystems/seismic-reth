@@ -116,6 +116,22 @@ where
     }
 }
 
+/// Classify execution failures without flattening payment invalidity into internal errors.
+/// A low nonce only skips that transaction; every other typed invalidity also skips its
+/// dependent nonce sequence. Database/internal errors must abort the payload attempt.
+fn invalidates_dependents(error: BlockExecutionError) -> Result<bool, PayloadBuilderError> {
+    match error {
+        BlockExecutionError::Validation(BlockValidationError::InvalidTx { error, .. }) => {
+            Ok(!error.is_nonce_too_low())
+        }
+        error => Err(PayloadBuilderError::evm(error)),
+    }
+}
+
+#[cfg(test)]
+#[path = "builder/tests.rs"]
+mod tests;
+
 /// Constructs an Seismic transaction payload using the best transactions from the pool.
 ///
 /// Given build arguments including an Seismic client, transaction pool,
@@ -206,17 +222,8 @@ where
 
         let gas_used = match builder.execute_transaction(tx.clone()) {
             Ok(gas_used) => gas_used,
-            Err(BlockExecutionError::Validation(BlockValidationError::InvalidTx {
-                error, ..
-            })) => {
-                if error.is_nonce_too_low() {
-                    // if the nonce is too low, we can skip this transaction
-                    trace!(
-                        target: "payload_builder",
-                        tx_hash = %pool_tx.hash(),
-                        "skipping nonce too low transaction"
-                    );
-                } else {
+            Err(err) => {
+                if invalidates_dependents(err)? {
                     // if the transaction is invalid, we can skip it and all of its
                     // descendants
                     trace!(
@@ -230,15 +237,16 @@ where
                             InvalidTransactionError::TxTypeNotSupported,
                         ),
                     );
+                } else {
+                    // if the nonce is too low, we can skip this transaction
+                    trace!(
+                        target: "payload_builder",
+                        tx_hash = %pool_tx.hash(),
+                        "skipping nonce too low transaction"
+                    );
                 }
                 continue
             }
-            // Any other execution error aborts this payload attempt. The one recoverable case is
-            // an individually invalid tx (bad nonce, or a stale/expired seismic tx — the executor
-            // reports both as BlockValidationError::InvalidTx), which is skipped above. Reaching
-            // here means a genuine EVM / provider / internal failure, so we abort rather than seal
-            // a block built on incomplete or incorrect state.
-            Err(err) => return Err(PayloadBuilderError::evm(err)),
         };
 
         // update add to total fees

@@ -117,6 +117,7 @@ fn generate_from_compact(
         "FixedBytes",
         "Cow",
         "TxSeismicElements",
+        "GasPayment", // Canonical self-describing RLP, containing no trailing Bytes.
     ];
 
     // Only types without `Bytes` should be added here. It's currently manually added, since

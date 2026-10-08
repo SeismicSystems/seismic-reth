@@ -9,7 +9,7 @@ use crate::{
 };
 use alloy_consensus::{BlockHeader, Typed2718};
 use alloy_eips::{BlockNumberOrTag, Decodable2718, Encodable2718};
-use alloy_primitives::{Address, BlockHash, BlockNumber};
+use alloy_primitives::{Address, BlockHash, BlockNumber, U256};
 use alloy_rlp::{Bytes, Encodable};
 use futures_util::{
     future::{BoxFuture, Fuse, FusedFuture},
@@ -17,19 +17,21 @@ use futures_util::{
 };
 use reth_chain_state::CanonStateNotification;
 use reth_chainspec::{ChainSpecProvider, EthChainSpec};
-use reth_execution_types::ChangedAccount;
+use reth_execution_types::{ChangedAccount, ExecutionOutcome};
 use reth_fs_util::FsPathError;
 use reth_primitives_traits::{
     transaction::signed::SignedTransaction, NodePrimitives, SealedHeader,
 };
 use reth_storage_api::{
-    errors::provider::ProviderError, BlockReaderIdExt, StateProvider, StateProviderFactory,
+    errors::provider::ProviderError, AccountReader, BlockReaderIdExt, StateProvider,
+    StateProviderBox, StateProviderFactory,
 };
 use reth_tasks::TaskSpawner;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Borrow,
     collections::HashSet,
+    convert::Infallible,
     hash::{Hash, Hasher},
     path::{Path, PathBuf},
     sync::Arc,
@@ -93,26 +95,194 @@ impl LocalTransactionBackupConfig {
     }
 }
 
-/// Hook to transform changed accounts before they are passed to the pool.
+/// Receipt-independent view of actual canonical storage changes.
 ///
-/// This is used by Seismic to augment native balances with USDC balances so that
-/// the pool can make accurate promote/demote decisions for accounts paying gas in
-/// USDC. It runs in the maintenance loop on new blocks/reorgs and does not affect
-/// transaction validation/admission.
+/// Includes both removed and added branches on reorgs. Comparisons include storage
+/// privacy flags; account destruction/deletion counts as changing every storage key.
+pub trait CanonicalStorageChanges {
+    /// Whether any storage changed, excluding read-only cached slots.
+    fn has_storage_changes(&self) -> bool;
+
+    /// Whether an account's storage changed or was wiped.
+    fn storage_changed(&self, address: Address) -> bool;
+
+    /// Whether this key changed, including visibility changes or an account-wide wipe.
+    fn slot_changed(&self, address: Address, key: U256) -> bool;
+}
+
+/// Borrow execution outcomes without copying storage maps or depending on receipt types.
+struct CanonicalStorageChangeView<'a, R> {
+    new: &'a ExecutionOutcome<R>,
+    old: Option<&'a ExecutionOutcome<R>>,
+}
+
+impl<R> CanonicalStorageChangeView<'_, R> {
+    fn outcomes(&self) -> impl Iterator<Item = &ExecutionOutcome<R>> {
+        std::iter::once(self.new).chain(self.old)
+    }
+}
+
+impl<R> CanonicalStorageChanges for CanonicalStorageChangeView<'_, R> {
+    fn has_storage_changes(&self) -> bool {
+        self.outcomes().any(|outcome| {
+            outcome.state().state.values().any(|account| {
+                account.was_destroyed() ||
+                    (account.original_info.is_some() && account.info.is_none()) ||
+                    account.storage.values().any(|slot| slot.is_changed())
+            })
+        })
+    }
+
+    fn storage_changed(&self, address: Address) -> bool {
+        self.outcomes().any(|outcome| {
+            outcome.state().state.get(&address).is_some_and(|account| {
+                account.was_destroyed() ||
+                    (account.original_info.is_some() && account.info.is_none()) ||
+                    account.storage.values().any(|slot| slot.is_changed())
+            })
+        })
+    }
+
+    fn slot_changed(&self, address: Address, key: U256) -> bool {
+        self.outcomes().any(|outcome| {
+            outcome.state().state.get(&address).is_some_and(|account| {
+                account.was_destroyed() ||
+                    (account.original_info.is_some() && account.info.is_none()) ||
+                    account.storage.get(&key).is_some_and(|slot| slot.is_changed())
+            })
+        })
+    }
+}
+
+/// Hook to discover additional affected senders and augment changed account balances.
+///
+/// Seismic uses this to refresh token-only affected holders and report registry-backed
+/// aggregate balances for promotion/demotion. It runs in the ordered maintenance loop
+/// on new blocks/reorgs and does not affect transaction validation/admission.
 pub trait ChangedAccountsHook: Send + Sync + 'static {
-    /// Transforms the changed accounts list in place.  Implementations may read
-    /// additional state (e.g. ERC-20 storage) and adjust the `balance` field of
-    /// each [`ChangedAccount`].
+    /// Error returned when the additional account state cannot be read or transformed.
+    type Error: std::error::Error + Send + Sync + 'static;
+
+    /// Find pooled senders affected by storage changes but potentially absent from
+    /// the native changed-account list. The supplied state is the new canonical tip,
+    /// even when `changes` also includes a removed reorg branch.
+    ///
+    /// On error, maintenance conservatively marks all pooled senders dirty and
+    /// withholds the candidate batch, since discovery may be incomplete.
+    fn affected_accounts(
+        &self,
+        _state: &dyn StateProvider,
+        _changes: &dyn CanonicalStorageChanges,
+        _pooled_senders: &HashSet<Address>,
+    ) -> Result<HashSet<Address>, Self::Error> {
+        Ok(HashSet::new())
+    }
+
+    /// Transforms account balances in place. Implementations may read additional
+    /// state (e.g. ERC-20 storage), but must preserve account addresses and nonces.
     ///
     /// The [`StateProvider`] is the same snapshot the maintenance loop used to
     /// load native balance/nonce, so implementations always see a consistent
     /// view of the chain.
-    fn transform(&self, state: &dyn StateProvider, accounts: &mut Vec<ChangedAccount>);
+    ///
+    /// On error, maintenance discards the entire batch of account updates and
+    /// requeues its addresses for reload. Required read failures must propagate
+    /// rather than produce zero balances or partially augmented successful updates.
+    fn transform(
+        &self,
+        state: &dyn StateProvider,
+        accounts: &mut [ChangedAccount],
+    ) -> Result<(), Self::Error>;
 }
 
 /// No-op implementation for chains that don't need balance augmentation.
 impl ChangedAccountsHook for () {
-    fn transform(&self, _state: &dyn StateProvider, _accounts: &mut Vec<ChangedAccount>) {}
+    type Error = Infallible;
+
+    fn transform(
+        &self,
+        _state: &dyn StateProvider,
+        _accounts: &mut [ChangedAccount],
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+/// Applies an augmentation atomically from maintenance's perspective. Failed batches
+/// are withheld from pool updates and remain dirty; canonical bookkeeping can continue.
+fn transform_changed_accounts<H: ChangedAccountsHook>(
+    hook: &H,
+    state: Result<StateProviderBox, ProviderError>,
+    accounts: &mut Vec<ChangedAccount>,
+    dirty_addresses: &mut HashSet<Address>,
+) {
+    if accounts.is_empty() {
+        return
+    }
+
+    let success = match state {
+        Ok(state) => match hook.transform(&*state, accounts) {
+            Ok(()) => true,
+            Err(err) => {
+                debug!(target: "txpool", %err, "failed to augment account balances; deferring updates");
+                false
+            }
+        },
+        Err(err) => {
+            debug!(target: "txpool", %err, "failed to obtain account snapshot; deferring updates");
+            false
+        }
+    };
+
+    if success {
+        for account in accounts.iter() {
+            dirty_addresses.remove(&account.address);
+        }
+    } else {
+        dirty_addresses.extend(accounts.drain(..).map(|account| account.address));
+    }
+}
+
+/// Extends native records with storage-affected pooled holders, loading added holders
+/// and augmenting all records from one new-head snapshot. Discovery failures cannot
+/// safely identify affected senders, so they conservatively dirty every pooled sender.
+fn refresh_canonical_accounts<H: ChangedAccountsHook>(
+    hook: &H,
+    state: Result<StateProviderBox, ProviderError>,
+    changes: &dyn CanonicalStorageChanges,
+    pooled_senders: &HashSet<Address>,
+    accounts: &mut Vec<ChangedAccount>,
+    dirty_addresses: &mut HashSet<Address>,
+) {
+    if accounts.is_empty() && (!changes.has_storage_changes() || pooled_senders.is_empty()) {
+        return
+    }
+
+    let snapshot = match state {
+        Ok(snapshot) => snapshot,
+        Err(err) => {
+            debug!(target: "txpool", %err, "failed to obtain canonical account snapshot; deferring updates");
+            dirty_addresses.extend(pooled_senders.iter().copied());
+            dirty_addresses.extend(accounts.drain(..).map(|account| account.address));
+            return
+        }
+    };
+    let affected = match hook.affected_accounts(&*snapshot, changes, pooled_senders) {
+        Ok(affected) => affected,
+        Err(err) => {
+            debug!(target: "txpool", %err, "failed to discover storage-affected senders; deferring updates");
+            dirty_addresses.extend(pooled_senders.iter().copied());
+            dirty_addresses.extend(accounts.drain(..).map(|account| account.address));
+            return
+        }
+    };
+
+    let existing = accounts.iter().map(|account| account.address).collect::<HashSet<_>>();
+    let missing = affected.difference(&existing).copied();
+    let loaded = load_accounts_from_state(&*snapshot, missing);
+    dirty_addresses.extend(loaded.failed_to_load);
+    accounts.extend(loaded.accounts);
+    transform_changed_accounts(hook, Ok(snapshot), accounts, dirty_addresses);
 }
 
 /// Returns a spawnable future for maintaining the state of the transaction pool.
@@ -289,7 +459,7 @@ pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
                 }
                 async move {
                     let res = load_accounts(c, at, accs_to_reload.into_iter());
-                    let _ = tx.send(res);
+                    let _ = tx.send((at, res));
                 }
                 .boxed()
             } else {
@@ -297,7 +467,7 @@ pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
                 let accs_to_reload = std::mem::take(&mut dirty_addresses);
                 async move {
                     let res = load_accounts(c, at, accs_to_reload.into_iter());
-                    let _ = tx.send(res);
+                    let _ = tx.send((at, res));
                 }
                 .boxed()
             };
@@ -363,17 +533,17 @@ pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
         }
         // handle the result of the account reload
         match reloaded {
-            Some(Ok(Ok(LoadedAccounts { mut accounts, failed_to_load }))) => {
-                // reloaded accounts successfully
-                // extend accounts we failed to load from database
-                dirty_addresses.extend(failed_to_load);
-                if let Ok(state) = client.history_by_block_hash(pool_info.last_seen_block_hash) {
-                    hook.transform(&*state, &mut accounts);
-                }
-                // update the pool with the loaded accounts
+            Some(Ok((at, Ok(loaded)))) => {
+                let accounts = loaded.into_updates(
+                    at,
+                    pool_info.last_seen_block_hash,
+                    &hook,
+                    |at| client.history_by_block_hash(at),
+                    &mut dirty_addresses,
+                );
                 pool.update_accounts(accounts);
             }
-            Some(Ok(Err(res))) => {
+            Some(Ok((_, Err(res)))) => {
                 // Failed to load accounts from state
                 let (accs, err) = *res;
                 debug!(target: "txpool", %err, "failed to load accounts");
@@ -449,9 +619,14 @@ pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
                 // also include all accounts from new chain
                 // we can use extend here because they are unique
                 changed_accounts.extend(new_changed_accounts.into_iter().map(|entry| entry.0));
-                if let Ok(state) = client.history_by_block_hash(new_tip.hash()) {
-                    hook.transform(&*state, &mut changed_accounts);
-                }
+                refresh_canonical_accounts(
+                    &hook,
+                    client.history_by_block_hash(new_tip.hash()),
+                    &CanonicalStorageChangeView { new: new_state, old: Some(old_state) },
+                    &pool.unique_senders(),
+                    &mut changed_accounts,
+                    &mut dirty_addresses,
+                );
 
                 // all transactions mined in the new chain
                 let new_mined_transactions: HashSet<_> = new_blocks.transaction_hashes().collect();
@@ -551,14 +726,15 @@ pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
                 }
 
                 let mut changed_accounts = Vec::with_capacity(state.state().len());
-                for acc in state.changed_accounts() {
-                    // we can always clear the dirty flag for this account
-                    dirty_addresses.remove(&acc.address);
-                    changed_accounts.push(acc);
-                }
-                if let Ok(tip_state) = client.history_by_block_hash(tip.hash()) {
-                    hook.transform(&*tip_state, &mut changed_accounts);
-                }
+                changed_accounts.extend(state.changed_accounts());
+                refresh_canonical_accounts(
+                    &hook,
+                    client.history_by_block_hash(tip.hash()),
+                    &CanonicalStorageChangeView { new: state, old: None },
+                    &pool.unique_senders(),
+                    &mut changed_accounts,
+                    &mut dirty_addresses,
+                );
 
                 let mined_transactions = blocks.transaction_hashes().collect();
 
@@ -655,6 +831,31 @@ struct LoadedAccounts {
     failed_to_load: Vec<Address>,
 }
 
+impl LoadedAccounts {
+    /// Prepares only complete, current-head account updates. Stale reloads never
+    /// obtain an augmentation snapshot or overwrite newer pool balances/nonces.
+    fn into_updates<H: ChangedAccountsHook>(
+        self,
+        at: BlockHash,
+        current_head: BlockHash,
+        hook: &H,
+        state: impl FnOnce(BlockHash) -> Result<StateProviderBox, ProviderError>,
+        dirty_addresses: &mut HashSet<Address>,
+    ) -> Vec<ChangedAccount> {
+        let Self { mut accounts, failed_to_load } = self;
+        dirty_addresses.extend(failed_to_load);
+        if at != current_head {
+            dirty_addresses.extend(accounts.into_iter().map(|account| account.address));
+            return Vec::new()
+        }
+
+        if !accounts.is_empty() {
+            transform_changed_accounts(hook, state(at), &mut accounts, dirty_addresses);
+        }
+        accounts
+    }
+}
+
 /// Loads all accounts at the given state
 ///
 /// Returns an error with all given addresses if the state is not available.
@@ -670,11 +871,19 @@ where
     Client: StateProviderFactory,
 {
     let addresses = addresses.into_iter();
-    let mut res = LoadedAccounts::default();
     let state = match client.history_by_block_hash(at) {
         Ok(state) => state,
         Err(err) => return Err(Box::new((addresses.collect(), err))),
     };
+    Ok(load_accounts_from_state(&*state, addresses))
+}
+
+/// Reload holders from the same snapshot used for registry discovery and augmentation.
+fn load_accounts_from_state<S: AccountReader + ?Sized>(
+    state: &S,
+    addresses: impl IntoIterator<Item = Address>,
+) -> LoadedAccounts {
+    let mut res = LoadedAccounts::default();
     for addr in addresses {
         if let Ok(maybe_acc) = state.basic_account(&addr) {
             let acc = maybe_acc
@@ -686,7 +895,7 @@ where
             res.failed_to_load.push(addr);
         }
     }
-    Ok(res)
+    res
 }
 
 /// Loads transactions from a file, decodes them from the JSON or RLP format, and
@@ -853,11 +1062,620 @@ mod tests {
         CoinbaseTipOrdering, EthPooledTransaction, Pool, TransactionOrigin,
     };
     use alloy_eips::eip2718::Decodable2718;
-    use alloy_primitives::{hex, U256};
-    use reth_ethereum_primitives::PooledTransactionVariant;
+    use alloy_primitives::{hex, FlaggedStorage, U256};
+    use reth_ethereum_primitives::{Block, BlockBody, EthPrimitives, PooledTransactionVariant};
+    use reth_execution_types::{Chain, ExecutionOutcome};
     use reth_fs_util as fs;
+    use reth_primitives_traits::{Account, Block as _};
     use reth_provider::test_utils::{ExtendedAccount, MockEthProvider};
     use reth_tasks::TaskManager;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    #[derive(Default)]
+    struct TestBalanceHook {
+        fail: AtomicBool,
+        calls: Arc<AtomicUsize>,
+        extra: HashSet<Address>,
+        fail_discovery: AtomicBool,
+        discovery_calls: AtomicUsize,
+    }
+
+    impl ChangedAccountsHook for TestBalanceHook {
+        type Error = ProviderError;
+
+        fn affected_accounts(
+            &self,
+            _state: &dyn StateProvider,
+            _changes: &dyn CanonicalStorageChanges,
+            pooled_senders: &HashSet<Address>,
+        ) -> Result<HashSet<Address>, Self::Error> {
+            self.discovery_calls.fetch_add(1, Ordering::Relaxed);
+            if self.fail_discovery.load(Ordering::Relaxed) {
+                return Err(ProviderError::InvalidStorageOutput)
+            }
+            Ok(self.extra.intersection(pooled_senders).copied().collect())
+        }
+
+        fn transform(
+            &self,
+            _state: &dyn StateProvider,
+            accounts: &mut [ChangedAccount],
+        ) -> Result<(), Self::Error> {
+            self.calls.fetch_add(1, Ordering::Relaxed);
+            for account in accounts {
+                account.balance = account.balance.saturating_add(U256::from(100));
+                // Deliberately mutate before failing: maintenance must discard even
+                // a partially transformed batch, not merely catch the error.
+                if self.fail.load(Ordering::Relaxed) {
+                    return Err(ProviderError::InvalidStorageOutput)
+                }
+            }
+            Ok(())
+        }
+    }
+
+    fn refresh_accounts() -> Vec<ChangedAccount> {
+        vec![
+            ChangedAccount {
+                address: Address::with_last_byte(1),
+                nonce: 7,
+                balance: U256::from(10),
+            },
+            ChangedAccount {
+                address: Address::with_last_byte(2),
+                nonce: 9,
+                balance: U256::from(20),
+            },
+        ]
+    }
+
+    #[test]
+    fn balance_hook_success_clears_only_refreshed_dirty_accounts() {
+        let hook = TestBalanceHook::default();
+        let mut accounts = refresh_accounts();
+        let unrelated = Address::with_last_byte(3);
+        let mut dirty = accounts.iter().map(|account| account.address).collect::<HashSet<_>>();
+        dirty.insert(unrelated);
+
+        transform_changed_accounts(
+            &hook,
+            Ok(Box::new(MockEthProvider::default())),
+            &mut accounts,
+            &mut dirty,
+        );
+
+        let expected = refresh_accounts()
+            .into_iter()
+            .map(|mut account| {
+                account.balance += U256::from(100);
+                account
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(accounts, expected);
+        assert_eq!(dirty, HashSet::from([unrelated]));
+    }
+
+    #[test]
+    fn balance_hook_failure_discards_partial_batch_and_requeues_every_sender() {
+        let hook = TestBalanceHook::default();
+        hook.fail.store(true, Ordering::Relaxed);
+        let mut accounts = refresh_accounts();
+        let expected_dirty = accounts.iter().map(|account| account.address).collect::<HashSet<_>>();
+        let mut dirty = HashSet::new();
+
+        transform_changed_accounts(
+            &hook,
+            Ok(Box::new(MockEthProvider::default())),
+            &mut accounts,
+            &mut dirty,
+        );
+
+        assert!(accounts.is_empty());
+        assert_eq!(dirty, expected_dirty);
+        assert_eq!(hook.calls.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn balance_hook_snapshot_failure_defers_native_only_records() {
+        let hook = TestBalanceHook::default();
+        let mut accounts = refresh_accounts();
+        let expected_dirty = accounts.iter().map(|account| account.address).collect::<HashSet<_>>();
+        let mut dirty = HashSet::new();
+
+        transform_changed_accounts(
+            &hook,
+            Err(ProviderError::InvalidStorageOutput),
+            &mut accounts,
+            &mut dirty,
+        );
+
+        assert!(accounts.is_empty());
+        assert_eq!(dirty, expected_dirty);
+        assert_eq!(hook.calls.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn balance_hook_retry_reloads_native_state_before_augmenting() {
+        let hook = TestBalanceHook::default();
+        hook.fail.store(true, Ordering::Relaxed);
+        let mut accounts = refresh_accounts();
+        let provider = MockEthProvider::default();
+        let head = BlockHash::with_last_byte(1);
+        let mut dirty = HashSet::new();
+        transform_changed_accounts(
+            &hook,
+            provider.history_by_block_hash(head),
+            &mut accounts,
+            &mut dirty,
+        );
+
+        // The retry must reload native balances/nonces, not reuse the partially
+        // transformed records from the failed attempt.
+        for account in refresh_accounts() {
+            provider.add_account(
+                account.address,
+                ExtendedAccount::new(account.nonce + 1, account.balance + U256::from(5)),
+            );
+        }
+        hook.fail.store(false, Ordering::Relaxed);
+        let loaded = load_accounts(provider.clone(), head, dirty.iter().copied()).unwrap();
+        let updates = loaded.into_updates(
+            head,
+            head,
+            &hook,
+            |at| provider.history_by_block_hash(at),
+            &mut dirty,
+        );
+
+        assert!(dirty.is_empty());
+        assert_eq!(updates.len(), 2);
+        for original in refresh_accounts() {
+            let updated =
+                updates.iter().find(|account| account.address == original.address).unwrap();
+            assert_eq!(updated.nonce, original.nonce + 1);
+            assert_eq!(updated.balance, original.balance + U256::from(105));
+        }
+    }
+
+    #[test]
+    fn balance_hook_stale_reload_requeues_without_reading_another_snapshot() {
+        let hook = TestBalanceHook::default();
+        let accounts = refresh_accounts();
+        let failed_native = Address::with_last_byte(3);
+        let mut expected_dirty =
+            accounts.iter().map(|account| account.address).collect::<HashSet<_>>();
+        expected_dirty.insert(failed_native);
+        let loaded = LoadedAccounts { accounts, failed_to_load: vec![failed_native] };
+        let mut dirty = HashSet::new();
+
+        let updates = loaded.into_updates(
+            BlockHash::with_last_byte(1),
+            BlockHash::with_last_byte(2),
+            &hook,
+            |_| panic!("stale reload must not obtain an augmentation snapshot"),
+            &mut dirty,
+        );
+
+        assert!(updates.is_empty());
+        assert_eq!(dirty, expected_dirty);
+        assert_eq!(hook.calls.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn balance_hook_reload_failure_preserves_failed_native_senders() {
+        let hook = TestBalanceHook::default();
+        let accounts = refresh_accounts();
+        let failed_native = Address::with_last_byte(3);
+        let mut expected_dirty =
+            accounts.iter().map(|account| account.address).collect::<HashSet<_>>();
+        expected_dirty.insert(failed_native);
+        let loaded = LoadedAccounts { accounts, failed_to_load: vec![failed_native] };
+        let head = BlockHash::with_last_byte(1);
+        let mut dirty = HashSet::new();
+
+        let updates = loaded.into_updates(
+            head,
+            head,
+            &hook,
+            |at| {
+                assert_eq!(at, head);
+                Err(ProviderError::InvalidStorageOutput)
+            },
+            &mut dirty,
+        );
+
+        assert!(updates.is_empty());
+        assert_eq!(dirty, expected_dirty);
+    }
+
+    #[test]
+    fn balance_hook_noop_preserves_native_accounts() {
+        let mut accounts = refresh_accounts();
+        let original = accounts.clone();
+        let mut dirty = accounts.iter().map(|account| account.address).collect::<HashSet<_>>();
+        transform_changed_accounts(
+            &(),
+            Ok(Box::new(MockEthProvider::default())),
+            &mut accounts,
+            &mut dirty,
+        );
+        assert_eq!(accounts, original);
+        assert!(dirty.is_empty());
+    }
+
+    fn storage_outcome(
+        address: Address,
+        key: U256,
+        original: FlaggedStorage,
+        present: FlaggedStorage,
+    ) -> ExecutionOutcome {
+        ExecutionOutcome::new_init(
+            std::iter::once((
+                address,
+                (
+                    Some(Account::default()),
+                    Some(Account::default()),
+                    std::iter::once((key.to_be_bytes::<32>().into(), (original, present)))
+                        .collect(),
+                ),
+            ))
+            .collect(),
+            Default::default(),
+            [],
+            vec![],
+            1,
+            vec![],
+        )
+    }
+
+    #[test]
+    fn canonical_storage_view_ignores_read_only_slots_but_includes_privacy_changes() {
+        let token = Address::with_last_byte(0x40);
+        let key = U256::from(7);
+        let original = FlaggedStorage::public(U256::from(5));
+        let read_only = storage_outcome(token, key, original, original);
+        let view = CanonicalStorageChangeView { new: &read_only, old: None };
+        assert!(!view.has_storage_changes());
+        assert!(!view.storage_changed(token));
+        assert!(!view.slot_changed(token, key));
+
+        let privacy_change =
+            storage_outcome(token, key, original, FlaggedStorage::new(original.value, true));
+        let view = CanonicalStorageChangeView { new: &privacy_change, old: None };
+        assert!(view.has_storage_changes());
+        assert!(view.storage_changed(token));
+        assert!(view.slot_changed(token, key));
+        assert!(!view.slot_changed(token, key + U256::from(1)));
+    }
+
+    #[test]
+    fn canonical_storage_view_includes_removed_and_added_reorg_branches() {
+        let token = Address::with_last_byte(0x40);
+        let old_key = U256::from(7);
+        let new_key = U256::from(8);
+        let old = storage_outcome(
+            token,
+            old_key,
+            FlaggedStorage::ZERO,
+            FlaggedStorage::public(U256::from(5)),
+        );
+        let new = storage_outcome(
+            token,
+            new_key,
+            FlaggedStorage::ZERO,
+            FlaggedStorage::public(U256::from(10)),
+        );
+        let view = CanonicalStorageChangeView { new: &new, old: Some(&old) };
+        assert!(view.slot_changed(token, old_key));
+        assert!(view.slot_changed(token, new_key));
+        assert!(!view.slot_changed(Address::with_last_byte(0x41), old_key));
+    }
+
+    #[test]
+    fn canonical_storage_view_treats_account_deletion_as_a_wipe() {
+        let token = Address::with_last_byte(0x40);
+        let mut outcome =
+            storage_outcome(token, U256::from(7), FlaggedStorage::ZERO, FlaggedStorage::ZERO);
+        let account = outcome.state_mut().state.get_mut(&token).unwrap();
+        account.info = None;
+        account.storage.clear();
+        let view = CanonicalStorageChangeView { new: &outcome, old: None };
+        assert!(view.has_storage_changes());
+        assert!(view.storage_changed(token));
+        assert!(view.slot_changed(token, U256::MAX));
+    }
+
+    #[test]
+    fn canonical_storage_view_treats_destroyed_and_recreated_storage_as_wiped() {
+        let token = Address::with_last_byte(0x40);
+        let mut outcome =
+            storage_outcome(token, U256::from(7), FlaggedStorage::ZERO, FlaggedStorage::ZERO);
+        let account = outcome.state_mut().state.get_mut(&token).unwrap();
+        account.status = account.status.on_created().on_selfdestructed().on_created();
+        account.storage.clear();
+        assert!(account.info.is_some());
+        let view = CanonicalStorageChangeView { new: &outcome, old: None };
+        assert!(view.has_storage_changes());
+        assert!(view.storage_changed(token));
+        assert!(view.slot_changed(token, U256::MAX));
+    }
+
+    struct FailingAccountReader {
+        inner: MockEthProvider,
+        failed: Address,
+    }
+
+    impl AccountReader for FailingAccountReader {
+        fn basic_account(&self, address: &Address) -> Result<Option<Account>, ProviderError> {
+            if *address == self.failed {
+                return Err(ProviderError::InvalidStorageOutput)
+            }
+            self.inner.basic_account(address)
+        }
+    }
+
+    #[test]
+    fn holder_reload_distinguishes_absent_accounts_from_failed_native_reads() {
+        let alice = Address::with_last_byte(1);
+        let bob = Address::with_last_byte(2);
+        let absent = Address::with_last_byte(3);
+        let state = FailingAccountReader { inner: MockEthProvider::default(), failed: bob };
+        state.inner.add_account(alice, ExtendedAccount::new(7, U256::from(10)));
+        let loaded = load_accounts_from_state(&state, [alice, bob, absent]);
+        assert_eq!(loaded.failed_to_load, vec![bob]);
+        assert_eq!(
+            loaded.accounts,
+            vec![
+                ChangedAccount { address: alice, nonce: 7, balance: U256::from(10) },
+                ChangedAccount::empty(absent),
+            ]
+        );
+    }
+
+    #[test]
+    fn canonical_refresh_adds_token_only_holders_and_deduplicates_native_records() {
+        let originals = refresh_accounts();
+        let pooled = originals.iter().map(|account| account.address).collect::<HashSet<_>>();
+        let hook = TestBalanceHook { extra: pooled.clone(), ..Default::default() };
+        let provider = MockEthProvider::default();
+        // Alice already has a native record. It must be kept, not duplicated or
+        // replaced with a second read. Bob needs native/nonce loaded from this snapshot.
+        for account in &originals {
+            provider
+                .add_account(account.address, ExtendedAccount::new(account.nonce, account.balance));
+        }
+        let alice = *originals.first().unwrap();
+        provider.add_account(alice.address, ExtendedAccount::new(99, U256::from(999)));
+        let mut records = vec![alice];
+        let changes = storage_outcome(
+            Address::with_last_byte(0x40),
+            U256::from(7),
+            FlaggedStorage::ZERO,
+            FlaggedStorage::public(U256::from(5)),
+        );
+        let mut dirty = pooled.clone();
+        refresh_canonical_accounts(
+            &hook,
+            Ok(Box::new(provider)),
+            &CanonicalStorageChangeView { new: &changes, old: None },
+            &pooled,
+            &mut records,
+            &mut dirty,
+        );
+        assert!(dirty.is_empty());
+        assert_eq!(records.len(), 2);
+        for native in originals {
+            assert_eq!(
+                records.iter().find(|account| account.address == native.address),
+                Some(&ChangedAccount { balance: native.balance + U256::from(100), ..native })
+            );
+        }
+    }
+
+    #[test]
+    fn canonical_discovery_failure_dirties_all_pooled_senders_and_withholds_native_records() {
+        let hook = TestBalanceHook::default();
+        hook.fail_discovery.store(true, Ordering::Relaxed);
+        let pooled = HashSet::from([Address::with_last_byte(1), Address::with_last_byte(2)]);
+        let unrelated = Address::with_last_byte(3);
+        let mut records = vec![ChangedAccount::empty(unrelated)];
+        let changes = storage_outcome(
+            Address::with_last_byte(0x40),
+            U256::from(7),
+            FlaggedStorage::ZERO,
+            FlaggedStorage::public(U256::from(5)),
+        );
+        let mut dirty = HashSet::new();
+        refresh_canonical_accounts(
+            &hook,
+            Ok(Box::new(MockEthProvider::default())),
+            &CanonicalStorageChangeView { new: &changes, old: None },
+            &pooled,
+            &mut records,
+            &mut dirty,
+        );
+        assert!(records.is_empty());
+        let mut expected = pooled;
+        expected.insert(unrelated);
+        assert_eq!(dirty, expected);
+        assert_eq!(hook.calls.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn canonical_snapshot_failure_dirties_token_only_holders_even_without_native_changes() {
+        let hook = TestBalanceHook::default();
+        let pooled = HashSet::from([Address::with_last_byte(1), Address::with_last_byte(2)]);
+        let mut records = vec![];
+        let changes = storage_outcome(
+            Address::with_last_byte(0x40),
+            U256::from(7),
+            FlaggedStorage::ZERO,
+            FlaggedStorage::public(U256::from(5)),
+        );
+        let mut dirty = HashSet::new();
+        refresh_canonical_accounts(
+            &hook,
+            Err(ProviderError::InvalidStorageOutput),
+            &CanonicalStorageChangeView { new: &changes, old: None },
+            &pooled,
+            &mut records,
+            &mut dirty,
+        );
+        assert!(records.is_empty());
+        assert_eq!(dirty, pooled);
+        assert_eq!(hook.discovery_calls.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn canonical_transform_failure_requeues_added_holders_too() {
+        let originals = refresh_accounts();
+        let pooled = originals.iter().map(|account| account.address).collect::<HashSet<_>>();
+        let hook = TestBalanceHook { extra: pooled.clone(), ..Default::default() };
+        hook.fail.store(true, Ordering::Relaxed);
+        let provider = MockEthProvider::default();
+        for account in &originals {
+            provider
+                .add_account(account.address, ExtendedAccount::new(account.nonce, account.balance));
+        }
+        let changes = storage_outcome(
+            Address::with_last_byte(0x40),
+            U256::from(7),
+            FlaggedStorage::ZERO,
+            FlaggedStorage::public(U256::from(5)),
+        );
+        let mut records = vec![];
+        let mut dirty = HashSet::new();
+        refresh_canonical_accounts(
+            &hook,
+            Ok(Box::new(provider)),
+            &CanonicalStorageChangeView { new: &changes, old: None },
+            &pooled,
+            &mut records,
+            &mut dirty,
+        );
+        assert!(records.is_empty());
+        assert_eq!(dirty, pooled);
+    }
+
+    #[test]
+    fn canonical_refresh_skips_discovery_without_records_or_storage_changes() {
+        let hook = TestBalanceHook::default();
+        let outcome: ExecutionOutcome = ExecutionOutcome::default();
+        let mut records = vec![];
+        let mut dirty = HashSet::new();
+        refresh_canonical_accounts(
+            &hook,
+            Err(ProviderError::InvalidStorageOutput),
+            &CanonicalStorageChangeView { new: &outcome, old: None },
+            &HashSet::from([Address::with_last_byte(1)]),
+            &mut records,
+            &mut dirty,
+        );
+        assert!(dirty.is_empty());
+        assert_eq!(hook.discovery_calls.load(Ordering::Relaxed), 0);
+    }
+
+    async fn failed_hook_preserves_canonical_bookkeeping(reorg: bool) {
+        let tx_bytes = hex!(
+            "02f87201830655c2808505ef61f08482565f94388c818ca8b9251b393131c08a736a67ccb192978801049e39c4b5b1f580c001a01764ace353514e8abdfb92446de356b260e3c1225b73fc4c8876a6258d12a129a04f02294aa61ca7676061cd99f29275491218b4754b46a0248e5e42bc5091f507"
+        );
+        let tx = PooledTransactionVariant::decode_2718(&mut &tx_bytes[..]).unwrap();
+        let transaction = EthPooledTransaction::from_pooled(tx.try_into_recovered().unwrap());
+        let sender = transaction.sender();
+        let tx_hash = *transaction.hash();
+        let native = Account { nonce: 42, balance: U256::MAX, ..Default::default() };
+        let provider = MockEthProvider::default();
+        provider.add_account(sender, ExtendedAccount::new(native.nonce, native.balance));
+        let blobs = InMemoryBlobStore::default();
+        let validator = EthTransactionValidatorBuilder::new(provider.clone()).build(blobs.clone());
+        let pool = Pool::new(validator, CoinbaseTipOrdering::default(), blobs, Default::default());
+        let consensus_tx = transaction.clone_into_consensus().into_inner();
+        pool.add_transaction(TransactionOrigin::Local, transaction).await.unwrap();
+        assert!(pool.get(&tx_hash).is_some());
+
+        let block = Block {
+            header: alloy_consensus::Header {
+                number: 1,
+                gas_limit: 30_000_000,
+                ..Default::default()
+            },
+            body: BlockBody { transactions: vec![consensus_tx], ..Default::default() },
+        }
+        .seal_slow()
+        .try_recover()
+        .unwrap();
+        let tip_hash = block.hash();
+        let outcome = ExecutionOutcome::new_init(
+            std::iter::once((
+                sender,
+                (
+                    Some(native),
+                    Some(Account { nonce: 43, balance: U256::ZERO, ..Default::default() }),
+                    Default::default(),
+                ),
+            ))
+            .collect(),
+            Default::default(),
+            [],
+            vec![vec![]],
+            1,
+            vec![],
+        );
+        let new = Arc::new(Chain::new(vec![block], outcome, None));
+        let event = if reorg {
+            let old_block = Block {
+                header: alloy_consensus::Header {
+                    number: 1,
+                    timestamp: 1,
+                    gas_limit: 30_000_000,
+                    ..Default::default()
+                },
+                body: BlockBody::default(),
+            }
+            .seal_slow()
+            .try_recover()
+            .unwrap();
+            CanonStateNotification::Reorg {
+                old: Arc::new(Chain::new(vec![old_block], ExecutionOutcome::default(), None)),
+                new,
+            }
+        } else {
+            CanonStateNotification::Commit { new }
+        };
+        let hook = TestBalanceHook::default();
+        hook.fail.store(true, Ordering::Relaxed);
+        let calls = hook.calls.clone();
+        let manager = TaskManager::new(tokio::runtime::Handle::current());
+
+        tokio::time::timeout(
+            Duration::from_secs(10),
+            maintain_transaction_pool_with_hook::<EthPrimitives, _, _, _, _, _>(
+                provider,
+                pool.clone(),
+                futures_util::stream::iter([event]),
+                manager.executor(),
+                MaintainPoolConfig::default(),
+                hook,
+            ),
+        )
+        .await
+        .unwrap();
+
+        assert!(calls.load(Ordering::Relaxed) >= 1);
+        assert_eq!(pool.block_info().last_seen_block_hash, tip_hash);
+        assert_eq!(pool.block_info().last_seen_block_number, 1);
+        assert!(pool.get(&tx_hash).is_none(), "mined transaction must still be removed");
+    }
+
+    #[tokio::test]
+    async fn balance_hook_commit_failure_still_updates_head_and_removes_mined_transactions() {
+        failed_hook_preserves_canonical_bookkeeping(false).await;
+    }
+
+    #[tokio::test]
+    async fn balance_hook_reorg_failure_still_updates_head_and_removes_mined_transactions() {
+        failed_hook_preserves_canonical_bookkeeping(true).await;
+    }
 
     #[test]
     fn changed_acc_entry() {

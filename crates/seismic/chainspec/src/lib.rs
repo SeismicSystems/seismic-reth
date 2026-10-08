@@ -77,7 +77,7 @@ pub const SEISMIC_TESTNET_GENESIS_HASH: B256 =
 /// `seismic-reth genesis-hash --chain crates/seismic/chainspec/res/genesis/dev.json`
 /// The `genesis_header_hash` test recomputes it and fails on drift.
 pub const SEISMIC_DEV_GENESIS_HASH: B256 =
-    b256!("0xaa301b7feb15de1f2a396669913905ef6f7a2ccd4577a22d35a1b3267c9b5928");
+    b256!("0xb28d65992bfbecafd167ac085bec77d1ffbd1b671683e4448f8123de9a150b82");
 
 /// Seismic devnet specification
 ///
@@ -236,6 +236,36 @@ mod tests {
                 "{network} genesis ships storage at the registry address: accepted admission IDs \
                  are network-specific and injected into deploy-owned genesis files, so committed \
                  templates carry no policy and an empty registry fails closed"
+            );
+        }
+    }
+
+    #[test]
+    fn dev_removes_the_legacy_token_seed_but_retains_the_proxy() {
+        let legacy_token = address!("790701048922e265105fd6a4467a2901c2201c43");
+        assert!(
+            !SEISMIC_DEV.genesis.alloc.contains_key(&legacy_token),
+            "dev must not preseed a nonzero public balance at the obsolete token address"
+        );
+        let holder = address!("976ea74026e726554db657fa54763abd0c3a0aa9");
+        assert!(
+            SEISMIC_DEV.genesis.alloc.get(&holder).unwrap().balance.is_zero(),
+            "the token-only holder must be funded with tokens through execution"
+        );
+        for address in [
+            address!("57ab1ed011a20000000000000000000000000000"),
+            address!("c4120d2e54b07854ab8b96512fd8eedf3fc415d3"),
+        ] {
+            assert!(
+                SEISMIC_DEV
+                    .genesis
+                    .alloc
+                    .get(&address)
+                    .unwrap()
+                    .code
+                    .as_ref()
+                    .is_some_and(|code| !code.is_empty()),
+                "proxy and ProxyAdmin must remain allocated"
             );
         }
     }

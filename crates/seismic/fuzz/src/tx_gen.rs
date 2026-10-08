@@ -6,7 +6,7 @@
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use arbitrary::Arbitrary;
 use revm::context::TxEnv;
-use seismic_revm::transaction::abstraction::SeismicTransaction;
+use seismic_revm::{transaction::abstraction::SeismicTransaction, GasPayment};
 
 use crate::mock_state::FUZZ_CHAIN_ID;
 
@@ -33,6 +33,10 @@ pub struct FuzzSeismicTx {
     pub nonce: u64,
     /// The tx type selector.
     pub tx_type_selector: u8,
+    /// Payment selector for Seismic transactions (standard types always use Auto).
+    pub gas_payment_selector: u8,
+    /// Registered token address for explicit payment.
+    pub gas_payment_token: [u8; 20],
     /// Whether to use execution mode for RNG.
     pub rng_mode_execution: bool,
     /// Number of blob hashes (0-6) for EIP-4844 txs.
@@ -96,6 +100,15 @@ impl FuzzSeismicTx {
             tx_hash: Default::default(),
             decryption_failed: false,
             signed_read: false,
+            gas_payment: if tx_type == 0x4A {
+                match self.gas_payment_selector % 3 {
+                    0 => GasPayment::Auto,
+                    1 => GasPayment::Native,
+                    _ => GasPayment::Token(Address::from(self.gas_payment_token)),
+                }
+            } else {
+                GasPayment::Auto
+            },
         }
     }
 

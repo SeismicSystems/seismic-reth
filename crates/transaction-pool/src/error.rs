@@ -206,6 +206,17 @@ pub enum Eip7702PoolTransactionError {
     AuthorityReserved,
 }
 
+/// The binding gas requirement calculated from the submitted transaction at pool admission.
+///
+/// These reasons describe public wire-data checks, never decrypted EVM execution.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GasLimitReason {
+    /// The base transaction, input, access-list, creation or authorization costs.
+    IntrinsicGas,
+    /// The EIP-7623 calldata gas floor.
+    CalldataFloor,
+}
+
 /// Represents errors that can happen when validating transactions for the pool
 ///
 /// See [`TransactionValidator`](crate::TransactionValidator).
@@ -268,6 +279,19 @@ pub enum InvalidPoolTransactionError {
     /// invocation.
     #[error("intrinsic gas too low")]
     IntrinsicGasTooLow,
+    /// The gas limit is below the minimum calculated from public submitted transaction data.
+    ///
+    /// Only pool admission may populate these diagnostics. Never use values from decrypted
+    /// execution or private state: RPC exposes these fields without response encryption.
+    #[error("intrinsic gas too low")]
+    GasLimitBelowMinimum {
+        /// The public gas limit of the submitted transaction.
+        gas_limit: u64,
+        /// The larger of intrinsic gas and the calldata floor for the submitted input.
+        minimum_gas_limit: u64,
+        /// The binding admission requirement.
+        reason: GasLimitReason,
+    },
     /// The transaction priority fee is below the minimum required priority fee.
     #[error("transaction priority fee below minimum required priority fee {minimum_priority_fee}")]
     PriorityFeeBelowMinimum {
@@ -342,7 +366,7 @@ impl InvalidPoolTransactionError {
                 // local setting
                 false
             }
-            Self::IntrinsicGasTooLow => true,
+            Self::IntrinsicGasTooLow | Self::GasLimitBelowMinimum { .. } => true,
             Self::Overdraft { .. } => false,
             Self::Other(err) => err.is_bad_transaction(),
             Self::Eip2681 => true,
@@ -441,6 +465,20 @@ mod tests {
 
         fn as_any(&self) -> &dyn Any {
             self
+        }
+    }
+
+    #[test]
+    fn gas_limit_details_preserve_message_and_peer_classification() {
+        for reason in [GasLimitReason::IntrinsicGas, GasLimitReason::CalldataFloor] {
+            let err = InvalidPoolTransactionError::GasLimitBelowMinimum {
+                gas_limit: 21_480,
+                minimum_gas_limit: 21_800,
+                reason,
+            };
+            assert_eq!(err.to_string(), "intrinsic gas too low");
+            assert!(err.is_bad_transaction());
+            assert!(PoolError::new(TxHash::ZERO, err).is_bad_transaction());
         }
     }
 

@@ -484,8 +484,12 @@ where
     Eth: FullEthApi<Primitives = SeismicPrimitives> + Send + Sync + 'static,
     Eth::Error: Send + Sync + 'static,
     jsonrpsee_types::error::ErrorObject<'static>: From<Eth::Error>,
-    <Eth::NetworkTypes as RpcTypes>::TransactionRequest:
-        From<TransactionRequest> + AsRef<TransactionRequest> + Send + Sync + 'static,
+    <Eth::NetworkTypes as RpcTypes>::TransactionRequest: From<TransactionRequest>
+        + From<SeismicTransactionRequest>
+        + AsRef<TransactionRequest>
+        + Send
+        + Sync
+        + 'static,
 {
     /// Handler for: `eth_signTypedData_v4`
     ///
@@ -525,8 +529,7 @@ where
                 let call = resolve_seismic_call(call)?;
                 let plaintext_tx_req =
                     seismic_call_to_plaintext_tx(&call, &tx_io_sk, self.eth_api.provider())?;
-                let tx_request: TransactionRequest = plaintext_tx_req.inner;
-                prepared_calls.push(tx_request.into());
+                prepared_calls.push(plaintext_tx_req.into());
             }
 
             let prepared_block =
@@ -632,8 +635,7 @@ where
                 let call = resolve_seismic_call(call)?;
                 let plaintext_tx_req =
                     seismic_call_to_plaintext_tx(&call, &tx_io_sk, self.eth_api.provider())?;
-                let tx_request: TransactionRequest = plaintext_tx_req.inner;
-                prepared.push(tx_request.into());
+                prepared.push(plaintext_tx_req.into());
             }
             prepared_bundles.push(Bundle { transactions: prepared, block_override });
         }
@@ -719,7 +721,7 @@ where
         // call inner
         let result = EthCall::call(
             &self.eth_api,
-            plaintext_tx_req.inner.into(),
+            plaintext_tx_req.into(),
             block_number,
             EvmOverrides::new(state_overrides, block_overrides),
         )
@@ -798,7 +800,7 @@ where
         // call inner
         let result = EthCall::estimate_gas_at(
             &self.eth_api,
-            decrypted_req.inner.into(),
+            decrypted_req.into(),
             block_number.unwrap_or_default(),
             state_override,
         )
