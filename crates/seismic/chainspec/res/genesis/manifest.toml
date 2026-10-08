@@ -9,7 +9,7 @@ description = "Seismic dev genesis contracts"
 # Commit of SeismicSystems/seismic the artifacts below are fetched from. Bumping
 # the contracts means bumping this SHA and committing the regenerated genesis
 # (and its new hash) alongside it.
-ref = "83a012da472f626dc3e71b43d186cee22781decd"
+ref = "0497d1bdd6f2d675343bdce97f96ad3e15ed6666"
 
 # NOTE: the beacon roots contract (EIP-4788) was written in etk assembly
 # and doesn't have Solidity source code.
