@@ -62,16 +62,18 @@ async fn registered_private_balance_is_not_exposed_by_unsigned_balance_rpcs() ->
     registry_code.push(0x00);
 
     let mut spec = SEISMIC_DEV.as_ref().clone();
-    spec.genesis
-        .alloc
-        .insert(token, GenesisAccount { code: Some(token_code.into()), ..Default::default() });
-    spec.genesis.alloc.insert(
-        GAS_TOKEN_REGISTRY,
-        GenesisAccount { code: Some(registry_code.into()), ..Default::default() },
-    );
-    spec.genesis.alloc.insert(victim, GenesisAccount::default());
-    spec.genesis_header =
-        SealedHeader::seal_slow(make_genesis_header(&spec.genesis, &spec.hardforks));
+    spec.modify_inner(|spec| {
+        spec.genesis
+            .alloc
+            .insert(token, GenesisAccount { code: Some(token_code.into()), ..Default::default() });
+        spec.genesis.alloc.insert(
+            GAS_TOKEN_REGISTRY,
+            GenesisAccount { code: Some(registry_code.into()), ..Default::default() },
+        );
+        spec.genesis.alloc.insert(victim, GenesisAccount::default());
+        spec.genesis_header =
+            SealedHeader::seal_slow(make_genesis_header(&spec.genesis, &spec.hardforks));
+    });
     let (mut nodes, _tasks, wallet) = tokio::spawn(async move {
         reth_e2e_test_utils::setup_engine::<SeismicNode>(
             1,

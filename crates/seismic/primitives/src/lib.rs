@@ -19,8 +19,11 @@ pub use transaction::{
 mod receipt;
 pub use receipt::SeismicReceipt;
 
+mod header;
+pub use header::{SeismicHeader, MILLIS_PER_SECOND};
+
 /// Seismic-specific block type.
-pub type SeismicBlock = alloy_consensus::Block<SeismicTransactionSigned>;
+pub type SeismicBlock = alloy_consensus::Block<SeismicTransactionSigned, SeismicHeader>;
 
 /// Seismic-specific block body type.
 pub type SeismicBlockBody = <SeismicBlock as reth_primitives_traits::Block>::Body;
@@ -32,7 +35,7 @@ pub struct SeismicPrimitives;
 
 impl reth_primitives_traits::NodePrimitives for SeismicPrimitives {
     type Block = SeismicBlock;
-    type BlockHeader = alloy_consensus::Header;
+    type BlockHeader = SeismicHeader;
     type BlockBody = SeismicBlockBody;
     type SignedTx = SeismicTransactionSigned;
     type Receipt = SeismicReceipt;
@@ -42,6 +45,7 @@ impl reth_primitives_traits::NodePrimitives for SeismicPrimitives {
 #[cfg(feature = "serde-bincode-compat")]
 pub mod serde_bincode_compat {
     pub use super::{
-        receipt::serde_bincode_compat::*, transaction::signed::serde_bincode_compat::*,
+        header::serde_bincode_compat::*, receipt::serde_bincode_compat::*,
+        transaction::signed::serde_bincode_compat::*,
     };
 }

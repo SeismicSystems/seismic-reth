@@ -162,7 +162,7 @@ impl reth_rpc_eth_api::RpcTypes for SeismicRethWithSignable {
     type TransactionRequest = SignableSeismicTransactionRequest;
     type Receipt = <SeismicReth as reth_rpc_eth_api::RpcTypes>::Receipt;
     type TransactionResponse = <SeismicReth as reth_rpc_eth_api::RpcTypes>::TransactionResponse;
-    type Header = <SeismicReth as reth_rpc_eth_api::RpcTypes>::Header;
+    type Header = alloy_rpc_types_eth::Header<reth_seismic_primitives::SeismicHeader>;
 }
 
 /// Adapter for [`EthApiInner`], which holds all the data required to serve core `eth_` API.

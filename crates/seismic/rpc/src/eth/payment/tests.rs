@@ -415,19 +415,22 @@ fn simulated_block_snapshot_executes_plaintext_signed_reads_but_live_and_replay_
             db.insert_account_storage(address, key, value).unwrap();
         }
         let mut state = State::builder().with_database(db).build();
-        let header = alloy_consensus::Header {
+        let header = reth_seismic_primitives::SeismicHeader::from(alloy_consensus::Header {
             number: 1,
             gas_limit: 1_000_000,
             excess_blob_gas: Some(0),
             ..Default::default()
-        };
+        });
         let env = config.evm_env(&header);
         let evm = config.evm_with_env(&mut state, env);
-        let context = EthBlockExecutionCtx {
-            withdrawals: None,
-            ommers: &[],
-            parent_hash: B256::ZERO,
-            parent_beacon_block_root: Some(B256::ZERO),
+        let context = reth_seismic_evm::SeismicBlockExecutionCtx {
+            inner: EthBlockExecutionCtx {
+                withdrawals: None,
+                ommers: &[],
+                parent_hash: B256::ZERO,
+                parent_beacon_block_root: Some(B256::ZERO),
+            },
+            timestamp_millis_part: 0,
         };
         let mut executor = config.executor_factory.create_executor(evm, context);
         executor.apply_pre_execution_changes().unwrap();

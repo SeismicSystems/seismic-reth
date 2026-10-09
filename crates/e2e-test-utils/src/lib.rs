@@ -258,9 +258,9 @@ where
         > + Node<
             TmpNodeAdapter<Self, BlockchainProvider<NodeTypesWithDBAdapter<Self, TmpDB>>>,
             Primitives: NodePrimitives<
-                BlockHeader = alloy_consensus::Header,
                 BlockBody = alloy_consensus::BlockBody<
                     <Self::Primitives as NodePrimitives>::SignedTx,
+                    <Self::Primitives as NodePrimitives>::BlockHeader,
                 >,
             >,
             ComponentsBuilder: NodeComponentsBuilder<
@@ -292,9 +292,9 @@ where
         > + Node<
             TmpNodeAdapter<Self, BlockchainProvider<NodeTypesWithDBAdapter<Self, TmpDB>>>,
             Primitives: NodePrimitives<
-                BlockHeader = alloy_consensus::Header,
                 BlockBody = alloy_consensus::BlockBody<
                     <Self::Primitives as NodePrimitives>::SignedTx,
+                    <Self::Primitives as NodePrimitives>::BlockHeader,
                 >,
             >,
             ComponentsBuilder: NodeComponentsBuilder<

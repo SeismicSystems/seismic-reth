@@ -1,3 +1,4 @@
+use alloy_consensus::BlockHeader;
 use futures::StreamExt;
 use reth_seismic_node::utils::e2e::{advance_chain, ensure_mock_purpose_keys, setup};
 use std::sync::Arc;
@@ -67,7 +68,7 @@ async fn can_sync() -> eyre::Result<()> {
     third_node.wait_unwind((tip - reorg_depth) as u64).await?;
     third_node
         .wait_block(
-            side_payload_chain[0].block().number,
+            side_payload_chain[0].block().number(),
             side_payload_chain[0].block().hash(),
             false,
         )

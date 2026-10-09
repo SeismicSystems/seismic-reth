@@ -15,7 +15,6 @@ workspace = true
 reth-cli-commands.workspace = true
 reth-db = { workspace = true, features = ["mdbx"] }
 reth-node-core.workspace = true
-reth-node-ethereum.workspace = true
 reth-chainspec.workspace = true
 reth-cli.workspace = true
 reth-cli-runner.workspace = true
@@ -48,7 +47,6 @@ proptest.workspace = true
 asm-keccak = [
     "reth-node-core/asm-keccak",
     "reth-seismic-node/asm-keccak",
-    "reth-node-ethereum/asm-keccak",
 ]
 
 # Jemalloc feature for vergen to generate correct env vars

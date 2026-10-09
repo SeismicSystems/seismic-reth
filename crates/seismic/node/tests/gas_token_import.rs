@@ -102,7 +102,7 @@ async fn imported_blocks_settle_public_hyperlane_fees_like_the_builder() -> eyre
 fn block_with(template: &SeismicBlock, tx: SeismicTransactionSigned) -> SealedBlock<SeismicBlock> {
     let mut block = template.clone();
     block.body.transactions.push(tx);
-    block.header.transactions_root = calculate_transaction_root(&block.body.transactions);
+    block.header.inner.transactions_root = calculate_transaction_root(&block.body.transactions);
     SealedBlock::seal_slow(block)
 }
 

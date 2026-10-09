@@ -517,17 +517,6 @@ pub struct NextBlockEnvAttributes {
     pub withdrawals: Option<Withdrawals>,
 }
 
-impl NextBlockEnvAttributes {
-    /// Returns the timestamp in seconds, assuming the timestamp is in milliseconds.
-    pub const fn timestamp_seconds(&self) -> u64 {
-        if cfg!(feature = "timestamp-in-seconds") {
-            self.timestamp
-        } else {
-            self.timestamp / 1000
-        }
-    }
-}
-
 /// Abstraction over transaction environment.
 pub trait TransactionEnv:
     revm::context_interface::Transaction + Debug + Clone + Send + Sync + 'static

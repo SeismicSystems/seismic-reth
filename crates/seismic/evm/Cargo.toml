@@ -38,6 +38,8 @@ alloy-consensus.workspace = true
 reth-seismic-chainspec.workspace = true
 reth-seismic-forks.workspace = true
 reth-seismic-primitives = { workspace = true }
+reth-seismic-engine-types = { workspace = true, features = ["reth"] }
+reth-rpc-eth-api = { workspace = true, optional = true }
 reth-ethereum-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
 
 # revm
@@ -55,7 +57,7 @@ reth-revm = { workspace = true, features = ["test-utils"] }
 reth-seismic-chainspec.workspace = true
 alloy-genesis.workspace = true
 alloy-consensus.workspace = true
-reth-seismic-primitives = { workspace = true, features = ["arbitrary"] }
+reth-seismic-primitives = { workspace = true, features = ["arbitrary", "test-utils"] }
 reth-testing-utils.workspace = true
 secp256k1.workspace = true
 revm-state.workspace = true
@@ -63,16 +65,7 @@ k256.workspace = true
 
 [features]
 default = ["std"]
-timestamp-in-seconds = [
-    "revm/timestamp-in-seconds",
-    "seismic-revm/timestamp-in-seconds",
-    "reth-seismic-chainspec/timestamp-in-seconds",
-    "alloy-evm/timestamp-in-seconds",
-    "alloy-seismic-evm/timestamp-in-seconds",
-    "reth-chainspec/timestamp-in-seconds",
-    "reth-evm/timestamp-in-seconds",
-    "reth-primitives-traits/timestamp-in-seconds",
-]
+rpc = ["dep:reth-rpc-eth-api"]
 std = [
     "reth-consensus/std",
     "reth-revm/std",
@@ -103,5 +96,6 @@ std = [
     "revm-state/std",
     "secp256k1/std",
     "seismic-alloy-genesis/std",
+    "reth-seismic-engine-types/std",
 ]
 portable = ["reth-revm/portable"]

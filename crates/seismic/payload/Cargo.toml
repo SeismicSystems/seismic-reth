@@ -28,6 +28,8 @@ reth-errors.workspace = true
 
 # seismic-reth
 reth-seismic-evm.workspace = true
+reth-seismic-engine-types = { workspace = true, features = ["reth"] }
+reth-seismic-chainspec.workspace = true
 reth-seismic-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec", "arbitrary"] }
 reth-ethereum-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
 
@@ -49,9 +51,3 @@ proptest-arbitrary-interop.workspace = true
 reth-execution-types.workspace = true
 
 [features]
-timestamp-in-seconds = [
-    "revm/timestamp-in-seconds",
-    "reth-chainspec/timestamp-in-seconds",
-    "reth-payload-builder/timestamp-in-seconds",
-    "reth-seismic-evm/timestamp-in-seconds",
-]

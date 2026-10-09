@@ -1,6 +1,6 @@
 //! Loads chain configuration.
 
-use alloy_consensus::{BlockHeader, Header};
+use alloy_consensus::BlockHeader;
 use alloy_eips::eip7910::{EthConfig, EthForkConfig, SystemContract};
 use alloy_primitives::Address;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
@@ -10,7 +10,6 @@ use reth_evm::{
     precompiles::{Precompile, PrecompilesMap},
     ConfigureEvm, Evm,
 };
-use reth_node_api::NodePrimitives;
 use reth_rpc_eth_types::EthApiError;
 use reth_storage_api::BlockReaderIdExt;
 use revm::precompile::PrecompileId;
@@ -37,9 +36,9 @@ pub struct EthConfigHandler<Provider, Evm> {
 impl<Provider, Evm> EthConfigHandler<Provider, Evm>
 where
     Provider: ChainSpecProvider<ChainSpec: Hardforks + EthereumHardforks>
-        + BlockReaderIdExt<Header = Header>
+        + BlockReaderIdExt<Header: BlockHeader>
         + 'static,
-    Evm: ConfigureEvm<Primitives: NodePrimitives<BlockHeader = Header>> + 'static,
+    Evm: ConfigureEvm + 'static,
 {
     /// Creates a new [`EthConfigHandler`].
     pub const fn new(provider: Provider, evm_config: Evm) -> Self {
@@ -109,7 +108,7 @@ where
         #[allow(unused_variables)]
         let (current_fork_idx, current_fork_timestamp) = fork_timestamps
             .iter()
-            .position(|ts| &latest.timestamp < ts)
+            .position(|ts| latest.timestamp() < *ts)
             .and_then(|idx| idx.checked_sub(1))
             .or_else(|| fork_timestamps.len().checked_sub(1))
             .and_then(|idx| fork_timestamps.get(idx).map(|ts| (idx, *ts)))
@@ -160,9 +159,9 @@ where
 impl<Provider, Evm> EthConfigApiServer for EthConfigHandler<Provider, Evm>
 where
     Provider: ChainSpecProvider<ChainSpec: Hardforks + EthereumHardforks>
-        + BlockReaderIdExt<Header = Header>
+        + BlockReaderIdExt<Header: BlockHeader>
         + 'static,
-    Evm: ConfigureEvm<Primitives: NodePrimitives<BlockHeader = Header>> + 'static,
+    Evm: ConfigureEvm + 'static,
 {
     fn config(&self) -> RpcResult<EthConfig> {
         Ok(self.config().map_err(EthApiError::from)?)

@@ -13,7 +13,15 @@ use reth_provider::{
     AccountReader, BlockHashReader, BytecodeReader, HashedPostStateProvider, ProviderError,
     ProviderResult, StateProofProvider, StateRootProvider, StorageRootProvider,
 };
-use reth_seismic_chainspec::SEISMIC_MAINNET;
+use reth_seismic_chainspec::{SeismicChainSpec, SEISMIC_MAINNET};
+
+/// Mock provider over the Seismic primitives and chain spec.
+type SeismicMockProvider = MockEthProvider<SeismicPrimitives, SeismicChainSpec>;
+
+fn seismic_mock_provider() -> SeismicMockProvider {
+    MockEthProvider::<SeismicPrimitives, reth_chainspec::ChainSpec>::new()
+        .with_chain_spec(SEISMIC_MAINNET.as_ref().clone())
+}
 use reth_seismic_primitives::{
     SeismicBlock, SeismicBlockBody, SeismicReceipt, SeismicTransactionSigned,
 };
@@ -31,11 +39,20 @@ use revm::{context::result::InvalidTransaction, database::BundleState};
 use seismic_revm::gas_token_registry::{token_metadata_slot, TokenPrecision, TOKEN_COUNT_SLOT};
 use std::{collections::HashMap, sync::Mutex, time::Duration};
 
-#[derive(Default)]
 struct TestState {
-    inner: MockEthProvider,
+    inner: SeismicMockProvider,
     failed_storage: Option<(Address, B256)>,
     storage_reads: Mutex<Vec<(Address, B256)>>,
+}
+
+impl Default for TestState {
+    fn default() -> Self {
+        Self {
+            inner: seismic_mock_provider(),
+            failed_storage: None,
+            storage_reads: Mutex::new(Vec::new()),
+        }
+    }
 }
 
 impl AccountReader for TestState {
@@ -551,12 +568,12 @@ fn chain(
     timestamp: u64,
 ) -> Arc<Chain<SeismicPrimitives>> {
     let block = SeismicBlock {
-        header: alloy_consensus::Header {
+        header: reth_seismic_primitives::SeismicHeader::from(alloy_consensus::Header {
             number: 1,
             gas_limit: 30_000_000,
             timestamp,
             ..Default::default()
-        },
+        }),
         body: SeismicBlockBody::default(),
     }
     .seal_slow()
@@ -566,10 +583,7 @@ fn chain(
 }
 
 async fn token_only_pool_refresh(case: RefreshCase) {
-    let state = TestState {
-        inner: MockEthProvider::default().with_chain_spec(SEISMIC_MAINNET.as_ref().clone()),
-        ..Default::default()
-    };
+    let state = TestState { inner: seismic_mock_provider(), ..Default::default() };
     let alice = Address::with_last_byte(1);
     let bob = Address::with_last_byte(2);
     let token = entry(0, 6, 1);

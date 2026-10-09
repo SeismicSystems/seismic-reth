@@ -38,7 +38,6 @@ rand.workspace = true
 
 [features]
 default = ["std"]
-timestamp-in-seconds = ["reth-primitives-traits/timestamp-in-seconds"]
 serde = [
     "dep:serde",
     "rand/serde",

@@ -18,7 +18,7 @@ use eyre::Result;
 use reth_payload_primitives::PayloadTypes;
 use reth_primitives_traits::SealedBlock;
 use reth_seismic_node::{
-    engine::SeismicPayloadTypes,
+    engine::SeismicEngineTypes,
     utils::e2e::{ensure_mock_purpose_keys, setup},
 };
 use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
@@ -72,7 +72,7 @@ async fn test_new_payload_rejects_signed_read_tx() -> Result<()> {
     let empty = node.new_payload().await?;
     let mut block: SeismicBlock = empty.block().clone().into_block();
     block.body.transactions.push(signed_read_tx(wallet.chain_id));
-    block.header.transactions_root = calculate_transaction_root(&block.body.transactions);
+    block.header.inner.transactions_root = calculate_transaction_root(&block.body.transactions);
     let sealed = SealedBlock::seal_slow(block);
 
     // Submit through the engine's newPayload handler. The signed-read tx must fail the
@@ -87,7 +87,7 @@ async fn test_new_payload_rejects_signed_read_tx() -> Result<()> {
         node.inner
             .add_ons_handle
             .beacon_engine_handle
-            .new_payload(SeismicPayloadTypes::block_to_payload(sealed)),
+            .new_payload(SeismicEngineTypes::block_to_payload(sealed)),
     )
     .await
     .expect("engine_newPayload timed out rejecting signed-read transaction");

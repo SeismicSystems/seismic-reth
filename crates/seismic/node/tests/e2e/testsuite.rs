@@ -1,3 +1,4 @@
+use alloy_consensus::BlockHeader;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{Address, U256};
 use alloy_rpc_types_eth::TransactionRequest;
@@ -48,7 +49,7 @@ async fn test_seismic_produce_blocks() -> Result<()> {
 
     let tx_hash = node.rpc.inject_tx(raw_tx).await?;
     let payload = node.advance_block().await?;
-    node.assert_new_block(tx_hash, payload.block().hash(), payload.block().number).await?;
+    node.assert_new_block(tx_hash, payload.block().hash(), payload.block().number()).await?;
 
     Ok(())
 }

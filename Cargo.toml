@@ -14,6 +14,7 @@ members = [
     "bin/genesis-builder/",
     "crates/seismic/chainspec",
     "crates/seismic/cli",
+    "crates/seismic/engine-types",
     "crates/seismic/evm/",
     "crates/seismic/genesis-builder",
     "crates/seismic/node/",
@@ -352,6 +353,7 @@ codegen-units = 1
 # reth-seismic-bin = { path = "crates/seismic/bin" }
 reth-seismic-chainspec = { path = "crates/seismic/chainspec" }
 reth-seismic-cli = { path = "crates/seismic/cli" }
+reth-seismic-engine-types = { path = "crates/seismic/engine-types", default-features = false }
 reth-seismic-evm = { path = "crates/seismic/evm" }
 reth-seismic-genesis-builder = { path = "crates/seismic/genesis-builder" }
 reth-seismic-node = { path = "crates/seismic/node" }
@@ -368,8 +370,10 @@ reth-seismic-keys = { path = "crates/seismic/keys" }
 
 seismic-crypto = "0.1.0"
 seismic-custodian-ipc = "0.1.0"
-seismic-revm = "1.0.0"
-alloy-seismic-evm = "0.20.1"
+# The `timestamp-in-seconds` fork feature is always on: Seismic headers carry a standard
+# seconds timestamp (sub-second precision lives in a separate header field).
+seismic-revm = { version = "1.0.0", features = ["timestamp-in-seconds"] }
+alloy-seismic-evm = { version = "0.20.1", features = ["timestamp-in-seconds"] }
 
 seismic-alloy-rpc-types = { version = "0.0.1", default-features = false }
 seismic-alloy-consensus = { version = "0.0.1", default-features = false }
@@ -502,12 +506,12 @@ reth-ress-protocol = { path = "crates/ress/protocol" }
 reth-ress-provider = { path = "crates/ress/provider" }
 
 # revm
-revm = { version = "29.0.0", default-features = false }
+revm = { version = "29.0.0", default-features = false, features = ["timestamp-in-seconds"] }
 revm-bytecode = { version = "6.2.2", default-features = false }
 revm-database = { version = "7.0.5", default-features = false }
 revm-state = { version = "7.0.5", default-features = false }
 revm-primitives = { version = "20.2.1", default-features = false }
-revm-interpreter = { version = "25.0.2", default-features = false }
+revm-interpreter = { version = "25.0.2", default-features = false, features = ["timestamp-in-seconds"] }
 revm-inspector = { version = "10.0.0", default-features = false }
 revm-context = { version = "9.0.2", default-features = false }
 revm-context-interface = { version = "10.1.0", default-features = false }
@@ -519,7 +523,7 @@ revm-inspectors = "0.29.0"
 alloy-chains = { version = "0.2.5", default-features = false }
 alloy-dyn-abi = "1.3.1"
 alloy-eip2124 = { version = "0.2.0", default-features = false }
-alloy-evm = { version = "0.20.1", default-features = false }
+alloy-evm = { version = "0.20.1", default-features = false, features = ["timestamp-in-seconds"] }
 alloy-primitives = { version = "1.3.1", default-features = false, features = ["map-foldhash"] }
 alloy-rlp = { version = "0.3.10", default-features = false, features = ["core-net"] }
 alloy-sol-macro = "1.3.1"

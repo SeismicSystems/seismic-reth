@@ -12,11 +12,11 @@ use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolCall;
 use common::gas_tokens::{deactivateTokenCall, TokenKind, TokenTestContext, GAS_PRICE};
-use reth_payload_builder::EthBuiltPayload;
 use reth_primitives_traits::{SealedBlock, SignedTransaction};
 use reth_provider::StateProviderFactory;
+use reth_seismic_engine_types::SeismicBuiltPayload;
 use reth_seismic_node::utils::test_utils::get_nonce;
-use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
+use reth_seismic_primitives::SeismicBlock;
 use reth_transaction_pool::TransactionPool;
 use seismic_alloy_consensus::GasPayment;
 use seismic_revm::gas_token_registry::{token_metadata_slot, GAS_TOKEN_REGISTRY};
@@ -49,7 +49,7 @@ fn entry_active(context: &TokenTestContext, index: u8) -> eyre::Result<bool> {
 /// Returns the orphaned transaction hash.
 async fn reorg_out(
     context: &mut TokenTestContext,
-    replacement: &EthBuiltPayload<SeismicPrimitives>,
+    replacement: &SeismicBuiltPayload,
     holder_hashes: &[B256],
     orphan_tx: Bytes,
     what: &str,

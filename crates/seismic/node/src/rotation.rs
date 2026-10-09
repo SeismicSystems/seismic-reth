@@ -150,7 +150,7 @@ mod tests {
         registry::{rotation_entry_slot, ROTATIONS_LEN_SLOT},
         RotationEntry, RotationSchedule,
     };
-    use reth_seismic_primitives::SeismicBlock;
+    use reth_seismic_primitives::{SeismicBlock, SeismicHeader};
 
     fn view(number: u64, activation: Option<u64>) -> CanonicalRotationView {
         CanonicalRotationView {
@@ -165,8 +165,10 @@ mod tests {
 
     fn reconcile_fixture(keyring: &PurposeKeyring, view: CanonicalRotationView) {
         let provider = MockEthProvider::<SeismicPrimitives>::new();
-        provider
-            .add_header(view.head_hash, Header { number: view.head_number, ..Default::default() });
+        provider.add_header(
+            view.head_hash,
+            SeismicHeader::from(Header { number: view.head_number, ..Default::default() }),
+        );
         let mut slots = vec![(ROTATIONS_LEN_SLOT, U256::from(view.schedule.len()).into())];
         slots.extend(view.schedule.entries().iter().enumerate().map(|(index, entry)| {
             (
@@ -212,7 +214,7 @@ mod tests {
     #[test]
     fn absent_registry_reads_as_empty_schedule() {
         let provider = MockEthProvider::<SeismicPrimitives>::new();
-        provider.add_header(B256::ZERO, alloy_consensus::Header::default());
+        provider.add_header(B256::ZERO, SeismicHeader::default());
         let view = read_registry_view(&provider).unwrap();
         assert!(view.schedule.is_empty());
     }
@@ -240,12 +242,12 @@ mod tests {
             .unwrap();
         let mut state = State::builder().with_database(parent).build();
         let block = SealedBlock::seal_slow(SeismicBlock {
-            header: Header {
+            header: SeismicHeader::from(Header {
                 number: 200,
                 excess_blob_gas: Some(0),
                 parent_beacon_block_root: Some(B256::ZERO),
                 ..Default::default()
-            },
+            }),
             body: Default::default(),
         });
         let mut executor = config.executor_for_block(&mut state, &block);

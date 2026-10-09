@@ -24,6 +24,7 @@ alloy-primitives = { workspace = true, features = ["serde"] }
 alloy-consensus.workspace = true
 alloy-rlp.workspace = true
 alloy-eips = { workspace = true, features = ["k256"] }
+alloy-serde = { workspace = true, optional = true }
 
 # seismic
 seismic-alloy-consensus.workspace = true
@@ -57,10 +58,10 @@ rstest.workspace = true
 secp256k1 = { workspace = true, features = ["rand", "std", "global-context", "recovery"] }
 serde_json.workspace = true
 bincode.workspace = true
+test-fuzz.workspace = true
 
 [features]
 default = ["std", "serde", "serde-bincode-compat", "reth-codec"]
-timestamp-in-seconds = ["seismic-revm/timestamp-in-seconds"]
 std = [
     "reth-primitives-traits/std",
     "reth-codecs?/std",
@@ -72,6 +73,7 @@ std = [
     "derive_more/std",
     "secp256k1?/std",
     "alloy-rlp/std",
+    "alloy-serde?/std",
     "reth-zstd-compressors?/std",
     "seismic-alloy-consensus/std",
     "revm-context/std",
@@ -92,6 +94,7 @@ reth-codec = [
 ]
 serde = [
     "dep:serde",
+    "dep:alloy-serde",
     "reth-primitives-traits/serde",
     "alloy-primitives/serde",
     "alloy-consensus/serde",
@@ -113,6 +116,11 @@ serde-bincode-compat = [
     "seismic-alloy-consensus/serde-bincode-compat",
     "reth-primitives-traits/serde-bincode-compat",
 ]
+test-utils = [
+    "reth-primitives-traits/test-utils",
+    "std",
+    "reth-codecs?/test-utils",
+]
 arbitrary = [
     "std",
     "dep:arbitrary",
@@ -125,4 +133,5 @@ arbitrary = [
     "alloy-eips/arbitrary",
     "alloy-primitives/arbitrary",
     "rand_08",
+    "alloy-serde?/arbitrary",
 ]

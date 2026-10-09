@@ -65,7 +65,6 @@ proptest.workspace = true
 proptest-arbitrary-interop.workspace = true
 
 [features]
-timestamp-in-seconds = ["reth-seismic-primitives/timestamp-in-seconds"]
 test-utils = [
     "arbitrary",
     "reth-primitives-traits/test-utils",
@@ -75,6 +74,7 @@ test-utils = [
     "reth-prune-types/test-utils",
     "reth-stages-types/test-utils",
     "reth-ethereum-primitives/test-utils",
+    "reth-seismic-primitives/test-utils",
 ]
 arbitrary = [
     "reth-db-models/arbitrary",
