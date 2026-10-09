@@ -10,7 +10,7 @@ use alloy_rpc_types_mev::{
     SimBundleResponse, Validity,
 };
 use jsonrpsee::core::RpcResult;
-use reth_evm::{ConfigureEvm, Evm};
+use reth_evm::{BlockEnvAccess, ConfigureEvm, Evm};
 use reth_primitives_traits::{Recovered, SignedTransaction};
 use reth_revm::{database::StateProviderDatabase, db::CacheDB};
 use reth_rpc_api::MevSimApiServer;
@@ -242,13 +242,17 @@ where
             .spawn_with_state_at_block(current_block_id, move |state| {
                 // Setup environment
                 let current_block_number = current_block.number();
-                let coinbase = evm_env.block_env.beneficiary;
-                let basefee = evm_env.block_env.basefee;
+                let coinbase = evm_env.block_env.as_block_env().beneficiary;
+                let basefee = evm_env.block_env.as_block_env().basefee;
                 let mut db = CacheDB::new(StateProviderDatabase::new(state));
 
                 // apply overrides
-                apply_block_overrides(block_overrides, &mut db, &mut evm_env.block_env)
-                    .map_err(EthApiError::from_overrides_err)?;
+                apply_block_overrides(
+                    block_overrides,
+                    &mut db,
+                    evm_env.block_env.as_block_env_mut(),
+                )
+                .map_err(EthApiError::from_overrides_err)?;
 
                 let initial_coinbase_balance = DatabaseRef::basic_ref(&db, coinbase)
                     .map_err(EthApiError::from_eth_err)?

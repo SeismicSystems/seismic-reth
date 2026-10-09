@@ -43,7 +43,9 @@ only so Summit can consume it without the Seismic forks; the node-side integrati
 `crates/seismic/engine-primitives`. See the engine-types README for the wire format.
 
 The payload id commits to the sub-second component, so two builds that differ only in
-`timestampMillisPart` get distinct ids.
+`timestampMillisPart` get distinct ids. Build requests validate the full millisecond timestamp
+against the parent: same-second requests are valid only when their part increases. Equal or
+earlier full timestamps and parts outside `0..1000` are rejected.
 
 ## Hard fork
 
@@ -52,10 +54,25 @@ database encoding of headers: it is a regenesis for every existing network. Gene
 are pinned in `crates/seismic/chainspec/src/lib.rs` and printed by
 `seismic-reth genesis-hash --chain <spec>`; Summit's `eth_genesis_hash` must match.
 
-## Known gap (until the EVM forks catch up)
+## EVM execution
 
-`BlockEnv.timestamp` is in seconds and the fork EVM crates have no slot for the sub-second
-component yet, so `TIMESTAMPMS` currently returns `timestamp * 1000`. Once seismic-revm /
-seismic-evm carry a `timestamp_millis_part` in the block environment, the node fills it from
-the header and `TIMESTAMPMS` becomes exact. The `timestamp-in-seconds` feature of those forks
-is enabled unconditionally by this workspace in the meantime.
+`SeismicBlockEnv` wraps the standard seconds-based `BlockEnv` and carries
+`timestamp_millis_part`. The node populates both fields when executing existing headers,
+building the next block from payload attributes, and executing Engine API payloads.
+The full environment survives normal and inspected execution, system calls, RPC helpers,
+and factory round trips. Shared Ethereum fields and overrides use the inner `BlockEnv`
+without discarding the part.
+
+`TIMESTAMP` remains seconds. `TIMESTAMPMS` (`0x4B`, gas cost 2) returns the exact value
+`timestamp * 1000 + timestamp_millis_part`. The old `timestamp-in-seconds` feature is removed.
+Converting a stock `BlockEnv` into `SeismicBlockEnv` assigns a zero part; it does not recover
+precision missing from the caller.
+
+## Beacon-root lookups
+
+The Seismic beacon-root predeploy at `0x000f3df6d732807ef1319fb7b8bb8522d0beac02` uses
+`TIMESTAMPMS` for its ring-buffer write index. Distinct same-second blocks therefore retain
+separate roots. Its read calldata is an ABI-encoded **full millisecond timestamp**, not the
+standard RPC `timestamp` alone. Consumers must recombine the RPC header's seconds and
+`timestampMillisPart` before querying it. Changing only the lookup units cannot recover roots
+written by an older, seconds-only EVM binary.

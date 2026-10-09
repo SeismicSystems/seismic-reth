@@ -16,7 +16,8 @@ use alloy_eips::{eip1559::INITIAL_BASE_FEE, Decodable2718};
 use alloy_evm::{eth::EthBlockExecutionCtx, EvmFactory};
 use alloy_primitives::{Bytes, U256};
 pub use alloy_seismic_evm::{
-    block::SeismicBlockExecutorFactory, PurposeKeyring, SeismicEvm, SeismicEvmFactory,
+    block::SeismicBlockExecutorFactory, PurposeKeyring, SeismicBlockEnv, SeismicEvm, SeismicEvmEnv,
+    SeismicEvmFactory,
 };
 use build::SeismicBlockAssembler;
 use core::fmt::Debug;
@@ -125,7 +126,7 @@ impl SeismicEvmConfig {
     pub fn evm_with_env_and_live_key<DB>(
         &self,
         db: DB,
-        evm_env: EvmEnv<SeismicSpecId>,
+        evm_env: SeismicEvmEnv,
     ) -> SeismicEvm<DB, revm::inspector::NoOpInspector>
     where
         DB: alloy_evm::Database,
@@ -172,16 +173,13 @@ impl ConfigureEvm for SeismicEvmConfig {
         &self.block_assembler
     }
 
-    fn evm_env(&self, header: &SeismicHeader) -> EvmEnv<SeismicSpecId> {
+    fn evm_env(&self, header: &SeismicHeader) -> SeismicEvmEnv {
         let spec = revm_spec(self.chain_spec(), header);
         let cfg_env = self.cfg_env(spec);
 
         let block_env = BlockEnv {
             number: U256::from(header.number()),
             beneficiary: header.beneficiary(),
-            // Unix seconds, like upstream. The sub-second component is not visible to the EVM
-            // environment until the forks grow a Seismic block env; until then `TIMESTAMPMS`
-            // reports whole seconds.
             timestamp: U256::from(header.timestamp()),
             difficulty: U256::ZERO,
             prevrandao: header.mix_hash(), /* Seismic genesis spec (Mercury) starts after Paris,
@@ -194,6 +192,10 @@ impl ConfigureEvm for SeismicEvmConfig {
             }),
         };
 
+        let block_env = SeismicBlockEnv {
+            inner: block_env,
+            timestamp_millis_part: header.timestamp_millis_part,
+        };
         EvmEnv { cfg_env, block_env }
     }
 
@@ -201,7 +203,8 @@ impl ConfigureEvm for SeismicEvmConfig {
         &self,
         parent: &SeismicHeader,
         attributes: &SeismicNextBlockEnvAttributes,
-    ) -> Result<EvmEnv<SeismicSpecId>, Self::Error> {
+    ) -> Result<SeismicEvmEnv, Self::Error> {
+        let timestamp_millis_part = attributes.timestamp_millis_part;
         let spec_id = revm_spec(self.chain_spec(), parent);
         let cfg = self.cfg_env(spec_id);
         let attributes: &NextBlockEnvAttributes = attributes;
@@ -253,6 +256,7 @@ impl ConfigureEvm for SeismicEvmConfig {
             blob_excess_gas_and_price,
         };
 
+        let block_env = SeismicBlockEnv { inner: block_env, timestamp_millis_part };
         Ok((cfg, block_env).into())
     }
 
@@ -292,7 +296,7 @@ impl ConfigureEvm for SeismicEvmConfig {
     fn evm_with_env<DB: alloy_evm::Database>(
         &self,
         db: DB,
-        evm_env: EvmEnv<SeismicSpecId>,
+        evm_env: SeismicEvmEnv,
     ) -> SeismicEvm<DB, revm::inspector::NoOpInspector> {
         self.evm_with_env_and_live_key(db, evm_env)
     }
@@ -330,6 +334,10 @@ impl ConfigureEngineEvm<SeismicExecutionData> for SeismicEvmConfig {
             blob_excess_gas_and_price,
         };
 
+        let block_env = SeismicBlockEnv {
+            inner: block_env,
+            timestamp_millis_part: payload.timestamp_millis_part,
+        };
         (cfg_env, block_env).into()
     }
 
@@ -650,7 +658,7 @@ mod tests {
             ..Default::default()
         };
 
-        let evm_env = EvmEnv { block_env: block, ..Default::default() };
+        let evm_env = SeismicEvmEnv { block_env: block.into(), ..Default::default() };
 
         let evm = evm_config.evm_with_env(db, evm_env.clone());
 
@@ -684,7 +692,7 @@ mod tests {
         let evm = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});
 
         // Check that the EVM environment is set to default values
-        assert_eq!(*evm.block(), evm_env.block_env);
+        assert_eq!(*evm.block(), evm_env.block_env.inner);
         assert_eq!(evm.cfg, evm_env.cfg_env);
     }
 
@@ -695,7 +703,7 @@ mod tests {
 
         let cfg = CfgEnv::new().with_chain_id(111).with_spec(SeismicSpecId::MERCURY);
         let block = BlockEnv::default();
-        let evm_env = EvmEnv { block_env: block, cfg_env: cfg.clone() };
+        let evm_env = SeismicEvmEnv { block_env: block.into(), cfg_env: cfg.clone() };
 
         let evm = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});
 
@@ -716,7 +724,7 @@ mod tests {
             number: U256::from(42),
             ..Default::default()
         };
-        let evm_env = EvmEnv { block_env: block, ..Default::default() };
+        let evm_env = SeismicEvmEnv { block_env: block.into(), ..Default::default() };
 
         let evm = evm_config.evm_with_env_and_inspector(db, evm_env.clone(), NoOpInspector {});
 
@@ -1158,6 +1166,107 @@ mod tests {
 
         // Assert that splitting at the first block number returns None for the lower outcome
         assert_eq!(exec_res.clone().split_at(123), (None, exec_res));
+    }
+
+    #[test]
+    fn all_environment_paths_preserve_exact_timestamps_during_execution() {
+        use reth_evm::ConfigureEngineEvm;
+        use reth_primitives_traits::SealedBlock;
+        use revm::state::Bytecode;
+
+        let config = SeismicEvmConfig::new(
+            reth_seismic_chainspec::SEISMIC_DEV.clone(),
+            Arc::new(PurposeKeyring::single_epoch(PurposeKeys::well_known())),
+        );
+        let seconds = 1_800_000_000;
+        let contract = Address::with_last_byte(0xbb);
+        // Return TIMESTAMP and TIMESTAMPMS as two ABI words.
+        let code = Bytecode::new_raw(bytes!("426000524b60205260406000f3"));
+
+        for part in [0, 123, 999] {
+            let header = SeismicHeader {
+                inner: Header {
+                    timestamp: seconds,
+                    number: 1,
+                    blob_gas_used: Some(0),
+                    ..exec_header()
+                },
+                timestamp_millis_part: part,
+            };
+            let parent = SeismicHeader::from(Header {
+                timestamp: seconds - 1,
+                blob_gas_used: Some(0),
+                base_fee_per_gas: Some(INITIAL_BASE_FEE),
+                ..exec_header()
+            });
+            let attributes = SeismicNextBlockEnvAttributes {
+                inner: NextBlockEnvAttributes {
+                    timestamp: seconds,
+                    suggested_fee_recipient: Address::ZERO,
+                    prev_randao: B256::ZERO,
+                    gas_limit: header.gas_limit(),
+                    parent_beacon_block_root: None,
+                    withdrawals: None,
+                },
+                timestamp_millis_part: part,
+            };
+            let payload =
+                SeismicExecutionData::from_sealed_block(SealedBlock::seal_slow(SeismicBlock {
+                    header: header.clone(),
+                    ..Default::default()
+                }));
+            let environments = [
+                config.evm_env(&header),
+                config.next_evm_env(&parent, &attributes).unwrap(),
+                config.evm_env_for_payload(&payload),
+            ];
+
+            for (path, env) in environments.into_iter().enumerate() {
+                assert_eq!(env.block_env.timestamp, U256::from(seconds), "path {path}");
+                assert_eq!(env.block_env.timestamp_millis_part, part, "path {path}");
+                assert!(env.block_env.blob_excess_gas_and_price.is_some(), "path {path}");
+                for inspected in [false, true] {
+                    for system_call in [false, true] {
+                        let mut db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
+                        let caller = funded_caller(&mut db);
+                        db.insert_account_info(
+                            contract,
+                            AccountInfo {
+                                nonce: 1,
+                                code_hash: code.hash_slow(),
+                                code: Some(code.clone()),
+                                ..Default::default()
+                            },
+                        );
+                        let mut evm = if inspected {
+                            config.evm_with_env_and_inspector(db, env.clone(), NoOpInspector)
+                        } else {
+                            config.evm_with_env(db, env.clone())
+                        };
+                        let outcome = if system_call {
+                            evm.transact_system_call(caller, contract, Default::default())
+                        } else {
+                            let mut tx = transfer_tx(caller, Some(env.cfg_env.chain_id));
+                            tx.base.gas_limit = 100_000;
+                            tx.base.gas_price = u128::from(env.block_env.basefee);
+                            evm.transact(tx)
+                        }
+                        .unwrap();
+                        assert!(outcome.result.is_success());
+                        let mut words = outcome.result.output().unwrap().chunks_exact(32);
+                        assert_eq!(U256::from_be_slice(words.next().unwrap()), U256::from(seconds));
+                        assert_eq!(
+                            U256::from_be_slice(words.next().unwrap()),
+                            U256::from(seconds * 1000 + part)
+                        );
+                        assert!(words.next().is_none());
+                        let (_, finished) = evm.finish();
+                        assert_eq!(finished.block_env.timestamp_millis_part, part);
+                        assert_eq!(finished.block_env.timestamp, U256::from(seconds));
+                    }
+                }
+            }
+        }
     }
 
     /// A funded EOA used as the transaction sender in chain-ID tests.

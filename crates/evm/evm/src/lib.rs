@@ -41,6 +41,9 @@ pub mod execute;
 mod aliases;
 pub use aliases::*;
 
+mod block_env;
+pub use block_env::BlockEnvAccess;
+
 mod engine;
 pub use engine::{ConfigureEngineEvm, ExecutableTxIterator};
 
@@ -196,6 +199,7 @@ pub trait ConfigureEvm: Clone + Debug + Send + Sync + Unpin {
         Receipt = ReceiptTy<Self::Primitives>,
         ExecutionCtx<'a>: Debug + Send,
         EvmFactory: EvmFactory<
+            BlockEnv: BlockEnvAccess,
             Tx: TransactionEnv
                     + FromRecoveredTx<TxTy<Self::Primitives>>
                     + FromTxWithEncoded<TxTy<Self::Primitives>>,

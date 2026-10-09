@@ -21,7 +21,7 @@ use reth_node_api::{
     validate_execution_requests, validate_version_specific_fields, EngineApiMessageVersion,
     EngineApiValidator, EngineObjectValidationError, NewPayloadError, PayloadOrAttributes,
 };
-use reth_payload_primitives::PayloadTypes;
+use reth_payload_primitives::{InvalidPayloadAttributesError, PayloadTypes};
 use reth_payload_validator::{cancun, prague, shanghai};
 use reth_primitives_traits::{Block as _, RecoveredBlock, SealedBlock};
 use reth_rpc_api::IntoEngineApiRpcModule;
@@ -32,7 +32,7 @@ use reth_seismic_engine_primitives::{
     SeismicExecutionPayloadEnvelopeV4, SeismicExecutionPayloadV3, SeismicPayloadAttributes,
     SeismicPayloadBuilderAttributes,
 };
-use reth_seismic_primitives::SeismicBlock;
+use reth_seismic_primitives::{SeismicBlock, SeismicHeader};
 use reth_storage_api::{BlockReader, HeaderProvider, StateProviderFactory};
 use reth_transaction_pool::TransactionPool;
 use std::sync::Arc;
@@ -142,6 +142,23 @@ impl PayloadValidator<SeismicEngineTypes> for SeismicEngineValidator {
     ) -> Result<RecoveredBlock<Self::Block>, NewPayloadError> {
         let sealed_block = Self::ensure_well_formed_payload(self, payload)?;
         sealed_block.try_recover().map_err(|e| NewPayloadError::Other(e.into()))
+    }
+
+    /// The Engine API rule "attributes.timestamp > head.timestamp" is applied in milliseconds:
+    /// Seismic builds several blocks per second, so a build request may share the head's seconds
+    /// `timestamp` as long as its millisecond block time is strictly later (the same ordering
+    /// `SeismicConsensus` enforces on the resulting header).
+    fn validate_payload_attributes_against_header(
+        &self,
+        attr: &SeismicPayloadAttributes,
+        header: &SeismicHeader,
+    ) -> Result<(), InvalidPayloadAttributesError> {
+        if !reth_seismic_engine_primitives::is_valid_millis_part(attr.timestamp_millis_part) ||
+            attr.timestamp_millis() <= header.timestamp_millis()
+        {
+            return Err(InvalidPayloadAttributesError::InvalidTimestamp);
+        }
+        Ok(())
     }
 }
 

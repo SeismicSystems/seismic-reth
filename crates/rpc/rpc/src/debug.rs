@@ -15,7 +15,7 @@ use alloy_rpc_types_trace::geth::{
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks};
-use reth_evm::{execute::Executor, ConfigureEvm, EvmEnvFor, TxEnvFor};
+use reth_evm::{execute::Executor, BlockEnvAccess, ConfigureEvm, EvmEnvFor, TxEnvFor};
 use reth_primitives_traits::{
     Block as _, BlockBody, ReceiptWithBloom, RecoveredBlock, SignedTransaction,
 };
@@ -366,8 +366,10 @@ where
                                 let db = db.0;
 
                                 let tx_info = TransactionInfo {
-                                    block_number: Some(evm_env.block_env.number.saturating_to()),
-                                    base_fee: Some(evm_env.block_env.basefee),
+                                    block_number: Some(
+                                        evm_env.block_env.as_block_env().number.saturating_to(),
+                                    ),
+                                    base_fee: Some(evm_env.block_env.as_block_env().basefee),
                                     hash: None,
                                     block_hash: None,
                                     index: None,
@@ -583,8 +585,8 @@ where
                         results.push(trace);
                     }
                     // Increment block_env number and timestamp for the next bundle
-                    evm_env.block_env.number += uint!(1_U256);
-                    evm_env.block_env.timestamp += uint!(12_U256);
+                    evm_env.block_env.as_block_env_mut().number += uint!(1_U256);
+                    evm_env.block_env.as_block_env_mut().timestamp += uint!(12_U256);
 
                     all_bundles.push(results);
                 }
@@ -736,8 +738,8 @@ where
                 .map(|c| c.tx_index.map(|i| i as u64))
                 .unwrap_or_default(),
             block_hash: transaction_context.as_ref().map(|c| c.block_hash).unwrap_or_default(),
-            block_number: Some(evm_env.block_env.number.saturating_to()),
-            base_fee: Some(evm_env.block_env.basefee),
+            block_number: Some(evm_env.block_env.as_block_env().number.saturating_to()),
+            base_fee: Some(evm_env.block_env.as_block_env().basefee),
         };
 
         if let Some(tracer) = tracer {

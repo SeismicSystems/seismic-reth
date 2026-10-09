@@ -13,7 +13,7 @@ use reth_chainspec::{ChainSpecProvider, EthChainSpec};
 use reth_errors::{BlockExecutionError, BlockValidationError, ProviderError, RethError};
 use reth_evm::{
     execute::{BlockBuilder, BlockBuilderOutcome, ExecutionOutcome},
-    ConfigureEvm, Evm, NextBlockEnvAttributes, SpecFor,
+    BlockEnvFor, ConfigureEvm, Evm, NextBlockEnvAttributes, SpecFor,
 };
 use reth_primitives_traits::{transaction::error::InvalidTransactionError, HeaderTy, SealedHeader};
 use reth_revm::{database::StateProviderDatabase, db::State};
@@ -69,6 +69,7 @@ pub trait LoadPendingBlock:
             ProviderBlock<Self::Provider>,
             ProviderReceipt<Self::Provider>,
             SpecFor<Self::Evm>,
+            BlockEnvFor<Self::Evm>,
         >,
         Self::Error,
     > {
@@ -163,7 +164,7 @@ pub trait LoadPendingBlock:
             // Is the pending block cached?
             if let Some(pending_block) = lock.as_ref() {
                 // Is the cached block not expired and latest is its parent?
-                if pending.evm_env.block_env.number == U256::from(pending_block.block().number()) &&
+                if pending.evm_env.block_env.number() == U256::from(pending_block.block().number()) &&
                     parent.hash() == pending_block.block().parent_hash() &&
                     now <= pending_block.expires_at
                 {

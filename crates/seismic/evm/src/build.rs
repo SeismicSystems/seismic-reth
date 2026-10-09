@@ -7,7 +7,7 @@ use alloy_consensus::{
     proofs, Block, BlockBody, BlockHeader, Header, Transaction, TxReceipt, EMPTY_OMMER_ROOT_HASH,
 };
 use alloy_eips::merge::BEACON_NONCE;
-use alloy_evm::block::BlockExecutorFactory;
+use alloy_evm::{block::BlockExecutorFactory, EvmFactory};
 use alloy_primitives::{logs_bloom, Bytes};
 use reth_chainspec::{EthChainSpec, EthereumHardforks};
 use reth_evm::execute::{BlockAssembler, BlockAssemblerInput};
@@ -39,6 +39,7 @@ where
         ExecutionCtx<'a> = SeismicBlockExecutionCtx<'a>,
         Transaction = SeismicTransactionSigned,
         Receipt = SeismicReceipt,
+        EvmFactory: EvmFactory<BlockEnv = alloy_seismic_evm::SeismicBlockEnv>,
     >,
     ChainSpec: EthChainSpec + EthereumHardforks,
 {
