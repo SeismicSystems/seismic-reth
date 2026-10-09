@@ -24,7 +24,7 @@ on:
 
 jobs:
   prepare-reth:
-    if: github.repository == 'paradigmxyz/reth'
+    if: github.repository == 'SeismicSystems/seismic-reth'
     timeout-minutes: 45
     runs-on:
       group: Reth

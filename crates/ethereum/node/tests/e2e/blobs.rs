@@ -11,7 +11,7 @@ use reth_tasks::TaskManager;
 use reth_transaction_pool::TransactionPool;
 use std::sync::Arc;
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn can_handle_blobs() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
     let tasks = TaskManager::current();

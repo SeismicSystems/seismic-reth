@@ -280,6 +280,36 @@ pub type RelaxedEthAnnouncementFilter = TypedRelaxedFilter<TxType>;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use seismic_alloy_consensus::{SeismicTxType, SEISMIC_TX_TYPE_ID};
+
+    /// Documents why the Ethereum-typed strict filter must not be used on a Seismic
+    /// network: it rejects `TxSeismic` announcements and penalizes the announcing peer.
+    #[test]
+    fn strict_eth_filter_rejects_and_penalizes_seismic_tx_type() {
+        let filter = StrictEthAnnouncementFilter::default();
+        assert_eq!(
+            filter.decide_on_announcement(SEISMIC_TX_TYPE_ID, &B256::random(), 100),
+            AnnouncementAcceptance::Reject { penalize_peer: true }
+        );
+    }
+
+    /// Regression test: the Seismic-typed strict filter accepts every Seismic tx type,
+    /// `TxSeismic` (type 74) included, while still rejecting unknown type bytes.
+    #[test]
+    fn seismic_strict_filter_accepts_seismic_tx_types() {
+        let filter = TypedStrictFilter::<SeismicTxType>::default();
+        for ty in [0x00, 0x01, 0x02, 0x03, 0x04, SEISMIC_TX_TYPE_ID] {
+            assert_eq!(
+                filter.decide_on_announcement(ty, &B256::random(), 100),
+                AnnouncementAcceptance::Accept,
+                "tx type {ty:#04x} must be accepted"
+            );
+        }
+        assert_eq!(
+            filter.decide_on_announcement(0xff, &B256::random(), 100),
+            AnnouncementAcceptance::Reject { penalize_peer: true }
+        );
+    }
 
     #[test]
     fn test_transaction_propagation_mode_from_str() {

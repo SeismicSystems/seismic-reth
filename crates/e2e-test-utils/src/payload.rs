@@ -54,15 +54,18 @@ impl<T: PayloadTypes> PayloadTestContext<T> {
         Ok(())
     }
 
-    /// Wait until the best built payload is ready
+    /// Wait until the best built payload is ready.
+    /// Accepts empty payloads after a timeout to avoid spinning forever when the pool is empty.
     pub async fn wait_for_built_payload(&self, payload_id: PayloadId) {
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
         loop {
             let payload = self.payload_builder.best_payload(payload_id).await.unwrap().unwrap();
-            if payload.block().body().transactions().is_empty() {
+            let is_empty = payload.block().body().transactions().is_empty();
+            if is_empty && tokio::time::Instant::now() < deadline {
                 tokio::time::sleep(std::time::Duration::from_millis(20)).await;
                 continue
             }
-            // Resolve payload once its built
+            // Resolve payload once it's built (or accept empty after timeout)
             self.payload_builder
                 .resolve_kind(payload_id, PayloadKind::Earliest)
                 .await

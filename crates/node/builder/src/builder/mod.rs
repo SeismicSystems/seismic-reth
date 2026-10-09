@@ -16,7 +16,11 @@ use reth_cli_util::get_secret_key;
 use reth_db_api::{database::Database, database_metrics::DatabaseMetrics};
 use reth_exex::ExExContext;
 use reth_network::{
-    transactions::{TransactionPropagationPolicy, TransactionsManagerConfig},
+    transactions::{
+        config::{AnnouncementFilteringPolicy, StrictEthAnnouncementFilter},
+        policy::NetworkPolicies,
+        TransactionPropagationPolicy, TransactionsManagerConfig,
+    },
     NetworkBuilder, NetworkConfig, NetworkConfigBuilder, NetworkHandle, NetworkManager,
     NetworkPrimitives,
 };
@@ -731,7 +735,7 @@ impl<Node: FullNodeTypes> BuilderContext<Node> {
         &self.config_container.config
     }
 
-    /// Returns the loaded reh.toml config.
+    /// Returns the loaded reth.toml config.
     pub const fn reth_config(&self) -> &reth_config::Config {
         &self.config_container.toml_config
     }
@@ -821,8 +825,41 @@ impl<Node: FullNodeTypes> BuilderContext<Node> {
         Node::Provider: BlockReaderFor<N>,
         Policy: TransactionPropagationPolicy + Debug,
     {
+        self.start_network_with_policies(
+            builder,
+            pool,
+            tx_config,
+            NetworkPolicies::new(propagation_policy, StrictEthAnnouncementFilter::default()),
+        )
+    }
+
+    /// Convenience function to start the network tasks with a full policy bundle
+    /// (transaction propagation + announcement filtering).
+    ///
+    /// Spawns the configured network and associated tasks and returns the [`NetworkHandle`]
+    /// connected to that network.
+    pub fn start_network_with_policies<Pool, N, P, A>(
+        &self,
+        builder: NetworkBuilder<(), (), N>,
+        pool: Pool,
+        tx_config: TransactionsManagerConfig,
+        policies: NetworkPolicies<P, A>,
+    ) -> NetworkHandle<N>
+    where
+        N: NetworkPrimitives,
+        Pool: TransactionPool<
+                Transaction: PoolTransaction<
+                    Consensus = N::BroadcastedTransaction,
+                    Pooled = N::PooledTransaction,
+                >,
+            > + Unpin
+            + 'static,
+        Node::Provider: BlockReaderFor<N>,
+        P: TransactionPropagationPolicy + Debug,
+        A: AnnouncementFilteringPolicy + Debug,
+    {
         let (handle, network, txpool, eth) = builder
-            .transactions_with_policy(pool, tx_config, propagation_policy)
+            .transactions_with_policies(pool, tx_config, policies)
             .request_handler(self.provider().clone())
             .split_with_handle();
 

@@ -1,0 +1,53 @@
+[package]
+name = "reth-seismic-engine-types"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Engine API wire types shared between seismic-reth and the Summit consensus client"
+
+[lints]
+workspace = true
+
+# This crate is consumed by Summit (the consensus client) by git dependency. Cargo locks every
+# dependency of a git crate regardless of features, so this crate must depend on stock crates.io
+# alloy only: no seismic-alloy forks, no reth, not even optionally. The reth integration lives in
+# `reth-seismic-engine-primitives`.
+
+[dependencies]
+# ethereum
+alloy-primitives = { workspace = true, features = ["serde"] }
+alloy-eips.workspace = true
+alloy-rpc-types-engine = { workspace = true, features = ["serde"] }
+alloy-serde.workspace = true
+
+# misc
+serde = { workspace = true, features = ["derive"] }
+derive_more = { workspace = true, features = ["deref", "deref_mut"] }
+
+# ssz
+ethereum_ssz = { workspace = true, optional = true }
+ethereum_ssz_derive = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "alloy-primitives/std",
+    "alloy-eips/std",
+    "alloy-rpc-types-engine/std",
+    "alloy-serde/std",
+    "serde/std",
+    "derive_more/std",
+    "serde_json/std",
+]
+ssz = [
+    "dep:ethereum_ssz",
+    "dep:ethereum_ssz_derive",
+    "alloy-rpc-types-engine/ssz",
+    "alloy-eips/ssz",
+]

@@ -29,26 +29,25 @@ impl TrieUpdatesDiff {
             !self.storage_tries.is_empty()
     }
 
-    pub(super) fn log_differences(mut self) {
+    pub(super) fn log_differences(self) {
         if self.has_differences() {
-            for (path, EntryDiff { task, regular, database }) in &mut self.account_nodes {
-                warn!(target: "engine::tree", ?path, ?task, ?regular, ?database, "Difference in account trie updates");
+            // Trie paths are prefixes of hashed account addresses and node values contain
+            // state data, so only aggregate counts are logged.
+            if !self.account_nodes.is_empty() {
+                warn!(target: "engine::tree", count = self.account_nodes.len(), "Difference in account trie updates");
             }
 
-            for (
-                path,
-                EntryDiff {
-                    task: task_removed,
-                    regular: regular_removed,
-                    database: database_not_exists,
-                },
-            ) in &self.removed_nodes
+            for EntryDiff {
+                task: task_removed,
+                regular: regular_removed,
+                database: database_not_exists,
+            } in self.removed_nodes.values()
             {
-                warn!(target: "engine::tree", ?path, ?task_removed, ?regular_removed, ?database_not_exists, "Difference in removed account trie nodes");
+                warn!(target: "engine::tree", ?task_removed, ?regular_removed, ?database_not_exists, "Difference in removed account trie nodes");
             }
 
-            for (address, storage_diff) in self.storage_tries {
-                storage_diff.log_differences(address);
+            for (_address, storage_diff) in self.storage_tries {
+                storage_diff.log_differences();
             }
         }
     }
@@ -68,30 +67,28 @@ impl StorageTrieUpdatesDiff {
             !self.removed_nodes.is_empty()
     }
 
-    fn log_differences(&self, address: B256) {
+    fn log_differences(&self) {
         if let Some(EntryDiff {
             task: task_deleted,
             regular: regular_deleted,
             database: database_not_exists,
         }) = self.is_deleted
         {
-            warn!(target: "engine::tree", ?address, ?task_deleted, ?regular_deleted, ?database_not_exists, "Difference in storage trie deletion");
+            warn!(target: "engine::tree", ?task_deleted, ?regular_deleted, ?database_not_exists, "Difference in storage trie deletion");
         }
 
-        for (path, EntryDiff { task, regular, database }) in &self.storage_nodes {
-            warn!(target: "engine::tree", ?address, ?path, ?task, ?regular, ?database, "Difference in storage trie updates");
+        // Hashed addresses, trie paths, and node values are private; log only the count.
+        if !self.storage_nodes.is_empty() {
+            warn!(target: "engine::tree", count = self.storage_nodes.len(), "Difference in storage trie updates");
         }
 
-        for (
-            path,
-            EntryDiff {
-                task: task_removed,
-                regular: regular_removed,
-                database: database_not_exists,
-            },
-        ) in &self.removed_nodes
+        for EntryDiff {
+            task: task_removed,
+            regular: regular_removed,
+            database: database_not_exists,
+        } in self.removed_nodes.values()
         {
-            warn!(target: "engine::tree", ?address, ?path, ?task_removed, ?regular_removed, ?database_not_exists, "Difference in removed storage trie nodes");
+            warn!(target: "engine::tree", ?task_removed, ?regular_removed, ?database_not_exists, "Difference in removed storage trie nodes");
         }
     }
 }

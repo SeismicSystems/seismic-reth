@@ -22,7 +22,11 @@ use reth_rpc_eth_types::{utils::binary_search, EthApiError};
 use reth_rpc_server_types::result::internal_rpc_err;
 use revm::context_interface::result::ExecutionResult;
 use revm_inspectors::{
-    tracing::{types::CallTraceNode, TracingInspectorConfig},
+    tracing::{
+        trace_sanitizer::{sanitize_revert_output, sanitize_trace_entries},
+        types::CallTraceNode,
+        TracingInspectorConfig,
+    },
     transfer::{TransferInspector, TransferKind},
 };
 
@@ -63,6 +67,12 @@ where
     }
 }
 
+// Seismic: every handler that returns trace data calls a `sanitize_*` function from
+// `revm_inspectors::tracing::trace_sanitizer` before returning to the caller. For otterscan
+// this means `ots_traceTransaction` strips calldata/return data from every frame and
+// `ots_getTransactionError` strips the revert payload.
+// See https://github.com/SeismicSystems/seismic-revm-inspectors/blob/seismic/README.md
+// for the full architecture.
 #[async_trait]
 impl<Eth> OtterscanServer<RpcTransaction<Eth::NetworkTypes>, RpcHeader<Eth::NetworkTypes>>
     for OtterscanApi<Eth>
@@ -131,7 +141,9 @@ where
         let maybe_revert = self
             .eth
             .spawn_replay_transaction(tx_hash, |_tx_info, res, _| match res.result {
-                ExecutionResult::Revert { output, .. } => Ok(Some(output)),
+                // Seismic: revert payloads are return data and can embed shielded values.
+                // Keep the "tx reverted" signal (public via receipt status), strip the bytes.
+                ExecutionResult::Revert { output, .. } => Ok(Some(sanitize_revert_output(output))),
                 _ => Ok(None),
             })
             .await
@@ -152,7 +164,7 @@ where
             .await
             .map_err(Into::into)?
             .map(|traces| {
-                traces
+                let entries = traces
                     .into_iter()
                     .map(|CallTraceNode { trace, .. }| TraceEntry {
                         r#type: if trace.is_selfdestruct() {
@@ -167,7 +179,8 @@ where
                         input: trace.data,
                         output: trace.output,
                     })
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>();
+                sanitize_trace_entries(entries)
             });
         Ok(traces)
     }

@@ -30,7 +30,9 @@ alloy-json-rpc.workspace = true
 op-alloy-consensus = { workspace = true, optional = true }
 op-alloy-rpc-types = { workspace = true, optional = true }
 op-alloy-network = { workspace = true, optional = true }
-reth-optimism-primitives = { workspace = true, optional = true }
+# seismic: remove this dep to avoid pulling them optimism crates that don't compile implicitly by cargo/lsp/etc.
+# The optimism crates don't compile because of type changes we made that affects them, such as FlaggedStorage.
+# reth-optimism-primitives = { workspace = true, optional = true }
 op-revm = { workspace = true, optional = true }
 
 # revm
@@ -48,7 +50,9 @@ op = [
     "dep:op-alloy-consensus",
     "dep:op-alloy-rpc-types",
     "dep:op-alloy-network",
-    "dep:reth-optimism-primitives",
+    # seismic: remove this dep to avoid pulling them optimism crates that don't compile implicitly by cargo/lsp/etc.
+    # The optimism crates don't compile because of type changes we made that affects them, such as FlaggedStorage.
+    # "dep:reth-optimism-primitives",
     "dep:reth-storage-api",
     "dep:op-revm",
     "reth-evm/op",

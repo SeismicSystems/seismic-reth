@@ -23,6 +23,7 @@ reth-stages-types.workspace = true
 reth-storage-errors.workspace = true
 reth-trie-common.workspace = true
 revm-database.workspace = true
+revm-state.workspace = true
 reth-ethereum-primitives.workspace = true
 
 # ethereum
@@ -50,6 +51,7 @@ std = [
     "reth-storage-errors/std",
     "reth-db-models/std",
     "reth-trie-common/std",
+    "revm-state/std",
 ]
 
 db-api = [
@@ -70,6 +72,7 @@ serde = [
     "alloy-primitives/serde",
     "alloy-consensus/serde",
     "alloy-rpc-types-engine/serde",
+    "revm-state/serde",
 ]
 
 serde-bincode-compat = [

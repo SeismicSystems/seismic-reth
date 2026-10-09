@@ -2,6 +2,7 @@ participants:
   - el_type: geth
     cl_type: lighthouse
   - el_type: reth
+    # TODO: add for seismic
     el_image: "ghcr.io/paradigmxyz/reth:kurtosis-ci"
     cl_type: teku
 additional_services:

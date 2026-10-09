@@ -17,8 +17,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: rui314/setup-mold@v1
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.88"
           target: x86_64-pc-windows-gnu
       - uses: taiki-e/install-action@cross
       - uses: Swatinem/rust-cache@v2
@@ -36,8 +37,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: rui314/setup-mold@v1
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.88"
           target: x86_64-pc-windows-gnu
       - uses: taiki-e/install-action@cross
       - uses: Swatinem/rust-cache@v2

@@ -28,7 +28,8 @@ use alloy_consensus::{constants::KECCAK_EMPTY, BlockHeader};
 use alloy_eips::{BlockHashOrNumber, BlockNumberOrTag};
 use alloy_network::{primitives::HeaderResponse, BlockResponse};
 use alloy_primitives::{
-    map::HashMap, Address, BlockHash, BlockNumber, StorageKey, TxHash, TxNumber, B256, U256,
+    map::HashMap, Address, BlockHash, BlockNumber, FlaggedStorage, StorageKey, TxHash, TxNumber,
+    B256, U256,
 };
 use alloy_provider::{ext::DebugApi, network::Network, Provider};
 use alloy_rpc_types::{AccountInfo, BlockId};
@@ -1088,13 +1089,15 @@ where
         &self,
         address: Address,
         storage_key: StorageKey,
-    ) -> Result<Option<U256>, ProviderError> {
+    ) -> Result<Option<FlaggedStorage>, ProviderError> {
         self.block_on_async(async {
             Ok(Some(
                 self.provider
                     .get_storage_at(address, storage_key.into())
                     .block_id(self.block_id)
                     .await
+                    // TODO(audit): this might leak
+                    .map(FlaggedStorage::public)
                     .map_err(ProviderError::other)?,
             ))
         })
@@ -1226,7 +1229,7 @@ where
             let mut values = Vec::new();
             for key in keys {
                 let value = self.storage(address, key)?.unwrap_or_default();
-                values.push(reth_primitives::StorageEntry::new(key, value));
+                values.push(reth_primitives::StorageEntry::new(key, value.value, value.is_private));
             }
             results.push((address, values));
         }

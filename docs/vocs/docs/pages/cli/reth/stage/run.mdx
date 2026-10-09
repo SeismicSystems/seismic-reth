@@ -5,8 +5,9 @@ Run a single stage.
 ```bash
 $ reth stage run --help
 ```
+
 ```txt
-Usage: reth stage run [OPTIONS] --from <FROM> --to <TO> <STAGE>
+Usage: seismic-reth stage run [OPTIONS] --from <FROM> --to <TO> <STAGE>
 
 Options:
   -h, --help

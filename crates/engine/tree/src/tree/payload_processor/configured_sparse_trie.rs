@@ -94,11 +94,12 @@ impl SparseTrieInterface for ConfiguredSparseTrie {
         &mut self,
         full_path: Nibbles,
         value: Vec<u8>,
+        is_private: bool,
         provider: P,
     ) -> SparseTrieResult<()> {
         match self {
-            Self::Serial(trie) => trie.update_leaf(full_path, value, provider),
-            Self::Parallel(trie) => trie.update_leaf(full_path, value, provider),
+            Self::Serial(trie) => trie.update_leaf(full_path, value, is_private, provider),
+            Self::Parallel(trie) => trie.update_leaf(full_path, value, is_private, provider),
         }
     }
 

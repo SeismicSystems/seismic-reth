@@ -26,7 +26,9 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.88"
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
         with:

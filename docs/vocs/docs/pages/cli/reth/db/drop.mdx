@@ -5,8 +5,9 @@ Deletes all database entries
 ```bash
 $ reth db drop --help
 ```
+
 ```txt
-Usage: reth db drop [OPTIONS]
+Usage: seismic-reth db drop [OPTIONS]
 
 Options:
   -f, --force

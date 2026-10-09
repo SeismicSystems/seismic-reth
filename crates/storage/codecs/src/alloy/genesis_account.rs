@@ -2,9 +2,10 @@
 
 use crate::Compact;
 use alloc::vec::Vec;
-use alloy_genesis::GenesisAccount as AlloyGenesisAccount;
+use seismic_alloy_genesis::GenesisAccount as AlloyGenesisAccount;
 use alloy_primitives::{Bytes, B256, U256};
 use reth_codecs_derive::add_arbitrary_tests;
+use alloy_primitives::FlaggedStorage;
 
 /// `GenesisAccount` acts as bridge which simplifies Compact implementation for
 /// `AlloyGenesisAccount`.
@@ -69,6 +70,7 @@ pub(crate) struct StorageEntries {
 pub(crate) struct StorageEntry {
     key: B256,
     value: B256,
+    is_private: bool,
 }
 
 impl Compact for AlloyGenesisAccount {
@@ -83,7 +85,11 @@ impl Compact for AlloyGenesisAccount {
             storage: self.storage.as_ref().map(|s| StorageEntries {
                 entries: s
                     .iter()
-                    .map(|(key, value)| StorageEntry { key: *key, value: *value })
+                    .map(|(key, value)| StorageEntry {
+                        key: *key,
+                        value: value.value.into(),
+                        is_private: value.is_private,
+                    })
                     .collect(),
             }),
             private_key: self.private_key.as_ref(),
@@ -99,7 +105,7 @@ impl Compact for AlloyGenesisAccount {
             code: account.code,
             storage: account
                 .storage
-                .map(|s| s.entries.into_iter().map(|entry| (entry.key, entry.value)).collect()),
+                .map(|s| s.entries.into_iter().map(|entry| (entry.key, FlaggedStorage::new(U256::from_be_bytes(entry.value.0), entry.is_private))).collect()),
             private_key: account.private_key,
         };
         (alloy_account, buf)

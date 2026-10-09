@@ -30,6 +30,7 @@ nybbles = { workspace = true, features = ["rlp"] }
 
 # reth
 revm-database.workspace = true
+revm-state.workspace = true
 
 # `serde` feature
 serde = { workspace = true, optional = true }
@@ -62,7 +63,8 @@ bincode.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
-revm-state.workspace = true
+
+seismic-alloy-genesis.workspace = true
 
 [features]
 default = ["std"]
@@ -83,6 +85,7 @@ std = [
     "serde_json/std",
     "revm-database/std",
     "revm-state/std",
+    "seismic-alloy-genesis/std",
 ]
 eip1186 = ["alloy-rpc-types-eth/serde", "dep:alloy-serde"]
 serde = [
