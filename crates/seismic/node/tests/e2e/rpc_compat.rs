@@ -45,22 +45,15 @@ async fn test_seismic_rpc_compat() -> Result<()> {
         std::fs::read_to_string(&genesis_path).expect("failed to read genesis.json from testdata");
     let mut genesis: Genesis = serde_json::from_str(&genesis_json).expect("invalid genesis JSON");
 
-    // Genesis JSON timestamps are in seconds, but when timestamp-in-seconds feature is disabled,
-    // we store timestamps internally as milliseconds.
-    #[cfg(not(feature = "timestamp-in-seconds"))]
-    {
-        genesis.timestamp *= 1000;
-    }
-
     let hardforks = reth_seismic_forks::SEISMIC_DEV_HARDFORKS.clone();
-    let chain_spec: Arc<ChainSpec> = ChainSpec {
+    let chain_spec: Arc<SeismicChainSpec> = SeismicChainSpec::new(ChainSpec {
         chain: Chain::from_id(genesis.config.chain_id),
         genesis_header: SealedHeader::seal_slow(make_genesis_header(&genesis, &hardforks)),
         genesis,
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
         hardforks,
         ..Default::default()
-    }
+    })
     .into();
 
     let setup = Setup::<SeismicEngineTypes>::default()

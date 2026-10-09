@@ -29,6 +29,8 @@ alloy-primitives.workspace = true
 alloy-consensus.workspace = true
 alloy-eips.workspace = true
 alloy-hardforks.workspace = true
+alloy-evm.workspace = true
+alloy-seismic-evm.workspace = true
 
 # op
 seismic-alloy-rpc-types.workspace = true
@@ -51,7 +53,6 @@ seismic-alloy-rpc-types.workspace = true
 
 [features]
 default = ["std"]
-timestamp-in-seconds = ["reth-chainspec/timestamp-in-seconds"]
 std = [
     "alloy-chains/std",
     "alloy-genesis/std",
@@ -70,4 +71,5 @@ std = [
     "serde_json/std",
     "seismic-alloy-consensus/std",
     "reth-seismic-forks/std",
+    "alloy-evm/std",
 ]

@@ -1,0 +1,41 @@
+[package]
+name = "reth-seismic-engine-primitives"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Reth-side Engine API primitives for Seismic"
+
+[lints]
+workspace = true
+
+[dependencies]
+# seismic
+reth-seismic-engine-types.workspace = true
+reth-seismic-primitives.workspace = true
+
+# reth
+reth-engine-local.workspace = true
+reth-ethereum-engine-primitives.workspace = true
+# Pulled in only to pin the feature set `NodePrimitives` bounds need when building in isolation.
+reth-ethereum-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
+reth-payload-primitives.workspace = true
+reth-primitives-traits.workspace = true
+
+# ethereum
+alloy-consensus.workspace = true
+alloy-eips.workspace = true
+alloy-primitives.workspace = true
+alloy-rlp.workspace = true
+alloy-rpc-types-engine.workspace = true
+
+# misc
+derive_more = { workspace = true, features = ["deref", "deref_mut"] }
+serde = { workspace = true, features = ["derive"] }
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

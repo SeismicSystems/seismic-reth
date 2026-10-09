@@ -48,7 +48,7 @@ fn key(slot: U256) -> B256 {
     slot.to_be_bytes::<32>().into()
 }
 fn client(native: U256) -> MockEthProvider {
-    let client = MockEthProvider::default().with_chain_spec(SEISMIC_MAINNET.as_ref().clone());
+    let client = MockEthProvider::default().with_chain_spec(SEISMIC_MAINNET.inner().clone());
     client.add_account(sender(), ExtendedAccount::new(0, native));
     client
 }

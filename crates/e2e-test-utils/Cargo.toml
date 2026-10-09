@@ -74,7 +74,6 @@ tracing.workspace = true
 derive_more.workspace = true
 
 [features]
-timestamp-in-seconds = ["revm/timestamp-in-seconds"]
 
 [[test]]
 name = "e2e_testsuite"

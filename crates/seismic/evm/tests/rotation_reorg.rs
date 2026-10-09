@@ -9,8 +9,9 @@ use alloy_evm::{
 use alloy_primitives::{Address, FlaggedStorage, B256, U256};
 use alloy_seismic_evm::{CanonicalRotationView, PurposeKeys, RotationEntry, RotationSchedule};
 use reth_evm::ConfigureEvm;
-use reth_seismic_evm::{PurposeKeyring, SeismicEvmConfig};
+use reth_seismic_evm::{PurposeKeyring, SeismicBlockExecutionCtx, SeismicEvmConfig};
 use reth_seismic_keys::registry::{rotation_entry_slot, KEY_ROTATION_REGISTRY, ROTATIONS_LEN_SLOT};
+use reth_seismic_primitives::SeismicHeader;
 use revm::{
     database::{CacheDB, EmptyDB},
     state::{AccountInfo, Bytecode},
@@ -68,14 +69,21 @@ fn pre_execute(
     activation: Option<u64>,
     number: u64,
 ) -> Result<Vec<u8>, String> {
-    let env = config.evm_env(&Header { number, excess_blob_gas: Some(0), ..Default::default() });
+    let env = config.evm_env(&SeismicHeader::from(Header {
+        number,
+        excess_blob_gas: Some(0),
+        ..Default::default()
+    }));
     let mut db = revm::database::State::builder().with_database(branch(activation)).build();
     let evm = config.evm_with_env(&mut db, env);
-    let ctx = EthBlockExecutionCtx {
-        parent_hash: B256::ZERO,
-        parent_beacon_block_root: Some(B256::ZERO),
-        ommers: &[],
-        withdrawals: None,
+    let ctx = SeismicBlockExecutionCtx {
+        timestamp_millis_part: 0,
+        inner: EthBlockExecutionCtx {
+            parent_hash: B256::ZERO,
+            parent_beacon_block_root: Some(B256::ZERO),
+            ommers: &[],
+            withdrawals: None,
+        },
     };
     let mut executor = config.executor_factory.create_executor(evm, ctx);
     executor.apply_pre_execution_changes().map_err(|e| e.to_string())?;
@@ -201,14 +209,17 @@ fn registry_read_failures_never_use_cached_or_fallback_keys() {
             fail_basic,
             fail_storage: !fail_basic,
         };
-        let env = node.evm_env(&Header { number: 200, ..Default::default() });
+        let env = node.evm_env(&SeismicHeader::from(Header { number: 200, ..Default::default() }));
         let mut state = revm::database::State::builder().with_database(db).build();
         let evm = node.evm_with_env(&mut state, env);
-        let ctx = EthBlockExecutionCtx {
-            parent_hash: B256::ZERO,
-            parent_beacon_block_root: Some(B256::ZERO),
-            ommers: &[],
-            withdrawals: None,
+        let ctx = SeismicBlockExecutionCtx {
+            timestamp_millis_part: 0,
+            inner: EthBlockExecutionCtx {
+                parent_hash: B256::ZERO,
+                parent_beacon_block_root: Some(B256::ZERO),
+                ommers: &[],
+                withdrawals: None,
+            },
         };
         let mut executor = node.executor_factory.create_executor(evm, ctx);
         let error = executor.apply_pre_execution_changes().unwrap_err();
@@ -230,12 +241,14 @@ fn raw_and_inspected_simulations_use_parent_state_once_without_fetch_requests() 
         fail_basic: false,
         fail_storage: false,
     };
-    let env = simulation.evm_env(&Header { number: 200, ..Default::default() });
+    let env =
+        simulation.evm_env(&SeismicHeader::from(Header { number: 200, ..Default::default() }));
     let mut evm = simulation.evm_with_env_and_inspector(db, env, revm::inspector::NoOpInspector {});
     assert_eq!(evm.initialize_keys().unwrap().epoch, 0);
     assert_eq!(evm.initialize_keys().unwrap().epoch, 0);
     assert_eq!(reads.load(Ordering::SeqCst), 2, "length plus one entry, once per attempt");
-    let env = simulation.evm_env(&Header { number: 300, ..Default::default() });
+    let env =
+        simulation.evm_env(&SeismicHeader::from(Header { number: 300, ..Default::default() }));
     let mut evm = simulation.evm_with_env(branch(Some(300)), env);
     assert!(evm.initialize_keys().unwrap_err().to_string().contains("epoch 1"));
     assert!(live.executor_factory.keyring.requested_epochs().is_empty());

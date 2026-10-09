@@ -41,6 +41,9 @@ pub mod execute;
 mod aliases;
 pub use aliases::*;
 
+mod block_env;
+pub use block_env::BlockEnvAccess;
+
 mod engine;
 pub use engine::{ConfigureEngineEvm, ExecutableTxIterator};
 
@@ -196,6 +199,7 @@ pub trait ConfigureEvm: Clone + Debug + Send + Sync + Unpin {
         Receipt = ReceiptTy<Self::Primitives>,
         ExecutionCtx<'a>: Debug + Send,
         EvmFactory: EvmFactory<
+            BlockEnv: BlockEnvAccess,
             Tx: TransactionEnv
                     + FromRecoveredTx<TxTy<Self::Primitives>>
                     + FromTxWithEncoded<TxTy<Self::Primitives>>,
@@ -515,17 +519,6 @@ pub struct NextBlockEnvAttributes {
     pub parent_beacon_block_root: Option<B256>,
     /// Withdrawals
     pub withdrawals: Option<Withdrawals>,
-}
-
-impl NextBlockEnvAttributes {
-    /// Returns the timestamp in seconds, assuming the timestamp is in milliseconds.
-    pub const fn timestamp_seconds(&self) -> u64 {
-        if cfg!(feature = "timestamp-in-seconds") {
-            self.timestamp
-        } else {
-            self.timestamp / 1000
-        }
-    }
 }
 
 /// Abstraction over transaction environment.

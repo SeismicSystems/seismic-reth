@@ -394,11 +394,10 @@ pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
             last_seen_block_hash: latest.hash(),
             last_seen_block_number: latest.number(),
             pending_basefee: chain_spec
-                .next_block_base_fee(latest.header(), latest.timestamp_seconds())
+                .next_block_base_fee(latest.header(), latest.timestamp())
                 .unwrap_or_default(),
-            pending_blob_fee: latest.maybe_next_block_blob_fee(
-                chain_spec.blob_params_at_timestamp(latest.timestamp_seconds()),
-            ),
+            pending_blob_fee: latest
+                .maybe_next_block_blob_fee(chain_spec.blob_params_at_timestamp(latest.timestamp())),
         };
         pool.set_block_info(info);
     }
@@ -578,10 +577,10 @@ pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
 
                 // fees for the next block: `new_tip+1`
                 let pending_block_base_fee = chain_spec
-                    .next_block_base_fee(new_tip.header(), new_tip.timestamp_seconds())
+                    .next_block_base_fee(new_tip.header(), new_tip.timestamp())
                     .unwrap_or_default();
                 let pending_block_blob_fee = new_tip.header().maybe_next_block_blob_fee(
-                    chain_spec.blob_params_at_timestamp(new_tip.timestamp_seconds()),
+                    chain_spec.blob_params_at_timestamp(new_tip.timestamp()),
                 );
 
                 // we know all changed account in the new chain
@@ -689,10 +688,10 @@ pub async fn maintain_transaction_pool_with_hook<N, Client, P, St, Tasks, H>(
 
                 // fees for the next block: `tip+1`
                 let pending_block_base_fee = chain_spec
-                    .next_block_base_fee(tip.header(), tip.timestamp_seconds())
+                    .next_block_base_fee(tip.header(), tip.timestamp())
                     .unwrap_or_default();
                 let pending_block_blob_fee = tip.header().maybe_next_block_blob_fee(
-                    chain_spec.blob_params_at_timestamp(tip.timestamp_seconds()),
+                    chain_spec.blob_params_at_timestamp(tip.timestamp()),
                 );
 
                 let first_block = blocks.first();

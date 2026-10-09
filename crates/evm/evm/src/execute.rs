@@ -176,12 +176,14 @@ pub struct ExecuteOutput<R> {
 /// let block = assembler.assemble_block(input)?;
 /// ```
 #[derive(derive_more::Debug)]
+#[debug(bound(<F::EvmFactory as EvmFactory>::BlockEnv: core::fmt::Debug))]
 #[non_exhaustive]
 pub struct BlockAssemblerInput<'a, 'b, F: BlockExecutorFactory, H = Header> {
     /// Configuration of EVM used when executing the block.
     ///
     /// Contains context relevant to EVM such as [`revm::context::BlockEnv`].
-    pub evm_env: EvmEnv<<F::EvmFactory as EvmFactory>::Spec>,
+    pub evm_env:
+        EvmEnv<<F::EvmFactory as EvmFactory>::Spec, <F::EvmFactory as EvmFactory>::BlockEnv>,
     /// [`BlockExecutorFactory::ExecutionCtx`] used to execute the block.
     pub execution_ctx: F::ExecutionCtx<'a>,
     /// Parent block header.
@@ -427,6 +429,7 @@ where
     Executor: BlockExecutor<
         Evm: Evm<
             Spec = <F::EvmFactory as EvmFactory>::Spec,
+            BlockEnv = <F::EvmFactory as EvmFactory>::BlockEnv,
             HaltReason = <F::EvmFactory as EvmFactory>::HaltReason,
             DB = &'a mut State<DB>,
         >,

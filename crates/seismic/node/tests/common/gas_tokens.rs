@@ -15,12 +15,12 @@ use jsonrpsee::{
 };
 use reth_chainspec::make_genesis_header;
 use reth_e2e_test_utils::wallet::Wallet;
-use reth_payload_builder::EthBuiltPayload;
 use reth_payload_primitives::PayloadTypes;
 use reth_primitives_traits::{SealedBlock, SealedHeader};
 use reth_provider::StateProviderFactory;
+use reth_seismic_engine_primitives::SeismicBuiltPayload;
 use reth_seismic_node::{
-    engine::SeismicPayloadTypes,
+    engine::SeismicEngineTypes,
     node::SeismicNode,
     utils::{
         e2e::{
@@ -29,7 +29,7 @@ use reth_seismic_node::{
         test_utils::get_nonce,
     },
 };
-use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives, SeismicTransactionSigned};
+use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
 use reth_seismic_test_utils::{get_unsigned_seismic_tx_request, sign_tx};
 use reth_tasks::TaskManager;
@@ -115,17 +115,18 @@ impl TokenTestContext {
         if with_proxy {
             // Reuse the genesis proxy, without upgrading it or changing any token
             // storage through a genesis/RPC override. Only its test administrator changes.
-            let spec = Arc::make_mut(&mut spec);
-            spec.genesis
-                .alloc
-                .get_mut(&PROXY_ADMIN)
-                .unwrap()
-                .storage
-                .as_mut()
-                .unwrap()
-                .insert(B256::ZERO, Wallet::default().inner.address().into_word());
-            spec.genesis_header =
-                SealedHeader::seal_slow(make_genesis_header(&spec.genesis, &spec.hardforks));
+            Arc::make_mut(&mut spec).modify_inner(|spec| {
+                spec.genesis
+                    .alloc
+                    .get_mut(&PROXY_ADMIN)
+                    .unwrap()
+                    .storage
+                    .as_mut()
+                    .unwrap()
+                    .insert(B256::ZERO, Wallet::default().inner.address().into_word());
+                spec.genesis_header =
+                    SealedHeader::seal_slow(make_genesis_header(&spec.genesis, &spec.hardforks));
+            });
         }
         let (mut nodes, tasks, wallet) =
             tokio::spawn(reth_e2e_test_utils::setup_engine::<SeismicNode>(
@@ -152,7 +153,7 @@ impl TokenTestContext {
             node.inner
                 .add_ons_handle
                 .beacon_engine_handle
-                .new_payload(SeismicPayloadTypes::block_to_payload(block)),
+                .new_payload(SeismicEngineTypes::block_to_payload(block)),
         )
         .await
         .map_err(|_| eyre::eyre!("engine_newPayload timed out"))??;
@@ -215,9 +216,7 @@ impl TokenTestContext {
     }
 
     /// Build a payload from the current pool on the canonical head without submitting it.
-    pub(crate) async fn build_payload(
-        &mut self,
-    ) -> eyre::Result<EthBuiltPayload<SeismicPrimitives>> {
+    pub(crate) async fn build_payload(&mut self) -> eyre::Result<SeismicBuiltPayload> {
         self.node.new_payload().await
     }
 
@@ -225,7 +224,7 @@ impl TokenTestContext {
     /// update (safe/finalized untouched), so sibling payloads can still replace it.
     pub(crate) async fn make_canonical(
         &self,
-        payload: &EthBuiltPayload<SeismicPrimitives>,
+        payload: &SeismicBuiltPayload,
     ) -> eyre::Result<SealedBlock<SeismicBlock>> {
         let status = Self::import_block(&self.node, payload.block().clone()).await?;
         eyre::ensure!(status.is_valid(), "payload {} rejected: {status:?}", payload.block().hash());

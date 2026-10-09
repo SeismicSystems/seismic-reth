@@ -49,16 +49,18 @@ async fn engine_reorg() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
     ensure_mock_purpose_keys();
     let mut spec = SEISMIC_DEV.as_ref().clone();
-    spec.genesis
-        .alloc
-        .get_mut(&KEY_ROTATION_REGISTRY)
-        .unwrap()
-        .storage
-        .as_mut()
-        .unwrap()
-        .insert(ADMIN_SLOT, Wallet::default().inner.address().into_word());
-    spec.genesis_header =
-        SealedHeader::seal_slow(make_genesis_header(&spec.genesis, &spec.hardforks));
+    spec.modify_inner(|spec| {
+        spec.genesis
+            .alloc
+            .get_mut(&KEY_ROTATION_REGISTRY)
+            .unwrap()
+            .storage
+            .as_mut()
+            .unwrap()
+            .insert(ADMIN_SLOT, Wallet::default().inner.address().into_word());
+        spec.genesis_header =
+            SealedHeader::seal_slow(make_genesis_header(&spec.genesis, &spec.hardforks));
+    });
     let (mut nodes, tasks, wallet) = tokio::spawn(setup_engine::<SeismicNode>(
         1,
         Arc::new(spec),

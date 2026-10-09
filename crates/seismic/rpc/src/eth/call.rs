@@ -1,5 +1,5 @@
 use crate::{SeismicEthApi, SeismicEthApiError};
-use reth_evm::{EvmEnv, EvmEnvFor, SpecFor, TxEnvFor};
+use reth_evm::{BlockEnvAccess, EvmEnvFor, SpecFor, TxEnvFor};
 use reth_rpc_eth_api::{
     helpers::{estimate::EstimateCall, Call, EthCall},
     EthApiTypes, FromEthApiError, FromEvmError, RpcConvert, RpcNodeCore, RpcTxReq,
@@ -72,7 +72,7 @@ where
 
     fn create_txn_env(
         &self,
-        evm_env: &EvmEnv<SpecFor<Self::Evm>>,
+        evm_env: &EvmEnvFor<Self::Evm>,
         mut request: RpcTxReq<Rpc::Network>,
         mut db: impl Database<Error: Into<EthApiError>>,
     ) -> Result<TxEnvFor<N::Evm>, Self::Error> {
@@ -87,6 +87,6 @@ where
                 .unwrap_or_default();
             request.as_mut().nonce = Some(nonce);
         }
-        self.tx_resp_builder().tx_env(request, &evm_env.cfg_env, &evm_env.block_env)
+        self.tx_resp_builder().tx_env(request, &evm_env.cfg_env, evm_env.block_env.as_block_env())
     }
 }

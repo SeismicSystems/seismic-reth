@@ -1,24 +1,26 @@
 //! A basic Seismic payload builder implementation.
 
-use alloy_consensus::{Transaction, Typed2718};
+use alloy_consensus::{BlockHeader, Transaction, Typed2718};
 use alloy_primitives::U256;
 use reth_basic_payload_builder::{
     is_better_payload, BuildArguments, BuildOutcome, MissingPayloadBehaviour, PayloadBuilder,
     PayloadConfig,
 };
-use reth_chainspec::{ChainSpec, ChainSpecProvider, EthereumHardforks};
+use reth_chainspec::{ChainSpecProvider, EthereumHardforks};
 use reth_errors::{BlockExecutionError, BlockValidationError};
 use reth_evm::{
     execute::{BlockBuilder, BlockBuilderOutcome},
     ConfigureEvm, Evm, NextBlockEnvAttributes,
 };
-use reth_payload_builder::{BlobSidecars, EthBuiltPayload, EthPayloadBuilderAttributes};
+use reth_payload_builder::BlobSidecars;
 use reth_payload_builder_primitives::PayloadBuilderError;
 use reth_payload_primitives::PayloadBuilderAttributes;
 use reth_primitives_traits::SignedTransaction;
 use reth_revm::{database::StateProviderDatabase, db::State};
-use reth_seismic_evm::SeismicEvmConfig;
-use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
+use reth_seismic_chainspec::SeismicChainSpec;
+use reth_seismic_engine_primitives::{SeismicBuiltPayload, SeismicPayloadBuilderAttributes};
+use reth_seismic_evm::{SeismicEvmConfig, SeismicNextBlockEnvAttributes};
+use reth_seismic_primitives::{SeismicHeader, SeismicPrimitives, SeismicTransactionSigned};
 use reth_storage_api::StateProviderFactory;
 use reth_transaction_pool::{
     error::InvalidPoolTransactionError, BestTransactions, BestTransactionsAttributes,
@@ -64,18 +66,20 @@ impl<Pool, Client, EvmConfig> SeismicPayloadBuilder<Pool, Client, EvmConfig> {
 // Default implementation of [`PayloadBuilder`] for unit type
 impl<Pool, Client, EvmConfig> PayloadBuilder for SeismicPayloadBuilder<Pool, Client, EvmConfig>
 where
-    EvmConfig:
-        ConfigureEvm<Primitives = SeismicPrimitives, NextBlockEnvCtx = NextBlockEnvAttributes>,
-    Client: StateProviderFactory + ChainSpecProvider<ChainSpec = ChainSpec> + Clone,
+    EvmConfig: ConfigureEvm<
+        Primitives = SeismicPrimitives,
+        NextBlockEnvCtx = SeismicNextBlockEnvAttributes,
+    >,
+    Client: StateProviderFactory + ChainSpecProvider<ChainSpec = SeismicChainSpec> + Clone,
     Pool: TransactionPool<Transaction: PoolTransaction<Consensus = SeismicTransactionSigned>>,
 {
-    type Attributes = EthPayloadBuilderAttributes;
-    type BuiltPayload = EthBuiltPayload<SeismicPrimitives>;
+    type Attributes = SeismicPayloadBuilderAttributes;
+    type BuiltPayload = SeismicBuiltPayload;
 
     fn try_build(
         &self,
-        args: BuildArguments<EthPayloadBuilderAttributes, Self::BuiltPayload>,
-    ) -> Result<BuildOutcome<EthBuiltPayload<SeismicPrimitives>>, PayloadBuilderError> {
+        args: BuildArguments<SeismicPayloadBuilderAttributes, Self::BuiltPayload>,
+    ) -> Result<BuildOutcome<SeismicBuiltPayload>, PayloadBuilderError> {
         default_seismic_payload(
             self.evm_config.clone(),
             self.client.clone(),
@@ -99,7 +103,7 @@ where
 
     fn build_empty_payload(
         &self,
-        config: PayloadConfig<Self::Attributes>,
+        config: PayloadConfig<Self::Attributes, SeismicHeader>,
     ) -> Result<Self::BuiltPayload, PayloadBuilderError> {
         let args = BuildArguments::new(Default::default(), config, Default::default(), None);
 
@@ -143,13 +147,15 @@ pub fn default_seismic_payload<EvmConfig, Client, Pool, F>(
     client: Client,
     pool: Pool,
     builder_config: SeismicBuilderConfig,
-    args: BuildArguments<EthPayloadBuilderAttributes, EthBuiltPayload<SeismicPrimitives>>,
+    args: BuildArguments<SeismicPayloadBuilderAttributes, SeismicBuiltPayload>,
     best_txs: F,
-) -> Result<BuildOutcome<EthBuiltPayload<SeismicPrimitives>>, PayloadBuilderError>
+) -> Result<BuildOutcome<SeismicBuiltPayload>, PayloadBuilderError>
 where
-    EvmConfig:
-        ConfigureEvm<Primitives = SeismicPrimitives, NextBlockEnvCtx = NextBlockEnvAttributes>,
-    Client: StateProviderFactory + ChainSpecProvider<ChainSpec = ChainSpec>,
+    EvmConfig: ConfigureEvm<
+        Primitives = SeismicPrimitives,
+        NextBlockEnvCtx = SeismicNextBlockEnvAttributes,
+    >,
+    Client: StateProviderFactory + ChainSpecProvider<ChainSpec = SeismicChainSpec>,
     Pool: TransactionPool<Transaction: PoolTransaction<Consensus = SeismicTransactionSigned>>,
     F: FnOnce(BestTransactionsAttributes) -> BestTransactionsIter<Pool>,
 {
@@ -165,20 +171,23 @@ where
         .builder_for_next_block(
             &mut db,
             &parent_header,
-            NextBlockEnvAttributes {
-                timestamp: attributes.timestamp(),
-                suggested_fee_recipient: attributes.suggested_fee_recipient(),
-                prev_randao: attributes.prev_randao(),
-                gas_limit: builder_config.gas_limit(parent_header.gas_limit),
-                parent_beacon_block_root: attributes.parent_beacon_block_root(),
-                withdrawals: Some(attributes.withdrawals().clone()),
+            SeismicNextBlockEnvAttributes {
+                inner: NextBlockEnvAttributes {
+                    timestamp: attributes.timestamp(),
+                    suggested_fee_recipient: attributes.suggested_fee_recipient(),
+                    prev_randao: attributes.prev_randao(),
+                    gas_limit: builder_config.gas_limit(parent_header.gas_limit()),
+                    parent_beacon_block_root: attributes.parent_beacon_block_root(),
+                    withdrawals: Some(attributes.withdrawals().clone()),
+                },
+                timestamp_millis_part: attributes.timestamp_millis_part,
             },
         )
         .map_err(PayloadBuilderError::other)?;
 
     let chain_spec = client.chain_spec();
 
-    debug!(target: "payload_builder", id=%attributes.id, parent_header = ?parent_header.hash(), parent_number = parent_header.number, "building new payload");
+    debug!(target: "payload_builder", id=%attributes.payload_id(), parent_header = ?parent_header.hash(), parent_number = parent_header.number(), "building new payload");
     let mut cumulative_gas_used = 0;
     let block_gas_limit: u64 = builder.evm_mut().block().gas_limit;
     let base_fee = builder.evm_mut().block().basefee;
@@ -268,14 +277,14 @@ where
     let BlockBuilderOutcome { execution_result, block, .. } = builder.finish(&state_provider)?;
 
     let requests = chain_spec
-        .is_prague_active_at_timestamp(attributes.timestamp_seconds())
+        .is_prague_active_at_timestamp(attributes.timestamp())
         .then_some(execution_result.requests);
 
     // initialize empty blob sidecars at first. If cancun is active then this will
     let mut blob_sidecars = Vec::new();
 
     // only determine cancun fields when active
-    if chain_spec.is_cancun_active_at_timestamp(attributes.timestamp_seconds()) {
+    if chain_spec.is_cancun_active_at_timestamp(attributes.timestamp()) {
         // grab the blob sidecars from the executed txs
         blob_sidecars = pool
             .get_all_blobs_exact(
@@ -296,10 +305,10 @@ where
         .for_each(|s| sidecars.push_sidecar_variant(s));
 
     let sealed_block = Arc::new(block.sealed_block().clone());
-    debug!(target: "payload_builder", id=%attributes.id, sealed_block_header = ?sealed_block.sealed_header(), "sealed built block");
+    debug!(target: "payload_builder", id=%attributes.payload_id(), sealed_block_header = ?sealed_block.sealed_header(), "sealed built block");
 
-    let payload = EthBuiltPayload::<SeismicPrimitives>::new_seismic_payload(
-        attributes.id,
+    let payload = SeismicBuiltPayload::new(
+        attributes.payload_id(),
         sealed_block,
         total_fees,
         sidecars,

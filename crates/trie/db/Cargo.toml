@@ -54,7 +54,6 @@ serde_json.workspace = true
 similar-asserts.workspace = true
 
 [features]
-timestamp-in-seconds = ["revm/timestamp-in-seconds"]
 metrics = ["reth-trie/metrics"]
 serde = [
     "similar-asserts/serde",

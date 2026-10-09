@@ -11,10 +11,6 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-# seismic
-reth-seismic-primitives.workspace = true
-alloy-consensus.workspace = true
-
 # reth
 reth-ethereum-primitives.workspace = true
 reth-primitives-traits.workspace = true
@@ -37,7 +33,6 @@ serde_json.workspace = true
 
 [features]
 default = ["std"]
-timestamp-in-seconds = ["reth-primitives-traits/timestamp-in-seconds"]
 std = [
     "reth-ethereum-primitives/std",
     "alloy-primitives/std",
@@ -50,5 +45,4 @@ std = [
     "thiserror/std",
     "reth-engine-primitives/std",
     "reth-primitives-traits/std",
-    "alloy-consensus/std",
 ]

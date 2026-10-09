@@ -50,8 +50,6 @@ use alloy_evm::eth::spec::EthExecutorSpec;
 pub use config::{revm_spec, revm_spec_by_timestamp_and_block_number};
 use reth_ethereum_forks::{EthereumHardfork, Hardforks};
 
-use reth_primitives_traits::BlockHeader as _;
-
 /// Helper type with backwards compatible methods to obtain Ethereum executor
 /// providers.
 #[doc(hidden)]
@@ -130,6 +128,7 @@ impl<ChainSpec, EvmF> ConfigureEvm for EthEvmConfig<ChainSpec, EvmF>
 where
     ChainSpec: EthExecutorSpec + EthChainSpec<Header = Header> + Hardforks + 'static,
     EvmF: EvmFactory<
+            BlockEnv = BlockEnv,
             Tx: TransactionEnv
                     + FromRecoveredTx<TransactionSigned>
                     + FromTxWithEncoded<TransactionSigned>,
@@ -157,13 +156,8 @@ where
     }
 
     fn evm_env(&self, header: &Header) -> EvmEnv {
-        let timestamp_seconds = header.timestamp_seconds();
-        let blob_params = self.chain_spec().blob_params_at_timestamp(timestamp_seconds);
-        let spec = config::revm_spec_by_timestamp_and_block_number(
-            self.chain_spec(),
-            timestamp_seconds,
-            header.number(),
-        );
+        let blob_params = self.chain_spec().blob_params_at_timestamp(header.timestamp);
+        let spec = config::revm_spec(self.chain_spec(), header);
 
         // configure evm env based on parent block
         let mut cfg_env =
@@ -173,7 +167,7 @@ where
             cfg_env.set_max_blobs_per_tx(blob_params.max_blobs_per_tx);
         }
 
-        if self.chain_spec().is_osaka_active_at_timestamp(timestamp_seconds) {
+        if self.chain_spec().is_osaka_active_at_timestamp(header.timestamp) {
             cfg_env.tx_gas_limit_cap = Some(MAX_TX_GAS_LIMIT_OSAKA);
         }
 
@@ -206,10 +200,10 @@ where
     ) -> Result<EvmEnv, Self::Error> {
         // ensure we're not missing any timestamp based hardforks
         let chain_spec = self.chain_spec();
-        let blob_params = chain_spec.blob_params_at_timestamp(attributes.timestamp_seconds());
+        let blob_params = chain_spec.blob_params_at_timestamp(attributes.timestamp);
         let spec_id = revm_spec_by_timestamp_and_block_number(
             chain_spec,
-            attributes.timestamp_seconds(),
+            attributes.timestamp,
             parent.number() + 1,
         );
 
@@ -236,7 +230,7 @@ where
                 BlobExcessGasAndPrice { excess_blob_gas, blob_gasprice }
             });
 
-        let mut basefee = chain_spec.next_block_base_fee(parent, attributes.timestamp_seconds());
+        let mut basefee = chain_spec.next_block_base_fee(parent, attributes.timestamp);
 
         let mut gas_limit = attributes.gas_limit;
 
@@ -246,7 +240,7 @@ where
         {
             let elasticity_multiplier = self
                 .chain_spec()
-                .base_fee_params_at_timestamp(attributes.timestamp_seconds())
+                .base_fee_params_at_timestamp(attributes.timestamp)
                 .elasticity_multiplier;
 
             // multiply the gas limit by the elasticity multiplier
@@ -299,6 +293,7 @@ impl<ChainSpec, EvmF> ConfigureEngineEvm<ExecutionData> for EthEvmConfig<ChainSp
 where
     ChainSpec: EthExecutorSpec + EthChainSpec<Header = Header> + Hardforks + 'static,
     EvmF: EvmFactory<
+            BlockEnv = BlockEnv,
             Tx: TransactionEnv
                     + FromRecoveredTx<TransactionSigned>
                     + FromTxWithEncoded<TransactionSigned>,
@@ -313,16 +308,11 @@ where
 {
     fn evm_env_for_payload(&self, payload: &ExecutionData) -> EvmEnvFor<Self> {
         let timestamp = payload.payload.timestamp();
-        let timestamp_seconds =
-            if cfg!(feature = "timestamp-in-seconds") { timestamp } else { timestamp / 1000 };
         let block_number = payload.payload.block_number();
 
-        let blob_params = self.chain_spec().blob_params_at_timestamp(timestamp_seconds);
-        let spec = revm_spec_by_timestamp_and_block_number(
-            self.chain_spec(),
-            timestamp_seconds,
-            block_number,
-        );
+        let blob_params = self.chain_spec().blob_params_at_timestamp(timestamp);
+        let spec =
+            revm_spec_by_timestamp_and_block_number(self.chain_spec(), timestamp, block_number);
 
         // configure evm env based on parent block
         let mut cfg_env =
@@ -332,7 +322,7 @@ where
             cfg_env.set_max_blobs_per_tx(blob_params.max_blobs_per_tx);
         }
 
-        if self.chain_spec().is_osaka_active_at_timestamp(timestamp_seconds) {
+        if self.chain_spec().is_osaka_active_at_timestamp(timestamp) {
             cfg_env.tx_gas_limit_cap = Some(MAX_TX_GAS_LIMIT_OSAKA);
         }
 

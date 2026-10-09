@@ -1,6 +1,5 @@
-use reth_chainspec::ChainSpec;
 use reth_cli::chainspec::{parse_genesis, ChainSpecParser};
-use reth_seismic_chainspec::{SEISMIC_DEV, SEISMIC_MAINNET, SEISMIC_TESTNET};
+use reth_seismic_chainspec::{SeismicChainSpec, SEISMIC_DEV, SEISMIC_MAINNET, SEISMIC_TESTNET};
 use std::sync::Arc;
 
 /// Seismic chain specification parser.
@@ -9,7 +8,7 @@ use std::sync::Arc;
 pub struct SeismicChainSpecParser;
 
 impl ChainSpecParser for SeismicChainSpecParser {
-    type ChainSpec = ChainSpec;
+    type ChainSpec = SeismicChainSpec;
 
     const SUPPORTED_CHAINS: &'static [&'static str] = &["dev", "testnet", "mainnet"];
 
@@ -18,16 +17,16 @@ impl ChainSpecParser for SeismicChainSpecParser {
     }
 }
 
-/// Clap value parser for [`ChainSpec`]s.
+/// Clap value parser for [`SeismicChainSpec`]s.
 ///
 /// The value parser matches either a known chain, the path
 /// to a json file, or a json formatted string in-memory. The json needs to be a Genesis struct.
-pub fn chain_value_parser(s: &str) -> eyre::Result<Arc<ChainSpec>, eyre::Error> {
+pub fn chain_value_parser(s: &str) -> eyre::Result<Arc<SeismicChainSpec>, eyre::Error> {
     Ok(match s {
         "dev" => SEISMIC_DEV.clone(),
         "testnet" => SEISMIC_TESTNET.clone(),
         "mainnet" => SEISMIC_MAINNET.clone(),
-        _ => Arc::new(parse_genesis(s)?.into()),
+        _ => Arc::new(SeismicChainSpec::from_genesis(parse_genesis(s)?)),
     })
 }
 

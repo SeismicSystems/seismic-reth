@@ -30,8 +30,11 @@ pub type TxEnvFor<Evm> = <EvmFactoryFor<Evm> as EvmFactory>::Tx;
 pub type ExecutionCtxFor<'a, Evm> =
     <<Evm as ConfigureEvm>::BlockExecutorFactory as BlockExecutorFactory>::ExecutionCtx<'a>;
 
+/// Helper to access the full block environment for a given [`ConfigureEvm`].
+pub type BlockEnvFor<Evm> = <EvmFactoryFor<Evm> as EvmFactory>::BlockEnv;
+
 /// Type alias for [`EvmEnv`] for a given [`ConfigureEvm`].
-pub type EvmEnvFor<Evm> = EvmEnv<SpecFor<Evm>>;
+pub type EvmEnvFor<Evm> = EvmEnv<SpecFor<Evm>, BlockEnvFor<Evm>>;
 
 /// Helper trait to bound [`Inspector`] for a [`ConfigureEvm`].
 pub trait InspectorFor<Evm: ConfigureEvm, DB: Database>: Inspector<EvmContextFor<Evm, DB>> {}

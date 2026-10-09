@@ -9,24 +9,22 @@ pub mod e2e {
     use alloy_primitives::{address, Address, B256};
     use alloy_rpc_types_engine::PayloadAttributes;
     use alloy_seismic_evm::PurposeKeys;
-    use reth_chainspec::{make_genesis_header, ChainSpec};
+    use reth_chainspec::make_genesis_header;
     use reth_e2e_test_utils::{
         transaction::TransactionTestContext, wallet::Wallet, NodeHelperType, TmpDB,
     };
     use reth_node_api::NodeTypesWithDBAdapter;
-    use reth_payload_builder::{EthBuiltPayload, EthPayloadBuilderAttributes};
     use reth_primitives_traits::SealedHeader;
     use reth_provider::providers::BlockchainProvider;
-    use reth_seismic_chainspec::SEISMIC_DEV;
+    use reth_seismic_chainspec::{SeismicChainSpec, SEISMIC_DEV};
+    use reth_seismic_engine_primitives::{
+        SeismicBuiltPayload, SeismicPayloadAttributes, SeismicPayloadBuilderAttributes,
+    };
     use reth_seismic_keys::PurposeKeyring;
-    use reth_seismic_primitives::SeismicPrimitives;
     use reth_tasks::TaskManager;
     use seismic_revm::gas_token_registry::GAS_TOKEN_REGISTRY;
     use std::sync::{Arc, Once};
     use tokio::sync::Mutex;
-
-    /// Seismic returns times in milliseconds
-    pub const SEISMIC_TIMESTAMP_MULTIPLIER: u64 = 1000;
 
     static INIT_KEYS: Once = Once::new();
 
@@ -47,8 +45,8 @@ pub mod e2e {
     /// The registry remains empty, contract code and other storage remain untouched,
     /// and the header/hash are recomputed before node initialization. No builder or
     /// artifact downloads run during E2E setup.
-    pub fn test_chain_spec() -> Arc<ChainSpec> {
-        let mut spec = SEISMIC_DEV.as_ref().clone();
+    pub fn test_chain_spec() -> Arc<SeismicChainSpec> {
+        let mut spec = SEISMIC_DEV.inner().clone();
         let owner = Wallet::default().inner.address().into_word();
         let protocol_params = address!("0x0000000000000000000000000000506172616d73");
         for contract in [GAS_TOKEN_REGISTRY, protocol_params] {
@@ -62,7 +60,7 @@ pub mod e2e {
         }
         spec.genesis_header =
             SealedHeader::seal_slow(make_genesis_header(&spec.genesis, &spec.hardforks));
-        Arc::new(spec)
+        Arc::new(SeismicChainSpec::new(spec))
     }
 
     /// Creates `num_nodes` connected nodes using the E2E wallet-owned test genesis.
@@ -84,7 +82,7 @@ pub mod e2e {
         length: usize,
         node: &mut SeismicTestNode,
         wallet: Arc<Mutex<Wallet>>,
-    ) -> eyre::Result<Vec<EthBuiltPayload<SeismicPrimitives>>> {
+    ) -> eyre::Result<Vec<SeismicBuiltPayload>> {
         node.advance(length as u64, |_| {
             let wallet = wallet.clone();
             Box::pin(async move {
@@ -108,28 +106,34 @@ pub mod e2e {
         .await
     }
 
-    /// Helper function to create a new eth payload attributes for seismic
-    pub fn seismic_payload_attributes(timestamp: u64) -> EthPayloadBuilderAttributes {
+    /// Helper function to create new payload builder attributes for Seismic from a Unix
+    /// seconds timestamp (zero sub-second component).
+    pub fn seismic_payload_attributes(timestamp: u64) -> SeismicPayloadBuilderAttributes {
         let attributes = PayloadAttributes {
-            timestamp: timestamp * SEISMIC_TIMESTAMP_MULTIPLIER,
+            timestamp,
             prev_randao: B256::ZERO,
             suggested_fee_recipient: Address::ZERO,
             withdrawals: Some(vec![]),
             parent_beacon_block_root: Some(B256::ZERO),
         };
-        EthPayloadBuilderAttributes::new(B256::ZERO, attributes)
+        SeismicPayloadBuilderAttributes::new(
+            B256::ZERO,
+            SeismicPayloadAttributes::new(attributes, 0),
+        )
+        .expect("zero millis part is in range")
     }
 
     #[cfg(test)]
     mod tests {
         use super::*;
+        use alloy_consensus::Sealable;
         use alloy_primitives::U256;
         use seismic_revm::gas_token_registry::TOKEN_COUNT_SLOT;
 
         #[test]
         fn owner_override_is_isolated_and_recomputes_the_genesis_hash() {
             let before = SEISMIC_DEV.genesis.clone();
-            let original_hash = SEISMIC_DEV.genesis_header.hash();
+            let original_hash = SEISMIC_DEV.genesis_hash();
             let spec = test_chain_spec();
             let protocol_params = address!("0x0000000000000000000000000000506172616d73");
             let expected_owner = Wallet::default().inner.address().into_word();
@@ -157,12 +161,17 @@ pub mod e2e {
             }
             assert_eq!(spec.genesis, expected);
             assert_eq!(SEISMIC_DEV.genesis, before, "shared dev template must not be mutated");
-            assert_eq!(SEISMIC_DEV.genesis_header.hash(), original_hash);
-            assert_ne!(spec.genesis_header.hash(), original_hash);
+            assert_eq!(SEISMIC_DEV.genesis_hash(), original_hash);
+            assert_ne!(spec.genesis_hash(), original_hash);
             assert_eq!(
-                spec.genesis_header.hash(),
-                make_genesis_header(&spec.genesis, &spec.hardforks).hash_slow()
+                spec.genesis_hash(),
+                reth_seismic_primitives::SeismicHeader::from(make_genesis_header(
+                    &spec.genesis,
+                    &spec.hardforks
+                ))
+                .hash_slow()
             );
+            assert_eq!(spec.inner().genesis_hash(), spec.genesis_hash());
             let storage =
                 spec.genesis.alloc.get(&GAS_TOKEN_REGISTRY).unwrap().storage.as_ref().unwrap();
             assert_eq!(

@@ -31,18 +31,20 @@ sol! {
 async fn simulate_v1_keeps_rotation_local_on_success_and_error() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
     ensure_mock_purpose_keys();
-    let mut spec = SEISMIC_DEV.as_ref().clone();
     let admin = Wallet::default().inner.address();
-    spec.genesis
-        .alloc
-        .get_mut(&KEY_ROTATION_REGISTRY)
-        .unwrap()
-        .storage
-        .as_mut()
-        .unwrap()
-        .insert(ADMIN_SLOT, admin.into_word());
-    spec.genesis_header =
-        SealedHeader::seal_slow(make_genesis_header(&spec.genesis, &spec.hardforks));
+    let mut spec = SEISMIC_DEV.as_ref().clone();
+    spec.modify_inner(|spec| {
+        spec.genesis
+            .alloc
+            .get_mut(&KEY_ROTATION_REGISTRY)
+            .unwrap()
+            .storage
+            .as_mut()
+            .unwrap()
+            .insert(ADMIN_SLOT, admin.into_word());
+        spec.genesis_header =
+            SealedHeader::seal_slow(make_genesis_header(&spec.genesis, &spec.hardforks));
+    });
 
     let (mut nodes, _tasks, wallet) = tokio::spawn(setup_engine::<SeismicNode>(
         1,

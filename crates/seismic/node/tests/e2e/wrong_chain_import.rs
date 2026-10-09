@@ -17,7 +17,7 @@ use eyre::Result;
 use reth_payload_primitives::PayloadTypes;
 use reth_primitives_traits::SealedBlock;
 use reth_seismic_node::{
-    engine::SeismicPayloadTypes,
+    engine::SeismicEngineTypes,
     utils::e2e::{ensure_mock_purpose_keys, setup},
 };
 use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
@@ -62,7 +62,7 @@ async fn test_new_payload_rejects_wrong_chain_id_tx() -> Result<()> {
     // chain-ID check before the state root is ever compared.
     let mut block: SeismicBlock = empty.block().clone().into_block();
     block.body.transactions.push(wrong_tx);
-    block.header.transactions_root = calculate_transaction_root(&block.body.transactions);
+    block.header.inner.transactions_root = calculate_transaction_root(&block.body.transactions);
     let sealed = SealedBlock::seal_slow(block);
 
     // Submit through the engine's newPayload handler (the ConfigureEngineEvm import path).
@@ -76,7 +76,7 @@ async fn test_new_payload_rejects_wrong_chain_id_tx() -> Result<()> {
         node.inner
             .add_ons_handle
             .beacon_engine_handle
-            .new_payload(SeismicPayloadTypes::block_to_payload(sealed)),
+            .new_payload(SeismicEngineTypes::block_to_payload(sealed)),
     )
     .await
     .expect("engine_newPayload timed out rejecting wrong-chain transaction")?;

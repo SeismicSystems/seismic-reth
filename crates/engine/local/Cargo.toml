@@ -47,7 +47,6 @@ op-alloy-rpc-types-engine = { workspace = true, optional = true }
 workspace = true
 
 [features]
-timestamp-in-seconds = []
 op = [
     "dep:op-alloy-rpc-types-engine",
     # seismic: remove this dep to avoid pulling them optimism crates that don't compile implicitly by cargo/lsp/etc.

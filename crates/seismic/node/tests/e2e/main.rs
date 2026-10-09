@@ -15,6 +15,7 @@ mod pending_block;
 // roots. Currently broken from stable coin gas update not burning gas
 mod signed_read_import;
 mod testsuite;
+mod timestamp_millis;
 mod txtype;
 mod wrong_chain_import;
 

@@ -14,7 +14,7 @@ pub mod chainspec;
 use chainspec::SeismicChainSpecParser;
 use clap::{value_parser, Args, Parser, Subcommand};
 use futures_util::Future;
-use reth_chainspec::{ChainSpec, EthChainSpec};
+use reth_chainspec::EthChainSpec;
 use reth_cli::chainspec::ChainSpecParser;
 use reth_cli_commands::{launcher::FnLauncher, node, stage};
 use reth_cli_runner::CliRunner;
@@ -24,7 +24,7 @@ use reth_node_core::{
     args::{init_seismic_rpc_args, LogArgs, PurposeKeysArgs, SeismicRpcArgs},
     version::version_metadata,
 };
-use reth_node_ethereum::consensus::EthBeaconConsensus;
+use reth_seismic_chainspec::SeismicChainSpec;
 use reth_seismic_keys::PurposeKeyring;
 use reth_seismic_node::{
     keys_source::fetch_purpose_keys,
@@ -164,7 +164,7 @@ impl Cli {
 
 impl<C, Ext> Cli<C, Ext>
 where
-    C: ChainSpecParser<ChainSpec = ChainSpec>,
+    C: ChainSpecParser<ChainSpec = SeismicChainSpec>,
     Ext: clap::Args + fmt::Debug + AsRef<PurposeKeysArgs> + AsRef<SeismicRpcArgs>,
 {
     /// Execute the configured cli command.
@@ -236,7 +236,7 @@ where
                         let keyring = get_purpose_keyring();
                         (
                             SeismicEvmConfig::new(spec.clone(), keyring),
-                            EthBeaconConsensus::new(spec),
+                            reth_seismic_node::consensus::SeismicConsensus::new(spec),
                         )
                     };
 

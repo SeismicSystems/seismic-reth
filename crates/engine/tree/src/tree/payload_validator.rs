@@ -23,7 +23,9 @@ use reth_engine_primitives::{
     ConfigureEngineEvm, ExecutableTxIterator, ExecutionPayload, InvalidBlockHook, PayloadValidator,
 };
 use reth_errors::{BlockExecutionError, ProviderResult};
-use reth_evm::{execute::ExecutableTxFor, ConfigureEvm, EvmEnvFor, ExecutionCtxFor, SpecFor};
+use reth_evm::{
+    execute::ExecutableTxFor, BlockEnvAccess, ConfigureEvm, EvmEnvFor, ExecutionCtxFor, SpecFor,
+};
 use reth_payload_primitives::{
     BuiltPayload, InvalidPayloadAttributesError, NewPayloadError, PayloadTypes,
 };
@@ -674,7 +676,7 @@ where
         T: PayloadTypes<BuiltPayload: BuiltPayload<Primitives = N>>,
         Evm: ConfigureEngineEvm<T::ExecutionData, Primitives = N>,
     {
-        let num_hash = NumHash::new(env.evm_env.block_env.number.to(), env.hash);
+        let num_hash = NumHash::new(env.evm_env.block_env.as_block_env().number.to(), env.hash);
 
         let span = debug_span!(target: "engine::tree", "execute_block", num = ?num_hash.number, hash = ?num_hash.hash);
         let _enter = span.enter();

@@ -464,9 +464,9 @@ fn reconstruct_simulated_blocks<Halt>(
         response_block.body.transactions =
             response_transactions.into_iter().map(|tx| tx.into_parts().0).collect();
         if let Some(parent_hash) = parent_hash {
-            response_block.header.parent_hash = parent_hash;
+            response_block.header.inner.parent_hash = parent_hash;
         }
-        response_block.header.transactions_root =
+        response_block.header.inner.transactions_root =
             calculate_transaction_root(&response_block.body.transactions);
 
         let response_block = RecoveredBlock::new_unhashed(response_block, senders);

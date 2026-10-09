@@ -1,7 +1,6 @@
 //! Pre-configured EVM factory and environment for fuzz targets.
 
-use alloy_evm::EvmEnv;
-use alloy_seismic_evm::SeismicEvmFactory;
+use alloy_seismic_evm::{SeismicEvmEnv, SeismicEvmFactory};
 use revm::context::CfgEnv;
 use seismic_revm::SeismicSpecId;
 
@@ -13,8 +12,8 @@ pub fn fuzz_evm_factory() -> SeismicEvmFactory {
 }
 
 /// MERCURY spec with [`FUZZ_CHAIN_ID`].
-pub fn fuzz_evm_env() -> EvmEnv<SeismicSpecId> {
-    EvmEnv {
+pub fn fuzz_evm_env() -> SeismicEvmEnv {
+    SeismicEvmEnv {
         cfg_env: CfgEnv::new().with_chain_id(FUZZ_CHAIN_ID).with_spec(SeismicSpecId::MERCURY),
         ..Default::default()
     }

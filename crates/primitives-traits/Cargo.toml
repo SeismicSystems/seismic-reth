@@ -78,7 +78,6 @@ test-fuzz.workspace = true
 
 [features]
 default = ["std"]
-timestamp-in-seconds = []
 std = [
     "alloy-consensus/std",
     "alloy-eips/std",

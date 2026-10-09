@@ -12,6 +12,7 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 // #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod consensus;
 pub mod engine;
 pub mod keys_source;
 pub mod node;
@@ -24,11 +25,14 @@ pub use reth_seismic_payload_builder::SeismicPayloadBuilder;
 
 pub use reth_seismic_evm::*;
 
-use reth_chainspec::ChainSpec;
+use reth_seismic_chainspec::SeismicChainSpec;
 use std::sync::Arc;
 
 /// Creates a Seismic EVM configuration with the given chain spec and the epoch-keyed
 /// purpose keyring.
-pub fn seismic_evm_config(spec: Arc<ChainSpec>, keyring: Arc<PurposeKeyring>) -> SeismicEvmConfig {
+pub fn seismic_evm_config(
+    spec: Arc<SeismicChainSpec>,
+    keyring: Arc<PurposeKeyring>,
+) -> SeismicEvmConfig {
     SeismicEvmConfig::new(spec, keyring)
 }

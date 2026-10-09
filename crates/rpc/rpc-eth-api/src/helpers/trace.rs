@@ -9,8 +9,8 @@ use futures::Future;
 use reth_chainspec::ChainSpecProvider;
 use reth_errors::ProviderError;
 use reth_evm::{
-    evm::EvmFactoryExt, system_calls::SystemCaller, tracing::TracingCtx, ConfigureEvm, Database,
-    Evm, EvmEnvFor, EvmFor, HaltReasonFor, InspectorFor, TxEnvFor,
+    evm::EvmFactoryExt, system_calls::SystemCaller, tracing::TracingCtx, BlockEnvAccess,
+    ConfigureEvm, Database, Evm, EvmEnvFor, EvmFor, HaltReasonFor, InspectorFor, TxEnvFor,
 };
 use reth_primitives_traits::{BlockBody, Recovered, RecoveredBlock, SignedTransaction};
 use reth_revm::{database::StateProviderDatabase, db::CacheDB};
@@ -302,8 +302,8 @@ pub trait Trace: LoadState<Error: FromEvmError<Self::Evm>> {
                 let state_at = block.parent_hash();
                 let block_hash = block.hash();
 
-                let block_number = evm_env.block_env.number.saturating_to();
-                let base_fee = evm_env.block_env.basefee;
+                let block_number = evm_env.block_env.as_block_env().number.saturating_to();
+                let base_fee = evm_env.block_env.as_block_env().basefee;
 
                 // now get the state
                 let state = this.state_at_block_id(state_at.into()).await?;

@@ -18,9 +18,10 @@ use reth_node_core::args::{DevArgs, RpcServerArgs};
 use reth_primitives_traits::SealedHeader;
 use reth_rpc_builder::RpcModuleSelection;
 use reth_rpc_layer::{eip712_signing_hash, WHITELIST_TX_SENTINEL};
+use reth_seismic_chainspec::SeismicChainSpec;
 use reth_seismic_node::{
     node::SeismicNode,
-    utils::e2e::{ensure_mock_purpose_keys, SEISMIC_TIMESTAMP_MULTIPLIER},
+    utils::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes},
 };
 use reth_tasks::TaskManager;
 use seismic_alloy_consensus::{TxSeismic, TxSeismicElements, TypedDataRequest};
@@ -54,15 +55,10 @@ const FAR_FUTURE_BLOCK: u64 = 1_000_000_000;
 const PARAMS_CONTRACT: Address = address!("0x0000000000000000000000000000506172616d73");
 
 /// Build a Seismic dev chain spec with a custom governance address in the Params contract.
-fn dev_chain_spec_with_governance(governance_address: Address) -> Arc<ChainSpec> {
+fn dev_chain_spec_with_governance(governance_address: Address) -> Arc<SeismicChainSpec> {
     let mut genesis: alloy_genesis::Genesis =
         serde_json::from_str(include_str!("../../../chainspec/res/genesis/dev.json"))
             .expect("deserialize dev genesis");
-
-    #[cfg(not(feature = "timestamp-in-seconds"))]
-    {
-        genesis.timestamp *= 1000;
-    }
 
     // Overwrite slot 0 of the Params contract with the governance address.
     let mut value = [0u8; 32];
@@ -74,29 +70,14 @@ fn dev_chain_spec_with_governance(governance_address: Address) -> Arc<ChainSpec>
     }
 
     let hardforks = reth_seismic_forks::SEISMIC_DEV_HARDFORKS.clone();
-    Arc::new(ChainSpec {
+    Arc::new(SeismicChainSpec::new(ChainSpec {
         chain: Chain::from_id(5124),
         genesis_header: SealedHeader::seal_slow(make_genesis_header(&genesis, &hardforks)),
         genesis,
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
         hardforks,
         ..Default::default()
-    })
-}
-
-fn seismic_payload_attributes(timestamp: u64) -> reth_payload_builder::EthPayloadBuilderAttributes {
-    use alloy_primitives::B256;
-    use alloy_rpc_types_engine::PayloadAttributes;
-    reth_payload_builder::EthPayloadBuilderAttributes::new(
-        B256::ZERO,
-        PayloadAttributes {
-            timestamp: timestamp * SEISMIC_TIMESTAMP_MULTIPLIER,
-            prev_randao: B256::ZERO,
-            suggested_fee_recipient: Address::ZERO,
-            withdrawals: Some(vec![]),
-            parent_beacon_block_root: Some(B256::ZERO),
-        },
-    )
+    }))
 }
 
 /// Build and sign a legacy transaction targeting the sentinel address with the given calldata.

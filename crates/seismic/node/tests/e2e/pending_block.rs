@@ -62,11 +62,8 @@ fn hex_field(block: &serde_json::Value, field: &str) -> u64 {
 }
 
 /// The pending block is built locally on top of the latest block, advancing the
-/// timestamp by one 12-second slot. Header timestamps are in milliseconds by
-/// default and in seconds with the `timestamp-in-seconds` feature, so the
-/// expected offset is 12000 or 12 respectively. This guards the feature
-/// forwarding into the RPC crates: if `reth-rpc-eth-api` were built without the
-/// feature in a seconds-mode node, the offset would be 12000 instead of 12.
+/// (seconds) timestamp by one 12-second slot and keeping the parent's sub-second
+/// component.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_pending_block_timestamp_offset() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
@@ -99,7 +96,7 @@ async fn test_pending_block_timestamp_offset() -> eyre::Result<()> {
         "pending block should contain the pooled transaction {tx_hash}, got {pending_txs:?}"
     );
 
-    let expected_offset: u64 = if cfg!(feature = "timestamp-in-seconds") { 12 } else { 12_000 };
+    let expected_offset: u64 = 12;
     assert_eq!(
         hex_field(&pending, "timestamp"),
         hex_field(&latest, "timestamp") + expected_offset,
