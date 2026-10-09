@@ -3,10 +3,7 @@
 use crate::{join_timestamp_millis, split_timestamp_millis};
 use alloy_eips::eip7685::Requests;
 use alloy_primitives::{B256, U256};
-use alloy_rpc_types_engine::{
-    BlobsBundleV1, CancunPayloadFields, ExecutionPayloadSidecar, ExecutionPayloadV3,
-    PraguePayloadFields,
-};
+use alloy_rpc_types_engine::{BlobsBundleV1, ExecutionPayloadV3};
 use serde::{Deserialize, Serialize};
 
 /// Seismic execution payload: the stock [`ExecutionPayloadV3`] plus the sub-second component of
@@ -15,11 +12,15 @@ use serde::{Deserialize, Serialize};
 /// `inner.timestamp` is in Unix seconds and `inner.block_hash` is the hash of the full Seismic
 /// header (which commits to `timestamp_millis_part`), so the hash of the embedded stock fields
 /// alone does **not** equal `block_hash`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, derive_more::Deref, derive_more::DerefMut,
+)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ssz", derive(ssz_derive::Encode, ssz_derive::Decode))]
 pub struct SeismicExecutionPayloadV3 {
     /// The stock Cancun execution payload. `timestamp` is in Unix seconds.
+    #[deref]
+    #[deref_mut]
     #[serde(flatten)]
     pub inner: ExecutionPayloadV3,
     /// Sub-second (milliseconds) component of the block timestamp, `0..1000`.
@@ -104,41 +105,6 @@ pub struct SeismicExecutionPayloadEnvelopeV4 {
     ///
     /// [eip7685]: https://eips.ethereum.org/EIPS/eip-7685
     pub execution_requests: Requests,
-}
-
-/// A [`SeismicExecutionPayloadV3`] together with the out-of-band `engine_newPayload` fields
-/// (versioned hashes, parent beacon block root, execution requests).
-///
-/// This is the Seismic counterpart of [`alloy_rpc_types_engine::ExecutionData`]. Seismic chains
-/// are post-Cancun from genesis, so only V3 payloads are representable.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SeismicExecutionData {
-    /// The execution payload.
-    pub payload: SeismicExecutionPayloadV3,
-    /// The additional `engine_newPayload` fields.
-    pub sidecar: ExecutionPayloadSidecar,
-}
-
-impl SeismicExecutionData {
-    /// Creates the execution data for an `engine_newPayloadV3` request.
-    pub fn v3(payload: SeismicExecutionPayloadV3, cancun: CancunPayloadFields) -> Self {
-        Self { payload, sidecar: ExecutionPayloadSidecar::v3(cancun) }
-    }
-
-    /// Creates the execution data for an `engine_newPayloadV4` request.
-    pub fn v4(
-        payload: SeismicExecutionPayloadV3,
-        cancun: CancunPayloadFields,
-        prague: PraguePayloadFields,
-    ) -> Self {
-        Self { payload, sidecar: ExecutionPayloadSidecar::v4(cancun, prague) }
-    }
-
-    /// Returns the block time in Unix milliseconds.
-    pub const fn timestamp_millis(&self) -> u64 {
-        self.payload.timestamp_millis()
-    }
 }
 
 #[cfg(test)]

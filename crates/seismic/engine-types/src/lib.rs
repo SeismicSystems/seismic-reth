@@ -6,9 +6,9 @@
 //! consensus layer can drive millisecond block times without changing the meaning of any standard
 //! field.
 //!
-//! The default feature set depends on stock `alloy` only so this crate can be consumed by Summit
-//! (which does not build against the Seismic alloy/reth forks). The `reth` feature adds the
-//! conversions and trait implementations the node needs.
+//! This crate depends on stock `alloy` only so it can be consumed by Summit (which does not
+//! build against the Seismic alloy/reth forks). The node-side integration (built payloads,
+//! builder attributes, block ⇄ payload conversions) lives in `reth-seismic-engine-primitives`.
 
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
@@ -18,24 +18,12 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature = "reth")]
-extern crate alloc;
-
 mod attributes;
 pub use attributes::SeismicPayloadAttributes;
 
 mod payload;
 pub use payload::{
-    SeismicExecutionData, SeismicExecutionPayloadEnvelopeV3, SeismicExecutionPayloadEnvelopeV4,
-    SeismicExecutionPayloadV3,
-};
-
-#[cfg(feature = "reth")]
-mod reth;
-#[cfg(feature = "reth")]
-pub use reth::{
-    seismic_payload_id, SeismicBuiltPayload, SeismicPayloadAttributesError,
-    SeismicPayloadBuilderAttributes, UnsupportedEngineVersion,
+    SeismicExecutionPayloadEnvelopeV3, SeismicExecutionPayloadEnvelopeV4, SeismicExecutionPayloadV3,
 };
 
 /// Number of milliseconds in one second.

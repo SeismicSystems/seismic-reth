@@ -15,7 +15,7 @@ use reth_execution_types::BlockExecutionResult;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives_traits::{RecoveredBlock, SealedBlock, SealedHeader};
 use reth_seismic_chainspec::SeismicChainSpec;
-use reth_seismic_engine_types::MILLIS_PER_SECOND;
+use reth_seismic_engine_primitives::MILLIS_PER_SECOND;
 use reth_seismic_primitives::{SeismicBlock, SeismicBlockBody, SeismicHeader, SeismicPrimitives};
 use std::sync::Arc;
 

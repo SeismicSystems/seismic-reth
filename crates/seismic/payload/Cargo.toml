@@ -28,7 +28,7 @@ reth-errors.workspace = true
 
 # seismic-reth
 reth-seismic-evm.workspace = true
-reth-seismic-engine-types = { workspace = true, features = ["reth"] }
+reth-seismic-engine-primitives.workspace = true
 reth-seismic-chainspec.workspace = true
 reth-seismic-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec", "arbitrary"] }
 reth-ethereum-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }

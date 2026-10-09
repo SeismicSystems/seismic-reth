@@ -11,9 +11,10 @@ description = "Engine API wire types shared between seismic-reth and the Summit 
 [lints]
 workspace = true
 
-# This crate is consumed by Summit (the consensus client) by git dependency. Keep the default
-# dependency set to stock crates.io alloy only: no seismic-alloy forks, no reth. Everything that
-# needs reth or the Seismic primitives lives behind the `reth` feature.
+# This crate is consumed by Summit (the consensus client) by git dependency. Cargo locks every
+# dependency of a git crate regardless of features, so this crate must depend on stock crates.io
+# alloy only: no seismic-alloy forks, no reth, not even optionally. The reth integration lives in
+# `reth-seismic-engine-primitives`.
 
 [dependencies]
 # ethereum
@@ -24,24 +25,11 @@ alloy-serde.workspace = true
 
 # misc
 serde = { workspace = true, features = ["derive"] }
-derive_more = { workspace = true, features = ["deref"] }
+derive_more = { workspace = true, features = ["deref", "deref_mut"] }
 
 # ssz
 ethereum_ssz = { workspace = true, optional = true }
 ethereum_ssz_derive = { workspace = true, optional = true }
-
-# reth (optional)
-reth-ethereum-engine-primitives = { workspace = true, optional = true }
-reth-engine-local = { workspace = true, optional = true }
-# Pulled in only to pin the feature set `NodePrimitives` bounds need when building in isolation.
-reth-ethereum-primitives = { workspace = true, optional = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
-reth-payload-primitives = { workspace = true, optional = true }
-reth-primitives-traits = { workspace = true, optional = true }
-reth-seismic-primitives = { workspace = true, optional = true }
-alloy-consensus = { workspace = true, optional = true }
-alloy-rlp = { workspace = true, optional = true }
-sha2 = { workspace = true, optional = true }
-thiserror = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_json.workspace = true
@@ -55,15 +43,6 @@ std = [
     "alloy-serde/std",
     "serde/std",
     "derive_more/std",
-    "alloy-consensus?/std",
-    "alloy-rlp?/std",
-    "sha2?/std",
-    "thiserror?/std",
-    "reth-primitives-traits?/std",
-    "reth-seismic-primitives?/std",
-    "reth-payload-primitives?/std",
-    "reth-ethereum-engine-primitives?/std",
-    "reth-ethereum-primitives?/std",
     "serde_json/std",
 ]
 ssz = [
@@ -71,17 +50,4 @@ ssz = [
     "dep:ethereum_ssz_derive",
     "alloy-rpc-types-engine/ssz",
     "alloy-eips/ssz",
-]
-reth = [
-    "std",
-    "dep:reth-ethereum-engine-primitives",
-    "dep:reth-engine-local",
-    "dep:reth-ethereum-primitives",
-    "dep:reth-payload-primitives",
-    "dep:reth-primitives-traits",
-    "dep:reth-seismic-primitives",
-    "dep:alloy-consensus",
-    "dep:alloy-rlp",
-    "dep:sha2",
-    "dep:thiserror",
 ]

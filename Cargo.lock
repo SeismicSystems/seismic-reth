@@ -9524,7 +9524,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "reth-seismic-engine-types"
+name = "reth-seismic-engine-primitives"
 version = "1.7.0"
 dependencies = [
  "alloy-consensus",
@@ -9532,20 +9532,33 @@ dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "alloy-rpc-types-engine",
- "alloy-serde",
  "derive_more 2.1.1",
- "ethereum_ssz",
- "ethereum_ssz_derive",
  "reth-engine-local",
  "reth-ethereum-engine-primitives",
  "reth-ethereum-primitives",
  "reth-payload-primitives",
  "reth-primitives-traits",
+ "reth-seismic-engine-types",
  "reth-seismic-primitives",
  "serde",
  "serde_json",
  "sha2",
  "thiserror 2.0.17",
+]
+
+[[package]]
+name = "reth-seismic-engine-types"
+version = "1.7.0"
+dependencies = [
+ "alloy-eips",
+ "alloy-primitives",
+ "alloy-rpc-types-engine",
+ "alloy-serde",
+ "derive_more 2.1.1",
+ "ethereum_ssz",
+ "ethereum_ssz_derive",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -9573,7 +9586,7 @@ dependencies = [
  "reth-revm",
  "reth-rpc-eth-api",
  "reth-seismic-chainspec",
- "reth-seismic-engine-types",
+ "reth-seismic-engine-primitives",
  "reth-seismic-forks",
  "reth-seismic-keys",
  "reth-seismic-primitives",
@@ -9709,7 +9722,7 @@ dependencies = [
  "reth-rpc-layer",
  "reth-rpc-server-types",
  "reth-seismic-chainspec",
- "reth-seismic-engine-types",
+ "reth-seismic-engine-primitives",
  "reth-seismic-evm",
  "reth-seismic-forks",
  "reth-seismic-keys",
@@ -9764,7 +9777,7 @@ dependencies = [
  "reth-primitives-traits",
  "reth-revm",
  "reth-seismic-chainspec",
- "reth-seismic-engine-types",
+ "reth-seismic-engine-primitives",
  "reth-seismic-evm",
  "reth-seismic-primitives",
  "reth-storage-api",

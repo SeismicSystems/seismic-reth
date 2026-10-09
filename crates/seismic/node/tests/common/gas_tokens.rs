@@ -18,7 +18,7 @@ use reth_e2e_test_utils::wallet::Wallet;
 use reth_payload_primitives::PayloadTypes;
 use reth_primitives_traits::{SealedBlock, SealedHeader};
 use reth_provider::StateProviderFactory;
-use reth_seismic_engine_types::SeismicBuiltPayload;
+use reth_seismic_engine_primitives::SeismicBuiltPayload;
 use reth_seismic_node::{
     engine::SeismicEngineTypes,
     node::SeismicNode,

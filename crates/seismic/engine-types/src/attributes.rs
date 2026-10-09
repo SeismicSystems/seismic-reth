@@ -22,10 +22,14 @@ use serde::{Deserialize, Serialize};
 ///   "parentBeaconBlockRoot": "0x…"
 /// }
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, derive_more::Deref, derive_more::DerefMut,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct SeismicPayloadAttributes {
     /// The stock Ethereum payload attributes. `timestamp` is in Unix seconds.
+    #[deref]
+    #[deref_mut]
     #[serde(flatten)]
     pub inner: PayloadAttributes,
     /// Sub-second (milliseconds) component of the block timestamp, `0..1000`.

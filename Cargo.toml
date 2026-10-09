@@ -14,6 +14,7 @@ members = [
     "bin/genesis-builder/",
     "crates/seismic/chainspec",
     "crates/seismic/cli",
+    "crates/seismic/engine-primitives",
     "crates/seismic/engine-types",
     "crates/seismic/evm/",
     "crates/seismic/genesis-builder",
@@ -353,6 +354,7 @@ codegen-units = 1
 # reth-seismic-bin = { path = "crates/seismic/bin" }
 reth-seismic-chainspec = { path = "crates/seismic/chainspec" }
 reth-seismic-cli = { path = "crates/seismic/cli" }
+reth-seismic-engine-primitives = { path = "crates/seismic/engine-primitives" }
 reth-seismic-engine-types = { path = "crates/seismic/engine-types", default-features = false }
 reth-seismic-evm = { path = "crates/seismic/evm" }
 reth-seismic-genesis-builder = { path = "crates/seismic/genesis-builder" }

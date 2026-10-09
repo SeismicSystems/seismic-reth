@@ -28,7 +28,7 @@ use reth_evm::{
 };
 use reth_primitives_traits::{SealedBlock, SealedHeader, SignedTransaction, TxTy};
 use reth_seismic_chainspec::SeismicChainSpec;
-use reth_seismic_engine_types::SeismicExecutionData;
+use reth_seismic_engine_primitives::SeismicExecutionData;
 use reth_seismic_primitives::{SeismicBlock, SeismicHeader, SeismicPrimitives};
 use reth_storage_errors::any::AnyError;
 use revm::{

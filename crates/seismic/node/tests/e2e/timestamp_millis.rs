@@ -8,7 +8,7 @@ use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_param
 use reth_e2e_test_utils::transaction::TransactionTestContext;
 use reth_engine_primitives::PayloadValidator;
 use reth_payload_primitives::PayloadTypes;
-use reth_seismic_engine_types::MILLIS_PER_SECOND;
+use reth_seismic_engine_primitives::MILLIS_PER_SECOND;
 use reth_seismic_node::{
     consensus::validate_against_parent_timestamp_millis,
     engine::{SeismicEngineTypes, SeismicEngineValidator},

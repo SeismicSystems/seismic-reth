@@ -38,7 +38,7 @@ alloy-consensus.workspace = true
 reth-seismic-chainspec.workspace = true
 reth-seismic-forks.workspace = true
 reth-seismic-primitives = { workspace = true }
-reth-seismic-engine-types = { workspace = true, features = ["reth"] }
+reth-seismic-engine-primitives.workspace = true
 reth-rpc-eth-api = { workspace = true, optional = true }
 reth-ethereum-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
 
@@ -96,6 +96,5 @@ std = [
     "revm-state/std",
     "secp256k1/std",
     "seismic-alloy-genesis/std",
-    "reth-seismic-engine-types/std",
 ]
 portable = ["reth-revm/portable"]

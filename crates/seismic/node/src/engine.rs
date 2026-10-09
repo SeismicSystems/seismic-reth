@@ -1,8 +1,9 @@
 //! Seismic engine API types, validators and the authenticated `engine_` RPC server.
 //!
 //! Seismic blocks carry a sub-second timestamp component, so the Engine API payload attributes
-//! and execution payloads are the extended types from [`reth_seismic_engine_types`]. The server
-//! exposes the Cancun/Prague method versions only; Seismic chains are post-Prague from genesis.
+//! and execution payloads are the extended types from [`reth_seismic_engine_primitives`]. The
+//! server exposes the Cancun/Prague method versions only; Seismic chains are post-Prague from
+//! genesis.
 
 use alloy_consensus::BlockHeader;
 use alloy_eips::eip7685::{Requests, RequestsOrHash};
@@ -26,7 +27,7 @@ use reth_primitives_traits::{Block as _, RecoveredBlock, SealedBlock};
 use reth_rpc_api::IntoEngineApiRpcModule;
 use reth_rpc_engine_api::EngineApi;
 use reth_seismic_chainspec::SeismicChainSpec;
-use reth_seismic_engine_types::{
+use reth_seismic_engine_primitives::{
     SeismicBuiltPayload, SeismicExecutionData, SeismicExecutionPayloadEnvelopeV3,
     SeismicExecutionPayloadEnvelopeV4, SeismicExecutionPayloadV3, SeismicPayloadAttributes,
     SeismicPayloadBuilderAttributes,
@@ -170,9 +171,9 @@ where
         version: EngineApiMessageVersion,
         attributes: &SeismicPayloadAttributes,
     ) -> Result<(), EngineObjectValidationError> {
-        if !reth_seismic_engine_types::is_valid_millis_part(attributes.timestamp_millis_part) {
+        if !reth_seismic_engine_primitives::is_valid_millis_part(attributes.timestamp_millis_part) {
             return Err(EngineObjectValidationError::invalid_params(
-                reth_seismic_engine_types::SeismicPayloadAttributesError::InvalidMillisPart(
+                reth_seismic_engine_primitives::SeismicPayloadAttributesError::InvalidMillisPart(
                     attributes.timestamp_millis_part,
                 ),
             ))

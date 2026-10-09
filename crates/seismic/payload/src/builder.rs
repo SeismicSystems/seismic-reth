@@ -18,7 +18,7 @@ use reth_payload_primitives::PayloadBuilderAttributes;
 use reth_primitives_traits::SignedTransaction;
 use reth_revm::{database::StateProviderDatabase, db::State};
 use reth_seismic_chainspec::SeismicChainSpec;
-use reth_seismic_engine_types::{SeismicBuiltPayload, SeismicPayloadBuilderAttributes};
+use reth_seismic_engine_primitives::{SeismicBuiltPayload, SeismicPayloadBuilderAttributes};
 use reth_seismic_evm::{SeismicEvmConfig, SeismicNextBlockEnvAttributes};
 use reth_seismic_primitives::{SeismicHeader, SeismicPrimitives, SeismicTransactionSigned};
 use reth_storage_api::StateProviderFactory;

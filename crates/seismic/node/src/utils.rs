@@ -17,7 +17,7 @@ pub mod e2e {
     use reth_primitives_traits::SealedHeader;
     use reth_provider::providers::BlockchainProvider;
     use reth_seismic_chainspec::{SeismicChainSpec, SEISMIC_DEV};
-    use reth_seismic_engine_types::{
+    use reth_seismic_engine_primitives::{
         SeismicBuiltPayload, SeismicPayloadAttributes, SeismicPayloadBuilderAttributes,
     };
     use reth_seismic_keys::PurposeKeyring;

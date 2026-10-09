@@ -17,7 +17,7 @@ use reth_chainspec::{EthChainSpec, Hardforks, Head};
 use reth_e2e_test_utils::setup;
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use reth_seismic_chainspec::SEISMIC_DEV;
-use reth_seismic_engine_types::SeismicPayloadBuilderAttributes;
+use reth_seismic_engine_primitives::SeismicPayloadBuilderAttributes;
 use reth_seismic_keys::PurposeKeyring;
 use reth_seismic_node::{node::SeismicNode, purpose_keys::init_purpose_keyring};
 use std::sync::Once;

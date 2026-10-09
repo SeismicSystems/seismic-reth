@@ -37,9 +37,10 @@ Summit works in milliseconds internally and splits at the Engine API boundary:
 - `engine_newPayloadV3/V4`, `engine_getPayloadV3/V4`: the stock `ExecutionPayloadV3` +
   `timestampMillisPart`.
 
-Only the V3/V4 method versions are served. The shared types live in
+Only the V3/V4 method versions are served. The shared wire types live in
 `crates/seismic/engine-types` (`reth-seismic-engine-types`), which depends on stock `alloy`
-only so Summit can consume it without the Seismic forks. See its README for the wire format.
+only so Summit can consume it without the Seismic forks; the node-side integration is
+`crates/seismic/engine-primitives`. See the engine-types README for the wire format.
 
 The payload id commits to the sub-second component, so two builds that differ only in
 `timestampMillisPart` get distinct ids.

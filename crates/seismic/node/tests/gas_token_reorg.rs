@@ -14,7 +14,7 @@ use alloy_sol_types::SolCall;
 use common::gas_tokens::{deactivateTokenCall, TokenKind, TokenTestContext, GAS_PRICE};
 use reth_primitives_traits::{SealedBlock, SignedTransaction};
 use reth_provider::StateProviderFactory;
-use reth_seismic_engine_types::SeismicBuiltPayload;
+use reth_seismic_engine_primitives::SeismicBuiltPayload;
 use reth_seismic_node::utils::test_utils::get_nonce;
 use reth_seismic_primitives::SeismicBlock;
 use reth_transaction_pool::TransactionPool;

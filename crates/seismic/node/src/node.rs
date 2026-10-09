@@ -42,7 +42,7 @@ use reth_rpc_eth_types::{
 };
 use reth_rpc_server_types::RethRpcModule;
 use reth_seismic_chainspec::SeismicChainSpec;
-use reth_seismic_engine_types::SeismicExecutionData;
+use reth_seismic_engine_primitives::SeismicExecutionData;
 use reth_seismic_evm::{SeismicEvmConfig, SeismicNextBlockEnvAttributes};
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{
