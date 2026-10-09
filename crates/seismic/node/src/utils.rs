@@ -109,16 +109,8 @@ pub mod e2e {
     /// Helper function to create new payload builder attributes for Seismic from a Unix
     /// seconds timestamp (zero sub-second component).
     pub fn seismic_payload_attributes(timestamp: u64) -> SeismicPayloadBuilderAttributes {
-        seismic_payload_attributes_millis(timestamp * 1000)
-    }
-
-    /// Helper function to create new payload builder attributes for Seismic from a Unix
-    /// millisecond timestamp.
-    pub fn seismic_payload_attributes_millis(
-        timestamp_millis: u64,
-    ) -> SeismicPayloadBuilderAttributes {
         let attributes = PayloadAttributes {
-            timestamp: 0,
+            timestamp,
             prev_randao: B256::ZERO,
             suggested_fee_recipient: Address::ZERO,
             withdrawals: Some(vec![]),
@@ -126,9 +118,9 @@ pub mod e2e {
         };
         SeismicPayloadBuilderAttributes::new(
             B256::ZERO,
-            SeismicPayloadAttributes::from_timestamp_millis(attributes, timestamp_millis),
+            SeismicPayloadAttributes::new(attributes, 0),
         )
-        .expect("millis part is in range")
+        .expect("zero millis part is in range")
     }
 
     #[cfg(test)]
