@@ -21,8 +21,9 @@ use alloy_eips::{
 };
 use alloy_primitives::{Address, B256, U256};
 use alloy_rpc_types_engine::{
-    BlobsBundleV1, ExecutionData, ExecutionPayload, ExecutionPayloadEnvelopeV3,
-    ExecutionPayloadEnvelopeV4, ExecutionPayloadV3, PayloadAttributes, PayloadId,
+    BlobsBundleV1, BlobsBundleV2, ExecutionData, ExecutionPayload, ExecutionPayloadEnvelopeV2,
+    ExecutionPayloadEnvelopeV3, ExecutionPayloadEnvelopeV4, ExecutionPayloadEnvelopeV5,
+    ExecutionPayloadFieldV2, ExecutionPayloadV1, ExecutionPayloadV3, PayloadAttributes, PayloadId,
 };
 use reth_ethereum_engine_primitives::{payload_id, BlobSidecars, BuiltPayloadConversionError};
 use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes};
@@ -305,6 +306,30 @@ impl SeismicBuiltPayload {
         let execution_requests = self.requests.clone().unwrap_or_default();
         Ok(ExecutionPayloadEnvelopeV4 { envelope_inner: self.try_into_v3()?, execution_requests })
     }
+
+    /// Converts the built payload into a `engine_getPayloadV5` response (Osaka: EIP-7594 cell
+    /// proofs in the blobs bundle).
+    pub fn try_into_v5(self) -> Result<ExecutionPayloadEnvelopeV5, BuiltPayloadConversionError> {
+        let Self { block, fees, sidecars, requests, .. } = self;
+        let blobs_bundle = match sidecars {
+            BlobSidecars::Empty => BlobsBundleV2::empty(),
+            BlobSidecars::Eip7594(sidecars) => BlobsBundleV2::from(sidecars),
+            BlobSidecars::Eip4844(_) => {
+                return Err(BuiltPayloadConversionError::UnexpectedEip4844Sidecars)
+            }
+        };
+        Ok(ExecutionPayloadEnvelopeV5 {
+            execution_payload: ExecutionPayloadV3::from_block_unchecked(
+                block.hash(),
+                &Arc::unwrap_or_clone(block).into_block(),
+            ),
+            block_value: fees,
+            // Spec: clients without an override heuristic SHOULD set this to `false`.
+            should_override_builder: false,
+            blobs_bundle,
+            execution_requests: requests.unwrap_or_default(),
+        })
+    }
 }
 
 impl BuiltPayload for SeismicBuiltPayload {
@@ -323,33 +348,28 @@ impl BuiltPayload for SeismicBuiltPayload {
     }
 }
 
-/// Error returned when a Seismic payload is requested through an Engine API version that
-/// cannot represent it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-#[error("engine API {0} cannot carry Seismic payloads; use V3 or V4")]
-pub struct UnsupportedEngineVersion(pub &'static str);
-
-impl TryFrom<SeismicBuiltPayload> for alloy_rpc_types_engine::ExecutionPayloadV1 {
-    type Error = UnsupportedEngineVersion;
-
-    fn try_from(_: SeismicBuiltPayload) -> Result<Self, Self::Error> {
-        Err(UnsupportedEngineVersion("getPayloadV1"))
+/// `engine_getPayloadV1` response. As upstream, served without fork validation.
+impl From<SeismicBuiltPayload> for ExecutionPayloadV1 {
+    fn from(value: SeismicBuiltPayload) -> Self {
+        Self::from_block_unchecked(
+            value.block().hash(),
+            &Arc::unwrap_or_clone(value.block).into_block(),
+        )
     }
 }
 
-impl TryFrom<SeismicBuiltPayload> for alloy_rpc_types_engine::ExecutionPayloadEnvelopeV2 {
-    type Error = UnsupportedEngineVersion;
-
-    fn try_from(_: SeismicBuiltPayload) -> Result<Self, Self::Error> {
-        Err(UnsupportedEngineVersion("getPayloadV2"))
-    }
-}
-
-impl TryFrom<SeismicBuiltPayload> for alloy_rpc_types_engine::ExecutionPayloadEnvelopeV5 {
-    type Error = UnsupportedEngineVersion;
-
-    fn try_from(_: SeismicBuiltPayload) -> Result<Self, Self::Error> {
-        Err(UnsupportedEngineVersion("getPayloadV5"))
+/// `engine_getPayloadV2` response. Seismic chains are post-Cancun from genesis, so the Engine
+/// API's fork validation rejects V2 requests (`-38005 Unsupported fork`) before this runs.
+impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV2 {
+    fn from(value: SeismicBuiltPayload) -> Self {
+        let SeismicBuiltPayload { block, fees, .. } = value;
+        Self {
+            block_value: fees,
+            execution_payload: ExecutionPayloadFieldV2::from_block_unchecked(
+                block.hash(),
+                &Arc::unwrap_or_clone(block).into_block(),
+            ),
+        }
     }
 }
 
@@ -366,6 +386,14 @@ impl TryFrom<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV4 {
 
     fn try_from(value: SeismicBuiltPayload) -> Result<Self, Self::Error> {
         value.try_into_v4()
+    }
+}
+
+impl TryFrom<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV5 {
+    type Error = BuiltPayloadConversionError;
+
+    fn try_from(value: SeismicBuiltPayload) -> Result<Self, Self::Error> {
+        value.try_into_v5()
     }
 }
 
@@ -471,10 +499,16 @@ mod tests {
             BlobSidecars::Empty,
             None,
         );
-        let envelope = built.try_into_v4().unwrap();
+        let envelope = built.clone().try_into_v4().unwrap();
         assert_eq!(
             envelope.execution_payload.payload_inner.payload_inner.block_hash,
             sealed.hash()
         );
+        let envelope = built.try_into_v5().unwrap();
+        assert_eq!(
+            envelope.execution_payload.payload_inner.payload_inner.block_hash,
+            sealed.hash()
+        );
+        assert_eq!(envelope.blobs_bundle, BlobsBundleV2::empty());
     }
 }

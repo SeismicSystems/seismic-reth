@@ -206,6 +206,62 @@ async fn sub_second_blocks_round_trip_through_engine_consensus_and_rpc() -> eyre
         beacon_roots.push((BASE_SECONDS * MILLIS_PER_SECOND + part, root));
     }
 
+    // Every advertised `engine_getPayloadV*` either serves the built payload or rejects it with
+    // `-38005 Unsupported fork`; a version the node advertises must never answer `-38001 Unknown
+    // payload` for a payload id that exists. Which versions serve follows reth's fork validation
+    // at the payload's timestamp: V1 is never fork-validated upstream, V2 only pre-Cancun, V3
+    // from Cancun, V4 from Prague, V5 from Osaka (lower bounds only).
+    {
+        use reth_chainspec::EthereumHardforks;
+        let capabilities: Vec<String> = engine_client
+            .request("engine_exchangeCapabilities", rpc_params![Vec::<String>::new()])
+            .await?;
+        let advertised: Vec<&str> = capabilities
+            .iter()
+            .map(String::as_str)
+            .filter(|c| c.starts_with("engine_getPayloadV"))
+            .collect();
+        assert!(advertised.contains(&"engine_getPayloadV4"), "{capabilities:?}");
+        assert!(advertised.contains(&"engine_getPayloadV5"), "{capabilities:?}");
+        let serves = |method: &str| match method {
+            "engine_getPayloadV1" => true,
+            "engine_getPayloadV2" => !chain_spec.is_cancun_active_at_timestamp(BASE_SECONDS),
+            "engine_getPayloadV3" => chain_spec.is_cancun_active_at_timestamp(BASE_SECONDS),
+            "engine_getPayloadV4" => chain_spec.is_prague_active_at_timestamp(BASE_SECONDS),
+            "engine_getPayloadV5" => chain_spec.is_osaka_active_at_timestamp(BASE_SECONDS),
+            other => panic!("unexpected capability {other}"),
+        };
+
+        let response: ForkchoiceUpdated = engine_client
+            .request(
+                "engine_forkchoiceUpdatedV3",
+                rpc_params![forkchoice, payload_attributes(BASE_SECONDS, last_part + 1)],
+            )
+            .await?;
+        let payload_id = response.payload_id.expect("accepted attributes start a build");
+        let mut served = Vec::new();
+        for method in advertised {
+            let result: Result<Value, _> =
+                engine_client.request(method, rpc_params![payload_id]).await;
+            match result {
+                Ok(envelope) => {
+                    assert!(serves(method), "{method} served a payload outside its fork window");
+                    // V1 returns the bare payload; V2+ wrap it in an envelope.
+                    let payload = envelope.get("executionPayload").unwrap_or(&envelope);
+                    let hash: B256 = payload["blockHash"].as_str().unwrap().parse()?;
+                    served.push(hash);
+                }
+                Err(jsonrpsee::core::ClientError::Call(error)) => {
+                    assert_eq!(error.code(), -38005, "{method}: {error}");
+                    assert!(!serves(method), "{method} rejected a payload it should serve");
+                }
+                Err(error) => panic!("{method}: {error}"),
+            }
+        }
+        assert!(!served.is_empty());
+        assert!(served.iter().all(|h| h == &served[0]), "all serving versions agree");
+    }
+
     // A payload whose `extraData` breaks the layout is rejected by consensus even though it is
     // a well-formed stock block: strip the prefix and re-seal.
     {
@@ -338,4 +394,63 @@ async fn built_payload_block<C: ClientT + Sync>(
         alloy_rpc_types_engine::ExecutionPayload::V3(payload.clone())
             .try_into_block_with_sidecar(&sidecar)?;
     Ok((payload, block.header, root, execution_requests))
+}
+
+/// On an Osaka-active chain `engine_getPayloadV5` must serve the built payload (it is advertised
+/// and passes fork validation), with the same block as V4. The committed genesis JSON files
+/// activate Osaka at genesis when loaded as files, so this is a launch configuration in use.
+#[tokio::test(flavor = "multi_thread")]
+async fn get_payload_v5_serves_on_an_osaka_chain() -> eyre::Result<()> {
+    use alloy_rpc_types_engine::ExecutionPayloadEnvelopeV5;
+    use reth_chainspec::{EthereumHardfork, ForkCondition};
+
+    reth_tracing::init_test_tracing();
+    ensure_mock_purpose_keys();
+
+    let mut chain_spec = (*test_chain_spec()).clone();
+    chain_spec.hardforks.insert(EthereumHardfork::Osaka, ForkCondition::Timestamp(0));
+    let chain_spec = std::sync::Arc::new(chain_spec);
+    let (mut nodes, _tasks, _wallet) = reth_e2e_test_utils::setup_engine::<SeismicNode>(
+        1,
+        chain_spec.clone(),
+        false,
+        Default::default(),
+        |timestamp| {
+            SeismicPayloadBuilderAttributes::new(
+                B256::ZERO,
+                payload_attributes(BASE_SECONDS, (timestamp % 100) * 7),
+            )
+            .unwrap()
+        },
+    )
+    .await?;
+    let node = nodes.pop().unwrap();
+    let engine_client = node.auth_server_handle().http_client();
+
+    let genesis_hash = chain_spec.genesis_hash();
+    let forkchoice = ForkchoiceState {
+        head_block_hash: genesis_hash,
+        safe_block_hash: genesis_hash,
+        finalized_block_hash: genesis_hash,
+    };
+    let response: ForkchoiceUpdated = engine_client
+        .request(
+            "engine_forkchoiceUpdatedV3",
+            rpc_params![forkchoice, payload_attributes(BASE_SECONDS, 1)],
+        )
+        .await?;
+    let payload_id = response.payload_id.expect("accepted attributes start a build");
+
+    let v4: ExecutionPayloadEnvelopeV4 =
+        engine_client.request("engine_getPayloadV4", rpc_params![payload_id]).await?;
+    let v5: ExecutionPayloadEnvelopeV5 =
+        engine_client.request("engine_getPayloadV5", rpc_params![payload_id]).await?;
+    assert_eq!(v5.execution_payload, v4.execution_payload);
+    assert_eq!(v5.execution_requests, v4.execution_requests);
+    assert!(v5.blobs_bundle.blobs.is_empty());
+    assert_eq!(
+        decode_timestamp_millis_part(&v5.execution_payload.payload_inner.payload_inner.extra_data),
+        Ok(1)
+    );
+    Ok(())
 }
