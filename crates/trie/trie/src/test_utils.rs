@@ -101,7 +101,7 @@ pub fn storage_root_privacy_aware<
     // Add each storage entry to the hash builder with privacy awareness
     for (hashed_key, flagged_storage) in storage_entries {
         let nibbles = Nibbles::unpack(hashed_key);
-        let encoded_value = encode_fixed_size(&flagged_storage);
+        let encoded_value = encode_fixed_size(&flagged_storage.value);
         hash_builder.add_leaf(nibbles, &encoded_value, flagged_storage.is_private());
     }
 
