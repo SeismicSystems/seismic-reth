@@ -19,7 +19,8 @@ use reth_execution_types::BlockExecutionResult;
 use reth_node_ethereum::consensus::EthBeaconConsensus;
 use reth_primitives_traits::{RecoveredBlock, SealedBlock, SealedHeader};
 use reth_seismic_primitives::{
-    SeismicBlock, SeismicBlockBody, SeismicBlockHeader, SeismicPrimitives,
+    header::join_timestamp_millis, SeismicBlock, SeismicBlockBody, SeismicBlockHeader,
+    SeismicPrimitives,
 };
 use std::sync::Arc;
 
@@ -36,17 +37,22 @@ impl SeismicConsensus {
     }
 }
 
-/// Validates the header's `extra_data` layout and returns its millisecond block time.
+/// Validates the header's `extra_data` layout and returns its block time as
+/// `(seconds, millis_part)`.
 ///
 /// Rejects `extra_data` shorter than the timestamp prefix or longer than the consensus maximum,
 /// and a sub-second component outside `0..1000`.
-pub fn validate_timestamp_millis(header: &Header) -> Result<u64, ConsensusError> {
-    header.try_timestamp_millis().map_err(|err| ConsensusError::Other(err.to_string()))
+pub fn validate_timestamp_millis(header: &Header) -> Result<(u64, u64), ConsensusError> {
+    header
+        .try_timestamp_millis_part()
+        .map(|part| (header.timestamp(), part))
+        .map_err(|err| ConsensusError::Other(err.to_string()))
 }
 
 /// Validates the millisecond ordering against the parent.
 ///
-/// Both headers must follow the Seismic `extra_data` layout.
+/// Both headers must follow the Seismic `extra_data` layout. The comparison is on the
+/// `(seconds, millis_part)` pair, so no arithmetic (and no saturation) is involved.
 pub fn validate_against_parent_timestamp_millis(
     header: &Header,
     parent: &Header,
@@ -54,7 +60,10 @@ pub fn validate_against_parent_timestamp_millis(
     let timestamp = validate_timestamp_millis(header)?;
     let parent_timestamp = validate_timestamp_millis(parent)?;
     if timestamp <= parent_timestamp {
-        return Err(ConsensusError::TimestampIsInPast { parent_timestamp, timestamp })
+        return Err(ConsensusError::TimestampIsInPast {
+            parent_timestamp: join_timestamp_millis(parent_timestamp.0, parent_timestamp.1),
+            timestamp: join_timestamp_millis(timestamp.0, timestamp.1),
+        })
     }
     Ok(())
 }

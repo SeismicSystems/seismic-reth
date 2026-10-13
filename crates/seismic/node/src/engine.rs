@@ -5,7 +5,7 @@
 //! Engine API types. Only `engine_forkchoiceUpdated` payload attributes are extended, with an
 //! explicit `timestampMillisPart` (see [`reth_seismic_engine_primitives`]).
 
-use alloy_consensus::Header;
+use alloy_consensus::{BlockHeader, Header};
 use alloy_rpc_types_engine::{
     ExecutionData, ExecutionPayloadEnvelopeV2, ExecutionPayloadEnvelopeV3,
     ExecutionPayloadEnvelopeV4, ExecutionPayloadEnvelopeV5, ExecutionPayloadV1,
@@ -94,9 +94,11 @@ impl PayloadValidator<SeismicEngineTypes> for SeismicEngineValidator {
         header: &Header,
     ) -> Result<(), InvalidPayloadAttributesError> {
         // A canonical head always carries the `extraData` prefix (consensus checked it, and the
-        // genesis templates ship it); a malformed one is treated as a zero component.
+        // genesis templates ship it); a malformed one is treated as a zero component. Ordering
+        // is on the `(seconds, millis_part)` pair, without recombining.
         if !is_valid_millis_part(attr.timestamp_millis_part) ||
-            attr.timestamp_millis() <= header.timestamp_millis()
+            (attr.timestamp(), attr.timestamp_millis_part) <=
+                (header.timestamp(), header.timestamp_millis_part())
         {
             return Err(InvalidPayloadAttributesError::InvalidTimestamp);
         }
