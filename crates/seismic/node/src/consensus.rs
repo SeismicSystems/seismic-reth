@@ -175,6 +175,95 @@ mod tests {
         })
     }
 
+    /// Upstream parity: `validate_header_against_parent` is a hand copy of
+    /// `EthBeaconConsensus::validate_header_against_parent` with only the timestamp rule
+    /// swapped. Pairs with strictly increasing *seconds* timestamps (so upstream's seconds rule
+    /// passes and does not short-circuit) must produce identical results for every other rule;
+    /// a check added upstream that the copy misses fails this test.
+    #[test]
+    fn parent_validation_matches_upstream_except_for_the_timestamp_rule() {
+        use alloy_consensus::EMPTY_ROOT_HASH;
+        use alloy_eips::eip7685::EMPTY_REQUESTS_HASH;
+        use reth_chainspec::EthChainSpec as _;
+
+        let spec = SEISMIC_DEV.clone();
+        let upstream = EthBeaconConsensus::new(spec.clone());
+        let seismic = SeismicConsensus::new(spec.clone());
+
+        let parent = SealedHeader::seal_slow(Header {
+            number: 10,
+            timestamp: 1_800_000_000,
+            gas_limit: 30_000_000,
+            gas_used: 15_000_000,
+            extra_data: encode_extra_data(500, b"p").unwrap(),
+            base_fee_per_gas: Some(1_000_000_000),
+            withdrawals_root: Some(EMPTY_ROOT_HASH),
+            blob_gas_used: Some(0),
+            excess_blob_gas: Some(0),
+            parent_beacon_block_root: Some(Default::default()),
+            requests_hash: Some(EMPTY_REQUESTS_HASH),
+            ..Default::default()
+        });
+        let timestamp = parent.timestamp() + 1;
+        let valid = Header {
+            parent_hash: parent.hash(),
+            number: parent.number() + 1,
+            timestamp,
+            gas_limit: parent.gas_limit(),
+            extra_data: encode_extra_data(0, b"c").unwrap(),
+            base_fee_per_gas: parent
+                .next_block_base_fee(spec.base_fee_params_at_timestamp(timestamp)),
+            excess_blob_gas: parent
+                .maybe_next_block_excess_blob_gas(spec.blob_params_at_timestamp(timestamp)),
+            ..parent.header().clone()
+        };
+
+        let cases: Vec<(&str, Header)> = vec![
+            ("valid", valid.clone()),
+            ("parent hash", Header { parent_hash: Default::default(), ..valid.clone() }),
+            ("number", Header { number: valid.number + 1, ..valid.clone() }),
+            ("gas limit", Header { gas_limit: valid.gas_limit * 2, ..valid.clone() }),
+            (
+                "base fee",
+                Header { base_fee_per_gas: valid.base_fee_per_gas.map(|f| f + 1), ..valid.clone() },
+            ),
+            (
+                "excess blob gas",
+                Header { excess_blob_gas: valid.excess_blob_gas.map(|g| g + 1), ..valid.clone() },
+            ),
+        ];
+        for (name, header) in cases {
+            let header = SealedHeader::seal_slow(header);
+            let expected = HeaderValidator::<Header>::validate_header_against_parent(
+                &upstream, &header, &parent,
+            );
+            let actual = seismic.validate_header_against_parent(&header, &parent);
+            assert_eq!(actual, expected, "{name}");
+            assert_eq!(expected.is_ok(), name == "valid", "{name}");
+        }
+
+        // The one intended divergence: same seconds, later milliseconds.
+        let same_second = SealedHeader::seal_slow(Header {
+            timestamp: parent.timestamp(),
+            extra_data: encode_extra_data(501, b"c").unwrap(),
+            base_fee_per_gas: parent
+                .next_block_base_fee(spec.base_fee_params_at_timestamp(parent.timestamp())),
+            excess_blob_gas: parent.maybe_next_block_excess_blob_gas(
+                spec.blob_params_at_timestamp(parent.timestamp()),
+            ),
+            ..valid
+        });
+        assert!(matches!(
+            HeaderValidator::<Header>::validate_header_against_parent(
+                &upstream,
+                &same_second,
+                &parent
+            ),
+            Err(ConsensusError::TimestampIsInPast { .. })
+        ));
+        assert_eq!(seismic.validate_header_against_parent(&same_second, &parent), Ok(()));
+    }
+
     #[test]
     fn standalone_validation_enforces_the_extra_data_layout() {
         let consensus = SeismicConsensus::new(SEISMIC_DEV.clone());
