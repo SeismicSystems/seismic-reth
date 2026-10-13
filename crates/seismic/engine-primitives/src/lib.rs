@@ -155,10 +155,27 @@ pub fn seismic_payload_id(parent: &B256, attributes: &SeismicPayloadAttributes) 
 impl From<reth_ethereum_engine_primitives::EthPayloadBuilderAttributes>
     for SeismicPayloadBuilderAttributes
 {
-    /// Wraps stock builder attributes with a zero sub-second component. The payload id is kept
-    /// as derived by the stock attributes.
+    /// Wraps stock builder attributes with a zero sub-second component.
+    ///
+    /// Required by `reth_e2e_test_utils`. The payload id is re-derived through
+    /// [`seismic_payload_id`], so attributes built this way get the same id as the same
+    /// attributes passed through [`Self::new`] with a zero part.
     fn from(inner: reth_ethereum_engine_primitives::EthPayloadBuilderAttributes) -> Self {
-        Self { inner, timestamp_millis_part: 0 }
+        let attributes = SeismicPayloadAttributes::new(
+            PayloadAttributes {
+                timestamp: inner.timestamp,
+                prev_randao: inner.prev_randao,
+                suggested_fee_recipient: inner.suggested_fee_recipient,
+                withdrawals: Some(inner.withdrawals.to_vec()),
+                parent_beacon_block_root: inner.parent_beacon_block_root,
+            },
+            0,
+        );
+        let id = seismic_payload_id(&inner.parent, &attributes);
+        Self {
+            inner: reth_ethereum_engine_primitives::EthPayloadBuilderAttributes { id, ..inner },
+            timestamp_millis_part: 0,
+        }
     }
 }
 
@@ -391,6 +408,20 @@ mod tests {
             SeismicPayloadBuilderAttributes::new(B256::ZERO, attrs(1000)),
             Err(SeismicPayloadAttributesError::InvalidMillisPart(1000))
         );
+    }
+
+    #[test]
+    fn builder_attributes_from_stock_derive_the_seismic_payload_id() {
+        let parent = B256::repeat_byte(7);
+        let via_new = SeismicPayloadBuilderAttributes::new(parent, attrs(0)).unwrap();
+        let via_from = SeismicPayloadBuilderAttributes::from(
+            reth_ethereum_engine_primitives::EthPayloadBuilderAttributes::new(
+                parent,
+                attrs(0).0.inner,
+            ),
+        );
+        assert_eq!(via_from, via_new);
+        assert_ne!(via_from.payload_id(), payload_id(&parent, &attrs(0).inner));
     }
 
     #[test]

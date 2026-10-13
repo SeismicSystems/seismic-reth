@@ -8,16 +8,13 @@
 //! in the `eth_config` RPC response.
 
 use alloy_eips::eip7910::EthConfig;
-use alloy_primitives::{Address, B256};
+use alloy_primitives::Address;
 use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
-use alloy_rpc_types_engine::PayloadAttributes;
 use alloy_rpc_types_eth::TransactionRequest;
 use alloy_seismic_evm::PurposeKeys;
 use reth_chainspec::{EthChainSpec, Hardforks, Head};
 use reth_e2e_test_utils::setup;
-use reth_payload_builder::EthPayloadBuilderAttributes;
 use reth_seismic_chainspec::SEISMIC_DEV;
-use reth_seismic_engine_primitives::SeismicPayloadBuilderAttributes;
 use reth_seismic_keys::PurposeKeyring;
 use reth_seismic_node::{node::SeismicNode, purpose_keys::init_purpose_keyring};
 use std::sync::Once;
@@ -30,18 +27,6 @@ fn ensure_mock_purpose_keys() {
             PurposeKeys::well_known(),
         )));
     });
-}
-
-/// Helper function to create a new eth payload attributes
-fn eth_payload_attributes(timestamp: u64) -> SeismicPayloadBuilderAttributes {
-    let attributes = PayloadAttributes {
-        timestamp,
-        prev_randao: B256::ZERO,
-        suggested_fee_recipient: Address::ZERO,
-        withdrawals: Some(vec![]),
-        parent_beacon_block_root: Some(B256::ZERO),
-    };
-    EthPayloadBuilderAttributes::new(B256::ZERO, attributes).into()
 }
 
 /// Validates that the Mercury hardfork is correctly configured and reported via `eth_config` RPC.
@@ -61,8 +46,13 @@ async fn test_mercury_hardfork_config() -> eyre::Result<()> {
 
     let chain_spec = SEISMIC_DEV.clone();
 
-    let (mut nodes, _tasks, wallet) =
-        setup::<SeismicNode>(1, chain_spec.clone(), false, eth_payload_attributes).await?;
+    let (mut nodes, _tasks, wallet) = setup::<SeismicNode>(
+        1,
+        chain_spec.clone(),
+        false,
+        reth_seismic_node::utils::e2e::seismic_payload_attributes,
+    )
+    .await?;
     let mut node = nodes.pop().unwrap();
     let provider = ProviderBuilder::new()
         .wallet(EthereumWallet::new(wallet.wallet_gen().swap_remove(0)))
