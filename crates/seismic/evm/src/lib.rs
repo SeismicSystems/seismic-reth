@@ -318,8 +318,10 @@ impl ConfigureEngineEvm<ExecutionData> for SeismicEvmConfig {
         let spec_id = revm_spec(self.chain_spec(), &temp_header);
         let cfg_env = self.cfg_env(spec_id);
 
-        let blob_excess_gas_and_price =
-            Some(BlobExcessGasAndPrice::new_with_spec(0, spec_id.into_eth_spec()));
+        // Same derivation as `evm_env` from a header: the payload's own excess blob gas.
+        let blob_excess_gas_and_price = payload.payload.excess_blob_gas().map(|excess_blob_gas| {
+            BlobExcessGasAndPrice::new_with_spec(excess_blob_gas, spec_id.into_eth_spec())
+        });
 
         let block_env = BlockEnv {
             number: U256::from(inner.block_number),
@@ -1182,6 +1184,7 @@ mod tests {
                 timestamp: seconds,
                 number: 1,
                 blob_gas_used: Some(0),
+                parent_beacon_block_root: Some(B256::ZERO),
                 extra_data: encode_extra_data(part, b"test").unwrap(),
                 ..exec_header()
             };
@@ -1202,9 +1205,14 @@ mod tests {
                 },
                 timestamp_millis_part: part,
             };
+            // Beacon root + withdrawals make this a V3 payload, as every Seismic block is
+            // (post-Cancun from genesis); the payload path derives blob fees from the payload.
             let payload = execution_data_from_sealed_block(SealedBlock::seal_slow(SeismicBlock {
                 header: header.clone(),
-                ..Default::default()
+                body: alloy_consensus::BlockBody {
+                    withdrawals: Some(Default::default()),
+                    ..Default::default()
+                },
             }));
             let environments = [
                 config.evm_env(&header),
