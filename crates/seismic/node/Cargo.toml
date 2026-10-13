@@ -17,17 +17,17 @@ seismic-custodian-ipc.workspace = true
 # seismic-reth
 reth-seismic-keys.workspace = true
 reth-seismic-payload-builder.workspace = true
+reth-ethereum-payload-builder.workspace = true
 reth-seismic-evm = { workspace = true, features = ["rpc"] }
 reth-seismic-rpc.workspace = true
 reth-seismic-txpool.workspace = true
-reth-seismic-chainspec.workspace = true
+reth-seismic-chainspec = { workspace = true, optional = true }
 reth-seismic-engine-primitives.workspace = true
 reth-seismic-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
 
 # reth
 reth-chainspec.workspace = true
 reth-primitives-traits.workspace = true
-reth-payload-builder.workspace = true
 # reth-codecs.workspace = true
 reth-consensus.workspace = true
 reth-consensus-common.workspace = true
@@ -42,16 +42,12 @@ reth-evm.workspace = true
 reth-rpc-server-types.workspace = true
 reth-rpc-eth-api.workspace = true
 reth-rpc-eth-types.workspace = true
-reth-rpc-api.workspace = true
 reth-node-ethereum.workspace = true
 reth-payload-primitives.workspace = true
 reth-engine-primitives.workspace = true
 reth-engine-local.workspace = true
 reth-eth-wire-types.workspace = true
 reth-rpc-builder.workspace = true
-reth-payload-validator.workspace = true
-reth-rpc-engine-api.workspace = true
-reth-storage-api.workspace = true
 
 # revm
 revm = { workspace = true, features = ["secp256k1", "blst", "c-kzg"] }
@@ -80,13 +76,12 @@ tracing.workspace = true
 alloy-rpc-types = { workspace = true }
 tokio = { workspace = true }
 jsonrpsee = { workspace = true }
-jsonrpsee-core.workspace = true
-async-trait.workspace = true
 reth-e2e-test-utils = { workspace = true, optional = true }
 reth-tasks = { workspace = true, optional = true }
 
 [dev-dependencies]
 reth-seismic-node = { workspace = true, features = ["test-utils"] }
+clap = { workspace = true, features = ["derive"] }
 seismic-crypto.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
@@ -148,6 +143,7 @@ js-tracer = [
 test-utils = [
     "reth-tasks",
     "reth-e2e-test-utils",
+    "reth-seismic-chainspec",
     "reth-node-builder/test-utils",
     "reth-chainspec/test-utils",
     "reth-consensus/test-utils",

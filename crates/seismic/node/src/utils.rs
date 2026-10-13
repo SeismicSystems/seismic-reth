@@ -9,14 +9,14 @@ pub mod e2e {
     use alloy_primitives::{address, Address, B256};
     use alloy_rpc_types_engine::PayloadAttributes;
     use alloy_seismic_evm::PurposeKeys;
-    use reth_chainspec::make_genesis_header;
+    use reth_chainspec::{make_genesis_header, ChainSpec};
     use reth_e2e_test_utils::{
         transaction::TransactionTestContext, wallet::Wallet, NodeHelperType, TmpDB,
     };
     use reth_node_api::NodeTypesWithDBAdapter;
     use reth_primitives_traits::SealedHeader;
     use reth_provider::providers::BlockchainProvider;
-    use reth_seismic_chainspec::{SeismicChainSpec, SEISMIC_DEV};
+    use reth_seismic_chainspec::SEISMIC_DEV;
     use reth_seismic_engine_primitives::{
         SeismicBuiltPayload, SeismicPayloadAttributes, SeismicPayloadBuilderAttributes,
     };
@@ -45,8 +45,8 @@ pub mod e2e {
     /// The registry remains empty, contract code and other storage remain untouched,
     /// and the header/hash are recomputed before node initialization. No builder or
     /// artifact downloads run during E2E setup.
-    pub fn test_chain_spec() -> Arc<SeismicChainSpec> {
-        let mut spec = SEISMIC_DEV.inner().clone();
+    pub fn test_chain_spec() -> Arc<ChainSpec> {
+        let mut spec = (**SEISMIC_DEV).clone();
         let owner = Wallet::default().inner.address().into_word();
         let protocol_params = address!("0x0000000000000000000000000000506172616d73");
         for contract in [GAS_TOKEN_REGISTRY, protocol_params] {
@@ -60,7 +60,7 @@ pub mod e2e {
         }
         spec.genesis_header =
             SealedHeader::seal_slow(make_genesis_header(&spec.genesis, &spec.hardforks));
-        Arc::new(SeismicChainSpec::new(spec))
+        Arc::new(spec)
     }
 
     /// Creates `num_nodes` connected nodes using the E2E wallet-owned test genesis.
@@ -126,7 +126,6 @@ pub mod e2e {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use alloy_consensus::Sealable;
         use alloy_primitives::U256;
         use seismic_revm::gas_token_registry::TOKEN_COUNT_SLOT;
 
@@ -165,13 +164,9 @@ pub mod e2e {
             assert_ne!(spec.genesis_hash(), original_hash);
             assert_eq!(
                 spec.genesis_hash(),
-                reth_seismic_primitives::SeismicHeader::from(make_genesis_header(
-                    &spec.genesis,
-                    &spec.hardforks
-                ))
-                .hash_slow()
+                make_genesis_header(&spec.genesis, &spec.hardforks).hash_slow()
             );
-            assert_eq!(spec.inner().genesis_hash(), spec.genesis_hash());
+            assert_eq!(reth_seismic_chainspec::check_genesis_extra_data(&spec), Ok(()));
             let storage =
                 spec.genesis.alloc.get(&GAS_TOKEN_REGISTRY).unwrap().storage.as_ref().unwrap();
             assert_eq!(

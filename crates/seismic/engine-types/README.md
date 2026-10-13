@@ -1,17 +1,27 @@
 # reth-seismic-engine-types
 
-Engine API wire types shared between seismic-reth (execution) and Summit (consensus).
+Engine API wire types and header conventions shared between seismic-reth (execution) and
+Summit (consensus).
 
-Seismic block headers carry a standard Ethereum `timestamp` in Unix **seconds** plus a
-separate sub-second component, `timestampMillisPart` (`0..1000`). These types extend the
-stock Engine API payload attributes and execution payloads with that field so consensus can
-drive millisecond block times without changing the meaning of any standard field.
+Seismic block headers are **stock Ethereum headers**: `timestamp` is in Unix seconds and the
+block hash is the standard `keccak(rlp(header))`. The sub-second component of the block time,
+`timestampMillisPart` (`0..1000`), is carried in the first two bytes of `extraData`:
+
+```text
+extraData = [timestampMillisPart: u16 big-endian][builder data: 0..=30 bytes]
+```
+
+`block time (ms) = timestamp * 1000 + timestampMillisPart`. Consensus rejects headers whose
+`extraData` is shorter than two bytes, longer than 32 bytes, or whose prefix is `>= 1000`.
 
 ## Wire format
 
-Stock fields are flattened; the extra field is camel-cased and encoded as a hex quantity.
+Execution payloads (`engine_newPayloadV3/V4`, `engine_getPayloadV3/V4`) are the stock
+`ExecutionPayloadV3`; the sub-second component is read from the payload's `extraData`.
 
-`engine_forkchoiceUpdatedV3` payload attributes ([`SeismicPayloadAttributes`]):
+`engine_forkchoiceUpdatedV3` payload attributes ([`SeismicPayloadAttributes`]) extend the stock
+attributes with an explicit `timestampMillisPart` so consensus can request a sub-second block
+time. Stock fields are flattened; the extra field is camel-cased and hex-quantity encoded:
 
 ```json
 {
@@ -24,23 +34,16 @@ Stock fields are flattened; the extra field is camel-cased and encoded as a hex 
 }
 ```
 
-`engine_newPayloadV3/V4` and `engine_getPayloadV3/V4` carry a
-[`SeismicExecutionPayloadV3`]: the stock `ExecutionPayloadV3` plus `timestampMillisPart`.
-`blockHash` is the hash of the full Seismic header, which commits to the sub-second
-component, so it is **not** the hash of the stock fields alone.
+## Helpers
 
-Only the V3/V4 Engine API method versions are served by seismic-reth.
+- `split_timestamp_millis(ms) -> (seconds, part)` / `join_timestamp_millis(seconds, part)`:
+  the canonical conversions. Consensus should split once at the Engine API boundary and keep
+  working in milliseconds internally.
+- `extra_data::encode_extra_data(part, builder_data)` /
+  `extra_data::decode_timestamp_millis_part(extra_data)` /
+  `extra_data::header_timestamp_millis(timestamp, extra_data)`: the `extraData` layout.
 
 ## Features
 
 - default (`std`): stock `alloy` only. This is what Summit depends on (by git) — no
   seismic-alloy forks, no reth.
-- `ssz`: SSZ encoding for [`SeismicExecutionPayloadV3`] (Summit hashes payloads in its block).
-- `reth`: node-side integration — [`SeismicPayloadBuilderAttributes`], [`SeismicBuiltPayload`],
-  block ⇄ payload conversions and the `reth` trait implementations.
-
-## Helpers
-
-`split_timestamp_millis(ms) -> (seconds, part)` and `join_timestamp_millis(seconds, part)` are
-the canonical conversions; consensus should split once at the Engine API boundary and keep
-working in milliseconds internally.

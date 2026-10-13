@@ -1,7 +1,7 @@
 {
     "nonce": "0x0",
     "timestamp": "0x6490fdd2",
-    "extraData": "0x",
+    "extraData": "0x0000",
     "gasLimit": "0x1c9c380",
     "difficulty": "0x0",
     "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",

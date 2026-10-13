@@ -18,7 +18,6 @@ use reth_node_core::args::{DevArgs, RpcServerArgs};
 use reth_primitives_traits::SealedHeader;
 use reth_rpc_builder::RpcModuleSelection;
 use reth_rpc_layer::{eip712_signing_hash, WHITELIST_TX_SENTINEL};
-use reth_seismic_chainspec::SeismicChainSpec;
 use reth_seismic_node::{
     node::SeismicNode,
     utils::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes},
@@ -55,7 +54,7 @@ const FAR_FUTURE_BLOCK: u64 = 1_000_000_000;
 const PARAMS_CONTRACT: Address = address!("0x0000000000000000000000000000506172616d73");
 
 /// Build a Seismic dev chain spec with a custom governance address in the Params contract.
-fn dev_chain_spec_with_governance(governance_address: Address) -> Arc<SeismicChainSpec> {
+fn dev_chain_spec_with_governance(governance_address: Address) -> Arc<ChainSpec> {
     let mut genesis: alloy_genesis::Genesis =
         serde_json::from_str(include_str!("../../../chainspec/res/genesis/dev.json"))
             .expect("deserialize dev genesis");
@@ -70,14 +69,14 @@ fn dev_chain_spec_with_governance(governance_address: Address) -> Arc<SeismicCha
     }
 
     let hardforks = reth_seismic_forks::SEISMIC_DEV_HARDFORKS.clone();
-    Arc::new(SeismicChainSpec::new(ChainSpec {
+    Arc::new(ChainSpec {
         chain: Chain::from_id(5124),
         genesis_header: SealedHeader::seal_slow(make_genesis_header(&genesis, &hardforks)),
         genesis,
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
         hardforks,
         ..Default::default()
-    }))
+    })
 }
 
 /// Build and sign a legacy transaction targeting the sentinel address with the given calldata.

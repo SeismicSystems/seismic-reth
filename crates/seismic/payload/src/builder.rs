@@ -1,12 +1,12 @@
 //! A basic Seismic payload builder implementation.
 
-use alloy_consensus::{BlockHeader, Transaction, Typed2718};
+use alloy_consensus::{BlockHeader, Header, Transaction, Typed2718};
 use alloy_primitives::U256;
 use reth_basic_payload_builder::{
     is_better_payload, BuildArguments, BuildOutcome, MissingPayloadBehaviour, PayloadBuilder,
     PayloadConfig,
 };
-use reth_chainspec::{ChainSpecProvider, EthereumHardforks};
+use reth_chainspec::{ChainSpec, ChainSpecProvider, EthereumHardforks};
 use reth_errors::{BlockExecutionError, BlockValidationError};
 use reth_evm::{
     execute::{BlockBuilder, BlockBuilderOutcome},
@@ -17,10 +17,9 @@ use reth_payload_builder_primitives::PayloadBuilderError;
 use reth_payload_primitives::PayloadBuilderAttributes;
 use reth_primitives_traits::SignedTransaction;
 use reth_revm::{database::StateProviderDatabase, db::State};
-use reth_seismic_chainspec::SeismicChainSpec;
 use reth_seismic_engine_primitives::{SeismicBuiltPayload, SeismicPayloadBuilderAttributes};
 use reth_seismic_evm::{SeismicEvmConfig, SeismicNextBlockEnvAttributes};
-use reth_seismic_primitives::{SeismicHeader, SeismicPrimitives, SeismicTransactionSigned};
+use reth_seismic_primitives::{SeismicPrimitives, SeismicTransactionSigned};
 use reth_storage_api::StateProviderFactory;
 use reth_transaction_pool::{
     error::InvalidPoolTransactionError, BestTransactions, BestTransactionsAttributes,
@@ -70,7 +69,7 @@ where
         Primitives = SeismicPrimitives,
         NextBlockEnvCtx = SeismicNextBlockEnvAttributes,
     >,
-    Client: StateProviderFactory + ChainSpecProvider<ChainSpec = SeismicChainSpec> + Clone,
+    Client: StateProviderFactory + ChainSpecProvider<ChainSpec = ChainSpec> + Clone,
     Pool: TransactionPool<Transaction: PoolTransaction<Consensus = SeismicTransactionSigned>>,
 {
     type Attributes = SeismicPayloadBuilderAttributes;
@@ -103,7 +102,7 @@ where
 
     fn build_empty_payload(
         &self,
-        config: PayloadConfig<Self::Attributes, SeismicHeader>,
+        config: PayloadConfig<Self::Attributes, Header>,
     ) -> Result<Self::BuiltPayload, PayloadBuilderError> {
         let args = BuildArguments::new(Default::default(), config, Default::default(), None);
 
@@ -155,7 +154,7 @@ where
         Primitives = SeismicPrimitives,
         NextBlockEnvCtx = SeismicNextBlockEnvAttributes,
     >,
-    Client: StateProviderFactory + ChainSpecProvider<ChainSpec = SeismicChainSpec>,
+    Client: StateProviderFactory + ChainSpecProvider<ChainSpec = ChainSpec>,
     Pool: TransactionPool<Transaction: PoolTransaction<Consensus = SeismicTransactionSigned>>,
     F: FnOnce(BestTransactionsAttributes) -> BestTransactionsIter<Pool>,
 {

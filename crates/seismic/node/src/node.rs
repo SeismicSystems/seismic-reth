@@ -2,11 +2,12 @@
 
 use crate::{
     consensus::SeismicConsensus,
-    engine::{SeismicEngineApiBuilder, SeismicEngineTypes, SeismicEngineValidator},
+    engine::{SeismicEngineTypes, SeismicEngineValidator},
     txpool::SeismicTransactionPool,
 };
 use alloy_eips::merge::EPOCH_SLOTS;
-use reth_chainspec::EthChainSpec;
+use alloy_rpc_types_engine::ExecutionData;
+use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_consensus::{ConsensusError, FullConsensus};
 use reth_engine_primitives::{NoopInvalidBlockHook, TreeConfig};
 use reth_eth_wire_types::NewBlock;
@@ -23,9 +24,9 @@ use reth_node_builder::{
     },
     node::{FullNodeTypes, NodeTypes},
     rpc::{
-        BasicEngineValidator, BasicEngineValidatorBuilder, EngineApiBuilder, EngineValidatorAddOn,
-        EngineValidatorBuilder, EthApiBuilder, PayloadValidatorBuilder, RethRpcAddOns,
-        RethRpcMiddleware, RpcAddOns, RpcHandle, RpcModuleContainer,
+        BasicEngineApiBuilder, BasicEngineValidator, BasicEngineValidatorBuilder, EngineApiBuilder,
+        EngineValidatorAddOn, EngineValidatorBuilder, EthApiBuilder, PayloadValidatorBuilder,
+        RethRpcAddOns, RethRpcMiddleware, RpcAddOns, RpcHandle, RpcModuleContainer,
     },
     BuilderContext, DebugNode, Node, NodeAdapter, NodeComponentsBuilder, PayloadBuilderConfig,
 };
@@ -41,13 +42,10 @@ use reth_rpc_eth_types::{
     EthApiError,
 };
 use reth_rpc_server_types::RethRpcModule;
-use reth_seismic_chainspec::SeismicChainSpec;
-use reth_seismic_engine_primitives::SeismicExecutionData;
 use reth_seismic_evm::{SeismicEvmConfig, SeismicNextBlockEnvAttributes};
 use reth_seismic_payload_builder::SeismicBuilderConfig;
 use reth_seismic_primitives::{
-    SeismicBlock, SeismicBlockBody, SeismicHeader, SeismicPrimitives, SeismicReceipt,
-    SeismicTransactionSigned,
+    SeismicBlock, SeismicBlockBody, SeismicPrimitives, SeismicReceipt, SeismicTransactionSigned,
 };
 use reth_seismic_rpc::{
     ext::{EthApiExt, EthApiOverrideServer, SeismicApi, SeismicApiServer},
@@ -67,7 +65,7 @@ use reth_node_core::args::PurposeKeysArgs;
 use reth_seismic_keys::PurposeKeyring;
 
 /// Storage implementation for Seismic.
-pub type SeismicStorage = EthStorage<SeismicTransactionSigned, SeismicHeader>;
+pub type SeismicStorage = EthStorage<SeismicTransactionSigned>;
 
 #[derive(Debug, Clone)]
 /// Type configuration for a regular Seismic node.
@@ -112,7 +110,7 @@ impl SeismicNode {
         Node: FullNodeTypes<
             Types: NodeTypes<
                 Payload = SeismicEngineTypes,
-                ChainSpec = SeismicChainSpec,
+                ChainSpec = ChainSpec,
                 Primitives = SeismicPrimitives,
             >,
         >,
@@ -171,7 +169,7 @@ where
     N: FullNodeTypes<
         Types: NodeTypes<
             Payload = SeismicEngineTypes,
-            ChainSpec = SeismicChainSpec,
+            ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
             Storage = SeismicStorage,
         >,
@@ -190,7 +188,7 @@ where
         NodeAdapter<N, <Self::ComponentsBuilder as NodeComponentsBuilder<N>>::Components>,
         SeismicEthApiBuilder<SeismicRethWithSignable>,
         SeismicEngineValidatorBuilder,
-        SeismicEngineApiBuilder<SeismicEngineValidatorBuilder>,
+        BasicEngineApiBuilder<SeismicEngineValidatorBuilder>,
         BasicEngineValidatorBuilder<SeismicEngineValidatorBuilder>,
         Identity,
     >;
@@ -204,7 +202,7 @@ where
             NodeAdapter<N, <Self::ComponentsBuilder as NodeComponentsBuilder<N>>::Components>,
             SeismicEthApiBuilder<SeismicRethWithSignable>,
             SeismicEngineValidatorBuilder,
-            SeismicEngineApiBuilder<SeismicEngineValidatorBuilder>,
+            BasicEngineApiBuilder<SeismicEngineValidatorBuilder>,
             BasicEngineValidatorBuilder<SeismicEngineValidatorBuilder>,
             Identity
         >()
@@ -213,7 +211,7 @@ where
 
 impl NodeTypes for SeismicNode {
     type Primitives = SeismicPrimitives;
-    type ChainSpec = SeismicChainSpec;
+    type ChainSpec = ChainSpec;
     type Storage = SeismicStorage;
     type Payload = SeismicEngineTypes;
 }
@@ -222,10 +220,7 @@ impl SeismicNode {
     /// Converts a fetched RPC block into a Seismic primitive block, preserving the full block
     /// body (transactions, withdrawals, ...) instead of rebuilding it from transactions alone.
     fn rpc_block_to_primitive(rpc_block: SeismicRpcBlock) -> SeismicBlock {
-        rpc_block
-            .map_header(|header| header.into_consensus())
-            .into_consensus_block()
-            .convert_transactions()
+        rpc_block.into_consensus().convert_transactions()
     }
 }
 
@@ -248,11 +243,8 @@ where
     }
 }
 
-/// The RPC block shape served for Seismic blocks: Seismic transactions and the Seismic header.
-pub type SeismicRpcBlock = alloy_rpc_types_eth::Block<
-    seismic_alloy_consensus::SeismicTxEnvelope,
-    alloy_rpc_types_eth::Header<SeismicHeader>,
->;
+/// The RPC block shape served for Seismic blocks: Seismic transactions under a stock header.
+pub type SeismicRpcBlock = alloy_rpc_types_eth::Block<seismic_alloy_consensus::SeismicTxEnvelope>;
 
 /// Helper trait alias that bundles the common `FullNodeComponents` bounds required by Seismic
 /// add-ons. This avoids repeating the verbose `NodeTypes` and `Evm` constraints across every
@@ -260,7 +252,7 @@ pub type SeismicRpcBlock = alloy_rpc_types_eth::Block<
 pub trait SeismicFullNode:
     FullNodeComponents<
     Types: NodeTypes<
-        ChainSpec = SeismicChainSpec,
+        ChainSpec = ChainSpec,
         Primitives = SeismicPrimitives,
         Storage = SeismicStorage,
         Payload = SeismicEngineTypes,
@@ -273,7 +265,7 @@ pub trait SeismicFullNode:
 impl<N> SeismicFullNode for N where
     N: FullNodeComponents<
         Types: NodeTypes<
-            ChainSpec = SeismicChainSpec,
+            ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
             Storage = SeismicStorage,
             Payload = SeismicEngineTypes,
@@ -289,7 +281,7 @@ pub struct SeismicAddOns<
     N: FullNodeComponents,
     EthB: EthApiBuilder<N> = SeismicEthApiBuilder<SeismicRethWithSignable>,
     PVB = SeismicEngineValidatorBuilder,
-    EB = SeismicEngineApiBuilder<SeismicEngineValidatorBuilder>,
+    EB = BasicEngineApiBuilder<SeismicEngineValidatorBuilder>,
     EVB = BasicEngineValidatorBuilder<SeismicEngineValidatorBuilder>,
     RpcMiddleware = Identity,
 > {
@@ -346,7 +338,7 @@ where
             N,
             SeismicEthApiBuilder<SeismicRethWithSignable>,
             SeismicEngineValidatorBuilder,
-            SeismicEngineApiBuilder<SeismicEngineValidatorBuilder>,
+            BasicEngineApiBuilder<SeismicEngineValidatorBuilder>,
             BasicEngineValidatorBuilder<SeismicEngineValidatorBuilder>,
             Identity
         >()
@@ -491,7 +483,7 @@ where
 impl<N, EthB, PVB, EB, EVB, RpcMiddleware> EngineValidatorAddOn<N>
     for SeismicAddOns<N, EthB, PVB, EB, EVB, RpcMiddleware>
 where
-    N: SeismicFullNode<Evm: ConfigureEngineEvm<SeismicExecutionData>>,
+    N: SeismicFullNode<Evm: ConfigureEngineEvm<ExecutionData>>,
     EthB: EthApiBuilder<N>,
     EthB::EthApi: FullEthApi + Send + Sync + 'static,
     <EthB::EthApi as reth_rpc_eth_api::EthApiTypes>::Error: Send + Sync + 'static,
@@ -531,9 +523,7 @@ pub struct SeismicExecutorBuilder {
 
 impl<Node> ExecutorBuilder<Node> for SeismicExecutorBuilder
 where
-    Node: FullNodeTypes<
-        Types: NodeTypes<ChainSpec = SeismicChainSpec, Primitives = SeismicPrimitives>,
-    >,
+    Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
 {
     type EVM = SeismicEvmConfig;
 
@@ -543,7 +533,12 @@ where
         // The EVM selects each block's keys through the keyring (per-block epoch
         // selection in the alloy-seismic-evm block executor; missing keys stall
         // execution until the rotation watcher fetches them).
-        let evm_config = seismic_evm_config(ctx.chain_spec(), keyring.clone());
+        let evm_config = seismic_evm_config(ctx.chain_spec(), keyring.clone())
+            // The builder tag follows the `timestampMillisPart` prefix in `extraData`, so it has
+            // 30 bytes rather than the stock 32; reject an oversized `--builder.extradata` at
+            // launch instead of on every block build.
+            .try_with_extra_data(ctx.payload_builder_config().extra_data_bytes())
+            .map_err(|err| eyre::eyre!("invalid --builder.extradata: {err}"))?;
 
         // Sync the keyring with the on-chain rotation registry: catch up on
         // announcements made while the node was offline (fail the launch if their
@@ -583,7 +578,7 @@ where
     Node: FullNodeTypes<
         Types: NodeTypes<
             Payload = SeismicEngineTypes,
-            ChainSpec = SeismicChainSpec,
+            ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
         >,
     >,
@@ -717,7 +712,7 @@ impl SeismicPayloadBuilder {
         Node: FullNodeTypes<
             Types: NodeTypes<
                 Payload = SeismicEngineTypes,
-                ChainSpec = SeismicChainSpec,
+                ChainSpec = ChainSpec,
                 Primitives = SeismicPrimitives,
             >,
         >,
@@ -745,7 +740,7 @@ where
     Node: FullNodeTypes<
         Types: NodeTypes<
             Payload = SeismicEngineTypes,
-            ChainSpec = SeismicChainSpec,
+            ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
         >,
     >,
@@ -788,9 +783,7 @@ pub struct SeismicNetworkBuilder {
 
 impl<Node, Pool> NetworkBuilder<Node, Pool> for SeismicNetworkBuilder
 where
-    Node: FullNodeTypes<
-        Types: NodeTypes<ChainSpec = SeismicChainSpec, Primitives = SeismicPrimitives>,
-    >,
+    Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
     Pool: TransactionPool<
             Transaction: PoolTransaction<Consensus = TxTy<Node::Types>, Pooled = SeismicTxEnvelope>, /* equiv to op_alloy_consensus::OpPooledTransaction>, */
         > + Unpin
@@ -833,9 +826,7 @@ pub struct SeismicConsensusBuilder;
 
 impl<Node> ConsensusBuilder<Node> for SeismicConsensusBuilder
 where
-    Node: FullNodeTypes<
-        Types: NodeTypes<ChainSpec = SeismicChainSpec, Primitives = SeismicPrimitives>,
-    >,
+    Node: FullNodeTypes<Types: NodeTypes<ChainSpec = ChainSpec, Primitives = SeismicPrimitives>>,
 {
     type Consensus = Arc<dyn FullConsensus<SeismicPrimitives, Error = ConsensusError>>;
 
@@ -852,12 +843,12 @@ pub struct SeismicEngineValidatorBuilder;
 impl<Node, Types> EngineValidatorBuilder<Node> for SeismicEngineValidatorBuilder
 where
     Types: NodeTypes<
-        ChainSpec = SeismicChainSpec,
+        ChainSpec = ChainSpec,
         Primitives = SeismicPrimitives,
         Payload = SeismicEngineTypes,
     >,
     Node: FullNodeComponents<Types = Types>,
-    Node::Evm: ConfigureEngineEvm<SeismicExecutionData>,
+    Node::Evm: ConfigureEngineEvm<ExecutionData>,
 {
     type EngineValidator = BasicEngineValidator<Node::Provider, Node::Evm, SeismicEngineValidator>;
 
@@ -882,7 +873,7 @@ impl<Node> PayloadValidatorBuilder<Node> for SeismicEngineValidatorBuilder
 where
     Node: FullNodeComponents<
         Types: NodeTypes<
-            ChainSpec = SeismicChainSpec,
+            ChainSpec = ChainSpec,
             Primitives = SeismicPrimitives,
             Payload = SeismicEngineTypes,
         >,
@@ -900,7 +891,7 @@ where
 pub struct SeismicNetworkPrimitives;
 
 impl NetworkPrimitives for SeismicNetworkPrimitives {
-    type BlockHeader = SeismicHeader;
+    type BlockHeader = alloy_consensus::Header;
     type BlockBody = SeismicBlockBody;
     type Block = SeismicBlock;
     type BroadcastedTransaction = SeismicTransactionSigned;
@@ -912,6 +903,38 @@ impl NetworkPrimitives for SeismicNetworkPrimitives {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use reth_node_core::{args::PayloadBuilderArgs, cli::config::PayloadBuilderConfig};
+    use reth_seismic_primitives::header::MAX_BUILDER_EXTRA_DATA_LEN;
+
+    /// The stock `--builder.extradata` parser allows the full 32 bytes; the Seismic launch
+    /// path (`SeismicExecutorBuilder::build_evm`) is what enforces the 30-byte budget left
+    /// behind the `timestampMillisPart` prefix.
+    #[test]
+    fn builder_extradata_budget_is_enforced_at_launch() {
+        use clap::Parser;
+
+        #[derive(Parser)]
+        struct Cli {
+            #[command(flatten)]
+            builder: PayloadBuilderArgs,
+        }
+
+        let keyring = Arc::new(reth_seismic_keys::PurposeKeyring::single_epoch(
+            alloy_seismic_evm::PurposeKeys::well_known(),
+        ));
+        let spec = reth_seismic_chainspec::SEISMIC_DEV.clone();
+
+        for (len, accepted) in
+            [(MAX_BUILDER_EXTRA_DATA_LEN, true), (MAX_BUILDER_EXTRA_DATA_LEN + 1, false)]
+        {
+            let tag = "x".repeat(len);
+            let args = Cli::parse_from(["seismic-reth", "--builder.extradata", &tag]).builder;
+            assert_eq!(args.extra_data_bytes().len(), len, "stock parser accepts {len} bytes");
+            let result = seismic_evm_config(spec.clone(), keyring.clone())
+                .try_with_extra_data(args.extra_data_bytes());
+            assert_eq!(result.is_ok(), accepted, "{len}-byte tag");
+        }
+    }
     use alloy_eips::eip4895::{Withdrawal, Withdrawals};
     use alloy_primitives::Address;
     use alloy_rpc_types_eth::{BlockTransactions, Header};

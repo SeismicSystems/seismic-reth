@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use alloy_chains::Chain;
+use alloy_consensus::BlockHeader;
 use alloy_genesis::Genesis;
 use alloy_primitives::{b256, B256, U256};
 use reth_chainspec::{make_genesis_header, ChainSpec};
@@ -18,15 +19,23 @@ use reth_primitives_traits::{sync::LazyLock, SealedHeader};
 use reth_seismic_forks::{
     SEISMIC_DEV_HARDFORKS, SEISMIC_MAINNET_HARDFORKS, SEISMIC_TESTNET_HARDFORKS,
 };
-
-mod spec;
-pub use spec::SeismicChainSpec;
+use reth_seismic_primitives::header::{decode_timestamp_millis_part, ExtraDataError};
 
 /// Normalizes a parsed genesis so all Seismic specs derive their config from one place:
 /// enables DAO-fork support.
 const fn normalize_genesis(mut genesis: Genesis) -> Genesis {
     genesis.config.dao_fork_support = true;
     genesis
+}
+
+/// Checks that the genesis header follows the Seismic `extraData` layout (a two-byte
+/// `timestampMillisPart` prefix, see [`reth_seismic_primitives::header`]).
+///
+/// Consensus validates every imported header, but genesis is never validated: a genesis file
+/// without the prefix would launch a node whose head cannot be built on (every build request
+/// fails the parent timestamp check). Call this when parsing an operator-supplied genesis.
+pub fn check_genesis_extra_data(spec: &ChainSpec) -> Result<(), ExtraDataError> {
+    decode_timestamp_millis_part(spec.genesis_header().extra_data()).map(drop)
 }
 
 /// Genesis hash for the Seismic mainnet
@@ -41,7 +50,7 @@ const fn normalize_genesis(mut genesis: Genesis) -> Genesis {
 /// `seismic-reth genesis-hash --chain crates/seismic/chainspec/res/genesis/mainnet.json`
 /// — the file path matters: `--chain mainnet` echoes this pinned constant back.
 pub const SEISMIC_MAINNET_GENESIS_HASH: B256 =
-    b256!("0xade98a3ac8ed86de0ac2215b679c8d0c5fde21c528d184eed86bfefd961f6992");
+    b256!("0xde54861f263f3087c37613a300283162b0be8579dfafd8c9fb252066de075ba9");
 
 /// Genesis hash for the Seismic public testnet.
 ///
@@ -55,7 +64,7 @@ pub const SEISMIC_MAINNET_GENESIS_HASH: B256 =
 /// `seismic-reth genesis-hash --chain crates/seismic/chainspec/res/genesis/testnet.json`.
 /// The `genesis_header_hash` test recomputes the hash and fails on drift.
 pub const SEISMIC_TESTNET_GENESIS_HASH: B256 =
-    b256!("0x6a84b179cf4f4b4d81d05b7078661d696eeb8d22baea30911dfba2f7165ae5b4");
+    b256!("0x02ba60ccb96891496d1b8deb3d8344a0eaa9701ceca2e3eb612ad5b21da41112");
 
 /// Genesis hash for the Seismic devnet
 /// Calculated by rlp encoding the genesis header and hashing it.
@@ -73,7 +82,7 @@ pub const SEISMIC_TESTNET_GENESIS_HASH: B256 =
 /// `seismic-reth genesis-hash --chain crates/seismic/chainspec/res/genesis/dev.json`
 /// The `genesis_header_hash` test recomputes it and fails on drift.
 pub const SEISMIC_DEV_GENESIS_HASH: B256 =
-    b256!("0x2302293c3db44f79362faa1f267e512799c2a7e9fd8d23d61d3180edc4b8c736");
+    b256!("0xa311e08b8dc9c505c10b69b1ddd06f7b81ccc5aff4f339e6218d612a0ebb76ab");
 
 /// Seismic devnet specification
 ///
@@ -81,21 +90,24 @@ pub const SEISMIC_DEV_GENESIS_HASH: B256 =
 /// Panics if the embedded `dev.json` genesis file cannot be deserialized.
 /// Indicates a build error, not a runtime issue.
 #[allow(clippy::expect_used)] // Documented panic - genesis deserialization is required
-pub static SEISMIC_DEV: LazyLock<Arc<SeismicChainSpec>> = LazyLock::new(|| {
+pub static SEISMIC_DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     let genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/dev.json"))
         .expect("FATAL: Can't deserialize Dev genesis json");
     let genesis = normalize_genesis(genesis);
 
     let hardforks = SEISMIC_DEV_HARDFORKS.clone();
-    let inner = ChainSpec {
+    ChainSpec {
         chain: Chain::from_id(5124),
-        genesis_header: SealedHeader::seal_slow(make_genesis_header(&genesis, &hardforks)),
+        genesis_header: SealedHeader::new(
+            make_genesis_header(&genesis, &hardforks),
+            SEISMIC_DEV_GENESIS_HASH,
+        ),
         genesis,
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
         hardforks,
         ..Default::default()
-    };
-    SeismicChainSpec::with_genesis_hash(inner, SEISMIC_DEV_GENESIS_HASH).into()
+    }
+    .into()
 });
 
 /// Seismic public testnet specification.
@@ -104,21 +116,24 @@ pub static SEISMIC_DEV: LazyLock<Arc<SeismicChainSpec>> = LazyLock::new(|| {
 /// Panics if the embedded `testnet.json` genesis file cannot be deserialized.
 /// Indicates a build error, not a runtime issue.
 #[allow(clippy::expect_used)] // Documented panic - genesis deserialization is required
-pub static SEISMIC_TESTNET: LazyLock<Arc<SeismicChainSpec>> = LazyLock::new(|| {
+pub static SEISMIC_TESTNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     let genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/testnet.json"))
         .expect("FATAL: Can't deserialize Testnet genesis json");
     let genesis = normalize_genesis(genesis);
 
     let hardforks = SEISMIC_TESTNET_HARDFORKS.clone();
-    let inner = ChainSpec {
+    ChainSpec {
         chain: Chain::from_id(5124),
-        genesis_header: SealedHeader::seal_slow(make_genesis_header(&genesis, &hardforks)),
+        genesis_header: SealedHeader::new(
+            make_genesis_header(&genesis, &hardforks),
+            SEISMIC_TESTNET_GENESIS_HASH,
+        ),
         genesis,
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
         hardforks,
         ..Default::default()
-    };
-    SeismicChainSpec::with_genesis_hash(inner, SEISMIC_TESTNET_GENESIS_HASH).into()
+    }
+    .into()
 });
 
 /// Seismic Mainnet
@@ -127,21 +142,24 @@ pub static SEISMIC_TESTNET: LazyLock<Arc<SeismicChainSpec>> = LazyLock::new(|| {
 /// Panics if the embedded `mainnet.json` genesis file cannot be deserialized.
 /// Indicates a build issue, not a runtime issue.
 #[allow(clippy::expect_used)] // Documented panic - genesis deserialization is required
-pub static SEISMIC_MAINNET: LazyLock<Arc<SeismicChainSpec>> = LazyLock::new(|| {
+pub static SEISMIC_MAINNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     let genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/mainnet.json"))
         .expect("FATAL: Can't deserialize Mainnet genesis json");
     let genesis = normalize_genesis(genesis);
 
     let hardforks = SEISMIC_MAINNET_HARDFORKS.clone();
-    let inner = ChainSpec {
+    ChainSpec {
         chain: Chain::from_id(5123),
-        genesis_header: SealedHeader::seal_slow(make_genesis_header(&genesis, &hardforks)),
+        genesis_header: SealedHeader::new(
+            make_genesis_header(&genesis, &hardforks),
+            SEISMIC_MAINNET_GENESIS_HASH,
+        ),
         genesis,
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
         hardforks,
         ..Default::default()
-    };
-    SeismicChainSpec::with_genesis_hash(inner, SEISMIC_MAINNET_GENESIS_HASH).into()
+    }
+    .into()
 });
 
 #[cfg(test)]
@@ -150,12 +168,12 @@ pub static SEISMIC_MAINNET: LazyLock<Arc<SeismicChainSpec>> = LazyLock::new(|| {
 #[allow(clippy::panic)] // Test code - panic on failure is acceptable
 mod tests {
     use crate::*;
-    use alloy_consensus::{constants::MAINNET_GENESIS_HASH, BlockHeader, Sealable};
+    use alloy_consensus::constants::MAINNET_GENESIS_HASH;
     use alloy_primitives::address;
     use reth_chainspec::MAINNET;
     use reth_ethereum_forks::EthereumHardfork;
     use reth_seismic_forks::SeismicHardfork;
-    use reth_seismic_primitives::SeismicHeader;
+    use reth_seismic_primitives::SeismicBlockHeader;
 
     #[test]
     fn seismic_mainnet_genesis() {
@@ -283,8 +301,8 @@ mod tests {
         let actual_hash = genesis_header.hash_slow();
         assert_eq!(actual_hash, expected);
 
-        // Seismic genesis hashes are the hashes of the *Seismic* header (zero sub-second
-        // component wrapped around the stock genesis header), not of the stock header.
+        // Seismic genesis headers are stock headers whose `extraData` starts with a zero
+        // `timestampMillisPart` prefix; the hash is the standard header hash.
         for (name, json, hardforks, expected) in [
             (
                 "mainnet",
@@ -308,31 +326,30 @@ mod tests {
             let genesis: Genesis =
                 serde_json::from_str(json).expect("Can't deserialize Seismic genesis json");
             let genesis = normalize_genesis(genesis);
-            let stock_header = make_genesis_header(&genesis, &hardforks);
-            let seismic_header = SeismicHeader::from(stock_header.clone());
-            assert_eq!(seismic_header.timestamp_millis_part, 0);
-            assert_ne!(seismic_header.hash_slow(), stock_header.hash_slow(), "{name}");
+            let header = make_genesis_header(&genesis, &hardforks);
+            assert_eq!(header.try_timestamp_millis_part(), Ok(0), "{name}");
             assert_eq!(
-                seismic_header.hash_slow(),
+                header.hash_slow(),
                 expected,
                 "{name} genesis hash drifted; new hash: {:#x}",
-                seismic_header.hash_slow()
+                header.hash_slow()
             );
         }
     }
 
     #[test]
-    fn specs_expose_the_seismic_genesis_hash_consistently() {
-        for (spec, expected) in [
-            (&*SEISMIC_DEV, SEISMIC_DEV_GENESIS_HASH),
-            (&*SEISMIC_TESTNET, SEISMIC_TESTNET_GENESIS_HASH),
-            (&*SEISMIC_MAINNET, SEISMIC_MAINNET_GENESIS_HASH),
-        ] {
-            assert_eq!(spec.genesis_hash(), expected);
-            assert_eq!(spec.sealed_genesis_header().hash(), expected);
-            // The inner stock spec is re-sealed with the Seismic hash so fork ids match.
-            assert_eq!(spec.inner().genesis_hash(), expected);
-            assert_eq!(spec.genesis_header().timestamp(), spec.genesis().timestamp);
+    fn templates_carry_the_timestamp_prefix() {
+        for (name, spec) in
+            [("dev", &*SEISMIC_DEV), ("testnet", &*SEISMIC_TESTNET), ("mainnet", &*SEISMIC_MAINNET)]
+        {
+            assert_eq!(check_genesis_extra_data(spec), Ok(()), "{name}");
+            assert_eq!(spec.genesis_header().timestamp_millis(), spec.genesis().timestamp * 1000);
+            assert_eq!(spec.genesis_header().hash_slow(), spec.genesis_hash(), "{name}");
         }
+
+        let mut genesis = SEISMIC_DEV.genesis.clone();
+        genesis.extra_data = Default::default();
+        let spec = ChainSpec::from(genesis);
+        assert_eq!(check_genesis_extra_data(&spec), Err(ExtraDataError::TooShort { len: 0 }));
     }
 }

@@ -15,22 +15,23 @@ use alloy_consensus::{BlockHeader, Header};
 use alloy_eips::{eip1559::INITIAL_BASE_FEE, Decodable2718};
 use alloy_evm::{eth::EthBlockExecutionCtx, EvmFactory};
 use alloy_primitives::{Bytes, U256};
+use alloy_rpc_types_engine::ExecutionData;
 pub use alloy_seismic_evm::{
     block::SeismicBlockExecutorFactory, PurposeKeyring, SeismicBlockEnv, SeismicEvm, SeismicEvmEnv,
     SeismicEvmFactory,
 };
 use build::SeismicBlockAssembler;
 use core::fmt::Debug;
-use reth_chainspec::EthChainSpec;
+use reth_chainspec::{ChainSpec, EthChainSpec};
 use reth_ethereum_forks::EthereumHardfork;
 use reth_evm::{
     ConfigureEngineEvm, ConfigureEvm, EvmEnv, EvmEnvFor, ExecutableTxIterator, ExecutionCtxFor,
     NextBlockEnvAttributes,
 };
 use reth_primitives_traits::{SealedBlock, SealedHeader, SignedTransaction, TxTy};
-use reth_seismic_chainspec::SeismicChainSpec;
-use reth_seismic_engine_primitives::SeismicExecutionData;
-use reth_seismic_primitives::{SeismicBlock, SeismicHeader, SeismicPrimitives};
+use reth_seismic_primitives::{
+    header::timestamp_millis_part_or_zero, SeismicBlock, SeismicBlockHeader, SeismicPrimitives,
+};
 use reth_storage_errors::any::AnyError;
 use revm::{
     context::{BlockEnv, CfgEnv},
@@ -44,44 +45,44 @@ pub use receipts::*;
 mod build;
 
 mod context;
-pub use context::{
-    SeismicBlockExecutionCtx, SeismicNextBlockEnvAttributes, SeismicRethBlockExecutorFactory,
-};
+pub use context::SeismicNextBlockEnvAttributes;
 
 pub mod config;
 use config::revm_spec;
 
+/// The block executor factory used by the Seismic node.
+pub type SeismicRethBlockExecutorFactory =
+    SeismicBlockExecutorFactory<SeismicRethReceiptBuilder, Arc<ChainSpec>, SeismicEvmFactory>;
+
 /// Seismic EVM configuration.
 #[derive(Debug, Clone)]
 pub struct SeismicEvmConfig {
-    /// Block executor factory (wraps the fork's [`SeismicBlockExecutorFactory`]).
+    /// Block executor factory.
     pub executor_factory: SeismicRethBlockExecutorFactory,
     /// Seismic block assembler.
-    pub block_assembler: SeismicBlockAssembler<SeismicChainSpec>,
+    pub block_assembler: SeismicBlockAssembler<ChainSpec>,
 }
 
 impl SeismicEvmConfig {
     /// Creates a new Seismic EVM configuration with the given chain spec and the
     /// epoch-keyed purpose keyring.
-    pub fn new(chain_spec: Arc<SeismicChainSpec>, keyring: Arc<PurposeKeyring>) -> Self {
+    pub fn new(chain_spec: Arc<ChainSpec>, keyring: Arc<PurposeKeyring>) -> Self {
         Self::new_with_evm_factory(chain_spec, SeismicEvmFactory::new(keyring.clone()), keyring)
     }
 
     /// Creates a new Ethereum EVM configuration with the given chain spec and EVM factory.
     pub fn new_with_evm_factory(
-        chain_spec: Arc<SeismicChainSpec>,
+        chain_spec: Arc<ChainSpec>,
         evm_factory: SeismicEvmFactory,
         keyring: Arc<PurposeKeyring>,
     ) -> Self {
         Self {
             block_assembler: SeismicBlockAssembler::new(chain_spec.clone()),
-            executor_factory: SeismicRethBlockExecutorFactory::new(
-                SeismicBlockExecutorFactory::new(
-                    SeismicRethReceiptBuilder::default(),
-                    chain_spec,
-                    evm_factory,
-                    keyring,
-                ),
+            executor_factory: SeismicBlockExecutorFactory::new(
+                SeismicRethReceiptBuilder::default(),
+                chain_spec,
+                evm_factory,
+                keyring,
             ),
         }
     }
@@ -94,31 +95,36 @@ impl SeismicEvmConfig {
     /// accepts authenticated plaintext signed reads prepared by RPC ingress, without
     /// decrypting them again; ordinary encrypted replay remains unchanged.
     pub fn snapshot_for_simulation(&self) -> Self {
-        let inner = &self.executor_factory.inner;
+        let inner = &self.executor_factory;
         let keyring = Arc::new(inner.keyring.snapshot());
         Self {
-            executor_factory: SeismicRethBlockExecutorFactory::new(
-                SeismicBlockExecutorFactory::new(
-                    *inner.receipt_builder(),
-                    inner.spec().clone(),
-                    SeismicEvmFactory::new(keyring.clone()),
-                    keyring,
-                )
-                .with_plaintext_signed_reads(),
-            ),
+            executor_factory: SeismicBlockExecutorFactory::new(
+                *inner.receipt_builder(),
+                inner.spec().clone(),
+                SeismicEvmFactory::new(keyring.clone()),
+                keyring,
+            )
+            .with_plaintext_signed_reads(),
             block_assembler: self.block_assembler.clone(),
         }
     }
 
     /// Returns the chain spec associated with this configuration.
-    pub const fn chain_spec(&self) -> &Arc<SeismicChainSpec> {
-        self.executor_factory.inner.spec()
+    pub const fn chain_spec(&self) -> &Arc<ChainSpec> {
+        self.executor_factory.spec()
     }
 
-    /// Sets the extra data for the block assembler.
-    pub fn with_extra_data(mut self, extra_data: Bytes) -> Self {
+    /// Sets the builder data placed in the blocks' `extra_data` after the `timestampMillisPart`
+    /// prefix. Fails if it exceeds
+    /// [`MAX_BUILDER_EXTRA_DATA_LEN`](reth_seismic_primitives::header::MAX_BUILDER_EXTRA_DATA_LEN).
+    pub fn try_with_extra_data(
+        mut self,
+        extra_data: Bytes,
+    ) -> Result<Self, reth_seismic_primitives::header::ExtraDataError> {
+        // Validate the layout up front: the assembler would otherwise fail on every build.
+        reth_seismic_primitives::header::encode_extra_data(0, &extra_data)?;
         self.block_assembler.extra_data = extra_data;
-        self
+        Ok(self)
     }
 
     /// Creates an EVM that resolves keys from its own execution state before its
@@ -131,7 +137,7 @@ impl SeismicEvmConfig {
     where
         DB: alloy_evm::Database,
     {
-        self.executor_factory.inner.evm_factory().create_evm(db, evm_env)
+        self.executor_factory.evm_factory().create_evm(db, evm_env)
     }
 
     fn cfg_env(&self, spec: SeismicSpecId) -> CfgEnv<SeismicSpecId> {
@@ -151,7 +157,7 @@ impl ConfigureEvm for SeismicEvmConfig {
     type Error = Infallible;
     type NextBlockEnvCtx = SeismicNextBlockEnvAttributes;
     type BlockExecutorFactory = SeismicRethBlockExecutorFactory;
-    type BlockAssembler = SeismicBlockAssembler<SeismicChainSpec>;
+    type BlockAssembler = SeismicBlockAssembler<ChainSpec>;
 
     fn snapshot_for_simulation(
         &self,
@@ -173,7 +179,7 @@ impl ConfigureEvm for SeismicEvmConfig {
         &self.block_assembler
     }
 
-    fn evm_env(&self, header: &SeismicHeader) -> SeismicEvmEnv {
+    fn evm_env(&self, header: &Header) -> SeismicEvmEnv {
         let spec = revm_spec(self.chain_spec(), header);
         let cfg_env = self.cfg_env(spec);
 
@@ -192,16 +198,19 @@ impl ConfigureEvm for SeismicEvmConfig {
             }),
         };
 
+        // Canonical headers passed the consensus `extra_data` check. A payload under
+        // validation may be executed before that check runs, so a malformed one executes with a
+        // zero part here and is then rejected; it is never admitted to the canonical chain.
         let block_env = SeismicBlockEnv {
             inner: block_env,
-            timestamp_millis_part: header.timestamp_millis_part,
+            timestamp_millis_part: header.timestamp_millis_part(),
         };
         EvmEnv { cfg_env, block_env }
     }
 
     fn next_evm_env(
         &self,
-        parent: &SeismicHeader,
+        parent: &Header,
         attributes: &SeismicNextBlockEnvAttributes,
     ) -> Result<SeismicEvmEnv, Self::Error> {
         let timestamp_millis_part = attributes.timestamp_millis_part;
@@ -212,13 +221,12 @@ impl ConfigureEvm for SeismicEvmConfig {
         // if the parent block did not have excess blob gas (i.e. it was pre-cancun), but it is
         // cancun now, we need to set the excess blob gas to the default value(0)
         let blob_excess_gas_and_price = parent
-            .inner
             .maybe_next_block_excess_blob_gas(
                 self.chain_spec().blob_params_at_timestamp(attributes.timestamp),
             )
             .map(|gas| BlobExcessGasAndPrice::new_with_spec(gas, spec_id.into_eth_spec()));
 
-        let mut basefee = parent.inner.next_block_base_fee(
+        let mut basefee = parent.next_block_base_fee(
             self.chain_spec().base_fee_params_at_timestamp(attributes.timestamp),
         );
 
@@ -263,32 +271,26 @@ impl ConfigureEvm for SeismicEvmConfig {
     fn context_for_block<'a>(
         &self,
         block: &'a SealedBlock<SeismicBlock>,
-    ) -> SeismicBlockExecutionCtx<'a> {
-        SeismicBlockExecutionCtx {
-            inner: EthBlockExecutionCtx {
-                parent_hash: block.header().parent_hash(),
-                parent_beacon_block_root: block.header().parent_beacon_block_root(),
-                // Post-merge blocks carry no ommers.
-                ommers: &[],
-                withdrawals: block.body().withdrawals.as_ref().map(Cow::Borrowed),
-            },
-            timestamp_millis_part: block.header().timestamp_millis_part,
+    ) -> EthBlockExecutionCtx<'a> {
+        EthBlockExecutionCtx {
+            parent_hash: block.header().parent_hash(),
+            parent_beacon_block_root: block.header().parent_beacon_block_root(),
+            // Post-merge blocks carry no ommers.
+            ommers: &[],
+            withdrawals: block.body().withdrawals.as_ref().map(Cow::Borrowed),
         }
     }
 
     fn context_for_next_block(
         &self,
-        parent: &SealedHeader<SeismicHeader>,
+        parent: &SealedHeader<Header>,
         attributes: Self::NextBlockEnvCtx,
-    ) -> SeismicBlockExecutionCtx<'_> {
-        SeismicBlockExecutionCtx {
-            inner: EthBlockExecutionCtx {
-                parent_hash: parent.hash(),
-                parent_beacon_block_root: attributes.inner.parent_beacon_block_root,
-                ommers: &[],
-                withdrawals: attributes.inner.withdrawals.map(Cow::Owned),
-            },
-            timestamp_millis_part: attributes.timestamp_millis_part,
+    ) -> EthBlockExecutionCtx<'_> {
+        EthBlockExecutionCtx {
+            parent_hash: parent.hash(),
+            parent_beacon_block_root: attributes.inner.parent_beacon_block_root,
+            ommers: &[],
+            withdrawals: attributes.inner.withdrawals.map(Cow::Owned),
         }
     }
 
@@ -302,27 +304,23 @@ impl ConfigureEvm for SeismicEvmConfig {
     }
 }
 
-impl ConfigureEngineEvm<SeismicExecutionData> for SeismicEvmConfig {
-    fn evm_env_for_payload(&self, payload: &SeismicExecutionData) -> EvmEnvFor<Self> {
-        let payload = &payload.payload;
+impl ConfigureEngineEvm<ExecutionData> for SeismicEvmConfig {
+    fn evm_env_for_payload(&self, payload: &ExecutionData) -> EvmEnvFor<Self> {
+        let inner = payload.payload.as_v1();
         // Create a temporary header with the payload information to determine the spec
-        let temp_header = SeismicHeader::new(
-            Header {
-                number: payload.block_number(),
-                timestamp: payload.timestamp(),
-                gas_limit: payload.inner.payload_inner.payload_inner.gas_limit,
-                beneficiary: payload.inner.payload_inner.payload_inner.fee_recipient,
-                ..Default::default()
-            },
-            payload.timestamp_millis_part,
-        );
+        let temp_header = Header {
+            number: inner.block_number,
+            timestamp: inner.timestamp,
+            gas_limit: inner.gas_limit,
+            beneficiary: inner.fee_recipient,
+            ..Default::default()
+        };
         let spec_id = revm_spec(self.chain_spec(), &temp_header);
         let cfg_env = self.cfg_env(spec_id);
 
         let blob_excess_gas_and_price =
             Some(BlobExcessGasAndPrice::new_with_spec(0, spec_id.into_eth_spec()));
 
-        let inner = &payload.inner.payload_inner.payload_inner;
         let block_env = BlockEnv {
             number: U256::from(inner.block_number),
             beneficiary: inner.fee_recipient,
@@ -334,43 +332,31 @@ impl ConfigureEngineEvm<SeismicExecutionData> for SeismicEvmConfig {
             blob_excess_gas_and_price,
         };
 
+        // The payload's `extra_data` is validated by consensus when the block is sealed and
+        // checked; a malformed prefix yields a zero part here and a rejected block there.
         let block_env = SeismicBlockEnv {
             inner: block_env,
-            timestamp_millis_part: payload.timestamp_millis_part,
+            timestamp_millis_part: timestamp_millis_part_or_zero(&inner.extra_data),
         };
         (cfg_env, block_env).into()
     }
 
-    fn context_for_payload<'a>(
-        &self,
-        payload: &'a SeismicExecutionData,
-    ) -> ExecutionCtxFor<'a, Self> {
-        SeismicBlockExecutionCtx {
-            inner: EthBlockExecutionCtx {
-                parent_hash: payload.payload.parent_hash(),
-                parent_beacon_block_root: payload.sidecar.parent_beacon_block_root(),
-                ommers: &[],
-                withdrawals: Some(Cow::Owned(
-                    payload.payload.inner.payload_inner.withdrawals.clone().into(),
-                )),
-            },
-            timestamp_millis_part: payload.payload.timestamp_millis_part,
+    fn context_for_payload<'a>(&self, payload: &'a ExecutionData) -> ExecutionCtxFor<'a, Self> {
+        EthBlockExecutionCtx {
+            parent_hash: payload.payload.parent_hash(),
+            parent_beacon_block_root: payload.sidecar.parent_beacon_block_root(),
+            ommers: &[],
+            withdrawals: payload.payload.withdrawals().map(|w| Cow::Owned(w.clone().into())),
         }
     }
 
-    fn tx_iterator_for_payload(
-        &self,
-        payload: &SeismicExecutionData,
-    ) -> impl ExecutableTxIterator<Self> {
-        payload.payload.inner.payload_inner.payload_inner.transactions.clone().into_iter().map(
-            |tx| {
-                let mut tx_data = tx.as_ref();
-                let tx =
-                    TxTy::<Self::Primitives>::decode_2718(&mut tx_data).map_err(AnyError::new)?;
-                let signer = tx.try_recover().map_err(AnyError::new)?;
-                Ok::<_, AnyError>(tx.with_signer(signer))
-            },
-        )
+    fn tx_iterator_for_payload(&self, payload: &ExecutionData) -> impl ExecutableTxIterator<Self> {
+        payload.payload.transactions().clone().into_iter().map(|tx| {
+            let tx =
+                TxTy::<Self::Primitives>::decode_2718_exact(tx.as_ref()).map_err(AnyError::new)?;
+            let signer = tx.try_recover().map_err(AnyError::new)?;
+            Ok::<_, AnyError>(tx.with_signer(signer))
+        })
     }
 }
 
@@ -392,8 +378,11 @@ mod tests {
         AccountRevertInit, BundleStateInit, Chain, ExecutionOutcome, RevertsInit,
     };
     use reth_primitives_traits::{Account, RecoveredBlock};
-    use reth_seismic_chainspec::{SeismicChainSpec, SEISMIC_MAINNET};
-    use reth_seismic_primitives::{SeismicBlock, SeismicHeader, SeismicPrimitives, SeismicReceipt};
+    use reth_seismic_chainspec::SEISMIC_MAINNET;
+    use reth_seismic_engine_primitives::execution_data_from_sealed_block;
+    use reth_seismic_primitives::{
+        header::encode_extra_data, SeismicBlock, SeismicPrimitives, SeismicReceipt,
+    };
     use revm::{
         context::{
             result::{EVMError, InvalidTransaction},
@@ -418,11 +407,26 @@ mod tests {
     }
 
     #[test]
+    fn builder_extra_data_is_bounded_by_the_prefix() {
+        use reth_seismic_primitives::header::{ExtraDataError, MAX_BUILDER_EXTRA_DATA_LEN};
+
+        let tag = Bytes::from(vec![0xab; MAX_BUILDER_EXTRA_DATA_LEN]);
+        let config = test_evm_config().try_with_extra_data(tag.clone()).unwrap();
+        assert_eq!(config.block_assembler.extra_data, tag);
+
+        let too_long = Bytes::from(vec![0xab; MAX_BUILDER_EXTRA_DATA_LEN + 1]);
+        assert_eq!(
+            test_evm_config().try_with_extra_data(too_long).unwrap_err(),
+            ExtraDataError::BuilderDataTooLong { len: MAX_BUILDER_EXTRA_DATA_LEN + 1 }
+        );
+    }
+
+    #[test]
     fn simulation_snapshot_preserves_config_and_isolates_both_factories() {
         use alloy_evm::block::{BlockExecutor, BlockExecutorFactory};
         use alloy_seismic_evm::{CanonicalRotationView, RotationEntry, RotationSchedule};
 
-        let live = test_evm_config().with_extra_data(bytes!("1234"));
+        let live = test_evm_config().try_with_extra_data(bytes!("1234")).unwrap();
         let snapshot = live.snapshot_for_simulation();
         assert_eq!(snapshot.block_assembler.extra_data, live.block_assembler.extra_data);
         assert!(Arc::ptr_eq(snapshot.chain_spec(), live.chain_spec()));
@@ -442,11 +446,11 @@ mod tests {
         let mut keys = PurposeKeys::well_known();
         keys.rng_ikm = [42; 64];
         live.executor_factory.keyring.insert_epoch(1, keys).unwrap();
-        let env = snapshot.evm_env(&SeismicHeader::from(Header {
+        let env = snapshot.evm_env(&Header {
             number: 100,
             excess_blob_gas: Some(0),
             ..Default::default()
-        }));
+        });
 
         let mut db = revm::database::State::builder()
             .with_database(EmptyDBTyped::<ProviderError>::default())
@@ -470,14 +474,11 @@ mod tests {
             "inspected EVMs must use the snapshot's RNG key too",
         );
 
-        let ctx = SeismicBlockExecutionCtx {
-            timestamp_millis_part: 0,
-            inner: EthBlockExecutionCtx {
-                parent_hash: B256::ZERO,
-                parent_beacon_block_root: Some(B256::ZERO),
-                ommers: &[],
-                withdrawals: None,
-            },
+        let ctx = EthBlockExecutionCtx {
+            parent_hash: B256::ZERO,
+            parent_beacon_block_root: Some(B256::ZERO),
+            ommers: &[],
+            withdrawals: None,
         };
         let mut executor = snapshot.executor_factory.create_executor(evm, ctx);
         executor.apply_pre_execution_changes().unwrap();
@@ -506,8 +507,7 @@ mod tests {
         );
         let snapshot = live.snapshot_for_simulation();
         let mut db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
-        let env =
-            snapshot.evm_env(&SeismicHeader::from(Header { number: 101, ..Default::default() }));
+        let env = snapshot.evm_env(&Header { number: 101, ..Default::default() });
         drop(snapshot.evm_with_env(&mut db, env));
 
         // Model an announcement committed to the request's overlay in its first
@@ -525,8 +525,7 @@ mod tests {
             U256::from_limbs([1, 200, 101, 0]).into(),
         )
         .unwrap();
-        let env =
-            snapshot.evm_env(&SeismicHeader::from(Header { number: 102, ..Default::default() }));
+        let env = snapshot.evm_env(&Header { number: 102, ..Default::default() });
         drop(snapshot.evm_with_env(&mut db, env));
         assert_eq!(snapshot.executor_factory.keyring.pending(), None);
         assert!(snapshot.executor_factory.keyring.unfetched_scheduled_epochs().is_empty());
@@ -538,17 +537,13 @@ mod tests {
         // Crossing an unfetched epoch fails locally; even that error must not
         // publish a fetch request to the live watcher's keyring.
         let mut db = revm::database::State::builder().with_database(db).build();
-        let env =
-            snapshot.evm_env(&SeismicHeader::from(Header { number: 200, ..Default::default() }));
+        let env = snapshot.evm_env(&Header { number: 200, ..Default::default() });
         let evm = snapshot.evm_with_env(&mut db, env);
-        let ctx = SeismicBlockExecutionCtx {
-            timestamp_millis_part: 0,
-            inner: EthBlockExecutionCtx {
-                parent_hash: B256::ZERO,
-                parent_beacon_block_root: None,
-                ommers: &[],
-                withdrawals: None,
-            },
+        let ctx = EthBlockExecutionCtx {
+            parent_hash: B256::ZERO,
+            parent_beacon_block_root: None,
+            ommers: &[],
+            withdrawals: None,
         };
         let mut executor = snapshot.executor_factory.create_executor(evm, ctx);
         let error = executor.apply_pre_execution_changes().unwrap_err();
@@ -594,8 +589,7 @@ mod tests {
         // ChainSpec, Header, and total difficulty
         let keyring = Arc::new(PurposeKeyring::single_epoch(PurposeKeys::well_known()));
         let EvmEnv { cfg_env, .. } =
-            SeismicEvmConfig::new(Arc::new(SeismicChainSpec::from(chain_spec.clone())), keyring)
-                .evm_env(&SeismicHeader::from(header));
+            SeismicEvmConfig::new(Arc::new(chain_spec.clone()), keyring).evm_env(&header);
 
         // Assert that the chain ID in the `cfg_env` is correctly set to the chain ID of the
         // ChainSpec
@@ -1184,21 +1178,19 @@ mod tests {
         let code = Bytecode::new_raw(bytes!("426000524b60205260406000f3"));
 
         for part in [0, 123, 999] {
-            let header = SeismicHeader {
-                inner: Header {
-                    timestamp: seconds,
-                    number: 1,
-                    blob_gas_used: Some(0),
-                    ..exec_header()
-                },
-                timestamp_millis_part: part,
+            let header = Header {
+                timestamp: seconds,
+                number: 1,
+                blob_gas_used: Some(0),
+                extra_data: encode_extra_data(part, b"test").unwrap(),
+                ..exec_header()
             };
-            let parent = SeismicHeader::from(Header {
+            let parent = Header {
                 timestamp: seconds - 1,
                 blob_gas_used: Some(0),
                 base_fee_per_gas: Some(INITIAL_BASE_FEE),
                 ..exec_header()
-            });
+            };
             let attributes = SeismicNextBlockEnvAttributes {
                 inner: NextBlockEnvAttributes {
                     timestamp: seconds,
@@ -1210,11 +1202,10 @@ mod tests {
                 },
                 timestamp_millis_part: part,
             };
-            let payload =
-                SeismicExecutionData::from_sealed_block(SealedBlock::seal_slow(SeismicBlock {
-                    header: header.clone(),
-                    ..Default::default()
-                }));
+            let payload = execution_data_from_sealed_block(SealedBlock::seal_slow(SeismicBlock {
+                header: header.clone(),
+                ..Default::default()
+            }));
             let environments = [
                 config.evm_env(&header),
                 config.next_evm_env(&parent, &attributes).unwrap(),
@@ -1332,7 +1323,7 @@ mod tests {
         let chain_id = SEISMIC_MAINNET.chain().id();
 
         // Use the production EVM env construction (same path as block import).
-        let evm_env = evm_config.evm_env(&SeismicHeader::from(exec_header()));
+        let evm_env = evm_config.evm_env(&exec_header());
         assert_eq!(evm_env.cfg_env.chain_id, chain_id);
 
         // A transaction validly signed for a *different* chain must be rejected.
@@ -1360,8 +1351,7 @@ mod tests {
         for tx_chain_id in [Some(chain_id), None] {
             let mut db = CacheDB::<EmptyDBTyped<ProviderError>>::default();
             let caller = funded_caller(&mut db);
-            let mut evm = evm_config
-                .evm_with_env(db, evm_config.evm_env(&SeismicHeader::from(exec_header())));
+            let mut evm = evm_config.evm_with_env(db, evm_config.evm_env(&exec_header()));
 
             let result = evm.transact(transfer_tx(caller, tx_chain_id));
 

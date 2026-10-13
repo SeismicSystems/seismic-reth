@@ -1,14 +1,16 @@
-//! Engine API wire types shared between seismic-reth and the Summit consensus client.
+//! Engine API wire types and header conventions shared between seismic-reth and the Summit
+//! consensus client.
 //!
-//! Seismic block headers carry a standard Ethereum `timestamp` in Unix **seconds** plus a separate
-//! sub-second component, `timestampMillisPart` (`0..1000`). The Engine API payload attributes and
-//! execution payloads defined here extend the stock Ethereum types with that extra field so the
-//! consensus layer can drive millisecond block times without changing the meaning of any standard
-//! field.
+//! Seismic block headers are **stock Ethereum headers**: `timestamp` is in Unix seconds and the
+//! block hash is the standard header hash. The sub-second component of the block time,
+//! `timestampMillisPart` (`0..1000`), is carried in the first two bytes of `extraData`
+//! (see [`extra_data`]). Execution payloads are therefore the stock Engine API types; only the
+//! payload *attributes* are extended with an explicit `timestampMillisPart` so the consensus
+//! layer can request sub-second block times.
 //!
 //! This crate depends on stock `alloy` only so it can be consumed by Summit (which does not
 //! build against the Seismic alloy/reth forks). The node-side integration (built payloads,
-//! builder attributes, block ⇄ payload conversions) lives in `reth-seismic-engine-primitives`.
+//! builder attributes) lives in `reth-seismic-engine-primitives`.
 
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
@@ -18,12 +20,16 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod attributes;
 pub use attributes::SeismicPayloadAttributes;
 
-mod payload;
-pub use payload::{
-    SeismicExecutionPayloadEnvelopeV3, SeismicExecutionPayloadEnvelopeV4, SeismicExecutionPayloadV3,
+pub mod extra_data;
+pub use extra_data::{
+    builder_extra_data, decode_timestamp_millis_part, encode_extra_data, header_timestamp_millis,
+    timestamp_millis_part_or_zero, ExtraDataError, MAX_BUILDER_EXTRA_DATA_LEN, MAX_EXTRA_DATA_LEN,
+    TIMESTAMP_MILLIS_PREFIX_LEN,
 };
 
 /// Number of milliseconds in one second.

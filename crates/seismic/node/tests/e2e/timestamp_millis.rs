@@ -1,10 +1,11 @@
-//! Sub-second block timestamps: header field, Engine API round trip, consensus ordering and the
-//! public RPC shape.
+//! Sub-second block timestamps: the `extraData` prefix, Engine API round trip, consensus ordering
+//! and the public RPC shape (stock headers, stock hashes).
 
-use alloy_consensus::BlockHeader;
+use alloy_consensus::{BlockHeader, Header};
 use alloy_primitives::{address, bytes, Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_engine::{
-    ForkchoiceState, ForkchoiceUpdated, PayloadAttributes, PayloadStatus,
+    ExecutionPayloadEnvelopeV4, ForkchoiceState, ForkchoiceUpdated, PayloadAttributes,
+    PayloadStatus,
 };
 use alloy_rpc_types_eth::{TransactionInput, TransactionRequest};
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
@@ -12,8 +13,8 @@ use reth_e2e_test_utils::transaction::TransactionTestContext;
 use reth_engine_primitives::PayloadValidator;
 use reth_payload_primitives::PayloadTypes;
 use reth_seismic_engine_primitives::{
-    SeismicExecutionPayloadEnvelopeV4, SeismicPayloadAttributes, SeismicPayloadBuilderAttributes,
-    MILLIS_PER_SECOND,
+    extra_data::{builder_extra_data, decode_timestamp_millis_part},
+    SeismicPayloadAttributes, SeismicPayloadBuilderAttributes, MILLIS_PER_SECOND,
 };
 use reth_seismic_node::{
     consensus::validate_against_parent_timestamp_millis,
@@ -21,6 +22,7 @@ use reth_seismic_node::{
     node::SeismicNode,
     utils::e2e::{ensure_mock_purpose_keys, test_chain_spec},
 };
+use reth_seismic_primitives::SeismicBlockHeader;
 use serde_json::Value;
 
 /// Every test block lands in this second; the harness's increasing attribute timestamp becomes
@@ -99,19 +101,26 @@ async fn sub_second_blocks_round_trip_through_engine_consensus_and_rpc() -> eyre
         let block = payload.block().clone();
         node.assert_new_block(hash, block.hash(), block.number()).await?;
 
-        // The built header carries the attributes' split timestamp.
-        assert_eq!(block.timestamp(), BASE_SECONDS, "seconds part");
-        assert!(block.header().timestamp_millis_part < MILLIS_PER_SECOND);
+        // The built header carries the attributes' split timestamp: seconds in `timestamp`,
+        // the part as the `extraData` prefix.
+        let header = block.header();
+        assert_eq!(header.timestamp(), BASE_SECONDS, "seconds part");
+        let part = header.try_timestamp_millis_part()?;
+        assert!(part < MILLIS_PER_SECOND);
+        assert_eq!(header.timestamp_millis(), BASE_SECONDS * MILLIS_PER_SECOND + part);
+        // The builder tag survives verbatim behind the prefix (the harness runs the default
+        // `--builder.extradata`).
         assert_eq!(
-            block.header().timestamp_millis(),
-            BASE_SECONDS * MILLIS_PER_SECOND + block.header().timestamp_millis_part
+            builder_extra_data(header.extra_data()),
+            reth_node_core::version::default_extra_data_bytes().as_ref()
         );
 
-        // Engine API round trip: the payload carries the part and rebuilds the same block/hash.
+        // Engine API round trip: the stock payload carries the part in `extraData` and rebuilds
+        // the same block/hash.
         let execution_data = SeismicEngineTypes::block_to_payload(block.clone());
         assert_eq!(
-            execution_data.payload.timestamp_millis_part,
-            block.header().timestamp_millis_part
+            decode_timestamp_millis_part(&execution_data.payload.as_v1().extra_data),
+            Ok(part)
         );
         assert_eq!(execution_data.payload.timestamp(), BASE_SECONDS);
         let validator = SeismicEngineValidator::new(chain_spec.clone());
@@ -120,25 +129,24 @@ async fn sub_second_blocks_round_trip_through_engine_consensus_and_rpc() -> eyre
             execution_data,
         )?;
         assert_eq!(rebuilt.hash(), block.hash());
-        assert_eq!(rebuilt.header(), block.header());
+        assert_eq!(rebuilt.header(), header);
 
-        // Public RPC: `timestamp` is the standard seconds field, the part is its own field.
+        // Public RPC: a stock header. `timestamp` is seconds, there is no extra field, and the
+        // hash is the standard hash of the standard fields, so stock tooling can verify it.
         let rpc_block: Value = client
             .request("eth_getBlockByNumber", rpc_params![format!("{:#x}", block.number()), false])
             .await?;
         assert_eq!(quantity(&rpc_block["timestamp"]), BASE_SECONDS);
-        assert_eq!(
-            quantity(&rpc_block["timestampMillisPart"]),
-            block.header().timestamp_millis_part
-        );
-        assert_eq!(
-            rpc_block["hash"].as_str().unwrap().parse::<alloy_primitives::B256>()?,
-            block.hash()
-        );
+        assert!(rpc_block.get("timestampMillisPart").is_none());
+        let extra_data: Bytes = rpc_block["extraData"].as_str().unwrap().parse()?;
+        assert_eq!(decode_timestamp_millis_part(&extra_data), Ok(part));
+        let rpc_header: alloy_rpc_types_eth::Header<Header> =
+            serde_json::from_value(rpc_block.clone())?;
+        assert_eq!(rpc_header.hash, block.hash());
+        assert_eq!(rpc_header.inner.hash_slow(), block.hash(), "stock header hash");
 
-        beacon_roots
-            .push((block.header().timestamp_millis(), block.parent_beacon_block_root().unwrap()));
-        headers.push(block.header().clone());
+        beacon_roots.push((header.timestamp_millis(), block.parent_beacon_block_root().unwrap()));
+        headers.push(header.clone());
     }
 
     // Consecutive blocks within the same second were accepted; the consensus rule orders
@@ -160,7 +168,7 @@ async fn sub_second_blocks_round_trip_through_engine_consensus_and_rpc() -> eyre
         safe_block_hash: tip_hash,
         finalized_block_hash: tip_hash,
     };
-    let mut last_part = tip.timestamp_millis_part;
+    let mut last_part = tip.timestamp_millis_part();
     for part in [last_part + 1, last_part + 2] {
         let attributes = payload_attributes(BASE_SECONDS, part);
         let root = attributes.parent_beacon_block_root.unwrap();
@@ -169,10 +177,11 @@ async fn sub_second_blocks_round_trip_through_engine_consensus_and_rpc() -> eyre
             .await?;
         assert!(response.payload_status.is_valid());
         let payload_id = response.payload_id.expect("accepted attributes start a build");
-        let built: SeismicExecutionPayloadEnvelopeV4 =
+        let built: ExecutionPayloadEnvelopeV4 =
             engine_client.request("engine_getPayloadV4", rpc_params![payload_id]).await?;
-        assert_eq!(built.execution_payload.timestamp(), BASE_SECONDS);
-        assert_eq!(built.execution_payload.timestamp_millis_part, part);
+        let built_payload = &built.execution_payload.payload_inner.payload_inner;
+        assert_eq!(built_payload.timestamp, BASE_SECONDS);
+        assert_eq!(decode_timestamp_millis_part(&built_payload.extra_data), Ok(part));
         let status: PayloadStatus = engine_client
             .request(
                 "engine_newPayloadV4",
@@ -185,7 +194,7 @@ async fn sub_second_blocks_round_trip_through_engine_consensus_and_rpc() -> eyre
             )
             .await?;
         assert!(status.is_valid());
-        forkchoice.head_block_hash = built.execution_payload.block_hash();
+        forkchoice.head_block_hash = built_payload.block_hash;
         let response: ForkchoiceUpdated = engine_client
             .request(
                 "engine_forkchoiceUpdatedV3",
@@ -195,6 +204,25 @@ async fn sub_second_blocks_round_trip_through_engine_consensus_and_rpc() -> eyre
         assert!(response.payload_status.is_valid());
         last_part = part;
         beacon_roots.push((BASE_SECONDS * MILLIS_PER_SECOND + part, root));
+    }
+
+    // A payload whose `extraData` breaks the layout is rejected by consensus even though it is
+    // a well-formed stock block: strip the prefix and re-seal.
+    {
+        let mut tampered = built_payload_block(&engine_client, &forkchoice, last_part + 1).await?;
+        let header = &mut tampered.0.payload_inner.payload_inner;
+        header.extra_data = Bytes::new();
+        let mut consensus_header: Header = tampered.1.clone();
+        consensus_header.extra_data = Bytes::new();
+        header.block_hash = consensus_header.hash_slow();
+        let status: PayloadStatus = engine_client
+            .request(
+                "engine_newPayloadV4",
+                rpc_params![tampered.0, Vec::<B256>::new(), tampered.2, tampered.3],
+            )
+            .await?;
+        assert!(status.is_invalid(), "{status:?}");
+        assert!(status.status.to_string().contains("extraData is 0 bytes"), "{:?}", status.status);
     }
 
     // Equal and earlier full timestamps, including seconds regressions, cannot start builds.
@@ -220,7 +248,8 @@ async fn sub_second_blocks_round_trip_through_engine_consensus_and_rpc() -> eyre
     // Public RPC simulation at the tip exposes the canonical header's exact millisecond part.
     let tip: Value = client.request("eth_getBlockByNumber", rpc_params!["latest", false]).await?;
     assert_eq!(quantity(&tip["timestamp"]), BASE_SECONDS);
-    assert_eq!(quantity(&tip["timestampMillisPart"]), last_part);
+    let tip_extra_data: Bytes = tip["extraData"].as_str().unwrap().parse()?;
+    assert_eq!(decode_timestamp_millis_part(&tip_extra_data), Ok(last_part));
     let timestamp_contract = wallet.inner.address().create(0);
     let actual: Bytes = client
         .request(
@@ -260,13 +289,53 @@ async fn sub_second_blocks_round_trip_through_engine_consensus_and_rpc() -> eyre
         assert_eq!(actual.as_ref(), expected.as_slice());
     }
 
-    // A genesis block has a zero part, and the chain spec's hash is the Seismic header hash.
+    // The genesis block carries a zero part prefix, and the chain spec's hash is its stock hash.
     let genesis: Value = client.request("eth_getBlockByNumber", rpc_params!["0x0", false]).await?;
-    assert_eq!(quantity(&genesis["timestampMillisPart"]), 0);
+    let genesis_extra_data: Bytes = genesis["extraData"].as_str().unwrap().parse()?;
+    assert_eq!(decode_timestamp_millis_part(&genesis_extra_data), Ok(0));
     assert_eq!(
         genesis["hash"].as_str().unwrap().parse::<alloy_primitives::B256>()?,
         chain_spec.genesis_hash()
     );
 
     Ok(())
+}
+
+/// Builds a payload on top of `forkchoice` through the Engine API without importing it, returning
+/// the stock payload, its header, the parent beacon root and the execution requests.
+async fn built_payload_block<C: ClientT + Sync>(
+    engine_client: &C,
+    forkchoice: &ForkchoiceState,
+    part: u64,
+) -> eyre::Result<(
+    alloy_rpc_types_engine::ExecutionPayloadV3,
+    Header,
+    B256,
+    alloy_eips::eip7685::Requests,
+)> {
+    let attributes = payload_attributes(BASE_SECONDS, part);
+    let root = attributes.parent_beacon_block_root.unwrap();
+    let response: ForkchoiceUpdated = engine_client
+        .request("engine_forkchoiceUpdatedV3", rpc_params![forkchoice, attributes])
+        .await?;
+    let payload_id = response.payload_id.expect("accepted attributes start a build");
+    let built: ExecutionPayloadEnvelopeV4 =
+        engine_client.request("engine_getPayloadV4", rpc_params![payload_id]).await?;
+    let sidecar = alloy_rpc_types_engine::ExecutionPayloadSidecar::v4(
+        alloy_rpc_types_engine::CancunPayloadFields {
+            parent_beacon_block_root: root,
+            versioned_hashes: vec![],
+        },
+        alloy_rpc_types_engine::PraguePayloadFields {
+            requests: alloy_eips::eip7685::RequestsOrHash::Requests(
+                built.execution_requests.clone(),
+            ),
+        },
+    );
+    let ExecutionPayloadEnvelopeV4 { envelope_inner, execution_requests } = built;
+    let payload = envelope_inner.execution_payload;
+    let block: alloy_consensus::Block<seismic_alloy_consensus::SeismicTxEnvelope> =
+        alloy_rpc_types_engine::ExecutionPayload::V3(payload.clone())
+            .try_into_block_with_sidecar(&sidecar)?;
+    Ok((payload, block.header, root, execution_requests))
 }

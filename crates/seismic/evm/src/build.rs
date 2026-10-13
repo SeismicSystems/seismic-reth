@@ -1,20 +1,19 @@
 //! The `SeismicBlockAssembler`. Nearly identical to the `EthBlockAssembler`, except with seismic
-//! types
+//! types and the sub-second timestamp component encoded into the header's `extra_data`.
 
-use crate::SeismicBlockExecutionCtx;
 use alloc::sync::Arc;
 use alloy_consensus::{
     proofs, Block, BlockBody, BlockHeader, Header, Transaction, TxReceipt, EMPTY_OMMER_ROOT_HASH,
 };
 use alloy_eips::merge::BEACON_NONCE;
-use alloy_evm::{block::BlockExecutorFactory, EvmFactory};
+use alloy_evm::{block::BlockExecutorFactory, eth::EthBlockExecutionCtx, EvmFactory};
 use alloy_primitives::{logs_bloom, Bytes};
 use reth_chainspec::{EthChainSpec, EthereumHardforks};
 use reth_evm::execute::{BlockAssembler, BlockAssemblerInput};
 use reth_execution_errors::BlockExecutionError;
 use reth_execution_types::BlockExecutionResult;
 use reth_seismic_primitives::{
-    SeismicBlock, SeismicHeader, SeismicReceipt, SeismicTransactionSigned,
+    header::encode_extra_data, SeismicBlock, SeismicReceipt, SeismicTransactionSigned,
 };
 
 /// Block builder for Seismic.
@@ -22,7 +21,8 @@ use reth_seismic_primitives::{
 pub struct SeismicBlockAssembler<ChainSpec> {
     /// The chainspec.
     pub chain_spec: Arc<ChainSpec>,
-    /// Extra data to use for the blocks.
+    /// Builder data to place in the blocks' `extra_data`, after the `timestampMillisPart`
+    /// prefix. At most [`reth_seismic_primitives::header::MAX_BUILDER_EXTRA_DATA_LEN`] bytes.
     pub extra_data: Bytes,
 }
 
@@ -36,7 +36,7 @@ impl<ChainSpec> SeismicBlockAssembler<ChainSpec> {
 impl<F, ChainSpec> BlockAssembler<F> for SeismicBlockAssembler<ChainSpec>
 where
     F: for<'a> BlockExecutorFactory<
-        ExecutionCtx<'a> = SeismicBlockExecutionCtx<'a>,
+        ExecutionCtx<'a> = EthBlockExecutionCtx<'a>,
         Transaction = SeismicTransactionSigned,
         Receipt = SeismicReceipt,
         EvmFactory: EvmFactory<BlockEnv = alloy_seismic_evm::SeismicBlockEnv>,
@@ -47,7 +47,7 @@ where
 
     fn assemble_block(
         &self,
-        input: BlockAssemblerInput<'_, '_, F, SeismicHeader>,
+        input: BlockAssemblerInput<'_, '_, F, Header>,
     ) -> Result<SeismicBlock, BlockExecutionError> {
         let BlockAssemblerInput {
             evm_env,
@@ -60,8 +60,11 @@ where
         } = input;
 
         let timestamp: u64 = evm_env.block_env.timestamp.saturating_to();
-        let timestamp_millis_part = ctx.timestamp_millis_part;
-        let ctx = ctx.inner;
+        // The block environment is the single source of the sub-second component: the header
+        // must commit to exactly what `TIMESTAMPMS` exposed during execution.
+        let extra_data =
+            encode_extra_data(evm_env.block_env.timestamp_millis_part, &self.extra_data)
+                .map_err(BlockExecutionError::other)?;
 
         let transactions_root = proofs::calculate_transaction_root(&transactions);
         let receipts_root = SeismicReceipt::calculate_receipt_root_no_memo(receipts);
@@ -87,7 +90,7 @@ where
             blob_gas_used =
                 Some(transactions.iter().map(|tx| tx.blob_gas_used().unwrap_or_default()).sum());
             excess_blob_gas = if self.chain_spec.is_cancun_active_at_timestamp(parent.timestamp()) {
-                parent.inner.maybe_next_block_excess_blob_gas(
+                parent.maybe_next_block_excess_blob_gas(
                     self.chain_spec.blob_params_at_timestamp(timestamp),
                 )
             } else {
@@ -100,7 +103,7 @@ where
             };
         }
 
-        let inner = Header {
+        let header = Header {
             parent_hash: ctx.parent_hash,
             ommers_hash: EMPTY_OMMER_ROOT_HASH,
             beneficiary: evm_env.block_env.beneficiary,
@@ -117,7 +120,7 @@ where
             gas_limit: evm_env.block_env.gas_limit,
             difficulty: evm_env.block_env.difficulty,
             gas_used: *gas_used,
-            extra_data: self.extra_data.clone(),
+            extra_data,
             parent_beacon_block_root: ctx.parent_beacon_block_root,
             blob_gas_used,
             excess_blob_gas,
@@ -125,7 +128,7 @@ where
         };
 
         Ok(Block {
-            header: SeismicHeader::new(inner, timestamp_millis_part),
+            header,
             body: BlockBody { transactions, ommers: Default::default(), withdrawals },
         })
     }

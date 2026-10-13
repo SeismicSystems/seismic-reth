@@ -46,14 +46,14 @@ async fn test_seismic_rpc_compat() -> Result<()> {
     let mut genesis: Genesis = serde_json::from_str(&genesis_json).expect("invalid genesis JSON");
 
     let hardforks = reth_seismic_forks::SEISMIC_DEV_HARDFORKS.clone();
-    let chain_spec: Arc<SeismicChainSpec> = SeismicChainSpec::new(ChainSpec {
+    let chain_spec: Arc<ChainSpec> = ChainSpec {
         chain: Chain::from_id(genesis.config.chain_id),
         genesis_header: SealedHeader::seal_slow(make_genesis_header(&genesis, &hardforks)),
         genesis,
         paris_block_and_final_difficulty: Some((0, U256::from(0))),
         hardforks,
         ..Default::default()
-    })
+    }
     .into();
 
     let setup = Setup::<SeismicEngineTypes>::default()

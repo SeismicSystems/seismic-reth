@@ -25,14 +25,11 @@ pub use reth_seismic_payload_builder::SeismicPayloadBuilder;
 
 pub use reth_seismic_evm::*;
 
-use reth_seismic_chainspec::SeismicChainSpec;
+use reth_chainspec::ChainSpec;
 use std::sync::Arc;
 
 /// Creates a Seismic EVM configuration with the given chain spec and the epoch-keyed
 /// purpose keyring.
-pub fn seismic_evm_config(
-    spec: Arc<SeismicChainSpec>,
-    keyring: Arc<PurposeKeyring>,
-) -> SeismicEvmConfig {
+pub fn seismic_evm_config(spec: Arc<ChainSpec>, keyring: Arc<PurposeKeyring>) -> SeismicEvmConfig {
     SeismicEvmConfig::new(spec, keyring)
 }
