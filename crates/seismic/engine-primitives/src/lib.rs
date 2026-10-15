@@ -1,9 +1,12 @@
-//! Reth-side Engine API primitives for Seismic: payload attributes, execution data, built
-//! payloads, builder attributes and block ⇄ payload conversions.
+//! Reth-side Engine API primitives for Seismic: payload attributes, built payloads and builder
+//! attributes.
 //!
-//! The wire types themselves live in [`reth_seismic_engine_types`], which stays free of reth
-//! dependencies so the consensus client can share it. This crate wraps them with the reth trait
-//! implementations the node needs.
+//! Seismic blocks are stock Ethereum blocks (the sub-second timestamp component lives in the
+//! header's `extraData`, see [`reth_seismic_primitives::header`]), so execution payloads are the
+//! stock [`alloy_rpc_types_engine::ExecutionData`] and envelopes. Only the payload *attributes*
+//! are extended with `timestampMillisPart`; the shared wire type lives in
+//! [`reth_seismic_engine_types`], which stays free of reth dependencies so the consensus client
+//! can share it. This crate wraps it with the reth trait implementations the node needs.
 
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
@@ -12,25 +15,24 @@
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-use alloy_consensus::{Block, BlockBody};
 use alloy_eips::{
     eip4895::{Withdrawal, Withdrawals},
     eip7685::Requests,
 };
 use alloy_primitives::{Address, B256, U256};
 use alloy_rpc_types_engine::{
-    BlobsBundleV1, CancunPayloadFields, ExecutionPayload, ExecutionPayloadSidecar,
-    ExecutionPayloadV3, PayloadAttributes, PayloadError, PayloadId, PraguePayloadFields,
+    BlobsBundleV1, BlobsBundleV2, ExecutionData, ExecutionPayload, ExecutionPayloadEnvelopeV2,
+    ExecutionPayloadEnvelopeV3, ExecutionPayloadEnvelopeV4, ExecutionPayloadEnvelopeV5,
+    ExecutionPayloadFieldV2, ExecutionPayloadV1, ExecutionPayloadV3, PayloadAttributes, PayloadId,
 };
 use reth_ethereum_engine_primitives::{payload_id, BlobSidecars, BuiltPayloadConversionError};
 use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes};
 use reth_primitives_traits::SealedBlock;
 pub use reth_seismic_engine_types::{
-    is_valid_millis_part, join_timestamp_millis, split_timestamp_millis,
-    SeismicExecutionPayloadEnvelopeV3, SeismicExecutionPayloadEnvelopeV4,
-    SeismicExecutionPayloadV3, MILLIS_PER_SECOND,
+    extra_data, is_valid_millis_part, join_timestamp_millis, split_timestamp_millis,
+    MILLIS_PER_SECOND,
 };
-use reth_seismic_primitives::{SeismicBlock, SeismicHeader, SeismicPrimitives};
+use reth_seismic_primitives::{SeismicBlock, SeismicPrimitives};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -73,41 +75,6 @@ impl From<reth_seismic_engine_types::SeismicPayloadAttributes> for SeismicPayloa
     }
 }
 
-/// A [`SeismicExecutionPayloadV3`] together with the out-of-band `engine_newPayload` fields
-/// (versioned hashes, parent beacon block root, execution requests).
-///
-/// This is the Seismic counterpart of [`alloy_rpc_types_engine::ExecutionData`]. Seismic chains
-/// are post-Cancun from genesis, so only V3 payloads are representable.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SeismicExecutionData {
-    /// The execution payload.
-    pub payload: SeismicExecutionPayloadV3,
-    /// The additional `engine_newPayload` fields.
-    pub sidecar: ExecutionPayloadSidecar,
-}
-
-impl SeismicExecutionData {
-    /// Creates the execution data for an `engine_newPayloadV3` request.
-    pub fn v3(payload: SeismicExecutionPayloadV3, cancun: CancunPayloadFields) -> Self {
-        Self { payload, sidecar: ExecutionPayloadSidecar::v3(cancun) }
-    }
-
-    /// Creates the execution data for an `engine_newPayloadV4` request.
-    pub fn v4(
-        payload: SeismicExecutionPayloadV3,
-        cancun: CancunPayloadFields,
-        prague: PraguePayloadFields,
-    ) -> Self {
-        Self { payload, sidecar: ExecutionPayloadSidecar::v4(cancun, prague) }
-    }
-
-    /// Returns the block time in Unix milliseconds.
-    pub const fn timestamp_millis(&self) -> u64 {
-        self.payload.timestamp_millis()
-    }
-}
-
 impl reth_payload_primitives::PayloadAttributes for SeismicPayloadAttributes {
     fn timestamp(&self) -> u64 {
         self.inner.timestamp
@@ -119,36 +86,6 @@ impl reth_payload_primitives::PayloadAttributes for SeismicPayloadAttributes {
 
     fn parent_beacon_block_root(&self) -> Option<B256> {
         self.inner.parent_beacon_block_root
-    }
-}
-
-impl reth_payload_primitives::ExecutionPayload for SeismicExecutionData {
-    fn parent_hash(&self) -> B256 {
-        self.payload.parent_hash()
-    }
-
-    fn block_hash(&self) -> B256 {
-        self.payload.block_hash()
-    }
-
-    fn block_number(&self) -> u64 {
-        self.payload.block_number()
-    }
-
-    fn withdrawals(&self) -> Option<&Vec<Withdrawal>> {
-        Some(&self.payload.inner.payload_inner.withdrawals)
-    }
-
-    fn parent_beacon_block_root(&self) -> Option<B256> {
-        self.sidecar.parent_beacon_block_root()
-    }
-
-    fn timestamp(&self) -> u64 {
-        self.payload.timestamp()
-    }
-
-    fn gas_used(&self) -> u64 {
-        self.payload.gas_used()
     }
 }
 
@@ -219,10 +156,27 @@ pub fn seismic_payload_id(parent: &B256, attributes: &SeismicPayloadAttributes) 
 impl From<reth_ethereum_engine_primitives::EthPayloadBuilderAttributes>
     for SeismicPayloadBuilderAttributes
 {
-    /// Wraps stock builder attributes with a zero sub-second component. The payload id is kept
-    /// as derived by the stock attributes.
+    /// Wraps stock builder attributes with a zero sub-second component.
+    ///
+    /// Required by `reth_e2e_test_utils`. The payload id is re-derived through
+    /// [`seismic_payload_id`], so attributes built this way get the same id as the same
+    /// attributes passed through [`Self::new`] with a zero part.
     fn from(inner: reth_ethereum_engine_primitives::EthPayloadBuilderAttributes) -> Self {
-        Self { inner, timestamp_millis_part: 0 }
+        let attributes = SeismicPayloadAttributes::new(
+            PayloadAttributes {
+                timestamp: inner.timestamp,
+                prev_randao: inner.prev_randao,
+                suggested_fee_recipient: inner.suggested_fee_recipient,
+                withdrawals: Some(inner.withdrawals.to_vec()),
+                parent_beacon_block_root: inner.parent_beacon_block_root,
+            },
+            0,
+        );
+        let id = seismic_payload_id(&inner.parent, &attributes);
+        Self {
+            inner: reth_ethereum_engine_primitives::EthPayloadBuilderAttributes { id, ..inner },
+            timestamp_millis_part: 0,
+        }
     }
 }
 
@@ -326,9 +280,7 @@ impl SeismicBuiltPayload {
     }
 
     /// Converts the built payload into a `engine_getPayloadV3` response.
-    pub fn try_into_v3(
-        self,
-    ) -> Result<SeismicExecutionPayloadEnvelopeV3, BuiltPayloadConversionError> {
+    pub fn try_into_v3(self) -> Result<ExecutionPayloadEnvelopeV3, BuiltPayloadConversionError> {
         let Self { block, fees, sidecars, .. } = self;
         let blobs_bundle = match sidecars {
             BlobSidecars::Empty => BlobsBundleV1::empty(),
@@ -337,8 +289,11 @@ impl SeismicBuiltPayload {
                 return Err(BuiltPayloadConversionError::UnexpectedEip7594Sidecars)
             }
         };
-        Ok(SeismicExecutionPayloadEnvelopeV3 {
-            execution_payload: execution_payload_from_sealed_block(Arc::unwrap_or_clone(block)),
+        Ok(ExecutionPayloadEnvelopeV3 {
+            execution_payload: ExecutionPayloadV3::from_block_unchecked(
+                block.hash(),
+                &Arc::unwrap_or_clone(block).into_block(),
+            ),
             block_value: fees,
             // Spec: clients without an override heuristic SHOULD set this to `false`.
             should_override_builder: false,
@@ -347,13 +302,32 @@ impl SeismicBuiltPayload {
     }
 
     /// Converts the built payload into a `engine_getPayloadV4` response.
-    pub fn try_into_v4(
-        self,
-    ) -> Result<SeismicExecutionPayloadEnvelopeV4, BuiltPayloadConversionError> {
+    pub fn try_into_v4(self) -> Result<ExecutionPayloadEnvelopeV4, BuiltPayloadConversionError> {
         let execution_requests = self.requests.clone().unwrap_or_default();
-        Ok(SeismicExecutionPayloadEnvelopeV4 {
-            envelope_inner: self.try_into_v3()?,
-            execution_requests,
+        Ok(ExecutionPayloadEnvelopeV4 { envelope_inner: self.try_into_v3()?, execution_requests })
+    }
+
+    /// Converts the built payload into a `engine_getPayloadV5` response (Osaka: EIP-7594 cell
+    /// proofs in the blobs bundle).
+    pub fn try_into_v5(self) -> Result<ExecutionPayloadEnvelopeV5, BuiltPayloadConversionError> {
+        let Self { block, fees, sidecars, requests, .. } = self;
+        let blobs_bundle = match sidecars {
+            BlobSidecars::Empty => BlobsBundleV2::empty(),
+            BlobSidecars::Eip7594(sidecars) => BlobsBundleV2::from(sidecars),
+            BlobSidecars::Eip4844(_) => {
+                return Err(BuiltPayloadConversionError::UnexpectedEip4844Sidecars)
+            }
+        };
+        Ok(ExecutionPayloadEnvelopeV5 {
+            execution_payload: ExecutionPayloadV3::from_block_unchecked(
+                block.hash(),
+                &Arc::unwrap_or_clone(block).into_block(),
+            ),
+            block_value: fees,
+            // Spec: clients without an override heuristic SHOULD set this to `false`.
+            should_override_builder: false,
+            blobs_bundle,
+            execution_requests: requests.unwrap_or_default(),
         })
     }
 }
@@ -374,37 +348,32 @@ impl BuiltPayload for SeismicBuiltPayload {
     }
 }
 
-/// Error returned when a Seismic payload is requested through an Engine API version that
-/// cannot represent it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-#[error("engine API {0} cannot carry Seismic payloads; use V3 or V4")]
-pub struct UnsupportedEngineVersion(pub &'static str);
-
-impl TryFrom<SeismicBuiltPayload> for alloy_rpc_types_engine::ExecutionPayloadV1 {
-    type Error = UnsupportedEngineVersion;
-
-    fn try_from(_: SeismicBuiltPayload) -> Result<Self, Self::Error> {
-        Err(UnsupportedEngineVersion("getPayloadV1"))
+/// `engine_getPayloadV1` response. As upstream, served without fork validation.
+impl From<SeismicBuiltPayload> for ExecutionPayloadV1 {
+    fn from(value: SeismicBuiltPayload) -> Self {
+        Self::from_block_unchecked(
+            value.block().hash(),
+            &Arc::unwrap_or_clone(value.block).into_block(),
+        )
     }
 }
 
-impl TryFrom<SeismicBuiltPayload> for alloy_rpc_types_engine::ExecutionPayloadEnvelopeV2 {
-    type Error = UnsupportedEngineVersion;
-
-    fn try_from(_: SeismicBuiltPayload) -> Result<Self, Self::Error> {
-        Err(UnsupportedEngineVersion("getPayloadV2"))
+/// `engine_getPayloadV2` response. Seismic chains are post-Cancun from genesis, so the Engine
+/// API's fork validation rejects V2 requests (`-38005 Unsupported fork`) before this runs.
+impl From<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV2 {
+    fn from(value: SeismicBuiltPayload) -> Self {
+        let SeismicBuiltPayload { block, fees, .. } = value;
+        Self {
+            block_value: fees,
+            execution_payload: ExecutionPayloadFieldV2::from_block_unchecked(
+                block.hash(),
+                &Arc::unwrap_or_clone(block).into_block(),
+            ),
+        }
     }
 }
 
-impl TryFrom<SeismicBuiltPayload> for alloy_rpc_types_engine::ExecutionPayloadEnvelopeV5 {
-    type Error = UnsupportedEngineVersion;
-
-    fn try_from(_: SeismicBuiltPayload) -> Result<Self, Self::Error> {
-        Err(UnsupportedEngineVersion("getPayloadV5"))
-    }
-}
-
-impl TryFrom<SeismicBuiltPayload> for SeismicExecutionPayloadEnvelopeV3 {
+impl TryFrom<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV3 {
     type Error = BuiltPayloadConversionError;
 
     fn try_from(value: SeismicBuiltPayload) -> Result<Self, Self::Error> {
@@ -412,7 +381,7 @@ impl TryFrom<SeismicBuiltPayload> for SeismicExecutionPayloadEnvelopeV3 {
     }
 }
 
-impl TryFrom<SeismicBuiltPayload> for SeismicExecutionPayloadEnvelopeV4 {
+impl TryFrom<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV4 {
     type Error = BuiltPayloadConversionError;
 
     fn try_from(value: SeismicBuiltPayload) -> Result<Self, Self::Error> {
@@ -420,55 +389,20 @@ impl TryFrom<SeismicBuiltPayload> for SeismicExecutionPayloadEnvelopeV4 {
     }
 }
 
-/// Converts a sealed Seismic block into an execution payload without re-validating the hash.
-pub fn execution_payload_from_sealed_block(
-    block: SealedBlock<SeismicBlock>,
-) -> SeismicExecutionPayloadV3 {
-    let hash = block.hash();
-    let block = block.into_block();
-    SeismicExecutionPayloadV3::new(
-        ExecutionPayloadV3::from_block_unchecked(hash, &block),
-        block.header.timestamp_millis_part,
-    )
+impl TryFrom<SeismicBuiltPayload> for ExecutionPayloadEnvelopeV5 {
+    type Error = BuiltPayloadConversionError;
+
+    fn try_from(value: SeismicBuiltPayload) -> Result<Self, Self::Error> {
+        value.try_into_v5()
+    }
 }
 
-impl SeismicExecutionData {
-    /// Converts a sealed Seismic block into the execution data `engine_newPayloadV4` would carry.
-    pub fn from_sealed_block(block: SealedBlock<SeismicBlock>) -> Self {
-        let hash = block.hash();
-        let block = block.into_block();
-        let sidecar = ExecutionPayloadSidecar::from_block(&block);
-        Self {
-            payload: SeismicExecutionPayloadV3::new(
-                ExecutionPayloadV3::from_block_unchecked(hash, &block),
-                block.header.timestamp_millis_part,
-            ),
-            sidecar,
-        }
-    }
-
-    /// Converts the execution data into a Seismic block.
-    ///
-    /// This performs the stock Ethereum payload → block conversion and attaches the sub-second
-    /// timestamp component. The result's hash is not checked against the payload's `blockHash`.
-    pub fn try_into_block(self) -> Result<SeismicBlock, PayloadError> {
-        let Self { payload, sidecar } = self;
-        let SeismicExecutionPayloadV3 { inner, timestamp_millis_part } = payload;
-        if !is_valid_millis_part(timestamp_millis_part) {
-            return Err(PayloadError::Decode(alloy_rlp::Error::Custom(
-                "timestampMillisPart out of range",
-            )))
-        }
-        let Block { header, body } =
-            ExecutionPayload::V3(inner).try_into_block_with_sidecar(&sidecar)?;
-        let BlockBody { transactions, ommers, withdrawals } = body;
-        // Post-merge blocks carry no ommers; map the (empty) list for type parity.
-        let ommers = ommers.into_iter().map(SeismicHeader::from).collect();
-        Ok(Block::new(
-            SeismicHeader::new(header, timestamp_millis_part),
-            BlockBody { transactions, ommers, withdrawals },
-        ))
-    }
+/// Converts a sealed Seismic block into the execution data `engine_newPayload` would carry,
+/// without re-validating the hash.
+pub fn execution_data_from_sealed_block(block: SealedBlock<SeismicBlock>) -> ExecutionData {
+    let (payload, sidecar) =
+        ExecutionPayload::from_block_unchecked(block.hash(), &block.into_block());
+    ExecutionData { payload, sidecar }
 }
 
 #[cfg(test)]
@@ -476,6 +410,7 @@ mod tests {
     use super::*;
     use alloy_consensus::Header;
     use alloy_rpc_types_engine::PayloadAttributes;
+    use reth_seismic_primitives::{header::encode_extra_data, SeismicBlockHeader};
 
     fn attrs(part: u64) -> SeismicPayloadAttributes {
         SeismicPayloadAttributes::new(
@@ -504,21 +439,33 @@ mod tests {
     }
 
     #[test]
-    fn block_payload_roundtrip() {
-        let header = SeismicHeader::new(
-            Header {
-                number: 3,
-                timestamp: 1_700_000_000,
-                base_fee_per_gas: Some(7),
-                withdrawals_root: Some(alloy_consensus::EMPTY_ROOT_HASH),
-                blob_gas_used: Some(0),
-                excess_blob_gas: Some(0),
-                parent_beacon_block_root: Some(B256::ZERO),
-                requests_hash: Some(alloy_eips::eip7685::EMPTY_REQUESTS_HASH),
-                ..Default::default()
-            },
-            456,
+    fn builder_attributes_from_stock_derive_the_seismic_payload_id() {
+        let parent = B256::repeat_byte(7);
+        let via_new = SeismicPayloadBuilderAttributes::new(parent, attrs(0)).unwrap();
+        let via_from = SeismicPayloadBuilderAttributes::from(
+            reth_ethereum_engine_primitives::EthPayloadBuilderAttributes::new(
+                parent,
+                attrs(0).0.inner,
+            ),
         );
+        assert_eq!(via_from, via_new);
+        assert_ne!(via_from.payload_id(), payload_id(&parent, &attrs(0).inner));
+    }
+
+    #[test]
+    fn block_payload_roundtrip_keeps_the_stock_hash() {
+        let header = Header {
+            number: 3,
+            timestamp: 1_700_000_000,
+            extra_data: encode_extra_data(456, b"seismic").unwrap(),
+            base_fee_per_gas: Some(7),
+            withdrawals_root: Some(alloy_consensus::EMPTY_ROOT_HASH),
+            blob_gas_used: Some(0),
+            excess_blob_gas: Some(0),
+            parent_beacon_block_root: Some(B256::ZERO),
+            requests_hash: Some(alloy_eips::eip7685::EMPTY_REQUESTS_HASH),
+            ..Default::default()
+        };
         let block = SeismicBlock::new(
             header,
             alloy_consensus::BlockBody {
@@ -528,14 +475,40 @@ mod tests {
             },
         );
         let sealed = SealedBlock::seal_slow(block.clone());
-        let data = SeismicExecutionData::from_sealed_block(sealed.clone());
+        let data = execution_data_from_sealed_block(sealed.clone());
         assert_eq!(data.payload.block_hash(), sealed.hash());
         assert_eq!(data.payload.timestamp(), 1_700_000_000);
-        assert_eq!(data.payload.timestamp_millis_part, 456);
+        assert_eq!(
+            extra_data::decode_timestamp_millis_part(data.payload.as_v1().extra_data.as_ref()),
+            Ok(456)
+        );
         assert_eq!(data.sidecar.parent_beacon_block_root(), Some(B256::ZERO));
 
-        let decoded = data.try_into_block().unwrap();
+        let decoded: SeismicBlock =
+            data.payload.try_into_block_with_sidecar(&data.sidecar).unwrap();
         assert_eq!(decoded, block);
-        assert_eq!(SealedBlock::seal_slow(decoded).hash(), sealed.hash());
+        let resealed = SealedBlock::seal_slow(decoded);
+        assert_eq!(resealed.hash(), sealed.hash());
+        assert_eq!(resealed.header().timestamp_millis(), 1_700_000_000_456);
+
+        // The built payload envelope is the stock envelope.
+        let built = SeismicBuiltPayload::new(
+            PayloadId::new([1; 8]),
+            Arc::new(sealed.clone()),
+            U256::ZERO,
+            BlobSidecars::Empty,
+            None,
+        );
+        let envelope = built.clone().try_into_v4().unwrap();
+        assert_eq!(
+            envelope.execution_payload.payload_inner.payload_inner.block_hash,
+            sealed.hash()
+        );
+        let envelope = built.try_into_v5().unwrap();
+        assert_eq!(
+            envelope.execution_payload.payload_inner.payload_inner.block_hash,
+            sealed.hash()
+        );
+        assert_eq!(envelope.blobs_bundle, BlobsBundleV2::empty());
     }
 }

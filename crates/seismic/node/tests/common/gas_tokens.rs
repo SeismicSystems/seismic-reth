@@ -115,7 +115,8 @@ impl TokenTestContext {
         if with_proxy {
             // Reuse the genesis proxy, without upgrading it or changing any token
             // storage through a genesis/RPC override. Only its test administrator changes.
-            Arc::make_mut(&mut spec).modify_inner(|spec| {
+            {
+                let spec = Arc::make_mut(&mut spec);
                 spec.genesis
                     .alloc
                     .get_mut(&PROXY_ADMIN)
@@ -126,7 +127,7 @@ impl TokenTestContext {
                     .insert(B256::ZERO, Wallet::default().inner.address().into_word());
                 spec.genesis_header =
                     SealedHeader::seal_slow(make_genesis_header(&spec.genesis, &spec.hardforks));
-            });
+            }
         }
         let (mut nodes, tasks, wallet) =
             tokio::spawn(reth_e2e_test_utils::setup_engine::<SeismicNode>(

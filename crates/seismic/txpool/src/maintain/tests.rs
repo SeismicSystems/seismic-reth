@@ -6,6 +6,7 @@ use crate::{SeismicPaymentError, SeismicTransactionValidator};
 use alloy_consensus::{transaction::Recovered, SignableTransaction, TxLegacy};
 use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{Address, Bytes, FlaggedStorage, Signature, TxKind, B256, U256};
+use reth_chainspec::ChainSpec;
 use reth_execution_types::{Chain, ExecutionOutcome};
 use reth_primitives_traits::{Account, Block as _, Bytecode};
 use reth_provider::{
@@ -13,10 +14,10 @@ use reth_provider::{
     AccountReader, BlockHashReader, BytecodeReader, HashedPostStateProvider, ProviderError,
     ProviderResult, StateProofProvider, StateRootProvider, StorageRootProvider,
 };
-use reth_seismic_chainspec::{SeismicChainSpec, SEISMIC_MAINNET};
+use reth_seismic_chainspec::SEISMIC_MAINNET;
 
 /// Mock provider over the Seismic primitives and chain spec.
-type SeismicMockProvider = MockEthProvider<SeismicPrimitives, SeismicChainSpec>;
+type SeismicMockProvider = MockEthProvider<SeismicPrimitives, ChainSpec>;
 
 fn seismic_mock_provider() -> SeismicMockProvider {
     MockEthProvider::<SeismicPrimitives, reth_chainspec::ChainSpec>::new()
@@ -568,12 +569,12 @@ fn chain(
     timestamp: u64,
 ) -> Arc<Chain<SeismicPrimitives>> {
     let block = SeismicBlock {
-        header: reth_seismic_primitives::SeismicHeader::from(alloy_consensus::Header {
+        header: alloy_consensus::Header {
             number: 1,
             gas_limit: 30_000_000,
             timestamp,
             ..Default::default()
-        }),
+        },
         body: SeismicBlockBody::default(),
     }
     .seal_slow()

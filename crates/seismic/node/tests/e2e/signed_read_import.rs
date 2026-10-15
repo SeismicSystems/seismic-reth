@@ -72,7 +72,7 @@ async fn test_new_payload_rejects_signed_read_tx() -> Result<()> {
     let empty = node.new_payload().await?;
     let mut block: SeismicBlock = empty.block().clone().into_block();
     block.body.transactions.push(signed_read_tx(wallet.chain_id));
-    block.header.inner.transactions_root = calculate_transaction_root(&block.body.transactions);
+    block.header.transactions_root = calculate_transaction_root(&block.body.transactions);
     let sealed = SealedBlock::seal_slow(block);
 
     // Submit through the engine's newPayload handler. The signed-read tx must fail the

@@ -24,9 +24,9 @@ alloy-primitives = { workspace = true, features = ["serde"] }
 alloy-consensus.workspace = true
 alloy-rlp.workspace = true
 alloy-eips = { workspace = true, features = ["k256"] }
-alloy-serde = { workspace = true, optional = true }
 
 # seismic
+reth-seismic-engine-types.workspace = true
 seismic-alloy-consensus.workspace = true
 seismic-revm.workspace = true
 
@@ -73,9 +73,9 @@ std = [
     "derive_more/std",
     "secp256k1?/std",
     "alloy-rlp/std",
-    "alloy-serde?/std",
     "reth-zstd-compressors?/std",
     "seismic-alloy-consensus/std",
+    "reth-seismic-engine-types/std",
     "revm-context/std",
     "serde_json/std",
     "alloy-evm/std",
@@ -94,7 +94,6 @@ reth-codec = [
 ]
 serde = [
     "dep:serde",
-    "dep:alloy-serde",
     "reth-primitives-traits/serde",
     "alloy-primitives/serde",
     "alloy-consensus/serde",
@@ -133,5 +132,4 @@ arbitrary = [
     "alloy-eips/arbitrary",
     "alloy-primitives/arbitrary",
     "rand_08",
-    "alloy-serde?/arbitrary",
 ]

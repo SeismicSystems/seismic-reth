@@ -33,7 +33,8 @@ async fn simulate_v1_keeps_rotation_local_on_success_and_error() -> eyre::Result
     ensure_mock_purpose_keys();
     let admin = Wallet::default().inner.address();
     let mut spec = SEISMIC_DEV.as_ref().clone();
-    spec.modify_inner(|spec| {
+    {
+        let spec = &mut spec;
         spec.genesis
             .alloc
             .get_mut(&KEY_ROTATION_REGISTRY)
@@ -44,7 +45,7 @@ async fn simulate_v1_keeps_rotation_local_on_success_and_error() -> eyre::Result
             .insert(ADMIN_SLOT, admin.into_word());
         spec.genesis_header =
             SealedHeader::seal_slow(make_genesis_header(&spec.genesis, &spec.hardforks));
-    });
+    }
 
     let (mut nodes, _tasks, wallet) = tokio::spawn(setup_engine::<SeismicNode>(
         1,

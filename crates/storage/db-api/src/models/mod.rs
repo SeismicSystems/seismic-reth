@@ -252,9 +252,9 @@ mod op {
 
 mod seismic {
     use super::*;
-    use reth_seismic_primitives::{SeismicHeader, SeismicReceipt, SeismicTransactionSigned};
+    use reth_seismic_primitives::{SeismicReceipt, SeismicTransactionSigned};
 
-    impl_compression_for_compact!(SeismicTransactionSigned, SeismicReceipt, SeismicHeader);
+    impl_compression_for_compact!(SeismicTransactionSigned, SeismicReceipt);
 }
 
 macro_rules! impl_compression_fixed_compact {

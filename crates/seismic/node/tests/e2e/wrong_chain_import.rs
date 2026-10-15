@@ -62,7 +62,7 @@ async fn test_new_payload_rejects_wrong_chain_id_tx() -> Result<()> {
     // chain-ID check before the state root is ever compared.
     let mut block: SeismicBlock = empty.block().clone().into_block();
     block.body.transactions.push(wrong_tx);
-    block.header.inner.transactions_root = calculate_transaction_root(&block.body.transactions);
+    block.header.transactions_root = calculate_transaction_root(&block.body.transactions);
     let sealed = SealedBlock::seal_slow(block);
 
     // Submit through the engine's newPayload handler (the ConfigureEngineEvm import path).
