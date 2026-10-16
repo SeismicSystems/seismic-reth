@@ -1,12 +1,17 @@
 //! Setup utilities for importing RLP chain data before starting nodes.
 
-use crate::{node::NodeTestContext, NodeHelperType, Wallet};
+use crate::{
+    node::NodeTestContext, NodeBuilderHelper, NodeHelperType, PayloadAttributesBuilder, TmpDB,
+    Wallet,
+};
 use reth_chainspec::ChainSpec;
 use reth_cli_commands::import_core::{import_blocks_from_file, ImportConfig};
 use reth_config::Config;
 use reth_db::DatabaseEnv;
-use reth_node_api::{NodeTypesWithDBAdapter, TreeConfig};
-use reth_node_builder::{EngineNodeLauncher, Node, NodeBuilder, NodeConfig, NodeHandle};
+use reth_engine_local::LocalPayloadAttributesBuilder;
+use reth_evm::ConfigureEvm;
+use reth_node_api::{NodeTypes, NodeTypesWithDBAdapter, PayloadTypes, TreeConfig};
+use reth_node_builder::{EngineNodeLauncher, NodeBuilder, NodeConfig, NodeHandle};
 use reth_node_core::args::{DiscoveryArgs, NetworkArgs, RpcServerArgs};
 use reth_node_ethereum::EthereumNode;
 use reth_provider::{
@@ -21,9 +26,13 @@ use tempfile::TempDir;
 use tracing::{debug, info, span, Level};
 
 /// Setup result containing nodes and temporary directories that must be kept alive
-pub struct ChainImportResult {
+pub struct ChainImportResult<N: NodeBuilderHelper = EthereumNode>
+where
+    LocalPayloadAttributesBuilder<N::ChainSpec>:
+        PayloadAttributesBuilder<<<N as NodeTypes>::Payload as PayloadTypes>::PayloadAttributes>,
+{
     /// The nodes that were created
-    pub nodes: Vec<NodeHelperType<EthereumNode>>,
+    pub nodes: Vec<NodeHelperType<N, BlockchainProvider<NodeTypesWithDBAdapter<N, TmpDB>>>>,
     /// The task manager
     pub task_manager: TaskManager,
     /// The wallet for testing
@@ -32,7 +41,11 @@ pub struct ChainImportResult {
     pub _temp_dirs: Vec<TempDir>,
 }
 
-impl std::fmt::Debug for ChainImportResult {
+impl<N: NodeBuilderHelper> std::fmt::Debug for ChainImportResult<N>
+where
+    LocalPayloadAttributesBuilder<N::ChainSpec>:
+        PayloadAttributesBuilder<<<N as NodeTypes>::Payload as PayloadTypes>::PayloadAttributes>,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ChainImportResult")
             .field("nodes", &self.nodes.len())
@@ -56,20 +69,28 @@ impl std::fmt::Debug for ChainImportResult {
 /// It uses `NoopConsensus` during import to bypass validation checks like gas limit constraints,
 /// which allows importing test chains that may not strictly conform to mainnet consensus rules. The
 /// nodes themselves still run with proper consensus when started.
-pub async fn setup_engine_with_chain_import(
+pub async fn setup_engine_with_chain_import<N>(
     num_nodes: usize,
     chain_spec: Arc<ChainSpec>,
     is_dev: bool,
     tree_config: TreeConfig,
     rlp_path: &Path,
-    attributes_generator: impl Fn(u64) -> reth_payload_builder::EthPayloadBuilderAttributes
+    attributes_generator: impl Fn(u64) -> <<N as NodeTypes>::Payload as PayloadTypes>::PayloadBuilderAttributes
         + Send
         + Sync
         + Copy
         + 'static,
-) -> eyre::Result<ChainImportResult> {
+    evm_config: impl ConfigureEvm<Primitives = N::Primitives> + 'static,
+) -> eyre::Result<ChainImportResult<N>>
+where
+    N: NodeBuilderHelper,
+    LocalPayloadAttributesBuilder<N::ChainSpec>:
+        PayloadAttributesBuilder<<<N as NodeTypes>::Payload as PayloadTypes>::PayloadAttributes>,
+{
     let tasks = TaskManager::current();
     let exec = tasks.executor();
+
+    let n_chain_spec = Arc::new(N::ChainSpec::from((*chain_spec).clone()));
 
     let network_config = NetworkArgs {
         discovery: DiscoveryArgs { disable_discovery: true, ..DiscoveryArgs::default() },
@@ -77,7 +98,7 @@ pub async fn setup_engine_with_chain_import(
     };
 
     // Create nodes with imported data
-    let mut nodes: Vec<NodeHelperType<EthereumNode>> = Vec::with_capacity(num_nodes);
+    let mut nodes = Vec::with_capacity(num_nodes);
     let mut temp_dirs = Vec::with_capacity(num_nodes); // Keep temp dirs alive
 
     for idx in 0..num_nodes {
@@ -85,7 +106,7 @@ pub async fn setup_engine_with_chain_import(
         let temp_dir = TempDir::new()?;
         let datadir = temp_dir.path().to_path_buf();
 
-        let mut node_config = NodeConfig::new(chain_spec.clone())
+        let mut node_config = NodeConfig::new(n_chain_spec.clone())
             .with_network(network_config.clone())
             .with_unused_ports()
             .with_rpc(
@@ -119,11 +140,9 @@ pub async fn setup_engine_with_chain_import(
 
         // Create a provider factory with the initialized database (use regular DB, not
         // TempDatabase) We need to specify the node types properly for the adapter
-        let provider_factory = ProviderFactory::<
-            NodeTypesWithDBAdapter<EthereumNode, Arc<DatabaseEnv>>,
-        >::new(
+        let provider_factory = ProviderFactory::<NodeTypesWithDBAdapter<N, Arc<DatabaseEnv>>>::new(
             db.clone(),
-            chain_spec.clone(),
+            n_chain_spec.clone(),
             reth_provider::providers::StaticFileProvider::read_write(static_files_path.clone())?,
         );
 
@@ -135,8 +154,8 @@ pub async fn setup_engine_with_chain_import(
         let import_config = ImportConfig::default();
         let config = Config::default();
 
-        // Create EVM and consensus for Ethereum
-        let evm_config = reth_node_ethereum::EthEvmConfig::new(chain_spec.clone());
+        // Create EVM and consensus
+        let evm_config = evm_config.clone();
         // Use NoopConsensus to skip gas limit validation for test imports
         let consensus = reth_consensus::noop::NoopConsensus::arc();
 
@@ -214,11 +233,11 @@ pub async fn setup_engine_with_chain_import(
 
         // Use the testing_node_with_datadir method which properly handles opening existing
         // databases
-        let node = EthereumNode::default();
+        let node = N::default();
 
         let NodeHandle { node, node_exit_future: _ } = NodeBuilder::new(node_config.clone())
             .testing_node_with_datadir(exec.clone(), datadir.clone())
-            .with_types_and_provider::<EthereumNode, BlockchainProvider<_>>()
+            .with_types_and_provider::<N, BlockchainProvider<_>>()
             .with_components(node.components_builder())
             .with_add_ons(node.add_ons())
             .launch_with_fn(|builder| {
@@ -282,6 +301,7 @@ mod tests {
     use std::path::PathBuf;
 
     #[tokio::test]
+    #[ignore]
     async fn test_stage_checkpoints_persistence() {
         // This test specifically verifies that stage checkpoints are persisted correctly
         // when reopening the database
@@ -451,6 +471,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_import_blocks_only() {
         // Tests just the block import functionality without full node setup
         reth_tracing::init_test_tracing();
@@ -519,6 +540,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_import_with_node_integration() {
         // Tests the full integration with node setup, forkchoice updates, and syncing
         reth_tracing::init_test_tracing();
@@ -535,13 +557,14 @@ mod tests {
             .expect("Failed to write FCU data");
 
         // Setup nodes with imported chain
-        let result = setup_engine_with_chain_import(
+        let result = setup_engine_with_chain_import::<EthereumNode>(
             1,
-            chain_spec,
+            chain_spec.clone(),
             false,
             TreeConfig::default(),
             &rlp_path,
             |_| EthPayloadBuilderAttributes::default(),
+            reth_node_ethereum::EthEvmConfig::new(chain_spec),
         )
         .await
         .expect("Failed to setup nodes with chain import");

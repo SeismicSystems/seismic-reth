@@ -10,6 +10,9 @@ repository.workspace = true
 [lints]
 
 [dependencies]
+# seismic
+seismic-alloy-genesis.workspace = true
+
 # reth
 reth-chainspec.workspace = true
 reth-cli.workspace = true

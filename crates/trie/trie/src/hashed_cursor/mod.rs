@@ -1,6 +1,7 @@
-use alloy_primitives::{B256, U256};
+use alloy_primitives::B256;
 use reth_primitives_traits::Account;
 use reth_storage_errors::db::DatabaseError;
+use revm_state::FlaggedStorage;
 
 /// Implementation of hashed state cursor traits for the post state.
 mod post_state;
@@ -18,7 +19,7 @@ pub trait HashedCursorFactory {
     /// The hashed account cursor type.
     type AccountCursor: HashedCursor<Value = Account>;
     /// The hashed storage cursor type.
-    type StorageCursor: HashedStorageCursor<Value = U256>;
+    type StorageCursor: HashedStorageCursor<Value = FlaggedStorage>;
 
     /// Returns a cursor for iterating over all hashed accounts in the state.
     fn hashed_account_cursor(&self) -> Result<Self::AccountCursor, DatabaseError>;

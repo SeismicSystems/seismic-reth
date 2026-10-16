@@ -5,8 +5,9 @@ Unwinds a certain block range, deleting it from the database
 ```bash
 $ reth stage unwind --help
 ```
+
 ```txt
-Usage: reth stage unwind [OPTIONS] <COMMAND>
+Usage: seismic-reth stage unwind [OPTIONS] <COMMAND>
 
 Commands:
   to-block    Unwinds the database from the latest block, until the given block number or hash has been reached, that block is not included

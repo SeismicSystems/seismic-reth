@@ -1,0 +1,29 @@
+//! Loads Seismic pending block for a RPC response.
+
+use crate::{SeismicEthApi, SeismicEthApiError};
+use reth_rpc_eth_api::{helpers::LoadPendingBlock, FromEvmError, RpcConvert, RpcNodeCore};
+use reth_rpc_eth_types::PendingBlock;
+
+impl<N, Rpc> LoadPendingBlock for SeismicEthApi<N, Rpc>
+where
+    N: RpcNodeCore,
+    SeismicEthApiError: FromEvmError<N::Evm>,
+    Rpc: RpcConvert<Primitives = N::Primitives>,
+{
+    #[inline]
+    fn pending_block(&self) -> &tokio::sync::Mutex<Option<PendingBlock<Self::Primitives>>> {
+        self.inner.pending_block()
+    }
+
+    #[inline]
+    fn pending_env_builder(
+        &self,
+    ) -> &dyn reth_rpc_eth_api::helpers::pending_block::PendingEnvBuilder<Self::Evm> {
+        self.inner.pending_env_builder()
+    }
+
+    #[inline]
+    fn pending_block_kind(&self) -> reth_rpc_eth_types::builder::config::PendingBlockKind {
+        self.inner.pending_block_kind()
+    }
+}
