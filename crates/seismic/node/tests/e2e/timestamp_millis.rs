@@ -396,9 +396,8 @@ async fn built_payload_block<C: ClientT + Sync>(
     Ok((payload, block.header, root, execution_requests))
 }
 
-/// On an Osaka-active chain `engine_getPayloadV5` must serve the built payload (it is advertised
-/// and passes fork validation), with the same block as V4. The committed genesis JSON files
-/// activate Osaka at genesis when loaded as files, so this is a launch configuration in use.
+/// On an explicitly Osaka-enabled chain `engine_getPayloadV5` must serve the built payload
+/// (it is advertised and passes fork validation), with the same block as V4.
 #[tokio::test(flavor = "multi_thread")]
 async fn get_payload_v5_serves_on_an_osaka_chain() -> eyre::Result<()> {
     use alloy_rpc_types_engine::ExecutionPayloadEnvelopeV5;
