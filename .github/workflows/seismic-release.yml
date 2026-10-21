@@ -150,6 +150,29 @@ jobs:
           $bin --version
           echo "seismic_reth_bin_path=${bin}" >> $GITHUB_ENV
 
+      # mdbx_copy takes consistent copies of Reth's MDBX database for
+      # summit-checkpointer. It must be built from the libmdbx revision this
+      # tree vendors, because the on-disk format is tied to the library
+      # version, so it ships in the same tarball as the seismic-reth binary.
+      - name: Build mdbx_copy
+        if: matrix.platform == 'linux'
+        env:
+          OUT_DIR: target/${{ matrix.target }}/${{ env.PROFILE }}
+          LIBMDBX_DIR: crates/storage/libmdbx-rs/mdbx-sys/libmdbx
+        shell: bash
+        run: |
+          set -eo pipefail
+          make -C "$LIBMDBX_DIR" mdbx_copy
+          strip --strip-unneeded "$LIBMDBX_DIR/mdbx_copy"
+          install -m 0755 "$LIBMDBX_DIR/mdbx_copy" "$OUT_DIR/mdbx_copy"
+
+          bin="$OUT_DIR/mdbx_copy"
+          file "$bin" || true
+          du -h "$bin" || true
+          ldd "$bin" || true
+          "$bin" -V
+          echo "mdbx_copy_bin_path=${bin}" >> "$GITHUB_ENV"
+
       - name: Archive binaries
         id: artifacts
         env:
@@ -160,7 +183,7 @@ jobs:
         shell: bash
         run: |
           if [[ "$PLATFORM_NAME" == "linux" ]]; then
-            tar -czvf "seismic-reth_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C $OUT_DIR seismic-reth
+            tar -czvf "seismic-reth_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C "$OUT_DIR" seismic-reth mdbx_copy
           elif [ "$PLATFORM_NAME" == "darwin" ]; then
             # We need to use gtar here otherwise the archive is corrupt.
             # See: https://github.com/actions/virtual-environments/issues/2619
@@ -180,7 +203,9 @@ jobs:
         id: attestation
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: ${{ env.seismic_reth_bin_path }}
+          subject-path: |
+            ${{ env.seismic_reth_bin_path }}
+            ${{ env.mdbx_copy_bin_path }}
 
       - name: Record attestation URL
         run: |
