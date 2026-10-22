@@ -40,7 +40,10 @@ use reth_seismic_node::utils::{
     test_utils::get_nonce,
 };
 use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
-use reth_seismic_rpc::ext::{EthApiOverrideClient, COMPATIBILITY_BALANCE};
+use reth_seismic_rpc::{
+    ext::{EthApiOverrideClient, COMPATIBILITY_BALANCE},
+    REDACTED_STORAGE_ROOT,
+};
 use reth_seismic_test_utils::{
     client_decrypt, get_plaintext, get_signed_read_seismic_metadata, get_signed_seismic_call_bytes,
     get_signed_seismic_call_typed_data, get_signed_seismic_tx_bytes,
@@ -989,6 +992,38 @@ async fn test_eth_call_allows_cload_on_private_storage() -> eyre::Result<()> {
     );
     let decrypted = client_decrypt(metadata, &output).unwrap();
     assert_eq!(U256::from_be_slice(&decrypted), U256::from(42));
+    Ok(())
+}
+
+/// `eth_getAccount` must not return the real storage root: it commits to plaintext private
+/// values, so a contract with a low-entropy private slot could be brute-forced against it.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_eth_get_account_redacts_storage_root() -> eyre::Result<()> {
+    let (mut node, client, chain_id, wallet, _tasks) = setup_test_node().await?;
+
+    let contract_addr = flagged_storage_deploy_and_write(
+        &mut node,
+        &client,
+        chain_id,
+        &wallet,
+        FLAGGED_STORAGE_SET_PRIVATE,
+        U256::from(42),
+    )
+    .await?;
+
+    let account = EthApiClient::<
+        SeismicTransactionRequest,
+        SeismicTransactionSigned,
+        SeismicBlock,
+        SeismicTransactionReceipt,
+        Header,
+    >::get_account(&client, contract_addr, alloy_eips::BlockId::latest())
+    .await
+    .unwrap()
+    .expect("deployed contract must exist");
+
+    assert_eq!(account.storage_root, REDACTED_STORAGE_ROOT);
+    assert_ne!(account.code_hash, alloy_consensus::constants::KECCAK_EMPTY);
     Ok(())
 }
 

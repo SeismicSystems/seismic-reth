@@ -20,8 +20,8 @@ use crate::{
 };
 use alloy_consensus::constants::KECCAK_EMPTY;
 use alloy_eips::BlockId;
-use alloy_primitives::{Address, U256};
-use alloy_rpc_types_eth::AccountInfo;
+use alloy_primitives::{Address, B256, U256};
+use alloy_rpc_types_eth::{Account, AccountInfo};
 use futures::Future;
 use reth_evm::{ConfigureEvm, SpecFor, TxEnvFor};
 use reth_node_api::{FullNodeComponents, HeaderTy};
@@ -394,7 +394,42 @@ where
             Ok(AccountInfo { balance, nonce, code })
         })
     }
+
+    /// Serves `eth_getAccount` with `storageRoot` redacted to [`REDACTED_STORAGE_ROOT`].
+    ///
+    /// Storage trie leaves commit to plaintext values, so a storage root is an oracle on
+    /// private slots: anyone who knows a contract's slot keys and public values can brute-force
+    /// low-entropy private values against it. This is the same reason `eth_getProof` is
+    /// disabled. The root is redacted uniformly, for every account, so the response does not
+    /// reveal which accounts hold private storage.
+    ///
+    /// The proof-window check in the default [`EthState::get_account`] is dropped: it bounds the
+    /// cost of computing a historical storage root, which we no longer compute.
+    fn get_account(
+        &self,
+        address: Address,
+        block_id: BlockId,
+    ) -> impl Future<Output = Result<Option<Account>, Self::Error>> + Send {
+        self.spawn_blocking_io_fut(move |this| async move {
+            let state = this.state_at_block_id(block_id).await?;
+            let Some(account) = state.basic_account(&address).map_err(Self::Error::from_eth_err)?
+            else {
+                return Ok(None)
+            };
+
+            Ok(Some(Account {
+                balance: account.balance,
+                nonce: account.nonce,
+                code_hash: account.bytecode_hash.unwrap_or(KECCAK_EMPTY),
+                storage_root: REDACTED_STORAGE_ROOT,
+            }))
+        })
+    }
 }
+
+/// `storageRoot` reported by `eth_getAccount` for every account. Deliberately not
+/// `EMPTY_ROOT_HASH`, which tools read as "this account has no storage".
+pub const REDACTED_STORAGE_ROOT: B256 = B256::ZERO;
 
 impl<N, Rpc> EthFees for SeismicEthApi<N, Rpc>
 where
