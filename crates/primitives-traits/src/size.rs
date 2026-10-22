@@ -50,7 +50,15 @@ macro_rules! impl_in_mem_size {
     };
 }
 
-impl_in_mem_size!(Header, TxLegacy, TxEip2930, TxEip1559, TxEip7702, TxEip4844);
+impl_in_mem_size!(
+    Header,
+    TxLegacy,
+    TxEip2930,
+    TxEip1559,
+    TxEip7702,
+    TxEip4844,
+    seismic_alloy_consensus::TxSeismic
+);
 
 impl<T: TxEip4844Sidecar> InMemorySize for TxEip4844Variant<T> {
     #[inline]
@@ -67,7 +75,7 @@ impl<T: TxEip4844Sidecar> InMemorySize for TxEip4844WithSidecar<T> {
 }
 
 #[cfg(feature = "op")]
-impl_in_mem_size_size_of!(op_alloy_consensus::OpTxType);
+impl_in_mem_size_size_of!(op_alloy_consensus::OpTxType, seismic_alloy_consensus::SeismicTxType);
 
 impl InMemorySize for alloy_consensus::Receipt {
     fn size(&self) -> usize {
@@ -121,6 +129,36 @@ impl<T: InMemorySize> InMemorySize for Vec<T> {
 impl InMemorySize for u64 {
     fn size(&self) -> usize {
         core::mem::size_of::<Self>()
+    }
+}
+
+mod seismic {
+    use super::*;
+
+    impl InMemorySize for seismic_alloy_consensus::SeismicTypedTransaction {
+        fn size(&self) -> usize {
+            match self {
+                Self::Legacy(tx) => tx.size(),
+                Self::Eip2930(tx) => tx.size(),
+                Self::Eip1559(tx) => tx.size(),
+                Self::Eip4844(tx) => tx.size(),
+                Self::Eip7702(tx) => tx.size(),
+                Self::Seismic(tx) => tx.size(),
+            }
+        }
+    }
+
+    impl InMemorySize for seismic_alloy_consensus::SeismicTxEnvelope {
+        fn size(&self) -> usize {
+            match self {
+                Self::Legacy(tx) => tx.size(),
+                Self::Eip2930(tx) => tx.size(),
+                Self::Eip1559(tx) => tx.size(),
+                Self::Eip4844(tx) => tx.size(),
+                Self::Eip7702(tx) => tx.size(),
+                Self::Seismic(tx) => tx.size(),
+            }
+        }
     }
 }
 

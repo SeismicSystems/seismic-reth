@@ -5,8 +5,9 @@ Prune according to the configuration without any limits
 ```bash
 $ reth prune --help
 ```
+
 ```txt
-Usage: reth prune [OPTIONS]
+Usage: seismic-reth prune [OPTIONS]
 
 Options:
   -h, --help

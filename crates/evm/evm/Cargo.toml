@@ -11,6 +11,10 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+# Seismic
+op-revm = { workspace = true, optional = true }
+seismic-revm = { workspace = true }
+
 # reth
 reth-execution-errors.workspace = true
 reth-execution-types.workspace = true
@@ -55,6 +59,7 @@ std = [
     "reth-storage-api/std",
     "reth-trie-common/std",
     "reth-ethereum-primitives/std",
+    "op-revm?/std",
 ]
 metrics = ["std", "dep:metrics", "dep:reth-metrics"]
 test-utils = [

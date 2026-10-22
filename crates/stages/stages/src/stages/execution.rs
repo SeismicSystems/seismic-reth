@@ -843,7 +843,7 @@ mod tests {
         }) if total == block.gas_used);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn sanity_execution_of_block() {
         let factory = create_test_provider_factory();
         let provider = factory.provider_rw().unwrap();
@@ -968,7 +968,7 @@ mod tests {
             // Get on dupsort would return only first value. This is good enough for this test.
             assert!(matches!(
                 provider.tx_ref().get::<tables::PlainStorageState>(account1),
-                Ok(Some(entry)) if entry.key == B256::with_last_byte(1) && entry.value == U256::from(2)
+                Ok(Some(entry)) if entry == (B256::with_last_byte(1), alloy_primitives::FlaggedStorage::public(2)).into()
             ));
 
             let mut provider = factory.database_provider_rw().unwrap();
@@ -985,7 +985,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn sanity_execute_unwind() {
         let factory = create_test_provider_factory();
         let provider = factory.provider_rw().unwrap();
@@ -1093,7 +1093,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_selfdestruct() {
         let test_db = TestStageDB::default();
         let provider = test_db.factory.database_provider_rw().unwrap();
@@ -1149,14 +1149,17 @@ mod tests {
             .tx_ref()
             .put::<tables::PlainStorageState>(
                 destroyed_address,
-                StorageEntry { key: B256::ZERO, value: U256::ZERO },
+                StorageEntry { key: B256::ZERO, value: alloy_primitives::FlaggedStorage::ZERO },
             )
             .unwrap();
         provider
             .tx_ref()
             .put::<tables::PlainStorageState>(
                 destroyed_address,
-                StorageEntry { key: B256::with_last_byte(1), value: U256::from(1u64) },
+                StorageEntry {
+                    key: B256::with_last_byte(1),
+                    value: alloy_primitives::FlaggedStorage::public(1u64),
+                },
             )
             .unwrap();
 
@@ -1227,11 +1230,14 @@ mod tests {
             vec![
                 (
                     (block.number, destroyed_address).into(),
-                    StorageEntry { key: B256::ZERO, value: U256::ZERO }
+                    StorageEntry { key: B256::ZERO, value: alloy_primitives::FlaggedStorage::ZERO }
                 ),
                 (
                     (block.number, destroyed_address).into(),
-                    StorageEntry { key: B256::with_last_byte(1), value: U256::from(1u64) }
+                    StorageEntry {
+                        key: B256::with_last_byte(1),
+                        value: alloy_primitives::FlaggedStorage::public(1u64)
+                    }
                 )
             ]
         );

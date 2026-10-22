@@ -456,7 +456,7 @@ impl<N: ProviderNodeTypes> Pipeline<N> {
 
             if let Err(err) = self.stage(stage_index).execute_ready(exec_input).await {
                 self.event_sender.notify(PipelineEvent::Error { stage_id });
-                match self.on_stage_error(stage_id, prev_checkpoint, err)? {
+                match self.on_stage_error(stage_id, prev_checkpoint, err).await? {
                     Some(ctrl) => return Ok(ctrl),
                     None => continue,
                 };
@@ -519,7 +519,7 @@ impl<N: ProviderNodeTypes> Pipeline<N> {
                     drop(provider_rw);
                     self.event_sender.notify(PipelineEvent::Error { stage_id });
 
-                    if let Some(ctrl) = self.on_stage_error(stage_id, prev_checkpoint, err)? {
+                    if let Some(ctrl) = self.on_stage_error(stage_id, prev_checkpoint, err).await? {
                         return Ok(ctrl)
                     }
                 }
@@ -527,7 +527,7 @@ impl<N: ProviderNodeTypes> Pipeline<N> {
         }
     }
 
-    fn on_stage_error(
+    async fn on_stage_error(
         &mut self,
         stage_id: StageId,
         prev_checkpoint: Option<StageCheckpoint>,
@@ -591,6 +591,16 @@ impl<N: ProviderNodeTypes> Pipeline<N> {
                     }))
                 }
                 BlockErrorKind::Execution(execution_error) => {
+                    if execution_error.is_retryable() {
+                        // The write transaction was discarded by the caller. Missing
+                        // local resources say nothing about validity: do not unwind
+                        // or report this block as bad. Pace retries while the
+                        // background resource fetcher makes progress.
+                        warn!(target: "sync::pipeline", stage = %stage_id, %execution_error,
+                            "Execution waiting for a local resource; retrying");
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                        return Ok(None)
+                    }
                     error!(
                         target: "sync::pipeline",
                         stage = %stage_id,
@@ -1000,6 +1010,58 @@ mod tests {
                 },
             ]
         );
+    }
+
+    /// A missing local execution resource retries the same checkpoint without
+    /// unwinding or flagging the payload as bad; subsequent availability succeeds.
+    #[tokio::test]
+    async fn retryable_execution_failure_retries_without_unwind() {
+        let provider_factory = create_test_provider_factory();
+        let mut pipeline = Pipeline::<MockNodeTypesWithDB>::builder()
+            .add_stage(
+                TestStage::new(StageId::Execution)
+                    .add_exec(Err(StageError::Block {
+                        block: Box::new(random_block_with_parent(
+                            &mut generators::rng(),
+                            1,
+                            Default::default(),
+                        )),
+                        error: BlockErrorKind::Execution(
+                            reth_errors::BlockExecutionError::retryable(std::io::Error::other(
+                                "purpose keys unavailable",
+                            )),
+                        ),
+                    }))
+                    .add_exec(Ok(ExecOutput { checkpoint: StageCheckpoint::new(1), done: true })),
+            )
+            .with_max_block(1)
+            .build(
+                provider_factory.clone(),
+                StaticFileProducer::new(provider_factory.clone(), PruneModes::default()),
+            );
+        let events = pipeline.events();
+        tokio::time::timeout(std::time::Duration::from_secs(10), pipeline.run())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            provider_factory
+                .get_stage_checkpoint(StageId::Execution)
+                .unwrap()
+                .unwrap()
+                .block_number,
+            1
+        );
+        drop(pipeline);
+        let events: Vec<_> = events.collect().await;
+        assert_eq!(
+            events.iter().filter(|event| matches!(event, PipelineEvent::Run { .. })).count(),
+            2
+        );
+        assert!(!events.iter().any(|event| matches!(
+            event,
+            PipelineEvent::Unwind { .. } | PipelineEvent::Unwound { .. }
+        )));
     }
 
     /// Runs a pipeline that unwinds during sync.

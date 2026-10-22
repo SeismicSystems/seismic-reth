@@ -1,5 +1,5 @@
 use super::*;
-use crate::persistence::PersistenceAction;
+use crate::{backup::BackupHandle, persistence::PersistenceAction};
 use alloy_consensus::Header;
 use alloy_primitives::{
     map::{HashMap, HashSet},
@@ -187,6 +187,9 @@ impl TestHarness {
             Box::new(NoopInvalidBlockHook::default()),
         );
 
+        let (backup_tx, _backup_rx) = channel();
+        let backup_handle = BackupHandle::new(backup_tx);
+
         let tree = EngineApiTreeHandler::new(
             provider.clone(),
             consensus,
@@ -201,6 +204,7 @@ impl TestHarness {
             TreeConfig::default().with_legacy_state_root(false).with_has_enough_parallelism(true),
             EngineApiKind::Ethereum,
             evm_config,
+            backup_handle,
         );
 
         let block_builder = TestBlockBuilder::default().with_chain_spec((*chain_spec).clone());
@@ -426,6 +430,7 @@ async fn test_in_memory_state_trait_impl() {
 }
 
 #[tokio::test]
+#[ignore = "We have persistence threshold set to 0 for snapshot purposes so this test no longer works or serves a purpose"]
 async fn test_engine_request_during_backfill() {
     let tree_config = TreeConfig::default();
     let blocks: Vec<_> = TestBlockBuilder::eth()
@@ -780,6 +785,25 @@ async fn test_get_canonical_blocks_to_persist() {
             highest: blocks_to_persist.last().unwrap().recovered_block().num_hash()
         })
     );
+}
+
+#[tokio::test]
+async fn retryable_payload_is_syncing_not_invalid_and_can_be_retried() {
+    let mut harness = TestHarness::new(MAINNET.clone());
+    let block = Block::default().seal_slow();
+    let hash = block.hash();
+    for _ in 0..2 {
+        let error = InsertBlockError::new(
+            block.clone(),
+            error::InsertBlockErrorKind::Execution(reth_errors::BlockExecutionError::retryable(
+                std::io::Error::other("purpose keys unavailable"),
+            )),
+        );
+        let status = harness.tree.on_insert_block_error(error).unwrap();
+        assert!(matches!(status.status, PayloadStatusEnum::Syncing));
+        assert_eq!(status.latest_valid_hash, None);
+        assert!(harness.tree.state.invalid_headers.get(&hash).is_none());
+    }
 }
 
 #[tokio::test]

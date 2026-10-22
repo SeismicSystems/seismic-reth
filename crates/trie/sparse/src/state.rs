@@ -325,7 +325,7 @@ where
 
         if let Some(root_node) = root_node {
             // Reveal root node if it wasn't already.
-            trace!(target: "trie::sparse", ?root_node, "Revealing root account node");
+            trace!(target: "trie::sparse", "Revealing root account node");
             let trie =
                 self.state.reveal_root(root_node.node, root_node.masks, self.retain_updates)?;
 
@@ -378,7 +378,7 @@ where
     /// Reveals a decoded storage multiproof for the given address. This is internal static function
     /// is designed to handle a variety of associated public functions.
     fn reveal_decoded_storage_multiproof_inner(
-        account: B256,
+        _account: B256,
         storage_subtree: DecodedStorageMultiProof,
         revealed_nodes: &mut HashSet<Nibbles>,
         trie: &mut SparseTrie<S>,
@@ -394,14 +394,14 @@ where
 
         if let Some(root_node) = root_node {
             // Reveal root node if it wasn't already.
-            trace!(target: "trie::sparse", ?account, ?root_node, "Revealing root storage node");
+            trace!(target: "trie::sparse", "Revealing root storage node");
             let trie = trie.reveal_root(root_node.node, root_node.masks, retain_updates)?;
 
             // Reserve the capacity for new nodes ahead of time, if the trie implementation
             // supports doing so.
             trie.reserve_nodes(new_nodes);
 
-            trace!(target: "trie::sparse", ?account, total_nodes = ?nodes.len(), "Revealing storage nodes");
+            trace!(target: "trie::sparse", total_nodes = nodes.len(), "Revealing storage nodes");
             trie.reveal_nodes(nodes)?;
         }
 
@@ -644,9 +644,11 @@ where
         if !self.revealed_account_paths.contains(&path) {
             self.revealed_account_paths.insert(path);
         }
+        let is_private = false; // account leaves are always public. Their storage leaves can be
+                                // private.
 
         let provider = provider_factory.account_node_provider();
-        self.state.update_leaf(path, value, provider)?;
+        self.state.update_leaf(path, value, is_private, provider)?;
         Ok(())
     }
 
@@ -656,6 +658,7 @@ where
         address: B256,
         slot: Nibbles,
         value: Vec<u8>,
+        is_private: bool,
         provider_factory: impl TrieNodeProviderFactory,
     ) -> SparseStateTrieResult<()> {
         let provider = provider_factory.storage_node_provider(address);
@@ -663,7 +666,7 @@ where
             .tries
             .get_mut(&address)
             .ok_or(SparseTrieErrorKind::Blind)?
-            .update_leaf(slot, value, provider)?;
+            .update_leaf(slot, value, is_private, provider)?;
         self.storage.get_revealed_paths_mut(address).insert(slot);
         Ok(())
     }
@@ -680,10 +683,10 @@ where
         provider_factory: impl TrieNodeProviderFactory,
     ) -> SparseStateTrieResult<bool> {
         let storage_root = if let Some(storage_trie) = self.storage.tries.get_mut(&address) {
-            trace!(target: "trie::sparse", ?address, "Calculating storage root to update account");
+            trace!(target: "trie::sparse", "Calculating storage root to update account");
             storage_trie.root().ok_or(SparseTrieErrorKind::Blind)?
         } else if self.is_account_revealed(address) {
-            trace!(target: "trie::sparse", ?address, "Retrieving storage root from account leaf to update account");
+            trace!(target: "trie::sparse", "Retrieving storage root from account leaf to update account");
             // The account was revealed, either...
             if let Some(value) = self.get_account_value(&address) {
                 // ..it exists and we should take its current storage root or...
@@ -693,14 +696,14 @@ where
                 EMPTY_ROOT_HASH
             }
         } else {
-            return Err(SparseTrieErrorKind::Blind.into())
+            return Err(SparseTrieErrorKind::Blind.into());
         };
 
         if account.is_empty() && storage_root == EMPTY_ROOT_HASH {
             return Ok(false);
         }
 
-        trace!(target: "trie::sparse", ?address, "Updating account");
+        trace!(target: "trie::sparse", "Updating account");
         let nibbles = Nibbles::unpack(address);
         self.account_rlp_buf.clear();
         account.into_trie_account(storage_root).encode(&mut self.account_rlp_buf);
@@ -721,7 +724,7 @@ where
         provider_factory: impl TrieNodeProviderFactory,
     ) -> SparseStateTrieResult<bool> {
         if !self.is_account_revealed(address) {
-            return Err(SparseTrieErrorKind::Blind.into())
+            return Err(SparseTrieErrorKind::Blind.into());
         }
 
         // Nothing to update if the account doesn't exist in the trie.
@@ -730,14 +733,14 @@ where
             .map(|v| TrieAccount::decode(&mut &v[..]))
             .transpose()?
         else {
-            trace!(target: "trie::sparse", ?address, "Account not found in trie, skipping storage root update");
+            trace!(target: "trie::sparse", "Account not found in trie, skipping storage root update");
             return Ok(true)
         };
 
         // Calculate the new storage root. If the storage trie doesn't exist, the storage root will
         // be empty.
         let storage_root = if let Some(storage_trie) = self.storage.tries.get_mut(&address) {
-            trace!(target: "trie::sparse", ?address, "Calculating storage root to update account");
+            trace!(target: "trie::sparse", "Calculating storage root to update account");
             storage_trie.root().ok_or(SparseTrieErrorKind::Blind)?
         } else {
             EMPTY_ROOT_HASH
@@ -752,7 +755,7 @@ where
         }
 
         // Otherwise, update the account leaf.
-        trace!(target: "trie::sparse", ?address, "Updating account with the new storage root");
+        trace!(target: "trie::sparse", "Updating account with the new storage root");
         let nibbles = Nibbles::unpack(address);
         self.account_rlp_buf.clear();
         trie_account.encode(&mut self.account_rlp_buf);
@@ -974,6 +977,8 @@ mod tests {
 
     #[test]
     fn reveal_account_path_twice() {
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
         let provider_factory = DefaultTrieNodeProviderFactory;
         let mut sparse = SparseStateTrie::<SerialSparseTrie>::default();
 
@@ -981,10 +986,12 @@ mod tests {
         let leaf_1 = alloy_rlp::encode(TrieNode::Leaf(LeafNode::new(
             Nibbles::default(),
             leaf_value.clone(),
+            is_private,
         )));
         let leaf_2 = alloy_rlp::encode(TrieNode::Leaf(LeafNode::new(
             Nibbles::default(),
             leaf_value.clone(),
+            is_private,
         )));
 
         let multiproof = MultiProof {
@@ -1046,6 +1053,8 @@ mod tests {
 
     #[test]
     fn reveal_storage_path_twice() {
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
         let provider_factory = DefaultTrieNodeProviderFactory;
         let mut sparse = SparseStateTrie::<SerialSparseTrie>::default();
 
@@ -1053,10 +1062,12 @@ mod tests {
         let leaf_1 = alloy_rlp::encode(TrieNode::Leaf(LeafNode::new(
             Nibbles::default(),
             leaf_value.clone(),
+            is_private,
         )));
         let leaf_2 = alloy_rlp::encode(TrieNode::Leaf(LeafNode::new(
             Nibbles::default(),
             leaf_value.clone(),
+            is_private,
         )));
 
         let multiproof = MultiProof {
@@ -1149,10 +1160,21 @@ mod tests {
         let slot_path_3 = Nibbles::unpack(slot_3);
         let value_3 = U256::from(rng.random::<u64>());
 
+        let is_private = false; // hardcode to false for legacy test, TODO: make a private
+                                // equivalent
+
         let mut storage_hash_builder = HashBuilder::default()
             .with_proof_retainer(ProofRetainer::from_iter([slot_path_1, slot_path_2]));
-        storage_hash_builder.add_leaf(slot_path_1, &alloy_rlp::encode_fixed_size(&value_1));
-        storage_hash_builder.add_leaf(slot_path_2, &alloy_rlp::encode_fixed_size(&value_2));
+        storage_hash_builder.add_leaf(
+            slot_path_1,
+            &alloy_rlp::encode_fixed_size(&value_1),
+            is_private,
+        );
+        storage_hash_builder.add_leaf(
+            slot_path_2,
+            &alloy_rlp::encode_fixed_size(&value_2),
+            is_private,
+        );
 
         let storage_root = storage_hash_builder.root();
         let storage_proof_nodes = storage_hash_builder.take_proof_nodes();
@@ -1170,10 +1192,12 @@ mod tests {
         let account_2 = Account::arbitrary(&mut arbitrary::Unstructured::new(&bytes)).unwrap();
         let mut trie_account_2 = account_2.into_trie_account(EMPTY_ROOT_HASH);
 
+        let is_private = false; // account leaves are always public. Their storage leaves can be
+                                // private.
         let mut hash_builder = HashBuilder::default()
             .with_proof_retainer(ProofRetainer::from_iter([address_path_1, address_path_2]));
-        hash_builder.add_leaf(address_path_1, &alloy_rlp::encode(trie_account_1));
-        hash_builder.add_leaf(address_path_2, &alloy_rlp::encode(trie_account_2));
+        hash_builder.add_leaf(address_path_1, &alloy_rlp::encode(trie_account_1), is_private);
+        hash_builder.add_leaf(address_path_2, &alloy_rlp::encode(trie_account_2), is_private);
 
         let root = hash_builder.root();
         let proof_nodes = hash_builder.take_proof_nodes();
@@ -1230,11 +1254,13 @@ mod tests {
             )
             .unwrap();
 
+        let is_private = false; // legacy test does not use private storage
         sparse
             .update_storage_leaf(
                 address_1,
                 slot_path_3,
                 alloy_rlp::encode(value_3),
+                is_private,
                 &provider_factory,
             )
             .unwrap();
@@ -1280,8 +1306,10 @@ mod tests {
 
     #[test]
     fn test_filter_map_revealed_nodes() {
+        let is_private = false; // hardcode to false for legacy test
         let mut revealed_nodes = HashSet::from_iter([Nibbles::from_nibbles([0x0])]);
-        let leaf = TrieNode::Leaf(LeafNode::new(Nibbles::default(), alloy_rlp::encode([])));
+        let leaf =
+            TrieNode::Leaf(LeafNode::new(Nibbles::default(), alloy_rlp::encode([]), is_private));
         let leaf_encoded = alloy_rlp::encode(&leaf);
         let branch = TrieNode::Branch(BranchNode::new(
             vec![RlpNode::from_rlp(&leaf_encoded), RlpNode::from_rlp(&leaf_encoded)],

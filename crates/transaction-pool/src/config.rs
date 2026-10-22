@@ -72,6 +72,11 @@ pub struct PoolConfig {
     ///
     /// This restricts how many executable transaction a delegated sender can stack.
     pub max_inflight_delegated_slot_limit: usize,
+    /// When true, the pool will not demote transactions to the queued sub-pool due to
+    /// insufficient native balance. This is useful for chains where gas can be paid in an
+    /// alternative token (e.g. USDC on Seismic) so that native balance is not relevant for
+    /// transaction ordering.
+    pub disable_balance_check: bool,
 }
 
 impl PoolConfig {
@@ -88,6 +93,14 @@ impl PoolConfig {
     /// enforced by default in the pool.
     pub const fn with_protocol_base_fee(mut self, protocol_base_fee: u64) -> Self {
         self.minimal_protocol_basefee = protocol_base_fee;
+        self
+    }
+
+    /// Disables native balance checks in the pool, so transactions are never demoted to the
+    /// queued sub-pool due to insufficient native balance. Useful for chains where gas is paid
+    /// in an alternative token.
+    pub const fn with_disabled_balance_check(mut self) -> Self {
+        self.disable_balance_check = true;
         self
     }
 
@@ -129,6 +142,7 @@ impl Default for PoolConfig {
             max_new_pending_txs_notifications: MAX_NEW_PENDING_TXS_NOTIFICATIONS,
             max_queued_lifetime: MAX_QUEUED_TRANSACTION_LIFETIME,
             max_inflight_delegated_slot_limit: DEFAULT_MAX_INFLIGHT_DELEGATED_SLOTS,
+            disable_balance_check: false,
         }
     }
 }
