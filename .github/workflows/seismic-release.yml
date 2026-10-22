@@ -189,8 +189,11 @@ jobs:
             # See: https://github.com/actions/virtual-environments/issues/2619
             gtar -czvf "seismic-reth_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C $OUT_DIR seismic-reth
           fi
-          echo "file_name=seismic-reth_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" >> $GITHUB_OUTPUT
-          echo "attestation_name=seismic-reth_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.attestation.txt" >> $GITHUB_OUTPUT
+          {
+            echo "file_name=seismic-reth_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz"
+            echo "attestation_name=seismic-reth_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.attestation.txt"
+            echo "bundle_name=seismic-reth_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.sigstore.json"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -207,9 +210,27 @@ jobs:
             ${{ env.seismic_reth_bin_path }}
             ${{ env.mdbx_copy_bin_path }}
 
-      - name: Record attestation URL
+      # The bundle is the attestation itself (covering both binaries); shipped
+      # as an asset it lets anyone verify with the GitHub CLI but without a
+      # GitHub login, which the bare `gh attestation verify` (API lookup)
+      # requires:
+      #   gh attestation verify seismic-reth --owner SeismicSystems --bundle <bundle>
+      #   gh attestation verify mdbx_copy    --owner SeismicSystems --bundle <bundle>
+      # The URL sidecar remains for humans; SHA256SUMS covers the tarball and
+      # bundle for operators verifying without gh.
+      - name: Record attestation URL, bundle, and checksums
+        env:
+          ATTESTATION_URL: ${{ steps.attestation.outputs.attestation-url }}
+          BUNDLE_PATH: ${{ steps.attestation.outputs.bundle-path }}
+          ATTESTATION_NAME: ${{ steps.artifacts.outputs.attestation_name }}
+          BUNDLE_NAME: ${{ steps.artifacts.outputs.bundle_name }}
+          FILE_NAME: ${{ steps.artifacts.outputs.file_name }}
+        shell: bash
         run: |
-          echo "${{ steps.attestation.outputs.attestation-url }}" > ${{ steps.artifacts.outputs.attestation_name }}
+          echo "$ATTESTATION_URL" > "$ATTESTATION_NAME"
+          cp "$BUNDLE_PATH" "$BUNDLE_NAME"
+          sha256sum "$FILE_NAME" "$BUNDLE_NAME" > SHA256SUMS
+          cat SHA256SUMS
 
       # Creates the release for this specific version
       - name: Create release
@@ -222,6 +243,8 @@ jobs:
           files: |
             ${{ steps.artifacts.outputs.file_name }}
             ${{ steps.artifacts.outputs.attestation_name }}
+            ${{ steps.artifacts.outputs.bundle_name }}
+            SHA256SUMS
 
       # If this is a nightly release, it also updates the release
       # tagged `nightly`, which is what setup-sreth downloads by default
@@ -239,6 +262,8 @@ jobs:
           files: |
             ${{ steps.artifacts.outputs.file_name }}
             ${{ steps.artifacts.outputs.attestation_name }}
+            ${{ steps.artifacts.outputs.bundle_name }}
+            SHA256SUMS
 
   cleanup:
     # contents:write is needed for move-tag.js to update the nightly tag
