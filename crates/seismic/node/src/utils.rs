@@ -6,7 +6,7 @@
 #[cfg(feature = "test-utils")]
 pub mod e2e {
     use crate::{node::SeismicNode, purpose_keys::init_purpose_keyring};
-    use alloy_primitives::{address, Address, B256};
+    use alloy_primitives::{address, Address, B256, U256};
     use alloy_rpc_types_engine::PayloadAttributes;
     use alloy_seismic_evm::PurposeKeys;
     use reth_chainspec::{make_genesis_header, ChainSpec};
@@ -28,6 +28,9 @@ pub mod e2e {
 
     static INIT_KEYS: Once = Once::new();
 
+    // One million native tokens, allocated only in the isolated E2E genesis.
+    const TEST_WALLET_BALANCE: u128 = 1_000_000_000_000_000_000_000_000;
+
     /// Initializes a mock purpose keyring for tests. Safe to call multiple times.
     pub fn ensure_mock_purpose_keys() {
         INIT_KEYS.call_once(|| {
@@ -41,13 +44,16 @@ pub mod e2e {
 
     /// Clone the embedded dev genesis with administrators the E2E wallet can sign for.
     ///
-    /// Only the test copy's `GasTokenRegistry` and `ProtocolParams` owner words change.
-    /// The registry remains empty, contract code and other storage remain untouched,
-    /// and the header/hash are recomputed before node initialization. No builder or
-    /// artifact downloads run during E2E setup.
+    /// The test copy funds the E2E wallet and replaces the `GasTokenRegistry` and
+    /// `ProtocolParams` owner words. The registry remains empty, contract code and
+    /// other storage remain untouched, and the header/hash are recomputed before
+    /// node initialization. No builder or artifact downloads run during E2E setup.
     pub fn test_chain_spec() -> Arc<ChainSpec> {
         let mut spec = (**SEISMIC_DEV).clone();
-        let owner = Wallet::default().inner.address().into_word();
+        let owner_address = Wallet::default().inner.address();
+        spec.genesis.alloc.entry(owner_address).or_default().balance =
+            U256::from(TEST_WALLET_BALANCE);
+        let owner = owner_address.into_word();
         let protocol_params = address!("0x0000000000000000000000000000506172616d73");
         for contract in [GAS_TOKEN_REGISTRY, protocol_params] {
             spec.genesis
@@ -126,7 +132,6 @@ pub mod e2e {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use alloy_primitives::U256;
         use seismic_revm::gas_token_registry::TOKEN_COUNT_SLOT;
 
         #[test]
@@ -135,8 +140,11 @@ pub mod e2e {
             let original_hash = SEISMIC_DEV.genesis_hash();
             let spec = test_chain_spec();
             let protocol_params = address!("0x0000000000000000000000000000506172616d73");
-            let expected_owner = Wallet::default().inner.address().into_word();
+            let owner_address = Wallet::default().inner.address();
+            let expected_owner = owner_address.into_word();
             let mut expected = before.clone();
+            expected.alloc.entry(owner_address).or_default().balance =
+                U256::from(TEST_WALLET_BALANCE);
             for contract in [GAS_TOKEN_REGISTRY, protocol_params] {
                 expected
                     .alloc
@@ -173,10 +181,14 @@ pub mod e2e {
                 storage.get(&B256::from(TOKEN_COUNT_SLOT.to_be_bytes::<32>())),
                 Some(&B256::ZERO)
             );
+            assert_eq!(
+                spec.genesis.alloc.get(&owner_address).unwrap().balance,
+                U256::from(TEST_WALLET_BALANCE),
+                "the test genesis must explicitly fund the E2E owner"
+            );
             assert!(
-                spec.genesis.alloc.get(&Wallet::default().inner.address()).unwrap().balance >
-                    U256::ZERO,
-                "the owner must already have native bootstrap funds"
+                before.alloc.get(&owner_address).is_none_or(|account| account.balance.is_zero()),
+                "the shared dev genesis must not fund the E2E owner"
             );
         }
     }
