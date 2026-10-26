@@ -15,10 +15,9 @@ use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_param
 use reth_chainspec::make_genesis_header;
 use reth_primitives_traits::SealedHeader;
 use reth_provider::StateProviderFactory;
-use reth_seismic_chainspec::SEISMIC_DEV;
 use reth_seismic_node::{
     node::SeismicNode,
-    utils::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes},
+    utils::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes, test_chain_spec},
 };
 use reth_seismic_rpc::ext::{EthApiOverrideClient, COMPATIBILITY_BALANCE};
 use reth_seismic_test_utils::get_signed_seismic_tx_bytes;
@@ -61,7 +60,7 @@ async fn registered_private_balance_is_not_exposed_by_unsigned_balance_rpcs() ->
     storage_write(&mut registry_code, TOKEN_COUNT_SLOT, U256::from(1), false);
     registry_code.push(0x00);
 
-    let mut spec = SEISMIC_DEV.as_ref().clone();
+    let mut spec = test_chain_spec().as_ref().clone();
     {
         let spec = &mut spec;
         spec.genesis

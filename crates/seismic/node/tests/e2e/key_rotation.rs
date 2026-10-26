@@ -9,11 +9,10 @@ use reth_chainspec::make_genesis_header;
 use reth_e2e_test_utils::{setup_engine, wallet::Wallet};
 use reth_primitives_traits::SealedHeader;
 use reth_provider::StateProviderFactory;
-use reth_seismic_chainspec::SEISMIC_DEV;
 use reth_seismic_keys::registry::{ADMIN_SLOT, KEY_ROTATION_REGISTRY, ROTATIONS_LEN_SLOT};
 use reth_seismic_node::{
     node::SeismicNode,
-    utils::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes},
+    utils::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes, test_chain_spec},
 };
 use reth_seismic_rpc::ext::EthApiOverrideClient;
 use reth_seismic_test_utils::get_signed_seismic_call_bytes;
@@ -32,7 +31,7 @@ async fn simulate_v1_keeps_rotation_local_on_success_and_error() -> eyre::Result
     reth_tracing::init_test_tracing();
     ensure_mock_purpose_keys();
     let admin = Wallet::default().inner.address();
-    let mut spec = SEISMIC_DEV.as_ref().clone();
+    let mut spec = test_chain_spec().as_ref().clone();
     {
         let spec = &mut spec;
         spec.genesis
