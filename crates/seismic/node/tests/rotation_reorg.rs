@@ -13,7 +13,6 @@ use reth_e2e_test_utils::{setup_engine, wallet::Wallet};
 use reth_node_core::args::{PurposeKeysArgs, PurposeKeysSource};
 use reth_primitives_traits::SealedHeader;
 use reth_provider::CanonStateSubscriptions;
-use reth_seismic_chainspec::SEISMIC_DEV;
 use reth_seismic_keys::{
     registry::{ADMIN_SLOT, KEY_ROTATION_REGISTRY},
     PurposeKeyring,
@@ -21,7 +20,7 @@ use reth_seismic_keys::{
 use reth_seismic_node::{
     node::SeismicNode,
     rotation::watch_key_rotations,
-    utils::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes},
+    utils::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes, test_chain_spec},
 };
 use reth_seismic_test_utils::{get_unsigned_legacy_tx_request, sign_tx};
 use std::{sync::Arc, time::Duration};
@@ -48,7 +47,7 @@ async fn engine_reorg_removes_orphaned_announcement_but_retains_keys() -> eyre::
 async fn engine_reorg() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
     ensure_mock_purpose_keys();
-    let mut spec = SEISMIC_DEV.as_ref().clone();
+    let mut spec = test_chain_spec().as_ref().clone();
     {
         let spec = &mut spec;
         spec.genesis

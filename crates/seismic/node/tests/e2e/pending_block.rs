@@ -9,10 +9,11 @@ use reth_e2e_test_utils::{
 use reth_node_builder::{EngineNodeLauncher, Node, NodeBuilder, NodeConfig, NodeHandle};
 use reth_node_core::args::RpcServerArgs;
 use reth_rpc_builder::RpcModuleSelection;
-use reth_seismic_chainspec::SEISMIC_DEV;
 use reth_seismic_node::{
     node::SeismicNode,
-    utils::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes, SeismicTestNode},
+    utils::e2e::{
+        ensure_mock_purpose_keys, seismic_payload_attributes, test_chain_spec, SeismicTestNode,
+    },
 };
 use reth_tasks::TaskManager;
 
@@ -31,7 +32,7 @@ async fn launch_http_node() -> eyre::Result<(SeismicTestNode, TaskManager, Walle
         .with_http_api(RpcModuleSelection::All);
     rpc_args.ipcdisable = true;
 
-    let node_config = NodeConfig::new(SEISMIC_DEV.clone()).with_unused_ports().with_rpc(rpc_args);
+    let node_config = NodeConfig::new(test_chain_spec()).with_unused_ports().with_rpc(rpc_args);
 
     let NodeHandle { node, node_exit_future: _ } = NodeBuilder::new(node_config)
         .testing_node(exec)

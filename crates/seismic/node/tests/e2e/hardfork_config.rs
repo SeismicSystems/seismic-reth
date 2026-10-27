@@ -14,9 +14,10 @@ use alloy_rpc_types_eth::TransactionRequest;
 use alloy_seismic_evm::PurposeKeys;
 use reth_chainspec::{EthChainSpec, Hardforks, Head};
 use reth_e2e_test_utils::setup;
-use reth_seismic_chainspec::SEISMIC_DEV;
 use reth_seismic_keys::PurposeKeyring;
-use reth_seismic_node::{node::SeismicNode, purpose_keys::init_purpose_keyring};
+use reth_seismic_node::{
+    node::SeismicNode, purpose_keys::init_purpose_keyring, utils::e2e::test_chain_spec,
+};
 use std::sync::Once;
 
 /// Ensure mock purpose keys are initialized exactly once per test binary.
@@ -44,7 +45,7 @@ async fn test_mercury_hardfork_config() -> eyre::Result<()> {
     reth_tracing::init_test_tracing();
     ensure_mock_purpose_keys();
 
-    let chain_spec = SEISMIC_DEV.clone();
+    let chain_spec = test_chain_spec();
 
     let (mut nodes, _tasks, wallet) = setup::<SeismicNode>(
         1,
