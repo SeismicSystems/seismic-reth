@@ -9,7 +9,7 @@ description = "Seismic dev genesis contracts"
 # Commit of SeismicSystems/seismic the artifacts below are fetched from. Bumping
 # the contracts means bumping this SHA and committing the regenerated genesis
 # (and its new hash) alongside it.
-ref = "0497d1bdd6f2d675343bdce97f96ad3e15ed6666"
+ref = "71d75a2011b90f175fc6e61aeb37a5a7011bd6e5"
 
 # NOTE: the beacon roots contract (EIP-4788) was written in etk assembly
 # and doesn't have Solidity source code.
@@ -46,19 +46,17 @@ address = "0x0000000000000000000000476173546f6b656e73"
 artifact = "artifacts/ShieldedDelegationAccount.json"
 address = "0x2001"
 
-# Measurement-admission registry. Ships with empty storage: the accepted
-# admission IDs are network-specific and injected into this account's genesis
-# storage by deploy tooling; with no storage the registry fails closed.
+# Measurement-admission registry. Ships with only its admin seeded, the same
+# initial owner as ProtocolParams: the accepted admission IDs are
+# network-specific and injected into this account's genesis storage by deploy
+# tooling, which keeps the admin; with no policy the registry fails closed. The
+# admin lives in the contract's EIP-7201 namespace (base + 5).
 [contracts.MeasurementRegistry]
 artifact = "artifacts/MeasurementRegistry.json"
 address = "0x1000000000000000000000000000000000000001"
 
-# Interim registry mutation authority (anvil-keyed dev forwarder). The registry
-# recognizes this fixed address; the contract behind it will be replaced by
-# the production authority without moving the address.
-[contracts.MeasurementAuthorityDev]
-artifact = "artifacts/MeasurementAuthorityDev.json"
-address = "0x1000000000000000000000000000000000000002"
+[contracts.MeasurementRegistry.storage]
+"0xa3ae60943e4f183142036d77b94858085814dd428f131289aea7e42703fb0b05" = "0x000000000000000000000000d412c5ecd343e264381ff15afc0ad78a67b79f35"
 
 # Purpose-key rotation schedule. Its address and storage layout are
 # consensus-frozen against reth-seismic-keys::registry. Genesis storage seeds

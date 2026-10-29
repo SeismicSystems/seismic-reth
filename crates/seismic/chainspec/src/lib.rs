@@ -82,7 +82,7 @@ pub const SEISMIC_TESTNET_GENESIS_HASH: B256 =
 /// `seismic-reth genesis-hash --chain crates/seismic/chainspec/res/genesis/dev.json`
 /// The `genesis_header_hash` test recomputes it and fails on drift.
 pub const SEISMIC_DEV_GENESIS_HASH: B256 =
-    b256!("0xf30cbf67f47dd85a712b6de522ea26a14e6d8ec82be5c01ae3d12cb7642da957");
+    b256!("0x48249c2c20530eee033a05145992a3426c9024fa5e683ea021d1aecb067ed290");
 
 /// Seismic devnet specification
 ///
@@ -229,8 +229,12 @@ mod tests {
     }
 
     #[test]
-    fn templates_ship_no_storage_at_registry_address() {
+    fn templates_ship_no_policy_at_registry_address() {
         let registry = address!("0x1000000000000000000000000000000000000001");
+        // `MeasurementRegistry.admin`, EIP-7201 base + 5: the one slot a template
+        // may seed, as it seeds the owners of the other owner-gated predeploys.
+        let admin_slot =
+            b256!("0xa3ae60943e4f183142036d77b94858085814dd428f131289aea7e42703fb0b05");
 
         for (network, spec) in
             [("dev", &SEISMIC_DEV), ("testnet", &SEISMIC_TESTNET), ("mainnet", &SEISMIC_MAINNET)]
@@ -238,10 +242,14 @@ mod tests {
             let account = spec.genesis.alloc.get(&registry).expect("registry address is allocated");
 
             assert!(
-                account.storage.as_ref().is_none_or(|storage| storage.is_empty()),
-                "{network} genesis ships storage at the registry address: accepted admission IDs \
-                 are network-specific and injected into deploy-owned genesis files, so committed \
-                 templates carry no policy and an empty registry fails closed"
+                account
+                    .storage
+                    .as_ref()
+                    .is_none_or(|storage| storage.keys().all(|slot| *slot == admin_slot)),
+                "{network} genesis ships policy storage at the registry address: accepted \
+                 admission IDs are network-specific and injected into deploy-owned genesis \
+                 files, so committed templates carry at most the admin and an unseeded policy \
+                 fails closed"
             );
         }
     }
