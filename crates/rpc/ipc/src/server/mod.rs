@@ -389,7 +389,7 @@ where
     }
 
     fn call(&mut self, request: String) -> Self::Future {
-        trace!("{:?}", request);
+        trace!("Received IPC request");
 
         let cfg = RpcServiceCfg::CallsAndSubscriptions {
             bounded_subscriptions: BoundedSubscriptions::new(
@@ -458,7 +458,7 @@ fn process_connection<RpcMiddleware, HttpMiddleware>(
     >,
     <<HttpMiddleware as Layer<TowerServiceNoHttp<RpcMiddleware>>>::Service as Service<String>>::Future:
     Send + Unpin,
- {
+{
     let ProcessConnection {
         http_middleware,
         rpc_middleware,

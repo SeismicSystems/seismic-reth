@@ -1,7 +1,6 @@
 //! Reth genesis initialization utility functions.
 
 use alloy_consensus::BlockHeader;
-use alloy_genesis::GenesisAccount;
 use alloy_primitives::{keccak256, map::HashMap, Address, B256, U256};
 use reth_chainspec::EthChainSpec;
 use reth_codecs::Compact;
@@ -27,6 +26,8 @@ use reth_trie_db::DatabaseStateRoot;
 use serde::{Deserialize, Serialize};
 use std::io::BufRead;
 use tracing::{debug, error, info, trace};
+
+use seismic_alloy_genesis::GenesisAccount;
 
 /// Default soft limit for number of bytes to read from state dump file, before inserting into
 /// database.
@@ -134,7 +135,10 @@ where
 
     debug!("Writing genesis block.");
 
-    let alloc = &genesis.alloc;
+    // Convert alloy_genesis accounts to seismic accounts for DB storage (adds FlaggedStorage).
+    // This is lossless: all genesis storage is marked as public.
+    let alloc: std::collections::BTreeMap<Address, GenesisAccount> =
+        genesis.alloc.iter().map(|(addr, account)| (*addr, account.clone().into())).collect();
 
     // use transaction to insert genesis header
     let provider_rw = factory.database_provider_rw()?;
@@ -227,9 +231,11 @@ where
             .as_ref()
             .map(|m| {
                 m.iter()
-                    .map(|(key, value)| {
-                        let value = U256::from_be_bytes(value.0);
-                        (*key, (U256::ZERO, value))
+                    .map(|(key, &flagged_value)| {
+                        (
+                            *key,
+                            (alloy_primitives::FlaggedStorage::public(U256::ZERO), flagged_value),
+                        )
                     })
                     .collect::<HashMap<_, _>>()
             })
@@ -237,7 +243,10 @@ where
 
         reverts_init.insert(
             *address,
-            (Some(None), storage.keys().map(|k| StorageEntry::new(*k, U256::ZERO)).collect()),
+            (
+                Some(None),
+                storage.keys().map(|k| StorageEntry { key: *k, ..Default::default() }).collect(),
+            ),
         );
 
         state_init.insert(
@@ -292,7 +301,7 @@ where
     let alloc_storage = alloc.filter_map(|(addr, account)| {
         // only return Some if there is storage
         account.storage.as_ref().map(|storage| {
-            (*addr, storage.iter().map(|(&key, &value)| StorageEntry { key, value: value.into() }))
+            (*addr, storage.clone().into_iter().map(|(key, value)| StorageEntry { key, value }))
         })
     });
     provider.insert_storage_for_hashing(alloc_storage)?;
@@ -613,7 +622,6 @@ where
                 total_flushed_updates += updated_len;
 
                 trace!(target: "reth::cli",
-                    last_account_key = %state.account_root_state.last_hashed_key,
                     updated_len,
                     total_flushed_updates,
                     "Flushing trie updates"
@@ -668,7 +676,7 @@ mod tests {
     use alloy_consensus::constants::{
         HOLESKY_GENESIS_HASH, MAINNET_GENESIS_HASH, SEPOLIA_GENESIS_HASH,
     };
-    use alloy_genesis::Genesis;
+    use alloy_genesis::{Genesis, GenesisAccount};
     use reth_chainspec::{Chain, ChainSpec, HOLESKY, MAINNET, SEPOLIA};
     use reth_db::DatabaseEnv;
     use reth_db_api::{

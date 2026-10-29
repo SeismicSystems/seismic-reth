@@ -14,6 +14,8 @@ use revm::{
     Database, DatabaseCommit,
 };
 
+use revm::state::FlaggedStorage;
+
 /// Helper alias type for the state's [`CacheDB`]
 pub type StateCacheDb<'a> = CacheDB<StateProviderDatabase<StateProviderTraitObjWrapper<'a>>>;
 
@@ -151,7 +153,7 @@ impl StateProvider for StateProviderTraitObjWrapper<'_> {
         &self,
         account: Address,
         storage_key: alloy_primitives::StorageKey,
-    ) -> reth_errors::ProviderResult<Option<alloy_primitives::StorageValue>> {
+    ) -> reth_errors::ProviderResult<Option<FlaggedStorage>> {
         self.0.storage(account, storage_key)
     }
 
@@ -200,7 +202,7 @@ impl<'a> Database for StateCacheDbRefMutWrapper<'a, '_> {
         self.0.code_by_hash(code_hash)
     }
 
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         self.0.storage(address, index)
     }
 
@@ -220,7 +222,7 @@ impl<'a> DatabaseRef for StateCacheDbRefMutWrapper<'a, '_> {
         self.0.code_by_hash_ref(code_hash)
     }
 
-    fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage_ref(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         self.0.storage_ref(address, index)
     }
 

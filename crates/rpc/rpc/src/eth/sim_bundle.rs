@@ -10,7 +10,7 @@ use alloy_rpc_types_mev::{
     SimBundleResponse, Validity,
 };
 use jsonrpsee::core::RpcResult;
-use reth_evm::{ConfigureEvm, Evm};
+use reth_evm::{BlockEnvAccess, ConfigureEvm, Evm};
 use reth_primitives_traits::{Recovered, SignedTransaction};
 use reth_revm::{database::StateProviderDatabase, db::CacheDB};
 use reth_rpc_api::MevSimApiServer;
@@ -242,12 +242,17 @@ where
             .spawn_with_state_at_block(current_block_id, move |state| {
                 // Setup environment
                 let current_block_number = current_block.number();
-                let coinbase = evm_env.block_env.beneficiary;
-                let basefee = evm_env.block_env.basefee;
+                let coinbase = evm_env.block_env.as_block_env().beneficiary;
+                let basefee = evm_env.block_env.as_block_env().basefee;
                 let mut db = CacheDB::new(StateProviderDatabase::new(state));
 
                 // apply overrides
-                apply_block_overrides(block_overrides, &mut db, &mut evm_env.block_env);
+                apply_block_overrides(
+                    block_overrides,
+                    &mut db,
+                    evm_env.block_env.as_block_env_mut(),
+                )
+                .map_err(EthApiError::from_overrides_err)?;
 
                 let initial_coinbase_balance = DatabaseRef::basic_ref(&db, coinbase)
                     .map_err(EthApiError::from_eth_err)?
@@ -260,7 +265,8 @@ where
                 let mut refundable_value = U256::ZERO;
                 let mut body_logs: Vec<SimBundleLogs> = Vec::new();
 
-                let mut evm = eth_api.evm_config().evm_with_env(db, evm_env);
+                let evm_config = eth_api.evm_config().snapshot_for_simulation();
+                let mut evm = evm_config.evm_with_env(db, evm_env);
                 let mut log_index = 0;
 
                 for (tx_index, item) in flattened_bundle.iter().enumerate() {
@@ -418,7 +424,7 @@ where
         request: MevSendBundle,
         overrides: SimBundleOverrides,
     ) -> RpcResult<SimBundleResponse> {
-        trace!("mev_simBundle called, request: {:?}, overrides: {:?}", request, overrides);
+        trace!("mev_simBundle called");
 
         let override_timeout = overrides.timeout;
 

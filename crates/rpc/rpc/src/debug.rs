@@ -15,7 +15,7 @@ use alloy_rpc_types_trace::geth::{
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use reth_chainspec::{ChainSpecProvider, EthChainSpec, EthereumHardforks};
-use reth_evm::{execute::Executor, ConfigureEvm, EvmEnvFor, TxEnvFor};
+use reth_evm::{execute::Executor, BlockEnvAccess, ConfigureEvm, EvmEnvFor, TxEnvFor};
 use reth_primitives_traits::{
     Block as _, BlockBody, ReceiptWithBloom, RecoveredBlock, SignedTransaction,
 };
@@ -40,6 +40,7 @@ use reth_tasks::pool::BlockingTaskGuard;
 use reth_trie_common::{updates::TrieUpdates, HashedPostState};
 use revm::{context_interface::Transaction, state::EvmState, DatabaseCommit};
 use revm_inspectors::tracing::{
+    trace_sanitizer::{sanitize_geth_trace, sanitize_trace_results_vec},
     FourByteInspector, MuxInspector, TracingInspector, TracingInspectorConfig, TransactionContext,
 };
 use std::sync::Arc;
@@ -269,8 +270,9 @@ where
         opts: GethDebugTracingCallOptions,
     ) -> Result<GethTrace, Eth::Error> {
         let at = block_id.unwrap_or_default();
-        let GethDebugTracingCallOptions { tracing_options, state_overrides, block_overrides } =
-            opts;
+        let GethDebugTracingCallOptions {
+            tracing_options, state_overrides, block_overrides, ..
+        } = opts;
         let overrides = EvmOverrides::new(state_overrides, block_overrides.map(Box::new));
         let GethDebugTracingOptions { config, tracer, tracer_config, .. } = tracing_options;
 
@@ -364,8 +366,10 @@ where
                                 let db = db.0;
 
                                 let tx_info = TransactionInfo {
-                                    block_number: Some(evm_env.block_env.number.saturating_to()),
-                                    base_fee: Some(evm_env.block_env.basefee),
+                                    block_number: Some(
+                                        evm_env.block_env.as_block_env().number.saturating_to(),
+                                    ),
+                                    base_fee: Some(evm_env.block_env.as_block_env().basefee),
                                     hash: None,
                                     block_hash: None,
                                     index: None,
@@ -451,7 +455,7 @@ where
                     // additional tracers
                     Err(EthApiError::Unsupported("unsupported tracer").into())
                 }
-            }
+            };
         }
 
         // default structlog tracer
@@ -487,7 +491,7 @@ where
         opts: Option<GethDebugTracingCallOptions>,
     ) -> Result<Vec<Vec<GethTrace>>, Eth::Error> {
         if bundles.is_empty() {
-            return Err(EthApiError::InvalidParams(String::from("bundles are empty.")).into())
+            return Err(EthApiError::InvalidParams(String::from("bundles are empty.")).into());
         }
 
         let StateContext { transaction_index, block_number } = state_context.unwrap_or_default();
@@ -581,8 +585,8 @@ where
                         results.push(trace);
                     }
                     // Increment block_env number and timestamp for the next bundle
-                    evm_env.block_env.number += uint!(1_U256);
-                    evm_env.block_env.timestamp += uint!(12_U256);
+                    evm_env.block_env.as_block_env_mut().number += uint!(1_U256);
+                    evm_env.block_env.as_block_env_mut().timestamp += uint!(12_U256);
 
                     all_bundles.push(results);
                 }
@@ -734,8 +738,8 @@ where
                 .map(|c| c.tx_index.map(|i| i as u64))
                 .unwrap_or_default(),
             block_hash: transaction_context.as_ref().map(|c| c.block_hash).unwrap_or_default(),
-            block_number: Some(evm_env.block_env.number.saturating_to()),
-            base_fee: Some(evm_env.block_env.basefee),
+            block_number: Some(evm_env.block_env.as_block_env().number.saturating_to()),
+            base_fee: Some(evm_env.block_env.as_block_env().basefee),
         };
 
         if let Some(tracer) = tracer {
@@ -745,7 +749,7 @@ where
                     GethDebugBuiltInTracerType::FourByteTracer => {
                         let mut inspector = FourByteInspector::default();
                         let res = self.eth_api().inspect(db, evm_env, tx_env, &mut inspector)?;
-                        return Ok((FourByteFrame::from(&inspector).into(), res.state))
+                        return Ok((FourByteFrame::from(&inspector).into(), res.state));
                     }
                     GethDebugBuiltInTracerType::CallTracer => {
                         let call_config = tracer_config
@@ -768,7 +772,7 @@ where
                             .geth_builder()
                             .geth_call_traces(call_config, res.result.gas_used());
 
-                        return Ok((frame.into(), res.state))
+                        return Ok((frame.into(), res.state));
                     }
                     GethDebugBuiltInTracerType::PreStateTracer => {
                         let prestate_config = tracer_config
@@ -791,7 +795,7 @@ where
                             .geth_prestate_traces(&res, &prestate_config, db)
                             .map_err(Eth::Error::from_eth_err)?;
 
-                        return Ok((frame.into(), res.state))
+                        return Ok((frame.into(), res.state));
                     }
                     GethDebugBuiltInTracerType::NoopTracer => {
                         Ok((NoopFrame::default().into(), Default::default()))
@@ -810,7 +814,7 @@ where
                         let frame = inspector
                             .try_into_mux_frame(&res, db, tx_info)
                             .map_err(Eth::Error::from_eth_err)?;
-                        return Ok((frame.into(), res.state))
+                        return Ok((frame.into(), res.state));
                     }
                     GethDebugBuiltInTracerType::FlatCallTracer => {
                         let flat_call_config = tracer_config
@@ -864,7 +868,7 @@ where
                     // additional tracers
                     Err(EthApiError::Unsupported("unsupported tracer").into())
                 }
-            }
+            };
         }
 
         // default structlog tracer
@@ -902,6 +906,11 @@ where
     }
 }
 
+// Seismic: every handler that returns trace data calls a `sanitize_*` function from
+// `revm_inspectors::tracing::trace_sanitizer` before returning to the caller. This strips
+// calldata, return data, stack, memory, VM trace payloads, and function selectors.
+// Storage filtering is handled separately in the trace builders via `filter_private_storage`.
+// See the seismic-revm-inspectors README for the full architecture.
 #[async_trait]
 impl<Eth> DebugApiServer<RpcTxReq<Eth::NetworkTypes>> for DebugApi<Eth>
 where
@@ -998,6 +1007,7 @@ where
         let _permit = self.acquire_trace_permit().await;
         Self::debug_trace_raw_block(self, rlp_block, opts.unwrap_or_default())
             .await
+            .map(sanitize_trace_results_vec)
             .map_err(Into::into)
     }
 
@@ -1010,6 +1020,7 @@ where
         let _permit = self.acquire_trace_permit().await;
         Self::debug_trace_block(self, block.into(), opts.unwrap_or_default())
             .await
+            .map(sanitize_trace_results_vec)
             .map_err(Into::into)
     }
 
@@ -1022,6 +1033,7 @@ where
         let _permit = self.acquire_trace_permit().await;
         Self::debug_trace_block(self, block.into(), opts.unwrap_or_default())
             .await
+            .map(sanitize_trace_results_vec)
             .map_err(Into::into)
     }
 
@@ -1034,6 +1046,7 @@ where
         let _permit = self.acquire_trace_permit().await;
         Self::debug_trace_transaction(self, tx_hash, opts.unwrap_or_default())
             .await
+            .map(sanitize_geth_trace)
             .map_err(Into::into)
     }
 
@@ -1047,6 +1060,7 @@ where
         let _permit = self.acquire_trace_permit().await;
         Self::debug_trace_call(self, request, block_id, opts.unwrap_or_default())
             .await
+            .map(sanitize_geth_trace)
             .map_err(Into::into)
     }
 
@@ -1057,7 +1071,15 @@ where
         opts: Option<GethDebugTracingCallOptions>,
     ) -> RpcResult<Vec<Vec<GethTrace>>> {
         let _permit = self.acquire_trace_permit().await;
-        Self::debug_trace_call_many(self, bundles, state_context, opts).await.map_err(Into::into)
+        Self::debug_trace_call_many(self, bundles, state_context, opts)
+            .await
+            .map(|bundles| {
+                bundles
+                    .into_iter()
+                    .map(|traces| traces.into_iter().map(sanitize_geth_trace).collect())
+                    .collect()
+            })
+            .map_err(Into::into)
     }
 
     /// Handler for `debug_executionWitness`

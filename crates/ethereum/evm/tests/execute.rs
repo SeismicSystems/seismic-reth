@@ -65,8 +65,8 @@ fn create_database_with_withdrawal_requests_contract() -> CacheDB<EmptyDB> {
 
 #[test]
 fn eip_4788_non_genesis_call() {
-    let mut header =
-        Header { timestamp: 1, number: 1, excess_blob_gas: Some(0), ..Header::default() };
+    let timestamp = 1;
+    let mut header = Header { timestamp, number: 1, excess_blob_gas: Some(0), ..Header::default() };
 
     let db = create_database_with_beacon_root_contract();
 
@@ -124,7 +124,7 @@ fn eip_4788_non_genesis_call() {
     let timestamp_storage = executor.with_state_mut(|state| {
         state.storage(BEACON_ROOTS_ADDRESS, U256::from(timestamp_index)).unwrap()
     });
-    assert_eq!(timestamp_storage, U256::from(header.timestamp));
+    assert_eq!(timestamp_storage.value, U256::from(header.timestamp));
 
     // get parent beacon block root storage and compare
     let parent_beacon_block_root_storage = executor.with_state_mut(|state| {
@@ -132,7 +132,7 @@ fn eip_4788_non_genesis_call() {
             .storage(BEACON_ROOTS_ADDRESS, U256::from(parent_beacon_block_root_index))
             .expect("storage value should exist")
     });
-    assert_eq!(parent_beacon_block_root_storage, U256::from(0x69));
+    assert_eq!(parent_beacon_block_root_storage.value, U256::from(0x69));
 }
 
 #[test]
@@ -273,8 +273,9 @@ fn eip_4788_genesis_call() {
 fn eip_4788_high_base_fee() {
     // This test ensures that if we have a base fee, then we don't return an error when the
     // system contract is called, due to the gas price being less than the base fee.
+    let timestamp = 1;
     let header = Header {
-        timestamp: 1,
+        timestamp,
         number: 1,
         parent_beacon_block_root: Some(B256::with_last_byte(0x69)),
         base_fee_per_gas: Some(u64::MAX),
@@ -318,13 +319,13 @@ fn eip_4788_high_base_fee() {
     let timestamp_storage = executor.with_state_mut(|state| {
         state.storage(BEACON_ROOTS_ADDRESS, U256::from(timestamp_index)).unwrap()
     });
-    assert_eq!(timestamp_storage, U256::from(header.timestamp));
+    assert_eq!(timestamp_storage.value, U256::from(header.timestamp));
 
     // get parent beacon block root storage and compare
     let parent_beacon_block_root_storage = executor.with_state_mut(|state| {
         state.storage(BEACON_ROOTS_ADDRESS, U256::from(parent_beacon_block_root_index)).unwrap()
     });
-    assert_eq!(parent_beacon_block_root_storage, U256::from(0x69));
+    assert_eq!(parent_beacon_block_root_storage.value, U256::from(0x69));
 }
 
 /// Create a state provider with blockhashes and the EIP-2935 system contract.
@@ -421,6 +422,7 @@ fn eip_2935_fork_activation_within_window_bounds() {
     let fork_activation_block = (HISTORY_SERVE_WINDOW - 10) as u64;
     let db = create_database_with_block_hashes(fork_activation_block);
 
+    let timestamp = 1;
     let chain_spec = Arc::new(
         ChainSpecBuilder::from(&*MAINNET)
             .shanghai_activated()
@@ -431,7 +433,7 @@ fn eip_2935_fork_activation_within_window_bounds() {
 
     let header = Header {
         parent_hash: B256::random(),
-        timestamp: 1,
+        timestamp,
         number: fork_activation_block,
         requests_hash: Some(EMPTY_REQUESTS_HASH),
         excess_blob_gas: Some(0),
@@ -454,9 +456,11 @@ fn eip_2935_fork_activation_within_window_bounds() {
         executor.with_state_mut(|state| state.basic(HISTORY_STORAGE_ADDRESS).unwrap().is_some())
     );
     assert_ne!(
-        executor.with_state_mut(|state| state
-            .storage(HISTORY_STORAGE_ADDRESS, U256::from(fork_activation_block - 1))
-            .unwrap()),
+        executor
+            .with_state_mut(|state| state
+                .storage(HISTORY_STORAGE_ADDRESS, U256::from(fork_activation_block - 1))
+                .unwrap())
+            .value,
         U256::ZERO
     );
 
@@ -567,7 +571,8 @@ fn eip_2935_state_transition_inside_fork() {
     );
     assert_ne!(
         executor
-            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::ZERO).unwrap()),
+            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::ZERO).unwrap())
+            .value,
         U256::ZERO
     );
     assert!(executor.with_state_mut(|state| {
@@ -598,12 +603,14 @@ fn eip_2935_state_transition_inside_fork() {
     );
     assert_ne!(
         executor
-            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::ZERO).unwrap()),
+            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::ZERO).unwrap())
+            .value,
         U256::ZERO
     );
     assert_ne!(
         executor
-            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::from(1)).unwrap()),
+            .with_state_mut(|state| state.storage(HISTORY_STORAGE_ADDRESS, U256::from(1)).unwrap())
+            .value,
         U256::ZERO
     );
     assert!(executor.with_state_mut(|state| {

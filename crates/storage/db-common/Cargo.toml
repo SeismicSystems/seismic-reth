@@ -8,6 +8,9 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
+# seismic
+seismic-alloy-genesis.workspace = true
+
 # reth
 reth-chainspec.workspace = true
 reth-db-api.workspace = true
@@ -26,7 +29,6 @@ reth-execution-errors.workspace = true
 
 # eth
 alloy-consensus.workspace = true
-alloy-genesis.workspace = true
 alloy-primitives.workspace = true
 
 # misc
@@ -42,6 +44,7 @@ serde_json.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+alloy-genesis.workspace = true
 reth-db = { workspace = true, features = ["mdbx"] }
 reth-provider = { workspace = true, features = ["test-utils"] }
 

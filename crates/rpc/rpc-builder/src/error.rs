@@ -17,6 +17,8 @@ pub enum ServerKind {
     WsHttp(SocketAddr),
     /// Auth.
     Auth(SocketAddr),
+    /// Body auth.
+    BodyAuth(SocketAddr),
 }
 
 impl ServerKind {
@@ -27,6 +29,7 @@ impl ServerKind {
             Self::WS(_) => "--ws.port",
             Self::WsHttp(_) => "--ws.port and --http.port",
             Self::Auth(_) => "--authrpc.port",
+            Self::BodyAuth(_) => "--body-auth.port",
         }
     }
 }
@@ -38,6 +41,7 @@ impl std::fmt::Display for ServerKind {
             Self::WS(addr) => write!(f, "{addr} (WS-RPC server)"),
             Self::WsHttp(addr) => write!(f, "{addr} (WS-HTTP-RPC server)"),
             Self::Auth(addr) => write!(f, "{addr} (AUTH server)"),
+            Self::BodyAuth(addr) => write!(f, "{addr} (BODY-AUTH server)"),
         }
     }
 }
@@ -141,6 +145,7 @@ mod tests {
             ServerKind::WS(addr),
             ServerKind::WsHttp(addr),
             ServerKind::Auth(addr),
+            ServerKind::BodyAuth(addr),
         ];
 
         for kind in &kinds {

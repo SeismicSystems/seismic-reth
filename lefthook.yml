@@ -1,0 +1,31 @@
+pre-commit:
+  commands:
+    fmt:
+      run: cargo +nightly fmt --all
+      stage_fixed: true
+
+pre-push:
+  commands:
+    clippy:
+      run: >
+        cargo clippy
+        -p reth-seismic-primitives
+        -p reth-seismic-chainspec
+        -p reth-seismic-evm
+        -p reth-seismic-payload-builder
+        -p reth-seismic-node
+        -p reth-seismic-rpc
+        -p reth-seismic-cli
+        -p reth-seismic-txpool
+        -p reth-seismic-forks
+        -p seismic-reth
+        --lib --tests --no-deps
+        -- -D warnings
+        -W clippy::unwrap_used
+        -W clippy::expect_used
+        -W clippy::indexing_slicing
+        -W clippy::panic
+        -W clippy::unreachable
+        -W clippy::todo
+    typos:
+      run: typos

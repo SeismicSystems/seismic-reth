@@ -5,8 +5,9 @@ Lists all the tables, their entry count and their size
 ```bash
 $ reth db stats --help
 ```
+
 ```txt
-Usage: reth db stats [OPTIONS]
+Usage: seismic-reth db stats [OPTIONS]
 
 Options:
       --detailed-sizes

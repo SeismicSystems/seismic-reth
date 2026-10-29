@@ -9,7 +9,9 @@ use alloy_rpc_types_eth::{state::StateOverride, BlockId};
 use futures::Future;
 use reth_chainspec::MIN_TRANSACTION_GAS;
 use reth_errors::ProviderError;
-use reth_evm::{ConfigureEvm, Database, Evm, EvmEnvFor, EvmFor, TransactionEnv, TxEnvFor};
+use reth_evm::{
+    BlockEnvAccess, ConfigureEvm, Database, Evm, EvmEnvFor, EvmFor, TransactionEnv, TxEnvFor,
+};
 use reth_revm::{database::StateProviderDatabase, db::CacheDB};
 use reth_rpc_convert::{RpcConvert, RpcTxReq};
 use reth_rpc_eth_types::{
@@ -60,10 +62,11 @@ pub trait EstimateCall: Call {
         let tx_request_gas_limit = request.as_ref().gas_limit();
         let tx_request_gas_price = request.as_ref().gas_price();
         // the gas limit of the corresponding block
+        let block_gas_limit = evm_env.block_env.as_block_env().gas_limit;
         let max_gas_limit = evm_env
             .cfg_env
             .tx_gas_limit_cap
-            .map_or(evm_env.block_env.gas_limit, |cap| cap.min(evm_env.block_env.gas_limit));
+            .map_or(block_gas_limit, |cap| cap.min(block_gas_limit));
 
         // Determine the highest possible gas limit, considering both the request's specified limit
         // and the block's limit.
@@ -110,7 +113,8 @@ pub trait EstimateCall: Call {
         tx_env.set_gas_limit(tx_env.gas_limit().min(highest_gas_limit));
 
         // Create EVM instance once and reuse it throughout the entire estimation process
-        let mut evm = self.evm_config().evm_with_env(&mut db, evm_env);
+        let evm_config = self.evm_config().snapshot_for_simulation();
+        let mut evm = evm_config.evm_with_env(&mut db, evm_env);
 
         // For basic transfers, try using minimum gas before running full binary search
         if is_basic_transfer {
@@ -130,7 +134,11 @@ pub trait EstimateCall: Call {
             }
         }
 
-        trace!(target: "rpc::eth::estimate", ?tx_env, gas_limit = tx_env.gas_limit(), is_basic_transfer, "Starting gas estimation");
+        trace!(
+            target: "rpc::eth::estimate",
+            is_basic_transfer,
+            "Starting gas estimation"
+        );
 
         // Execute the transaction with the highest possible gas limit.
         let mut res = match evm.transact(tx_env.clone()).map_err(Self::Error::from_evm_err) {

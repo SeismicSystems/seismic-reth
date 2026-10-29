@@ -1,9 +1,10 @@
+//! Ethereum block assemblers
 use alloc::sync::Arc;
 use alloy_consensus::{
     proofs, Block, BlockBody, BlockHeader, Header, Transaction, TxReceipt, EMPTY_OMMER_ROOT_HASH,
 };
 use alloy_eips::merge::BEACON_NONCE;
-use alloy_evm::{block::BlockExecutorFactory, eth::EthBlockExecutionCtx};
+use alloy_evm::{block::BlockExecutorFactory, eth::EthBlockExecutionCtx, EvmFactory};
 use alloy_primitives::Bytes;
 use reth_chainspec::{EthChainSpec, EthereumHardforks};
 use reth_ethereum_primitives::{Receipt, TransactionSigned};
@@ -33,6 +34,7 @@ where
         ExecutionCtx<'a> = EthBlockExecutionCtx<'a>,
         Transaction = TransactionSigned,
         Receipt = Receipt,
+        EvmFactory: EvmFactory<BlockEnv = revm::context::BlockEnv>,
     >,
     ChainSpec: EthChainSpec + EthereumHardforks,
 {
