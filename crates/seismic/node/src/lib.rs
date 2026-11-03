@@ -19,7 +19,6 @@ pub mod node;
 pub mod purpose_keys;
 pub mod rotation;
 pub use reth_seismic_txpool as txpool;
-pub mod utils;
 
 pub use reth_seismic_payload_builder::SeismicPayloadBuilder;
 

@@ -21,7 +21,6 @@ reth-ethereum-payload-builder.workspace = true
 reth-seismic-evm = { workspace = true, features = ["rpc"] }
 reth-seismic-rpc.workspace = true
 reth-seismic-txpool.workspace = true
-reth-seismic-chainspec = { workspace = true, optional = true }
 reth-seismic-engine-primitives.workspace = true
 reth-seismic-primitives = { workspace = true, features = ["serde", "serde-bincode-compat", "reth-codec"] }
 
@@ -55,7 +54,6 @@ revm = { workspace = true, features = ["secp256k1", "blst", "c-kzg"] }
 # alloy
 alloy-consensus.workspace = true
 alloy-eips.workspace = true
-alloy-primitives.workspace = true
 alloy-rpc-types-engine.workspace = true
 alloy-rpc-types-eth.workspace = true
 
@@ -72,15 +70,11 @@ metrics.workspace = true
 sha2.workspace = true
 tracing.workspace = true
 
-# test-utils dependencies
 alloy-rpc-types = { workspace = true }
 tokio = { workspace = true }
 jsonrpsee = { workspace = true }
-reth-e2e-test-utils = { workspace = true, optional = true }
-reth-tasks = { workspace = true, optional = true }
 
 [dev-dependencies]
-reth-seismic-node = { workspace = true, features = ["test-utils"] }
 clap = { workspace = true, features = ["derive"] }
 seismic-crypto.workspace = true
 serde_json.workspace = true
@@ -133,33 +127,11 @@ default = ["reth-codec"]
 asm-keccak = [
     "alloy-primitives/asm-keccak",
     "revm/asm-keccak",
-    "reth-seismic-node/asm-keccak",
     "reth-node-core/asm-keccak",
     "reth-node-ethereum/asm-keccak",
 ]
 js-tracer = [
     "reth-node-builder/js-tracer",
-]
-test-utils = [
-    "reth-tasks",
-    "reth-e2e-test-utils",
-    "reth-seismic-chainspec",
-    "reth-node-builder/test-utils",
-    "reth-chainspec/test-utils",
-    "reth-consensus/test-utils",
-    "reth-evm/test-utils",
-    "reth-network/test-utils",
-    "reth-payload-builder/test-utils",
-    "reth-revm/test-utils",
-    "reth-provider/test-utils",
-    "reth-transaction-pool/test-utils",
-    "reth-trie-db/test-utils",
-    "reth-seismic-node/test-utils",
-    "reth-seismic-primitives/arbitrary",
-    "reth-primitives-traits/test-utils",
-    "reth-db/test-utils",
-    "reth-node-ethereum/test-utils",
-    "reth-seismic-primitives/test-utils",
 ]
 reth-codec = [
     "reth-seismic-primitives/reth-codec",

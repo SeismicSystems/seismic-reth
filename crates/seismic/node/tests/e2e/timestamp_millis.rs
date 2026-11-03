@@ -1,6 +1,7 @@
 //! Sub-second block timestamps: the `extraData` prefix, Engine API round trip, consensus ordering
 //! and the public RPC shape (stock headers, stock hashes).
 
+use crate::common::e2e::{ensure_mock_purpose_keys, test_chain_spec};
 use alloy_consensus::{BlockHeader, Header};
 use alloy_primitives::{address, bytes, Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_engine::{
@@ -20,7 +21,6 @@ use reth_seismic_node::{
     consensus::validate_against_parent_timestamp_millis,
     engine::{SeismicEngineTypes, SeismicEngineValidator},
     node::SeismicNode,
-    utils::e2e::{ensure_mock_purpose_keys, test_chain_spec},
 };
 use reth_seismic_primitives::SeismicBlockHeader;
 use serde_json::Value;

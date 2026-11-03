@@ -2,6 +2,9 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // Test file - panics are
                                                                    // acceptable
 
+use crate::common::e2e::{
+    ensure_mock_purpose_keys, seismic_payload_attributes, test_chain_spec, SeismicTestNode,
+};
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
 use reth_e2e_test_utils::{
     node::NodeTestContext, transaction::TransactionTestContext, wallet::Wallet,
@@ -9,12 +12,7 @@ use reth_e2e_test_utils::{
 use reth_node_builder::{EngineNodeLauncher, Node, NodeBuilder, NodeConfig, NodeHandle};
 use reth_node_core::args::RpcServerArgs;
 use reth_rpc_builder::RpcModuleSelection;
-use reth_seismic_node::{
-    node::SeismicNode,
-    utils::e2e::{
-        ensure_mock_purpose_keys, seismic_payload_attributes, test_chain_spec, SeismicTestNode,
-    },
-};
+use reth_seismic_node::node::SeismicNode;
 use reth_tasks::TaskManager;
 
 /// Launches a single Seismic node on the dev chain spec with an HTTP-only RPC

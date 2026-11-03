@@ -10,6 +10,7 @@
 
 mod common;
 
+use crate::common::e2e::SeismicTestNode;
 use alloy_consensus::{proofs::calculate_transaction_root, BlockHeader};
 use alloy_primitives::{Address, Bytes, U256};
 use alloy_rpc_types_engine::PayloadStatusEnum;
@@ -18,7 +19,6 @@ use alloy_sol_types::SolCall;
 use common::gas_tokens::{transferCall, TokenFixture, TokenKind, TokenTestContext};
 use reth_primitives_traits::SealedBlock;
 use reth_provider::{BlockHashReader, BlockNumReader, StateProviderFactory};
-use reth_seismic_node::utils::e2e::SeismicTestNode;
 use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use seismic_alloy_consensus::GasPayment;
 

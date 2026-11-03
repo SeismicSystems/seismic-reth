@@ -12,15 +12,13 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // Test file - panics are
                                                                    // acceptable
 
+use crate::common::e2e::{ensure_mock_purpose_keys, setup};
 use alloy_consensus::proofs::calculate_transaction_root;
 use alloy_primitives::{aliases::U96, Address, Bytes, Signature, TxKind, B256, U256};
 use eyre::Result;
 use reth_payload_primitives::PayloadTypes;
 use reth_primitives_traits::SealedBlock;
-use reth_seismic_node::{
-    engine::SeismicEngineTypes,
-    utils::e2e::{ensure_mock_purpose_keys, setup},
-};
+use reth_seismic_node::engine::SeismicEngineTypes;
 use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use secp256k1::PublicKey;
 use seismic_alloy_consensus::{SeismicTypedTransaction, TxSeismic, TxSeismicElements};

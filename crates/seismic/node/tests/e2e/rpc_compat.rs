@@ -25,7 +25,7 @@ use tracing::info;
 #[tokio::test(flavor = "multi_thread")]
 async fn test_seismic_rpc_compat() -> Result<()> {
     reth_tracing::init_test_tracing();
-    reth_seismic_node::utils::e2e::ensure_mock_purpose_keys();
+    crate::common::e2e::ensure_mock_purpose_keys();
 
     let test_data_path =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/e2e/testdata/rpc-compat");

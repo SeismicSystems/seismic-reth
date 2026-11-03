@@ -5,6 +5,10 @@
 //! stays healthy after each batch.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic)]
 
+use crate::common::{
+    e2e::{ensure_mock_purpose_keys, setup},
+    rpc::get_nonce,
+};
 use alloy_consensus::TxEnvelope;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_network::{EthereumWallet, TransactionBuilder};
@@ -14,10 +18,6 @@ use alloy_signer_local::PrivateKeySigner;
 use core::str::FromStr;
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
-use reth_seismic_node::utils::{
-    e2e::{ensure_mock_purpose_keys, setup},
-    test_utils::get_nonce,
-};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
 use reth_seismic_test_utils::get_signed_seismic_tx_bytes;
 use tracing::{info, trace};

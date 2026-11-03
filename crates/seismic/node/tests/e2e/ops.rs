@@ -1,5 +1,6 @@
 //! E2E tests for ops whitelist/revoke via sentinel transactions in `eth_sendRawTransaction`.
 
+use crate::common::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes};
 use alloy_consensus::SignableTransaction;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{address, aliases::U96, Address, Bytes, TxKind, B256, U256};
@@ -18,10 +19,7 @@ use reth_node_core::args::{DevArgs, RpcServerArgs};
 use reth_primitives_traits::SealedHeader;
 use reth_rpc_builder::RpcModuleSelection;
 use reth_rpc_layer::{eip712_signing_hash, WHITELIST_TX_SENTINEL};
-use reth_seismic_node::{
-    node::SeismicNode,
-    utils::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes},
-};
+use reth_seismic_node::node::SeismicNode;
 use reth_tasks::TaskManager;
 use seismic_alloy_consensus::{TxSeismic, TxSeismicElements, TypedDataRequest};
 use std::{str::FromStr, sync::Arc};

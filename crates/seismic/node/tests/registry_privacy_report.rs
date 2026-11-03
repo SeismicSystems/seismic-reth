@@ -4,6 +4,9 @@
 //! and Shielded balances are initialized by native-funded post-genesis execution;
 //! this is a privacy regression, not validation of the production registry artifact.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
+
+mod common;
+use crate::common::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes, test_chain_spec};
 use alloy_consensus::{SignableTransaction, TxLegacy};
 use alloy_eips::eip2718::Encodable2718;
 use alloy_genesis::GenesisAccount;
@@ -15,10 +18,7 @@ use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_param
 use reth_chainspec::make_genesis_header;
 use reth_primitives_traits::SealedHeader;
 use reth_provider::StateProviderFactory;
-use reth_seismic_node::{
-    node::SeismicNode,
-    utils::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes, test_chain_spec},
-};
+use reth_seismic_node::node::SeismicNode;
 use reth_seismic_rpc::ext::{EthApiOverrideClient, COMPATIBILITY_BALANCE};
 use reth_seismic_test_utils::get_signed_seismic_tx_bytes;
 use seismic_revm::gas_token_registry::{
