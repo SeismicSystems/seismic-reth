@@ -4,7 +4,11 @@ use alloy_primitives::{
     Address, B256, U256,
 };
 use core::cell::RefCell;
-use revm::{bytecode::Bytecode, state::AccountInfo, Database, DatabaseRef};
+use revm::{
+    bytecode::Bytecode,
+    state::{AccountInfo, FlaggedStorage},
+    Database, DatabaseRef,
+};
 
 /// A container type that caches reads from an underlying [`DatabaseRef`].
 ///
@@ -55,7 +59,7 @@ impl CachedReads {
         &mut self,
         address: Address,
         info: AccountInfo,
-        storage: HashMap<U256, U256>,
+        storage: HashMap<U256, FlaggedStorage>,
     ) {
         self.accounts.insert(address, CachedAccount { info: Some(info), storage });
     }
@@ -122,7 +126,7 @@ impl<DB: DatabaseRef> Database for CachedReadsDbMut<'_, DB> {
         Ok(code)
     }
 
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         match self.cached.accounts.entry(address) {
             Entry::Occupied(mut acc_entry) => match acc_entry.get_mut().storage.entry(index) {
                 Entry::Occupied(entry) => Ok(*entry.get()),
@@ -137,7 +141,7 @@ impl<DB: DatabaseRef> Database for CachedReadsDbMut<'_, DB> {
                     account.storage.insert(index, value);
                     (account, value)
                 } else {
-                    (CachedAccount::new(info), U256::ZERO)
+                    (CachedAccount::new(info), FlaggedStorage::ZERO)
                 };
                 acc_entry.insert(account);
                 Ok(value)
@@ -175,7 +179,7 @@ impl<DB: DatabaseRef> DatabaseRef for CachedReadsDBRef<'_, DB> {
         self.inner.borrow_mut().code_by_hash(code_hash)
     }
 
-    fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage_ref(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         self.inner.borrow_mut().storage(address, index)
     }
 
@@ -191,7 +195,7 @@ pub struct CachedAccount {
     /// Account state.
     pub info: Option<AccountInfo>,
     /// Account's storage.
-    pub storage: HashMap<U256, U256>,
+    pub storage: HashMap<U256, FlaggedStorage>,
 }
 
 impl CachedAccount {

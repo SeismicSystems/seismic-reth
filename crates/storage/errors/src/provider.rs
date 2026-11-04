@@ -134,12 +134,34 @@ pub enum ProviderError {
     /// Received invalid output from configured storage implementation.
     #[error("received invalid output from storage")]
     InvalidStorageOutput,
+    /// Enclave encryptography error.
+    #[error("enclave error: {_0}")]
+    EnclaveError(EnclaveError),
     /// Missing trie updates.
     #[error("missing trie updates for block {0}")]
     MissingTrieUpdates(B256),
     /// Any other error type wrapped into a cloneable [`AnyError`].
     #[error(transparent)]
     Other(#[from] AnyError),
+}
+
+/// Custom error type for reth error handling.
+#[derive(Clone, Debug, Eq, PartialEq, Display)]
+pub enum EnclaveError {
+    /// enclave encryption fails
+    EncryptionError,
+    /// enclave decryption fails
+    DecryptionError,
+    /// Ephemeral keypair generation fails
+    EphRngKeypairGenerationError(String),
+    /// Custom error.
+    Custom(&'static str),
+}
+
+impl From<EnclaveError> for ProviderError {
+    fn from(err: EnclaveError) -> Self {
+        Self::EnclaveError(err)
+    }
 }
 
 impl ProviderError {

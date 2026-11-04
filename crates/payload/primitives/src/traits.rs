@@ -71,6 +71,7 @@ pub trait PayloadBuilderAttributes: Send + Sync + Unpin + fmt::Debug + 'static {
     fn parent(&self) -> B256;
 
     /// Returns the timestamp to be used in the payload's header.
+    /// NOTE: Assumes timestamp is in milliseconds since from CL node
     fn timestamp(&self) -> u64;
 
     /// Returns the beacon chain block root from the parent block.

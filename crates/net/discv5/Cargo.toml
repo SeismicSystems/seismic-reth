@@ -16,6 +16,7 @@ workspace = true
 reth-chainspec.workspace = true
 reth-ethereum-forks.workspace = true
 reth-metrics.workspace = true
+reth-net-nat.workspace = true
 reth-network-peers = { workspace = true, features = ["secp256k1"] }
 
 # ethereum

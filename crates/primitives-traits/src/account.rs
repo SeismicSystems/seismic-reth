@@ -5,6 +5,7 @@ use alloy_trie::TrieAccount;
 use derive_more::Deref;
 use revm_bytecode::{Bytecode as RevmBytecode, BytecodeDecodeError};
 use revm_state::AccountInfo;
+use seismic_alloy_genesis::GenesisAccount as SeismicGenesisAccount;
 
 #[cfg(any(test, feature = "reth-codec"))]
 /// Identifiers used in [`Compact`](reth_codecs::Compact) encoding of [`Bytecode`].
@@ -196,6 +197,16 @@ impl reth_codecs::Compact for Bytecode {
 
 impl From<&GenesisAccount> for Account {
     fn from(value: &GenesisAccount) -> Self {
+        Self {
+            nonce: value.nonce.unwrap_or_default(),
+            balance: value.balance,
+            bytecode_hash: value.code.as_ref().map(keccak256),
+        }
+    }
+}
+
+impl From<&SeismicGenesisAccount> for Account {
+    fn from(value: &SeismicGenesisAccount) -> Self {
         Self {
             nonce: value.nonce.unwrap_or_default(),
             balance: value.balance,

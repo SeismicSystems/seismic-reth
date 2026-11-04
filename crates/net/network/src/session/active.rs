@@ -261,10 +261,22 @@ impl<N: NetworkPrimitives> ActiveSession<N> {
                 on_response!(resp, GetPooledTransactions)
             }
             EthMessage::GetNodeData(req) => {
-                on_request!(req, NodeData, GetNodeData)
+                // GetNodeData is disabled to prevent privacy leaks - treat as bad message
+                OnIncomingMessageOutcome::BadMessage {
+                    error: EthStreamError::InvalidMessage(MessageError::Other(
+                        "GetNodeData message is disabled to prevent privacy leaks".to_string(),
+                    )),
+                    message: EthMessage::GetNodeData(req),
+                }
             }
             EthMessage::NodeData(resp) => {
-                on_response!(resp, GetNodeData)
+                // NodeData is disabled to prevent privacy leaks - treat as bad message
+                OnIncomingMessageOutcome::BadMessage {
+                    error: EthStreamError::InvalidMessage(MessageError::Other(
+                        "NodeData message is disabled to prevent privacy leaks".to_string(),
+                    )),
+                    message: EthMessage::NodeData(resp),
+                }
             }
             EthMessage::GetReceipts(req) => {
                 if self.conn.version() >= EthVersion::Eth69 {
@@ -329,7 +341,7 @@ impl<N: NetworkPrimitives> ActiveSession<N> {
                 if msg.is_valid_for_version(self.conn.version()) {
                     self.queued_outgoing.push_back(EthMessage::from(msg).into());
                 } else {
-                    debug!(target: "net", ?msg,  version=?self.conn.version(), "Message is invalid for connection version, skipping");
+                    debug!(target: "net", version=?self.conn.version(), "Message is invalid for connection version, skipping");
                 }
             }
             PeerMessage::EthRequest(req) => {
@@ -704,7 +716,7 @@ impl<N: NetworkPrimitives> Future for ActiveSession<N> {
                                         progress = true;
                                     }
                                     OnIncomingMessageOutcome::BadMessage { error, message } => {
-                                        debug!(target: "net::session", %error, msg=?message, remote_peer_id=?this.remote_peer_id, "received invalid protocol message");
+                                        debug!(target: "net::session", %error, message_id=?message.message_id(), remote_peer_id=?this.remote_peer_id, "received invalid protocol message");
                                         return this.close_on_error(error, cx)
                                     }
                                     OnIncomingMessageOutcome::NoCapacity(msg) => {

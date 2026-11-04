@@ -9,7 +9,7 @@
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
     html_favicon_url = "https://avatars0.githubusercontent.com/u/97369466?s=256",
-    issue_tracker_base_url = "https://github.com/paradigmxyz/reth/issues/"
+    issue_tracker_base_url = "https://github.com/SeismicSystems/seismic-reth/issues/"
 )]
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
@@ -31,8 +31,8 @@ use core::{convert::Infallible, fmt::Debug};
 use reth_chainspec::{ChainSpec, EthChainSpec, EthereumHardforks, MAINNET};
 use reth_ethereum_primitives::{Block, EthPrimitives, TransactionSigned};
 use reth_evm::{
-    precompiles::PrecompilesMap, ConfigureEngineEvm, ConfigureEvm, EvmEnv, EvmEnvFor, EvmFactory,
-    ExecutableTxIterator, ExecutionCtxFor, NextBlockEnvAttributes, TransactionEnv,
+    ConfigureEngineEvm, ConfigureEvm, EvmEnv, EvmEnvFor, EvmFactory, ExecutableTxIterator,
+    ExecutionCtxFor, NextBlockEnvAttributes, TransactionEnv,
 };
 use reth_primitives_traits::{
     constants::MAX_TX_GAS_LIMIT_OSAKA, SealedBlock, SealedHeader, SignedTransaction, TxTy,
@@ -60,7 +60,7 @@ pub mod execute {
     pub type EthExecutorProvider = EthEvmConfig;
 }
 
-mod build;
+pub mod build;
 pub use build::EthBlockAssembler;
 
 mod receipt;
@@ -128,11 +128,12 @@ impl<ChainSpec, EvmF> ConfigureEvm for EthEvmConfig<ChainSpec, EvmF>
 where
     ChainSpec: EthExecutorSpec + EthChainSpec<Header = Header> + Hardforks + 'static,
     EvmF: EvmFactory<
+            BlockEnv = BlockEnv,
             Tx: TransactionEnv
                     + FromRecoveredTx<TransactionSigned>
                     + FromTxWithEncoded<TransactionSigned>,
             Spec = SpecId,
-            Precompiles = PrecompilesMap,
+            // Precompiles<EmptyDBTyped<Infallible>> = PrecompilesMap,
         > + Clone
         + Debug
         + Send
@@ -292,11 +293,12 @@ impl<ChainSpec, EvmF> ConfigureEngineEvm<ExecutionData> for EthEvmConfig<ChainSp
 where
     ChainSpec: EthExecutorSpec + EthChainSpec<Header = Header> + Hardforks + 'static,
     EvmF: EvmFactory<
+            BlockEnv = BlockEnv,
             Tx: TransactionEnv
                     + FromRecoveredTx<TransactionSigned>
                     + FromTxWithEncoded<TransactionSigned>,
             Spec = SpecId,
-            Precompiles = PrecompilesMap,
+            // Precompiles<EmptyDBTyped<Infallible>> = PrecompilesMap,
         > + Clone
         + Debug
         + Send

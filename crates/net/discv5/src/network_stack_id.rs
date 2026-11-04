@@ -20,10 +20,15 @@ impl NetworkStackId {
     /// ENR fork ID kv-pair key, for an Optimism CL node.
     pub const OPSTACK: &'static [u8] = b"opstack";
 
+    /// ENR fork ID kv-pair key, for a Seismic EL node.
+    pub const SEISMIC: &'static [u8] = b"seismic";
+
     /// Returns the [`NetworkStackId`] that matches the given chain spec.
     pub fn id(chain: impl EthChainSpec) -> Option<&'static [u8]> {
         if chain.is_optimism() {
             return Some(Self::OPEL)
+        } else if chain.is_seismic() {
+            return Some(Self::SEISMIC)
         } else if chain.is_ethereum() {
             return Some(Self::ETH)
         }

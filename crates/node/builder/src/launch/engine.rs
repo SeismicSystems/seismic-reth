@@ -230,10 +230,14 @@ where
             engine_tree_config,
             ctx.sync_metrics_tx(),
             ctx.components().evm_config().clone(),
+            ctx.data_dir().clone(),
         );
 
         info!(target: "reth::cli", "Consensus engine initialized");
 
+        // stable clippy false-positives on the `continue` inside the external
+        // `stream_select!` macro expansion
+        #[allow(clippy::needless_continue)]
         let events = stream_select!(
             event_sender.new_listener().map(Into::into),
             pipeline_events.map(Into::into),
@@ -290,7 +294,7 @@ where
                     }
                     event = engine_service.next() => {
                         let Some(event) = event else { break };
-                        debug!(target: "reth::cli", "Event: {event}");
+                        // debug!(target: "reth::cli", "ChainEvent: {event}");
                         match event {
                             ChainEvent::BackfillSyncFinished => {
                                 if terminate_after_backfill {

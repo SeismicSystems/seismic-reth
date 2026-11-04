@@ -3,6 +3,7 @@
 mod auth;
 mod http;
 mod middleware;
+mod ops;
 mod serde;
 mod startup;
 pub mod utils;

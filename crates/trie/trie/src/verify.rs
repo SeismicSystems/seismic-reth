@@ -250,7 +250,7 @@ impl<C: TrieCursor> SingleVerifier<DepthFirstTrieIterator<C>> {
             }
 
             let (curr_path, curr_node) = self.curr.as_ref().expect("not None");
-            trace!(target: "trie::verify", account=?self.account, ?curr_path, ?path, "Current cursor node");
+            trace!(target: "trie::verify", "Current cursor node");
 
             // Use depth-first ordering for comparison
             match depth_first::cmp(&path, curr_path) {
@@ -370,7 +370,7 @@ impl<T: TrieCursorFactory, H: HashedCursorFactory + Clone> Verifier<T, H> {
             };
 
             if curr_account < next_account || (end_inclusive && curr_account == next_account) {
-                trace!(target: "trie::verify", account = ?curr_account, "Verying account has empty storage");
+                trace!(target: "trie::verify", "Verying account has empty storage");
 
                 let mut storage_cursor =
                     self.trie_cursor_factory.storage_trie_cursor(curr_account)?;
@@ -409,7 +409,7 @@ impl<T: TrieCursorFactory, H: HashedCursorFactory + Clone> Verifier<T, H> {
                 self.complete = true;
             }
             Some(BranchNode::Account(path, node)) => {
-                trace!(target: "trie::verify", ?path, "Account node from state root");
+                trace!(target: "trie::verify", "Account node from state root");
                 self.account.next(&mut self.outputs, path, node)?;
                 // Push progress indicator
                 if !path.is_empty() {
@@ -417,7 +417,7 @@ impl<T: TrieCursorFactory, H: HashedCursorFactory + Clone> Verifier<T, H> {
                 }
             }
             Some(BranchNode::Storage(account, path, node)) => {
-                trace!(target: "trie::verify", ?account, ?path, "Storage node from state root");
+                trace!(target: "trie::verify", "Storage node from state root");
                 match self.storage.as_mut() {
                     None => {
                         // First storage account - check for any empty storages before it
@@ -547,8 +547,8 @@ mod tests {
 
         // Add storage for the account
         let mut storage1 = BTreeMap::new();
-        storage1.insert(keccak256(B256::from(U256::from(1))), U256::from(100));
-        storage1.insert(keccak256(B256::from(U256::from(2))), U256::from(200));
+        storage1.insert(keccak256(B256::from(U256::from(1))), U256::from(100).into());
+        storage1.insert(keccak256(B256::from(U256::from(2))), U256::from(200).into());
         storage_tries.insert(addr1, storage1);
 
         let factory = MockHashedCursorFactory::new(accounts, storage_tries);
@@ -617,7 +617,8 @@ mod tests {
             // Add some storage for each account
             let mut storage = BTreeMap::new();
             for j in 0..i {
-                storage.insert(keccak256(B256::from(U256::from(j))), U256::from(j as u64 * 10));
+                storage
+                    .insert(keccak256(B256::from(U256::from(j))), U256::from(j as u64 * 10).into());
             }
             if !storage.is_empty() {
                 storage_tries.insert(addr, storage);
@@ -957,9 +958,11 @@ mod tests {
     fn test_single_verifier_complex_depth_first() {
         // Test a complex tree structure with depth-first ordering
         // Build a tree structure with proper parent-child relationships
-        let node_root = test_branch_node(0b0110, 0, 0b0110, vec![]); // root: children at nibbles 1 and 2
+        let node_root = test_branch_node(0b0110, 0, 0b0110, vec![]); // root: children at nibbles 1
+                                                                     // and 2
         let node1 = test_branch_node(0b0110, 0, 0b0110, vec![]); // 0x1: children at nibbles 1 and 2
-        let node11 = test_branch_node(0b0110, 0, 0b0110, vec![]); // 0x11: children at nibbles 1 and 2
+        let node11 = test_branch_node(0b0110, 0, 0b0110, vec![]); // 0x11: children at nibbles 1 and
+                                                                  // 2
         let node111 = test_branch_node(0b0001, 0, 0b0001, vec![]); // 0x111: leaf
         let node112 = test_branch_node(0b0010, 0, 0b0010, vec![]); // 0x112: leaf
         let node12 = test_branch_node(0b0100, 0, 0b0100, vec![]); // 0x12: leaf

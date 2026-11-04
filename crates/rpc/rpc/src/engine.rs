@@ -7,12 +7,12 @@ use alloy_serde::JsonStorageKey;
 use jsonrpsee::core::RpcResult as Result;
 use reth_rpc_api::{EngineEthApiServer, EthApiServer};
 use reth_rpc_convert::RpcTxReq;
-/// Re-export for convenience
-pub use reth_rpc_engine_api::EngineApi;
 use reth_rpc_eth_api::{
     EngineEthFilter, FullEthApiTypes, QueryLimits, RpcBlock, RpcHeader, RpcReceipt, RpcTransaction,
 };
 use tracing_futures::Instrument;
+
+pub use reth_rpc_engine_api::EngineApi;
 
 macro_rules! engine_span {
     () => {
@@ -118,8 +118,8 @@ where
     }
 
     /// Handler for: `eth_sendRawTransaction`
-    async fn send_raw_transaction(&self, bytes: Bytes) -> Result<B256> {
-        self.eth.send_raw_transaction(bytes).instrument(engine_span!()).await
+    async fn send_raw_transaction(&self, tx: Bytes) -> Result<B256> {
+        self.eth.send_raw_transaction(tx).instrument(engine_span!()).await
     }
 
     async fn transaction_receipt(

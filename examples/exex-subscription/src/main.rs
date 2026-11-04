@@ -125,8 +125,8 @@ async fn my_exex<Node: FullNodeComponents>(
                                         let diff = StorageDiff {
                                             address: *change.0,
                                             key: *key,
-                                            old_value: slot.original_value(),
-                                            new_value: slot.present_value(),
+                                            old_value: slot.original_value().into(),
+                                            new_value: slot.present_value().into(),
                                         };
                                         // Send diff to all the active subscribers
                                         senders.retain(|sender| sender.send(diff).is_ok());

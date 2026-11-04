@@ -3,8 +3,8 @@
 pub mod api;
 use crate::error::api::FromEvmHalt;
 use alloy_eips::BlockId;
-use alloy_evm::{call::CallError, overrides::StateOverrideError};
-use alloy_primitives::{Address, Bytes, B256, U256};
+use alloy_evm::{call::CallError, overrides::OverrideError};
+use alloy_primitives::{Address, Bytes, B256, U256, U64};
 use alloy_rpc_types_eth::{error::EthRpcErrorCode, request::TransactionInputError, BlockError};
 use alloy_sol_types::{ContractError, RevertReason};
 use alloy_transport::{RpcError, TransportErrorKind};
@@ -17,8 +17,8 @@ use reth_rpc_server_types::result::{
     block_id_to_str, internal_rpc_err, invalid_params_rpc_err, rpc_err, rpc_error_with_code,
 };
 use reth_transaction_pool::error::{
-    Eip4844PoolTransactionError, Eip7702PoolTransactionError, InvalidPoolTransactionError,
-    PoolError, PoolErrorKind, PoolTransactionError,
+    Eip4844PoolTransactionError, Eip7702PoolTransactionError, GasLimitReason,
+    InvalidPoolTransactionError, PoolError, PoolErrorKind, PoolTransactionError,
 };
 use revm::context_interface::result::{
     EVMError, ExecutionResult, HaltReason, InvalidHeader, InvalidTransaction, OutOfGasError,
@@ -26,7 +26,6 @@ use revm::context_interface::result::{
 use revm_inspectors::tracing::MuxError;
 use std::convert::Infallible;
 use tokio::sync::oneshot::error::RecvError;
-use tracing::error;
 
 /// A trait to convert an error to an RPC error.
 pub trait ToRpcError: core::error::Error + Send + Sync + 'static {
@@ -116,6 +115,15 @@ pub enum EthApiError {
     /// Thrown when an `AccountOverride` contains conflicting `state` and `stateDiff` fields
     #[error("account {0:?} has both 'state' and 'stateDiff'")]
     BothStateAndStateDiffInOverride(Address),
+    /// Code overrides are not permitted (Seismic privacy)
+    #[error("code overrides are not permitted on Seismic (account: {0:?})")]
+    CodeOverrideNotPermitted(Address),
+    /// Storage overrides are not permitted (Seismic privacy)
+    #[error("storage overrides are not permitted on Seismic (account: {0:?})")]
+    StorageOverrideNotPermitted(Address),
+    /// Block overrides are not permitted (Seismic privacy)
+    #[error("block overrides are not permitted on Seismic")]
+    BlockOverrideNotPermitted,
     /// Other internal error
     #[error(transparent)]
     Internal(RethError),
@@ -126,7 +134,7 @@ pub enum EthApiError {
     #[error("transaction not found")]
     TransactionNotFound,
     /// Some feature is unsupported
-    #[error("unsupported")]
+    #[error("unsupported: {0}")]
     Unsupported(&'static str),
     /// General purpose error for invalid params
     #[error("{0}")]
@@ -222,8 +230,8 @@ impl EthApiError {
         }
     }
 
-    /// Converts the given [`StateOverrideError`] into a new [`EthApiError`] instance.
-    pub fn from_state_overrides_err<E>(err: StateOverrideError<E>) -> Self
+    /// Converts the given [`OverrideError`] into a new [`EthApiError`] instance.
+    pub fn from_overrides_err<E>(err: OverrideError<E>) -> Self
     where
         E: Into<Self>,
     {
@@ -255,6 +263,9 @@ impl From<EthApiError> for jsonrpsee_types::error::ErrorObject<'static> {
             EthApiError::ConflictingFeeFieldsInRequest |
             EthApiError::Signing(_) |
             EthApiError::BothStateAndStateDiffInOverride(_) |
+            EthApiError::CodeOverrideNotPermitted(_) |
+            EthApiError::StorageOverrideNotPermitted(_) |
+            EthApiError::BlockOverrideNotPermitted |
             EthApiError::InvalidTracerConfig |
             EthApiError::TransactionConversionError |
             EthApiError::InvalidRewardPercentiles |
@@ -338,19 +349,26 @@ where
     }
 }
 
-impl<E> From<StateOverrideError<E>> for EthApiError
+impl<E> From<OverrideError<E>> for EthApiError
 where
     E: Into<Self>,
 {
-    fn from(value: StateOverrideError<E>) -> Self {
+    fn from(value: OverrideError<E>) -> Self {
         match value {
-            StateOverrideError::InvalidBytecode(bytecode_decode_error) => {
+            OverrideError::InvalidBytecode(bytecode_decode_error) => {
                 Self::InvalidBytecode(bytecode_decode_error.to_string())
             }
-            StateOverrideError::BothStateAndStateDiff(address) => {
+            OverrideError::BothStateAndStateDiff(address) => {
                 Self::BothStateAndStateDiffInOverride(address)
             }
-            StateOverrideError::Database(err) => err.into(),
+            OverrideError::CodeOverrideNotPermitted(address) => {
+                Self::CodeOverrideNotPermitted(address)
+            }
+            OverrideError::StorageOverrideNotPermitted(address) => {
+                Self::StorageOverrideNotPermitted(address)
+            }
+            OverrideError::BlockOverrideNotPermitted => Self::BlockOverrideNotPermitted,
+            OverrideError::Database(err) => err.into(),
         }
     }
 }
@@ -644,6 +662,9 @@ pub enum RpcInvalidTransactionError {
         /// Minimum required priority fee.
         minimum_priority_fee: u128,
     },
+    /// Seismic transaction error
+    #[error("Seismic transaction error: {0}")]
+    SeismicTx(String),
     /// Any other error
     #[error("{0}")]
     Other(Box<dyn ToRpcError>),
@@ -755,7 +776,7 @@ impl From<InvalidTransaction> for RpcInvalidTransactionError {
             InvalidTransaction::BlobVersionedHashesNotSupported => {
                 Self::BlobVersionedHashesNotSupported
             }
-            InvalidTransaction::BlobGasPriceGreaterThanMax => Self::BlobFeeCapTooLow,
+            InvalidTransaction::BlobGasPriceGreaterThanMax { .. } => Self::BlobFeeCapTooLow,
             InvalidTransaction::EmptyBlobs => Self::BlobTransactionMissingBlobHashes,
             InvalidTransaction::BlobVersionNotSupported => Self::BlobHashVersionMismatch,
             InvalidTransaction::TooManyBlobs { have, .. } => Self::TooManyBlobs { have },
@@ -772,6 +793,17 @@ impl From<InvalidTransaction> for RpcInvalidTransactionError {
             InvalidTransaction::Eip7873NotSupported => Self::TxTypeNotSupported,
             InvalidTransaction::Eip7873MissingTarget => {
                 Self::other(internal_rpc_err(err.to_string()))
+            }
+            InvalidTransaction::InvalidGasPaymentSelector |
+            InvalidTransaction::GasTokenRegistryTooLarge |
+            InvalidTransaction::GasTokenNotRegistered(_) |
+            InvalidTransaction::GasTokenInactive(_) |
+            InvalidTransaction::UnsupportedGasTokenMode { .. } |
+            InvalidTransaction::UnsupportedGasTokenDecimals { .. } |
+            InvalidTransaction::GasTokenBalanceModeMismatch { .. } => {
+                // Deterministic payment invalidity is not an internal RPC error.
+                // These reasons contain public metadata, never balance amounts.
+                Self::SeismicTx(err.to_string())
             }
         }
     }
@@ -799,6 +831,7 @@ impl From<InvalidTransactionError> for RpcInvalidTransactionError {
             InvalidTransactionError::Eip4844Disabled |
             InvalidTransactionError::Eip7702Disabled |
             InvalidTransactionError::TxTypeNotSupported => Self::TxTypeNotSupported,
+            InvalidTransactionError::SeismicTx(msg) => Self::SeismicTx(msg),
             InvalidTransactionError::GasUintOverflow => Self::GasUintOverflow,
             InvalidTransactionError::GasTooLow => Self::GasTooLow,
             InvalidTransactionError::GasTooHigh => Self::GasTooHigh,
@@ -838,6 +871,14 @@ impl RevertError {
     /// Returns error code to return for this error.
     pub const fn error_code(&self) -> i32 {
         EthRpcErrorCode::ExecutionError.code()
+    }
+
+    /// Returns the raw revert output bytes, if any.
+    ///
+    /// This is intended for callers that need to inspect or transform the revm output
+    /// (e.g. to re-encrypt it for a networks whose calls may return confidential data).
+    pub const fn output(&self) -> Option<&Bytes> {
+        self.output.as_ref()
     }
 }
 
@@ -899,6 +940,18 @@ pub enum RpcPoolError {
     /// When the max initcode size is exceeded
     #[error("max initcode size exceeded")]
     ExceedsMaxInitCodeSize,
+    /// Pool-only minimum gas diagnostics derived from public submitted transaction data.
+    ///
+    /// Never populate this variant from decrypted simulation or private state.
+    #[error("intrinsic gas too low")]
+    GasLimitBelowMinimum {
+        /// The public gas limit of the submitted transaction.
+        gas_limit: u64,
+        /// The minimum gas limit accepted by pool admission.
+        minimum_gas_limit: u64,
+        /// The binding admission requirement.
+        reason: GasLimitReason,
+    },
     /// Errors related to invalid transactions
     #[error(transparent)]
     Invalid(#[from] RpcInvalidTransactionError),
@@ -922,10 +975,35 @@ pub enum RpcPoolError {
     Other(Box<dyn core::error::Error + Send + Sync>),
 }
 
+/// Only pool admission may expose these public-wire diagnostics. EVM validation
+/// can see decrypted input and continues to return a data-less `GasTooLow` error.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PoolGasLimitErrorData {
+    gas_limit: U64,
+    minimum_gas_limit: U64,
+    reason: &'static str,
+}
+
 impl From<RpcPoolError> for jsonrpsee_types::error::ErrorObject<'static> {
     fn from(error: RpcPoolError) -> Self {
         match error {
             RpcPoolError::Invalid(err) => err.into(),
+            RpcPoolError::GasLimitBelowMinimum { gas_limit, minimum_gas_limit, reason } => {
+                let reason = match reason {
+                    GasLimitReason::IntrinsicGas => "intrinsicGas",
+                    GasLimitReason::CalldataFloor => "calldataFloor",
+                };
+                Self::owned(
+                    EthRpcErrorCode::InvalidInput.code(),
+                    error.to_string(),
+                    Some(PoolGasLimitErrorData {
+                        gas_limit: U64::from(gas_limit),
+                        minimum_gas_limit: U64::from(minimum_gas_limit),
+                        reason,
+                    }),
+                )
+            }
             RpcPoolError::TxPoolOverflow => {
                 rpc_error_with_code(EthRpcErrorCode::TransactionRejected.code(), error.to_string())
             }
@@ -981,6 +1059,11 @@ impl From<InvalidPoolTransactionError> for RpcPoolError {
             InvalidPoolTransactionError::IntrinsicGasTooLow => {
                 Self::Invalid(RpcInvalidTransactionError::GasTooLow)
             }
+            InvalidPoolTransactionError::GasLimitBelowMinimum {
+                gas_limit,
+                minimum_gas_limit,
+                reason,
+            } => Self::GasLimitBelowMinimum { gas_limit, minimum_gas_limit, reason },
             InvalidPoolTransactionError::OversizedData(_, _) => Self::OversizedData,
             InvalidPoolTransactionError::Underpriced => Self::Underpriced,
             InvalidPoolTransactionError::Eip2681 => {
@@ -1046,6 +1129,57 @@ mod tests {
     use super::*;
     use alloy_sol_types::{Revert, SolError};
     use revm::primitives::b256;
+
+    #[test]
+    fn pool_gas_limit_details_preserve_rpc_code_and_message() {
+        for (reason, gas_limit, minimum_gas_limit, expected_reason) in [
+            (GasLimitReason::IntrinsicGas, 20_999, 21_000, "intrinsicGas"),
+            (GasLimitReason::CalldataFloor, 21_480, 21_800, "calldataFloor"),
+        ] {
+            let pool = PoolError::new(
+                B256::ZERO,
+                InvalidPoolTransactionError::GasLimitBelowMinimum {
+                    gas_limit,
+                    minimum_gas_limit,
+                    reason,
+                },
+            );
+            let wire = EthApiError::from(pool).into_rpc_err();
+            assert_eq!(wire.code(), RpcInvalidTransactionError::GasTooLow.error_code());
+            assert_eq!(wire.message(), "intrinsic gas too low");
+            let data: serde_json::Value = serde_json::from_str(wire.data().unwrap().get()).unwrap();
+            assert_eq!(
+                data,
+                serde_json::json!({
+                    "gasLimit": format!("{gas_limit:#x}"),
+                    "minimumGasLimit": format!("{minimum_gas_limit:#x}"),
+                    "reason": expected_reason,
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn execution_gas_errors_and_legacy_pool_error_have_no_diagnostic_data() {
+        // These values may depend on decrypted input. Never attach them to RPC data.
+        for reason in [
+            InvalidTransaction::CallGasCostMoreThanGasLimit {
+                initial_gas: 123_456,
+                gas_limit: 21_000,
+            },
+            InvalidTransaction::GasFloorMoreThanGasLimit { gas_floor: 987_654, gas_limit: 21_000 },
+        ] {
+            let wire = RpcInvalidTransactionError::from(reason).into_rpc_err();
+            assert_eq!(wire.message(), "intrinsic gas too low");
+            assert_eq!(wire.code(), RpcInvalidTransactionError::GasTooLow.error_code());
+            assert!(wire.data().is_none());
+        }
+        let legacy: jsonrpsee_types::ErrorObjectOwned =
+            RpcPoolError::from(InvalidPoolTransactionError::IntrinsicGasTooLow).into();
+        assert_eq!(legacy.message(), "intrinsic gas too low");
+        assert_eq!(legacy.code(), RpcInvalidTransactionError::GasTooLow.error_code());
+        assert!(legacy.data().is_none());
+    }
 
     #[test]
     fn timed_out_error() {

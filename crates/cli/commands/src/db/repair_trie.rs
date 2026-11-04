@@ -67,7 +67,9 @@ fn verify_only<N: NodeTypesWithDB>(provider_factory: ProviderFactory<N>) -> eyre
                 last_progress_time = Instant::now();
             }
         } else {
-            warn!("Inconsistency found: {output:?}");
+            // Only log the kind: the full output contains hashed account addresses,
+            // trie paths, and node values, which are private.
+            warn!(kind = output_kind(&output), "Inconsistency found");
             inconsistent_nodes += 1;
         }
     }
@@ -104,7 +106,9 @@ fn verify_and_repair<N: NodeTypesWithDB>(provider_factory: ProviderFactory<N>) -
         let output = output_result?;
 
         if !matches!(output, Output::Progress(_)) {
-            warn!("Inconsistency found, will repair: {output:?}");
+            // Only log the kind: the full output contains hashed account addresses,
+            // trie paths, and node values, which are private.
+            warn!(kind = output_kind(&output), "Inconsistency found, will repair");
             inconsistent_nodes += 1;
         }
 
@@ -158,6 +162,19 @@ fn verify_and_repair<N: NodeTypesWithDB>(provider_factory: ProviderFactory<N>) -
     }
 
     Ok(())
+}
+
+/// Returns a short, non-sensitive label for a verifier output.
+const fn output_kind(output: &Output) -> &'static str {
+    match output {
+        Output::AccountExtra(..) => "account_extra",
+        Output::StorageExtra(..) => "storage_extra",
+        Output::AccountWrong { .. } => "account_wrong",
+        Output::StorageWrong { .. } => "storage_wrong",
+        Output::AccountMissing(..) => "account_missing",
+        Output::StorageMissing(..) => "storage_missing",
+        Output::Progress(..) => "progress",
+    }
 }
 
 /// Output progress information based on the last seen account path.

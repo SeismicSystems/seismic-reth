@@ -5,8 +5,9 @@ Dumps a stage from a range into a new database
 ```bash
 $ reth stage dump --help
 ```
+
 ```txt
-Usage: reth stage dump [OPTIONS] <COMMAND>
+Usage: seismic-reth stage dump [OPTIONS] <COMMAND>
 
 Commands:
   execution        Execution stage
