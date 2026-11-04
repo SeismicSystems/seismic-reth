@@ -446,7 +446,7 @@ mod tests {
             .unwrap(),
         });
         let mut keys = PurposeKeys::well_known();
-        keys.rng_ikm = [42; 64];
+        keys.rng_ikm = seismic_revm::RngIkm::from_bytes([42; 64]);
         live.executor_factory.keyring.insert_epoch(1, keys).unwrap();
         let env = snapshot.evm_env(&Header {
             number: 100,

@@ -102,7 +102,7 @@ fn fetched_orphan_does_not_change_rng_for_identical_parent() {
     let exposed = config();
     learn_orphan(&exposed);
     let mut keys = PurposeKeys::well_known();
-    keys.rng_ikm = [42; 64];
+    keys.rng_ikm = seismic_revm::RngIkm::from_bytes([42; 64]);
     exposed.executor_factory.keyring.insert_epoch(1, keys).unwrap();
     assert_eq!(
         pre_execute(&exposed, None, 200).unwrap(),
@@ -116,7 +116,7 @@ fn replacement_activation_is_selected_from_parent() {
     let clean = config();
     learn_orphan(&exposed);
     let mut keys = PurposeKeys::well_known();
-    keys.rng_ikm = [42; 64];
+    keys.rng_ikm = seismic_revm::RngIkm::from_bytes([42; 64]);
     for node in [&exposed, &clean] {
         node.executor_factory.keyring.insert_epoch(1, keys.clone()).unwrap();
     }
@@ -140,7 +140,7 @@ fn missing_parent_epoch_is_retryable_without_schedule_publication() {
     assert!(pre_execute(&node, Some(200), 200).is_err());
     assert_eq!(node.executor_factory.keyring.requested_epochs(), vec![1]);
     let mut keys = PurposeKeys::well_known();
-    keys.rng_ikm = [42; 64];
+    keys.rng_ikm = seismic_revm::RngIkm::from_bytes([42; 64]);
     node.executor_factory.keyring.insert_epoch(1, keys).unwrap();
     assert!(node.executor_factory.keyring.requested_epochs().is_empty());
     assert_ne!(pre_execute(&node, Some(200), 200).unwrap(), pre_execute(&node, None, 200).unwrap());

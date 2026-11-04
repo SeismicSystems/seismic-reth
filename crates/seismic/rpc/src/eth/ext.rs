@@ -978,7 +978,7 @@ mod tests {
     fn test_keys(seed: u8) -> PurposeKeys {
         let sk = SecretKey::from_byte_array(&[seed; 32]).unwrap();
         let tx_io = secp256k1::Keypair::from_secret_key(&Secp256k1::new(), &sk);
-        PurposeKeys { tx_io, rng_ikm: [seed; 64] }
+        PurposeKeys { tx_io, rng_ikm: seismic_crypto::RngIkm::from_bytes([seed; 64]) }
     }
 
     #[test]

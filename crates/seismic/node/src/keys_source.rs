@@ -4,7 +4,8 @@ use std::{path::Path, time::Duration};
 
 use alloy_seismic_evm::{secp256k1, PurposeKeys};
 use reth_node_core::args::{PurposeKeysArgs, PurposeKeysSource};
-use seismic_custodian_ipc::{CustodianClient, RngIkmBytes, TxIoKeypairBytes};
+use seismic_crypto::RngIkm;
+use seismic_custodian_ipc::{CustodianClient, RngIkmBytes, TxIoSecretKeyBytes};
 use tracing::{info, warn};
 
 /// The genesis key epoch. Boot always fetches epoch 0; later epochs are fetched by
@@ -39,7 +40,11 @@ pub fn well_known_purpose_keys_at(epoch: u64) -> eyre::Result<PurposeKeys> {
         return Ok(PurposeKeys::well_known());
     }
     let tx_io_sk = derive_dev_tx_io_sk(epoch)?;
-    let rng_ikm = derive_dev_purpose_bytes::<64>("rng-precompile", epoch, 0)?;
+    let rng_ikm = RngIkm::from_bytes(derive_dev_purpose_bytes::<{ RngIkm::LEN }>(
+        "rng-precompile",
+        epoch,
+        0,
+    )?);
     Ok(PurposeKeys {
         tx_io: secp256k1::Keypair::from_secret_key(&secp256k1::Secp256k1::new(), &tx_io_sk),
         rng_ikm,
@@ -157,7 +162,7 @@ async fn fetch_keys_from_custodian(
 ) -> eyre::Result<PurposeKeys> {
     tokio::time::timeout(Duration::from_secs(timeout_seconds), async {
         let mut custodian = CustodianClient::connect(socket).await?;
-        let tx_io = custodian.get_tx_io_keypair(epoch).await?;
+        let tx_io = custodian.get_tx_io_secret_key(epoch).await?;
         let rng = custodian.get_rng_ikm(epoch).await?;
         purpose_keys_from_custodian_bytes(&tx_io, &rng)
     })
@@ -165,24 +170,17 @@ async fn fetch_keys_from_custodian(
     .map_err(|_| eyre::eyre!("custodian fetch timed out after {timeout_seconds}s"))?
 }
 
-/// Decode the custodian's raw key bytes into the typed purpose-key bundle, rejecting a
-/// mismatched tx-io keypair — a node must never advertise a public key whose traffic it
-/// cannot decrypt.
+/// Decode the custodian's raw key bytes into the typed purpose-key bundle. The custodian
+/// serves only the tx-io secret key; the public key is derived from it here, so the node
+/// can never advertise a public key whose traffic it cannot decrypt.
 fn purpose_keys_from_custodian_bytes(
-    tx_io: &TxIoKeypairBytes,
+    tx_io: &TxIoSecretKeyBytes,
     rng: &RngIkmBytes,
 ) -> eyre::Result<PurposeKeys> {
-    let secp = secp256k1::Secp256k1::new();
     let tx_io_sk = secp256k1::SecretKey::from_byte_array(&tx_io.sk)?;
-    let tx_io_pk = secp256k1::PublicKey::from_byte_array_compressed(&tx_io.pk)?;
-    let derived_pk = tx_io_sk.public_key(&secp);
-    eyre::ensure!(
-        tx_io_pk == derived_pk,
-        "custodian served a mismatched tx-io keypair: public key {tx_io_pk} is not the secret key's ({derived_pk})"
-    );
     Ok(PurposeKeys {
-        tx_io: secp256k1::Keypair::from_secret_key(&secp, &tx_io_sk),
-        rng_ikm: rng.ikm,
+        tx_io: secp256k1::Keypair::from_secret_key(&secp256k1::Secp256k1::new(), &tx_io_sk),
+        rng_ikm: RngIkm::from_bytes(rng.ikm),
     })
 }
 
@@ -238,36 +236,14 @@ mod tests {
     fn custodian_bytes_decode_to_purpose_keys() {
         use seismic_crypto::{well_known_rng_ikm, well_known_tx_io_keypair};
 
-        let keypair = well_known_tx_io_keypair();
-        let tx_io = TxIoKeypairBytes {
-            sk: keypair.secret_key().secret_bytes(),
-            pk: keypair.public_key().serialize(),
-        };
-        let rng = RngIkmBytes { ikm: well_known_rng_ikm() };
+        let tx_io =
+            TxIoSecretKeyBytes { sk: well_known_tx_io_keypair().secret_key().secret_bytes() };
+        let rng = RngIkmBytes { ikm: *well_known_rng_ikm().as_bytes() };
 
         let keys = purpose_keys_from_custodian_bytes(&tx_io, &rng).expect("decode purpose keys");
         let expected = PurposeKeys::well_known();
         assert_eq!(keys.tx_io, expected.tx_io);
         assert_eq!(keys.rng_ikm, expected.rng_ikm);
-    }
-
-    /// A custodian response whose public key is not the secret key's must be rejected
-    /// at decode time instead of booting a node that advertises a key it cannot
-    /// decrypt for.
-    #[test]
-    fn mismatched_custodian_keypair_is_rejected() {
-        use seismic_crypto::{well_known_rng_ikm, well_known_tx_io_keypair};
-
-        let other_sk = secp256k1::SecretKey::from_byte_array(&[1; 32]).expect("valid secret key");
-        let tx_io = TxIoKeypairBytes {
-            sk: other_sk.secret_bytes(),
-            pk: well_known_tx_io_keypair().public_key().serialize(),
-        };
-        let rng = RngIkmBytes { ikm: well_known_rng_ikm() };
-
-        let err = purpose_keys_from_custodian_bytes(&tx_io, &rng)
-            .expect_err("mismatched keypair must be rejected");
-        assert!(err.to_string().contains("mismatched tx-io keypair"), "unexpected error: {err}");
     }
 
     /// A stalled custodian socket (accepts connections but never replies) must make
