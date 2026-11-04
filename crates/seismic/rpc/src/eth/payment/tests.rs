@@ -507,7 +507,9 @@ fn signed_request_conversion_and_simulation_use_the_exact_selected_token() {
     for ((address, key), value) in fixture.slots {
         db.insert_account_storage(address, key, value).unwrap();
     }
-    let mut evm = Context::seismic_with_rng_key([0; 64]).with_db(db).build_seismic_evm();
+    let mut evm = Context::seismic_with_rng_key(seismic_revm::RngIkm::from_bytes([0; 64]))
+        .with_db(db)
+        .build_seismic_evm();
     let result = evm.transact(transaction).unwrap();
     assert!(result.result.is_success());
     assert_eq!(result.state[&CALLER].info.balance, U256::from(1_000_000));
