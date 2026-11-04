@@ -9,13 +9,13 @@
 
 mod common;
 
+use crate::common::rpc::get_nonce;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{Address, Bytes, B256, U256};
 use alloy_signer_local::PrivateKeySigner;
 use common::gas_tokens::{TokenKind, TokenTestContext, GAS_PRICE};
 use reth_primitives_traits::{SealedBlock, SignedTransaction};
 use reth_provider::StateProviderFactory;
-use reth_seismic_node::utils::test_utils::get_nonce;
 use reth_seismic_primitives::SeismicBlock;
 use reth_transaction_pool::TransactionPool;
 use seismic_alloy_consensus::GasPayment;

@@ -1,3 +1,4 @@
+use crate::common::e2e::{ensure_mock_purpose_keys, setup};
 use alloy_consensus::BlockHeader;
 use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{Address, U256};
@@ -5,7 +6,6 @@ use alloy_rpc_types_eth::TransactionRequest;
 use eyre::Result;
 use jsonrpsee::http_client::HttpClientBuilder;
 use reth_e2e_test_utils::transaction::TransactionTestContext;
-use reth_seismic_node::utils::e2e::ensure_mock_purpose_keys;
 use reth_seismic_rpc::ext::SeismicApiClient;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -13,7 +13,7 @@ async fn test_seismic_node_info() -> Result<()> {
     reth_tracing::init_test_tracing();
     ensure_mock_purpose_keys();
 
-    let (mut nodes, _tasks, _wallet) = reth_seismic_node::utils::e2e::setup(1).await?;
+    let (mut nodes, _tasks, _wallet) = setup(1).await?;
     let node = nodes.pop().unwrap();
     let expected_node_record = node.network.record();
     let client = HttpClientBuilder::default().build(node.rpc_url().as_str())?;
@@ -31,7 +31,7 @@ async fn test_seismic_produce_blocks() -> Result<()> {
     reth_tracing::init_test_tracing();
     ensure_mock_purpose_keys();
 
-    let (mut nodes, _tasks, wallet) = reth_seismic_node::utils::e2e::setup(1).await?;
+    let (mut nodes, _tasks, wallet) = setup(1).await?;
     let mut node = nodes.pop().unwrap();
 
     let tx = TransactionRequest {

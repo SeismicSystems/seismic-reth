@@ -9,6 +9,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // Test file - panics are
                                                                    // acceptable
 
+use crate::common::e2e::{ensure_mock_purpose_keys, setup};
 use alloy_consensus::proofs::calculate_transaction_root;
 use alloy_eips::eip2718::{Decodable2718, Encodable2718};
 use alloy_primitives::{Address, Bytes, TxKind};
@@ -16,10 +17,7 @@ use alloy_rpc_types_engine::PayloadStatusEnum;
 use eyre::Result;
 use reth_payload_primitives::PayloadTypes;
 use reth_primitives_traits::SealedBlock;
-use reth_seismic_node::{
-    engine::SeismicEngineTypes,
-    utils::e2e::{ensure_mock_purpose_keys, setup},
-};
+use reth_seismic_node::engine::SeismicEngineTypes;
 use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use reth_seismic_test_utils::{get_unsigned_legacy_tx_request, sign_tx};
 use std::time::Duration;

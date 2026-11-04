@@ -8,11 +8,11 @@
 //! handlers directly (reth tags those two handlers independently).
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // Test file.
 
+use crate::common::e2e::{ensure_mock_purpose_keys, setup, SeismicTestNode};
 use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{hex::FromHex, Bytes, TxKind};
 use alloy_rpc_types::{Block, TransactionInput, TransactionRequest};
 use jsonrpsee::http_client::HttpClientBuilder;
-use reth_seismic_node::utils::e2e::{ensure_mock_purpose_keys, setup};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
 use reth_seismic_test_utils::{get_signed_seismic_call_typed_data, sign_tx};
 use seismic_alloy_rpc_types::{SeismicCallRequest, SeismicTransactionRequest};
@@ -319,7 +319,7 @@ async fn test_txtype_unsigned_type74_cannot_spoof() {
 /// Deploy the probe as a standard tx via the signer's account (nonce 0) and return its address.
 async fn deploy_probe(
     client: &jsonrpsee::http_client::HttpClient,
-    node: &mut reth_seismic_node::utils::e2e::SeismicTestNode,
+    node: &mut SeismicTestNode,
     signer: &alloy_signer_local::PrivateKeySigner,
     from: alloy_primitives::Address,
     chain_id: u64,

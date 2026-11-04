@@ -9718,7 +9718,6 @@ dependencies = [
  "reth-seismic-evm",
  "reth-seismic-forks",
  "reth-seismic-keys",
- "reth-seismic-node",
  "reth-seismic-payload-builder",
  "reth-seismic-primitives",
  "reth-seismic-rpc",

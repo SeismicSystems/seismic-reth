@@ -7,6 +7,7 @@
 //! that the Seismic chain spec with Mercury hardfork active at genesis is correctly reflected
 //! in the `eth_config` RPC response.
 
+use crate::common::e2e::test_chain_spec;
 use alloy_eips::eip7910::EthConfig;
 use alloy_primitives::Address;
 use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
@@ -15,9 +16,7 @@ use alloy_seismic_evm::PurposeKeys;
 use reth_chainspec::{EthChainSpec, Hardforks, Head};
 use reth_e2e_test_utils::setup;
 use reth_seismic_keys::PurposeKeyring;
-use reth_seismic_node::{
-    node::SeismicNode, purpose_keys::init_purpose_keyring, utils::e2e::test_chain_spec,
-};
+use reth_seismic_node::{node::SeismicNode, purpose_keys::init_purpose_keyring};
 use std::sync::Once;
 
 /// Ensure mock purpose keys are initialized exactly once per test binary.
@@ -51,7 +50,7 @@ async fn test_mercury_hardfork_config() -> eyre::Result<()> {
         1,
         chain_spec.clone(),
         false,
-        reth_seismic_node::utils::e2e::seismic_payload_attributes,
+        crate::common::e2e::seismic_payload_attributes,
     )
     .await?;
     let mut node = nodes.pop().unwrap();

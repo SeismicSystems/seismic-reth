@@ -12,6 +12,10 @@
 use super::common::gas_tokens::{
     Receipt as FixtureReceipt, TokenFixture, TokenKind, TokenTestContext,
 };
+use crate::common::{
+    e2e::{ensure_mock_purpose_keys, setup, SeismicTestNode},
+    rpc::get_nonce,
+};
 use alloy_consensus::{proofs::calculate_transaction_root, Transaction as _, TxEnvelope};
 use alloy_dyn_abi::EventExt;
 use alloy_eips::eip2718::Encodable2718;
@@ -35,10 +39,6 @@ use core::str::FromStr;
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
 use reth_e2e_test_utils::wallet::Wallet;
 use reth_rpc_eth_api::EthApiClient;
-use reth_seismic_node::utils::{
-    e2e::{ensure_mock_purpose_keys, setup, SeismicTestNode},
-    test_utils::get_nonce,
-};
 use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use reth_seismic_rpc::{
     ext::{EthApiOverrideClient, COMPATIBILITY_BALANCE},

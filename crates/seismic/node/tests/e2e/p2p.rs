@@ -1,6 +1,6 @@
+use crate::common::e2e::{advance_chain, ensure_mock_purpose_keys, setup};
 use alloy_consensus::BlockHeader;
 use futures::StreamExt;
-use reth_seismic_node::utils::e2e::{advance_chain, ensure_mock_purpose_keys, setup};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 

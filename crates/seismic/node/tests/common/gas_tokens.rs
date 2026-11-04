@@ -1,5 +1,9 @@
 //! Offline, transaction-based fixtures using real SUSDC and `HypERC20` creation bytecode.
 
+use super::{
+    e2e::{ensure_mock_purpose_keys, seismic_payload_attributes, test_chain_spec, SeismicTestNode},
+    rpc::get_nonce,
+};
 use alloy_consensus::{BlockHeader, SignableTransaction, TxLegacy};
 use alloy_eips::eip2718::{Decodable2718, Encodable2718};
 use alloy_primitives::{address, hex, keccak256, Address, Bytes, TxKind, B256, U256};
@@ -19,16 +23,7 @@ use reth_payload_primitives::PayloadTypes;
 use reth_primitives_traits::{SealedBlock, SealedHeader};
 use reth_provider::StateProviderFactory;
 use reth_seismic_engine_primitives::SeismicBuiltPayload;
-use reth_seismic_node::{
-    engine::SeismicEngineTypes,
-    node::SeismicNode,
-    utils::{
-        e2e::{
-            ensure_mock_purpose_keys, seismic_payload_attributes, test_chain_spec, SeismicTestNode,
-        },
-        test_utils::get_nonce,
-    },
-};
+use reth_seismic_node::{engine::SeismicEngineTypes, node::SeismicNode};
 use reth_seismic_primitives::{SeismicBlock, SeismicTransactionSigned};
 use reth_seismic_rpc::ext::EthApiOverrideClient;
 use reth_seismic_test_utils::{get_unsigned_seismic_tx_request, sign_tx};

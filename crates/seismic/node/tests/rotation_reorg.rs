@@ -5,6 +5,9 @@
 //! the simulation tests, which deliberately require an unfetched epoch.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+mod common;
+
+use crate::common::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes, test_chain_spec};
 use alloy_eips::eip2718::Encodable2718;
 use alloy_primitives::{Bytes, TxKind, B256};
 use alloy_sol_types::{sol, SolCall};
@@ -17,11 +20,7 @@ use reth_seismic_keys::{
     registry::{ADMIN_SLOT, KEY_ROTATION_REGISTRY},
     PurposeKeyring,
 };
-use reth_seismic_node::{
-    node::SeismicNode,
-    rotation::watch_key_rotations,
-    utils::e2e::{ensure_mock_purpose_keys, seismic_payload_attributes, test_chain_spec},
-};
+use reth_seismic_node::{node::SeismicNode, rotation::watch_key_rotations};
 use reth_seismic_test_utils::{get_unsigned_legacy_tx_request, sign_tx};
 use std::{sync::Arc, time::Duration};
 
