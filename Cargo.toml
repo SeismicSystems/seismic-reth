@@ -762,8 +762,8 @@ vergen-git2 = "1.0.5"
 
 [patch.crates-io]
 # enclave crates
-seismic-crypto = { git = "https://github.com/SeismicSystems/enclave.git", rev = "7dc159d50f7142466e0ac5c73e15d524d996b5b2" }
-seismic-custodian-ipc = { git = "https://github.com/SeismicSystems/enclave.git", rev = "7dc159d50f7142466e0ac5c73e15d524d996b5b2" }
+seismic-crypto = { git = "https://github.com/SeismicSystems/enclave.git", rev = "0b9a20aab505d50d92290f1626ee09dc47adb486" }
+seismic-custodian-ipc = { git = "https://github.com/SeismicSystems/enclave.git", rev = "0b9a20aab505d50d92290f1626ee09dc47adb486" }
 
 # seismic-alloy-core
 alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "994f7b3fbc4582c2e06a00d03c7f3fe476b1b7c7" }

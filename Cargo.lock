@@ -11303,7 +11303,7 @@ dependencies = [
 [[package]]
 name = "seismic-crypto"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=7dc159d50f7142466e0ac5c73e15d524d996b5b2#7dc159d50f7142466e0ac5c73e15d524d996b5b2"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=0b9a20aab505d50d92290f1626ee09dc47adb486#0b9a20aab505d50d92290f1626ee09dc47adb486"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -11318,13 +11318,15 @@ dependencies = [
 [[package]]
 name = "seismic-custodian-ipc"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=7dc159d50f7142466e0ac5c73e15d524d996b5b2#7dc159d50f7142466e0ac5c73e15d524d996b5b2"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=0b9a20aab505d50d92290f1626ee09dc47adb486#0b9a20aab505d50d92290f1626ee09dc47adb486"
 dependencies = [
  "ciborium",
+ "libc",
  "serde",
  "serde_bytes",
  "thiserror 2.0.17",
  "tokio",
+ "tracing",
  "zeroize",
 ]
 

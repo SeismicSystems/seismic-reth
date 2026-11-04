@@ -12,7 +12,7 @@ workspace = true
 
 [dependencies]
 alloy-seismic-evm.workspace = true
-seismic-custodian-ipc.workspace = true
+seismic-custodian-ipc = { workspace = true, features = ["client"] }
 
 # seismic-reth
 reth-seismic-keys.workspace = true
