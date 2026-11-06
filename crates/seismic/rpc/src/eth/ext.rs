@@ -381,9 +381,10 @@ impl<Eth> EthApiExt<Eth> {
         else {
             return Ok(err);
         };
-        let Some(output) = revert.output() else {
+        let output = revert.output();
+        if output.is_empty() {
             return Ok(err);
-        };
+        }
 
         let sender = parse_request_sender(seismic_tx_request)?;
         let metadata = Self::build_metadata(seismic_tx_request, sender)?;
@@ -680,10 +681,9 @@ where
                         let err_str = match err.as_err() {
                             Some(EthApiError::InvalidTransaction(
                                 RpcInvalidTransactionError::Revert(revert),
-                            )) => match revert.output() {
-                                Some(output) => format!("execution reverted: {output}"),
-                                None => err.to_string(),
-                            },
+                            )) if !revert.output().is_empty() => {
+                                format!("execution reverted: {}", revert.output())
+                            }
                             _ => err.to_string(),
                         };
                         EthCallResponse { value: None, error: Some(err_str) }
@@ -1042,11 +1042,10 @@ mod tests {
                 EthApiExt::<()>::reencrypt_revert_output(error, &request, &request_key).unwrap();
             let output = match encrypted {
                 EthApiError::InvalidTransaction(RpcInvalidTransactionError::Revert(revert)) => {
-                    revert.output().cloned()
+                    revert.output().clone()
                 }
-                _ => None,
-            }
-            .unwrap();
+                _ => panic!("expected a revert error"),
+            };
             assert_eq!(
                 elements.client_decrypt(&output, &request_pk, &client_sk, &metadata).unwrap(),
                 plaintext
