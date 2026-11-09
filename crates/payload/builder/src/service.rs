@@ -407,7 +407,16 @@ where
                         trace!(target: "payload_builder", %id, "payload job finished");
                     }
                     Poll::Ready(Err(err)) => {
-                        warn!(target: "payload_builder",%err, ?id, "Payload builder job failed; resolving payload");
+                        let error_kind = match &err {
+                            PayloadBuilderError::MissingParentHeader(_) => "missing_parent_header",
+                            PayloadBuilderError::MissingParentBlock(_) => "missing_parent_block",
+                            PayloadBuilderError::ChannelClosed => "channel_closed",
+                            PayloadBuilderError::MissingPayload => "missing_payload",
+                            PayloadBuilderError::Internal(_) => "internal",
+                            PayloadBuilderError::EvmExecutionError(_) => "evm",
+                            PayloadBuilderError::Other(_) => "other",
+                        };
+                        warn!(target: "payload_builder", error_kind, %id, "Payload builder job failed; resolving payload");
                         this.metrics.inc_failed_jobs();
                         this.metrics.set_active_jobs(this.payload_jobs.len());
                     }
@@ -443,7 +452,20 @@ where
                                 }
                                 Err(err) => {
                                     this.metrics.inc_failed_jobs();
-                                    warn!(target: "payload_builder", %err, %id, "Failed to create payload builder job");
+                                    let error_kind = match &err {
+                                        PayloadBuilderError::MissingParentHeader(_) => {
+                                            "missing_parent_header"
+                                        }
+                                        PayloadBuilderError::MissingParentBlock(_) => {
+                                            "missing_parent_block"
+                                        }
+                                        PayloadBuilderError::ChannelClosed => "channel_closed",
+                                        PayloadBuilderError::MissingPayload => "missing_payload",
+                                        PayloadBuilderError::Internal(_) => "internal",
+                                        PayloadBuilderError::EvmExecutionError(_) => "evm",
+                                        PayloadBuilderError::Other(_) => "other",
+                                    };
+                                    warn!(target: "payload_builder", error_kind, %id, "Failed to create payload builder job");
                                     res = Err(err);
                                 }
                             }

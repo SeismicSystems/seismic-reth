@@ -219,7 +219,7 @@ pub(crate) fn evm_state_to_hashed_post_state(update: EvmState) -> HashedPostStat
     for (address, account) in update {
         if account.is_touched() {
             let hashed_address = keccak256(address);
-            trace!(target: "engine::root", ?address, ?hashed_address, "Adding account to state update");
+            trace!(target: "engine::root", "Adding account to state update");
 
             let destroyed = account.is_selfdestructed();
             let info = if destroyed { None } else { Some(account.info.into()) };
@@ -446,7 +446,6 @@ where
             trace!(
                 target: "engine::root",
                 proof_sequence_number,
-                ?proof_targets,
                 storage_targets,
                 "Starting dedicated storage proof calculation",
             );
@@ -518,7 +517,6 @@ where
             trace!(
                 target: "engine::root",
                 proof_sequence_number,
-                ?proof_targets,
                 account_targets,
                 storage_targets,
                 ?source,
@@ -1063,9 +1061,15 @@ where
                         }
                     }
                     MultiProofMessage::ProofCalculationError(err) => {
+                        let error_kind = match err {
+                            ProviderError::Database(_) => "database",
+                            ProviderError::Rlp(_) => "rlp",
+                            ProviderError::ConsistentView(_) => "consistent_view",
+                            _ => "other",
+                        };
                         error!(
                             target: "engine::root",
-                            ?err,
+                            error_kind,
                             "proof calculation error"
                         );
                         return
@@ -1287,8 +1291,8 @@ mod tests {
         let mut storage = HashedStorage::default();
         let slot1 = B256::random();
         let slot2 = B256::random();
-        storage.storage.insert(slot1, U256::ZERO);
-        storage.storage.insert(slot2, U256::from(1));
+        storage.storage.insert(slot1, U256::ZERO.into());
+        storage.storage.insert(slot2, U256::from(1).into());
         state.storages.insert(addr1, storage);
 
         state
@@ -1393,8 +1397,8 @@ mod tests {
         state.accounts.insert(addr2, Some(Default::default()));
 
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, U256::ZERO);
-        storage.storage.insert(slot2, U256::from(1));
+        storage.storage.insert(slot1, U256::ZERO.into());
+        storage.storage.insert(slot2, U256::from(1).into());
         state.storages.insert(addr1, storage);
 
         let mut fetched_slots = HashSet::default();
@@ -1420,8 +1424,8 @@ mod tests {
         // don't add the account to state.accounts (simulating unmodified account)
         // but add storage updates for this account
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, U256::from(1));
-        storage.storage.insert(slot2, U256::from(2));
+        storage.storage.insert(slot1, U256::from(1).into());
+        storage.storage.insert(slot2, U256::from(2).into());
         state.storages.insert(addr, storage);
 
         assert!(!state.accounts.contains_key(&addr));
@@ -1534,8 +1538,8 @@ mod tests {
 
         // add storage updates
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, U256::from(100));
-        storage.storage.insert(slot2, U256::from(200));
+        storage.storage.insert(slot1, U256::from(100).into());
+        storage.storage.insert(slot2, U256::from(200).into());
         state.storages.insert(addr, storage);
 
         // mark slot1 as already fetched
@@ -1546,7 +1550,7 @@ mod tests {
         // update multi_added_removed_keys to mark slot1 as removed
         let mut removed_state = HashedPostState::default();
         let mut removed_storage = HashedStorage::default();
-        removed_storage.storage.insert(slot1, U256::ZERO); // U256::ZERO marks as removed
+        removed_storage.storage.insert(slot1, U256::ZERO.into()); // U256::ZERO marks as removed
         removed_state.storages.insert(addr, removed_storage);
         multi_added_removed_keys.update_with_state(&removed_state);
 
@@ -1574,7 +1578,7 @@ mod tests {
 
         // add wiped storage
         let mut storage = HashedStorage::new(true);
-        storage.storage.insert(slot1, U256::from(100));
+        storage.storage.insert(slot1, U256::from(100).into());
         state.storages.insert(addr, storage);
 
         let targets = get_proof_targets(&state, &fetched, &multi_added_removed_keys);
@@ -1602,8 +1606,8 @@ mod tests {
 
         // add storage updates for slot1 and slot2 only
         let mut storage = HashedStorage::default();
-        storage.storage.insert(slot1, U256::from(100));
-        storage.storage.insert(slot2, U256::from(200));
+        storage.storage.insert(slot1, U256::from(100).into());
+        storage.storage.insert(slot2, U256::from(200).into());
         state.storages.insert(addr, storage);
 
         // mark all slots as already fetched
@@ -1616,7 +1620,7 @@ mod tests {
         // mark slot3 as removed (even though it's not in the state update)
         let mut removed_state = HashedPostState::default();
         let mut removed_storage = HashedStorage::default();
-        removed_storage.storage.insert(slot3, U256::ZERO);
+        removed_storage.storage.insert(slot3, U256::ZERO.into());
         removed_state.storages.insert(addr, removed_storage);
         multi_added_removed_keys.update_with_state(&removed_state);
 

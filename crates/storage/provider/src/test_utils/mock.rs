@@ -8,8 +8,8 @@ use crate::{
 use alloy_consensus::{constants::EMPTY_ROOT_HASH, transaction::TransactionMeta, BlockHeader};
 use alloy_eips::{BlockHashOrNumber, BlockId, BlockNumberOrTag};
 use alloy_primitives::{
-    keccak256, map::HashMap, Address, BlockHash, BlockNumber, Bytes, StorageKey, StorageValue,
-    TxHash, TxNumber, B256, U256,
+    keccak256, map::HashMap, Address, BlockHash, BlockNumber, Bytes, StorageKey, TxHash, TxNumber,
+    B256, U256,
 };
 use parking_lot::Mutex;
 use reth_chain_state::{CanonStateNotifications, CanonStateSubscriptions};
@@ -43,6 +43,8 @@ use std::{
     sync::Arc,
 };
 use tokio::sync::broadcast;
+
+use revm_state::FlaggedStorage;
 
 /// A mock implementation for Provider interfaces.
 #[derive(Debug)]
@@ -197,7 +199,7 @@ impl Default for MockEthProvider {
 pub struct ExtendedAccount {
     account: Account,
     bytecode: Option<Bytecode>,
-    storage: HashMap<StorageKey, StorageValue>,
+    storage: HashMap<StorageKey, FlaggedStorage>,
 }
 
 impl ExtendedAccount {
@@ -222,7 +224,7 @@ impl ExtendedAccount {
     /// the value is updated.
     pub fn extend_storage(
         mut self,
-        storage: impl IntoIterator<Item = (StorageKey, StorageValue)>,
+        storage: impl IntoIterator<Item = (StorageKey, FlaggedStorage)>,
     ) -> Self {
         self.storage.extend(storage);
         self
@@ -866,7 +868,7 @@ where
         &self,
         account: Address,
         storage_key: StorageKey,
-    ) -> ProviderResult<Option<StorageValue>> {
+    ) -> ProviderResult<Option<FlaggedStorage>> {
         let lock = self.accounts.lock();
         Ok(lock.get(&account).and_then(|account| account.storage.get(&storage_key)).copied())
     }

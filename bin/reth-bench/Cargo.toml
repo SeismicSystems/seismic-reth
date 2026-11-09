@@ -68,7 +68,6 @@ csv.workspace = true
 
 [features]
 default = ["jemalloc"]
-
 asm-keccak = [
     "reth-node-core/asm-keccak",
     "alloy-primitives/asm-keccak",

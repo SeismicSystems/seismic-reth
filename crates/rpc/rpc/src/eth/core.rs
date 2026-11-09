@@ -154,6 +154,7 @@ where
         max_batch_size: usize,
         pending_block_kind: PendingBlockKind,
         raw_tx_forwarder: ForwardConfig,
+        enable_storage_apis: bool,
     ) -> Self {
         let inner = EthApiInner::new(
             components,
@@ -171,6 +172,7 @@ where
             max_batch_size,
             pending_block_kind,
             raw_tx_forwarder.forwarder_client(),
+            enable_storage_apis,
         );
 
         Self { inner: Arc::new(inner) }
@@ -310,6 +312,10 @@ pub struct EthApiInner<N: RpcNodeCore, Rpc: RpcConvert> {
 
     /// Configuration for pending block construction.
     pending_block_kind: PendingBlockKind,
+
+    /// Whether storage APIs (`eth_getStorageAt`, `eth_getFlaggedStorageAt`) are enabled.
+    /// Disabled by default to protect private storage information.
+    enable_storage_apis: bool,
 }
 
 impl<N, Rpc> EthApiInner<N, Rpc>
@@ -335,6 +341,7 @@ where
         max_batch_size: usize,
         pending_block_kind: PendingBlockKind,
         raw_tx_forwarder: Option<RpcClient>,
+        enable_storage_apis: bool,
     ) -> Self {
         let signers = parking_lot::RwLock::new(Default::default());
         // get the block number of the latest block
@@ -375,6 +382,7 @@ where
             next_env_builder: Box::new(next_env),
             tx_batch_sender,
             pending_block_kind,
+            enable_storage_apis,
         }
     }
 }
@@ -485,6 +493,12 @@ where
     #[inline]
     pub const fn eth_proof_window(&self) -> u64 {
         self.eth_proof_window
+    }
+
+    /// Returns whether storage APIs (`eth_getStorageAt`, `eth_getFlaggedStorageAt`) are enabled.
+    #[inline]
+    pub const fn storage_apis_enabled(&self) -> bool {
+        self.enable_storage_apis
     }
 
     /// Returns reference to [`BlockingTaskGuard`].

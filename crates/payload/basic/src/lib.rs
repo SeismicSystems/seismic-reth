@@ -3,7 +3,7 @@
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
     html_favicon_url = "https://avatars0.githubusercontent.com/u/97369466?s=256",
-    issue_tracker_base_url = "https://github.com/paradigmxyz/reth/issues/"
+    issue_tracker_base_url = "https://github.com/SeismicSystems/seismic-reth/issues/"
 )]
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
@@ -395,16 +395,16 @@ where
                 Poll::Ready(Ok(outcome)) => match outcome {
                     BuildOutcome::Better { payload, cached_reads } => {
                         this.cached_reads = Some(cached_reads);
-                        debug!(target: "payload_builder", value = %payload.fees(), "built better payload");
+                        debug!(target: "payload_builder", "built better payload");
                         this.best_payload = PayloadState::Best(payload);
                     }
                     BuildOutcome::Freeze(payload) => {
                         debug!(target: "payload_builder", "payload frozen, no further building will occur");
                         this.best_payload = PayloadState::Frozen(payload);
                     }
-                    BuildOutcome::Aborted { fees, cached_reads } => {
+                    BuildOutcome::Aborted { cached_reads, .. } => {
                         this.cached_reads = Some(cached_reads);
-                        trace!(target: "payload_builder", worse_fees = %fees, "skipped payload build of worse block");
+                        trace!(target: "payload_builder", "skipped payload build of worse block");
                     }
                     BuildOutcome::Cancelled => {
                         unreachable!("the cancel signal never fired")
@@ -412,7 +412,16 @@ where
                 },
                 Poll::Ready(Err(error)) => {
                     // job failed, but we simply try again next interval
-                    debug!(target: "payload_builder", %error, "payload build attempt failed");
+                    let error_kind = match &error {
+                        PayloadBuilderError::MissingParentHeader(_) => "missing_parent_header",
+                        PayloadBuilderError::MissingParentBlock(_) => "missing_parent_block",
+                        PayloadBuilderError::ChannelClosed => "channel_closed",
+                        PayloadBuilderError::MissingPayload => "missing_payload",
+                        PayloadBuilderError::Internal(_) => "internal",
+                        PayloadBuilderError::EvmExecutionError(_) => "evm",
+                        PayloadBuilderError::Other(_) => "other",
+                    };
+                    debug!(target: "payload_builder", error_kind, "payload build attempt failed");
                     this.metrics.inc_failed_payload_builds();
                 }
                 Poll::Pending => {
@@ -590,9 +599,18 @@ where
         if let Some(fut) = Pin::new(&mut this.maybe_better).as_pin_mut() {
             if let Poll::Ready(res) = fut.poll(cx) {
                 this.maybe_better = None;
-                if let Ok(Some(payload)) = res.map(|out| out.into_payload())
-                    .inspect_err(|err| warn!(target: "payload_builder", %err, "failed to resolve pending payload"))
-                {
+                if let Ok(Some(payload)) = res.map(|out| out.into_payload()).inspect_err(|err| {
+                    let error_kind = match err {
+                        PayloadBuilderError::MissingParentHeader(_) => "missing_parent_header",
+                        PayloadBuilderError::MissingParentBlock(_) => "missing_parent_block",
+                        PayloadBuilderError::ChannelClosed => "channel_closed",
+                        PayloadBuilderError::MissingPayload => "missing_payload",
+                        PayloadBuilderError::Internal(_) => "internal",
+                        PayloadBuilderError::EvmExecutionError(_) => "evm",
+                        PayloadBuilderError::Other(_) => "other",
+                    };
+                    warn!(target: "payload_builder", error_kind, "failed to resolve pending payload");
+                }) {
                     debug!(target: "payload_builder", "resolving better payload");
                     return Poll::Ready(Ok(payload))
                 }
@@ -610,7 +628,20 @@ where
                 return match res {
                     Ok(res) => {
                         if let Err(err) = &res {
-                            warn!(target: "payload_builder", %err, "failed to resolve empty payload");
+                            let error_kind = match err {
+                                PayloadBuilderError::MissingParentHeader(_) => {
+                                    "missing_parent_header"
+                                }
+                                PayloadBuilderError::MissingParentBlock(_) => {
+                                    "missing_parent_block"
+                                }
+                                PayloadBuilderError::ChannelClosed => "channel_closed",
+                                PayloadBuilderError::MissingPayload => "missing_payload",
+                                PayloadBuilderError::Internal(_) => "internal",
+                                PayloadBuilderError::EvmExecutionError(_) => "evm",
+                                PayloadBuilderError::Other(_) => "other",
+                            };
+                            warn!(target: "payload_builder", error_kind, "failed to resolve empty payload");
                         } else {
                             debug!(target: "payload_builder", "resolving empty payload");
                         }

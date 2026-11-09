@@ -2,7 +2,7 @@
 //! RPC methods.
 
 use super::SpawnBlocking;
-use crate::{EthApiTypes, FromEthApiError, FromEvmError, RpcNodeCore};
+use crate::{AsEthApiError, EthApiTypes, FromEthApiError, FromEvmError, RpcNodeCore};
 use alloy_consensus::{BlockHeader, Transaction};
 use alloy_eips::eip7840::BlobParams;
 use alloy_primitives::{B256, U256};
@@ -13,7 +13,7 @@ use reth_chainspec::{ChainSpecProvider, EthChainSpec};
 use reth_errors::{BlockExecutionError, BlockValidationError, ProviderError, RethError};
 use reth_evm::{
     execute::{BlockBuilder, BlockBuilderOutcome, ExecutionOutcome},
-    ConfigureEvm, Evm, NextBlockEnvAttributes, SpecFor,
+    BlockEnvFor, ConfigureEvm, Evm, NextBlockEnvAttributes, SpecFor,
 };
 use reth_primitives_traits::{transaction::error::InvalidTransactionError, HeaderTy, SealedHeader};
 use reth_revm::{database::StateProviderDatabase, db::State};
@@ -69,6 +69,7 @@ pub trait LoadPendingBlock:
             ProviderBlock<Self::Provider>,
             ProviderReceipt<Self::Provider>,
             SpecFor<Self::Evm>,
+            BlockEnvFor<Self::Evm>,
         >,
         Self::Error,
     > {
@@ -163,7 +164,7 @@ pub trait LoadPendingBlock:
             // Is the pending block cached?
             if let Some(pending_block) = lock.as_ref() {
                 // Is the cached block not expired and latest is its parent?
-                if pending.evm_env.block_env.number == U256::from(pending_block.block().number()) &&
+                if pending.evm_env.block_env.number() == U256::from(pending_block.block().number()) &&
                     parent.hash() == pending_block.block().parent_hash() &&
                     now <= pending_block.expires_at
                 {
@@ -180,7 +181,18 @@ pub trait LoadPendingBlock:
             {
                 Ok(block) => block,
                 Err(err) => {
-                    debug!(target: "rpc", "Failed to build pending block: {:?}", err);
+                    let error_kind = match err.as_err() {
+                        Some(EthApiError::Internal(RethError::Execution(_))) => "execution",
+                        Some(EthApiError::Internal(RethError::Consensus(_))) => "consensus",
+                        Some(EthApiError::Internal(RethError::Database(_))) => "database",
+                        Some(EthApiError::Internal(RethError::Provider(_))) => "provider",
+                        Some(EthApiError::InvalidTransaction(_)) => "invalid_transaction",
+                        Some(EthApiError::InvalidBlockData(_)) => "invalid_block",
+                        Some(EthApiError::Internal(_)) => "internal",
+                        Some(_) => "rpc",
+                        None => "other",
+                    };
+                    debug!(target: "rpc", error_kind, "Failed to build pending block");
                     return Ok(None)
                 }
             };
@@ -244,8 +256,8 @@ pub trait LoadPendingBlock:
         let state = StateProviderDatabase::new(&state_provider);
         let mut db = State::builder().with_database(state).with_bundle_update().build();
 
-        let mut builder = self
-            .evm_config()
+        let evm_config = self.evm_config().snapshot_for_simulation();
+        let mut builder = evm_config
             .builder_for_next_block(&mut db, parent, self.next_env_attributes(parent)?)
             .map_err(RethError::other)
             .map_err(Self::Error::from_eth_err)?;

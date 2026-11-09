@@ -1062,7 +1062,6 @@ impl<T: TransactionOrdering> TxPool<T> {
         // We trace here instead of in structs directly, because the `ParkedPool` type is
         // generic and it would not be possible to distinguish whether a transaction is being
         // added to the `BaseFee` pool, or the `Queued` pool.
-        trace!(target: "txpool", hash=%tx.transaction.hash(), ?pool, "Adding transaction to a subpool");
         match pool {
             SubPool::Queued => self.queued_pool.add_transaction(tx),
             SubPool::Pending => {
@@ -1264,6 +1263,9 @@ pub(crate) struct AllTransactions<T: PoolTransaction> {
     local_transactions_config: LocalTransactionConfig,
     /// All accounts with a pooled authorization
     auths: FxHashMap<SenderId, HashSet<TxHash>>,
+    /// When true, skip native balance checks so transactions are never demoted due to
+    /// insufficient native balance. Used for chains where gas is paid in an alternative token.
+    disable_balance_check: bool,
     /// All Transactions metrics
     metrics: AllTransactionsMetrics,
 }
@@ -1277,6 +1279,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
             local_transactions_config: config.local_transactions_config.clone(),
             minimal_protocol_basefee: config.minimal_protocol_basefee,
             block_gas_limit: config.gas_limit,
+            disable_balance_check: config.disable_balance_check,
             ..Default::default()
         }
     }
@@ -1419,7 +1422,9 @@ impl<T: PoolTransaction> AllTransactions<T> {
                     tx.state.insert(TxState::NO_NONCE_GAPS);
                     tx.state.insert(TxState::NO_PARKED_ANCESTORS);
                     tx.cumulative_cost = U256::ZERO;
-                    if tx.transaction.cost() > &info.balance {
+                    if self.disable_balance_check {
+                        tx.state.insert(TxState::ENOUGH_BALANCE);
+                    } else if tx.transaction.cost() > &info.balance {
                         // sender lacks sufficient funds to pay for this transaction
                         tx.state.remove(TxState::ENOUGH_BALANCE);
                     } else {
@@ -1480,7 +1485,9 @@ impl<T: PoolTransaction> AllTransactions<T> {
 
                 // If the account changed in the block, check the balance.
                 if let Some(changed_balance) = changed_balance {
-                    if &cumulative_cost > changed_balance {
+                    if self.disable_balance_check {
+                        tx.state.insert(TxState::ENOUGH_BALANCE);
+                    } else if &cumulative_cost > changed_balance {
                         // sender lacks sufficient funds to pay for this transaction
                         tx.state.remove(TxState::ENOUGH_BALANCE);
                     } else {
@@ -1943,6 +1950,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
 
         // The next transaction of this sender
         let on_chain_id = TransactionId::new(transaction.sender_id(), on_chain_nonce);
+        let skip_balance_check = self.disable_balance_check;
         {
             // Tracks the next nonce we expect if the transactions are gapless
             let mut next_nonce = on_chain_id.nonce;
@@ -1971,7 +1979,9 @@ impl<T: PoolTransaction> AllTransactions<T> {
                 // Update for next transaction
                 cumulative_cost = tx.next_cumulative_cost();
 
-                if cumulative_cost > on_chain_balance {
+                if skip_balance_check {
+                    tx.state.insert(TxState::ENOUGH_BALANCE);
+                } else if cumulative_cost > on_chain_balance {
                     // sender lacks sufficient funds to pay for this transaction
                     tx.state.remove(TxState::ENOUGH_BALANCE);
                 } else {
@@ -2061,6 +2071,7 @@ impl<T: PoolTransaction> Default for AllTransactions<T> {
             price_bumps: Default::default(),
             local_transactions_config: Default::default(),
             auths: Default::default(),
+            disable_balance_check: false,
             metrics: Default::default(),
         }
     }
@@ -3049,7 +3060,8 @@ mod tests {
 
         // Now decrease basefee to trigger the zero-allocation optimization
         let mut block_info = pool.block_info();
-        block_info.pending_basefee = 450; // tx1 (500) and tx2 (600) can now afford it, tx3 (400) cannot
+        block_info.pending_basefee = 450; // tx1 (500) and tx2 (600) can now afford it, tx3 (400)
+                                          // cannot
         pool.set_block_info(block_info);
 
         // Verify the optimization worked correctly:

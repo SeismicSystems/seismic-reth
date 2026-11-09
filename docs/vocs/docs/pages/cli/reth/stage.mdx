@@ -5,8 +5,9 @@ Manipulate individual stages
 ```bash
 $ reth stage --help
 ```
+
 ```txt
-Usage: reth stage [OPTIONS] <COMMAND>
+Usage: seismic-reth stage [OPTIONS] <COMMAND>
 
 Commands:
   run     Run a single stage

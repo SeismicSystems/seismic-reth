@@ -77,13 +77,36 @@ impl From<DatabaseWriteError> for DatabaseError {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn database_write_error_display_redacts_key() {
+        let error = DatabaseWriteError {
+            info: DatabaseErrorInfo { message: "write failed".into(), code: 1 },
+            operation: DatabaseWriteOperation::Put,
+            table_name: "PlainAccountState",
+            key: b"private-database-key".to_vec(),
+        };
+        let display = error.to_string();
+        let debug = format!("{error:?}");
+
+        for formatted in [display, debug] {
+            assert!(!formatted.contains("private-database-key"));
+            assert!(!formatted.contains("707269766174652d64617461626173652d6b6579"));
+        }
+    }
+}
+
 /// Database write error.
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[error("write operation {:?} failed for key \"{}\" in table {}: {}",
-            self.operation,
-            alloy_primitives::hex::encode(&self.key),
-            self.table_name,
-            self.info)]
+#[derive(Clone, PartialEq, Eq, thiserror::Error)]
+#[error(
+    "write operation {:?} failed in table {}: {}",
+    self.operation,
+    self.table_name,
+    self.info
+)]
 pub struct DatabaseWriteError {
     /// The error code and message.
     pub info: DatabaseErrorInfo,
@@ -93,6 +116,17 @@ pub struct DatabaseWriteError {
     pub table_name: &'static str,
     /// The write key.
     pub key: Vec<u8>,
+}
+
+impl Debug for DatabaseWriteError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("DatabaseWriteError")
+            .field("info", &self.info)
+            .field("operation", &self.operation)
+            .field("table_name", &self.table_name)
+            .field("key", &"<redacted>")
+            .finish()
+    }
 }
 
 /// Database write operation type.

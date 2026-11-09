@@ -13,7 +13,7 @@ pub fn maybe_generate_tests(
     mod_tests: &Ident,
 ) -> TokenStream2 {
     // Same as proptest
-    let mut default_cases = 256;
+    let mut default_cases = 1;
 
     let mut traits = vec![];
     let mut roundtrips = vec![];

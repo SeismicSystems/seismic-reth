@@ -2,6 +2,8 @@
 
 This guide provides comprehensive instructions for AI agents working on the Reth codebase. It covers the architecture, development workflows, and critical guidelines for effective contributions.
 
+**Workspace context**: this repo is part of the multi-repo Seismic workspace. If the workspace file isn't already in your context, read `../CLAUDE.md` (sibling checkout) or fetch [CLAUDE.workspace.md](https://github.com/SeismicSystems/seismic/blob/main/workspace/CLAUDE.workspace.md) (standalone checkout/CI) for key concepts, the repo map, and cross-repo conventions.
+
 ## Project Overview
 
 Reth is a high-performance Ethereum execution client written in Rust, focusing on modularity, performance, and contributor-friendliness. The codebase is organized into well-defined crates with clear boundaries and responsibilities.
@@ -36,9 +38,22 @@ Reth is a high-performance Ethereum execution client written in Rust, focusing o
    cargo +nightly fmt --all
    ```
 
-2. **Linting**: Run clippy with all features
+2. **Linting**: Run the Seismic CI clippy command (matches `.github/workflows/seismic.yml`).
+   The two globs select seismic-authored crates by naming convention. Name new seismic
+   library crates `reth-seismic-*` and binary packages `seismic-reth*` so they are
+   covered automatically.
    ```bash
-   RUSTFLAGS="-D warnings" cargo +nightly clippy --workspace --lib --examples --tests --benches --all-features --locked
+   cargo clippy \
+     -p 'reth-seismic*' \
+     -p 'seismic-reth*' \
+     --lib --tests --no-deps \
+     -- -D warnings \
+     -W clippy::unwrap_used \
+     -W clippy::expect_used \
+     -W clippy::indexing_slicing \
+     -W clippy::panic \
+     -W clippy::unreachable \
+     -W clippy::todo
    ```
 
 3. **Testing**: Use nextest for faster test execution
@@ -166,13 +181,31 @@ Based on PR patterns, avoid:
 
 ### CI Requirements
 
-Before submitting changes, ensure:
+Before committing or pushing code, run these checks locally to match what Seismic CI (`.github/workflows/seismic.yml`) enforces:
 
 1. **Format Check**: `cargo +nightly fmt --all --check`
-2. **Clippy**: No warnings with `RUSTFLAGS="-D warnings"`
-3. **Tests Pass**: All unit and integration tests
-4. **Documentation**: Update relevant docs and add doc comments with `cargo docs --document-private-items`
-5. **Commit Messages**: Follow conventional format (feat:, fix:, chore:, etc.)
+2. **Warnings Check**: `RUSTFLAGS="-D warnings" cargo check`
+3. **Clippy** (Seismic crates with strict lints):
+   ```bash
+   cargo clippy \
+     -p 'reth-seismic*' \
+     -p 'seismic-reth*' \
+     --lib --tests --no-deps \
+     -- -D warnings \
+     -W clippy::unwrap_used \
+     -W clippy::expect_used \
+     -W clippy::indexing_slicing \
+     -W clippy::panic \
+     -W clippy::unreachable \
+     -W clippy::todo
+   ```
+4. **Workspace Clippy**: `RUSTFLAGS="-D warnings" rustup run 1.91.1 cargo clippy --workspace --lib --examples --tests --benches --locked` (default features only — never enable the optimism `op` features; that code is upstream's and doesn't compile against fork type changes. The toolchain is pinned in CI because new stable releases add lints whose fixes churn upstream code; bump the pin deliberately, fixing new findings in the same PR)
+5. **TOML Formatting**: `dprint check` (auto-fix with `dprint fmt` / `make lint-toml`)
+6. **Feature Propagation**: `zepter run check` (auto-fix with plain `zepter`)
+7. **Tests Pass**: `cargo nextest run --workspace` (unit and integration)
+8. **Build Check**: `cargo check --workspace`
+9. **Documentation**: Update relevant docs and add doc comments with `cargo docs --document-private-items`
+10. **Commit Messages**: Follow conventional format (feat:, fix:, chore:, etc.)
 
 
 ### Opening PRs against <https://github.com/paradigmxyz/reth>
@@ -294,8 +327,11 @@ Let's say you want to fix a bug where external IP resolution fails on startup:
 # Format code
 cargo +nightly fmt --all
 
-# Run lints
-RUSTFLAGS="-D warnings" cargo +nightly clippy --workspace --all-features --locked
+# Run Seismic CI clippy (see CI Requirements section for full command)
+cargo clippy -p 'reth-seismic*' -p 'seismic-reth*' --lib --tests --no-deps -- -D warnings -W clippy::unwrap_used -W clippy::expect_used -W clippy::indexing_slicing -W clippy::panic -W clippy::unreachable -W clippy::todo
+
+# Run warnings check
+RUSTFLAGS="-D warnings" cargo check
 
 # Run tests
 cargo nextest run --workspace

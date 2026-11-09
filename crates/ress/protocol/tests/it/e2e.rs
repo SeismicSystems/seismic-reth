@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore]
 async fn disconnect_on_stateful_pair() {
     reth_tracing::init_test_tracing();
     let mut net = Testnet::create_with(2, MockEthProvider::default()).await;

@@ -16,5 +16,6 @@ jobs:
         with:
           token: ${{ secrets.HOMEBREW }}
           no_fork: true
+          # TODO: seismic
           tap: paradigmxyz/brew
           formula: reth

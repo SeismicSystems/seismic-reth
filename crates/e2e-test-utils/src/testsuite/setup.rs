@@ -11,12 +11,13 @@ use eyre::{eyre, Result};
 use reth_chainspec::ChainSpec;
 use reth_engine_local::LocalPayloadAttributesBuilder;
 use reth_ethereum_primitives::Block;
+use reth_evm::ConfigureEvm;
 use reth_network_p2p::sync::{NetworkSyncUpdater, SyncState};
 use reth_node_api::{EngineTypes, NodeTypes, PayloadTypes, TreeConfig};
 use reth_node_core::primitives::RecoveredBlock;
 use reth_payload_builder::EthPayloadBuilderAttributes;
 use revm::state::EvmState;
-use std::{marker::PhantomData, path::Path, sync::Arc};
+use std::{any::Any, marker::PhantomData, path::Path, sync::Arc};
 use tokio::{
     sync::mpsc,
     time::{sleep, Duration},
@@ -46,7 +47,7 @@ pub struct Setup<I> {
     _phantom: PhantomData<I>,
     /// Holds the import result to keep nodes alive when using imported chain
     /// This is stored as an option to avoid lifetime issues with `tokio::spawn`
-    import_result_holder: Option<crate::setup_import::ChainImportResult>,
+    import_result_holder: Option<Box<dyn Any + Send + Sync>>,
     /// Path to RLP file to import during setup
     pub import_rlp_path: Option<std::path::PathBuf>,
 }
@@ -135,7 +136,23 @@ where
         self
     }
 
-    /// Apply setup using pre-imported chain data from RLP file
+    /// Apply setup using pre-imported chain data from RLP file with a custom EVM config.
+    pub async fn apply_with_import_and_evm<N>(
+        &mut self,
+        env: &mut Environment<I>,
+        rlp_path: &Path,
+        evm_config: impl ConfigureEvm<Primitives = N::Primitives> + 'static,
+    ) -> Result<()>
+    where
+        N: NodeBuilderHelper,
+        LocalPayloadAttributesBuilder<N::ChainSpec>: PayloadAttributesBuilder<
+            <<N as NodeTypes>::Payload as PayloadTypes>::PayloadAttributes,
+        >,
+    {
+        Box::pin(self.apply_with_import_inner::<N>(env, rlp_path, evm_config)).await
+    }
+
+    /// Apply setup using pre-imported chain data with the default `EthEvmConfig`.
     pub async fn apply_with_import<N>(
         &mut self,
         env: &mut Environment<I>,
@@ -146,16 +163,20 @@ where
         LocalPayloadAttributesBuilder<N::ChainSpec>: PayloadAttributesBuilder<
             <<N as NodeTypes>::Payload as PayloadTypes>::PayloadAttributes,
         >,
+        reth_node_ethereum::EthEvmConfig: ConfigureEvm<Primitives = N::Primitives>,
     {
-        // Note: this future is quite large so we box it
-        Box::pin(self.apply_with_import_::<N>(env, rlp_path)).await
+        let chain_spec =
+            self.chain_spec.clone().ok_or_else(|| eyre!("Chain specification is required"))?;
+        let evm_config = reth_node_ethereum::EthEvmConfig::new(chain_spec);
+        Box::pin(self.apply_with_import_inner::<N>(env, rlp_path, evm_config)).await
     }
 
-    /// Apply setup using pre-imported chain data from RLP file
-    async fn apply_with_import_<N>(
+    /// Inner implementation for importing chain data with any EVM config.
+    async fn apply_with_import_inner<N>(
         &mut self,
         env: &mut Environment<I>,
         rlp_path: &Path,
+        evm_config: impl ConfigureEvm<Primitives = N::Primitives> + 'static,
     ) -> Result<()>
     where
         N: NodeBuilderHelper,
@@ -164,7 +185,7 @@ where
         >,
     {
         // Create nodes with imported chain data
-        let import_result = self.create_nodes_with_import::<N>(rlp_path).await?;
+        let import_result = self.create_nodes_with_import::<N>(rlp_path, evm_config).await?;
 
         // Extract node clients
         let mut node_clients = Vec::new();
@@ -178,23 +199,30 @@ where
             node_clients.push(crate::testsuite::NodeClient::new(rpc, auth, url));
         }
 
+        // Set sync state to Idle for imported nodes before storing
+        for (idx, node_ctx) in import_result.nodes.iter().enumerate() {
+            debug!("Setting sync state to Idle for node {}", idx);
+            node_ctx.inner.network.update_sync_state(SyncState::Idle);
+        }
+
         // Store the import result to keep nodes alive
         // They will be dropped when the Setup is dropped
-        self.import_result_holder = Some(import_result);
+        self.import_result_holder = Some(Box::new(import_result));
 
         // Finalize setup - this will wait for nodes and initialize states
         self.finalize_setup(env, node_clients, true).await
     }
 
-    /// Apply the setup to the environment
+    /// Apply the setup to the environment.
+    /// For chain imports with non-Ethereum nodes, use `apply_with_import_and_evm` instead.
     pub async fn apply<N>(&mut self, env: &mut Environment<I>) -> Result<()>
     where
         N: NodeBuilderHelper,
         LocalPayloadAttributesBuilder<N::ChainSpec>: PayloadAttributesBuilder<
             <<N as NodeTypes>::Payload as PayloadTypes>::PayloadAttributes,
         >,
+        reth_node_ethereum::EthEvmConfig: ConfigureEvm<Primitives = N::Primitives>,
     {
-        // Note: this future is quite large so we box it
         Box::pin(self.apply_::<N>(env)).await
     }
 
@@ -205,6 +233,7 @@ where
         LocalPayloadAttributesBuilder<N::ChainSpec>: PayloadAttributesBuilder<
             <<N as NodeTypes>::Payload as PayloadTypes>::PayloadAttributes,
         >,
+        reth_node_ethereum::EthEvmConfig: ConfigureEvm<Primitives = N::Primitives>,
     {
         // If import_rlp_path is set, use apply_with_import instead
         if let Some(rlp_path) = self.import_rlp_path.take() {
@@ -265,14 +294,11 @@ where
     }
 
     /// Create nodes with imported chain data
-    ///
-    /// Note: Currently this only supports `EthereumNode` due to the import process
-    /// being Ethereum-specific. The generic parameter N is kept for consistency
-    /// with other methods but is not used.
     async fn create_nodes_with_import<N>(
         &self,
         rlp_path: &Path,
-    ) -> Result<crate::setup_import::ChainImportResult>
+        evm_config: impl ConfigureEvm<Primitives = N::Primitives> + 'static,
+    ) -> Result<crate::setup_import::ChainImportResult<N>>
     where
         N: NodeBuilderHelper,
         LocalPayloadAttributesBuilder<N::ChainSpec>: PayloadAttributesBuilder<
@@ -290,16 +316,19 @@ where
                 withdrawals: Some(vec![]),
                 parent_beacon_block_root: Some(B256::ZERO),
             };
-            EthPayloadBuilderAttributes::new(B256::ZERO, attributes)
+            <<N as NodeTypes>::Payload as PayloadTypes>::PayloadBuilderAttributes::from(
+                EthPayloadBuilderAttributes::new(B256::ZERO, attributes),
+            )
         };
 
-        crate::setup_import::setup_engine_with_chain_import(
+        crate::setup_import::setup_engine_with_chain_import::<N>(
             self.network.node_count,
             chain_spec,
             self.is_dev,
             self.tree_config.clone(),
             rlp_path,
             attributes_generator,
+            evm_config,
         )
         .await
     }
@@ -380,15 +409,6 @@ where
             "Environment initialized with {} nodes, starting from block {} (hash: {})",
             self.network.node_count, initial_block_info.number, initial_block_info.hash
         );
-
-        // In test environments, explicitly set sync state to Idle after initialization
-        // This ensures that eth_syncing returns false as expected by tests
-        if let Some(import_result) = &self.import_result_holder {
-            for (idx, node_ctx) in import_result.nodes.iter().enumerate() {
-                debug!("Setting sync state to Idle for node {}", idx);
-                node_ctx.inner.network.update_sync_state(SyncState::Idle);
-            }
-        }
 
         Ok(())
     }

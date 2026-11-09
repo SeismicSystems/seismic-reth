@@ -15,7 +15,11 @@ use reth_trie::{
 use reth_trie_common::{HashBuilder, Nibbles};
 use reth_trie_sparse::{provider::DefaultTrieNodeProvider, SerialSparseTrie, SparseTrie};
 
+// seismic-only dependencies
+use alloy_primitives::FlaggedStorage;
+
 fn calculate_root_from_leaves(c: &mut Criterion) {
+    let is_private = false; // hardcode to false for legacy test
     let mut group = c.benchmark_group("calculate root from leaves");
     group.sample_size(20);
 
@@ -32,7 +36,11 @@ fn calculate_root_from_leaves(c: &mut Criterion) {
         group.bench_function(BenchmarkId::new("hash builder", size), |b| {
             b.iter_with_setup(HashBuilder::default, |mut hb| {
                 for (key, value) in state.iter().sorted_by_key(|(key, _)| *key) {
-                    hb.add_leaf(Nibbles::unpack(key), &alloy_rlp::encode_fixed_size(value));
+                    hb.add_leaf(
+                        Nibbles::unpack(key),
+                        &alloy_rlp::encode_fixed_size(value),
+                        is_private,
+                    );
                 }
                 hb.root();
                 hb
@@ -48,6 +56,7 @@ fn calculate_root_from_leaves(c: &mut Criterion) {
                         .update_leaf(
                             Nibbles::unpack(key),
                             alloy_rlp::encode_fixed_size(value).to_vec(),
+                            is_private,
                             &provider,
                         )
                         .unwrap();
@@ -60,6 +69,8 @@ fn calculate_root_from_leaves(c: &mut Criterion) {
 }
 
 fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
+    let is_private = false; // hardcode to false for legacy test
+
     let mut group = c.benchmark_group("calculate root from leaves repeated");
     group.sample_size(20);
 
@@ -105,6 +116,7 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                 hb.add_leaf(
                                     Nibbles::unpack(key),
                                     &alloy_rlp::encode_fixed_size(value),
+                                    is_private,
                                 );
                             }
                             hb.root();
@@ -163,6 +175,7 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                             hb.add_leaf(
                                                 Nibbles::unpack(hashed_slot),
                                                 alloy_rlp::encode_fixed_size(&value).as_ref(),
+                                                is_private,
                                             );
                                         }
                                     }
@@ -195,6 +208,7 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                     .update_leaf(
                                         Nibbles::unpack(key),
                                         alloy_rlp::encode_fixed_size(value).to_vec(),
+                                        is_private,
                                         &provider,
                                     )
                                     .unwrap();
@@ -209,6 +223,7 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
                                         .update_leaf(
                                             Nibbles::unpack(key),
                                             alloy_rlp::encode_fixed_size(value).to_vec(),
+                                            is_private,
                                             &provider,
                                         )
                                         .unwrap();
@@ -224,13 +239,14 @@ fn calculate_root_from_leaves_repeated(c: &mut Criterion) {
     }
 }
 
-fn generate_test_data(size: usize) -> B256Map<U256> {
+fn generate_test_data(size: usize) -> B256Map<FlaggedStorage> {
     let mut runner = TestRunner::deterministic();
     proptest::collection::hash_map(any::<B256>(), any::<U256>(), size)
         .new_tree(&mut runner)
         .unwrap()
         .current()
         .into_iter()
+        .map(|(key, value)| (key, FlaggedStorage::new(value, false)))
         .collect()
 }
 

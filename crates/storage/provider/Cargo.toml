@@ -39,7 +39,7 @@ alloy-primitives.workspace = true
 alloy-rpc-types-engine.workspace = true
 alloy-consensus.workspace = true
 revm-database.workspace = true
-revm-state = { workspace = true, optional = true }
+revm-state.workspace = true
 
 # tracing
 tracing.workspace = true
@@ -70,7 +70,7 @@ reth-chain-state = { workspace = true, features = ["test-utils"] }
 reth-trie = { workspace = true, features = ["test-utils"] }
 reth-testing-utils.workspace = true
 reth-ethereum-engine-primitives.workspace = true
-reth-ethereum-primitives.workspace = true
+reth-ethereum-primitives = { workspace = true, features = ["reth-codec", "serde", "serde-bincode-compat"] }
 
 revm-database-interface.workspace = true
 revm-state.workspace = true
@@ -97,6 +97,6 @@ test-utils = [
     "reth-trie-db/test-utils",
     "reth-prune-types/test-utils",
     "reth-stages-types/test-utils",
-    "revm-state",
+    # "revm-state", // seismic requires revm-state as a non-optional dependency
     "tokio",
 ]

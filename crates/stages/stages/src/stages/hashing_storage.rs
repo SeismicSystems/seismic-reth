@@ -102,10 +102,11 @@ where
                 // Spawn the hashing task onto the global rayon pool
                 rayon::spawn(move || {
                     for (address, slot) in chunk {
-                        let mut addr_key = Vec::with_capacity(64);
-                        addr_key.put_slice(keccak256(address).as_slice());
-                        addr_key.put_slice(keccak256(slot.key).as_slice());
-                        let _ = tx.send((addr_key, CompactU256::from(slot.value)));
+                        let mut addr_key_is_private = Vec::with_capacity(65);
+                        addr_key_is_private.put_slice(keccak256(address).as_slice());
+                        addr_key_is_private.put_slice(keccak256(slot.key).as_slice());
+                        addr_key_is_private.put_u8(slot.value.is_private as u8);
+                        let _ = tx.send((addr_key_is_private, CompactU256::from(slot.value.value)));
                     }
                 });
 
@@ -129,12 +130,16 @@ where
                     );
                 }
 
-                let (addr_key, value) = item?;
+                let (addr_key_is_private, val) = item?;
+
                 cursor.append_dup(
-                    B256::from_slice(&addr_key[..32]),
+                    B256::from_slice(&addr_key_is_private[..32]),
                     StorageEntry {
-                        key: B256::from_slice(&addr_key[32..]),
-                        value: CompactU256::decompress_owned(value)?.into(),
+                        key: B256::from_slice(&addr_key_is_private[32..64]),
+                        value: alloy_primitives::FlaggedStorage {
+                            value: CompactU256::decompress(&val)?.into(),
+                            is_private: addr_key_is_private[64] != 0,
+                        },
                     },
                 )?;
             }
@@ -212,7 +217,7 @@ mod tests {
         stage_test_suite_ext, ExecuteStageTestRunner, StageTestRunner, TestRunnerError,
         TestStageDB, UnwindStageTestRunner,
     };
-    use alloy_primitives::{Address, U256};
+    use alloy_primitives::{Address, FlaggedStorage};
     use assert_matches::assert_matches;
     use rand::Rng;
     use reth_db_api::{
@@ -369,7 +374,9 @@ mod tests {
                             for _ in 0..2 {
                                 let new_entry = StorageEntry {
                                     key: keccak256([rng.random::<u8>()]),
-                                    value: U256::from(rng.random::<u8>() % 30 + 1),
+                                    value: alloy_primitives::FlaggedStorage::public(
+                                        rng.random::<u8>() % 30 + 1,
+                                    ),
                                 };
                                 self.insert_storage_entry(
                                     tx,
@@ -392,7 +399,9 @@ mod tests {
                             (block_number, Address::random()).into(),
                             StorageEntry {
                                 key: keccak256("mining"),
-                                value: U256::from(rng.random::<u32>()),
+                                value: alloy_primitives::FlaggedStorage::public(
+                                    rng.random::<u32>(),
+                                ),
                             },
                             progress.number == stage_progress,
                         )?;
@@ -488,7 +497,7 @@ mod tests {
                             .expect("failed to delete entry");
                         e
                     }
-                    _ => StorageEntry { key: entry.key, value: U256::from(0) },
+                    _ => StorageEntry { key: entry.key, value: FlaggedStorage::ZERO },
                 };
             tx.put::<tables::PlainStorageState>(bn_address.address(), entry)?;
 

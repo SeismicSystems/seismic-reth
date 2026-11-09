@@ -115,7 +115,6 @@ cli = ["dep:reth-ethereum-cli", "dep:reth-cli-util"]
 consensus = [
     "dep:reth-consensus",
     "dep:reth-consensus-common",
-    "dep:reth-ethereum-consensus",
 ]
 evm = ["dep:reth-evm", "dep:reth-evm-ethereum", "dep:reth-revm"]
 exex = ["provider", "dep:reth-exex"]

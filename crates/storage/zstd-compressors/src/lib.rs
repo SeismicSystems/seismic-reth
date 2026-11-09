@@ -3,7 +3,7 @@
 #![doc(
     html_logo_url = "https://raw.githubusercontent.com/paradigmxyz/reth/main/assets/reth-docs.png",
     html_favicon_url = "https://avatars0.githubusercontent.com/u/97369466?s=256",
-    issue_tracker_base_url = "https://github.com/paradigmxyz/reth/issues/"
+    issue_tracker_base_url = "https://github.com/SeismicSystems/seismic-reth/issues/"
 )]
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
@@ -60,7 +60,8 @@ mod locals {
 
 /// Fn creates tx [`Compressor`]
 pub fn create_tx_compressor() -> Compressor<'static> {
-    Compressor::with_dictionary(0, RECEIPT_DICTIONARY).expect("Failed to instantiate tx compressor")
+    Compressor::with_dictionary(0, TRANSACTION_DICTIONARY)
+        .expect("Failed to instantiate tx compressor")
 }
 
 /// Fn creates tx [`Decompressor`]
@@ -106,6 +107,11 @@ impl ReusableDecompressor {
         let mut reserved_upper_bound = false;
         while let Err(err) = self.decompressor.decompress_to_buffer(src, &mut self.buf) {
             let err = err.to_string();
+            // This panics on malformed/corrupt data (e.g. "Unknown frame descriptor",
+            // "Dictionary mismatch"). In production this is fine — every DB read goes through
+            // `Decompress::decompress` (`db-api/src/models/mod.rs`) which wraps `from_compact` in
+            // `catch_unwind` and converts the panic to `DatabaseError::Decode`.
+            // See: `db_corruption` fuzz test for validation of this path.
             assert!(
                 err.contains("Destination buffer is too small"),
                 "Failed to decompress {} bytes: {err}",
@@ -146,5 +152,36 @@ impl ReusableDecompressor {
                 existing = self.buf.capacity(),
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tx_roundtrip_compression() {
+        let data: Vec<u8> = (0u8..=255).collect();
+
+        let mut compressor = create_tx_compressor();
+        let compressed = compressor.compress(&data).expect("compress tx");
+
+        let mut decompressor = create_tx_decompressor();
+        let decompressed = decompressor.decompress(&compressed);
+
+        assert_eq!(decompressed, &*data);
+    }
+
+    #[test]
+    fn receipt_roundtrip_compression() {
+        let data: Vec<u8> = (0u8..=255).rev().collect();
+
+        let mut compressor = create_receipt_compressor();
+        let compressed = compressor.compress(&data).expect("compress receipt");
+
+        let mut decompressor = create_receipt_decompressor();
+        let decompressed = decompressor.decompress(&compressed);
+
+        assert_eq!(decompressed, &*data);
     }
 }

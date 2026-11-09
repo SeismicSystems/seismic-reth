@@ -17,9 +17,9 @@ use reth_primitives_traits::{Block, NodePrimitives, RecoveredBlock, SealedHeader
 
 /// Configured [`EvmEnv`] for a pending block.
 #[derive(Debug, Clone, Constructor)]
-pub struct PendingBlockEnv<B: Block, R, Spec> {
+pub struct PendingBlockEnv<B: Block, R, Spec, Env = revm::context::BlockEnv> {
     /// Configured [`EvmEnv`] for the pending block.
-    pub evm_env: EvmEnv<Spec>,
+    pub evm_env: EvmEnv<Spec, Env>,
     /// Origin block for the config
     pub origin: PendingBlockEnvOrigin<B, R>,
 }
