@@ -8,7 +8,7 @@ use jsonrpsee::core::RpcResult;
 use reth_chainspec::{ChainSpecProvider, EthChainSpec};
 use reth_evm::{BlockEnvAccess, ConfigureEvm, Evm};
 use reth_primitives_traits::SignedTransaction;
-use reth_revm::{database::StateProviderDatabase, db::CacheDB};
+use reth_revm::{cancelled::CancelOnDrop, database::StateProviderDatabase, db::CacheDB};
 use reth_rpc_eth_api::{
     helpers::{Call, EthTransactions, LoadPendingBlock},
     EthCallBundleApiServer, FromEthApiError, FromEvmError,
@@ -136,6 +136,8 @@ where
             evm_env.block_env.as_block_env_mut().gas_limit = gas_limit;
         }
 
+        let block_gas_limit = evm_env.block_env.as_block_env().gas_limit;
+
         if let Some(base_fee) = base_fee {
             evm_env.block_env.as_block_env_mut().basefee = base_fee.try_into().unwrap_or(u64::MAX);
         }
@@ -144,10 +146,26 @@ where
         // use the block number of the request
         evm_env.block_env.as_block_env_mut().number = U256::from(block_number);
 
+        // Bound the simulation like other heavy calls: hold one permit from the blocking task
+        // guard for the whole bundle so concurrent bundles can't escape the configured limit.
+        let permit = self
+            .inner
+            .blocking_task_guard
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|_| Eth::Error::from_eth_err(EthApiError::InternalEthError))?;
+
+        // Dropped together with this future, e.g. when the client disconnects, which flags the
+        // simulation to stop before the next transaction.
+        let cancel = CancelOnDrop::default();
+        let cancelled = cancel.clone();
+
         let eth_api = self.eth_api().clone();
 
         self.eth_api()
             .spawn_with_state_at_block(at, move |state| {
+                let _permit = permit;
                 let coinbase = evm_env.block_env.as_block_env().beneficiary;
                 let basefee = evm_env.block_env.as_block_env().basefee;
                 let db = CacheDB::new(StateProviderDatabase::new(state));
@@ -170,6 +188,19 @@ where
                 let mut transactions = transactions.into_iter().peekable();
 
                 while let Some(tx) = transactions.next() {
+                    if cancelled.is_cancelled() {
+                        return Err(Eth::Error::from_eth_err(EthApiError::InternalEthError))
+                    }
+
+                    // Admit each transaction against the gas left in the block, like the block
+                    // executor does, so the bundle shares one gas limit instead of applying it
+                    // per transaction.
+                    if tx.gas_limit() > block_gas_limit.saturating_sub(total_gas_used) {
+                        return Err(Eth::Error::from_eth_err(EthApiError::InvalidParams(
+                            EthBundleError::BundleGasLimitExceeded(block_gas_limit).to_string(),
+                        )))
+                    }
+
                     let signer = tx.signer();
                     let tx = {
                         let mut tx = <Eth::Pool as TransactionPool>::Transaction::from_pooled(tx);
@@ -281,8 +312,7 @@ where
 struct EthBundleInner<Eth> {
     /// Access to commonly used code of the `eth` namespace
     eth_api: Eth,
-    // restrict the number of concurrent tracing calls.
-    #[expect(dead_code)]
+    /// Restricts the number of concurrent bundle simulations.
     blocking_task_guard: BlockingTaskGuard,
 }
 
@@ -310,4 +340,112 @@ pub enum EthBundleError {
     /// Thrown when the blob gas usage of the blob transactions in a bundle exceed the maximum.
     #[error("blob gas usage exceeds the limit of {0} gas per block.")]
     Eip4844BlobGasExceeded(u64),
+    /// Thrown when the gas limits of the bundle's transactions exceed the block gas limit.
+    #[error("bundle gas exceeds the block gas limit of {0}")]
+    BundleGasLimitExceeded(u64),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::EthApi;
+    use alloy_consensus::{transaction::SignerRecoverable, TxEip1559};
+    use alloy_eips::{eip1559::INITIAL_BASE_FEE, BlockNumberOrTag, Encodable2718};
+    use alloy_genesis::{Genesis, GenesisAccount};
+    use alloy_primitives::{Address, TxKind};
+    use reth_chainspec::ChainSpecBuilder;
+    use reth_evm_ethereum::EthEvmConfig;
+    use reth_network_api::noop::NoopNetwork;
+    use reth_provider::test_utils::{ExtendedAccount, MockEthProvider};
+    use reth_testing_utils::generators::{self, generate_key, sign_tx_with_key_pair};
+    use reth_transaction_pool::test_utils::testing_pool;
+
+    /// The bundle's transactions share the block gas limit, and the simulation waits for a
+    /// permit from the blocking task guard.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn call_bundle_shares_gas_limit_and_takes_permit() {
+        let mut rng = generators::rng();
+        let key = generate_key(&mut rng);
+        let txs: Vec<_> = (0..2)
+            .map(|nonce| {
+                sign_tx_with_key_pair(
+                    key,
+                    reth_ethereum_primitives::Transaction::Eip1559(TxEip1559 {
+                        chain_id: 1,
+                        nonce,
+                        gas_limit: 21_000,
+                        max_fee_per_gas: INITIAL_BASE_FEE as u128,
+                        to: TxKind::Call(Address::random()),
+                        ..Default::default()
+                    }),
+                )
+            })
+            .collect();
+        let sender = txs[0].recover_signer().unwrap();
+
+        let genesis = Genesis::default()
+            .with_gas_limit(30_000_000)
+            .with_base_fee(Some(INITIAL_BASE_FEE as u128))
+            .extend_accounts([(
+                sender,
+                GenesisAccount::default().with_balance(U256::from(10u128.pow(18))),
+            )]);
+        let chain_spec =
+            Arc::new(ChainSpecBuilder::mainnet().cancun_activated().genesis(genesis).build());
+        let provider = MockEthProvider::default().with_chain_spec(chain_spec.clone());
+        provider.add_header(chain_spec.genesis_hash(), chain_spec.genesis_header().clone());
+        provider.add_account(sender, ExtendedAccount::new(0, U256::from(10u128.pow(18))));
+
+        let eth_api = EthApi::builder(
+            provider,
+            testing_pool(),
+            NoopNetwork::default(),
+            EthEvmConfig::new(chain_spec),
+        )
+        .build();
+        let api = EthBundle::new(eth_api, BlockingTaskGuard::new(1));
+
+        let bundle = EthCallBundle {
+            txs: txs.iter().map(|tx| tx.encoded_2718().into()).collect(),
+            block_number: 1,
+            state_block_number: BlockNumberOrTag::Number(0),
+            ..Default::default()
+        };
+
+        // Two 21k transactions don't fit a 41_999 bundle gas limit.
+        let error = api
+            .call_bundle(EthCallBundle { gas_limit: Some(41_999), ..bundle.clone() })
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            EthApiError::InvalidParams(EthBundleError::BundleGasLimitExceeded(41_999).to_string())
+                .to_string()
+        );
+
+        // With the single permit held elsewhere, the simulation waits.
+        let bundle = EthCallBundle { gas_limit: Some(42_000), ..bundle };
+        let permit = api.inner.blocking_task_guard.clone().acquire_owned().await.unwrap();
+        assert!(tokio::time::timeout(
+            std::time::Duration::from_millis(200),
+            api.call_bundle(bundle.clone())
+        )
+        .await
+        .is_err());
+
+        drop(permit);
+        let response = api.call_bundle(bundle).await.unwrap();
+        assert_eq!(response.total_gas_used, 42_000);
+    }
+
+    /// Dropping the `call_bundle` future, as the server does when the client disconnects, stops
+    /// the simulation before the next transaction.
+    #[test]
+    fn cancel_on_drop_flags_cancellation() {
+        let cancel = CancelOnDrop::default();
+        let cancelled = cancel.clone();
+        assert!(!cancelled.is_cancelled());
+        drop(cancel);
+        assert!(cancelled.is_cancelled());
+    }
 }

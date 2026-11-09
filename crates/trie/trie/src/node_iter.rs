@@ -272,12 +272,10 @@ where
                     // `can_skip_node` is already set when the hash flag is set, so we don't need
                     // to check for the hash flag explicitly.
                     //
-                    // It is possible that the branch node at the key `seek_key` is not stored in
-                    // the database, so the walker will advance to the branch node after it. Because
-                    // of this, we need to check that the current walker key has a prefix of the key
-                    // that we seeked to.
+                    // A deeper stored key may leave unvisited hashed entries between the seek
+                    // prefix and the walker, so only skip the seek at the exact prefix.
                     if can_skip_node &&
-                        self.walker.key().is_some_and(|key| key.starts_with(&seek_prefix)) &&
+                        self.walker.key().is_some_and(|key| key == &seek_prefix) &&
                         self.walker.children_are_in_trie()
                     {
                         trace!(target: "trie::node_iter", "skipping hashed seek");
@@ -299,18 +297,23 @@ where
 mod tests {
     use crate::{
         hashed_cursor::{
-            mock::MockHashedCursorFactory, noop::NoopHashedAccountCursor, HashedCursorFactory,
-            HashedPostStateAccountCursor,
+            mock::MockHashedCursorFactory,
+            noop::{NoopHashedAccountCursor, NoopHashedCursorFactory},
+            HashedCursorFactory, HashedPostStateAccountCursor, HashedPostStateCursorFactory,
         },
         mock::{KeyVisit, KeyVisitType},
         trie_cursor::{
-            mock::MockTrieCursorFactory, noop::NoopAccountTrieCursor, TrieCursorFactory,
+            mock::MockTrieCursorFactory,
+            noop::{NoopAccountTrieCursor, NoopTrieCursorFactory},
+            InMemoryTrieCursorFactory, TrieCursorFactory,
         },
         walker::TrieWalker,
+        StateRoot,
     };
     use alloy_primitives::{
         b256,
         map::{B256Map, HashMap},
+        B256, U256,
     };
     use alloy_trie::{
         BranchNodeCompact, HashBuilder, Nibbles, TrieAccount, TrieMask, EMPTY_ROOT_HASH,
@@ -318,9 +321,10 @@ mod tests {
     use itertools::Itertools;
     use reth_primitives_traits::Account;
     use reth_trie_common::{
-        prefix_set::PrefixSetMut, updates::TrieUpdates, BranchNode, HashedPostState, LeafNode,
-        RlpNode,
+        prefix_set::PrefixSetMut, updates::TrieUpdates, BranchNode, HashedPostState, HashedStorage,
+        LeafNode, RlpNode,
     };
+    use revm_state::FlaggedStorage;
     use std::collections::BTreeMap;
 
     use super::{TrieElement, TrieNodeIter};
@@ -370,6 +374,79 @@ mod tests {
         trie_updates.finalize(hash_builder, Default::default(), Default::default());
 
         trie_updates.account_nodes
+    }
+
+    /// Regression test for upstream reth#28264.
+    ///
+    /// When a leaf is inserted directly under a prefix whose stored branch node sits deeper in
+    /// the trie (`0x10` vs the stored `0x10a`), the walker advances to the deeper stored key.
+    /// Skipping the hashed seek merely because the walker key *starts with* the seek prefix
+    /// leaves the inserted leaf unvisited and yields a wrong incremental state root.
+    #[test]
+    fn inserted_leaf_before_deeper_stored_branch_is_included() {
+        fn slot(prefix: &[u8]) -> B256 {
+            let mut bytes = [0; 32];
+            bytes[..prefix.len()].copy_from_slice(prefix);
+            B256::from(bytes)
+        }
+
+        let address = B256::repeat_byte(0xaa);
+        let account = || Account { nonce: 1, ..Default::default() };
+        let value = || FlaggedStorage::new(U256::from(1), false);
+        let old_slots = [
+            slot(&[0x00]),
+            slot(&[0x0f, 0x00]),
+            slot(&[0x0f, 0x10]),
+            slot(&[0x10, 0xa0, 0x00]),
+            slot(&[0x10, 0xa0, 0x01]),
+            slot(&[0x10, 0xa0, 0x10]),
+            slot(&[0x10, 0xa1]),
+        ];
+        let inserted = slot(&[0x10, 0x00]);
+        let old_state =
+            HashedPostState::default().with_accounts([(address, Some(account()))]).with_storages([
+                (address, HashedStorage::from_iter(false, old_slots.map(|slot| (slot, value())))),
+            ]);
+        let old_sorted = old_state.clone().into_sorted();
+        let (old_root, old_updates) = StateRoot::new(
+            NoopTrieCursorFactory::default(),
+            HashedPostStateCursorFactory::new(NoopHashedCursorFactory::default(), &old_sorted),
+        )
+        .with_prefix_sets(old_state.construct_prefix_sets().freeze())
+        .root_with_updates()
+        .unwrap();
+
+        let new_state = HashedPostState::default()
+            .with_accounts([(address, Some(account()))])
+            .with_storages([(
+                address,
+                HashedStorage::from_iter(
+                    false,
+                    old_slots.into_iter().chain([inserted]).map(|slot| (slot, value())),
+                ),
+            )]);
+        let delta = HashedPostState::default()
+            .with_accounts([(address, Some(account()))])
+            .with_storages([(address, HashedStorage::from_iter(false, [(inserted, value())]))]);
+        let new_sorted = new_state.clone().into_sorted();
+        let rebuilt_root = StateRoot::new(
+            NoopTrieCursorFactory::default(),
+            HashedPostStateCursorFactory::new(NoopHashedCursorFactory::default(), &new_sorted),
+        )
+        .with_prefix_sets(new_state.construct_prefix_sets().freeze())
+        .root()
+        .unwrap();
+        let old_trie = old_updates.into_sorted();
+        let incremental_root = StateRoot::new(
+            InMemoryTrieCursorFactory::new(NoopTrieCursorFactory::default(), &old_trie),
+            HashedPostStateCursorFactory::new(NoopHashedCursorFactory::default(), &new_sorted),
+        )
+        .with_prefix_sets(delta.construct_prefix_sets().freeze())
+        .root()
+        .unwrap();
+
+        assert_ne!(old_root, rebuilt_root);
+        assert_eq!(incremental_root, rebuilt_root);
     }
 
     #[test]
