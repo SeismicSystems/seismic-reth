@@ -60,7 +60,7 @@ impl EngineMessageStore {
         T: PayloadTypes,
     {
         fs::create_dir_all(&self.path)?; // ensure that store path had been created
-        let timestamp = received_at.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
+        let timestamp = received_at.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_millis();
         match msg {
             BeaconEngineMessage::ForkchoiceUpdated {
                 state,
